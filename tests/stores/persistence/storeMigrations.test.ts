@@ -81,6 +81,24 @@ describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMod
   });
 });
 
+describe('lingua-utility-state v1->v2 — workspace state extraction', () => {
+  const migrate = createMigrate('lingua-utility-state');
+
+  it('drops selection and transient paste state while preserving history data', () => {
+    const result = migrate(
+      {
+        history: { json: [] },
+        favorites: ['jwt'],
+        activeUtilityId: 'timestamp',
+        pendingUtilityInput: { utilityId: 'jwt', input: 'private' },
+      },
+      1
+    ) as Record<string, unknown>;
+
+    expect(result).toEqual({ history: { json: [] }, favorites: ['jwt'] });
+  });
+});
+
 describe('implementation note — drift guard: every persisted store is versioned + registered', () => {
   const storesDir = resolve(__dirname, '../../../src/renderer/stores');
 

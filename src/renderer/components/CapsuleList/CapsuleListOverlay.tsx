@@ -30,7 +30,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, ExternalLink, Eye, FileDown, GitCompare, Package, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, Eye, FileDown, Files, GitCompare, Package, Trash2 } from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
@@ -55,6 +55,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from '../CapsuleImport';
 import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
+import { CapsuleWorkspaceExportDialog } from './CapsuleWorkspaceExportDialog';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;
@@ -169,6 +170,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(
     null
   );
+  const [workspaceCapsule, setWorkspaceCapsule] = useState<RunCapsuleV1 | null>(null);
 
   // ─── Selection (drives the right-hand preview) ───────────────────
   // Track the user's explicit pick, but DERIVE the effective selection
@@ -597,6 +599,12 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                           onClick={() => void handleExportHtml(entry)}
                         />
                         <RowAction
+                          icon={<Files size={12} aria-hidden="true" />}
+                          label={t('capsuleList.row.createWorkspace')}
+                          testid="capsule-list-row-create-workspace"
+                          onClick={() => setWorkspaceCapsule(capsule)}
+                        />
+                        <RowAction
                           icon={<ExternalLink size={12} aria-hidden="true" />}
                           label={t('capsuleList.row.openInTab')}
                           testid="capsule-list-row-open"
@@ -657,6 +665,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     <CapsuleComparisonModal
       capsules={comparePair}
       onClose={() => setComparePair(null)}
+    />
+    <CapsuleWorkspaceExportDialog
+      capsule={workspaceCapsule}
+      onClose={() => setWorkspaceCapsule(null)}
     />
     </>
   );

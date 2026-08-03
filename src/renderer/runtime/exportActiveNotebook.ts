@@ -26,6 +26,7 @@ export function exportActiveNotebookAsLinguanb(): void {
     pushStatusNotice({
       tone: 'info',
       messageKey: 'notebook.notice.exportNoActiveNotebook',
+      priority: 'high',
     });
     return;
   }
@@ -35,6 +36,7 @@ export function exportActiveNotebookAsLinguanb(): void {
     pushStatusNotice({
       tone: 'info',
       messageKey: 'notebook.notice.exportNoActiveNotebook',
+      priority: 'high',
     });
     return;
   }
@@ -49,6 +51,7 @@ export function exportActiveNotebookAsLinguanb(): void {
       pushStatusNotice({
         tone: 'success',
         messageKey: 'notebook.notice.exportLinguanbOk',
+        priority: 'high',
       });
     },
     onError: () =>

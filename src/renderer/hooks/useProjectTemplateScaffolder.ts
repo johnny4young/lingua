@@ -51,7 +51,7 @@ import {
 import { useProjectStore } from '../stores/projectStore';
 import { useEditorStore } from '../stores/editorStore';
 import { notifyBlockedFamily } from '../utils/blockedPath';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { trackTemplateProjectApplied } from './projectTemplateTelemetry';
 import {
   asRelativePath,

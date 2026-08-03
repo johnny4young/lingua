@@ -44,7 +44,7 @@ export interface LanguageIntelligenceRowConfig {
 
 export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
   const { language, store, copyNamespace, restartIpc, last = false } = config;
-  const status = store((state) => state.status);
+  const status = store(state => state.status);
   const { t } = useTranslation();
   const [restarting, setRestarting] = useState(false);
 
@@ -61,11 +61,23 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
   };
 
   if (status.kind === 'degraded') {
+    const adapterLoadFailed = status.reason === 'adapter-load-failed';
     return (
       <SpecRow
         last={last}
-        label={t(`${copyNamespace}.degraded.title`)}
-        description={status.detail ?? t(`${copyNamespace}.degraded.body`)}
+        label={t(
+          adapterLoadFailed
+            ? `${copyNamespace}.degraded.adapterLoad.title`
+            : `${copyNamespace}.degraded.title`
+        )}
+        description={
+          status.detail ??
+          t(
+            adapterLoadFailed
+              ? `${copyNamespace}.degraded.adapterLoad.body`
+              : `${copyNamespace}.degraded.body`
+          )
+        }
         control={
           <button
             type="button"
@@ -104,9 +116,7 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
       description={status.detail ? `${t(hintKey)} · ${status.detail}` : t(hintKey)}
       control={
         <span data-testid={`settings-${language}-lsp-status`}>
-          <StatusBadge tone="warning">
-            {t(`${copyNamespace}.unavailable.badge`)}
-          </StatusBadge>
+          <StatusBadge tone="warning">{t(`${copyNamespace}.unavailable.badge`)}</StatusBadge>
         </span>
       }
     />

@@ -36,16 +36,16 @@ import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
 import { openHttpWorkspaceTab } from '../../runtime/openWorkspaceTab';
-import {
-  createBlankHttpRequest,
-  parseHttpRequest,
-} from '../../../shared/httpWorkspace';
+import { parseHttpRequest } from '../../../shared/httpWorkspacePersistence';
+import { createBlankHttpRequest } from '../../../shared/httpWorkspaceSchema';
 import type { CapsuleImportRejectReason } from '../../utils/importCapsule';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
 import { ModalShell } from '../ui/ModalShell';
 import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from './CapsuleImportPreview';
+import { openCapsuleWorkspaceFileInNewTab } from '../../utils/openCapsuleTab';
+import type { CapsuleWorkspaceFileV1 } from '../../../shared/capsuleWorkspace';
 
 export interface CapsuleImportOverlayProps {
   onClose: () => void;
@@ -211,6 +211,18 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     closeRef.current();
   }, [decoded, openInNewTab, pushStatusNotice]);
 
+  const handleOpenWorkspaceFile = useCallback(
+    (file: CapsuleWorkspaceFileV1) => {
+      openCapsuleWorkspaceFileInNewTab(file);
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'capsuleImport.notice.openedWorkspaceFile',
+        values: { path: file.path },
+      });
+    },
+    [pushStatusNotice]
+  );
+
   // implementation note — copy source to clipboard secondary action.
   const handleCopySource = useCallback(async () => {
     if (!decoded) return;
@@ -258,10 +270,9 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
       body: parsed.body,
       timeoutMs: parsed.timeoutMs,
     });
-    // MOV.02 (FASE 3) — surface the imported request as a full-screen
-    // HTTP workspace tab (the dock panel is gone). Adopt the just-
-    // created request id so tab.id === request.id.
-    openHttpWorkspaceTab({ adoptEntryId: blank.id });
+    // Surface the imported request as a full-screen HTTP workspace tab. The
+    // create mutation above already selected the fresh request atomically.
+    openHttpWorkspaceTab();
     pushStatusNotice({
       tone: 'success',
       messageKey: 'capsuleImport.notice.openedInHttp',
@@ -439,6 +450,8 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
             <CapsuleImportPreview
               capsule={decoded.capsule}
               byteLength={decoded.byteLength}
+              workspace={decoded.workspace}
+              onOpenWorkspaceFile={handleOpenWorkspaceFile}
             />
           ) : rejected ? (
             <RejectBanner

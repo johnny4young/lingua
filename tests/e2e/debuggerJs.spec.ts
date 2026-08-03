@@ -145,6 +145,44 @@ test.describe('Debugger ', () => {
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
   });
 
+  test('Debug skips a conditional breakpoint when its expression is false', async ({ page }) => {
+    await replaceEditorText(
+      page,
+      ['let count = 1;', 'count += 1;', 'console.log(count);'].join('\n')
+    );
+    await moveEditorCursorToLine(page, 2);
+    await page.keyboard.press('Control+Shift+B');
+    await openConsole(page);
+    await page.getByTestId('bottom-panel-debugger-tab').click();
+    await page.getByTestId('debugger-breakpoint-mode-2').selectOption('conditional');
+    await page.getByTestId('debugger-breakpoint-condition-2').fill('count > 10');
+
+    await clickDebug(page);
+    await waitForRunCompleted(page);
+
+    await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
+    await expect(inlineValue(page, /^2$/)).toBeVisible();
+  });
+
+  test('Debug pauses fail-safe when a breakpoint condition is invalid', async ({ page }) => {
+    await replaceEditorText(page, ['let count = 1;', 'count += 1;'].join('\n'));
+    await moveEditorCursorToLine(page, 2);
+    await page.keyboard.press('Control+Shift+B');
+    await openConsole(page);
+    await page.getByTestId('bottom-panel-debugger-tab').click();
+    await page.getByTestId('debugger-breakpoint-mode-2').selectOption('conditional');
+    await page.getByTestId('debugger-breakpoint-condition-2').fill('missing()');
+
+    await clickDebug(page);
+
+    await expect(page.getByText(/Paused at line 2/i)).toBeVisible();
+    await expect(page.getByTestId('debugger-condition-error')).toContainText(
+      'Unsupported syntax: CallExpression'
+    );
+    await page.getByTestId('debugger-continue').click();
+    await waitForRunCompleted(page);
+  });
+
   test('Debug streams prior logs while paused and resumes with the remaining output', async ({
     page,
   }) => {

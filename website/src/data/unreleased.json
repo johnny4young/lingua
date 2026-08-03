@@ -1,43 +1,115 @@
 {
-  "generatedAt": "2026-07-24T03:45:57.454Z",
-  "baseRef": "v0.13.0",
-  "commitCount": 4,
-  "totalSinceBase": 5,
+  "generatedAt": "2026-08-02T20:05:38.236Z",
+  "baseRef": "v0.15.0",
+  "commitCount": 12,
+  "totalSinceBase": 84,
   "commits": [
     {
-      "hash": "70fda05",
-      "date": "2026-07-23",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "settings",
-      "message": "restore visually hidden controls (#89)",
-      "breaking": false
-    },
-    {
-      "hash": "6c5134b",
-      "date": "2026-07-23",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "licensing",
-      "message": "allow production web license requests (#88)",
-      "breaking": false
-    },
-    {
-      "hash": "5bd4a03",
-      "date": "2026-07-22",
+      "hash": "cdd4d2d",
+      "date": "2026-08-02",
       "type": "feat",
       "typeLabel": "New",
-      "scope": "licensing",
-      "message": "add overlap-safe key rotation (#87)",
+      "scope": "website",
+      "message": "tell the Lingua 1.0 story",
       "breaking": false
     },
     {
-      "hash": "71cee86",
-      "date": "2026-07-21",
+      "hash": "859b190",
+      "date": "2026-08-02",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "add searchable bilingual documentation",
+      "breaking": false
+    },
+    {
+      "hash": "4d51ab4",
+      "date": "2026-08-02",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "deps",
-      "message": "harden production dependency audits (#86)",
+      "scope": "website",
+      "message": "separate release candidates from public releases",
+      "breaking": false
+    },
+    {
+      "hash": "0cc8c4a",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "distribution",
+      "message": "audit Windows signing readiness",
+      "breaking": false
+    },
+    {
+      "hash": "e80f9d5",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "distribution",
+      "message": "audit CLI publish prerequisites",
+      "breaking": false
+    },
+    {
+      "hash": "d04d054",
+      "date": "2026-08-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "keep release builds available offline",
+      "breaking": false
+    },
+    {
+      "hash": "03f509f",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "distribution",
+      "message": "guard CLI npm promotion",
+      "breaking": false
+    },
+    {
+      "hash": "bfe0273",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "settings",
+      "message": "make search recoverable",
+      "breaking": false
+    },
+    {
+      "hash": "a8c5b35",
+      "date": "2026-08-01",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "renderer",
+      "message": "defer dormant startup workflows",
+      "breaking": false
+    },
+    {
+      "hash": "f20f58e",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "debugger",
+      "message": "ship desktop Rust debugging",
+      "breaking": false
+    },
+    {
+      "hash": "53f12c9",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "debugger",
+      "message": "ship desktop Go debugging",
+      "breaking": false
+    },
+    {
+      "hash": "e9dd9ac",
+      "date": "2026-08-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "debugger",
+      "message": "ship desktop Python debugging",
       "breaking": false
     }
   ]

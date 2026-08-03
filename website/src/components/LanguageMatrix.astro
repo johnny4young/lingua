@@ -8,7 +8,7 @@ interface Props {
 interface LangRow {
   name: string;
   state: 'runnable' | 'view-only';
-  runtimeKey: 'js' | 'ts' | 'py' | 'go' | 'rust' | 'monaco';
+  runtimeKey: 'js' | 'ts' | 'py' | 'ruby' | 'go' | 'rust' | 'monaco';
   accessKey: 'free' | 'pro' | 'allTiers';
 }
 
@@ -19,9 +19,9 @@ const LANGS: LangRow[] = [
   { name: 'JavaScript', state: 'runnable', runtimeKey: 'js', accessKey: 'free' },
   { name: 'TypeScript', state: 'runnable', runtimeKey: 'ts', accessKey: 'free' },
   { name: 'Python', state: 'runnable', runtimeKey: 'py', accessKey: 'free' },
+  { name: 'Ruby', state: 'runnable', runtimeKey: 'ruby', accessKey: 'free' },
   { name: 'Go', state: 'runnable', runtimeKey: 'go', accessKey: 'pro' },
   { name: 'Rust', state: 'runnable', runtimeKey: 'rust', accessKey: 'pro' },
-  { name: 'Ruby', state: 'view-only', runtimeKey: 'monaco', accessKey: 'allTiers' },
   { name: 'Java', state: 'view-only', runtimeKey: 'monaco', accessKey: 'allTiers' },
   { name: 'Kotlin', state: 'view-only', runtimeKey: 'monaco', accessKey: 'allTiers' },
   { name: 'Scala', state: 'view-only', runtimeKey: 'monaco', accessKey: 'allTiers' },

@@ -30,7 +30,7 @@ export function HttpEnvironmentSelector({
   const { t } = useTranslation();
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <label className="internal" htmlFor="http-environment-selector">
+      <label className="sr-only" htmlFor="http-environment-selector">
         {t('httpWorkspace.environment.selector.label')}
       </label>
       <select

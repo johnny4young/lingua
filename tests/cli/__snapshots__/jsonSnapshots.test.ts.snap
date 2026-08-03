@@ -1,5 +1,31 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`--json envelope snapshots (implementation note) > capsule replay: matching success 1`] = `
+{
+  "capsuleId": "00000000-0000-4000-8000-000000000001",
+  "command": "capsule-replay",
+  "comparison": {
+    "matches": true,
+    "status": true,
+    "stderr": true,
+    "stdout": true,
+  },
+  "ok": true,
+  "recordedStatus": "success",
+  "run": {
+    "durationMs": 0,
+    "exitCode": 0,
+    "runtime": "node-worker",
+    "signal": null,
+    "status": "success",
+    "stderr": "",
+    "stdout": "3
+",
+    "target": "capsule:00000000-0000-4000-8000-000000000001",
+  },
+}
+`;
+
 exports[`--json envelope snapshots (implementation note) > capsule validate: invalid-json failure 1`] = `
 {
   "detail": "<stripped>",
@@ -12,6 +38,23 @@ exports[`--json envelope snapshots (implementation note) > capsule validate: suc
 {
   "ok": true,
   "summary": "<stripped>",
+}
+`;
+
+exports[`--json envelope snapshots (implementation note) > run: success 1`] = `
+{
+  "ok": true,
+  "run": {
+    "durationMs": 12,
+    "exitCode": 0,
+    "runtime": "node",
+    "signal": null,
+    "status": "success",
+    "stderr": "",
+    "stdout": "hello
+",
+    "target": "./hello.js",
+  },
 }
 `;
 

@@ -1,14 +1,41 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDependencyDetection } from '../../src/renderer/hooks/useDependencyDetection';
 import { useDependencyDetectionStore } from '../../src/renderer/stores/dependencyDetectionStore';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { loadDependencyAdapter } from '../../src/shared/dependencies/registry';
+import type { DependencyAdapter } from '../../src/shared/dependencies/types';
+import { classifyDependencies } from '../../src/renderer/hooks/dependencyDetectionRuntime';
+
+const runtimeMocks = vi.hoisted(() => ({
+  loadRuntime: vi.fn(),
+}));
+
+vi.mock('../../src/renderer/hooks/dependencyDetectionRuntimeLoader', () => ({
+  loadDependencyDetectionRuntime: runtimeMocks.loadRuntime,
+}));
+
+vi.mock('../../src/shared/dependencies/registry', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/shared/dependencies/registry')
+    >();
+  return {
+    ...actual,
+    loadDependencyAdapter: vi.fn(actual.loadDependencyAdapter),
+  };
+});
 
 describe('useDependencyDetection', () => {
   beforeEach(() => {
+    runtimeMocks.loadRuntime.mockReset();
+    runtimeMocks.loadRuntime.mockResolvedValue({ classifyDependencies });
+    vi.mocked(loadDependencyAdapter).mockClear();
     delete (window as unknown as { lingua?: unknown }).lingua;
     useDependencyDetectionStore.getState().clear();
+    useUIStore.setState({ statusNotice: null });
     useSettingsStore.setState({ dependencyDetectionEnabled: true });
     useEditorStore.setState({
       tabs: [
@@ -49,6 +76,58 @@ describe('useDependencyDetection', () => {
     await waitFor(() => {
       expect(useDependencyDetectionStore.getState().byTab.size).toBe(0);
     });
+  });
+
+  it('records an empty result without loading a detector for ordinary source', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'active-tab',
+          name: 'active.js',
+          language: 'javascript',
+          content: 'const answer = 40 + 2;\nconsole.log(answer);\n',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'active-tab',
+    });
+
+    renderHook(() => useDependencyDetection());
+
+    await waitFor(() => {
+      expect(
+        useDependencyDetectionStore.getState().byTab.get('active-tab')
+          ?.dependencies
+      ).toEqual([]);
+    });
+    expect(loadDependencyAdapter).not.toHaveBeenCalled();
+  });
+
+  it('cancels a pending lazy adapter load when detection is disabled', async () => {
+    let resolveAdapter!: (adapter: DependencyAdapter) => void;
+    const adapterPromise = new Promise<DependencyAdapter>((resolve) => {
+      resolveAdapter = resolve;
+    });
+    const detect = vi.fn(() => [
+      { name: 'lodash', kind: 'import' as const },
+    ]);
+    vi.mocked(loadDependencyAdapter).mockReturnValueOnce(adapterPromise);
+
+    renderHook(() => useDependencyDetection());
+
+    await waitFor(() => {
+      expect(loadDependencyAdapter).toHaveBeenCalledWith('javascript');
+    });
+
+    act(() => {
+      useSettingsStore.setState({ dependencyDetectionEnabled: false });
+    });
+    resolveAdapter({ language: 'javascript', detect });
+
+    await waitFor(() => {
+      expect(useDependencyDetectionStore.getState().byTab.size).toBe(0);
+    });
+    expect(detect).not.toHaveBeenCalled();
   });
 
   it('evicts stale entries when the active tab moves to an unsupported language', async () => {
@@ -137,5 +216,46 @@ describe('useDependencyDetection', () => {
       useDependencyDetectionStore.getState().byTab.get('active-tab')
         ?.cwdHasPackageJson
     ).toBe(true);
+  });
+
+  it('surfaces localized recovery and retries after the runtime cannot load', async () => {
+    runtimeMocks.loadRuntime
+      .mockRejectedValueOnce(new Error('dependency runtime unavailable'))
+      .mockResolvedValueOnce({ classifyDependencies });
+
+    renderHook(() => useDependencyDetection());
+
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'error',
+        messageKey: 'dependencies.detectionLoadFailed',
+      });
+    });
+    expect(useDependencyDetectionStore.getState().byTab.size).toBe(0);
+
+    act(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'active-tab',
+            name: 'active.js',
+            language: 'javascript',
+            content: "import sortBy from 'lodash';",
+            isDirty: true,
+          },
+        ],
+        activeTabId: 'active-tab',
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        useDependencyDetectionStore.getState().byTab.get('active-tab')
+          ?.dependencies
+      ).toEqual([
+        { name: 'lodash', kind: 'import', status: 'detected' },
+      ]);
+    });
+    expect(runtimeMocks.loadRuntime).toHaveBeenCalledTimes(2);
   });
 });

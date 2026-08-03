@@ -1,13 +1,10 @@
-import type { LayoutPreset } from '../../types';
+import type { LayoutPreset } from '../../types/settings';
 
 // Theme catalog lives in utils so stores/hooks can classify themes without
 // importing from the components layer; re-exported here so Settings-side
 // call sites keep their import path.
 export {
   EDITOR_THEMES,
-  EDITOR_THEME_IDS,
-  isDarkEditorTheme,
-  type EditorThemeOption,
 } from '../../utils/editorThemeCatalog';
 
 export interface FontFamilyOption {

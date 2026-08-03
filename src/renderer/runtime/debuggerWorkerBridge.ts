@@ -7,8 +7,8 @@
  * message to the registered worker.
  *
  * This indirection keeps the runner classes from leaking out of the
- * runtime/ folder into UI code, and keeps the door open for the
- * implementation Python / Go / Rust adapters to plug in (each language's
+ * runtime/ folder into UI code, and keeps the door open for the native Python
+ * adapter and future Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
  * Reference: implementation and docs/DEBUGGER_ADR.md.
@@ -16,14 +16,22 @@
 
 /**
  * internal — the single source of truth for debugger-control messages.
- * Exported so the worker's inbound message handler (`js-worker.ts`) can
+ * Exported so the worker's protocol (`js-worker-protocol.ts`) can
  * consume the SAME union the sender posts, closing the send/receive drift
  * (the worker previously read `event.data` as `any` and cast per branch).
  */
+export interface DebuggerBreakpointPayload {
+  line: number;
+  mode: 'pause' | 'conditional' | 'logpoint';
+  condition?: string;
+  logMessage?: string;
+}
+
 export type DebuggerControlMessage =
   | { type: 'resume' }
   | { type: 'step'; mode: 'over' | 'into' | 'out' }
-  | { type: 'set-breakpoints'; breakpoints: { line: number; condition?: string }[] };
+  | { type: 'set-breakpoints'; breakpoints: DebuggerBreakpointPayload[] }
+  | { type: 'set-watches'; watches: string[] };
 
 type Poster = (msg: DebuggerControlMessage) => void;
 

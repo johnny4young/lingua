@@ -10,8 +10,8 @@
  *
  *   - `0` ok
  *   - `1` user input error (bad args, unknown id, missing file, bad shape)
- *   - `2` runtime error (adapter returned `{ ok: false }` mid-run)
- *   - `3` unsupported capability (e.g. binary outputKind in implementation)
+ *   - `2` runtime error (adapter failure, non-zero exit, timeout, or stopped run)
+ *   - `3` unsupported capability (source/runtime mode, binary output, missing toolchain)
  *   - `4` internal (caught exception we didn't classify)
  */
 

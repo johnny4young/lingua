@@ -1,5 +1,6 @@
 import type { LineResult } from '../stores/resultStore';
-import type { ExecutionResult, Language } from '../types';
+import type { Language } from '../types/language';
+import type { ExecutionResult } from '../types/execution';
 import { isInlineResultLanguage } from './languageCapabilities';
 
 function getLastNonEmptyLine(code: string): number {

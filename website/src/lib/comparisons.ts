@@ -52,8 +52,8 @@ const COMPARISONS: Comparison[] = [
       es: 'Lingua vs RunJS',
     },
     metaDescription: {
-      en: 'RunJS is a focused JS/TS playground. Lingua runs five languages with a real desktop Node runtime, SQL and HTTP workspaces, 31 utilities, and local-first AI. An honest side-by-side.',
-      es: 'RunJS es un playground enfocado en JS/TS. Lingua ejecuta cinco lenguajes con un runtime Node de escritorio real, workspaces SQL y HTTP, 31 utilidades e IA local-first. Un comparativo honesto.',
+      en: 'RunJS is a focused JS/TS playground. Lingua runs six languages with a real desktop Node runtime, SQL and HTTP workspaces, 31 utilities, and local-first AI. An honest side-by-side.',
+      es: 'RunJS es un playground enfocado en JS/TS. Lingua ejecuta seis lenguajes con un runtime Node de escritorio real, workspaces SQL y HTTP, 31 utilidades e IA local-first. Un comparativo honesto.',
     },
     intro: {
       en: 'RunJS pioneered the instant-feedback JS scratchpad and it is still one of the best at exactly that. Lingua is a broader local-first lab: the same scratchpad feel, plus four more languages, SQL and HTTP workspaces, a utility shelf, and AI that runs on a local model. If you only touch JavaScript, RunJS is a fine, focused pick. If your day crosses languages, keep reading.',
@@ -141,8 +141,8 @@ const COMPARISONS: Comparison[] = [
       es: 'Lingua vs Postman',
     },
     metaDescription: {
-      en: "Postman is a cloud API platform. Lingua's HTTP workspace is local-first, imports your Postman collections, and lives beside a five-language code runner. When a local client is enough.",
-      es: 'Postman es una plataforma de APIs en la nube. El workspace HTTP de Lingua es local-first, importa tus colecciones de Postman y vive junto a un runner de cinco lenguajes. Cuándo basta un cliente local.',
+      en: "Postman is a cloud API platform. Lingua's HTTP workspace is local-first, imports your Postman collections, and lives beside a six-language code runner. When a local client is enough.",
+      es: 'Postman es una plataforma de APIs en la nube. El workspace HTTP de Lingua es local-first, importa tus colecciones de Postman y vive junto a un runner de seis lenguajes. Cuándo basta un cliente local.',
     },
     intro: {
       en: "Postman is a deep, team-oriented API platform — monitors, mock servers, cloud collaboration, an enterprise governance surface. Lingua is not trying to replace that. Lingua's HTTP workspace is for the developer who wants to compose and send requests locally, without a mandatory account, right next to the code that consumes the API. It imports your existing Postman and Bruno collections, so trying it costs nothing.",
@@ -172,7 +172,7 @@ const COMPARISONS: Comparison[] = [
         other: 'yes',
       },
       {
-        feature: { en: 'Also runs code in five languages', es: 'También ejecuta código en cinco lenguajes' },
+        feature: { en: 'Also runs code in six languages', es: 'También ejecuta código en seis lenguajes' },
         lingua: 'yes',
         other: 'no',
       },
@@ -237,12 +237,12 @@ const COMPARISONS: Comparison[] = [
       es: 'Lingua vs DevUtils',
     },
     metaDescription: {
-      en: 'DevUtils is a native macOS toolbox. Lingua ships 31 of the same utilities plus a five-language code runner, SQL and HTTP workspaces, and cross-platform builds. When you also need to run code.',
-      es: 'DevUtils es una caja de herramientas nativa de macOS. Lingua incluye 31 de las mismas utilidades más un runner de cinco lenguajes, workspaces SQL y HTTP, y builds multiplataforma. Cuándo también necesitas ejecutar código.',
+      en: 'DevUtils is a native macOS toolbox. Lingua ships 31 of the same utilities plus a six-language code runner, SQL and HTTP workspaces, and cross-platform builds. When you also need to run code.',
+      es: 'DevUtils es una caja de herramientas nativa de macOS. Lingua incluye 31 de las mismas utilidades más un runner de seis lenguajes, workspaces SQL y HTTP, y builds multiplataforma. Cuándo también necesitas ejecutar código.',
     },
     intro: {
-      en: 'DevUtils is a lovely native macOS utility belt — fast, menu-bar-close, offline. Lingua includes 31 of the same tools (JSON, JWT, hash, Base64, regex, cron, color, and the rest), but they sit next to something DevUtils does not have: an actual code runner for five languages, a SQL workspace, and an HTTP client. If you never need to run code and you live on a Mac, DevUtils is great. If you do, one window can cover both.',
-      es: 'DevUtils es un lindo cinturón de utilidades nativo de macOS — rápido, cerca de la barra de menú, offline. Lingua incluye 31 de las mismas herramientas (JSON, JWT, hash, Base64, regex, cron, color y las demás), pero conviven con algo que DevUtils no tiene: un runner de código real para cinco lenguajes, un workspace SQL y un cliente HTTP. Si nunca necesitas ejecutar código y vives en un Mac, DevUtils es genial. Si sí, una sola ventana cubre ambos.',
+      en: 'DevUtils is a lovely native macOS utility belt — fast, menu-bar-close, offline. Lingua includes 31 of the same tools (JSON, JWT, hash, Base64, regex, cron, color, and the rest), but they sit next to something DevUtils does not have: an actual code runner for six languages, a SQL workspace, and an HTTP client. If you never need to run code and you live on a Mac, DevUtils is great. If you do, one window can cover both.',
+      es: 'DevUtils es un lindo cinturón de utilidades nativo de macOS — rápido, cerca de la barra de menú, offline. Lingua incluye 31 de las mismas herramientas (JSON, JWT, hash, Base64, regex, cron, color y las demás), pero conviven con algo que DevUtils no tiene: un runner de código real para seis lenguajes, un workspace SQL y un cliente HTTP. Si nunca necesitas ejecutar código y vives en un Mac, DevUtils es genial. Si sí, una sola ventana cubre ambos.',
     },
     rows: [
       {
@@ -257,7 +257,7 @@ const COMPARISONS: Comparison[] = [
         other: 'yes',
       },
       {
-        feature: { en: 'Runs code in five languages', es: 'Ejecuta código en cinco lenguajes' },
+        feature: { en: 'Runs code in six languages', es: 'Ejecuta código en seis lenguajes' },
         lingua: 'yes',
         other: 'no',
       },
@@ -325,7 +325,7 @@ const COMPARISONS: Comparison[] = [
       {
         feature: { en: 'Number of runnable languages', es: 'Número de lenguajes ejecutables' },
         lingua: 'partial',
-        linguaNote: { en: 'five, deeply integrated', es: 'cinco, integrados a fondo' },
+        linguaNote: { en: 'six, deeply integrated', es: 'seis, integrados a fondo' },
         other: 'yes',
         otherNote: { en: '25 via your toolchain', es: '25 vía tu toolchain' },
       },

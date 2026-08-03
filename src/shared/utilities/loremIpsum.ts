@@ -246,7 +246,7 @@ const LOREM_UNITS: readonly LoremIpsumUnit[] = ['words', 'sentences', 'paragraph
 const LOREM_UNIT_SET: ReadonlySet<string> = new Set(LOREM_UNITS);
 
 /** Default count for a fresh `lorem-ipsum` step. */
-export const LOREM_ADAPTER_DEFAULT_COUNT = 3;
+const LOREM_ADAPTER_DEFAULT_COUNT = 3;
 
 /**
  * Structured options for the `lorem-ipsum` adapter. `count` is a string

@@ -22,6 +22,22 @@
 
 export type NativePackageLanguage = 'go' | 'rust' | 'ruby';
 
+export type NativeInstallStatus =
+  | 'success'
+  | 'error'
+  | 'timeout'
+  | 'missing-manifest'
+  | 'invalid-specifiers'
+  | 'missing-binary';
+
+export interface NativeInstallResult {
+  status: NativeInstallStatus;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+}
+
 /** Dedupe preserving first-seen order. */
 function unique(values: readonly string[]): string[] {
   const seen = new Set<string>();

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "capsuleId": "01500000-0000-4000-8000-000000000001",
+  "createdAt": "2026-07-28T21:09:05.000Z",
+  "appVersion": "0.15.0",
+  "tab": {
+    "name": "stable-input.js",
+    "language": "javascript",
+    "runtimeMode": "node",
+    "workflowMode": "run"
+  },
+  "source": {
+    "content": "const name = process.argv[1] ?? 'friend';\nlet input = '';\nprocess.stdin.setEncoding('utf8');\nprocess.stdin.on('data', (chunk) => { input += chunk; });\nprocess.stdin.on('end', () => {\n  console.log(`Hello ${name}: ${input.trim()}`);\n});\n",
+    "contentHash": "0cedd9f77b3322e7de33a0608dc9ae7d21b25c692750249670aaecedc8bc0acf"
+  },
+  "input": {
+    "stdin": "legacy capsule\n",
+    "setName": "Stable 0.15 fixture",
+    "args": [
+      "Ada"
+    ]
+  },
+  "result": {
+    "status": "success",
+    "durationMs": 7,
+    "stdout": "Hello Ada: legacy capsule\n",
+    "stderr": ""
+  },
+  "environment": {
+    "platform": "desktop",
+    "runner": "node:22"
+  },
+  "privacy": {
+    "redactionVersion": "2026-05-21.1",
+    "omittedFields": []
+  }
+}

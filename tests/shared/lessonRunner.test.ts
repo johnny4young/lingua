@@ -7,7 +7,6 @@
  *     missing-row backfill + collision rejection.
  *   - `rollupRunStatus` priority order (thrown > missing > pass > fail).
  *   - `isAllPassed` helper.
- *   - `isRecipeRunnableLanguage` JS/TS/Python gate.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -16,9 +15,7 @@ import {
   ASSERTION_RESULT_STATUSES,
   buildLessonRunSource,
   isAllPassed,
-  isRecipeRunnableLanguage,
   parseAssertionResults,
-  RECIPE_RUNNABLE_LANGUAGE_IDS,
   RECIPE_RUN_STATUSES,
   rollupRunStatus,
 } from '../../src/shared/lessonRunner';
@@ -290,25 +287,5 @@ describe('isAllPassed', () => {
         { assertionId: 'b', status: 'fail' },
       ])
     ).toBe(false);
-  });
-});
-
-describe('isRecipeRunnableLanguage', () => {
-  it('exposes the exact runnable recipe language tuple', () => {
-    expect(RECIPE_RUNNABLE_LANGUAGE_IDS).toEqual([
-      'javascript',
-      'typescript',
-      'python',
-    ]);
-  });
-
-  it('allows JavaScript, TypeScript, and Python', () => {
-    expect(isRecipeRunnableLanguage('javascript')).toBe(true);
-    expect(isRecipeRunnableLanguage('typescript')).toBe(true);
-    expect(isRecipeRunnableLanguage('python')).toBe(true);
-  });
-
-  it('blocks unsupported recipe languages', () => {
-    expect(isRecipeRunnableLanguage('go')).toBe(false);
   });
 });

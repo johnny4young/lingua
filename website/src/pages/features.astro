@@ -32,8 +32,8 @@ const sections = [
 <Base
   title={isEs ? 'Funciones — Lingua' : 'Features — Lingua'}
   description={isEs
-    ? 'Todo lo que Lingua hace hoy: cinco runners, editor Monaco con Vim mode, 31 utilidades, env vars por capas, binarios firmados y privacidad auditable.'
-    : 'Everything Lingua does today. Five language runners, a Monaco editor with Vim mode, a 31-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
+    ? 'Todo lo que Lingua hace hoy: seis runners, editor Monaco con Vim mode, 31 utilidades, env vars por capas, binarios firmados y privacidad auditable.'
+    : 'Everything Lingua does today. Six language runners, a Monaco editor with Vim mode, a 31-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
   locale={locale}
 >
   <article class="container section">
@@ -64,11 +64,11 @@ const sections = [
         <span class="section-no">01</span>
         <div>
           <p class="eyebrow">{isEs ? 'Lenguajes' : 'Languages'}</p>
-          <h2>{isEs ? 'Cinco runners. Una ventana.' : 'Five runners. One window.'}</h2>
+          <h2>{isEs ? 'Seis runners. Una ventana.' : 'Six runners. One window.'}</h2>
           <p class="section-desc">
             {isEs
-              ? 'Cada lenguaje tiene su runner con defaults adecuados. JS / TS / Python vienen con Lingua. Go y Rust usan las toolchains que ya tienes en tu máquina.'
-              : 'Each language has its own runner with the right defaults. JS / TS / Python ship with Lingua. Go and Rust use the toolchains already on your machine.'}
+              ? 'Cada lenguaje tiene su runner con defaults adecuados. JS / TS / Python / Ruby vienen con Lingua. Go y Rust usan las toolchains que ya tienes en tu máquina.'
+              : 'Each language has its own runner with the right defaults. JS / TS / Python / Ruby ship with Lingua. Go and Rust use the toolchains already on your machine.'}
           </p>
         </div>
       </header>
@@ -118,6 +118,15 @@ const sections = [
           </li>
           <li>
             <strong>{isEs ? 'Atajos personalizados' : 'Custom shortcuts'}</strong> {isEs ? 'con editor dentro de la app. Exporta e importa como JSON.' : 'with an in-app editor. Export and import as JSON.'}
+          </li>
+          <li>
+            <strong>{isEs ? 'Depurador JS/TS' : 'JS/TS debugger'}</strong> — {isEs ? 'puntos de pausa, condiciones, logpoints y watches con step over/into/out. Las expresiones se evalúan sobre una copia acotada de las variables locales, sin eval ni Function.' : 'pause points, conditions, logpoints, and watches with step over/into/out. Expressions evaluate over a bounded copy of locals, without eval or Function.'}
+          </li>
+          <li>
+            <strong>{isEs ? 'Depurador Python en desktop' : 'Desktop Python debugger'}</strong> — {isEs ? 'breakpoints estándar, step over/into/out, variables locales, call stack y watches mediante CPython/pdb del host.' : 'standard breakpoints, step over/into/out, locals, call stack, and watches through host CPython/pdb.'}
+          </li>
+          <li>
+            <strong>{isEs ? 'Depurador Go en desktop' : 'Desktop Go debugger'}</strong> — {isEs ? 'breakpoints estándar, step over/into/out, variables locales, call stack y watches mediante Delve/DAP del host.' : 'standard breakpoints, step over/into/out, locals, call stack, and watches through host Delve/DAP.'}
           </li>
           <li>
             <strong>Format on save</strong> {isEs ? 'por lenguaje: prettier / ruff / gofmt / rustfmt donde esté disponible.' : 'per language: prettier / ruff / gofmt / rustfmt where available.'}
@@ -189,7 +198,13 @@ const sections = [
               <strong>Project search</strong> — {isEs ? 'busca por contenido en todo el árbol, limitado al root activo.' : 'find by content across the whole tree, scoped to the active root.'}
             </li>
             <li>
+              <strong>{isEs ? 'Pruebas del proyecto' : 'Project tests'}</strong> — {isEs ? 'detecta Vitest, Jest, Pytest, Go y Cargo en la app de escritorio, muestra el comando exacto y transmite una salida limitada con opción de detener.' : 'detect Vitest, Jest, Pytest, Go, and Cargo in the desktop app, inspect the exact command, and stream bounded output with Stop.'}
+            </li>
+            <li>
               <strong>Theme presets</strong> — {isEs ? 'importa / exporta tu tema del editor. Vienen tres presets oscuros y uno claro.' : 'import / export your editor theme. Three dark presets and one light ship in-box.'}
+            </li>
+            <li>
+              <strong>{isEs ? 'Importación de playgrounds' : 'Playground import'}</strong> — {isEs ? 'revisa enlaces compartidos de TypeScript o Go antes de abrir su fuente en una pestaña; TypeScript se decodifica localmente y Go usa un único endpoint oficial con límites.' : 'preview shared TypeScript or Go links before opening their source in a tab; TypeScript decodes locally and Go uses one bounded official endpoint.'}
             </li>
           </ul>
         </article>

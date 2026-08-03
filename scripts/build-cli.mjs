@@ -2,8 +2,8 @@
 /**
  * implementation — bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
  *
- * Single CJS file, Node 22+ target, everything bundled (the 5
- * utility adapters + the capsule schema + the registry). No
+ * Single CJS file, Node 22+ target, everything bundled (utility
+ * adapters, capsule schema, command parser, and runtime registry). No
  * Electron, no React — the ESLint rule + this bundle's
  * shape-check at the end of the run keep it that way.
  *
@@ -75,7 +75,7 @@ const sizeKb = (stats.size / 1024).toFixed(1);
 console.log(`[build-cli] wrote ${path.relative(repoRoot, outFile)} (${sizeKb} KiB)`);
 
 // Defensive bundle-size budget: warn loudly if the artifact grows
-// past 500 KiB. The realistic implementation size is ~35 KiB.
+// past 500 KiB. The current command/runtime surface is about 325 KiB.
 const SOFT_CAP_BYTES = 500 * 1024;
 if (stats.size > SOFT_CAP_BYTES) {
   console.warn(

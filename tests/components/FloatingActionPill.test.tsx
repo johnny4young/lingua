@@ -25,6 +25,7 @@ import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
+import { useDebuggerStore } from '@/stores/debuggerStore';
 
 const runMock = vi.fn();
 const stopMock = vi.fn();
@@ -69,6 +70,14 @@ beforeEach(async () => {
   });
   useUIStore.setState({ actionPillPosition: null });
   useBootstrapProgressStore.getState().clear();
+  useDebuggerStore.setState({
+    breakpoints: {},
+    breakpointOrder: [],
+    watches: [],
+    session: null,
+    pausedFrame: null,
+    drawerCollapsed: false,
+  });
 });
 
 function renderPill(props: ComponentProps<typeof FloatingActionPill> = {}) {
@@ -88,6 +97,7 @@ describe('FloatingActionPill', () => {
     // mode-aware button. The button must be present and not disabled.
     const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
     expect(run.disabled).toBe(false);
+    expect(run.getAttribute('data-tour-id')).toBe('run-button');
   });
 
   it('fires run() when the action button is clicked while idle', async () => {
@@ -96,6 +106,117 @@ describe('FloatingActionPill', () => {
     await user.click(screen.getByTestId('action-pill-run'));
     expect(runMock).toHaveBeenCalledTimes(1);
     expect(stopMock).not.toHaveBeenCalled();
+  });
+
+  it('closes the workflow menu when the primary action is clicked', async () => {
+    const user = userEvent.setup();
+    renderPill();
+
+    await user.click(screen.getByTestId('action-pill-run-menu'));
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    await user.click(screen.getByTestId('action-pill-run'));
+
+    expect(runMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('requires an enabled breakpoint before Debug can run', async () => {
+    const user = userEvent.setup();
+    renderPill();
+
+    await user.click(screen.getByTestId('action-pill-run-menu'));
+    let debug = screen.getByTestId(
+      'action-pill-workflow-option-debug',
+    ) as HTMLButtonElement;
+    expect(debug.disabled).toBe(true);
+    expect(debug.title).toContain('Set an enabled breakpoint');
+    expect(debug.textContent).toContain(
+      'Set an enabled breakpoint to start debugging.',
+    );
+
+    act(() => {
+      useDebuggerStore.getState().toggleBreakpoint('tab-ts', 1);
+    });
+
+    await waitFor(() => {
+      debug = screen.getByTestId(
+        'action-pill-workflow-option-debug',
+      ) as HTMLButtonElement;
+      expect(debug.disabled).toBe(false);
+    });
+
+    await user.click(debug);
+    expect(runMock).toHaveBeenCalledWith({ debug: true });
+  });
+
+  it('disables the primary Debug action when every breakpoint is disabled', () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-ts',
+          name: 'main.ts',
+          language: 'typescript',
+          content: 'console.log(1)',
+          workflowMode: 'debug',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-ts',
+      pendingReveal: null,
+    });
+    useDebuggerStore.getState().toggleBreakpoint('tab-ts', 1);
+    useDebuggerStore.getState().setAllBreakpointsEnabled(false);
+
+    renderPill();
+
+    const debug = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+    expect(debug.disabled).toBe(true);
+    expect(debug.title).toContain('Set an enabled breakpoint');
+  });
+
+  it('explains unsupported Scratchpad choices from the workflow matrix', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-ruby',
+          name: 'main.rb',
+          language: 'ruby',
+          content: 'puts 1',
+          workflowMode: 'run',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-ruby',
+      pendingReveal: null,
+    });
+    const user = userEvent.setup();
+    renderPill();
+
+    await user.click(screen.getByTestId('action-pill-run-menu'));
+    const scratchpad = screen.getByTestId(
+      'action-pill-workflow-option-scratchpad',
+    ) as HTMLButtonElement;
+
+    expect(scratchpad.disabled).toBe(true);
+    expect(scratchpad.title).toContain(
+      "Scratchpad auto-run isn't available for this language yet.",
+    );
+    expect(scratchpad.textContent).toContain(
+      "Scratchpad auto-run isn't available for this language yet.",
+    );
+  });
+
+  it('keeps the primary action available for Stop while disabling the menu', () => {
+    isRunningRef.current = true;
+    renderPill();
+
+    expect(
+      (screen.getByTestId('action-pill-run') as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByTestId('action-pill-run-menu') as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it('shows the Settings cog only when onOpenSettings is provided', async () => {
@@ -250,6 +371,35 @@ describe('FloatingActionPill', () => {
     expect(
       useEditorStore.getState().tabs.find((tab) => tab.id === 'tab-ts')?.runtimeMode
     ).toBe('deno');
+    await waitFor(() => {
+      expect(screen.getByTestId('action-pill-runtime').textContent).toContain('Deno');
+    });
+  });
+
+  it.each([
+    ['browser-preview', 'Browser preview'],
+    ['deno', 'Deno'],
+    ['bun', 'Bun'],
+  ] as const)('reports the active %s runtime without falling back to Worker', (runtimeMode, label) => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-ts',
+          name: 'main.ts',
+          language: 'typescript',
+          content: 'console.log(1)',
+          runtimeMode,
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-ts',
+      pendingReveal: null,
+    });
+
+    renderPill();
+
+    expect(screen.getByTestId('action-pill-runtime').textContent).toContain(label);
+    expect(screen.getByTestId('action-pill-runtime').textContent).not.toContain('Worker');
   });
 
   it('moves back to the handoff default when floating positions are reset', async () => {

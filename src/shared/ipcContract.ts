@@ -28,7 +28,29 @@
  * payload type.
  */
 
-export interface IpcInvokeContract {
+import type {
+  ProjectTerminalDataEvent,
+  ProjectTerminalExitEvent,
+  ProjectTerminalStartResult,
+} from './projectTerminal';
+import type { LocalMcpStartResult, LocalMcpState } from './localMcp';
+import type {
+  PythonDebuggerResponse,
+  PythonDebuggerStartRequest,
+  PythonDebuggerStepCommand,
+} from './pythonDebugger';
+import type {
+  GoDebuggerResponse,
+  GoDebuggerStartRequest,
+  GoDebuggerStepCommand,
+} from './goDebugger';
+import type {
+  RustDebuggerResponse,
+  RustDebuggerStartRequest,
+  RustDebuggerStepCommand,
+} from './rustDebugger';
+
+interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
   'app:get-system-languages': { args: []; result: string[] };
   'app:get-info': { args: []; result: AppInfo };
@@ -52,11 +74,7 @@ export interface IpcInvokeContract {
     result: GoDetectResult;
   };
   'go:compile': {
-    args: [
-      sourceCode: string,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages,
-    ];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
     result: GoCompileResult;
   };
 
@@ -66,11 +84,7 @@ export interface IpcInvokeContract {
     result: RustDetectResult;
   };
   'rust:run': {
-    args: [
-      sourceCode: string,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages,
-    ];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
     result: RustRunResult;
   };
 
@@ -121,6 +135,72 @@ export interface IpcInvokeContract {
   'format:rustfmt': { args: [source: string]; result: FormatIpcResult };
   'format:python': { args: [source: string]; result: FormatIpcResult };
 
+  // ------------------------------------------------------ Python debugger
+  'debugger:python:start': {
+    args: [request: PythonDebuggerStartRequest];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:command': {
+    args: [sessionId: string, command: PythonDebuggerStepCommand];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: PythonDebuggerResponse;
+  };
+  'debugger:python:stop': {
+    args: [sessionId: string];
+    result: PythonDebuggerResponse;
+  };
+
+  // ---------------------------------------------------------- Go debugger
+  'debugger:go:start': {
+    args: [request: GoDebuggerStartRequest];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:command': {
+    args: [sessionId: string, command: GoDebuggerStepCommand];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: GoDebuggerResponse;
+  };
+  'debugger:go:stop': {
+    args: [sessionId: string];
+    result: GoDebuggerResponse;
+  };
+
+  // -------------------------------------------------------- Rust debugger
+  'debugger:rust:start': {
+    args: [request: RustDebuggerStartRequest];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:command': {
+    args: [sessionId: string, command: RustDebuggerStepCommand];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:sync-breakpoints': {
+    args: [sessionId: string, breakpoints: readonly number[]];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:sync-watches': {
+    args: [sessionId: string, watches: readonly string[]];
+    result: RustDebuggerResponse;
+  };
+  'debugger:rust:stop': {
+    args: [sessionId: string];
+    result: RustDebuggerResponse;
+  };
+
   // ---------------------------------------------------------------- consent
   'consent:set': {
     args: [value: 'granted' | 'declined' | 'unset'];
@@ -129,6 +209,57 @@ export interface IpcInvokeContract {
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
+
+  // ------------------------------------------------ guarded HTTP workspace
+  'http:execute': {
+    args: [
+      runId: string,
+      request: import('./httpWorkspaceSchema').HttpRequestV1,
+      options: import('./httpWorkspaceSchema').HttpDesktopRequestOptions,
+    ];
+    result: import('./httpWorkspaceSchema').HttpResponseV1;
+  };
+  'http:cancel': { args: [runId: string]; result: { cancelled: boolean } };
+
+  // ---------------------------------------------------- project test runner
+  'project-tests:detect': {
+    args: [rootId: RootId];
+    result: ProjectTestDetectionResult;
+  };
+  'project-tests:run': {
+    args: [rootId: RootId, framework: ProjectTestFramework, runId: string];
+    result: ProjectTestRunResult;
+  };
+  'project-tests:stop': {
+    args: [rootId: RootId, runId: string];
+    result: { stopped: boolean };
+  };
+
+  // --------------------------------------------------- project terminal
+  'project-terminal:start': {
+    args: [rootId: RootId, columns: number, rows: number];
+    result: ProjectTerminalStartResult;
+  };
+  'project-terminal:write': {
+    args: [sessionId: string, data: string];
+    result: { written: boolean };
+  };
+  'project-terminal:resize': {
+    args: [sessionId: string, columns: number, rows: number];
+    result: { resized: boolean };
+  };
+  'project-terminal:stop': {
+    args: [sessionId: string];
+    result: { stopped: boolean };
+  };
+
+  // ------------------------------------------------------ local MCP server
+  'local-mcp:get-state': { args: []; result: LocalMcpState };
+  'local-mcp:start': {
+    args: [rootId: RootId, acknowledgement: { readonly readOnlySourceAccess: true }];
+    result: LocalMcpStartResult;
+  };
+  'local-mcp:stop': { args: []; result: LocalMcpState };
 
   // -------------------------------------------------------------- lsp: rust
   'lsp:rust:start': { args: []; result: RustAnalyzerStatus };
@@ -218,12 +349,7 @@ export interface IpcInvokeContract {
     result: FsIndexedFile[];
   };
   'fs:searchInFiles': {
-    args: [
-      rootId: string,
-      relativePath: string,
-      query: string,
-      options?: FsSearchOptions,
-    ];
+    args: [rootId: string, relativePath: string, query: string, options?: FsSearchOptions];
     result: FsSearchResult[];
   };
   'fs:replaceInFiles': {
@@ -251,17 +377,16 @@ export interface IpcInvokeContract {
     result: FsStatResult;
   };
   'fs:read': { args: [rootId: string, relativePath: string]; result: string };
+  'fs:read-bytes': {
+    args: [rootId: string, relativePath: string];
+    result: Uint8Array;
+  };
   'fs:write': {
     args: [rootId: string, relativePath: string, content: string];
     result: boolean;
   };
   'fs:delete': {
-    args: [
-      rootId: string,
-      relativePath: string,
-      isDirectory?: boolean,
-      language?: string,
-    ];
+    args: [rootId: string, relativePath: string, isDirectory?: boolean, language?: string];
     result: boolean;
   };
   'fs:rename': {
@@ -279,7 +404,16 @@ export interface IpcInvokeContract {
     result:
       | { ok: true; fileCount: number; byteLength: number }
       | { canceled: true }
-      | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' };
+      | {
+          ok: false;
+          reason:
+            | 'empty'
+            | 'entry-too-large'
+            | 'read-failed'
+            | 'too-large'
+            | 'too-many-files'
+            | 'write-failed';
+        };
   };
   'fs:importBundle': {
     args: [zipBytes: Uint8Array];
@@ -403,7 +537,7 @@ export interface IpcInvokeContract {
  * Fire-and-forget event streams — each entry is just the payload type the
  * renderer receives.
  */
-export interface IpcPushContract {
+interface IpcPushContract {
   'app:deep-link': DeepLinkTarget;
   'app:before-close': void;
   'lsp:rust:notification': LspNotification;
@@ -419,12 +553,17 @@ export interface IpcPushContract {
   // streamed as they arrive (keyed by runId) so the console REPL can echo
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;
+  'project-tests:output': ProjectTestOutputEvent;
+  'project-terminal:data': ProjectTerminalDataEvent;
+  'project-terminal:exit': ProjectTerminalExitEvent;
+  'local-mcp:state-changed': LocalMcpState;
+  'http:stream-progress': import('./httpWorkspaceSchema').HttpStreamProgress;
   'git:on-head-changed': GitHeadChangePayload;
   'git:on-head-watcher-failed': GitHeadWatcherFailurePayload;
 }
 
 /** Renderer → main fire-and-forget sends (`ipcRenderer.send`). */
-export interface IpcSendContract {
+interface IpcSendContract {
   'app:deep-link-renderer-ready': [];
   'app:force-close': [];
   'lsp:rust:notify': [method: string, params: unknown];
@@ -433,10 +572,8 @@ export interface IpcSendContract {
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeContract;
-export type IpcInvokeArgs<C extends IpcInvokeChannel> =
-  IpcInvokeContract[C]['args'];
-export type IpcInvokeResult<C extends IpcInvokeChannel> =
-  IpcInvokeContract[C]['result'];
+export type IpcInvokeArgs<C extends IpcInvokeChannel> = IpcInvokeContract[C]['args'];
+export type IpcInvokeResult<C extends IpcInvokeChannel> = IpcInvokeContract[C]['result'];
 
 export type IpcPushChannel = keyof IpcPushContract;
 export type IpcPushPayload<C extends IpcPushChannel> = IpcPushContract[C];
@@ -480,8 +617,35 @@ export const IPC_INVOKE_CHANNELS = [
   'format:gofmt',
   'format:rustfmt',
   'format:python',
+  'debugger:python:start',
+  'debugger:python:command',
+  'debugger:python:sync-breakpoints',
+  'debugger:python:sync-watches',
+  'debugger:python:stop',
+  'debugger:go:start',
+  'debugger:go:command',
+  'debugger:go:sync-breakpoints',
+  'debugger:go:sync-watches',
+  'debugger:go:stop',
+  'debugger:rust:start',
+  'debugger:rust:command',
+  'debugger:rust:sync-breakpoints',
+  'debugger:rust:sync-watches',
+  'debugger:rust:stop',
   'consent:set',
   'env:snapshot',
+  'http:execute',
+  'http:cancel',
+  'project-tests:detect',
+  'project-tests:run',
+  'project-tests:stop',
+  'project-terminal:start',
+  'project-terminal:write',
+  'project-terminal:resize',
+  'project-terminal:stop',
+  'local-mcp:get-state',
+  'local-mcp:start',
+  'local-mcp:stop',
   'lsp:rust:start',
   'lsp:rust:restart',
   'lsp:rust:stop',
@@ -506,6 +670,7 @@ export const IPC_INVOKE_CHANNELS = [
   'fs:applyReplaceInFile',
   'fs:stat',
   'fs:read',
+  'fs:read-bytes',
   'fs:write',
   'fs:delete',
   'fs:rename',

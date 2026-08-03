@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { pluginRegistry } from '../plugins';
 import {
   type LanguagePack,
@@ -214,7 +214,7 @@ function normalizeExtension(extension: string): string {
   return extension.trim().replace(/^\./u, '').toLowerCase();
 }
 
-export function getLanguageMeta(language: Language): LanguageMeta {
+function getLanguageMeta(language: Language): LanguageMeta {
   const pack = getLanguagePackById(language);
   if (pack) return packToMeta(pack);
 
@@ -265,10 +265,6 @@ export function languageBadgeClass(language: Language): string {
   return getLanguageMeta(language).badgeClass;
 }
 
-export function languageTextColorClass(language: Language): string {
-  return getLanguageMeta(language).textColorClass;
-}
-
 export function extensionForLanguage(language: Language): string {
   return getLanguageMeta(language).extensions[0] ?? FALLBACK_EXTENSION;
 }
@@ -287,7 +283,14 @@ export function executionModeForLanguage(language: Language): 'run' | 'validate'
 
 export function languageSupportsDebugger(language: Language | null | undefined): boolean {
   if (!language) return false;
-  return getLanguagePackById(language)?.capabilities.debugger === 'available';
+  const supported = getLanguagePackById(language)?.capabilities.debugger === 'available';
+  if (!supported) return false;
+  // Native adapters use host toolchains and are therefore absent from web.
+  return !(
+    (language === 'python' || language === 'go' || language === 'rust') &&
+    typeof window !== 'undefined' &&
+    window.lingua?.platform === 'web'
+  );
 }
 
 /**

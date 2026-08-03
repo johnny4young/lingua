@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import yaml from 'js-yaml';
 
 export const APPROVED_LICENSE_EXPRESSIONS = [
   '(MPL-2.0 OR Apache-2.0)',
@@ -64,6 +65,45 @@ function shortPackagePath(storePath, name) {
 }
 
 /**
+ * Build-only packages whose artifacts are copied into release output must be
+ * reviewed alongside production dependencies even though their JavaScript
+ * wrappers are not packaged. Verify metadata from the installed package so a
+ * missing dependency fails closed.
+ */
+export const PACKAGED_EXTERNAL_RUNTIME_COMPONENTS = [
+  {
+    name: '@vscode/ripgrep',
+    packageJsonPath: 'node_modules/@vscode/ripgrep/package.json',
+    artifactPath: 'extraResources/ripgrep',
+  },
+];
+
+export function collectPackagedExternalRuntimeEntries({ root = process.cwd() } = {}) {
+  return PACKAGED_EXTERNAL_RUNTIME_COMPONENTS.map(component => {
+    try {
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(root, component.packageJsonPath), 'utf8'),
+      );
+      return {
+        name: component.name,
+        version: typeof manifest.version === 'string' ? manifest.version : '0.0.0',
+        license: normalizeLicense(manifest.license),
+        path: component.artifactPath,
+        missingPackageJson: false,
+      };
+    } catch {
+      return {
+        name: component.name,
+        version: '0.0.0',
+        license: 'UNKNOWN',
+        path: component.artifactPath,
+        missingPackageJson: true,
+      };
+    }
+  });
+}
+
+/**
  * Map the output of `pnpm licenses list --json` to the flat license
  * entry shape the policy review + report consume. pnpm groups by
  * license expression; each package carries parallel `versions[]` and
@@ -104,17 +144,59 @@ export function entriesFromPnpmLicenses(data) {
  * license expression for us. Requires node_modules to be installed
  * (CI installs before this gate runs).
  */
-export function collectLicenseEntries({ root = process.cwd(), includeDev = false } = {}) {
-  const args = ['licenses', 'list', '--json'];
+export function collectLicenseEntries({
+  root = process.cwd(),
+  includeDev = false,
+  includePackagedExternal = !includeDev,
+} = {}) {
+  let installedStoreDir;
+  try {
+    const modulesState = yaml.load(
+      fs.readFileSync(path.join(root, 'node_modules/.modules.yaml'), 'utf8')
+    );
+    installedStoreDir =
+      modulesState &&
+      typeof modulesState === 'object' &&
+      'storeDir' in modulesState &&
+      typeof modulesState.storeDir === 'string'
+        ? modulesState.storeDir
+        : undefined;
+  } catch {
+    installedStoreDir = undefined;
+  }
+
+  const args = [
+    ...(installedStoreDir ? [`--config.store-dir=${installedStoreDir}`] : []),
+    'licenses',
+    'list',
+    '--json',
+  ];
   if (!includeDev) args.push('--prod');
-  const raw = execFileSync('pnpm', args, {
+  const npmExecPath = process.env.npm_execpath?.trim();
+  const useActivePnpm =
+    typeof npmExecPath === 'string' && npmExecPath.toLowerCase().includes('pnpm');
+  const pnpmIsJavaScript = useActivePnpm && /\.[cm]?js$/i.test(npmExecPath);
+  const command =
+    pnpmIsJavaScript
+      ? process.execPath
+      : useActivePnpm
+        ? npmExecPath
+        : 'pnpm';
+  const commandArgs =
+    pnpmIsJavaScript ? [npmExecPath, ...args] : args;
+  const raw = execFileSync(command, commandArgs, {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
     maxBuffer: 64 * 1024 * 1024,
   });
   const data = raw.trim().length > 0 ? JSON.parse(raw) : {};
-  return entriesFromPnpmLicenses(data);
+  const entries = entriesFromPnpmLicenses(data);
+  if (includePackagedExternal) {
+    entries.push(...collectPackagedExternalRuntimeEntries({ root }));
+    entries.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  }
+  return entries;
 }
 
 export function reviewLicenseEntry(entry) {
@@ -152,11 +234,13 @@ export function renderMarkdownReport(entries, { includeDev = false } = {}) {
   const problems = entries
     .map(entry => ({ entry, review: reviewLicenseEntry(entry) }))
     .filter(({ review }) => !review.ok);
-  const scope = includeDev ? 'all installed dependencies, including dev-only packages' : 'production dependencies only';
+  const scope = includeDev
+    ? 'all installed dependencies, including dev-only packages'
+    : 'production dependencies plus explicitly packaged external runtime components';
   const lines = [
     '# Third-Party License Report',
     '',
-    'Generated from `pnpm licenses list` across the installed dependency tree.',
+    'Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.',
     '',
     `Scope: ${scope}.`,
     `Packages reviewed: ${entries.length}.`,

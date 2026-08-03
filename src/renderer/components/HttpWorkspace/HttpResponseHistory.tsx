@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { HttpResponseV1 } from '../../../shared/httpWorkspace';
+import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 import { HttpStatusPill } from './HttpStatusPill';
 

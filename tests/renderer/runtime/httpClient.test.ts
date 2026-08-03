@@ -5,16 +5,24 @@
  * validation.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   effectiveSensitiveHeaderSet,
   executeHttpRequest,
   statusBucketForResponse,
 } from '../../../src/renderer/runtime/httpClient';
 import {
+  MAX_STREAM_MESSAGES,
   createBlankHttpRequest,
+  type HttpDesktopAPI,
   type HttpRequestV1,
+  type HttpResponseV1,
 } from '../../../src/shared/httpWorkspace';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  Reflect.deleteProperty(window, 'lingua');
+});
 
 function makeRequest(overrides: Partial<HttpRequestV1> = {}): HttpRequestV1 {
   return {
@@ -155,6 +163,110 @@ describe('executeHttpRequest ', () => {
     expect(res.tooLarge).toBe(true);
     expect(res.kind).toBe('too-large');
     expect(res.body.length).toBeLessThanOrEqual(256);
+  });
+
+  it('stops browser SSE at the message cap', async () => {
+    const body = Array.from(
+      { length: MAX_STREAM_MESSAGES + 1 },
+      (_, index) => `data: ${index}\n\n`
+    ).join('');
+    const progress: number[] = [];
+    const res = await executeHttpRequest(
+      makeRequest({ transport: 'sse' }),
+      {
+        fetchImpl: mockFetch({
+          status: 200,
+          headers: new Headers({ 'content-type': 'text/event-stream' }),
+          _body: body,
+        }),
+        onProgress: (next) => progress.push(next.messageCount),
+      }
+    );
+
+    expect(res.kind).toBe('too-large');
+    expect(res.messageCount).toBe(MAX_STREAM_MESSAGES);
+    expect(res.body).toContain(`data: ${MAX_STREAM_MESSAGES - 1}`);
+    expect(res.body).not.toContain(`data: ${MAX_STREAM_MESSAGES}\n`);
+    expect(progress.at(-1)).toBe(MAX_STREAM_MESSAGES);
+  });
+
+  it('counts browser WebSocket Blob payload bytes toward the cap', async () => {
+    class FakeWebSocket extends EventTarget {
+      constructor(_url: string | URL) {
+        super();
+        queueMicrotask(() => {
+          this.dispatchEvent(new Event('open'));
+          this.dispatchEvent(
+            new MessageEvent('message', { data: new Blob(['12345']) })
+          );
+        });
+      }
+
+      send(): void {}
+
+      close(): void {
+        queueMicrotask(() => {
+          this.dispatchEvent(
+            new CloseEvent('close', { code: 1009, reason: 'limit' })
+          );
+        });
+      }
+    }
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+
+    const res = await executeHttpRequest(
+      makeRequest({ transport: 'websocket', url: 'wss://example.com/events' }),
+      { maxResponseBodyBytes: 4 }
+    );
+
+    expect(res.kind).toBe('too-large');
+    expect(res.sizeBytes).toBe(5);
+  });
+
+  it('registers an already-aborted desktop run before cancelling it', async () => {
+    const events: string[] = [];
+    const response: HttpResponseV1 = {
+      version: 1,
+      transport: 'http',
+      kind: 'network-error',
+      status: 0,
+      statusText: '',
+      url: 'https://api.example.com/users',
+      finalUrl: 'https://api.example.com/users',
+      headers: [],
+      body: '',
+      contentType: '',
+      sizeBytes: 0,
+      durationMs: 0,
+      tooLarge: false,
+      redactedHeaders: [],
+      recordedAt: '2026-08-01T00:00:00.000Z',
+      errorMessage: 'Request cancelled',
+    };
+    const bridge: HttpDesktopAPI = {
+      execute: async () => {
+        events.push('execute');
+        return response;
+      },
+      cancel: async () => {
+        events.push('cancel');
+        return { cancelled: true };
+      },
+      onProgress: () => () => events.push('unsubscribe'),
+    };
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { http: bridge },
+    });
+    const controller = new AbortController();
+    controller.abort('cancelled');
+
+    await executeHttpRequest(makeRequest(), {
+      signal: controller.signal,
+      runId: 'already-aborted',
+    });
+
+    expect(events).toEqual(['execute', 'cancel', 'unsubscribe']);
   });
 
   it('skips body on GET / HEAD / OPTIONS even when request.body is set', async () => {

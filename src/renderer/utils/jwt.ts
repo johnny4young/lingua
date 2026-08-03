@@ -54,7 +54,7 @@ export function isJwtAlgorithm(value: unknown): value is JwtAlgorithm {
   return (JWT_SUPPORTED_ALGORITHMS as readonly string[]).includes(value as string);
 }
 
-export type JwtVerifyError =
+type JwtVerifyError =
   | { kind: 'empty-token' }
   | { kind: 'malformed-token' }
   | { kind: 'empty-key' }
@@ -65,7 +65,7 @@ export type JwtVerifyError =
   | { kind: 'signature-invalid' }
   | { kind: 'unknown'; message: string };
 
-export type JwtVerifyWarning = { kind: 'weak-hs-key'; minBytes: number };
+type JwtVerifyWarning = { kind: 'weak-hs-key'; minBytes: number };
 
 /**
  * Verify result mirrors Sign: on `ok: true` the caller always gets the
@@ -83,7 +83,7 @@ export type JwtVerifyResult =
     }
   | ({ ok: false } & JwtVerifyError);
 
-export type JwtSignError =
+type JwtSignError =
   | { kind: 'invalid-header' }
   | { kind: 'invalid-payload' }
   | { kind: 'empty-key' }
@@ -91,7 +91,7 @@ export type JwtSignError =
   | { kind: 'unsupported-algorithm'; claimed: string }
   | { kind: 'unknown'; message: string };
 
-export type JwtSignWarning = { kind: 'weak-hs-key'; minBytes: number };
+type JwtSignWarning = { kind: 'weak-hs-key'; minBytes: number };
 
 export type JwtSignResult =
   | { ok: true; token: string; warning?: JwtSignWarning }

@@ -8,13 +8,19 @@ import {
   LogOut,
   Trash2,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
+import {
+  dispatchDebuggerControl,
+  dispatchDebuggerRunToEnd,
+} from '../../runtime/debuggerControlBridge';
 import { trackEvent } from '../../utils/telemetry';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { Tooltip } from '../ui/chrome';
+import { DebuggerBreakpointList } from './DebuggerBreakpointList';
+import { DebuggerWatchList } from './DebuggerWatchList';
 
 const debuggerButtonBase =
   'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-sm shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55';
@@ -24,21 +30,18 @@ const debuggerDangerButton =
   `${debuggerButtonBase} text-muted hover:border-danger/50 hover:bg-danger/5 hover:text-danger`;
 
 /**
- * implementation — single drawer combining the four ADR §3 panels
- * (variables, watches, call stack, toolbar) into one collapsible
- * surface. Splitting into four sub-files was originally planned but
- * folded into one to keep the renderer footprint small and the visual
- * diff smaller for review. The internal sections are clearly demarcated
- * so a implementation split is mechanical.
+ * Debugger panel orchestration for controls, breakpoint configuration,
+ * watches, locals, and call stack. Focused breakpoint/watch components keep
+ * editable collections independent from paused-frame presentation.
  *
  * Mounts whenever:
- *   1. `debuggerEnabled` setting is true (Settings → Editor).
+ *   1. The active language supports the renderer debugger.
  *   2. There is at least one breakpoint in the active tab OR an
  *      attached session.
  *
  * Hides itself otherwise so the existing layout is undisturbed.
  *
- * Reference: implementation and docs/DEBUGGER_ADR.md.
+ * Reference: docs/DEBUGGER_ADR.md.
  */
 export function DebuggerDrawer({
   activeTabId,
@@ -48,8 +51,6 @@ export function DebuggerDrawer({
   activeLanguage: Language | null | undefined;
 }) {
   const { t } = useTranslation();
-  // implementation — debugger is baseline; the Settings master toggle is gone.
-  const debuggerEnabled = true;
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
@@ -57,6 +58,7 @@ export function DebuggerDrawer({
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
+  const watches = useDebuggerStore((state) => state.watches);
   // Toolbar actions are global, even though drawer visibility and the
   // summary pill stay scoped to the active editor tab.
   const allBreakpointCount = Object.keys(allBreakpoints).length;
@@ -84,9 +86,32 @@ export function DebuggerDrawer({
     return count;
   });
 
+  useEffect(() => {
+    if (!session) return;
+    dispatchDebuggerControl({
+      type: 'set-breakpoints',
+      breakpoints: Object.values(allBreakpoints)
+        .filter(breakpoint => breakpoint.tabId === session.tabId && breakpoint.enabled)
+        .map(breakpoint => ({
+          line: breakpoint.line,
+          mode: breakpoint.mode,
+          condition: breakpoint.condition,
+          logMessage: breakpoint.logMessage,
+        })),
+    });
+  }, [allBreakpoints, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    dispatchDebuggerControl({
+      type: 'set-watches',
+      watches: watches.map(watch => watch.expression),
+    });
+  }, [session, watches]);
+
   // Keep unsupported languages and tabs with no debugger state from
   // resizing the editor layout.
-  if (!debuggerEnabled || !supportsDebugger) return null;
+  if (!supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
 
   const isPaused = Boolean(pausedFrame);
@@ -99,7 +124,13 @@ export function DebuggerDrawer({
       : 'debugger.empty.ready';
   // Some runtimes can pause without stack metadata; do not expose a
   // step-out action that the worker cannot satisfy.
-  const canStepOut = isPaused && (pausedFrame?.callStack.length ?? 0) > 0;
+  const canStepOut =
+    isPaused &&
+    (pausedFrame?.callStack.length ?? 0) > 0 &&
+    !(
+      session?.runtime === 'python' &&
+      pausedFrame?.callStack[0]?.functionName === '<module>'
+    );
   const breakpointSummary =
     breakpointCount > 0
       ? t('debugger.breakpoints.summary', {
@@ -130,13 +161,13 @@ export function DebuggerDrawer({
       : t('debugger.breakpoints.clearAll.hint');
 
   const sendResume = () => {
-    postDebuggerMessage({ type: 'resume' });
+    dispatchDebuggerControl({ type: 'resume' });
     // Optimistically clear the pause state so stale variables/callstack
     // are not shown while the worker resumes execution.
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const sendStep = (mode: 'over' | 'into' | 'out') => {
-    postDebuggerMessage({ type: 'step', mode });
+    dispatchDebuggerControl({ type: 'step', mode });
     // A step command immediately invalidates the current frame; the
     // worker will publish a fresh pause frame if execution stops again.
     useDebuggerStore.getState().setPausedFrame(null);
@@ -147,9 +178,10 @@ export function DebuggerDrawer({
     // `run-complete` / `crash` / `stop` reasons; this branch covers the
     // explicit user-initiated detach via the drawer button.
     const language = session?.runtime ?? 'js';
-    void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
-    postDebuggerMessage({ type: 'set-breakpoints', breakpoints: [] });
-    postDebuggerMessage({ type: 'resume' });
+    if (language !== 'python') {
+      void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
+    }
+    dispatchDebuggerRunToEnd();
     useDebuggerStore.getState().setPausedFrame(null);
     detachSession();
   };
@@ -328,21 +360,45 @@ export function DebuggerDrawer({
           </Tooltip>
         </div>
       </header>
-      {drawerCollapsed ? null : !isPaused ? (
-        <p
-          id="debugger-drawer-body"
-          className="min-h-0 flex-1 px-4 pb-3 text-body-sm text-muted"
-          data-testid="debugger-empty"
-        >
-          {t(idleCopyKey)}
-        </p>
-      ) : (
-        // The branch is guarded by `isPaused`, so the non-null frame reads
-        // below reflect the runtime contract instead of optional UI state.
-        <div
-          id="debugger-drawer-body"
-          className="grid min-h-0 flex-1 gap-3 overflow-auto px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
-        >
+      {drawerCollapsed ? null : (
+        <div id="debugger-drawer-body" className="grid min-h-0 flex-1 gap-2 overflow-auto px-4 pb-3">
+          {!isPaused ? (
+            <p className="text-body-sm text-muted" data-testid="debugger-empty">
+              {t(idleCopyKey)}
+            </p>
+          ) : pausedFrame?.conditionError ? (
+            <p
+              className="rounded-lg border border-warning/35 bg-warning/8 px-3 py-2 text-caption text-warning"
+              data-testid="debugger-condition-error"
+            >
+              {t('debugger.breakpoints.conditionError', {
+                message: pausedFrame.conditionError,
+              })}
+            </p>
+          ) : null}
+          <div
+            className={`grid min-h-0 gap-3 ${
+              isPaused
+                ? 'xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)]'
+                : 'lg:grid-cols-2'
+            }`}
+          >
+            <DrawerSection
+              title={t('debugger.breakpoints.panel.title')}
+              testid="debugger-breakpoints"
+            >
+              <DebuggerBreakpointList
+                activeTabId={activeTabId}
+                activeLanguage={activeLanguage}
+              />
+            </DrawerSection>
+            <DrawerSection title={t('debugger.paused.watches')} testid="debugger-watches">
+              <DebuggerWatchList runtime={session?.runtime ?? null} />
+            </DrawerSection>
+            {isPaused ? (
+              // The branch is guarded by `isPaused`, so the non-null frame reads
+              // below reflect the runtime contract instead of optional UI state.
+              <>
           <DrawerSection
             title={t('debugger.paused.locals')}
             testid="debugger-locals"
@@ -383,29 +439,9 @@ export function DebuggerDrawer({
               </ol>
             )}
           </DrawerSection>
-          <DrawerSection
-            title={t('debugger.paused.watches')}
-            testid="debugger-watches"
-          >
-            {Object.keys(pausedFrame!.watchResults).length === 0 ? (
-              <p className="text-caption text-muted">
-                {t('debugger.paused.watches.empty')}
-              </p>
-            ) : (
-              <ul className="grid gap-1">
-                {Object.entries(pausedFrame!.watchResults).map(([expr, result]) => (
-                  <li key={expr} className="font-mono text-caption text-foreground">
-                    <span className="text-muted">{expr}: </span>
-                    {result.pending
-                      ? t('debugger.paused.watches.pending')
-                      : result.error
-                        ? `error: ${result.error}`
-                        : (result.value ?? '—')}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </DrawerSection>
+              </>
+            ) : null}
+          </div>
         </div>
       )}
     </section>

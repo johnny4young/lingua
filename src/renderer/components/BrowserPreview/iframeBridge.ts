@@ -37,7 +37,7 @@
  * what is posted.
  */
 
-export interface BridgeConsoleMessage {
+interface BridgeConsoleMessage {
   __lingua: 'browser-preview';
   runId: string;
   type: 'console';
@@ -45,7 +45,7 @@ export interface BridgeConsoleMessage {
   args: string[];
 }
 
-export interface BridgeErrorMessage {
+interface BridgeErrorMessage {
   __lingua: 'browser-preview';
   runId: string;
   type: 'error';
@@ -56,20 +56,20 @@ export interface BridgeErrorMessage {
   stack?: string;
 }
 
-export interface BridgeRejectionMessage {
+interface BridgeRejectionMessage {
   __lingua: 'browser-preview';
   runId: string;
   type: 'unhandledrejection';
   message: string;
 }
 
-export interface BridgeReadyMessage {
+interface BridgeReadyMessage {
   __lingua: 'browser-preview';
   runId: string;
   type: 'ready';
 }
 
-export interface BridgeDoneMessage {
+interface BridgeDoneMessage {
   __lingua: 'browser-preview';
   runId: string;
   type: 'done';

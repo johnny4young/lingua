@@ -1,13 +1,11 @@
 import { create } from 'zustand';
-import type {
-  EditorDiagnostic,
-  ExecutionError,
-  LineTimingEntry,
-  RuntimeTimeoutPreset,
-} from '../types';
+import type { Language } from '../types/language';
+import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
+import type { EditorDiagnostic, ExecutionError, LineTimingEntry } from '../types/execution';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 
 /**
  * implementation — terminator summary surfaced via `<RunStatusPill>`.
@@ -15,10 +13,15 @@ import type { RichOutputPayload } from '../../shared/richOutput';
  * self-gates on a single object instead of re-deriving the kind
  * from `error.message` string matching.
  */
-export interface RunTerminationSummary {
+interface RunTerminationSummary {
   kind: 'success' | 'error' | 'timeout' | 'stopped';
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   timeoutMs?: number;
+}
+
+interface ManualExecutionTarget {
+  language: Language;
+  runtimeMode?: RuntimeMode;
 }
 
 export interface LineResult {
@@ -47,18 +50,40 @@ export interface LineResult {
   payload?: RichOutputPayload;
 }
 
+export type StickyLineResult = LineResult & {
+  type: 'watch' | 'autoLog';
+};
+
+export function isStickyLineResult(
+  result: LineResult
+): result is StickyLineResult {
+  return result.type === 'watch' || result.type === 'autoLog';
+}
+
+export function stickyLineResultKey(
+  result: Pick<StickyLineResult, 'line' | 'type'>
+): string {
+  return `${result.type}:${result.line}`;
+}
+
 /**
  * implementation — snapshot of the last clean auto-run so the gate
- * can restore it after a transient incomplete edit. Only carries the
- * panel-render fields; `executionSource` / `error` / `diagnostics`
- * intentionally NOT included — those are run-cycle state, not
- * preserved across the gate's short-circuit.
+ * can restore it after a transient incomplete edit. Carries the panel-render
+ * fields plus source identity for sticky rows; `executionSource` / `error` /
+ * `diagnostics` are intentionally NOT included because those are run-cycle
+ * state, not preserved across the gate's short-circuit.
  */
 export interface ResultSnapshot {
   lineResults: LineResult[];
   fullOutput: string;
   stdinConsumed: { count: number; total: number } | null;
   executionTime: number | null;
+  /**
+   * Exact source text for each sticky inline row at capture time. This stays
+   * in the tab-scoped in-memory snapshot only; failed auto-runs use it to
+   * avoid restoring a watch or auto-log value after its expression changes.
+   */
+  stickySourceLines?: Record<string, string>;
   /**
    * implementation — language id the snapshot belongs to. The Compare
    * toggle in the result-panel header reads this to refuse rendering
@@ -128,6 +153,14 @@ interface ResultState {
   isAutoRunning: boolean;
   /** Whether a user-triggered run/validation is currently executing */
   isManualRunning: boolean;
+  /** Whether the active manual run is bootstrapping its runtime */
+  isManualInitializing: boolean;
+  /** Runtime bootstrap or compilation status shared by every run control */
+  manualLoadingMessage: string | null;
+  /** User intent for the active manual execution */
+  manualRunMode: 'run' | 'debug' | null;
+  /** Runner identity used by any surface that asks to stop the active run */
+  manualExecutionTarget: ManualExecutionTarget | null;
   /** Origin of the currently surfaced execution state */
   executionSource: 'manual' | 'auto' | null;
   /**
@@ -200,6 +233,10 @@ interface ResultState {
   setExecutionTime: (time: number | null) => void;
   setIsAutoRunning: (running: boolean) => void;
   setIsManualRunning: (running: boolean) => void;
+  setIsManualInitializing: (initializing: boolean) => void;
+  setManualLoadingMessage: (message: string | null) => void;
+  setManualRunMode: (mode: 'run' | 'debug' | null) => void;
+  setManualExecutionTarget: (target: ManualExecutionTarget | null) => void;
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
   setAutoRunGateReason: (reason: AutoRunGateReason | null) => void;
   /**
@@ -226,9 +263,11 @@ interface ResultState {
    * drift (a Save-As that flips JS → Python invalidates the
    * comparator). Optional for legacy callers; missing language
    * defaults to `'unknown'` and the Compare toggle treats those
-   * snapshots as gated-out.
+   * snapshots as gated-out. Runtime callers also pass `code` so sticky
+   * rows receive source identity; omitting it conservatively disables
+   * failed-run restoration for those rows.
    */
-  captureSuccessfulSnapshot: (language?: string) => void;
+  captureSuccessfulSnapshot: (language?: string, code?: string) => void;
   /** implementation — restore the last successful snapshot if any. */
   restoreLastSuccessfulSnapshot: () => boolean;
   /**
@@ -351,6 +390,10 @@ export const useResultStore = create<ResultState>((set, get) => ({
   executionTime: null,
   isAutoRunning: false,
   isManualRunning: false,
+  isManualInitializing: false,
+  manualLoadingMessage: null,
+  manualRunMode: null,
+  manualExecutionTarget: null,
   executionSource: null,
   autoRunGateReason: null,
   lastSuccessfulSnapshot: null,
@@ -373,13 +416,31 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setExecutionTime: (executionTime) => set({ executionTime }),
   setIsAutoRunning: (isAutoRunning) => set({ isAutoRunning }),
   setIsManualRunning: (isManualRunning) => set({ isManualRunning }),
+  setIsManualInitializing: (isManualInitializing) =>
+    set({ isManualInitializing }),
+  setManualLoadingMessage: (manualLoadingMessage) =>
+    set({ manualLoadingMessage }),
+  setManualRunMode: (manualRunMode) => set({ manualRunMode }),
+  setManualExecutionTarget: (manualExecutionTarget) =>
+    set({ manualExecutionTarget }),
   setExecutionSource: (executionSource) => set({ executionSource }),
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
   setRunTermination: (runTermination) => set({ runTermination }),
   setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
   setScopeSnapshot: (scopeSnapshot) => set({ scopeSnapshot }),
-  captureSuccessfulSnapshot: (language) => {
+  captureSuccessfulSnapshot: (language, code) => {
     const { lineResults, fullOutput, stdinConsumed, executionTime, snapshotRing } = get();
+    const sourceLines = typeof code === 'string' ? code.split('\n') : null;
+    const stickySourceLines = sourceLines
+      ? Object.fromEntries(
+          lineResults
+            .filter(isStickyLineResult)
+            .map((entry) => [
+              stickyLineResultKey(entry),
+              sourceLines[entry.line - 1] ?? '',
+            ])
+        )
+      : undefined;
     const fresh: ResultSnapshot = {
       // Defensive copy of lineResults so a later mutation of the
       // live array does not retroactively edit the snapshot.
@@ -387,6 +448,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
       fullOutput,
       stdinConsumed,
       executionTime,
+      ...(stickySourceLines ? { stickySourceLines } : {}),
       // implementation — `'unknown'` keeps the field present but treats the
       // snapshot as language-gated for legacy callers that don't
       // pass the language. The Compare toggle rejects unknown

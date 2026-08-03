@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Braces, Check, Copy, Keyboard, Search, Settings as SettingsIcon, X } from 'lucide-react';
+import { Braces, Check, Copy, Keyboard, Settings as SettingsIcon, X } from 'lucide-react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
@@ -19,6 +19,7 @@ import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { AiSection } from './AiSection';
 import { PluginsSection } from './PluginsSection';
+import { LocalMcpSection } from './LocalMcpSection';
 import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
 import { RunCapsulesSection } from './RunCapsulesSection';
@@ -32,29 +33,38 @@ import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { EyebrowMono } from '../ui/primitives';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import {
-  KEYBOARD_SHORTCUTS,
   formatShortcutCombo,
   resolveCombos,
   resolveShortcutDisplayPlatform,
 } from '../../data/keyboardShortcuts';
+import { KEYBOARD_SHORTCUT_REFERENCE } from '../../data/keyboardShortcutReference';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { cn } from '../../utils/cn';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
-import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
-import { clearPendingSettingsTab, peekPendingSettingsTab } from './pendingSettingsTab';
+import { RAIL_ITEMS, type TabId } from './settingsRailModel';
+import {
+  clearPendingSettingsTab,
+  peekPendingSettingsTab,
+  peekPendingSettingsTarget,
+} from './pendingSettingsTab';
+import { SettingsSearch } from './SettingsSearch';
+import {
+  searchSettings,
+  type SettingsSearchResult,
+} from './settingsSearchModel';
 
 /**
  * internal Signal-Slate v2 — Settings modal with a left rail.
  *
  * The v1 layout used top tabs. v2 moves navigation to a 220px rail
  * with two groups (Workspace + Advanced) so the modal feels closer to
- * a native preferences pane, and exposes a filter bar (`⌘,`) that
- * highlights matching rail rows so keyboard-first users can jump
- * directly to a setting. An "Effective config" JSON tile renders at
- * the bottom of each tab — the same view a runtime would see.
+ * a native preferences pane. Its searchable command bar (`⌘,`) indexes
+ * sections and high-value controls across every tab, then activates,
+ * scrolls to, and focuses the selected target. An "Effective config"
+ * JSON tile renders at the bottom of each tab — the same view a runtime
+ * would see.
  *
- * Tab inventory (10 rail items):
+ * Tab inventory (11 rail items):
  *
  *   Workspace
  *     1. general      → About + Updates
@@ -66,11 +76,12 @@ import { clearPendingSettingsTab, peekPendingSettingsTab } from './pendingSettin
  *     7. account      → License + AI + RunCapsules
  *
  *   Advanced
- *     8. shortcuts    → CTA to open the existing KeyboardShortcuts
+ *     8. integrations → local MCP server controls and trust boundary
+ *     9. shortcuts    → CTA to open the existing KeyboardShortcuts
  *                       modal (keeps the heavy table out of this
  *                       surface)
- *     9. plugins      → PluginsSection (was nested under "editor")
- *    10. recovery     → RecoverySection (was nested under "account")
+ *    10. plugins      → PluginsSection (was nested under "editor")
+ *    11. recovery     → RecoverySection (was nested under "account")
  *
  * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
  * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
@@ -85,8 +96,9 @@ interface SettingsModalProps {
 interface SettingsTopBarProps {
   active: TabId;
   filter: string;
-  matchCount: number;
+  searchResults: readonly SettingsSearchResult[];
   onFilterChange: (next: string) => void;
+  onSearchSelect: (result: SettingsSearchResult) => void;
   onClose: () => void;
   filterInputRef: RefObject<HTMLInputElement | null>;
 }
@@ -94,8 +106,9 @@ interface SettingsTopBarProps {
 function SettingsTopBar({
   active,
   filter,
-  matchCount,
+  searchResults,
   onFilterChange,
+  onSearchSelect,
   onClose,
   filterInputRef,
 }: SettingsTopBarProps) {
@@ -109,59 +122,37 @@ function SettingsTopBar({
         <span className="text-fg-subtle">›</span>
         <span className="font-medium text-fg-base">{activeLabel ? t(activeLabel) : ''}</span>
       </div>
-      <div
-        className={cn(
-          'mx-2 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md border bg-bg-base px-2.5 transition-colors',
-          filter ? 'border-accent bg-primary-soft' : 'border-border/80'
-        )}
-      >
-        <Search
-          size={12}
-          className={cn(filter ? 'text-accent-fg' : 'text-fg-subtle')}
-          aria-hidden
-        />
-        <input
-          ref={filterInputRef}
-          type="text"
-          value={filter}
-          onChange={e => onFilterChange(e.target.value)}
-          placeholder={t('settings.filter.placeholder')}
-          className={cn(
-            'min-w-0 flex-1 bg-transparent font-mono text-body-sm outline-none placeholder:text-fg-subtle',
-            filter ? 'font-semibold text-accent-fg' : 'text-fg-muted'
-          )}
-          data-testid="settings-filter-input"
-          aria-label={t('settings.filter.placeholder')}
-        />
-        {filter ? (
-          <>
-            <span className="font-mono text-eyebrow text-accent-fg">
-              {matchCount === 0
-                ? t('settings.filter.noMatches')
-                : t('settings.filter.matches', { count: matchCount })}
-            </span>
-            <button
-              type="button"
-              onClick={() => onFilterChange('')}
-              className="text-accent-fg hover:opacity-70"
-              aria-label={t('settings.filter.clear')}
-            >
-              <X size={11} aria-hidden />
-            </button>
-          </>
-        ) : (
-          <span className="flex gap-1">
-            <Kbd>⌘</Kbd>
-            <Kbd>,</Kbd>
-          </span>
-        )}
-      </div>
+      <SettingsSearch
+        inputRef={filterInputRef}
+        query={filter}
+        results={searchResults}
+        onQueryChange={onFilterChange}
+        onSelect={onSearchSelect}
+      />
       <div className="flex items-center gap-2">
         <Kbd>Esc</Kbd>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
           <X size={14} />
         </IconButton>
       </div>
+    </div>
+  );
+}
+
+function SettingsSearchTarget({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-settings-search-target={id}
+      tabIndex={-1}
+      className="scroll-mt-5 rounded-lg outline-none focus:ring-2 focus:ring-accent/70 focus:ring-offset-4 focus:ring-offset-bg-base"
+    >
+      {children}
     </div>
   );
 }
@@ -212,6 +203,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   privacy: [],
   account: ['privacyTelemetryEnabled'],
   shortcuts: ['shortcutOverrides'],
+  integrations: [],
   plugins: ['enabledPlugins', 'pluginRoots'],
   recovery: [],
 };
@@ -317,7 +309,7 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
  * the surface reads as a preview, not a bare CTA (proto
  * `settings-proto.jsx` shortcuts section). Each row reuses the canonical
  * `shortcuts.item.*.label` key and resolves its keystroke from the same
- * `KEYBOARD_SHORTCUTS` catalog the full list + command palette read —
+ * lazy shortcut reference catalog that the full shortcut editor reads —
  * so user overrides and the platform-aware glyphs (⌘ / Ctrl) match
  * what the KeyboardShortcuts modal renders. We keep the keystroke as a
  * `<Kbd>` chip (chrome primitive), not a StatusBadge: it's an input
@@ -343,7 +335,7 @@ function ShortcutsPreviewCard() {
   const rows = useMemo(
     () =>
       SHORTCUTS_PREVIEW_IDS.flatMap(id => {
-        const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === id);
+        const definition = KEYBOARD_SHORTCUT_REFERENCE.find(entry => entry.id === id);
         if (!definition) return [];
         const [primaryCombo] = resolveCombos(definition, overrides);
         return [
@@ -391,13 +383,17 @@ export function SettingsModal({
     clearPendingSettingsTab();
   }, []);
   const [filter, setFilter] = useState('');
+  const [pendingSearchTarget, setPendingSearchTarget] = useState<string | null>(
+    () => peekPendingSettingsTarget()
+  );
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   // implementation detail — siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
-  useCommandListener('settings.navigate', ({ tab }, context) => {
+  useCommandListener('settings.navigate', ({ tab, targetId }, context) => {
     if (RAIL_ITEMS.some(it => it.id === tab)) {
       setActiveTab(tab);
+      setPendingSearchTarget(targetId ?? null);
       context.markHandled();
     }
   });
@@ -429,13 +425,37 @@ export function SettingsModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [filterInputRef]);
 
-  const matchCount = useMemo(
-    () => (filter ? RAIL_ITEMS.filter(it => matchesFilter(it, filter, t)).length : 0),
-    [filter, t]
+  const searchResults = useMemo(() => searchSettings(filter, t), [filter, t]);
+  const matchingTabs = useMemo(
+    () => [...new Set(searchResults.map(result => result.tab))],
+    [searchResults]
   );
+
+  useEffect(() => {
+    if (!pendingSearchTarget) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-settings-search-target="${pendingSearchTarget}"]`
+      );
+      target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      target?.focus({ preventScroll: true });
+      setPendingSearchTarget(current =>
+        current === pendingSearchTarget ? null : current
+      );
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, pendingSearchTarget]);
 
   const handleSelect = useCallback((id: TabId) => {
     setActiveTab(id);
+  }, []);
+
+  const handleSearchSelect = useCallback((result: SettingsSearchResult) => {
+    setActiveTab(result.tab);
+    setFilter('');
+    setPendingSearchTarget(result.targetId);
   }, []);
 
   const renderTabContent = (): ReactNode => {
@@ -443,59 +463,90 @@ export function SettingsModal({
       case 'general':
         return (
           <div className="space-y-6">
-            <AboutSection onOpenWhatsNew={onOpenWhatsNew} onStartGuidedTour={onStartGuidedTour} />
-            <UpdatesSection />
+            <SettingsSearchTarget id="section-about">
+              <AboutSection
+                onOpenWhatsNew={onOpenWhatsNew}
+                onStartGuidedTour={onStartGuidedTour}
+              />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-updates">
+              <UpdatesSection />
+            </SettingsSearchTarget>
             {/* implementation — Onboarding choreography reset toggles */}
-            <OnboardingSection />
+            <SettingsSearchTarget id="section-onboarding">
+              <OnboardingSection />
+            </SettingsSearchTarget>
             {/* implementation Slice B implementation note — Reset recipe progress */}
-            <RecipesProgressResetSection />
+            <SettingsSearchTarget id="section-recipe-progress">
+              <RecipesProgressResetSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'appearance':
         return (
           <div className="space-y-6">
-            <AppearanceSection />
-            <LayoutSection />
+            <SettingsSearchTarget id="section-appearance">
+              <AppearanceSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-layout">
+              <LayoutSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'editor':
         return (
           <div className="space-y-6">
-            <EditorSection />
-            <ExecutionHistorySection />
-            <UtilitiesSection />
+            <SettingsSearchTarget id="section-editor">
+              <EditorSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-execution-history">
+              <ExecutionHistorySection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-utilities">
+              <UtilitiesSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'languages':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-languages">
             <LanguagesSection />
-          </div>
+          </SettingsSearchTarget>
         );
       case 'environment':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-environment">
             <EnvVarsSection />
-          </div>
+          </SettingsSearchTarget>
         );
       case 'privacy':
         return (
           <div className="space-y-6">
-            <PrivacySection />
-            <PrivacyTrustSection />
+            <SettingsSearchTarget id="section-privacy">
+              <PrivacySection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-privacy-trust">
+              <PrivacyTrustSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'account':
         return (
           <div className="space-y-6">
-            <LicenseSection />
-            <AiSection />
-            <RunCapsulesSection />
+            <SettingsSearchTarget id="section-license">
+              <LicenseSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-ai">
+              <AiSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-run-capsules">
+              <RunCapsulesSection />
+            </SettingsSearchTarget>
           </div>
         );
       case 'shortcuts':
         return (
-          <div className="space-y-7">
+          <SettingsSearchTarget id="section-shortcuts">
             <SettingsSection
               eyebrow={t('settings.shortcuts.eyebrow')}
               description={t('settings.shortcuts.description')}
@@ -529,19 +580,25 @@ export function SettingsModal({
                 </button>
               </div>
             </SettingsSection>
-          </div>
+          </SettingsSearchTarget>
         );
       case 'plugins':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-plugins">
             <PluginsSection />
-          </div>
+          </SettingsSearchTarget>
+        );
+      case 'integrations':
+        return (
+          <SettingsSearchTarget id="section-local-mcp">
+            <LocalMcpSection />
+          </SettingsSearchTarget>
         );
       case 'recovery':
         return (
-          <div className="space-y-6">
+          <SettingsSearchTarget id="section-recovery">
             <RecoverySection />
-          </div>
+          </SettingsSearchTarget>
         );
     }
   };
@@ -561,15 +618,21 @@ export function SettingsModal({
 
         {/* Rail spans all rows on the left */}
         <div className="row-span-3">
-          <SettingsRail active={activeTab} filter={filter} onSelect={handleSelect} />
+          <SettingsRail
+            active={activeTab}
+            filter={filter}
+            matchingTabs={matchingTabs}
+            onSelect={handleSelect}
+          />
         </div>
 
         {/* Top bar */}
         <SettingsTopBar
           active={activeTab}
           filter={filter}
-          matchCount={matchCount}
+          searchResults={searchResults}
           onFilterChange={setFilter}
+          onSearchSelect={handleSearchSelect}
           onClose={onClose}
           filterInputRef={filterInputRef}
         />

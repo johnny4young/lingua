@@ -9,7 +9,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Globe, Package, Rabbit, Terminal, Zap } from 'lucide-react';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
-import type { EditorState, FileTab, Language } from '../../types';
+import type { EditorState, FileTab } from '../../types/editor';
+import type { Language } from '../../types/language';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
 

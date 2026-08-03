@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 export type FormatterFailure =
   | 'unsupported'
@@ -7,13 +7,13 @@ export type FormatterFailure =
   | 'web-unavailable'
   | 'unknown';
 
-export interface FormatterOk {
+interface FormatterOk {
   ok: true;
   formatted: string;
   changed: boolean;
 }
 
-export interface FormatterErr {
+interface FormatterErr {
   ok: false;
   failure: FormatterFailure;
   message?: string;

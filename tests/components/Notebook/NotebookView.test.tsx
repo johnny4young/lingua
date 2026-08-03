@@ -63,7 +63,11 @@ const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>
 
 const TAB_ID = 'tab-test';
 
-function seedNotebookCells(cells: NotebookCellV1[], activeCellId = cells[0]?.id ?? null) {
+function seedNotebookCells(
+  cells: NotebookCellV1[],
+  activeCellId = cells[0]?.id ?? null,
+  cellRunStatus: Record<string, 'stale'> = {}
+) {
   useNotebookStore.setState({
     notebooks: {
       [TAB_ID]: {
@@ -74,7 +78,7 @@ function seedNotebookCells(cells: NotebookCellV1[], activeCellId = cells[0]?.id 
           createdAt: '2026-05-27T00:00:00.000Z',
           cells,
         },
-        cellRunStatus: {},
+        cellRunStatus,
         activeCellId,
       },
     },
@@ -246,6 +250,53 @@ describe('<NotebookView />', () => {
     // before reaching the runner, so wait for the call (matching the other
     // run-cell assertions in this file).
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+  });
+
+  it('surfaces stale outputs and explicitly refreshes the executed prefix', async () => {
+    seedNotebookCells(
+      [
+        {
+          kind: 'code',
+          id: 'cell-one',
+          language: 'javascript',
+          source: 'const first = 1',
+          outputs: [{ kind: 'text', stream: 'stdout', text: 'old first' }],
+        },
+        {
+          kind: 'code',
+          id: 'cell-two',
+          language: 'javascript',
+          source: 'console.log(first)',
+          outputs: [{ kind: 'text', stream: 'stdout', text: 'old second' }],
+        },
+      ],
+      'cell-one',
+      { 'cell-one': 'stale', 'cell-two': 'stale' }
+    );
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      structuredResult: { stdout: ['fresh'], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+
+    expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
+      /2 executed cells need a refresh/i
+    );
+    expect(screen.getAllByTestId('notebook-code-cell-stale-hint')).toHaveLength(
+      2
+    );
+    const refresh = screen.getByTestId('notebook-toolbar-refresh-stale');
+    expect(refresh.textContent).toMatch(/refresh 2/i);
+
+    await user.click(refresh);
+
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByTestId('notebook-reactivity-banner')).toBeNull()
+    );
   });
 
   it('the cell language selector switches JS to TS and emits the adoption event', async () => {
@@ -523,6 +574,34 @@ describe('<NotebookView />', () => {
     );
     expect(screen.getByTestId('notebook-toolbar-add-markdown').textContent).toContain(
       'Agregar markdown'
+    );
+  });
+
+  it('renders the lazy reactivity guidance in neutral Spanish', async () => {
+    seedNotebookCells(
+      [
+        {
+          kind: 'code',
+          id: 'cell-stale',
+          language: 'javascript',
+          source: 'console.log(1)',
+          outputs: [{ kind: 'text', stream: 'stdout', text: '1' }],
+        },
+      ],
+      'cell-stale',
+      { 'cell-stale': 'stale' }
+    );
+    await i18next.changeLanguage('es');
+    render(<NotebookView tabId={TAB_ID} />);
+
+    expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
+      /1 celda ejecutada necesita actualizarse/i
+    );
+    expect(screen.getByTestId('notebook-toolbar-refresh-stale').textContent).toMatch(
+      /actualiza 1/i
+    );
+    expect(screen.getByTestId('notebook-code-cell-stale-hint').textContent).toMatch(
+      /puede estar desactualizado/i
     );
   });
 

@@ -1,0 +1,295 @@
+/**
+ * implementation — project zip bundle export + import choreography.
+ *
+ * Export:
+ *   - Desktop: `fs:exportBundle(rootId, { entryFile, languageHint })`
+ *     packs every visible file (main excludes `node_modules` / `.git` /
+ *     `dist` / `build` via `shouldHide` — implementation note) and writes the `.zip`
+ *     through a save dialog.
+ *   - Web: collect the loaded project files via the FSA adapter, pack
+ *     with the shared `packBundle`, and trigger a Blob download
+ *     with the same binary fidelity and limits as desktop.
+ *
+ * Import (desktop only; web surfaces `projectBundle.web.unsupported`):
+ *   - The overlay supplies the raw `.zip` bytes; `fs:importBundle`
+ *     re-validates (zip-slip / zip-bomb / caps) in the trusted main
+ *     process, prompts for an empty target folder, writes the files,
+ *     and `rememberApprovedRoot`s it. We then adopt the root via the
+ *     existing `openProject(rootPath)` → `fs:reopen-root` path and open
+ *     the manifest's `entryFile` as the active tab so the import is
+ *     usable "without manual repair".
+ *
+ * Every terminal path fires exactly one closed-enum telemetry event;
+ * the qualitative reject reason additionally fires `bundle_rejected`.
+ */
+
+import type {
+  BundleExportRejectReason,
+  ProjectBundleFile,
+} from '../../shared/projectBundle';
+import { useProjectStore } from '../stores/projectStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
+import { languageFromPath } from '../utils/language';
+import { pushErrorNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
+import type { Language } from '../types/language';
+import {
+  trackBundleExported,
+  trackBundleImported,
+  trackBundleRejected,
+} from './projectBundleTelemetry';
+
+type BundleExportFailureReason =
+  | BundleExportRejectReason
+  | 'read-failed'
+  | 'write-failed';
+
+function surfaceBundleExportFailure(reason: BundleExportFailureReason): void {
+  trackBundleExported('failed', 0);
+  if (
+    reason === 'entry-too-large' ||
+    reason === 'too-large' ||
+    reason === 'too-many-files'
+  ) {
+    trackBundleRejected(reason);
+    pushErrorNotice(`projectBundle.export.${reason}`);
+    return;
+  }
+  if (reason === 'read-failed') {
+    pushErrorNotice('projectBundle.export.read-failed');
+    return;
+  }
+  pushErrorNotice('projectBundle.export.failed');
+}
+
+function basenameForRelPath(relPath: string): string {
+  const idx = relPath.lastIndexOf('/');
+  return idx >= 0 ? relPath.slice(idx + 1) : relPath;
+}
+
+export async function exportProjectBundle(): Promise<void> {
+  const project = useProjectStore.getState().currentProject;
+  if (!project) {
+    pushWarningNotice('projectBundle.export.empty');
+    trackBundleExported('empty', 0);
+    return;
+  }
+
+  // Stamp the active tab into the manifest ONLY when it belongs to this
+  // project (a scratchpad / single-file tab has no project-relative path).
+  const editor = useEditorStore.getState();
+  const active = getActiveTab(editor);
+  const entryFile = active && active.rootId === project.rootId ? active.relativePath : undefined;
+  const languageHint = entryFile ? active?.language : undefined;
+
+  const platform = typeof window !== 'undefined' ? window.lingua?.platform : undefined;
+
+  if (platform === 'web') {
+    try {
+      const indexed = await window.lingua.fs.listAllFiles(project.rootId);
+      if (indexed.length === 0) {
+        pushWarningNotice('projectBundle.export.empty');
+        trackBundleExported('empty', 0);
+        return;
+      }
+      const {
+        packBundle,
+        projectBundleExportLimit,
+        ProjectBundleExportError,
+      } = await import('../../shared/projectBundle');
+      const files: ProjectBundleFile[] = [];
+      let totalBytes = 0;
+      for (const entry of indexed) {
+        let fileSize: number;
+        try {
+          fileSize = (
+            await window.lingua.fs.stat(project.rootId, entry.relativePath)
+          ).size;
+        } catch {
+          surfaceBundleExportFailure('read-failed');
+          return;
+        }
+        let reason = projectBundleExportLimit(
+          files.length,
+          totalBytes,
+          fileSize
+        );
+        if (reason) {
+          surfaceBundleExportFailure(reason);
+          return;
+        }
+        let bytes: Uint8Array;
+        try {
+          bytes = await window.lingua.fs.readBytes(
+            project.rootId,
+            entry.relativePath
+          );
+        } catch {
+          surfaceBundleExportFailure('read-failed');
+          return;
+        }
+        reason = projectBundleExportLimit(
+          files.length,
+          totalBytes,
+          bytes.byteLength
+        );
+        if (reason) {
+          surfaceBundleExportFailure(reason);
+          return;
+        }
+        files.push({ path: entry.relativePath, bytes });
+        totalBytes += bytes.byteLength;
+      }
+      let zip: Uint8Array;
+      try {
+        zip = packBundle(files, {
+          createdAt: new Date().toISOString(),
+          entryFile,
+          languageHint,
+        });
+      } catch (error) {
+        if (error instanceof ProjectBundleExportError) {
+          surfaceBundleExportFailure(error.reason);
+          return;
+        }
+        throw error;
+      }
+      triggerBlobDownload(zip, `${project.name || 'project'}.zip`);
+      trackBundleExported('exported', files.length);
+      pushSuccessNotice('projectBundle.export.success', {
+        values: { count: files.length },
+      });
+    } catch {
+      surfaceBundleExportFailure('write-failed');
+    }
+    return;
+  }
+
+  let result;
+  try {
+    result = await window.lingua.fs.exportBundle(project.rootId, {
+      entryFile,
+      languageHint,
+    });
+  } catch {
+    // The IPC handler throws only on the deliberate denylist guard
+    // (e.g. the user picks a protected save path). Surface a graceful
+    // notice instead of letting the rejection go unhandled.
+    pushErrorNotice('projectBundle.export.failed');
+    trackBundleExported('failed', 0);
+    return;
+  }
+  if ('canceled' in result) {
+    trackBundleExported('cancelled', 0);
+    return;
+  }
+  if (!result.ok) {
+    if (result.reason === 'empty') {
+      pushWarningNotice('projectBundle.export.empty');
+      trackBundleExported('empty', 0);
+    } else {
+      surfaceBundleExportFailure(result.reason);
+    }
+    return;
+  }
+  trackBundleExported('exported', result.fileCount);
+  pushSuccessNotice('projectBundle.export.success', {
+    values: { count: result.fileCount },
+  });
+}
+
+export async function importProjectBundle(zipBytes: Uint8Array): Promise<void> {
+  const platform = typeof window !== 'undefined' ? window.lingua?.platform : undefined;
+  if (platform === 'web') {
+    pushWarningNotice('projectBundle.web.unsupported');
+    trackBundleImported('rejected', 0);
+    return;
+  }
+
+  let result;
+  try {
+    result = await window.lingua.fs.importBundle(zipBytes);
+  } catch {
+    // Denylist guard throw (protected target dir) — graceful notice
+    // rather than an unhandled rejection.
+    pushErrorNotice('projectBundle.import.failed');
+    trackBundleImported('rejected', 0);
+    return;
+  }
+  if ('canceled' in result) {
+    trackBundleImported('cancelled', 0);
+    return;
+  }
+  if (!result.ok) {
+    if (result.reason === 'non-empty-dir') {
+      pushWarningNotice('projectBundle.import.nonEmptyDir');
+      trackBundleImported('non-empty-dir', 0);
+      return;
+    }
+    if (result.reason === 'write-failed') {
+      pushErrorNotice('projectBundle.import.failed');
+      trackBundleImported('rejected', 0);
+      return;
+    }
+    // Structural archive reject — surface the qualitative reason AND
+    // fire the dedicated reject event for the maintainer's funnel.
+    trackBundleRejected(result.reason);
+    trackBundleImported('rejected', 0);
+    pushErrorNotice(`projectBundle.reject.${result.reason}`);
+    return;
+  }
+
+  const openProject = useProjectStore.getState().openProject;
+  try {
+    await openProject(result.rootPath);
+  } catch {
+    pushErrorNotice('projectBundle.import.failed');
+    trackBundleImported('rejected', 0);
+    return;
+  }
+
+  const project = useProjectStore.getState().currentProject;
+  if (!project || project.rootPath !== result.rootPath) {
+    pushErrorNotice('projectBundle.import.failed');
+    trackBundleImported('rejected', 0);
+    return;
+  }
+  if (result.entryFile) {
+    const language: Language | undefined = languageFromPath(result.entryFile);
+    if (language) {
+      try {
+        const openFile = useEditorStore.getState().openFile;
+        await openFile(
+          project.rootId,
+          result.entryFile,
+          basenameForRelPath(result.entryFile),
+          language,
+          `${result.rootPath}/${result.entryFile}`
+        );
+      } catch {
+        // Tree is already populated; failing to auto-open the entry
+        // file is non-fatal — the user can click it in the tree.
+      }
+    }
+  }
+
+  trackBundleImported('imported', result.fileCount);
+  pushSuccessNotice('projectBundle.import.success');
+}
+
+/** Trigger a browser download of `bytes` as `filename` (web export). */
+function triggerBlobDownload(bytes: Uint8Array, filename: string): void {
+  // `bytes as BlobPart` — fflate types its output as
+  // `Uint8Array<ArrayBufferLike>`, which the DOM lib's `BlobPart` (an
+  // `ArrayBufferView<ArrayBuffer>`) rejects under TS's SharedArrayBuffer
+  // variance check. The runtime value is a plain Uint8Array; the cast is
+  // sound.
+  const blob = new Blob([bytes as BlobPart], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

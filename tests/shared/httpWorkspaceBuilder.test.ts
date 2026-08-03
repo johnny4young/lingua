@@ -14,17 +14,24 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  buildAuthHeader,
-  buildCurlCommand,
-  composeRequestHeaders,
+  buildAuthHeader as facadeBuildAuthHeader,
+  buildCurlCommand as facadeBuildCurlCommand,
+  composeRequestHeaders as facadeComposeRequestHeaders,
   createBlankHttpRequest,
-  DEFAULT_API_KEY_HEADER,
-  paramsToUrl,
   parseHttpRequest,
-  reconcileParamsWithUrl,
-  urlToParams,
   type HttpRequestV1,
 } from '../../src/shared/httpWorkspace';
+import { buildCurlCommand } from '../../src/shared/httpWorkspaceCurl';
+import {
+  buildAuthHeader,
+  composeRequestHeaders,
+  DEFAULT_API_KEY_HEADER,
+} from '../../src/shared/httpWorkspaceHeaders';
+import {
+  paramsToUrl,
+  reconcileParamsWithUrl,
+  urlToParams,
+} from '../../src/shared/httpWorkspaceQuery';
 import {
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
@@ -53,6 +60,14 @@ function env(
     updatedAt: '2026-06-16T00:00:00.000Z',
   };
 }
+
+describe('historical facade compatibility', () => {
+  it('re-exports the canonical header helpers', () => {
+    expect(facadeBuildAuthHeader).toBe(buildAuthHeader);
+    expect(facadeComposeRequestHeaders).toBe(composeRequestHeaders);
+    expect(facadeBuildCurlCommand).toBe(buildCurlCommand);
+  });
+});
 
 describe('urlToParams / paramsToUrl — two-way sync', () => {
   it('derives enabled rows from a URL query string', () => {

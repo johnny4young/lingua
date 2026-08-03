@@ -11,6 +11,8 @@ import {
 import { LspProcess } from './lspProcess';
 import type { JsonRpcNotification } from './lspProcess';
 import { pathToFileUri } from './rustAnalyzerLauncher';
+import type { GoplsStatus } from '../../shared/lspLauncherTypes';
+export type { GoplsStatus } from '../../shared/lspLauncherTypes';
 
 /**
  * implementation — gopls launcher.
@@ -40,15 +42,6 @@ import { pathToFileUri } from './rustAnalyzerLauncher';
  */
 
 const execFileAsync = promisify(execFile);
-
-export type GoplsStatus =
-  | { kind: 'unknown' }
-  | { kind: 'starting' }
-  | { kind: 'running'; version: string }
-  | { kind: 'missing'; reason: string }
-  | { kind: 'startup-failed'; error: string }
-  | { kind: 'degraded'; error: string }
-  | { kind: 'stopped' };
 
 export interface GoplsLauncherOptions {
   workspaceRoot?: string;

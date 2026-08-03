@@ -3,16 +3,14 @@ import type { RefObject } from 'react';
 import { ChevronUp, PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
-import { FileTree } from '../FileTree';
+import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
-import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
+import { FloatingVariablesCardHost } from '../Editor/FloatingVariablesCardHost';
 import { AppChrome } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
-import { BottomPanel } from './BottomPanel';
 import { PanelChipsRow } from './PanelChipsRow';
-import { Toolbar } from '../Toolbar';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -20,7 +18,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { cn } from '../../utils/cn';
-import type { LayoutPreset } from '../../types';
+import type { LayoutPreset } from '../../types/settings';
 import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
@@ -42,6 +40,11 @@ function getFocusableElements(container: HTMLElement) {
 const CodeEditor = lazy(async () => {
   const module = await import('../Editor/CodeEditor');
   return { default: module.CodeEditor };
+});
+
+const LazyBottomPanel = lazy(async () => {
+  const module = await import('./BottomPanel');
+  return { default: module.BottomPanel };
 });
 
 const LazyNotebookView = lazy(async () => {
@@ -281,7 +284,7 @@ function EditorArea() {
                 <ResultPanel />
               </Panel>
             </Group>
-            <FloatingVariablesCard />
+            <FloatingVariablesCardHost />
           </>
         ) : (
           <Suspense fallback={<EditorLoadingState />}>
@@ -300,6 +303,27 @@ function EditorLoadingState() {
     <div className="flex h-full items-center justify-center bg-background text-body text-muted">
       {t('layout.loadingEditor')}
     </div>
+  );
+}
+
+function BottomPanelLoadingState() {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      role="status"
+      className="flex h-full items-center justify-center bg-background/65 text-body text-muted"
+    >
+      {t('layout.loadingPanel')}
+    </div>
+  );
+}
+
+function BottomPanelSurface({ debuggerAvailable }: { debuggerAvailable: boolean }) {
+  return (
+    <Suspense fallback={<BottomPanelLoadingState />}>
+      <LazyBottomPanel debuggerAvailable={debuggerAvailable} />
+    </Suspense>
   );
 }
 
@@ -330,6 +354,8 @@ interface MainContentProps {
    * even when the console drawer was previously collapsed.
    */
   showRecipeTabBody: boolean;
+  /** Keep the drawer mounted when the project terminal is selected. */
+  showProjectTerminalTabBody: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -340,6 +366,7 @@ function MainContent({
   showStdinTabBody,
   showVariablesTabBody,
   showRecipeTabBody,
+  showProjectTerminalTabBody,
   layoutPreset,
 }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
@@ -359,7 +386,8 @@ function MainContent({
     showBrowserPreviewPanel ||
     showStdinTabBody ||
     showVariablesTabBody ||
-    showRecipeTabBody;
+    showRecipeTabBody ||
+    showProjectTerminalTabBody;
 
   if (!showBottomPanel) return <EditorAreaWithConsoleRestoreStrip />;
 
@@ -376,7 +404,7 @@ function MainContent({
         </Panel>
         <ResizeHandle orientation="vertical" />
         <Panel id="console-panel" defaultSize="40%" minSize={260}>
-          <BottomPanel debuggerAvailable={showDebuggerPanel} />
+          <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
         </Panel>
       </Group>
     );
@@ -395,7 +423,7 @@ function MainContent({
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="console-panel" defaultSize="30%" minSize={160}>
-        <BottomPanel debuggerAvailable={showDebuggerPanel} />
+        <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
       </Panel>
     </Group>
   );
@@ -467,7 +495,7 @@ function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
       tabIndex={-1}
       className="surface-panel h-full min-w-0 overflow-hidden"
     >
-      <FileTree onNavigate={onNavigate} />
+      <FileTreeHost onNavigate={onNavigate} />
     </div>
   );
 }
@@ -503,6 +531,7 @@ export function AppLayout({
     showStdinTabBody,
     showVariablesTabBody,
     showRecipeTabBody,
+    showProjectTerminalTabBody,
   } = useLayoutAvailability();
   // internal — presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving
@@ -642,10 +671,10 @@ export function AppLayout({
         className="flex min-h-0 flex-1 flex-col"
       >
         <AppChrome onOpenSettings={onOpenSettings} />
-        {!presenterActive && <Toolbar showFloatingPill />}
-        {/* internal — the floating action pill IS the dominant chrome; a
-            presenter hides it too (Cmd+Enter still runs, the shortcut
-            or palette toggles the mode back). */}
+        {/* The floating action pill is the only mounted execution chrome.
+            AppChrome already owns the Electron drag region, so a zero-height
+            Toolbar spacer would add subscriptions and DOM without layout
+            value. Presenter mode hides the pill; Cmd+Enter still runs. */}
         {!presenterActive && (
           <FloatingActionPill
             onOpenSettings={onOpenSettings}
@@ -686,6 +715,7 @@ export function AppLayout({
                   showStdinTabBody={showStdinTabBody}
                   showVariablesTabBody={showVariablesTabBody}
                   showRecipeTabBody={showRecipeTabBody}
+                  showProjectTerminalTabBody={showProjectTerminalTabBody}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -701,6 +731,7 @@ export function AppLayout({
                 showStdinTabBody={showStdinTabBody}
                 showVariablesTabBody={showVariablesTabBody}
                 showRecipeTabBody={showRecipeTabBody}
+                showProjectTerminalTabBody={showProjectTerminalTabBody}
                 layoutPreset={layoutPreset}
               />
             </div>

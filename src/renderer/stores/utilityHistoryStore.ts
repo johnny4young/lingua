@@ -3,10 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import i18next from 'i18next';
 import { createMigrate } from './persistence/migrationRegistry';
 import {
-  DEFAULT_DEVELOPER_UTILITY_ID,
-  DEVELOPER_UTILITIES,
+  DEVELOPER_UTILITY_CATALOG,
   type DeveloperUtilityId,
-} from '../data/developerUtilities';
+} from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -49,7 +48,7 @@ import { pushUpsellNotice } from '../utils/upsellNotice';
 export const UTILITY_HISTORY_STORAGE_KEY = 'lingua-utility-state';
 export const MAX_ENTRIES_PER_TOOL = 10;
 export const MAX_BYTES_PER_ENTRY = 16_384;
-export const MAX_BYTES_PERSISTED = 256_000;
+const MAX_BYTES_PERSISTED = 256_000;
 
 const TEXT_ENCODER = new TextEncoder();
 const TRUNCATION_SUFFIX = '…';
@@ -68,12 +67,6 @@ export interface UtilityHistoryEntry {
   truncated: boolean;
 }
 
-/** internal — a one-shot input seed for a utility panel. */
-export interface PendingUtilityInput {
-  utilityId: DeveloperUtilityId;
-  input: string;
-}
-
 export interface UtilityHistoryState {
   /** Per-tool ring buffer, newest first. */
   history: Partial<Record<DeveloperUtilityId, UtilityHistoryEntry[]>>;
@@ -81,16 +74,6 @@ export interface UtilityHistoryState {
   persistEnabled: Partial<Record<DeveloperUtilityId, boolean>>;
   /** Pinned tools, in user-defined order. */
   favorites: DeveloperUtilityId[];
-  /** Currently selected tool in the full-screen Utilities workspace. */
-  activeUtilityId: DeveloperUtilityId;
-  /**
-   * internal — one-shot input handed from the smart-paste router to the
-   * target panel (`usePendingUtilityInput` consumes and clears it).
-   * Session-only by design: it is NOT in `partialize`, so a pending
-   * paste never survives a reload.
-   */
-  pendingUtilityInput: PendingUtilityInput | null;
-
   pushEntry: (toolId: DeveloperUtilityId, input: string, output: string) => void;
   clearHistory: (toolId?: DeveloperUtilityId) => void;
   togglePersist: (toolId: DeveloperUtilityId) => void;
@@ -99,8 +82,6 @@ export interface UtilityHistoryState {
   unpinFavorite: (toolId: DeveloperUtilityId) => void;
   reorderFavorites: (next: DeveloperUtilityId[]) => void;
   isFavorite: (toolId: DeveloperUtilityId) => boolean;
-  setActiveUtilityId: (toolId: DeveloperUtilityId) => void;
-  setPendingUtilityInput: (pending: PendingUtilityInput | null) => void;
 }
 
 function byteLength(value: string): number {
@@ -132,7 +113,7 @@ function nextEntryId(): string {
 }
 
 const KNOWN_UTILITY_IDS = new Set<DeveloperUtilityId>(
-  DEVELOPER_UTILITIES.map(utility => utility.id)
+  DEVELOPER_UTILITY_CATALOG.map(utility => utility.id)
 );
 
 function isKnownUtilityId(value: unknown): value is DeveloperUtilityId {
@@ -172,8 +153,6 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       history: {},
       persistEnabled: {},
       favorites: [],
-      activeUtilityId: DEFAULT_DEVELOPER_UTILITY_ID,
-      pendingUtilityInput: null,
 
       pushEntry: (toolId, input, output) => {
         const inputCapped = truncate(input);
@@ -252,19 +231,10 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
 
       isFavorite: toolId => get().favorites.includes(toolId),
 
-      setActiveUtilityId: toolId => {
-        if (!isKnownUtilityId(toolId)) return;
-        set({ activeUtilityId: toolId });
-      },
-
-      setPendingUtilityInput: pending => {
-        if (pending && !isKnownUtilityId(pending.utilityId)) return;
-        set({ pendingUtilityInput: pending });
-      },
     }),
     {
       name: UTILITY_HISTORY_STORAGE_KEY,
-      version: 1,
+      version: 2,
       migrate: createMigrate(UTILITY_HISTORY_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
       // implementation — only persist the bits the user explicitly opted into.
@@ -277,7 +247,6 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
             history: {},
             persistEnabled: {},
             favorites: state.favorites,
-            activeUtilityId: state.activeUtilityId,
           };
         }
         const persistedHistory: UtilityHistoryState['history'] = {};
@@ -290,7 +259,6 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           history: persistedHistory,
           persistEnabled: state.persistEnabled,
           favorites: state.favorites,
-          activeUtilityId: state.activeUtilityId,
         };
         // Trim oldest entries across all tools until the budget fits.
         let bytes = approximatePersistedBytes(candidate);
@@ -332,9 +300,6 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
           favorites: Array.isArray(candidate.favorites)
             ? candidate.favorites.filter(isKnownUtilityId)
             : [],
-          activeUtilityId: isKnownUtilityId(candidate.activeUtilityId)
-            ? candidate.activeUtilityId
-            : DEFAULT_DEVELOPER_UTILITY_ID,
         };
       },
     }

@@ -36,7 +36,7 @@ import {
   type HttpRequestBody,
   type HttpRequestBodyKind,
   type HttpRequestHeader,
-} from '../httpWorkspace';
+} from '../httpWorkspaceSchema';
 import type {
   ImporterAdapter,
   ImporterLossyWarning,
@@ -73,7 +73,7 @@ export interface ParsedCollectionRequest {
 }
 
 /** Source family — drives the preview badge + telemetry importer id. */
-export type CollectionSource = 'postman' | 'bruno';
+type CollectionSource = 'postman' | 'bruno';
 
 /**
  * Preview shape shared by the Postman + Bruno adapters. The
@@ -93,7 +93,7 @@ export interface CollectionImporterPreview {
   readonly counts: {
     /** Requests that will be imported (== `requests.length`). */
     readonly total: number;
-    /** Distinct folders walked (Postman only; 0 for Bruno). */
+    /** Distinct folders represented by the flattened request list. */
     readonly folders: number;
     /** Requests dropped because the collection exceeded the cap. */
     readonly truncated: number;
@@ -519,14 +519,14 @@ function parseCollectionVariables(raw: unknown): Map<string, string> {
 // ---------------------------------------------------------------------------
 
 /** Closed reject reasons for a provided environment / globals export. */
-export type PostmanVariableExportReject =
+type PostmanVariableExportReject =
   | 'not-json'
   | 'wrong-shape'
   | 'oversized'
   | 'is-collection';
 
 /** A parsed Postman environment / globals export. */
-export interface PostmanVariableExport {
+interface PostmanVariableExport {
   /** Enabled `key -> value` entries. */
   readonly map: ReadonlyMap<string, string>;
   /** Declared scope when present (`_postman_variable_scope`). */
@@ -730,7 +730,7 @@ function resolveVariables(text: string, resolution: VariableResolution): string 
  * Pure — never mutates the resolution accumulator (it runs alongside the
  * real pass purely to build the redacted preview string).
  */
-export const REDACTED_VARIABLE_PLACEHOLDER = '<redacted>';
+const REDACTED_VARIABLE_PLACEHOLDER = '<redacted>';
 
 function resolveTextForDisplay(
   text: string,

@@ -43,14 +43,6 @@ import { bucketDependencyCount } from '../../../shared/dependencies/types';
 import { useTelemetry, type TelemetryTrack } from '../../hooks/useTelemetry';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
-type PillTone =
-  | 'detected'
-  | 'installed'
-  | 'installing'
-  | 'failed'
-  | 'unsupported'
-  | 'needs-desktop';
-
 /**
  * FASE 5 — map each `DependencyStatus` onto a shared `<StatusBadge>`
  * tone so the dependency pill speaks the same status family as
@@ -739,4 +731,3 @@ function EmptyState({
 // `PillTone` exported for tests that want to assert the closed enum is
 // exhaustive against `DependencyStatus`. Renamed to avoid eslint
 // "unused" since the component does not consume the value directly.
-export type { PillTone };

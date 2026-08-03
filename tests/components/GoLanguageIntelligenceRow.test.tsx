@@ -40,9 +40,7 @@ describe('GoLanguageIntelligenceRow', () => {
   });
 
   it('surfaces the install hint with the go install command when missing', () => {
-    useGoLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'missing' });
+    useGoLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'missing' });
     render(<GoLanguageIntelligenceRow />);
     expect(
       screen.getByText(
@@ -52,9 +50,7 @@ describe('GoLanguageIntelligenceRow', () => {
   });
 
   it('surfaces the desktop-only copy on the web build', () => {
-    useGoLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'web-build' });
+    useGoLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'web-build' });
     render(<GoLanguageIntelligenceRow />);
     expect(screen.getByText(/desktop only/i)).toBeTruthy();
     expect(screen.getByText(/local subprocess/i)).toBeTruthy();
@@ -62,13 +58,12 @@ describe('GoLanguageIntelligenceRow', () => {
 
   it('renders the restart button when degraded and calls the IPC on click', async () => {
     const restart = vi.fn().mockResolvedValue({ kind: 'starting' });
-    (window as unknown as { lingua: { lsp: { go: { restart: () => Promise<unknown> } } } }).lingua = {
-      lsp: { go: { restart } },
-    } as never;
+    (window as unknown as { lingua: { lsp: { go: { restart: () => Promise<unknown> } } } }).lingua =
+      {
+        lsp: { go: { restart } },
+      } as never;
 
-    useGoLanguageStore
-      .getState()
-      .setStatus({ kind: 'degraded', detail: 'code=137 signal=null' });
+    useGoLanguageStore.getState().setStatus({ kind: 'degraded', detail: 'code=137 signal=null' });
 
     render(<GoLanguageIntelligenceRow />);
     const button = screen.getByTestId('settings-go-lsp-restart');
@@ -76,11 +71,18 @@ describe('GoLanguageIntelligenceRow', () => {
     expect(restart).toHaveBeenCalledTimes(1);
   });
 
+  it('distinguishes an adapter chunk failure from a gopls process crash', () => {
+    useGoLanguageStore.getState().setStatus({ kind: 'degraded', reason: 'adapter-load-failed' });
+
+    render(<GoLanguageIntelligenceRow />);
+    expect(screen.getByText('Go language intelligence could not load')).toBeTruthy();
+    expect(screen.getByText(/desktop integration did not load/i)).toBeTruthy();
+    expect(screen.getByTestId('settings-go-lsp-restart')).toBeTruthy();
+  });
+
   it('renders Spanish copy in neutral LatAm tuteo when locale is es', async () => {
     await i18next.changeLanguage('es');
-    useGoLanguageStore
-      .getState()
-      .setStatus({ kind: 'unavailable', reason: 'missing' });
+    useGoLanguageStore.getState().setStatus({ kind: 'unavailable', reason: 'missing' });
 
     render(<GoLanguageIntelligenceRow />);
     expect(

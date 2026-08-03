@@ -7,7 +7,6 @@ import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { useProjectBundle } from './hooks/useProjectBundle';
 import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSurface';
-import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -15,7 +14,10 @@ import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import { findDeveloperUtility, type DeveloperUtilityId } from './data/developerUtilities';
+import {
+  findDeveloperUtilityCatalogEntry,
+  type DeveloperUtilityId,
+} from './data/developerUtilityCatalog';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
@@ -31,10 +33,10 @@ import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
 import { useWhatsNewNotice } from './hooks/useWhatsNewNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
-import { ShareLinkController } from './components/Share/ShareLinkButton';
+import { ShareLinkController } from './components/Share/ShareLinkController';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useRunLedgerTap } from './hooks/useRunLedgerTap';
-import { useDependencyDetection } from './hooks/useDependencyDetection';
+import { DependencyDetectionHost } from './hooks/DependencyDetectionHost';
 import { useGitDetectOnProjectChange } from './hooks/useGitDetectOnProjectChange';
 import { useGitStatus } from './hooks/useGitStatus';
 import { useAutoRun } from './hooks/useAutoRun';
@@ -97,6 +99,7 @@ function AppChrome({
     return getActiveTab(s)?.kind === 'utilities';
   });
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
+  const telemetryConsent = useSettingsStore(s => s.telemetryConsent);
   // Select the two stable actions individually — `useUIStore()` with no
   // selector re-renders AppChrome (the entire shell) on EVERY ui-store
   // write, including each of the ~134 statusNotice push/dismiss sites.
@@ -199,7 +202,15 @@ function AppChrome({
   }, [track]);
 
   useEffect(() => {
-    if (hasHandledAutoTourRef.current || smokeEnabled || hasHandledDeepLink) {
+    const firstRunConsentOpen =
+      window.lingua?.platform !== 'web' && telemetryConsent === 'unset';
+
+    if (
+      hasHandledAutoTourRef.current ||
+      smokeEnabled ||
+      hasHandledDeepLink ||
+      firstRunConsentOpen
+    ) {
       return;
     }
 
@@ -228,6 +239,7 @@ function AppChrome({
     appInfo?.version,
     hasCompletedTour,
     suppressTourAutoStart,
+    telemetryConsent,
     hasHandledDeepLink,
     overlay,
     startTour,
@@ -278,7 +290,7 @@ function AppChrome({
   }, []);
 
   const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+    const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
     if (requestedUtility?.requiresEntitlement && !canUseUtilityWorkflows) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -320,6 +332,8 @@ function AppChrome({
   // implementation detail — keep overlay ownership in App while shared
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
+  useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
+  useCommandListener('overlay.openProjectTests', () => openOverlay('project-tests'));
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
@@ -348,6 +362,7 @@ function AppChrome({
   return (
     <>
       <KeystrokeReactiveHooks />
+      <DependencyDetectionHost />
       {showWebUpdateBanner ? <WebUpdateBanner /> : null}
       <AppLayout
         onOpenSettings={() => openOverlay('settings')}
@@ -355,7 +370,7 @@ function AppChrome({
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
         onOpenUtilities={() => handleOpenDeveloperUtility()}
-        onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
+        onOpenRecipes={() => openOverlay('recipes')}
         utilitiesOpen={utilitiesWorkspaceActive}
       />
       <ShareLinkController />
@@ -380,17 +395,14 @@ function AppChrome({
 }
 
 /**
- * Hosts the hooks that must react to every keystroke: the auto-run
- * debounce and per-tab dependency detection .
- * Both subscribe to the active tab's content, so their host re-renders
- * on every keypress BY DESIGN — isolating them in a null-rendering leaf
+ * Hosts the eager hook that must react to every keystroke: auto-run.
+ * Isolating it in a null-rendering leaf
  * keeps that churn out of AppChrome, whose re-render would otherwise
  * reconcile the entire shell (AppLayout, toolbar, file tree, status bar)
  * per keystroke.
  */
 function KeystrokeReactiveHooks() {
   useAutoRun();
-  useDependencyDetection();
   return null;
 }
 
@@ -425,10 +437,9 @@ export function App() {
   return (
     <ErrorBoundary region="shell">
       <GuidedTourProvider
+        hasActiveOverlay={overlay !== 'none'}
         controls={{
           closeOverlay,
-          openPalette: () => openOverlay('palette'),
-          openSnippets: () => openOverlay('snippets'),
         }}
       >
         <AppChrome

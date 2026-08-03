@@ -4,6 +4,7 @@ import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
 import { findDeveloperUtility, type DeveloperUtilityId } from '../../data/developerUtilities';
+import { findDeveloperUtilityDetector } from '../../data/developerUtilityDetectors';
 import { useRegisterUtilityApply } from '../../hooks/useRegisterUtilityOutput';
 import { useClipboardOnFocus } from '../../hooks/useClipboardOnFocus';
 import { useUtilityPanelActive } from '../../hooks/utilityPanelActive';
@@ -100,18 +101,14 @@ export function EncodeDecodeToggle({
   );
 }
 
-export const UTILITY_BALANCED_PANE_GRID =
+const UTILITY_BALANCED_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,1fr)_minmax(18rem,1fr)]';
 
-export const UTILITY_OUTPUT_WIDE_PANE_GRID =
+const UTILITY_OUTPUT_WIDE_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,0.85fr)_minmax(28rem,1.25fr)] 2xl:grid-cols-[minmax(20rem,0.8fr)_minmax(34rem,1.45fr)]';
 
-export const UTILITY_OUTPUT_MAX_PANE_GRID =
+const UTILITY_OUTPUT_MAX_PANE_GRID =
   'grid gap-4 xl:grid-cols-[minmax(18rem,0.75fr)_minmax(32rem,1.45fr)] 2xl:grid-cols-[minmax(20rem,0.65fr)_minmax(42rem,1.7fr)]';
-
-export const UTILITY_TALL_TEXTAREA_CLASS = 'min-h-[16rem] font-mono';
-
-export const UTILITY_EXTRA_TALL_TEXTAREA_CLASS = 'min-h-[20rem] font-mono';
 
 export function TimestampHoverValue({
   value,
@@ -160,12 +157,12 @@ export function TimestampHoverValue({
  * registration keeps panel boilerplate to a single JSX line and stops
  * Tailwind drift across 27 panels.
  *
- * The toolbar reads `detect` from the catalog by id, evaluates it
- * against `primary` / `secondary`, and exposes `enabled` to both the
- * button and the global shortcut. The hook is always called (React's
- * rules-of-hooks forbids conditional invocation), but when `detect`
- * is absent the registered descriptor returns `enabled: false`, the
- * Apply button is hidden, and Mod+Shift+A surfaces the
+ * The toolbar reads its detector from the implementation registry by id,
+ * evaluates it against `primary` / `secondary`, and exposes `enabled` to
+ * both the button and the global shortcut. The hook is always called
+ * (React's rules-of-hooks forbids conditional invocation), but when a
+ * detector is absent the registered descriptor returns `enabled: false`,
+ * the Apply button is hidden, and Mod+Shift+A surfaces the
  * `applyUnavailable` toast. The pure-generator panels (random-string,
  * lorem-ipsum) skip the toolbar entirely — they keep their existing
  * Generate buttons as the canonical action.
@@ -207,7 +204,7 @@ export function UtilityToolbar({
   const { t } = useTranslation();
   const panelActive = useUtilityPanelActive();
   const definition = useMemo(() => findDeveloperUtility(utilityId), [utilityId]);
-  const detect = definition.detect;
+  const detect = useMemo(() => findDeveloperUtilityDetector(utilityId), [utilityId]);
   const enabled = useMemo(() => {
     if (!detect) return false;
     try {

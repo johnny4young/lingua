@@ -2,9 +2,10 @@
  * implementation - per-tab dependency detection runner.
  *
  * One hook subscribes to the active tab's content + language +
- * filePath, debounces edits (300ms keystroke / 60ms paste), runs the
- * adapter detector, calls the desktop resolver IPC for JS/TS, and
- * writes the classified result to `useDependencyDetectionStore`.
+ * filePath, debounces edits (300ms keystroke / 60ms paste), handles
+ * cheap eligibility/cache paths, and activates the parser/classifier
+ * runtime only when source may reference a package. Results land in
+ * `useDependencyDetectionStore`.
  *
  * Telemetry:
  * - `dependency.detected_in_tab { language, countBucket }` fires
@@ -16,7 +17,7 @@
  *   status (implementation note).
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
@@ -26,32 +27,19 @@ import {
   type TabDetectionState,
 } from '../stores/dependencyDetectionStore';
 import {
-  maybeGetDependencyAdapter,
-  type DependencyAdapterLanguage,
+  isDependencyAdapterLanguage,
+  sourceMayReferenceDependencies,
 } from '../../shared/dependencies/registry';
 import {
   bucketDependencyCount,
   DEPENDENCY_DETECTION_MAX_BUFFER_BYTES,
+  type DependencyAdapterLanguage,
   type DependencyCountBucket,
-  type DependencyStatus,
-  type DetectedDependency,
 } from '../../shared/dependencies/types';
 import { useTelemetry, type TelemetryTrack } from './useTelemetry';
-
-const KEYSTROKE_DEBOUNCE_MS = 300;
-const PASTE_DEBOUNCE_MS = 60;
-const PASTE_RECENCY_MS = 250;
-
-let lastPasteAt = 0;
-
-/**
- * Editor surfaces (CodeEditor's `onDidPaste`) call this so the next
- * detection cycle picks the short debounce. implementation note - paste UX feels
- * instant; keystroke UX stays calm.
- */
-export function notifyDependencyDetectionPaste(): void {
-  lastPasteAt = Date.now();
-}
+import { useUIStore } from '../stores/uiStore';
+import { loadDependencyDetectionRuntime } from './dependencyDetectionRuntimeLoader';
+import { dependencyDetectionDebounceMs } from './dependencyDetectionPaste';
 
 // Per-session de-dup for the once-per-tab+language telemetry events.
 const bannerShownKeys = new Set<string>();
@@ -59,117 +47,6 @@ const summaryFiredKeys = new Set<string>();
 
 function bannerKey(tabId: string, language: string): string {
   return `${tabId}::${language}`;
-}
-
-function classifyOnWeb(
-  deps: readonly DetectedDependency[],
-  language: DependencyAdapterLanguage
-): ClassifiedDependency[] {
-  // implementation — JS/TS web still cannot install (no node_modules
-  // to walk). Python web rows synchronously start as `'detected'`;
-  // the async post-pass via `classifyPythonOnWeb` below upgrades the
-  // already-loaded names to `'installed'` once Pyodide can answer.
-  const status: DependencyStatus =
-    language === 'python' ? 'detected' : 'needs-desktop';
-  return deps.map((dep) => ({ ...dep, status }));
-}
-
-/**
- * implementation — async post-pass for Python on web. Asks the
- * shared Pyodide worker which packages are currently loaded
- * (`pyodide.loadedPackages`) and upgrades matching rows to
- * `'installed'`. Names not in the loaded set stay `'detected'` so
- * the panel's Install button is the next step.
- *
- * Returns the same input array unchanged when Pyodide isn't ready
- * yet (the listLoadedPackages helper falls back to `[]`); the next
- * detect cycle will retry — Pyodide booting in the background makes
- * the bridge open eventually.
- */
-async function classifyPythonOnWeb(
-  classified: readonly ClassifiedDependency[]
-): Promise<ClassifiedDependency[]> {
-  if (classified.length === 0) return classified.slice();
-  // Lazy import keeps the manager + runner graph out of the
-  // initial detection cycle when no Python tab is open.
-  const { listLoadedPackages } = await import(
-    '../services/pythonWebInstaller'
-  );
-  let loaded: readonly string[];
-  try {
-    loaded = await listLoadedPackages();
-  } catch {
-    return classified.slice();
-  }
-  if (loaded.length === 0) return classified.slice();
-  const loadedSet = new Set(loaded);
-  return classified.map((dep) =>
-    loadedSet.has(dep.name) && dep.status === 'detected'
-      ? { ...dep, status: 'installed' as DependencyStatus }
-      : dep
-  );
-}
-
-interface DesktopClassification {
-  readonly classified: ClassifiedDependency[];
-  readonly cwdHasPackageJson: boolean | null;
-}
-
-async function classifyOnDesktop(
-  deps: readonly DetectedDependency[],
-  language: DependencyAdapterLanguage,
-  filePath?: string
-): Promise<DesktopClassification> {
-  if (language === 'python') {
-    // Python desktop install path is a deferred slice (virtualenv
-    // story). Honest signal: needs-desktop says "yes we know about
-    // it but the installer isn't here yet".
-    return {
-      classified: deps.map((dep) => ({
-        ...dep,
-        status: 'needs-desktop' as const,
-      })),
-      cwdHasPackageJson: null,
-    };
-  }
-  const names = deps.map((dep) => dep.name);
-  if (names.length === 0) {
-    return { classified: [], cwdHasPackageJson: null };
-  }
-  const bridge = window.lingua?.dependencies;
-  if (!bridge || typeof bridge.resolveJs !== 'function') {
-    return {
-      classified: deps.map((dep) => ({
-        ...dep,
-        status: 'detected' as const,
-      })),
-      cwdHasPackageJson: null,
-    };
-  }
-  try {
-    const result = await bridge.resolveJs(names, filePath);
-    return {
-      classified: deps.map((dep) => {
-        const raw = result.statuses[dep.name];
-        const status: DependencyStatus =
-          raw === 'installed'
-            ? 'installed'
-            : raw === 'invalid'
-              ? 'unsupported'
-              : 'detected';
-        return { ...dep, status };
-      }),
-      cwdHasPackageJson: result.hasPackageJson ?? null,
-    };
-  } catch {
-    return {
-      classified: deps.map((dep) => ({
-        ...dep,
-        status: 'detected' as const,
-      })),
-      cwdHasPackageJson: null,
-    };
-  }
 }
 
 // Share the canonical bucketing helper from
@@ -229,17 +106,6 @@ function fireSummaryTelemetry(
   });
 }
 
-/**
- * Test-only reset helper. Wipes the session-scoped dedup sets so
- * specs can re-assert the once-per-(tabId, language) gates without
- * leaking through a previous test's state.
- */
-export function __resetDependencyDetectionTelemetryDedup(): void {
-  bannerShownKeys.clear();
-  summaryFiredKeys.clear();
-  lastPasteAt = 0;
-}
-
 export function useDependencyDetection(): void {
   const { track } = useTelemetry();
   const enabled = useSettingsStore((s) => s.dependencyDetectionEnabled);
@@ -247,16 +113,14 @@ export function useDependencyDetection(): void {
   const setDetection = useDependencyDetectionStore((s) => s.setDetection);
   const clearDetections = useDependencyDetectionStore((s) => s.clear);
   const evictTab = useDependencyDetectionStore((s) => s.evictTab);
+  const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
 
   const tabId = activeTab?.id ?? null;
   const language = activeTab?.language ?? null;
   const content = activeTab?.content ?? '';
   const filePath = activeTab?.filePath ?? undefined;
-
-  const adapter = useMemo(
-    () => maybeGetDependencyAdapter(language),
-    [language]
-  );
+  const adapterLanguage =
+    language && isDependencyAdapterLanguage(language) ? language : null;
 
   useEffect(() => {
     if (!enabled) {
@@ -266,12 +130,12 @@ export function useDependencyDetection(): void {
       return;
     }
     if (!tabId || !language) return;
-    if (!adapter) {
+    if (!adapterLanguage) {
       evictTab(tabId);
       return;
     }
-    const adapterLanguage = adapter.language;
     let cancelled = false;
+    const abortController = new AbortController();
 
     const runDetection = async () => {
       const detectionHash = computeDetectionHash(
@@ -295,30 +159,44 @@ export function useDependencyDetection(): void {
         if (!cancelled) setDetection(tabId, next);
         return;
       }
-      const detected = adapter.detect(content);
-      const isWeb = window.lingua?.platform === 'web';
-      let classified: ClassifiedDependency[];
-      let cwdHasPackageJson: boolean | null;
-      if (isWeb) {
-        classified = classifyOnWeb(detected, adapterLanguage);
-        cwdHasPackageJson = null;
-        // implementation — upgrade already-loaded Pyodide packages
-        // from `'detected'` to `'installed'`. The query is async +
-        // bounded by a 5 s soft timeout inside the service; on
-        // failure / timeout we keep the synchronous classification.
-        if (adapterLanguage === 'python') {
-          classified = await classifyPythonOnWeb(classified);
+
+      if (!sourceMayReferenceDependencies(adapterLanguage, content)) {
+        const next: TabDetectionState = {
+          tabId,
+          language: adapterLanguage,
+          detectionHash,
+          dependencies: [],
+          classifiedAt: Date.now(),
+          cwdHasPackageJson: null,
+        };
+        if (!cancelled) {
+          setDetection(tabId, next);
+          fireDetectedTelemetry(track, adapterLanguage, []);
         }
-      } else {
-        const result = await classifyOnDesktop(
-          detected,
-          adapterLanguage,
-          filePath
-        );
-        classified = result.classified;
-        cwdHasPackageJson = result.cwdHasPackageJson;
+        return;
+      }
+
+      let result;
+      try {
+        const runtime = await loadDependencyDetectionRuntime();
+        if (cancelled) return;
+        result = await runtime.classifyDependencies({
+          content,
+          language: adapterLanguage,
+          filePath,
+          signal: abortController.signal,
+        });
+      } catch {
+        if (!cancelled) {
+          pushStatusNotice({
+            tone: 'error',
+            messageKey: 'dependencies.detectionLoadFailed',
+          });
+        }
+        return;
       }
       if (cancelled) return;
+      const { classified, cwdHasPackageJson } = result;
       const next: TabDetectionState = {
         tabId,
         language: adapterLanguage,
@@ -335,28 +213,26 @@ export function useDependencyDetection(): void {
       }
     };
 
-    const sincePasteMs = Date.now() - lastPasteAt;
-    const debounceMs =
-      sincePasteMs >= 0 && sincePasteMs < PASTE_RECENCY_MS
-        ? PASTE_DEBOUNCE_MS
-        : KEYSTROKE_DEBOUNCE_MS;
+    const debounceMs = dependencyDetectionDebounceMs();
     const timer = window.setTimeout(() => {
       void runDetection();
     }, debounceMs);
     return () => {
       cancelled = true;
+      abortController.abort();
       window.clearTimeout(timer);
     };
   }, [
     enabled,
     tabId,
     language,
+    adapterLanguage,
     content,
     filePath,
-    adapter,
     setDetection,
     clearDetections,
     evictTab,
+    pushStatusNotice,
     track,
   ]);
 }

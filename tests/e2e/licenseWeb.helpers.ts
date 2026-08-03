@@ -121,6 +121,19 @@ async function fulfillCorsPreflight(route: Route): Promise<boolean> {
 }
 
 async function installLicenseServerMock(page: Page): Promise<void> {
+  // Keep every web E2E independent from the production update worker. The
+  // app polls this endpoint on boot even when telemetry is declined; without
+  // a route, an offline or DNS-restricted runner logs a browser-level resource
+  // error and turns the zero-console-errors fixture into a network flake.
+  await page.route('**/updates.linguacode.dev/web/version', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ version: APP_VERSION }),
+    });
+  });
+
   // implementation — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
   // baked in (see playwright.license-web.config.mts). Tests that
   // grant consent (telemetry.spec.ts) install their own /telemetry
@@ -603,6 +616,17 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
   const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i });
+  const explicitNewButton = page.getByRole('button', {
+    name: /new javascript|nuevo javascript/i,
+  });
+  const emptyStateQuickStart = page.getByTestId('empty-state-quick-start-javascript');
+
+  // App hydration can restore welcome.js just after gotoApp resolves. Wait for
+  // one stable creation state instead of sampling too early and then waiting
+  // forever for an empty state that will never render.
+  await expect(
+    existingJsTab.or(explicitNewButton).or(emptyStateQuickStart).first()
+  ).toBeVisible();
   if (
     await existingJsTab
       .first()
@@ -611,13 +635,10 @@ export async function createJavaScriptTab(page: Page): Promise<void> {
   ) {
     return;
   }
-  const explicitNewButton = page.getByRole('button', {
-    name: /new javascript|nuevo javascript/i,
-  });
   if (await explicitNewButton.isVisible().catch(() => false)) {
     await explicitNewButton.click();
   } else {
-    await page.getByTestId('empty-state-quick-start-javascript').click();
+    await emptyStateQuickStart.click();
   }
   await expect(page.getByRole('button', { name: /JS .*\.js/i })).toBeVisible();
 }

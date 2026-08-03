@@ -74,12 +74,3 @@ export function trackGitExternalModificationReload(
 ): void {
   void trackEvent('git.external_modification_reload', { mode });
 }
-
-/**
- * Test-only seam — reset the last-emitted cache so vitest cases
- * can assert burst behavior in isolation. NOT exported via the
- * package barrel; tests import the path directly.
- */
-export function _resetGitTelemetryCacheForTests(): void {
-  lastEmittedRepoState = null;
-}

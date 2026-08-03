@@ -53,11 +53,11 @@ export type LanguagePackFormatter =
   | 'ipc:python'
   | 'none';
 
-export type LanguagePackLspSupport = 'builtin' | 'adapter' | 'desktop' | 'none';
+type LanguagePackLspSupport = 'builtin' | 'adapter' | 'desktop' | 'none';
 
-export type LanguagePackDebuggerSupport = 'available' | 'planned' | 'none';
+type LanguagePackDebuggerSupport = 'available' | 'planned' | 'none';
 
-export interface LanguagePackCapabilities {
+interface LanguagePackCapabilities {
   /**
    * Where richer-than-Monaco language services come from. `builtin` =
    * Monaco's bundled service (TS / JS), `adapter` = a local renderer
@@ -178,7 +178,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'compile',
     runnerId: 'go',
     formatter: 'ipc:gofmt',
-    capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['go'] },
+    capabilities: { lsp: 'desktop', debugger: 'available', runtimeDependencies: ['go'] },
     docsUrl: 'https://go.dev/doc/',
     templateIds: ['go-hello', 'go-goroutine', 'go-sort'],
   },
@@ -197,7 +197,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'run',
     runnerId: 'python',
     formatter: 'ipc:python',
-    capabilities: { lsp: 'adapter', debugger: 'planned' },
+    capabilities: { lsp: 'adapter', debugger: 'available' },
     docsUrl: 'https://docs.python.org/3/',
     templateIds: ['py-hello', 'py-list', 'py-sort', 'py-class'],
   },
@@ -214,7 +214,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'compile',
     runnerId: 'rust',
     formatter: 'ipc:rustfmt',
-    capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['rustc'] },
+    capabilities: { lsp: 'desktop', debugger: 'available', runtimeDependencies: ['rustc'] },
     docsUrl: 'https://doc.rust-lang.org/book/',
     templateIds: ['rs-hello', 'rs-ownership', 'rs-sort', 'rs-struct'],
   },

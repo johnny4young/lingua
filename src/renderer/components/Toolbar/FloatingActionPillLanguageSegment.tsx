@@ -6,7 +6,8 @@
 
 import { useTranslation } from 'react-i18next';
 import { BookOpenText, ChevronDown } from 'lucide-react';
-import type { EditorState, Language } from '../../types';
+import type { EditorState } from '../../types/editor';
+import type { Language } from '../../types/language';
 import { languageCapabilityBadgeKey, languageBadgeTone, languageLabel } from '../../utils/languageMeta';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
@@ -21,7 +22,7 @@ const LANGUAGE_LIST: Language[] = LANGUAGE_PACKS.filter(
     pack.templateIds.length > 0
 ).map((pack) => pack.id as Language);
 
-export function LanguageChip({
+function LanguageChip({
   language,
   size = 'pill',
 }: {

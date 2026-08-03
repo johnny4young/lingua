@@ -21,7 +21,7 @@ import {
   type PointerEvent,
 } from 'react';
 
-export interface DraggablePosition {
+interface DraggablePosition {
   x: number;
   y: number;
 }

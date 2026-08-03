@@ -1,4 +1,4 @@
- /**
+/**
  * internal press kit guard — the launch assets live in `docs/press-kit/`
  * and must (a) exist, (b) ship en + es variants where a file is
  * customer-facing, (c) carry the honesty disclaimers the press-kit
@@ -7,21 +7,56 @@
  * claim.
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const KIT_DIR = resolve(__dirname, '../../docs/press-kit');
 
-const EXPECTED_FILES = ['README.md', 'boilerplate.md', 'pricing-one-pager.md', 'launch-copy.md', 'founder-bio.md'];
+const EXPECTED_FILES = [
+  'README.md',
+  'boilerplate.md',
+  'pricing-one-pager.md',
+  'launch-copy.md',
+  'founder-bio.md',
+];
 
 const BILINGUAL_FILES = ['boilerplate.md', 'pricing-one-pager.md', 'founder-bio.md'];
+
+function zipEntryNames(zip: Buffer): string[] {
+  const names: string[] = [];
+  let offset = 0;
+  while (offset + 30 <= zip.length && zip.readUInt32LE(offset) === 0x04034b50) {
+    const compressedSize = zip.readUInt32LE(offset + 18);
+    const nameLength = zip.readUInt16LE(offset + 26);
+    const extraLength = zip.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    names.push(zip.toString('utf8', nameStart, nameStart + nameLength));
+    offset = nameStart + nameLength + extraLength + compressedSize;
+  }
+  return names;
+}
 
 describe('docs/press-kit', () => {
   it('ships every canonical launch-asset file', () => {
     for (const filename of EXPECTED_FILES) {
       const path = resolve(KIT_DIR, filename);
       expect(existsSync(path)).toBe(true);
+    }
+  });
+
+  it('packages the synchronized editorial kit in the downloadable ZIP', () => {
+    execFileSync('node', ['website/scripts/build-press-kit-zip.mjs'], {
+      cwd: resolve(KIT_DIR, '../..'),
+      stdio: 'pipe',
+    });
+    const zip = readFileSync(resolve(KIT_DIR, '../../website/public/press/lingua-press-kit.zip'));
+    const entries = zipEntryNames(zip);
+
+    expect(entries).toContain('README.txt');
+    for (const filename of EXPECTED_FILES) {
+      expect(entries).toContain(`editorial/${filename}`);
     }
   });
 
@@ -46,24 +81,26 @@ describe('docs/press-kit', () => {
 
   it('Show HN, Product Hunt, and subreddit sections all exist in launch-copy', () => {
     const copy = readFileSync(resolve(KIT_DIR, 'launch-copy.md'), 'utf-8');
-    for (const section of ['## Show HN', '## Product Hunt', '## r/golang', '## r/rust', '## r/Python']) {
+    for (const section of [
+      '## Show HN',
+      '## Product Hunt',
+      '## r/golang',
+      '## r/rust',
+      '## r/Python',
+    ]) {
       expect(copy).toContain(section);
     }
   });
 
-  it('pricing-one-pager names the four public tiers + verified prices + in-app education flow (2026-05-07 model)', () => {
+  it('pricing-one-pager names every public tier + verified prices + in-app education flow', () => {
     const pricing = readFileSync(resolve(KIT_DIR, 'pricing-one-pager.md'), 'utf-8');
-    // Canonical public tiers as of the 2026-05-07 launch-readiness
-    // cleanup: Free, Monthly, Pro, Education. Backend slugs stay
-    // stable, but public copy must not expose the old Lifetime/Team
-    // naming.
-    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Team', 'Education']) {
       expect(pricing).toContain(tier);
     }
     // Verified prices live on the site; the press kit must not drift.
     expect(pricing).toContain('$5');
     expect(pricing).toContain('$59');
-    expect(pricing).not.toContain('$3');
+    expect(pricing).toContain('$3');
     // Spanish mirror — Monthly translates to Mensual and Education
     // translates to Educativa. Pro stays a product name.
     expect(pricing).toContain('Mensual');
@@ -71,10 +108,9 @@ describe('docs/press-kit', () => {
     // Education flow is in-app only — no `linguacode.dev/education`
     // landing page is coming. Reject the legacy phrasing.
     expect(pricing).not.toMatch(/linguacode\.dev\/education/u);
-    // Legacy Lifetime / Team tier names must not survive the public
-    // table-row identifiers.
+    // Legacy Lifetime naming must not survive the public table identifiers.
     expect(pricing).not.toMatch(/^\|\s*Pro Lifetime\s*\|/mu);
-    expect(pricing).not.toMatch(/^\|\s*Team\s*\|/mu);
+    expect(pricing).toMatch(/^\|\s*Team\s*\|/mu);
   });
 
   it('does not describe ungated utilities or shortcut/theme customization as Pro-only yet', () => {

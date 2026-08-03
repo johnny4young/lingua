@@ -9,8 +9,10 @@
  * The public roadmap is curated directly in src/data/roadmap.json. It is not
  * generated from private planning documents.
  *
- * All outputs are committed. The Astro build never reads from GitHub — it just
- * imports the JSON. CF Pages and CI work without any env vars or auth tokens.
+ * All content outputs are committed. Release downloads use a separate trusted
+ * snapshot: the deploy refreshes it from GitHub when available and the Astro
+ * build accepts the committed public version while it is not newer than this
+ * repo's candidate. Release publication switches that check to exact matching.
  *
  * website/ lives INSIDE the lingua repo, so the source defaults to the repo
  * root (`..`) — no cross-repo clone, no token. LINGUA_LOCAL_PATH still
@@ -45,6 +47,7 @@ const MANIFEST = [
   { from: 'docs/seo-pages/rust-code-runner-desktop.md',   to: 'seo/en/rust-code-runner-desktop.md' },
   { from: 'docs/seo-pages/python-repl-desktop.md',        to: 'seo/en/python-repl-desktop.md' },
   { from: 'docs/seo-pages/typescript-playground-offline.md', to: 'seo/en/typescript-playground-offline.md' },
+  { from: 'docs/seo-pages/javascript-code-runner-desktop.md', to: 'seo/en/javascript-code-runner-desktop.md' },
   { from: 'docs/seo-pages/multi-language-code-runner.md', to: 'seo/en/multi-language-code-runner.md' },
   { from: 'docs/seo-pages/lua-offline-playground.md',     to: 'seo/en/lua-offline-playground.md' },
 ];

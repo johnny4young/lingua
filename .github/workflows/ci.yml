@@ -74,6 +74,15 @@ jobs:
         run: pnpm run check:license-rotation
       - name: Tests
         run: pnpm test
+      - name: Curated project template runtime smoke
+        run: pnpm run smoke:project-templates
+      - name: Upload project template smoke artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: project-template-runtime-smoke
+          path: output/project-template-smoke/project-template-smoke-summary.json
+          if-no-files-found: error
       # implementation — the update-server has its own tsconfig and
       # vitest config outside the root TypeScript project. Wire both
       # gates into CI so the `/update/:platform/:version` smoke landed

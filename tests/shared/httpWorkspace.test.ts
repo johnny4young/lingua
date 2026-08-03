@@ -20,12 +20,12 @@ import {
   createBlankHttpRequest,
   HTTP_METHODS,
   HTTP_STATUS_BUCKETS,
-  isHeaderSensitive,
   parseHttpRequest,
   parseHttpResponse,
   MAX_REQUEST_BODY_BYTES,
   MAX_RESPONSE_BODY_BYTES,
 } from '../../src/shared/httpWorkspace';
+import { isHeaderSensitive } from '../../src/shared/httpWorkspaceHeaders';
 
 describe('HTTP_METHODS / HTTP_STATUS_BUCKETS closed enums', () => {
   it('exposes the seven implementation methods', () => {

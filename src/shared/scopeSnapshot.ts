@@ -25,7 +25,7 @@
  * user-declared bindings survive.
  */
 
-export type ScopeValuePrimitiveType =
+type ScopeValuePrimitiveType =
   | 'string'
   | 'number'
   | 'boolean'
@@ -34,14 +34,14 @@ export type ScopeValuePrimitiveType =
   | 'symbol'
   | 'bigint';
 
-export interface ScopeValuePrimitive {
+interface ScopeValuePrimitive {
   kind: 'primitive';
   type: ScopeValuePrimitiveType;
   /** Human-readable representation. JSON-safe; truncated to the runner's marker. */
   repr: string;
 }
 
-export interface ScopeValueFunction {
+interface ScopeValueFunction {
   kind: 'function';
   name: string;
 }
@@ -138,7 +138,7 @@ export const MAX_SCOPE_DEPTH = 4;
  * and a `truncatedCount` equal to the original variable count so the
  * panel can render a "too large to capture" banner.
  */
-export const MAX_SNAPSHOT_PAYLOAD_BYTES = 256 * 1024;
+const MAX_SNAPSHOT_PAYLOAD_BYTES = 256 * 1024;
 
 // ---------------------------------------------------------------------------
 // Internal symbol filters

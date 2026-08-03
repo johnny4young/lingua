@@ -55,9 +55,9 @@ export const PIPELINE_CAP = 100;
 /** Max steps per pipeline. Soft warning at 20; hard reject at 50. */
 export const PIPELINE_MAX_STEPS = 50;
 /** Per-step timeout when running. Adapters that take longer settle as `'timeout'`. */
-export const STEP_TIMEOUT_MS = 30_000;
+const STEP_TIMEOUT_MS = 30_000;
 /** Yield budget between steps via `requestIdleCallback` / `setTimeout(0)`. */
-export const YIELD_BETWEEN_STEPS_MS = 5;
+const YIELD_BETWEEN_STEPS_MS = 5;
 /** UTF-8 byte cap on the chained intermediate values (per step). 256 KiB. */
 export const STEP_VALUE_BYTE_CAP = 256 * 1024;
 
@@ -219,14 +219,15 @@ export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
  * Closed-enum reject reasons for `tryImportPipelineJson`. The
  * renderer maps these onto i18n copy + telemetry buckets.
  */
-export const PIPELINE_IMPORT_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+const PIPELINE_IMPORT_REJECT_REASONS = [
   'malformed-json',
   'invalid-shape',
   'unknown-utility-id',
   'wrong-version',
   'cap-exceeded',
 ] as const;
-export type PipelineImportRejectReason = (typeof PIPELINE_IMPORT_REJECT_REASONS)[number];
+type PipelineImportRejectReason = (typeof PIPELINE_IMPORT_REJECT_REASONS)[number];
 
 export type PipelineImportOutcome =
   | { ok: true; pipeline: UtilityPipelineV1; warnings: ReadonlyArray<string> }

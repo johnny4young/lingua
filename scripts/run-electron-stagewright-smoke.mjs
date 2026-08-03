@@ -232,6 +232,7 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
     '--outfile=.vite/build/main.js',
     '--external:electron',
     '--external:electron-updater',
+    '--external:node-pty',
     '--define:MAIN_WINDOW_VITE_DEV_SERVER_URL=' + JSON.stringify(rendererUrl),
     '--define:MAIN_WINDOW_VITE_NAME=' + JSON.stringify('main_window'),
     '--define:__LINGUA_LICENSE_PUBLIC_KEY_JWK__=' +

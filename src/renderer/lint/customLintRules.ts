@@ -23,7 +23,7 @@
  */
 
 /** Closed set of custom lint rule ids (mirrored in telemetry `ruleId`). */
-export type CustomLintRuleId = 'strict-equality';
+type CustomLintRuleId = 'strict-equality';
 
 /**
  * A single lint finding with a 1-based Monaco-style range and the exact

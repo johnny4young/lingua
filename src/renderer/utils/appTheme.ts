@@ -1,9 +1,6 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 
 export type AppTheme = SettingsState['theme'];
-
-export const APP_THEME_STORAGE_KEY = 'lingua-settings';
-export const DEFAULT_APP_THEME: AppTheme = 'dark';
 export const APP_THEME_COLOR: Record<AppTheme, string> = {
   dark: '#0c1017',
   light: '#f4efe7',
@@ -13,7 +10,7 @@ function isThemeRecord(value: unknown): value is Partial<Pick<SettingsState, 'th
   return typeof value === 'object' && value !== null && 'theme' in value;
 }
 
-export function isAppTheme(value: unknown): value is AppTheme {
+function isAppTheme(value: unknown): value is AppTheme {
   return value === 'dark' || value === 'light';
 }
 

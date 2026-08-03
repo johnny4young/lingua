@@ -38,13 +38,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import type { GitFileStatusKind } from '../../../shared/gitTypes';
 import { trackGitRevealInSourceControlClicked } from '../../hooks/gitTelemetry';
 import { useGitStore } from '../../stores/gitStore';
 import { useUIStore } from '../../stores/uiStore';
-import { gitStatusSuppressedByMagicComment } from '../../utils/magicComments';
+import { gitStatusSuppressedByMagicComment } from '../../utils/gitMagicCommentPolicy';
 import type { GitFileStatusEntry } from '../../stores/gitStore';
-
-type GitFileStatusKind = 'clean' | 'modified' | 'untracked' | 'unknown';
 
 export interface GitStatusPillProps {
   filePath: string;

@@ -27,7 +27,7 @@ import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled } from '../../shared/entitlements';
 
-export type ExecutionStatus = 'ok' | 'error';
+type ExecutionStatus = 'ok' | 'error';
 
 /**
  * Optional code+language capture attached to a history entry. The
@@ -92,7 +92,7 @@ export interface ExecutionHistoryEntry {
   lastCapsule?: RunCapsuleV1;
 }
 
-export interface ExecutionHistoryRecord {
+interface ExecutionHistoryRecord {
   language: string;
   status: ExecutionStatus;
   durationMs: number | null;

@@ -18,7 +18,7 @@ import {
 } from '../../shared/utilityPipeline';
 import { runUtilityPipeline } from '../runtime/utilityPipelineRunner';
 
-export type PipelineRunPhase = 'idle' | 'running' | 'settled';
+type PipelineRunPhase = 'idle' | 'running' | 'settled';
 
 export interface PipelineRunState {
   phase: PipelineRunPhase;

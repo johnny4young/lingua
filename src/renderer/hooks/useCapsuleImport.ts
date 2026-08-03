@@ -20,7 +20,7 @@
  *
  * All three converge on `tryDecodeCapsuleJson` (from
  * `src/renderer/utils/importCapsule.ts`) which delegates to the
- * shared `parseRunCapsule` validator. Reject reasons are mapped to a
+ * shared `parseRunCapsule` or `parseCapsuleWorkspace` validator. Reject reasons are mapped to a
  * smaller renderer-facing enum that drives the overlay's i18n keys
  * directly + telemetry status bucket.
  *
@@ -49,14 +49,16 @@ import {
 } from '../utils/importCapsule';
 import { trackEvent } from '../utils/telemetry';
 import type { RunCapsuleV1, CapsuleSizeBucket } from '../../shared/runCapsule';
+import type { CapsuleWorkspaceV1 } from '../../shared/capsuleWorkspace';
 import { useSettingsStore } from '../stores/settingsStore';
 import { openCapsuleSourceInNewTab } from '../utils/openCapsuleTab';
 
-export type CapsuleImportSourceSurface = 'paste' | 'file-picker' | 'drag-drop';
+type CapsuleImportSourceSurface = 'paste' | 'file-picker' | 'drag-drop';
 
-export interface CapsuleImportDecodedState {
+interface CapsuleImportDecodedState {
   kind: 'decoded';
   capsule: RunCapsuleV1;
+  workspace?: CapsuleWorkspaceV1;
   sizeBucket: CapsuleSizeBucket;
   byteLength: number;
   sourceSurface: CapsuleImportSourceSurface;
@@ -64,7 +66,7 @@ export interface CapsuleImportDecodedState {
   rawJson: string;
 }
 
-export interface CapsuleImportRejectedState {
+interface CapsuleImportRejectedState {
   kind: 'rejected';
   reason: CapsuleImportRejectReason;
   sizeBucket: CapsuleImportDecodedState['sizeBucket'];
@@ -73,7 +75,7 @@ export interface CapsuleImportRejectedState {
   detail?: string;
 }
 
-export type CapsuleImportState =
+type CapsuleImportState =
   | { kind: 'empty' }
   | CapsuleImportDecodedState
   | CapsuleImportRejectedState;
@@ -121,7 +123,7 @@ export interface UseCapsuleImportApi {
   attemptClipboardAutofill: () => Promise<CapsuleImportDecodeResult | null>;
 }
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024 * 2; // 8 MiB read cap; parser still rejects > 4 MiB.
+const MAX_FILE_SIZE = 8 * 1024 * 1024; // Read cap; parsers enforce 4 MiB capsules / 6 MiB workspaces.
 
 export function useCapsuleImport(
   options: UseCapsuleImportOptions = {}
@@ -163,6 +165,7 @@ export function useCapsuleImport(
         const next: CapsuleImportDecodedState = {
           kind: 'decoded',
           capsule: decode.capsule,
+          ...(decode.workspace ? { workspace: decode.workspace } : {}),
           sizeBucket: decode.sizeBucket,
           byteLength: decode.byteLength,
           sourceSurface: surface,

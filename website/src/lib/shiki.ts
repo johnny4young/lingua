@@ -1,7 +1,7 @@
 /**
  * Singleton Shiki highlighter for the hero code panel.
  *
- * One bundle for all five languages, dark theme tuned to match the site
+ * One bundle for all six shipped runners, dark theme tuned to match the site
  * surface. Used at build time only — no runtime JS for highlighting.
  */
 
@@ -9,7 +9,7 @@ import { createHighlighter, type Highlighter } from 'shiki';
 
 let promise: Promise<Highlighter> | null = null;
 
-export const HERO_LANGS = ['javascript', 'typescript', 'python', 'go', 'rust'] as const;
+export const HERO_LANGS = ['javascript', 'typescript', 'python', 'ruby', 'go', 'rust'] as const;
 export type HeroLang = (typeof HERO_LANGS)[number];
 
 export const HERO_THEME = 'github-dark-default';

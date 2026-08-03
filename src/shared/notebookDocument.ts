@@ -32,7 +32,7 @@ import {
 } from './notebook';
 
 /** Current `.linguanb` envelope schema version. */
-export const LINGUANB_DOCUMENT_VERSION = 1;
+const LINGUANB_DOCUMENT_VERSION = 1;
 
 /** File extension + the recommended MIME hint for downloads. */
 export const LINGUANB_FILE_EXTENSION = '.linguanb';
@@ -65,7 +65,8 @@ export const MAX_LINGUANB_BYTES = 512 * 1024;
  *     notebook fails `parseNotebook` for any non-version reason.
  *   - `oversized`: the raw source exceeds `MAX_LINGUANB_BYTES`.
  */
-export const LINGUANB_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const LINGUANB_REJECT_REASONS = [
   'malformed-json',
   'wrong-version',
   'invalid-shape',
@@ -80,7 +81,7 @@ export type LinguanbRejectReason = (typeof LINGUANB_REJECT_REASONS)[number];
  * export time, restored on import so a round-trip is faithful down to
  * the execution counters. Cells absent from the map were never run.
  */
-export interface NotebookDocumentV1 {
+interface NotebookDocumentV1 {
   readonly format: 'linguanb';
   readonly documentVersion: typeof LINGUANB_DOCUMENT_VERSION;
   readonly notebook: NotebookV1;

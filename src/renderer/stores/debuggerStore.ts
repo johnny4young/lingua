@@ -10,9 +10,8 @@ import { createMigrate } from './persistence/migrationRegistry';
  * Source of truth for the active debug session, registered breakpoints
  * (per file), watch expressions (global), and the last call-stack frame
  * snapshot. The store is intentionally **runtime-agnostic** — implementation
- * implements only the JS adapter, but the shape carries a discriminated
- * `runtime` field so implementation (Python `pdb`), implementation (Go Delve), and
- * implementation (Rust lldb) can plug in without re-architecting.
+ * the JS worker adapter plus desktop Python, Go, and Rust adapters while the
+ * discriminated `runtime` field keeps presentation state protocol-neutral.
  *
  * # Persistence
  *
@@ -42,11 +41,16 @@ import { createMigrate } from './persistence/migrationRegistry';
 export const DEBUGGER_STORAGE_KEY = 'lingua-debugger-state';
 export const MAX_BREAKPOINTS_GLOBAL = 100;
 export const MAX_WATCHES = 20;
+export const MAX_WATCH_EXPRESSION_LENGTH = 512;
+export const MAX_BREAKPOINT_CONDITION_LENGTH = 512;
+export const MAX_LOGPOINT_MESSAGE_LENGTH = 1_024;
 
 export type DebuggerRuntime = 'js' | 'python' | 'go' | 'rust';
-export type PauseReason = 'user-breakpoint' | 'step' | 'exception';
+type PauseReason = 'user-breakpoint' | 'step' | 'exception';
 
-export interface Breakpoint {
+export type BreakpointMode = 'pause' | 'conditional' | 'logpoint';
+
+interface Breakpoint {
   /** Tab id (matches `tabsStore.activeTabId`) — uniquely identifies the file. */
   tabId: string;
   /** 1-indexed line number in the user's source (NOT the instrumented JS). */
@@ -58,11 +62,15 @@ export interface Breakpoint {
    * condition.
    */
   condition: string;
+  /** Behavior at this line: pause, predicate-gated pause, or console-only log. */
+  mode: BreakpointMode;
+  /** Logpoint message with optional `{expression}` placeholders. */
+  logMessage: string;
   /** Set to `false` to keep the gutter mark but skip the pause. */
   enabled: boolean;
 }
 
-export interface CallStackFrame {
+interface CallStackFrame {
   /**
    * Display name of the function, or `<anonymous>` for nameless
    * function expressions. The worker computes this from
@@ -96,10 +104,12 @@ export interface PausedFrame {
    * implementation introduces predicate evaluation under a security review.
    */
   watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+  /** Invalid conditional expressions pause fail-safe and surface their reason. */
+  conditionError?: string;
 }
 
-export interface DebuggerSession {
-  /** Which language adapter is attached. implementation only emits `'js'`. */
+interface DebuggerSession {
+  /** Which language adapter is attached. */
   runtime: DebuggerRuntime;
   /** Tab the session is bound to. */
   tabId: string;
@@ -135,7 +145,9 @@ export interface DebuggerState {
 
   // Mutators — breakpoints
   toggleBreakpoint: (tabId: string, line: number) => void;
+  setBreakpointMode: (tabId: string, line: number, mode: BreakpointMode) => void;
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
+  setBreakpointLogMessage: (tabId: string, line: number, message: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
   /**
    * implementation note — batch-update `enabled` on every breakpoint.
@@ -170,6 +182,10 @@ function isPositiveLine(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 
+function isBreakpointMode(value: unknown): value is BreakpointMode {
+  return value === 'pause' || value === 'conditional' || value === 'logpoint';
+}
+
 function sanitizeBreakpoints(
   value: unknown,
   rawOrder: unknown
@@ -184,11 +200,24 @@ function sanitizeBreakpoints(
     const candidate = raw as Partial<Breakpoint>;
     if (typeof candidate.tabId !== 'string' || candidate.tabId.length === 0) continue;
     if (!isPositiveLine(candidate.line)) continue;
-    const condition = typeof candidate.condition === 'string' ? candidate.condition : '';
+    const condition =
+      typeof candidate.condition === 'string'
+        ? candidate.condition.slice(0, MAX_BREAKPOINT_CONDITION_LENGTH)
+        : '';
+    const logMessage =
+      typeof candidate.logMessage === 'string'
+        ? candidate.logMessage.slice(0, MAX_LOGPOINT_MESSAGE_LENGTH)
+        : '';
     breakpoints[bpKey(candidate.tabId, candidate.line)] = {
       tabId: candidate.tabId,
       line: candidate.line,
       condition,
+      mode: isBreakpointMode(candidate.mode)
+        ? candidate.mode
+        : condition.trim()
+          ? 'conditional'
+          : 'pause',
+      logMessage,
       enabled: candidate.enabled !== false,
     };
   }
@@ -225,7 +254,7 @@ function sanitizeWatches(value: unknown): WatchExpression[] {
     const candidate = raw as Partial<WatchExpression>;
     if (typeof candidate.id !== 'string' || candidate.id.length === 0) continue;
     if (typeof candidate.expression !== 'string') continue;
-    const expression = candidate.expression.trim();
+    const expression = candidate.expression.trim().slice(0, MAX_WATCH_EXPRESSION_LENGTH);
     if (!expression || seenExpressions.has(expression)) continue;
     watches.push({ id: candidate.id, expression });
     seenExpressions.add(expression);
@@ -272,7 +301,14 @@ export const useDebuggerStore = create<DebuggerState>()(
             const oldest = order.shift();
             if (oldest) delete breakpoints[oldest];
           }
-          breakpoints[key] = { tabId, line, condition: '', enabled: true };
+          breakpoints[key] = {
+            tabId,
+            line,
+            condition: '',
+            mode: 'pause',
+            logMessage: '',
+            enabled: true,
+          };
           order.push(key);
           return { breakpoints, breakpointOrder: order };
         });
@@ -289,7 +325,54 @@ export const useDebuggerStore = create<DebuggerState>()(
           return {
             breakpoints: {
               ...state.breakpoints,
-              [key]: { ...existing, condition },
+              [key]: {
+                ...existing,
+                mode: 'conditional',
+                condition: condition.slice(0, MAX_BREAKPOINT_CONDITION_LENGTH),
+              },
+            },
+          };
+        });
+      },
+
+      setBreakpointMode: (tabId, line, mode) => {
+        if (
+          typeof tabId !== 'string' ||
+          tabId.length === 0 ||
+          !isPositiveLine(line) ||
+          !isBreakpointMode(mode)
+        ) {
+          return;
+        }
+        set((state) => {
+          const key = bpKey(tabId, line);
+          const existing = state.breakpoints[key];
+          if (!existing || existing.mode === mode) return state;
+          return {
+            breakpoints: {
+              ...state.breakpoints,
+              [key]: { ...existing, mode },
+            },
+          };
+        });
+      },
+
+      setBreakpointLogMessage: (tabId, line, message) => {
+        if (typeof tabId !== 'string' || tabId.length === 0 || !isPositiveLine(line)) {
+          return;
+        }
+        set((state) => {
+          const key = bpKey(tabId, line);
+          const existing = state.breakpoints[key];
+          if (!existing) return state;
+          return {
+            breakpoints: {
+              ...state.breakpoints,
+              [key]: {
+                ...existing,
+                mode: 'logpoint',
+                logMessage: message.slice(0, MAX_LOGPOINT_MESSAGE_LENGTH),
+              },
             },
           };
         });
@@ -357,7 +440,7 @@ export const useDebuggerStore = create<DebuggerState>()(
       addWatch: (expression) => {
         set((state) => {
           if (state.watches.length >= MAX_WATCHES) return state;
-          const trimmed = expression.trim();
+          const trimmed = expression.trim().slice(0, MAX_WATCH_EXPRESSION_LENGTH);
           if (!trimmed) return state;
           // Dedupe — same expression doesn't add twice.
           if (state.watches.some((w) => w.expression === trimmed)) return state;
@@ -388,7 +471,7 @@ export const useDebuggerStore = create<DebuggerState>()(
     }),
     {
       name: DEBUGGER_STORAGE_KEY,
-      version: 1,
+      version: 2,
       migrate: createMigrate(DEBUGGER_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
       // implementation — only persist breakpoints + watches. Session +

@@ -5,7 +5,7 @@ import type {
   ConsoleEntry,
   ConsoleEntryType,
   ConsolePayloadKindFilter,
-} from '../types';
+} from '../types/console';
 
 let entryCounter = 0;
 

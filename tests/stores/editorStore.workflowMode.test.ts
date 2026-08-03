@@ -96,12 +96,17 @@ describe('editorStore — workflowMode ', () => {
       expect(createDefaultTab('javascript').workflowMode).toBe('run');
     });
     it('falls back to the shared helper when the Settings override is invalid', () => {
-      useSettingsStore.setState({
-        // `debug` on Python is not supported; the coerce step should
-        // ignore the bad override and use the shared default.
-        workflowModeDefaultsByLanguage: { python: 'debug' as never },
-      });
-      expect(createDefaultTab('python').workflowMode).toBe('scratchpad');
+      const originalLingua = window.lingua;
+      try {
+        window.lingua = { platform: 'web' } as unknown as LinguaAPI;
+        useSettingsStore.setState({
+          // Python Debug is desktop-only; web creation uses the shared default.
+          workflowModeDefaultsByLanguage: { python: 'debug' },
+        });
+        expect(createDefaultTab('python').workflowMode).toBe('scratchpad');
+      } finally {
+        window.lingua = originalLingua;
+      }
     });
   });
 
@@ -121,16 +126,15 @@ describe('editorStore — workflowMode ', () => {
       const { addTab } = useEditorStore.getState();
       addTab({
         id: 'manual-bad',
-        name: 'manual.rs',
-        language: 'rust',
+        name: 'manual.html',
+        language: 'html',
         content: '',
-        // Rust does not support debug — coerce snaps to the Rust
-        // default (scratchpad, since Rust has an auto-run runner
-        // on desktop).
+        // HTML does not support debug — coerce snaps to its Run
+        // default instead of retaining an impossible workflow mode.
         workflowMode: 'debug' as never,
       });
       const tab = useEditorStore.getState().tabs[0];
-      expect(tab?.workflowMode).toBe('scratchpad');
+      expect(tab?.workflowMode).toBe('run');
     });
   });
 
@@ -196,15 +200,15 @@ describe('editorStore — workflowMode ', () => {
       const { addTab, setTabWorkflowMode } = useEditorStore.getState();
       addTab({
         id: 't1',
-        name: 'main.rs',
-        language: 'rust',
+        name: 'index.html',
+        language: 'html',
         content: '',
       });
-      // Rust doesn't support debug — the setter must reject silently.
-      // The seeded scratchpad mode stays in place.
+      // HTML doesn't support debug — the setter must reject silently.
+      // The seeded Run mode stays in place.
       setTabWorkflowMode('t1', 'debug');
       const tab = useEditorStore.getState().tabs.find((t) => t.id === 't1');
-      expect(tab?.workflowMode).toBe('scratchpad');
+      expect(tab?.workflowMode).toBe('run');
       expect(mockTrackEvent).not.toHaveBeenCalled();
     });
 

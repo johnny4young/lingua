@@ -220,6 +220,10 @@ describe('CapsuleImportOverlay', () => {
     expect(useWorkspaceToolStore.getState().requests[0]?.url).toBe(
       'https://api.example.com/users'
     );
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe(
+      useWorkspaceToolStore.getState().requests[0]?.id
+    );
+    expect(useEditorStore.getState().tabs[0]?.language).toBe('http');
     expect(onClose).toHaveBeenCalled();
   });
 

@@ -7,13 +7,14 @@
  * Rust, or system-Ruby tab and typing a character would silently
  * invoke the local toolchain before the user has ever seen the modal.
  */
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 
 const NATIVE_EXECUTION_LANGUAGES = new Set<Language>(['go', 'rust']);
 
 interface NativeExecutionOptions {
   rubyRuntimePreference?: string;
   rubyBridgeAvailable?: boolean;
+  pythonDebuggerRequested?: boolean;
 }
 
 /**
@@ -34,6 +35,10 @@ export function requiresNativeExecutionAcknowledgement(
       options.rubyBridgeAvailable === true &&
       options.rubyRuntimePreference !== 'wasm'
     );
+  }
+
+  if (language === 'python') {
+    return options.pythonDebuggerRequested === true;
   }
 
   return NATIVE_EXECUTION_LANGUAGES.has(language);

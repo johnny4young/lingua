@@ -29,7 +29,7 @@
 
 export type SvgToCssEncoding = 'base64' | 'percent';
 
-export interface SvgSize {
+interface SvgSize {
   readonly width: number;
   readonly height: number;
 }

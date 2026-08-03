@@ -1,33 +1,52 @@
 ---
-title: "Rust Code Runner para Desktop — Lingua"
-description: "Runner desktop para Rust con rustc local, resultados inline, rustfmt y editor Monaco. Hecho para snippets rápidos, no para reemplazar Cargo."
-canonical: "https://linguacode.dev/es/rust-code-runner-desktop"
-ogImage: "/assets/og/rust-code-runner-desktop.png"
+title: 'Rust Code Runner para escritorio — Lingua'
+description: 'Ejecuta Rust localmente con rustc, inteligencia rust-analyzer, rustfmt, markers de compilación, dependencias y pruebas Cargo.'
+canonical: 'https://linguacode.dev/es/rust-code-runner-desktop'
+ogImage: '/assets/og/rust-code-runner-desktop.png'
 language: rust
 ---
 
-# Rust code runner — snippets rápidos sin crear un crate
+# Rust code runner — scratchpad local con errores reales
 
-Lingua ejecuta Rust desde el desktop usando la toolchain que ya tienes instalada. Es para probar funciones pequeñas, reproducir errores o validar una idea sin crear un proyecto completo.
+Lingua compila el archivo Rust actual con tu `rustc`, ejecuta el binario
+nativo y mapea los errores al editor. Es una forma rápida de aislar una
+idea sin pretender reemplazar un workspace Cargo completo.
 
 ## Lo que sí corre
 
-- `rustc` compila el snippet como proceso local.
-- Los errores se devuelven al editor con ubicación y mensaje legible.
-- `rustfmt` maneja format-on-save cuando está disponible.
-- Monaco provee resaltado de sintaxis y una superficie de edición consistente con los otros lenguajes.
+- `rustc` compila el archivo actual como Rust 2021 y Lingua ejecuta el
+  binario sin invocar un shell.
+- Los errores se convierten en markers de Monaco; stdout, stderr y los
+  panics aparecen en el panel de resultados.
+- `rust-analyzer` aporta diagnósticos, completions, hover y signature
+  help en desktop cuando está disponible.
+- `rustfmt` maneja format-on-save para archivos `.rs`.
+- Los comentarios `//=>` funcionan como en los scratchpads JavaScript
+  y TypeScript.
+- En un proyecto guardado con `Cargo.toml`, el panel de dependencias
+  puede ejecutar un `cargo add` confirmado y el runner de pruebas puede
+  correr `cargo test --color never`.
 
 ## Lo que no funciona hoy
 
-- Necesitas `rustc` instalado localmente.
-- No reemplaza a Cargo para crates completos, workspaces o dependencia compleja.
-- No hay debugger ni Rust Analyzer integrado todavía.
-- La versión web no ejecuta Rust; lo muestra honestamente como desktop-only.
+- Necesitas `rustc` en desktop. La versión web muestra el límite
+  desktop-only.
+- La inteligencia de lenguaje requiere un binario local
+  `rust-analyzer`. Settings ofrece detección, guía de instalación y
+  controles de reinicio.
+- No hay depurador Rust paso a paso.
+- El scratchpad compila un archivo con `rustc`; no ejecuta una
+  aplicación Cargo completa. Usa las pruebas de proyecto o la terminal
+  integrada para comandos de workspace.
 
-## Tier
+## Por qué está en el tier pago
 
-Rust está en Pro porque usa ejecución local pesada y desbloquea flujo multi-lenguaje más avanzado. Free sigue incluyendo JavaScript, TypeScript y Python.
+La ejecución de Rust es una función de los planes pagos. El acceso
+Education ofrece los mismos entitlements gratis a estudiantes y
+docentes verificados.
 
 ## Descargar
 
-Descarga Lingua en **[https://linguacode.dev/es](https://linguacode.dev/es)**. Source-available bajo licencia comercial.
+Descarga Lingua en
+**[https://linguacode.dev/es](https://linguacode.dev/es)**.
+Source-available bajo la Licencia Comercial de Lingua.

@@ -1,0 +1,83 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { CLI_GROUPS, cliHref, cliSlugFor, sortCliDocs } from '~/lib/cliDocs';
+import { type Locale, t } from '~/lib/i18n';
+
+interface Props {
+  entries: CollectionEntry<'cli'>[];
+  activeSlug: string;
+  locale: Locale;
+}
+
+const { entries, activeSlug, locale } = Astro.props;
+const copy = t(locale).cli;
+const sorted = sortCliDocs(entries);
+---
+
+<nav class="cli-nav" aria-label={copy.navLabel}>
+  {
+    CLI_GROUPS.map(group => {
+      const docs = sorted.filter(entry => entry.data.group === group);
+      if (docs.length === 0) return null;
+      return (
+        <section>
+          <h2>{copy.groups[group]}</h2>
+          <ul>
+            {docs.map(entry => {
+              const slug = cliSlugFor(entry.id);
+              return (
+                <li>
+                  <a href={cliHref(locale, slug)} aria-current={slug === activeSlug ? 'page' : undefined}>
+                    {entry.data.title}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      );
+    })
+  }
+</nav>
+
+<style>
+  .cli-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+  section h2 {
+    margin: 0 0 0.35rem;
+    color: var(--color-text-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: block;
+    padding: 0.48rem 0.65rem;
+    border-left: 2px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: var(--text-small);
+  }
+  a:hover {
+    color: var(--color-text);
+    background: var(--color-bg-elevated);
+  }
+  a[aria-current='page'] {
+    border-left-color: var(--color-accent);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent-muted) 30%, transparent);
+  }
+</style>

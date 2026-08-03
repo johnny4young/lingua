@@ -2,7 +2,7 @@ import i18next from 'i18next';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import { trackGitExternalModificationReload } from './gitTelemetry';
 
 const RELOAD_NOTICE_DEBOUNCE_MS = 500;

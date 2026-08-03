@@ -17,6 +17,7 @@ import {
   resolveOrThrow,
   shouldHide,
 } from './fsShared';
+import { searchProjectText } from './projectTextSearch';
 
 /**
  * internal — project-wide text search + literal/regex replace handlers,
@@ -26,6 +27,8 @@ import {
  * `Fs*` option/result shapes are ambient globals from `src/types.d.ts`.
  */
 export function registerSearchReplaceHandlers(): void {
+  const activeSearches = new Map<number, AbortController>();
+
   function buildSearchRegex(
     query: string,
     options: Record<string, unknown>
@@ -107,12 +110,15 @@ export function registerSearchReplaceHandlers(): void {
   typedHandle(
     'fs:searchInFiles',
     async (
-      _event,
+      event,
       rootId: RootId,
       relativePath: string,
       query: string,
       options: FsSearchOptions = {}
     ): Promise<FsSearchResult[]> => {
+      const senderId = event.sender.id;
+      activeSearches.get(senderId)?.abort();
+
       const { absolutePath } = await resolveOrThrow(
         rootId,
         relativePath,
@@ -146,108 +152,26 @@ export function registerSearchReplaceHandlers(): void {
         20_000
       );
 
-      const needle = caseSensitive ? searchText : searchText.toLowerCase();
-      const results: FsSearchResult[] = [];
-      let totalMatches = 0;
-      let filesScanned = 0;
+      const controller = new AbortController();
+      activeSearches.set(senderId, controller);
 
-      const NUL = String.fromCharCode(0);
-      function looksBinary(text: string): boolean {
-        const probe = text.slice(0, 1024);
-        return probe.includes(NUL);
-      }
-
-      async function searchFile(filePath: string, fileRelativePath: string) {
-        if (totalMatches >= maxTotalMatches) return;
-
-        let info;
-        try {
-          info = await statAsync(filePath);
-        } catch {
-          return; // missing/unreadable file — best-effort
-        }
-
-        if (!info.isFile() || info.size > maxFileSize) return;
-
-        let content: string;
-        try {
-          content = await readFile(filePath, 'utf8');
-        } catch {
-          return;
-        }
-
-        if (looksBinary(content)) return;
-
-        const fileMatches: FsSearchMatch[] = [];
-        const lines = content.split(/\r?\n/);
-
-        for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-          if (fileMatches.length >= maxMatchesPerFile) break;
-          if (totalMatches + fileMatches.length >= maxTotalMatches) break;
-
-          const rawLine = lines[lineIndex]!;
-          const haystack = caseSensitive ? rawLine : rawLine.toLowerCase();
-          const column = haystack.indexOf(needle);
-          if (column === -1) continue;
-
-          const PREVIEW_BUDGET = 240;
-          const previewStart = Math.max(0, column - 80);
-          const previewEnd = Math.min(rawLine.length, previewStart + PREVIEW_BUDGET);
-          const preview = rawLine.slice(previewStart, previewEnd);
-
-          fileMatches.push({
-            line: lineIndex + 1,
-            column: column + 1,
-            preview,
-            matchStart: column - previewStart,
-            matchEnd: column - previewStart + searchText.length,
-          });
-        }
-
-        if (fileMatches.length > 0) {
-          results.push({
-            relativePath: asRelativePath(fileRelativePath),
-            matches: fileMatches,
-          });
-          totalMatches += fileMatches.length;
+      try {
+        return await searchProjectText({
+          searchRootAbsolutePath: absolutePath,
+          rootRelativePath: relativePath,
+          query: searchText,
+          caseSensitive,
+          maxMatchesPerFile,
+          maxTotalMatches,
+          maxFileSize,
+          maxFilesScanned,
+          signal: controller.signal,
+        });
+      } finally {
+        if (activeSearches.get(senderId) === controller) {
+          activeSearches.delete(senderId);
         }
       }
-
-      async function walk(dirPath: string, currentRelative: string) {
-        if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
-          return;
-        }
-
-        let entries;
-        try {
-          entries = await readdir(dirPath, { withFileTypes: true });
-        } catch {
-          return;
-        }
-
-        for (const entry of entries) {
-          if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
-            return;
-          }
-          if (shouldHide(entry.name)) continue;
-
-          const entryPath = path.join(dirPath, entry.name);
-          const entryRelative = joinRelative(currentRelative, entry.name);
-
-          if (entry.isDirectory()) {
-            await walk(entryPath, entryRelative);
-            continue;
-          }
-
-          if (!entry.isFile()) continue;
-
-          filesScanned += 1;
-          await searchFile(entryPath, entryRelative);
-        }
-      }
-
-      await walk(absolutePath, relativePath);
-      return results;
     }
   );
 

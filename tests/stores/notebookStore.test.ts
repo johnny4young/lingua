@@ -82,6 +82,9 @@ describe('useNotebookStore CRUD', () => {
     expect(useNotebookStore.getState().getCellExecutionOrder('tab-imp', 'ghost')).toBeNull();
     expect(useNotebookStore.getState().notebooks['tab-imp']?.executionCounter).toBe(5);
     expect(useNotebookStore.getState().getActiveCellId('tab-imp')).toBe('m1');
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-imp', 'c1')
+    ).toBe('stale');
   });
 
   it('createNotebookForTab can seed the starter code cell as TypeScript', () => {
@@ -182,6 +185,54 @@ describe('useNotebookStore CRUD', () => {
     expect(after.source.length).toBeLessThanOrEqual(32 * 1024);
   });
 
+  it('marks the edited executed cell and executed cells below it stale across languages', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-reactive');
+    const first = store
+      .getNotebookForTab('tab-reactive')!
+      .cells.find((cell) => cell.kind === 'code')!;
+    const pythonId = store.addCell('tab-reactive', first.id, {
+      kind: 'code',
+      language: 'python',
+    })!;
+    const sqlId = store.addCell('tab-reactive', pythonId, {
+      kind: 'code',
+      language: 'sql',
+    })!;
+
+    for (const cellId of [first.id, pythonId]) {
+      store.setCellRunStatus('tab-reactive', cellId, 'ok');
+      store.setCellExecutionOrder('tab-reactive', cellId);
+    }
+    store.updateCellSource('tab-reactive', first.id, 'const changed = true');
+
+    expect(store.getCellRunStatus('tab-reactive', first.id)).toBe('stale');
+    expect(store.getCellRunStatus('tab-reactive', pythonId)).toBe('stale');
+    expect(store.getCellRunStatus('tab-reactive', sqlId)).toBe('idle');
+  });
+
+  it('marks executed cells below a deleted executed cell stale', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-delete-reactive');
+    const first = store
+      .getNotebookForTab('tab-delete-reactive')!
+      .cells.find((cell) => cell.kind === 'code')!;
+    const secondId = store.addCell('tab-delete-reactive', first.id, {
+      kind: 'code',
+      language: 'python',
+    })!;
+    for (const cellId of [first.id, secondId]) {
+      store.setCellRunStatus('tab-delete-reactive', cellId, 'ok');
+      store.setCellExecutionOrder('tab-delete-reactive', cellId);
+    }
+
+    store.removeCell('tab-delete-reactive', first.id);
+
+    expect(store.getCellRunStatus('tab-delete-reactive', secondId)).toBe(
+      'stale'
+    );
+  });
+
   it('setCellLanguage switches a code cell language + clears its outputs and run state', () => {
     const store = useNotebookStore.getState();
     store.createNotebookForTab('tab-lang');
@@ -204,10 +255,10 @@ describe('useNotebookStore CRUD', () => {
     expect(after.outputs).toEqual([]);
     expect(
       useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
-    ).toBe('idle');
+    ).toBe('stale');
 
-    // implementation — Python is runnable now, so switching to it is
-    // accepted (and clears outputs + run state like any language change).
+    // Python is runnable too. Switching again clears the prior output while
+    // keeping the executed cell stale until its new runtime is replayed.
     store.setCellOutputs('tab-lang', codeCell.id, [
       { kind: 'text', stream: 'stdout', text: 'stale-again' },
     ]);
@@ -223,7 +274,7 @@ describe('useNotebookStore CRUD', () => {
     expect(afterPython.outputs).toEqual([]);
     expect(
       useNotebookStore.getState().getCellRunStatus('tab-lang', codeCell.id)
-    ).toBe('idle');
+    ).toBe('stale');
 
     // Defensive: a runtime value outside the schema enum is a no-op
     // (returns the identical state object, no re-render).
@@ -347,6 +398,83 @@ describe('useNotebookStore CRUD', () => {
     const state = useNotebookStore.getState().notebooks;
     expect(Object.keys(state)).toEqual(['tab-good']);
     expect(state['tab-good']?.cellRunStatus).toEqual({});
+  });
+
+  it('rehydrate preserves a bounded execution ledger and marks silent setup cells stale', () => {
+    localStorage.setItem(
+      'lingua-notebook-state',
+      JSON.stringify({
+        state: {
+          notebooks: {
+            'tab-reactive-reload': {
+              notebook: {
+                version: 1,
+                id: 'nb-reactive-reload',
+                title: 'Reloaded',
+                cells: [
+                  {
+                    kind: 'code',
+                    id: 'setup',
+                    language: 'javascript',
+                    source: 'const value = 42',
+                    outputs: [],
+                  },
+                  {
+                    kind: 'code',
+                    id: 'visible',
+                    language: 'python',
+                    source: 'print("ready")',
+                    outputs: [
+                      { kind: 'text', stream: 'stdout', text: 'ready' },
+                    ],
+                  },
+                ],
+              },
+              cellExecutionOrder: { setup: 4, visible: 7, ghost: 99 },
+              activeCellId: 'visible',
+            },
+          },
+        },
+        version: 1,
+      })
+    );
+
+    useNotebookStore.persist.rehydrate();
+
+    const slice = useNotebookStore.getState().notebooks['tab-reactive-reload']!;
+    expect(slice.cellExecutionOrder).toEqual({ setup: 4, visible: 7 });
+    expect(slice.executionCounter).toBe(7);
+    expect(slice.cellRunStatus).toEqual({
+      setup: 'stale',
+      visible: 'stale',
+    });
+    expect(slice.activeCellId).toBe('visible');
+  });
+
+  it('persists only notebook data, execution evidence, and active selection', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-minimal-persist');
+    const codeCell = store
+      .getNotebookForTab('tab-minimal-persist')!
+      .cells.find((cell) => cell.kind === 'code')!;
+    store.setCellRunStatus('tab-minimal-persist', codeCell.id, 'ok');
+    store.setCellDurationMs('tab-minimal-persist', codeCell.id, 12);
+    store.setCellVarFlow('tab-minimal-persist', codeCell.id, {
+      uses: ['input'],
+      produces: ['output'],
+    });
+    store.setCellExecutionOrder('tab-minimal-persist', codeCell.id);
+
+    const persisted = JSON.parse(
+      localStorage.getItem('lingua-notebook-state') ?? '{}'
+    ) as {
+      state?: { notebooks?: Record<string, Record<string, unknown>> };
+    };
+    expect(
+      Object.keys(
+        persisted.state?.notebooks?.['tab-minimal-persist'] ?? {}
+      ).sort()
+    ).toEqual(['activeCellId', 'cellExecutionOrder', 'notebook']);
   });
 
   // ------- Signal-Slate: execution count ----------------------------------

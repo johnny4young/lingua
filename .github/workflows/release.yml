@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: true
+      release_cli:
+        description: Build and attach the npm package plus Windows/Linux standalone CLI archives
+        required: false
+        type: boolean
+        default: true
       release_web:
         description: Build and deploy the web bundle to Cloudflare Pages (app.linguacode.dev)
         required: false
@@ -151,6 +156,112 @@ jobs:
       - name: Run advisory full audit
         run: pnpm audit --audit-level high
         continue-on-error: true
+
+  build-cli-package:
+    name: Build CLI npm package
+    runs-on: ubuntu-latest
+    needs: [prepare-release-tag, security-audit]
+    if: ${{ inputs.release_cli }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build and validate CLI npm package
+        run: pnpm run package:cli -- --package-only
+      - name: Smoke installed CLI package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_path="$(find out-cli -maxdepth 1 -type f -name 'linguacode-cli-*.tgz' -print -quit)"
+          test -n "${package_path}" || { echo "::error::Missing CLI npm tarball"; exit 1; }
+          export npm_config_cache="$RUNNER_TEMP/npm-cli-smoke-cache"
+          npm install --global --prefix "$RUNNER_TEMP/lingua-cli-smoke" --ignore-scripts "${package_path}"
+          "$RUNNER_TEMP/lingua-cli-smoke/bin/lingua" --version
+          printf hello | "$RUNNER_TEMP/lingua-cli-smoke/bin/lingua" utility base64-encode | grep -Fx aGVsbG8=
+      - name: Upload CLI npm package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-package-artifacts
+          path: out-cli/*.tgz
+          if-no-files-found: error
+
+  build-cli-binaries:
+    name: Build CLI binary (${{ matrix.target }})
+    needs: [prepare-release-tag, security-audit]
+    if: ${{ inputs.release_cli }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: linux-x64
+          - runner: windows-latest
+            target: windows-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build native standalone CLI
+        shell: bash
+        env:
+          WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          args=(--binary-only --expect-target "${{ matrix.target }}")
+          if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
+            if [[ -n "${WIN_CERT_FILE:-}" && -z "${WIN_CERT_PASSWORD:-}" ]] || [[ -z "${WIN_CERT_FILE:-}" && -n "${WIN_CERT_PASSWORD:-}" ]]; then
+              echo "::error::Configure both WIN_CERT_FILE and WIN_CERT_PASSWORD, or neither."
+              exit 1
+            fi
+            if [[ -n "${WIN_CERT_FILE:-}" ]]; then
+              echo "$WIN_CERT_FILE" | base64 --decode > "$RUNNER_TEMP/lingua-cert.pfx"
+              export WINDOWS_CERTIFICATE_FILE="$RUNNER_TEMP/lingua-cert.pfx"
+              export WINDOWS_CERTIFICATE_PASSWORD="$WIN_CERT_PASSWORD"
+              args+=(--sign-windows)
+            fi
+          fi
+          pnpm run package:cli -- "${args[@]}"
+      - name: Verify standalone Windows Authenticode state
+        if: ${{ matrix.target == 'windows-x64' }}
+        shell: pwsh
+        env:
+          WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
+          WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          $binary = Get-Item out-cli/.staging/windows-x64/release/lingua.exe
+          $signature = Get-AuthenticodeSignature $binary.FullName
+          $signingConfigured = -not [string]::IsNullOrWhiteSpace($env:WIN_CERT_FILE) -and -not [string]::IsNullOrWhiteSpace($env:WIN_CERT_PASSWORD)
+          if ($signingConfigured -and $signature.Status -ne 'Valid') {
+            throw "Windows CLI signing was configured but Authenticode status is $($signature.Status)."
+          }
+          if ($signingConfigured) {
+            "Windows CLI: Authenticode signature valid" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          } else {
+            Write-Warning "Windows signing secrets are absent; the standalone CLI is an unsigned preview."
+            "Windows CLI: unsigned preview build (SmartScreen warning expected)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
+      - name: Upload standalone CLI archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-${{ matrix.target }}-artifacts
+          path: out-cli/*.tar.gz
+          if-no-files-found: error
 
   build-macos:
     name: Build macOS
@@ -415,17 +526,19 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build-macos, build-windows, build-linux, build-cli-package, build-cli-binaries]
     # `always()` so a skipped build (release_macos=false etc.) does not cancel
     # publish, but still require every SELECTED platform build to succeed so a
     # failed build can never produce a partial draft release.
     if: >-
       ${{
         always() &&
-        (inputs.release_macos || inputs.release_windows || inputs.release_linux) &&
+        (inputs.release_macos || inputs.release_windows || inputs.release_linux || inputs.release_cli) &&
         (!inputs.release_macos || needs['build-macos'].result == 'success') &&
         (!inputs.release_windows || needs['build-windows'].result == 'success') &&
-        (!inputs.release_linux || needs['build-linux'].result == 'success')
+        (!inputs.release_linux || needs['build-linux'].result == 'success') &&
+        (!inputs.release_cli || needs['build-cli-package'].result == 'success') &&
+        (!inputs.release_cli || needs['build-cli-binaries'].result == 'success')
       }}
     runs-on: ubuntu-latest
     permissions:
@@ -451,6 +564,7 @@ jobs:
           RELEASE_MACOS: ${{ inputs.release_macos }}
           RELEASE_WINDOWS: ${{ inputs.release_windows }}
           RELEASE_LINUX: ${{ inputs.release_linux }}
+          RELEASE_CLI: ${{ inputs.release_cli }}
         run: |
           set -euo pipefail
           payload_args=(
@@ -468,6 +582,12 @@ jobs:
           fi
           if [[ "${RELEASE_LINUX}" == "true" ]]; then
             payload_args+=(--require-manifest latest-linux.yml)
+          fi
+          if [[ "${RELEASE_CLI}" == "true" ]]; then
+            payload_args+=(--require-cli)
+          fi
+          if [[ "${RELEASE_MACOS}" != "true" && "${RELEASE_WINDOWS}" != "true" && "${RELEASE_LINUX}" != "true" ]]; then
+            payload_args+=(--allow-no-desktop)
           fi
           node scripts/prepare-release-payload.mjs "${payload_args[@]}"
 
@@ -518,7 +638,7 @@ jobs:
         inputs.release_web &&
         needs.security-audit.result == 'success' &&
         (
-          (!inputs.release_macos && !inputs.release_windows && !inputs.release_linux) ||
+          (!inputs.release_macos && !inputs.release_windows && !inputs.release_linux && !inputs.release_cli) ||
           needs.publish.result == 'success'
         )
       }}

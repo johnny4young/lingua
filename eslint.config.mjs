@@ -9,6 +9,8 @@ export default tseslint.config(
     ignores: [
       'dist/',
       'out/',
+      'out-builder/',
+      'out-cli/',
       'output/',
       '.vite/',
       '.claude/',

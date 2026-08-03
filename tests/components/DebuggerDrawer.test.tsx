@@ -6,7 +6,6 @@ import { DebuggerDrawer } from '@/components/Debugger/DebuggerDrawer';
 import { initI18n } from '@/i18n';
 import { postDebuggerMessage } from '@/runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
-import { useSettingsStore } from '@/stores/settingsStore';
 
 vi.mock('@/runtime/debuggerWorkerBridge', () => ({
   postDebuggerMessage: vi.fn(() => true),
@@ -17,7 +16,6 @@ describe('DebuggerDrawer', () => {
     initI18n('en');
     await i18next.changeLanguage('en');
     vi.mocked(postDebuggerMessage).mockClear();
-    useSettingsStore.setState({ debuggerEnabled: true }, false);
     useDebuggerStore.setState(
       {
         breakpoints: {},
@@ -71,7 +69,7 @@ describe('DebuggerDrawer', () => {
     fireEvent.click(screen.getByTestId('debugger-toggle-all-breakpoints'));
 
     expect(
-      Object.values(useDebuggerStore.getState().breakpoints).every((bp) => bp.enabled === false)
+      Object.values(useDebuggerStore.getState().breakpoints).every(bp => bp.enabled === false)
     ).toBe(true);
     expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain(
       'Enable all'
@@ -145,12 +143,13 @@ describe('DebuggerDrawer', () => {
   it('stays hidden for languages whose debugger adapter is not available', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
-    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
+    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="html" />);
 
     expect(container.firstChild).toBeNull();
   });
 
   it('renders paused locals and dispatches step controls', () => {
+    useDebuggerStore.getState().addWatch('value');
     useDebuggerStore.setState({
       session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
       pausedFrame: {
@@ -159,7 +158,7 @@ describe('DebuggerDrawer', () => {
         reason: 'user-breakpoint',
         locals: { value: '42' },
         callStack: [{ functionName: 'main', line: 1 }],
-        watchResults: { value: { pending: true } },
+        watchResults: { value: { value: '42' } },
       },
     });
 
@@ -168,14 +167,35 @@ describe('DebuggerDrawer', () => {
     expect(screen.getByTestId('debugger-locals').textContent).toContain('value: 42');
     expect(screen.getByTestId('debugger-callstack').textContent).toContain('main');
     expect(screen.getByText('Paused')).toBeTruthy();
-    expect(screen.getByTestId('debugger-watches').textContent).toContain(
-      'Pending evaluation'
-    );
+    expect(screen.getByTestId('debugger-watches').textContent).toContain('value42');
 
     fireEvent.click(screen.getByTestId('debugger-step-over'));
 
     expect(postDebuggerMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('keeps Python breakpoints pause-only and discloses native watch evaluation', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.getState().addWatch('value + 1');
+    useDebuggerStore.setState({
+      session: { runtime: 'python', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: { value: '41' },
+        callStack: [{ functionName: '<module>', line: 2 }],
+        watchResults: { 'value + 1': { value: '42' } },
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
+
+    expect(screen.queryByLabelText('Breakpoint behavior at line 2')).toBeNull();
+    expect(screen.getByText(/standard pause breakpoints/i)).toBeTruthy();
+    expect(screen.getByText(/may have side effects/i)).toBeTruthy();
+    expect(screen.getByTestId('debugger-step-out').hasAttribute('disabled')).toBe(true);
   });
 
   it('only enables step out while paused inside a function frame', () => {
@@ -210,6 +230,7 @@ describe('DebuggerDrawer', () => {
     });
 
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    vi.mocked(postDebuggerMessage).mockClear();
     fireEvent.click(screen.getByTestId('debugger-detach'));
 
     expect(postDebuggerMessage).toHaveBeenNthCalledWith(1, {
@@ -219,6 +240,54 @@ describe('DebuggerDrawer', () => {
     expect(postDebuggerMessage).toHaveBeenNthCalledWith(2, { type: 'resume' });
     expect(useDebuggerStore.getState().session).toBeNull();
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('configures conditional breakpoints, logpoints, and watches from the panel', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    await user.selectOptions(screen.getByLabelText('Breakpoint behavior at line 2'), 'conditional');
+    await user.type(screen.getByLabelText('Condition for breakpoint at line 2'), 'value > 3');
+    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({
+      mode: 'conditional',
+      condition: 'value > 3',
+    });
+
+    await user.selectOptions(screen.getByLabelText('Breakpoint behavior at line 2'), 'logpoint');
+    fireEvent.change(screen.getByLabelText('Logpoint message at line 2'), {
+      target: { value: 'value is {value}' },
+    });
+    expect(useDebuggerStore.getState().breakpoints['tab-1:2']).toMatchObject({
+      mode: 'logpoint',
+      logMessage: 'value is {value}',
+    });
+
+    await user.type(screen.getByTestId('debugger-watch-input'), 'value * 2');
+    await user.click(screen.getByTestId('debugger-watch-add'));
+    expect(useDebuggerStore.getState().watches[0]?.expression).toBe('value * 2');
+  });
+
+  it('surfaces conditional evaluation errors as a fail-safe pause', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [],
+        watchResults: {},
+        conditionError: 'Unknown identifier: missing',
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    expect(screen.getByTestId('debugger-condition-error').textContent).toContain(
+      'paused instead of silently skipping'
+    );
   });
 
   it('chevron toggles drawerCollapsed and hides the body (implementation note)', () => {

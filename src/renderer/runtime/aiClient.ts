@@ -16,9 +16,9 @@
 import type { ChatMessage } from '../../shared/ai/explainError';
 
 /** Default request timeout. */
-export const DEFAULT_AI_TIMEOUT_MS = 60_000;
+const DEFAULT_AI_TIMEOUT_MS = 60_000;
 /** Hard cap so a caller override can't disable the deadline. */
-export const MAX_AI_TIMEOUT_MS = 5 * 60_000;
+const MAX_AI_TIMEOUT_MS = 5 * 60_000;
 
 export interface AiProviderConfig {
   /** Full chat-completions URL, e.g. https://api.openai.com/v1/chat/completions. */
@@ -29,7 +29,7 @@ export interface AiProviderConfig {
   readonly model?: string;
 }
 
-export type AiErrorKind =
+type AiErrorKind =
   | 'config'
   | 'network'
   | 'timeout'

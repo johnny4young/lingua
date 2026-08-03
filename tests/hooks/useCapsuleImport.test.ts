@@ -8,6 +8,8 @@
  * needs to verify the call site fires the right shape.
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useCapsuleImport } from '@/hooks/useCapsuleImport';
@@ -15,6 +17,12 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import * as telemetry from '@/utils/telemetry';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
+import { buildCapsuleWorkspace } from '../../src/shared/capsuleWorkspace';
+
+const STABLE_CAPSULE_PATH = path.join(
+  process.cwd(),
+  'tests/fixtures/capsules/v0.15.0/javascript-input-set.capsule.json'
+);
 
 function makeFile(content: string, name = 'capsule.json'): File {
   return new File([content], name, { type: 'application/json' });
@@ -51,6 +59,18 @@ describe('useCapsuleImport', () => {
     );
   });
 
+  it('retains Capsule Workspace metadata for the read-only Files preview', async () => {
+    const workspace = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'src/helper.ts', language: 'typescript', content: 'export const n = 1;' },
+    ]);
+    if (!workspace.ok) throw new Error(workspace.reason);
+    const { result } = renderHook(() => useCapsuleImport());
+    act(() => result.current.decodeFromText(workspace.json));
+    expect(result.current.state.kind).toBe('decoded');
+    if (result.current.state.kind !== 'decoded') return;
+    expect(result.current.state.workspace?.files[0]?.path).toBe('src/helper.ts');
+  });
+
   it('reports rejected state with the closed-enum reason', () => {
     const trackSpy = vi.spyOn(telemetry, 'trackEvent').mockResolvedValue();
     const { result } = renderHook(() => useCapsuleImport());
@@ -82,6 +102,41 @@ describe('useCapsuleImport', () => {
     expect(result.current.state.kind).toBe('decoded');
     if (result.current.state.kind !== 'decoded') return;
     expect(result.current.state.sourceSurface).toBe('file-picker');
+  });
+
+  it('opens the immutable v0.15.0 file and restores its named input set', async () => {
+    const rawStableCapsule = readFileSync(STABLE_CAPSULE_PATH, 'utf8');
+    const { result } = renderHook(() => useCapsuleImport());
+
+    await act(async () => {
+      await result.current.decodeFromFile(
+        makeFile(rawStableCapsule, 'javascript-input-set.capsule.json'),
+        'file-picker'
+      );
+    });
+
+    expect(result.current.state.kind).toBe('decoded');
+    if (result.current.state.kind !== 'decoded') return;
+    expect(result.current.state.capsule.appVersion).toBe('0.15.0');
+
+    act(() => result.current.openInNewTab());
+
+    const [tab] = useEditorStore.getState().tabs;
+    expect(tab).toMatchObject({
+      name: 'stable-input.js',
+      language: 'javascript',
+      stdinBuffer: 'legacy capsule\n',
+      inputArgs: ['Ada'],
+      inputSets: [
+        {
+          id: expect.any(String),
+          name: 'Stable 0.15 fixture',
+          stdin: 'legacy capsule\n',
+          args: ['Ada'],
+        },
+      ],
+    });
+    expect(tab?.activeInputSetId).toBe(tab?.inputSets?.[0]?.id);
   });
 
   it('rejects oversized files before reading text', async () => {

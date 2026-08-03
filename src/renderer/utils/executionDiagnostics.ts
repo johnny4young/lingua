@@ -1,4 +1,5 @@
-import type { EditorDiagnostic, ExecutionError, Language } from '../types';
+import type { Language } from '../types/language';
+import type { EditorDiagnostic, ExecutionError } from '../types/execution';
 
 function firstNonEmptyLine(input?: string | null): string | null {
   if (!input) {

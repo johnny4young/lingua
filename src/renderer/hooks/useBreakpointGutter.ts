@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
@@ -13,10 +13,9 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
  * as a hollow ring so users still see them but they no longer pause
  * execution.
  *
- * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1) the JS/TS adapter is
- * the first runtime to ship; this gutter only mounts dots for those
- * languages. Other tabs see no gutter affordance — the ADR's per-runtime
- * capability gate keeps the surface honest until later work land.
+ * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1), the gutter mounts for
+ * JavaScript/TypeScript in both shells and Python on desktop. Other tabs see
+ * no gutter affordance; the per-runtime capability gate stays authoritative.
  *
  * Two callsites would otherwise hammer Monaco unnecessarily:
  *   - tab switches change `activeTabId` mid-flight.
@@ -28,7 +27,7 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
 export interface BreakpointGutterOptions {
   /** Active tab id — null when no tab is open. */
   activeTabId: string | null;
-  /** Tab language — gates the gutter to JS / TS per ADR §1. */
+  /** Tab language — gates the gutter to shipping debugger adapters. */
   language: Language | undefined;
   /** Localized aria label for the breakpoint toggle row. */
   toggleAriaLabel: (line: number) => string;
@@ -39,8 +38,6 @@ export function useBreakpointGutter(
   monaco: typeof monacoTypes | null,
   options: BreakpointGutterOptions
 ): void {
-  // implementation — debugger is baseline; the Settings master toggle is gone.
-  const debuggerEnabled = true;
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
@@ -53,7 +50,7 @@ export function useBreakpointGutter(
   // internally so we don't pay a full re-render on each toggle.
   useEffect(() => {
     if (!editor || !monaco) return;
-    if (!debuggerEnabled || !supportsDebugger || !activeTabId) {
+    if (!supportsDebugger || !activeTabId) {
       decorationsRef.current?.clear();
       decorationsRef.current = null;
       return;
@@ -74,7 +71,13 @@ export function useBreakpointGutter(
       range: new monaco.Range(bp.line, 1, bp.line, 1),
       options: {
         isWholeLine: false,
-        glyphMarginClassName: bp.enabled ? 'lingua-bp-glyph' : 'lingua-bp-glyph lingua-bp-glyph--disabled',
+        glyphMarginClassName: [
+          'lingua-bp-glyph',
+          `lingua-bp-glyph--${bp.mode}`,
+          bp.enabled ? '' : 'lingua-bp-glyph--disabled',
+        ]
+          .filter(Boolean)
+          .join(' '),
         glyphMarginHoverMessage: { value: toggleAriaLabel(bp.line) },
       },
     }));
@@ -100,7 +103,6 @@ export function useBreakpointGutter(
   }, [
     editor,
     monaco,
-    debuggerEnabled,
     supportsDebugger,
     activeTabId,
     breakpoints,
@@ -114,7 +116,7 @@ export function useBreakpointGutter(
   // the wrong tab is the failure mode we avoid).
   useEffect(() => {
     if (!editor || !monaco) return;
-    if (!debuggerEnabled || !supportsDebugger || !activeTabId) return;
+    if (!supportsDebugger || !activeTabId) return;
 
     const handler = editor.onMouseDown((event) => {
       // GLYPH_MARGIN === 2 on monaco.editor.MouseTargetType but importing
@@ -132,7 +134,7 @@ export function useBreakpointGutter(
     return () => {
       handler.dispose();
     };
-  }, [editor, monaco, debuggerEnabled, supportsDebugger, activeTabId]);
+  }, [editor, monaco, supportsDebugger, activeTabId]);
 
   // Always-on cleanup — when the gutter unmounts we clear decorations
   // so a leftover dot doesn't sit on a now-unused tab. The mouse-click

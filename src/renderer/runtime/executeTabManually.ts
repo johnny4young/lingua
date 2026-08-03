@@ -22,12 +22,9 @@ import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
 } from '../../shared/runtimeTimeoutPresets';
-import type {
-  ConsoleOutput,
-  ExecutionResult,
-  FileTab,
-  Language,
-} from '../types';
+import type { FileTab } from '../types/editor';
+import type { Language } from '../types/language';
+import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
   getCompilationLoadingMessage,
@@ -303,6 +300,8 @@ export interface ManualExecutionLifecycle {
    * breakpoints remain passive editor marks until the user presses Debug.
    */
   debug?: boolean;
+  /** Telemetry entry point supplied by the React control that owns the run. */
+  track?: import('../hooks/useTelemetry').TelemetryTrack;
 }
 
 export interface ManualExecutionSummary {
@@ -358,6 +357,8 @@ export async function executeTabManually(
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
+  const usesNativeDebugger =
+    debugRequested && (language === 'python' || language === 'go' || language === 'rust');
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -453,7 +454,8 @@ export async function executeTabManually(
   });
   lifecycle.setIsRunning?.(true);
 
-  const shouldShowInitialization = runnerManager.needsInitialization(language, runtimeMode);
+  const shouldShowInitialization =
+    !usesNativeDebugger && runnerManager.needsInitialization(language, runtimeMode);
   // internal — while the runtime bootstraps, compose the live download
   // progress the worker streams into the static loading message
   // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
@@ -507,7 +509,28 @@ export async function executeTabManually(
       }
     }
 
-    const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
+    const prepared = usesNativeDebugger
+      ? {
+          runner: {
+            execute: async (
+              _source: string,
+              context?: { onConsole?: (output: ConsoleOutput) => void }
+            ) => {
+              if (language === 'python') {
+                const { executePythonDebugSession } = await import('./pythonDebuggerBridge');
+                return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              }
+              if (language === 'go') {
+                const { executeGoDebugSession } = await import('./goDebuggerBridge');
+                return executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
+              }
+              const { executeRustDebugSession } = await import('./rustDebuggerBridge');
+              return executeRustDebugSession(activeTab, context?.onConsole, lifecycle.track);
+            },
+          },
+        }
+      : await runnerManager.prepareRunner(language, runtimeMode);
+    const { runner } = prepared;
     if (!runner) {
       // Closed-enum failure signal; the console entry below carries the
       // honest local message.
@@ -640,7 +663,8 @@ export async function executeTabManually(
         : {}),
     };
 
-    const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
+    const settingsTimeoutMs =
+      !usesNativeDebugger && isRuntimeTimeoutSupportedLanguage(language)
       ? resolveTimeoutMs(
           language,
           useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[language]
@@ -746,7 +770,9 @@ export async function executeTabManually(
     // setFullOutput so the snapshot reflects what the user just
     // saw.
     if (!result.error && !result.cancelled) {
-      useResultStore.getState().captureSuccessfulSnapshot(language);
+      useResultStore
+        .getState()
+        .captureSuccessfulSnapshot(language, content);
       // implementation — surface the variable inspector snapshot if
       // the worker emitted one. `null` clears any stale snapshot
       // from the previous run so the toggle reflects the latest

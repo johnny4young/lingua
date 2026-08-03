@@ -87,20 +87,21 @@ export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
  * `'text'`; the enum stays open for implementation binary / structured
  * adapters.
  */
-export type UtilityValueKind = 'text' | 'json' | 'binary';
+type UtilityValueKind = 'text' | 'json' | 'binary';
 
 /**
  * Closed enum of failure reasons an adapter `run()` returns. The
  * engine maps these onto step status + the UI maps them onto i18n
  * keys (`utilityPipeline.result.error.*`).
  */
-export const ADAPTER_RUN_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+const ADAPTER_RUN_REASONS = [
   'invalid-input',
   'invalid-options',
   'execution-error',
   'unsupported',
 ] as const;
-export type AdapterRunReason = (typeof ADAPTER_RUN_REASONS)[number];
+type AdapterRunReason = (typeof ADAPTER_RUN_REASONS)[number];
 
 /**
  * Discriminated outcome of `adapter.run()`. Always settles; never

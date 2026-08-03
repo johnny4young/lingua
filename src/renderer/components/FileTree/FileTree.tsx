@@ -6,6 +6,8 @@ import {
   FolderOpen,
   FolderPlus,
   FilePlus,
+  FlaskConical,
+  SquareTerminal,
   RefreshCw,
   FolderOpen as OpenFolderIcon,
 } from 'lucide-react';
@@ -18,6 +20,8 @@ import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useProjectBundle } from '../../hooks/useProjectBundle';
+import { emitCommand } from '../../stores/commandBus';
+import { useUIStore } from '../../stores/uiStore';
 import { IconButton } from '../ui/chrome';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
@@ -36,7 +40,7 @@ import type { CreationTarget } from './fileTreeTypes';
  */
 const TREE_ROW_ESTIMATE_PX = 26;
 
-interface FileTreeProps {
+export interface FileTreeProps {
   onNavigate?: () => void;
 }
 
@@ -357,6 +361,24 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           >
             <FolderPlus size={13} />
           </IconButton>
+          <IconButton
+            onClick={() => emitCommand('overlay.openProjectTests')}
+            tooltip={t('fileTree.actions.projectTests')}
+            aria-label={t('fileTree.actions.projectTests')}
+            data-testid="file-tree-project-tests"
+          >
+            <FlaskConical size={13} />
+          </IconButton>
+          {window.lingua?.projectTerminal ? (
+            <IconButton
+              onClick={() => useUIStore.getState().openBottomPanel('project-terminal')}
+              tooltip={t('fileTree.actions.projectTerminal')}
+              aria-label={t('fileTree.actions.projectTerminal')}
+              data-testid="file-tree-project-terminal"
+            >
+              <SquareTerminal size={13} />
+            </IconButton>
+          ) : null}
           <IconButton
             onClick={refreshTree}
             tooltip={t('fileTree.actions.refresh')}

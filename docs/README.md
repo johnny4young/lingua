@@ -17,10 +17,13 @@ planning is intentionally excluded from the published repository.
 
 ## Product and runtime references
 
-- [`CLI_USAGE.md`](./CLI_USAGE.md) — current command-line surface and exit-code contract.
+- [`CLI_USAGE.md`](./CLI_USAGE.md) — current command-line surface and exit-code contract; the human task-based guide lives at [`linguacode.dev/cli`](https://linguacode.dev/cli).
+- [`IMPORTING.md`](./IMPORTING.md) — supported import formats, limits, and trust boundaries.
 - [`DEBUGGER.md`](./DEBUGGER.md) — current debugger behavior, validation, telemetry, and limitations.
 - [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md) — portable run-capture fixture and compatibility matrix.
+- [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) — bounded multi-file sharing format, privacy boundary, limits, and viewer behavior.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.
+- [`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md) — local MCP threat model, consent boundary, read-only tools, and lifecycle.
 
 ## Architecture decisions
 
@@ -29,6 +32,7 @@ planning is intentionally excluded from the published repository.
 - [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) — environment-variable scopes and execution boundaries.
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) — declarative language packs.
 - [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md) — consent-first, bring-your-own-endpoint AI.
+- [`PROJECT_TEST_RUNNER_ADR.md`](./PROJECT_TEST_RUNNER_ADR.md) — capability-scoped test discovery and fixed-command desktop execution.
 - [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) — per-notebook Python state and isolation.
 - [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) — vendored runtime integrity and remote oversized assets.
 - [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) — worker, desktop Node, and browser-preview execution.

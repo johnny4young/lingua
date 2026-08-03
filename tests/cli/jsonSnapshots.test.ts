@@ -13,7 +13,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { runUtilityCommand } from '../../src/cli/commands/utility';
-import { runValidateCapsuleCommand } from '../../src/cli/commands/capsule';
+import { runReplayCapsuleCommand, runValidateCapsuleCommand } from '../../src/cli/commands/capsule';
+import { emitExecution } from '../../src/cli/commands/run';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { createFakeIo } from './io-fake';
 
@@ -63,10 +64,7 @@ describe('--json envelope snapshots (implementation note)', () => {
     const { io, state } = createFakeIo({
       stdin: 'https://example.com:8080/path?x=1&y=2#hash',
     });
-    await runUtilityCommand(
-      { utilityId: 'url-parse', options: [], json: true, quiet: false },
-      io
-    );
+    await runUtilityCommand({ utilityId: 'url-parse', options: [], json: true, quiet: false }, io);
     expect(JSON.parse(state.stdout)).toMatchSnapshot();
   });
 
@@ -108,10 +106,7 @@ describe('--json envelope snapshots (implementation note)', () => {
   it('capsule validate: success', async () => {
     const validJson = JSON.stringify(FIXTURE_MINIMAL_JS);
     const { io, state } = createFakeIo({ files: { '/tmp/c.json': validJson } });
-    await runValidateCapsuleCommand(
-      { filePath: '/tmp/c.json', json: true, quiet: false },
-      io
-    );
+    await runValidateCapsuleCommand({ filePath: '/tmp/c.json', json: true, quiet: false }, io);
     const parsed = JSON.parse(state.stdout) as Record<string, unknown>;
     // Strip the duration-sensitive summary so the snapshot stays
     // stable across runs.
@@ -121,13 +116,46 @@ describe('--json envelope snapshots (implementation note)', () => {
 
   it('capsule validate: invalid-json failure', async () => {
     const { io, state } = createFakeIo({ files: { '/tmp/bad.json': '{' } });
-    await runValidateCapsuleCommand(
-      { filePath: '/tmp/bad.json', json: true, quiet: false },
-      io
-    );
+    await runValidateCapsuleCommand({ filePath: '/tmp/bad.json', json: true, quiet: false }, io);
     const parsed = JSON.parse(state.stdout) as Record<string, unknown>;
     // Strip the parser-specific detail string.
     const stable = { ...parsed, detail: '<stripped>' };
+    expect(stable).toMatchSnapshot();
+  });
+
+  it('run: success', () => {
+    const { io, state } = createFakeIo();
+    emitExecution({ json: true, quiet: false }, io, {
+      status: 'success',
+      target: './hello.js',
+      runtime: 'node',
+      durationMs: 12,
+      exitCode: 0,
+      signal: null,
+      stdout: 'hello\n',
+      stderr: '',
+    });
+    expect(JSON.parse(state.stdout)).toMatchSnapshot();
+  });
+
+  it('capsule replay: matching success', async () => {
+    const { io, state } = createFakeIo({
+      files: { '/tmp/replay.json': JSON.stringify(FIXTURE_MINIMAL_JS) },
+    });
+    await runReplayCapsuleCommand(
+      {
+        filePath: '/tmp/replay.json',
+        env: [],
+        json: true,
+        quiet: false,
+      },
+      io
+    );
+    const parsed = JSON.parse(state.stdout) as {
+      run: { durationMs: number };
+      [key: string]: unknown;
+    };
+    const stable = { ...parsed, run: { ...parsed.run, durationMs: 0 } };
     expect(stable).toMatchSnapshot();
   });
 });

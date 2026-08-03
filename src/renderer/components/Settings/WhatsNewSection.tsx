@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChangelogEntry } from '../../../shared/changelog';
@@ -98,7 +98,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
   const appInfo = useAppInfo();
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
-  const [hasUserSelectedVersion, setHasUserSelectedVersion] = useState(false);
+  const [preferredVersion, setPreferredVersion] = useState<string | null>(null);
 
   const currentVersion = appInfo?.version ?? null;
   const featuredEntry = getFeaturedChangelogEntry(entries, currentVersion);
@@ -118,14 +118,8 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
     });
   }, [entries, query]);
 
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(
-    featuredEntry?.version ?? entries[0]?.version ?? null
-  );
-
-  useEffect(() => {
-    if (hasUserSelectedVersion) return;
-    setSelectedVersion(featuredEntry?.version ?? entries[0]?.version ?? null);
-  }, [entries, featuredEntry?.version, hasUserSelectedVersion]);
+  const selectedVersion =
+    preferredVersion ?? featuredEntry?.version ?? entries[0]?.version ?? null;
 
   // Keep selection valid when the filter narrows it out.
   const selectedEntry = useMemo(() => {
@@ -178,7 +172,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
               aria-live="polite"
               aria-atomic="true"
               data-testid="changelog-search-result-count"
-              className="internal"
+              className="sr-only"
             >
               {query.trim().length > 0
                 ? t('whatsNew.search.resultCount', { count: filteredEntries.length })
@@ -203,10 +197,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                   <button
                     key={`${entry.version}-${entry.date ?? 'undated'}`}
                     type="button"
-                    onClick={() => {
-                      setHasUserSelectedVersion(true);
-                      setSelectedVersion(entry.version);
-                    }}
+                    onClick={() => setPreferredVersion(entry.version)}
                     aria-pressed={isSelected}
                     data-testid={`changelog-entry-${entry.version}`}
                     className={cn(

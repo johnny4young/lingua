@@ -42,7 +42,7 @@ export const PIPELINE_TEMPLATE_IDS = [
   // from the empty-state gallery.
   'inspect-hidden-chars',
 ] as const;
-export type PipelineTemplateId = (typeof PIPELINE_TEMPLATE_IDS)[number];
+type PipelineTemplateId = (typeof PIPELINE_TEMPLATE_IDS)[number];
 
 /**
  * One curated starter pipeline. `steps` reference adapter ids from the

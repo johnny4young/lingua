@@ -3,9 +3,8 @@
  *
  * Holds every store subscription, derived value, and handler the
  * floating pill needs so the component file stays a thin presentational
- * shell that wires the extracted segments together. Behaviour is
- * identical to the previous inline implementation — this is a pure
- * split, no logic change.
+ * shell that wires the extracted segments together. Product eligibility
+ * comes from the same pure policy as the compact toolbar.
  */
 
 import {
@@ -19,7 +18,16 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
-import { Bug, Globe, Package, Play, Sparkles, Terminal } from 'lucide-react';
+import {
+  Bug,
+  Globe,
+  Package,
+  Play,
+  Rabbit,
+  Sparkles,
+  Terminal,
+  Zap,
+} from 'lucide-react';
 import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
@@ -27,17 +35,17 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import type { RunHistoryEntry } from '../ui/primitives';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import type { WorkflowMode } from '../../../shared/workflowMode';
-import {
-  executionModeForLanguage,
-  languageCapabilityBadgeKey,
-  languageSupportsDebugger,
-} from '../../utils/languageMeta';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { useDebuggerStore } from '../../stores/debuggerStore';
+import {
+  executionDisabledTooltipKey,
+  resolveExecutionControlPolicy,
+} from './executionControlPolicy';
 
 export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run';
 export type ActionPillMenuSetter = Dispatch<SetStateAction<ActionPillMenu | null>>;
@@ -53,7 +61,7 @@ const RIGHT_EDITOR_HEADER_RESERVE = 420;
 // The pill exposes them as two separate chips so the user never sees
 // a misleading "two Actual rows" state. The Runtime chip is only
 // rendered when the language has runtime modes (JS/TS today).
-export function workflowChipLabel(
+function workflowChipLabel(
   t: (k: string) => string,
   workflowMode: WorkflowMode | undefined,
 ): { icon: ReactNode; label: string } {
@@ -66,12 +74,14 @@ export function workflowChipLabel(
   return { icon: <Play size={11} />, label: t('actionPill.run') };
 }
 
-export function runtimeChipLabel(
+function runtimeChipLabel(
   runtimeMode: string | undefined,
 ): { icon: ReactNode; label: string } {
   if (runtimeMode === 'node') return { icon: <Terminal size={11} />, label: 'Node' };
   if (runtimeMode === 'browser-preview')
-    return { icon: <Globe size={11} />, label: 'Browser' };
+    return { icon: <Globe size={11} />, label: 'Browser preview' };
+  if (runtimeMode === 'deno') return { icon: <Zap size={11} />, label: 'Deno' };
+  if (runtimeMode === 'bun') return { icon: <Rabbit size={11} />, label: 'Bun' };
   return { icon: <Package size={11} />, label: 'Worker' };
 }
 
@@ -86,8 +96,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
   const autoSaveEnabled = true;
-  // implementation — debugger is baseline; the Settings master toggle is gone.
-  const debuggerEnabled = true;
   const historyEntries = useExecutionHistoryStore((s) => s.entries);
   const effectiveTier = useEffectiveTier();
   const actionPillPosition = useUIStore((s) => s.actionPillPosition);
@@ -101,19 +109,24 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const [openMenu, setOpenMenu] = useState<ActionPillMenu | null>(null);
 
   const activeTab = useActiveTab();
+  const enabledBreakpointCount = useDebuggerStore((state) => {
+    if (!activeTab) return 0;
+    return state
+      .breakpointsForTab(activeTab.id)
+      .filter((breakpoint) => breakpoint.enabled !== false).length;
+  });
   const isNotebookTab = activeTab?.kind === 'notebook';
   const language = activeTab?.language ?? 'javascript';
-  const supportsDebug = languageSupportsDebugger(language);
   const supportsRuntimeModes = languageHasRuntimeModes(language);
-  const executionMode = executionModeForLanguage(language);
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  const languageIsDesktopOnly =
-    languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
-  const proLanguageGate =
-    executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
-  const desktopOnlyGate =
-    !proLanguageGate && isWebBuild && languageIsDesktopOnly && executionMode === 'run';
+  const executionPolicy = resolveExecutionControlPolicy({
+    language,
+    effectiveTier,
+    isWebBuild,
+    isNotebookTab,
+    enabledBreakpointCount,
+  });
   const estimatedPillWidth =
     typeof window !== 'undefined' && window.innerWidth >= 1500
       ? FULL_PILL_WIDTH
@@ -240,13 +253,14 @@ export function useFloatingActionPill(t: (k: string) => string) {
   // auto-create a tab when none exists so the chip always advances
   // the user instead of silently no-op'ing — that's the
   // "click no funciona" report from review.
-  const runDisabled =
-    executionMode === 'view' || isNotebookTab || desktopOnlyGate || proLanguageGate;
-  const runDisabledTooltip = proLanguageGate
-    ? t('toolbar.run.proOnlyTooltip')
-    : desktopOnlyGate
-      ? t('toolbar.run.desktopOnlyTooltip')
-      : undefined;
+  const currentActionAvailability = executionPolicy.actions[currentWorkflow];
+  const runDisabled = !isRunning && currentActionAvailability.disabled;
+  const runDisabledTooltipKey = executionDisabledTooltipKey(
+    currentWorkflow,
+    currentActionAvailability.reason,
+  );
+  const runDisabledTooltip =
+    runDisabled && runDisabledTooltipKey ? t(runDisabledTooltipKey) : undefined;
   const noActiveTab = tabCount === 0;
   const ensureTabForLanguage = (lang: Language) => {
     const existing = getActiveTab(useEditorStore.getState());
@@ -293,11 +307,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     workflowChip,
     handleRunClick,
     run,
-    supportsDebug,
-    debuggerEnabled,
-    isNotebookTab,
-    desktopOnlyGate,
-    proLanguageGate,
+    workflowAvailability: executionPolicy.actions,
     noActiveTab,
     ensureTabForLanguage,
     setTabWorkflowMode,

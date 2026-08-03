@@ -675,6 +675,7 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // internal — mirror of the HTML-export triggers.
   'settings-export-html',
   'list-export-html',
+  'list-export-workspace',
 ]);
 // implementation note — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
@@ -724,6 +725,7 @@ export const IMPORTER_IDS_SET = new Set([
   'postman-collection',
   'bruno-collection',
   'linguanb-notebook',
+  'playground-url',
 ]);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // implementation note — mirrors `NOTEBOOK_WARNING_KINDS_SET` in

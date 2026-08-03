@@ -71,7 +71,7 @@ export const RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET = new Set<string>(
  *                                  `normal` and gives Pyodide-heavy
  *                                  workloads breathing room).
  */
-export const RUNTIME_TIMEOUT_DEFAULT_PRESET: Record<
+const RUNTIME_TIMEOUT_DEFAULT_PRESET: Record<
   RuntimeTimeoutSupportedLanguage,
   RuntimeTimeoutPreset
 > = {

@@ -3,20 +3,17 @@
  *
  * Covers the load-bearing surfaces:
  *
- *   1. Lazy render to `null` when no capsule has been captured —
- *      the button never advertises a no-op (the user sees nothing
- *      until their first run lands a capsule on the history store).
- *   2. Renders + clicks happy path → clipboard.writeText fires +
+ *   1. Renders + clicks happy path → clipboard.writeText fires +
  *      `capsule.exported.trigger = 'result-panel-export'` telemetry
  *      fires + status notice pushed.
- *   3. implementation note — exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
+ *   2. implementation note — exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
  *      so the boundary conditions of the closed enum are pinned.
- *   4. implementation note — Pro badge surfaces ONLY when `richOutputs` is non-
+ *   3. implementation note — Pro badge surfaces ONLY when `richOutputs` is non-
  *      empty (informational nudge, not a gate).
- *   5. implementation note — `data-just-copied="true"` flips on click and resets
+ *   4. implementation note — `data-just-copied="true"` flips on click and resets
  *      after the feedback window so the visual click-confirmation
  *      isn't sticky.
- *   6. implementation note — clipboard-rejected path pushes the
+ *   5. implementation note — clipboard-rejected path pushes the
  *      `clipboardUnavailable` notice (points the user to Settings),
  *      NOT the Settings-specific fallback notice.
  */
@@ -26,13 +23,10 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 
-const { mockTrackEvent, mockPushStatusNotice, latestCapsuleRef } = vi.hoisted(
-  () => ({
-    mockTrackEvent: vi.fn().mockResolvedValue(undefined),
-    mockPushStatusNotice: vi.fn(),
-    latestCapsuleRef: { current: null as unknown },
-  })
-);
+const { mockTrackEvent, mockPushStatusNotice } = vi.hoisted(() => ({
+  mockTrackEvent: vi.fn().mockResolvedValue(undefined),
+  mockPushStatusNotice: vi.fn(),
+}));
 
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: mockTrackEvent,
@@ -48,24 +42,13 @@ vi.mock('../../../src/renderer/stores/uiStore', () => ({
   ),
 }));
 
-vi.mock('../../../src/renderer/stores/executionHistoryStore', () => ({
-  useExecutionHistoryStore: (selector: (state: {
-    latestCapsule: () => unknown;
-  }) => unknown) =>
-    selector({ latestCapsule: () => latestCapsuleRef.current }),
-}));
-
 import { RunCapsuleExportButton } from '../../../src/renderer/components/Editor/RunCapsuleExportButton';
-import {
-  FIXTURE_MINIMAL_JS,
-  FIXTURE_PYTHON_CHART,
-} from '../../shared/runCapsule.fixtures';
+import { FIXTURE_MINIMAL_JS, FIXTURE_PYTHON_CHART } from '../../shared/runCapsule.fixtures';
 
 describe('RunCapsuleExportButton', () => {
   beforeEach(async () => {
     mockTrackEvent.mockClear();
     mockPushStatusNotice.mockClear();
-    latestCapsuleRef.current = null;
     vi.useFakeTimers();
     initI18n('en');
     await i18next.changeLanguage('en');
@@ -77,48 +60,33 @@ describe('RunCapsuleExportButton', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders null when no capsule has been captured', () => {
-    const { container } = render(<RunCapsuleExportButton />);
-    expect(container.firstChild).toBeNull();
-    expect(screen.queryByTestId('result-panel-export-capsule')).toBeNull();
-  });
-
   it('renders the button when a capsule is available', () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('aria-label')).toBe('Export run as capsule');
-    expect(button.getAttribute('title')).toBe(
-      'Export this run as a JSON capsule'
-    );
+    expect(button.getAttribute('title')).toBe('Export this run as a JSON capsule');
   });
 
   it('renders neutral Spanish capsule copy', async () => {
-    latestCapsuleRef.current = FIXTURE_PYTHON_CHART;
     await i18next.changeLanguage('es');
 
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_PYTHON_CHART} />);
     const button = screen.getByTestId('result-panel-export-capsule');
-    expect(button.getAttribute('aria-label')).toBe(
-      'Exporta la ejecución como cápsula'
+    expect(button.getAttribute('aria-label')).toBe('Exporta la ejecución como cápsula');
+    expect(button.getAttribute('title')).toBe('Exporta esta ejecución como una cápsula JSON');
+    expect(screen.getByTestId('result-panel-export-pro-badge').getAttribute('title')).toContain(
+      'salidas multimedia enriquecidas'
     );
-    expect(button.getAttribute('title')).toBe(
-      'Exporta esta ejecución como una cápsula JSON'
-    );
-    expect(
-      screen.getByTestId('result-panel-export-pro-badge').getAttribute('title')
-    ).toContain('salidas multimedia enriquecidas');
   });
 
   it('exports via clipboard happy path and fires telemetry with the exact sizeBucket (implementation note)', async () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     });
 
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     fireEvent.click(screen.getByTestId('result-panel-export-capsule'));
     await act(async () => {
       // Flush the microtask that resolves the clipboard.writeText
@@ -129,9 +97,7 @@ describe('RunCapsuleExportButton', () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     const json = writeText.mock.calls[0]![0] as string;
     expect(json).toContain('"version": 1');
-    expect(json).toContain(
-      '"capsuleId": "00000000-0000-4000-8000-000000000001"'
-    );
+    expect(json).toContain('"capsuleId": "00000000-0000-4000-8000-000000000001"');
     expect(mockTrackEvent).toHaveBeenCalledWith('capsule.exported', {
       trigger: 'result-panel-export',
       sizeBucket: '<10kb',
@@ -144,14 +110,13 @@ describe('RunCapsuleExportButton', () => {
   });
 
   it('flips data-just-copied for the feedback window and resets after (implementation note)', async () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     });
 
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('data-just-copied')).toBe('false');
 
@@ -168,14 +133,13 @@ describe('RunCapsuleExportButton', () => {
   });
 
   it('resets the feedback timer on a second click within the window (implementation note)', async () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     });
 
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     const button = screen.getByTestId('result-panel-export-capsule');
 
     fireEvent.click(button);
@@ -215,32 +179,27 @@ describe('RunCapsuleExportButton', () => {
   });
 
   it('surfaces the Pro badge for capsules with richOutputs (implementation note)', () => {
-    latestCapsuleRef.current = FIXTURE_PYTHON_CHART;
-    render(<RunCapsuleExportButton />);
-    expect(
-      screen.queryByTestId('result-panel-export-pro-badge')
-    ).not.toBeNull();
+    render(<RunCapsuleExportButton capsule={FIXTURE_PYTHON_CHART} />);
+    expect(screen.queryByTestId('result-panel-export-pro-badge')).not.toBeNull();
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('data-has-rich-outputs')).toBe('true');
   });
 
   it('hides the Pro badge for capsules without richOutputs (implementation note)', () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     expect(screen.queryByTestId('result-panel-export-pro-badge')).toBeNull();
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('data-has-rich-outputs')).toBe('false');
   });
 
   it('pushes the clipboardUnavailable notice on rejection (implementation note)', async () => {
-    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockRejectedValue(new Error('blocked'));
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     });
 
-    render(<RunCapsuleExportButton />);
+    render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     fireEvent.click(screen.getByTestId('result-panel-export-capsule'));
     // Two microtasks: clipboard.writeText rejects → exportCapsuleToClipboard
     // returns `{ ok: false }` → component pushes notice.

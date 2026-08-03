@@ -80,7 +80,7 @@ export interface RecentProject {
  * `fs:reopen-root` to mint a fresh capability tied to the same root
  * path.
  */
-export interface ActiveProject extends RecentProject {
+interface ActiveProject extends RecentProject {
   rootId: RootId;
 }
 

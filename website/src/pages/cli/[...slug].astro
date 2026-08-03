@@ -1,0 +1,23 @@
+---
+import { getCollection, render } from 'astro:content';
+import CliDoc from '~/layouts/CliDoc.astro';
+
+export async function getStaticPaths() {
+  const locale = 'en';
+  const entries = await getCollection('cli', ({ id }) => id.startsWith(`${locale}/`));
+  return entries
+    .filter(entry => entry.id !== `${locale}/getting-started`)
+    .map(entry => ({
+      params: { slug: entry.id.replace(`${locale}/`, '') },
+      props: { entry, allDocs: entries },
+    }));
+}
+
+const { entry, allDocs } = Astro.props;
+const locale = 'en';
+const { Content, headings } = await render(entry);
+---
+
+<CliDoc entry={entry} allDocs={allDocs} locale={locale} headings={headings}>
+  <Content />
+</CliDoc>

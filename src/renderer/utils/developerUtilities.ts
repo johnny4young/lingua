@@ -1,4 +1,8 @@
-import { parseInAnyBase } from './numberBase';
+import {
+  parseColorToRgb,
+  type HslColor,
+  type RgbColor,
+} from './developerUtilityDetection';
 // implementation note — URL component encode/decode live in the
 // shared utilities layer (the `url-encode` / `url-decode` pipeline
 // adapters) so the single-shot URL panel and the pipeline share one
@@ -20,7 +24,6 @@ export interface TransformResult {
 // `JwtAnalysis` and `decodeJwt` moved to `./jwt` alongside the new
 // verify/sign surfaces for internal Re-exported here so existing import
 // sites (developerUtilities.ts was the historical home) keep compiling.
-export type { JwtAnalysis } from './jwt';
 
 export interface TimestampAnalysis {
   unixSeconds: number | null;
@@ -39,12 +42,12 @@ export interface TimestampHoverInfo {
   utc: string;
 }
 
-export interface RegexMatchGroup {
+interface RegexMatchGroup {
   name: string | null;
   value: string;
 }
 
-export interface RegexMatch {
+interface RegexMatch {
   match: string;
   index: number;
   groups: RegexMatchGroup[];
@@ -56,17 +59,6 @@ export interface RegexAnalysis {
   errorKey: string | null;
 }
 
-export interface RgbColor {
-  r: number;
-  g: number;
-  b: number;
-}
-
-export interface HslColor {
-  h: number;
-  s: number;
-  l: number;
-}
 
 export interface ColorAnalysis {
   hex: string | null;
@@ -75,9 +67,9 @@ export interface ColorAnalysis {
   errorKey: string | null;
 }
 
-export type DiffLineKind = 'same' | 'add' | 'remove';
+type DiffLineKind = 'same' | 'add' | 'remove';
 
-export interface DiffLine {
+interface DiffLine {
   kind: DiffLineKind;
   value: string;
 }
@@ -652,19 +644,6 @@ export function applyRegexReplace(
   }
 }
 
-const HEX_SHORT_PATTERN = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/iu;
-const HEX_LONG_PATTERN = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/iu;
-const RGB_PATTERN =
-  /^rgba?\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*[\d.]+\s*)?\)$/iu;
-const HSL_PATTERN =
-  /^hsla?\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)%\s*,\s*(-?\d+(?:\.\d+)?)%\s*(?:,\s*[\d.]+\s*)?\)$/iu;
-
-function clampByte(value: number): number | null {
-  if (!Number.isFinite(value)) return null;
-  if (value < 0 || value > 255) return null;
-  return Math.round(value);
-}
-
 function rgbToHex({ r, g, b }: RgbColor): string {
   const toHex = (component: number) =>
     Math.max(0, Math.min(255, Math.round(component)))
@@ -704,91 +683,6 @@ function rgbToHsl({ r, g, b }: RgbColor): HslColor {
   if (h < 0) h += 360;
 
   return { h, s: round1(s * 100), l: round1(l * 100) };
-}
-
-function hslToRgb({ h, s, l }: HslColor): RgbColor {
-  const sNorm = s / 100;
-  const lNorm = l / 100;
-  const c = (1 - Math.abs(2 * lNorm - 1)) * sNorm;
-  const hh = h / 60;
-  const x = c * (1 - Math.abs((hh % 2) - 1));
-
-  let rPrime = 0;
-  let gPrime = 0;
-  let bPrime = 0;
-  if (hh >= 0 && hh < 1) {
-    rPrime = c;
-    gPrime = x;
-  } else if (hh < 2) {
-    rPrime = x;
-    gPrime = c;
-  } else if (hh < 3) {
-    gPrime = c;
-    bPrime = x;
-  } else if (hh < 4) {
-    gPrime = x;
-    bPrime = c;
-  } else if (hh < 5) {
-    rPrime = x;
-    bPrime = c;
-  } else {
-    rPrime = c;
-    bPrime = x;
-  }
-
-  const m = lNorm - c / 2;
-  return {
-    r: Math.round((rPrime + m) * 255),
-    g: Math.round((gPrime + m) * 255),
-    b: Math.round((bPrime + m) * 255),
-  };
-}
-
-function parseColorToRgb(value: string): RgbColor | null {
-  const shortHex = HEX_SHORT_PATTERN.exec(value);
-  if (shortHex) {
-    return {
-      r: Number.parseInt(`${shortHex[1]}${shortHex[1]}`, 16),
-      g: Number.parseInt(`${shortHex[2]}${shortHex[2]}`, 16),
-      b: Number.parseInt(`${shortHex[3]}${shortHex[3]}`, 16),
-    };
-  }
-
-  const longHex = HEX_LONG_PATTERN.exec(value);
-  if (longHex) {
-    return {
-      r: Number.parseInt(longHex[1] ?? '00', 16),
-      g: Number.parseInt(longHex[2] ?? '00', 16),
-      b: Number.parseInt(longHex[3] ?? '00', 16),
-    };
-  }
-
-  const rgbMatch = RGB_PATTERN.exec(value);
-  if (rgbMatch) {
-    const r = clampByte(Number.parseFloat(rgbMatch[1] ?? '0'));
-    const g = clampByte(Number.parseFloat(rgbMatch[2] ?? '0'));
-    const b = clampByte(Number.parseFloat(rgbMatch[3] ?? '0'));
-    if (r === null || g === null || b === null) {
-      return null;
-    }
-    return { r, g, b };
-  }
-
-  const hslMatch = HSL_PATTERN.exec(value);
-  if (hslMatch) {
-    const h = Number.parseFloat(hslMatch[1] ?? '0');
-    const s = Number.parseFloat(hslMatch[2] ?? '0');
-    const l = Number.parseFloat(hslMatch[3] ?? '0');
-    if (!Number.isFinite(h) || !Number.isFinite(s) || !Number.isFinite(l)) {
-      return null;
-    }
-    if (s < 0 || s > 100 || l < 0 || l > 100) {
-      return null;
-    }
-    return hslToRgb({ h: ((h % 360) + 360) % 360, s, l });
-  }
-
-  return null;
 }
 
 export function analyzeColor(input: string): ColorAnalysis {
@@ -884,235 +778,27 @@ export function computeLineDiff(leftInput: string, rightInput: string): LineDiff
   return { lines, truncated, addCount, removeCount, sameCount };
 }
 
-/**
- * implementation — `detectsAs*` predicates.
- *
- * Each utility panel passes its current input through one of these
- * predicates to decide whether the ⚡ Apply-from-input button should
- * light up. The predicates are intentionally cheap (regex / parse
- * attempt) and reuse the existing analyzers where the parse step is
- * unavoidable — `detectsAsJson` calls `analyzeJson` so a malformed
- * payload returns false without re-parsing the same input twice in
- * the panel render path.
- */
-
-const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/u;
-const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+={0,2}$/u;
-const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/u;
-const RGB_FUNC_PATTERN = /^rgba?\(/iu;
-const HSL_FUNC_PATTERN = /^hsla?\(/iu;
-const URL_LIKE_PATTERN = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
-const URL_ENCODED_PATTERN = /%[0-9a-fA-F]{2}/u;
-const HTML_ENTITY_PATTERN = /&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/u;
-const HTML_TAG_PATTERN = /<\/?[a-zA-Z][^>]*>/u;
-const SVG_TAG_PATTERN = /<svg[\s>]/iu;
-const DATA_URI_PATTERN = /^data:[^;]+;base64,/iu;
-const UUID_PATTERN =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/u;
-const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/u;
-const NUMERIC_PATTERN = /^[+-]?(?:0[xXoObB])?[0-9a-zA-Z_]+$/u;
-const ESCAPED_PATTERN = /\\(?:[nrt"'\\/bf]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})/u;
-const SQL_HINT_PATTERN = /\b(?:select|insert|update|delete|create|drop|alter|with)\b/iu;
-const CRON_PATTERN =
-  /^\s*(?:@(?:annually|yearly|monthly|weekly|daily|hourly|reboot)|(?:[\d*/,?L#-]+\s+){4,6}[\d*/,?L#-]+)\s*$/u;
-const CURL_PATTERN = /^\s*curl\s+/u;
-const MARKDOWN_HINT_PATTERN =
-  /(^|\n)\s{0,3}(#{1,6}\s|>\s|[-*+]\s|\d+\.\s|```|`[^`\n]+`|\*\*[^*]+\*\*)/u;
-const YAML_HINT_PATTERN = /^[\s\S]*?(^|\n)[A-Za-z_][\w-]*:\s/u;
-const CSV_HINT_PATTERN = /^[^\n]*?[,;\t][^\n]*(\n|$)/u;
-
-function trimmedOrNull(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-export function detectsAsJson(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  // Cheap shape gate first — JSON.parse on arbitrary strings is the
-  // expensive case. Empty literals like "true" / "42" / "\"x\"" are
-  // valid JSON but we want detect to bias toward structural inputs
-  // that benefit from the formatter; require an opening brace or
-  // bracket.
-  const first = trimmed[0];
-  if (first !== '{' && first !== '[') return false;
-  return analyzeJson(trimmed).errorKey === null;
-}
-
-export function detectsAsBase64(input: string): boolean {
-  const trimmed = trimmedOrNull(input)?.replace(/\s+/gu, '');
-  if (!trimmed || trimmed.length < 4) return false;
-  if (trimmed.length % 4 !== 0) return false;
-  if (!BASE64_PATTERN.test(trimmed) && !BASE64_URL_PATTERN.test(trimmed)) {
-    return false;
-  }
-  return decodeBase64(trimmed).errorKey === null;
-}
-
-export function detectsAsUrlEncoded(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  if (!URL_ENCODED_PATTERN.test(trimmed)) return false;
-  return decodeUrlComponentValue(trimmed).errorKey === null;
-}
-
-export function detectsAsAbsoluteUrl(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  if (!URL_LIKE_PATTERN.test(trimmed)) return false;
-  try {
-    new URL(trimmed);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function detectsAsJwt(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return JWT_PATTERN.test(trimmed);
-}
-
-export function detectsAsUuid(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return UUID_PATTERN.test(trimmed);
-}
-
-export function detectsAsTimestamp(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return analyzeTimestamp(trimmed).errorKey === null;
-}
-
-export function detectsAsRegex(input: string): boolean {
-  if (!input) return false;
-  try {
-    new RegExp(input);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function detectsAsColor(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  if (
-    !HEX_COLOR_PATTERN.test(trimmed) &&
-    !RGB_FUNC_PATTERN.test(trimmed) &&
-    !HSL_FUNC_PATTERN.test(trimmed)
-  ) {
-    return false;
-  }
-  return analyzeColor(trimmed).errorKey === null;
-}
-
-export function detectsAsNumber(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  if (!NUMERIC_PATTERN.test(trimmed)) return false;
-  return parseInAnyBase(trimmed, 10) !== null;
-}
-
-export function detectsAsHtml(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return HTML_TAG_PATTERN.test(trimmed);
-}
-
-export function detectsAsHtmlEntity(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return detectsAsEncodedHtmlEntity(trimmed) || HTML_TAG_PATTERN.test(trimmed);
-}
-
-export function detectsAsEncodedHtmlEntity(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return HTML_ENTITY_PATTERN.test(trimmed);
-}
-
-export function detectsAsSvg(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return SVG_TAG_PATTERN.test(trimmed);
-}
-
-export function detectsAsDataUri(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return DATA_URI_PATTERN.test(trimmed);
-}
-
-export function detectsAsBackslashEscaped(input: string): boolean {
-  if (!input) return false;
-  return ESCAPED_PATTERN.test(input);
-}
-
-export function detectsAsCron(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return CRON_PATTERN.test(trimmed);
-}
-
-export function detectsAsCurl(input: string): boolean {
-  if (!input) return false;
-  return CURL_PATTERN.test(input);
-}
-
-export function detectsAsMarkdown(input: string): boolean {
-  if (!input) return false;
-  return MARKDOWN_HINT_PATTERN.test(input);
-}
-
-export function detectsAsYaml(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  // YAML and JSON overlap; this predicate biases toward the indented-
-  // mapping shape (`key: value`) so a JSON paste does not trip it.
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return false;
-  return YAML_HINT_PATTERN.test(trimmed);
-}
-
-export function detectsAsCsv(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return CSV_HINT_PATTERN.test(trimmed);
-}
-
-export function detectsAsSql(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return SQL_HINT_PATTERN.test(trimmed);
-}
-
-export function detectsAsBeautifiable(input: string): boolean {
-  // The Beautify / Minify panel runs across JSON / JS / HTML / CSS /
-  // XML, so detect biases toward "looks structured" — anything with
-  // brackets, braces, semicolons, or angle brackets in non-trivial
-  // amounts qualifies.
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed || trimmed.length < 6) return false;
-  return /[{}();<>]/u.test(trimmed);
-}
-
-export function detectsAsInspectableText(input: string): boolean {
-  // String Inspector runs on any non-empty input; the value is in
-  // having SOMETHING to inspect rather than matching a shape.
-  return input.length > 0;
-}
-
-export function detectsAsCaseConvertible(input: string): boolean {
-  const trimmed = trimmedOrNull(input);
-  if (!trimmed) return false;
-  return /[A-Za-z]/u.test(trimmed);
-}
-
-export function detectsAsHashable(input: string): boolean {
-  // Hash works on any non-empty input — even single characters have a
-  // legitimate digest. Whitespace-only strings are intentionally rejected
-  // so the disabled state matches the analyzer's `error.empty` branch.
-  return trimmedOrNull(input) !== null;
-}
+export {
+  detectsAsAbsoluteUrl,
+  detectsAsBackslashEscaped,
+  detectsAsBase64,
+  detectsAsColor,
+  detectsAsCron,
+  detectsAsCurl,
+  detectsAsDataUri,
+  detectsAsEncodedHtmlEntity,
+  detectsAsHashable,
+  detectsAsHtml,
+  detectsAsHtmlEntity,
+  detectsAsJson,
+  detectsAsJwt,
+  detectsAsMarkdown,
+  detectsAsNumber,
+  detectsAsRegex,
+  detectsAsSql,
+  detectsAsSvg,
+  detectsAsTimestamp,
+  detectsAsUrlEncoded,
+  detectsAsUuid,
+  detectsAsYaml,
+} from './developerUtilityDetection';

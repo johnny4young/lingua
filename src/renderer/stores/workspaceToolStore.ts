@@ -29,15 +29,23 @@ import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseHttpRequest,
   parseHttpResponse,
-  type HttpRequestV1,
-  type HttpResponseV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspacePersistence';
+import type {
+  HttpRequestV1,
+  HttpResponseV1,
+} from '../../shared/httpWorkspaceSchema';
 import {
   parseHttpEnvironment,
   toExportableEnvironment,
   type HttpEnvironmentV1,
   type HttpEnvVariableV1,
 } from '../../shared/httpEnvironment';
+import {
+  HTTP_PIPELINE_MAX_COUNT,
+  HTTP_PIPELINE_MAX_STEPS,
+  parseHttpPipeline,
+  type HttpPipelineV1,
+} from '../../shared/httpPipeline';
 
 /**
  * Per-request response history LRU. 10 entries keep recent runs
@@ -88,6 +96,9 @@ interface WorkspaceToolState {
    * rehydrate (a stale id repoints to null).
    */
   readonly activeEnvironmentId: string | null;
+  /** Persisted named, sequential HTTP-only pipelines. */
+  readonly httpPipelines: ReadonlyArray<HttpPipelineV1>;
+  readonly activeHttpPipelineId: string | null;
 
   // -------- mutations ------------------------------------------------------
 
@@ -114,6 +125,12 @@ interface WorkspaceToolState {
   clearHistory: (requestId: string) => void;
   /** Set (or clear with null) the id of the in-flight request. */
   setExecutingRequestId: (id: string | null) => void;
+
+  createHttpPipeline: (pipeline: HttpPipelineV1) => boolean;
+  updateHttpPipeline: (id: string, patch: Partial<HttpPipelineV1>) => void;
+  duplicateHttpPipeline: (id: string, newId: string, copySuffix: string) => void;
+  deleteHttpPipeline: (id: string) => void;
+  setActiveHttpPipeline: (id: string | null) => void;
 
   // -------- selectors (cheap derived data) ---------------------------------
 
@@ -197,6 +214,8 @@ function createInitialState(): Pick<
   | 'executingRequestId'
   | 'environments'
   | 'activeEnvironmentId'
+  | 'httpPipelines'
+  | 'activeHttpPipelineId'
 > {
   return {
     requests: [],
@@ -205,6 +224,8 @@ function createInitialState(): Pick<
     executingRequestId: null,
     environments: [],
     activeEnvironmentId: null,
+    httpPipelines: [],
+    activeHttpPipelineId: null,
   };
 }
 
@@ -258,7 +279,11 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             state.activeRequestId === id
               ? (requests[0]?.id ?? null)
               : state.activeRequestId;
-          return { requests, responsesByRequestId, activeRequestId };
+          const httpPipelines = state.httpPipelines.map((pipeline) => ({
+            ...pipeline,
+            steps: pipeline.steps.filter((step) => step.requestId !== id),
+          }));
+          return { requests, responsesByRequestId, activeRequestId, httpPipelines };
         }),
 
       setActiveRequest: (id) =>
@@ -307,6 +332,73 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       setExecutingRequestId: (id) =>
         set((state) =>
           state.executingRequestId === id ? state : { executingRequestId: id }
+        ),
+
+      createHttpPipeline: (pipeline) => {
+        if (get().httpPipelines.length >= HTTP_PIPELINE_MAX_COUNT) return false;
+        if (parseHttpPipeline(pipeline) === null) return false;
+        set((state) => ({
+          httpPipelines: [...state.httpPipelines, pipeline],
+          activeHttpPipelineId: pipeline.id,
+        }));
+        return true;
+      },
+
+      updateHttpPipeline: (id, patch) =>
+        set((state) => {
+          const index = state.httpPipelines.findIndex((entry) => entry.id === id);
+          const existing = state.httpPipelines[index];
+          if (!existing) return state;
+          const candidate: HttpPipelineV1 = {
+            ...existing,
+            ...patch,
+            version: 1,
+            id: existing.id,
+            steps: (patch.steps ?? existing.steps).slice(0, HTTP_PIPELINE_MAX_STEPS),
+            updatedAt: new Date().toISOString(),
+          };
+          if (parseHttpPipeline(candidate) === null) return state;
+          const httpPipelines = state.httpPipelines.slice();
+          httpPipelines[index] = candidate;
+          return { httpPipelines };
+        }),
+
+      duplicateHttpPipeline: (id, newId, copySuffix) =>
+        set((state) => {
+          if (state.httpPipelines.length >= HTTP_PIPELINE_MAX_COUNT) return state;
+          const source = state.httpPipelines.find((entry) => entry.id === id);
+          if (!source) return state;
+          const now = new Date().toISOString();
+          const clone: HttpPipelineV1 = {
+            ...source,
+            id: newId,
+            name: source.name.length > 0 ? `${source.name} ${copySuffix}` : copySuffix,
+            steps: source.steps.map((step) => ({ ...step, id: crypto.randomUUID() })),
+            createdAt: now,
+            updatedAt: now,
+          };
+          return {
+            httpPipelines: [...state.httpPipelines, clone],
+            activeHttpPipelineId: clone.id,
+          };
+        }),
+
+      deleteHttpPipeline: (id) =>
+        set((state) => {
+          if (!state.httpPipelines.some((entry) => entry.id === id)) return state;
+          const httpPipelines = state.httpPipelines.filter((entry) => entry.id !== id);
+          return {
+            httpPipelines,
+            activeHttpPipelineId:
+              state.activeHttpPipelineId === id
+                ? (httpPipelines[0]?.id ?? null)
+                : state.activeHttpPipelineId,
+          };
+        }),
+
+      setActiveHttpPipeline: (id) =>
+        set((state) =>
+          state.activeHttpPipelineId === id ? state : { activeHttpPipelineId: id }
         ),
 
       getRequest: (id) => get().requests.find((r) => r.id === id),
@@ -485,6 +577,8 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           // without a migration step.
           environments: state.environments,
           activeEnvironmentId: state.activeEnvironmentId,
+          httpPipelines: state.httpPipelines,
+          activeHttpPipelineId: state.activeHttpPipelineId,
         };
       },
       // Sanitize on rehydrate — drop any invalid entry silently so a
@@ -558,6 +652,29 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
             merged.activeEnvironmentId = exists ? p.activeEnvironmentId : null;
           } else {
             merged.activeEnvironmentId = null;
+          }
+          if (Array.isArray(p.httpPipelines)) {
+            const safePipelines: HttpPipelineV1[] = [];
+            for (const raw of p.httpPipelines.slice(0, HTTP_PIPELINE_MAX_COUNT)) {
+              const parsed = parseHttpPipeline(raw);
+              if (parsed === null) continue;
+              const steps = parsed.steps.filter((step) =>
+                merged.requests.some((request) => request.id === step.requestId)
+              );
+              safePipelines.push({ ...parsed, steps });
+            }
+            merged.httpPipelines = safePipelines;
+          } else {
+            merged.httpPipelines = [];
+          }
+          if (typeof p.activeHttpPipelineId === 'string') {
+            merged.activeHttpPipelineId = merged.httpPipelines.some(
+              (pipeline) => pipeline.id === p.activeHttpPipelineId
+            )
+              ? p.activeHttpPipelineId
+              : null;
+          } else {
+            merged.activeHttpPipelineId = null;
           }
         }
         // Always start with a clean execution state (see field docs).

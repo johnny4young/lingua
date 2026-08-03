@@ -29,7 +29,8 @@
 import { useEditorStore, createDefaultTab } from '../stores/editorStore';
 import { getLanguagePackById } from '../../shared/languagePacks';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
-import type { Language } from '../types';
+import type { CapsuleWorkspaceFileV1 } from '../../shared/capsuleWorkspace';
+import type { Language } from '../types/language';
 
 /**
  * Resolve the capsule's stored language token to a real editor
@@ -79,5 +80,20 @@ export function openCapsuleSourceInNewTab(capsule: RunCapsuleV1): void {
           activeInputSetId: restoredInputSet.id,
         }
       : {}),
+  });
+}
+
+/** Open one reviewed supplemental file without executing it. */
+export function openCapsuleWorkspaceFileInNewTab(
+  file: CapsuleWorkspaceFileV1
+): void {
+  const editor = useEditorStore.getState();
+  const editorLanguage = resolveEditorLanguage(file.language);
+  const defaults = editorLanguage ? createDefaultTab(editorLanguage) : createDefaultTab();
+  const name = file.path.split('/').at(-1)?.trim() || defaults.name;
+  editor.addTab({
+    ...defaults,
+    name,
+    content: file.content,
   });
 }

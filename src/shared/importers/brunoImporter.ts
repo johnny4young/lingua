@@ -1,7 +1,7 @@
 /**
- * implementation (implementation note) — Bruno `.bru` → HTTP request importer.
+ * Bruno classic `.bru` / OpenCollection YAML → HTTP request importer.
  *
- * Parses a single Bruno request file (the `.bru` text DSL) into one
+ * Parses a single Bruno request file into one
  * Lingua request, wrapped in the shared `CollectionImporterPreview`
  * shape so the overlay + confirm path handle Postman and Bruno
  * uniformly. A `.bru` file is a sequence of brace-delimited blocks:
@@ -17,16 +17,18 @@
  * blocks are dropped with a `'bruno-script-dropped'` warning. Anything
  * structurally unparseable rejects cleanly — never a partial import.
  *
- * Pure parser; renderer + shared only. NO IPC, NO network.
+ * Directory aggregation accepts mixed classic/YAML collections and prefixes
+ * folder paths into the flat request list. Pure parser; NO IPC, NO network.
  */
 
+import { load as parseYaml } from 'js-yaml';
 import {
   HTTP_METHODS,
   type HttpMethod,
   type HttpRequestBody,
   type HttpRequestBodyKind,
   type HttpRequestHeader,
-} from '../httpWorkspace';
+} from '../httpWorkspaceSchema';
 import type {
   BrunoRejectReason,
   ImporterAdapter,
@@ -38,6 +40,7 @@ import type {
   CollectionImporterResult,
   ParsedCollectionRequest,
 } from './postmanImporter';
+import { MAX_IMPORT_REQUESTS } from './postmanImporter';
 
 const BRUNO_METHOD_BLOCKS: ReadonlySet<string> = new Set([
   'get',
@@ -69,9 +72,14 @@ type BruQuote = '"' | "'" | '`';
 function detectBruno(source: string): boolean {
   if (typeof source !== 'string') return false;
   const head = source.slice(0, 4096);
-  const hasBlock =
-    /(^|\n)\s*(get|post|put|delete|patch|head|options|meta)\s*\{/i.test(head);
-  return hasBlock && /(^|\n)\s*url\s*:/i.test(source);
+  const hasBlock = /(^|\n)\s*(get|post|put|delete|patch|head|options|meta)\s*\{/i.test(head);
+  if (hasBlock && /(^|\n)\s*url\s*:/i.test(source)) return true;
+  return (
+    /(^|\n)\s*info\s*:\s*(?:\n|$)/i.test(head) &&
+    /(^|\n)\s*http\s*:\s*(?:\n|$)/i.test(head) &&
+    /(^|\n)\s+method\s*:/i.test(source) &&
+    /(^|\n)\s+url\s*:/i.test(source)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -171,18 +179,23 @@ function isHttpMethod(value: string): value is HttpMethod {
 // Preview
 // ---------------------------------------------------------------------------
 
-function rejectBruno(
-  detail: BrunoRejectReason
-): ImporterPreviewOutcome<CollectionImporterPreview> {
+function rejectBruno(detail: BrunoRejectReason): ImporterPreviewOutcome<CollectionImporterPreview> {
   if (detail === 'empty-input') return { ok: false, reason: 'empty-input' };
-  return { ok: false, reason: 'malformed', detail };
+  const reason =
+    detail === 'directory-too-many-files' ||
+    detail === 'directory-oversized' ||
+    detail === 'directory-unreadable'
+      ? 'unsupported-feature'
+      : 'malformed';
+  return { ok: false, reason, detail };
 }
 
-function previewBruno(
-  source: string
-): ImporterPreviewOutcome<CollectionImporterPreview> {
+function previewBruno(source: string): ImporterPreviewOutcome<CollectionImporterPreview> {
   if (typeof source !== 'string' || source.trim().length === 0) {
     return rejectBruno('empty-input');
+  }
+  if (/^\s*info\s*:/i.test(source) && /(^|\n)\s*http\s*:/i.test(source)) {
+    return previewOpenCollectionRequest(source);
   }
   const blocks = extractBlocks(source);
   if (blocks === null || blocks.length === 0) return rejectBruno('malformed');
@@ -266,6 +279,145 @@ function previewBruno(
   return { ok: true, preview, warnings: preview.warnings };
 }
 
+// ---------------------------------------------------------------------------
+// OpenCollection YAML request parser
+// ---------------------------------------------------------------------------
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return '';
+}
+
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined || value === '') return false;
+  if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+  if (isRecord(value)) return Object.values(value).some(hasMeaningfulValue);
+  return true;
+}
+
+function mapOpenCollectionHeaders(value: unknown): HttpRequestHeader[] {
+  if (Array.isArray(value)) {
+    return value.flatMap(entry => {
+      if (!isRecord(entry)) return [];
+      const name = stringValue(entry.name ?? entry.key).trim();
+      if (!name) return [];
+      return [
+        {
+          name,
+          value: stringValue(entry.value),
+          enabled: entry.enabled !== false && entry.disabled !== true,
+        },
+      ];
+    });
+  }
+  if (!isRecord(value)) return [];
+  return Object.entries(value).map(([name, rawValue]) => ({
+    name,
+    value: stringValue(rawValue),
+    enabled: true,
+  }));
+}
+
+function mapOpenCollectionBody(value: unknown): HttpRequestBody | undefined {
+  if (!isRecord(value)) return undefined;
+  const type = stringValue(value.type ?? value.mode).toLowerCase();
+  if (type === 'multipart-form') return undefined;
+  const raw = value.data ?? value.content ?? value.text ?? value.json;
+  if (raw === undefined || raw === null) return undefined;
+  const content = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+  if (!content.trim()) return undefined;
+  if (type === 'json' || value.json !== undefined) return { kind: 'json', content };
+  if (type === 'form-urlencoded' || type === 'form') {
+    if (Array.isArray(raw)) {
+      const encoded = raw
+        .flatMap(entry => {
+          if (!isRecord(entry) || entry.enabled === false) return [];
+          const name = stringValue(entry.name ?? entry.key);
+          return name
+            ? [`${encodeURIComponent(name)}=${encodeURIComponent(stringValue(entry.value))}`]
+            : [];
+        })
+        .join('&');
+      return encoded ? { kind: 'form', content: encoded } : undefined;
+    }
+    return { kind: 'form', content };
+  }
+  return { kind: 'text', content };
+}
+
+function previewOpenCollectionRequest(
+  source: string
+): ImporterPreviewOutcome<CollectionImporterPreview> {
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(source);
+  } catch {
+    return rejectBruno('malformed');
+  }
+  if (!isRecord(parsed) || !isRecord(parsed.info) || !isRecord(parsed.http)) {
+    return rejectBruno('invalid-shape');
+  }
+  const rawMethod = stringValue(parsed.http.method).toUpperCase();
+  const url = stringValue(parsed.http.url).trim();
+  if (!isHttpMethod(rawMethod) || !url) return rejectBruno('invalid-shape');
+
+  const title = stringValue(parsed.info.name).trim();
+  const headers = mapOpenCollectionHeaders(parsed.http.headers);
+  const auth = isRecord(parsed.http.auth) ? parsed.http.auth : undefined;
+  if (auth && stringValue(auth.type).toLowerCase() === 'bearer') {
+    const token = stringValue(auth.token ?? auth.value);
+    if (token) headers.push({ name: 'Authorization', value: `Bearer ${token}`, enabled: true });
+  }
+  const warnings = new Set<ImporterLossyWarning>();
+  if (
+    auth &&
+    stringValue(auth.type) &&
+    stringValue(auth.type).toLowerCase() !== 'none' &&
+    stringValue(auth.type).toLowerCase() !== 'bearer'
+  ) {
+    warnings.add('postman-auth-helper');
+  }
+  if (
+    isRecord(parsed.runtime) &&
+    (hasMeaningfulValue(parsed.runtime.scripts) || hasMeaningfulValue(parsed.runtime.assertions))
+  ) {
+    warnings.add('bruno-script-dropped');
+  }
+
+  const bodyConfig = isRecord(parsed.http.body) ? parsed.http.body : undefined;
+  const bodyType = bodyConfig
+    ? stringValue(bodyConfig.type ?? bodyConfig.mode).toLowerCase()
+    : '';
+  if (bodyType === 'graphql') warnings.add('postman-graphql-body');
+  if (bodyType === 'multipart-form') warnings.add('postman-formdata-file');
+  if (hasMeaningfulValue(parsed.settings)) warnings.add('bruno-settings-dropped');
+
+  const body = mapOpenCollectionBody(bodyConfig);
+  const request: ParsedCollectionRequest = {
+    name: (title || `${rawMethod} ${url}`).slice(0, 120),
+    method: rawMethod,
+    url,
+    headers,
+    ...(body ? { body } : {}),
+  };
+  const preview: CollectionImporterPreview = {
+    kind: 'http-collection',
+    source: 'bruno',
+    title: (title || 'Imported request').slice(0, 120),
+    requests: [request],
+    counts: { total: 1, folders: 0, truncated: 0 },
+    warnings: [...warnings],
+  };
+  return { ok: true, preview, warnings: preview.warnings };
+}
+
 function mapBrunoBody(header: string, body: string): HttpRequestBody | undefined {
   const trimmed = body.trim();
   if (trimmed.length === 0) return undefined;
@@ -276,12 +428,68 @@ function mapBrunoBody(header: string, body: string): HttpRequestBody | undefined
   else if (sub === 'text' || sub === 'xml' || sub === 'graphql') kind = 'text';
   if (kind === 'form') {
     const content = parseKeyValueLines(body)
-      .filter((p) => !p.disabled)
-      .map((p) => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
+      .filter(p => !p.disabled)
+      .map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`)
       .join('&');
     return content.length > 0 ? { kind, content } : undefined;
   }
   return { kind, content: trimmed };
+}
+
+export interface BrunoDirectoryFile {
+  readonly relativePath: string;
+  readonly content: string;
+}
+
+/**
+ * Flatten a capability-scoped Bruno folder into the existing collection
+ * preview. Metadata and environment files are filtered before this function;
+ * each accepted request is still parsed independently so classic and
+ * OpenCollection files may coexist during a migration.
+ */
+export function previewBrunoDirectory(
+  collectionTitle: string,
+  files: ReadonlyArray<BrunoDirectoryFile>
+): ImporterPreviewOutcome<CollectionImporterPreview> {
+  const requests: ParsedCollectionRequest[] = [];
+  const warnings = new Set<ImporterLossyWarning>();
+  const folders = new Set<string>();
+  let recognized = 0;
+
+  for (const file of files) {
+    if (!detectBruno(file.content)) continue;
+    recognized += 1;
+    const outcome = previewBruno(file.content);
+    if (!outcome.ok) return rejectBruno('directory-invalid-request');
+    const parentParts = file.relativePath.split('/').slice(0, -1);
+    const parent = parentParts.join('/');
+    for (let depth = 1; depth <= parentParts.length; depth += 1) {
+      folders.add(parentParts.slice(0, depth).join('/'));
+    }
+    for (const warning of outcome.warnings) warnings.add(warning);
+    const request = outcome.preview.requests[0];
+    if (request && requests.length < MAX_IMPORT_REQUESTS) {
+      requests.push({
+        ...request,
+        name: (parent ? `${parent} / ${request.name}` : request.name).slice(0, 120),
+      });
+    }
+  }
+
+  if (recognized === 0) return rejectBruno('directory-empty');
+  const preview: CollectionImporterPreview = {
+    kind: 'http-collection',
+    source: 'bruno',
+    title: collectionTitle.trim().slice(0, 120) || 'Bruno collection',
+    requests,
+    counts: {
+      total: requests.length,
+      folders: folders.size,
+      truncated: Math.max(0, recognized - requests.length),
+    },
+    warnings: [...warnings],
+  };
+  return { ok: true, preview, warnings: preview.warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -297,12 +505,12 @@ export const brunoImporterAdapter: ImporterAdapter<
   descriptionKey: 'importPreview.importer.brunoCollection.description',
   detect: detectBruno,
   preview: previewBruno,
-  import: (preview) => ({
+  import: preview => ({
     source: preview.source,
     title: preview.title,
-    requests: preview.requests.map((r) => ({
+    requests: preview.requests.map(r => ({
       ...r,
-      headers: r.headers.map((h) => ({ ...h })),
+      headers: r.headers.map(h => ({ ...h })),
       ...(r.body ? { body: { ...r.body } } : {}),
     })),
   }),

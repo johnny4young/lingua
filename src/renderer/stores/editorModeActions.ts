@@ -1,4 +1,4 @@
-import type { EditorState } from '../types';
+import type { EditorState } from '../types/editor';
 import i18next from 'i18next';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
@@ -9,8 +9,8 @@ import {
 } from '../../shared/runtimeModes';
 import {
   defaultWorkflowMode,
-  supportsWorkflowMode,
 } from '../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   isVariableInspectorSupportedLanguage,
@@ -106,7 +106,7 @@ export function createModeActions(
       // is only reachable via a programmatic / palette / shortcut
       // call. No status notice — the toolbar's tooltip already
       // explains why the segment is disabled.
-      if (!supportsWorkflowMode(target.language, mode)) return;
+      if (!supportsWorkflowModeInShell(target.language, mode)) return;
       const current = target.workflowMode ?? defaultWorkflowMode(target.language);
       if (current === mode) return;
       const shouldShowFirstSwitchNotice =

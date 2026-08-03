@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import type { FileTab } from '../types';
+import { useEffect, useState } from 'react';
+import type { FileTab } from '../types/editor';
 import {
   flattenNavigationTree,
   supportsSymbolNavigation,
   type SymbolEntry,
 } from '../utils/symbolNavigation';
 
-export type SymbolLoadStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'empty';
+type SymbolLoadStatus = 'idle' | 'loading' | 'ready' | 'unsupported' | 'empty';
 
 export interface SymbolLoadResult {
   status: SymbolLoadStatus;
   entries: SymbolEntry[];
+}
+
+interface ResolvedSymbolLoad {
+  tabId: string;
+  language: FileTab['language'];
+  content: string;
+  result: SymbolLoadResult;
 }
 
 /**
@@ -58,43 +65,49 @@ export function useDocumentSymbols(
   activeTab: FileTab | null,
   enabled: boolean
 ): SymbolLoadResult {
-  const [state, setState] = useState<SymbolLoadResult>({ status: 'idle', entries: [] });
-  // Tracks the last tab id we loaded symbols for so we can distinguish
-  // "same tab, content edit" (keep entries while refreshing for smoother
-  // UX) from "different tab" (clear entries so the user never sees another
-  // file's symbols tagged as loading).
-  const lastTabIdRef = useRef<string | null>(null);
+  const [resolvedLoad, setResolvedLoad] = useState<ResolvedSymbolLoad | null>(null);
+  const supported =
+    activeTab !== null && supportsSymbolNavigation(activeTab.language);
+  const requestIsResolved =
+    enabled &&
+    supported &&
+    resolvedLoad?.tabId === activeTab.id &&
+    resolvedLoad.language === activeTab.language &&
+    resolvedLoad.content === activeTab.content;
+
+  let visibleResult: SymbolLoadResult;
+  if (!enabled) {
+    visibleResult = { status: 'idle', entries: [] };
+  } else if (!activeTab || !supported) {
+    visibleResult = { status: 'unsupported', entries: [] };
+  } else if (requestIsResolved) {
+    visibleResult = resolvedLoad.result;
+  } else {
+    const refreshingSameDocument =
+      resolvedLoad?.tabId === activeTab.id &&
+      resolvedLoad.language === activeTab.language;
+    visibleResult = {
+      status: 'loading',
+      // Cross-tab/language transitions wipe entries so the user never sees
+      // stale symbols. Content edits retain the last result while refreshing.
+      entries: refreshingSameDocument ? resolvedLoad.result.entries : [],
+    };
+  }
 
   useEffect(() => {
-    if (!enabled) {
-      setState({ status: 'idle', entries: [] });
-      lastTabIdRef.current = null;
-      return;
-    }
-
-    if (!activeTab) {
-      setState({ status: 'unsupported', entries: [] });
-      lastTabIdRef.current = null;
-      return;
-    }
-
-    if (!supportsSymbolNavigation(activeTab.language)) {
-      setState({ status: 'unsupported', entries: [] });
-      lastTabIdRef.current = activeTab.id;
-      return;
-    }
-
-    const tabChanged = lastTabIdRef.current !== activeTab.id;
-    lastTabIdRef.current = activeTab.id;
+    if (!enabled || !activeTab || !supportsSymbolNavigation(activeTab.language)) return;
+    const requestedTab = activeTab;
 
     let cancelled = false;
-    setState((previous) => ({
-      status: 'loading',
-      // Cross-tab transitions wipe entries so the user never sees stale
-      // symbols from the previous file under a "Loading" label. In-place
-      // content edits keep entries visible for a gentler refresh feel.
-      entries: tabChanged ? [] : previous.entries,
-    }));
+    const commitResult = (result: SymbolLoadResult) => {
+      if (cancelled) return;
+      setResolvedLoad({
+        tabId: requestedTab.id,
+        language: requestedTab.language,
+        content: requestedTab.content,
+        result,
+      });
+    };
 
     async function loadSymbols() {
       try {
@@ -106,9 +119,9 @@ export function useDocumentSymbols(
         // with what the user actually sees.
         const mountedEditor = monaco.editor.getEditors()[0];
         const model = mountedEditor?.getModel() ?? null;
-        const expectedLanguage = activeTab!.language;
+        const expectedLanguage = requestedTab.language;
         if (!model || model.getLanguageId() !== expectedLanguage || cancelled) {
-          if (!cancelled) setState({ status: 'empty', entries: [] });
+          commitResult({ status: 'empty', entries: [] });
           return;
         }
 
@@ -116,17 +129,17 @@ export function useDocumentSymbols(
         const tree = await loadNavigationTree(model);
         if (cancelled) return;
         if (!tree) {
-          setState({ status: 'empty', entries: [] });
+          commitResult({ status: 'empty', entries: [] });
           return;
         }
 
         const entries = flattenNavigationTree(tree, makePositionResolver(model));
-        setState({
+        commitResult({
           status: entries.length === 0 ? 'empty' : 'ready',
           entries,
         });
       } catch {
-        if (!cancelled) setState({ status: 'empty', entries: [] });
+        commitResult({ status: 'empty', entries: [] });
       }
     }
 
@@ -137,5 +150,5 @@ export function useDocumentSymbols(
     };
   }, [enabled, activeTab]);
 
-  return state;
+  return visibleResult;
 }

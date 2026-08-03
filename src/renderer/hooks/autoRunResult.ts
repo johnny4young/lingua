@@ -1,14 +1,17 @@
 import { useConsoleStore } from '../stores/consoleStore';
 import { useResultStore } from '../stores/resultStore';
-import type { ExecutionResult, Language } from '../types';
+import type { Language } from '../types/language';
+import type { ExecutionResult } from '../types/execution';
 import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { toExecutionPresentation } from '../utils/executionPresentation';
 import { trackEvent } from '../utils/telemetry';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { bucketAutoLogCount } from './autoRunModel';
+import { preserveStickyLineResults } from './autoRunStickyResults';
 import { toConsoleEntries } from './runnerOutput';
 
 interface ApplyAutoRunResultOptions {
+  autoLogEnabled?: boolean;
   code: string;
   language: Language;
   result: ExecutionResult;
@@ -16,6 +19,7 @@ interface ApplyAutoRunResultOptions {
 
 /** Publish a non-stale runner result to the inline and console surfaces. */
 export function applyAutoRunResult({
+  autoLogEnabled = false,
   code,
   language,
   result,
@@ -33,28 +37,19 @@ export function applyAutoRunResult({
   } = useResultStore.getState();
   const presentation = toExecutionPresentation(language, code, result);
 
-  // Preserve watch and auto-log rows from the last clean snapshot when an
-  // unrelated line errors, avoiding a transient empty inline result.
-  let nextLineResults = presentation.lineResults;
-  if (result.error) {
-    const previousSnapshot = useResultStore.getState().lastSuccessfulSnapshot;
-    if (previousSnapshot) {
-      const stickyKinds: ReadonlySet<string> = new Set(['watch', 'autoLog']);
-      const freshStickyLines = new Set(
-        nextLineResults
-          .filter((entry) => stickyKinds.has(entry.type))
-          .map((entry) => `${entry.type}:${entry.line}`)
-      );
-      const persistedSticky = previousSnapshot.lineResults.filter(
-        (entry) =>
-          stickyKinds.has(entry.type) &&
-          !freshStickyLines.has(`${entry.type}:${entry.line}`)
-      );
-      if (persistedSticky.length > 0) {
-        nextLineResults = [...nextLineResults, ...persistedSticky];
-      }
-    }
-  }
+  // Preserve watch and auto-log rows only when their exact source line still
+  // exists and the failure happened elsewhere. Type + line alone is not a
+  // safe identity after an edit because it can resurrect an obsolete value.
+  const nextLineResults = result.error
+    ? preserveStickyLineResults({
+        autoLogEnabled,
+        code,
+        error: result.error,
+        language,
+        lineResults: presentation.lineResults,
+        previousSnapshot: useResultStore.getState().lastSuccessfulSnapshot,
+      })
+    : presentation.lineResults;
 
   setLineResults(nextLineResults);
   // internal — publish per-statement timings alongside the line results.
@@ -79,7 +74,7 @@ export function applyAutoRunResult({
   }
 
   setError(null);
-  captureSuccessfulSnapshot(language);
+  captureSuccessfulSnapshot(language, code);
   setScopeSnapshot(result.scopeSnapshot ?? null);
   trackAutoRunAdoption(language, result);
 }

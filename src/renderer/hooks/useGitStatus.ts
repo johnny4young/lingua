@@ -27,11 +27,11 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { gitStatusSuppressedByMagicComment } from '../utils/magicComments';
+import { gitStatusSuppressedByMagicComment } from '../utils/gitMagicCommentPolicy';
 import { useEditorStore } from '../stores/editorStore';
 import { useGitStore } from '../stores/gitStore';
 import { useProjectStore } from '../stores/projectStore';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 
 const GIT_STATUS_DEBOUNCE_MS = 300;
 

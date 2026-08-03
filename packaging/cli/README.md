@@ -1,0 +1,39 @@
+# Lingua CLI
+
+The Lingua CLI is the headless, offline command-line surface for Lingua. It
+shares the desktop app's utility adapters, Run Capsule schema, and local
+execution contract without loading Electron, React, or renderer code.
+
+## Install
+
+The npm package requires Node.js 24.x:
+
+```bash
+pnpm add --global @linguacode/cli
+lingua --version
+```
+
+Release pages also carry standalone Windows and Linux x64 archives. Those
+archives embed the matching Node.js runtime and do not require a separate Node
+installation. Extract the archive, place `lingua` or `lingua.exe` on `PATH`, and
+verify it against the release `SHA256SUMS.txt` before use.
+
+## Examples
+
+```bash
+lingua list utilities
+printf 'hello' | lingua utility base64-encode
+lingua run ./script.ts -- --name Ada
+lingua capsule validate ./run.capsule.json
+lingua capsule replay ./run.capsule.json --json
+```
+
+See the complete command, output, and exit-code contract in
+[`docs/CLI_USAGE.md`](https://github.com/johnny4young/lingua/blob/main/docs/CLI_USAGE.md).
+
+## License
+
+Lingua is commercial software made publicly inspectable for evaluation,
+security review, and contribution. The package and standalone executables are
+distributed under the terms in `LICENSE`; production or commercial use needs
+the appropriate Lingua license.

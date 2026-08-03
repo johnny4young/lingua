@@ -9,6 +9,46 @@ This is a **standalone package inside the main [`lingua`](../) repo** — it has
 
 The desktop/web app lives at [app.linguacode.dev](https://app.linguacode.dev) and is built from the repo root, not from here.
 
+## CLI documentation
+
+The bilingual `/cli` and `/es/cli` sections live in `src/content/cli/`. Their
+command vocabulary is generated from `../src/cli/helpCatalog.ts` so terminal
+help and public reference cannot drift silently.
+
+```bash
+npm run sync:cli-reference   # refresh src/data/cli-reference.json
+npm run check:cli-reference  # read-only drift gate used by npm run check
+```
+
+Add every guide in both locales with the same slug. The CLI layout provides
+grouped navigation, local search, an on-page outline, and code-copy controls;
+do not add a third-party search or analytics dependency for documentation.
+
+## Release metadata
+
+The downloads page prefers the public GitHub Releases API. A validated copy of
+the latest stable metadata lives in `src/data/latest-release.json` so a DNS,
+rate-limit, or GitHub server incident does not block an otherwise valid static
+build. The repository may contain the next release candidate while this file
+still describes the previous public release; the downloads page and published
+changelog remain pinned to that real public version until promotion. It is not
+a permissive cache: the build rejects a release newer than the checked-out
+source, draft or prerelease tags, foreign download hosts, unsafe or duplicate
+asset names, and a release without macOS arm64/x64, Windows x64, Linux x64, and
+`SHA256SUMS.txt`.
+
+```bash
+npm run sync:release              # refresh after publishing a stable release
+npm run check:release-snapshot    # validate without network access
+npm run sync:release -- --require-current  # release event: require an exact version
+```
+
+The Cloudflare Pages workflow tries the refresh first, then uses the committed
+snapshot only if the offline validation still proves that it is not newer than
+the repository candidate. A `release: published` event adds
+`--require-current`, so the site cannot deploy a newly announced release while
+still advertising the previous version.
+
 ## Audience and constraints
 
 This site targets senior developers. Three rules govern every change:

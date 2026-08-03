@@ -16,7 +16,7 @@
  */
 import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 
 export function useActiveTab(): FileTab | null {
   return useEditorStore(useShallow(getActiveTab));

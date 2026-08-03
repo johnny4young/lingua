@@ -1,15 +1,23 @@
 import { dialog, BrowserWindow } from 'electron';
-import { mkdir as mkdirFs, readFile, readdir, writeFile } from 'node:fs/promises';
+import {
+  mkdir as mkdirFs,
+  readFile,
+  readdir,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { typedHandle } from '../typedHandle';
 import { blockedPathFamily } from '../permissions';
 import { type RootId } from '../projectCapabilities';
 import {
-  MAX_BUNDLE_ENTRY_BYTES,
   MAX_BUNDLE_FILES,
+  ProjectBundleExportError,
   packBundle,
+  projectBundleExportLimit,
   unpackBundle,
   validateBundleEntryPath,
+  type BundleExportRejectReason,
   type BundleRejectReason,
   type ProjectBundleFile,
 } from '../../../shared/projectBundle';
@@ -39,7 +47,14 @@ export function registerBundleHandlers(
     ): Promise<
       | { ok: true; fileCount: number; byteLength: number }
       | { canceled: true }
-      | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
+      | {
+          ok: false;
+          reason:
+            | 'empty'
+            | BundleExportRejectReason
+            | 'read-failed'
+            | 'write-failed';
+        }
     > => {
       const { absolutePath: rootAbsolute, rootPath } = await resolveOrThrow(
         rootId,
@@ -48,17 +63,19 @@ export function registerBundleHandlers(
       );
 
       const collected: ProjectBundleFile[] = [];
-      let tooMany = false;
+      let collectedBytes = 0;
+      let rejectReason: BundleExportRejectReason | 'read-failed' | null = null;
       async function walk(dirPath: string, rel: string): Promise<void> {
-        if (tooMany) return;
+        if (rejectReason) return;
         let entries;
         try {
           entries = await readdir(dirPath, { withFileTypes: true });
         } catch {
-          return; // unreadable dir — best-effort, skip
+          rejectReason = 'read-failed';
+          return;
         }
         for (const entry of entries) {
-          if (tooMany) return;
+          if (rejectReason) return;
           if (shouldHide(entry.name)) continue;
           const entryPath = path.join(dirPath, entry.name);
           const entryRel = joinRelative(rel, entry.name);
@@ -68,22 +85,44 @@ export function registerBundleHandlers(
           }
           if (!entry.isFile()) continue; // skip symlinks, sockets, fifos
           if (collected.length >= MAX_BUNDLE_FILES) {
-            tooMany = true;
+            rejectReason = 'too-many-files';
             return;
           }
+          let fileSize: number;
+          try {
+            fileSize = (await stat(entryPath)).size;
+          } catch {
+            rejectReason = 'read-failed';
+            return;
+          }
+          rejectReason = projectBundleExportLimit(
+            collected.length,
+            collectedBytes,
+            fileSize
+          );
+          if (rejectReason) return;
           let bytes: Buffer;
           try {
             bytes = await readFile(entryPath);
           } catch {
-            continue;
+            rejectReason = 'read-failed';
+            return;
           }
-          if (bytes.byteLength > MAX_BUNDLE_ENTRY_BYTES) continue; // skip oversized single file
+          // Re-check after the read so a file that changed between stat and
+          // read cannot bypass either the per-entry or aggregate budget.
+          rejectReason = projectBundleExportLimit(
+            collected.length,
+            collectedBytes,
+            bytes.byteLength
+          );
+          if (rejectReason) return;
           collected.push({ path: entryRel, bytes: new Uint8Array(bytes) });
+          collectedBytes += bytes.byteLength;
         }
       }
       await walk(rootAbsolute, '');
 
-      if (tooMany) return { ok: false, reason: 'too-many-files' };
+      if (rejectReason) return { ok: false, reason: rejectReason };
       if (collected.length === 0) return { ok: false, reason: 'empty' };
 
       let zipBytes: Uint8Array;
@@ -97,7 +136,10 @@ export function registerBundleHandlers(
               ? opts.languageHint
               : undefined,
         });
-      } catch {
+      } catch (error) {
+        if (error instanceof ProjectBundleExportError) {
+          return { ok: false, reason: error.reason };
+        }
         return { ok: false, reason: 'write-failed' };
       }
 

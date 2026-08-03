@@ -43,6 +43,13 @@ import {
   type CapsuleSizeBucket,
   type RunCapsuleV1,
 } from '../../shared/runCapsule';
+import {
+  isCapsuleWorkspaceJson,
+  MAX_CAPSULE_WORKSPACE_BYTES,
+  parseCapsuleWorkspace,
+  type CapsuleWorkspaceRejectReason,
+  type CapsuleWorkspaceV1,
+} from '../../shared/capsuleWorkspace';
 
 export type CapsuleImportRejectReason =
   | 'empty'
@@ -54,7 +61,13 @@ export type CapsuleImportRejectReason =
   | 'invalid-shape';
 
 export type CapsuleImportDecodeResult =
-  | { ok: true; capsule: RunCapsuleV1; sizeBucket: CapsuleSizeBucket; byteLength: number }
+  | {
+      ok: true;
+      capsule: RunCapsuleV1;
+      workspace?: CapsuleWorkspaceV1;
+      sizeBucket: CapsuleSizeBucket;
+      byteLength: number;
+    }
   | {
       ok: false;
       reason: CapsuleImportRejectReason;
@@ -76,6 +89,28 @@ export function tryDecodeCapsuleJson(source: string): CapsuleImportDecodeResult 
   if (trimmed.length === 0) {
     return { ok: false, reason: 'empty', sizeBucket, byteLength };
   }
+  if (byteLength > MAX_CAPSULE_WORKSPACE_BYTES) {
+    return { ok: false, reason: 'oversized', sizeBucket, byteLength };
+  }
+  if (isCapsuleWorkspaceJson(trimmed)) {
+    const workspace = parseCapsuleWorkspace(trimmed);
+    if (workspace.ok) {
+      return {
+        ok: true,
+        capsule: workspace.value.capsule,
+        workspace: workspace.value,
+        sizeBucket,
+        byteLength,
+      };
+    }
+    return {
+      ok: false,
+      reason: mapWorkspaceReason(workspace.reason, workspace.detail),
+      sizeBucket,
+      byteLength,
+      ...(workspace.detail ? { detail: workspace.detail } : {}),
+    };
+  }
   const result = parseRunCapsule(trimmed);
   if (result.ok) {
     return { ok: true, capsule: result.value, sizeBucket, byteLength };
@@ -88,6 +123,37 @@ export function tryDecodeCapsuleJson(source: string): CapsuleImportDecodeResult 
     byteLength,
     ...(result.detail ? { detail: result.detail } : {}),
   };
+}
+
+function mapWorkspaceReason(
+  reason: CapsuleWorkspaceRejectReason,
+  detail?: string
+): CapsuleImportRejectReason {
+  switch (reason) {
+    case 'invalid-json':
+      return 'malformed-json';
+    case 'unsupported-version':
+      return workspaceVersionFromDetail(detail) > 1 ? 'app-too-old' : 'wrong-version';
+    case 'too-many-files':
+    case 'file-too-large':
+    case 'files-too-large':
+    case 'artifact-too-large':
+      return 'oversized';
+    case 'invalid-shape':
+    case 'invalid-capsule':
+    case 'invalid-path':
+    case 'duplicate-path':
+      return 'invalid-shape';
+    default: {
+      const exhaustive: never = reason;
+      return exhaustive;
+    }
+  }
+}
+
+function workspaceVersionFromDetail(detail?: string): number {
+  const match = /^version=(\d+)$/u.exec(detail ?? '');
+  return match ? Number(match[1]) : Number.NaN;
 }
 
 function mapParseReason(
@@ -113,4 +179,3 @@ function mapParseReason(
     }
   }
 }
-

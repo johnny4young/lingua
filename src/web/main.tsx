@@ -15,7 +15,6 @@ import {
   shouldRegisterServiceWorkerForMode,
 } from './serviceWorker';
 import { installE2eHooks } from '../renderer/testing/e2eHooks';
-import { RichConsoleE2eFixture } from '../renderer/testing/RichConsoleE2eFixture';
 import {
   applyRecoveryStateAttr,
   buildCrashFingerprint,
@@ -90,10 +89,16 @@ async function bootstrapWeb(): Promise<void> {
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
 
+  const searchParams = new URLSearchParams(window.location.search);
   const isRichConsoleE2eFixture =
     __LINGUA_E2E_HOOKS__ &&
-    new URLSearchParams(window.location.search).get('e2e') ===
-      'rich-console-gallery';
+    searchParams.get('e2e') === 'rich-console-gallery';
+  const isProjectTestsE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-tests';
+  const isProjectTerminalE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'project-terminal';
+  const isLocalMcpE2eFixture =
+    __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'local-mcp';
 
 // FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
@@ -105,7 +110,7 @@ async function bootstrapWeb(): Promise<void> {
 // `src/renderer/main.tsx`; the web entry needs its own copy because the
 // two entry points render independently. The showcase URL used for
 // validation is `http://localhost:4173/?lingua-showcase`.
-  if (new URLSearchParams(window.location.search).has('lingua-showcase')) {
+  if (searchParams.has('lingua-showcase')) {
     const { RecipeShowcase } = await import(
       '../renderer/devShowcase/RecipeShowcase'
     );
@@ -118,9 +123,80 @@ async function bootstrapWeb(): Promise<void> {
     return;
   }
 
+  if (isRichConsoleE2eFixture) {
+    const { RichConsoleE2eFixture } = await import(
+      '../renderer/testing/RichConsoleE2eFixture'
+    );
+    createRoot(root).render(
+      <StrictMode>
+        <RichConsoleE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isProjectTestsE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareProjectTestsE2eFixture } = await import(
+      '../renderer/testing/projectTestsE2eFixtureSetup'
+    );
+    const { ProjectTestsE2eFixture } = await import(
+      '../renderer/testing/ProjectTestsE2eFixture'
+    );
+    prepareProjectTestsE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <ProjectTestsE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isProjectTerminalE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareProjectTerminalE2eFixture } = await import(
+      '../renderer/testing/projectTerminalE2eFixtureSetup'
+    );
+    const { ProjectTerminalE2eFixture } = await import(
+      '../renderer/testing/ProjectTerminalE2eFixture'
+    );
+    prepareProjectTerminalE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <ProjectTerminalE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
+  if (isLocalMcpE2eFixture) {
+    await initI18n(searchParams.get('locale') === 'es' ? 'es' : 'en');
+    const { prepareLocalMcpE2eFixture } = await import(
+      '../renderer/testing/localMcpE2eFixtureSetup'
+    );
+    const { LocalMcpE2eFixture } = await import(
+      '../renderer/testing/LocalMcpE2eFixture'
+    );
+    prepareLocalMcpE2eFixture();
+    createRoot(root).render(
+      <StrictMode>
+        <LocalMcpE2eFixture />
+      </StrictMode>
+    );
+    markBootPhase('react-mount');
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
   createRoot(root).render(
     <StrictMode>
-      {isRichConsoleE2eFixture ? <RichConsoleE2eFixture /> : <App />}
+      <App />
     </StrictMode>
   );
   markBootPhase('react-mount');

@@ -19,11 +19,8 @@ import {
   prefetchLanguage,
 } from '../../monaco';
 import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
-import {
-  isHiddenUndefinedLineResult,
-  useInlineResults,
-  useInlineResultWidgets,
-} from '../../hooks/useInlineResults';
+import { isHiddenUndefinedLineResult } from '../../hooks/inlineResultVisibility';
+import { useExecutionMarkers } from '../../hooks/useExecutionMarkers';
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useEditorHighlightSync } from '../../hooks/useEditorHighlightSync';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
@@ -33,7 +30,7 @@ import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
-import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
+import { notifyDependencyDetectionPaste } from '../../hooks/dependencyDetectionPaste';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { openExplainCodeForEditor } from '../../stores/aiExplainCodeStore';
 import { EditorEmptyState } from './EditorEmptyState';
@@ -42,6 +39,7 @@ import { defineCustomThemes } from './editorThemes';
 import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
+import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
 
 configureMonaco();
 
@@ -79,27 +77,16 @@ export function CodeEditor() {
   const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // implementation — track the mounted editor + monaco namespace in
   // state so effects can react to mount (refs alone don't re-render).
-  // The original refs stay in place for the existing inline-results
-  // hook that already reads them inside diagnostics-driven effects.
+  // The refs remain the imperative bridge for diagnostics, reveal
+  // commands, and editor-access cleanup.
   const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
-  const { clearDecorations, applyDiagnostics, clearMarkers } = useInlineResults();
+  const { applyDiagnostics, clearMarkers } = useExecutionMarkers();
   const visibleLineResults = useMemo(
     () => lineResults.filter(result => !isHiddenUndefinedLineResult(result)),
     [lineResults]
   );
 
-  // implementation — richer inline-result presentation as Monaco
-  // overlay widgets. This replaces the old trailing-comment
-  // decorations so the editor shows one result surface, not duplicate
-  // values after the code and again at the right edge.
-  useInlineResultWidgets(
-    editorInstance,
-    monacoInstance,
-    visibleLineResults,
-    activeTabId,
-    lineTimings
-  );
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
   const activeTab = useActiveTab();
@@ -160,9 +147,9 @@ export function CodeEditor() {
       model.dispose();
     }
   }, [monacoInstance, expectedRustModelPaths]);
-  // implementation — glyph-margin breakpoint dots + click → toggle.
-  // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
-  // so non-debug tabs stay byte-identical in the DOM.
+  // Glyph-margin breakpoint markers + click-to-toggle. The hook self-gates on
+  // debugger-capable JS/TS tabs and desktop Python so other languages stay
+  // byte-identical in the DOM.
   useBreakpointGutter(editorInstance, monacoInstance, {
     activeTabId: activeTab?.id ?? null,
     language: activeTab?.language,
@@ -274,10 +261,6 @@ export function CodeEditor() {
   }, [editorInstance, aiEntitled, t]);
 
   useEffect(() => {
-    clearDecorations(editorRef.current);
-  }, [clearDecorations, visibleLineResults]);
-
-  useEffect(() => {
     applyDiagnostics(editorRef.current, diagnostics, monacoRef.current);
     const editor = editorRef.current;
     const nextDiagnosticKey = getDiagnosticKey(diagnostics);
@@ -343,10 +326,9 @@ export function CodeEditor() {
 
   useEffect(() => {
     return () => {
-      clearDecorations(editorRef.current);
       clearMarkers(editorRef.current, monacoRef.current);
     };
-  }, [clearDecorations, clearMarkers]);
+  }, [clearMarkers]);
 
   // internal — wire the Vim layer when the toggle flips on, dispose when
   // it flips off (or when the editor unmounts / active tab changes).
@@ -412,6 +394,13 @@ export function CodeEditor() {
             wordWrap,
             minimap,
           })}
+        />
+        <InlineResultWidgetsHost
+          editor={editorInstance}
+          monaco={monacoInstance}
+          lineResults={visibleLineResults}
+          tabId={activeTabId}
+          lineTimings={lineTimings}
         />
       </div>
       <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />

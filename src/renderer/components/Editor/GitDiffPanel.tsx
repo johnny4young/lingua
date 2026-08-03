@@ -40,6 +40,11 @@ interface DiffState {
   truncated: boolean;
 }
 
+interface ResolvedDiffState {
+  requestKey: string;
+  diff: DiffState;
+}
+
 const EMPTY_DIFF: DiffState = {
   status: 'idle',
   originalContent: '',
@@ -67,7 +72,23 @@ export function GitDiffPanel() {
     (state) => state.activeBottomPanel === 'git-diff'
   );
 
-  const [diff, setDiff] = useState<DiffState>(EMPTY_DIFF);
+  const [resolvedDiff, setResolvedDiff] = useState<ResolvedDiffState | null>(null);
+  const gitBridge = window.lingua?.git;
+  const diffRequestKey =
+    gitBridge && posture?.available && posture.repoRoot && activeTab?.filePath
+      ? JSON.stringify([
+          posture.repoRoot,
+          activeTab.filePath,
+          fileEntry?.updatedAt ?? null,
+          postureCommit ?? null,
+        ])
+      : null;
+  const diff =
+    diffRequestKey === null
+      ? EMPTY_DIFF
+      : resolvedDiff?.requestKey === diffRequestKey
+        ? resolvedDiff.diff
+        : { ...EMPTY_DIFF, status: 'loading' as const };
 
   // Fire the panel-opened telemetry once per mount lifecycle when the
   // panel is actually visible. Using `panelIsActive` as the gate
@@ -85,41 +106,34 @@ export function GitDiffPanel() {
   // fileEntry dep means a status flip (modified → clean → modified)
   // re-fetches automatically.
   useEffect(() => {
-    const bridge = window.lingua?.git;
-    if (!bridge) {
-      setDiff(EMPTY_DIFF);
-      return;
-    }
-    if (!posture?.available || !posture.repoRoot) {
-      setDiff(EMPTY_DIFF);
-      return;
-    }
-    if (!activeTab?.filePath) {
-      setDiff(EMPTY_DIFF);
-      return;
-    }
+    if (!gitBridge || !posture?.repoRoot || !activeTab?.filePath || !diffRequestKey) return;
     const repoRoot = posture.repoRoot;
     const filePath = activeTab.filePath;
     let cancelled = false;
-    setDiff((prev) => ({ ...prev, status: 'loading' }));
-    bridge
+    gitBridge
       .diff(repoRoot, filePath)
       .then((result) => {
         if (cancelled) return;
-        setDiff({
-          status: 'loaded',
-          originalContent: result.originalContent,
-          modifiedContent: result.modifiedContent,
-          truncated: result.truncated,
+        setResolvedDiff({
+          requestKey: diffRequestKey,
+          diff: {
+            status: 'loaded',
+            originalContent: result.originalContent,
+            modifiedContent: result.modifiedContent,
+            truncated: result.truncated,
+          },
         });
       })
       .catch(() => {
         if (cancelled) return;
-        setDiff({
-          status: 'error',
-          originalContent: '',
-          modifiedContent: '',
-          truncated: false,
+        setResolvedDiff({
+          requestKey: diffRequestKey,
+          diff: {
+            status: 'error',
+            originalContent: '',
+            modifiedContent: '',
+            truncated: false,
+          },
         });
       });
     return () => {
@@ -130,11 +144,10 @@ export function GitDiffPanel() {
     // HEAD revision. Including it as a dep avoids the cost of a
     // tree-wide subscription on the whole posture object.
   }, [
-    activeTab?.filePath,
-    posture?.available,
+    diffRequestKey,
+    gitBridge,
     posture?.repoRoot,
-    fileEntry,
-    postureCommit,
+    activeTab?.filePath,
   ]);
 
   const monacoLanguage = useMemo(() => {

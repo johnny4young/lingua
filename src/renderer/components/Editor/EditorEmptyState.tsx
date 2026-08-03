@@ -7,7 +7,7 @@ import {
   resolveTemplateFileStem,
   resolveTemplateLabel,
 } from '../../data/templates';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import {
   extensionForLanguage,
   languageBadgeClass,

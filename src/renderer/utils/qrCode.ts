@@ -57,7 +57,7 @@ export const QR_ERROR_CORRECTION_LEVELS: readonly QrErrorCorrectionLevel[] = [
   'H',
 ] as const;
 
-export type QrGenerationError =
+type QrGenerationError =
   | { kind: 'empty' }
   | { kind: 'too-long'; capacity: number }
   | { kind: 'unknown'; message: string };
@@ -320,10 +320,10 @@ export async function generateQrPngDataUrl(
 
 // ----------------------------------------------------------- Decode mode
 
-export const MAX_DECODE_BYTES = 10 * 1024 * 1024; // 10 MiB cap on uploaded image size.
+const MAX_DECODE_BYTES = 10 * 1024 * 1024; // 10 MiB cap on uploaded image size.
 export const MAX_DECODE_PIXELS = 16_000_000; // 16 MP decoded bitmap cap.
 
-export type QrDecodeError =
+type QrDecodeError =
   | { kind: 'empty' }
   | { kind: 'too-large'; maxBytes: number }
   | { kind: 'too-many-pixels'; maxPixels: number }

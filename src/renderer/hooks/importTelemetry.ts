@@ -20,17 +20,17 @@ import {
   type DependencyCountBucket,
 } from '../../shared/dependencies/types';
 import type {
-  ImporterId,
+  ImportFlowId,
   ImporterLossyWarning,
   NotebookWarningKind,
 } from '../../shared/importers/types';
 import { mapWarningToTelemetryKind } from '../../shared/importers/ipynbImporter';
 import { trackEvent } from '../utils/telemetry';
 
-export type ImportTelemetryStatus = 'ok' | 'rejected' | 'cancelled';
+type ImportTelemetryStatus = 'ok' | 'rejected' | 'cancelled';
 
 export interface ImportAppliedPayload {
-  importerId: ImporterId;
+  importerId: ImportFlowId;
   status: ImportTelemetryStatus;
   sizeBucket: CapsuleSizeBucket;
 }

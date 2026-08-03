@@ -1,4 +1,4 @@
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { useSettingsStore } from './settingsStore';
 import {
   coerceRuntimeMode,
@@ -7,10 +7,10 @@ import {
   type RuntimeMode,
 } from '../../shared/runtimeModes';
 import {
-  coerceWorkflowMode,
   defaultWorkflowMode,
   type WorkflowMode,
 } from '../../shared/workflowMode';
+import { coerceWorkflowModeInShell } from '../utils/workflowModeSupport';
 
 /**
  * internal — runtime/workflow mode resolution helpers, extracted verbatim from
@@ -57,13 +57,13 @@ export function workflowModeForNewTab(
   explicit?: WorkflowMode
 ): WorkflowMode {
   if (explicit !== undefined) {
-    return coerceWorkflowMode(explicit, language);
+    return coerceWorkflowModeInShell(explicit, language);
   }
   const settingsDefault = useSettingsStore
     .getState()
     .workflowModeDefaultsByLanguage[language];
   if (settingsDefault !== undefined) {
-    return coerceWorkflowMode(settingsDefault, language);
+    return coerceWorkflowModeInShell(settingsDefault, language);
   }
   return defaultWorkflowMode(language);
 }
@@ -79,5 +79,5 @@ export function workflowModeForRestoredTab(
   language: Language,
   persisted?: WorkflowMode
 ): WorkflowMode {
-  return coerceWorkflowMode(persisted, language);
+  return coerceWorkflowModeInShell(persisted, language);
 }

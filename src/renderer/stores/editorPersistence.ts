@@ -1,4 +1,4 @@
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { joinAbsolute } from '../utils/filePath';
 import {
@@ -15,7 +15,7 @@ import {
   VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES,
 } from './editorTabUtils';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
-import { isRecipeRunnableLanguage } from '../../shared/lessonRunner';
+import { isRecipeRunnableLanguage } from '../../shared/recipeLanguages';
 import { notifyBlockedFamily } from '../utils/blockedPath';
 
 /**
@@ -65,7 +65,7 @@ async function resolveFormattedContent(
   return tab.content;
 }
 
-export function basename(filePath: string): string {
+function basename(filePath: string): string {
   return filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? filePath;
 }
 

@@ -6,6 +6,8 @@ import { AppLayout } from '../../src/renderer/components/Layout/AppLayout';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { useProjectStore } from '../../src/renderer/stores/projectStore';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 
 let compactShell = false;
 let editorTabs: unknown[] = [];
@@ -74,14 +76,6 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-vi.mock('../../src/renderer/components/Toolbar', () => ({
-  Toolbar: () => (
-    <button type="button" data-testid="toolbar-toggle" title="Toggle sidebar (Cmd+B)">
-      Toolbar
-    </button>
-  ),
-}));
-
 // internal — FloatingActionPill is mounted by AppLayout and transitively
 // imports `useRunner` → `nodeRunner` → `esbuild-wasm`, which fails to
 // initialise under jsdom. Stub it out — its behaviour is covered by
@@ -122,8 +116,8 @@ vi.mock('../../src/renderer/components/Toolbar/FloatingActionPill', () => ({
   ),
 }));
 
-vi.mock('../../src/renderer/components/FileTree', () => ({
-  FileTree: ({ onNavigate }: { onNavigate?: () => void }) => (
+vi.mock('../../src/renderer/components/FileTree/FileTreeHost', () => ({
+  FileTreeHost: ({ onNavigate }: { onNavigate?: () => void }) => (
     <div data-testid="file-tree">
       File tree
       <button type="button" data-testid="file-tree-action">
@@ -150,6 +144,12 @@ vi.mock('../../src/renderer/components/Console', () => ({
 
 vi.mock('../../src/renderer/components/BrowserPreview', () => ({
   BrowserPreviewPanel: () => <div data-testid="browser-preview-panel">Browser preview</div>,
+}));
+
+vi.mock('../../src/renderer/components/ProjectTerminal/ProjectTerminalPanel', () => ({
+  ProjectTerminalPanel: ({ binding }: { binding: { projectName: string } }) => (
+    <div data-testid="project-terminal-panel">Terminal for {binding.projectName}</div>
+  ),
 }));
 
 // implementation — mock the Recipe Run panel to avoid pulling
@@ -251,6 +251,7 @@ describe('AppLayout responsive shell', () => {
     setTabVariableInspectorEnabledMock.mockReset();
     matchMediaListeners.clear();
     useResultStore.setState({ scopeSnapshot: null, snapshotRing: [] });
+    useProjectStore.setState({ currentProject: null, nodes: [] });
 
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       get matches() {
@@ -286,6 +287,8 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.querySelector('[data-panel="sidebar-panel"]')).toBeTruthy();
     expect(screen.getByTestId('file-tree')).toBeTruthy();
+    expect(screen.getByTestId('floating-action-pill')).toBeTruthy();
+    expect(screen.queryByTestId('toolbar-toggle')).toBeNull();
   });
 
   it('wires toolbar overlay action icons through the layout boundary', async () => {
@@ -371,8 +374,8 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    expect(screen.getByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
-    expect(screen.getByTestId('browser-preview-panel')).toBeTruthy();
+    expect(await screen.findByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
+    expect(await screen.findByTestId('browser-preview-panel')).toBeTruthy();
     expect(screen.queryByTestId('console-panel')).toBeNull();
   });
 
@@ -393,8 +396,36 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    expect(screen.getByTestId('bottom-panel-recipe-tab')).toBeTruthy();
-    expect(screen.getByTestId('recipe-run-panel')).toBeTruthy();
+    expect(await screen.findByTestId('bottom-panel-recipe-tab')).toBeTruthy();
+    expect(await screen.findByTestId('recipe-run-panel')).toBeTruthy();
+  });
+
+  it('shows the desktop project terminal as a contextual bottom panel', async () => {
+    window.lingua = {
+      ...(window.lingua ?? ({ platform: 'darwin' } as LinguaAPI)),
+      projectTerminal: {} as NonNullable<LinguaAPI['projectTerminal']>,
+    } as LinguaAPI;
+    useProjectStore.setState({
+      currentProject: {
+        id: 'project-alpha',
+        name: 'Alpha',
+        rootPath: '/tmp/alpha',
+        rootId: asRootId('root-alpha'),
+        openedAt: 1,
+      },
+    });
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: true,
+      activeBottomPanel: 'project-terminal',
+    });
+
+    await renderLayout();
+
+    expect(screen.getByTestId('bottom-panel-project-terminal-tab')).toBeTruthy();
+    expect((await screen.findByTestId('project-terminal-panel')).textContent).toContain(
+      'Terminal for Alpha'
+    );
   });
 
   it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {
@@ -494,9 +525,9 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    const toggleButton = screen.getByTestId('toolbar-toggle');
-    toggleButton.focus();
-    expect(document.activeElement).toBe(toggleButton);
+    const actionPillButton = screen.getByTestId('action-pill-search');
+    actionPillButton.focus();
+    expect(document.activeElement).toBe(actionPillButton);
 
     act(() => {
       useUIStore.setState({ sidebarVisible: true });
@@ -518,7 +549,7 @@ describe('AppLayout responsive shell', () => {
       expect(useUIStore.getState().sidebarVisible).toBe(false);
     });
     await waitFor(() => {
-      expect(document.activeElement).toBe(toggleButton);
+      expect(document.activeElement).toBe(actionPillButton);
     });
     expect(shellUnderlay.hasAttribute('inert')).toBe(false);
     expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
@@ -653,7 +684,8 @@ describe('AppLayout responsive shell', () => {
 
         expect(fallback.getAttribute('data-region')).toBe(region);
         expect(screen.getByTestId('editor-tabs')).toBeTruthy();
-        expect(screen.getByTestId('toolbar-toggle')).toBeTruthy();
+        expect(screen.getByTestId('floating-action-pill')).toBeTruthy();
+        expect(screen.queryByTestId('toolbar-toggle')).toBeNull();
         const crashLog = JSON.parse(localStorage.getItem('lingua-crash-log') ?? '[]') as Array<{
           region?: string;
         }>;

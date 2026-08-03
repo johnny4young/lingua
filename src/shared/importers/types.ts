@@ -3,9 +3,9 @@
  *
  * Importers turn an external payload (cURL command, `.ipynb` JSON,
  * Postman collection, etc.) into a Lingua domain object the user can
- * confirm into a workspace. implementation ships the registry shape + the
- * cURL → HTTP request adapter only; later work add `.ipynb`,
- * Bruno/Postman, and CodePen/JSFiddle URL flows.
+ * confirm into a workspace. URL-backed flows are modeled separately because
+ * their async cancellation and network policy do not fit this synchronous
+ * adapter contract.
  *
  * Three-phase contract — every adapter implements all three:
  *
@@ -45,8 +45,8 @@
  * implementation (2026-05-27) added `'ipynb-notebook'`; implementation (2026-05-28)
  * adds `'postman-collection'` + `'bruno-collection'`. implementation
  * (2026-06-21) adds `'linguanb-notebook'` — the lossless native
- * notebook document (counterpart to the lossy `.ipynb` import). The
- * enum stays open for `'codepen-url'` .
+ * notebook document (counterpart to the lossy `.ipynb` import). Async URL
+ * imports belong to `IMPORT_FLOW_IDS`, not this adapter registry enum.
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
@@ -61,11 +61,20 @@ export const IMPORTER_IDS = [
 export type ImporterId = (typeof IMPORTER_IDS)[number];
 
 /**
+ * User-visible import flows include every synchronous registry adapter plus
+ * renderer-coordinated async sources. Keep telemetry keyed to this wider set
+ * without pretending a network loader is a synchronous importer adapter.
+ */
+export const IMPORT_FLOW_IDS = [...IMPORTER_IDS, 'playground-url'] as const;
+export type ImportFlowId = (typeof IMPORT_FLOW_IDS)[number];
+
+/**
  * Closed enum of reject reasons. Adding new reasons is allowed
  * (additive); renaming/removing breaks i18n keys + downstream
  * branching, so don't.
  */
-export const IMPORTER_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IMPORTER_REJECT_REASONS = [
   'empty-input',
   'unrecognized-format',
   'malformed',
@@ -81,7 +90,8 @@ export type ImporterRejectReason = (typeof IMPORTER_REJECT_REASONS)[number];
  * implementation codes are cURL-specific; future adapters add their own
  * (e.g. `'notebook-cell-output-stripped'` for `.ipynb`).
  */
-export const IMPORTER_LOSSY_WARNINGS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IMPORTER_LOSSY_WARNINGS = [
   'curl-data-binary-file',
   'curl-multipart-form',
   'curl-basic-auth',
@@ -111,8 +121,9 @@ export const IMPORTER_LOSSY_WARNINGS = [
   // pre-request / test scripts, environment variables, and non-text
   // body modes have no Lingua HTTP-workspace equivalent, so they are
   // surfaced as warnings rather than silently dropped.
-  //   - `postman-auth-helper`: an `auth` block (basic / apikey / oauth)
-  //     we could not flatten to a single header (bearer IS mapped).
+  //   - `postman-auth-helper`: a Postman or Bruno `auth` helper (basic /
+  //     apikey / oauth) we could not flatten to a single header (bearer
+  //     IS mapped).
   //   - `postman-prerequest-script` / `postman-test-script`: the
   //     `event` scripts are dropped (Lingua has no scripting runtime).
   //   - `postman-variable`: a `{{var}}` STATIC placeholder left literal
@@ -128,7 +139,10 @@ export const IMPORTER_LOSSY_WARNINGS = [
   //   - `postman-graphql-body`: GraphQL body kept as raw text only.
   //   - `postman-formdata-file`: multipart / file-upload body parts
   //     are not importable; the text parts survive.
-  //   - `bruno-script-dropped`: a `.bru` `script:*` / `tests` block.
+  //   - `bruno-script-dropped`: classic `.bru` scripts/tests or
+  //     OpenCollection runtime scripts/assertions.
+  //   - `bruno-settings-dropped`: OpenCollection redirect, timeout, and
+  //     URL-encoding settings have no portable HTTP-workspace equivalent.
   'postman-auth-helper',
   'postman-prerequest-script',
   'postman-test-script',
@@ -137,6 +151,7 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'postman-graphql-body',
   'postman-formdata-file',
   'bruno-script-dropped',
+  'bruno-settings-dropped',
 ] as const;
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
 
@@ -154,7 +169,8 @@ export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
  * `IMPORTER_REJECT_REASONS = 'malformed'`. `'wrong-version'`,
  * `'oversized'`, and `'too-many-cells'` map to `'unsupported-feature'`.
  */
-export const IPYNB_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const IPYNB_REJECT_REASONS = [
   'malformed-json',
   'wrong-version',
   'invalid-shape',
@@ -192,7 +208,8 @@ export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
  *   - `'wrong-version'` / `'empty-collection'` / `'oversized'` →
  *     `'unsupported-feature'`.
  */
-export const POSTMAN_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const POSTMAN_REJECT_REASONS = [
   'malformed-json',
   'wrong-version',
   'invalid-shape',
@@ -202,15 +219,23 @@ export const POSTMAN_REJECT_REASONS = [
 export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
 
 /**
- * implementation — Bruno `.bru` adapter's internal reject taxonomy.
+ * implementation — Bruno request / directory adapter's internal reject taxonomy.
  * Surfaced via `ImporterPreviewOutcome.detail`. Outward mapping:
  *   - `'malformed'` / `'invalid-shape'` → `'malformed'`.
  *   - `'empty-input'` → `'empty-input'`.
+ *   - directory limit and unreadable failures → `'unsupported-feature'`.
  */
-export const BRUNO_REJECT_REASONS = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
+const BRUNO_REJECT_REASONS = [
   'empty-input',
   'malformed',
   'invalid-shape',
+  'directory-not-collection',
+  'directory-empty',
+  'directory-too-many-files',
+  'directory-oversized',
+  'directory-unreadable',
+  'directory-invalid-request',
 ] as const;
 export type BrunoRejectReason = (typeof BRUNO_REJECT_REASONS)[number];
 

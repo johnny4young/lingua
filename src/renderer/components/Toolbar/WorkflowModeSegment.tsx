@@ -6,11 +6,11 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   WORKFLOW_MODES,
   defaultWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 /**
  * implementation — per-tab workflow-mode segmented control.
@@ -77,15 +77,15 @@ export function WorkflowModeSegment() {
   if (!activeTab) return null;
 
   const language = activeTab.language;
+  const isModeSupported = (mode: WorkflowMode): boolean =>
+    supportsWorkflowModeInShell(language, mode);
   const currentMode: WorkflowMode =
     activeTab.workflowMode ?? defaultWorkflowMode(language);
 
   // Collapse-to-label when only one mode is supported. Avoids
   // showing a 3-segment control where 2 are permanently disabled
   // (e.g. plain-text tab).
-  const supportedModes = WORKFLOW_MODES.filter((mode) =>
-    supportsWorkflowMode(language, mode)
-  );
+  const supportedModes = WORKFLOW_MODES.filter((mode) => isModeSupported(mode));
   if (supportedModes.length <= 1) {
     const onlyMode = supportedModes[0] ?? 'run';
     return (
@@ -102,7 +102,7 @@ export function WorkflowModeSegment() {
   }
 
   const handleSelect = (mode: WorkflowMode) => {
-    if (!supportsWorkflowMode(language, mode)) return;
+    if (!isModeSupported(mode)) return;
     if (mode === currentMode) return;
     setTabWorkflowMode(activeTab.id, mode);
   };
@@ -145,7 +145,7 @@ export function WorkflowModeSegment() {
     >
       {WORKFLOW_MODES.map((mode) => {
         const Icon = MODE_ICON[mode];
-        const supported = supportsWorkflowMode(language, mode);
+        const supported = isModeSupported(mode);
         const active = mode === currentMode;
         const labelText = t(MODE_LABEL_KEY[mode]);
         const hintText = !supported

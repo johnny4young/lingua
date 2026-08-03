@@ -7,6 +7,3 @@
  */
 
 export { HttpWorkspacePanel } from './HttpWorkspacePanel';
-export { HttpWorkspaceView } from './HttpWorkspaceView';
-export { HttpStatusPill } from './HttpStatusPill';
-export { tryParseCurl, type ParsedCurl } from './curlImport';

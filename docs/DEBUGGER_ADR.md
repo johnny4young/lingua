@@ -1,10 +1,10 @@
 # ADR — Debugger MVP
 
-| Status | Accepted — design |
+| Status | Accepted — implemented for JavaScript / TypeScript and desktop Python, Go, and Rust |
 | ------ | ----------------- |
 | Decision | Ship a focused debugger MVP targeting JavaScript / TypeScript first via a Monaco-integrated custom breakpoint panel, then Python via a `pdb` IPC bridge, then Go via Delve, then Rust via lldb. Every runtime after JS/TS is desktop-only. |
 | Date | 2026-04-20 |
-| Implementation start | Unblocked by this ADR. The first implementation targets the JS/TS layer (breakpoints + step + watch). Each subsequent language has its own implementation. |
+| Implementation start | JavaScript / TypeScript plus desktop Python, Go, and Rust are shipping. |
 
 ## Context
 
@@ -28,10 +28,10 @@ shape. This ADR picks a shape that:
 
 | Runtime | Strategy | Target | Status |
 |---------|----------|--------|--------|
-| JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step + watch via worker-side debugger hooks | web + Electron | initial implementation |
-| Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Second slice |
-| Go | `dlv` (Delve) bridge via IPC — start Delve in headless mode and pipe JSON-RPC commands | Electron only | Third slice |
-| Rust | `lldb` (macOS / Linux) or `lldb-mi` via IPC — same IPC shape as Go once the JSON layer exists | Electron only | Fourth slice |
+| JavaScript / TypeScript | Monaco-integrated breakpoint panel driven by source maps; step, bounded watches, conditional breakpoints, and logpoints via worker-side debugger hooks | web + Electron | Shipping |
+| Python | `pdb` bridge via IPC — spawn a headless `python -u` with the `pdb` module attached; renderer sends breakpoint / step / continue commands, main streams stdout and stop events | Electron only | Shipping |
+| Go | `dlv` (Delve) bridge via IPC — start Delve in headless DAP mode and drive it over loopback TCP | Electron only | Shipping |
+| Rust | compile the current buffer with debug symbols, then drive host `lldb-dap` over stdio DAP | Electron only | Shipping |
 
 ### 2. Feature budget
 
@@ -49,12 +49,6 @@ The MVP ships exactly:
 Out of scope for the MVP:
 
 - Time-travel debugging.
-- Conditional breakpoints (can land as a post-MVP slice).
-- Logpoints / tracepoints — **promoted 2026-05-21 to a planned post-MVP slice**.
-  See `implementation` in the implementation notes for the full scope; the decision to keep
-  them outside the MVP was about budget, not about feature merit. implementation
-  shares the dynamic-Function security review with implementation (watch
-  expressions) so both unlock together once that review lands.
 - Remote / distributed tracing hooks.
 - Edit-and-continue.
 
@@ -91,30 +85,65 @@ existing internal editable shortcut mapper.
   dashboards can compute median session length from the attach→detach
   pair.
 
+### 5. Expression-evaluation boundary
+
+Watch expressions, conditional breakpoints, and logpoint placeholders are a
+separate input surface from the program being debugged. Lingua does not pass
+them to `eval`, `Function`, or the runtime's global scope.
+
+The worker instead:
+
+1. copies current locals into a detached, bounded snapshot containing only own
+   data properties;
+2. parses one expression with Acorn;
+3. interprets an allowlisted data-oriented syntax with step and depth budgets;
+4. returns only bounded values or a stable error.
+
+Calls, constructors, assignments, updates, accessors, inherited properties,
+prototype traversal, `await`, and `yield` are rejected. Loose equality is also
+rejected rather than approximated; use `===` or `!==`. A malformed condition
+pauses fail-safe and explains the error instead of silently skipping the line.
+Logpoints interpolate bounded `{expression}` placeholders, publish their text
+through normal debugger output, and continue without pausing.
+
+This bounded interpreter applies to JavaScript and TypeScript. Python, Go, and Rust
+watches are evaluated inside their native debugged processes, so they can
+invoke runtime behavior and have side effects. The native UI says so explicitly
+and ships only standard pause breakpoints; conditional breakpoints and logpoints
+remain JS/TS-only until a separate native-expression policy is accepted.
+
 ## Implementation sketch (for the follow-up work)
 
-- **JS/TS slice (first)**: Monaco `IEditor` decorations for the
-  gutter; a `DebuggerSession` service in the renderer that hooks
-  into the existing JS worker via a new message type (`pause`,
-  `step`, `evaluate`). Single worker lifetime per attached tab;
-  session is torn down on tab close or detach.
-- **Python slice (second)**: new IPC channel `debugger:python:*`.
-  Main spawns `python -u -m pdb <tempfile>`, pipes stdin / stdout,
-  translates commands. The existing `rust-compiler.ts` + `go-
-  compiler.ts` subprocess plumbing is the reference.
-- **Go slice (third)**: `dlv --headless --listen=:0` subprocess;
-  renderer speaks Delve's JSON-RPC protocol directly (small
-  adapter module in `src/main/debug/delve.ts`).
-- **Rust slice (fourth)**: `lldb -b -s <script>` or `lldb-mi` as
-  the adapter, same JSON translation layer pattern.
+- **JS/TS slice (shipping)**: Monaco `IEditor` decorations for pause,
+  conditional, and logpoint markers; one renderer debugger session that hooks
+  into the existing JS worker; a bounded worker-side expression interpreter;
+  and one worker lifetime per attached tab. The session is torn down on tab
+  close or detach.
+- **Python slice (shipping)**: typed `debugger:python:*` IPC and preload bridge,
+  an owner-bound main session that drives `python -u -m pdb <tempfile>`, and a
+  lazy renderer adapter that reuses the breakpoint gutter, Debugger panel,
+  shared run lifecycle, and shortcuts. Main prefers project `.venv`/`venv`,
+  filters the environment, caps output, and cleans up on every owner lifecycle.
+- **Go slice (shipping)**: typed `debugger:go:*` IPC and preload bridge,
+  owner-bound `dlv dap --listen=127.0.0.1:0` process, bounded DAP framing in
+  main, and a lazy renderer adapter that reuses the shared native lifecycle,
+  breakpoint gutter, Debugger panel, and shortcuts. Main resolves Delve from
+  the filtered Go environment and cleans up the process tree plus private
+  temporary module on every owner lifecycle.
+- **Rust slice (shipping)**: typed `debugger:rust:*` IPC and preload bridge,
+  private Rust 2021 compilation with debug symbols, and owner-bound
+  `lldb-dap` over stdio. Rust and Go share bounded DAP framing, request/event
+  correlation, stepping, inspection, output, and teardown through
+  `debugger/nativeDapSession.ts`; their transport, launch, tool discovery, and
+  failure taxonomy remain runtime-specific.
 
 ## Rollback
 
-- Feature is opt-in behind a `settings.debuggerEnabled` flag
-  (future work). Flipping off removes the Debugger tab and detaches any
-  active session.
+- Debugging is a baseline JS/TS capability rather than a Settings opt-in. The
+  user can disable individual breakpoints, disable all breakpoints, clear the
+  list, or choose normal Run, which ignores debugger state.
 - Each runtime implementation ships behind its own capability gate so a
-  broken Delve install does not affect JS/TS debugging.
+  broken Delve or LLDB install does not affect another debugger.
 - Telemetry events use the existing allowlist mechanism — no
   payload can leak code without the redactor deliberately ignoring
   the deny list, which the guard tests pin.
@@ -124,15 +153,14 @@ existing internal editable shortcut mapper.
 1. Chrome DevTools Protocol or monaco APIs change enough that
    our breakpoint integration regresses — re-evaluate the
    JS/TS strategy.
-2. Delve or lldb become hostile to embedded JSON-RPC usage
+2. Delve or lldb-dap become hostile to DAP embedding
    (license, protocol break) — move that runtime to `pdb`-style
    stdout-parsing if cheaper.
 3. A community-maintained DevTools overlay emerges with a stable
    API — reconsider whether the custom panel is still the right
    call.
-4. The feature budget above no longer matches user demand (e.g.
-   conditional breakpoints become table stakes) — graduate to
-   a post-MVP ADR rather than expanding scope implicitly.
+4. The feature budget above no longer matches user demand — graduate to a
+   post-MVP ADR rather than expanding scope implicitly.
 5. Edit-and-continue becomes possible in Monaco for free —
    revisit the "out of scope" list.
 
@@ -143,8 +171,8 @@ existing internal editable shortcut mapper.
 - `LANGUAGE_PACK_ADR.md` — future LanguagePacks that declare
   `capabilities.debugger: 'available' | 'planned'` gate the
   Debugger tab per language.
-- `CAPABILITY_MATRIX.md` — codifies "Go/Rust/Python debugger is
-  desktop only" as a matrix row.
+- `CAPABILITY_MATRIX.md` — codifies Python, Go, and Rust debugging as shipping
+  desktop-only capabilities.
 - `ENV_VARS_ADR.md` — implementation env merger is the plumbing the
   debugger subprocess slices inherit for free.
 
@@ -191,9 +219,32 @@ existing internal editable shortcut mapper.
   editor/results area. The same refinement promotes local JS/TS
   functions during Debug so Step Into can enter normal functions
   while Run remains byte-for-byte normal execution.
-- **Still deferred.** Conditional-breakpoint predicate
-  evaluation and watch-expression evaluation. Both require the
-  worker eval pattern to clear a dedicated security review — the
-  dynamic-Function constructor pattern triggered the security
-  reminder during implementation and the carve-out in the inline-fix
-  policy keeps the eval pass out of implementation.
+- **Bounded expressions shipped 2026-08-01.** Watches evaluate at every pause,
+  conditional breakpoints skip only when their safe expression is false, and
+  logpoints interpolate safe placeholders without pausing. The implementation
+  deliberately replaced the proposed dynamic-Function path with the bounded
+  data-only interpreter described in Decision 5. Breakpoint modes and their
+  inputs persist through a schema migration; watch results and errors remain
+  session-only.
+- **Desktop Python debugger shipped 2026-08-01.** Python tabs can select Debug,
+  pause on enabled gutter breakpoints, continue or step over/into/out, inspect
+  locals and the source-local call stack, and refresh watches through host
+  CPython/pdb. The bridge is capability-aware, owner-bound, output-bounded, and
+  lazy in the renderer. Normal Python Run remains Pyodide; web disables Python
+  Debug, and the native watch/advanced-breakpoint limitations remain explicit.
+- **Desktop Go debugger shipped 2026-08-01.** Go tabs use owner-bound Delve
+  DAP sessions with filtered toolchain environment data, private temporary
+  modules, bounded traffic/output, source-local inspection, and actionable
+  missing-binary or Developer Tools guidance.
+- **Desktop Rust debugger shipped 2026-08-01.** Rust tabs compile the current
+  buffer with Rust 2021 debug symbols and drive host `lldb-dap` over stdio.
+  The bridge distinguishes compiler, adapter, compilation, protocol, and
+  macOS permission failures; reuses the native renderer lifecycle; and removes
+  every temporary source, binary, adapter, and debuggee process on teardown.
+- **Desktop Go debugger shipped 2026-08-01.** Go tabs can select Debug and
+  drive Delve through the standard DAP transport for breakpoints, stepping,
+  locals, source-local call stack, watches, output, and stop. The bridge is
+  loopback-only, owner-bound, message/output-bounded, and lazy in the renderer.
+  Normal Go Run remains unchanged; web disables Go Debug, missing Delve and
+  macOS Developer Tools permission are actionable failures, and native watch
+  side effects plus pause-only breakpoint limits remain explicit.

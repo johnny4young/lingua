@@ -168,4 +168,52 @@ describe('prepare-release-payload', () => {
       });
     });
   });
+
+  it('requires the npm package and every supported standalone CLI target together', async () => {
+    await withTempRoot(async root => {
+      await writeFile(path.join(root, 'Lingua.zip'), 'zip');
+      await writeFile(path.join(root, 'latest-mac.yml'), 'version: 0.15.0');
+      await writeFile(path.join(root, 'THIRD_PARTY_LICENSE_REPORT.md'), 'licenses');
+      await writeFile(path.join(root, 'lingua-sbom.cyclonedx.json'), '{"sbom":true}');
+      await writeFile(path.join(root, 'linguacode-cli-0.15.0.tgz'), 'npm');
+      await writeFile(path.join(root, 'lingua-cli-v0.15.0-linux-x64.tar.gz'), 'linux');
+
+      const requirements = { requireCliArtifacts: true };
+      await expect(writeReleaseChecksums(root, requirements)).rejects.toThrow(
+        'Release payload is missing the standalone Lingua CLI target: windows-x64'
+      );
+
+      await writeFile(path.join(root, 'lingua-cli-v0.15.0-windows-x64.tar.gz'), 'windows');
+      const { checksumPath } = await writeReleaseChecksums(root, requirements);
+      const checksumText = await readFile(checksumPath, 'utf8');
+      expect(checksumText).toContain('linguacode-cli-0.15.0.tgz');
+      expect(checksumText).toContain('lingua-cli-v0.15.0-linux-x64.tar.gz');
+      expect(checksumText).toContain('lingua-cli-v0.15.0-windows-x64.tar.gz');
+      await expect(verifyReleaseChecksums(root, requirements)).resolves.toBeTruthy();
+    });
+  });
+
+  it('supports CLI-only payloads while enforcing one consistent version per target', async () => {
+    await withTempRoot(async root => {
+      await writeFile(path.join(root, 'THIRD_PARTY_LICENSE_REPORT.md'), 'licenses');
+      await writeFile(path.join(root, 'lingua-sbom.cyclonedx.json'), '{"sbom":true}');
+      await writeFile(path.join(root, 'linguacode-cli-0.15.0.tgz'), 'npm');
+      await writeFile(path.join(root, 'lingua-cli-v0.15.0-linux-x64.tar.gz'), 'linux');
+      await writeFile(path.join(root, 'lingua-cli-v0.14.0-windows-x64.tar.gz'), 'windows');
+
+      const requirements = {
+        requireCliArtifacts: true,
+        requireDesktopArtifacts: false,
+      };
+      await expect(writeReleaseChecksums(root, requirements)).rejects.toThrow(
+        'Lingua CLI artifact version mismatch: npm is 0.15.0, windows-x64 is 0.14.0'
+      );
+
+      await rm(path.join(root, 'lingua-cli-v0.14.0-windows-x64.tar.gz'));
+      await writeFile(path.join(root, 'lingua-cli-v0.15.0-windows-x64.tar.gz'), 'windows');
+      await expect(writeReleaseChecksums(root, requirements)).resolves.toMatchObject({
+        checksumPath: path.join(root, RELEASE_CHECKSUMS_FILENAME),
+      });
+    });
+  });
 });

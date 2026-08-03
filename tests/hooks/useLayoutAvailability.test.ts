@@ -15,6 +15,7 @@ const GATE_KEYS = [
   'showConsole',
   'showDebuggerPanel',
   'showBrowserPreviewPanel',
+  'showProjectTerminalTabBody',
   'showStdinTabBody',
   'showVariablesTabBody',
   'showRecipeTabBody',
@@ -27,7 +28,7 @@ beforeEach(() => {
 });
 
 describe('useLayoutAvailability', () => {
-  it('returns exactly the six gate booleans', () => {
+  it('returns exactly the seven gate booleans', () => {
     const { result } = renderHook(() => useLayoutAvailability());
     expect(Object.keys(result.current).sort()).toEqual([...GATE_KEYS].sort());
     for (const key of GATE_KEYS) {
@@ -40,7 +41,15 @@ describe('useLayoutAvailability', () => {
       useEditorStore
         .getState()
         .restoreTabs(
-          [{ id: 't1', name: 'a.js', language: 'javascript', content: '', runtimeMode: 'browser-preview' }],
+          [
+            {
+              id: 't1',
+              name: 'a.js',
+              language: 'javascript',
+              content: '',
+              runtimeMode: 'browser-preview',
+            },
+          ],
           't1'
         );
       useUIStore.getState().setConsoleVisible(true);

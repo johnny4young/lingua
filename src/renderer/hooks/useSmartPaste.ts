@@ -148,7 +148,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
   useEffect(() => {
     if (!editor || !monaco) return undefined;
 
-    const pasteDisposable = editor.onDidPaste((event) => {
+    const pasteDisposable = editor.onDidPaste(event => {
       if (skipNextPaste) {
         clearPlainPasteBypass();
         return;
@@ -170,7 +170,27 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
             labelKey: actionLabelKeyFor(intent),
             onClick: () => {
               track('editor.smart_paste_applied', { handler, accepted: true });
-              void applyPasteIntent(intent, { model, pastedRange: event.range, pastedText });
+              const reportFailure = () => {
+                useUIStore.getState().pushStatusNotice({
+                  tone: 'warning',
+                  messageKey: 'paste.intent.applyFailed',
+                });
+              };
+              void applyPasteIntent(intent, {
+                model,
+                pastedRange: event.range,
+                pastedText,
+              }).then(
+                applied => {
+                  if (!applied) reportFailure();
+                },
+                () => {
+                  // A deferred importer/store chunk may fail to load. Keep the
+                  // pasted text and replace the accepted CTA with retry advice
+                  // instead of leaking an unhandled rejection.
+                  reportFailure();
+                }
+              );
               useUIStore.getState().dismissStatusNotice('cta');
             },
           },
@@ -185,7 +205,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
         // Auto-dismiss (timeout) and manual (X) count as "not imported". The
         // action handlers dismiss with 'cta', which this skips, so telemetry
         // fires exactly once per toast.
-        onDismiss: (mode) => {
+        onDismiss: mode => {
           if (mode === 'auto' || mode === 'manual') {
             track('editor.smart_paste_applied', { handler, accepted: false });
           }

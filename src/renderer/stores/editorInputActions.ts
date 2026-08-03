@@ -1,4 +1,4 @@
-import type { EditorState } from '../types';
+import type { EditorState } from '../types/editor';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   languageSupportsStdin,

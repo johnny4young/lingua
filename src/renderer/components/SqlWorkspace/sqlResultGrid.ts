@@ -8,7 +8,7 @@
  * preview rows — they never re-run a query.
  */
 
-export type SqlSortDirection = 'asc' | 'desc';
+type SqlSortDirection = 'asc' | 'desc';
 
 export interface SqlSortState {
   /** Column name being sorted; `null` means original (insertion) order. */

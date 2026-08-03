@@ -22,7 +22,7 @@
  * installed base instead of only new installs.
  */
 
-export const SEEDED_SCRATCHPAD_VERSION = 1 as const;
+export { SEEDED_SCRATCHPAD_VERSION } from './seedScratchpadMetadata';
 export const SEEDED_SCRATCHPAD_NAME = 'welcome.js';
 export const SEEDED_SCRATCHPAD_LANGUAGE = 'javascript';
 export const SEEDED_SCRATCHPAD_SOURCE = `// Welcome to Lingua — press Cmd+Enter (or Ctrl+Enter on Linux/Windows).

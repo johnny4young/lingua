@@ -33,7 +33,14 @@ describe('debuggerWorkerBridge', () => {
     const messages = [
       { type: 'resume' },
       { type: 'step', mode: 'into' },
-      { type: 'set-breakpoints', breakpoints: [{ line: 3, condition: 'x > 1' }, { line: 9 }] },
+      {
+        type: 'set-breakpoints',
+        breakpoints: [
+          { line: 3, mode: 'conditional', condition: 'x > 1' },
+          { line: 9, mode: 'pause' },
+        ],
+      },
+      { type: 'set-watches', watches: ['x + 1'] },
     ] as const;
     for (const msg of messages) {
       expect(postDebuggerMessage(msg)).toBe(true);

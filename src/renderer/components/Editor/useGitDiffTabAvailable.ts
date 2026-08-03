@@ -12,7 +12,7 @@
 
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { gitLayerAvailable, useGitStore } from '../../stores/gitStore';
-import { gitStatusSuppressedByMagicComment } from '../../utils/magicComments';
+import { gitStatusSuppressedByMagicComment } from '../../utils/gitMagicCommentPolicy';
 
 export function useGitDiffTabAvailable(): boolean {
   const posture = useGitStore((s) => s.posture);

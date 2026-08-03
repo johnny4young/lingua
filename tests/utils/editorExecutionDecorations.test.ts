@@ -2,25 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDiagnosticMarkerEntries,
   buildExecutionMarkerEntry,
-  buildInlineDecorationEntries,
   getExecutionErrorKey,
 } from '@/utils/editorExecutionDecorations';
 
 describe('editorExecutionDecorations helpers', () => {
-  it('groups multiple line results into Monaco inline decoration entries', () => {
-    expect(
-      buildInlineDecorationEntries([
-        { line: 2, value: 'hello', type: 'log' },
-        { line: 2, value: 'careful', type: 'warn' },
-        { line: 4, value: '42', type: 'result' },
-        { line: 4, value: 'sum = 1', type: 'magic' },
-      ])
-    ).toEqual([
-      { line: 2, content: '  // hello  // careful' },
-      { line: 4, content: '  // => 42  // => sum = 1' },
-    ]);
-  });
-
   it('normalizes execution marker positions to the model bounds', () => {
     expect(
       buildExecutionMarkerEntry(

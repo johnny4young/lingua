@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { _resetCommandBusForTesting } from '@/stores/commandBus';
 import { useUIStore } from '@/stores/uiStore';
-import { ShareLinkButton, ShareLinkController } from '@/components/Share/ShareLinkButton';
+import { ShareLinkButton } from '@/components/Share/ShareLinkButton';
+import { ShareLinkController } from '@/components/Share/ShareLinkController';
 
 const { prepareShareLinkMock, writeShareLinkMock, trackShareCreatedMock } = vi.hoisted(() => ({
   prepareShareLinkMock: vi.fn(),

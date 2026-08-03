@@ -8,10 +8,10 @@
  * native confirm matches the "no silent mutation" principle).
  */
 
-import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Copy, GitBranch, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { HttpRequestV1 } from '../../../shared/httpWorkspace';
+import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
 
 export interface HttpRequestListProps {
@@ -22,6 +22,8 @@ export interface HttpRequestListProps {
   onRename: (id: string, name: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpenPipelines?: () => void;
+  pipelineCount?: number;
 }
 
 export function HttpRequestList({
@@ -32,6 +34,8 @@ export function HttpRequestList({
   onRename,
   onDuplicate,
   onDelete,
+  onOpenPipelines,
+  pipelineCount = 0,
 }: HttpRequestListProps) {
   const { t } = useTranslation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -62,16 +66,33 @@ export function HttpRequestList({
         <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('httpWorkspace.requestList.label')}
         </span>
-        <button
-          type="button"
-          onClick={onCreate}
-          aria-label={t('httpWorkspace.requestList.create')}
-          title={t('httpWorkspace.requestList.create')}
-          data-testid="http-request-list-create"
-          className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-        >
-          <Plus size={12} aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onOpenPipelines ? (
+            <button
+              type="button"
+              onClick={onOpenPipelines}
+              aria-label={t('httpWorkspace.pipeline.open')}
+              title={t('httpWorkspace.pipeline.open')}
+              data-testid="http-pipeline-open"
+              className="inline-flex h-[22px] items-center gap-1 rounded-md border border-border-subtle px-1.5 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            >
+              <GitBranch size={12} aria-hidden="true" />
+              {pipelineCount > 0 ? (
+                <span className="text-micro tabular-nums">{pipelineCount}</span>
+              ) : null}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onCreate}
+            aria-label={t('httpWorkspace.requestList.create')}
+            title={t('httpWorkspace.requestList.create')}
+            data-testid="http-request-list-create"
+            className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          >
+            <Plus size={12} aria-hidden="true" />
+          </button>
+        </div>
       </header>
       <ul
         role="list"
@@ -128,7 +149,11 @@ export function HttpRequestList({
                 data-testid="http-request-list-row-method"
                 className="shrink-0 font-mono text-micro font-bold uppercase tracking-[0.04em] text-fg-subtle"
               >
-                {req.method}
+                {req.transport === 'websocket'
+                  ? 'WS'
+                  : req.transport === 'sse'
+                    ? 'SSE'
+                    : req.method}
               </span>
               {isRenaming ? (
                 <input

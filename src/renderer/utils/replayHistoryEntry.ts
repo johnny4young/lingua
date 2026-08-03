@@ -13,7 +13,8 @@ import { extensionForLanguage, languageLabel } from './languageMeta';
 import { useEditorStore } from '../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
-import type { FileTab, Language } from '../types';
+import type { FileTab } from '../types/editor';
+import type { Language } from '../types/language';
 
 export interface ReplayHistoryEntryDeps {
   /** Whether a run is currently in progress; replay refuses to fire on top of one. */

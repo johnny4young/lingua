@@ -17,12 +17,12 @@
 import type { UtilityAdapter, UtilityOptionField } from './types';
 
 /** Source-base choices. `auto` sniffs a literal prefix, else decimal. */
-export const NUMBER_BASE_FROM = ['auto', '2', '8', '10', '16'] as const;
-export type NumberBaseFrom = (typeof NUMBER_BASE_FROM)[number];
+const NUMBER_BASE_FROM = ['auto', '2', '8', '10', '16'] as const;
+type NumberBaseFrom = (typeof NUMBER_BASE_FROM)[number];
 
 /** Target-base choices (no `auto` — the output base must be explicit). */
-export const NUMBER_BASE_TO = ['2', '8', '10', '16'] as const;
-export type NumberBaseTo = (typeof NUMBER_BASE_TO)[number];
+const NUMBER_BASE_TO = ['2', '8', '10', '16'] as const;
+type NumberBaseTo = (typeof NUMBER_BASE_TO)[number];
 
 /** Structured options for the `number-base` adapter. */
 export interface NumberBaseOptions {

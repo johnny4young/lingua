@@ -23,9 +23,9 @@ import {
 import {
   WORKFLOW_MODES,
   defaultWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 import {
   RUNTIME_TIMEOUT_PRESETS,
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES,
@@ -207,6 +207,7 @@ export function EditorSection() {
         />
 
         <SpecRow
+          searchTargetId="editor-font-family"
           label={t('editor.fontFamily.label')}
           description={t('editor.fontFamily.hint')}
           control={
@@ -240,6 +241,7 @@ export function EditorSection() {
         />
 
         <SpecRow
+          searchTargetId="editor-font-size"
           label={t('editor.fontSize.label')}
           description={t('editor.fontSize.hint')}
           control={
@@ -288,6 +290,7 @@ export function EditorSection() {
             options still render with explanatory tooltips, while
             shipped modes keep their operational hints in Settings. */}
         <SpecRow
+          searchTargetId="editor-default-runtime"
           label={t('runtimeMode.settings.title')}
           description={t('runtimeMode.settings.description')}
           control={
@@ -376,6 +379,7 @@ export function EditorSection() {
           card with divided rows; the last row drops its hairline. */}
       <SpecCard>
         <SpecRow
+          searchTargetId="editor-word-wrap"
           label={t('editor.wordWrap.label')}
           description={t('editor.wordWrap.hint')}
           control={<Toggle value={wordWrap} onChange={toggleWordWrap} />}
@@ -408,6 +412,7 @@ export function EditorSection() {
         ))}
 
         <SpecRow
+          searchTargetId="editor-restore-session"
           label={t('editor.restoreSession.label')}
           description={t('editor.restoreSession.hint')}
           control={
@@ -428,6 +433,7 @@ export function EditorSection() {
         />
 
         <SpecRow
+          searchTargetId="editor-format-on-save"
           label={t('editor.formatOnSave.label')}
           description={t('editor.formatOnSave.hint')}
           control={<Toggle value={formatOnSave} onChange={toggleFormatOnSave} />}
@@ -435,6 +441,7 @@ export function EditorSection() {
 
         {/* internal — smart paste detection master toggle. */}
         <SpecRow
+          searchTargetId="editor-smart-paste"
           label={t('editor.smartPaste.label')}
           description={t('editor.smartPaste.hint')}
           control={
@@ -474,6 +481,7 @@ export function EditorSection() {
         />
 
         <SpecRow
+          searchTargetId="editor-vim-mode"
           label={t('editor.vimMode.label')}
           description={t('editor.vimMode.hint')}
           control={
@@ -504,6 +512,7 @@ export function EditorSection() {
         {/* internal — persistent bottom status bar visibility. Default ON
             desktop / OFF web; when OFF the bar fully unmounts. */}
         <SpecRow
+          searchTargetId="editor-status-bar"
           label={t('settings.editor.showStatusBar.label')}
           description={t('settings.editor.showStatusBar.hint')}
           control={
@@ -517,6 +526,7 @@ export function EditorSection() {
         />
 
         <SpecRow
+          searchTargetId="editor-dependency-detection"
           label={t('settings.editor.dependencyDetection.label')}
           description={t('settings.editor.dependencyDetection.hint')}
           control={
@@ -633,7 +643,7 @@ export function EditorSection() {
                       }
                     >
                       {WORKFLOW_MODES.filter((mode) =>
-                        supportsWorkflowMode(lang, mode)
+                        supportsWorkflowModeInShell(lang, mode)
                       ).map((mode) => (
                         <option key={mode} value={mode}>
                           {t(`workflowMode.${mode}.label`)}

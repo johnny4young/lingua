@@ -44,6 +44,19 @@ print({
     'stdev': round(statistics.stdev(samples), 2),
 })`,
   },
+  ruby: {
+    label: 'Ruby',
+    tier: 'Free',
+    runtime: 'Ruby WASM · optional system Ruby on desktop',
+    code: `# bundled WASM runs everywhere; desktop can use system Ruby
+events = [
+  { name: 'build', duration_ms: 184 },
+  { name: 'test', duration_ms: 92 },
+]
+puts events.sort_by { |event| event[:duration_ms] }.map { |event|
+  "#{event[:name]}: #{event[:duration_ms]}ms"
+}`,
+  },
   go: {
     label: 'Go',
     tier: 'Pro',
@@ -53,7 +66,7 @@ print({
 import "fmt"
 
 func main() {
-    langs := []string{"js", "ts", "python", "go", "rust"}
+    langs := []string{"js", "ts", "python", "ruby", "go", "rust"}
     fmt.Printf("lingua runs %d languages\\n", len(langs))
 }`,
   },
@@ -62,7 +75,7 @@ func main() {
     tier: 'Pro',
     runtime: 'Local rustc toolchain · cleaned tmpdir per run',
     code: `fn main() {
-    let langs = ["js", "ts", "python", "go", "rust"];
+    let langs = ["js", "ts", "python", "ruby", "go", "rust"];
     let total: usize = langs.iter().map(|l| l.len()).sum();
     println!("{} chars across {} langs", total, langs.len());
 }`,

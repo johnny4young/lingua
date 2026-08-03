@@ -1,0 +1,2 @@
+# Immutable bytes emitted by the tagged v0.15.0 Capsule exporter.
+tests/fixtures/capsules/v0.15.0/*.capsule.json

@@ -17,6 +17,11 @@ import type { CronParserLocale, ParseCronResult } from '../../../utils/cronParse
 const DEFAULT_CRON_EXPRESSION = '*/5 * * * *';
 const DEFAULT_CRON_NEXT_COUNT = 5;
 
+interface ResolvedCronResult {
+  requestKey: string;
+  result: ParseCronResult;
+}
+
 function resolveCronLocale(language: string | undefined): CronParserLocale {
   return language && language.toLowerCase().startsWith('es') ? 'es' : 'en';
 }
@@ -45,39 +50,41 @@ export function CronParserPanel() {
   // internal — seed from a smart-pasted cron expression.
   usePendingUtilityInput('cron-parser', setExpression);
   const [nextCount, setNextCount] = useState(DEFAULT_CRON_NEXT_COUNT);
-  const [result, setResult] = useState<ParseCronResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [resolvedResult, setResolvedResult] = useState<ResolvedCronResult | null>(null);
 
   const locale = resolveCronLocale(i18n.language);
+  const requestKey = JSON.stringify([expression, locale, nextCount]);
+  const result = resolvedResult?.requestKey === requestKey ? resolvedResult.result : null;
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
     // Wrap the promise in a try/catch via an async IIFE so an unexpected
-    // rejection in the helper (module-load failures from the dynamic
-    // imports, mostly) doesn't leave `isLoading` stuck on forever.
+    // rejection in the helper still resolves the current request into a
+    // renderable error. A mismatched request key is derived as loading, so
+    // input changes never need a synchronous state reset in this effect.
     void (async () => {
       try {
         const next = await parseCronExpression(expression, { locale, nextCount });
         if (!cancelled) {
-          setResult(next);
-          setIsLoading(false);
+          setResolvedResult({ requestKey, result: next });
         }
       } catch (error) {
         if (!cancelled) {
-          setResult({
-            ok: false,
-            errorKey: 'utilities.tool.cron.error.loadFailure',
-            message: error instanceof Error ? error.message : String(error),
+          setResolvedResult({
+            requestKey,
+            result: {
+              ok: false,
+              errorKey: 'utilities.tool.cron.error.loadFailure',
+              message: error instanceof Error ? error.message : String(error),
+            },
           });
-          setIsLoading(false);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [expression, locale, nextCount]);
+  }, [expression, locale, nextCount, requestKey]);
 
   const handleCountChange = (raw: number) => {
     if (!Number.isFinite(raw)) {
@@ -142,7 +149,7 @@ export function CronParserPanel() {
         title={t('utilities.tool.cron.schedule.label')}
         description={t('utilities.status.live')}
       >
-        {result === null || isLoading ? (
+        {result === null ? (
           <StatusMessage message={t('utilities.tool.cron.loading')} />
         ) : !result.ok ? (
           <div className="grid gap-1">

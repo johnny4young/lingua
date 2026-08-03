@@ -4,7 +4,7 @@ import { Icon } from 'astro-icon/components';
 import Base from '~/layouts/Base.astro';
 import FinalCTA from '~/components/FinalCTA.astro';
 import { loadRoadmap } from '~/lib/roadmap';
-import { loadChangelog } from '~/lib/changelog';
+import { loadPublishedChangelog } from '~/lib/changelog';
 import { loadUnreleased } from '~/lib/unreleased';
 import { type Locale, t } from '~/lib/i18n';
 
@@ -17,7 +17,7 @@ const copy = t(locale).changelog;
 
 const [{ planned, inProgress, totals }, releases, unreleased] = await Promise.all([
   loadRoadmap(),
-  loadChangelog(),
+  loadPublishedChangelog(),
   loadUnreleased(),
 ]);
 

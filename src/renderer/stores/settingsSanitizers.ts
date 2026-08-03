@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 import {
   KEYBOARD_SHORTCUTS,
   isEditableShortcutCombo,
@@ -8,9 +8,9 @@ import {
 import { type ThemePackAppearance } from '../data/themePacks';
 import {
   isWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
 import {
   isRuntimeTimeoutPreset,
   isRuntimeTimeoutSupportedLanguage,
@@ -114,7 +114,7 @@ export function sanitizeWorkflowModeDefaults(
   )) {
     if (!SETTINGS_WORKFLOW_MODE_LANGUAGE_SET.has(language)) continue;
     if (!isWorkflowMode(rawMode)) continue;
-    if (!supportsWorkflowMode(language, rawMode)) continue;
+    if (!supportsWorkflowModeInShell(language, rawMode)) continue;
     out[language] = rawMode;
   }
   return out;
@@ -194,7 +194,7 @@ export function shortcutOverridesEqual(
  */
 export function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const knownIds = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
+  const knownIds = new Set<string>(KEYBOARD_SHORTCUTS.map(entry => entry.id));
   const out: Record<string, readonly ShortcutCombo[]> = {};
   for (const [key, rawCombos] of Object.entries(value as Record<string, unknown>)) {
     if (!knownIds.has(key)) continue;

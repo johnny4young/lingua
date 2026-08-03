@@ -53,6 +53,19 @@ export function NativeExecutionWarning() {
 
   if (!pendingLanguage) return null;
 
+  const isProjectTests = pendingLanguage === 'project-tests';
+  const isProjectTerminal = pendingLanguage === 'project-terminal';
+  const titleKey = isProjectTests
+    ? 'nativeExecution.projectTests.title'
+    : isProjectTerminal
+      ? 'nativeExecution.projectTerminal.title'
+      : 'nativeExecution.modal.title';
+  const bodyKey = isProjectTests
+    ? 'nativeExecution.projectTests.body'
+    : isProjectTerminal
+      ? 'nativeExecution.projectTerminal.body'
+      : 'nativeExecution.modal.body';
+
   const handleConfirm = () => {
     // Flip the persisted flag BEFORE invoking the resume callback so
     // the retried `run()` sees `true` and falls through the gate.
@@ -75,12 +88,12 @@ export function NativeExecutionWarning() {
             id="native-execution-warning-title"
             className="font-display text-h2 font-semibold tracking-[-0.02em] text-foreground"
           >
-            {t('nativeExecution.modal.title')}
+            {t(titleKey)}
           </h2>
         </div>
         <div className="space-y-4 px-5 py-5 text-body leading-6 text-muted">
           <p id="native-execution-warning-body">
-            {t('nativeExecution.modal.body')}
+            {t(bodyKey)}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/80 px-5 py-4">

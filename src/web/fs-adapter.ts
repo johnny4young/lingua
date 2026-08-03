@@ -652,6 +652,18 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return file.text();
   },
 
+  readBytes: async (
+    rootId: string,
+    relativePath: string,
+  ): Promise<Uint8Array> => {
+    const { handle } = await resolveHandle(rootId, relativePath);
+    if (!handle || handle.kind !== 'file') {
+      throw new Error(`Cannot read: ${relativePath}`);
+    }
+    const file = await (handle as FileSystemFileHandle).getFile();
+    return new Uint8Array(await file.arrayBuffer());
+  },
+
   write: async (
     rootId: string,
     relativePath: string,
@@ -768,7 +780,16 @@ export const webFsAdapter: LinguaAPI['fs'] = {
   ): Promise<
     | { ok: true; fileCount: number; byteLength: number }
     | { canceled: true }
-    | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
+    | {
+        ok: false;
+        reason:
+          | 'empty'
+          | 'entry-too-large'
+          | 'read-failed'
+          | 'too-large'
+          | 'too-many-files'
+          | 'write-failed';
+      }
   > => {
     return { ok: false, reason: 'write-failed' } as const;
   },

@@ -33,7 +33,7 @@ export function LiveAnnouncer() {
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className="internal"
+      className="sr-only"
     >
       {text}
     </div>

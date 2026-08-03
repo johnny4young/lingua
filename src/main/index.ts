@@ -32,6 +32,25 @@ import { registerProfileHandlers } from './ipc/profile';
 import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerGitHandlers } from './ipc/git';
+import { registerProjectTestHandlers } from './ipc/projectTests';
+import { registerProjectTerminalHandlers } from './ipc/projectTerminal';
+import { registerLocalMcpHandlers } from './ipc/localMcp';
+import { disposeHttpRuns, registerHttpHandlers } from './ipc/http';
+import {
+  disposePythonDebuggerSessions,
+  registerPythonDebuggerHandlers,
+} from './ipc/pythonDebugger';
+import {
+  disposeGoDebuggerSessions,
+  registerGoDebuggerHandlers,
+} from './ipc/goDebugger';
+import {
+  disposeRustDebuggerSessions,
+  registerRustDebuggerHandlers,
+} from './ipc/rustDebugger';
+import { disposeProjectTestRuns } from './projectTests';
+import { disposeProjectTerminalSessions } from './projectTerminal';
+import { disposeLocalMcpServer } from './localMcp';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -75,6 +94,13 @@ registerProfileHandlers();
 registerRecoveryHandlers();
 registerDependencyHandlers();
 registerGitHandlers();
+registerProjectTestHandlers();
+registerProjectTerminalHandlers();
+registerLocalMcpHandlers(() => app.getVersion());
+registerHttpHandlers();
+registerPythonDebuggerHandlers();
+registerGoDebuggerHandlers();
+registerRustDebuggerHandlers();
 registerUpdater();
 
 let forceQuit = false;
@@ -321,6 +347,13 @@ app.on('before-quit', () => {
   // implementation — make sure desktop LSP children do not outlive
   // Lingua's main process.
   disposeLspBridge();
+  disposeProjectTestRuns();
+  disposeProjectTerminalSessions();
+  void disposeLocalMcpServer();
+  disposeHttpRuns();
+  disposePythonDebuggerSessions();
+  disposeGoDebuggerSessions();
+  disposeRustDebuggerSessions();
 });
 
 app.on('activate', () => {

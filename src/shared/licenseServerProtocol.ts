@@ -11,7 +11,7 @@ export const LICENSE_SERVER_PROTOCOL_VERSION = 1 as const;
 
 export const ACCEPTED_LICENSE_SERVER_PROTOCOL_VERSIONS = [LICENSE_SERVER_PROTOCOL_VERSION] as const;
 
-export type LicenseServerProtocolVersion =
+type LicenseServerProtocolVersion =
   (typeof ACCEPTED_LICENSE_SERVER_PROTOCOL_VERSIONS)[number];
 
 export interface LicenseServerProtocolEnvelope {

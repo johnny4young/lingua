@@ -1,4 +1,4 @@
-export const LINGUA_DEEP_LINK_SCHEME = 'lingua';
+const LINGUA_DEEP_LINK_SCHEME = 'lingua';
 
 export type DeepLinkTarget =
   | { kind: 'open-file'; filePath: string; rawUrl: string }

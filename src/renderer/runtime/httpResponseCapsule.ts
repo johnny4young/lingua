@@ -40,9 +40,11 @@ import {
   authInjectedHeaderName,
   composeRequestHeaders,
   isHeaderSensitive,
-  type HttpRequestV1,
-  type HttpResponseV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceHeaders';
+import type {
+  HttpRequestV1,
+  HttpResponseV1,
+} from '../../shared/httpWorkspaceSchema';
 
 /**
  * Map the response kind to the capsule status enum. HTTP 3xx redirects

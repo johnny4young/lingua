@@ -9,10 +9,12 @@ import {
   applyCaptureRules,
   createBlankCaptureRule,
   extractCaptureValue,
-  parseHttpRequest,
-  type HttpCaptureRule,
-  type HttpResponseV1,
-} from '../../src/shared/httpWorkspace';
+} from '../../src/shared/httpWorkspaceCaptures';
+import { parseHttpRequest } from '../../src/shared/httpWorkspacePersistence';
+import type {
+  HttpCaptureRule,
+  HttpResponseV1,
+} from '../../src/shared/httpWorkspaceSchema';
 
 function response(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   return {

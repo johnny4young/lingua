@@ -24,7 +24,7 @@ import {
 } from '../utils/saveTextFileToDisk';
 
 /** MIME hint for a `.linguanb` download — shared by both export paths. */
-export const LINGUANB_MIME = 'application/x-linguanb+json;charset=utf-8';
+const LINGUANB_MIME = 'application/x-linguanb+json;charset=utf-8';
 
 /** Outcome of a native `.linguanb` save attempt. */
 export type LinguanbSaveOutcome = TextFileSaveOutcome;

@@ -42,8 +42,8 @@ export type HtmlToJsxResult =
 export const HTML_TO_JSX_MAX_BYTES = 200 * 1024; // 200 KB
 export const HTML_TO_JSX_MAX_KB = Math.round(HTML_TO_JSX_MAX_BYTES / 1024);
 export const HTML_TO_JSX_MAX_DEPTH = 200;
-export const HTML_TO_JSX_MAX_NODES = 5_000;
-export const HTML_TO_JSX_MAX_OUTPUT_BYTES = 512 * 1024;
+const HTML_TO_JSX_MAX_NODES = 5_000;
+const HTML_TO_JSX_MAX_OUTPUT_BYTES = 512 * 1024;
 
 /** Void HTML elements that must self-close in JSX. */
 const VOID_ELEMENTS = new Set([

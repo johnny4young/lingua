@@ -23,7 +23,7 @@ import {
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
-import { gitWatchHeadSuppressedByMagicComment } from '../utils/magicComments';
+import { gitWatchHeadSuppressedByMagicComment } from '../utils/gitMagicCommentPolicy';
 import { trackGitHeadChanged, trackGitLayerAttached } from './gitTelemetry';
 
 export function useGitDetectOnProjectChange(): void {

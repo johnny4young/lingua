@@ -26,7 +26,7 @@
 
 import type { AdapterRunOutcome, UtilityAdapter } from './types';
 
-export interface CharacterRow {
+interface CharacterRow {
   index: number;
   codePoint: number;
   hex: string;
@@ -44,7 +44,7 @@ export type CharacterCategory =
 
 export type WarningKind = 'zero-width' | 'bidi-control' | 'mixed-script' | 'homoglyph';
 
-export interface InspectionWarning {
+interface InspectionWarning {
   kind: WarningKind;
   at: number[];
 }

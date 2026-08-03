@@ -7,6 +7,7 @@ import { languageHasRuntimeModes } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 import { getRecipeById } from '../data/recipes';
+import { useProjectStore } from '../stores/projectStore';
 
 /**
  * internal — the bottom-panel availability gates the shell needs to
@@ -27,11 +28,13 @@ export interface LayoutAvailability {
   showVariablesTabBody: boolean;
   /** Recipe body should stay mounted (active tab is recipe-bound). */
   showRecipeTabBody: boolean;
+  /** Desktop project terminal should keep the bottom drawer mounted. */
+  showProjectTerminalTabBody: boolean;
 }
 
 /**
  * internal — the AppLayout-root availability gate cluster, extracted
- * verbatim from `AppLayout`. Computes the six MainContent gates from the editor
+ * verbatim from `AppLayout`. Computes the seven MainContent gates from the editor
  * / UI / settings / result / debugger stores. Moved as-is (same derivations,
  * same internal primitive `hasScopeSnapshotFor` subscription) so the resolved gate
  * values are identical to the inline original; only the store reads are now
@@ -44,8 +47,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeLanguage = useEditorStore((s) => getActiveTab(s)?.language);
   const activeRuntimeMode = useEditorStore((s) => getActiveTab(s)?.runtimeMode);
-  // implementation — debugger is baseline; the Settings toggle is gone.
-  const debuggerEnabled = true;
   const debuggerSession = useDebuggerStore((state) => state.session);
   const activeBreakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;
@@ -59,7 +60,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showDebuggerPanel =
     layoutPreset !== 'editor-only' &&
-    debuggerEnabled &&
     languageSupportsDebugger(activeLanguage) &&
     (debuggerSession?.tabId === activeTabId || (consoleVisible && activeBreakpointCount > 0));
   const showBrowserPreviewPanel =
@@ -112,6 +112,12 @@ export function useLayoutAvailability(): LayoutAvailability {
     activeBottomPanelForLayout === 'recipe' &&
     activeRecipeBindingIdForLayout !== null &&
     getRecipeById(activeRecipeBindingIdForLayout) !== undefined;
+  const hasActiveProject = useProjectStore(state => state.currentProject !== null);
+  const showProjectTerminalTabBody =
+    layoutPreset !== 'editor-only' &&
+    activeBottomPanelForLayout === 'project-terminal' &&
+    hasActiveProject &&
+    window.lingua?.projectTerminal !== undefined;
 
   return {
     showConsole,
@@ -120,5 +126,6 @@ export function useLayoutAvailability(): LayoutAvailability {
     showStdinTabBody,
     showVariablesTabBody,
     showRecipeTabBody,
+    showProjectTerminalTabBody,
   };
 }

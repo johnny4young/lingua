@@ -32,6 +32,7 @@ import {
   combinedAllowlist,
 } from './runners/nativeEnv';
 import { spawnNativeRun } from './runners/spawnNativeRun';
+import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -71,21 +72,6 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
       ? `\n${messages.stderrTruncated}`
       : RUNTIME_STDERR_TRUNCATION_MARKER,
   };
-}
-
-interface RustDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
-
-interface RustRunResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
 }
 
 /**
@@ -132,11 +118,6 @@ async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectR
       error: 'Rust is not installed. Install it from https://rustup.rs',
     };
   }
-}
-
-/** Test seam — drop the session detect cache between cases. */
-export function resetRustDetectCacheForTests(): void {
-  cachedRustDetect = null;
 }
 
 /** Compile and run Rust source code natively */

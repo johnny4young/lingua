@@ -28,7 +28,7 @@ import { useGitStore } from '../../stores/gitStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import { cn } from '../../utils/cn';
 import { RunStatusPill } from '../Editor/RunStatusPill';
 import { setStatusBarFocuser } from './statusBarAccess';
@@ -89,7 +89,7 @@ function InformativeStatus({
       aria-live={live}
       aria-atomic="true"
       data-testid={id}
-      className="internal"
+      className="sr-only"
     >
       {children}
     </span>

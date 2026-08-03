@@ -35,12 +35,10 @@ import {
   type NotebookV1,
 } from '../../../shared/notebook';
 
-export type NotebookCellMode = 'command' | 'edit';
-
 /** Window (ms) within which a second `d` press counts as `dd`. */
 const DOUBLE_D_WINDOW_MS = 600;
 
-export interface NotebookCommandModeActions {
+interface NotebookCommandModeActions {
   /** Insert a code cell ABOVE the active cell + focus it in edit mode. */
   readonly insertCodeAbove: (activeCellId: string) => void;
   /** Insert a code cell BELOW the active cell + focus it in edit mode. */

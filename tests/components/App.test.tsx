@@ -77,6 +77,8 @@ const mockSettingsState = {
   whatsNewNotificationsEnabled: true,
   hasCompletedTour: false,
   suppressTourAutoStart: false,
+  telemetryConsent: 'declined' as 'unset' | 'granted' | 'declined',
+  setTelemetryConsent: vi.fn(),
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
   // implementation — onboarding flags + setters consumed by
@@ -274,6 +276,7 @@ describe('App', () => {
     mockSettingsState.whatsNewNotificationsEnabled = true;
     mockSettingsState.hasCompletedTour = false;
     mockSettingsState.suppressTourAutoStart = false;
+    mockSettingsState.telemetryConsent = 'declined';
     mockEditorState.activeTabId = 'tab-1';
     mockEditorState.tabs = [];
     mockEditorState.saveTabById.mockResolvedValue(true);
@@ -388,6 +391,21 @@ describe('App', () => {
         <App />
       </StrictMode>
     );
+
+    await waitFor(() => {
+      expect(mockStartTour).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('waits for the desktop first-run consent dialog before auto-starting the tour', async () => {
+    mockSettingsState.telemetryConsent = 'unset';
+
+    const { rerender } = render(<App />);
+    await waitFor(() => expect(mockGetAppInfo).toHaveBeenCalled());
+    expect(mockStartTour).not.toHaveBeenCalled();
+
+    mockSettingsState.telemetryConsent = 'declined';
+    rerender(<App />);
 
     await waitFor(() => {
       expect(mockStartTour).toHaveBeenCalledTimes(1);

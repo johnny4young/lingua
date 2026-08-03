@@ -7,6 +7,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { compressToEncodedURIComponent } from 'lz-string';
 import {
   bucketImportVariableCount,
   bucketWarningKindCount,
@@ -122,7 +123,7 @@ describe('useImportPreview', () => {
     expect(result.current.warnings).toContain('curl-basic-auth');
   });
 
-  it('confirm writes a request + opens a full-screen HTTP tab (implementation note, MOV.02)', () => {
+  it('confirm writes a request + opens a full-screen HTTP tab (implementation note, MOV.02)', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -130,8 +131,8 @@ describe('useImportPreview', () => {
       );
     });
     let returned;
-    act(() => {
-      returned = result.current.confirm();
+    await act(async () => {
+      returned = await result.current.confirm();
     });
     expect(returned).not.toBeNull();
     // SQL/HTTP MODEL rework — the imported request lands in the HTTP
@@ -156,11 +157,11 @@ describe('useImportPreview', () => {
     );
   });
 
-  it('confirm is a no-op when phase is not previewed', () => {
+  it('confirm is a no-op when phase is not previewed', async () => {
     const { result } = renderHook(() => useImportPreview());
     let returned;
-    act(() => {
-      returned = result.current.confirm();
+    await act(async () => {
+      returned = await result.current.confirm();
     });
     expect(returned).toBeNull();
     expect(useWorkspaceToolStore.getState().requests).toHaveLength(0);
@@ -176,6 +177,90 @@ describe('useImportPreview', () => {
       result.current.reset();
     });
     expect(result.current.state.phase).toBe('idle');
+  });
+});
+
+describe('useImportPreview — playground URL flow', () => {
+  it('previews locally, confirms once, and opens the exact TypeScript source', async () => {
+    const source = 'const greeting: string = "hello";\nconsole.log(greeting);';
+    const encoded = compressToEncodedURIComponent(source);
+    const { result } = renderHook(() => useImportPreview());
+
+    await act(async () => {
+      await result.current.previewPlaygroundUrl(
+        `https://www.typescriptlang.org/play/#code/${encoded}`
+      );
+    });
+    expect(result.current.state).toMatchObject({
+      phase: 'previewed',
+      importerId: 'playground-url',
+      preview: { kind: 'playground-source', source },
+    });
+
+    let confirmed: Awaited<ReturnType<typeof result.current.confirm>> = null;
+    await act(async () => {
+      confirmed = await result.current.confirm();
+    });
+    expect(confirmed).toMatchObject({ kind: 'playground-url' });
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      name: 'typescript-playground.ts',
+      language: 'typescript',
+      content: source,
+    });
+    expect(result.current.state.phase).toBe('idle');
+    expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
+      importerId: 'playground-url',
+      status: 'ok',
+      sizeBucket: expect.any(String),
+    });
+  });
+
+  it('surfaces a precise reject for providers without a stable read API', async () => {
+    const { result } = renderHook(() => useImportPreview());
+    await act(async () => {
+      await result.current.previewPlaygroundUrl(
+        'https://codepen.io/example/pen/abc123'
+      );
+    });
+    expect(result.current.state).toMatchObject({
+      phase: 'rejected',
+      importerId: 'playground-url',
+      reason: 'provider-not-readable',
+    });
+  });
+
+  it('cancels an active Go fetch without letting its late result replace state', async () => {
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new Error('aborted'))
+        );
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { result } = renderHook(() => useImportPreview());
+      let pending!: Promise<'cancelled' | 'previewed' | 'rejected'>;
+      act(() => {
+        pending = result.current.previewPlaygroundUrl(
+          'https://go.dev/play/p/a_B-c123'
+        );
+      });
+      expect(result.current.state.phase).toBe('loading');
+      act(() => result.current.cancelPlaygroundUrl());
+      await act(async () => {
+        await pending;
+      });
+      expect(result.current.state.phase).toBe('idle');
+      expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
+        importerId: 'playground-url',
+        status: 'cancelled',
+        sizeBucket: expect.any(String),
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
@@ -212,14 +297,14 @@ describe('useImportPreview — ipynb arm ', () => {
     expect(result.current.state.rejectDetail).toBe('wrong-version');
   });
 
-  it('confirm writes the notebook into stores + does NOT flip http panel', () => {
+  it('confirm writes the notebook into stores + does NOT flip http panel', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(sampleIpynb);
     });
-    let returned: ReturnType<typeof result.current.confirm> = null;
-    act(() => {
-      returned = result.current.confirm();
+    let returned: Awaited<ReturnType<typeof result.current.confirm>> = null;
+    await act(async () => {
+      returned = await result.current.confirm();
     });
     expect(returned).not.toBeNull();
     expect(returned?.kind).toBe('ipynb-notebook');
@@ -234,7 +319,7 @@ describe('useImportPreview — ipynb arm ', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('console');
   });
 
-  it('confirm writes every collection request + opens a full-screen HTTP tab (implementation, MOV.02)', () => {
+  it('confirm writes every collection request + opens a full-screen HTTP tab (implementation, MOV.02)', async () => {
     const postman = JSON.stringify({
       info: {
         name: 'Demo',
@@ -251,9 +336,9 @@ describe('useImportPreview — ipynb arm ', () => {
       result.current.previewSource(postman);
     });
     expect(result.current.state.importerId).toBe('postman-collection');
-    let returned: ReturnType<typeof result.current.confirm> = null;
-    act(() => {
-      returned = result.current.confirm();
+    let returned: Awaited<ReturnType<typeof result.current.confirm>> = null;
+    await act(async () => {
+      returned = await result.current.confirm();
     });
     expect(returned?.kind).toBe('postman-collection');
     expect(returned?.requestCount).toBe(2);
@@ -287,7 +372,7 @@ describe('useImportPreview — ipynb arm ', () => {
     expect(result.current.state.phase).toBe('idle');
   });
 
-  it('fires bucketed Postman variable telemetry after a resolved collection import', () => {
+  it('fires bucketed Postman variable telemetry after a resolved collection import', async () => {
     const postman = JSON.stringify({
       info: {
         name: 'Vars',
@@ -310,8 +395,8 @@ describe('useImportPreview — ipynb arm ', () => {
       result.current.previewSource(postman);
     });
 
-    act(() => {
-      result.current.confirm();
+    await act(async () => {
+      await result.current.confirm();
     });
 
     expect(trackEventMock).toHaveBeenCalledWith('import.applied', {
@@ -354,14 +439,14 @@ describe('useImportPreview — .linguanb arm ', () => {
     expect(result.current.state.preview?.kind).toBe('linguanb-notebook');
   });
 
-  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — implementation note/F', () => {
+  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — implementation note/F', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(sampleLinguanb);
     });
-    let returned: ReturnType<typeof result.current.confirm> = null;
-    act(() => {
-      returned = result.current.confirm();
+    let returned: Awaited<ReturnType<typeof result.current.confirm>> = null;
+    await act(async () => {
+      returned = await result.current.confirm();
     });
     expect(returned?.kind).toBe('linguanb-notebook');
     const tabId = returned?.notebookTabId;
@@ -458,7 +543,7 @@ describe('useImportPreview — Postman environment/globals sources ', () => {
     expect(preview.requests[0]?.url).toContain('supersecret');
   });
 
-  it('confirm imports the REAL resolved URL (not the redacted display URL)', () => {
+  it('confirm imports the REAL resolved URL (not the redacted display URL)', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(collectionWithVar);
@@ -466,8 +551,8 @@ describe('useImportPreview — Postman environment/globals sources ', () => {
     act(() => {
       result.current.setVariableSource('environment', envSource);
     });
-    act(() => {
-      result.current.confirm();
+    await act(async () => {
+      await result.current.confirm();
     });
     const { requests } = useWorkspaceToolStore.getState();
     expect(requests).toHaveLength(1);

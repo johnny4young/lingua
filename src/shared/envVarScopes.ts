@@ -26,18 +26,18 @@ export interface EnvVarStack {
   tab?: EnvVarScope;
 }
 
-export type KeyValidationReason =
+type KeyValidationReason =
   | 'empty'
   | 'too-long'
   | 'invalid-leading-character'
   | 'invalid-character'
   | 'reserved-prefix';
 
-export interface KeyValidationOk {
+interface KeyValidationOk {
   ok: true;
 }
 
-export interface KeyValidationErr {
+interface KeyValidationErr {
   ok: false;
   reason: KeyValidationReason;
 }

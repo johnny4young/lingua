@@ -22,7 +22,11 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, zipSync } from 'fflate';
-import { packBundle, unpackBundle } from '../../src/shared/projectBundle';
+import {
+  MAX_BUNDLE_ENTRY_BYTES,
+  packBundle,
+  unpackBundle,
+} from '../../src/shared/projectBundle';
 
 const {
   handlers,
@@ -491,6 +495,17 @@ describe('fs:read', () => {
     await writeFile(path.join(tmpRoot, 'a.ts'), 'hello', 'utf-8');
     const result = await invoke('fs:read', rootId, 'a.ts');
     expect(result).toBe('hello');
+  });
+
+  it('reads binary bytes without UTF-8 replacement', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'asset.bin'),
+      new Uint8Array([0, 1, 2, 250, 255])
+    );
+    const result = await invoke('fs:read-bytes', rootId, 'asset.bin');
+    expect(result).toBeInstanceOf(Uint8Array);
+    expect(Array.from(result as Uint8Array)).toEqual([0, 1, 2, 250, 255]);
   });
 
   it('rejects unknown rootId', async () => {
@@ -1192,6 +1207,11 @@ describe('fs:exportBundle', () => {
     await writeFile(path.join(tmpRoot, 'index.js'), 'console.log(1)');
     await mkdir(path.join(tmpRoot, 'src'));
     await writeFile(path.join(tmpRoot, 'src', 'lib.ts'), 'export const x = 1;');
+    await mkdir(path.join(tmpRoot, 'assets'));
+    await writeFile(
+      path.join(tmpRoot, 'assets', 'pixel.bin'),
+      new Uint8Array([0, 1, 2, 250, 255])
+    );
     // Excluded dir — must NOT appear in the bundle (implementation note via shouldHide).
     await mkdir(path.join(tmpRoot, 'node_modules', 'dep'), { recursive: true });
     await writeFile(
@@ -1208,16 +1228,22 @@ describe('fs:exportBundle', () => {
     })) as { ok: true; fileCount: number; byteLength: number };
 
     expect(result.ok).toBe(true);
-    expect(result.fileCount).toBe(2);
+    expect(result.fileCount).toBe(3);
 
     const written = await readFile(outPath);
     const unpacked = unpackBundle(new Uint8Array(written));
     expect(unpacked.ok).toBe(true);
     if (unpacked.ok) {
       expect(unpacked.files.map((f) => f.path).sort()).toEqual([
+        'assets/pixel.bin',
         'index.js',
         'src/lib.ts',
       ]);
+      expect(
+        Array.from(
+          unpacked.files.find((file) => file.path === 'assets/pixel.bin')!.bytes
+        )
+      ).toEqual([0, 1, 2, 250, 255]);
       expect(unpacked.manifest?.entryFile).toBe('index.js');
     }
     await rm(outPath, { force: true });
@@ -1236,6 +1262,31 @@ describe('fs:exportBundle', () => {
       ok: false,
       reason: 'empty',
     });
+  });
+
+  it('fails closed instead of silently omitting an oversized file', async () => {
+    await writeFile(
+      path.join(tmpRoot, 'large.bin'),
+      new Uint8Array(MAX_BUNDLE_ENTRY_BYTES + 1)
+    );
+    const { rootId } = mintFor(tmpRoot);
+
+    expect(await invoke('fs:exportBundle', rootId)).toEqual({
+      ok: false,
+      reason: 'entry-too-large',
+    });
+    expect(showSaveDialog).not.toHaveBeenCalled();
+  });
+
+  it('fails closed instead of omitting a project file at the reserved path', async () => {
+    await writeFile(path.join(tmpRoot, 'lingua-bundle.json'), '{"project":true}');
+    const { rootId } = mintFor(tmpRoot);
+
+    expect(await invoke('fs:exportBundle', rootId)).toEqual({
+      ok: false,
+      reason: 'write-failed',
+    });
+    expect(showSaveDialog).not.toHaveBeenCalled();
   });
 });
 

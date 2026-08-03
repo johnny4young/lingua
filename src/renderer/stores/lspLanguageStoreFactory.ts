@@ -25,9 +25,13 @@ export type LspLanguageStatus =
   | { kind: 'unknown' }
   | { kind: 'available'; version: string }
   | { kind: 'unavailable'; reason: 'missing' | 'web-build' | 'startup-failed'; detail?: string }
-  | { kind: 'degraded'; detail?: string };
+  | {
+      kind: 'degraded';
+      reason?: 'server-crash' | 'adapter-load-failed';
+      detail?: string;
+    };
 
-export interface LspLanguageState {
+interface LspLanguageState {
   status: LspLanguageStatus;
   /** True once a tab in the matching language has triggered boot. */
   bootRequested: boolean;
@@ -42,14 +46,13 @@ export interface LspLanguageState {
 export type LspLanguageStore = UseBoundStore<StoreApi<LspLanguageState>>;
 
 export function createLspLanguageStore(): LspLanguageStore {
-  return create<LspLanguageState>((set) => ({
+  return create<LspLanguageState>(set => ({
     status: { kind: 'unknown' },
     bootRequested: false,
     readyToastShown: false,
-    setStatus: (status) => set({ status }),
+    setStatus: status => set({ status }),
     markBootRequested: () => set({ bootRequested: true }),
     markReadyToastShown: () => set({ readyToastShown: true }),
-    reset: () =>
-      set({ status: { kind: 'unknown' }, bootRequested: false, readyToastShown: false }),
+    reset: () => set({ status: { kind: 'unknown' }, bootRequested: false, readyToastShown: false }),
   }));
 }

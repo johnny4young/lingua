@@ -1,5 +1,7 @@
-import type { ConsoleEntry } from '../types';
+import type { ConsoleEntry } from '../types/console';
 import { useConsoleStore } from '../stores/consoleStore';
+import { useGoLanguageStore } from '../stores/goLanguageStore';
+import { useRustLanguageStore } from '../stores/rustLanguageStore';
 import type { WorkspaceErrorBoundaryRegion } from '../components/Layout/WorkspaceErrorBoundary';
 
 type ConsoleEntrySeed = Omit<ConsoleEntry, 'id' | 'timestamp'>;
@@ -8,6 +10,7 @@ interface LinguaE2eHooks {
   clearConsole: () => void;
   addConsoleEntries: (entries: ConsoleEntrySeed[]) => void;
   armWorkspaceCrash: (region: WorkspaceErrorBoundaryRegion) => void;
+  showLspAdapterLoadFailure: (language: 'go' | 'rust') => void;
 }
 
 let armedWorkspaceCrash: WorkspaceErrorBoundaryRegion | null = null;
@@ -45,6 +48,13 @@ export function installE2eHooks(): void {
     },
     armWorkspaceCrash: region => {
       armedWorkspaceCrash = region;
+    },
+    showLspAdapterLoadFailure: language => {
+      const store = language === 'go' ? useGoLanguageStore : useRustLanguageStore;
+      store.getState().setStatus({
+        kind: 'degraded',
+        reason: 'adapter-load-failed',
+      });
     },
   };
 }

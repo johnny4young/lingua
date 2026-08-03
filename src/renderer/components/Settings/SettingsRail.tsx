@@ -4,15 +4,21 @@ import { type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Kbd } from '../ui/chrome';
 import { EyebrowMono } from '../ui/primitives';
-import { RAIL_ITEMS, matchesFilter, type TabId } from './settingsRailModel';
+import { RAIL_ITEMS, type TabId } from './settingsRailModel';
 
 interface SettingsRailProps {
   active: TabId;
   filter: string;
+  matchingTabs: readonly TabId[];
   onSelect: (id: TabId) => void;
 }
 
-export function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
+export function SettingsRail({
+  active,
+  filter,
+  matchingTabs,
+  onSelect,
+}: SettingsRailProps) {
   const { t } = useTranslation();
   const groups = ['workspace', 'advanced'] as const;
   const focusRailItem = (id: TabId) => {
@@ -56,7 +62,7 @@ export function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
           <p className="settings-rail-group-label">{t(`settings.rail.${group}`)}</p>
           {RAIL_ITEMS.filter(it => it.group === group).map(item => {
             const isActive = item.id === active;
-            const isMatch = matchesFilter(item, filter, t);
+            const isMatch = !filter || matchingTabs.includes(item.id);
             const Icon = item.icon;
             return (
               <button
@@ -82,7 +88,9 @@ export function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
                   <Icon size={13} aria-hidden />
                 </span>
                 <span className="truncate text-left">{t(item.labelKey)}</span>
-                <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+                {item.kbdToken ? (
+                  <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+                ) : null}
               </button>
             );
           })}

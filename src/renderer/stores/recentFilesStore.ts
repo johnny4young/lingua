@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { createMigrate } from './persistence/migrationRegistry';
 
 // Keep Quick Open useful without turning localStorage into a long-lived file
 // history ledger. The newest entry is always first.
 const MAX_RECENT_FILES = 20;
 
-export interface RecentFile {
+interface RecentFile {
   filePath: string;
   name: string;
   language: Language;

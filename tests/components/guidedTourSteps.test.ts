@@ -10,11 +10,7 @@ function buildStepsWithHarness(
 ) {
   return buildGuidedTourSteps({
     t: i18next.t.bind(i18next),
-    closeOverlay: vi.fn(),
-    openPalette: vi.fn(),
-    openSnippets: vi.fn(),
     ensureConsoleVisible: vi.fn(),
-    ensureSidebarVisible: vi.fn(),
     getSuppressTourAutoStart: () => false,
     setSuppressTourAutoStart: vi.fn(),
     ...overrides,
@@ -22,26 +18,18 @@ function buildStepsWithHarness(
 }
 
 describe('buildGuidedTourSteps', () => {
-  it('builds the expected onboarding sequence and keeps the run step interactive', () => {
+  it('builds a focused editor-to-run-to-console sequence', () => {
     const steps = buildStepsWithHarness();
 
     expect(steps.map((step) => step.id)).toEqual([
       'tour-editor',
       'tour-run',
       'tour-console',
-      'tour-explorer',
-      'tour-toolbar',
-      'tour-snippets',
-      'tour-command-palette',
     ]);
 
     const runStep = steps[1];
-    expect(runStep?.advanceOn).toEqual({
-      selector: '[data-tour-id="run-button"]',
-      event: 'click',
-    });
-    expect(runStep?.canClickTarget).toBe(true);
-    expect(runStep?.buttons).toEqual(['skip', 'back', 'next']);
+    expect(runStep?.actionTarget).toBe('[data-tour-id="run-button"]');
+    expect(runStep?.buttons).toEqual(['skip', 'back', 'run']);
   });
 
   it('uses stable button kinds that the provider can render with local controls', () => {
@@ -54,16 +42,13 @@ describe('buildGuidedTourSteps', () => {
 
   it('runs step preparation callbacks before surfacing dependent UI', async () => {
     document.body.innerHTML = '<div id="guided-tour-console"></div>';
-    const closeOverlay = vi.fn();
     const ensureConsoleVisible = vi.fn();
     const steps = buildStepsWithHarness({
-      closeOverlay,
       ensureConsoleVisible,
     });
 
     await steps[2]?.beforeShowPromise?.();
 
-    expect(closeOverlay).toHaveBeenCalledTimes(1);
     expect(ensureConsoleVisible).toHaveBeenCalledTimes(1);
   });
 

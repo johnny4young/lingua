@@ -30,11 +30,11 @@
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  runAssertions,
-  type HttpAssertion,
-  type HttpResponseV1,
-} from '../../../shared/httpWorkspace';
+import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
+import type {
+  HttpAssertion,
+  HttpResponseV1,
+} from '../../../shared/httpWorkspaceSchema';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
@@ -223,7 +223,11 @@ export function HttpResponsePreview({
 
   // Mono meta line: `245 ms · 83 B`, matching the proto's shared
   // result header (timing first, then size).
-  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}`;
+  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}${
+    response.messageCount !== undefined
+      ? ` · ${t('httpWorkspace.response.messages', { count: response.messageCount })}`
+      : ''
+  }`;
   const prettyToggleVisible =
     tab === 'body' && isJsonContentType(response.contentType);
 

@@ -12,6 +12,39 @@ describe('HttpRequestEditor', () => {
     vi.useRealTimers();
   });
 
+  it('switches to a WebSocket transport without exposing HTTP-only code generation', () => {
+    const request = createBlankHttpRequest({ id: 'r1' });
+    const onPatch = vi.fn();
+    render(
+      <HttpRequestEditor
+        request={request}
+        onPatch={onPatch}
+        onSend={vi.fn()}
+        isExecuting={false}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('http-request-editor-transport'), {
+      target: { value: 'websocket' },
+    });
+    expect(
+      (screen.getByTestId('http-request-editor-method') as HTMLSelectElement)
+        .disabled
+    ).toBe(true);
+    expect(
+      (screen.getByTestId('http-request-editor-copy-menu') as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+    expect(
+      screen.getByTestId('http-request-editor-url').getAttribute('placeholder')
+    ).toBe('wss://api.example.com/socket');
+    act(() => vi.advanceTimersByTime(500));
+    expect(onPatch).toHaveBeenLastCalledWith(
+      'r1',
+      expect.objectContaining({ transport: 'websocket', method: 'GET' })
+    );
+  });
+
   it('auto-saves the full draft when edits happen across fields before debounce settles', () => {
     const request = createBlankHttpRequest({
       id: 'r1',

@@ -1,65 +1,64 @@
 ---
-title: "Multi-Language Code Runner — Lingua"
-description: "Run JavaScript, TypeScript, Python, Go, and Rust in one offline-first desktop app with notebooks, HTTP/SQL workspaces, and dev utilities. Source-available."
-canonical: "https://linguacode.dev/multi-language-code-runner/"
-ogImage: "/assets/og/multi-language-code-runner.png"
+title: 'Multi-Language Code Runner — Lingua'
+description: 'Run JavaScript, TypeScript, Python, Ruby, Go, and Rust in one offline-first desktop app with notebooks, HTTP/SQL workspaces, and project tools.'
+canonical: 'https://linguacode.dev/multi-language-code-runner'
+ogImage: '/assets/og/multi-language-code-runner.png'
 language: multi
 ---
 
-# Multi-Language Code Runner — five languages, one desktop app
+# Multi-language code runner — six built-in runners, one desktop app
 
-Most developers juggle three or four languages in a day. The typical
-workflow is one browser tab per language, each with its own playground
-sandbox. Lingua collapses that into a single Monaco-powered desktop
-app that treats every language as a first-class citizen.
+Lingua brings scratchpad execution, project navigation, notebooks, and
+developer workspaces into one Monaco-powered application. Each language
+keeps an honest runtime boundary instead of being forced through the
+same remote sandbox.
 
 ## What actually runs
 
-| Language | Runtime | Free tier? |
-|----------|---------|------------|
-| JavaScript | Worker + source-level instrumentation | ✅ |
-| TypeScript | esbuild-wasm transpile + Worker | ✅ |
-| Python | Pyodide WASM in a Worker | ✅ |
-| Go | `go build` (desktop only) → WASM executes in a Worker | Pro |
-| Rust | `rustc` (desktop only) → native subprocess | Pro |
+| Language   | Runtime                                                    | Free tier? |
+| ---------- | ---------------------------------------------------------- | ---------- |
+| JavaScript | Worker, desktop Node, or Browser preview                   | Yes        |
+| TypeScript | esbuild-wasm plus Worker, desktop Node, or Browser preview | Yes        |
+| Python     | Pyodide in a Worker                                        | Yes        |
+| Ruby       | Ruby WASM on web or host Ruby on desktop                   | Yes        |
+| Go         | Local `go build` to WASM, then Worker execution            | Paid       |
+| Rust       | Local `rustc` to a native subprocess                       | Paid       |
 
-Shared machinery:
+Shared workflows include:
 
-- Monaco editor with fuzzy Quick Open, project-wide search, and
-  Go-to-Symbol.
-- Inline `//=>` or `#=>` magic comments for per-line result surfacing.
-- HTTP request and DuckDB-powered SQL workspaces, plus cell-based
-  notebooks that run TypeScript and Python, share variables across
-  cells, and import/export Jupyter `.ipynb`.
-- Smart paste (share links, run capsules, cURL, stack traces, large
-  JSON) and inline lint with quick-fixes for JavaScript and TypeScript.
-- Format-on-save: Prettier (JS/TS/JSON/CSS), gofmt, rustfmt, ruff
-  (with black fallback).
-- Built-in developer utilities — JSON formatter, regex tester, Base64,
-  UUID, hash, timestamp converter, JWT decoder, color converter, diff
-  viewer.
-- Custom keyboard shortcut editor with preset import/export.
-- Theme preset import/export.
+- Monaco editing, fuzzy Quick Open, project search, replace-in-files,
+  symbol navigation, and Git status or diffs on desktop.
+- Inline results, standard input where supported, rich console output,
+  execution history, JS/TS debugging in both shells, and standard Python
+  debugging on desktop.
+- TypeScript, Python, and SQL notebook cells with Jupyter import/export.
+- HTTP request and DuckDB-powered SQL workspaces.
+- Prettier, gofmt, rustfmt, ruff or black format-on-save paths.
+- Desktop dependency assistance for npm, Go, Rust, and Ruby projects,
+  plus a project test runner for Vitest, Jest, Pytest, Go, and Cargo.
 
 ## What doesn't work today
 
-- Go and Rust need local toolchains — the web build surfaces both as
-  "desktop only" honestly.
-- The debugger is JavaScript / TypeScript only (preview); the other
-  languages don't have step debugging yet.
-- Rich language intelligence for Python, Rust, and Go relies on the
-  local LSP (rust-analyzer / gopls); the web build keeps those
-  languages validate-only.
+- Go and Rust execution requires local desktop toolchains. Web reports
+  those runners as unavailable.
+- Python and web Ruby use WASM runtimes, so unsupported native packages
+  remain outside their package model.
+- Step debugging is available for JavaScript and TypeScript in both shells and
+  for Python, Go, and Rust on desktop. Ruby does not have a step debugger; Go
+  requires local Delve and Rust requires local `lldb-dap`.
+- gopls and rust-analyzer intelligence is desktop-only and requires the
+  corresponding local binary.
+- Lua remains behind a local plugin-discovery path rather than the
+  default built-in language flow.
 
 ## Pricing
 
-Free tier runs JavaScript, TypeScript, and Python with a single open
-tab and up to 5 saved snippets. Monthly is a $5/month subscription.
-Pro is $59 once for the same paid entitlements without a recurring
-subscription. 14-day trial without a credit card. Education is free
-for verified students and educators.
+Free includes the JavaScript, TypeScript, Python, and Ruby runners,
+three open tabs, and five saved snippets. Paid plans add unlimited tabs
+and snippets, Go and Rust, notebooks, execution history, and the broader
+Pro toolset.
 
 ## Download
 
 Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**.
-Source-available commercial license.
+Source-available under the Lingua Commercial License.

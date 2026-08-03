@@ -7,9 +7,18 @@ function captureEnabled(): boolean {
   return process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1';
 }
 
+function consumeExpectedOfflineResourceErrors(consoleErrors: string[]): void {
+  const unexpected = consoleErrors.filter(
+    error => error !== 'Failed to load resource: net::ERR_INTERNET_DISCONNECTED'
+  );
+  expect(unexpected, unexpected.join('\n')).toEqual([]);
+  consoleErrors.length = 0;
+}
+
 test.describe('internal offline status bar', () => {
   test('celebrates offline operation in English and clears when online', async ({
     context,
+    consoleErrors,
     page,
   }) => {
     await seedSession(page, { language: 'en', showStatusBar: true });
@@ -40,9 +49,14 @@ test.describe('internal offline status bar', () => {
 
     await context.setOffline(false);
     await expect(page.getByTestId('status-bar-offline')).toHaveCount(0);
+    consumeExpectedOfflineResourceErrors(consoleErrors);
   });
 
-  test('renders the positive offline contract in Spanish', async ({ context, page }) => {
+  test('renders the positive offline contract in Spanish', async ({
+    context,
+    consoleErrors,
+    page,
+  }) => {
     await seedSession(page, { language: 'es', showStatusBar: true });
     await gotoApp(page);
     await expect(page.locator('.monaco-editor').first()).toBeVisible();
@@ -69,5 +83,7 @@ test.describe('internal offline status bar', () => {
     }
 
     await context.setOffline(false);
+    await expect(page.getByTestId('status-bar-offline')).toHaveCount(0);
+    consumeExpectedOfflineResourceErrors(consoleErrors);
   });
 });

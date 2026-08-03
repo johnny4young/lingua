@@ -11,11 +11,13 @@
  * acknowledgement itself lives on `settingsStore.nativeExecutionAcknowledged`.
  */
 import { create } from 'zustand';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
+
+type NativeExecutionTarget = Language | 'project-tests' | 'project-terminal';
 
 interface NativeExecutionGateState {
   /** Language whose run is pending acknowledgement, or `null` if no run is gated. */
-  pendingLanguage: Language | null;
+  pendingLanguage: NativeExecutionTarget | null;
   /** Resume callback the modal invokes on Acknowledge. Cleared after use. */
   pendingResume: (() => void) | null;
   /**
@@ -25,7 +27,7 @@ interface NativeExecutionGateState {
    * replaces it — the older callback is dropped on the floor, which
    * is fine because the user clearly intended the latest intent.
    */
-  request: (language: Language, resume: () => void) => void;
+  request: (language: NativeExecutionTarget, resume: () => void) => void;
   /** Modal calls this on Acknowledge after flipping the persisted flag. */
   confirm: () => void;
   /** Modal calls this on Cancel (button, backdrop, Escape). */

@@ -1,4 +1,4 @@
-export interface ChangelogSection {
+interface ChangelogSection {
   title: string;
   items: string[];
 }

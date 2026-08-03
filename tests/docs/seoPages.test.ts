@@ -5,6 +5,7 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +16,7 @@ const EXPECTED_PAGES = [
   'rust-code-runner-desktop.md',
   'python-repl-desktop.md',
   'typescript-playground-offline.md',
+  'javascript-code-runner-desktop.md',
   'multi-language-code-runner.md',
   'lua-offline-playground.md',
 ];
@@ -38,6 +40,15 @@ function readFrontMatter(file: string): Record<string, string> {
 }
 
 describe('docs/seo-pages', () => {
+  it('passes the bilingual website content contract', () => {
+    expect(() =>
+      execFileSync(process.execPath, ['website/scripts/check-seo-content.mjs'], {
+        cwd: resolve(__dirname, '../..'),
+        encoding: 'utf8',
+      })
+    ).not.toThrow();
+  });
+
   it('ships every enumerated landing-page scaffold', () => {
     for (const filename of EXPECTED_PAGES) {
       expect(existsSync(resolve(PAGES_DIR, filename))).toBe(true);
@@ -45,7 +56,9 @@ describe('docs/seo-pages', () => {
   });
 
   it('does not ship stray files without explicit review', () => {
-    const actual = readdirSync(PAGES_DIR).filter((name) => name.endsWith('.md') && name !== 'README.md');
+    const actual = readdirSync(PAGES_DIR).filter(
+      name => name.endsWith('.md') && name !== 'README.md'
+    );
     for (const filename of actual) {
       expect(EXPECTED_PAGES).toContain(filename);
     }
@@ -89,7 +102,7 @@ describe('docs/seo-pages', () => {
   it('keeps the Lua page honest about the current plugin-gated product path', () => {
     const raw = readFileSync(resolve(PAGES_DIR, 'lua-offline-playground.md'), 'utf-8');
     expect(raw).toMatch(/local-plugin path/i);
-    expect(raw).toMatch(/not .*default language/i);
-    expect(raw).toMatch(/web build does .* expose the Lua plugin path today/i);
+    expect(raw).toMatch(/not a\s+default (?:built-in )?language/i);
+    expect(raw).toMatch(/web build does not expose local plugin discovery/i);
   });
 });

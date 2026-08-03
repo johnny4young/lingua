@@ -1,8 +1,8 @@
 /**
  * implementation — Renderer-side share-link helper.
  *
- * Three call sites need the same FileTab → SharePayloadV1 → encoded
- * fragment → clipboard + telemetry pipeline:
+ * Three trigger surfaces share the same FileTab → SharePayloadV1 → encoded
+ * fragment → clipboard + telemetry pipeline through the on-demand share flow:
  *
  *   - Result-panel header icon button (`<ShareLinkButton>`, implementation note)
  *   - Command palette `Copy share link` action (implementation note)
@@ -26,14 +26,13 @@
  */
 
 import {
-  SHARE_FRAGMENT_PREFIX,
   bucketShareSize,
   buildSharePayload,
   encodeShareFragment,
   type SharePayloadV1,
   type ShareSizeBucket,
 } from '../../shared/sharePayload';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import { trackEvent } from './telemetry';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
@@ -240,4 +239,4 @@ export function shareCreateStatusFromPrepareReason(
  * raw fragment length they observed (before decode) without
  * importing the shared module directly.
  */
-export { bucketShareSize, SHARE_FRAGMENT_PREFIX };
+export { bucketShareSize };

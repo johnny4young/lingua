@@ -1,6 +1,6 @@
 import { useUIStore, type StatusNotice, type StatusNoticeTone } from '../stores/uiStore';
 
-export type StatusNoticeOptions = Omit<StatusNotice, 'id' | 'tone' | 'messageKey'>;
+type StatusNoticeOptions = Omit<StatusNotice, 'id' | 'tone' | 'messageKey'>;
 
 export type PushStatusNotice = (messageKey: string, options?: StatusNoticeOptions) => void;
 

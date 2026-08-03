@@ -1,6 +1,6 @@
 /**
  * internal — consume the one-shot input seed the smart-paste router leaves
- * in the utility-history store.
+ * in the utility-workspace store.
  *
  * Each target panel calls this with its id and an `apply` callback that
  * writes the seed into the panel's own input state. The hook works for
@@ -11,27 +11,27 @@
  * the same panel never replays a stale paste.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
-import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '../../stores/utilityWorkspaceStore';
 
 export function usePendingUtilityInput(
   utilityId: DeveloperUtilityId,
   apply: (input: string) => void
 ): void {
-  const pending = useUtilityHistoryStore(state =>
+  const pending = useUtilityWorkspaceStore(state =>
     state.pendingUtilityInput?.utilityId === utilityId
       ? state.pendingUtilityInput.input
       : null
   );
-  // The apply callback closes over panel setters; keep the latest without
-  // re-running the effect when the panel re-renders.
-  const applyRef = useRef(apply);
-  applyRef.current = apply;
+  // Smart-paste delivery is an external store event. Effect Events keep the
+  // latest panel callback without mutating refs during render or making an
+  // inline callback identity retrigger the one-shot subscription.
+  const applyPendingInput = useEffectEvent(apply);
 
   useEffect(() => {
     if (pending == null) return;
-    applyRef.current(pending);
-    useUtilityHistoryStore.getState().setPendingUtilityInput(null);
+    applyPendingInput(pending);
+    useUtilityWorkspaceStore.getState().setPendingUtilityInput(null);
   }, [pending]);
 }

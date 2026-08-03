@@ -28,7 +28,7 @@ export interface ParsedQueryParam {
   value: string;
 }
 
-export type ParseUrlError = 'empty' | 'invalid';
+type ParseUrlError = 'empty' | 'invalid';
 
 export type ParseUrlResult = ParsedUrl | { error: ParseUrlError };
 

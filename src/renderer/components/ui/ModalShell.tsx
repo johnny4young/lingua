@@ -74,23 +74,6 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   );
 }
 
-/* ------------------------------------------------------------ ModalShell */
-
-/**
- * How the header's close affordance renders:
- *
- *  - `esc`    — the trailing Esc keycap (current/default behavior, used by
- *               the SEARCH-header overlays: palette, quickopen).
- *  - `button` — a small lucide `X` icon button wired to `onClose`, used by
- *               the TITLE-header overlays (snippets, utilities, recipes,
- *               capsules, import) per the MOV.01 prototype. Renders
- *               INSTEAD of the Esc keycap.
- *  - `none`   — neither affordance (caller owns its own close UI).
- *
- * Escape and scrim-click always close regardless of this value.
- */
-export type ModalShellHeaderClose = 'esc' | 'button' | 'none';
-
 interface ModalShellBaseProps {
   /** Called on Escape, scrim click, and the Esc keycap / x button (caller wires it). */
   onClose: () => void;

@@ -15,6 +15,12 @@ HTTP response, pipeline step, lesson assertion). Re-inventing a
 fixture catalog per integration would cause silent drift between consumer
 expectations and capsule reality.
 
+`CapsuleWorkspaceV1` is an additive sharing wrapper, not a new Run Capsule
+version. Its path, file-count, per-file, aggregate, artifact-size, secret
+finding, nested-capsule, renderer-decoder, and read-only viewer contracts are
+covered by `tests/shared/capsuleWorkspace.test.ts` and the focused renderer
+tests. See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md).
+
 This doc pins:
 
 1. The **dimensions** the capsule contract must hold across every
@@ -23,6 +29,8 @@ This doc pins:
    that exercises those dimensions.
 3. The **integration consumption guide** so each downstream consumer
    imports the right fixtures and runs the right assertions.
+4. The immutable **stable-release artifact** that proves upgrade behavior from
+   bytes emitted under a public version instead of a current-code test object.
 
 The matrix is enforced at CI time via `tests/shared/runCapsule.test.ts`;
 adding a new fixture without updating this doc is allowed but
@@ -41,6 +49,7 @@ verify coverage by reading.
 | 6 | Parser shape validation (load-bearing fields) | `runCapsule.test.ts → "parseRunCapsule — shape validation"` |
 | 7 | Summary helper format stability | `runCapsule.test.ts → "summarizeRunCapsule"` |
 | 8 | `contentHash` collision-resistance smoke (10 000 inputs) | `runCapsule.test.ts → "computeContentHash — collision smoke (Dimension 8)"` |
+| 9 | Stable-release upgrade journey across shared, renderer, CLI, and web boundaries | `runCapsuleStableCompatibility.test.ts` + `capsuleStableUpgrade.spec.ts` |
 
 If a downstream integration needs an additional dimension (e.g. URL
 fragment percent-encoding round-trip for internal) that dimension goes
@@ -64,6 +73,26 @@ plus the `ALL_FIXTURES` array. Names match the import re-exports:
 | `FIXTURE_LICENSE_LEAK_PROBE` | Source content contains a fake JWT substring. | Sanitiser must NEVER strip `source.content` (capsules ARE replay artifacts); the consumer-side flow MUST surface a preview before publishing. internal share-link confirmation modal. |
 | `FIXTURE_DESKTOP_DEP_SUMMARY` | Desktop platform + flat dependency summary with one nested object. | Sanitiser drops nested objects + records the field in `omittedFields`. |
 | `FIXTURE_LESSON_ASSERTION` | Stable timestamp + minimal env so two runs on different days byte-equal after sanitise. | implementation lesson expected-output reference. |
+
+## Stable-release artifact
+
+`tests/fixtures/capsules/v0.15.0/javascript-input-set.capsule.json` is a
+byte-pinned artifact from the first public release that established the
+forward-compatibility contract. It intentionally does **not** live in
+`ALL_FIXTURES`: current-code builders own that catalog, while this file must
+remain unchanged so it can expose compatibility regressions.
+
+The automated journey proves all of these boundaries from the same bytes:
+
+1. The fixture SHA-256 and `v0.15.0` provenance remain pinned.
+2. The current shared parser accepts or migrates it to the current schema.
+3. The renderer importer preserves source, stdin, argv, and the named input set.
+4. The current CLI validates and replays it with an exact output comparison.
+5. The web UI previews the old producer version, opens source without executing
+   it, restores the input set, and keeps newer-schema update guidance intact.
+
+Future stable baselines go in sibling version directories. Never regenerate or
+replace an existing stable artifact with the current builder.
 
 ## Integration consumption guide
 
@@ -94,7 +123,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - HTTP step emits a capsule shaped like `FIXTURE_FULL_TS` with
   `environment.runner = 'http'`. Use the fixture as a baseline.
 
-### internal CLI companion (slot 23)
+### CLI companion
 
 ```ts
 import {
@@ -105,9 +134,16 @@ import {
 } from '../shared/runCapsule.fixtures';
 ```
 
-- `lingua capsule validate` runs each fixture through stdin and
-  asserts exit codes (0 for happy, 0 for chart, 0 for timeout / stopped
-  — they're valid capsules even if the run wasn't successful).
+- `lingua capsule validate` loads fixtures through the same shared parser and
+  asserts exit code 0 for every valid shape, including recorded timeout and
+  stopped results.
+- `lingua capsule replay` executes `FIXTURE_MINIMAL_JS` and proves exact
+  status/stdout/stderr comparison. `FIXTURE_TIMEOUT` runs against a bounded
+  parent-owned timeout and proves the fresh runtime result is still classified
+  and compared as `timeout`.
+- Tampered content hashes and browser-preview Capsules are rejected before any
+  child process starts. Replay tests keep using this shared fixture catalog
+  rather than creating a second CLI-only Capsule shape.
 
 ### internal utility pipelines (slot 21)
 
@@ -149,6 +185,9 @@ import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';
 5. The cross-cut tests in `runCapsule.test.ts` automatically widen
    coverage — no test-file edit needed unless the fixture exercises
    a new dimension.
+
+Stable-release artifacts follow the separate rules above; do not add them to
+the current-code fixture catalog.
 
 ## Adding a new dimension
 

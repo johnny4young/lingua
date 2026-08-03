@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   KEYBOARD_SHORTCUTS,
-  SHORTCUT_GROUPS,
   comboKey,
-  filterShortcuts,
   findComboConflict,
   formatShortcutCombo,
   formatShortcutToken,
@@ -15,10 +13,33 @@ import {
   resolveShortcutDisplayPlatform,
   resolveModLabel,
 } from '@/data/keyboardShortcuts';
+import {
+  KEYBOARD_SHORTCUT_REFERENCE,
+  SHORTCUT_GROUPS,
+  filterShortcuts,
+} from '@/data/keyboardShortcutReference';
 
 const identity = (key: string) => key;
 
 describe('keyboardShortcuts catalog', () => {
+  it('keeps startup-safe structure separate from complete reference metadata', () => {
+    expect(KEYBOARD_SHORTCUT_REFERENCE).toHaveLength(KEYBOARD_SHORTCUTS.length);
+    expect(KEYBOARD_SHORTCUT_REFERENCE.map(entry => entry.id)).toEqual(
+      KEYBOARD_SHORTCUTS.map(entry => entry.id)
+    );
+
+    for (const shortcut of KEYBOARD_SHORTCUTS) {
+      expect(shortcut).not.toHaveProperty('labelKey');
+      expect(shortcut).not.toHaveProperty('descriptionKey');
+      expect(shortcut).not.toHaveProperty('keywords');
+    }
+
+    for (const shortcut of KEYBOARD_SHORTCUT_REFERENCE) {
+      expect(shortcut.labelKey).toMatch(/^shortcuts\.item\./);
+      expect(shortcut.keywords.length).toBeGreaterThan(0);
+    }
+  });
+
   it('groups every shortcut under a declared group', () => {
     const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     for (const shortcut of KEYBOARD_SHORTCUTS) {
@@ -267,31 +288,31 @@ describe('formatShortcutCombo', () => {
 
 describe('filterShortcuts', () => {
   it('returns a copy of the catalog when the query is blank', () => {
-    const result = filterShortcuts(KEYBOARD_SHORTCUTS, '   ', 'linux', identity);
-    expect(result).toHaveLength(KEYBOARD_SHORTCUTS.length);
-    expect(result).not.toBe(KEYBOARD_SHORTCUTS);
+    const result = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, '   ', 'linux', identity);
+    expect(result).toHaveLength(KEYBOARD_SHORTCUT_REFERENCE.length);
+    expect(result).not.toBe(KEYBOARD_SHORTCUT_REFERENCE);
   });
 
   it('matches against the translated label', () => {
-    const result = filterShortcuts(KEYBOARD_SHORTCUTS, 'save', 'linux', key =>
+    const result = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, 'save', 'linux', key =>
       key.endsWith('save.label') ? 'Save' : key
     );
     expect(result.some(entry => entry.id === 'file-save')).toBe(true);
   });
 
   it('matches against keywords', () => {
-    const result = filterShortcuts(KEYBOARD_SHORTCUTS, 'hotkey', 'linux', identity);
+    const result = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, 'hotkey', 'linux', identity);
     // No keyword is literally "hotkey", so this should be empty
     expect(result).toHaveLength(0);
-    const keyworded = filterShortcuts(KEYBOARD_SHORTCUTS, 'fuzzy', 'linux', identity);
+    const keyworded = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, 'fuzzy', 'linux', identity);
     expect(keyworded.some(entry => entry.id === 'nav-quick-open')).toBe(true);
   });
 
   it('matches against rendered combo text so users can search by keystroke', () => {
-    const result = filterShortcuts(KEYBOARD_SHORTCUTS, 'ctrl+b', 'linux', identity);
+    const result = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, 'ctrl+b', 'linux', identity);
     expect(result.some(entry => entry.id === 'view-toggle-sidebar')).toBe(true);
 
-    const macResult = filterShortcuts(KEYBOARD_SHORTCUTS, '⌘B', 'darwin', identity);
+    const macResult = filterShortcuts(KEYBOARD_SHORTCUT_REFERENCE, '⌘B', 'darwin', identity);
     expect(macResult.some(entry => entry.id === 'view-toggle-sidebar')).toBe(true);
   });
 });

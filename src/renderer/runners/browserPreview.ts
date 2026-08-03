@@ -44,9 +44,8 @@ import type {
   ExecutionError,
   ExecutionResult,
   LanguageRunner,
-} from '../types';
+} from '../types/execution';
 import {
-  BRIDGE_DISCRIMINATOR,
   buildPreviewDocument,
   isBridgeMessage,
   type BridgeMessage,
@@ -367,5 +366,3 @@ export class BrowserPreviewRunner implements LanguageRunner {
 // Re-export the discriminator + types so callers can build their
 // own protocol-aware tests without re-importing from the bridge
 // directly.
-export { BRIDGE_DISCRIMINATOR };
-export type { BridgeMessage };

@@ -7,13 +7,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   createBlankAssertion,
-  createBlankHttpRequest,
   evaluateAssertion,
-  parseHttpRequest,
   runAssertions,
+} from '../../src/shared/httpWorkspaceAssertions';
+import { parseHttpRequest } from '../../src/shared/httpWorkspacePersistence';
+import {
+  createBlankHttpRequest,
   type HttpAssertion,
   type HttpResponseV1,
-} from '../../src/shared/httpWorkspace';
+} from '../../src/shared/httpWorkspaceSchema';
 
 function response(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   return {

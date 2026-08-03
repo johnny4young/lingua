@@ -11,20 +11,53 @@ import {
   tryDecodeCapsuleJson,
   type CapsuleImportDecodeResult,
 } from '../../../src/renderer/utils/importCapsule';
-import {
-  FIXTURE_MINIMAL_JS,
-  FIXTURE_LARGE_STDOUT,
-} from '../../shared/runCapsule.fixtures';
-import {
-  MAX_CAPSULE_BYTES,
-  type RunCapsuleV1,
-} from '../../../src/shared/runCapsule';
+import { FIXTURE_MINIMAL_JS, FIXTURE_LARGE_STDOUT } from '../../shared/runCapsule.fixtures';
+import { MAX_CAPSULE_BYTES, type RunCapsuleV1 } from '../../../src/shared/runCapsule';
+import { buildCapsuleWorkspace } from '../../../src/shared/capsuleWorkspace';
 
 function payload(capsule: RunCapsuleV1): string {
   return JSON.stringify(capsule);
 }
 
 describe('tryDecodeCapsuleJson', () => {
+  it('decodes a Capsule Workspace and exposes its supplemental files', async () => {
+    const workspace = await buildCapsuleWorkspace(
+      FIXTURE_MINIMAL_JS,
+      [{ path: 'src/helper.ts', language: 'typescript', content: 'export const n = 1;' }],
+      Date.parse('2026-08-01T00:00:00.000Z')
+    );
+    if (!workspace.ok) throw new Error(workspace.reason);
+    const result = tryDecodeCapsuleJson(workspace.json);
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.capsule.capsuleId).toBe(FIXTURE_MINIMAL_JS.capsuleId);
+    expect(result.workspace?.files[0]?.path).toBe('src/helper.ts');
+  });
+
+  it('maps an invalid Capsule Workspace portable path to invalid-shape', async () => {
+    const workspace = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'src/helper.ts', language: 'typescript', content: 'export {};' },
+    ]);
+    if (!workspace.ok) throw new Error(workspace.reason);
+    const tampered = JSON.parse(workspace.json) as { files: Array<{ path: string }> };
+    tampered.files[0]!.path = '/Users/private/helper.ts';
+    const result = tryDecodeCapsuleJson(JSON.stringify(tampered));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('invalid-shape');
+  });
+
+  it('maps a newer Capsule Workspace version to app-too-old', async () => {
+    const workspace = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'src/helper.ts', language: 'typescript', content: 'export {};' },
+    ]);
+    if (!workspace.ok) throw new Error(workspace.reason);
+    const future = { ...workspace.value, version: 2 };
+    const result = tryDecodeCapsuleJson(JSON.stringify(future));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('app-too-old');
+  });
+
   it('decodes a minimal valid capsule and stamps the size bucket', () => {
     const result = tryDecodeCapsuleJson(payload(FIXTURE_MINIMAL_JS));
     if (!result.ok) throw new Error('expected ok');
@@ -32,6 +65,21 @@ describe('tryDecodeCapsuleJson', () => {
     expect(result.capsule.tab.language).toBe('javascript');
     expect(result.byteLength).toBeGreaterThan(0);
     expect(result.sizeBucket).toBe('<10kb');
+  });
+
+  it('does not mistake workspace marker text inside capsule source for a wrapper', () => {
+    const capsule = {
+      ...FIXTURE_MINIMAL_JS,
+      source: {
+        ...FIXTURE_MINIMAL_JS.source,
+        content: 'const sample = `{ "kind": "lingua-capsule-workspace" }`;',
+      },
+    };
+    const result = tryDecodeCapsuleJson(payload(capsule));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.workspace).toBeUndefined();
+    expect(result.capsule.source.content).toBe(capsule.source.content);
   });
 
   it('decodes a larger fixture and bucketed correctly', () => {

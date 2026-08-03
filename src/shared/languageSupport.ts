@@ -113,7 +113,7 @@ export const LANGUAGE_CAPABILITY_STATUSES: readonly LanguageCapabilityStatus[] =
  * via system gem). When `perPlatform[capability]` is absent, the
  * default `capabilities[capability]` applies to both platforms.
  */
-export interface LanguagePlatformStatus {
+interface LanguagePlatformStatus {
   web?: LanguageCapabilityStatus;
   desktop?: LanguageCapabilityStatus;
 }
@@ -197,7 +197,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'partial',
       stdin: 'available',
       richOutput: 'available',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'Pyright-in-a-worker is planned.',
@@ -208,7 +208,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       richOutput:
         'Chart, image, and HTML helpers ship via __lingua.*.',
       debugger:
-        'No Pyodide debugger integration yet. Tracked under internal follow-ups.',
+        'Desktop drives host CPython through pdb with breakpoints, stepping, locals, call stack, and watches. Pyodide has no pdb bridge.',
     },
   },
   {
@@ -223,7 +223,7 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'desktop-only',
       stdin: 'desktop-only',
       richOutput: 'unsupported',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'gopls bridged via src/main/lsp/lspProcess.ts.',
@@ -231,6 +231,8 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
         'Browser Go would need TinyGo + a WASM toolchain shipped in the bundle. Not on the roadmap.',
       richOutput:
         'lingua.chart / image / html bridge ships only in JS / TS / Python today.',
+      debugger:
+        'Desktop drives Delve through DAP with pause breakpoints, stepping, locals, source-local call stack, and watches. Delve must be installed on the host.',
     },
   },
   {
@@ -245,12 +247,14 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       packages: 'desktop-only',
       stdin: 'desktop-only',
       richOutput: 'unsupported',
-      debugger: 'planned',
+      debugger: 'desktop-only',
     },
     notes: {
       lsp: 'rust-analyzer bridged via src/main/lsp/lspProcess.ts.',
       packages:
         'Cargo workflows expected on the host; Lingua does not vendor cargo.',
+      debugger:
+        'Desktop compiles the current file with debug symbols and drives LLDB through lldb-dap for pause breakpoints, stepping, locals, source-local call stack, and watches.',
     },
   },
   {

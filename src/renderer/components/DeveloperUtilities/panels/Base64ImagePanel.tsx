@@ -172,7 +172,7 @@ export function Base64ImagePanel() {
                 tone="error"
                 testid="base64-image-encode-error"
                 message={describeEncodeError(encodeError)}
-                className="internal"
+                className="sr-only"
               />
             ) : null}
           </div>

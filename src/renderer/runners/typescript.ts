@@ -8,7 +8,7 @@ import type {
   LineTimingEntry,
   MagicCommentResult,
   WorkerResponse,
-} from '../types';
+} from '../types/execution';
 import {
   transformJSMagicComments,
   detectJSMagicComments,
@@ -489,6 +489,7 @@ export class TypeScriptRunner implements LanguageRunner {
               locals: Record<string, string>;
               callStack: { functionName: string; line: number }[];
               watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+              conditionError?: string;
             };
             if (context?.tabId) {
               useDebuggerStore.getState().setPausedFrame({
@@ -498,6 +499,7 @@ export class TypeScriptRunner implements LanguageRunner {
                 locals: paused.locals,
                 callStack: paused.callStack,
                 watchResults: paused.watchResults,
+                conditionError: paused.conditionError,
               });
               void trackEvent('debugger.paused', {
                 language: 'js',
@@ -507,6 +509,9 @@ export class TypeScriptRunner implements LanguageRunner {
             clearDeadline();
             break;
           }
+          case 'watch-results':
+            useDebuggerStore.getState().updateWatchResults(msg.watchResults);
+            break;
           case 'resumed':
             armDeadline();
             break;
@@ -573,7 +578,12 @@ export class TypeScriptRunner implements LanguageRunner {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         debug,
-        breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
+        breakpoints: tabBreakpoints.map((bp) => ({
+          line: bp.line,
+          mode: bp.mode,
+          condition: bp.condition,
+          logMessage: bp.logMessage,
+        })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
         sourceMappingEnabled,

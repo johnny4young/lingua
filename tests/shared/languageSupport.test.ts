@@ -93,6 +93,16 @@ describe('LANGUAGE_SUPPORT_PROFILES — coupled invariants', () => {
     expect(ts?.capabilities.debugger).toBe('partial');
   });
 
+  it('marks native Python, Go, and Rust debuggers desktop-only', () => {
+    expect(profileById('python').capabilities.debugger).toBe('desktop-only');
+    expect(profileById('go').capabilities.debugger).toBe('desktop-only');
+    expect(profileById('rust').capabilities.debugger).toBe('desktop-only');
+    expect(resolveCapabilityStatus(profileById('go'), 'debugger', 'web')).toBe('unsupported');
+    expect(resolveCapabilityStatus(profileById('go'), 'debugger', 'desktop')).toBe('available');
+    expect(resolveCapabilityStatus(profileById('rust'), 'debugger', 'web')).toBe('unsupported');
+    expect(resolveCapabilityStatus(profileById('rust'), 'debugger', 'desktop')).toBe('available');
+  });
+
   it('every profile with perPlatform overrides references known capabilities', () => {
     for (const profile of LANGUAGE_SUPPORT_PROFILES) {
       if (!profile.perPlatform) continue;

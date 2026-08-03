@@ -17,7 +17,7 @@
 
 import type { ScopeValue } from '../../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../../shared/richOutput';
-import type { ConsolePayloadKindBucket } from '../../types';
+import type { ConsolePayloadKindBucket } from '../../types/console';
 
 /**
  * Closed-enum bucket the `runtime.console_rich_rendered` telemetry

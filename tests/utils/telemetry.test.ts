@@ -25,7 +25,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
   });
 
   it('composes base fields with a stable sessionId across calls within a launch', async () => {
-    const { resolveTelemetryBase } = await import('@/utils/telemetry');
+    const { resolveTelemetryBase } = await import('@/utils/telemetryEmitter');
     const first = resolveTelemetryBase();
     const second = resolveTelemetryBase();
     expect(first.sessionId).toBe(second.sessionId);
@@ -63,7 +63,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
     expect(trackOutputOriginClicked('javascript', 'badge', () => 0)).toEqual({
       emitted: true,
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
     expect(
       trackOutputOriginClicked('javascript', 'badge', () => OUTPUT_ORIGIN_THROTTLE_MS - 1)
@@ -73,7 +73,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
     expect(
       trackOutputOriginClicked('javascript', 'badge', () => OUTPUT_ORIGIN_THROTTLE_MS)
     ).toEqual({ emitted: true });
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
 
     const firstBody = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
     expect(firstBody.event).toBe('runtime.output_origin_clicked');
@@ -181,8 +181,10 @@ describe('readEndpoint URL validation (implementation note)', () => {
     const {
       trackEvent,
       _resetEndpointCacheForTesting,
-      _resetTelemetryTrustThrottleForTesting,
     } = await import('@/utils/telemetry');
+    const { _resetTelemetryTrustThrottleForTesting } = await import(
+      '@/utils/telemetryEmitter'
+    );
     const { useTrustEventStore, _resetTrustEventCounterForTesting } = await import(
       '@/stores/trustEventStore'
     );
@@ -212,8 +214,9 @@ describe('readEndpoint URL validation (implementation note)', () => {
   });
 
   it('records no telemetry trust event when telemetry is gated off', async () => {
-    const { trackEvent, _resetTelemetryTrustThrottleForTesting } = await import(
-      '@/utils/telemetry'
+    const { trackEvent } = await import('@/utils/telemetry');
+    const { _resetTelemetryTrustThrottleForTesting } = await import(
+      '@/utils/telemetryEmitter'
     );
     const { useTrustEventStore } = await import('@/stores/trustEventStore');
     _resetTelemetryTrustThrottleForTesting();
@@ -230,8 +233,10 @@ describe('readEndpoint URL validation (implementation note)', () => {
     const {
       trackEvent,
       _resetEndpointCacheForTesting,
-      _resetTelemetryTrustThrottleForTesting,
     } = await import('@/utils/telemetry');
+    const { _resetTelemetryTrustThrottleForTesting } = await import(
+      '@/utils/telemetryEmitter'
+    );
     const { useTrustEventStore } = await import('@/stores/trustEventStore');
     _resetEndpointCacheForTesting();
     _resetTelemetryTrustThrottleForTesting();

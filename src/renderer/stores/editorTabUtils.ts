@@ -1,4 +1,5 @@
-import type { FileTab, InputSet, Language } from '../types';
+import type { FileTab, InputSet } from '../types/editor';
+import type { Language } from '../types/language';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
 import {

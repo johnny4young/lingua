@@ -1,4 +1,4 @@
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 import { trackEvent } from '../utils/telemetry';
 import {
   isRuntimeModeImplemented,
@@ -6,9 +6,9 @@ import {
 } from '../../shared/runtimeModes';
 import {
   isWorkflowMode,
-  supportsWorkflowMode,
   type WorkflowMode,
 } from '../../shared/workflowMode';
+import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
 import {
   isRuntimeTimeoutPreset,
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET,
@@ -93,7 +93,7 @@ export function createRuntimeActions(
           delete next[language];
         } else {
           if (!isWorkflowMode(mode)) return state;
-          if (!supportsWorkflowMode(language, mode)) return state;
+          if (!supportsWorkflowModeInShell(language, mode)) return state;
           next[language] = mode;
         }
         return { workflowModeDefaultsByLanguage: next };

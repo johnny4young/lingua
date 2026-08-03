@@ -1,9 +1,12 @@
-import type { EditorState, FileTab } from '../types';
+import type { EditorState, FileTab } from '../types/editor';
 import i18next from 'i18next';
 import { useNotebookStore } from './notebookStore';
 import { useSettingsStore } from './settingsStore';
-import { useUtilityHistoryStore } from './utilityHistoryStore';
-import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
+import { useUtilityWorkspaceStore } from './utilityWorkspaceStore';
+import {
+  findDeveloperUtilityCatalogEntry,
+  type DeveloperUtilityId,
+} from '../data/developerUtilityCatalog';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -171,12 +174,13 @@ export function createWorkspaceActions(
     /**
      * MOV.03 — focus (or create) the SINGLE Developer Utilities
      * workspace tab. The tab is the full-screen shell; selected tool,
-     * favorites, and history stay in `utilityHistoryStore` so direct
+     * selection stays in `utilityWorkspaceStore`, while favorites and
+     * history stay in activation-scoped `utilityHistoryStore`, so direct
      * opens such as Mod+Shift+G can select Pipelines without minting a
      * different tab.
      */
     addUtilitiesTab: (utilityId?: DeveloperUtilityId) => {
-      const requestedUtility = utilityId ? findDeveloperUtility(utilityId) : null;
+      const requestedUtility = utilityId ? findDeveloperUtilityCatalogEntry(utilityId) : null;
       const tier = currentEffectiveTier();
       if (
         requestedUtility?.requiresEntitlement &&
@@ -193,7 +197,7 @@ export function createWorkspaceActions(
         return null;
       }
       if (utilityId) {
-        useUtilityHistoryStore.getState().setActiveUtilityId(utilityId);
+        useUtilityWorkspaceStore.getState().setActiveUtilityId(utilityId);
       }
       const { tabs } = get();
       const existing = tabs.find(t => t.id === UTILITIES_WORKSPACE_TAB_ID);

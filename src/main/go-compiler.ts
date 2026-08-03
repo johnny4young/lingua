@@ -30,6 +30,7 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
+import type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 const WASM_EXEC_RELATIVE_PATHS = [
@@ -43,27 +44,6 @@ function compileTruncationMarker(messages?: NativeRunnerMessages): string {
   return messages?.compileOutputTruncated
     ? `\n${messages.compileOutputTruncated}`
     : COMPILE_TRUNCATION_MARKER;
-}
-
-interface GoCompileResult {
-  success: boolean;
-  /**
-   * Compiled WASM as a typed array — Electron structured clone ships it
-   * natively over IPC (the previous number[] expanded a 10 MiB wasm into
-   * a ~10M-element array, ~8x memory amplification per copy). Mirrors
-   * the renderer-facing declaration in src/types.d.ts.
-   */
-  wasmBytes?: Uint8Array;
-  wasmExecJs?: string;
-  error?: string;
-  goVersion?: string;
-}
-
-interface GoDetectResult {
-  installed: boolean;
-  version?: string;
-  goRoot?: string;
-  error?: string;
 }
 
 export function getWasmExecCandidatePaths(goRoot: string): string[] {
@@ -99,7 +79,7 @@ export async function readWasmExecJs(
   );
 }
 
-export function resolveGoToolchainEnv(
+function resolveGoToolchainEnv(
   userEnv?: Record<string, string>
 ): NodeJS.ProcessEnv {
   return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
@@ -148,11 +128,6 @@ async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResul
       error: 'Go is not installed. Install it from https://go.dev/dl/',
     };
   }
-}
-
-/** Test seam — drop the session detect cache between cases. */
-export function resetGoDetectCacheForTests(): void {
-  cachedGoDetect = null;
 }
 
 /**

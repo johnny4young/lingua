@@ -20,6 +20,10 @@ export function pushUpsellNotice(input: UpsellNoticeInput): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: input.messageKey,
+    // A blocked, user-initiated action must explain itself immediately.
+    // Match onboarding's high priority so the upsell replaces an ambient
+    // onboarding toast instead of being discarded behind it.
+    priority: 'high',
     values: { feature: input.featureLabel },
     detail: input.detail,
     actions: [

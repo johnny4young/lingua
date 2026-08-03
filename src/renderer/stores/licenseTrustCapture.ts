@@ -38,8 +38,3 @@ export function registerLicenseTrustCapture(store: LicenseStoreLike): void {
     });
   });
 }
-
-/** Test-only: reset the module-scope de-dupe guard between cases. */
-export function _resetLicenseTrustCaptureForTesting(): void {
-  lastVerifiedLicenseKind = null;
-}

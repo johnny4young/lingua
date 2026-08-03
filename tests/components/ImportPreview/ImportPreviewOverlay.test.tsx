@@ -8,7 +8,8 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { compressToEncodedURIComponent } from 'lz-string';
 import i18next from 'i18next';
 import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPreview/ImportPreviewOverlay';
 import { useLicenseStore } from '../../../src/renderer/stores/licenseStore';
@@ -42,6 +43,46 @@ function seedProTier() {
     lastVerifiedAt: Date.now(),
   });
 }
+
+const originalLingua = window.lingua;
+
+function installBrunoDirectoryFs(options?: { missingManifest?: boolean }) {
+  const files = options?.missingManifest
+    ? [{ name: 'request.bru', relativePath: 'request.bru' as RelativePath }]
+    : [
+        { name: 'bruno.json', relativePath: 'bruno.json' as RelativePath },
+        { name: 'list.bru', relativePath: 'users/list.bru' as RelativePath },
+      ];
+  const fs = {
+    selectDirectory: vi.fn().mockResolvedValue({
+      canceled: false,
+      rootId: 'bruno-root' as RootId,
+      rootPath: '/tmp/team-api',
+    }),
+    listAllFiles: vi.fn().mockResolvedValue(files),
+    stat: vi.fn().mockResolvedValue({
+      size: 100,
+      isDirectory: false,
+      isFile: true,
+      mtime: '',
+      ctime: '',
+    }),
+    read: vi
+      .fn()
+      .mockImplementation(async (_root: RootId, path: RelativePath) =>
+        path === 'bruno.json'
+          ? '{"name":"Team API"}'
+          : 'meta {\n name: List users\n}\nget {\n url: https://api.example.com/users\n}\n'
+      ),
+    revokeRoot: vi.fn().mockResolvedValue(true),
+  };
+  window.lingua = { platform: 'web', fs } as unknown as LinguaAPI;
+  return fs;
+}
+
+afterEach(() => {
+  window.lingua = originalLingua;
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -86,6 +127,9 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
       /\.linguanb/i
     );
+    expect(
+      screen.getByTestId('import-preview-file-input').className
+    ).toContain('hidden');
     // Confirm starts disabled when nothing is parsed yet.
     const confirm = screen.getByTestId('import-preview-confirm') as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -101,6 +145,41 @@ describe('ImportPreviewOverlay', () => {
       expect(screen.queryByTestId('import-preview-body')).toBeTruthy();
     });
     expect(screen.getByTestId('import-preview-method').textContent).toContain('GET');
+  });
+
+  it('previews a Bruno collection selected from a directory', async () => {
+    const fs = installBrunoDirectoryFs();
+    let closed = false;
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
+    await user.click(screen.getByTestId('import-preview-pick-bruno-directory'));
+    await waitFor(() => {
+      expect(screen.getByText('Team API')).toBeTruthy();
+      expect(screen.getByText('users / List users')).toBeTruthy();
+    });
+    expect(screen.getByTestId('import-preview-confirm').textContent).toMatch(
+      /Import 1 request/i
+    );
+    expect(fs.revokeRoot).toHaveBeenCalledWith('bruno-root');
+    await user.click(screen.getByTestId('import-preview-confirm'));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(useWorkspaceToolStore.getState().requests[0]).toMatchObject({
+      name: 'users / List users',
+      method: 'GET',
+      url: 'https://api.example.com/users',
+    });
+  });
+
+  it('shows a Bruno-specific error when the selected folder lacks a manifest', async () => {
+    installBrunoDirectoryFs({ missingManifest: true });
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.click(screen.getByTestId('import-preview-pick-bruno-directory'));
+    await waitFor(() => {
+      expect(screen.getByTestId('import-preview-reject-detail').textContent).toMatch(
+        /missing bruno\.json or opencollection\.yml/i
+      );
+    });
   });
 
   it('shows the reject band when source does not match any importer', async () => {
@@ -155,7 +234,9 @@ describe('ImportPreviewOverlay', () => {
       expect(btn.disabled).toBe(false);
     });
     await user.click(screen.getByTestId('import-preview-confirm'));
-    expect(closed).toBe(true);
+    await waitFor(() => {
+      expect(closed).toBe(true);
+    });
     const requests = useWorkspaceToolStore.getState().requests;
     expect(requests).toHaveLength(1);
     expect(requests[0]?.method).toBe('POST');
@@ -190,6 +271,81 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.queryByText(/Importá datos/i)).toBeNull();
     // Cancel button copy.
     expect(screen.getByText(/^Cancelar$/i)).toBeTruthy();
+  });
+});
+
+describe('ImportPreviewOverlay — playground URL flow', () => {
+  it('clears an existing file preview as soon as the playground URL changes', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+
+    await user.type(
+      screen.getByTestId('import-preview-paste'),
+      'curl https://api.example.com/ready'
+    );
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(false);
+
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      'https://www.typescriptlang.org/play/#code/example'
+    );
+
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(true);
+    expect(screen.queryByTestId('import-preview-body')).toBeNull();
+  });
+
+  it('previews a TypeScript link before opening one code tab', async () => {
+    const user = userEvent.setup();
+    const source = 'const imported: number = 42;\nconsole.log(imported);';
+    const encoded = compressToEncodedURIComponent(source);
+    let closed = false;
+    render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
+
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      `https://www.typescriptlang.org/play/#code/${encoded}`
+    );
+    await user.click(screen.getByTestId('import-preview-playground-preview'));
+
+    expect(
+      (await screen.findByTestId('import-preview-playground-source')).textContent
+    ).toContain('const imported: number = 42;');
+    expect(screen.getByTestId('import-preview-detected').textContent).toContain(
+      'Playground URL'
+    );
+    expect(screen.getByTestId('import-preview-confirm').textContent).toContain(
+      'Open source in a tab'
+    );
+
+    await user.click(screen.getByTestId('import-preview-confirm'));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      language: 'typescript',
+      content: source,
+    });
+  });
+
+  it('explains the unsupported CodePen contract in neutral Spanish', async () => {
+    await i18next.changeLanguage('es');
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    await user.type(
+      screen.getByTestId('import-preview-playground-url'),
+      'https://codepen.io/example/pen/abc123'
+    );
+    await user.click(screen.getByTestId('import-preview-playground-preview'));
+
+    expect(
+      (await screen.findByTestId('import-preview-reject-detail')).textContent
+    ).toMatch(/no exponen una API pública de lectura estable/i);
+    expect(
+      (screen.getByTestId('import-preview-confirm') as HTMLButtonElement).disabled
+    ).toBe(true);
   });
 });
 
@@ -457,6 +613,13 @@ describe('ImportPreviewOverlay — Postman variables ', () => {
     expect(screen.getByTestId('import-preview-variables-globals')).toBeTruthy();
     expect(screen.getByLabelText('Environment')).toBeTruthy();
     expect(screen.getByLabelText('Globals')).toBeTruthy();
+    expect(
+      screen.getByTestId('import-preview-variables-environment-file-input')
+        .className
+    ).toContain('hidden');
+    expect(
+      screen.getByTestId('import-preview-variables-globals-file-input').className
+    ).toContain('hidden');
   });
 
   it('does not render the variables section for a cURL import', async () => {

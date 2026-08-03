@@ -45,6 +45,16 @@ function outputText(page: import('@playwright/test').Page, testId: string) {
   );
 }
 
+async function developerUtilityReferenceRequests(
+  page: import('@playwright/test').Page
+): Promise<string[]> {
+  return page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .map(entry => entry.name)
+      .filter(name => /\/developerUtilities-[^/]+\.js$/u.test(name))
+  );
+}
 
 test.describe('Command palette', () => {
   test.beforeEach(async ({ page }) => {
@@ -70,6 +80,18 @@ test.describe('Command palette', () => {
 
     await page.keyboard.press('Escape');
     await expect(paletteInput(page)).toBeHidden();
+  });
+
+  test('loads developer utility reference metadata only after the palette opens', async ({
+    page,
+  }) => {
+    expect(await developerUtilityReferenceRequests(page)).toEqual([]);
+
+    await openCommandPalette(page);
+    await paletteInput(page).fill('b64');
+    await expect(page.getByRole('option', { name: /Open Base64 Encoder/i })).toBeVisible();
+
+    expect(await developerUtilityReferenceRequests(page)).toHaveLength(1);
   });
 
   test("What's New palette entry opens the release notes overlay", async ({ page }) => {
@@ -154,9 +176,6 @@ test.describe('Developer utilities workspace (Pro)', () => {
   });
 
   test('opens from the global Mod+K shortcut', async ({ page }) => {
-    await page.getByTestId('action-pill-utilities').hover();
-    await expect(page.getByRole('tooltip', { name: /Developer utilities/u })).toBeVisible();
-
     await page.keyboard.press('Control+K');
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();

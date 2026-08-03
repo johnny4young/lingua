@@ -9,7 +9,7 @@ export const SITE = {
   name: 'Lingua',
   tagline: 'Multi-language code runner for your desktop.',
   description:
-    'Lingua runs JavaScript, TypeScript, Python, Go, and Rust in one offline-first desktop app. Monaco editor, Vim mode, 31 built-in dev utilities. Source-available.',
+    'Lingua runs JavaScript, TypeScript, Python, Ruby, Go, and Rust in one offline-first desktop app. Monaco editor, Vim mode, 31 built-in dev utilities. Source-available.',
   contactEmail: 'hello@linguacode.dev',
   securityEmail: 'security@linguacode.dev',
   press: {
@@ -22,6 +22,7 @@ export const SITE = {
 
 export const NAV = [
   { href: '/features', key: 'features' },
+  { href: '/cli', key: 'cli' },
   { href: '/pricing', key: 'pricing' },
   { href: '/docs/getting-started', key: 'docs' },
   { href: '/releases', key: 'releases' },
@@ -39,6 +40,7 @@ export const FOOTER_NAV = {
   ],
   resources: [
     { href: '/docs/getting-started', key: 'gettingStarted' },
+    { href: '/cli', key: 'cli' },
     { href: 'https://github.com/johnny4young/lingua', key: 'source', external: true },
     { href: SITE.appUrl, key: 'runInBrowser', external: true },
   ],

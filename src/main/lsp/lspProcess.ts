@@ -38,13 +38,6 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 export type JsonRpcId = number | string;
 
-export interface JsonRpcResponse<T = unknown> {
-  jsonrpc: '2.0';
-  id: JsonRpcId;
-  result?: T;
-  error?: { code: number; message: string; data?: unknown };
-}
-
 export interface JsonRpcNotification<P = unknown> {
   jsonrpc: '2.0';
   method: string;

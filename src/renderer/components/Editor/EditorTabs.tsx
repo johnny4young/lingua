@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../stores/editorStore';
-import { EditorTabContextMenu } from './EditorTabContextMenu';
+import { EditorTabContextMenuHost } from './EditorTabContextMenuHost';
 import { EditorTabItem, TabsOverflowDropdown } from './EditorTabItems';
 import {
   computeVisibleTabs,
@@ -164,7 +164,7 @@ export function EditorTabs() {
     setRenamingTabId(null);
   }, [setRenamingTabId]);
 
-  const closeContextMenu = () => setContextMenu(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
   // internal review — the handoff caps the strip at five tabs, but
   // showing only the first five hides the active tab whenever the
@@ -245,7 +245,7 @@ export function EditorTabs() {
           const tab = tabs[tabIndex];
           if (!tab) return null;
           return (
-            <EditorTabContextMenu
+            <EditorTabContextMenuHost
               anchor={contextMenu.anchor}
               tabName={tab.name}
               isLastTab={tabs.length === 1}

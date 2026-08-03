@@ -5,17 +5,17 @@ import { formatExecTime } from '../../hooks/runnerOutput';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { isHiddenUndefinedLineResult } from '../../hooks/useInlineResults';
+import { isHiddenUndefinedLineResult } from '../../hooks/inlineResultVisibility';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
-import { RunCapsuleExportButton } from './RunCapsuleExportButton';
+import { RunCapsuleExportButtonHost } from './RunCapsuleExportButtonHost';
 import { ShareLinkButton } from '../Share/ShareLinkButton';
 import { RunStatusPill } from './RunStatusPill';
-import { CompareResultsPanel } from './CompareResultsPanel';
+import { CompareResultsPanelHost } from './CompareResultsPanelHost';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { useCommandListener } from '../../hooks/useCommandListener';
@@ -150,7 +150,7 @@ export function ResultPanel() {
         : 'results.empty.manual';
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-editor-bg)]">
+    <div data-testid="result-panel" className="flex h-full flex-col bg-[var(--color-editor-bg)]">
       {/* implementation — header layout differs by execution mode.
           For scratchpad / run / debug we drop the redundant "Resultado
           en línea" copy (workflow mode is on the pill; inline values
@@ -159,7 +159,7 @@ export function ResultPanel() {
           validate / view modes the header keeps the title +
           description because those tabs don't have inline results to
           consult. */}
-      <div className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle/60 px-4 py-2">
+      <div className="relative flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle/60 px-4 py-2">
         {dynamic ? (
           <span aria-hidden />
         ) : (
@@ -180,10 +180,9 @@ export function ResultPanel() {
               {formatExecTime(executionTime)}
             </span>
           )}
-          {/* implementation — primary export surface. Lazy-renders
-              null when there's no captured capsule so it never
-              advertises a no-op; safe to mount unconditionally. */}
-          <RunCapsuleExportButton />
+          {/* The host keeps capture detection eager, then loads the complete
+              export control only after a capsule makes the action useful. */}
+          <RunCapsuleExportButtonHost />
           {/* implementation Phase A1 implementation note — primary share-link surface.
               Lazy-renders null when there's no active tab. */}
           <ShareLinkButton />
@@ -200,7 +199,7 @@ export function ResultPanel() {
           // critical because the leak surfaces invisibly (dynamic
           // mode hides the selector) until the user reaches another
           // compiled tab.
-          <CompareResultsPanel key={activeTab?.id ?? 'none'} language={language} />
+          <CompareResultsPanelHost key={activeTab?.id ?? 'none'} language={language} />
         ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>
@@ -208,7 +207,7 @@ export function ResultPanel() {
         ) : dynamic ? (
           // implementation — in scratchpad mode the per-line values
           // render inside the editor via Monaco overlay widgets
-          // (`useInlineResultWidgets`), so the result panel body no
+          // (`<InlineResultWidgets>`), so the result panel body no
           // longer mirrors them. The body keeps the error pane (when
           // the runner failed) and otherwise stays empty — Compare
           // and Variables still claim the area when active. The diff

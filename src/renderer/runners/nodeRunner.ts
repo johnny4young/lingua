@@ -46,7 +46,7 @@ import type {
   ExecutionError,
   ExecutionResult,
   LanguageRunner,
-} from '../types';
+} from '../types/execution';
 import {
   resolveTimeoutMs,
   type RuntimeTimeoutPreset,

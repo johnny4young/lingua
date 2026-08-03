@@ -7,7 +7,7 @@ actual implementation. Edit in this file, then commit, then post.
 ## Show HN
 
 **Title**: Show HN: Lingua — Multi-language desktop code runner (JS,
-TS, Go, Python, Rust)
+TS, Python, Ruby, Go, Rust)
 
 **Body**:
 
@@ -16,17 +16,18 @@ playgrounds to answer "does this Go / Python / TypeScript snippet
 actually work?" questions.
 
 It's a desktop app (Electron) that runs JavaScript, TypeScript, Python
-(Pyodide), Go (compiled locally), and Rust (`rustc`) inside one
+(Pyodide), Ruby (WASM or system Ruby), Go (compiled locally), and Rust (`rustc`) inside one
 Monaco-powered editor. Offline-first — the renderer is self-contained
 and the runners for JS, TS, and Python run in Workers so no network
 trip is needed. Go and Rust compile via your local toolchain.
 
 Built-in goodies:
+
 - HTTP request workspace (reusable environments, secret-aware
   `{{variables}}`, cURL + Postman import) and a DuckDB-powered SQL
   workspace with a Monaco SQL editor
-- Cell-based notebooks that run TypeScript and Python, share variables
-  across cells, and import/export Jupyter `.ipynb`
+- Paid cell-based notebooks that run TypeScript, Python, and SQL, share
+  variables across cells, and import/export Jupyter `.ipynb`
 - Smart paste (share links, run capsules, cURL, stack traces, large
   JSON) plus inline lint with quick-fixes for JS/TS
 - JSON formatter, regex tester, Base64 / URL / UUID / hash / timestamp
@@ -38,37 +39,41 @@ Built-in goodies:
 - Deep links (`lingua://`) so you can share file paths or snippet IDs
   from a browser into the app
 
-Source-available (commercial license) on GitHub. Free tier is single-
-tab + 5 snippets + JS/TS/Python. Monthly and Pro unlock unlimited
-tabs and snippets, plus Go and Rust runners. Education
+Source-available (commercial license) on GitHub. Free tier is 3 tabs +
+5 snippets + JS/TS/Python/Ruby. Monthly and Pro unlock unlimited tabs
+and snippets, Go and Rust runners, notebooks, local-first AI, and saved
+execution history. Education
 access is free for verified students and teachers. 14-day Pro trial
 available without a credit card — Settings → License inside the app.
 
 Honest limitations today:
+
 - Go and Rust need their toolchains installed locally — web build
   surfaces that as "desktop only"
-- The debugger is JS/TS only (preview); rich language intelligence for
-  Python, Rust, and Go relies on the local LSP (rust-analyzer / gopls),
-  and the web build keeps those languages validate-only
+- The full conditional/logpoint debugger is JS/TS; desktop Python also ships
+  standard breakpoints, stepping, locals, call stack, and native-process
+  watches through host CPython/pdb. Desktop Go offers the same pause/step/inspect
+  workflow through host Delve/DAP, and desktop Rust uses `rustc` plus host
+  `lldb-dap` for the same current-buffer workflow
 - Opt-in telemetry is off by default; crash reporting is opt-in too
 
 Happy to answer anything about the runner architecture, the
 monetization story, or why I'm not competing with RunJS on pure JS
 ergonomics.
 
-Download: https://linguacode.dev  |  Repo: (link)
+Download: https://linguacode.dev | Repo: (link)
 
 ---
 
 ## Product Hunt
 
-**Tagline**: Multi-language desktop code runner — JS, TS, Go, Python,
-Rust in one offline-first app.
+**Tagline**: Multi-language desktop code runner — JS, TS, Python, Ruby,
+Go, and Rust in one offline-first app.
 
 **Description**:
 
 Lingua replaces the half-dozen browser tabs that sit alongside your
-usual code runner. One app, five languages, notebooks, HTTP and SQL
+usual code runner. One app, six languages, notebooks, HTTP and SQL
 workspaces, built-in developer utilities, offline-first, and
 source-available.
 
@@ -102,6 +107,7 @@ local toolchain (desktop app) so you can `import` modules from your
 GOPATH and still get inline results in a Monaco editor.
 
 What Go-specific work went in:
+
 - `go build` with `GOOS=js GOARCH=wasm` for inline execution
 - Local `wasm_exec.js` resolution — works with every Go version that
   ships the WASM runtime
@@ -110,9 +116,10 @@ What Go-specific work went in:
   positions, not as stderr dumps
 
 What's honest about the limitations:
+
 - You need a local Go toolchain (the web build surfaces that
   explicitly)
-- No Go LSP yet — only Monaco's keyword completion
+- gopls powers diagnostics, completions, hover, and signature help when installed
 - No module-graph-level intelligence; this is a scratchpad, not an IDE
 
 Free tier doesn't include Go execution (it's a Pro unlock). Source-
@@ -132,6 +139,7 @@ Monaco editor. No remote sandbox, no 10-second timeout, no missing
 crate. Full cargo crates work because the compiler is yours.
 
 What Rust-specific plumbing shipped:
+
 - `rustc --emit=bin` + spawn, native subprocess
 - `rustfmt` is the default format-on-save handler for `.rs` files
 - `rust-analyzer` powers desktop diagnostics, completions, hover, and
@@ -142,6 +150,7 @@ What Rust-specific plumbing shipped:
   see panics mapped back to the source
 
 Known limits:
+
 - Needs `rustc` on PATH (local toolchain)
 - Rust language intelligence needs `rust-analyzer` on PATH; Lingua
   shows an install hint or restart action when it is missing or crashes
@@ -169,12 +178,15 @@ Python story is deliberately first-class:
   that produced them
 
 Newer Python surface:
-- Cell-based notebooks run Python cells, share variables across cells,
+
+- Paid cell-based notebooks run Python cells, share variables across cells,
   and import/export Jupyter `.ipynb` (plus the native `.linguanb`)
 
 What's not there yet:
+
 - No `pip install` of arbitrary packages — `micropip`-available
   packages only, same as Pyodide itself
 
-Python is in the Free tier. Source-available; download at
+The Python runner is in the Free tier; notebooks are a paid feature.
+Source-available; download at
 https://linguacode.dev.

@@ -19,11 +19,19 @@ export interface FakeIoOptions {
   files?: Record<string, string>;
   /** Throws on readFile to exercise ENOENT etc. */
   readFileError?: NodeJS.ErrnoException;
+  stdoutSupportsColor?: boolean;
+  stderrSupportsColor?: boolean;
+  environment?: Readonly<Record<string, string | undefined>>;
 }
 
 export function createFakeIo(options: FakeIoOptions = {}): { io: CliIo; state: FakeIoState } {
   const state: FakeIoState = { stdout: '', stderr: '' };
   const io: CliIo = {
+    stdoutSupportsColor: options.stdoutSupportsColor ?? false,
+    stderrSupportsColor: options.stderrSupportsColor ?? false,
+    getEnvironmentValue(name) {
+      return options.environment?.[name];
+    },
     writeStdout(text) {
       state.stdout += text;
     },
@@ -36,7 +44,9 @@ export function createFakeIo(options: FakeIoOptions = {}): { io: CliIo; state: F
       }
       const entry = options.files?.[path];
       if (entry === undefined) {
-        const err = new Error(`ENOENT: no such file or directory, open '${path}'`) as NodeJS.ErrnoException;
+        const err = new Error(
+          `ENOENT: no such file or directory, open '${path}'`
+        ) as NodeJS.ErrnoException;
         err.code = 'ENOENT';
         throw err;
       }

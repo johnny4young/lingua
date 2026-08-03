@@ -124,43 +124,33 @@ function stopLauncher(language: LspLanguage): void {
   launchers[language] = null;
 }
 
-export async function startRustLsp(): Promise<RustAnalyzerStatus> {
+async function startRustLsp(): Promise<RustAnalyzerStatus> {
   return ensureLauncher('rust').start();
 }
 
-export async function restartRustLsp(): Promise<RustAnalyzerStatus> {
+async function restartRustLsp(): Promise<RustAnalyzerStatus> {
   return ensureLauncher('rust').restart();
 }
 
-export function stopRustLsp(): void {
+function stopRustLsp(): void {
   stopLauncher('rust');
 }
 
-export async function startGoLsp(): Promise<GoplsStatus> {
+async function startGoLsp(): Promise<GoplsStatus> {
   return ensureLauncher('go').start();
 }
 
-export async function restartGoLsp(): Promise<GoplsStatus> {
+async function restartGoLsp(): Promise<GoplsStatus> {
   return ensureLauncher('go').restart();
 }
 
-export function stopGoLsp(): void {
+function stopGoLsp(): void {
   stopLauncher('go');
 }
 
 export function disposeLspBridge(): void {
   stopRustLsp();
   stopGoLsp();
-}
-
-/**
- * @deprecated implementation export. implementation widens the bridge to multiple
- * languages — prefer `disposeLspBridge`. Retained as a thin alias so
- * the lifecycle wiring in `main/index.ts` keeps working through any
- * mid-rollout state.
- */
-export function disposeRustLspBridge(): void {
-  disposeLspBridge();
 }
 
 interface LanguageHandlers<L extends LspLanguage> {

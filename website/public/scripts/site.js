@@ -178,6 +178,136 @@
     wrapper.hidden = false;
   }
 
+  function normalizeSearchValue(value) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase()
+      .trim();
+  }
+
+  function bindCliSearch() {
+    const roots = Array.from(document.querySelectorAll('[data-cli-search]'));
+    if (roots.length === 0) return;
+
+    roots.forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.bound === 'true') return;
+      const input = root.querySelector('input[type="search"]');
+      const clear = root.querySelector('[data-cli-search-clear]');
+      const results = root.querySelector('[data-cli-search-results]');
+      const indexNode = document.querySelector('[data-cli-search-index]');
+      if (!(input instanceof HTMLInputElement) || !(clear instanceof HTMLButtonElement) || !(results instanceof HTMLElement) || !(indexNode instanceof HTMLTextAreaElement)) return;
+
+      let items = [];
+      try {
+        const parsed = JSON.parse(indexNode.value || '[]');
+        if (Array.isArray(parsed)) items = parsed;
+      } catch {
+        return;
+      }
+
+      function render() {
+        const query = normalizeSearchValue(input.value);
+        clear.hidden = query.length === 0;
+        results.replaceChildren();
+        results.hidden = query.length === 0;
+        if (query.length === 0) return;
+
+        const terms = query.split(/\s+/).filter(Boolean);
+        const matches = items
+          .filter((item) => {
+            const haystack = normalizeSearchValue(`${item.title} ${item.description} ${item.searchText}`);
+            return terms.every((term) => haystack.includes(term));
+          })
+          .slice(0, 7);
+
+        if (matches.length === 0) {
+          const empty = document.createElement('p');
+          empty.textContent = root.dataset.noResults || 'No results.';
+          results.append(empty);
+          return;
+        }
+
+        results.setAttribute('aria-label', root.dataset.resultsLabel || 'Search results');
+        matches.forEach((item) => {
+          const link = document.createElement('a');
+          link.href = item.href;
+          const title = document.createElement('strong');
+          title.textContent = item.title;
+          const description = document.createElement('span');
+          description.textContent = item.description;
+          link.append(title, description);
+          results.append(link);
+        });
+      }
+
+      input.addEventListener('input', render);
+      input.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        input.value = '';
+        render();
+      });
+      clear.addEventListener('click', () => {
+        input.value = '';
+        render();
+        input.focus();
+      });
+      root.dataset.bound = 'true';
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      const visibleInput = roots
+        .map((root) => root.querySelector('input[type="search"]'))
+        .find((input) => input instanceof HTMLInputElement && input.offsetParent !== null);
+      if (!(visibleInput instanceof HTMLInputElement)) return;
+      event.preventDefault();
+      visibleInput.focus();
+    });
+  }
+
+  function bindCliCodeCopy() {
+    document.querySelectorAll('[data-cli-docs]').forEach((root) => {
+      if (!(root instanceof HTMLElement)) return;
+      const idleLabel = root.dataset.copyLabel || 'Copy';
+      const successLabel = root.dataset.copySuccess || 'Copied';
+      const errorLabel = root.dataset.copyError || 'Copy failed';
+      root.querySelectorAll('.cli-prose pre').forEach((pre) => {
+        if (!(pre instanceof HTMLElement) || pre.dataset.copyBound === 'true') return;
+        const code = pre.querySelector('code');
+        if (!(code instanceof HTMLElement)) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cli-copy-button';
+        button.textContent = idleLabel;
+        button.setAttribute('aria-label', idleLabel);
+        button.setAttribute('aria-live', 'polite');
+        let resetTimer;
+        const setLabel = (label) => {
+          button.textContent = label;
+          button.setAttribute('aria-label', label);
+        };
+        button.addEventListener('click', async () => {
+          try {
+            if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('clipboard unavailable');
+            await navigator.clipboard.writeText(code.textContent || '');
+            setLabel(successLabel);
+          } catch {
+            setLabel(errorLabel);
+          }
+          window.clearTimeout(resetTimer);
+          resetTimer = window.setTimeout(() => {
+            setLabel(idleLabel);
+          }, 1600);
+        });
+        pre.append(button);
+        pre.dataset.copyBound = 'true';
+      });
+    });
+  }
+
   function init() {
     bindLanguageSelects();
     bindThemeToggle();
@@ -187,6 +317,8 @@
     bindKineticHero();
     bindHistoryLeadTips();
     bindCheckoutReference();
+    bindCliSearch();
+    bindCliCodeCopy();
   }
 
   if (document.readyState === 'loading') {

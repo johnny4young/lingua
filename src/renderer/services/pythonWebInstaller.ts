@@ -5,8 +5,8 @@
  * Mirrors the shape `window.lingua.dependencies.installJs / cancel /
  * onInstallLog` exposes on the desktop JS/TS side , but the
  * transport is a Web Worker postMessage protocol instead of an
- * Electron IPC. The worker handlers live in
- * `src/renderer/workers/python-worker.ts` under message types
+ * Electron IPC. The handlers live behind the stable `python-worker.ts`
+ * entrypoint in `python-worker-dependencies.ts` under message types
  * `dependencies:list-loaded` and `dependencies:install`.
  *
  * The installer SHARES the Pyodide worker with `PythonRunner` so the
@@ -40,7 +40,7 @@ import type {
 } from '../../shared/dependencies/types';
 import { runnerManager } from '../runners';
 
-export type PythonInstallStream = 'stdout' | 'stderr';
+type PythonInstallStream = 'stdout' | 'stderr';
 
 export interface PythonInstallLogChunk {
   readonly runId: string;
@@ -57,7 +57,7 @@ export interface PythonInstallLogChunk {
  * `dependencyDetectionStore.ts` continues to receive the type it
  * was designed for.
  */
-export type PythonInstallResultStatus = DependencyInstallResultStatus;
+type PythonInstallResultStatus = DependencyInstallResultStatus;
 
 export interface PythonInstallResult {
   readonly statuses: Record<string, PythonInstallResultStatus>;

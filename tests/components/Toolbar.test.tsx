@@ -201,7 +201,6 @@ describe('Toolbar', () => {
     vi.clearAllMocks();
     setActiveProLicense();
     useSettingsStore.getState().resetShortcutOverrides();
-    useSettingsStore.setState({ debuggerEnabled: true }, false);
     useDebuggerStore.setState(
       {
         breakpoints: {},
@@ -308,6 +307,20 @@ describe('Toolbar', () => {
     await user.click(debugBtn);
 
     expect(mockRun).toHaveBeenCalledWith({ debug: true });
+    expect(screen.queryByRole('menu', { name: 'Execution options' })).toBeNull();
+  });
+
+  it('closes an open Run menu when the primary action starts', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByTestId('toolbar-run-menu-button'));
+    expect(screen.getByRole('menu', { name: 'Execution options' })).toBeTruthy();
+
+    await user.click(screen.getByTestId('toolbar-run-button'));
+
+    expect(mockRun).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('menu', { name: 'Execution options' })).toBeNull();
   });
 
   it('keeps Debug disabled when all breakpoints are disabled', async () => {
@@ -324,7 +337,7 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
   });
 
-  it('hides persisted breakpoint affordances for planned debugger languages', () => {
+  it('hides desktop-only debugger affordances in the web shell', () => {
     editorStoreState.tabs = [
       {
         id: 'tab-1',
@@ -549,24 +562,39 @@ describe('Toolbar', () => {
   it('keeps unsupported workflow segments hoverable for their help text', () => {
     editorStoreState.tabs = [
       {
-        id: 'tab-python',
-        name: 'main.py',
-        language: 'python',
+        id: 'tab-rust',
+        name: 'main.rs',
+        language: 'rust',
         content: '',
         isDirty: false,
         workflowMode: 'scratchpad',
       },
     ];
-    editorStoreState.activeTabId = 'tab-python';
+    editorStoreState.activeTabId = 'tab-rust';
 
-    render(<Toolbar />);
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
 
-    const debugSegment = screen.getByTestId('workflow-mode-segment-debug');
-    expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
-    expect(debugSegment).not.toHaveProperty('disabled', true);
-    expect(debugSegment.getAttribute('title')).toContain(
-      'Debug is only available for JavaScript and TypeScript today.'
-    );
+    try {
+      render(<Toolbar />);
+
+      const debugSegment = screen.getByTestId('workflow-mode-segment-debug');
+      expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
+      expect(debugSegment).not.toHaveProperty('disabled', true);
+      expect(debugSegment.getAttribute('title')).toContain(
+        'Debug works for JavaScript and TypeScript everywhere, and for Python, Go, and Rust in Lingua Desktop.'
+      );
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
   });
 
   it('localizes the capability badge when i18next is Spanish', async () => {
@@ -633,13 +661,12 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
   });
 
-  it('leaves the floating-pill toolbar as a compact drag spacer', () => {
-    render(<Toolbar showFloatingPill />);
+  it('renders as a visible standalone fallback', () => {
+    render(<Toolbar />);
 
-    expect(screen.getByTestId('toolbar-shell').className).toContain('h-0');
-    expect(screen.queryByTestId('toolbar-run-button')).toBeNull();
-    expect(screen.queryByRole('button', { name: /Toggle sidebar/ })).toBeNull();
-    expect(mockToggleSidebar).not.toHaveBeenCalled();
+    expect(screen.getByTestId('toolbar-shell').className).not.toContain('h-0');
+    expect(screen.getByTestId('toolbar-run-button')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Toggle sidebar/ })).toBeTruthy();
   });
 
   // implementation — developer-utilities + console-toggle + open-file

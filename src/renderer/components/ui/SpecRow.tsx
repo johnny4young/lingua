@@ -19,9 +19,17 @@ export interface SpecRowProps {
   control: ReactNode;
   /** When true, drops the bottom hairline (last row in a card). */
   last?: boolean;
+  /** Stable target used by Settings search to scroll and focus this row. */
+  searchTargetId?: string;
 }
 
-export function SpecRow({ label, description, control, last = false }: SpecRowProps) {
+export function SpecRow({
+  label,
+  description,
+  control,
+  last = false,
+  searchTargetId,
+}: SpecRowProps) {
   const labelId = useId();
   const onlyControl = Children.count(control) === 1 ? Children.only(control) : null;
   const labelledControl =
@@ -35,8 +43,11 @@ export function SpecRow({ label, description, control, last = false }: SpecRowPr
 
   return (
     <div
+      data-settings-search-target={searchTargetId}
+      tabIndex={searchTargetId ? -1 : undefined}
       className={cn(
-        'flex items-center justify-between gap-4 py-[13px]',
+        'flex items-center justify-between gap-4 rounded-md py-[13px] outline-none',
+        searchTargetId && 'focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-bg-base',
         last ? '' : 'border-b border-border-subtle'
       )}
     >

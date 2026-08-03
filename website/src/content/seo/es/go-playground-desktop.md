@@ -1,34 +1,57 @@
 ---
-title: "Go Playground para Desktop — Lingua"
-description: "Un playground Go desktop que ejecuta go build localmente. Resultados inline, gofmt al guardar, editor Monaco y trabajo offline."
-canonical: "https://linguacode.dev/es/go-playground-desktop"
-ogImage: "/assets/og/go-playground-desktop.png"
+title: 'Go Playground para escritorio — Lingua'
+description: 'Ejecuta y depura Go localmente con go build, Delve, inteligencia gopls, gofmt, errores inline, ayuda de dependencias y pruebas de proyecto en desktop.'
+canonical: 'https://linguacode.dev/es/go-playground-desktop'
+ogImage: '/assets/og/go-playground-desktop.png'
 language: go
 ---
 
-# Go Playground — en tu escritorio, usando tu toolchain
+# Go Playground — usa la toolchain de tu escritorio
 
-La mayoría de "Go playgrounds" son sandboxes remotos. No puedes importar un módulo local, no puedes tocar tu red y esperas turno con todos los demás. Lingua ejecuta Go en tu máquina, mediante tu instalación de Go, dentro de un editor Monaco.
+Lingua ejecuta Go localmente en vez de subir tu código a un playground
+compartido. El archivo actual se compila con tu instalación de Go,
+mientras las herramientas desktop agregan gopls, dependencias, pruebas,
+búsqueda y terminal alrededor de una carpeta aprobada.
 
 ## Lo que sí corre
 
-- `go build` compila a WebAssembly (`GOOS=js GOARCH=wasm`) y el binario WASM corre en un worker dentro de la app.
-- El runtime Go WASM (`wasm_exec.js`) se resuelve desde tu instalación, no viene empacado, así Lingua se mantiene compatible con versiones de Go que incluyan ese runtime.
-- Los errores de compilación se mapean a markers de Monaco con línea y columna.
-- `gofmt` es el formateador por defecto para archivos `.go`.
-- Los comentarios inline `//=>` muestran valores junto a la línea que los produjo.
+- `go build` compila el archivo actual a WebAssembly con
+  `GOOS=js GOARCH=wasm`; el resultado corre en un Worker de la app.
+- Los errores de compilación se convierten en markers de Monaco con
+  ubicación de fuente.
+- `gopls` aporta diagnósticos, completions, hover y signature help en
+  desktop cuando el binario está disponible.
+- `gofmt` maneja format-on-save para archivos `.go`.
+- Los comentarios `//=>` muestran valores junto a la línea que los
+  produjo.
+- En un proyecto guardado con `go.mod`, el panel de dependencias puede
+  ejecutar un `go get` confirmado y el runner de pruebas puede correr
+  `go test ./...`.
+- El modo Debug usa Delve mediante DAP para puntos de pausa, step
+  over/into/out, variables locales, call stack del archivo y watches.
 
 ## Lo que no funciona hoy
 
-- Necesitas una toolchain local de Go instalada. La versión web lo muestra como "desktop only" en vez de fallar en silencio.
-- Aún no hay integración Go LSP; hoy solo hay completions básicas de Monaco. El camino LSP real está en internal
-- No hay debugger integrado; internal mantiene ese diseño.
-- Lingua no administra tu `GOPATH` ni tu module proxy.
+- Necesitas Go instalado localmente. La versión web muestra el límite
+  desktop-only en vez de simular que puede ejecutar el archivo.
+- La inteligencia gopls requiere el binario local `gopls`. Settings
+  ofrece detección, guía de instalación y controles de reinicio.
+- La depuración Go requiere un binario local `dlv`. Instálalo con
+  `go install github.com/go-delve/delve/cmd/dlv@latest`; macOS también
+  requiere acceso a las herramientas de desarrollo para la cuenta actual.
+- Debug ejecuta el buffer actual en un módulo temporal de un solo archivo;
+  todavía no depura un módulo guardado completo ni archivos locales importados.
+- El scratchpad compila el archivo actual; no reemplaza un flujo
+  completo de `go run` ni administra tu module proxy o caché.
 
 ## Por qué está en el tier pago
 
-La ejecución de Go es un desbloqueo Pro. El tier Free incluye JavaScript, TypeScript y Python.
+La ejecución de Go es una función de los planes pagos. El acceso
+Education ofrece los mismos entitlements gratis a estudiantes y
+docentes verificados.
 
 ## Descargar
 
-Descarga Lingua en **[https://linguacode.dev/es](https://linguacode.dev/es)**. Source-available bajo la Licencia Comercial de Lingua. Education ofrece Pro gratis para estudiantes y docentes verificados.
+Descarga Lingua en
+**[https://linguacode.dev/es](https://linguacode.dev/es)**.
+Source-available bajo la Licencia Comercial de Lingua.

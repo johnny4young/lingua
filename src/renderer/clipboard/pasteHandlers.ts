@@ -17,17 +17,17 @@
  * (`tests/renderer/clipboard/pasteHandlers.test.ts`).
  */
 import { parseRunCapsule } from '../../shared/runCapsule';
-import { SHARE_FRAGMENT_PREFIX } from '../../shared/sharePayload';
+import { SHARE_FRAGMENT_PREFIX } from '../../shared/shareProtocol';
 import { parseCurlCommand } from '../utils/curlToCode';
 import {
-  decodeBase64,
+  decodeBase64ForDetection,
   detectsAsBase64,
   detectsAsColor,
   detectsAsCron,
   detectsAsJson,
   detectsAsJwt,
   detectsAsUuid,
-} from '../utils/developerUtilities';
+} from '../utils/developerUtilityDetection';
 
 /**
  * Closed set of paste-intent kinds. Telemetry `handler` mirrors these,
@@ -43,20 +43,20 @@ export type PasteIntentKind =
   | 'utility';
 
 /** A pasted Lingua share-link; `fragment` is the `share=v1.<body>` payload. */
-export interface ShareLinkIntent {
+interface ShareLinkIntent {
   kind: 'share-link';
   /** The `share=v1.<base64url>` fragment, ready for `decodeShareFragment`. */
   fragment: string;
 }
 
 /** A pasted RunCapsuleV1 JSON document; `source` is the raw trimmed JSON. */
-export interface CapsuleIntent {
+interface CapsuleIntent {
   kind: 'capsule';
   source: string;
 }
 
 /** A pasted cURL command; `source` is the raw trimmed command text. */
-export interface CurlIntent {
+interface CurlIntent {
   kind: 'curl';
   source: string;
 }
@@ -67,7 +67,7 @@ export interface CurlIntent {
  * router forwards it to the existing `file.open` command, which reveals
  * within-tab today and opens cross-file once internal lands.
  */
-export interface StackTraceIntent {
+interface StackTraceIntent {
   kind: 'stack-trace';
   file: string | null;
   /** 1-based line from the frame. */
@@ -77,7 +77,7 @@ export interface StackTraceIntent {
 }
 
 /** A pasted generic JSON blob over {@link LARGE_JSON_MIN_BYTES}. */
-export interface LargeJsonIntent {
+interface LargeJsonIntent {
   kind: 'large-json';
   source: string;
 }
@@ -102,7 +102,7 @@ export type UtilitySuggestionId =
  * Base64 text, or a small JSON snippet). `source` is the trimmed paste,
  * pre-loaded into the panel when the user accepts.
  */
-export interface UtilityIntent {
+interface UtilityIntent {
   kind: 'utility';
   utilityId: UtilitySuggestionId;
   source: string;
@@ -122,7 +122,7 @@ export type PasteIntent =
  * left as literal text — pasting a tiny object into a JS buffer is almost
  * always intentional code, not "open this as data".
  */
-export const LARGE_JSON_MIN_BYTES = 1024;
+const LARGE_JSON_MIN_BYTES = 1024;
 
 /**
  * Share-link: the trimmed paste must be a single token (no internal
@@ -203,7 +203,7 @@ function detectLargeJson(text: string): LargeJsonIntent | null {
  * utility: the formats below are short values, and analyzing a huge paste
  * on the paste path is wasted work.
  */
-export const UTILITY_SUGGESTION_MAX_CHARS = 10_000;
+const UTILITY_SUGGESTION_MAX_CHARS = 10_000;
 
 /**
  * Bare 3/6-digit hex REQUIRES the leading `#`. `detectsAsColor` accepts
@@ -312,10 +312,9 @@ function isHumanEpoch(digits: string): boolean {
  * control char means "leave it alone".
  */
 function decodesToReadableText(value: string): boolean {
-  const decoded = decodeBase64(value);
-  if (decoded.errorKey !== null || !decoded.value) return false;
-  if (decoded.value.includes('�')) return false;
-  for (const char of decoded.value) {
+  const decoded = decodeBase64ForDetection(value);
+  if (!decoded || decoded.includes('�')) return false;
+  for (const char of decoded) {
     const code = char.codePointAt(0) ?? 0;
     if (code < 0x20 && char !== '\n' && char !== '\r' && char !== '\t') return false;
   }

@@ -1,8 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
-import { clearPendingSettingsTab } from '../../src/renderer/components/Settings/pendingSettingsTab';
+import {
+  clearPendingSettingsTab,
+  requestSettingsTarget,
+} from '../../src/renderer/components/Settings/pendingSettingsTab';
 import { initI18n } from '../../src/renderer/i18n';
 import { _resetCommandBusForTesting, emitCommand } from '../../src/renderer/stores/commandBus';
 import { usePluginStore } from '../../src/renderer/stores/pluginStore';
@@ -177,7 +180,35 @@ describe('SettingsModal', () => {
     expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
   });
 
-  it('preserves rail filter dimming and keyboard focus navigation', () => {
+  it('opens on Account, focuses the token, and keeps apply within five interactions', async () => {
+    requestSettingsTarget('account', 'license-token-input', vi.fn());
+    let steps = 3; // Open palette, search for Apply license, activate the result.
+
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    expect(screen.getByTestId('settings-tab-account').getAttribute('aria-selected')).toBe('true');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByTestId('license-input'));
+    });
+
+    fireEvent.change(screen.getByTestId('license-input'), {
+      target: { value: 'invalid.test.token' },
+    });
+    steps += 1;
+    fireEvent.click(screen.getByTestId('license-apply'));
+    steps += 1;
+
+    expect(steps).toBeLessThanOrEqual(5);
+    await screen.findByTestId('license-input-error');
+  });
+
+  it('shows actionable search results while preserving rail keyboard navigation', () => {
     render(
       <SettingsModal
         onClose={() => {}}
@@ -195,6 +226,17 @@ describe('SettingsModal', () => {
     expect(screen.getByTestId('settings-tab-appearance').getAttribute('data-dim')).toBe(
       'true'
     );
+    expect(screen.getByTestId('settings-search-result-plugins')).toBeTruthy();
+    expect(screen.getByTestId('settings-search-results').getAttribute('role')).toBe(
+      'listbox'
+    );
+    expect(screen.getByRole('option').getAttribute('aria-posinset')).toBe('1');
+    expect(screen.getByRole('option').getAttribute('aria-setsize')).toBe('1');
+
+    fireEvent.change(screen.getByTestId('settings-filter-input'), {
+      target: { value: 'a' },
+    });
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(8);
 
     const general = screen.getByTestId('settings-tab-general');
     const appearance = screen.getByTestId('settings-tab-appearance');
@@ -204,6 +246,94 @@ describe('SettingsModal', () => {
 
     fireEvent.keyDown(appearance, { key: 'End' });
     expect(document.activeElement).toBe(screen.getByTestId('settings-tab-recovery'));
+  });
+
+  it('explains keyboard controls and offers a focused recovery from an empty search', () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    expect(filter.getAttribute('aria-autocomplete')).toBe('list');
+    expect(filter.getAttribute('aria-describedby')).toBe(
+      'settings-search-keyboard-help'
+    );
+    expect(
+      document.getElementById('settings-search-keyboard-help')?.textContent
+    ).toContain('Usa las flechas arriba y abajo');
+
+    fireEvent.change(filter, { target: { value: 'ajuste-inexistente' } });
+
+    expect(screen.getByRole('listbox').children).toHaveLength(0);
+    expect(screen.getByText('No se encontraron ajustes')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Prueba un término más amplio o busca una sección como Editor, Privacidad o Cuenta.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain(
+      'No se encontraron ajustes para ajuste-inexistente'
+    );
+
+    const clear = screen.getByRole('button', { name: 'Limpiar búsqueda' });
+    fireEvent.click(clear);
+
+    expect((filter as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(filter);
+    expect(screen.queryByTestId('settings-search-popover')).toBeNull();
+  });
+
+  it('jumps across tabs and focuses a localized control result', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    fireEvent.change(filter, { target: { value: 'telemetria' } });
+    fireEvent.click(screen.getByTestId('settings-search-result-telemetry'));
+
+    expect(screen.getByTestId('settings-tab-privacy').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    expect((filter as HTMLInputElement).value).toBe('');
+
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-settings-search-target')).toBe(
+        'privacy-telemetry'
+      );
+    });
+  });
+
+  it('selects search results with arrow keys and Enter', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    const filter = screen.getByTestId('settings-filter-input');
+    fireEvent.change(filter, { target: { value: 'font' } });
+    fireEvent.keyDown(filter, { key: 'ArrowDown' });
+    fireEvent.keyDown(filter, { key: 'Enter' });
+
+    expect(screen.getByTestId('settings-tab-editor').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-settings-search-target')).toBe(
+        'editor-font-size'
+      );
+    });
   });
 
   it('sets aria-controls only on the active tab so inactive tabs never reference an unmounted panel', () => {

@@ -39,6 +39,31 @@ describe('implementation — result store snapshot ring', () => {
     ]);
   });
 
+  it('captures exact source lines only for sticky inline results', () => {
+    useResultStore.setState({
+      lineResults: [
+        { line: 1, value: '2', type: 'result' },
+        { line: 2, value: '2', type: 'watch' },
+        { line: 3, value: '3', type: 'autoLog' },
+      ],
+      fullOutput: '',
+    });
+
+    useResultStore
+      .getState()
+      .captureSuccessfulSnapshot(
+        'javascript',
+        'const value = 2;\nvalue; // @watch value\nvalue + 1'
+      );
+
+    expect(
+      useResultStore.getState().lastSuccessfulSnapshot?.stickySourceLines
+    ).toEqual({
+      'watch:2': 'value; // @watch value',
+      'autoLog:3': 'value + 1',
+    });
+  });
+
   it('caps the ring at 3 entries by evicting the oldest unpinned', () => {
     for (let index = 0; index < 5; index += 1) {
       useResultStore.setState({

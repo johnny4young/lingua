@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { SnippetsModal } from '../../src/renderer/components/Snippets';
@@ -205,13 +205,13 @@ describe('SnippetsModal', () => {
     expect(undo).toBeTruthy();
 
     // Undo restores the middle snippet at index 1 with its original id.
-    undo!.onClick();
+    act(() => undo!.onClick());
     const restored = useSnippetsStore.getState().snippets;
     expect(restored.map((s) => s.label)).toEqual(['First', 'Middle', 'Last']);
     expect(restored[1]!.id).toBe(middleId);
 
     // A second undo is a no-op (no duplicate).
-    undo!.onClick();
+    act(() => undo!.onClick());
     expect(useSnippetsStore.getState().snippets).toHaveLength(3);
   });
 
@@ -241,13 +241,15 @@ describe('SnippetsModal', () => {
       .statusNotice?.actions?.find((a) => a.labelKey === 'common.undo');
     expect(undo).toBeTruthy();
 
-    useSnippetsStore.getState().addSnippet({
-      label: 'Replacement',
-      description: '',
-      language: 'python',
-      code: 'replacement',
+    act(() => {
+      useSnippetsStore.getState().addSnippet({
+        label: 'Replacement',
+        description: '',
+        language: 'python',
+        code: 'replacement',
+      });
+      undo!.onClick();
     });
-    undo!.onClick();
 
     expect(useSnippetsStore.getState().snippets.map((s) => s.label)).toEqual([
       'Keep',
@@ -361,6 +363,8 @@ describe('SnippetsModal', () => {
     render(<SnippetsModal onClose={vi.fn()} />);
 
     expect(screen.getByDisplayValue('Target')).toBeTruthy();
-    expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBeNull();
+    await waitFor(() => {
+      expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBeNull();
+    });
   });
 });

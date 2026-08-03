@@ -10,6 +10,7 @@
 import { typedHandle } from './ipc/typedHandle';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import type { FormatIpcResult } from '../shared/formatterTypes';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { RUST_EDITION } from './rust-compiler';
 
@@ -17,29 +18,9 @@ const execFileAsync = promisify(execFile);
 const FORMATTER_TOOLCHAIN_KEYS = combinedAllowlist([]);
 const MAX_FORMATTER_OUTPUT_BYTES = 1024 * 1024;
 
-export function resolveFormatterEnv(): NodeJS.ProcessEnv {
+function resolveFormatterEnv(): NodeJS.ProcessEnv {
   return buildNativeRunnerEnv(FORMATTER_TOOLCHAIN_KEYS, undefined);
 }
-
-export interface FormatBinaryMissing {
-  available: false;
-  reason: 'binary-missing';
-  error: string;
-}
-
-export interface FormatSuccess {
-  available: true;
-  success: true;
-  formatted: string;
-}
-
-export interface FormatFailure {
-  available: true;
-  success: false;
-  error: string;
-}
-
-export type FormatIpcResult = FormatBinaryMissing | FormatSuccess | FormatFailure;
 
 /**
  * Negative probe results expire so a user who installs a formatter while

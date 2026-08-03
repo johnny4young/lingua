@@ -3,16 +3,17 @@ import { createPortal } from 'react-dom';
 import { Eye, GripVertical, Minimize2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
-import { useActiveTab } from '../../hooks/useActiveTab';
-import { useResultStore } from '../../stores/resultStore';
 import { useUIStore } from '../../stores/uiStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import { cn } from '../../utils/cn';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
-import type { ScopeValue } from '../../../shared/scopeSnapshot';
+import type { ScopeSnapshot, ScopeValue } from '../../../shared/scopeSnapshot';
+import type { FileTab } from '../../types/editor';
 
-const SUPPORTED_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
+export interface FloatingVariablesCardProps {
+  readonly activeTabId: FileTab['id'];
+  readonly scopeSnapshot: ScopeSnapshot;
+}
 
 function valueKind(value: ScopeValue): string {
   switch (value.kind) {
@@ -44,32 +45,17 @@ function valuePreview(value: ScopeValue): string {
   }
 }
 
-export function FloatingVariablesCard() {
+export function FloatingVariablesCard({ activeTabId, scopeSnapshot }: FloatingVariablesCardProps) {
   const { t } = useTranslation();
-  const activeTab = useActiveTab();
   const setTabVariableInspectorEnabled = useEditorStore(
-    (state) => state.setTabVariableInspectorEnabled,
+    state => state.setTabVariableInspectorEnabled
   );
-  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
-  const variableInspectorSurface = useSettingsStore(
-    (state) => state.variableInspectorSurface,
-  );
-  const variablesCardPosition = useUIStore((state) => state.variablesCardPosition);
-  const setVariablesCardPosition = useUIStore((state) => state.setVariablesCardPosition);
-  const variablesCardCollapsed = useUIStore((state) => state.variablesCardCollapsed);
-  const toggleVariablesCardCollapsed = useUIStore((state) => state.toggleVariablesCardCollapsed);
-  const floatingPositionsResetRevision = useUIStore(
-    (state) => state.floatingPositionsResetRevision,
-  );
+  const variablesCardPosition = useUIStore(state => state.variablesCardPosition);
+  const setVariablesCardPosition = useUIStore(state => state.setVariablesCardPosition);
+  const variablesCardCollapsed = useUIStore(state => state.variablesCardCollapsed);
+  const toggleVariablesCardCollapsed = useUIStore(state => state.toggleVariablesCardCollapsed);
+  const floatingPositionsResetRevision = useUIStore(state => state.floatingPositionsResetRevision);
   const wasDraggingRef = useRef(false);
-
-  const enabled =
-    variableInspectorSurface === 'floating' &&
-    activeTab?.variableInspectorEnabled === true &&
-    activeTab.runtimeMode !== 'node' &&
-    SUPPORTED_LANGUAGES.has(activeTab.language) &&
-    scopeSnapshot !== null &&
-    scopeSnapshot.language === activeTab.language;
 
   // Default to right-aligned but below the action pill + panel chips
   // so the card doesn't overlap them on first mount. y=180 keeps the
@@ -101,8 +87,6 @@ export function FloatingVariablesCard() {
     setVariablesCardPosition(position);
   }, [isDragging, position, setVariablesCardPosition]);
 
-  if (!enabled || !activeTab || !scopeSnapshot) return null;
-
   const container = typeof document !== 'undefined' ? document.body : null;
   if (!container) return null;
 
@@ -113,10 +97,7 @@ export function FloatingVariablesCard() {
     <section
       data-testid="floating-variables-card"
       data-collapsed={variablesCardCollapsed ? 'true' : 'false'}
-      className={cn(
-        'floating-variables-card fixed',
-        isDragging ? 'select-none' : '',
-      )}
+      className={cn('floating-variables-card fixed', isDragging ? 'select-none' : '')}
       style={{ left: position.x, top: position.y, zIndex: 35 }}
       aria-label={t('variableInspector.floating.title')}
     >
@@ -149,7 +130,7 @@ export function FloatingVariablesCard() {
         <button
           type="button"
           className="inline-flex size-6 items-center justify-center rounded-md text-fg-subtle hover:bg-bg-panel-alt hover:text-fg-base"
-          onClick={() => setTabVariableInspectorEnabled(activeTab.id, false)}
+          onClick={() => setTabVariableInspectorEnabled(activeTabId, false)}
           aria-label={t('variableInspector.floating.close')}
         >
           <X size={12} aria-hidden />
@@ -164,7 +145,7 @@ export function FloatingVariablesCard() {
                 {t('variableInspector.panel.empty')}
               </p>
             ) : (
-              entries.map((entry) => (
+              entries.map(entry => (
                 <div key={entry.name} className="floating-variables-row">
                   <div className="min-w-0">
                     <p className="truncate font-mono text-caption font-semibold text-accent-fg">
@@ -188,6 +169,6 @@ export function FloatingVariablesCard() {
         </>
       )}
     </section>,
-    container,
+    container
   );
 }

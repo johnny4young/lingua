@@ -41,7 +41,6 @@ import {
   asRootId,
   type RelativePath,
   type RootId,
-  type WatchId,
 } from '../../shared/fs/brandedIds';
 
 /**
@@ -58,7 +57,7 @@ import {
  * `RootId` is an opaque, unguessable token; the renderer treats it as a
  * black box and only main can interpret it.
  */
-export type { RelativePath, RootId, WatchId };
+export type { RelativePath, RootId };
 
 interface CapabilityEntry {
   /** Canonical absolute path of the approved root. */

@@ -41,6 +41,11 @@ import { promisify } from 'node:util';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import type {
+  AltJsDetectResult,
+  AltJsRunKind,
+  AltJsRunResult,
+} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(execFile);
 
@@ -49,30 +54,13 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
 const STDERR_TRUNCATION_MARKER = '\n[stderr truncated]';
 
-export type AltJsRuntimeId = 'deno' | 'bun';
-export type AltJsRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
+type AltJsRuntimeId = 'deno' | 'bun';
 
-export interface AltJsDetectResult {
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
-
-export interface AltJsRunOptions {
+interface AltJsRunOptions {
   runId?: string;
   timeoutMs?: number;
   language?: string;
   userEnv?: Record<string, string>;
-}
-
-export interface AltJsRunResult {
-  kind: AltJsRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  timeoutMs: number;
 }
 
 interface RuntimeConfig {
@@ -118,7 +106,7 @@ function resolveEnv(id: AltJsRuntimeId, userEnv?: Record<string, string>): NodeJ
   return buildNativeRunnerEnv(combinedAllowlist(CONFIGS[id].toolchainKeys), userEnv);
 }
 
-export async function detectAltRuntime(
+async function detectAltRuntime(
   id: AltJsRuntimeId,
   userEnv?: Record<string, string>,
   force = false
@@ -291,7 +279,7 @@ async function spawnAltRuntime(
   });
 }
 
-export async function runAltRuntime(
+async function runAltRuntime(
   id: AltJsRuntimeId,
   source: string,
   options: AltJsRunOptions
@@ -332,7 +320,7 @@ function normalizeStringMap(value: unknown): Record<string, string> | undefined 
   return out;
 }
 
-export function normalizeAltRunOptions(value: unknown): AltJsRunOptions {
+function normalizeAltRunOptions(value: unknown): AltJsRunOptions {
   if (!isRecord(value)) return {};
   return {
     runId: typeof value.runId === 'string' ? value.runId : undefined,

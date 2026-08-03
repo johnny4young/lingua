@@ -144,9 +144,10 @@ export function Tooltip({
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<TooltipPosition | null>(null);
+  const tooltipIsOpen = isOpen && !disabled;
 
   useLayoutEffect(() => {
-    if (!isOpen || !triggerRef.current || !tooltipRef.current) {
+    if (!tooltipIsOpen || !triggerRef.current || !tooltipRef.current) {
       return;
     }
 
@@ -175,13 +176,18 @@ export function Tooltip({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [isOpen, side]);
+  }, [tooltipIsOpen, side]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setPosition(null);
-    }
-  }, [isOpen]);
+  const openTooltip = () => {
+    if (disabled) return;
+    setPosition(null);
+    setIsOpen(true);
+  };
+
+  const closeTooltip = () => {
+    setIsOpen(false);
+    setPosition(null);
+  };
 
   if (!isValidElement(children)) {
     return children;
@@ -191,7 +197,7 @@ export function Tooltip({
   const child = cloneElement(childElement, {
     'aria-describedby': mergeDescribedBy(
       childElement.props['aria-describedby'],
-      isOpen ? tooltipId : undefined
+      tooltipIsOpen ? tooltipId : undefined
     ),
   });
 
@@ -208,26 +214,18 @@ export function Tooltip({
       <span
         ref={triggerRef}
         className="inline-flex"
-        onMouseEnter={() => {
-          if (!disabled) {
-            setIsOpen(true);
-          }
-        }}
-        onMouseLeave={() => setIsOpen(false)}
-        onFocusCapture={() => {
-          if (!disabled) {
-            setIsOpen(true);
-          }
-        }}
+        onMouseEnter={openTooltip}
+        onMouseLeave={closeTooltip}
+        onFocusCapture={openTooltip}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-            setIsOpen(false);
+            closeTooltip();
           }
         }}
       >
         {child}
       </span>
-      {isOpen && typeof document !== 'undefined'
+      {tooltipIsOpen && typeof document !== 'undefined'
         ? createPortal(
             <div
               ref={tooltipRef}

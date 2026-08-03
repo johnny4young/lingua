@@ -41,22 +41,22 @@ Forge builds see repo-root `.env` / `.env.production` values. See
 `vite.web.config.mts`, `vite.renderer.config.mts`, and `vite.main.config.mts`
 for the wiring.
 
-| Name                                 | Scope                 | Purpose                                                                                                                                                 |
-| ------------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_BASE_PATH`                     | web build             | Public base path for the standalone web bundle. Defaults to `/`; Cloudflare Pages deploys `app.linguacode.dev` from `/`.                                |
+| Name                                 | Scope                 | Purpose                                                                                                                                                           |
+| ------------------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_BASE_PATH`                     | web build             | Public base path for the standalone web bundle. Defaults to `/`; Cloudflare Pages deploys `app.linguacode.dev` from `/`.                                          |
 | `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` | renderer + main build | Ordered Ed25519 verification keyring (one JWK or a JSON array during overlap). Missing or malformed values keep every build on Free / local-verify failure paths. |
 | `LINGUA_LICENSE_PUBLIC_KEY_JWK`      | main build            | Main-process alias for the same ordered keyring. `vite.main.config.mts` accepts either this or the `VITE_` form.                                                  |
-| `VITE_LINGUA_LICENSE_SERVER_URL`     | renderer + main build | License-server base URL for activation, status, recovery, education, and trial endpoints. Unset keeps web/desktop server sync disabled.                 |
-| `LINGUA_LICENSE_SERVER_URL`          | main build + runtime  | Desktop main-process override for the license-server base URL. Dev launchers can set it without rebuilding main.                                        |
-| `VITE_LINGUA_UPDATE_SERVER_URL`      | web renderer build    | Update-server base URL for the web update banner. Defaults to `https://updates.linguacode.dev`.                                                         |
-| `LINGUA_UPDATE_URL`                  | main build            | Desktop update-server base URL baked into the main bundle. Defaults to `https://updates.linguacode.dev`.                                                |
-| `VITE_LINGUA_APP_VERSION`            | renderer build        | App version exposed to telemetry and web update checks. Seeded automatically from `package.json#version`; override only for release tests.              |
-| `LINGUA_WEBSITE_URL`                 | shared build metadata | Optional website URL override for app metadata. Falls back to `package.json#homepage` when present.                                                     |
-| `VITE_LINGUA_WEB_RUNTIME_BASE`       | web production build  | Public runtime prefix for oversized DuckDB/Ruby WASM. Defaults to `https://downloads.linguacode.dev/web-runtime`; deploys set it from `R2_PUBLIC_BASE`. |
-| `VITE_LINGUA_TELEMETRY_URL`          | renderer build        | HTTPS endpoint that receives redacted telemetry events when the user has opted in. Unset disables telemetry.                                            |
-| `VITE_LINGUA_TELEMETRY_DISABLED`     | renderer build        | Set to `1` to disable telemetry regardless of user choice.                                                                                              |
-| `LINGUA_CRASH_REPORTER_URL`          | main runtime          | Minidump submission endpoint. Unset disables crash reporting.                                                                                           |
-| `LINGUA_CRASH_REPORTER_DISABLED`     | main runtime          | Set to `1` to disable crash reporting regardless of user choice.                                                                                        |
+| `VITE_LINGUA_LICENSE_SERVER_URL`     | renderer + main build | License-server base URL for activation, status, recovery, education, and trial endpoints. Unset keeps web/desktop server sync disabled.                           |
+| `LINGUA_LICENSE_SERVER_URL`          | main build + runtime  | Desktop main-process override for the license-server base URL. Dev launchers can set it without rebuilding main.                                                  |
+| `VITE_LINGUA_UPDATE_SERVER_URL`      | web renderer build    | Update-server base URL for the web update banner. Defaults to `https://updates.linguacode.dev`.                                                                   |
+| `LINGUA_UPDATE_URL`                  | main build            | Desktop update-server base URL baked into the main bundle. Defaults to `https://updates.linguacode.dev`.                                                          |
+| `VITE_LINGUA_APP_VERSION`            | renderer build        | App version exposed to telemetry and web update checks. Seeded automatically from `package.json#version`; override only for release tests.                        |
+| `LINGUA_WEBSITE_URL`                 | shared build metadata | Optional website URL override for app metadata. Falls back to `package.json#homepage` when present.                                                               |
+| `VITE_LINGUA_WEB_RUNTIME_BASE`       | web production build  | Public runtime prefix for oversized DuckDB/Ruby WASM. Defaults to `https://downloads.linguacode.dev/web-runtime`; deploys set it from `R2_PUBLIC_BASE`.           |
+| `VITE_LINGUA_TELEMETRY_URL`          | renderer build        | HTTPS endpoint that receives redacted telemetry events when the user has opted in. Unset disables telemetry.                                                      |
+| `VITE_LINGUA_TELEMETRY_DISABLED`     | renderer build        | Set to `1` to disable telemetry regardless of user choice.                                                                                                        |
+| `LINGUA_CRASH_REPORTER_URL`          | main runtime          | Minidump submission endpoint. Unset disables crash reporting.                                                                                                     |
+| `LINGUA_CRASH_REPORTER_DISABLED`     | main runtime          | Set to `1` to disable crash reporting regardless of user choice.                                                                                                  |
 
 Use [`.env.example`](../.env.example) as the safe template for local overrides. Never commit private keys, API tokens, signing certificates, webhook secrets, or real customer license tokens.
 
@@ -94,7 +94,13 @@ reference for what each command owns.
 | `dev:desktop:prod`           | Production-mode desktop dev launcher for packaged-env parity checks.                                                                                                                                                                 |
 | `build:web`                  | Production web bundle under `dist/web`.                                                                                                                                                                                              |
 | `build:cli`                  | Rebuilds the distributable `lingua` CLI bundle.                                                                                                                                                                                      |
+| `package:cli`                | Builds and validates the public npm tarball; on Linux/Windows x64 it also emits a native Node single-executable archive, with optional post-injection Authenticode signing on Windows.                                                                                       |
+| `check:cli-publication`      | Verifies that a stable release's npm tarball matches its checksum, version, public manifest, repository identity, and exact four-file allowlist without authenticating or publishing.                                                                                       |
+| `check:cli-publish-prereqs`  | Uses the authenticated GitHub CLI plus the public npm registry to inspect release immutability, the protected environment and reviewer count, bootstrap-secret presence, and package state without reading secret values or changing external configuration.               |
+| `check:windows-signing-prereqs` | Uses the authenticated GitHub CLI to inspect only the names of the two repository secrets required by the Authenticode path, while keeping certificate trust and draft-release verification explicit manual gates.                                          |
+| `distribution:status`       | Reads public GitHub/npm state and compares it with the generated Homebrew/winget manifests; emits Markdown, JSON, or bilingual standalone HTML without publishing or changing a registry.                                                                                  |
 | `preview:web`                | Serves the latest built web bundle locally.                                                                                                                                                                                          |
+| `smoke:project-templates`    | Materializes, installs, and executes every curated multi-file project template, then writes a diagnostic JSON artifact.                                                                                                              |
 | `smoke:desktop:stagewright`  | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke.                                                                                                                                                 |
 | `smoke:desktop`              | Full desktop smoke flow against the dev server.                                                                                                                                                                                      |
 | `smoke:desktop:offline`      | Desktop smoke with non-loopback network requests blocked.                                                                                                                                                                            |
@@ -110,12 +116,13 @@ reference for what each command owns.
 | `check:license-rotation`     | Asserts the embedded verification keyring is registered, ordered, non-drifted, public-only, and that its active key is inside the rotation SLA (`docs/security/license-key-registry.json`).                                          |
 | `check:prod-audit`           | Fails closed on a `high`/`critical` advisory in the production dependency graph (`pnpm audit --prod`); runs in PR CI and release.                                                                                                    |
 | `performance:report`         | Collects bundle/runtime performance measurements.                                                                                                                                                                                    |
+| `performance:activation`     | Repeats cold web and desktop activation/first-Run samples and writes median/IQR diagnostics plus current eager runner import evidence.                                                                                               |
 | `performance:baseline`       | Rewrites the committed performance baseline from current measurements.                                                                                                                                                               |
 | `check:performance`          | Compares current measurements against the committed baseline.                                                                                                                                                                        |
 | `changelog:draft`            | Drafts changelog entries from conventional commits.                                                                                                                                                                                  |
 | `changelog:check`            | Blocks version/changelog drift before release.                                                                                                                                                                                       |
 | `test`                       | Runs the Vitest suite once.                                                                                                                                                                                                          |
-| `check:deadcode`             | Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies. Unused _exports_ are excluded from the gate — run `pnpm exec knip` for the full advisory report.                                               |
+| `check:deadcode`             | Complete Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, and unexpected binaries. Known host commands used by platform scripts, completion tests, and benchmarks are allowlisted explicitly. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
 | `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |
@@ -125,6 +132,7 @@ reference for what each command owns.
 | `check:i18n`                 | Validates locale shape and key parity.                                                                                                                                                                                               |
 | `check:i18n:copy`            | Flags obvious hardcoded renderer copy in touched files.                                                                                                                                                                              |
 | `format`                     | Runs Prettier over source, JSON, Markdown, and CSS files.                                                                                                                                                                            |
+| `prepare:node-pty`           | Restores executable permissions on node-pty's Unix `spawn-helper`; desktop builds run it automatically before packaging.                                                                                                           |
 | `build:desktop-bundles`      | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package.                                                                                                                                          |
 | `package:desktop`            | Builds an unpacked desktop app (`electron-builder --dir`, ad-hoc signed).                                                                                                                                                            |
 | `make:desktop`               | Builds installers for the host platform with electron-builder.                                                                                                                                                                       |
@@ -132,7 +140,7 @@ reference for what each command owns.
 | `make:desktop:linux`         | Builds Linux installers/artifacts (AppImage).                                                                                                                                                                                        |
 | `make:desktop:win`           | Builds Windows installers/artifacts (NSIS).                                                                                                                                                                                          |
 | `publish:desktop`            | Builds and publishes installers + the auto-update feed to GitHub Releases.                                                                                                                                                           |
-| `prepare`                    | Rebuilds the CLI bundle after install/pull.                                                                                                                                                                                          |
+| `prepare`                    | Verifies node-pty's Unix helper permissions and rebuilds the CLI bundle after install/pull.                                                                                                                                         |
 
 ## i18n contributor workflow
 
@@ -174,6 +182,38 @@ export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 ```
 
 Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation — see the smoke section below.
+
+## Curated project template runtime smoke
+
+The structural template tests prove schema, path, license, and catalog
+invariants. Use the runtime smoke when changing a curated multi-file scaffold:
+
+```bash
+pnpm run smoke:project-templates
+```
+
+The runner creates an isolated directory for every catalog entry, writes the
+exact files users receive, installs the dependencies declared by the generated
+project, and exercises its meaningful path:
+
+- Express and FastAPI start on an ephemeral loopback port and their `/hello`
+  responses are checked.
+- The Node CLI parses a real `--name` argument.
+- The React starter type-checks, builds, and serves through Vite; the compiled
+  asset must contain the curated Counter component.
+- The Python data starter runs against pandas and checks its computed summary.
+
+Each Python project gets its own virtual environment, and each Node project
+gets its own `node_modules`; there is no dependency on Lingua's transitive
+packages. The command therefore needs package-registry access and a working
+`python3` with `venv`. Override the interpreter with
+`pnpm run smoke:project-templates -- --python /path/to/python`.
+
+The machine-readable result is written to
+`output/project-template-smoke/project-template-smoke-summary.json`. CI runs
+the same command and uploads that artifact even when a template fails, so a red
+check includes the install, command, response, duration, stdout, and stderr
+needed to reproduce it.
 
 ## Desktop dev and validation
 
@@ -274,6 +314,12 @@ What it does:
 - launches the real Electron app against the renderer dev server
 - runs a built-in smoke flow across JavaScript, TypeScript, Python, Go, and Rust
 - captures per-language screenshots and a JSON summary under `output/playwright/desktop-smoke`
+
+The production renderer keeps only a lightweight bridge check for this flow.
+The smoke cases and artifact orchestration load after Electron injects the
+desktop-smoke bridge. If that runner chunk cannot load or start, the renderer
+reports `finish(false)` immediately so CI fails without waiting for the outer
+watchdog.
 
 Failure artifacts:
 

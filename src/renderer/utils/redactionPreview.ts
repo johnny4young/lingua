@@ -3,7 +3,6 @@ import {
   REDACTION_VERSION,
   keyLooksSensitive,
   redactFlatRecord,
-  valueLooksSensitive,
 } from '../../shared/redaction';
 
 /**
@@ -110,4 +109,4 @@ function emptyResult(): RedactionPreviewResult {
 // Re-export the canonical helpers so call-sites can verify that
 // `applyRedactionPreview` truly delegates to the same primitives the
 // capsule + share-link pipelines use.
-export { keyLooksSensitive, valueLooksSensitive, DENY_SUBSTRINGS };
+export { DENY_SUBSTRINGS };

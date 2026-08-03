@@ -3,9 +3,8 @@ import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import { runnerManager } from '../runners';
-import { executeAutoRun } from './autoRunExecution';
 import { useTelemetry } from './useTelemetry';
+import { loadAutoRunExecution } from './autoRunExecutionLoader';
 import {
   isSameAutoRunInput,
   resolveAutoLogEnabled,
@@ -16,7 +15,6 @@ import {
 export {
   AUTO_RUN_DEBOUNCE_MS,
   bucketAutoLogCount,
-  type AutoLogCountBucket,
 } from './autoRunModel';
 
 /** Auto-run the active Scratchpad after its runtime-specific typing pause. */
@@ -100,7 +98,7 @@ export function useAutoRun() {
         resultState.executionSource === 'auto' &&
         runtimeMode === 'browser-preview'
       ) {
-        runnerManager.stop(language, runtimeMode);
+        stopRunner(language, runtimeMode);
       }
       resultState.setIsAutoRunning(false);
       resultState.setAutoRunGateReason(null);
@@ -150,14 +148,25 @@ export function useAutoRun() {
 
       lastRunInputRef.current = input;
       abortRef.current = false;
-      await executeAutoRun({
-        input,
-        activeTab,
-        activeTabId,
-        shouldDiscard,
-        finish,
-        track,
-      });
+      try {
+        const { executeAutoRun } = await loadAutoRunExecution();
+        if (isRunStale()) return;
+        await executeAutoRun({
+          input,
+          activeTab,
+          activeTabId,
+          shouldDiscard,
+          finish,
+          track,
+        });
+      } catch (error) {
+        if (!isRunStale()) {
+          useResultStore.getState().setError({
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+        finish();
+      }
     }, autoRunSchedule.debounceMs);
 
     return () => {
@@ -170,7 +179,7 @@ export function useAutoRun() {
         resultState.isAutoRunning &&
         resultState.executionSource === 'auto'
       ) {
-        runnerManager.stop(language, runtimeMode);
+        stopRunner(language, runtimeMode);
         resultState.setIsAutoRunning(false);
         resultState.setExecutionSource(null);
       }
@@ -193,6 +202,20 @@ export function useAutoRun() {
     lastRunInputRef.current = null;
     useResultStore.getState().clear();
   }, [activeTabId]);
+}
+
+function stopRunner(
+  language: AutoRunInput['language'],
+  runtimeMode: AutoRunInput['runtimeMode']
+): void {
+  void import('../runners')
+    .then(({ runnerManager }) => {
+      runnerManager.stop(language, runtimeMode);
+    })
+    .catch(() => {
+      // Best-effort cancellation during teardown. A chunk-load failure cannot
+      // leave visible running state behind because the caller clears it first.
+    });
 }
 
 function cancelTimer(

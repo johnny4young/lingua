@@ -1,7 +1,7 @@
 import {
   createBlankHttpRequest,
   type HttpRequestV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import type { CurlImporterResult } from '../../shared/importers/curlImporter';
 import type { IpynbImporterResult } from '../../shared/importers/ipynbImporter';
 import type { LinguanbImporterResult } from '../../shared/importers/linguanbImporter';
@@ -9,7 +9,7 @@ import type { CollectionImporterResult } from '../../shared/importers/postmanImp
 import { getImporter } from '../../shared/importers/registry';
 import { bucketCapsuleSize } from '../../shared/runCapsule';
 import { openHttpWorkspaceTab } from '../runtime/openWorkspaceTab';
-import { useEditorStore } from '../stores/editorStore';
+import { createDefaultTab, useEditorStore } from '../stores/editorStore';
 import { useNotebookStore } from '../stores/notebookStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
 import {
@@ -45,6 +45,28 @@ export function confirmImportPreview(
   if (state.phase !== 'previewed' || !state.importerId || !state.preview) {
     return NOT_CONFIRMED;
   }
+
+  if (
+    state.importerId === 'playground-url' &&
+    state.preview.kind === 'playground-source'
+  ) {
+    const tab = {
+      ...createDefaultTab(state.preview.language),
+      name: state.preview.title,
+      content: state.preview.source,
+    };
+    useEditorStore.getState().addTab(tab);
+    const created = useEditorStore
+      .getState()
+      .tabs.some((entry) => entry.id === tab.id);
+    if (!created) {
+      trackApplied(state, 'playground-url', 'cancelled');
+      return completed(null);
+    }
+    trackApplied(state, 'playground-url', 'ok');
+    return completed({ kind: 'playground-url', editorTabId: tab.id });
+  }
+
   const adapter = getImporter(state.importerId);
   if (!adapter) return NOT_CONFIRMED;
 
@@ -52,7 +74,7 @@ export function confirmImportPreview(
     const result = adapter.import(state.preview) as CurlImporterResult;
     const request = toHttpRequest(result, deriveRequestName(result));
     useWorkspaceToolStore.getState().createRequest(request);
-    openHttpWorkspaceTab({ adoptEntryId: request.id });
+    openHttpWorkspaceTab();
     trackApplied(state, 'curl-http', 'ok');
     return completed({ kind: 'curl-http', request });
   }
@@ -110,7 +132,7 @@ export function confirmImportPreview(
     if (requests.length === 0) return completed(null);
 
     useWorkspaceToolStore.getState().createRequests(requests);
-    openHttpWorkspaceTab({ adoptEntryId: requests[0]?.id });
+    openHttpWorkspaceTab();
     trackApplied(state, state.importerId, 'ok');
     trackPostmanResolution(state);
     return completed({

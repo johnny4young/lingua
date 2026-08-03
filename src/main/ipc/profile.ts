@@ -13,7 +13,7 @@ import type { Result } from '../../shared/result';
 import { typedHandle } from './typedHandle';
 import { translateCommon } from '../../shared/i18n/runtime';
 
-export interface ConfirmReplaceCounts {
+interface ConfirmReplaceCounts {
   snippets: number;
   envVars: number;
 }

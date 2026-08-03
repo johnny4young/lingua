@@ -22,6 +22,9 @@ planning metadata. It is separate from `RELEASE.md`, which gates binaries.
   `THIRD_PARTY_NOTICES.md`, and `docs/RELEASE_SECURITY.md`.
 - Desktop signing setup is documented in `docs/MACOS_SIGNING.md` and
   `docs/WINDOWS_SIGNING.md`.
+- Preserve `check:windows-signing-prereqs` JSON evidence for any candidate that
+  claims Authenticode trust. Secret-name readiness does not replace the two
+  `Valid` workflow summaries or the clean Windows 11 behavior pass.
 - `.env.example` exists and contains placeholders only.
 - Machine-local absolute Markdown links are blocked by
   `tests/docs/publicDocs.test.ts`.
@@ -88,6 +91,19 @@ change commit ids and require force-pushing private branches/tags.
   update-endpoint bypass check, and `updates.linguacode.dev/web/version`
   response.
 - For Linux releases, confirm the AppImage and `latest-linux.yml` are attached.
+- For CLI releases, confirm `publish-cli.yml` consumed the immutable GitHub
+  Release tarball and checksum manifest, and verified their signed release
+  attestations before requesting environment approval. Confirm the protected
+  job repeated payload verification after artifact transfer. The first publish
+  requires one short-lived granular token with read/write access to the
+  `@linguacode` scope and Bypass 2FA enabled for that bootstrap only. Revoke it
+  after stage-only trusted publishing is configured; subsequent staged versions
+  require 2FA approval and a clean public-install rerun after approval.
+- Preserve `check:cli-publish-prereqs` JSON evidence from before the candidate:
+  immutable releases enabled, `npm-production` present with required reviewers,
+  and bootstrap-secret presence matching whether the package exists. The report
+  is read-only and verifies secret names only; review the npm trusted-publisher
+  policy separately after bootstrap.
 - For macOS/Windows releases, complete
   `docs/runbooks/desktop-update-draft-validation.md` and preserve the workflow
   structure/signing evidence.

@@ -15,6 +15,8 @@ import path from 'node:path';
 import { OPEN_FILE_FILTERS } from '../../../shared/filePickerTypes';
 import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { translateCommon } from '../../../shared/i18n/runtime';
+import { disposeProjectTerminalSessionsForRoot } from '../../projectTerminal';
+import { disposeLocalMcpServerForRoot } from '../../localMcp';
 import { blockedPathFamily, isPathBlocked, isSafeEntryName } from '../permissions';
 import {
   mintFileCapability,
@@ -230,6 +232,8 @@ export function registerFileOperationHandlers(): void {
   });
 
   typedHandle('fs:revoke-root', (_event, rootId: RootId) => {
+    disposeProjectTerminalSessionsForRoot(rootId);
+    void disposeLocalMcpServerForRoot(rootId);
     return revokeRoot(rootId);
   });
 
@@ -393,6 +397,14 @@ export function registerFileOperationHandlers(): void {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     return readFile(absolutePath, 'utf-8');
   });
+
+  typedHandle(
+    'fs:read-bytes',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
+      return new Uint8Array(await readFile(absolutePath));
+    }
+  );
 
   // ----------------------------------------------------------------- write
 

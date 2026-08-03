@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Language } from '../types';
+import type { Language } from '../types/language';
 import { languageFromPath } from '../utils/language';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
@@ -10,7 +10,7 @@ export interface ProjectIndexEntry {
   language?: Language;
 }
 
-export type ProjectIndexStatus = 'idle' | 'loading' | 'ready' | 'error';
+type ProjectIndexStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface ProjectIndexState {
   /** Capability id of the project the current index belongs to, if any. */

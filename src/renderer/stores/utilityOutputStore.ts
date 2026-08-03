@@ -22,7 +22,7 @@ import { create } from 'zustand';
 
 export type UtilityOutputProvider = () => string | null;
 
-export interface UtilityApplyDescriptor {
+interface UtilityApplyDescriptor {
   /** Whether the panel currently considers `Apply` actionable. */
   enabled: boolean;
   /** Display name (translated) of the focused tool, used in the success toast. */

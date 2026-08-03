@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EditorState } from '../types';
+import type { EditorState } from '../types/editor';
 import { createTabActions } from './editorTabActions';
 import { createWorkspaceActions } from './editorWorkspaceActions';
 import { createContentActions } from './editorContentActions';

@@ -1,9 +1,79 @@
 import { contextBridge } from 'electron';
+import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
+import type {
+  ProjectTerminalBridge,
+  ProjectTerminalDataEvent,
+  ProjectTerminalExitEvent,
+} from '../shared/projectTerminal';
+import type { LocalMcpBridge } from '../shared/localMcp';
+import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
+import type { GoDebuggerBridge } from '../shared/goDebugger';
+import type { RustDebuggerBridge } from '../shared/rustDebugger';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
 
 const desktopSmokeEnabled =
   process.env.LINGUA_DESKTOP_SMOKE === '1' ||
   process.argv.includes('--lingua-desktop-smoke');
+
+const http: HttpDesktopAPI = {
+  execute: (runId, request, options) =>
+    typedInvoke('http:execute', runId, request, options),
+  cancel: (runId) => typedInvoke('http:cancel', runId),
+  onProgress: (handler) => typedOn('http:stream-progress', handler),
+};
+
+const projectTerminal: ProjectTerminalBridge = {
+  start: (rootId, columns, rows) =>
+    typedInvoke('project-terminal:start', rootId, columns, rows),
+  write: (sessionId, data) =>
+    typedInvoke('project-terminal:write', sessionId, data),
+  resize: (sessionId, columns, rows) =>
+    typedInvoke('project-terminal:resize', sessionId, columns, rows),
+  stop: sessionId => typedInvoke('project-terminal:stop', sessionId),
+  onData: (handler: (event: ProjectTerminalDataEvent) => void) =>
+    typedOn('project-terminal:data', handler),
+  onExit: (handler: (event: ProjectTerminalExitEvent) => void) =>
+    typedOn('project-terminal:exit', handler),
+};
+
+const localMcp: LocalMcpBridge = {
+  getState: () => typedInvoke('local-mcp:get-state'),
+  start: (rootId, acknowledgement) =>
+    typedInvoke('local-mcp:start', rootId, acknowledgement),
+  stop: () => typedInvoke('local-mcp:stop'),
+  onStateChanged: handler => typedOn('local-mcp:state-changed', handler),
+};
+
+const pythonDebugger: PythonDebuggerBridge = {
+  start: request => typedInvoke('debugger:python:start', request),
+  command: (sessionId, command) =>
+    typedInvoke('debugger:python:command', sessionId, command),
+  syncBreakpoints: (sessionId, breakpoints) =>
+    typedInvoke('debugger:python:sync-breakpoints', sessionId, breakpoints),
+  syncWatches: (sessionId, watches) =>
+    typedInvoke('debugger:python:sync-watches', sessionId, watches),
+  stop: sessionId => typedInvoke('debugger:python:stop', sessionId),
+};
+
+const goDebugger: GoDebuggerBridge = {
+  start: request => typedInvoke('debugger:go:start', request),
+  command: (sessionId, command) => typedInvoke('debugger:go:command', sessionId, command),
+  syncBreakpoints: (sessionId, breakpoints) =>
+    typedInvoke('debugger:go:sync-breakpoints', sessionId, breakpoints),
+  syncWatches: (sessionId, watches) =>
+    typedInvoke('debugger:go:sync-watches', sessionId, watches),
+  stop: sessionId => typedInvoke('debugger:go:stop', sessionId),
+};
+
+const rustDebugger: RustDebuggerBridge = {
+  start: request => typedInvoke('debugger:rust:start', request),
+  command: (sessionId, command) => typedInvoke('debugger:rust:command', sessionId, command),
+  syncBreakpoints: (sessionId, breakpoints) =>
+    typedInvoke('debugger:rust:sync-breakpoints', sessionId, breakpoints),
+  syncWatches: (sessionId, watches) =>
+    typedInvoke('debugger:rust:sync-watches', sessionId, watches),
+  stop: sessionId => typedInvoke('debugger:rust:stop', sessionId),
+};
 
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
@@ -11,6 +81,10 @@ contextBridge.exposeInMainWorld('lingua', {
   getSystemLanguages: () => typedInvoke('app:get-system-languages'),
   getAppInfo: () => typedInvoke('app:get-info'),
   openExternal: (url: string) => typedInvoke('app:open-external', url),
+  http,
+  pythonDebugger,
+  goDebugger,
+  rustDebugger,
 
   deepLinks: {
     consumePending: () => typedInvoke('app:consume-pending-deep-link'),
@@ -129,6 +203,19 @@ contextBridge.exposeInMainWorld('lingua', {
     snapshot: () => typedInvoke('env:snapshot'),
   },
 
+  projectTests: {
+    detect: (rootId: RootId) => typedInvoke('project-tests:detect', rootId),
+    run: (rootId: RootId, framework: ProjectTestFramework, runId: string) =>
+      typedInvoke('project-tests:run', rootId, framework, runId),
+    stop: (rootId: RootId, runId: string) =>
+      typedInvoke('project-tests:stop', rootId, runId),
+    onOutput: (handler: (event: ProjectTestOutputEvent) => void) =>
+      typedOn('project-tests:output', handler),
+  },
+
+  projectTerminal,
+  localMcp,
+
   // implementation — desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level
   // commands go through these handles and notifications stream back
@@ -236,6 +323,8 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('fs:stat', rootId, relativePath),
     read: (rootId: string, relativePath: string) =>
       typedInvoke('fs:read', rootId, relativePath),
+    readBytes: (rootId: string, relativePath: string) =>
+      typedInvoke('fs:read-bytes', rootId, relativePath),
     write: (rootId: string, relativePath: string, content: string) =>
       typedInvoke('fs:write', rootId, relativePath, content),
     delete: (

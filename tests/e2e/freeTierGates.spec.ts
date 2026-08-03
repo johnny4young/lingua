@@ -84,14 +84,11 @@ test.describe('Free tier gates', () => {
   });
 
   test('Spanish fourth-tab upsell localizes the shared Pro CTA', async ({ page }) => {
-    await page.evaluate(() => {
-      const raw = window.localStorage.getItem('lingua-settings');
-      const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
-      parsed.state = parsed.state ?? {};
-      parsed.state.language = 'es';
-      window.localStorage.setItem('lingua-settings', JSON.stringify(parsed));
-    });
-    await page.reload();
+    await openSettings(page);
+    await openSettingsTab(page, 'appearance');
+    await page.getByTestId('app-language-select').selectOption('es');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+    await closeSettings(page);
     await expectTier(page, 'FREE');
 
     await createJavaScriptTab(page);

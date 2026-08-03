@@ -1,16 +1,17 @@
 /**
  * implementation — Recipe overlay + tab-binding store.
  *
- * Owns transient UI state — overlay open flag, per-tab recipe
- * binding, last-run results buffer, per-tab in-flight flag. NOT
+ * Owns transient recipe state — per-tab binding, last-run results
+ * buffer, and per-tab in-flight flag. NOT
  * persisted: a reload should leave the user looking at their tabs
- * with the recipe panel hidden unless the editor tab's
+ * with any recipe binding restored only when the editor tab's
  * `recipeBindingId` survived rehydrate (which it does via
- * `editorStore`'s session restore).
+ * `editorStore`'s session restore). Overlay visibility belongs to
+ * App's single `AppOverlay` slot.
  *
  * Why two stores split (this one + `lessonProgressStore`):
  *
- *   - `recipeStore` is transient — overlay open, last-run results,
+ *   - `recipeStore` is transient — tab binding, last-run results,
  *     in-flight flag. Lives only in memory; dies on reload.
  *   - `lessonProgressStore` is persisted — opened / attempted /
  *     passed status per recipe, sticky across reloads. LRU cap +
@@ -24,8 +25,6 @@ import { create } from 'zustand';
 import type { AssertionRunResult } from '../../shared/lessonRunner';
 
 export interface RecipeState {
-  /** Open / closed flag for the Recipes overlay. */
-  readonly overlayOpen: boolean;
   /**
    * Map<tabId, recipeId> — when a tab is opened from the Recipes
    * overlay, the binding stays alive until the user changes the
@@ -46,8 +45,6 @@ export interface RecipeState {
 
   // -------- mutations -------------------------------------------------------
 
-  openOverlay: () => void;
-  closeOverlay: () => void;
   bindRecipeToTab: (tabId: string, recipeId: string) => void;
   unbindRecipe: (tabId: string) => void;
   setRunResults: (
@@ -66,10 +63,9 @@ export interface RecipeState {
 
 function createInitialState(): Pick<
   RecipeState,
-  'overlayOpen' | 'activeBindingForTab' | 'lastRunResults' | 'isRunning'
+  'activeBindingForTab' | 'lastRunResults' | 'isRunning'
 > {
   return {
-    overlayOpen: false,
     activeBindingForTab: new Map(),
     lastRunResults: new Map(),
     isRunning: new Map(),
@@ -78,9 +74,6 @@ function createInitialState(): Pick<
 
 export const useRecipeStore = create<RecipeState>()((set, get) => ({
   ...createInitialState(),
-
-  openOverlay: () => set((state) => (state.overlayOpen ? state : { overlayOpen: true })),
-  closeOverlay: () => set((state) => (state.overlayOpen ? { overlayOpen: false } : state)),
 
   bindRecipeToTab: (tabId, recipeId) =>
     set((state) => {

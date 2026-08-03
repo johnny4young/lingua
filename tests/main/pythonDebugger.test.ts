@@ -14,8 +14,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
+  MAX_PDB_COMMAND_OUTPUT_BYTES,
   PythonDebugSession,
   parsePdbLocation,
+  parsePdbStack,
 } from '../../src/main/pythonDebugger';
 
 function findPython(): string | null {
@@ -55,6 +57,15 @@ describe('parsePdbLocation', () => {
   });
 });
 
+describe('parsePdbStack', () => {
+  it('parses current and parent pdb frames without changing their order', () => {
+    expect(parsePdbStack('  /tmp/a.py(7)<module>()\n> /tmp/a.py(4)add()\n(Pdb) ')).toEqual([
+      { file: '/tmp/a.py', line: 7, func: '<module>', current: false },
+      { file: '/tmp/a.py', line: 4, func: 'add', current: true },
+    ]);
+  });
+});
+
 describe('sendCommand newline guard', () => {
   // No subprocess needed: the guard runs before the running-state check, so a
   // multi-line command is rejected even on a never-started session. This keeps
@@ -85,6 +96,7 @@ describeReal('PythonDebugSession (real pdb)', () => {
   let dir: string;
   let scriptPath: string;
   let loopPath: string;
+  let noisyPath: string;
   const sessions: PythonDebugSession[] = [];
 
   beforeAll(() => {
@@ -106,6 +118,12 @@ describeReal('PythonDebugSession (real pdb)', () => {
     );
     loopPath = join(dir, 'loop.py');
     writeFileSync(loopPath, 'while True:\n    pass\n', 'utf-8');
+    noisyPath = join(dir, 'noisy.py');
+    writeFileSync(
+      noisyPath,
+      `print('x' * ${MAX_PDB_COMMAND_OUTPUT_BYTES + 4_096})\nstop = True\n`,
+      'utf-8'
+    );
   });
 
   afterEach(() => {
@@ -178,6 +196,19 @@ describeReal('PythonDebugSession (real pdb)', () => {
     expect(done.finished).toBe(true);
     expect(done.output).toContain('result 3');
     expect(session.isRunning).toBe(false);
+  });
+
+  it('bounds noisy program output while retaining the final pdb prompt', async () => {
+    const session = new PythonDebugSession({ scriptPath: noisyPath, pythonPath: pythonPath! });
+    sessions.push(session);
+    await session.start();
+    await session.setBreakpoint(2);
+    const paused = await session.continue();
+    expect(paused.location?.line).toBe(2);
+    expect(paused.outputTruncated).toBe(true);
+    expect(Buffer.byteLength(paused.output, 'utf8')).toBeLessThanOrEqual(
+      MAX_PDB_COMMAND_OUTPUT_BYTES
+    );
   });
 
   it('terminates a session when a command times out', async () => {

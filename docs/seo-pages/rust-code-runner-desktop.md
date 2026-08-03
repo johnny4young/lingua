@@ -1,49 +1,55 @@
 ---
-title: "Rust Code Runner for Desktop — Lingua"
-description: "Run Rust on your local rustc toolchain from a Monaco editor. rustfmt on save. Real compile errors. Offline. Source-available."
-canonical: "https://linguacode.dev/rust-code-runner-desktop/"
-ogImage: "/assets/og/rust-code-runner-desktop.png"
+title: 'Rust Code Runner for Desktop — Lingua'
+description: 'Run and debug Rust locally with rustc, lldb-dap, rust-analyzer intelligence, rustfmt, compile markers, dependency assistance, and Cargo project tests.'
+canonical: 'https://linguacode.dev/rust-code-runner-desktop'
+ogImage: '/assets/og/rust-code-runner-desktop.png'
 language: rust
 ---
 
-# Rust Code Runner — native rustc, native errors
+# Rust code runner — a local scratchpad with real compiler feedback
 
-Lingua shells out to your installed `rustc`, compiles your snippet,
-runs the resulting binary, and surfaces compile errors as Monaco
-markers. It's a desktop scratchpad, not a remote sandbox — which means
-your full crate ecosystem works because the compiler is yours.
+Lingua compiles the current Rust file with your installed `rustc`, runs
+the native result, and maps compiler feedback into the editor. It is a
+fast place to isolate an idea without pretending to replace a complete
+Cargo workspace.
 
 ## What actually runs
 
-- `rustc` compiles your file to a native binary; Lingua spawns it and
-  captures stdout + stderr into the inline result panel.
-- Rust compile errors normalize into Monaco markers with source
-  locations — no stderr blob dumps.
-- `rustfmt` is the default format-on-save handler for `.rs` files.
-- `rust-analyzer` powers desktop diagnostics, completions, hover, and
-  signature help when it is installed.
-- Panics stream into the result panel mapped back to the source line.
-- Inline `//=>` magic comments work the same way they do for the JS
-  and TS runners.
+- `rustc` compiles the current file as Rust 2021 and Lingua executes the
+  native binary without invoking a shell.
+- Compile errors become Monaco markers with source locations; stdout,
+  stderr, and panics stream into the result panel.
+- `rust-analyzer` provides desktop diagnostics, completions, hover, and
+  signature help when the binary is available.
+- `rustfmt` handles format-on-save for `.rs` files.
+- Debug mode compiles the current buffer with debug symbols and drives local
+  `lldb-dap` for pause breakpoints, stepping, locals, call stack, and watches.
+- Inline `//=>` comments work like the JavaScript and TypeScript
+  scratchpad markers.
+- In a saved project with `Cargo.toml`, the dependency panel can run a
+  confirmed `cargo add`, and the project test runner can execute
+  `cargo test --color never`.
 
 ## What doesn't work today
 
-- You need `rustc` on PATH. The web build surfaces Rust execution as
-  "desktop only" instead of pretending it works.
-- Rust language intelligence needs `rust-analyzer` on PATH. If it is
-  missing or crashes, Lingua shows an install hint or restart action in
-  Settings.
-- No debugger yet — internal
-- No cargo project mode: this is a scratchpad for single-file
-  snippets, not a substitute for `cargo run` inside your workspace.
+- Rust execution requires `rustc` on the desktop. The web build reports
+  the desktop-only boundary.
+- Language intelligence requires a local `rust-analyzer` binary.
+  Settings provides detection, installation guidance, and restart
+  controls.
+- Rust debugging is desktop-only and requires `lldb-dap`. Lingua discovers the
+  Xcode adapter through `xcrun` on macOS or uses the binary on `PATH` elsewhere.
+  It debugs the current buffer, not a complete Cargo workspace.
+- The scratchpad runner compiles one file with `rustc`; it does not run
+  a complete Cargo application. Use project tests or the integrated
+  terminal for workspace-level commands.
 
 ## Why this is in the paid tier
 
-Rust execution unlocks with a Pro license. The Free tier runs
-JavaScript, TypeScript, and Python only.
+Rust execution is a paid-tier feature. Education access provides the
+same entitlements free for verified students and educators.
 
 ## Download
 
-Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**. Source-
-available commercial license, education access free for verified
-students and teachers.
+Get Lingua at **[https://linguacode.dev](https://linguacode.dev)**.
+Source-available under the Lingua Commercial License.

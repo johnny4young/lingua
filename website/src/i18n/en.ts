@@ -23,6 +23,7 @@ export const en = {
   },
   nav: {
     features: 'Features',
+    cli: 'CLI',
     pricing: 'Pricing',
     docs: 'Docs',
     releases: 'Releases',
@@ -43,6 +44,7 @@ export const en = {
       releases: 'Releases',
       changelog: 'Changelog',
       gettingStarted: 'Getting started',
+      cli: 'CLI documentation',
       source: 'Source on GitHub',
       runInBrowser: 'Run in browser',
       privacy: 'Privacy',
@@ -56,13 +58,13 @@ export const en = {
     title: 'Lingua — multi-language code runner for your desktop',
     hero: {
       eyebrow: 'Multi-language code runner · Desktop & web',
-      headline: ['Run JS, TS,', 'Python, Go, and Rust', 'in'],
+      headline: ['Run JS, TS, Python,', 'Ruby, Go, and Rust', 'in'],
       headlineSuffix: 'one',
       headlineEnd: 'Monaco window.',
-      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at five languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
+      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at six languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
       proofLabel: 'Lingua product facts',
       proof: [
-        { value: '5', label: 'runnable languages' },
+        { value: '6', label: 'runnable languages' },
         { value: '31', label: 'developer utilities' },
         { value: '0', label: 'telemetry before consent' },
       ],
@@ -88,8 +90,8 @@ export const en = {
       cards: [
         {
           icon: 'package',
-          title: 'Five languages, one binary',
-          body: 'JavaScript, TypeScript, Python, Go, and Rust live inside the same Monaco-powered window. No project scaffold to test an idea.',
+          title: 'Six languages, one binary',
+          body: 'JavaScript, TypeScript, Python, Ruby, Go, and Rust live inside the same Monaco-powered window. No project scaffold to test an idea.',
         },
         {
           icon: 'wifi-off',
@@ -137,8 +139,9 @@ export const en = {
     },
     whatsNew: {
       eyebrow: 'Shipped in Lingua',
-      title: 'Four product workflows, shown in the app.',
-      lede: 'Every feature below is already available and works in the free tier. Full release history lives in the changelog.',
+      title: 'Six workflows that define Lingua today.',
+      releaseTitle: 'Six workflows that define Lingua 1.0.',
+      lede: 'Captured from current builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
       cta: 'Read the full changelog',
       history: {
         title: 'Every release before this one',
@@ -148,28 +151,46 @@ export const en = {
       },
       items: [
         {
-          image: '/screenshots/v0.12/inline-timing.png',
-          alt: 'Lingua editor showing per-line wall-clock timings at the right edge of each statement, with the slowest line highlighted in red',
-          title: 'Per-line timing with // @time',
-          body: 'Add one comment and every top-level statement shows its wall-clock duration inline — the slowest line of the run turns red. Perf hunting without leaving the editor, and timings survive errors.',
+          id: 'debugger',
+          availability: 'Free · web + desktop',
+          alt: 'Lingua JavaScript debugger paused at a conditional breakpoint with a logpoint, watch expression, variables, and stepping controls',
+          title: 'Pause code without leaving the editor',
+          body: 'Set pause points, conditions, and logpoints in the Monaco gutter, then step through JavaScript or TypeScript with watches, locals, and call stacks in one bounded debugging surface.',
         },
         {
-          image: '/screenshots/v0.12/smart-paste-jwt.png',
-          alt: 'Smart-paste toast offering to open a pasted JWT in the JWT Debugger',
-          title: 'Paste a value, open the right tool',
-          body: 'Paste a JWT, UUID, color, Unix timestamp, cron expression, or Base64 into the editor and Lingua offers to open it pre-loaded in the matching developer utility. Conservative by design: code look-alikes stay silent.',
+          id: 'notebook',
+          availability: 'Pro · web + desktop',
+          alt: 'Lingua notebook after refreshing dependent JavaScript cells, showing their code, execution status, dependency marker, and updated outputs',
+          title: 'Notebooks that know what went stale',
+          body: 'Mix code and Markdown, share state across cells, and keep old output visible when an edit invalidates downstream work. Lingua marks the affected cells and replays them only when you ask.',
         },
         {
-          image: '/screenshots/v0.12/presenter-mode.png',
-          alt: 'Lingua in presenter mode: no sidebar, toolbar, or status bar, with enlarged editor font',
-          title: 'Presenter mode',
-          body: 'One keystroke (Cmd+Alt+P) hides the chrome and enlarges the fonts for demos, pairing, and screen recordings. Toggle again and your exact layout comes back — it never touches your saved preferences.',
+          id: 'http-pipeline',
+          availability: 'Free · web + desktop',
+          alt: 'Lingua HTTP pipeline manager with a named local validation pipeline, one request step, stop-on-failure control, and run action',
+          title: 'Turn requests into repeatable checks',
+          body: 'Build HTTP requests, live SSE or WebSocket sessions, secret-aware environments, response captures, assertions, and named pipelines without moving an API workflow into another app.',
         },
         {
-          image: '/screenshots/v0.12/bootstrap-progress.png',
-          alt: 'Run button showing a live megabyte counter while the Python runtime downloads',
-          title: 'Watch your runtime arrive',
-          body: 'The first Python or Ruby run no longer sits on a static loading line: the run button streams a live MB counter while the WASM runtime downloads, on any network.',
+          id: 'project-terminal',
+          availability: 'Desktop · trusted local shell',
+          alt: 'Lingua project terminal running pwd and node --version inside the synthetic polyglot-checkout project',
+          title: 'Stay in context when a real shell is right',
+          body: 'Open one explicit, project-rooted terminal session with a filtered environment and bounded transcript. Lingua names the trust boundary clearly: it is your real local shell, not a sandbox.',
+        },
+        {
+          id: 'project-tests',
+          availability: 'Desktop · local toolchains',
+          alt: 'Lingua project test runner showing detected Vitest, Jest, Pytest, Go, and Cargo suites plus a successful bounded run',
+          title: 'Detect and run the project’s own tests',
+          body: 'Compare the exact detected runner and command before launching Vitest, Jest, Pytest, Go, or Cargo. Output streams live, Stop is always available, and execution stays no-shell and bounded.',
+        },
+        {
+          id: 'local-mcp',
+          availability: 'Desktop · local + read-only',
+          alt: 'Lingua Local MCP settings with an active loopback endpoint, masked session token, authorized project, and four trust-boundary guarantees',
+          title: 'Give trusted AI a smaller doorway',
+          body: 'Expose only the project you opened through a loopback-only, session-token-protected MCP server. Its tools are read-only, capability-scoped, and revoked automatically when the project or app closes.',
         },
       ],
     },
@@ -252,7 +273,7 @@ export const en = {
     languageMatrix: {
       eyebrow: 'Language matrix',
       title: 'Honest support across 12 languages.',
-      lede: 'Five languages execute today. Seven more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
+      lede: 'Six languages execute today. Six more are useful for opening, reading, and lint-adjacent workflows, but they are not runnable yet.',
       columns: {
         language: 'Language',
         status: 'Status',
@@ -274,6 +295,7 @@ export const en = {
         js: 'Worker runtime',
         ts: 'esbuild-wasm → Worker',
         py: 'Pyodide v0.29.4 vendored',
+        ruby: 'Ruby WASM or system Ruby',
         go: 'Local Go toolchain',
         rust: 'Local Rust toolchain',
         monaco: 'Monaco syntax view',
@@ -295,13 +317,13 @@ export const en = {
           name: 'Free',
           price: '$0',
           tag: 'Default',
-          desc: 'One tab, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.',
+          desc: 'Three tabs, five snippets, JS / TS / Python / Ruby, single-shot utilities. No license needed.',
         },
         {
           name: 'Monthly',
           price: '$5 / mo',
           tag: 'Subscription',
-          desc: 'Unlimited tabs and snippets, Go and Rust, plus utility workflows.',
+          desc: 'Unlimited tabs and snippets, Go and Rust, notebooks, local AI, and saved workflows/history.',
         },
         {
           name: 'Pro',
@@ -326,7 +348,7 @@ export const en = {
     },
     finalCta: {
       title: 'Throw your next 10-line script at it.',
-      body: 'One install. Five languages. No project to spin up.',
+      body: 'One install. Six languages. No project to spin up.',
     },
   },
   pricing: {
@@ -379,8 +401,9 @@ export const en = {
             'Everything in Free',
             'Unlimited tabs and snippets',
             'Go and Rust runners',
-            'Utility workflows: pipelines, saved history, clipboard automation',
-            'Format-on-save in every language',
+            'TypeScript, Python, and SQL notebooks',
+            'Local-first AI with your own endpoint and key',
+            'Persistent execution history and utility workflows',
             'Every update while subscribed',
           ],
           cta: 'Buy Monthly',
@@ -414,7 +437,7 @@ export const en = {
     faq: [
       {
         q: "What's your refund policy?",
-        a: 'All paid tiers are refundable within 14 days of the initial purchase, no questions asked. Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> with your order number. Pro and Team can also be cancelled anytime to stop the next renewal.',
+        a: 'All paid tiers are refundable within 14 days of the initial purchase, no questions asked. Email <a href="mailto:hello@linguacode.dev">hello@linguacode.dev</a> with your order number. Monthly and Team can also be cancelled anytime to stop the next renewal.',
       },
       {
         q: 'Does Lingua work offline?',
@@ -450,6 +473,33 @@ export const en = {
       { id: 'privacy-and-telemetry', title: 'Privacy & telemetry' },
       { id: 'troubleshooting', title: 'Troubleshooting' },
     ],
+  },
+  cli: {
+    label: 'Lingua CLI',
+    titleSuffix: 'Lingua CLI docs',
+    navLabel: 'CLI documentation',
+    navToggle: 'Browse CLI guides',
+    onThisPage: 'On this page',
+    search: {
+      label: 'Search CLI documentation',
+      placeholder: 'Search commands, flags, and examples…',
+      hint: 'Press / to search',
+      noResults: 'No matching CLI documentation.',
+      clear: 'Clear search',
+      results: 'Search results',
+    },
+    copy: {
+      label: 'Copy',
+      success: 'Copied',
+      error: 'Copy failed',
+    },
+    groups: {
+      start: 'Get started',
+      guides: 'How-to guides',
+      automation: 'Automation',
+      reference: 'Reference',
+    },
+    releaseNote: 'The first public npm package ships with Lingua v1.0.0. Until then, build the CLI from source.',
   },
   seo: {
     download: 'Download Lingua',
@@ -568,15 +618,15 @@ export const en = {
     sections: [
       {
         title: 'About Lingua — 25 words',
-        body: 'Lingua is a multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.',
+        body: 'Lingua is a multi-language desktop code runner — JavaScript, TypeScript, Python, Ruby, Go, and Rust in one offline-first Monaco-powered app.',
       },
       {
         title: 'About Lingua — 50 words',
-        body: 'Lingua is a commercial desktop code runner built for developers who juggle multiple languages in one day. JavaScript, TypeScript, Python, Go, and Rust run inside one offline-first app with Monaco Editor, built-in developer utilities, snippets, and templates. Source-available, paid tiers unlock via offline-verified license keys.',
+        body: 'Lingua is a commercial desktop code runner built for developers who juggle multiple languages in one day. JavaScript, TypeScript, Python, Ruby, Go, and Rust run inside one offline-first app with Monaco Editor, built-in developer utilities, snippets, and templates. Source-available, paid tiers unlock via offline-verified license keys.',
       },
       {
         title: 'About Lingua — 150 words',
-        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
+        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Ruby, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
       },
       {
         title: 'Founder bio — 40 words',
@@ -600,7 +650,7 @@ export const en = {
       items: [
         "Lingua is source-available, not open source. Please don't describe it as MIT, Apache, or GPL.",
         'License keys are offline-verifiable — there is no phone-home or account check at launch time.',
-        'Five languages run today. Seven more are tracked but not yet shipped.',
+        'Six languages run today. Six more are tracked but not yet shipped.',
         'The desktop app runs fully offline. The web build needs network for the first page load.',
       ],
     },

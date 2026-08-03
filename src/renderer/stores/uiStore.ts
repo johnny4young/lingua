@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
-export type BottomPanelTab =
+type BottomPanelTab =
   | 'console'
   | 'debugger'
   | 'browser-preview'
@@ -26,6 +26,7 @@ export type BottomPanelTab =
   // not a git repo never see the chrome. Mount fires the
   // `git.diff_panel_opened` telemetry (implementation note).
   | 'git-diff'
+  | 'project-terminal'
   // MOV.02 (FASE 3) — the HTTP and SQL workspaces are no longer dock
   // panels. They ascended to full-screen `FileTab`s owned by
   // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`

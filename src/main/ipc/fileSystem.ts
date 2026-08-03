@@ -19,7 +19,6 @@ export {
 export {
   _resetBeforeQuitInstallStateForTests,
   _resetWatcherBurstTrackerForTests,
-  stopAllWatchers,
 } from './fs/fsWatchers';
 
 export function registerFileSystemHandlers(): void {

@@ -1,15 +1,17 @@
-import { RustLanguageIntelligenceAdapter, type RustAdapterTransport } from './rust';
+import type { RustAdapterTransport } from './rust';
+import type { LspLanguageIntelligenceAdapter } from './types';
+import { createActivationScopedAdapterLoader } from './createActivationScopedAdapterLoader';
 
 /**
  * implementation — process-wide singleton for the Rust LSP adapter.
  *
- * The adapter is lazily created so the web build never instantiates it
- * (the bridge is desktop-only). Callers must check `isRustLspAvailable`
- * before touching the singleton. Tests can inject a fake transport via
- * `__setRustAdapterForTesting`.
+ * The bridge probe stays synchronous, but the adapter implementation is
+ * imported only after rust-analyzer reports ready. This keeps the desktop-only
+ * JSON-RPC normalizer out of every browser and non-Rust startup while the
+ * Monaco providers retain a synchronous accessor after activation.
  */
 
-let singleton: RustLanguageIntelligenceAdapter | null = null;
+type RustLspAdapter = LspLanguageIntelligenceAdapter & { dispose: () => void };
 
 function defaultTransport(): RustAdapterTransport | null {
   const lsp = window.lingua?.lsp?.rust;
@@ -21,24 +23,21 @@ function defaultTransport(): RustAdapterTransport | null {
   };
 }
 
-export function getRustLspAdapter(): RustLanguageIntelligenceAdapter | null {
-  if (singleton) return singleton;
+const adapters = createActivationScopedAdapterLoader<RustLspAdapter>(async () => {
   const transport = defaultTransport();
   if (!transport) return null;
-  singleton = new RustLanguageIntelligenceAdapter(transport);
-  return singleton;
-}
+  const { RustLanguageIntelligenceAdapter } = await import('./rust');
+  return new RustLanguageIntelligenceAdapter(transport);
+});
+
+export const getRustLspAdapter = adapters.get;
+export const loadRustLspAdapter = adapters.load;
 
 export function isRustLspAvailable(): boolean {
   return Boolean(window.lingua?.lsp?.rust);
 }
 
 /** Test seam — only call from tests. */
-export function __setRustAdapterForTesting(
-  adapter: RustLanguageIntelligenceAdapter | null
-): void {
-  if (singleton && adapter !== singleton) {
-    singleton.dispose();
-  }
-  singleton = adapter;
+export function __setRustAdapterForTesting(adapter: RustLspAdapter | null): void {
+  adapters.setForTesting(adapter);
 }

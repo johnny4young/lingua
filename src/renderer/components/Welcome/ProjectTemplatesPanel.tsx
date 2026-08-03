@@ -28,7 +28,7 @@ import {
   languageBadgeClass,
   languageLabel,
 } from '../../utils/languageMeta';
-import type { Language } from '../../types';
+import type { Language } from '../../types/language';
 import {
   useProjectTemplateScaffolder,
   type ScaffoldResult,

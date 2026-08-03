@@ -11,7 +11,7 @@
  *     for compiled / validate / view-only tabs.
  *   - `debug` — auto-run is OFF; the user intends to step through
  *     breakpoints. Only valid for languages that have a debugger
- *     adapter (JS / TS today, via `languageSupportsDebugger`). The
+ *     adapter (JS / TS everywhere; Python / Go / Rust on desktop). The
  *     manual Run gesture still works; this mode is mostly a UI hint
  *     and an auto-run silencer.
  *
@@ -64,14 +64,16 @@ const SCRATCHPAD_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Languages that have a debugger adapter today .
- * Stays in sync with `languageSupportsDebugger` for the JS / TS pair.
- * Future debugger adapters (Python, Go, Rust) extend this set when
- * their language-pack capability flips to `available`.
+ * Languages that have a debugger adapter today.
+ * Python, Go, and Rust are desktop-only; platform policy is applied by
+ * renderer controls.
  */
 const DEBUG_CAPABLE_LANGUAGES: ReadonlySet<string> = new Set([
   'javascript',
   'typescript',
+  'python',
+  'go',
+  'rust',
 ]);
 
 /**
@@ -89,7 +91,7 @@ export function isWorkflowMode(value: unknown): value is WorkflowMode {
  *     surface) so this never returns false. The mode collapses to
  *     "no auto-run, manual gestures only" for view-only languages.
  *   - `debug` — only languages with a debugger adapter. JS / TS
- *     today; Python / Go / Rust as their adapters land.
+ *     everywhere; Python / Go / Rust on desktop.
  *   - `scratchpad` — only languages with a Scratchpad-class runner.
  *     JS / TS / Python in web + desktop; Go / Rust on desktop.
  *
@@ -127,8 +129,7 @@ export function defaultWorkflowMode(language: string | undefined): WorkflowMode 
  * Falls through to `defaultWorkflowMode(language)` when:
  *   - `value` is not a closed-enum string.
  *   - `value` is one of the closed-enum strings but the language
- *     does not support that mode (e.g. a persisted `debug` mode on
- *     a Rust tab after the user switched the language).
+ *     does not support that mode.
  *
  * Used by:
  *   - the session-restore rehydrate path so a tampered or stale
@@ -160,7 +161,7 @@ export function coerceWorkflowMode(
  *   - `current` not supported by `language` → snaps to the first
  *     supported mode rather than crashing. This branch is reachable
  *     when a future regression hands an unsupported mode to the
- *     cycle helper (e.g. a Rust tab somehow carrying `debug`).
+ *     cycle helper.
  */
 export function cycleWorkflowMode(
   current: WorkflowMode,

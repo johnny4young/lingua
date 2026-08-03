@@ -4,8 +4,9 @@ import { useAppTheme } from '../hooks/useAppTheme';
 import { useDefaultOpenFileConsumer } from '../hooks/useDefaultOpenFileConsumer';
 
 /**
- * Playwright-only fixture for internal visual smoke. The production build never
- * reaches this component because web/main gates it behind __LINGUA_E2E_HOOKS__.
+ * Playwright-only fixture for internal visual smoke. The normal workspace never
+ * downloads this component because web/main dynamically imports it only when
+ * both __LINGUA_E2E_HOOKS__ and the rich-console-gallery query are active.
  */
 export function RichConsoleE2eFixture() {
   useAppTheme();

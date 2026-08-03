@@ -429,6 +429,7 @@ export function LicenseSection() {
                   // Editing clears the rejected-token state.
                   if (applyErrorKey) setApplyErrorKey(null);
                 }}
+                data-settings-search-target="license-token-input"
                 data-testid="license-input"
                 aria-invalid={applyErrorKey !== null}
                 aria-describedby={applyErrorKey ? applyErrorId : undefined}

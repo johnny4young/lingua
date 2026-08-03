@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Bundle public/press/* into public/press/lingua-press-kit.zip.
+ * Bundle public press assets plus the canonical vendored editorial kit into
+ * public/press/lingua-press-kit.zip.
  * Runs as `prebuild` so the ZIP is part of the static deploy.
  *
  * Uses Node's built-in zlib/deflate to avoid an extra dependency.
@@ -15,6 +16,7 @@ import { deflateRawSync } from 'node:zlib';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PRESS_DIR = resolve(__dirname, '..', 'public', 'press');
+const EDITORIAL_DIR = resolve(__dirname, '..', 'src', 'content', 'press-kit');
 const ZIP_PATH = join(PRESS_DIR, 'lingua-press-kit.zip');
 
 async function walk(dir) {
@@ -128,15 +130,22 @@ async function buildZip(files) {
 
 async function main() {
   await mkdir(PRESS_DIR, { recursive: true });
-  const filePaths = await walk(PRESS_DIR);
-  if (filePaths.length === 0) {
-    console.warn('[press-kit] No files in public/press/. Writing empty placeholder ZIP.');
+  const publicFiles = await walk(PRESS_DIR);
+  const editorialFiles = await walk(EDITORIAL_DIR);
+  if (editorialFiles.length === 0) {
+    throw new Error('No editorial files found in src/content/press-kit; run npm run sync:content');
   }
 
-  const files = filePaths.map((absPath) => ({
-    absPath,
-    name: relative(PRESS_DIR, absPath).split(sep).join('/'),
-  }));
+  const files = [
+    ...publicFiles.map((absPath) => ({
+      absPath,
+      name: relative(PRESS_DIR, absPath).split(sep).join('/'),
+    })),
+    ...editorialFiles.map((absPath) => ({
+      absPath,
+      name: `editorial/${relative(EDITORIAL_DIR, absPath).split(sep).join('/')}`,
+    })),
+  ].sort((left, right) => left.name.localeCompare(right.name));
 
   const zip = await buildZip(files);
   await writeFile(ZIP_PATH, zip);

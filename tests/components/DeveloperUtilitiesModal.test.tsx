@@ -11,6 +11,7 @@ import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useUtilityHistoryStore } from '../../src/renderer/stores/utilityHistoryStore';
+import { useUtilityWorkspaceStore } from '../../src/renderer/stores/utilityWorkspaceStore';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -33,8 +34,8 @@ describe('DeveloperUtilitiesModal', () => {
       history: {},
       persistEnabled: {},
       favorites: [],
-      activeUtilityId: 'json',
     });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'json', pendingUtilityInput: null });
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     useUIStore.setState({ statusNotice: null });
     Object.defineProperty(window.navigator, 'platform', {
@@ -54,7 +55,7 @@ describe('DeveloperUtilitiesModal', () => {
 
   it('renders the full workspace from the persisted active utility', async () => {
     const user = userEvent.setup();
-    useUtilityHistoryStore.getState().setActiveUtilityId('jwt');
+    useUtilityWorkspaceStore.getState().setActiveUtilityId('jwt');
 
     render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
@@ -64,17 +65,17 @@ describe('DeveloperUtilitiesModal', () => {
     // Space audit: the workspace view carries NO local header — neither
     // the old title box nor the status pills, which now render in the
     // shell's shared editor chips row (asserted in AppLayout.test).
-    // The workspace keeps an internal landmark heading for assistive tech,
+    // The workspace keeps a visually hidden landmark heading for assistive tech,
     // but does not restore the removed visible title box.
     expect(
       screen.getByRole('heading', { name: 'Built-in utilities' }).className
-    ).toContain('internal');
+    ).toContain('sr-only');
     expect(screen.queryByText('Copy output')).toBeNull();
     expect(screen.queryByText(/\d+ tools/u)).toBeNull();
 
     await user.click(screen.getByTestId('utility-item-json'));
 
-    expect(useUtilityHistoryStore.getState().activeUtilityId).toBe('json');
+    expect(useUtilityWorkspaceStore.getState().activeUtilityId).toBe('json');
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
   });
 
@@ -82,8 +83,8 @@ describe('DeveloperUtilitiesModal', () => {
     const user = userEvent.setup();
     useUtilityHistoryStore.setState({
       favorites: ['jwt', 'timestamp'],
-      activeUtilityId: 'jwt',
     });
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'jwt' });
 
     render(<DeveloperUtilitiesWorkspaceView />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
@@ -127,7 +128,7 @@ describe('DeveloperUtilitiesModal', () => {
     // the store — no sidebar click, so only the selectedUtilityId sync
     // effect can remember it in the keep-mounted cache.
     act(() => {
-      useUtilityHistoryStore.getState().setActiveUtilityId('base64');
+      useUtilityWorkspaceStore.getState().setActiveUtilityId('base64');
     });
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const base64Panel = () => within(screen.getByTestId('utility-panel-cache-base64'));

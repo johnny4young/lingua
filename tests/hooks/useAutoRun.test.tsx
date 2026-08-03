@@ -11,6 +11,7 @@ import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { loadAutoRunExecution } from '@/hooks/autoRunExecutionLoader';
 
 vi.mock('@/runners', () => ({
   runnerManager: {
@@ -61,8 +62,9 @@ describe('useAutoRun', () => {
   const initialHistory = useExecutionHistoryStore.getState();
   const originalLingua = window.lingua;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
+    await loadAutoRunExecution();
     vi.clearAllMocks();
     useEditorStore.setState(initialEditor, true);
     useLicenseStore.setState(initialLicense, true);
@@ -208,12 +210,13 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(useResultStore.getState().isAutoRunning).toBe(true);
 
-    act(() => {
+    await act(async () => {
       const tab = useEditorStore.getState().tabs[0]!;
       useEditorStore.setState({
         tabs: [{ ...tab, runtimeMode: 'worker' }],
         activeTabId: tab.id,
       });
+      await Promise.resolve();
     });
 
     expect(runnerManager.stop).toHaveBeenCalledWith(

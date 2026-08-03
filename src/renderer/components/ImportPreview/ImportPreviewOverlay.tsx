@@ -40,26 +40,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, FileUp } from 'lucide-react';
+import { AlertCircle, FileUp, FolderOpen } from 'lucide-react';
 import { detectImporter } from '../../../shared/importers/registry';
 import {
   parsePostmanVariableExport,
   type PostmanVariableSlotStatus,
   type PostmanVariableSourceStatus,
 } from '../../../shared/importers/postmanImporter';
-import type { ImporterId } from '../../../shared/importers/types';
+import type { ImportFlowId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
 import { ImportPreviewBody } from './ImportPreviewBody';
+import { PlaygroundUrlImportForm } from './PlaygroundUrlImportForm';
 
 export interface ImportPreviewOverlayProps {
   onClose: () => void;
 }
 
-function formatLabelKeyForImporter(importerId: ImporterId): string {
+function formatLabelKeyForImporter(importerId: ImportFlowId): string {
   switch (importerId) {
     case 'curl-http':
       return 'importPreview.format.curl';
@@ -71,6 +72,8 @@ function formatLabelKeyForImporter(importerId: ImporterId): string {
       return 'importPreview.format.postman';
     case 'bruno-collection':
       return 'importPreview.format.bruno';
+    case 'playground-url':
+      return 'importPreview.format.playground';
   }
 }
 
@@ -86,6 +89,9 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const {
     state,
     previewSource,
+    previewBrunoDirectory,
+    previewPlaygroundUrl,
+    cancelPlaygroundUrl,
     setVariableSource,
     confirm,
     reset,
@@ -98,7 +104,10 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   );
 
   const [pasteValue, setPasteValue] = useState('');
+  const [playgroundUrl, setPlaygroundUrl] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isReadingDirectory, setIsReadingDirectory] = useState(false);
 
   // Reset hook state on unmount so a re-open starts clean.
   useEffect(() => {
@@ -163,6 +172,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = event.target.value;
       setPasteValue(value);
+      setPlaygroundUrl('');
       if (value.trim().length === 0) {
         reset();
       } else {
@@ -183,6 +193,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       try {
         const text = await file.text();
         setPasteValue(text);
+        setPlaygroundUrl('');
         previewSource(text);
       } catch (err) {
         const detail = err instanceof Error ? err.message : 'unreadable file';
@@ -198,6 +209,34 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     },
     [previewSource, pushStatusNotice]
   );
+
+  const handlePickBrunoDirectory = useCallback(async () => {
+    if (isReadingDirectory) return;
+    setIsReadingDirectory(true);
+    try {
+      const status = await previewBrunoDirectory();
+      if (status !== 'cancelled') {
+        setPasteValue('');
+        setPlaygroundUrl('');
+      }
+    } finally {
+      setIsReadingDirectory(false);
+    }
+  }, [isReadingDirectory, previewBrunoDirectory]);
+
+  const handlePlaygroundUrlChange = useCallback(
+    (value: string) => {
+      setPlaygroundUrl(value);
+      if (state.phase !== 'idle') reset();
+    },
+    [reset, state.phase]
+  );
+
+  const handlePreviewPlaygroundUrl = useCallback(async () => {
+    if (!playgroundUrl.trim() || state.phase === 'loading') return;
+    setPasteValue('');
+    await previewPlaygroundUrl(playgroundUrl);
+  }, [playgroundUrl, previewPlaygroundUrl, state.phase]);
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -220,6 +259,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           // Text drops intentionally share the paste path so detection,
           // warning telemetry, and reject handling stay centralized.
           setPasteValue(text);
+          setPlaygroundUrl('');
           previewSource(text);
         }
         return;
@@ -247,6 +287,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           variableExports.length > 0
         ) {
           setPasteValue(primary.text);
+          setPlaygroundUrl('');
           previewSource(primary.text);
           let envFilled = false;
           let globalsFilled = false;
@@ -282,6 +323,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       try {
         const text = await file.text();
         setPasteValue(text);
+        setPlaygroundUrl('');
         previewSource(text);
       } catch (err) {
         const detail = err instanceof Error ? err.message : 'unreadable file';
@@ -295,41 +337,57 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     [previewSource, setVariableSource, pushStatusNotice]
   );
 
-  const handleConfirm = useCallback(() => {
-    const created = confirm();
-    if (!created) {
-      // Confirm failed (tier ceiling etc.) — the hook already
-      // surfaced the upsell notice. Just close the overlay.
+  const handleConfirm = useCallback(async () => {
+    if (isConfirming) return;
+    setIsConfirming(true);
+    try {
+      const created = await confirm();
+      if (!created) {
+        // Confirm failed (tier ceiling etc.) — the hook already
+        // surfaced the upsell notice. Just close the overlay.
+        closeRef.current();
+        return;
+      }
+      // `confirm()` owns the state mutation; the overlay only translates the
+      // returned adapter kind into the most specific success copy.
+      if (created.kind === 'curl-http') {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.toast',
+        });
+      } else if (
+        created.kind === 'ipynb-notebook' ||
+        created.kind === 'linguanb-notebook'
+      ) {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.notebookOpened',
+        });
+      } else if (
+        created.kind === 'postman-collection' ||
+        created.kind === 'bruno-collection'
+      ) {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.collectionImported',
+          values: { count: created.requestCount ?? 0 },
+        });
+      } else if (created.kind === 'playground-url') {
+        pushStatusNotice({
+          tone: 'success',
+          messageKey: 'importPreview.success.playgroundOpened',
+        });
+      }
       closeRef.current();
-      return;
+    } catch {
+      pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'importPreview.notice.activationFailed',
+      });
+    } finally {
+      setIsConfirming(false);
     }
-    // `confirm()` owns the state mutation; the overlay only translates the
-    // returned adapter kind into the most specific success copy.
-    if (created.kind === 'curl-http') {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.toast',
-      });
-    } else if (
-      created.kind === 'ipynb-notebook' ||
-      created.kind === 'linguanb-notebook'
-    ) {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.notebookOpened',
-      });
-    } else if (
-      created.kind === 'postman-collection' ||
-      created.kind === 'bruno-collection'
-    ) {
-      pushStatusNotice({
-        tone: 'success',
-        messageKey: 'importPreview.success.collectionImported',
-        values: { count: created.requestCount ?? 0 },
-      });
-    }
-    closeRef.current();
-  }, [confirm, pushStatusNotice]);
+  }, [confirm, isConfirming, pushStatusNotice]);
 
   const previewed = state.phase === 'previewed' ? state.preview : undefined;
   const rejected = state.phase === 'rejected' ? state.reason : null;
@@ -345,11 +403,13 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const confirmLabel =
     importerId === 'ipynb-notebook' || importerId === 'linguanb-notebook'
       ? t('importPreview.action.confirm.notebook')
-      : importerId === 'curl-http'
-        ? t('importPreview.action.confirm.curl')
-        : isCollection
-          ? t('importPreview.action.confirm.collection', { count: collectionCount })
-          : t('importPreview.action.confirm');
+      : importerId === 'playground-url'
+        ? t('importPreview.action.confirm.playground')
+        : importerId === 'curl-http'
+          ? t('importPreview.action.confirm.curl')
+          : isCollection
+            ? t('importPreview.action.confirm.collection', { count: collectionCount })
+            : t('importPreview.action.confirm');
   // Footer-left hint — the detected source format, mirroring the
   // MOV.01 prototype's "Detected: …" legend. Only shown once a preview
   // resolves (so `importerId` is known); reuses the existing
@@ -368,9 +428,13 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         ? `importPreview.reject.ipynb.${state.rejectDetail}`
         : importerId === 'postman-collection'
           ? `importPreview.reject.postman.${state.rejectDetail}`
-          : importerId === 'linguanb-notebook'
-            ? `importPreview.reject.linguanb.${state.rejectDetail}`
-            : null
+            : importerId === 'linguanb-notebook'
+              ? `importPreview.reject.linguanb.${state.rejectDetail}`
+              : importerId === 'bruno-collection'
+                ? `importPreview.reject.bruno.${state.rejectDetail}`
+                : importerId === 'playground-url'
+                  ? `importPreview.reject.playground.${state.rejectDetail}`
+                  : null
       : null;
 
   return (
@@ -418,7 +482,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || isConfirming}
+            aria-busy={isConfirming}
             data-testid="import-preview-confirm"
             className="button-primary"
           >
@@ -482,16 +547,53 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json,application/x-linguanb+json"
+            accept=".curl,.txt,.ipynb,.linguanb,.json,.postman_collection.json,.bru,.yml,.yaml,text/plain,application/json,application/yaml,text/yaml,application/x-ipynb+json,application/x-linguanb+json"
             onChange={handleFileChange}
-            className="internal"
+            className="hidden"
             data-testid="import-preview-file-input"
           />
         </div>
 
+        <PlaygroundUrlImportForm
+          value={playgroundUrl}
+          isLoading={state.phase === 'loading'}
+          onChange={handlePlaygroundUrlChange}
+          onPreview={() => void handlePreviewPlaygroundUrl()}
+          onCancel={cancelPlaygroundUrl}
+        />
+
+        <button
+          type="button"
+          onClick={handlePickBrunoDirectory}
+          disabled={isReadingDirectory}
+          aria-busy={isReadingDirectory}
+          data-testid="import-preview-pick-bruno-directory"
+          className="flex min-h-11 items-center gap-3 rounded-md border border-border-default bg-bg-inset px-3 text-left transition-colors hover:border-border-strong disabled:cursor-wait disabled:opacity-70 md:col-span-2"
+        >
+          <FolderOpen size={16} className="shrink-0 text-accent" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block text-body-sm font-medium text-fg-base">
+              {isReadingDirectory
+                ? t('importPreview.source.brunoDirectoryLoading')
+                : t('importPreview.source.brunoDirectoryCta')}
+            </span>
+            <span className="block text-caption text-fg-subtle">
+              {t('importPreview.source.brunoDirectoryHint')}
+            </span>
+          </span>
+        </button>
+
         {/* MIDDLE — preview band OR reject band (full width) */}
         <section data-testid="import-preview-band" className="md:col-span-2">
-          {previewed ? (
+          {state.phase === 'loading' ? (
+            <div
+              role="status"
+              data-testid="import-preview-playground-loading"
+              className="rounded-md border border-info-border/60 bg-info-bg p-3 text-body-sm text-info-fg"
+            >
+              {t('importPreview.playground.loading')}
+            </div>
+          ) : previewed ? (
             <div className="grid gap-2">
               <ImportPreviewBody preview={previewed} />
               {importerId === 'postman-collection' &&
@@ -655,7 +757,8 @@ function VariableSlot({
           ref={fileRef}
           type="file"
           accept=".json,.postman_environment.json,.postman_globals.json,application/json"
-          className="internal"
+          className="hidden"
+          data-testid={`import-preview-variables-${slot}-file-input`}
           onChange={async (event) => {
             const file = event.target.files?.[0];
             if (file) {

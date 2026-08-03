@@ -186,7 +186,7 @@ path stayed intact.
 | `src/renderer/data/keyboardShortcuts.ts`              | `Mod+Alt+M` shortcut entry                           |
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
-| `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (implementation note)         |
+| `src/shared/telemetry/catalog.ts`, `src/shared/telemetry/valueCatalog.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event and closed values (implementation note) |
 
 ## Deno and Bun extension ship notes — 2026-07-06
 

@@ -16,8 +16,8 @@
 import type { UtilityAdapter, UtilityOptionField } from './types';
 
 /** Sort direction surfaced as the `direction` option. */
-export const LINE_SORT_DIRECTIONS = ['asc', 'desc'] as const;
-export type LineSortDirection = (typeof LINE_SORT_DIRECTIONS)[number];
+const LINE_SORT_DIRECTIONS = ['asc', 'desc'] as const;
+type LineSortDirection = (typeof LINE_SORT_DIRECTIONS)[number];
 
 /** Structured options for the `line-sort` adapter. */
 export interface LineSortOptions {

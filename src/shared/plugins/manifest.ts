@@ -20,7 +20,7 @@
  */
 
 /** Shapes the validator emits for the renderer to render. */
-export type PluginInstallStatus =
+type PluginInstallStatus =
   | 'loaded'
   | 'disabled'
   | 'invalid'
@@ -28,16 +28,7 @@ export type PluginInstallStatus =
   | 'unavailable'
   | 'unknown';
 
-/** Canonical manifest shape after parse. Validator emits this. */
-export interface InstalledPluginManifest {
-  pluginId: string;
-  apiVersion: 1;
-  enabled?: boolean;
-  minAppVersion?: string;
-  maxAppVersion?: string;
-}
-
-export type PluginDiagnosticKey =
+type PluginDiagnosticKey =
   | 'manifestObject'
   | 'unknownFields'
   | 'missingPluginId'
@@ -53,7 +44,7 @@ export type PluginDiagnosticKey =
   | 'loadFailed'
   | 'unavailable';
 
-export interface PluginDiagnostic {
+interface PluginDiagnostic {
   key: PluginDiagnosticKey;
   params?: Record<string, string | number | boolean | null>;
 }
@@ -85,7 +76,6 @@ export const MANIFEST_FILE_NAME = 'plugin.json';
  * two stay in sync.
  */
 export const BUNDLED_PLUGIN_IDS = ['lua'] as const;
-export type BundledPluginId = (typeof BUNDLED_PLUGIN_IDS)[number];
 
 /**
  * Path-safety pattern. Lowercase alphanumeric + hyphen, must start

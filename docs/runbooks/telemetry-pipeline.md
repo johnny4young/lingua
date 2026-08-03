@@ -2,11 +2,11 @@
 
 **Severity:** S3 (informational). Telemetry is opt-in, best-effort, and never on the user-facing critical path. Drops do not block any feature.
 **Owner:** maintainer.
-**Related:** `update-server/src/telemetry.ts`, `src/shared/telemetry.ts`, `src/renderer/utils/telemetry.ts`, Cloudflare Workers Observability.
+**Related:** `update-server/src/telemetry.ts`, `src/shared/telemetry.ts`, `src/shared/telemetry/`, `src/renderer/utils/telemetry.ts`, Cloudflare Workers Observability.
 
 ## What this pipeline is
 
-Lingua's renderer emits a fixed allowlist of telemetry events (see `src/shared/telemetry.ts:TELEMETRY_EVENTS`) when the user has explicitly granted consent in **Settings → Privacy**. Each event is POSTed as JSON to `POST https://updates.linguacode.dev/telemetry`. The endpoint is hosted on the `update-server` Cloudflare Worker; it validates the payload against a verbatim mirror of the renderer allowlist + a substring deny pass, rate-limits per IP, and persists via Workers Observability `console.log` JSON.
+Lingua's renderer emits a fixed allowlist of telemetry events (see `src/shared/telemetry/catalog.ts:TELEMETRY_EVENTS`) when the user has explicitly granted consent in **Settings → Privacy**. Each event is POSTed as JSON to `POST https://updates.linguacode.dev/telemetry`. The endpoint is hosted on the `update-server` Cloudflare Worker; it validates the payload against a verbatim mirror of the renderer allowlist + a substring deny pass, rate-limits per IP, and persists via Workers Observability `console.log` JSON.
 
 The privacy contract:
 
@@ -75,11 +75,12 @@ pnpm exec wrangler tail lingua-update-server --format json --since 1h \
 
 ## Allowlist drift — what to do when you add a new event
 
-Adding or modifying telemetry events requires three concurrent edits, all in the SAME commit:
+Adding or modifying telemetry events requires coordinated edits in the SAME commit:
 
-1. `src/shared/telemetry.ts` — extend `TELEMETRY_EVENTS` and `EVENT_PROPERTY_ALLOWLIST`. The renderer redactor reads from here.
-2. `update-server/src/telemetry.ts` — extend `TELEMETRY_EVENT_NAMES` and `EVENT_PROPERTY_ALLOWLIST` verbatim. The worker validator reads from here.
-3. `update-server/test/telemetry.test.ts` — the "implementation note" parity tests will fail until both copies match. If they pass, you're done.
+1. `src/shared/telemetry/catalog.ts` — extend `TELEMETRY_EVENTS` and `EVENT_PROPERTY_ALLOWLIST`. The `satisfies Record<TelemetryEventName, ...>` guard makes missing or extra registry keys a compile error.
+2. `src/shared/telemetry/valueCatalog.ts` — extend a closed value registry when a property accepts a new enum value. Do not put validation logic in the catalog.
+3. `update-server/src/telemetry.ts` — extend `TELEMETRY_EVENT_NAMES`, `EVENT_PROPERTY_ALLOWLIST`, and any closed value mirror verbatim. The worker validator remains an independent defense-in-depth boundary.
+4. `update-server/test/telemetry.test.ts` — parity tests fail until both accepted schemas match. `tests/shared/telemetryArchitecture.test.ts` separately guards the renderer facade, registry exhaustiveness, dependency direction, and module budgets.
 
 The privacy-document copy (consent UI hint in `privacy.firstRun.body`) must also be updated if the new event captures a new category of signal. Tier reviews from past slices: only event names, status/bucket enums, and language ids have ever shipped — never free-form text.
 

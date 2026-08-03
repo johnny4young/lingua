@@ -8,6 +8,31 @@ import {
 } from '../../src/renderer/components/CommandPalette/commandPaletteModel';
 
 describe('buildCommandPaletteModel', () => {
+  it('surfaces the project terminal only when the desktop project action is wired', () => {
+    const base = {
+      templates: [],
+      snippets: [],
+      onClose: vi.fn(),
+      t: i18next.t.bind(i18next),
+    };
+    expect(
+      buildCommandPaletteModel(base).some(command => command.id === 'action-open-project-terminal')
+    ).toBe(false);
+
+    const onOpenProjectTerminal = vi.fn();
+    const onClose = vi.fn();
+    const command = buildCommandPaletteModel({
+      ...base,
+      onClose,
+      onOpenProjectTerminal,
+    }).find(entry => entry.id === 'action-open-project-terminal');
+    command?.action();
+
+    expect(command?.label).toBe('Open project terminal');
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onOpenProjectTerminal).toHaveBeenCalledOnce();
+  });
+
   it('includes template, snippet, and action commands with stable metadata', () => {
     const createTab = vi.fn();
     const setLayoutPreset = vi.fn();
@@ -866,10 +891,9 @@ describe('buildCommandPaletteModel', () => {
       expect.arrayContaining(['project', 'template', 'scaffold'])
     );
     command?.action();
-    // The opener must run before onClose so the overlay mounts in
-    // the same React tick the palette closes — otherwise the user
-    // would see the palette dismiss with nothing to land on.
-    expect(calls).toEqual(['template', 'close']);
+    // Close the palette first because both surfaces share the same
+    // overlay slot; closing after opening would clear the chooser.
+    expect(calls).toEqual(['close', 'template']);
   });
 
   it('exposes the Browse run capsules action only when the opener is wired in ', () => {

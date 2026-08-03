@@ -150,7 +150,7 @@ export interface RichOutputOrigin {
  * `payload.kind` remains discriminable and `payload.origin` is always
  * optional regardless of kind.
  */
-export interface RichOutputMeta {
+interface RichOutputMeta {
   origin?: RichOutputOrigin;
 }
 
@@ -179,8 +179,8 @@ export const MAX_TABLE_ROWS = 200;
 export const MAX_TABLE_COLUMNS = 16;
 
 /** Per-Map / per-Set entry cap. */
-export const MAX_MAP_ENTRIES = 100;
-export const MAX_SET_ENTRIES = 100;
+const MAX_MAP_ENTRIES = 100;
+const MAX_SET_ENTRIES = 100;
 
 // ---------------------------------------------------------------------------
 // Identity / refinement helpers

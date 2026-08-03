@@ -23,22 +23,20 @@
  * (`tests/renderer/clipboard/applyPasteIntent.test.ts`).
  */
 import type { editor as MonacoEditor, IRange } from 'monaco-editor';
-import { decodeShareFragment } from '../../shared/sharePayload';
 import { parseRunCapsule } from '../../shared/runCapsule';
 import {
   createBlankHttpRequest,
   type HttpRequestBody,
   type HttpRequestHeader,
   type HttpRequestV1,
-} from '../../shared/httpWorkspace';
+} from '../../shared/httpWorkspaceSchema';
 import { parseCurlCommand, type CurlCommand } from '../utils/curlToCode';
 import { openHttpWorkspaceTab, openUtilitiesWorkspaceTab } from '../runtime/openWorkspaceTab';
 import { setPendingCapsuleImportSource } from './pendingCapsuleImport';
 import { createDefaultTab } from '../stores/editorTabUtils';
 import { useEditorStore } from '../stores/editorStore';
-import { useUtilityHistoryStore } from '../stores/utilityHistoryStore';
-import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
-import type { Language } from '../types';
+import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
+import type { Language } from '../types/language';
 import type { PasteIntent } from './pasteHandlers';
 import { emitCommand } from '../stores/commandBus';
 
@@ -104,6 +102,7 @@ function deriveCurlName(command: CurlCommand): string {
 }
 
 async function applyShareLink(fragment: string, ctx: ApplyPasteContext): Promise<boolean> {
+  const { decodeShareFragment } = await import('../../shared/sharePayload');
   const result = await decodeShareFragment(fragment);
   if (!result.ok) return false;
   const { payload } = result;
@@ -136,7 +135,7 @@ function applyCapsule(source: string, ctx: ApplyPasteContext): boolean {
   return true;
 }
 
-function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
+async function applyCurl(source: string, ctx: ApplyPasteContext): Promise<boolean> {
   const result = parseCurlCommand(source);
   if (!result.ok) return false;
   const command = result.command;
@@ -157,8 +156,12 @@ function applyCurl(source: string, ctx: ApplyPasteContext): boolean {
     headers,
     ...(body ? { body } : {}),
   };
+  // Monaco loads Smart Paste detection as soon as the editor mounts. Keep the
+  // persisted HTTP collection behind the accepted cURL action rather than
+  // downloading it with the detector for every editor session.
+  const { useWorkspaceToolStore } = await import('../stores/workspaceToolStore');
   useWorkspaceToolStore.getState().createRequest(request);
-  openHttpWorkspaceTab({ adoptEntryId: id });
+  openHttpWorkspaceTab();
   removePastedText(ctx);
   return true;
 }
@@ -190,7 +193,7 @@ function applyUtility(
   // already mounted) finds it when the workspace tab activates, then open
   // the Utilities workspace on the matching panel. The value moved into
   // the utility, so the literal paste is stripped like the other imports.
-  useUtilityHistoryStore.getState().setPendingUtilityInput({
+  useUtilityWorkspaceStore.getState().setPendingUtilityInput({
     utilityId: intent.utilityId,
     input: intent.source,
   });

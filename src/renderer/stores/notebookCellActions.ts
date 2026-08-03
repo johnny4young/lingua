@@ -4,8 +4,13 @@ import {
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellV1,
 } from '../../shared/notebook';
-import { createCellId, type NotebookState } from './notebookStore';
+import type { NotebookState } from './notebookStore';
 import type { NotebookGet, NotebookSet } from './notebookStoreContext';
+import { createNotebookCellId } from './notebookStorePrimitives';
+import {
+  hasNotebookExecutionEvidence,
+  markExecutedNotebookCellsStale,
+} from './notebookReactivity';
 
 /**
  * implementation — notebook cell-editing action factory.
@@ -34,7 +39,7 @@ export function createCellActions(
       const entry = state.notebooks[tabId];
       if (!entry) return null;
       if (entry.notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) return null;
-      const id = createCellId('cell');
+      const id = createNotebookCellId();
       const cell: NotebookCellV1 =
         spec.kind === 'code'
           ? {
@@ -76,6 +81,11 @@ export function createCellActions(
         const idx = slice.notebook.cells.findIndex((c) => c.id === cellId);
         if (idx === -1) return state;
         const removed = slice.notebook.cells[idx]!;
+        const removedWasExecuted = hasNotebookExecutionEvidence(
+          removed,
+          slice.cellRunStatus[removed.id],
+          slice.cellExecutionOrder?.[removed.id]
+        );
         const next = slice.notebook.cells.slice();
         next.splice(idx, 1);
         const { [cellId]: _droppedStatus, ...remainingStatus } =
@@ -96,13 +106,21 @@ export function createCellActions(
         const { [cellId]: _droppedOrder, ...remainingOrder } =
           slice.cellExecutionOrder ?? {};
         void _droppedOrder;
+        const nextStatus = removedWasExecuted
+          ? markExecutedNotebookCellsStale(
+              next,
+              remainingStatus,
+              remainingOrder,
+              idx
+            )
+          : remainingStatus;
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
-              cellRunStatus: remainingStatus,
+              cellRunStatus: nextStatus,
               cellDurationMs: remainingDuration,
               cellVarFlow: remainingVarFlow,
               cellExecutionOrder: remainingOrder,
@@ -141,12 +159,19 @@ export function createCellActions(
           next.length
         );
         next.splice(insertAt, 0, buffered.cell);
+        const cellRunStatus = markExecutedNotebookCellsStale(
+          next,
+          slice.cellRunStatus,
+          slice.cellExecutionOrder,
+          insertAt
+        );
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
+              cellRunStatus,
               // One-shot: consuming the buffer empties it so a second
               // `z` is a no-op (matches Jupyter's single undo depth).
               lastDeleted: null,
@@ -176,12 +201,26 @@ export function createCellActions(
             : { ...existing, source: clamped };
         const next = slice.notebook.cells.slice();
         next[idx] = updatedCell;
+        const cellRunStatus = hasNotebookExecutionEvidence(
+          existing,
+          slice.cellRunStatus[existing.id],
+          slice.cellExecutionOrder?.[existing.id]
+        )
+          ? markExecutedNotebookCellsStale(
+              next,
+              slice.cellRunStatus,
+              slice.cellExecutionOrder,
+              idx,
+              existing.id
+            )
+          : slice.cellRunStatus;
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
+              cellRunStatus,
             },
           },
         };
@@ -219,6 +258,11 @@ export function createCellActions(
               };
         const next = slice.notebook.cells.slice();
         next[idx] = replacement;
+        const existingWasExecuted = hasNotebookExecutionEvidence(
+          existing,
+          slice.cellRunStatus[existing.id],
+          slice.cellExecutionOrder?.[existing.id]
+        );
         // Clear this cell's transient run state — its prior status /
         // latency / var-flow / execution stamp no longer describe the
         // new cell kind. Drop them in lockstep so nothing orphans.
@@ -233,13 +277,21 @@ export function createCellActions(
         const { [cellId]: _do, ...remainingOrder } =
           slice.cellExecutionOrder ?? {};
         void _do;
+        const nextStatus = existingWasExecuted
+          ? markExecutedNotebookCellsStale(
+              next,
+              remainingStatus,
+              remainingOrder,
+              idx
+            )
+          : remainingStatus;
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
-              cellRunStatus: remainingStatus,
+              cellRunStatus: nextStatus,
               cellDurationMs: remainingDuration,
               cellVarFlow: remainingVarFlow,
               cellExecutionOrder: remainingOrder,
@@ -270,6 +322,11 @@ export function createCellActions(
         // Outputs from the prior language are stale once the cell runs
         // under the new one — drop them with the language change.
         next[idx] = { ...existing, language, outputs: [] };
+        const existingWasExecuted = hasNotebookExecutionEvidence(
+          existing,
+          slice.cellRunStatus[existing.id],
+          slice.cellExecutionOrder?.[existing.id]
+        );
         // Clear this cell's transient run state in lockstep so nothing
         // orphans (mirrors `transformCell`).
         const { [cellId]: _ds, ...remainingStatus } = slice.cellRunStatus;
@@ -283,13 +340,22 @@ export function createCellActions(
         const { [cellId]: _do, ...remainingOrder } =
           slice.cellExecutionOrder ?? {};
         void _do;
+        const nextStatus = existingWasExecuted
+          ? markExecutedNotebookCellsStale(
+              next,
+              remainingStatus,
+              remainingOrder,
+              idx,
+              cellId
+            )
+          : remainingStatus;
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
-              cellRunStatus: remainingStatus,
+              cellRunStatus: nextStatus,
               cellDurationMs: remainingDuration,
               cellVarFlow: remainingVarFlow,
               cellExecutionOrder: remainingOrder,
@@ -316,12 +382,30 @@ export function createCellActions(
         const [moved] = next.splice(fromIdx, 1);
         if (!moved) return state;
         next.splice(toIdx, 0, moved);
+        const codeOrderBefore = cells
+          .filter((cell) => cell.kind === 'code')
+          .map((cell) => cell.id);
+        const codeOrderAfter = next
+          .filter((cell) => cell.kind === 'code')
+          .map((cell) => cell.id);
+        const codeOrderChanged = codeOrderBefore.some(
+          (cellId, index) => codeOrderAfter[index] !== cellId
+        );
+        const cellRunStatus = codeOrderChanged
+          ? markExecutedNotebookCellsStale(
+              next,
+              slice.cellRunStatus,
+              slice.cellExecutionOrder,
+              Math.min(fromIdx, toIdx)
+            )
+          : slice.cellRunStatus;
         return {
           notebooks: {
             ...state.notebooks,
             [tabId]: {
               ...slice,
               notebook: { ...slice.notebook, cells: next },
+              cellRunStatus,
             },
           },
         };

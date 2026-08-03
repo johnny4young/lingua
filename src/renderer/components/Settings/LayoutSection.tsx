@@ -1,4 +1,4 @@
-import type { LayoutPreset } from '../../types';
+import type { LayoutPreset } from '../../types/settings';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { LAYOUT_PRESETS } from './settingsOptions';

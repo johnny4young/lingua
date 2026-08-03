@@ -17,13 +17,13 @@ import type { UtilityAdapter, UtilityOptionField } from './types';
  * `algorithm` option. SHA-256 is the default. Source of truth for the
  * `parseOptions` guard + the options-form select.
  */
-export const HASH_ADAPTER_ALGORITHMS = [
+const HASH_ADAPTER_ALGORITHMS = [
   'SHA-256',
   'SHA-1',
   'SHA-384',
   'SHA-512',
 ] as const;
-export type HashAdapterAlgorithm = (typeof HASH_ADAPTER_ALGORITHMS)[number];
+type HashAdapterAlgorithm = (typeof HASH_ADAPTER_ALGORITHMS)[number];
 
 /** Structured options for the `hash` adapter. */
 export interface HashAdapterOptions {

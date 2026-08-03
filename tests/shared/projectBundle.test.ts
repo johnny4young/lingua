@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
 import {
   BUNDLE_REJECT_REASONS,
+  BUNDLE_EXPORT_REJECT_REASONS,
   MAX_BUNDLE_FILES,
+  ProjectBundleExportError,
   PROJECT_BUNDLE_MANIFEST_NAME,
   PROJECT_BUNDLE_VERSION,
   packBundle,
+  projectBundleExportLimit,
   unpackBundle,
   validateBundleEntryPath,
   type ProjectBundleFile,
@@ -15,6 +18,20 @@ const CREATED_AT = '2026-05-30T00:00:00.000Z';
 
 function file(path: string, content = `// ${path}`): ProjectBundleFile {
   return { path, bytes: strToU8(content) };
+}
+
+function patchDeclaredUncompressedSize(
+  input: Uint8Array,
+  declaredBytes: number
+): Uint8Array {
+  const output = input.slice();
+  const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
+  for (let offset = 0; offset <= output.byteLength - 4; offset += 1) {
+    const signature = view.getUint32(offset, true);
+    if (signature === 0x04034b50) view.setUint32(offset + 22, declaredBytes, true);
+    if (signature === 0x02014b50) view.setUint32(offset + 24, declaredBytes, true);
+  }
+  return output;
 }
 
 describe('internal — validateBundleEntryPath', () => {
@@ -83,6 +100,14 @@ describe('internal — packBundle', () => {
     ).toThrow(RangeError);
   });
 
+  it('rejects normalized path collisions instead of overwriting a file', () => {
+    expect(() =>
+      packBundle([file('src//a.ts'), file('src/a.ts')], {
+        createdAt: CREATED_AT,
+      })
+    ).toThrow(/Duplicate bundle entry path/u);
+  });
+
   it('throws when the file count exceeds the cap', () => {
     const many = Array.from({ length: MAX_BUNDLE_FILES + 1 }, (_, i) =>
       file(`f${i}.js`)
@@ -90,18 +115,62 @@ describe('internal — packBundle', () => {
     expect(() => packBundle(many, { createdAt: CREATED_AT })).toThrow(RangeError);
   });
 
-  it('never lets project copy shadow the manifest filename', () => {
-    const zip = packBundle(
-      [file(PROJECT_BUNDLE_MANIFEST_NAME, '{"evil":true}'), file('ok.js')],
-      { createdAt: CREATED_AT }
+  it('fails the whole export with a typed reason when one file exceeds its cap', () => {
+    expect(() =>
+      packBundle(
+        [{ path: 'large.bin', bytes: new Uint8Array(9) }],
+        { createdAt: CREATED_AT },
+        { maxEntryBytes: 8 }
+      )
+    ).toThrow(
+      expect.objectContaining<ProjectBundleExportError>({
+        reason: 'entry-too-large',
+      })
     );
-    const result = unpackBundle(zip);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    // The injected manifest-named file was dropped; only ok.js remains,
-    // and the real manifest reports a single file.
-    expect(result.files.map((f) => f.path)).toEqual(['ok.js']);
-    expect(result.manifest?.fileCount).toBe(1);
+  });
+
+  it('never creates a bundle that exceeds its aggregate import budget', () => {
+    expect(() =>
+      packBundle(
+        [
+          { path: 'a.bin', bytes: new Uint8Array(60) },
+          { path: 'b.bin', bytes: new Uint8Array(60) },
+        ],
+        { createdAt: CREATED_AT },
+        { maxUncompressedBytes: 100 }
+      )
+    ).toThrow(
+      expect.objectContaining<ProjectBundleExportError>({ reason: 'too-large' })
+    );
+  });
+
+  it('rejects compressed output larger than the importer accepts', () => {
+    expect(() =>
+      packBundle(
+        [file('a.js')],
+        { createdAt: CREATED_AT },
+        { maxBundleBytes: 4 }
+      )
+    ).toThrow(
+      expect.objectContaining<ProjectBundleExportError>({ reason: 'too-large' })
+    );
+  });
+
+  it('does not let a caller widen production export caps', () => {
+    expect(
+      projectBundleExportLimit(MAX_BUNDLE_FILES, 0, 0, {
+        maxFiles: Number.MAX_SAFE_INTEGER,
+      })
+    ).toBe('too-many-files');
+  });
+
+  it('fails instead of silently omitting a project file at the reserved path', () => {
+    expect(() =>
+      packBundle(
+        [file(PROJECT_BUNDLE_MANIFEST_NAME, '{"project":true}'), file('ok.js')],
+        { createdAt: CREATED_AT }
+      )
+    ).toThrow(/Reserved bundle entry path/u);
   });
 });
 
@@ -164,6 +233,17 @@ describe('internal — unpackBundle guards', () => {
     expect(result).toEqual({ ok: false, reason: 'zip-bomb' });
   });
 
+  it('counts actual inflated bytes when a hostile header understates its size', () => {
+    const zip = zipSync({ 'dishonest.txt': strToU8('x'.repeat(256)) });
+    const dishonest = patchDeclaredUncompressedSize(zip, 1);
+    expect(
+      unpackBundle(dishonest, {
+        maxEntryBytes: 512,
+        maxUncompressedBytes: 64,
+      })
+    ).toEqual({ ok: false, reason: 'zip-bomb' });
+  });
+
   it('counts manifest bytes toward the zip-bomb guard before previewing files', () => {
     const zip = zipSync({
       [PROJECT_BUNDLE_MANIFEST_NAME]: strToU8('x'.repeat(64)),
@@ -211,5 +291,13 @@ describe('internal — BUNDLE_REJECT_REASONS', () => {
     const arr = [...BUNDLE_REJECT_REASONS];
     expect(arr).toEqual([...arr].sort());
     expect(new Set(arr).size).toBe(arr.length);
+  });
+
+  it('contains every export limit reason', () => {
+    expect(
+      BUNDLE_EXPORT_REJECT_REASONS.every((reason) =>
+        BUNDLE_REJECT_REASONS.includes(reason)
+      )
+    ).toBe(true);
   });
 });

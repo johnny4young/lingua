@@ -30,11 +30,14 @@
  * `crypto.randomUUID()` , so the parser is non-pure for
  * that single non-semantic field only. `parseHttpEnvironment` is the
  * defense-in-depth boundary at the localStorage rehydrate edge, mirroring
- * `parseHttpRequest` in `httpWorkspace.ts`.
+ * `parseHttpRequest` in `httpWorkspacePersistence.ts`.
  */
 
-import type { HttpRequestAuth, HttpRequestV1 } from './httpWorkspace';
-import type { HttpResponseV1 } from './httpWorkspace';
+import type {
+  HttpRequestAuth,
+  HttpRequestV1,
+  HttpResponseV1,
+} from './httpWorkspaceSchema';
 
 /**
  * One variable binding in an environment.
@@ -127,14 +130,14 @@ export interface HttpEnvironmentV1 {
  * `g`-flagged clone per scan (or pass it straight to `String#matchAll`,
  * which requires the `g` flag).
  */
-export const VARIABLE_TOKEN = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/;
+const VARIABLE_TOKEN = /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/;
 
 /**
  * Return a FRESH global-flagged clone of `VARIABLE_TOKEN`, safe to feed
  * to `String#matchAll` / a `replace` callback. A new object per call
  * means no `lastIndex` leaks between scans.
  */
-export function variableTokenMatcher(): RegExp {
+function variableTokenMatcher(): RegExp {
   return new RegExp(VARIABLE_TOKEN.source, 'g');
 }
 

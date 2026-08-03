@@ -1,18 +1,30 @@
 {
-  "generatedAt": "2026-07-19T17:25:00.000Z",
+  "generatedAt": "2026-08-02T02:30:00.000Z",
   "totals": {
-    "planned": 4,
-    "inProgress": 6
+    "planned": 0,
+    "inProgress": 9
   },
-  "planned": [
+  "planned": [],
+  "inProgress": [
     {
-      "theme": "Project workflows",
+      "theme": "Desktop workflows",
       "items": [
         {
-          "title": "Project test runner",
-          "scope": "Detect Vitest, Jest, Pytest, Go, and Cargo tests and run them from one local panel.",
-          "status": "Planned",
-          "theme": "Project workflows"
+          "title": "Integrated terminal",
+          "scope": "Desktop now provides an explicit project terminal through xterm and an owner-bound pseudoterminal. It starts in the approved root with a filtered environment, preserves a bounded session transcript, stops with project and window lifecycle, and states clearly that the shell is not sandboxed.",
+          "status": "Delivered",
+          "theme": "Desktop workflows"
+        }
+      ]
+    },
+    {
+      "theme": "Integrations",
+      "items": [
+        {
+          "title": "Local MCP server",
+          "scope": "Desktop now exposes an explicit-start, project-scoped Streamable HTTP endpoint with a session token and four bounded read-only tools. Host and Origin checks, secret-path denial, and renderer/project/app lifecycle revocation keep local automation narrow by default.",
+          "status": "Delivered",
+          "theme": "Integrations"
         }
       ]
     },
@@ -20,39 +32,37 @@
       "theme": "HTTP & data",
       "items": [
         {
-          "title": "WebSocket and server-sent event sessions",
-          "scope": "Add long-lived HTTP workspace sessions while preserving secret handling and desktop network protections.",
-          "status": "Planned",
+          "title": "Cross-language notebook reactivity",
+          "scope": "Executed JavaScript, TypeScript, Python, and SQL cells now become visibly stale in document order after upstream changes. Refresh is explicit, replays only recorded execution evidence, preserves never-run cells, and does not pretend shared DuckDB side effects can roll back.",
+          "status": "Delivered",
           "theme": "HTTP & data"
         },
         {
-          "title": "Cross-language notebook dataflow",
-          "scope": "Let notebook cells react to values produced by another language without making execution implicit or opaque.",
-          "status": "Planned",
+          "title": "Live API sessions and request pipelines",
+          "scope": "HTTP, SSE, WebSocket sessions, and named sequential HTTP pipelines now share bounded output, cancellation, secret-aware environments, captures, assertions, and a DNS-pinned SSRF-guarded desktop transport.",
+          "status": "Delivered",
           "theme": "HTTP & data"
         }
       ]
     },
     {
-      "theme": "Desktop workflows",
+      "theme": "Project workflows",
       "items": [
         {
-          "title": "Integrated terminal",
-          "scope": "A project-scoped desktop terminal designed for the same local-first security model as native runners.",
-          "status": "Planned",
-          "theme": "Desktop workflows"
+          "title": "Project test runner",
+          "scope": "Desktop now detects Vitest, Jest, Pytest, Go, and Cargo behind the approved project root, streams bounded output, and owns stop and timeout without invoking a shell.",
+          "status": "Delivered",
+          "theme": "Project workflows"
         }
       ]
-    }
-  ],
-  "inProgress": [
+    },
     {
       "theme": "Performance",
       "items": [
         {
           "title": "Faster cold browser startup",
-          "scope": "Language tokenizers already load on demand; remaining editor integrations are being isolated so Monaco core can leave the initial bundle.",
-          "status": "Partial",
+          "scope": "Monaco core, language tokenizers, execution paths, completed onboarding, and background package classification now stay outside the critical browser startup path. Source-graph guards and bundle budgets prevent those integrations from returning to first paint.",
+          "status": "Delivered",
           "theme": "Performance"
         }
       ]
@@ -62,8 +72,8 @@
       "items": [
         {
           "title": "Reliable multi-file projects",
-          "scope": "Project tree, search, replace, templates, and bundle import/export ship today. Remaining work focuses on faster desktop search, binary fidelity, and template runtime smoke.",
-          "status": "Partial",
+          "scope": "Project tree, native search, replace, curated templates, binary-safe bundle import/export, and isolated template runtime smoke ship today.",
+          "status": "Delivered",
           "theme": "Projects"
         }
       ]
@@ -73,14 +83,14 @@
       "items": [
         {
           "title": "Complete CLI distribution",
-          "scope": "Utility commands and Capsule validation ship today. File execution, Capsule replay, completions, signed binaries, and package publication remain.",
+          "scope": "Utility commands, execution, Capsule replay, completions, and stable errors ship today. A guarded manual workflow now verifies signed immutable-release evidence before promoting npm artifacts, bootstraps once with provenance, and stages later versions through OIDC plus 2FA approval. The next stable release must perform the first publish; tap promotion and public-trust Authenticode remain explicit operational gates.",
           "status": "Partial",
           "theme": "CLI & compatibility"
         },
         {
           "title": "Version-to-version migration coverage",
-          "scope": "Add explicit Capsule migrations and automated upgrade journeys from an older stable release.",
-          "status": "Partial",
+          "scope": "Capsules have an explicit migration registry, distinct newer-app guidance, and an automated journey that carries an immutable v0.15.0 artifact through the current shared parser, renderer importer, CLI replay, and web UI.",
+          "status": "Delivered",
           "theme": "CLI & compatibility"
         }
       ]
@@ -90,8 +100,8 @@
       "items": [
         {
           "title": "Deeper debugging controls",
-          "scope": "JavaScript and TypeScript breakpoints and stepping ship today. Watch evaluation, conditional breakpoints, logpoints, and Python UI integration require additional security review and product work.",
-          "status": "Partial",
+          "scope": "JavaScript and TypeScript breakpoints, stepping, bounded watch evaluation, conditional breakpoints, and non-pausing logpoints ship in web and desktop. Python, Go, and Rust ship standard breakpoints, stepping, locals, call stack, and native-process watches on desktop through their host debuggers.",
+          "status": "Delivered",
           "theme": "Debugger"
         }
       ]
@@ -101,8 +111,8 @@
       "items": [
         {
           "title": "Multi-file import and sharing",
-          "scope": "Share links, Capsules, cURL, Postman, Bruno files, Jupyter notebooks, and native notebooks ship today. Directory import, external playground migration, and a privacy-first multi-file viewer remain.",
-          "status": "Partial",
+          "scope": "Share links, Capsules, bounded TypeScript and Go Playground migration, cURL, Postman, Bruno files and collection folders, Jupyter notebooks, and native notebooks ship today. Capsule Workspaces add a privacy-first multi-file viewer with explicit open-tab selection and no backend.",
+          "status": "Delivered",
           "theme": "Import & sharing"
         }
       ]

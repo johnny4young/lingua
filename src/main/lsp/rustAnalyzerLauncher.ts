@@ -10,6 +10,8 @@ import {
 } from '../runners/nativeEnv';
 import { LspProcess } from './lspProcess';
 import type { JsonRpcNotification } from './lspProcess';
+import type { RustAnalyzerStatus } from '../../shared/lspLauncherTypes';
+export type { RustAnalyzerStatus } from '../../shared/lspLauncherTypes';
 
 /**
  * implementation — rust-analyzer launcher.
@@ -35,13 +37,6 @@ import type { JsonRpcNotification } from './lspProcess';
  */
 
 const execFileAsync = promisify(execFile);
-
-export type RustAnalyzerStatus =
-  | { kind: 'starting' }
-  | { kind: 'running'; version: string }
-  | { kind: 'missing'; reason: string }
-  | { kind: 'startup-failed'; error: string }
-  | { kind: 'degraded'; error: string };
 
 export interface RustAnalyzerLauncherOptions {
   /**
@@ -103,7 +98,7 @@ export async function resolveRustAnalyzerBinary(): Promise<{
   return null;
 }
 
-export async function detectRustAnalyzerVersion(
+async function detectRustAnalyzerVersion(
   command: string
 ): Promise<string | null> {
   try {

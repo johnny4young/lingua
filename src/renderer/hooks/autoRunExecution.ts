@@ -7,7 +7,7 @@ import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSi
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import type { FileTab } from '../types';
+import type { FileTab } from '../types/editor';
 import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,
@@ -223,7 +223,12 @@ export async function executeAutoRun({
       finish();
       return;
     }
-    applyAutoRunResult({ code, language, result });
+    applyAutoRunResult({
+      autoLogEnabled,
+      code,
+      language,
+      result,
+    });
   } catch (error) {
     if (!shouldDiscard()) {
       setError({

@@ -1,6 +1,6 @@
 /**
  * HTTP request → code snippet generators (fetch / axios / Python
- * requests), a sibling of `buildCurlCommand` in `httpWorkspace.ts`.
+ * requests), a sibling of `buildCurlCommand` in `httpWorkspaceCurl.ts`.
  *
  * Pure + environment-agnostic so the UI can offer "Copy as fetch / axios
  * / Python" next to "Copy as cURL". Fidelity comes from reusing
@@ -15,10 +15,8 @@
  * placeholders instead of resolving into the clipboard.
  */
 
-import {
-  composeRequestHeaders,
-  type HttpRequestV1,
-} from './httpWorkspace';
+import { composeRequestHeaders } from './httpWorkspaceHeaders';
+import type { HttpRequestV1 } from './httpWorkspaceSchema';
 
 /** Closed enum of the languages the generator targets. */
 export const HTTP_CODEGEN_TARGETS = [

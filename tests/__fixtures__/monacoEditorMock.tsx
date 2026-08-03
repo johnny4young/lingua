@@ -12,12 +12,8 @@
  * `cellMockHarness` is a module singleton: both the test's static import and
  * the `vi.mock` factory's dynamic import resolve the same instance, so a
  * test can drive the captured run / blur / dispose callbacks. Each test file
- * registers the mock with:
- *
- *   vi.mock('@monaco-editor/react', async () => {
- *     const m = await import('../../__fixtures__/monacoEditorMock');
- *     return m.makeMonacoEditorMock();
- *   });
+ * registers the mock by loading this shared fixture from its mock factory and
+ * returning `makeMonacoEditorMock()`.
  */
 
 import { createElement, useEffect, useRef } from 'react';

@@ -6,7 +6,10 @@ import {
   resolveCombos,
   resolveShortcutDisplayPlatform,
 } from '../data/keyboardShortcuts';
-import { findDeveloperUtility, type DeveloperUtilityId } from '../data/developerUtilities';
+import {
+  findDeveloperUtilityCatalogEntry,
+  type DeveloperUtilityId,
+} from '../data/developerUtilityCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { readFromClipboard } from '../utils/clipboard';
@@ -69,7 +72,7 @@ export function useClipboardOnFocus(
       if (cancelled || value === null || value.length === 0) return;
       if (!detect(value)) return;
 
-      const definition = findDeveloperUtility(utilityId);
+      const definition = findDeveloperUtilityCatalogEntry(utilityId);
       const toolName = i18next.t(definition.titleKey);
       const shortcut = resolveApplyShortcut();
 

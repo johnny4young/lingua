@@ -19,9 +19,20 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 - Windows signing is configured according to
   [`docs/WINDOWS_SIGNING.md`](./docs/WINDOWS_SIGNING.md), or the maintainer has
   explicitly accepted an unsigned preview installer and its SmartScreen warning.
+- For CLI registry promotion, the protected `npm-production` environment and
+  `@linguacode` organization follow
+  [`docs/runbooks/distribution-channels.md`](./docs/runbooks/distribution-channels.md).
+  GitHub release immutability must be enabled before cutting the candidate;
+  the npm workflow refuses a release without its signed release attestation.
+  Run `pnpm run check:cli-publish-prereqs` before the candidate; it must report
+  the automated bootstrap checks as ready, without treating the later npm
+  trusted-publisher policy as machine-verified.
 - [`docs/RELEASE_SECURITY.md`](./docs/RELEASE_SECURITY.md) has been reviewed for
   the candidate's Electron, IPC, runtime, update, licensing, telemetry, and
   dependency surfaces.
+- Run `pnpm run check:windows-signing-prereqs` before selecting Windows for a
+  public-trust release. A ready secret-name pair still requires both workflow
+  signature summaries and a clean Windows 11 validation before publication.
 
 ## Release steps
 
@@ -31,7 +42,10 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 3. Dispatch the `Release` workflow with the target `release_tag`.
 4. For a stable desktop release, leave macOS, Windows, and Linux enabled. A
    partial platform selection is for draft diagnostics only.
-5. Wait for every selected build and the web deploy to complete.
+5. Wait for every selected build and the web deploy to complete. Ordinary
+   release-preparation pushes may keep the website pinned to the previous
+   public release, but the `release: published` deployment requires the trusted
+   snapshot to match the candidate version exactly.
 6. Inspect the workflow summary and artifacts:
    - production dependency audit, license-key policy, and compliance artifacts;
    - macOS arm64 + x64 dmg/zip outputs and the architecture-correct packaged smoke;
@@ -45,9 +59,17 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 8. Follow [`docs/runbooks/desktop-update-draft-validation.md`](./docs/runbooks/desktop-update-draft-validation.md)
    for static draft checks and manual candidate installation.
 9. Promote the draft only after the checklist is complete.
-10. Run a post-publish smoke from the previous stable desktop version on every
+10. When `release_cli` was enabled, dispatch `Publish CLI to npm` with the
+    published tag and exact `@linguacode/cli@X.Y.Z` confirmation. Inspect the
+    unprivileged preflight summary and evidence before approving the waiting
+    `npm-production` promotion job. Bootstrap the first package once with a
+    short-lived granular token scoped read/write to `@linguacode`, with Bypass
+    2FA enabled only for that run, then revoke it. Later releases stage through
+    OIDC and require npm 2FA approval. Rerun only after approval for the
+    idempotent public-install smoke.
+11. Run a post-publish smoke from the previous stable desktop version on every
     supported updater platform, and verify `https://updates.linguacode.dev/web/version`.
-11. Announce only after the post-publish smoke passes.
+12. Announce only after the post-publish smoke passes.
 
 ## Validation checklist
 
@@ -70,6 +92,12 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
   `latest-linux.yml` manifests for enabled platforms.
 - `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and
   `THIRD_PARTY_LICENSE_REPORT.md` are attached.
+- The CLI npm workflow verified the release-owned tarball against
+  GitHub's release/asset attestations and `SHA256SUMS.txt` before environment
+  approval, then repeated payload verification inside the protected promotion
+  job. When enabled, the exact public package passed clean install, version,
+  and utility smoke. A staged version is not complete until 2FA approval and
+  the idempotent post-approval rerun pass.
 - The website release page exposes GitHub download URLs for every published platform.
 - Post-publish install/update smoke passed on the supported target machines.
 - The release remains draft until human review is complete.

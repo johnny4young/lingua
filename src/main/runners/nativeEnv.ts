@@ -78,6 +78,14 @@ export const RUST_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
+ * Rust debugger-only discovery keys. LLDB_DAP selects an explicit adapter,
+ * while DEVELOPER_DIR lets xcrun honor the user's selected Xcode installation.
+ * Neither changes loaded code or grants authority; both only select an audited
+ * toolchain executable.
+ */
+export const RUST_DEBUGGER_TOOLCHAIN_KEYS = ['LLDB_DAP', 'DEVELOPER_DIR'] as const;
+
+/**
  * implementation — Node-specific host-env keys. Node's binary
  * lookup honors `NODE_PATH` for global module resolution; the
  * other allowlisted entries (`NPM_CONFIG_CACHE`, `NPM_CONFIG_PREFIX`)
@@ -155,7 +163,8 @@ const USER_ENV_DENYLIST = new Set([
  * Build the env passed to `child_process.spawn` / `execFile` for a
  * native runner subprocess. Layering, in order:
  *
- *   1. Pick `toolchainKeys` from `process.env`. Missing keys are
+ *   1. Pick `toolchainKeys` from the supplied host snapshot (`process.env` by
+ *      default). Missing keys are
  *      silently dropped — we never emit a key with `undefined`
  *      because Node's `child_process` stringifies that to the literal
  *      `"undefined"` on some platforms, which would silently shadow
@@ -171,12 +180,13 @@ const USER_ENV_DENYLIST = new Set([
 export function buildNativeRunnerEnv(
   toolchainKeys: readonly string[],
   userEnv: Record<string, string> | undefined,
-  overrides: Record<string, string> = {}
+  overrides: Record<string, string> = {},
+  hostEnv: NodeJS.ProcessEnv = process.env
 ): NodeJS.ProcessEnv {
   const out: Record<string, string> = {};
 
   for (const key of toolchainKeys) {
-    const value = process.env[key];
+    const value = hostEnv[key];
     if (typeof value === 'string' && value.length > 0) {
       out[key] = value;
     }

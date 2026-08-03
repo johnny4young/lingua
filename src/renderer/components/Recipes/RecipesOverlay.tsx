@@ -45,7 +45,7 @@ import {
   isRecipeRunnableLanguage,
   RECIPE_RUNNABLE_LANGUAGE_IDS,
   type RecipeRunnableLanguage,
-} from '../../../shared/lessonRunner';
+} from '../../../shared/recipeLanguages';
 import { trackRecipeOpened } from '../../hooks/recipeTelemetry';
 import { extensionForLanguage } from '../../utils/languageMeta';
 import { ModalShell } from '../ui/ModalShell';

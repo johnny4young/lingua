@@ -1,4 +1,5 @@
-import type { EditorState, Language } from '../types';
+import type { EditorState } from '../types/editor';
+import type { Language } from '../types/language';
 import { getActiveAppLanguage } from '../i18n';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { useResultStore } from './resultStore';

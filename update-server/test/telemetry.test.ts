@@ -9,11 +9,11 @@
  *   - Allowlist enforcement: unknown property keys silently dropped
  *     so a sneaky `sourceCode` field never reaches the log line.
  *   - implementation note — `DENY_SUBSTRINGS` substring deny pass mirrored from
- *     `src/shared/telemetry.ts`.
+ *     the renderer telemetry responsibility modules.
  *   - implementation note — per-IP rate limit (5 req/s ceiling, CF Cache API).
  *   - implementation note — parity test: `TELEMETRY_EVENT_NAMES` and
  *     `EVENT_PROPERTY_ALLOWLIST` here must equal the renderer copies
- *     in `src/shared/telemetry.ts`. Drift between the two is exactly
+ *     behind `src/shared/telemetry.ts`. Drift between the two is exactly
  *     the failure mode this test guards.
  */
 
@@ -79,7 +79,7 @@ import {
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
 import {
-  IMPORTER_IDS as RENDERER_IMPORTER_IDS,
+  IMPORT_FLOW_IDS as RENDERER_IMPORTER_IDS,
   NOTEBOOK_WARNING_KINDS as RENDERER_NOTEBOOK_WARNING_KINDS,
 } from '../../src/shared/importers/types';
 // implementation (SQL OPFS) implementation note — cross-import the canonical
@@ -91,7 +91,7 @@ import { SQL_STORAGE_MODES as CANONICAL_SQL_STORAGE_MODES } from '../../src/shar
 import { PIPELINE_TEMPLATE_IDS as CANONICAL_PIPELINE_TEMPLATE_IDS } from '../../src/shared/utilityPipelineTemplates';
 // implementation Slice B implementation note — cross-import the canonical `RECIPE_RUN_STATUSES`
 // const tuple from the renderer source-of-truth (`lessonRunner.ts`).
-// The two `_SET` duplicates in `src/shared/telemetry.ts` +
+// The two `_SET` duplicates in `src/shared/telemetry/valueCatalog.ts` +
 // `update-server/src/telemetry.ts` are derived from this tuple; the
 // 3-way parity check catches drift between the canonical tuple and
 // either Set (mirrors the internal importer parity precedent).
@@ -99,7 +99,7 @@ import { RECIPE_RUN_STATUSES as RENDERER_RECIPE_RUN_STATUSES } from '../../src/s
 // implementation Slice A implementation note — cross-import the canonical
 // `NOTEBOOK_CELL_STATUSES` const tuple from the renderer
 // source-of-truth (`notebookSession.ts`). The two `_SET` duplicates
-// in `src/shared/telemetry.ts` + `update-server/src/telemetry.ts`
+// in `src/shared/telemetry/valueCatalog.ts` + `update-server/src/telemetry.ts`
 // are derived from this tuple; the 3-way parity check catches drift
 // between the canonical tuple and either Set.
 import { NOTEBOOK_CELL_STATUSES as RENDERER_NOTEBOOK_CELL_STATUSES } from '../../src/renderer/runtime/notebookSession';
@@ -543,7 +543,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /CAPSULE_EXPORT_TRIGGERS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -562,6 +562,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'list-export',
       // internal — self-contained HTML export from the browse overlay row.
       'list-export-html',
+      'list-export-workspace',
       'palette-export',
       'pipeline-run',
       'result-panel-export',
@@ -576,7 +577,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
@@ -607,7 +608,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const extract = (source: string, name: string): string[] => {
@@ -648,7 +649,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'utf-8'
     );
     const sharedSource = await fs.readFile(
-      path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts'),
+      path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts'),
       'utf-8'
     );
     const bundleSource = await fs.readFile(
@@ -703,7 +704,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /CAPSULE_BROWSE_SURFACES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -730,7 +731,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /CAPSULE_SIZE_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -761,7 +762,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /CAPSULE_IMPORT_SOURCES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -783,7 +784,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /CAPSULE_IMPORT_STATUSES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1277,7 +1278,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     //   1. canonical const tuple `NOTEBOOK_CELL_STATUSES` in
     //      `src/renderer/runtime/notebookSession.ts`,
     //   2. duplicated Set `NOTEBOOK_CELL_STATUSES_SET` in
-    //      `src/shared/telemetry.ts`,
+    //      `src/shared/telemetry/valueCatalog.ts`,
     //   3. duplicated Set `NOTEBOOK_CELL_STATUSES_SET` in
     //      `update-server/src/telemetry.ts`.
     // Drift between any pair would let the renderer or worker accept
@@ -1303,7 +1304,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     //      `rollupRunStatus` returns and `parseAssertionResults`
     //      validates against),
     //   2. duplicated Set `RECIPE_RUN_STATUSES_SET` in
-    //      `src/shared/telemetry.ts` (the renderer-side validator,
+    //      `src/shared/telemetry/valueCatalog.ts` (the renderer-side validator,
     //      copied so the telemetry module stays import-cycle-free),
     //   3. duplicated Set `RECIPE_RUN_STATUSES_SET` in
     //      `update-server/src/telemetry.ts` (the worker mirror).
@@ -1331,9 +1332,9 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
   it('importer ids + import statuses stay in sync (implementation note)', () => {
     // Closed-enum parity for `import.applied.importerId` +
     // `import.applied.status`. The canonical source of truth is
-    // `IMPORTER_IDS` in `src/shared/importers/types.ts` (renderer)
+    // `IMPORT_FLOW_IDS` in `src/shared/importers/types.ts` (renderer)
     // and `IMPORTER_IDS_SET` / `IMPORT_STATUSES_SET` in
-    // `src/shared/telemetry.ts`. Worker mirrors live in
+    // `src/shared/telemetry/valueCatalog.ts`. Worker mirrors live in
     // `update-server/src/telemetry.ts`. Adding an importer requires
     // touching BOTH telemetry copies.
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
@@ -1350,6 +1351,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'curl-http',
       'ipynb-notebook',
       'linguanb-notebook',
+      'playground-url',
       'postman-collection',
     ]);
     expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(
@@ -1367,7 +1369,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     //   1. canonical const tuple `NOTEBOOK_WARNING_KINDS` in
     //      `src/shared/importers/types.ts`,
     //   2. duplicated Set `NOTEBOOK_WARNING_KINDS_SET` in
-    //      `src/shared/telemetry.ts`,
+    //      `src/shared/telemetry/valueCatalog.ts`,
     //   3. duplicated Set `NOTEBOOK_WARNING_KINDS_SET` in
     //      `update-server/src/telemetry.ts`.
     // Drift between any pair would let either side accept a kind the
@@ -1512,7 +1514,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /RICH_MEDIA_REJECTED_KINDS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1534,7 +1536,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /RICH_MEDIA_REJECTED_REASONS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1564,7 +1566,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+AUTO_RUN_GATE_REASONS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1639,11 +1641,11 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     // `runtime.workflow_mode_changed`. Adding a new mode (e.g. a
     // future `notebook` workflow) has to amend BOTH the worker
     // mirror in `update-server/src/telemetry.ts` and the renderer
-    // copy in `src/shared/telemetry.ts` in the same commit.
+    // copy in `src/shared/telemetry/valueCatalog.ts` in the same commit.
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+WORKFLOW_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1672,7 +1674,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+WORKFLOW_MODE_CHANGE_TRIGGERS\s*=\s*new\s+Set\(\s*\[([\s\S]+?)\]\s*\)/u;
@@ -1698,7 +1700,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+HISTORY_REPLAY_SURFACES\s*=\s*new\s+Set\(\s*\[([\s\S]+?)\]\s*\)/u;
@@ -1743,7 +1745,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+AUTO_LOG_COUNT_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -1765,7 +1767,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
@@ -1880,7 +1882,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const modeRe =
@@ -2216,7 +2218,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
@@ -2239,7 +2241,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
@@ -2283,7 +2285,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
 
   it('RUNTIME_MODE_VALUES stays in sync with the renderer enum ', async () => {
     // Both the worker (`update-server/src/telemetry.ts`) and the
-    // renderer (`src/shared/telemetry.ts`) maintain a private Set of
+    // renderer (`src/shared/telemetry/valueCatalog.ts`) maintain a private Set of
     // the closed `RuntimeMode` values for the `runtime.mode_changed`
     // event. The Set is duplicated by design (no import cycle); this
     // parity test guards against drift so a implementation addition of
@@ -2293,7 +2295,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     // update-server vitest runs from `update-server/` cwd; the
     // shared telemetry module sits two levels up at the repo root.
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe = /const\s+RUNTIME_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
@@ -2318,7 +2320,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const fs = await import('node:fs/promises');
     const path = await import('node:path');
     const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
-    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry/valueCatalog.ts');
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =

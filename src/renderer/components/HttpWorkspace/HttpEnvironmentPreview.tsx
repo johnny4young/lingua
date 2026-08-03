@@ -34,7 +34,8 @@ import {
   maskSecretsForCapsule,
   type HttpEnvironmentV1,
 } from '../../../shared/httpEnvironment';
-import { buildAuthHeader, type HttpRequestV1 } from '../../../shared/httpWorkspace';
+import { buildAuthHeader } from '../../../shared/httpWorkspaceHeaders';
+import type { HttpRequestV1 } from '../../../shared/httpWorkspaceSchema';
 
 export interface HttpEnvironmentPreviewProps {
   request: HttpRequestV1;

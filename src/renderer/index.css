@@ -928,7 +928,7 @@
   }
 
   .guided-tour-overlay {
-    @apply fixed inset-0;
+    @apply pointer-events-auto fixed inset-0;
     background: var(--tour-overlay);
   }
 
@@ -1060,7 +1060,7 @@
      placed in the editor's overlay layer (sibling to the lines, not
      a child), so we can pin it to the editor's right edge with
      `position: absolute; top: <pixel>; right: <gutter offset>`. The
-     hook (`useInlineResultWidgets`) writes those style values from
+     runtime (`InlineResultWidgets`) writes those style values from
      `editor.getTopForLineNumber(line) - scrollTop`. Visually this
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */
@@ -1266,6 +1266,23 @@
   .monaco-editor .lingua-bp-glyph--disabled {
     background-color: transparent;
     box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
+  }
+
+  .monaco-editor .lingua-bp-glyph--conditional {
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+
+  .monaco-editor .lingua-bp-glyph--logpoint {
+    background-color: var(--app-warning, #d99a32);
+    border-radius: 2px;
+    transform: rotate(45deg);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-warning, #d99a32) 60%, transparent);
+  }
+
+  .monaco-editor .lingua-bp-glyph--logpoint.lingua-bp-glyph--disabled {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--app-warning, #d99a32);
   }
 
   /* implementation UX polish — make the breakpoint gutter

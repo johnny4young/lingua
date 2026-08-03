@@ -1,14 +1,16 @@
 import { lazy, Suspense } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
-import { type DeveloperUtilityId } from '../data/developerUtilities';
+import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import { openHttpWorkspaceTab, openSqlWorkspaceTab } from '../runtime/openWorkspaceTab';
-import { exportActiveNotebookAsLinguanb } from '../runtime/exportActiveNotebook';
-import { useRecipeStore } from '../stores/recipeStore';
-import { useEditorStore } from '../stores/editorStore';
+import { loadActiveNotebookExporter } from '../runtime/exportActiveNotebookLoader';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
+import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
 import { trackEvent } from '../utils/telemetry';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
+import { requestSettingsTarget } from './Settings/pendingSettingsTab';
 
 /**
  * Every overlay is conditionally rendered, so none of them is needed to paint
@@ -45,6 +47,9 @@ const SnippetsModal = lazy(async () => ({
 const ProjectTemplatesOverlay = lazy(async () => ({
   default: (await import('./Welcome/ProjectTemplatesOverlay')).ProjectTemplatesOverlay,
 }));
+const ProjectTestsOverlay = lazy(async () => ({
+  default: (await import('./ProjectTests/ProjectTestsOverlay')).ProjectTestsOverlay,
+}));
 const CapsuleImportOverlay = lazy(async () => ({
   default: (await import('./CapsuleImport')).CapsuleImportOverlay,
 }));
@@ -68,23 +73,37 @@ const WhatsNewOverlay = lazy(async () => ({
 }));
 
 /**
- * implementation — Recipes overlay mount. Visibility flag lives on
- * `useRecipeStore.overlayOpen` instead of the single-slot `AppOverlay`
- * union so the overlay can co-exist with a recipe-bound tab being
- * active (the user opens a second recipe while the first tab keeps
- * its binding).
+ * Keep the common no-notebook path synchronous and cheap. The exporter reads
+ * notebook state and owns serialization, disk/download handling, and
+ * telemetry, so it is requested only when the active tab can use it.
  */
-function RecipesOverlayMount() {
-  const overlayOpen = useRecipeStore(s => s.overlayOpen);
-  const closeOverlay = useRecipeStore(s => s.closeOverlay);
-  if (!overlayOpen) return null;
-  return <RecipesOverlay onClose={closeOverlay} />;
+async function exportActiveNotebookFromPalette(): Promise<void> {
+  const tab = getActiveTab(useEditorStore.getState());
+  if (!tab || tab.kind !== 'notebook') {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'notebook.notice.exportNoActiveNotebook',
+      priority: 'high',
+    });
+    return;
+  }
+
+  try {
+    const { exportActiveNotebookAsLinguanb } = await loadActiveNotebookExporter();
+    exportActiveNotebookAsLinguanb();
+  } catch (error) {
+    console.error('[notebook-export] Failed to load exporter', error);
+    useUIStore.getState().pushStatusNotice({
+      tone: 'error',
+      messageKey: 'notebook.notice.exportFailed',
+    });
+  }
 }
 
 /**
  * internal — the single-slot overlay layer, extracted verbatim from
  * `AppChrome` in `App.tsx`. Renders whichever overlay the `AppOverlay` union
- * selects (plus the recipe overlay, which has its own `useRecipeStore` flag).
+ * selects.
  * `AppChrome` keeps ownership of the overlay STATE + the open/close/toggle
  * controls and the always-mounted chrome (status banner, consent modal, etc.);
  * this component is purely the conditional render fan-out, driven by props.
@@ -144,6 +163,17 @@ export function AppOverlays({
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={utilityId => onOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
+          onRunActiveTab={() => void run()}
+          onOpenProject={() => useProjectStore.getState().openProject()}
+          onOpenProjectTests={() => openOverlay('project-tests')}
+          onOpenProjectTerminal={
+            useProjectStore.getState().currentProject && window.lingua?.projectTerminal
+              ? () => useUIStore.getState().openBottomPanel('project-terminal')
+              : undefined
+          }
+          onApplyLicense={() =>
+            requestSettingsTarget('account', 'license-token-input', () => openOverlay('settings'))
+          }
           onRerunLast={() => void run()}
           onReplayEntry={entry => {
             // Gate telemetry on the actual replay dispatch so a refused
@@ -169,21 +199,19 @@ export function AppOverlays({
           onExportProjectBundle={() => void exportProjectBundle()}
           onImportProjectBundle={() => openOverlay('project-bundle-import')}
           onOpenImportOverlay={() => openOverlay('import-preview')}
-          onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
+          onOpenRecipes={() => openOverlay('recipes')}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
-          onExportActiveNotebookLinguanb={() => exportActiveNotebookAsLinguanb()}
+          onExportActiveNotebookLinguanb={() => void exportActiveNotebookFromPalette()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
       {overlay === 'project-templates' && <ProjectTemplatesOverlay onClose={closeOverlay} />}
+      {overlay === 'project-tests' && <ProjectTestsOverlay onClose={closeOverlay} />}
       {overlay === 'capsule-import' && <CapsuleImportOverlay onClose={closeOverlay} />}
       {overlay === 'capsule-list' && <CapsuleListOverlay onClose={closeOverlay} />}
       {overlay === 'import-preview' && <ImportPreviewOverlay onClose={closeOverlay} />}
       {overlay === 'project-bundle-import' && <ProjectBundleImportOverlay onClose={closeOverlay} />}
-      {/* implementation — Recipes overlay. Visibility flag lives on
-          `useRecipeStore` (not the AppOverlay union) so the overlay
-          can co-exist with a recipe-bound tab being active. */}
-      <RecipesOverlayMount />
+      {overlay === 'recipes' && <RecipesOverlay onClose={closeOverlay} />}
       {overlay === 'settings' && (
         <SettingsModal
           onClose={closeOverlay}

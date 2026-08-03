@@ -27,6 +27,7 @@ import {
   parseLicensePublicKeyring,
   verifyLicenseToken,
 } from '../shared/license';
+import type { LicenseSnapshot, LicenseStatus } from '../shared/licenseSnapshot';
 import { bundledBuildDate } from '../shared/appInfo';
 import {
   activate as serverActivate,
@@ -34,44 +35,13 @@ import {
   removeDevice as serverRemoveDevice,
   status as serverStatus,
   type ActivateResult,
-  type LicenseServerDeviceLimit,
-  type LicenseServerDevicesBucket,
   type LicenseServerFailureReason,
   type LicenseServerSyncState,
   type LicenseServerStatusKind,
   type RemoveDeviceResult,
 } from './licenseServer';
 
-export type LicenseStatus =
-  | { kind: 'free' }
-  | { kind: 'invalid'; reason: string; message?: string }
-  | { kind: 'active'; verification: Extract<LicenseVerificationResult, { ok: true }> }
-  | { kind: 'grace'; verification: Extract<LicenseVerificationResult, { ok: true }> };
-
-/**
- * Snapshot the IPC bridge ships to the renderer. implementation extends it
- * with three server-derived fields so the renderer's desktop branch
- * can render the Devices section under the same gate the web build
- * already passes (`serverSync === 'synced'` + non-null `devices` +
- * `deviceLimit`).
- *
- * Persistence: `token` + `lastVerifiedAt` go to disk
- * (`userData/license.json`). `devices`, `deviceLimit`, and
- * `serverSync` are in-memory only — devices belong on the server, the
- * boot revalidate re-fetches them via `/licenses/status` so a stale
- * cache cannot drift past actual server state.
- */
-export interface LicenseSnapshot {
-  token: string | null;
-  status: LicenseStatus;
-  deviceId: string;
-  lastVerifiedAt: number | null;
-  serverSync: LicenseServerSyncState;
-  devices: LicenseServerDevicesBucket | null;
-  deviceLimit: LicenseServerDeviceLimit | null;
-}
-
-export const FREE_STATUS: LicenseStatus = { kind: 'free' };
+const FREE_STATUS: LicenseStatus = { kind: 'free' };
 
 export function resolveLicensePath(userDataDir: string): string {
   return path.join(userDataDir, 'license.json');

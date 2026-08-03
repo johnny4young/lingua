@@ -14,6 +14,191 @@ Related reference:
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) records the historical desktop build-system decision and its later migration to electron-builder.
 
+## Telemetry responsibility boundaries
+
+`src/shared/telemetry.ts` is a compatibility facade. Product code imports that
+path; the implementation behind it is split by reason to change:
+
+```mermaid
+flowchart LR
+    A["Application call sites"] --> B["telemetry.ts<br/>stable facade"]
+    B --> C["catalog.ts<br/>events + property schema"]
+    B --> D["valueCatalog.ts<br/>closed value registries"]
+    B --> E["redaction.ts<br/>validation + privacy filter"]
+    B --> F["transport.ts<br/>wire types + coarse metadata"]
+    C --> E
+    D --> E
+    F --> E
+    E -. "mirrored contract" .-> G["update-server/src/telemetry.ts<br/>defense-in-depth validator"]
+```
+
+The facade preserves existing imports while the responsibility modules remain
+internal. Compile and runtime guards in
+`tests/shared/telemetryArchitecture.test.ts` enforce the facade type contract,
+exhaustive event/property registration, dependency direction, and per-module
+line budgets. Worker parity remains independent: the server intentionally
+mirrors the accepted schema instead of importing renderer code into its
+deployment bundle.
+
+## Browser execution-worker boundaries
+
+JavaScript/TypeScript and Python keep their Vite worker filenames stable while
+their implementations are divided by reason to change:
+
+```mermaid
+flowchart LR
+    JR["JS and TS runners"] --> JE["js-worker.ts<br/>stable entrypoint"]
+    PR["Python runner and installer"] --> PE["python-worker.ts<br/>stable entrypoint"]
+    JE --> JP["protocol"]
+    JE --> JX["execution"]
+    JX --> JS["serialization"]
+    JX --> JA["runtime bridges"]
+    PE --> PP["protocol"]
+    PE --> PX["execution"]
+    PE --> PD["dependency adapter"]
+    PX --> PS["serialization and Python sources"]
+    PX --> PA["persistent Pyodide adapter"]
+    PD --> PA
+```
+
+Only `js-worker.ts` and `python-worker.ts` register message listeners. Runners
+continue constructing those exact URLs; responsibility modules are internal to
+the worker bundle. Protocol unions close every inbound discriminator, while
+`tests/workers/workerArchitecture.test.ts` guards listener ownership,
+production-consumer boundaries, and per-module review budgets. Stateful
+runtime adapters are created once per worker so boot-global snapshots,
+notebook namespaces, installed Python packages, and Pyodide streams retain the
+same lifetime they had before the split.
+
+### Debugger expression boundary
+
+JavaScript and TypeScript debugging uses two distinct execution surfaces. The
+program itself runs in the JS worker, while user-authored breakpoint
+conditions, watches, and logpoint placeholders pass through
+`workers/debuggerExpression.ts`. That module never delegates to `eval`,
+`Function`, or a runtime global. It parses one expression with Acorn and
+interprets only allowlisted data operations over a detached locals snapshot.
+
+The snapshot reads own data descriptors without invoking getters and enforces
+depth, entry, node, and string budgets. The interpreter separately caps source
+length, AST depth, evaluation steps, logpoint placeholder count, and output.
+Calls, constructors, mutations, prototype traversal, inherited access, and
+asynchronous syntax fail closed. This separation is intentional even though
+the containing worker already executes user code: debugger input must not gain
+ambient authority or side effects merely because it arrives during a pause.
+
+### Native debugger boundary
+
+Python **Run** still uses the Pyodide worker in both shells. Python **Debug** is
+a separate desktop-only path because source stepping needs host CPython and
+`pdb`. The renderer loads `runtime/pythonDebuggerBridge.ts` only after an
+explicit Debug action, then sends a bounded source snapshot, enabled line
+breakpoints, watches, argv, and the optional project capability pair through
+the typed preload bridge.
+
+Main owns every authority-bearing decision:
+
+- `ipc/pythonDebugger.ts` resolves the capability only to derive an approved
+  project working directory; raw display paths never authorize access;
+- the source snapshot is written to a mode-`0600` temporary file, and the
+  interpreter is selected from project `.venv`/`venv` before audited `PATH`
+  fallbacks;
+- subprocesses receive the native runner's filtered environment, run without a
+  shell, cap per-command output, and belong to the initiating `WebContents`;
+- commands are serialized by `PythonDebugSession`; stop, replacement, renderer
+  destruction, synchronization failure, and app quit terminate the whole
+  process tree and remove temporary files.
+
+The shared debugger store owns only transient presentation state. Standard
+Python breakpoints, locals, source-local call stack, and watches reuse the same
+panel and shortcuts as JS/TS. Unlike the detached JS/TS expression interpreter,
+Python watches run inside the real debugged process and may have side effects;
+the UI discloses that boundary and does not offer conditional breakpoints or
+logpoints for Python. The first Python Debug also reuses the native-execution
+acknowledgement. The web adapter omits the bridge and disables Debug honestly.
+
+Go **Debug** follows the same renderer contract but uses an owner-bound Delve
+DAP adapter in main. `ipc/goDebugger.ts` writes the current buffer and a
+minimal `go.mod` into a private temporary directory, resolves `dlv` only from
+the filtered Go toolchain environment, starts `dlv dap` on an ephemeral
+loopback port, and speaks bounded `Content-Length` framed DAP through
+`debugger/dapClient.ts`. The adapter exposes only frames from that temporary
+source and tears down Delve, its debuggee process tree, the socket, and the
+temporary module on every owner lifecycle. Missing Delve and macOS Developer
+Tools permission are explicit recoverable failures. Normal Go Run is unchanged,
+and web never receives the preload bridge.
+
+Rust **Debug** compiles the bounded current buffer with Rust 2021 debug symbols
+inside a private temporary directory, then starts an owner-bound `lldb-dap`
+process over stdio. Main resolves `rustc` from the filtered Rust toolchain
+environment and resolves `lldb-dap` from an explicit user environment value,
+`PATH`, or Xcode through `xcrun --find lldb-dap` on macOS. Compiler output and
+DAP frames are bounded independently. Breakpoints reference the preserved
+source basename while an explicit safe crate name prevents valid filenames
+with hyphens from breaking compilation. Compile failures, missing tools, and
+macOS debugserver permission denial remain distinct recoverable responses.
+Normal Rust Run is unchanged, and web never receives the preload bridge.
+
+`runtime/nativeDebuggerBridge.ts` owns the shared renderer session lifecycle
+for Python, Go, and Rust; runtime wrappers provide only their typed preload
+bridge, start request, localization namespace, and telemetry language. Go and
+Rust additionally share `debugger/nativeDapSession.ts`, while
+`debugger/dapClient.ts` abstracts Delve's TCP transport and LLDB's stdio
+transport behind the same bounded framing and request correlation. Native
+watches run in the real process and can have side effects, so all three
+adapters expose only standard pause breakpoints and retain the UI warning.
+
+## Notebook lazy-reactivity boundary
+
+Notebook languages do not share one typed value graph. JavaScript and
+TypeScript use a per-tab serialized sandbox, Python uses a per-notebook scope,
+and SQL uses the renderer-wide DuckDB connection. Lingua therefore does not
+claim syntax-level dependency inference across languages. It uses conservative
+document order instead:
+
+1. When an executed code cell changes, changes language, moves across another
+   code cell, is deleted, or runs again, that cell and previously executed code
+   cells below it become `stale`.
+2. Existing output stays visible with a warning. Never-executed cells remain
+   idle, and Lingua never runs code automatically.
+3. **Refresh stale** disposes the notebook-owned JavaScript/TypeScript sandbox
+   and Python scope, then replays the executed prefix in document order through
+   the requested stale cell. Replay stops on the first error or interruption.
+
+The persisted notebook state includes the document plus a validated map of
+cell IDs to execution stamps. This small ledger is necessary because a setup
+cell can mutate a kernel without producing visible output; inferring execution
+only from output would skip it after reload. Status details, latency, variable
+flow, and undo state remain transient. Rehydration treats every ledger entry or
+persisted output as stale because no runtime kernel survives the process.
+
+SQL is the explicit boundary: DuckDB is shared with the SQL workspace, so a
+refresh replays SQL statements in order but cannot roll back tables or other
+side effects that already reached that shared connection. The UI and capability
+matrix describe this rather than promising notebook-isolated SQL snapshots.
+
+## Renderer type boundaries
+
+`src/renderer/types/index.ts` is a compatibility-only facade. Production
+source imports the smallest domain leaf that owns its contract:
+
+- `language.ts` — closed renderer language identifiers.
+- `editor.ts` — tabs, editor state, and editor actions.
+- `console.ts` — console entries, filters, collapse rows, and store state.
+- `execution.ts` — runner requests, results, diagnostics, and worker replies.
+- `settings.ts` — persisted settings state and settings actions.
+
+All leaf dependencies are type-only, and the facade contains exports but no
+behavior. `tests/build/rendererTypeBoundaries.test.ts` locks facade
+compatibility, module budgets, dependency direction, and the rule that
+production code never imports the facade.
+
+The legacy desktop bridge remains ambient through `src/types.d.ts`, but types
+with a cross-surface owner are import aliases rather than structural copies.
+Shared runtime, formatter, dependency, Git, LSP, and license snapshot modules
+keep main, preload, web, and renderer on one contract. The compile-time guard
+in `tests/build/ambientTypeBoundaries.test.ts` rejects copied shapes and drift.
+
 ## At a glance
 
 Lingua separates this feature into four layers:
@@ -170,6 +355,26 @@ pure predicate, `isPermissionAllowed`, so the policy has a single decision point
 opening external links keeps working. A drift-guard test asserts
 `defaultSession` is the only session the app uses — if a partitioned session is
 added later, it must install the same handlers.
+
+## Portable Capsule artifact boundary
+
+Lingua keeps execution capture and multi-file sharing as two additive layers:
+
+- `RunCapsuleV1` is the stable, single-source execution record consumed by the
+  renderer importer, CLI replay, share links, and compatibility migrations.
+- `CapsuleWorkspaceV1` wraps one sanitized Run Capsule plus explicitly selected
+  open text tabs for local handoff and read-only inspection.
+
+The wrapper deliberately does not add a project root, capability token, or
+backend identity to the Run Capsule. Its shared codec rejects absolute and
+traversing paths, duplicate portable paths, malformed nested capsules, and
+bounded-size violations. The renderer exporter is the consent layer: it never
+crawls disk, shows the exact selected content, flags possible secrets, and
+requires a review confirmation before clipboard or file egress. The importer
+opens supplemental files one at a time and never auto-executes them.
+
+See [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) for the wire shape,
+limits, and CLI boundary.
 
 ## Project lifecycle
 
@@ -444,11 +649,13 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | `readdir(rootId, relativePath)`             | `fs:readdir`          | list entries, filter hidden items, sort dirs first                                 |
 | `stat(rootId, relativePath)`                | `fs:stat`             | return metadata                                                                    |
 | `read(rootId, relativePath)`                | `fs:read`             | safe read inside the approved root                                                 |
+| `readBytes(rootId, relativePath)`           | `fs:read-bytes`       | binary-safe read inside the approved root for archive/export flows                 |
 | `write(rootId, relativePath, content)`      | `fs:write`            | safe write inside the approved root                                                |
 | `delete(rootId, relativePath, isDirectory)` | `fs:delete`           | guarded delete with confirmation dialog                                            |
 | `rename(rootId, oldRelativePath, newName)`  | `fs:rename`           | validated rename inside the same parent                                            |
 | `mkdir(rootId, relativePath)`               | `fs:mkdir`            | safe directory creation                                                            |
 | `touch(rootId, relativePath)`               | `fs:touch`            | create empty file                                                                  |
+| `searchInFiles(rootId, relativePath, query)` | `fs:searchInFiles`    | bounded literal project search with native acceleration and a safe fallback        |
 | `watchStart(rootId, relativePath)`          | `fs:watch-start`      | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
 | `watchStop(watchId)`                        | `fs:watch-stop`       | close native watcher                                                               |
 
@@ -458,6 +665,172 @@ or from files under an approved project root, then mints a fresh process-local
 `rootId` for the reopened path. The approval list makes recent projects and
 saved tabs ergonomic; the rootId capability remains the authority for every
 later read, write, watcher, search, or bundle operation.
+
+#### Project text search
+
+Desktop Project Search keeps the capability boundary and path policy in main:
+it enumerates only visible files below the resolved `rootId`, applies the
+file-count and file-size caps, and probes for binary content before invoking
+the search engine. Eligible paths are sent to a bundled ripgrep executable in
+bounded argument chunks. The executable uses literal JSON output; main converts
+its UTF-8 byte offsets into the UTF-16 string offsets expected by the renderer.
+
+ripgrep is an optimization, not a second trust boundary or a required system
+dependency. Release builds copy the current platform binary from
+`@vscode/ripgrep` into Electron's `resources/ripgrep` directory outside
+`app.asar`. If that resource is absent, cannot start, times out, or emits
+malformed output, main repeats the search through the bounded JavaScript
+implementation. A newer search from the same renderer aborts the older native
+process. The web adapter keeps its File System Access API implementation behind
+the same `window.lingua.fs.searchInFiles(...)` contract.
+
+#### Project test execution
+
+Project tests are an explicit desktop action adjacent to the project
+lifecycle, not a background lifecycle phase. Opening a folder never runs code.
+The Explorer action or Command Palette opens the test surface, which asks main
+to inspect the already-approved project root for Vitest, Jest, Pytest, Go, and
+Cargo markers.
+
+The trust boundary is deliberately narrower than a generic task runner:
+
+- the renderer sends a branded `rootId`, a closed framework identifier, and an
+  opaque run id; it never sends a command, executable path, arguments, cwd, or
+  environment;
+- main resolves the root capability, re-detects the selected framework
+  immediately before every spawn, and owns a fixed argument vector for each
+  runner;
+- JavaScript runners use their project-local module entrypoint, Python prefers
+  `.venv`/`venv`, and host toolchains are accepted only from absolute `PATH`
+  entries so a relative entry cannot plant an executable in the project cwd;
+- every subprocess runs without a shell, inherits only an audited toolchain
+  environment, caps stdout and stderr independently, and receives a
+  parent-owned five-minute timeout with process-tree termination;
+- only one suite may run per approved root. Stop requests must present the same
+  root capability and run id that own the active process;
+- renderer destruction aborts its owned run even during asynchronous detection,
+  and app shutdown disposes every remaining run;
+- stdout and stderr stream over `project-tests:output`, filtered again by run id
+  in the renderer, while the final invoke result remains authoritative.
+
+The first local run reuses the persisted native-execution acknowledgement.
+That warning is essential: fixed arguments and a filtered environment prevent
+command injection and accidental secret inheritance, but a project's tests and
+dependencies are still arbitrary unsandboxed code with the user's OS
+permissions. The web build omits `window.lingua.projectTests` and shows an
+explicit desktop-only state instead of simulating execution.
+
+#### Project terminal
+
+The integrated terminal is another explicit desktop action, but it is not an
+extension of the fixed project-test runner. Selecting the Explorer terminal
+action, the Command Palette entry, or the contextual bottom-panel tab starts
+the user's real system shell through `node-pty`; xterm renders the byte stream
+in the renderer. Opening a project or merely revealing the panel never starts
+a process.
+
+The capability and lifecycle contract is:
+
+- the renderer sends only a branded `rootId` plus bounded terminal dimensions;
+  it cannot choose an executable, cwd, arguments, or environment;
+- main resolves the approved root as the **starting** cwd and selects only an
+  absolute host-configured or OS fallback shell, never a project-relative
+  executable;
+- the shell receives an allow-listed environment with terminal metadata, not
+  inherited API tokens or Node injection flags;
+- each session belongs to the initiating `WebContents`; input, resize, and stop
+  requests must present that session id from the same owner;
+- main caps sessions per owner and request sizes, then stops sessions when the
+  root capability is revoked, the renderer is destroyed, or the app quits;
+- the renderer retains a bounded transcript so output survives panel hiding and
+  a natural shell exit without making terminal history persistent on disk.
+
+This boundary controls ownership and accidental secret inheritance; it does
+not sandbox shell commands. A shell that starts under the approved project can
+`cd` elsewhere and access anything available to the user's OS account. The
+first start therefore reuses the native-execution acknowledgement with
+terminal-specific copy. The web adapter deliberately exposes no
+`window.lingua.projectTerminal` member, so web UI does not advertise a host
+shell it cannot provide.
+
+#### Local MCP server
+
+The local MCP endpoint is a desktop-only integration that starts only after a
+user approves read-only access for the currently opened project. Main binds an
+ephemeral port on `127.0.0.1`, requires a random session bearer token, validates
+Host and Origin before protocol dispatch, and caps request size and concurrency.
+Each tool resolves the branded root capability again and applies bounded text
+listing, reading, or literal search; secret-like paths, symlinks, binary files,
+writes, process execution, and outbound network access are excluded.
+
+Only the initiating renderer receives the token. The server is replaced on a
+new start and stops when the user requests it, its renderer disappears, the
+root capability is revoked, or the app quits. State and credentials remain
+session-only. The complete threat model and promotion rules live in
+[`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md).
+
+#### Project bundles
+
+Project bundle export is binary-safe on both filesystem backends. Desktop reads
+raw bytes through main; web reads `File.arrayBuffer()` through the FSA adapter.
+Both collectors use the shared archive budget and fail the whole export when a
+file is unreadable, a file or project is oversized, or the file-count cap is
+crossed. Silent omission is not allowed because it would turn a successful
+backup-looking artifact into data loss.
+
+Import validates the compressed-byte cap before decoding, rejects unsafe or
+duplicate paths, and streams input through `fflate` in bounded chunks. Honest
+ZIP headers are rejected before their entry starts; actual inflated bytes are
+also counted per entry and across the archive so a forged `originalSize` cannot
+bypass the 16 MiB per-file or 200 MiB aggregate ceilings. Main repeats the same
+validation before writing regular files into a user-chosen empty directory.
+
+#### Playground URL imports
+
+Playground links use a renderer-owned allowlist rather than the desktop HTTP
+proxy or a generic backend fetcher. TypeScript Playground embeds compressed
+source in the fragment, so the renderer decodes it without a request. A Go
+Playground share URL contributes only its validated opaque id; the loader
+constructs the fixed `https://play.golang.org/p/{id}.go` destination.
+
+The TypeScript decoder enforces its output ceiling inside the LZ loop, before
+joining the decoded string, and then checks the exact UTF-8 byte length. A
+compact compression bomb therefore cannot allocate an unbounded source before
+the normal 512 KiB rejection runs.
+
+The remote path sends no credentials or referrer, rejects redirects and
+non-plain-text responses, combines caller cancellation with a seven-second
+timeout, and counts streamed bytes against a 512 KiB ceiling even when the
+server omits or lies about `Content-Length`. State remains preview-only until
+confirmation creates a tab. Providers without a stable public read contract
+are rejected instead of expanding the network boundary.
+
+### Guarded HTTP workspace transport
+
+The HTTP workspace has one renderer orchestration path for environment
+interpolation, capture chaining, assertion evaluation, secret masking, history,
+and Capsules. Only the network transport varies by platform:
+
+- Web uses browser `fetch` and `WebSocket`, retaining browser CORS,
+  mixed-content, forbidden-header, and private-network enforcement.
+- Desktop uses the optional `window.lingua.http` typed bridge. Main owns each
+  run by renderer id plus opaque run id, aborts it when the renderer is
+  destroyed, and emits only bounded progress events.
+- HTTP and SSE resolve and validate every redirect hop, remove authorization,
+  cookie, proxy authorization, auth-injected, and user-sensitive headers when
+  crossing origins, and pin undici's socket lookup to the addresses that passed
+  the SSRF guard.
+- WebSocket validates and pins the handshake target, disables redirects, caps
+  messages and bytes, disables compression, and closes on cancel or timeout.
+- Private, loopback, link-local, CGNAT, multicast, and reserved targets fail
+  closed unless the user enables the desktop-only private-host setting.
+
+Named request pipelines are renderer orchestration, not a second transport.
+They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
+active environment fresh for each step, and stop after transport, HTTP, or
+assertion failure unless the saved pipeline says to continue. SSE and WebSocket
+sessions are intentionally excluded because a long-lived connection has no
+deterministic next-step boundary.
 
 ### Event-style IPC
 

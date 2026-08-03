@@ -1,4 +1,4 @@
-import type { LayoutPreset, SettingsState } from '../types';
+import type { LayoutPreset, SettingsState } from '../types/settings';
 
 export const THEME_PRESET_VERSION = 2;
 
@@ -9,7 +9,7 @@ export const THEME_PRESET_VERSION = 2;
  */
 const SUPPORTED_PRESET_VERSIONS: readonly number[] = [1, 2];
 
-export type ThemePresetParseFailure =
+type ThemePresetParseFailure =
   | 'invalid-json'
   | 'invalid-shape'
   | 'unsupported-version';

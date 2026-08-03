@@ -11,9 +11,24 @@ import { formatByteSize } from '../../../utils/base64Image';
 type HashInputSource = 'text' | 'file';
 
 type HashFileState = {
+  requestId: number;
   name: string;
   size: number;
   buffer: ArrayBuffer;
+};
+
+interface ResolvedHashResult {
+  source: HashInputSource;
+  inputIdentity: string | number;
+  algorithm: HashAlgorithm;
+  mode: HashMode;
+  hmacKey: string;
+  result: HashResult;
+}
+
+const EMPTY_HASH_RESULT: HashResult = {
+  ok: false,
+  errorKey: 'utilities.tool.hash.error.empty',
 };
 
 const HASH_ALGORITHM_I18N_KEYS: Record<HashAlgorithm, string> = {
@@ -33,10 +48,29 @@ export function HashUtilityPanel() {
   const [hmacKey, setHmacKey] = useState('');
   const [file, setFile] = useState<HashFileState | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [result, setResult] = useState<HashResult | null>(null);
+  const [resolvedResult, setResolvedResult] = useState<ResolvedHashResult | null>(null);
   // Monotonic counter for file-read operations so a slow `arrayBuffer()`
   // call from a superseded file drop can't clobber the newer selection.
   const fileRequestRef = useRef(0);
+  const payload: string | ArrayBuffer | null =
+    source === 'file' ? file?.buffer ?? null : text;
+  // Compare immutable request fields directly instead of serializing the
+  // input. Text can be large, and JSON.stringify would allocate a second
+  // full-size string on every render merely to derive loading state.
+  const inputIdentity = source === 'file' ? file?.requestId ?? null : text;
+  const requestIsResolved =
+    inputIdentity !== null &&
+    resolvedResult?.source === source &&
+    resolvedResult.inputIdentity === inputIdentity &&
+    resolvedResult.algorithm === algorithm &&
+    resolvedResult.mode === mode &&
+    resolvedResult.hmacKey === hmacKey;
+  const result =
+    payload === null
+      ? EMPTY_HASH_RESULT
+      : requestIsResolved
+        ? resolvedResult.result
+        : null;
 
   const handleModeChange = (next: HashMode) => {
     // Flip mode AND correct the algorithm in the same event tick so we
@@ -50,27 +84,25 @@ export function HashUtilityPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    const payload: string | ArrayBuffer | null =
-      source === 'file' ? file?.buffer ?? null : text;
-
-    if (payload === null) {
-      // No file picked yet — surface the empty hint without kicking off a hash.
-      setResult({ ok: false, errorKey: 'utilities.tool.hash.error.empty' });
-      return () => {
-        cancelled = true;
-      };
-    }
+    if (payload === null || inputIdentity === null) return;
 
     void computeHash(payload, { algorithm, mode, key: hmacKey }).then((next) => {
       if (!cancelled) {
-        setResult(next);
+        setResolvedResult({
+          source,
+          inputIdentity,
+          algorithm,
+          mode,
+          hmacKey,
+          result: next,
+        });
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [algorithm, mode, source, text, hmacKey, file]);
+  }, [algorithm, mode, source, payload, hmacKey, inputIdentity]);
 
   const handleFile = async (dropped: File | null) => {
     // Bump the generation counter up front so earlier in-flight reads skip
@@ -90,7 +122,7 @@ export function HashUtilityPanel() {
     try {
       const buffer = await dropped.arrayBuffer();
       if (fileRequestRef.current !== requestId) return;
-      setFile({ name: dropped.name, size: dropped.size, buffer });
+      setFile({ requestId, name: dropped.name, size: dropped.size, buffer });
     } catch {
       if (fileRequestRef.current !== requestId) return;
       setFileError('utilities.tool.hash.error.fileRead');

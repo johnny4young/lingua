@@ -12,7 +12,7 @@ import {
  * `fileSystem.ts`.
  */
 
-export const HIDDEN_ENTRIES = new Set([
+const HIDDEN_ENTRIES = new Set([
   '.git',
   '.svn',
   '.hg',

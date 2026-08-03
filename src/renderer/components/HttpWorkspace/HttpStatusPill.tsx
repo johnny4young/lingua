@@ -22,7 +22,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import type { HttpResponseV1 } from '../../../shared/httpWorkspace';
+import type { HttpResponseV1 } from '../../../shared/httpWorkspaceSchema';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
 function toneForResponse(response: HttpResponseV1): StatusBadgeTone {

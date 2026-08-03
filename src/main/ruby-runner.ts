@@ -63,6 +63,14 @@ import {
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
+import type {
+  RubyDetectResult,
+  RubyRunKind,
+  RubyRunResult,
+} from '../shared/nativeRuntimeTypes';
+export type {
+  RubyDetectResult,
+} from '../shared/nativeRuntimeTypes';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -92,25 +100,7 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
   };
 }
 
-export type RubyRunKind =
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'stopped'
-  | 'missing-binary';
-
-export interface RubyDetectResult {
-  installed: boolean;
-  /** Full `ruby --version` line, e.g. `ruby 3.3.6 (...) [arm64-darwin23]`. */
-  version?: string;
-  /** implementation note — parsed semver, e.g. `3.3.6`. Absent when parsing fails. */
-  semver?: string;
-  /** implementation note — parsed platform, e.g. `arm64-darwin23`. */
-  platform?: string;
-  error?: string;
-}
-
-export interface RubyRunOptions {
+interface RubyRunOptions {
   /** Renderer-minted correlation id. Lets `ruby:stop` terminate the exact child. */
   runId?: string;
   /** Per-call timeout (ms). Defaults to 30 s when omitted. */
@@ -137,17 +127,6 @@ export interface RubyRunOptions {
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   /** I18n-keyed truncation markers. */
   messages?: NativeRunnerMessages;
-}
-
-export interface RubyRunResult {
-  kind: RubyRunKind;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  executionTime: number;
-  error?: string;
-  /** Echoed back so the renderer's `<RunStatusPill>` tooltip can name the budget. */
-  timeoutMs: number;
 }
 
 let cachedDetect: RubyDetectResult | null = null;
@@ -214,7 +193,7 @@ export async function detectRuby(
   return result;
 }
 
-export function resolveRubyRunEnv(
+function resolveRubyRunEnv(
   userEnv?: Record<string, string>,
   overrides: Record<string, string> = {}
 ): NodeJS.ProcessEnv {
@@ -322,7 +301,7 @@ export async function findRubyVersionFile(
  * file's directory so relative `require_relative` paths resolve;
  * Scratchpad falls back to the OS temp directory.
  */
-export function resolveRubyCwd(filePath?: string): string {
+function resolveRubyCwd(filePath?: string): string {
   if (filePath) return path.dirname(filePath);
   return app.getPath('temp');
 }
@@ -508,7 +487,7 @@ async function runRubyCode(
   return spawnRuby(source, options);
 }
 
-export function stopRubyRun(runId: unknown): { stopped: boolean } {
+function stopRubyRun(runId: unknown): { stopped: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { stopped: false };
   const stop = activeRubyRuns.get(normalizedRunId);
@@ -518,7 +497,7 @@ export function stopRubyRun(runId: unknown): { stopped: boolean } {
 }
 
 /** implementation — write a chunk to an interactive Ruby run's stdin. */
-export function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
+function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
   // Bound a single write so a renderer bug cannot balloon the child's stdin
@@ -535,7 +514,7 @@ export function writeRubyStdin(runId: unknown, data: unknown): { written: boolea
 }
 
 /** implementation — close an interactive Ruby run's stdin (EOF). */
-export function closeRubyStdin(runId: unknown): { closed: boolean } {
+function closeRubyStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
   const stream = activeRubyStdins.get(normalizedRunId);
@@ -547,11 +526,6 @@ export function closeRubyStdin(runId: unknown): { closed: boolean } {
   }
   activeRubyStdins.delete(normalizedRunId);
   return { closed: true };
-}
-
-/** Test seam — clear interactive Ruby stdin registry. */
-export function _resetRubyStdinsForTests(): void {
-  activeRubyStdins.clear();
 }
 
 /** Register all Ruby-related IPC handlers. */

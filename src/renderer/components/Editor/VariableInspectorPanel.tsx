@@ -429,7 +429,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
           </div>
         </div>
         <label className="flex items-center gap-1.5 text-caption text-fg-muted">
-          <span className="internal">{t('variableInspector.filter.label')}</span>
+          <span className="sr-only">{t('variableInspector.filter.label')}</span>
           <Search size={11} aria-hidden className="text-fg-subtle" />
           <input
             type="search"

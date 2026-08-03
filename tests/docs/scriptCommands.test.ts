@@ -96,7 +96,18 @@ describe('Script naming docs guard', () => {
       'build:web',
       // implementation — CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
+      // npm tarball + native Windows/Linux single-executable archives.
+      'package:cli',
+      // Read-only verifier for the exact release-owned npm tarball.
+      'check:cli-publication',
+      // Authenticated read-only audit of GitHub/npm promotion prerequisites.
+      'check:cli-publish-prereqs',
+      // Authenticated name-only audit of Windows signing prerequisites.
+      'check:windows-signing-prereqs',
+      // Read-only public release, registry, tap, and manifest evidence.
+      'distribution:status',
       'preview:web',
+      'smoke:project-templates',
       'smoke:desktop',
       'smoke:desktop:stagewright',
       // implementation — runtime-asset lock + offline desktop smoke
@@ -126,6 +137,7 @@ describe('Script naming docs guard', () => {
       'check:prod-audit',
       // internal — bundle/runtime performance budgets and reports
       'performance:report',
+      'performance:activation',
       'performance:baseline',
       'check:performance',
       // Public-release changelog helpers — draft notes from
@@ -148,6 +160,9 @@ describe('Script naming docs guard', () => {
       'check:i18n',
       'check:i18n:copy',
       'format',
+      // Restores execute bits on node-pty's Unix companion helper before
+      // desktop bundling; pnpm package extraction can strip them.
+      'prepare:node-pty',
       // Desktop bundle build (main + preload + renderer via Vite) that
       // electron-builder then packages — the Forge-free build step.
       'build:desktop-bundles',

@@ -18,7 +18,7 @@ import { create } from 'zustand';
 /** Hard cap on retained entries. FIFO eviction beyond this. */
 export const MAX_COMMAND_HISTORY_ENTRIES = 20;
 
-export interface CommandHistoryEntry {
+interface CommandHistoryEntry {
   /** Palette action id (closed enum from the palette model builders). */
   id: string;
   /** Epoch ms of the execution, for the "2m ago" popover column. */

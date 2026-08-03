@@ -13,13 +13,12 @@ import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
  * is the explicit consent surface that mitigates accidental token
  * leakage.
  *
- * Gated by `settings.shareLinkConfirmEnabled` (implementation note). When the
- * setting is OFF the caller skips the modal entirely and writes to
- * the clipboard directly.
+ * The on-demand share flow always presents this consent surface before writing
+ * to the clipboard.
  *
  * Telemetry: the caller fires `share.created { status: 'cancelled' }`
- * via `onCancel` and `share.created { status: 'success' }` via
- * `onConfirm` after the clipboard write resolves.
+ * via `onCancel` and records `share.created { status: 'success' }` only after
+ * the clipboard write started by `onConfirm` resolves.
  */
 export interface ShareConfirmationModalProps {
   readonly previewContent: string;

@@ -46,6 +46,23 @@ describe('NativeExecutionWarning', () => {
     ).toBeTruthy();
   });
 
+  it('explains the broader project-test trust boundary', () => {
+    useNativeExecutionGateStore.getState().request('project-tests', () => {});
+    render(<NativeExecutionWarning />);
+
+    expect(screen.getByText("Run this project's tests locally?")).toBeTruthy();
+    expect(screen.getByText(/dependencies execute as regular processes/)).toBeTruthy();
+  });
+
+  it('explains that the project terminal is a real shell, not a sandbox', () => {
+    useNativeExecutionGateStore.getState().request('project-terminal', () => {});
+    render(<NativeExecutionWarning />);
+
+    expect(screen.getByText('Start a local shell for this project?')).toBeTruthy();
+    expect(screen.getByText(/real system shell, not a sandbox/)).toBeTruthy();
+    expect(screen.getByText(/commands can navigate elsewhere/)).toBeTruthy();
+  });
+
   it('Acknowledge flips the persisted flag and invokes the resume callback', async () => {
     const resume = vi.fn();
     useNativeExecutionGateStore.getState().request('rust', resume);

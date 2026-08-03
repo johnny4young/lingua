@@ -1,5 +1,5 @@
 import type { StoreApi } from 'zustand';
-import type { SettingsState } from '../types';
+import type { SettingsState } from '../types/settings';
 
 /**
  * internal — shared store-binding types for the settings action factories.

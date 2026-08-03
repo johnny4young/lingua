@@ -1,4 +1,4 @@
-import type { LayoutPreset } from '../types';
+import type { LayoutPreset } from '../types/settings';
 
 /**
  * Curated theme packs that ship with the application. A pack is a

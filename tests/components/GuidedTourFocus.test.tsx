@@ -79,6 +79,10 @@ function Harness() {
     <div>
       {/* The first tour step + the start gate both wait on this selector. */}
       <div id="guided-tour-editor" />
+      <button type="button" data-tour-id="run-button">
+        Run
+      </button>
+      <div id="guided-tour-console" />
       <button type="button" data-testid="trigger" onClick={() => void startTour()}>
         Take a tour
       </button>
@@ -86,18 +90,21 @@ function Harness() {
   );
 }
 
-function renderTour() {
-  return render(
+function TourTree({ hasActiveOverlay = false }: { hasActiveOverlay?: boolean }) {
+  return (
     <GuidedTourProvider
+      hasActiveOverlay={hasActiveOverlay}
       controls={{
         closeOverlay: vi.fn(),
-        openPalette: vi.fn(),
-        openSnippets: vi.fn(),
       }}
     >
       <Harness />
     </GuidedTourProvider>
   );
+}
+
+function renderTour() {
+  return render(<TourTree />);
 }
 
 describe('GuidedTour focus management (accessibility pass)', () => {
@@ -188,5 +195,37 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     expect(useAnnouncerStore.getState().message).not.toBe(
       i18next.t('tour.buttons.next')
     );
+  });
+
+  it('runs the highlighted sample from the tour action and advances to results', async () => {
+    renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: i18next.t('tour.buttons.next') }));
+
+    const runTarget = document.querySelector<HTMLButtonElement>(
+      '[data-tour-id="run-button"]'
+    );
+    const runSpy = vi.fn();
+    runTarget?.addEventListener('click', runSpy);
+
+    fireEvent.click(screen.getByRole('button', { name: i18next.t('tour.buttons.run') }));
+
+    expect(runSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: i18next.t('tour.step.console.title') })
+      ).toBeTruthy()
+    );
+  });
+
+  it('yields when a user-invoked overlay opens', async () => {
+    const { rerender } = renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    await screen.findByRole('dialog');
+
+    rerender(<TourTree hasActiveOverlay />);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });

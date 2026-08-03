@@ -1,11 +1,11 @@
 ---
 title: Getting started
-description: Install Lingua, run your first snippet in five languages, and find the keyboard shortcuts that make it fast.
+description: Install Lingua, run your first snippet in six languages, and find the keyboard shortcuts that make it fast.
 order: 1
 section: guide
 ---
 
-Lingua is a desktop-first multi-language code runner. Install it once and you have JavaScript, TypeScript, Python, Go, and Rust ready to go in a single Monaco-powered window.
+Lingua is a desktop-first multi-language code runner. Install it once and you have JavaScript, TypeScript, Python, Ruby, Go, and Rust ready to go in a single Monaco-powered window.
 
 ## Install
 
@@ -36,17 +36,17 @@ Hit `Cmd/Ctrl+Enter`. The result panel updates inline.
 
 ## Switch language
 
-Open the language menu in the tab strip (or `Cmd/Ctrl+L`) and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, and Python work on every install — they're shipped runtimes inside Lingua.
+Open the language menu in the tab strip (or `Cmd/Ctrl+L`) and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, Python, and Ruby work on every install — they're shipped runtimes inside Lingua.
 
 Go and Rust delegate to the toolchains you already have on your machine. If `go version` or `rustc --version` works in your terminal, Lingua will pick them up automatically.
 
 ## Native toolchains
 
-JavaScript, TypeScript, and Python ship with Lingua. Desktop-native modes use
+JavaScript, TypeScript, Python, and Ruby ship with Lingua. Desktop-native modes use
 the toolchain installed on your machine:
 
-- **Go:** install the current stable release from [go.dev/dl](https://go.dev/dl/), then confirm `go version` works.
-- **Rust:** install through [rustup.rs](https://rustup.rs/), then confirm `rustc --version` works.
+- **Go:** install the current stable release from [go.dev/dl](https://go.dev/dl/), then confirm `go version` works. For Debug mode, also run `go install github.com/go-delve/delve/cmd/dlv@latest` and confirm `dlv version` works.
+- **Rust:** install through [rustup.rs](https://rustup.rs/), then confirm `rustc --version` works. For Debug mode, install an LLVM package that provides `lldb-dap`; on macOS, Xcode or Xcode Command Line Tools should make `xcrun --find lldb-dap` succeed.
 - **Node.js:** install an active LTS release from [nodejs.org](https://nodejs.org/en/download), then confirm `node --version` works.
 - **Ruby:** install a supported Ruby from [ruby-lang.org](https://www.ruby-lang.org/en/documentation/installation/), then confirm `ruby --version` works. Lingua's automatic Ruby mode can keep using its bundled WASM runtime when system Ruby is unavailable.
 
@@ -68,7 +68,7 @@ Vim mode is opt-in — turn it on under Settings → Editor.
 
 ## Stay offline
 
-Lingua does not need a network connection to run code on the desktop build. Pyodide ships in the binary, and Go/Rust use your local toolchain. Telemetry is off by default; enable it from Settings if you want to help improve the app.
+Lingua does not need a network connection to run code on the desktop build. Pyodide and Ruby WASM ship in the binary, and Go/Rust use your local toolchain. Telemetry is off by default; enable it from Settings if you want to help improve the app.
 
 ## Where to next
 

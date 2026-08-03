@@ -9,11 +9,10 @@
  * the Python parallel of the JS/TS instrumentation debugger, per
  * `docs/DEBUGGER_ADR.md` (§Python, second slice).
  *
- * Scope of this change: the process-management + `pdb`-REPL protocol engine,
- * with real-`pdb` integration tests. The `debugger:python:*` IPC contract +
- * preload bridge + the renderer debugger UI (breakpoint gutter, variables
- * panel, step toolbar) are the following slice — this engine is designed to
- * sit behind a thin IPC marshaling layer exactly like `src/main/git.ts`.
+ * The engine sits behind the owner-bound `debugger:python:*` IPC contract and
+ * the renderer's lazy native-debugger adapter. Keeping the REPL protocol here
+ * leaves Electron ownership, capability paths, and UI state outside the child
+ * process driver.
  *
  * Protocol notes (captured from CPython 3.11 `pdb`):
  *   - `pdb` prints a stop as two lines:
@@ -44,7 +43,10 @@ const PDB_PROMPT = '(Pdb) ';
 const PROGRAM_FINISHED_MARKER = 'The program finished and will be restarted';
 
 /** Default per-command timeout — a command that never returns a prompt. */
-export const DEFAULT_PDB_COMMAND_TIMEOUT_MS = 15_000;
+const DEFAULT_PDB_COMMAND_TIMEOUT_MS = 15_000;
+
+/** Bound combined pdb/program output retained for one command round-trip. */
+export const MAX_PDB_COMMAND_OUTPUT_BYTES = 1_000_000;
 
 /** Grace window after SIGTERM before escalating terminate() to SIGKILL. */
 const KILL_ESCALATION_DELAY_MS = 1_500;
@@ -67,6 +69,15 @@ export interface PdbCommandResult {
   location: PdbLocation | null;
   /** True once the debugged program has run to completion. */
   finished: boolean;
+  /** True when older output was dropped to keep the command buffer bounded. */
+  outputTruncated?: boolean;
+}
+
+export interface PdbStackFrame {
+  file: string;
+  line: number;
+  func: string;
+  current: boolean;
 }
 
 export type PdbEventListener = (event: PdbSessionEvent) => void;
@@ -76,7 +87,7 @@ export type PdbSessionEvent =
   | { readonly kind: 'exited'; readonly code: number | null };
 
 /** `spawn`-compatible seam so tests can inject a fake process. */
-export type SpawnPdb = (
+type SpawnPdb = (
   command: string,
   args: readonly string[],
   options: { cwd?: string; env?: NodeJS.ProcessEnv }
@@ -118,6 +129,22 @@ export function parsePdbLocation(text: string): PdbLocation | null {
   return null;
 }
 
+/** Parse `where` output. pdb prints oldest first; callers usually reverse it. */
+export function parsePdbStack(text: string): PdbStackFrame[] {
+  const frames: PdbStackFrame[] = [];
+  for (const line of text.split(/\r?\n/u)) {
+    const match = /^([ >]) (.+)\((\d+)\)([^()]*)\(\)$/u.exec(line);
+    if (!match) continue;
+    frames.push({
+      file: match[2]!,
+      line: Number(match[3]),
+      func: match[4]!.length > 0 ? match[4]! : '<module>',
+      current: match[1] === '>',
+    });
+  }
+  return frames;
+}
+
 /**
  * A live `pdb` session. Commands are serialized: each resolves when `pdb`
  * re-emits its prompt. Always dispose with `terminate()`.
@@ -129,6 +156,8 @@ export class PythonDebugSession {
     PythonDebugSessionOptions;
   private child: ChildProcessWithoutNullStreams | null = null;
   private buffer = '';
+  private bufferBytes = 0;
+  private bufferTruncated = false;
   /**
    * Settles the in-flight command's prompt wait, if any. Called with no
    * argument to resolve on a prompt (or exit), or with an Error to reject —
@@ -186,13 +215,7 @@ export class PythonDebugSession {
   async start(): Promise<PdbCommandResult> {
     if (this.child) throw new Error('Debug session already started');
     const spawnImpl = this.options.spawnImpl ?? defaultSpawn;
-    const args = [
-      '-u',
-      '-m',
-      'pdb',
-      this.options.scriptPath,
-      ...(this.options.programArgs ?? []),
-    ];
+    const args = ['-u', '-m', 'pdb', this.options.scriptPath, ...(this.options.programArgs ?? [])];
     const child = spawnImpl(this.options.pythonPath, args, {
       cwd: this.options.cwd,
       env: this.options.env,
@@ -217,7 +240,7 @@ export class PythonDebugSession {
     // stdin. Without a 'error' listener it is an uncaught exception that crashes
     // Electron's main process; capture it and reject the pending start()/command
     // instead of leaving the caller to wait out the timeout.
-    child.on('error', (err) => {
+    child.on('error', err => {
       const error = err instanceof Error ? err : new Error(String(err));
       this.processError = error;
       this.exited = true;
@@ -227,7 +250,7 @@ export class PythonDebugSession {
       pending?.(error);
       this.emit({ kind: 'exited', code: null });
     });
-    child.on('exit', (code) => {
+    child.on('exit', code => {
       // Skip a duplicate 'exited' if the 'error' handler (or a terminal
       // finished/timeout path) already flipped `exited` and emitted.
       const shouldEmit = !this.exited;
@@ -249,7 +272,18 @@ export class PythonDebugSession {
   }
 
   private onData(chunk: string): void {
+    const chunkBytes = Buffer.byteLength(chunk, 'utf8');
     this.buffer += chunk;
+    this.bufferBytes += chunkBytes;
+    if (this.bufferBytes > MAX_PDB_COMMAND_OUTPUT_BYTES) {
+      // Keep the tail because the `(Pdb) ` delimiter is emitted last. Retaining
+      // the prefix would make an oversized command wait until timeout even
+      // though pdb had already returned to its prompt.
+      const tail = Buffer.from(this.buffer, 'utf8').subarray(-MAX_PDB_COMMAND_OUTPUT_BYTES);
+      this.buffer = tail.toString('utf8');
+      this.bufferBytes = Buffer.byteLength(this.buffer, 'utf8');
+      this.bufferTruncated = true;
+    }
     // Resolve only when the buffer ENDS with the prompt — a prompt mid-buffer
     // means more output is still streaming. (No `includes` scan: it added an
     // O(n) walk of the whole buffer on every chunk with no behavioral gain.)
@@ -264,9 +298,7 @@ export class PythonDebugSession {
   private waitForPrompt(): Promise<PdbCommandResult> {
     return new Promise<PdbCommandResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        const error = new Error(
-          `pdb command timed out after ${this.options.commandTimeoutMs}ms`
-        );
+        const error = new Error(`pdb command timed out after ${this.options.commandTimeoutMs}ms`);
         // A command that never returns a prompt means the debugged program is
         // wedged (e.g. an infinite loop under `continue`). Tear the subprocess
         // down rather than leave it running behind a rejected command.
@@ -284,8 +316,11 @@ export class PythonDebugSession {
           return;
         }
         const raw = this.buffer;
+        const outputTruncated = this.bufferTruncated;
         this.buffer = '';
-        resolve(this.buildResult(raw));
+        this.bufferBytes = 0;
+        this.bufferTruncated = false;
+        resolve(this.buildResult(raw, outputTruncated));
       };
 
       // A spawn/process error already recorded takes precedence over any buffered
@@ -306,10 +341,8 @@ export class PythonDebugSession {
     });
   }
 
-  private buildResult(raw: string): PdbCommandResult {
-    const withoutPrompt = raw.endsWith(PDB_PROMPT)
-      ? raw.slice(0, -PDB_PROMPT.length)
-      : raw;
+  private buildResult(raw: string, outputTruncated: boolean): PdbCommandResult {
+    const withoutPrompt = raw.endsWith(PDB_PROMPT) ? raw.slice(0, -PDB_PROMPT.length) : raw;
     const finished = withoutPrompt.includes(PROGRAM_FINISHED_MARKER);
     // `finished` is terminal: pdb would loop back to line 1 and park at a
     // restart prompt, so there is no meaningful active pause to report and the
@@ -321,7 +354,12 @@ export class PythonDebugSession {
     } else if (location) {
       this.emit({ kind: 'paused', location });
     }
-    return { output: withoutPrompt.trimEnd(), location, finished };
+    return {
+      output: withoutPrompt.trimEnd(),
+      location,
+      finished,
+      ...(outputTruncated ? { outputTruncated: true } : {}),
+    };
   }
 
   /**
