@@ -19,7 +19,7 @@
  * Usage:
  *   pnpm run release:preflight                # full preflight for v<package.json version>
  *   pnpm run release:preflight -- --tag v0.7.0
- *   pnpm run release:preflight -- --fast       # skip the heavy gates (test, build:web)
+ *   pnpm run release:preflight -- --fast       # skip tests and build-dependent gates
  *   pnpm run release:preflight -- --with-smoke # also run the offline desktop smoke
  */
 

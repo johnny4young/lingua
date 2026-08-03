@@ -11,6 +11,7 @@ import {
   selectPackagedMacArtifact,
 } from '../../scripts/lib/packagedMacArtifact.mjs';
 import { assertPackagedMacProjectTerminalRuntime } from '../../scripts/lib/packagedProjectTerminal.mjs';
+import { inspectDesktopSmokeResult } from '../../scripts/lib/desktopSmokeSummary.mjs';
 
 const REPO_ROOT = resolve(__dirname, '../..');
 const SCRIPT_PATH = resolve(REPO_ROOT, 'scripts/run-desktop-smoke.mjs');
@@ -89,5 +90,32 @@ describe('scripts/run-desktop-smoke.mjs', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--against-packaged requires a path');
+  });
+
+  it('rejects an error summary even when every captured case passed', () => {
+    const result = inspectDesktopSmokeResult(
+      {
+        cases: [{ caseId: 'javascript', language: 'javascript', ok: true }],
+        error: 'Desktop smoke editor did not become interactive within 10000ms.',
+      },
+      { status: 'failed' }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.failedCases).toEqual([]);
+    expect(result.problems).toEqual([
+      'Renderer smoke error: Desktop smoke editor did not become interactive within 10000ms.',
+      'Smoke progress status is failed, expected completed.',
+    ]);
+  });
+
+  it('accepts a completed summary with successful cases', () => {
+    const result = inspectDesktopSmokeResult(
+      { cases: [{ caseId: 'javascript', language: 'javascript', ok: true }] },
+      { status: 'completed' }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.problems).toEqual([]);
   });
 });

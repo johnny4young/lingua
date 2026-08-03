@@ -89,10 +89,19 @@ export const PREFLIGHT_GATES = [
     argv: ['pnpm', 'run', 'check:licenses'],
   },
   {
+    id: 'build:web',
+    label: 'Production web build',
+    script: 'build:web',
+    argv: ['pnpm', 'run', 'build:web'],
+    heavy: true,
+  },
+  {
     id: 'check:performance',
     label: 'Performance budget',
     script: 'check:performance',
     argv: ['pnpm', 'run', 'check:performance'],
+    heavy: true,
+    note: 'runs only after a fresh production web build; hermetic e2e builds copy larger runtimes',
   },
   {
     id: 'compliance:release',
@@ -112,13 +121,6 @@ export const PREFLIGHT_GATES = [
     label: 'Unit + integration tests',
     script: 'test',
     argv: ['pnpm', 'test'],
-    heavy: true,
-  },
-  {
-    id: 'build:web',
-    label: 'Production web build',
-    script: 'build:web',
-    argv: ['pnpm', 'run', 'build:web'],
     heavy: true,
   },
   {

@@ -360,8 +360,7 @@ interface DesktopSmokeConfig {
   /**
    * Epoch milliseconds captured by the smoke launcher immediately
    * before spawning Electron. Present only when the harness controls
-   * the process launch, so packaged/local runs can estimate cold-start
-   * time to the renderer smoke hook.
+   * the process launch, so packaged/local runs can estimate cold-start time.
    */
   launchedAtMs?: number;
   /**
@@ -379,6 +378,7 @@ interface DesktopSmokeConfig {
    * Pyodide runtime end-to-end.
    */
   packagedSubset?: boolean;
+  licenseToken?: string;
 }
 
 type DesktopSmokeMemorySnapshot =

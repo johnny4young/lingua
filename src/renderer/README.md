@@ -261,12 +261,19 @@ The Electron-only desktop smoke harness is activation-scoped as well:
 - [`hooks/desktopSmokeRunner.ts`](hooks/desktopSmokeRunner.ts) owns the smoke
   cases, artifact generation, memory snapshots, and execution loop. It loads
   only after Electron injects the desktop-smoke bridge. Before capturing
-  evidence it normalizes the throwaway smoke profile to the privacy-preserving
-  declined telemetry state, marks onboarding stages complete, clears transient
-  notices, and restores the viewport origin so screenshots expose the runtime
-  output rather than first-run chrome.
+  evidence the dev-server harness passes a throwaway signed Pro license through
+  the smoke-only CLI channel (LaunchServices may drop environment variables)
+  and activates it through the real main-process verifier, so paid Go/Rust cases
+  are not silently blocked by Free-tier guards. It then normalizes the disposable
+  profile to the privacy-preserving declined telemetry state, marks onboarding
+  stages complete, clears transient notices, and restores the viewport origin
+  so screenshots expose the runtime output rather than first-run chrome.
 - A runner chunk or startup failure reports `finish(false)` to the smoke
   controller instead of leaving CI waiting for its outer timeout.
+- The outer launcher validates both the summary error field and the final
+  progress status instead of trusting the macOS LaunchServices exit code; a
+  partial matrix cannot be reported as green just because its captured cases
+  passed before the renderer failed.
 
 Telemetry also has an explicit loading boundary:
 
