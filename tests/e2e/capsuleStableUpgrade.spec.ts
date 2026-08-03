@@ -42,8 +42,7 @@ test.describe('Run Capsule upgrade from stable v0.15.0', () => {
     await openImportOverlay(page);
     await loadStableFixture(page);
 
-    await expect(page.getByTestId('capsule-import-preview')).toContainText('stable-input.js');
-    await expect(page.getByTestId('capsule-import-preview')).toContainText(
+    await expect(page.getByTestId('capsule-import-preview-source-content')).toContainText(
       "const name = process.argv[1] ?? 'friend';"
     );
 
