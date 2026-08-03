@@ -51,6 +51,11 @@ const repoRoot = path.resolve(__dirname, '..');
 export const SEA_SENTINEL_FUSE = 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2';
 export const SUPPORTED_STANDALONE_TARGETS = Object.freeze(['linux-x64', 'windows-x64']);
 
+export function isDirectInvocation(modulePath, invokedPath, pathApi = path) {
+  if (!invokedPath) return false;
+  return pathApi.resolve(invokedPath) === pathApi.resolve(modulePath);
+}
+
 export function resolveStandaloneTarget(platform = process.platform, arch = process.arch) {
   const os = platform === 'win32' ? 'windows' : platform;
   const target = `${os}-${arch}`;
@@ -344,7 +349,7 @@ export async function main(argv = process.argv.slice(2)) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectInvocation(__filename, process.argv[1])) {
   main().then(
     code => {
       process.exitCode = code;

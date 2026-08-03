@@ -71,6 +71,7 @@ describe('release workflow', () => {
     expect(workflow).toContain('target: windows-x64');
     expect(workflow).toContain('Smoke installed CLI package');
     expect(workflow).toContain('linguacode-cli-*.tgz');
+    expect(workflow).toContain('package_path="$(realpath "${package_path}")"');
     expect(workflow).toContain('out-cli/*.tar.gz');
   });
 

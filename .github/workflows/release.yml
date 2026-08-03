@@ -181,6 +181,7 @@ jobs:
           set -euo pipefail
           package_path="$(find out-cli -maxdepth 1 -type f -name 'linguacode-cli-*.tgz' -print -quit)"
           test -n "${package_path}" || { echo "::error::Missing CLI npm tarball"; exit 1; }
+          package_path="$(realpath "${package_path}")"
           export npm_config_cache="$RUNNER_TEMP/npm-cli-smoke-cache"
           npm install --global --prefix "$RUNNER_TEMP/lingua-cli-smoke" --ignore-scripts "${package_path}"
           "$RUNNER_TEMP/lingua-cli-smoke/bin/lingua" --version
