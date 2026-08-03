@@ -86,6 +86,24 @@ export function cliArchiveName(version, target) {
   return `lingua-cli-v${version}-${target}.tar.gz`;
 }
 
+export function buildTarArchiveArgs({
+  archiveName,
+  outDir,
+  releaseRoot,
+  entries,
+  pathApi = path,
+}) {
+  const relativeReleaseRoot = pathApi.relative(outDir, releaseRoot);
+  const escapesOutDir =
+    relativeReleaseRoot === '..' || relativeReleaseRoot.startsWith(`..${pathApi.sep}`);
+  if (!relativeReleaseRoot || pathApi.isAbsolute(relativeReleaseRoot) || escapesOutDir) {
+    throw new Error('CLI release staging directory must be inside the output directory.');
+  }
+
+  const portableReleaseRoot = relativeReleaseRoot.split(pathApi.sep).join('/');
+  return ['-czf', archiveName, '-C', portableReleaseRoot, ...entries];
+}
+
 export function buildSeaConfig(main, output) {
   return {
     main,
@@ -248,7 +266,16 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
   const archiveName = cliArchiveName(rootPackage.version, target);
   const archivePath = path.join(outDir, archiveName);
   rmSync(archivePath, { force: true });
-  run('tar', ['-czf', archivePath, '-C', releaseRoot, binaryName, 'README.md', 'LICENSE']);
+  run(
+    'tar',
+    buildTarArchiveArgs({
+      archiveName,
+      outDir,
+      releaseRoot,
+      entries: [binaryName, 'README.md', 'LICENSE'],
+    }),
+    { cwd: outDir }
+  );
 
   return {
     kind: 'standalone',
