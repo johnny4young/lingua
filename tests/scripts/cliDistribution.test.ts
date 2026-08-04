@@ -5,6 +5,7 @@ import {
   assertNpmPackContents,
   buildCliPackageManifest,
   buildSeaConfig,
+  buildTarArchiveArgs,
   canBuildStandalone,
   cliArchiveName,
   cliBinaryName,
@@ -96,5 +97,38 @@ describe('CLI distribution packaging', () => {
       )
     ).toBe(false);
     expect(isDirectInvocation(modulePath, undefined, nodePath.win32)).toBe(false);
+  });
+
+  it('keeps tar output local when packaging from a Windows runner', () => {
+    expect(
+      buildTarArchiveArgs({
+        archiveName: 'lingua-cli-v1.0.0-windows-x64.tar.gz',
+        outDir: 'D:\\a\\lingua\\lingua\\out-cli',
+        releaseRoot:
+          'D:\\a\\lingua\\lingua\\out-cli\\.staging\\windows-x64\\release',
+        entries: ['lingua.exe', 'README.md', 'LICENSE'],
+        pathApi: nodePath.win32,
+      })
+    ).toEqual([
+      '-czf',
+      'lingua-cli-v1.0.0-windows-x64.tar.gz',
+      '-C',
+      '.staging/windows-x64/release',
+      'lingua.exe',
+      'README.md',
+      'LICENSE',
+    ]);
+  });
+
+  it('rejects tar staging directories outside the output directory', () => {
+    expect(() =>
+      buildTarArchiveArgs({
+        archiveName: 'lingua-cli-v1.0.0-windows-x64.tar.gz',
+        outDir: 'D:\\a\\lingua\\lingua\\out-cli',
+        releaseRoot: 'D:\\a\\lingua\\lingua\\release',
+        entries: ['lingua.exe'],
+        pathApi: nodePath.win32,
+      })
+    ).toThrow(/inside the output directory/iu);
   });
 });

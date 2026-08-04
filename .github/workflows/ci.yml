@@ -202,3 +202,8 @@ jobs:
           pnpm exec vitest run
           tests/ipc/permissions.test.ts
           tests/main/dependencies.install.windows.test.ts
+      # Build the real standalone archive on win32. Unit tests can prove path
+      # normalization, but only GNU tar on the hosted Windows runner catches
+      # drive-letter operands being mistaken for remote archive destinations.
+      - name: Windows standalone CLI packaging smoke
+        run: pnpm run package:cli -- --binary-only --expect-target windows-x64
