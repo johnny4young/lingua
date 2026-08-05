@@ -12,6 +12,10 @@ allowBuilds:
 # These stay local to the license server because it owns a separate lockfile.
 overrides:
   'esbuild': '0.28.1'
-  'undici': '7.28.0'
+  # hono is the only production dependency of this Worker; keep it pinned to
+  # the advisory-fixed 4.12 release rather than drifting onto a feature minor.
+  'hono': '4.12.34'
+  'postcss': '8.5.25'
+  'undici': '7.29.0'
   'vite@7.3.3': '7.3.5'
   'ws': '8.21.0'

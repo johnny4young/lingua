@@ -9,7 +9,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [1.0.1] — 2026-08-04
 
 ### Security
-- **The HTTP networking library inside the desktop app moves to its patched release**: the desktop main process bundles `undici` to drive the SSRF-guarded HTTP proxy, so its version ships to users even though the package is declared as build tooling and the production dependency audit cannot see it. It now resolves to the advisory-fixed 7.29 line. The `hono` server library reached by the desktop local MCP server moves to its patched 4.12 release on the same pass, and the build-only `fast-uri` and `postcss` toolchains follow. No behavior changes; this is a dependency-only patch.
+- **The HTTP networking library inside the desktop app moves to its patched release**: the desktop main process bundles `undici` to drive the SSRF-guarded HTTP proxy, so its version ships to users even though the package is declared as build tooling and the production dependency audit cannot see it. It now resolves to the advisory-fixed 7.29 line. The `hono` server library reached by the desktop local MCP server moves to its patched 4.12 release on the same pass, and the build-only `fast-uri` and `postcss` toolchains follow. The independently locked license and update Workers move to the same patched `hono`, `undici`, and `postcss` releases, so no deployed surface is left on an advisory line. No behavior changes; this is a dependency-only patch.
 
 ## [1.0.0] — 2026-08-02
 
