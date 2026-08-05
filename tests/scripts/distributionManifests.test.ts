@@ -72,7 +72,10 @@ describe('renderHomebrewCask', () => {
 
   it('declares the app artifact, version, and auto-update behaviour', () => {
     expect(cask).toContain('version "0.14.0"');
-    expect(cask).toContain('app "Lingua.app"');
+    // The DMG ships `lingua.app` (electron-builder executableName), and
+    // `brew audit --cask --online` fails the cask when the artifact case
+    // does not match: it breaks on case-sensitive filesystems.
+    expect(cask).toContain('app "lingua.app"');
     // The app ships electron-updater, so brew must not fight it.
     expect(cask).toContain('auto_updates true');
   });

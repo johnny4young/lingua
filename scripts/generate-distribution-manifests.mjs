@@ -93,6 +93,12 @@ export function renderHomebrewCask({ version, digests, repo = GITHUB_REPO }) {
   const armSha = requireDigest(digests, names.macArm);
   const intelSha = requireDigest(digests, names.macIntel);
 
+  // The app artifact is `lingua.app`, lowercase: electron-builder sets
+  // executableName: lingua, so the bundle inside the DMG does not carry the
+  // capitalised productName. `brew audit --cask --online` fails a mismatch
+  // with "Artifact Lingua.app does not match the case of the extracted
+  // lingua.app; this fails on case-sensitive filesystems", and a hand-fix in
+  // the tap would be reverted by the next regeneration.
   return `cask "lingua" do
   arch arm: "arm64", intel: "x64"
 
@@ -114,7 +120,7 @@ export function renderHomebrewCask({ version, digests, repo = GITHUB_REPO }) {
   auto_updates true
   depends_on macos: :monterey
 
-  app "Lingua.app"
+  app "lingua.app"
 
   zap trash: [
     "~/Library/Application Support/Lingua",

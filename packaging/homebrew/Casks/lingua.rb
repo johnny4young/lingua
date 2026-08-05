@@ -19,7 +19,7 @@ cask "lingua" do
   auto_updates true
   depends_on macos: :monterey
 
-  app "Lingua.app"
+  app "lingua.app"
 
   zap trash: [
     "~/Library/Application Support/Lingua",
