@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-08-02T20:05:38.215Z",
+  "generatedAt": "2026-08-05T02:41:03.783Z",
   "entries": [
+    {
+      "version": "1.0.1",
+      "date": "2026-08-04",
+      "sections": [
+        {
+          "heading": "Security",
+          "items": [
+            "<strong>The HTTP networking library inside the desktop app moves to its patched release</strong>: the desktop main process bundles <code>undici</code> to drive the SSRF-guarded HTTP proxy, so its version ships to users even though the package is declared as build tooling and the production dependency audit cannot see it. It now resolves to the advisory-fixed 7.29 line. The <code>hono</code> server library reached by the desktop local MCP server moves to its patched 4.12 release on the same pass, and the build-only <code>fast-uri</code> and <code>postcss</code> toolchains follow. No behavior changes; this is a dependency-only patch."
+          ]
+        }
+      ],
+      "raw": "### Security\n- **The HTTP networking library inside the desktop app moves to its patched release**: the desktop main process bundles `undici` to drive the SSRF-guarded HTTP proxy, so its version ships to users even though the package is declared as build tooling and the production dependency audit cannot see it. It now resolves to the advisory-fixed 7.29 line. The `hono` server library reached by the desktop local MCP server moves to its patched 4.12 release on the same pass, and the build-only `fast-uri` and `postcss` toolchains follow. No behavior changes; this is a dependency-only patch."
+    },
     {
       "version": "1.0.0",
       "date": "2026-08-02",

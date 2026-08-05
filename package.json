@@ -1,7 +1,7 @@
 {
   "name": "lingua",
   "productName": "Lingua",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop application for running code in multiple languages with WebAssembly support",
   "packageManager": "pnpm@11.3.0",
   "main": ".vite/build/main.js",
@@ -153,7 +153,7 @@
     "terser": "^5.48.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
-    "undici": "8.9.0",
+    "undici": "7.29.0",
     "undici-types": "^7.24.6",
     "vega": "^6.2.0",
     "vega-embed": "^7.1.0",
@@ -179,9 +179,11 @@
     "brace-expansion@2.1.1": "2.1.2",
     "brace-expansion@5.0.6": "5.0.7",
     "dompurify": "$dompurify",
-    "fast-uri": "3.1.4",
+    "fast-uri": "3.1.5",
     "js-yaml": "$js-yaml",
-    "undici": "7.28.0",
+    "hono": "4.12.34",
+    "postcss": "8.5.25",
+    "undici": "7.29.0",
     "ws": "8.21.0"
   }
 }

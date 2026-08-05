@@ -14,6 +14,25 @@ Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two s
 - **Web app** → [app.linguacode.dev](https://app.linguacode.dev): the Vite `dist/web` build, deployed by [`.github/workflows/deploy-web.yml`](./.github/workflows/deploy-web.yml) (Cloudflare Pages project `lingua-app`).
 - **Marketing site** → [linguacode.dev](https://linguacode.dev): a standalone Astro package under [`website/`](./website), deployed by [`.github/workflows/deploy-website.yml`](./.github/workflows/deploy-website.yml) (Cloudflare Pages project `lingua-web`).
 
+## Install
+
+**macOS** — Homebrew tap (Apple Silicon and Intel):
+
+```bash
+brew install --cask johnny4young/tap/lingua
+```
+
+**Any platform** — the signed macOS builds, the Windows installer, and the Linux
+AppImage are attached to the
+[latest GitHub Release](https://github.com/johnny4young/lingua/releases/latest)
+next to `SHA256SUMS.txt`, so you can verify exactly what you downloaded. macOS
+builds are Developer ID signed and notarized. The Windows installer is not
+Authenticode signed yet, so SmartScreen shows a warning you have to accept.
+
+**Nothing to install** — the browser build runs at
+[app.linguacode.dev](https://app.linguacode.dev), with Go and Rust disabled
+because those toolchains do not exist in a browser.
+
 ## Pricing and licensing
 
 Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout and download surface is live at [`linguacode.dev`](https://linguacode.dev); the rights granted by this repository remain those described in `LICENSE`.
@@ -111,8 +130,11 @@ lingua run ./scripts/check.ts --timeout 60000 -- --verbose
 lingua capsule validate ./run.capsule.json --json
 ```
 
-The first public `@linguacode/cli` package will ship with v1.0.0. Until then,
-build and link it from this repository:
+`@linguacode/cli` is not on the public npm registry yet — the first guarded
+publication is still pending. Every stable release does attach standalone
+`lingua-cli-v<version>-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives to
+the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
+Otherwise, build and link the CLI from this repository:
 
 ```bash
 pnpm install

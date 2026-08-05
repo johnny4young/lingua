@@ -74,9 +74,22 @@ overrides:
   "brace-expansion@1.1.15": "1.1.16"
   "brace-expansion@2.1.1": "2.1.2"
   "brace-expansion@5.0.6": "5.0.7"
-  "fast-uri": "3.1.4"
+  "fast-uri": "3.1.5"
   "js-yaml": "4.3.0"
-  "undici": "7.28.0"
+  # hono ships to users: @modelcontextprotocol/node (a production
+  # dependency behind the desktop local MCP server) pins @hono/node-server
+  # 1.x, which resolves hono itself. Keep it on the patched 4.x line; the
+  # MCP package peer-accepts ^4.11.4, so this stays inside its range.
+  "hono": "4.12.34"
+  # postcss reaches the tree only through Vite / Tailwind / autoprefixer
+  # build tooling, never the packaged artifact. Patch-line pin so the
+  # advisory audit stays quiet.
+  "postcss": "8.5.25"
+  # undici is bundled into the desktop main process by Vite (see
+  # src/main/httpProxy.ts), so its version ships even though it is only a
+  # devDependency and `pnpm audit --prod` cannot see it. Keep it on the
+  # patched 7.x line that undici-types@7 also targets.
+  "undici": "7.29.0"
   "ws": "8.21.0"
   # Electron Forge's macOS packager extracts the Electron ZIP through
   # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
@@ -113,7 +126,5 @@ minimumReleaseAgeExclude:
   - brace-expansion@5.0.7
   - dompurify@3.4.12
   - esbuild@0.28.1
-  - fast-uri@3.1.4
   - js-yaml@4.3.0
-  - undici@7.28.0
   - ws@8.21.0
