@@ -135,6 +135,7 @@ describe('Script naming docs guard', () => {
       // wrapper); wired into ci.yml (PR) and release.yml. See
       // docs/RELEASE_SECURITY.md for the prod-vs-full split rationale.
       'check:prod-audit',
+      'check:bundled-audit',
       // internal — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:activation',

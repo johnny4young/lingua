@@ -39,6 +39,7 @@
     "release:preflight": "node ./scripts/release-preflight.mjs",
     "check:license-rotation": "node ./scripts/assert-license-key-rotation.mjs",
     "check:prod-audit": "node ./scripts/assert-prod-audit.mjs",
+    "check:bundled-audit": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ./scripts/assert-bundled-audit.mjs",
     "performance:report": "node ./scripts/performance-report.mjs",
     "performance:activation": "node ./scripts/measure-activation.mjs",
     "performance:baseline": "node ./scripts/performance-report.mjs --write-baseline --require-all-targets",

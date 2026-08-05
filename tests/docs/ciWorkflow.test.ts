@@ -65,4 +65,17 @@ describe('CI workflow', () => {
       'npm --prefix website audit --package-lock-only --omit=dev --audit-level=high'
     );
   });
+
+  it('blocks advisories in the dependencies Vite inlines into the desktop bundles', () => {
+    // `pnpm audit --prod` reads package.json "dependencies" only, so a
+    // devDependency imported by src/main (undici, ws) ships inside
+    // .vite/build/main.js with the production gate green. Both gates have to
+    // run, and this one must stay blocking — no continue-on-error.
+    expect(workflow).toMatch(
+      /Bundled dependency audit \(blocking\)[\s\S]*?pnpm run check:bundled-audit/u
+    );
+    expect(workflow).not.toMatch(
+      /pnpm run check:bundled-audit[\s\S]{0,120}?continue-on-error: true/u
+    );
+  });
 });

@@ -218,7 +218,7 @@ run blocking production audits against the independent
 or website advisory.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
-is blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
+and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
 stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
 findings are dev-only tooling paths: `tar@6` is held by Electron Forge's
 rebuild stack, while `sharp@0.34` is held by Wrangler/Miniflare. The patched
@@ -229,6 +229,54 @@ artifact. Re-check them on Electron Forge and Wrangler upgrades. Making the
 full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
+
+### Bundled dependency audit gate
+
+`pnpm run check:bundled-audit` (`scripts/assert-bundled-audit.mjs` over the
+pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
+cannot see, and is wired as a blocking step into both `ci.yml` and
+`release.yml`.
+
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — five
+packages in this repository. But Vite *bundles* the main and preload graphs, so
+any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
+ships to users regardless of how it is declared. Two such packages are
+devDependencies today:
+
+| Package | Import site | What it handles |
+| --- | --- | --- |
+| `undici` | `src/main/httpProxy.ts` | the SSRF-guarded HTTP proxy |
+| `ws` | `src/main/httpWebSocket.ts` | the live WebSocket transport |
+
+Both parse untrusted remote input inside the Node-privileged main process, and
+both were invisible to the blocking gate. `undici` shipped on 7.28.0 against an
+advisory requiring `>= 7.29.0` while `check:prod-audit` reported
+`0 advisories at or above high`.
+
+**Why not just move them to `dependencies`.** electron-builder would then also
+ship them as unpacked `node_modules` beside the copy Vite already inlined. The
+bundler's view is the honest one, so the gate reads it directly instead of
+bending the manifest to satisfy a tool.
+
+**How it decides.** The gate scans `src/main/**` and `src/preload/**` for
+runtime imports, drops Node builtins and anything the *real, evaluated* Vite
+config declares in `rollupOptions.external`, then takes the transitive closure
+over each package's `dependencies` plus its non-optional `peerDependencies`
+(that last part is how `hono` is reached, through `@hono/node-server`). It
+judges the FULL `pnpm audit --json` payload restricted to that closure.
+
+**Scope — main and preload only.** Those run with full OS privileges outside
+the browser sandbox, which is what makes a shipped advisory there materially
+different from one in the renderer graph. Keeping the renderer out is also what
+lets the documented dev-tooling exceptions below stay advisory instead of
+red-CI-ing the repository.
+
+**Fail-closed, including on an empty scan.** A scan that resolves zero packages
+exits non-zero: an empty closure means the scanner broke, not that the bundle
+is clean. `tests/scripts/bundledAudit.test.ts` proves the acceptance criterion
+with fixture payloads and asserts the real repository scan still covers
+`undici` and `ws`, and `tests/docs/ciWorkflow.test.ts` fails if the CI step is
+removed or made non-blocking.
 
 **Bypass procedure (vendored exception).** If a production `high` advisory has
 no available fix and the risk is assessed acceptable for a release:
