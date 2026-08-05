@@ -71,12 +71,13 @@ pnpm run check:deadcode
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run check:prod-audit
+pnpm run check:bundled-audit
 pnpm run build:web
 pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
+These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 
@@ -115,6 +116,7 @@ reference for what each command owns.
 | `release:preflight`          | Runs the release-blocking gates locally, CI-faithfully (license rotation with an absent `.env`, R2 readiness, changelog/version, prod audit, licenses, compliance, a fresh production web build before performance, and optional desktop smoke), before dispatching the Release workflow. |
 | `check:license-rotation`     | Asserts the embedded verification keyring is registered, ordered, non-drifted, public-only, and that its active key is inside the rotation SLA (`docs/security/license-key-registry.json`).                                          |
 | `check:prod-audit`           | Fails closed on a `high`/`critical` advisory in the production dependency graph (`pnpm audit --prod`); runs in PR CI and release.                                                                                                    |
+| `check:bundled-audit`        | Fails closed on a `high`/`critical` advisory in a dependency Vite inlines into the packaged main/preload bundle, which `pnpm audit --prod` cannot see; runs in PR CI and release.                              |
 | `performance:report`         | Collects bundle/runtime performance measurements.                                                                                                                                                                                    |
 | `performance:activation`     | Repeats cold web and desktop activation/first-Run samples and writes median/IQR diagnostics plus current eager runner import evidence.                                                                                               |
 | `performance:baseline`       | Rewrites the committed performance baseline from current measurements.                                                                                                                                                               |

@@ -110,6 +110,12 @@ jobs:
       # audit below stays advisory by design (see docs/RELEASE_SECURITY.md).
       - name: Production dependency audit (blocking)
         run: pnpm run check:prod-audit
+      # `pnpm audit --prod` only inspects package.json "dependencies". Vite
+      # INLINES the main/preload graphs, so a devDependency imported by
+      # src/main (undici, ws) ships inside the packaged bundle unseen by the
+      # gate above. This audits exactly that set.
+      - name: Bundled dependency audit (blocking)
+        run: pnpm run check:bundled-audit
       - name: Independent production dependency audits (blocking)
         run: |
           pnpm --dir license-server audit --prod --audit-level high

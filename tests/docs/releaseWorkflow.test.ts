@@ -155,6 +155,9 @@ describe('release workflow', () => {
   it('runs a release-blocking production audit before any platform build', () => {
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
     expect(workflow).toMatch(/Run blocking production audit[\s\S]*?pnpm run check:prod-audit/u);
+    expect(workflow).toMatch(
+      /Run blocking bundled-dependency audit[\s\S]*?pnpm run check:bundled-audit/u
+    );
     expect(workflow).toContain('pnpm --dir license-server audit --prod --audit-level high');
     expect(workflow).toContain('pnpm --dir update-server audit --prod --audit-level high');
     expect(workflow).toContain(

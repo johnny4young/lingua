@@ -83,6 +83,13 @@ export const PREFLIGHT_GATES = [
     argv: ['pnpm', 'run', 'check:prod-audit'],
   },
   {
+    id: 'check:bundled-audit',
+    label: 'Bundled dependency audit',
+    script: 'check:bundled-audit',
+    argv: ['pnpm', 'run', 'check:bundled-audit'],
+    note: 'covers the devDependencies Vite inlines into main/preload, which pnpm audit --prod cannot see',
+  },
+  {
     id: 'check:licenses',
     label: 'Third-party license policy',
     script: 'check:licenses',

@@ -36,6 +36,22 @@ Before making non-trivial changes, open these files (in order).
   - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. implementation fixed only the web symptom; implementation surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
   - **This landmine is now partially mechanized**: `tests/build/envDefineWiring.test.ts` fails CI when a `__LINGUA_*__` define is consumed by a surface whose config never provides it, when `envDir` drifts off the repo root in the renderer/web configs, or when `vite.main.config.mts` stops using the shared four-source cascade (`build/resolveEnv.mts`). New env-sourced main defines MUST go through `resolveBuildTimeEnvVar`. The packaged-build validation advice above still applies for anything the resolved-config check cannot see (dev-launcher injection, electron-builder packaging).
 
+- **Dependency pins live in `pnpm-workspace.yaml`, and a pin is not the same
+  as a patched pin.** pnpm 11 enforces the `overrides` block in
+  `pnpm-workspace.yaml`; the `pnpm.overrides` block in `package.json` is an
+  npm-compat mirror asserted by `tests/build/depFreshness.test.ts` and editing
+  it alone is a no-op (`pnpm install` answers "Lockfile is up to date"). Keep
+  both in sync, and when auditing, compare each pinned version against the
+  CURRENT advisory range — exact pins on `undici` and `brace-expansion` had
+  both frozen those packages on versions later advisories moved past.
+- **`pnpm audit --prod` cannot see what Vite bundles.** It reads package.json
+  `dependencies` only, while the main/preload graphs are inlined into
+  `.vite/build/main.js`. A devDependency imported by `src/main/**` ships to
+  users with the production gate green — this is how `undici` shipped
+  vulnerable. `pnpm run check:bundled-audit` now blocks that class in CI and
+  release; if you add a runtime import to main or preload, that gate is what
+  covers it. See `docs/RELEASE_SECURITY.md` § Bundled dependency audit gate.
+
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 
 **Hard rule**: any change that touches a React component, a Settings

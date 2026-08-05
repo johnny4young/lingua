@@ -148,6 +148,11 @@ jobs:
         run: pnpm run check:license-rotation
       - name: Run blocking production audit
         run: pnpm run check:prod-audit
+      # Covers the dependencies Vite inlines into the packaged main/preload
+      # bundles, which `pnpm audit --prod` cannot see because they are
+      # declared as devDependencies.
+      - name: Run blocking bundled-dependency audit
+        run: pnpm run check:bundled-audit
       - name: Audit independent production graphs
         run: |
           pnpm --dir license-server audit --prod --audit-level high
