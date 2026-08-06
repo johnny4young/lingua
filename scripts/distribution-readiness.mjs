@@ -419,10 +419,25 @@ export function parseReportSnapshot(source) {
   };
 }
 
+/**
+ * `application/vnd.github+json` is a GitHub-specific media type. The npm
+ * registry answers it with 406 Not Acceptable, which stayed invisible while
+ * `@linguacode/cli` was unpublished: the 404 branch below returns before the
+ * `!response.ok` check ever runs. The first successful publish turned that
+ * latent mismatch into a hard failure of the whole report, so pick the media
+ * type from the host instead of assuming every JSON probe is GitHub's.
+ */
+export function acceptFor(url, text) {
+  if (text) return 'text/plain';
+  return new URL(url).hostname.endsWith('api.github.com')
+    ? 'application/vnd.github+json'
+    : 'application/json';
+}
+
 async function fetchPublic(url, { text = false } = {}) {
   const response = await fetch(url, {
     headers: {
-      accept: text ? 'text/plain' : 'application/vnd.github+json',
+      accept: acceptFor(url, text),
       'user-agent': 'lingua-distribution-readiness',
     },
     signal: AbortSignal.timeout(10_000),

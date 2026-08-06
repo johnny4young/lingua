@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  acceptFor,
   assessDistributionReadiness,
   main,
   parseReportSnapshot,
@@ -51,6 +52,37 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('acceptFor', () => {
+  // `application/vnd.github+json` is a GitHub media type; the npm registry
+  // answers it with 406. That stayed invisible while @linguacode/cli was
+  // unpublished, because the 404 branch returns before the !response.ok check
+  // — the first successful publish turned it into a hard report failure.
+  it('sends the GitHub media type only to the GitHub API', () => {
+    expect(acceptFor('https://api.github.com/repos/a/b/releases/latest', false)).toBe(
+      'application/vnd.github+json'
+    );
+  });
+
+  it('sends plain JSON to the npm registry', () => {
+    expect(acceptFor('https://registry.npmjs.org/%40linguacode%2Fcli/latest', false)).toBe(
+      'application/json'
+    );
+  });
+
+  it('sends plain JSON to any other host', () => {
+    expect(acceptFor('https://raw.githubusercontent.com/o/r/main/x.json', false)).toBe(
+      'application/json'
+    );
+    // A lookalike host must not inherit the GitHub media type.
+    expect(acceptFor('https://api.github.com.evil.test/x', false)).toBe('application/json');
+  });
+
+  it('always prefers text/plain when the caller asks for text', () => {
+    expect(acceptFor('https://api.github.com/x', true)).toBe('text/plain');
+    expect(acceptFor('https://registry.npmjs.org/x', true)).toBe('text/plain');
+  });
+});
 
 describe('distribution readiness', () => {
   it('parses generated Homebrew and winget versions', () => {
