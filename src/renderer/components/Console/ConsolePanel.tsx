@@ -1,4 +1,4 @@
-import { Clock, Trash2 } from 'lucide-react';
+import { Check, Clock, ListFilter, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types/console';
@@ -418,6 +418,30 @@ export function ConsolePanel() {
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
     pulse?.generation === pulseGenerationRef.current ? pulse.line : null;
   const totalCount = entries.length;
+  // Payload-kind menu. Same dismissal hygiene as the other lightweight
+  // dropdowns in the shell: outside mousedown or Escape closes it.
+  const [payloadMenuOpen, setPayloadMenuOpen] = useState(false);
+  const payloadMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!payloadMenuOpen) return;
+    const onDown = (event: MouseEvent) => {
+      if (!payloadMenuRef.current) return;
+      if (!payloadMenuRef.current.contains(event.target as Node)) {
+        setPayloadMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPayloadMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [payloadMenuOpen]);
+
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
       {/* Header: eyebrow + count badge + inline level chips + the ⌘\
@@ -458,31 +482,62 @@ export function ConsolePanel() {
             );
           })}
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
-          {/* implementation note — payload-kind chip row. Default
-              empty (every kind visible); clicking a chip hides that
-              kind. `text` is the catch-all bucket the renderer
-              dispatches for primitive / function / error payloads +
-              the no-payload fallback. */}
-          {PAYLOAD_KIND_CHIPS.map(kind => {
-            const hidden = hiddenPayloadKinds.has(kind);
-            return (
-              <Tooltip key={kind} content={t(`console.rich.filterChip.${kind}`)}>
-                <button
-                  type="button"
-                  onClick={() => togglePayloadKindFilter(kind)}
-                  data-active={hidden ? 'false' : 'true'}
-                  data-testid={`console-payload-chip-${kind}`}
-                  className={`console-filter-chip focus-ring rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
-                    hidden
-                      ? 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
-                      : 'border-border-strong/90 bg-bg-panel-alt text-foreground'
-                  }`}
-                >
-                  {t(`console.rich.filterChip.${kind}`)}
-                </button>
-              </Tooltip>
-            );
-          })}
+          {/* Payload-kind filters live in a menu rather than a second chip
+              row. Two reasons. Width: the ten chips took 48% of a 1280px
+              viewport and clipped the trailing actions at 1024px. Meaning:
+              these chips are opt-OUT (every kind starts visible, clicking
+              hides one) while the severity chips beside them are opt-IN, so
+              two rows that looked identical behaved inversely. A menu of
+              checked items states "shown" without relying on chip styling. */}
+          <div ref={payloadMenuRef} className="relative">
+            <Tooltip content={t('console.rich.payloadKinds.tooltip')}>
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={payloadMenuOpen}
+                data-testid="console-payload-kinds-menu"
+                onClick={() => setPayloadMenuOpen(open => !open)}
+                className={`console-filter-chip focus-ring inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
+                  hiddenPayloadKinds.size > 0
+                    ? 'border-border-strong/90 bg-bg-panel-alt text-foreground'
+                    : 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
+                }`}
+              >
+                <ListFilter size={14} aria-hidden />
+                {t('console.rich.payloadKinds.label')}
+                {hiddenPayloadKinds.size > 0 ? (
+                  <span className="opacity-70">{hiddenPayloadKinds.size}</span>
+                ) : null}
+              </button>
+            </Tooltip>
+            {payloadMenuOpen ? (
+              <div
+                className="dropdown-rich absolute bottom-[calc(100%+0.4rem)] right-0 z-50 w-[220px]"
+                role="menu"
+                aria-label={t('console.rich.payloadKinds.tooltip')}
+              >
+                {PAYLOAD_KIND_CHIPS.map(kind => {
+                  const hidden = hiddenPayloadKinds.has(kind);
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={!hidden}
+                      data-testid={`console-payload-chip-${kind}`}
+                      onClick={() => togglePayloadKindFilter(kind)}
+                      className="dropdown-rich-row focus-ring w-full"
+                    >
+                      <span className="row-icon inline-flex w-4 justify-center">
+                        {hidden ? null : <Check size={14} aria-hidden />}
+                      </span>
+                      <span className="row-label">{t(`console.rich.filterChip.${kind}`)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
           <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
             <span className="inline-flex items-center gap-1 text-eyebrow text-fg-subtle">

@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
@@ -92,6 +92,8 @@ function collapseForMock(entries: ConsoleState['entries']): ConsoleState['collap
   return rows;
 }
 
+const mockTogglePayloadKind = vi.fn();
+
 function consoleStoreSnapshot() {
   return {
     ...mockState,
@@ -99,7 +101,7 @@ function consoleStoreSnapshot() {
     clear: mockClear,
     restore: mockRestore,
     toggleFilter: mockToggleFilter,
-    togglePayloadKindFilter: vi.fn(),
+    togglePayloadKindFilter: mockTogglePayloadKind,
     clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
     addEntry: mockAddEntry,
@@ -173,7 +175,9 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 
 // Also mock lucide-react icons used by ConsolePanel
 vi.mock('lucide-react', () => ({
+  Check: () => null,
   Clock: () => null,
+  ListFilter: () => null,
   Trash2: () => null,
   History: () => null,
   // implementation — `<ConsoleEntryRenderer>` now uses Maximize2
@@ -279,11 +283,57 @@ describe('ConsolePanel', () => {
     );
   });
 
-  it('gives the filter chips the shared keyboard focus ring (accessibility pass)', () => {
+  it('gives the filter controls the shared keyboard focus ring (accessibility pass)', () => {
     render(<ConsolePanel />);
-    // The payload-kind chips render unconditionally and share the same
-    // bespoke chip className as the log-type chips.
+    // The payload-kind filters moved into a menu: the trigger is always in the
+    // toolbar, and its items only exist while the menu is open. Both are
+    // keyboard targets, so both carry the shared ring.
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    expect(trigger.className).toContain('focus-ring');
+
+    fireEvent.click(trigger);
     expect(screen.getByTestId('console-payload-chip-table').className).toContain('focus-ring');
+  });
+
+  it('exposes payload-kind filters as checked menu items and closes on Escape', () => {
+    mockTogglePayloadKind.mockClear();
+    render(<ConsolePanel />);
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    // Every kind starts visible, so every item reads as checked. That is the
+    // inversion the old chip row hid: those chips were opt-out while the
+    // severity chips beside them were opt-in, and both looked the same.
+    const item = screen.getByTestId('console-payload-chip-table');
+    expect(item.getAttribute('role')).toBe('menuitemcheckbox');
+    expect(item.getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(item);
+    expect(mockTogglePayloadKind).toHaveBeenCalledWith('table');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('console-payload-chip-table')).toBeNull();
+  });
+
+  it('reads a hidden payload kind back as an unchecked menu item', () => {
+    mockState.hiddenPayloadKinds = new Set(['table']);
+    render(<ConsolePanel />);
+
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    // The trigger carries the hidden count so the state is legible without
+    // opening the menu — the old row gave no summary at all.
+    expect(trigger.textContent).toContain('1');
+
+    fireEvent.click(trigger);
+    expect(screen.getByTestId('console-payload-chip-table').getAttribute('aria-checked')).toBe(
+      'false'
+    );
+    expect(screen.getByTestId('console-payload-chip-object').getAttribute('aria-checked')).toBe(
+      'true'
+    );
   });
 
   // implementation detail — image clipboard paste into the console.
