@@ -240,8 +240,17 @@ describe('Script naming docs guard', () => {
 
   it('keeps current operator docs on pnpm commands', () => {
     const forbiddenCommand = /\b(?:npm run|npx\s|npm install|npm ci|npm --prefix)\b/u;
+    // Installing the PUBLISHED CLI from the registry is a consumer action, not
+    // a repository operation: `@linguacode/cli` is a normal npm package and
+    // most of its users reach for npm/npx. Telling them to use pnpm instead
+    // would be wrong advice. Everything else in these docs still has to stay
+    // on pnpm, so the exemption is anchored to the package name.
+    const publishedCliInstall = /\b(?:npm install -g|npx) @linguacode\/cli\b/gu;
     const offenders = CURRENT_OPERATOR_DOC_PATHS.filter(path => {
-      const text = readFileSync(resolve(__dirname, '../..', path), 'utf-8');
+      const text = readFileSync(resolve(__dirname, '../..', path), 'utf-8').replace(
+        publishedCliInstall,
+        ''
+      );
       return forbiddenCommand.test(text);
     });
 

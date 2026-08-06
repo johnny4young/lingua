@@ -130,11 +130,24 @@ lingua run ./scripts/check.ts --timeout 60000 -- --verbose
 lingua capsule validate ./run.capsule.json --json
 ```
 
-`@linguacode/cli` is not on the public npm registry yet — the first guarded
-publication is still pending. Every stable release does attach standalone
+Install it from npm — the package is dependency-free and needs Node 24.x:
+
+```bash
+npm install -g @linguacode/cli
+lingua --help
+```
+
+Or run it once without installing:
+
+```bash
+npx @linguacode/cli utility json-format
+```
+
+Every stable release also attaches standalone
 `lingua-cli-v<version>-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives to
-the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
-Otherwise, build and link the CLI from this repository:
+the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) for
+machines without Node. Contributors can build and link it from this repository
+instead:
 
 ```bash
 pnpm install
