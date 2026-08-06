@@ -292,23 +292,88 @@ jobs:
         if: ${{ steps.registry.outputs.state == 'published' }}
         run: echo '${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }} is already public; skipping mutation.'
 
+      # A publish is visible before it is installable. npm serves the version
+      # document immediately, while the packument `npm install` resolves
+      # against replicates behind it — for the 1.0.1 bootstrap the packument
+      # was still 404 more than two minutes after npm reported success. The
+      # previous budget here was five attempts six seconds apart, so this
+      # smoke failed on a publish that was completely fine, and taking the job
+      # down with it also skipped the operator handoff that records the
+      # post-bootstrap token revocation. Budget for the replication window
+      # instead, and keep failing closed once it is spent.
       - name: Smoke exact public package
         if: ${{ steps.registry.outputs.state != 'stage' }}
         shell: bash
+        env:
+          REGISTRY_STATE: ${{ steps.registry.outputs.state }}
+          EXPECTED_VERSION: ${{ needs.verify-cli.outputs.version }}
+          PACKAGE_SPEC: ${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }}
         run: |
           set -euo pipefail
           prefix="$RUNNER_TEMP/lingua-cli-public-smoke"
-          package="${{ needs.verify-cli.outputs.package }}@${{ needs.verify-cli.outputs.version }}"
-          for attempt in 1 2 3 4 5; do
+
+          # A first publish creates the packument; later versions only append to
+          # one that already exists and appear far sooner.
+          if [[ "$REGISTRY_STATE" == "bootstrap" ]]; then
+            budget_seconds=600
+          else
+            budget_seconds=180
+          fi
+
+          deadline=$(( SECONDS + budget_seconds ))
+          delay=5
+          attempt=0
+          installed=no
+
+          while true; do
+            attempt=$(( attempt + 1 ))
             rm -rf "$prefix"
-            if npm install --global --prefix "$prefix" --ignore-scripts "$package"; then
+            # --prefer-online: npm caches negative lookups, so a plain retry can
+            # replay the same cached 404 and never observe replication landing.
+            if npm install --global --prefix "$prefix" --ignore-scripts --prefer-online "$PACKAGE_SPEC"; then
+              installed=yes
+              echo "Public install succeeded on attempt $attempt."
               break
             fi
-            [[ "$attempt" -lt 5 ]] || exit 1
-            sleep 6
+
+            remaining=$(( deadline - SECONDS ))
+            if (( remaining <= 0 )); then
+              break
+            fi
+            if (( delay > remaining )); then
+              delay=$remaining
+            fi
+            echo "Attempt $attempt could not install $PACKAGE_SPEC yet; ${remaining}s of budget left, retrying in ${delay}s."
+            sleep "$delay"
+            if (( delay < 30 )); then
+              delay=$(( delay * 2 ))
+            fi
           done
-          [[ "$("$prefix/bin/lingua" --version)" == "${{ needs.verify-cli.outputs.version }}" ]]
-          printf hello | "$prefix/bin/lingua" utility base64-encode | grep -Fx aGVsbG8=
+
+          if [[ "$installed" != yes ]]; then
+            echo "::error::$PACKAGE_SPEC did not become installable within ${budget_seconds}s. The publish itself may still have succeeded — check the registry version document before republishing."
+            exit 1
+          fi
+
+          if [[ ! -x "$prefix/bin/lingua" ]]; then
+            echo "::error::$PACKAGE_SPEC installed but exposed no lingua binary."
+            exit 1
+          fi
+
+          # Assert explicitly rather than leaning on errexit: whether `set -e`
+          # aborts on a bare failing `[[ ]]` depends on the bash build, and a
+          # version assertion that silently never fires is worse than no
+          # assertion at all.
+          installed_version="$("$prefix/bin/lingua" --version)"
+          if [[ "$installed_version" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Public install reports $installed_version, expected $EXPECTED_VERSION."
+            exit 1
+          fi
+
+          if ! printf hello | "$prefix/bin/lingua" utility base64-encode | grep -Fx aGVsbG8=; then
+            echo "::error::Public install did not produce the expected utility output."
+            exit 1
+          fi
 
       - name: Write operator handoff
         shell: bash
