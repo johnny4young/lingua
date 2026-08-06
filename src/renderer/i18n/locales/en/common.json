@@ -3475,7 +3475,7 @@
   "httpWorkspace.editor.stop.label": "Stop",
   "httpWorkspace.response.loading": "Sending request…",
   "httpWorkspace.response.empty.title": "No response yet",
-  "httpWorkspace.response.empty.body": "Click Send or press Cmd+Enter to run the request.",
+  "httpWorkspace.response.empty.body": "Click Run or press Cmd+Enter to send the request.",
   "httpWorkspace.response.kind.network": "Network",
   "httpWorkspace.response.kind.cors": "CORS",
   "httpWorkspace.response.kind.timeout": "Timeout",

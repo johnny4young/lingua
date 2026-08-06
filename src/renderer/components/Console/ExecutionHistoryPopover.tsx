@@ -306,7 +306,7 @@ export function ExecutionHistoryPopover({
         aria-controls={enabled && open ? popoverId : undefined}
         data-testid="execution-history-toggle"
       >
-        <History size={13} />
+        <History size={16} />
       </IconButton>
       {enabled && open ? (
         <div

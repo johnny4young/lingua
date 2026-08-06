@@ -124,9 +124,10 @@ export function AboutSection({
 
       <SettingsSection eyebrow={t('about.links.label')} description={t('about.links.hint')}>
         <SpecCard>
+          {/* The enclosing SettingsSection already prints this description
+              verbatim, so the row keeps its label and drops the repeat. */}
           <SpecRow
             label={t('about.links.label')}
-            description={t('about.links.hint')}
             control={
               <div className="flex flex-wrap justify-end gap-2">
                 {appInfo?.repositoryUrl && (

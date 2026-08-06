@@ -51,7 +51,7 @@ export function FloatingActionPillCommandActions({
               }}
               className="action-pill-icon-button"
             >
-              <FileSearch size={13} aria-hidden />
+              <FileSearch size={16} aria-hidden />
             </button>
           </Tooltip>
         ) : null}
@@ -67,7 +67,7 @@ export function FloatingActionPillCommandActions({
               }}
               className="action-pill-icon-button"
             >
-              <Command size={13} aria-hidden />
+              <Command size={16} aria-hidden />
             </button>
           </Tooltip>
         ) : null}
@@ -83,7 +83,7 @@ export function FloatingActionPillCommandActions({
               }}
               className="action-pill-icon-button"
             >
-              <Braces size={13} aria-hidden />
+              <Braces size={16} aria-hidden />
             </button>
           </Tooltip>
         ) : null}
@@ -101,7 +101,7 @@ export function FloatingActionPillCommandActions({
               }}
               className="action-pill-icon-button"
             >
-              <Wrench size={13} aria-hidden />
+              <Wrench size={16} aria-hidden />
             </button>
           </Tooltip>
         ) : null}
@@ -122,7 +122,7 @@ export function FloatingActionPillCommandActions({
             }}
             className="action-pill-icon-button"
           >
-            <Archive size={13} aria-hidden />
+            <Archive size={16} aria-hidden />
           </button>
         </Tooltip>
       </div>
@@ -160,7 +160,7 @@ function RecipesActionPillButton({
         }}
         className="action-pill-icon-button relative"
       >
-        <GraduationCap size={13} aria-hidden />
+        <GraduationCap size={16} aria-hidden />
         {passedCount > 0 ? (
           <span
             data-testid="action-pill-recipes-badge"

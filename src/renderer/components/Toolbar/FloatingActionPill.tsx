@@ -143,7 +143,7 @@ export function FloatingActionPill({
         className="action-pill-drag-handle ml-0.5 inline-flex items-center justify-center rounded-full text-fg-subtle hover:text-fg-base"
         {...dragHandleProps}
       >
-        <GripVertical size={12} aria-hidden />
+        <GripVertical size={14} aria-hidden />
       </button>
 
       {/* Runtime control — language · runtime · run read as ONE
@@ -286,7 +286,7 @@ export function FloatingActionPill({
               }}
               className="action-pill-segment ml-0.5 mr-0.5 px-2 text-fg-subtle hover:text-fg-base"
             >
-              <SettingsIcon size={12} aria-hidden />
+              <SettingsIcon size={16} aria-hidden />
             </button>
           </Tooltip>
         </>

@@ -193,9 +193,9 @@ function EditorArea() {
             aria-controls="project-explorer"
             aria-expanded={sidebarVisible}
             data-testid="editor-sidebar-toggle"
-            className="size-7 rounded-md"
+            className="rounded-md"
           >
-            <PanelLeft size={14} />
+            <PanelLeft size={16} />
           </IconButton>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -764,7 +764,7 @@ export function AppLayout({
               tooltip={t('layout.closeSidebar')}
               className="absolute right-3 top-3 z-10 bg-surface/92"
             >
-              <X size={14} />
+              <X size={16} />
             </IconButton>
             <SidebarPanel onNavigate={handleExplorerNavigate} />
           </div>

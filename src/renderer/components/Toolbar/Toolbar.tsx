@@ -227,7 +227,7 @@ export function Toolbar() {
           aria-controls="project-explorer"
           aria-expanded={sidebarVisible}
         >
-          <PanelLeft size={15} />
+          <PanelLeft size={16} />
         </IconButton>
 
         <div className="toolbar-divider" />
@@ -359,7 +359,7 @@ export function Toolbar() {
             tooltip={t('toolbar.run.stop')}
             data-testid="toolbar-stop-button"
           >
-            <Square size={12} fill="currentColor" />
+            <Square size={16} fill="currentColor" />
           </IconButton>
         )}
 

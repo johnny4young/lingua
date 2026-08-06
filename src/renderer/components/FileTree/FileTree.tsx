@@ -347,19 +347,19 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             tooltip={t('fileTree.actions.collapseAll')}
             aria-label={t('fileTree.actions.collapseAll')}
           >
-            <ChevronsDownUp size={13} />
+            <ChevronsDownUp size={16} />
           </IconButton>
           <IconButton
             onClick={() => handleNewFile()}
             tooltip={t('fileTree.actions.newFile')}
           >
-            <FilePlus size={13} />
+            <FilePlus size={16} />
           </IconButton>
           <IconButton
             onClick={() => handleNewDir()}
             tooltip={t('fileTree.actions.newFolder')}
           >
-            <FolderPlus size={13} />
+            <FolderPlus size={16} />
           </IconButton>
           <IconButton
             onClick={() => emitCommand('overlay.openProjectTests')}
@@ -367,7 +367,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             aria-label={t('fileTree.actions.projectTests')}
             data-testid="file-tree-project-tests"
           >
-            <FlaskConical size={13} />
+            <FlaskConical size={16} />
           </IconButton>
           {window.lingua?.projectTerminal ? (
             <IconButton
@@ -376,21 +376,21 @@ export function FileTree({ onNavigate }: FileTreeProps) {
               aria-label={t('fileTree.actions.projectTerminal')}
               data-testid="file-tree-project-terminal"
             >
-              <SquareTerminal size={13} />
+              <SquareTerminal size={16} />
             </IconButton>
           ) : null}
           <IconButton
             onClick={refreshTree}
             tooltip={t('fileTree.actions.refresh')}
           >
-            <RefreshCw size={13} />
+            <RefreshCw size={16} />
           </IconButton>
           <IconButton
             onClick={() => void exportProjectBundle()}
             tooltip={t('fileTree.actions.exportProject')}
             aria-label={t('fileTree.actions.exportProject')}
           >
-            <FileArchive size={13} />
+            <FileArchive size={16} />
           </IconButton>
         </div>
       </div>

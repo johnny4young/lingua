@@ -245,22 +245,47 @@ export function Tooltip({
   );
 }
 
+/**
+ * Icon-button density scale. `md` is the default chrome control, `sm` is for
+ * dense inline spots such as a tab close affordance. The glyph size is paired
+ * with the box so the ratio stays near 0.57 — pass `ICON_GLYPH[size]` to the
+ * lucide icon rather than picking a number per call site.
+ */
+export const ICON_GLYPH = { sm: 14, md: 16 } as const;
+
+export type IconButtonSize = keyof typeof ICON_GLYPH;
+
+const ICON_BUTTON_BOX: Record<IconButtonSize, string> = {
+  sm: 'size-6',
+  md: 'size-7',
+};
+
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
   tone?: 'neutral' | 'danger';
   tooltip?: string;
   tooltipSide?: TooltipSide;
+  size?: IconButtonSize;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { active = false, tone = 'neutral', className, tooltip, tooltipSide = 'top', ...props },
+  {
+    active = false,
+    tone = 'neutral',
+    size = 'md',
+    className,
+    tooltip,
+    tooltipSide = 'top',
+    ...props
+  },
   ref
 ) {
   const button = (
     <button
       ref={ref}
       className={cn(
-        'icon-button size-9',
+        'icon-button',
+        ICON_BUTTON_BOX[size],
         active && 'icon-button-active',
         tone === 'danger' && 'icon-button-danger',
         className

@@ -420,14 +420,14 @@ export function ConsolePanel() {
   const totalCount = entries.length;
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
-      {/* implementation — prominent header: eyebrow + count badge +
-          inline level chips (LOG · INF · WRN · ERR · RESULT) + the
-          ⌘\ keyboard hint so the toggle shortcut is discoverable. */}
-      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
+      {/* Header: eyebrow + count badge + inline level chips + the ⌘\
+          hint. No prose caption here — the CONSOLE/INPUT tabs directly
+          above already name the panel, and at 1024px the caption wrapped
+          to five lines and inflated this whole row. */}
+      <div className="flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
         <div className="flex items-center gap-2.5">
           <EyebrowMono>{t('console.title')}</EyebrowMono>
           {totalCount > 0 ? <MonoBadge tone="accent">{totalCount}</MonoBadge> : null}
-          <p className="text-caption text-fg-muted">{t('console.description')}</p>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -498,7 +498,7 @@ export function ConsolePanel() {
                 : t('console.actions.showTimestamps')
             }
           >
-            <Clock size={13} />
+            <Clock size={16} />
           </IconButton>
           <ExecutionHistoryPopover
             enabled={canUseExecutionHistory}
@@ -528,7 +528,7 @@ export function ConsolePanel() {
             tooltip={t('console.actions.clear')}
             tone="danger"
           >
-            <Trash2 size={13} />
+            <Trash2 size={16} />
           </IconButton>
         </div>
       </div>

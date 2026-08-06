@@ -132,7 +132,7 @@ function SettingsTopBar({
       <div className="flex items-center gap-2">
         <Kbd>Esc</Kbd>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
-          <X size={14} />
+          <X size={16} />
         </IconButton>
       </div>
     </div>
