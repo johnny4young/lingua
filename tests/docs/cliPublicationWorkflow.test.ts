@@ -85,4 +85,28 @@ describe('CLI npm publication workflow', () => {
     expect(workflow).toContain('A rerun before approval safely fails');
     expect(workflow).toContain('cli-npm-publication-${{ needs.verify-cli.outputs.version }}');
   });
+
+  it('gives the public smoke a budget that outlasts packument replication', () => {
+    // npm serves the version document before the packument `npm install`
+    // resolves against. For the 1.0.1 bootstrap the packument was still 404
+    // more than two minutes after npm reported success, so a short retry loop
+    // failed a publish that was fine — and skipped the operator handoff with
+    // it. A first publish creates the packument and needs the longer budget.
+    expect(workflow).toMatch(/budget_seconds=600/u);
+    expect(workflow).toMatch(/budget_seconds=180/u);
+    // npm caches negative lookups, so retries must force revalidation or they
+    // replay the same cached 404 and the budget buys nothing.
+    expect(workflow).toContain('--prefer-online');
+    // Spending the budget must fail closed, not fall through as success.
+    expect(workflow).toContain('did not become installable within');
+  });
+
+  it('asserts the smoked version explicitly instead of relying on errexit', () => {
+    // Whether `set -e` aborts on a bare failing `[[ ]]` depends on the bash
+    // build; a version assertion that silently never fires is worse than none.
+    expect(workflow).toContain('Public install reports $installed_version');
+    expect(workflow).not.toMatch(
+      /^\s*\[\[ "\$\("\$prefix\/bin\/lingua" --version\)" == /mu
+    );
+  });
 });
