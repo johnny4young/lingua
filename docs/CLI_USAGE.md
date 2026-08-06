@@ -12,9 +12,16 @@ and compatibility checks.
 
 ## Install / build
 
-The first public `@linguacode/cli` package will ship with Lingua v1.0.0. Do not
-interpret release-candidate documentation as registry availability. Until the
-stable release and npm promotion are complete, build locally from the repo:
+`@linguacode/cli` is published on npm. The package is dependency-free and
+declares `engines.node: 24.x`:
+
+```bash
+npm install -g @linguacode/cli   # or: npx @linguacode/cli --help
+lingua --help
+```
+
+Contributors and anyone tracking `main` ahead of a release build from the repo
+instead:
 
 ```bash
 git clone https://github.com/johnny4young/lingua
@@ -77,9 +84,12 @@ never reads credentials or changes a registry. Save JSON with `--output`, then
 use `--input` to render both languages from the exact same evidence without
 another network probe.
 
-The first npm version must be created by the next stable release. The immutable
-`v0.15.0` tag predates the CLI packaging pipeline, so publishing newer
-post-release code as `@linguacode/cli@0.15.0` would create false version parity.
+The registry was bootstrapped from `v1.0.1` with a one-time granular token.
+Every later version is staged through trusted publishing for maintainer review
+and 2FA approval instead, so a publish is never a single unreviewed step. Each
+npm version must come from a published immutable release: a tag that predates
+the CLI packaging pipeline cannot be reused, because publishing newer
+post-release code under an older version would create false version parity.
 The complete bootstrap, trusted-publisher, staged approval, clean-install, and
 rollback sequence lives in
 [`runbooks/distribution-channels.md`](./runbooks/distribution-channels.md).

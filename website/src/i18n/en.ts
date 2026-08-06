@@ -499,7 +499,8 @@ export const en = {
       automation: 'Automation',
       reference: 'Reference',
     },
-    releaseNote: 'The first public npm package ships with Lingua v1.0.0. Until then, build the CLI from source.',
+    releaseNote:
+      'The CLI is published on npm as @linguacode/cli. Install it globally, run it with npx, or build it from source.',
   },
   seo: {
     download: 'Download Lingua',

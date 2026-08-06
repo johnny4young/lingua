@@ -10,9 +10,26 @@ The Lingua CLI is for the moment when a useful action needs to leave the app and
 
 It is local, scriptable, and intentionally small. Use it to format a payload on stdin, execute a trusted source file, validate a Capsule in CI, or replay a captured run.
 
-## Build it today
+## Install it
 
-The first public `@linguacode/cli` package will ship with Lingua v1.0.0. Until that release is published, build from the repository:
+`@linguacode/cli` is published on npm. It has no dependencies and needs Node 24.x:
+
+```bash
+npm install -g @linguacode/cli
+lingua --help
+```
+
+Prefer not to install anything? Run it once with `npx`:
+
+```bash
+npx @linguacode/cli --help
+```
+
+Machines without Node can use the standalone `lingua-cli-*-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives attached to every stable [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
+
+## Build it from source
+
+Contributors, and anyone tracking `main` ahead of a release, build from the repository:
 
 ```bash
 git clone https://github.com/johnny4young/lingua.git
