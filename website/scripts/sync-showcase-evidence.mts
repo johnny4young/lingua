@@ -33,8 +33,8 @@
  * silent regression, so adopting the shipped bytes is a separate, explicit act.
  *
  * Refreshing the gallery:
- *   pnpm run test:e2e:web                            # regenerates output/playwright
- *   npm --prefix website run sync:showcase-evidence  # copy + record
+ *   pnpm run test:e2e:web                          # regenerates output/playwright
+ *   pnpm --dir website run sync:showcase-evidence  # copy + record
  *   # review the PNG diff, then commit the images and the integrity file
  *
  * The `sources` -> `images` mapping, including the rename each file gets on the
@@ -44,7 +44,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { copyFile, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -71,7 +71,7 @@ interface Fingerprint {
 
 /**
  * pnpm 11 forwards the `--` separator itself into argv, so
- * `pnpm --dir website run check:showcase-evidence -- --record` arrives here as
+ * `pnpm --dir website run sync:showcase-evidence -- --record` arrives here as
  * ['--', '--record'] and parseArgs rejects it as a positional. The repo hit
  * this before; scripts/lib/cli-args.mjs exists for it at the root. Kept inline
  * rather than imported so website/ scripts stay self-contained.
@@ -178,6 +178,10 @@ async function main(): Promise<number> {
   const present = all.filter(entry => existsSync(entry.evidence));
 
   for (const entry of present) {
+    // The v1.0/ directory exists today, but the next gallery version will not
+    // until something creates it — and a copyFile into a missing directory
+    // throws rather than creating the path.
+    await mkdir(dirname(entry.shipped), { recursive: true });
     await copyFile(entry.evidence, entry.shipped);
   }
   // Digest the SHIPPED file, not the evidence: after the copy they are equal,

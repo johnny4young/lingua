@@ -93,7 +93,7 @@ describe('v1 launch story', () => {
         const entry = recorded[key];
         assert.ok(
           entry,
-          `${key} has no recorded digest; run "npm run sync:showcase-evidence -- --record" after updating the gallery`
+          `${key} has no recorded digest; run "pnpm --dir website run record:showcase-evidence" after updating the gallery`
         );
         assert.equal(
           fingerprint(readFileSync(path.join(websiteRoot, 'public', item.images[locale]))),
