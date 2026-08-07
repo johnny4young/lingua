@@ -31,12 +31,35 @@ const websiteRoot = fileURLToPath(new URL('..', import.meta.url));
 const read = (relative: string) =>
   readFileSync(path.join(websiteRoot, relative), 'utf8');
 
-/** Surfaces that hardcode the number and cannot import it. */
-const GUARDED = [
-  'src/i18n/en.ts',
-  'src/i18n/es.ts',
-  'src/content/docs/en/utilities.md',
-  'src/content/docs/es/utilities.md',
+/**
+ * Surfaces that hardcode the number and cannot import it.
+ *
+ * Each one carries the context the count is supposed to appear in, not just
+ * the digits. A bare `source.includes('31')` would be satisfied by any
+ * unrelated 31 that wanders into the file — a date, a version, a pixel value —
+ * so the guard would keep passing with the actual copy stale or deleted.
+ */
+const GUARDED: Array<{ file: string; where: string; context: (count: number) => RegExp }> = [
+  {
+    file: 'src/i18n/en.ts',
+    where: "the proof-row entry (value: '<count>')",
+    context: count => new RegExp(`value:\\s*'${count}'`, 'u'),
+  },
+  {
+    file: 'src/i18n/es.ts',
+    where: "the proof-row entry (value: '<count>')",
+    context: count => new RegExp(`value:\\s*'${count}'`, 'u'),
+  },
+  {
+    file: 'src/content/docs/en/utilities.md',
+    where: 'the frontmatter description',
+    context: count => new RegExp(`^description:.*\\b${count}\\b`, 'mu'),
+  },
+  {
+    file: 'src/content/docs/es/utilities.md',
+    where: 'the frontmatter description',
+    context: count => new RegExp(`^description:.*\\b${count}\\b`, 'mu'),
+  },
 ];
 
 describe('utility count stays in step with the catalog', () => {
@@ -51,11 +74,11 @@ describe('utility count stays in step with the catalog', () => {
   });
 
   it('quotes the current count on every surface that cannot import it', () => {
-    for (const relative of GUARDED) {
-      const source = read(relative);
-      assert.ok(
-        source.includes(String(UTILITY_COUNT)),
-        `${relative} never mentions ${UTILITY_COUNT}; update the copy after changing the catalog`
+    for (const { file, where, context } of GUARDED) {
+      assert.match(
+        read(file),
+        context(UTILITY_COUNT),
+        `${file} does not carry ${UTILITY_COUNT} in ${where}; update the copy after changing the catalog`
       );
     }
   });
@@ -64,8 +87,8 @@ describe('utility count stays in step with the catalog', () => {
     // A bare regex for "any number" would trip over years and version numbers,
     // so check the values an off-by-a-few edit would actually leave behind.
     const stale = [UTILITY_COUNT - 2, UTILITY_COUNT - 1, UTILITY_COUNT + 1, UTILITY_COUNT + 2];
-    for (const relative of GUARDED) {
-      const source = read(relative);
+    for (const { file } of GUARDED) {
+      const source = read(file);
       for (const value of stale) {
         for (const phrase of [
           `${value} utilities`,
@@ -76,7 +99,7 @@ describe('utility count stays in step with the catalog', () => {
         ]) {
           assert.ok(
             !source.includes(phrase),
-            `${relative} still says "${phrase}" but the catalog has ${UTILITY_COUNT}`
+            `${file} still says "${phrase}" but the catalog has ${UTILITY_COUNT}`
           );
         }
       }

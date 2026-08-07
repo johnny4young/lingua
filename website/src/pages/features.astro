@@ -10,13 +10,13 @@ import SecurityMockup from '~/components/features/SecurityMockup.astro';
 import ConsentMockup from '~/components/features/ConsentMockup.astro';
 import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
 import { UTILITY_COUNT } from '~/lib/utilities';
+import FinalCTA from '~/components/FinalCTA.astro';
+import { type Locale, localizePath } from '~/lib/i18n';
 
 // The utilities blurb names six panels by hand before saying "and N more", so
 // the remainder has to subtract them. Keeping the count here rather than in the
 // sentence is what stops the two from drifting apart again.
 const NAMED_UTILITIES = 6;
-import FinalCTA from '~/components/FinalCTA.astro';
-import { type Locale, localizePath } from '~/lib/i18n';
 
 interface Props {
   locale?: Locale;
