@@ -44,6 +44,18 @@ Before making non-trivial changes, open these files (in order).
   both in sync, and when auditing, compare each pinned version against the
   CURRENT advisory range — exact pins on `undici` and `brace-expansion` had
   both frozen those packages on versions later advisories moved past.
+- **A root override does not reach `website/`, `license-server/`, or
+  `update-server/`.** Those are independently locked sub-projects — `website/`
+  is standalone npm (its own `package.json` + `package-lock.json`), the two
+  Workers are separate pnpm projects. Bumping `pnpm-workspace.yaml` leaves
+  their lockfiles exactly where they were. CI audits all three in one step
+  (`ci.yml` § Independent production dependency audits) under `bash -e`, so
+  the FIRST failing audit masks the rest: a green root audit can be hiding a
+  red website one that only appears once you fix the root. When patching an
+  advisory, grep every lockfile for the package and regenerate each affected
+  sub-project with ITS OWN package manager — `npm --prefix website install
+  --package-lock-only` for the site, `pnpm --dir <sub> install --lockfile-only`
+  for a Worker. `js-yaml` needed the root pin AND the website pin.
 - **`pnpm audit --prod` cannot see what Vite bundles.** It reads package.json
   `dependencies` only, while the main/preload graphs are inlined into
   `.vite/build/main.js`. A devDependency imported by `src/main/**` ships to

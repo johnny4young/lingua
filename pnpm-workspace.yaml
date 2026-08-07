@@ -75,7 +75,11 @@ overrides:
   "brace-expansion@2.1.1": "2.1.4"
   "brace-expansion@5.0.6": "5.0.9"
   "fast-uri": "3.1.5"
-  "js-yaml": "4.3.0"
+  # js-yaml: GHSA-5p4m-2wfm-xmqj (quadratic CPU in !!omap resolution) lands
+  # on 4.3.1; the fix was NOT backported to 3.x. It reaches the tree through
+  # electron-updater, which ships to users, so this pin has to move with the
+  # advisory rather than stay frozen where it was first set.
+  "js-yaml": "4.3.1"
   # hono ships to users: @modelcontextprotocol/node (a production
   # dependency behind the desktop local MCP server) pins @hono/node-server
   # 1.x, which resolves hono itself. Keep it on the patched 4.x line; the
@@ -123,5 +127,4 @@ minimumReleaseAgeExclude:
   # keep the age bypass narrow and reproducible.
   - dompurify@3.4.12
   - esbuild@0.28.1
-  - js-yaml@4.3.0
   - ws@8.21.0
