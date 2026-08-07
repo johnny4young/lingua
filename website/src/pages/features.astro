@@ -9,8 +9,14 @@ import HistoryDiffMockup from '~/components/features/HistoryDiffMockup.astro';
 import SecurityMockup from '~/components/features/SecurityMockup.astro';
 import ConsentMockup from '~/components/features/ConsentMockup.astro';
 import UtilitiesStrip from '~/components/UtilitiesStrip.astro';
+import { UTILITY_COUNT } from '~/lib/utilities';
 import FinalCTA from '~/components/FinalCTA.astro';
 import { type Locale, localizePath } from '~/lib/i18n';
+
+// The utilities blurb names six panels by hand before saying "and N more", so
+// the remainder has to subtract them. Keeping the count here rather than in the
+// sentence is what stops the two from drifting apart again.
+const NAMED_UTILITIES = 6;
 
 interface Props {
   locale?: Locale;
@@ -32,8 +38,8 @@ const sections = [
 <Base
   title={isEs ? 'Funciones — Lingua' : 'Features — Lingua'}
   description={isEs
-    ? 'Todo lo que Lingua hace hoy: seis runners, editor Monaco con Vim mode, 31 utilidades, env vars por capas, binarios firmados y privacidad auditable.'
-    : 'Everything Lingua does today. Six language runners, a Monaco editor with Vim mode, a 31-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.'}
+    ? `Todo lo que Lingua hace hoy: seis runners, editor Monaco con Vim mode, ${UTILITY_COUNT} utilidades, env vars por capas, binarios firmados y privacidad auditable.`
+    : `Everything Lingua does today. Six language runners, a Monaco editor with Vim mode, a ${UTILITY_COUNT}-panel utility shelf, three-tier env vars, signed binaries, and a privacy posture you can audit.`}
   locale={locale}
 >
   <article class="container section">
@@ -217,11 +223,13 @@ const sections = [
         <span class="section-no">04</span>
         <div>
           <p class="eyebrow">{isEs ? 'Utilidades' : 'Utilities'}</p>
-          <h2>{isEs ? 'Los 31 paneles que reemplazan tus tabs del navegador.' : 'The 31 panels that replace your browser tabs.'}</h2>
+          <h2>{isEs
+              ? `Los ${UTILITY_COUNT} paneles que reemplazan tus tabs del navegador.`
+              : `The ${UTILITY_COUNT} panels that replace your browser tabs.`}</h2>
           <p class="section-desc">
             {isEs
-              ? 'Formateador JSON, tester regex, decodificador JWT, hash, parser cron, conversor de color y veintitrés más. Todo integrado, accesible por teclado y offline.'
-              : 'JSON formatter, regex tester, JWT decoder, hash, cron parser, color converter — and twenty-three more. All built in, all keyboard-reachable, all offline.'}
+              ? `Formateador JSON, tester regex, decodificador JWT, hash, parser cron, conversor de color y ${UTILITY_COUNT - NAMED_UTILITIES} más. Todo integrado, accesible por teclado y offline.`
+              : `JSON formatter, regex tester, JWT decoder, hash, cron parser, color converter — and ${UTILITY_COUNT - NAMED_UTILITIES} more. All built in, all keyboard-reachable, all offline.`}
           </p>
         </div>
       </header>
