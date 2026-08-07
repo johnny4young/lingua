@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { emitCommand } from '../../stores/commandBus';
 import { useCommandListener } from '../../hooks/useCommandListener';
+import { Tooltip } from '../ui/chrome';
 
 const FEEDBACK_RESET_MS = 1000;
 
@@ -48,22 +49,23 @@ export function ShareLinkButton() {
   if (!activeTab) return null;
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      title={t('share.button.tooltip')}
-      aria-label={t('share.button.aria')}
-      data-testid="result-panel-share-link"
-      data-just-copied={justCopied ? 'true' : 'false'}
-      className={`relative button-secondary inline-flex items-center justify-center px-2 py-1 ${
-        justCopied ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt' : ''
-      }`}
-    >
-      {justCopied ? (
-        <Check size={13} aria-hidden="true" />
-      ) : (
-        <Share2 size={13} aria-hidden="true" />
-      )}
-    </button>
+    <Tooltip content={t('share.button.tooltip')}>
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-label={t('share.button.aria')}
+        data-testid="result-panel-share-link"
+        data-just-copied={justCopied ? 'true' : 'false'}
+        className={`relative button-secondary inline-flex items-center justify-center px-2 py-1 ${
+          justCopied ? 'ring-2 ring-primary/60 ring-offset-1 ring-offset-bg-panel-alt' : ''
+        }`}
+      >
+        {justCopied ? (
+          <Check size={13} aria-hidden="true" />
+        ) : (
+          <Share2 size={13} aria-hidden="true" />
+        )}
+      </button>
+    </Tooltip>
   );
 }

@@ -9,6 +9,7 @@ import {
 } from '../../utils/diff';
 import { useComputedDiff } from '../../hooks/useComputedDiff';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 
 /**
  * implementation — read-only comparison modal for two execution-history
@@ -150,7 +151,7 @@ export function ExecutionComparisonModal({ entries, onClose }: ExecutionComparis
             tooltip={t('executionHistory.compare.modal.close')}
             data-testid="execution-compare-close"
           >
-            <X size={16} />
+            <X size={ICON_GLYPH.md} />
           </IconButton>
         </div>
 

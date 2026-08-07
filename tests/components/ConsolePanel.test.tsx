@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
@@ -92,6 +92,8 @@ function collapseForMock(entries: ConsoleState['entries']): ConsoleState['collap
   return rows;
 }
 
+const mockTogglePayloadKind = vi.fn();
+
 function consoleStoreSnapshot() {
   return {
     ...mockState,
@@ -99,7 +101,7 @@ function consoleStoreSnapshot() {
     clear: mockClear,
     restore: mockRestore,
     toggleFilter: mockToggleFilter,
-    togglePayloadKindFilter: vi.fn(),
+    togglePayloadKindFilter: mockTogglePayloadKind,
     clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
     addEntry: mockAddEntry,
@@ -173,7 +175,9 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 
 // Also mock lucide-react icons used by ConsolePanel
 vi.mock('lucide-react', () => ({
+  Check: () => null,
   Clock: () => null,
+  ListFilter: () => null,
   Trash2: () => null,
   History: () => null,
   // implementation — `<ConsoleEntryRenderer>` now uses Maximize2
@@ -279,11 +283,101 @@ describe('ConsolePanel', () => {
     );
   });
 
-  it('gives the filter chips the shared keyboard focus ring (accessibility pass)', () => {
+  it('gives the filter controls the shared keyboard focus ring (accessibility pass)', () => {
     render(<ConsolePanel />);
-    // The payload-kind chips render unconditionally and share the same
-    // bespoke chip className as the log-type chips.
+    // The payload-kind filters moved into a menu: the trigger is always in the
+    // toolbar, and its items only exist while the menu is open. Both are
+    // keyboard targets, so both carry the shared ring.
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    expect(trigger.className).toContain('focus-ring');
+
+    fireEvent.click(trigger);
     expect(screen.getByTestId('console-payload-chip-table').className).toContain('focus-ring');
+  });
+
+  it('exposes payload-kind filters as a labelled checkbox group and closes on Escape', () => {
+    mockTogglePayloadKind.mockClear();
+    render(<ConsolePanel />);
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.getAttribute('aria-controls')).toBe('console-payload-kinds-panel');
+
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    // Disclosure + checkbox, NOT role=menu. role=menu promises Arrow/Home/End
+    // roving focus that this control does not implement, and these rows are
+    // independent toggles rather than a command list.
+    const item = screen.getByTestId('console-payload-chip-table');
+    expect(item.getAttribute('role')).toBe('checkbox');
+    expect(item.closest('[role="group"]')?.id).toBe('console-payload-kinds-panel');
+    // Every kind starts visible, so every item reads as checked. That is the
+    // inversion the old chip row hid: those chips were opt-out while the
+    // severity chips beside them were opt-in, and both looked the same.
+    expect(item.getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(item);
+    expect(mockTogglePayloadKind).toHaveBeenCalledWith('table');
+
+    // Escape unmounts the panel, so focus has to be handed back explicitly or
+    // it falls to <body> and the keyboard user loses their place.
+    item.focus();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('console-payload-chip-table')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('escapes the console clip by portaling the payload-kind panel to the body', () => {
+    // Regression pin. The console renders inside a chain of overflow-hidden
+    // ancestors whose innermost box is barely taller than the filter row, so
+    // an in-tree panel is clipped in BOTH directions: anchored with
+    // `bottom-full` it painted entirely outside the clip, and `top-full` only
+    // moved the cut. Portaling to <body> with fixed positioning is what
+    // actually makes the filters reachable — measured in a real build, not
+    // from getBoundingClientRect, which reports layout position even when an
+    // ancestor clips the element away.
+    const { container } = render(<ConsolePanel />);
+    fireEvent.click(screen.getByTestId('console-payload-kinds-menu'));
+
+    const panel = document.getElementById('console-payload-kinds-panel');
+    expect(panel).not.toBeNull();
+    expect(container.contains(panel)).toBe(false);
+    expect(panel?.parentElement).toBe(document.body);
+    expect(panel?.className).toContain('fixed');
+  });
+
+  it('keeps the panel open when a row inside the portal is clicked', () => {
+    // The dismiss-on-outside-click handler compares against the trigger
+    // wrapper. Once the panel moved into a portal it stopped being a
+    // descendant of that wrapper, so every row click read as "outside".
+    mockTogglePayloadKind.mockClear();
+    render(<ConsolePanel />);
+    fireEvent.click(screen.getByTestId('console-payload-kinds-menu'));
+
+    const row = screen.getByTestId('console-payload-chip-table');
+    fireEvent.mouseDown(row);
+    expect(screen.queryByTestId('console-payload-chip-table')).not.toBeNull();
+
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('console-payload-chip-table')).toBeNull();
+  });
+
+  it('reads a hidden payload kind back as an unchecked filter', () => {
+    mockState.hiddenPayloadKinds = new Set(['table']);
+    render(<ConsolePanel />);
+
+    const trigger = screen.getByTestId('console-payload-kinds-menu');
+    // The trigger carries the hidden count so the state is legible without
+    // opening the menu — the old row gave no summary at all.
+    expect(trigger.textContent).toContain('1');
+
+    fireEvent.click(trigger);
+    expect(screen.getByTestId('console-payload-chip-table').getAttribute('aria-checked')).toBe(
+      'false'
+    );
+    expect(screen.getByTestId('console-payload-chip-object').getAttribute('aria-checked')).toBe(
+      'true'
+    );
   });
 
   // implementation detail — image clipboard paste into the console.

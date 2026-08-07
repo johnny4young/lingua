@@ -460,16 +460,12 @@ function DeveloperUtilitiesWorkspaceBody({
       </aside>
 
       <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
-        {/* Space-saving header: the utility is already identified by the
-            selected sidebar item, so the big title collapses to an
-            visually hidden heading (screen readers and heading-based tests keep
-            their landmark) and only the one-line description renders. */}
-        <div className="border-b border-border-subtle px-7 py-3">
-          <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
-          <p className="max-w-3xl text-body-sm leading-[1.5] text-fg-muted">
-            {t(selectedUtility.descriptionKey)}
-          </p>
-        </div>
+        {/* The selected sidebar row already shows this utility's title and
+            description, and the panel below opens with its own heading, so a
+            third copy of the description bought nothing but a bordered band.
+            The heading stays as a visually hidden landmark for screen readers
+            and heading-based tests. */}
+        <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           <DeveloperUtilityPanel
             toolId={activeSelectedUtilityId}

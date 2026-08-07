@@ -124,7 +124,7 @@ export function FloatingActionPillRunGroup({
         disabled={isRunning}
         onClick={() => setOpenMenu(openMenu === 'run' ? null : 'run')}
       >
-        <ChevronDown size={11} aria-hidden />
+        <ChevronDown size={16} aria-hidden />
       </button>
       {openMenu === 'run' ? (
         <div className="dropdown-rich absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[320px]" role="menu">

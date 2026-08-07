@@ -59,6 +59,21 @@
  * comes from the hue, not from brand consistency.
  */
 
+/* Icon-button density scale — deliberately OUTSIDE the theme blocks: these
+   are geometry, not color, so light and dark must resolve them identically.
+   Declaring them in `:root, .light` would leave them undefined under
+   [data-theme='dark'], which is the default theme.
+
+   Before this pass the chrome shipped six icon-button sizes and five glyph
+   sizes, leaving glyphs at 0.34-0.42 of their button. Both pairs below land
+   near 0.57; `tests/build/iconButtonDensity.test.ts` keeps call sites on them. */
+:root {
+  --icon-button-md: 28px;
+  --icon-button-sm: 24px;
+  --icon-glyph-md: 16px;
+  --icon-glyph-sm: 14px;
+}
+
 :root,
 .light {
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -810,7 +825,14 @@
     box-shadow: var(--app-shadow);
   }
 
-  /* Icon buttons */
+  /* Icon buttons.
+
+     One scale, two steps. Before this pass the chrome shipped six different
+     icon-button sizes (20x32, 24x24, 28x32, 30x32, 32x32, 36x36) and five
+     glyph sizes (10-14px), which left the glyph occupying 0.34-0.42 of its
+     button. Roughly 0.57 is what reads as deliberate, so the tokens below fix
+     both the box and the glyph and `tests/build/iconButtonDensity.test.ts`
+     keeps call sites on them. */
   .icon-button {
     @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted transition-all duration-200 hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
@@ -1525,8 +1547,8 @@
 
   .action-pill-icon-button {
     display: inline-flex;
-    width: 30px;
-    height: 32px;
+    width: var(--icon-button-md);
+    height: var(--icon-button-md);
     align-items: center;
     justify-content: center;
     border-radius: 999px;

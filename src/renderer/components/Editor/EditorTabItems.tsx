@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { languageBadgeTone, languageShortLabel } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { Kbd, Tooltip } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import type { FileTab, TabExecutionState } from '../../types/editor';
 import { GitStatusPill } from './GitStatusPill';
 import type { EditorTabSummary } from './editorTabModel';
@@ -260,7 +261,7 @@ function TabStatusControl({
   const accessibleLabel = state === 'idle' && tab.isDirty ? unsavedLabel : undefined;
 
   return (
-    <span className="relative ml-0.5 inline-flex size-5 shrink-0 items-center justify-center">
+    <span className="relative ml-0.5 inline-flex size-6 shrink-0 items-center justify-center">
       {/* Status marker — hidden on hover so close button can take over. */}
       {state === 'running' ? (
         <Loader2
@@ -289,9 +290,9 @@ function TabStatusControl({
         data-tab-close="true"
         data-tab-id-close={tab.id}
         onClick={onClose}
-        className="inline-flex size-5 items-center justify-center rounded-md text-muted opacity-0 transition-opacity duration-150 hover:bg-surface-strong/82 hover:text-foreground group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100"
+        className="focus-ring inline-flex size-6 items-center justify-center rounded-md text-muted opacity-0 transition-opacity duration-150 hover:bg-surface-strong/82 hover:text-foreground group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100"
       >
-        <X size={10} />
+        <X size={ICON_GLYPH.sm} />
       </button>
     </span>
   );
@@ -531,9 +532,9 @@ export function TabsOverflowDropdown({
                       onClose(tab.id);
                     }}
                     aria-label={t('editorTabs.close', { name: tab.name })}
-                    className="invisible inline-flex size-5 items-center justify-center rounded text-fg-subtle hover:bg-bg-panel hover:text-fg-base group-hover:visible"
+                    className="focus-ring inline-flex size-6 items-center justify-center rounded text-fg-subtle opacity-0 transition-opacity duration-150 hover:bg-bg-panel hover:text-fg-base group-hover:opacity-100 focus-visible:opacity-100"
                   >
-                    <X size={11} aria-hidden />
+                    <X size={ICON_GLYPH.sm} aria-hidden />
                   </button>
                 </div>
               );

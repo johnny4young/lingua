@@ -25,14 +25,13 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { trackEvent } from '../../utils/telemetry';
+import { Tooltip } from '../ui/chrome';
 
 export function CompareToggleButton() {
   const { t } = useTranslation();
   const activeTab = useActiveTab();
-  const setTabCompareEnabled = useEditorStore(
-    (state) => state.setTabCompareEnabled
-  );
-  const snapshotRing = useResultStore((state) => state.snapshotRing);
+  const setTabCompareEnabled = useEditorStore(state => state.setTabCompareEnabled);
+  const snapshotRing = useResultStore(state => state.snapshotRing);
 
   if (!activeTab) return null;
 
@@ -42,8 +41,7 @@ export function CompareToggleButton() {
   // clears the snapshot on language change, this guards against
   // race windows (the active tab updates synchronously, the snapshot
   // clear is a subsequent action).
-  const snapshotIsRelevant =
-    snapshotRing.some((entry) => entry.language === activeTab.language);
+  const snapshotIsRelevant = snapshotRing.some(entry => entry.language === activeTab.language);
   const canEnable = snapshotIsRelevant;
 
   const tooltipKey = !canEnable
@@ -66,25 +64,26 @@ export function CompareToggleButton() {
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      title={t(tooltipKey)}
-      aria-label={t(tooltipKey)}
-      aria-pressed={enabled}
-      disabled={!canEnable}
-      data-testid="compare-toggle"
-      data-state={canEnable ? (enabled ? 'on' : 'off') : 'disabled'}
-      className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-eyebrow ${
-        enabled
-          ? 'border-primary/25 bg-primary-soft text-primary'
-          : !canEnable
-            ? 'opacity-50'
-            : ''
-      }`}
-    >
-      <GitCompare size={11} aria-hidden="true" className="opacity-80" />
-      {t('compare.toggle.label')}
-    </button>
+    <Tooltip content={t(tooltipKey)}>
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-label={t(tooltipKey)}
+        aria-pressed={enabled}
+        disabled={!canEnable}
+        data-testid="compare-toggle"
+        data-state={canEnable ? (enabled ? 'on' : 'off') : 'disabled'}
+        className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-eyebrow ${
+          enabled
+            ? 'border-primary/25 bg-primary-soft text-primary'
+            : !canEnable
+              ? 'opacity-50'
+              : ''
+        }`}
+      >
+        <GitCompare size={11} aria-hidden="true" className="opacity-80" />
+        {t('compare.toggle.label')}
+      </button>
+    </Tooltip>
   );
 }

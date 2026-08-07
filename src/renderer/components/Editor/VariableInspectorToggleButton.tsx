@@ -19,14 +19,15 @@ import { useResultStore } from '../../stores/resultStore';
 import { trackEvent } from '../../utils/telemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
+import { Tooltip } from '../ui/chrome';
 
 export function VariableInspectorToggleButton() {
   const { t } = useTranslation();
   const activeTab = useActiveTab();
   const setTabVariableInspectorEnabled = useEditorStore(
-    (state) => state.setTabVariableInspectorEnabled
+    state => state.setTabVariableInspectorEnabled
   );
-  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
+  const scopeSnapshot = useResultStore(state => state.scopeSnapshot);
 
   if (!activeTab) return null;
   if (activeTab.runtimeMode === 'node') return null;
@@ -54,25 +55,26 @@ export function VariableInspectorToggleButton() {
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      title={t(tooltipKey)}
-      aria-label={t(tooltipKey)}
-      aria-pressed={enabled}
-      disabled={!canEnable}
-      data-testid="variable-inspector-toggle"
-      data-state={canEnable ? (enabled ? 'on' : 'off') : 'disabled'}
-      className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-eyebrow ${
-        enabled
-          ? 'border-primary/25 bg-primary-soft text-primary'
-          : !canEnable
-            ? 'opacity-50'
-            : ''
-      }`}
-    >
-      <Eye size={11} aria-hidden="true" className="opacity-80" />
-      {t('variableInspector.toggle.label')}
-    </button>
+    <Tooltip content={t(tooltipKey)}>
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-label={t(tooltipKey)}
+        aria-pressed={enabled}
+        disabled={!canEnable}
+        data-testid="variable-inspector-toggle"
+        data-state={canEnable ? (enabled ? 'on' : 'off') : 'disabled'}
+        className={`button-secondary inline-flex items-center gap-1 px-2.5 py-1 font-mono text-eyebrow ${
+          enabled
+            ? 'border-primary/25 bg-primary-soft text-primary'
+            : !canEnable
+              ? 'opacity-50'
+              : ''
+        }`}
+      >
+        <Eye size={11} aria-hidden="true" className="opacity-80" />
+        {t('variableInspector.toggle.label')}
+      </button>
+    </Tooltip>
   );
 }

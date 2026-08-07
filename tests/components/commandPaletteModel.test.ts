@@ -1907,3 +1907,50 @@ describe('buildCommandPaletteModel — onShowDependencies (implementation Slice 
 // implementation — `action-toggle-output-source-mapping` was removed from
 // the palette catalog (output→source linking is baseline; per-file
 // `// @origin off` directive remains the user-controlled escape).
+
+
+describe('filterCommandPaletteCommands ranking', () => {
+  const entry = (
+    id: string,
+    category: 'action' | 'snippet' | 'template',
+    label: string,
+    description = ''
+  ) => ({ id, category, label, description, keywords: [] as string[], action: () => {} });
+
+  it('ranks the action that opens a surface above a same-named template', () => {
+    // The observed case: typing "HTTP" surfaced the `Fetch HTTP` code template
+    // above `Open HTTP workspace`, because filtering preserved assembly order.
+    const ranked = filterCommandPaletteCommands(
+      [
+        entry('tpl', 'template', 'Fetch HTTP', 'Fetch data from a public API'),
+        entry('cmd', 'action', 'Open HTTP workspace', 'Send HTTP requests'),
+      ],
+      'HTTP'
+    );
+    expect(ranked.map(c => c.id)).toEqual(['cmd', 'tpl']);
+  });
+
+  it('prefers a label hit over a description-only hit inside a category', () => {
+    const ranked = filterCommandPaletteCommands(
+      [
+        entry('desc', 'action', 'Open something', 'mentions sql in passing'),
+        entry('label', 'action', 'Open SQL workspace', ''),
+      ],
+      'sql'
+    );
+    expect(ranked.map(c => c.id)).toEqual(['label', 'desc']);
+  });
+
+  it('keeps assembly order for entries that rank equally', () => {
+    const ranked = filterCommandPaletteCommands(
+      [entry('first', 'action', 'Run alpha'), entry('second', 'action', 'Run beta')],
+      'run'
+    );
+    expect(ranked.map(c => c.id)).toEqual(['first', 'second']);
+  });
+
+  it('leaves an empty query untouched', () => {
+    const input = [entry('tpl', 'template', 'T'), entry('cmd', 'action', 'C')];
+    expect(filterCommandPaletteCommands(input, '  ')).toBe(input);
+  });
+});

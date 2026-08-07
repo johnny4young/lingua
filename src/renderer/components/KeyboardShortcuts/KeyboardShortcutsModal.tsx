@@ -33,6 +33,7 @@ import { joinAbsolute } from '../../utils/filePath';
 import { notifyBlockedFamily } from '../../utils/blockedPath';
 import type { RootId } from '../../../shared/fs/brandedIds';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Eyebrow } from '../ui/primitives';
 
@@ -448,7 +449,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               tooltip={t('shortcuts.close')}
               aria-label={t('shortcuts.close')}
             >
-              <X size={16} />
+              <X size={ICON_GLYPH.md} />
             </IconButton>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">

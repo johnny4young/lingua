@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { ICON_BUTTON_BOX, type IconButtonSize } from './iconScale';
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -250,17 +251,27 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tone?: 'neutral' | 'danger';
   tooltip?: string;
   tooltipSide?: TooltipSide;
+  size?: IconButtonSize;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { active = false, tone = 'neutral', className, tooltip, tooltipSide = 'top', ...props },
+  {
+    active = false,
+    tone = 'neutral',
+    size = 'md',
+    className,
+    tooltip,
+    tooltipSide = 'top',
+    ...props
+  },
   ref
 ) {
   const button = (
     <button
       ref={ref}
       className={cn(
-        'icon-button size-9',
+        'icon-button',
+        ICON_BUTTON_BOX[size],
         active && 'icon-button-active',
         tone === 'danger' && 'icon-button-danger',
         className
