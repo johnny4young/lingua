@@ -5,7 +5,13 @@
  * `File` (chromium supports `DataTransfer.items.add`).
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  expect,
+  gotoApp,
+  seedSession,
+  test,
+  waitForInitialAutoRunCompleted,
+} from './licenseWeb.helpers';
 
 // Ensure `<ConsolePanel>` (and its paste listener, mounted in an
 // effect) is live before we dispatch. The seeded session leaves the
@@ -28,10 +34,13 @@ async function waitForConsole(page: import('@playwright/test').Page) {
   // Wait out the seeded scratchpad's auto-run before any test pastes. That run
   // calls consoleStore.clear() (src/renderer/hooks/autoRunResult.ts) and then
   // republishes, so a paste that lands before it is deleted outright rather
-  // than merely re-ordered. The console starts empty — seedSession does not
-  // publish entries — so the first row can only come from that run, which
-  // makes its appearance a reliable signal that the clear has already fired.
-  await page.getByTestId('console-entry-row').first().waitFor({ timeout: 30000 });
+  // than merely re-ordered.
+  //
+  // The shared helper rather than a bare wait on the first row: it also waits
+  // for the run pill to go idle, because a row only proves that ONE run
+  // committed — the debounce may already have another queued behind it, and
+  // that second clear would erase the paste just as thoroughly.
+  await waitForInitialAutoRunCompleted(page);
 }
 
 // 1×1 transparent PNG.
