@@ -185,6 +185,40 @@ export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 
 Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation — see the smoke section below.
 
+### Refreshing the launch-story gallery
+
+The six screenshot pairs on the marketing home page are not hand-captured. Each
+one is a deterministic Playwright artifact: `website/src/data/v1-showcase.json`
+names the spec that produces it (`spec`), where that spec writes it (`sources`,
+under the gitignored `output/playwright/`), and the renamed copy the site ships
+(`images`, under `website/public/screenshots/v1.0/`).
+
+```bash
+pnpm run test:e2e:web                           # regenerate every capture
+pnpm --dir website run sync:showcase-evidence   # copy into the gallery, record digests
+```
+
+Then review the PNG diff and commit the images together with
+`website/src/data/v1-showcase.integrity.json`.
+
+Two guards, split by what each can honestly see:
+
+- `pnpm --dir website run check:showcase-evidence` compares the shipped PNGs
+  against your local evidence. It is machine-local by construction — the
+  evidence is gitignored, so this is a no-op on a fresh clone and in CI, and the
+  two sides could not agree there anyway because a Linux runner rasterizes the
+  same page to different bytes than macOS.
+- `website/tests/v1LaunchStory.test.mts` asserts the shipped PNGs against the
+  recorded digests. That needs no evidence, so it runs everywhere, including the
+  PR gate in `ci.yml`.
+
+If your local evidence and the gallery disagree, compare timestamps before
+overwriting: `output/` holds whatever that machine last generated, which can
+easily be *older* than what shipped. To adopt an already-correct gallery without
+copying anything, run `pnpm --dir website run record:showcase-evidence`. Never
+hand-edit a digest to make the test pass; that turns the lock into a rubber
+stamp.
+
 ## Curated project template runtime smoke
 
 The structural template tests prove schema, path, license, and catalog
