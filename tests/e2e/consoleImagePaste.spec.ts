@@ -24,6 +24,14 @@ async function waitForConsole(page: import('@playwright/test').Page) {
     await tab.click();
   }
   await panel.waitFor({ timeout: 10000 });
+
+  // Wait out the seeded scratchpad's auto-run before any test pastes. That run
+  // calls consoleStore.clear() (src/renderer/hooks/autoRunResult.ts) and then
+  // republishes, so a paste that lands before it is deleted outright rather
+  // than merely re-ordered. The console starts empty — seedSession does not
+  // publish entries — so the first row can only come from that run, which
+  // makes its appearance a reliable signal that the clear has already fired.
+  await page.getByTestId('console-entry-row').first().waitFor({ timeout: 30000 });
 }
 
 // 1×1 transparent PNG.
@@ -50,9 +58,21 @@ async function pasteImage(page: import('@playwright/test').Page, dataUri: string
   }, dataUri);
 }
 
+/**
+ * Paste until the image is rendered AND matches `expectedSrc`.
+ *
+ * Every assertion about the pasted image lives inside the poll, and the poll
+ * re-pastes on each attempt. That matters because the failure mode here is
+ * deletion, not delay: a console clear removes the entry outright, so an
+ * assertion placed after the poll has nothing left to wait for and its own
+ * retry budget can never recover — only another paste can. Checking the src
+ * out here rather than at the call site is what extends that recovery over the
+ * whole check instead of just the element's existence.
+ */
 async function pasteImageAndExpectRendered(
   page: import('@playwright/test').Page,
-  dataUri: string
+  dataUri: string,
+  expectedSrc: RegExp = /^data:image\//
 ) {
   const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
 
@@ -60,7 +80,10 @@ async function pasteImageAndExpectRendered(
     .poll(
       async () => {
         await pasteImage(page, dataUri);
-        return img.count();
+        if ((await img.count()) === 0) return 'no image entry';
+        const first = img.first();
+        if (!(await first.isVisible().catch(() => false))) return 'image not visible';
+        return (await first.getAttribute('src')) ?? 'image has no src';
       },
       {
         message: 'console image paste should render an inline image',
@@ -68,9 +91,8 @@ async function pasteImageAndExpectRendered(
         intervals: [100, 250, 500, 1000],
       }
     )
-    .toBeGreaterThan(0);
+    .toMatch(expectedSrc);
 
-  await expect(img.first()).toBeVisible();
   return img.first();
 }
 
@@ -120,8 +142,7 @@ test.describe('Console image clipboard paste', () => {
     await gotoApp(page);
     await waitForConsole(page);
 
-    const img = await pasteImageAndExpectRendered(page, TINY_PNG);
-    await expect(img).toHaveAttribute('src', /^data:image\//);
+    await pasteImageAndExpectRendered(page, TINY_PNG, /^data:image\//);
 
     // Ignore the expected cross-origin license-status fetch noise that
     // the local preview produces against the prod license API.
@@ -148,14 +169,8 @@ test.describe('Console image clipboard paste', () => {
     await gotoApp(page);
     await waitForConsole(page);
 
-    // The seeded welcome scratchpad auto-runs after mount and clears the
-    // console when that run starts. Wait for its first committed row before
-    // dispatching the expensive synthetic paste so the harness cannot erase
-    // the image between the visibility and MIME assertions under load.
-    await expect(page.getByTestId('console-entry-row').first()).toBeVisible({
-      timeout: 30000,
-    });
-
+    // The auto-run guard that used to live here now sits in waitForConsole,
+    // so every test in this file gets it rather than only this one.
     await pasteOversizedImage(page);
 
     const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
