@@ -1,7 +1,9 @@
 /**
- * Read roadmap data from the preprocessed file produced by
- * `npm run sync:content`. Same contract as lib/changelog.ts — committed,
- * deterministic, zero network at build time.
+ * Read the public roadmap. Unlike changelog.json and its siblings, this file
+ * is NOT produced by `npm run sync:content` — it is curated by hand in
+ * src/data/roadmap.json (see scripts/sync-from-main.mjs, which says so) and
+ * must be updated whenever a capability moves from partial to delivered.
+ * Committed, deterministic, zero network at build time.
  */
 
 import data from '../data/roadmap.json';

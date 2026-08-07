@@ -1,22 +1,11 @@
 {
-  "generatedAt": "2026-08-04T00:00:00.000Z",
+  "generatedAt": "2026-08-07T00:00:00.000Z",
   "totals": {
     "planned": 0,
-    "inProgress": 2
+    "inProgress": 1
   },
   "planned": [],
   "inProgress": [
-    {
-      "theme": "CLI & compatibility",
-      "items": [
-        {
-          "title": "Public CLI package",
-          "scope": "The headless CLI runs files, project roots, and Run Capsules today, and every stable release publishes signed standalone Windows and Linux archives alongside the public checksum manifest. The remaining step is the first guarded registry publication, so the CLI can be installed by name instead of built from source.",
-          "status": "Partial",
-          "theme": "CLI & compatibility"
-        }
-      ]
-    },
     {
       "theme": "Distribution",
       "items": [
