@@ -1,7 +1,7 @@
 {
   "name": "lingua",
   "productName": "Lingua",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Desktop application for running code in multiple languages with WebAssembly support",
   "packageManager": "pnpm@11.3.0",
   "main": ".vite/build/main.js",

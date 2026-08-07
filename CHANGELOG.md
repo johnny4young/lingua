@@ -6,6 +6,20 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-08-07
+
+### Changed
+- **Workspace icons now sit on one deliberate density scale.** The chrome had drifted into six different icon-button sizes and five glyph sizes, with glyphs floating at roughly a third of their buttons — which is what read as unpolished. Icon-only controls now share two tokened steps (28px buttons with 16px glyphs, 24px with 14px for dense spots like tab close), the editor sidebar toggle no longer fights its own size override, and a build-time guard keeps future surfaces from inventing a seventh size.
+- **The console's payload-kind chips became a single Types menu.** The old row of six chips took nearly half the filter bar and looked identical to the severity chips beside it while behaving inversely (severity chips opt in, kind chips opt out). The menu lists every kind as a checked item, carries a count badge when something is hidden, and opens clear of the panel edges. The console header also drops a duplicated caption that wrapped to five lines at narrow widths.
+- **Command palette results now rank actions first.** Typing a verb surfaces the matching action ahead of snippets and templates that merely contain the word, with label matches boosted within each group.
+
+### Fixed
+- **The HTTP response empty state told users to click a button that does not exist.** It said Send; the button is Run. Corrected in both languages — the Spanish copy also said Enviar while the button says Ejecutar.
+- **Editor tab close buttons now show a keyboard focus ring.** One of the two was also unreachable by keyboard entirely: it was hidden with a visibility rule that removes an element from tab order, so no ring could ever have shown. It now uses the same reveal-on-focus pattern as its sibling.
+
+### Security
+- **The YAML parser inside the desktop update path moves to its patched release.** `js-yaml` below 4.3.1 carries a quadratic-CPU advisory in `!!omap` resolution (GHSA-5p4m-2wfm-xmqj) and reaches the packaged app through the auto-updater. The pin moves in the app graph and in the independently locked website project, which a root override alone cannot reach. No behavior changes.
+
 ## [1.0.1] — 2026-08-05
 
 ### Security
