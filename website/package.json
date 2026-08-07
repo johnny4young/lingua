@@ -18,7 +18,6 @@
     "sync:cli-reference": "node --no-warnings --experimental-strip-types scripts/sync-cli-reference.mts",
     "check:cli-reference": "node --no-warnings --experimental-strip-types scripts/sync-cli-reference.mts --check",
     "sync:showcase-evidence": "node --no-warnings --experimental-strip-types scripts/sync-showcase-evidence.mts",
-    "check:showcase-evidence": "node --no-warnings --experimental-strip-types scripts/sync-showcase-evidence.mts --check",
     "record:showcase-evidence": "node --no-warnings --experimental-strip-types scripts/sync-showcase-evidence.mts --record",
     "sync:content": "node scripts/sync-from-main.mjs",
     "sync:check": "node scripts/sync-from-main.mjs --check",

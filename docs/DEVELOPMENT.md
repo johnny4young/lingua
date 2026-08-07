@@ -201,23 +201,29 @@ pnpm --dir website run sync:showcase-evidence   # copy into the gallery, record 
 Then review the PNG diff and commit the images together with
 `website/src/data/v1-showcase.integrity.json`.
 
-Two guards, split by what each can honestly see:
+`website/tests/v1LaunchStory.test.mts` then asserts the shipped PNGs against
+those recorded digests. It needs no evidence, so it runs everywhere, including
+the PR gate in `ci.yml` § Website gates.
 
-- `pnpm --dir website run check:showcase-evidence` compares the shipped PNGs
-  against your local evidence. It is machine-local by construction — the
-  evidence is gitignored, so this is a no-op on a fresh clone and in CI, and the
-  two sides could not agree there anyway because a Linux runner rasterizes the
-  same page to different bytes than macOS.
-- `website/tests/v1LaunchStory.test.mts` asserts the shipped PNGs against the
-  recorded digests. That needs no evidence, so it runs everywhere, including the
-  PR gate in `ci.yml`.
+There is no tool that verifies the gallery against your local evidence, and that
+is deliberate: **the captures are not currently byte-reproducible.** Running
+`tests/e2e/projectTestsVisual.spec.ts` nine times in a row produced an identical
+EN capture every time, while the ES capture alternated between two stable states
+1.8KB apart — the minority state in 2 of the 9 runs. Until that is fixed, any
+byte-exact verifier would fail on roughly a fifth of honest runs, and a check
+that wrong trains people to delete `output/` to silence it.
 
-If your local evidence and the gallery disagree, compare timestamps before
-overwriting: `output/` holds whatever that machine last generated, which can
-easily be *older* than what shipped. To adopt an already-correct gallery without
-copying anything, run `pnpm --dir website run record:showcase-evidence`. Never
-hand-edit a digest to make the test pass; that turns the lock into a rubber
-stamp.
+Two consequences worth holding onto when you refresh the gallery:
+
+- Look at the diff. Whichever state that run happened to capture is what you are
+  about to ship.
+- `output/` holds whatever that machine last generated, which can easily be
+  *older* than what shipped — compare timestamps before overwriting. To adopt an
+  already-correct gallery without copying anything, run
+  `pnpm --dir website run record:showcase-evidence`.
+
+Never hand-edit a digest to make the test pass; that turns the lock into a
+rubber stamp.
 
 ## Curated project template runtime smoke
 

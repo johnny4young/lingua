@@ -13,15 +13,18 @@
  * runner produces different bytes for the same page. A machine-local check
  * belongs in a machine-local tool.
  *
- * Split of responsibility:
- *   - this script (`--check`): are the shipped PNGs the evidence we generated?
- *     Only meaningful where evidence exists, i.e. right after regenerating it.
- *   - `tests/v1LaunchStory.test.mts`: do the shipped PNGs still match the
- *     digests recorded when they landed? Runs everywhere, needs no evidence.
+ * There is deliberately NO mode that verifies the gallery against local
+ * evidence. I measured it before writing one: running
+ * tests/e2e/projectTestsVisual.spec.ts nine times in a row produced an
+ * identical EN capture every time, but the ES capture alternated between two
+ * stable states 87758B and 89584B apart, the minority state in 2 of 9 runs. A
+ * byte-exact verifier would therefore fail on roughly a fifth of honest runs,
+ * and a check that cries wolf that often teaches people to delete output/ to
+ * silence it — which is precisely the rot this file exists to end. Reinstate
+ * such a mode once the captures are actually deterministic.
  *
  * Modes:
  *   (default)   copy evidence over the shipped PNGs, then record their digests
- *   --check     compare shipped against evidence; writes nothing, exits 1 on drift
  *   --record    rewrite the integrity file from the shipped PNGs without copying
  *
  * `--record` exists because the gallery can legitimately be ahead of local
@@ -81,15 +84,11 @@ function parseOptions() {
   const { values } = parseArgs({
     args: stripArgSeparator(process.argv.slice(2)),
     options: {
-      check: { type: 'boolean', default: false },
       record: { type: 'boolean', default: false },
     },
     strict: true,
     allowPositionals: false,
   });
-  if (values.check && values.record) {
-    throw new Error('--check and --record are mutually exclusive: one verifies, the other rewrites.');
-  }
   return values;
 }
 
@@ -97,9 +96,6 @@ async function fingerprint(absolutePath: string): Promise<Fingerprint> {
   const bytes = await readFile(absolutePath);
   return { bytes: bytes.byteLength, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
-
-const describe = (print: Fingerprint | null) =>
-  print ? `${print.bytes}B sha256:${print.sha256}` : '(missing)';
 
 /** Every `<item id>/<locale>` pair, flattened so both sides key the same way. */
 function* entries(items: ShowcaseItem[]) {
@@ -140,7 +136,7 @@ async function writeIntegrityFile(screenshots: Record<string, Fingerprint>): Pro
 }
 
 async function main(): Promise<number> {
-  const { check, record } = parseOptions();
+  const { record } = parseOptions();
   const showcase = JSON.parse(await readFile(showcasePath, 'utf8')) as { items: ShowcaseItem[] };
   const all = [...entries(showcase.items)];
 
@@ -165,15 +161,6 @@ async function main(): Promise<number> {
 
   const withoutEvidence = all.filter(entry => !existsSync(entry.evidence));
   if (withoutEvidence.length === all.length) {
-    if (check) {
-      // Nothing to verify is not a failure here. This comparison is local by
-      // construction — output/playwright is gitignored, so a fresh clone and
-      // every CI runner have nothing to compare against. The portable half of
-      // the guarantee lives in tests/v1LaunchStory.test.mts, which asserts the
-      // recorded digests and needs no evidence at all.
-      console.log('sync-showcase-evidence: no local evidence under output/playwright, nothing to verify');
-      return 0;
-    }
     console.error(
       'sync-showcase-evidence: no evidence found under output/playwright.\n' +
         'Run "pnpm run test:e2e:web" from the repository root first; it regenerates every capture.\n' +
@@ -189,32 +176,6 @@ async function main(): Promise<number> {
   }
 
   const present = all.filter(entry => existsSync(entry.evidence));
-
-  if (check) {
-    const drifted: string[] = [];
-    for (const entry of present) {
-      const evidence = await fingerprint(entry.evidence);
-      const shipped = existsSync(entry.shipped) ? await fingerprint(entry.shipped) : null;
-      if (shipped?.sha256 !== evidence.sha256) {
-        drifted.push(
-          `${entry.key}\n` +
-            `      shipped  ${describe(shipped)}  ${entry.shippedRelative}\n` +
-            `      evidence ${describe(evidence)}  ${entry.evidenceRelative}`
-        );
-      }
-    }
-    if (drifted.length > 0) {
-      console.error(
-        `sync-showcase-evidence: ${drifted.length} of ${present.length} shipped screenshot(s) differ from local evidence:\n  ` +
-          drifted.join('\n  ') +
-          '\n\nEither the gallery is stale (re-run without --check to refresh it), or your local\n' +
-          'evidence predates what shipped. Compare mtimes before overwriting anything.'
-      );
-      return 1;
-    }
-    console.log(`sync-showcase-evidence: ok (${present.length} of ${all.length} match local evidence)`);
-    return 0;
-  }
 
   for (const entry of present) {
     await copyFile(entry.evidence, entry.shipped);
