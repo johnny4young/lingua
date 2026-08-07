@@ -73,7 +73,13 @@ jobs:
             npm run check:release-snapshot -- "${release_args[@]}"
           fi
 
-      - name: Type-check Astro
+      # Named for everything it runs, not just the last command. `check` is
+      # "npm test && check:release-snapshot && check:cli-reference &&
+      # check-seo-content && check-public-product-copy && astro check", so a
+      # failing website test used to surface under the heading "Type-check
+      # Astro" — a large part of why a dead assertion in that suite went
+      # unnoticed. The tests also gate PRs now, in ci.yml § Website gates.
+      - name: Website checks (tests, snapshots, CLI reference, Astro types)
         run: npm run check
 
       - name: Build

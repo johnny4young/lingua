@@ -95,6 +95,30 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run typecheck
           pnpm test
+      # The marketing site in website/ is a standalone npm package outside the
+      # pnpm workspace. Its node:test suite had no PR-time gate: deploy-website
+      # reaches it only indirectly, through the "npm test &&" prefix of
+      # npm run check, post-merge on main and behind path filters. A red website
+      # test therefore surfaced as a failed deploy, never as a failed review.
+      #
+      # No npm ci on purpose. Every import in the suite is a node: builtin or a
+      # relative path, and the one aliased import (~/lib/i18n in
+      # website/src/lib/utilities.ts) is an import type, which type stripping
+      # erases before resolution — nothing reaches node_modules. Verified with
+      # node_modules absent. If a future test imports an .astro component,
+      # astro:content, or turns that type-only import into a value import, this
+      # step fails with ERR_MODULE_NOT_FOUND; the fix is to add
+      # npm ci --no-audit --no-fund here plus an npm cache keyed on
+      # website/package-lock.json, not to delete the test.
+      #
+      # Deliberately not filtered to website/**: three of these test files
+      # assert ACROSS the repo boundary — cliDocs against the root
+      # src/cli/helpCatalog.ts, releases against the root package.json version,
+      # v1LaunchStory against the root README.md and tests/e2e specs. A
+      # website-only path filter would let exactly those rot.
+      - name: Website gates
+        working-directory: website
+        run: npm test
       - name: Build web
         run: pnpm run build:web
       - name: Performance report

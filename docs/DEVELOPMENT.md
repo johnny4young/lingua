@@ -185,6 +185,46 @@ export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 
 Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation — see the smoke section below.
 
+### Refreshing the launch-story gallery
+
+The six screenshot pairs on the marketing home page are not hand-captured. Each
+one is a deterministic Playwright artifact: `website/src/data/v1-showcase.json`
+names the spec that produces it (`spec`), where that spec writes it (`sources`,
+under the gitignored `output/playwright/`), and the renamed copy the site ships
+(`images`, under `website/public/screenshots/v1.0/`).
+
+```bash
+pnpm run test:e2e:web                           # regenerate every capture
+pnpm --dir website run sync:showcase-evidence   # copy into the gallery, record digests
+```
+
+Then review the PNG diff and commit the images together with
+`website/src/data/v1-showcase.integrity.json`.
+
+`website/tests/v1LaunchStory.test.mts` then asserts the shipped PNGs against
+those recorded digests. It needs no evidence, so it runs everywhere, including
+the PR gate in `ci.yml` § Website gates.
+
+There is no tool that verifies the gallery against your local evidence, and that
+is deliberate: **the captures are not currently byte-reproducible.** Running
+`tests/e2e/projectTestsVisual.spec.ts` nine times in a row produced an identical
+EN capture every time, while the ES capture alternated between two stable states
+1.8KB apart — the minority state in 2 of the 9 runs. Until that is fixed, any
+byte-exact verifier would fail on roughly a fifth of honest runs, and a check
+that wrong trains people to delete `output/` to silence it.
+
+Two consequences worth holding onto when you refresh the gallery:
+
+- Look at the diff. Whichever state that run happened to capture is what you are
+  about to ship.
+- `output/` holds whatever that machine last generated, which can easily be
+  *older* than what shipped — compare timestamps before overwriting. To adopt an
+  already-correct gallery without copying anything, run
+  `pnpm --dir website run record:showcase-evidence`.
+
+Never hand-edit a digest to make the test pass; that turns the lock into a
+rubber stamp.
+
 ## Curated project template runtime smoke
 
 The structural template tests prove schema, path, license, and catalog

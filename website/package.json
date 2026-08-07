@@ -17,6 +17,8 @@
     "sync:release": "node --experimental-strip-types scripts/sync-release-snapshot.mts",
     "sync:cli-reference": "node --no-warnings --experimental-strip-types scripts/sync-cli-reference.mts",
     "check:cli-reference": "node --no-warnings --experimental-strip-types scripts/sync-cli-reference.mts --check",
+    "sync:showcase-evidence": "node --no-warnings --experimental-strip-types scripts/sync-showcase-evidence.mts",
+    "record:showcase-evidence": "node --no-warnings --experimental-strip-types scripts/sync-showcase-evidence.mts --record",
     "sync:content": "node scripts/sync-from-main.mjs",
     "sync:check": "node scripts/sync-from-main.mjs --check",
     "sync:commit": "node scripts/sync-and-push.mjs",
