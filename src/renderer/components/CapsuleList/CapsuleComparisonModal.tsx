@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { DIFF_MAX_INPUT_CHARS, type DiffSegment } from '../../utils/diff';
 import type { RunCapsuleStatus, RunCapsuleV1 } from '../../../shared/runCapsule';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import {
   compareRunCapsules,
   type CapsuleComparison,
@@ -239,7 +240,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
             aria-label={t('capsule.compare.close')}
             data-testid="capsule-compare-close"
           >
-            <X size={16} />
+            <X size={ICON_GLYPH.md} />
           </IconButton>
         </div>
 

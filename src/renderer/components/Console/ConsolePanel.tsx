@@ -1,5 +1,6 @@
 import { Check, Clock, ListFilter, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types/console';
 import { useConsoleStore } from '../../stores/consoleStore';
@@ -19,6 +20,7 @@ import {
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { ContextualHint } from '../ContextualHints/ContextualHint';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
@@ -422,17 +424,55 @@ export function ConsolePanel() {
   // dropdowns in the shell: outside mousedown or Escape closes it.
   const [payloadMenuOpen, setPayloadMenuOpen] = useState(false);
   const payloadMenuRef = useRef<HTMLDivElement>(null);
+  const payloadPanelRef = useRef<HTMLDivElement>(null);
+  const payloadTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // The panel is portaled to <body> and positioned by hand because every
+  // in-tree placement is clipped: the console sits inside a chain of
+  // overflow-hidden ancestors whose innermost box is barely taller than the
+  // filter row itself, so neither `bottom-full` nor `top-full` survives it.
+  // Prefer opening downward and flip up only when the viewport is too short.
+  //
+  // The measured position is written straight to the node rather than held in
+  // state: it is derived from layout, not a source of truth, and routing it
+  // through setState would schedule a second render for every open.
+  useLayoutEffect(() => {
+    if (!payloadMenuOpen) return;
+    const trigger = payloadTriggerRef.current;
+    const panel = payloadPanelRef.current;
+    if (!trigger || !panel) return;
+    const place = () => {
+      const rect = trigger.getBoundingClientRect();
+      const gap = 6;
+      const { offsetHeight: height, offsetWidth: width } = panel;
+      const roomBelow = window.innerHeight - rect.bottom - gap;
+      panel.style.top = `${roomBelow >= height ? rect.bottom + gap : Math.max(gap, rect.top - gap - height)}px`;
+      panel.style.left = `${Math.max(gap, Math.min(rect.right - width, window.innerWidth - width - gap))}px`;
+      panel.style.visibility = 'visible';
+    };
+    place();
+    // Resizing the window or dragging the panel splitter moves the trigger out
+    // from under a panel that would otherwise stay pinned where it opened.
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [payloadMenuOpen]);
 
   useEffect(() => {
     if (!payloadMenuOpen) return;
     const onDown = (event: MouseEvent) => {
-      if (!payloadMenuRef.current) return;
-      if (!payloadMenuRef.current.contains(event.target as Node)) {
-        setPayloadMenuOpen(false);
-      }
+      const target = event.target as Node;
+      // The panel lives in a portal, so it is NOT a descendant of the trigger
+      // wrapper; both roots have to be consulted or clicking a row closes it.
+      if (payloadMenuRef.current?.contains(target)) return;
+      if (payloadPanelRef.current?.contains(target)) return;
+      setPayloadMenuOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPayloadMenuOpen(false);
+      if (event.key !== 'Escape') return;
+      setPayloadMenuOpen(false);
+      // Escape unmounts the panel; without this the focused row disappears
+      // and focus falls back to <body>, stranding keyboard users.
+      payloadTriggerRef.current?.focus();
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
@@ -492,9 +532,10 @@ export function ConsolePanel() {
           <div ref={payloadMenuRef} className="relative">
             <Tooltip content={t('console.rich.payloadKinds.tooltip')}>
               <button
+                ref={payloadTriggerRef}
                 type="button"
-                aria-haspopup="menu"
                 aria-expanded={payloadMenuOpen}
+                aria-controls="console-payload-kinds-panel"
                 data-testid="console-payload-kinds-menu"
                 onClick={() => setPayloadMenuOpen(open => !open)}
                 className={`console-filter-chip focus-ring inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.14em] transition-colors ${
@@ -510,33 +551,45 @@ export function ConsolePanel() {
                 ) : null}
               </button>
             </Tooltip>
-            {payloadMenuOpen ? (
-              <div
-                className="dropdown-rich absolute bottom-[calc(100%+0.4rem)] right-0 z-50 w-[220px]"
-                role="menu"
-                aria-label={t('console.rich.payloadKinds.tooltip')}
-              >
-                {PAYLOAD_KIND_CHIPS.map(kind => {
-                  const hidden = hiddenPayloadKinds.has(kind);
-                  return (
-                    <button
-                      key={kind}
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked={!hidden}
-                      data-testid={`console-payload-chip-${kind}`}
-                      onClick={() => togglePayloadKindFilter(kind)}
-                      className="dropdown-rich-row focus-ring w-full"
-                    >
-                      <span className="row-icon inline-flex w-4 justify-center">
-                        {hidden ? null : <Check size={14} aria-hidden />}
-                      </span>
-                      <span className="row-label">{t(`console.rich.filterChip.${kind}`)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
+            {/* Disclosure + checkbox semantics, deliberately NOT role=menu:
+                role=menu obliges the full Arrow/Home/End roving-focus
+                contract, and these rows are independent toggles rather than a
+                command list. Tab order plus Space is the right model here. */}
+            {payloadMenuOpen
+              ? createPortal(
+                  <div
+                    ref={payloadPanelRef}
+                    id="console-payload-kinds-panel"
+                    className="dropdown-rich fixed z-[1000] w-[220px]"
+                    // Hidden until the layout effect measures and places it, so
+                    // the panel never paints at 0,0 first.
+                    style={{ top: 0, left: 0, visibility: 'hidden' }}
+                    role="group"
+                    aria-label={t('console.rich.payloadKinds.tooltip')}
+                  >
+                    {PAYLOAD_KIND_CHIPS.map(kind => {
+                      const hidden = hiddenPayloadKinds.has(kind);
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={!hidden}
+                          data-testid={`console-payload-chip-${kind}`}
+                          onClick={() => togglePayloadKindFilter(kind)}
+                          className="dropdown-rich-row focus-ring w-full"
+                        >
+                          <span className="row-icon inline-flex w-4 justify-center">
+                            {hidden ? null : <Check size={14} aria-hidden />}
+                          </span>
+                          <span className="row-label">{t(`console.rich.filterChip.${kind}`)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>,
+                  document.body
+                )
+              : null}
           </div>
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
           <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
@@ -553,7 +606,7 @@ export function ConsolePanel() {
                 : t('console.actions.showTimestamps')
             }
           >
-            <Clock size={16} />
+            <Clock size={ICON_GLYPH.md} />
           </IconButton>
           <ExecutionHistoryPopover
             enabled={canUseExecutionHistory}
@@ -583,7 +636,7 @@ export function ConsolePanel() {
             tooltip={t('console.actions.clear')}
             tone="danger"
           >
-            <Trash2 size={16} />
+            <Trash2 size={ICON_GLYPH.md} />
           </IconButton>
         </div>
       </div>

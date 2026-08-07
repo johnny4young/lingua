@@ -13,6 +13,7 @@ import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { PanelChipsRow } from './PanelChipsRow';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
@@ -195,7 +196,7 @@ function EditorArea() {
             data-testid="editor-sidebar-toggle"
             className="rounded-md"
           >
-            <PanelLeft size={16} />
+            <PanelLeft size={ICON_GLYPH.md} />
           </IconButton>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -764,7 +765,7 @@ export function AppLayout({
               tooltip={t('layout.closeSidebar')}
               className="absolute right-3 top-3 z-10 bg-surface/92"
             >
-              <X size={16} />
+              <X size={ICON_GLYPH.md} />
             </IconButton>
             <SidebarPanel onNavigate={handleExplorerNavigate} />
           </div>

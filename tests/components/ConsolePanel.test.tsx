@@ -295,30 +295,74 @@ describe('ConsolePanel', () => {
     expect(screen.getByTestId('console-payload-chip-table').className).toContain('focus-ring');
   });
 
-  it('exposes payload-kind filters as checked menu items and closes on Escape', () => {
+  it('exposes payload-kind filters as a labelled checkbox group and closes on Escape', () => {
     mockTogglePayloadKind.mockClear();
     render(<ConsolePanel />);
     const trigger = screen.getByTestId('console-payload-kinds-menu');
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(trigger.getAttribute('aria-controls')).toBe('console-payload-kinds-panel');
 
     fireEvent.click(trigger);
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
+    // Disclosure + checkbox, NOT role=menu. role=menu promises Arrow/Home/End
+    // roving focus that this control does not implement, and these rows are
+    // independent toggles rather than a command list.
+    const item = screen.getByTestId('console-payload-chip-table');
+    expect(item.getAttribute('role')).toBe('checkbox');
+    expect(item.closest('[role="group"]')?.id).toBe('console-payload-kinds-panel');
     // Every kind starts visible, so every item reads as checked. That is the
     // inversion the old chip row hid: those chips were opt-out while the
     // severity chips beside them were opt-in, and both looked the same.
-    const item = screen.getByTestId('console-payload-chip-table');
-    expect(item.getAttribute('role')).toBe('menuitemcheckbox');
     expect(item.getAttribute('aria-checked')).toBe('true');
 
     fireEvent.click(item);
     expect(mockTogglePayloadKind).toHaveBeenCalledWith('table');
 
+    // Escape unmounts the panel, so focus has to be handed back explicitly or
+    // it falls to <body> and the keyboard user loses their place.
+    item.focus();
     fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('console-payload-chip-table')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('escapes the console clip by portaling the payload-kind panel to the body', () => {
+    // Regression pin. The console renders inside a chain of overflow-hidden
+    // ancestors whose innermost box is barely taller than the filter row, so
+    // an in-tree panel is clipped in BOTH directions: anchored with
+    // `bottom-full` it painted entirely outside the clip, and `top-full` only
+    // moved the cut. Portaling to <body> with fixed positioning is what
+    // actually makes the filters reachable — measured in a real build, not
+    // from getBoundingClientRect, which reports layout position even when an
+    // ancestor clips the element away.
+    const { container } = render(<ConsolePanel />);
+    fireEvent.click(screen.getByTestId('console-payload-kinds-menu'));
+
+    const panel = document.getElementById('console-payload-kinds-panel');
+    expect(panel).not.toBeNull();
+    expect(container.contains(panel)).toBe(false);
+    expect(panel?.parentElement).toBe(document.body);
+    expect(panel?.className).toContain('fixed');
+  });
+
+  it('keeps the panel open when a row inside the portal is clicked', () => {
+    // The dismiss-on-outside-click handler compares against the trigger
+    // wrapper. Once the panel moved into a portal it stopped being a
+    // descendant of that wrapper, so every row click read as "outside".
+    mockTogglePayloadKind.mockClear();
+    render(<ConsolePanel />);
+    fireEvent.click(screen.getByTestId('console-payload-kinds-menu'));
+
+    const row = screen.getByTestId('console-payload-chip-table');
+    fireEvent.mouseDown(row);
+    expect(screen.queryByTestId('console-payload-chip-table')).not.toBeNull();
+
+    fireEvent.mouseDown(document.body);
     expect(screen.queryByTestId('console-payload-chip-table')).toBeNull();
   });
 
-  it('reads a hidden payload kind back as an unchecked menu item', () => {
+  it('reads a hidden payload kind back as an unchecked filter', () => {
     mockState.hiddenPayloadKinds = new Set(['table']);
     render(<ConsolePanel />);
 

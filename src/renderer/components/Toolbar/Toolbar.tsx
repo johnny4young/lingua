@@ -25,6 +25,7 @@ import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { cn } from '../../utils/cn';
 import { RuntimeModeSelector } from './RuntimeModeSelector';
 import { WorkflowModeSegment } from './WorkflowModeSegment';
@@ -227,7 +228,7 @@ export function Toolbar() {
           aria-controls="project-explorer"
           aria-expanded={sidebarVisible}
         >
-          <PanelLeft size={16} />
+          <PanelLeft size={ICON_GLYPH.md} />
         </IconButton>
 
         <div className="toolbar-divider" />
@@ -359,7 +360,7 @@ export function Toolbar() {
             tooltip={t('toolbar.run.stop')}
             data-testid="toolbar-stop-button"
           >
-            <Square size={16} fill="currentColor" />
+            <Square size={ICON_GLYPH.md} fill="currentColor" />
           </IconButton>
         )}
 

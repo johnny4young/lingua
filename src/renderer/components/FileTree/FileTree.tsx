@@ -23,6 +23,7 @@ import { useProjectBundle } from '../../hooks/useProjectBundle';
 import { emitCommand } from '../../stores/commandBus';
 import { useUIStore } from '../../stores/uiStore';
 import { IconButton } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -347,19 +348,19 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             tooltip={t('fileTree.actions.collapseAll')}
             aria-label={t('fileTree.actions.collapseAll')}
           >
-            <ChevronsDownUp size={16} />
+            <ChevronsDownUp size={ICON_GLYPH.md} />
           </IconButton>
           <IconButton
             onClick={() => handleNewFile()}
             tooltip={t('fileTree.actions.newFile')}
           >
-            <FilePlus size={16} />
+            <FilePlus size={ICON_GLYPH.md} />
           </IconButton>
           <IconButton
             onClick={() => handleNewDir()}
             tooltip={t('fileTree.actions.newFolder')}
           >
-            <FolderPlus size={16} />
+            <FolderPlus size={ICON_GLYPH.md} />
           </IconButton>
           <IconButton
             onClick={() => emitCommand('overlay.openProjectTests')}
@@ -367,7 +368,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             aria-label={t('fileTree.actions.projectTests')}
             data-testid="file-tree-project-tests"
           >
-            <FlaskConical size={16} />
+            <FlaskConical size={ICON_GLYPH.md} />
           </IconButton>
           {window.lingua?.projectTerminal ? (
             <IconButton
@@ -376,21 +377,21 @@ export function FileTree({ onNavigate }: FileTreeProps) {
               aria-label={t('fileTree.actions.projectTerminal')}
               data-testid="file-tree-project-terminal"
             >
-              <SquareTerminal size={16} />
+              <SquareTerminal size={ICON_GLYPH.md} />
             </IconButton>
           ) : null}
           <IconButton
             onClick={refreshTree}
             tooltip={t('fileTree.actions.refresh')}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={ICON_GLYPH.md} />
           </IconButton>
           <IconButton
             onClick={() => void exportProjectBundle()}
             tooltip={t('fileTree.actions.exportProject')}
             aria-label={t('fileTree.actions.exportProject')}
           >
-            <FileArchive size={16} />
+            <FileArchive size={ICON_GLYPH.md} />
           </IconButton>
         </div>
       </div>

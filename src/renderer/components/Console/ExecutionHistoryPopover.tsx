@@ -15,6 +15,7 @@ import {
 } from '../../stores/executionHistoryStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { IconButton } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 
 interface ExecutionHistoryPopoverProps {
   /**
@@ -306,7 +307,7 @@ export function ExecutionHistoryPopover({
         aria-controls={enabled && open ? popoverId : undefined}
         data-testid="execution-history-toggle"
       >
-        <History size={16} />
+        <History size={ICON_GLYPH.md} />
       </IconButton>
       {enabled && open ? (
         <div

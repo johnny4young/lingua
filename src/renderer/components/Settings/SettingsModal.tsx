@@ -30,6 +30,7 @@ import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { EyebrowMono } from '../ui/primitives';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import {
@@ -132,7 +133,7 @@ function SettingsTopBar({
       <div className="flex items-center gap-2">
         <Kbd>Esc</Kbd>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
-          <X size={16} />
+          <X size={ICON_GLYPH.md} />
         </IconButton>
       </div>
     </div>

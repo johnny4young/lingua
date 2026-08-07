@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { ChangelogEntry } from '../../../shared/changelog';
 import { getFeaturedChangelogEntry } from '../../../shared/changelog';
 import { useAppInfo } from '../../hooks/useAppInfo';
-import { OverlayBackdrop, OverlayCard, IconButton } from '../ui/chrome';
+import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ICON_GLYPH } from '../ui/iconScale';
 import { Eyebrow, Pill } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 
@@ -271,7 +272,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
               </div>
             )}
             <IconButton onClick={onClose} tooltip={t('whatsNew.close')}>
-              <X size={16} />
+              <X size={ICON_GLYPH.md} />
             </IconButton>
           </div>
 
