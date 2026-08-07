@@ -52,9 +52,10 @@ const copy = t(locale).home.utilities;
     max-width: 600px;
   }
 
-  /* Dense grid — fits all 31 panels without horizontal scroll.
+  /* Dense grid — every panel in the catalog, no horizontal scroll.
      Mobile 2-col → small tablet 3-col → tablet 4-col → desktop 5-col → wide 6-col.
-     At 6 cols × 5 rows = 30 cells (one trailing empty cell, fine). */
+     Rows are implicit, so the catalog can grow without touching this: the old
+     comment hardcoded a cell count that had already stopped matching. */
   .utils-grid {
     list-style: none;
     padding: 0;

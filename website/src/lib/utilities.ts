@@ -48,3 +48,17 @@ export const UTILITIES: Utility[] = [
   { id: 'cron', name: { en: 'Cron Parser', es: 'Parser Cron' }, category: 'time', icon: 'clock' },
   { id: 'timestamp', name: { en: 'Timestamp', es: 'Timestamp' }, category: 'time', icon: 'calendar-clock' },
 ];
+
+/**
+ * Single source of truth for "how many utilities ship". The number appears in
+ * marketing copy across several surfaces and used to be typed by hand at each
+ * one, which is how the features page ended up promising six named panels
+ * "and twenty-three more" while the catalog had grown to 31.
+ *
+ * Surfaces that can import this do. The i18n bundles deliberately do NOT:
+ * `i18n/en.ts` -> `lib/utilities` -> `lib/i18n` -> `i18n/en.ts` would close a
+ * module cycle that only stays harmless while that last edge is a type-only
+ * import. `tests/utilityCount.test.mts` guards those, plus the markdown docs,
+ * which cannot import anything at all.
+ */
+export const UTILITY_COUNT = UTILITIES.length;
