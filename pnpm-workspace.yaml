@@ -66,7 +66,7 @@ overrides:
   # `blockExoticSubdeps` disabled above. The fork now publishes to the npm
   # registry, so we pin it to the registry release and re-enable the guard.
   "@electron/node-gyp": "10.2.0-electron.2"
-  "monaco-editor>dompurify": "^3.4.12"
+  "monaco-editor>dompurify": "^3.4.13"
   # Security patch pins. Keep each brace-expansion override inside its
   # existing major so legacy Electron tooling does not receive a breaking
   # transitive upgrade. The remaining pins are patch/minor-compatible with
@@ -125,6 +125,5 @@ minimumReleaseAgeExclude:
   - electron@43.1.1
   # Same-day security releases for published GitHub advisories. Exact pins
   # keep the age bypass narrow and reproducible.
-  - dompurify@3.4.12
   - esbuild@0.28.1
   - ws@8.21.0
