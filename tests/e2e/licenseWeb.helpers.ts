@@ -550,6 +550,27 @@ export async function waitForInitialAutoRunCompleted(page: Page): Promise<void> 
   });
 }
 
+/**
+ * Wait for the seeded welcome scratchpad to be fully on screen and settled,
+ * without requiring the console to be open (its sibling
+ * waitForInitialAutoRunCompleted needs mounted console rows, which would
+ * change the captured layout of a visual-evidence spec).
+ *
+ * The welcome tab mounts asynchronously after session rehydration, so a
+ * capture taken too early shows a tab strip without welcome.js and one taken
+ * late shows it — two stable digests for the same spec. Pinning both the
+ * tab's presence and the run pill's idle state removes the race in the only
+ * direction that terminates: present and settled.
+ */
+export async function waitForSeededWorkspaceSettled(page: Page): Promise<void> {
+  await expect(
+    page.getByTestId('editor-tab-filename').filter({ hasText: 'welcome.js' })
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', {
+    timeout: 30_000,
+  });
+}
+
 export async function clickRun(page: Page): Promise<void> {
   await page.getByTestId('action-pill-run').click();
 }

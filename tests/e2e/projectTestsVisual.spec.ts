@@ -33,7 +33,7 @@ test.describe('project tests bilingual evidence', () => {
       await page.waitForTimeout(250);
 
       const filePath = path.join(screenshotDir, `project-tests-${locale}.png`);
-      await page.screenshot({ path: filePath, fullPage: false });
+      await page.screenshot({ path: filePath, fullPage: false, animations: 'disabled' });
       await testInfo.attach(`project-tests-${locale}.png`, {
         path: filePath,
         contentType: 'image/png',

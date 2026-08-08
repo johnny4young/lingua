@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  expect,
+  gotoApp,
+  seedSession,
+  test,
+  waitForSeededWorkspaceSettled,
+} from './licenseWeb.helpers';
 
 const screenshotDir = path.resolve(process.cwd(), 'output/playwright/http-live-pipelines');
 
@@ -46,8 +52,15 @@ test('shows live transports, the browser safety boundary, and pipelines in Engli
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Pin every measured duration the UI would render (cell badges, response
+  // meta). Real runs cannot reproduce their own wall-clock numbers, and this
+  // capture must be byte-identical across runs. See testing/e2eDurations.ts.
+  await page.addInitScript(() => {
+    (window as { __linguaE2eFixedDurationMs?: number }).__linguaE2eFixedDurationMs = 12;
+  });
   await seedSession(page, { language: 'en' });
   await gotoApp(page);
+  await waitForSeededWorkspaceSettled(page);
   await page.keyboard.press('ControlOrMeta+Shift+K');
   await expect(page.getByTestId('http-workspace-panel')).toBeVisible();
 
@@ -77,7 +90,19 @@ test('shows live transports, the browser safety boundary, and pipelines in Engli
   );
 
   const editorPath = path.join(screenshotDir, 'http-live-transports-en.png');
-  await page.screenshot({ path: editorPath, fullPage: false });
+  // Park the pointer and drop focus before capturing: Playwright leaves the
+  // virtual mouse wherever the last click landed, so a toolbar button can be
+  // captured with its hover/focus styling half-applied — measured as a
+  // handful of border pixels flipping between runs on the Run all pill.
+  await page.mouse.move(0, 0);
+  await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+  await page.screenshot({ path: editorPath, fullPage: false, animations: 'disabled' });
   await testInfo.attach('http-live-transports-en.png', {
     path: editorPath,
     contentType: 'image/png',
@@ -92,7 +117,19 @@ test('shows live transports, the browser safety boundary, and pipelines in Engli
   await expect(page.getByTestId('http-pipeline-manager')).toContainText('Health check');
 
   const pipelinePath = path.join(screenshotDir, 'http-pipeline-en.png');
-  await page.screenshot({ path: pipelinePath, fullPage: false });
+  // Park the pointer and drop focus before capturing: Playwright leaves the
+  // virtual mouse wherever the last click landed, so a toolbar button can be
+  // captured with its hover/focus styling half-applied — measured as a
+  // handful of border pixels flipping between runs on the Run all pill.
+  await page.mouse.move(0, 0);
+  await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+  await page.screenshot({ path: pipelinePath, fullPage: false, animations: 'disabled' });
   await testInfo.attach('http-pipeline-en.png', {
     path: pipelinePath,
     contentType: 'image/png',
@@ -101,8 +138,15 @@ test('shows live transports, the browser safety boundary, and pipelines in Engli
 
 test('localizes the live HTTP and pipeline surfaces in Spanish', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Pin every measured duration the UI would render (cell badges, response
+  // meta). Real runs cannot reproduce their own wall-clock numbers, and this
+  // capture must be byte-identical across runs. See testing/e2eDurations.ts.
+  await page.addInitScript(() => {
+    (window as { __linguaE2eFixedDurationMs?: number }).__linguaE2eFixedDurationMs = 12;
+  });
   await seedSession(page, { language: 'es' });
   await gotoApp(page);
+  await waitForSeededWorkspaceSettled(page);
   await page.keyboard.press('ControlOrMeta+Shift+K');
 
   await createRequest(page, {
@@ -118,7 +162,19 @@ test('localizes the live HTTP and pipeline surfaces in Spanish', async ({ page }
   await expect(page.getByTestId('http-request-editor-transport')).toHaveValue('sse');
 
   const editorPath = path.join(screenshotDir, 'http-live-transports-es.png');
-  await page.screenshot({ path: editorPath, fullPage: false });
+  // Park the pointer and drop focus before capturing: Playwright leaves the
+  // virtual mouse wherever the last click landed, so a toolbar button can be
+  // captured with its hover/focus styling half-applied — measured as a
+  // handful of border pixels flipping between runs on the Run all pill.
+  await page.mouse.move(0, 0);
+  await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+  await page.screenshot({ path: editorPath, fullPage: false, animations: 'disabled' });
   await testInfo.attach('http-live-transports-es.png', {
     path: editorPath,
     contentType: 'image/png',
@@ -135,7 +191,19 @@ test('localizes the live HTTP and pipeline surfaces in Spanish', async ({ page }
   );
 
   const pipelinePath = path.join(screenshotDir, 'http-pipeline-es.png');
-  await page.screenshot({ path: pipelinePath, fullPage: false });
+  // Park the pointer and drop focus before capturing: Playwright leaves the
+  // virtual mouse wherever the last click landed, so a toolbar button can be
+  // captured with its hover/focus styling half-applied — measured as a
+  // handful of border pixels flipping between runs on the Run all pill.
+  await page.mouse.move(0, 0);
+  await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+  await page.screenshot({ path: pipelinePath, fullPage: false, animations: 'disabled' });
   await testInfo.attach('http-pipeline-es.png', {
     path: pipelinePath,
     contentType: 'image/png',

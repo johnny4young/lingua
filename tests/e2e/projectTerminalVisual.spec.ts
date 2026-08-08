@@ -29,7 +29,7 @@ test.describe('project terminal bilingual evidence', () => {
       await expect(page.getByText(/not a sandbox|no es una caja de arena/i)).toBeVisible();
 
       const trustPath = path.join(screenshotDir, `project-terminal-trust-${locale}.png`);
-      await page.screenshot({ path: trustPath, fullPage: false });
+      await page.screenshot({ path: trustPath, fullPage: false, animations: 'disabled' });
       await testInfo.attach(`project-terminal-trust-${locale}.png`, {
         path: trustPath,
         contentType: 'image/png',
@@ -50,7 +50,7 @@ test.describe('project terminal bilingual evidence', () => {
       ).toEqual({ scrollX: 0, scrollY: 0, innerWidth: 1440, scrollWidth: 1440 });
 
       const activePath = path.join(screenshotDir, `project-terminal-${locale}.png`);
-      await page.screenshot({ path: activePath, fullPage: false });
+      await page.screenshot({ path: activePath, fullPage: false, animations: 'disabled' });
       await testInfo.attach(`project-terminal-${locale}.png`, {
         path: activePath,
         contentType: 'image/png',

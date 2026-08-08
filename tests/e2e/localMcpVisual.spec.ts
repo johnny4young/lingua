@@ -26,7 +26,7 @@ test.describe('local MCP bilingual evidence', () => {
       await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
       await expect(page.getByText(consent)).toBeVisible();
       const consentPath = path.join(screenshotDir, `local-mcp-consent-${locale}.png`);
-      await page.screenshot({ path: consentPath });
+      await page.screenshot({ path: consentPath, animations: 'disabled' });
       await testInfo.attach(path.basename(consentPath), {
         path: consentPath,
         contentType: 'image/png',
@@ -37,7 +37,7 @@ test.describe('local MCP bilingual evidence', () => {
       await expect(page.getByText(ready)).toBeVisible();
       await expect(page.getByText('http://127.0.0.1:43127/mcp')).toBeVisible();
       const activePath = path.join(screenshotDir, `local-mcp-${locale}.png`);
-      await page.screenshot({ path: activePath });
+      await page.screenshot({ path: activePath, animations: 'disabled' });
       await testInfo.attach(path.basename(activePath), {
         path: activePath,
         contentType: 'image/png',

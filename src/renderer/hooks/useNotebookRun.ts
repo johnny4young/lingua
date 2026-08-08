@@ -23,6 +23,7 @@
  * `notebookSession` stays timing-free.
  */
 
+import { e2eFixedDurationMs } from '../testing/e2eDurations';
 import { useCallback, useRef, useState } from 'react';
 import {
   isNotebookCodeCell,
@@ -149,7 +150,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // FASE 4 — measure only the kernel round-trip; timing lives in
         // the hook, never in `notebookSession`, to keep the kernel file
         // minimal (GAP A).
-        const durationMs = performance.now() - startedAt;
+        const durationMs = e2eFixedDurationMs(performance.now() - startedAt);
 
         if (!result.ok) {
           if (result.reason === 'concurrent-run') {
@@ -221,7 +222,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         store.setCellExecutionOrder(tabId, cellId);
         // FASE 4 — even an unexpected throw gets its latency + a
         // (produces-empty) var-flow entry so the header stays coherent.
-        store.setCellDurationMs(tabId, cellId, performance.now() - startedAt);
+        store.setCellDurationMs(tabId, cellId, e2eFixedDurationMs(performance.now() - startedAt));
         store.setCellVarFlow(tabId, cellId, {
           uses: deriveUsesKeys(cell.source, priorSandboxKeys),
           produces: [],

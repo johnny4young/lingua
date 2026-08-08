@@ -39,6 +39,7 @@ import {
   type HttpResponseV1,
   type HttpStatusBucket,
 } from '../../shared/httpWorkspaceSchema';
+import { e2eFixedDurationMs } from '../testing/e2eDurations';
 import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpSensitiveHeaders';
 
 /**
@@ -383,7 +384,7 @@ async function executeBrowserHttpRequest(
       body: '',
       contentType: '',
       sizeBytes: 0,
-      durationMs: Math.round(performance.now() - start),
+      durationMs: e2eFixedDurationMs(Math.round(performance.now() - start)),
       tooLarge: false,
       redactedHeaders: [],
       recordedAt,
@@ -405,7 +406,7 @@ async function executeBrowserHttpRequest(
       body: '',
       contentType: '',
       sizeBytes: 0,
-      durationMs: Math.round(performance.now() - start),
+      durationMs: e2eFixedDurationMs(Math.round(performance.now() - start)),
       tooLarge: false,
       redactedHeaders: [],
       recordedAt,
@@ -459,7 +460,7 @@ async function executeBrowserHttpRequest(
       body: '',
       contentType: '',
       sizeBytes: 0,
-      durationMs: Math.round(performance.now() - start),
+      durationMs: e2eFixedDurationMs(Math.round(performance.now() - start)),
       tooLarge: false,
       redactedHeaders: [],
       recordedAt,
@@ -493,7 +494,7 @@ async function executeBrowserHttpRequest(
       body: '',
       contentType: response.headers.get('content-type') ?? '',
       sizeBytes: 0,
-      durationMs: Math.round(performance.now() - start),
+      durationMs: e2eFixedDurationMs(Math.round(performance.now() - start)),
       tooLarge: false,
       redactedHeaders: [],
       recordedAt,
@@ -525,7 +526,7 @@ async function executeBrowserHttpRequest(
     body: bodyResult.text,
     contentType,
     sizeBytes: bodyResult.size,
-    durationMs: Math.round(performance.now() - start),
+    durationMs: e2eFixedDurationMs(Math.round(performance.now() - start)),
     tooLarge: bodyResult.tooLarge,
     redactedHeaders,
     recordedAt,
