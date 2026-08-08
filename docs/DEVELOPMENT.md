@@ -205,22 +205,44 @@ Then review the PNG diff and commit the images together with
 those recorded digests. It needs no evidence, so it runs everywhere, including
 the PR gate in `ci.yml` § Website gates.
 
-There is no tool that verifies the gallery against your local evidence, and that
-is deliberate: **the captures are not currently byte-reproducible.** Running
-`tests/e2e/projectTestsVisual.spec.ts` nine times in a row produced an identical
-EN capture every time, while the ES capture alternated between two stable states
-1.8KB apart — the minority state in 2 of the 9 runs. Until that is fixed, any
-byte-exact verifier would fail on roughly a fifth of honest runs, and a check
-that wrong trains people to delete `output/` to silence it.
+`pnpm --dir website run check:showcase-evidence` compares the shipped PNGs
+against your local evidence. It is machine-local by construction — the evidence
+is gitignored, so it is a clean no-op on a fresh clone and in CI.
 
-Two consequences worth holding onto when you refresh the gallery:
+That verifier was once removed because the captures were not byte-reproducible,
+for two distinct reasons, both since fixed:
 
-- Look at the diff. Whichever state that run happened to capture is what you are
-  about to ship.
-- `output/` holds whatever that machine last generated, which can easily be
-  *older* than what shipped — compare timestamps before overwriting. To adopt an
-  already-correct gallery without copying anything, run
-  `pnpm --dir website run record:showcase-evidence`.
+- **Animations.** The modal's entry fade meant a capture could land at ~99%
+  opacity, which shifts high-contrast text pixels by exactly one unit per
+  channel — the same page yielded two stable digests. Every evidence spec now
+  screenshots with `animations: 'disabled'`, which fast-forwards finite
+  animations and freezes infinite ones (there is a `glow-pulse` loop that a
+  plain screenshot catches at arbitrary phase).
+- **Measured durations.** The notebook cell badge and HTTP response meta render
+  real wall-clock numbers that differ every run. Specs pin them through
+  `src/renderer/testing/e2eDurations.ts` (an init-script flag the production
+  build compiles away) instead of masking pixels or faking the page clock.
+
+Two more sources fell in the same pass: the seeded welcome tab mounts
+asynchronously and raced the capture (pinned by
+`waitForSeededWorkspaceSettled`), and Playwright parks the pointer on the last
+click, leaving hover styling half-applied on a toolbar button (pinned by moving
+the mouse to a corner and blurring focus before every capture).
+
+Determinism was then measured, not assumed: 15 consecutive identical digests on
+four of the six specs. The Monaco-bearing pair (notebook, HTTP) still flips a
+handful of antialiased edge pixels by one unit — Chromium-level rounding that
+survived pointer parking, focus blur, and frame settling — so `--check`
+compares those within a strict tolerance (at most 24 differing pixels, each off
+by at most 2 per channel). A stale gallery differs by thousands of pixels at
+full contrast; noise cannot hide drift, and drift cannot pass as noise. If you
+add an animation, a timestamp, or any measured value to a captured surface,
+re-prove determinism before trusting `--check`.
+
+One trap remains when refreshing: `output/` holds whatever that machine last
+generated, which can easily be *older* than what shipped — compare timestamps
+before overwriting. To adopt an already-correct gallery without copying
+anything, run `pnpm --dir website run record:showcase-evidence`.
 
 Never hand-edit a digest to make the test pass; that turns the lock into a
 rubber stamp.

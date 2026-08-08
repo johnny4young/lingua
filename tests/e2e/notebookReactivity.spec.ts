@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  expect,
+  gotoApp,
+  seedSession,
+  test,
+  waitForSeededWorkspaceSettled,
+} from './licenseWeb.helpers';
 import { isKnownBenignConsoleError } from './consoleErrorFilter';
 
 const screenshotDir = path.resolve(
@@ -91,8 +97,15 @@ for (const locale of ['en', 'es'] as const) {
       if (!isKnownBenignConsoleError(error.message)) errors.push(error.message);
     });
     await page.setViewportSize({ width: 1440, height: 1000 });
+    // Pin every measured duration the UI would render (cell badges, response
+    // meta). Real runs cannot reproduce their own wall-clock numbers, and this
+    // capture must be byte-identical across runs. See testing/e2eDurations.ts.
+    await page.addInitScript(() => {
+      (window as { __linguaE2eFixedDurationMs?: number }).__linguaE2eFixedDurationMs = 12;
+    });
     await seedSession(page, { language: locale, primeProLicense: true });
     await gotoApp(page);
+    await waitForSeededWorkspaceSettled(page);
     await createStaleNotebook(page);
 
     const banner = page.getByTestId('notebook-reactivity-banner');
@@ -118,7 +131,19 @@ for (const locale of ['en', 'es'] as const) {
       screenshotDir,
       `notebook-reactivity-stale-${locale}.png`
     );
-    await page.screenshot({ path: stalePath, fullPage: false });
+    // Park the pointer and drop focus before capturing: Playwright leaves the
+    // virtual mouse wherever the last click landed, so a toolbar button can be
+    // captured with its hover/focus styling half-applied — measured as a
+    // handful of border pixels flipping between runs on the Run all pill.
+    await page.mouse.move(0, 0);
+    await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+    await page.screenshot({ path: stalePath, fullPage: false, animations: 'disabled' });
     await testInfo.attach(`notebook-reactivity-stale-${locale}.png`, {
       path: stalePath,
       contentType: 'image/png',
@@ -148,7 +173,19 @@ for (const locale of ['en', 'es'] as const) {
       screenshotDir,
       `notebook-reactivity-refreshed-${locale}.png`
     );
-    await page.screenshot({ path: refreshedPath, fullPage: false });
+    // Park the pointer and drop focus before capturing: Playwright leaves the
+    // virtual mouse wherever the last click landed, so a toolbar button can be
+    // captured with its hover/focus styling half-applied — measured as a
+    // handful of border pixels flipping between runs on the Run all pill.
+    await page.mouse.move(0, 0);
+    await page.evaluate(async () => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      // Two frames: Monaco hides its caret on the next paint, and a capture
+      // taken in between kept a one-pixel antialiased remnant of it.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+    await page.screenshot({ path: refreshedPath, fullPage: false, animations: 'disabled' });
     await testInfo.attach(`notebook-reactivity-refreshed-${locale}.png`, {
       path: refreshedPath,
       contentType: 'image/png',

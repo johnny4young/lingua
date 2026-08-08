@@ -106,7 +106,7 @@ for (const locale of ['en', 'es'] as const) {
     await expect(page.getByTestId('debugger-breakpoint-condition-3')).toBeVisible();
 
     const screenshotPath = path.join(screenshotDir, `debugger-expressions-${locale}.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: false });
+    await page.screenshot({ path: screenshotPath, fullPage: false, animations: 'disabled' });
     await testInfo.attach(`debugger-expressions-${locale}.png`, {
       path: screenshotPath,
       contentType: 'image/png',
