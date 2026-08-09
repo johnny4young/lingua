@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 
 PackageIdentifier: Johnny4young.Lingua
-PackageVersion: 1.0.1
+PackageVersion: 1.0.2
 PackageLocale: en-US
 Publisher: johnny4young
 PublisherUrl: https://linguacode.dev/
@@ -27,6 +27,6 @@ Tags:
   - python
   - scratchpad
   - typescript
-ReleaseNotesUrl: https://github.com/johnny4young/lingua/releases/tag/v1.0.1
+ReleaseNotesUrl: https://github.com/johnny4young/lingua/releases/tag/v1.0.2
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

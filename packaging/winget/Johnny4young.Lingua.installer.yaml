@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 
 PackageIdentifier: Johnny4young.Lingua
-PackageVersion: 1.0.1
+PackageVersion: 1.0.2
 InstallerType: nullsoft
 Scope: user
 InstallModes:
@@ -9,10 +9,9 @@ InstallModes:
   - silent
   - silentWithProgress
 UpgradeBehavior: install
-ReleaseDate: 2026-08-05
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/johnny4young/lingua/releases/download/v1.0.1/Lingua-1.0.1-win-x64.exe
-    InstallerSha256: 822E2C2B5AFFF9EDF8A1D9D6B59717B4A49748B1BFA8F0C448BC3AAB6F774B0A
+    InstallerUrl: https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-win-x64.exe
+    InstallerSha256: 58B2C81D616688CFF2BA575259CC673E5A1C1A4F16F832F4077D873FE4E90F3C
 ManifestType: installer
 ManifestVersion: 1.6.0
