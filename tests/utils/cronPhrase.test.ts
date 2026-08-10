@@ -216,6 +216,99 @@ const OK_CASES: readonly OkCase[] = [
     assumptions: [`${K}.assumption.monday`, `${K}.assumption.midnight`],
   },
 
+  // ---- grammar drawn from sibling open-source parsers -------------------
+  // These phrases come from the documented vocabularies of english-to-cron,
+  // cron-talk and natural-cron-expression. Running their corpus through this
+  // engine is what surfaced each gap below.
+  {
+    phrase: 'every year',
+    expression: '0 0 1 1 *',
+    assumptions: [
+      `${K}.assumption.january`,
+      `${K}.assumption.firstOfMonth`,
+      `${K}.assumption.midnight`,
+    ],
+  },
+  {
+    phrase: 'annually',
+    expression: '0 0 1 1 *',
+    assumptions: [
+      `${K}.assumption.january`,
+      `${K}.assumption.firstOfMonth`,
+      `${K}.assumption.midnight`,
+    ],
+  },
+  {
+    phrase: 'anualmente',
+    expression: '0 0 1 1 *',
+    assumptions: [
+      `${K}.assumption.january`,
+      `${K}.assumption.firstOfMonth`,
+      `${K}.assumption.midnight`,
+    ],
+  },
+  {
+    phrase: 'every quarter',
+    expression: '0 0 1 */3 *',
+    assumptions: [`${K}.assumption.firstOfMonth`, `${K}.assumption.midnight`],
+  },
+  // Bare ordinals: the suffix marks a date, so no "on the" lead-in is needed.
+  {
+    phrase: 'every 25th',
+    expression: '0 0 25 * *',
+    assumptions: [`${K}.assumption.midnight`],
+  },
+  {
+    phrase: 'every 3rd of January',
+    expression: '0 0 3 1 *',
+    assumptions: [`${K}.assumption.midnight`],
+  },
+  {
+    phrase: 'the 1st and 15th of the month',
+    expression: '0 0 1,15 * *',
+    assumptions: [`${K}.assumption.midnight`],
+  },
+  {
+    phrase: 'every other day',
+    expression: '0 0 */2 * *',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.domStepReset`],
+  },
+  {
+    phrase: 'cada dos dias',
+    expression: '0 0 */2 * *',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.domStepReset`],
+  },
+  // nth/last weekday: cron's day-of-month field cannot express these, but the
+  // Quartz # and L operators can — hence the non-standard caveat.
+  {
+    phrase: 'first monday of the month',
+    expression: '0 0 * * 1#1',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.nonstandardNthWeekday`],
+  },
+  {
+    phrase: 'last friday of the month',
+    expression: '0 0 * * 5L',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.nonstandardLastWeekday`],
+  },
+  {
+    phrase: 'primer lunes del mes',
+    expression: '0 0 * * 1#1',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.nonstandardNthWeekday`],
+  },
+  {
+    phrase: 'ultimo viernes del mes',
+    expression: '0 0 * * 5L',
+    assumptions: [`${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.nonstandardLastWeekday`],
+  },
+  { phrase: 'each day at 6am', expression: '0 6 * * *' },
+  { phrase: 'every weekday at 9', expression: '0 9 * * 1-5' },
+
   // ---- windows without an interval ------------------------------------
   {
     phrase: 'weekdays between 9 and 5',

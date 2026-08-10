@@ -69,11 +69,12 @@ interface Extraction {
   spans: Array<[number, number]>;
   times: TimeOfDay[];
   hourRange: { start: number; end: number; pmAssumed: boolean } | null;
-  interval: { unit: 'minute' | 'hour' | 'day' | 'week' | 'month'; step: number } | null;
+  interval: { unit: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year'; step: number } | null;
   intervalConflict: boolean;
   stepOutOfRange: { step: number; max: number } | null;
   weekdays: Set<number>;
   weekdayRange: { from: number; to: number } | null;
+  nthWeekday: { day: number; nth: number | 'last' } | null;
   monthDays: number[];
   lastDayOfMonth: boolean;
   months: number[];
@@ -110,6 +111,7 @@ const MONTHS: ReadonlyArray<readonly [RegExp, number]> = [
  */
 const FILLER = new Set([
   'cron',
+  'fire',
   'job',
   'task',
   'tarea',
@@ -340,12 +342,13 @@ function extractTimes(text: string, state: Extraction): void {
 
 /** Extract "every N unit" intervals and their single-word forms. */
 function extractInterval(text: string, state: Extraction): void {
-  const unitOf = (word: string): 'minute' | 'hour' | 'day' | 'week' | 'month' | null => {
+  const unitOf = (word: string): 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year' | null => {
     if (/^min(?:s|uto?s?|utes?)?$/.test(word)) return 'minute';
     if (/^(?:hours?|horas?|hrs?|hs)$/.test(word)) return 'hour';
     if (/^(?:days?|dias?)$/.test(word)) return 'day';
     if (/^(?:weeks?|semanas?)$/.test(word)) return 'week';
     if (/^(?:months?|mes(?:es)?)$/.test(word)) return 'month';
+    if (/^(?:years?|anos?|anios?)$/.test(word)) return 'year';
     return null;
   };
 
@@ -358,12 +361,22 @@ function extractInterval(text: string, state: Extraction): void {
     day: 31,
     month: 12,
   };
-  runAll(/\b(?:every|cada)\s+(?:(\d+)\s+)?([a-z]+)\b/g, text, m => {
+  // "every other day" is a step of 2. Common enough that its absence reads as
+  // a bug; several sibling libraries are documented as failing on it.
+  runAll(/\b(?:every other|each other|cada dos)\s+([a-z]+)\b/g, text, m => {
+    const unit = unitOf(m[1]!);
+    if (!unit) return;
+    state.interval = { unit, step: 2 };
+    consume(state, m.index, m.index + m[0].length);
+  });
+
+  runAll(/\b(?:every|each|cada)\s+(?:(\d+)\s+)?([a-z]+)\b/g, text, m => {
+    if (state.spans.some(([s, e]) => m.index >= s && m.index < e)) return;
     const unit = unitOf(m[2]!);
     if (!unit) return;
     const step = m[1] ? Number(m[1]) : 1;
     if (!Number.isInteger(step) || step < 1 || step > 999) return;
-    if (unit !== 'week' && step > FIELD_MAX[unit]) {
+    if (unit !== 'week' && unit !== 'year' && step > FIELD_MAX[unit]) {
       state.stepOutOfRange = { step, max: FIELD_MAX[unit] };
       consume(state, m.index, m.index + m[0].length);
       return;
@@ -394,6 +407,8 @@ function extractInterval(text: string, state: Extraction): void {
       [/\b(?:daily|diario|diaria|diariamente|todos los dias)\b/g, { unit: 'day', step: 1 }],
       [/\b(?:weekly|semanal|semanalmente)\b/g, { unit: 'week', step: 1 }],
       [/\b(?:monthly|mensual|mensualmente)\b/g, { unit: 'month', step: 1 }],
+      [/\b(?:quarterly|trimestral|trimestralmente|every quarter|cada trimestre)\b/g, { unit: 'month', step: 3 }],
+      [/\b(?:yearly|annually|anual|anualmente)\b/g, { unit: 'year', step: 1 }],
     ];
     for (const [regex, interval] of singles) {
       runAll(regex, text, m => {
@@ -406,7 +421,7 @@ function extractInterval(text: string, state: Extraction): void {
 
 /** Extract weekday names, ranges ("lunes a viernes") and the weekday/weekend groups. */
 function extractWeekdays(text: string, state: Extraction): void {
-  runAll(/\b(?:weekdays|entre semana|dias? (?:habiles|laborables)|business days)\b/g, text, m => {
+  runAll(/\b(?:weekdays?|entre semana|dias? (?:habiles|laborables)|business days)\b/g, text, m => {
     state.weekdayRange = { from: 1, to: 5 };
     consume(state, m.index, m.index + m[0].length);
   });
@@ -415,6 +430,22 @@ function extractWeekdays(text: string, state: Extraction): void {
     state.weekdays.add(0);
     consume(state, m.index, m.index + m[0].length);
   });
+
+  // "first monday of the month" / "last friday". Cron's day-of-month field
+  // cannot express this at all, but the nth-weekday (5#1) and last-weekday
+  // (5L) operators can — they are Quartz/Vixie extensions rather than POSIX,
+  // so the result carries the same non-standard caveat "last day" does. This
+  // has to run before the bare-name pass or it would only see "monday".
+  const ORDINALS: ReadonlyArray<readonly [RegExp, number | 'last']> = [
+    [/^(?:first|1st|primer|primero|primera)$/, 1],
+    [/^(?:second|2nd|segundo|segunda)$/, 2],
+    [/^(?:third|3rd|tercer|tercero|tercera)$/, 3],
+    [/^(?:fourth|4th|cuarto|cuarta)$/, 4],
+    [/^(?:fifth|5th|quinto|quinta)$/, 5],
+    [/^(?:last|ultimo|ultima)$/, 'last'],
+  ];
+  const ordinalWord =
+    '(?:first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th|last|primer[oa]?|segund[oa]|tercer[oa]?|cuart[oa]|quint[oa]|ultim[oa])';
 
   // Name-to-name ranges must win over single names: match them first.
   const dayWord =
@@ -427,6 +458,19 @@ function extractWeekdays(text: string, state: Extraction): void {
     }
     return null;
   };
+  const nthRe = new RegExp(
+    `\\b(${ordinalWord})\\s+(${dayWord})(\\s+(?:of (?:the |every |each )?month|de cada mes|del mes))?\\b`,
+    'g'
+  );
+  runAll(nthRe, text, m => {
+    const day = dayNumber(m[2]!);
+    if (day === null) return;
+    const nth = ORDINALS.find(([re]) => re.test(m[1]!))?.[1];
+    if (nth === undefined) return;
+    state.nthWeekday = { day, nth };
+    consume(state, m.index, m.index + m[0].length);
+  });
+
   runAll(rangeRe, text, m => {
     const from = dayNumber(m[1]!);
     const to = dayNumber(m[2]!);
@@ -452,6 +496,17 @@ function extractMonthDays(text: string, state: Extraction): void {
   });
   runAll(/\b(?:last day(?: of (?:the )?month)?|ultimo dia(?: del? mes)?)\b/g, text, m => {
     state.lastDayOfMonth = true;
+    consume(state, m.index, m.index + m[0].length);
+  });
+
+  // Bare English ordinals ("every 25th", "the 1st and 15th", "3rd of January").
+  // The suffix itself disambiguates a date from a clock hour, so no lead-in
+  // phrase is required — unlike the Spanish "el 15", handled below.
+  runAll(/\b(\d{1,2})(?:st|nd|rd|th)(\s+of (?:the |every |each )?month)?\b/g, text, m => {
+    if (state.spans.some(([s, e]) => m.index >= s && m.index < e)) return;
+    const day = Number(m[1]);
+    if (!Number.isInteger(day) || day < 1 || day > 31) return;
+    state.monthDays.push(day);
     consume(state, m.index, m.index + m[0].length);
   });
 
@@ -495,6 +550,10 @@ function leftoverTokens(text: string, spans: Array<[number, number]>): string[] 
 }
 
 function formatDow(state: Extraction): string | null {
+  if (state.nthWeekday) {
+    const { day, nth } = state.nthWeekday;
+    return nth === 'last' ? `${day}L` : `${day}#${nth}`;
+  }
   if (state.weekdayRange) {
     const { from, to } = state.weekdayRange;
     return from < to ? `${from}-${to}` : `${from}-6,0-${to}`;
@@ -518,6 +577,7 @@ export function phraseToCron(phrase: string): CronPhraseResult {
     stepOutOfRange: null,
     weekdays: new Set(),
     weekdayRange: null,
+    nthWeekday: null,
     monthDays: [],
     lastDayOfMonth: false,
     months: [],
@@ -565,6 +625,7 @@ export function phraseToCron(phrase: string): CronPhraseResult {
     state.interval !== null ||
     state.weekdays.size > 0 ||
     state.weekdayRange !== null ||
+    state.nthWeekday !== null ||
     state.monthDays.length > 0 ||
     state.lastDayOfMonth ||
     state.months.length > 0;
@@ -604,6 +665,14 @@ export function phraseToCron(phrase: string): CronPhraseResult {
 
   const dowValue = formatDow(state);
   if (dowValue) dow = dowValue;
+  if (state.nthWeekday) {
+    caveats.push({
+      key:
+        state.nthWeekday.nth === 'last'
+          ? 'utilities.tool.cron.phrase.caveat.nonstandardLastWeekday'
+          : 'utilities.tool.cron.phrase.caveat.nonstandardNthWeekday',
+    });
+  }
 
   if (state.monthDays.length > 0) {
     dom = [...new Set(state.monthDays)].sort((a, b) => a - b).join(',');
@@ -679,6 +748,29 @@ export function phraseToCron(phrase: string): CronPhraseResult {
         if (dow === '*') {
           dow = '1';
           assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.monday' });
+        }
+        if (state.times.length === 0) {
+          minute = '0';
+          hour = '0';
+          assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.midnight' });
+        }
+        break;
+      }
+      case 'year': {
+        // Cron has no year field; a yearly cadence is January 1st.
+        if (month === '*') {
+          month = '1';
+          assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.january' });
+        }
+        if (dom === '*') {
+          dom = '1';
+          assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.firstOfMonth' });
+        }
+        if (interval.step > 1) {
+          caveats.push({
+            key: 'utilities.tool.cron.phrase.caveat.noYearField',
+            values: { step: interval.step },
+          });
         }
         if (state.times.length === 0) {
           minute = '0';

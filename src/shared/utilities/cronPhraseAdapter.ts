@@ -37,6 +37,13 @@ export const CRON_PHRASE_NOTE_TEXT: Readonly<Record<string, string>> = {
   'utilities.tool.cron.phrase.assumption.hourlyWindow': 'Hourly within the window.',
   'utilities.tool.cron.phrase.assumption.pmWindowEnd':
     'Read the window end as {{shifted}}:00 ({{end}} pm).',
+  'utilities.tool.cron.phrase.assumption.january': 'A yearly schedule needs a date; assumed January 1.',
+  'utilities.tool.cron.phrase.caveat.noYearField':
+    'Cron has no year field, so an every-{{step}}-years cadence cannot be expressed. This fires every January 1 instead.',
+  'utilities.tool.cron.phrase.caveat.nonstandardNthWeekday':
+    'The # operator (nth weekday of the month) is a Quartz extension, not POSIX cron.',
+  'utilities.tool.cron.phrase.caveat.nonstandardLastWeekday':
+    'The L operator on a weekday (last one of the month) is a Quartz extension, not POSIX cron.',
   'utilities.tool.cron.phrase.caveat.domStepReset':
     'The {{step}}-day step restarts at the start of every month, so the gap breaks at month boundaries.',
   'utilities.tool.cron.phrase.caveat.domDowUnion':
