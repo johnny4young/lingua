@@ -209,7 +209,7 @@ describe('runUtilityCommand', () => {
 });
 
 describe('runListUtilitiesCommand', () => {
-  it('lists all 23 adapter ids in plain mode', () => {
+  it('lists all 24 adapter ids in plain mode', () => {
     const { io, state } = createFakeIo();
     const code = runListUtilitiesCommand({ json: false, quiet: false }, io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
@@ -248,7 +248,7 @@ describe('runListUtilitiesCommand', () => {
     const parsed = JSON.parse(state.stdout) as {
       utilities: Array<{ id: string; inputKind: string; outputKind: string; optionKeys: string[] }>;
     };
-    expect(parsed.utilities).toHaveLength(23);
+    expect(parsed.utilities).toHaveLength(24);
     const jsonFormat = parsed.utilities.find((u) => u.id === 'json-format');
     expect(jsonFormat?.optionKeys).toEqual(['indent']);
     // implementation — the hash adapter surfaces its algorithm option.

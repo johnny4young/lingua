@@ -48,6 +48,10 @@ export const CLI_HELP_CATALOG = {
       examples: [
         { command: `echo '{"a":1}' | lingua utility json-format`, description: 'Format piped JSON.' },
         {
+          command: `echo 'cada 3 dias 8am' | lingua utility cron-phrase`,
+          description: 'Turn a plain-words schedule (English or Spanish) into a cron expression.',
+        },
+        {
           command: 'lingua utility base64-encode --input README.md',
           description: 'Encode a file without opening the app.',
         },

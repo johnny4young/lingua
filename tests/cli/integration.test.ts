@@ -97,10 +97,10 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     const out = runCli(['list', 'utilities', '--json']);
     expect(out.code).toBe(0);
     const parsed = JSON.parse(out.stdout) as { utilities: unknown[] };
-    // implementation — 23 adapters after the generator-style holdouts
+    // 24 adapters after cron-phrase joined the registry
     // (uuid / lorem-ipsum / string-inspect) landed. Runs against the
     // on-disk dist/cli bundle, so build:cli must run before this spec.
-    expect(parsed.utilities).toHaveLength(23);
+    expect(parsed.utilities).toHaveLength(24);
   });
 
   it.each(['bash', 'zsh', 'fish'] as const)('generates %s completion from the bundle', shell => {

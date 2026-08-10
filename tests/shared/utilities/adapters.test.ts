@@ -41,15 +41,21 @@ import {
   listAdapters,
 } from '../../../src/shared/utilities/registry';
 import { UTILITY_ADAPTER_IDS } from '../../../src/shared/utilities/types';
+import {
+  CRON_PHRASE_NOTE_TEXT,
+  cronPhraseAdapter,
+  renderCronPhraseNote,
+} from '../../../src/shared/utilities/cronPhraseAdapter';
 import enCommon from '../../../src/renderer/i18n/locales/en/common.json';
 import esCommon from '../../../src/renderer/i18n/locales/es/common.json';
 
 describe('UTILITY_ADAPTER_REGISTRY', () => {
-  it('exposes all 23 closed-enum adapters', () => {
+  it('exposes all 24 closed-enum adapters', () => {
     expect(Object.keys(UTILITY_ADAPTER_REGISTRY).sort()).toEqual([
       'base64-decode',
       'base64-encode',
       'color-convert',
+      'cron-phrase',
       'diff-text',
       'hash',
       'html-entity-decode',
@@ -71,6 +77,65 @@ describe('UTILITY_ADAPTER_REGISTRY', () => {
       'url-parse',
       'uuid',
     ]);
+  });
+});
+
+describe('cronPhraseAdapter', () => {
+  it('turns the motivating phrase into its expression, pipe-clean by default', async () => {
+    const r = await cronPhraseAdapter.run('cada 3 dias 8am', { annotate: false });
+    expect(r).toEqual({ ok: true, value: '0 8 */3 * *' });
+  });
+
+  it('appends assumptions and caveats as # comments when annotate is on', async () => {
+    const r = await cronPhraseAdapter.run('every 3 days at 8am', { annotate: true });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const lines = r.value.split('\n');
+    expect(lines[0]).toBe('0 8 */3 * *');
+    expect(lines.some(line => line.startsWith('# caveat:') && line.includes('restarts'))).toBe(
+      true
+    );
+  });
+
+  it('fails unrecognized phrases listing the leftover tokens', async () => {
+    const r = await cronPhraseAdapter.run('deploy the flux capacitor at 8am', {
+      annotate: false,
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe('invalid-input');
+    expect(r.detail).toContain('deploy, flux, capacitor');
+  });
+
+  it('maps impossible intents to unsupported with the rendered explanation', async () => {
+    const r = await cronPhraseAdapter.run('cada 2 semanas', { annotate: false });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.reason).toBe('unsupported');
+    expect(r.detail).toContain('every-2-weeks');
+  });
+
+  it('renders every note key the engine can emit — no fallback ids in output', () => {
+    // The engine reports notes as i18n keys; this adapter renders them to
+    // English. A key missing from the table would surface raw, so the table
+    // must cover every assumption, caveat, and unsupported key in the
+    // renderer locale files.
+    const engineNoteKeys = Object.keys(enCommon).filter(key =>
+      /^utilities\.tool\.cron\.phrase\.(assumption|caveat|unsupported)\./u.test(key)
+    );
+    expect(engineNoteKeys.length).toBeGreaterThan(0);
+    for (const key of engineNoteKeys) {
+      expect(CRON_PHRASE_NOTE_TEXT[key], key).toBeDefined();
+    }
+  });
+
+  it('interpolates note values into the rendered text', () => {
+    expect(
+      renderCronPhraseNote({
+        key: 'utilities.tool.cron.phrase.caveat.minuteStepUneven',
+        values: { step: 40, tail: 20 },
+      })
+    ).toContain('60 is not divisible by 40');
   });
 });
 
