@@ -543,6 +543,10 @@ export const es = {
         x64: 'Intel / x64',
         universal: 'Universal',
       },
+      platformNotes: {
+        windows:
+          'Todavía no está firmado, así que Windows muestra la pantalla "Windows protegió tu PC" la primera vez. Elige Más información y luego Ejecutar de todas formas. El checksum de abajo es como verificas que el archivo es el que publicamos.',
+      },
     },
   },
   changelog: {
