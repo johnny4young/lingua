@@ -31,6 +31,7 @@ interface CronPhraseComposerProps {
 
 type AiPhase =
   | { kind: 'idle' }
+  | { kind: 'preview'; payload: string }
   | { kind: 'busy' }
   | { kind: 'done'; expression: string }
   | { kind: 'invalid' }
@@ -100,6 +101,23 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
     if (next.ok) onExpression(next.expression);
   }
 
+  function buildAiPayload(): string {
+    // The exact-payload contract (README § AI assistance): nothing is sent
+    // without an explicit action and a preview of precisely what leaves the
+    // machine. This is the chat-completions body the client will post.
+    return JSON.stringify(
+      {
+        model,
+        messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
+          { role: 'user', content: phrase },
+        ],
+      },
+      null,
+      2
+    );
+  }
+
   async function interpretWithAi(): Promise<void> {
     activeRequest.current?.abort('superseded');
     const controller = new AbortController();
@@ -131,7 +149,13 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
       }
       const candidate = answer.content.trim().replace(/^`+|`+$/g, '');
       if (candidate === 'IMPOSSIBLE') break;
-      const validated = await parseCronExpression(candidate, { locale: 'en', nextCount: 1 });
+      // The shared parser also accepts 6-field (seconds) expressions; this
+      // composer promises plain 5-field cron, so enforce the shape first.
+      const fieldCount = candidate.split(/\s+/).length;
+      const validated =
+        fieldCount === 5
+          ? await parseCronExpression(candidate, { locale: 'en', nextCount: 1 })
+          : ({ ok: false, message: `expected exactly 5 fields, got ${fieldCount}` } as const);
       if (validated.ok) {
         if (controller.signal.aborted) return;
         setAiPhase({ kind: 'done', expression: candidate });
@@ -140,7 +164,7 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
       }
       if (attempt === 0) {
         answer = await ask(
-          `${phrase}\n\nYour previous answer "${candidate}" was rejected by a cron parser (${
+          `${phrase}\n\nYour previous answer "${candidate}" was rejected (${
             validated.message ?? 'invalid'
           }). Reply with ONLY a corrected 5-field cron expression.`
         );
@@ -165,7 +189,16 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
           aria-label={t('utilities.tool.cron.phrase.label')}
           data-testid="cron-phrase-input"
           value={phrase}
-          onChange={event => setPhrase(event.target.value)}
+          onChange={event => {
+            // A new phrase invalidates everything derived from the old one:
+            // stale success chips, a failure card whose AI controls would
+            // otherwise send text the grammar never saw, or an in-flight
+            // request for the previous phrase.
+            activeRequest.current?.abort('phrase-edited');
+            setResult(null);
+            setAiPhase({ kind: 'idle' });
+            setPhrase(event.target.value);
+          }}
           placeholder={t('utilities.tool.cron.phrase.placeholder') ?? undefined}
           spellCheck={false}
         />
@@ -262,8 +295,8 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
                 type="button"
                 className="button-secondary inline-flex items-center gap-1.5 justify-self-start"
                 data-testid="cron-phrase-ai-run"
-                disabled={aiPhase.kind === 'busy'}
-                onClick={() => void interpretWithAi()}
+                disabled={aiPhase.kind === 'busy' || aiPhase.kind === 'preview'}
+                onClick={() => setAiPhase({ kind: 'preview', payload: buildAiPayload() })}
               >
                 <Sparkles size={14} aria-hidden />
                 {aiPhase.kind === 'busy'
@@ -271,6 +304,35 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
                   : t('utilities.tool.cron.phrase.ai.action')}
               </button>
               <p className="text-caption text-muted">{t('utilities.tool.cron.phrase.ai.hint')}</p>
+              {aiPhase.kind === 'preview' ? (
+                <div className="grid gap-1.5" data-testid="cron-phrase-ai-preview">
+                  <p className="text-caption text-muted">{t('ai.explain.consentIntro')}</p>
+                  <pre className="max-h-[30vh] overflow-auto whitespace-pre-wrap rounded-xl border border-border/70 bg-background/70 p-2 font-mono text-caption text-foreground">
+                    {aiPhase.payload}
+                  </pre>
+                  <p className="text-caption text-muted">
+                    {t('utilities.tool.cron.phrase.ai.retryNote')}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="button-primary"
+                      data-testid="cron-phrase-ai-send"
+                      onClick={() => void interpretWithAi()}
+                    >
+                      {t('ai.explain.send')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      data-testid="cron-phrase-ai-cancel"
+                      onClick={() => setAiPhase({ kind: 'idle' })}
+                    >
+                      {t('ai.explain.cancel')}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               {aiPhase.kind === 'done' ? (
                 <p
                   className="flex items-center gap-1.5 text-body-sm text-foreground"

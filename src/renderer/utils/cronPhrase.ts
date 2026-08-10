@@ -70,6 +70,8 @@ interface Extraction {
   times: TimeOfDay[];
   hourRange: { start: number; end: number; pmAssumed: boolean } | null;
   interval: { unit: 'minute' | 'hour' | 'day' | 'week' | 'month'; step: number } | null;
+  intervalConflict: boolean;
+  stepOutOfRange: { step: number; max: number } | null;
   weekdays: Set<number>;
   weekdayRange: { from: number; to: number } | null;
   monthDays: number[];
@@ -175,15 +177,52 @@ const FILLER = new Set([
   'please',
 ]);
 
+/**
+ * Spelled-out numbers people naturally write in schedules, both languages.
+ * Spanish "once" (11) is deliberately absent: it collides with English
+ * "once (a day)", so it is only honored in the unambiguous clock position
+ * ("a las once"), rewritten before this map runs.
+ */
+const NUMBER_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\buno\b/g, '1'],
+  [/\bdos\b/g, '2'],
+  [/\btres\b/g, '3'],
+  [/\bcuatro\b/g, '4'],
+  [/\bcinco\b/g, '5'],
+  [/\bseis\b/g, '6'],
+  [/\bsiete\b/g, '7'],
+  [/\bocho\b/g, '8'],
+  [/\bnueve\b/g, '9'],
+  [/\bdiez\b/g, '10'],
+  [/\bdoce\b/g, '12'],
+  [/\bone\b/g, '1'],
+  [/\btwo\b/g, '2'],
+  [/\bthree\b/g, '3'],
+  [/\bfour\b/g, '4'],
+  [/\bfive\b/g, '5'],
+  [/\bsix\b/g, '6'],
+  [/\bseven\b/g, '7'],
+  [/\beight\b/g, '8'],
+  [/\bnine\b/g, '9'],
+  [/\bten\b/g, '10'],
+  [/\beleven\b/g, '11'],
+  [/\btwelve\b/g, '12'],
+];
+
 /** Lowercase, strip diacritics, collapse whitespace and stray punctuation. */
 function normalize(phrase: string): string {
-  return phrase
+  let text = phrase
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/gu, '')
     .replace(/[.,;!?]+/gu, ' ')
     .replace(/\s+/gu, ' ')
     .trim();
+  text = text.replace(/\ba las? once\b/gu, 'a las 11');
+  for (const [regex, digit] of NUMBER_WORDS) {
+    text = text.replace(regex, digit);
+  }
+  return text;
 }
 
 function consume(state: Extraction, start: number, end: number): void {
@@ -201,11 +240,16 @@ function runAll(regex: RegExp, text: string, onMatch: (m: RegExpExecArray) => vo
 
 function toHour(raw: string, meridiem: string | undefined): number | null {
   let hour = Number(raw);
-  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null;
-  if (meridiem === 'pm' && hour < 12) hour += 12;
-  if (meridiem === 'am' && hour === 12) hour = 0;
-  if (hour > 23) return null;
-  return hour;
+  if (!Number.isInteger(hour)) return null;
+  if (meridiem) {
+    // A meridiem-qualified clock reads 1-12; "13pm" and "0am" are not times
+    // anyone says, so reject rather than reinterpret them as 24-hour values.
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === 'pm' && hour < 12) hour += 12;
+    if (meridiem === 'am' && hour === 12) hour = 0;
+    return hour;
+  }
+  return hour >= 0 && hour <= 23 ? hour : null;
 }
 
 /**
@@ -222,7 +266,10 @@ function extractHourRange(text: string, state: Extraction): void {
     let end = toHour(m[3]!, m[4]);
     if (start === null || end === null) return;
     let pmAssumed = false;
-    if (end < start && !m[4] && end <= 12) {
+    // The inferred-PM shift must still land inside the day: "between 23 and
+    // 12" would shift to 24, which no cron field can hold, so leave the pair
+    // inverted and let the end<=start rejection below refuse the range.
+    if (end < start && !m[4] && end <= 12 && end + 12 <= 23) {
       end += 12;
       pmAssumed = true;
     }
@@ -261,6 +308,24 @@ function extractTimes(text: string, state: Extraction): void {
     consume(state, m.index, m.index + m[0].length);
   });
 
+  // Half/quarter past forms, both languages. These must run before the bare
+  // "at N" pattern or it consumes the hour and strands "media"/"past".
+  const halfQuarter: ReadonlyArray<readonly [RegExp, number]> = [
+    [/\b(?:at\s+|a las?\s+)?(\d{1,2})\s+y\s+media\b/g, 30],
+    [/\b(?:at\s+|a las?\s+)?(\d{1,2})\s+y\s+cuarto\b/g, 15],
+    [/\bhalf past\s+(\d{1,2})\b/g, 30],
+    [/\bquarter past\s+(\d{1,2})\b/g, 15],
+  ];
+  for (const [regex, minute] of halfQuarter) {
+    runAll(regex, text, m => {
+      if (state.spans.some(([s, e]) => m.index >= s && m.index < e)) return;
+      const hour = toHour(m[1]!, undefined);
+      if (hour === null) return;
+      state.times.push({ hour, minute });
+      consume(state, m.index, m.index + m[0].length);
+    });
+  }
+
   // Bare hour introduced by "at / a las": "at 8", "a las 17".
   runAll(/\b(?:at|a las?)\s+(\d{1,2})\b/g, text, m => {
     if (state.spans.some(([s, e]) => m.index >= s && m.index < e)) return;
@@ -284,17 +349,47 @@ function extractInterval(text: string, state: Extraction): void {
     return null;
   };
 
+  // A step has to fit the cron field it lands in: */60 in the minute field
+  // or */13 in the month field parse nowhere. Weeks are exempt here because
+  // step>1 weeks gets its own, more useful unsupported explanation later.
+  const FIELD_MAX: Record<'minute' | 'hour' | 'day' | 'month', number> = {
+    minute: 59,
+    hour: 23,
+    day: 31,
+    month: 12,
+  };
   runAll(/\b(?:every|cada)\s+(?:(\d+)\s+)?([a-z]+)\b/g, text, m => {
     const unit = unitOf(m[2]!);
     if (!unit) return;
     const step = m[1] ? Number(m[1]) : 1;
     if (!Number.isInteger(step) || step < 1 || step > 999) return;
+    if (unit !== 'week' && step > FIELD_MAX[unit]) {
+      state.stepOutOfRange = { step, max: FIELD_MAX[unit] };
+      consume(state, m.index, m.index + m[0].length);
+      return;
+    }
+    if (state.interval && (state.interval.unit !== unit || state.interval.step !== step)) {
+      // "every 2 hours and every 3 days" is two competing cadences; keeping
+      // either one silently would violate the faithfulness contract.
+      state.intervalConflict = true;
+      consume(state, m.index, m.index + m[0].length);
+      return;
+    }
     state.interval = { unit, step };
     consume(state, m.index, m.index + m[0].length);
   });
 
   if (!state.interval) {
     const singles: ReadonlyArray<readonly [RegExp, Extraction['interval']]> = [
+      [/\b(?:every half hour|cada media hora)\b/g, { unit: 'minute', step: 30 }],
+      // "once a day" reads as a plain daily schedule; "twice a day" is the
+      // 12-hour cadence (00:00 and 12:00, or anchored to the given time).
+      [/\b(?:once (?:a|per) (?:day|dia)|once daily)\b/g, { unit: 'day', step: 1 }],
+      [/\b(?:once (?:a|per) week)\b/g, { unit: 'week', step: 1 }],
+      [/\b(?:once (?:a|per) month)\b/g, { unit: 'month', step: 1 }],
+      // Post-normalization forms: "dos veces" already reads "2 veces" here.
+      [/\b(?:twice (?:a|per) (?:day|dia)|twice daily|2 veces al dia)\b/g, { unit: 'hour', step: 12 }],
+      [/\b(?:una|1) vez al dia\b/g, { unit: 'day', step: 1 }],
       [/\b(?:hourly)\b/g, { unit: 'hour', step: 1 }],
       [/\b(?:daily|diario|diaria|diariamente|todos los dias)\b/g, { unit: 'day', step: 1 }],
       [/\b(?:weekly|semanal|semanalmente)\b/g, { unit: 'week', step: 1 }],
@@ -419,6 +514,8 @@ export function phraseToCron(phrase: string): CronPhraseResult {
     times: [],
     hourRange: null,
     interval: null,
+    intervalConflict: false,
+    stepOutOfRange: null,
     weekdays: new Set(),
     weekdayRange: null,
     monthDays: [],
@@ -439,6 +536,27 @@ export function phraseToCron(phrase: string): CronPhraseResult {
   const leftover = leftoverTokens(text, state.spans);
   if (leftover.length > 0) {
     return { ok: false, reason: 'unrecognized', leftover };
+  }
+
+  // Out-of-range and conflicting cadences must win over "nothing found":
+  // both consumed their spans, so without this they would fall through to
+  // the generic unrecognized result and lose their explanation.
+  if (state.stepOutOfRange) {
+    return {
+      ok: false,
+      reason: 'unsupported',
+      detail: {
+        key: 'utilities.tool.cron.phrase.unsupported.stepOutOfRange',
+        values: { step: state.stepOutOfRange.step, max: state.stepOutOfRange.max },
+      },
+    };
+  }
+  if (state.intervalConflict) {
+    return {
+      ok: false,
+      reason: 'unsupported',
+      detail: { key: 'utilities.tool.cron.phrase.unsupported.conflictingIntervals' },
+    };
   }
 
   const anythingExtracted =
@@ -509,6 +627,12 @@ export function phraseToCron(phrase: string): CronPhraseResult {
     switch (interval.unit) {
       case 'minute': {
         minute = interval.step === 1 ? '*' : `*/${interval.step}`;
+        if (interval.step > 1 && 60 % interval.step !== 0) {
+          caveats.push({
+            key: 'utilities.tool.cron.phrase.caveat.minuteStepUneven',
+            values: { step: interval.step, tail: 60 % interval.step },
+          });
+        }
         if (state.times.length > 0) {
           // "every 5 minutes at 8am" reads as: within hour 8.
           hour = [...new Set(state.times.map(t => t.hour))].sort((a, b) => a - b).join(',');
@@ -518,6 +642,12 @@ export function phraseToCron(phrase: string): CronPhraseResult {
       }
       case 'hour': {
         hour = interval.step === 1 ? '*' : `*/${interval.step}`;
+        if (interval.step > 1 && 24 % interval.step !== 0) {
+          caveats.push({
+            key: 'utilities.tool.cron.phrase.caveat.hourStepUneven',
+            values: { step: interval.step, tail: 24 % interval.step },
+          });
+        }
         if (state.times.length === 0) {
           minute = '0';
           assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.minuteZero' });
@@ -558,7 +688,15 @@ export function phraseToCron(phrase: string): CronPhraseResult {
         break;
       }
       case 'month': {
-        if (interval.step > 1) month = `*/${interval.step}`;
+        if (interval.step > 1) {
+          month = `*/${interval.step}`;
+          if (12 % interval.step !== 0) {
+            caveats.push({
+              key: 'utilities.tool.cron.phrase.caveat.monthStepUneven',
+              values: { step: interval.step, tail: 12 % interval.step },
+            });
+          }
+        }
         if (dom === '*') {
           dom = '1';
           assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.firstOfMonth' });

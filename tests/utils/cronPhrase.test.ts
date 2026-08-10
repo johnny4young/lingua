@@ -137,6 +137,85 @@ const OK_CASES: readonly OkCase[] = [
     caveats: [`${K}.caveat.domDowUnion`],
   },
 
+  // ---- uneven steps get reset caveats ---------------------------------
+  {
+    phrase: 'every 40 minutes',
+    expression: '*/40 * * * *',
+    caveats: [`${K}.caveat.minuteStepUneven`],
+  },
+  { phrase: 'cada 30 minutos', expression: '*/30 * * * *' },
+  {
+    phrase: 'every 5 hours',
+    expression: '0 */5 * * *',
+    assumptions: [`${K}.assumption.minuteZero`],
+    caveats: [`${K}.caveat.hourStepUneven`],
+  },
+  {
+    phrase: 'cada 2 horas',
+    expression: '0 */2 * * *',
+    assumptions: [`${K}.assumption.minuteZero`],
+  },
+  {
+    phrase: 'cada 5 meses el 1st a las 9',
+    expression: '0 9 1 */5 *',
+    caveats: [`${K}.caveat.monthStepUneven`],
+  },
+
+  // ---- grammar expansion: number words, half/quarter, once/twice ------
+  {
+    phrase: 'cada dos dias a las 8',
+    expression: '0 8 */2 * *',
+    caveats: [`${K}.caveat.domStepReset`],
+  },
+  { phrase: 'every ten minutes', expression: '*/10 * * * *' },
+  {
+    phrase: 'de nueve a cinco cada 30 minutos',
+    expression: '*/30 9-17 * * *',
+    assumptions: [`${K}.assumption.pmWindowEnd`],
+  },
+  {
+    phrase: 'a las ocho y media',
+    expression: '30 8 * * *',
+    assumptions: [`${K}.assumption.daily`],
+  },
+  {
+    phrase: 'half past 8',
+    expression: '30 8 * * *',
+    assumptions: [`${K}.assumption.daily`],
+  },
+  { phrase: 'quarter past 9 on weekdays', expression: '15 9 * * 1-5' },
+  {
+    phrase: 'a las once',
+    expression: '0 11 * * *',
+    assumptions: [`${K}.assumption.daily`],
+  },
+  {
+    phrase: 'a las dos y cuarto',
+    expression: '15 2 * * *',
+    assumptions: [`${K}.assumption.daily`],
+  },
+  {
+    phrase: 'once a day',
+    expression: '0 0 * * *',
+    assumptions: [`${K}.assumption.midnight`],
+  },
+  { phrase: 'once a day at 6am', expression: '0 6 * * *' },
+  {
+    phrase: 'twice a day',
+    expression: '0 */12 * * *',
+    assumptions: [`${K}.assumption.minuteZero`],
+  },
+  {
+    phrase: 'una vez al dia a las 7',
+    expression: '0 7 * * *',
+  },
+  { phrase: 'cada media hora', expression: '*/30 * * * *' },
+  {
+    phrase: 'once a week',
+    expression: '0 0 * * 1',
+    assumptions: [`${K}.assumption.monday`, `${K}.assumption.midnight`],
+  },
+
   // ---- windows without an interval ------------------------------------
   {
     phrase: 'weekdays between 9 and 5',
@@ -214,6 +293,41 @@ describe('phraseToCron — honest failures', () => {
     if (result.ok) return;
     expect(result.reason).toBe('unsupported');
     expect(result.detail?.key).toBe(`${K}.unsupported.mixedTimes`);
+  });
+
+  it('rejects meridiem-qualified clocks outside 1-12 instead of reading them as 24h', () => {
+    expect(phraseToCron('at 13pm').ok).toBe(false);
+    expect(phraseToCron('at 0am').ok).toBe(false);
+  });
+
+  it('refuses a window whose inferred-pm end would leave the day', () => {
+    // 12 + 12 = 24 fits no cron hour field; the range is rejected rather
+    // than emitted as 23-24 for the downstream parser to choke on.
+    expect(phraseToCron('every 15 minutes between 23 and 12').ok).toBe(false);
+  });
+
+  it('refuses steps that do not fit their cron field, naming the maximum', () => {
+    for (const [phrase, max] of [
+      ['every 60 minutes', 59],
+      ['every 24 hours', 23],
+      ['every 32 days', 31],
+      ['every 13 months', 12],
+    ] as const) {
+      const result = phraseToCron(phrase);
+      expect(result.ok, phrase).toBe(false);
+      if (result.ok) continue;
+      expect(result.reason).toBe('unsupported');
+      expect(result.detail?.key).toBe(`${K}.unsupported.stepOutOfRange`);
+      expect(result.detail?.values).toMatchObject({ max });
+    }
+  });
+
+  it('refuses competing intervals instead of silently keeping one', () => {
+    const result = phraseToCron('every 2 hours every 3 days');
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('unsupported');
+    expect(result.detail?.key).toBe(`${K}.unsupported.conflictingIntervals`);
   });
 
   it('rejects out-of-range clock values rather than clamping them', () => {

@@ -129,6 +129,11 @@ describe('CronPhraseComposer', () => {
     generate('deploy the flux capacitor');
 
     fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    // The exact-payload contract: nothing is sent before the preview + Send.
+    expect(runChatCompletion).not.toHaveBeenCalled();
+    const preview = screen.getByTestId('cron-phrase-ai-preview');
+    expect(preview.textContent).toContain('deploy the flux capacitor');
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-send'));
     await waitFor(() =>
       expect(screen.getByTestId('cron-phrase-ai-verified').textContent).toContain('30 7 * * 2')
     );
@@ -146,6 +151,7 @@ describe('CronPhraseComposer', () => {
     generate('deploy the flux capacitor');
 
     fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-send'));
     await waitFor(() => expect(runChatCompletion).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByText(/could not produce a valid cron/i)).toBeTruthy());
     expect(onExpression).not.toHaveBeenCalled();
@@ -153,7 +159,7 @@ describe('CronPhraseComposer', () => {
     const retryMessages = runChatCompletion.mock.calls[1]?.[0]?.messages as Array<{
       content: string;
     }>;
-    expect(retryMessages?.[1]?.content).toContain('rejected by a cron parser');
+    expect(retryMessages?.[1]?.content).toContain('was rejected');
   });
 
   it('surfaces transport failures with the client message', async () => {
@@ -167,7 +173,54 @@ describe('CronPhraseComposer', () => {
     generate('deploy the flux capacitor');
 
     fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-send'));
     await waitFor(() => expect(screen.getByText(/connection refused/)).toBeTruthy());
+  });
+
+  it('cancels the preview without sending anything', () => {
+    configureAi(true);
+    render(<CronPhraseComposer onExpression={vi.fn()} />);
+    generate('deploy the flux capacitor');
+
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-cancel'));
+    expect(screen.queryByTestId('cron-phrase-ai-preview')).toBeNull();
+    expect(runChatCompletion).not.toHaveBeenCalled();
+  });
+
+  it('rejects a six-field model answer even though the shared parser accepts seconds', async () => {
+    configureAi(true);
+    runChatCompletion
+      .mockResolvedValueOnce({ ok: true, content: '0 30 7 * * 2' })
+      .mockResolvedValueOnce({ ok: true, content: '0 30 7 * * 2' });
+    const onExpression = vi.fn();
+    render(<CronPhraseComposer onExpression={onExpression} />);
+    generate('deploy the flux capacitor');
+
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-send'));
+    await waitFor(() => expect(runChatCompletion).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText(/could not produce a valid cron/i)).toBeTruthy());
+    expect(onExpression).not.toHaveBeenCalled();
+    const retryMessages = runChatCompletion.mock.calls[1]?.[0]?.messages as Array<{
+      content: string;
+    }>;
+    expect(retryMessages?.[1]?.content).toContain('expected exactly 5 fields, got 6');
+  });
+
+  it('clears the previous result and AI state when the phrase is edited', () => {
+    configureAi(true);
+    render(<CronPhraseComposer onExpression={vi.fn()} />);
+    generate('deploy the flux capacitor');
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    expect(screen.getByTestId('cron-phrase-ai-preview')).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId('cron-phrase-input'), {
+      target: { value: 'every 3 days at 8am' },
+    });
+    expect(screen.queryByTestId('cron-phrase-unrecognized')).toBeNull();
+    expect(screen.queryByTestId('cron-phrase-ai-preview')).toBeNull();
+    expect(screen.queryByTestId('cron-phrase-ai-run')).toBeNull();
   });
 
   it('renders the tuteo Spanish copy when the locale switches', async () => {
