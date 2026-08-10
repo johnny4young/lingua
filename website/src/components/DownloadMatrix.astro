@@ -27,6 +27,10 @@ const PLATFORMS = [
   { id: 'linux' as const,   label: 'Linux',   icon: 'terminal' },
 ];
 
+function platformNote(id: string): string | undefined {
+  return (copy.platformNotes as Record<string, string | undefined>)?.[id];
+}
+
 function archLabel(arch: string): string {
   switch (arch) {
     case 'arm64': return copy.arch.arm64;
@@ -70,6 +74,18 @@ function archLabel(arch: string): string {
                 <Icon name="lucide:clock" class="coming-soon-icon" />
                 <span>{copy.comingSoon}</span>
               </div>
+            )
+          }
+          {
+            /* Per-platform caveat, rendered only where one exists. Windows
+               ships unsigned, so first run hits a SmartScreen block: saying so
+               here, next to the button, is what keeps that from reading as a
+               malware warning on an unexpected page. */
+            platformNote(p.id) && (
+              <p class="platform-note">
+                <Icon name="lucide:shield-alert" class="platform-note-icon" />
+                <span>{platformNote(p.id)}</span>
+              </p>
             )
           }
         </article>
@@ -248,6 +264,26 @@ function archLabel(arch: string): string {
     font-size: var(--text-small);
     color: var(--color-accent);
   }
+  .platform-note {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    margin: 0.75rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.18));
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-muted, #94a3b8);
+  }
+
+  .platform-note-icon {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.15rem;
+    opacity: 0.75;
+  }
+
   .verify-note {
     color: var(--color-text-muted);
     font-size: var(--text-small);

@@ -542,6 +542,10 @@ export const en = {
         x64: 'Intel / x64',
         universal: 'Universal',
       },
+      platformNotes: {
+        windows:
+          'Not code-signed yet, so Windows shows a "Windows protected your PC" screen on first run. Choose More info, then Run anyway. The checksum below is how you verify the file is the one we published.',
+      },
     },
   },
   changelog: {
