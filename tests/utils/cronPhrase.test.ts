@@ -306,6 +306,39 @@ const OK_CASES: readonly OkCase[] = [
     assumptions: [`${K}.assumption.midnight`],
     caveats: [`${K}.caveat.nonstandardLastWeekday`],
   },
+  // "cada quincena" is the Spanish payroll idiom. Unlike "cada 2 semanas" it
+  // HAS an exact cron form — the 1st and the 15th — so it must be accepted,
+  // not refused; the notes carry the reading and the uneven gap.
+  {
+    phrase: 'cada quincena',
+    expression: '0 0 1,15 * *',
+    assumptions: [`${K}.assumption.semiMonthly`, `${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.semiMonthlyGap`],
+  },
+  {
+    phrase: 'quincenalmente',
+    expression: '0 0 1,15 * *',
+    assumptions: [`${K}.assumption.semiMonthly`, `${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.semiMonthlyGap`],
+  },
+  {
+    phrase: 'cada quincena a las 8am',
+    expression: '0 8 1,15 * *',
+    assumptions: [`${K}.assumption.semiMonthly`],
+    caveats: [`${K}.caveat.semiMonthlyGap`],
+  },
+  {
+    phrase: 'twice a month',
+    expression: '0 0 1,15 * *',
+    assumptions: [`${K}.assumption.semiMonthly`, `${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.semiMonthlyGap`],
+  },
+  {
+    phrase: 'semi-monthly',
+    expression: '0 0 1,15 * *',
+    assumptions: [`${K}.assumption.semiMonthly`, `${K}.assumption.midnight`],
+    caveats: [`${K}.caveat.semiMonthlyGap`],
+  },
   { phrase: 'each day at 6am', expression: '0 6 * * *' },
   { phrase: 'every weekday at 9', expression: '0 9 * * 1-5' },
 

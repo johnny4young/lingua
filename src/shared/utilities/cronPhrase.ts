@@ -75,6 +75,7 @@ interface Extraction {
   weekdays: Set<number>;
   weekdayRange: { from: number; to: number } | null;
   nthWeekday: { day: number; nth: number | 'last' } | null;
+  semiMonthly: boolean;
   monthDays: number[];
   lastDayOfMonth: boolean;
   months: number[];
@@ -488,6 +489,31 @@ function extractWeekdays(text: string, state: Extraction): void {
   }
 }
 
+/**
+ * "cada quincena" / semi-monthly. Spanish payroll and billing say this
+ * constantly, and unlike "cada 2 semanas" it does have an exact cron form:
+ * the conventional reading is the 1st and the 15th — the very fallback the
+ * multi-week refusal already recommends. The reading is an interpretation
+ * rather than a literal 14-day cadence, so it reports an assumption, and the
+ * gap it produces is uneven, so it reports a caveat.
+ *
+ * "bimonthly" is deliberately absent: in English it means both every two
+ * months and twice a month, and picking one would be exactly the kind of
+ * silent guess this engine refuses to make.
+ */
+function extractSemiMonthly(text: string, state: Extraction): void {
+  runAll(
+    /\b(?:quincenal(?:mente)?|quincena|semi[-\s]?monthly|twice (?:a|per) month|2 veces al mes)\b/g,
+    text,
+    m => {
+      if (state.spans.some(([s, e]) => m.index >= s && m.index < e)) return;
+      state.semiMonthly = true;
+      state.monthDays.push(1, 15);
+      consume(state, m.index, m.index + m[0].length);
+    }
+  );
+}
+
 /** Extract day-of-month anchors: "el 15", "on the 1st", "primer dia del mes", "ultimo dia". */
 function extractMonthDays(text: string, state: Extraction): void {
   runAll(/\b(?:first day(?: of (?:the )?month)?|primer dia(?: del? mes)?)\b/g, text, m => {
@@ -578,6 +604,7 @@ export function phraseToCron(phrase: string): CronPhraseResult {
     weekdays: new Set(),
     weekdayRange: null,
     nthWeekday: null,
+    semiMonthly: false,
     monthDays: [],
     lastDayOfMonth: false,
     months: [],
@@ -589,6 +616,7 @@ export function phraseToCron(phrase: string): CronPhraseResult {
   extractHourRange(text, state);
   extractInterval(text, state);
   extractWeekdays(text, state);
+  extractSemiMonthly(text, state);
   extractMonthDays(text, state);
   extractMonths(text, state);
   extractTimes(text, state);
@@ -676,6 +704,10 @@ export function phraseToCron(phrase: string): CronPhraseResult {
 
   if (state.monthDays.length > 0) {
     dom = [...new Set(state.monthDays)].sort((a, b) => a - b).join(',');
+  }
+  if (state.semiMonthly) {
+    assumptions.push({ key: 'utilities.tool.cron.phrase.assumption.semiMonthly' });
+    caveats.push({ key: 'utilities.tool.cron.phrase.caveat.semiMonthlyGap' });
   }
   if (state.lastDayOfMonth) {
     dom = dom === '*' ? 'L' : `${dom},L`;

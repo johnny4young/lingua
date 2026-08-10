@@ -44,6 +44,10 @@ export const CRON_PHRASE_NOTE_TEXT: Readonly<Record<string, string>> = {
     'The # operator (nth weekday of the month) is a Quartz extension, not POSIX cron.',
   'utilities.tool.cron.phrase.caveat.nonstandardLastWeekday':
     'The L operator on a weekday (last one of the month) is a Quartz extension, not POSIX cron.',
+  'utilities.tool.cron.phrase.assumption.semiMonthly':
+    'A fortnightly cadence has no single cron form; read as the 1st and the 15th.',
+  'utilities.tool.cron.phrase.caveat.semiMonthlyGap':
+    'The gap is not uniform: 14 days from the 1st to the 15th, then 14 to 17 days from the 15th to the next 1st.',
   'utilities.tool.cron.phrase.caveat.domStepReset':
     'The {{step}}-day step restarts at the start of every month, so the gap breaks at month boundaries.',
   'utilities.tool.cron.phrase.caveat.domDowUnion':
