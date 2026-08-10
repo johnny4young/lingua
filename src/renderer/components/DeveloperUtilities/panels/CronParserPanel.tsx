@@ -13,6 +13,7 @@ import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutpu
 import { CopyButton } from '../CopyButton';
 import { CRON_PARSER_MAX_NEXT, parseCronExpression } from '../../../utils/cronParser';
 import type { CronParserLocale, ParseCronResult } from '../../../utils/cronParser';
+import { CronPhraseComposer } from './CronPhraseComposer';
 
 const DEFAULT_CRON_EXPRESSION = '*/5 * * * *';
 const DEFAULT_CRON_NEXT_COUNT = 5;
@@ -114,6 +115,7 @@ export function CronParserPanel() {
         title={t('utilities.tool.cron.title')}
         description={t('utilities.tool.cron.panelDescription')}
       >
+        <CronPhraseComposer onExpression={setExpression} />
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.cron.input.label')}</FieldLabel>
           <UtilityInput
