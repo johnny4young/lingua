@@ -79,6 +79,9 @@ export const UTILITY_ADAPTER_IDS = [
   'uuid',
   'lorem-ipsum',
   'string-inspect',
+  // Natural-language schedule -> cron expression, sharing the Cron Parser
+  // panel's grammar (src/shared/utilities/cronPhrase.ts).
+  'cron-phrase',
 ] as const;
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 

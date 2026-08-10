@@ -91,9 +91,9 @@ describe('dispatch', () => {
     const code = await dispatch(['list', 'utilities', '--json'], io);
     expect(code).toBe(CLI_EXIT_CODES.ok);
     const parsed = JSON.parse(state.stdout) as { utilities: unknown[] };
-    // implementation — 23 adapters after the generator-style holdouts
+    // 24 adapters after cron-phrase joined the registry
     // (uuid / lorem-ipsum / string-inspect) landed.
-    expect(parsed.utilities).toHaveLength(23);
+    expect(parsed.utilities).toHaveLength(24);
   });
 
   it.each(['bash', 'zsh', 'fish'] as const)('renders %s completion without ANSI', async shell => {

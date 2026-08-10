@@ -37,6 +37,7 @@ import { stringInspectAdapter } from './stringInspect';
 import { textStatsAdapter } from './textStats';
 import { timestampAdapter } from './timestamp';
 import { uuidAdapter } from './uuid';
+import { cronPhraseAdapter } from './cronPhraseAdapter';
 import type { UtilityAdapter, UtilityAdapterId } from './types';
 import { urlParseAdapter } from './urlParse';
 import { urlDecodeAdapter, urlEncodeAdapter } from './urlComponent';
@@ -74,6 +75,7 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   uuid: uuidAdapter as UtilityAdapter<unknown>,
   'lorem-ipsum': loremIpsumAdapter as UtilityAdapter<unknown>,
   'string-inspect': stringInspectAdapter as UtilityAdapter<unknown>,
+  'cron-phrase': cronPhraseAdapter as UtilityAdapter<unknown>,
 };
 
 export function getAdapter(id: string): UtilityAdapter<unknown> | undefined {
