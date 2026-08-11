@@ -197,13 +197,31 @@ describe('sanitizeRunCapsule — redaction proof', () => {
 
 describe('computeContentHash — collision smoke (Dimension 8)', () => {
   it('produces 10 000 unique hashes across 10 000 distinct inputs', async () => {
+    const TOTAL = 10_000;
+    // Hash in bounded batches rather than one `await` per input. Every
+    // `computeContentHash` call is a `crypto.subtle.digest` round-trip through
+    // the libuv threadpool, which the whole worker pool shares; 10 000
+    // sequential round-trips are fast in isolation but stall behind other
+    // files' threadpool work under a full-suite run, which is what made this
+    // test flaky. Batching keeps the same 10 000 distinct inputs while
+    // capping in-flight digests so the pool stays saturated instead of
+    // ping-ponging.
+    const BATCH = 500;
     const seen = new Set<string>();
-    for (let i = 0; i < 10_000; i += 1) {
-      const hash = await computeContentHash(`payload-${i}`);
-      expect(seen.has(hash)).toBe(false);
-      seen.add(hash);
+    for (let start = 0; start < TOTAL; start += BATCH) {
+      const size = Math.min(BATCH, TOTAL - start);
+      const hashes = await Promise.all(
+        Array.from({ length: size }, (_unused, offset) =>
+          computeContentHash(`payload-${start + offset}`)
+        )
+      );
+      for (const hash of hashes) {
+        seen.add(hash);
+      }
     }
-    expect(seen.size).toBe(10_000);
+    // A Set of 10 000 hashes from 10 000 distinct inputs can only reach
+    // TOTAL when no two inputs shared a digest.
+    expect(seen.size).toBe(TOTAL);
   });
 });
 
