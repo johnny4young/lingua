@@ -49,7 +49,24 @@ function decodeEntities(text: string): string {
 }
 
 function toPlainText(html: string): string {
-  return decodeEntities(stripTags(html)).replace(/\s+/g, ' ').trim();
+  return decodeEntities(stripTags(html))
+    // The sync pipeline turns **bold** into <strong> but leaves *emphasis*
+    // as literal asterisks, which render as punctuation on the page. Strip
+    // the markers here so both this band and the history chips read clean.
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** First sentence only — the band is a teaser, the changelog carries the rest. */
+function firstSentence(text: string): string {
+  const match = text.match(/^(.*?[.!?])(?:\s|$)/);
+  const sentence = match?.[1] ?? text;
+  if (sentence.length <= 220) return sentence;
+  // Cut on a word boundary; slicing mid-word reads like a rendering bug.
+  const clipped = sentence.slice(0, 217);
+  const lastSpace = clipped.lastIndexOf(' ');
+  return `${(lastSpace > 120 ? clipped.slice(0, lastSpace) : clipped).trimEnd()}...`;
 }
 
 interface FeatureLead {
@@ -89,6 +106,21 @@ const history = previous.map((entry) => ({
   date: formatDate(entry.date),
   leads: leadsFor(entry),
 }));
+
+// The showcase grid below is the frozen 1.0 launch story, so nothing on this
+// page carried the CURRENT release's own copy: a new version only ever showed
+// up once the next one pushed it down into the history timeline. This band
+// closes that gap by leading with what actually shipped last.
+const current = entries[0];
+const latest = current
+  ? {
+      version: current.version,
+      date: formatDate(current.date),
+      leads: leadsFor(current)
+        .slice(0, 3)
+        .map((entry) => ({ lead: entry.lead, tip: firstSentence(entry.tip) })),
+    }
+  : null;
 ---
 
 <section class="whats-new">
@@ -97,6 +129,28 @@ const history = previous.map((entry) => ({
     <h2>{headline}</h2>
     <p class="lede">{block.lede}</p>
   </header>
+
+  {
+    latest && latest.leads.length > 0 && (
+      <div class="latest">
+        <p class="latest-tag">
+          <span class="latest-badge">{block.latest.label} {latest.version}</span>
+          <time>{latest.date}</time>
+        </p>
+        <ul class="latest-list">
+          {latest.leads.map((entry) => (
+            <li>
+              <strong>{entry.lead}</strong>
+              <span>{entry.tip}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="latest-cta">
+          <a href={localizePath(locale, '/releases')}>{block.latest.cta} →</a>
+        </p>
+      </div>
+    )
+  }
 
   <div class="whats-new-grid">
     {
@@ -244,6 +298,60 @@ const history = previous.map((entry) => ({
     text-decoration: none;
   }
   .whats-new-cta a:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Latest release band — the current version's own highlights ── */
+  .latest {
+    margin-top: clamp(1.5rem, 4vw, 2.25rem);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    background: var(--color-surface, transparent);
+  }
+  .latest-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: 0 0 1rem;
+  }
+  .latest-badge {
+    color: var(--color-accent);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .latest-tag time {
+    color: var(--color-text-muted, inherit);
+    font-size: 0.9rem;
+  }
+  .latest-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.85rem;
+  }
+  .latest-list li {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .latest-list strong {
+    font-weight: 600;
+  }
+  .latest-list span {
+    color: var(--color-text-muted, inherit);
+    font-size: 0.95rem;
+  }
+  .latest-cta {
+    margin: 1.25rem 0 0;
+  }
+  .latest-cta a {
+    color: var(--color-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .latest-cta a:hover {
     text-decoration: underline;
   }
 

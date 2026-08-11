@@ -143,6 +143,10 @@ export const es = {
       releaseTitle: 'Seis flujos que definen Lingua 1.0.',
       lede: 'Capturados desde builds actuales, no desde mockups. Cada flujo indica dónde funciona y cuándo necesita Pro; el registro técnico completo vive en el changelog.',
       cta: 'Lee el changelog completo',
+      latest: {
+        label: 'Nuevo en',
+        cta: 'Descarga o lee las notas del release',
+      },
       history: {
         title: 'Cada release antes de este',
         lede: 'Un historial constante de progreso local-first. Expande cualquier versión para ver sus destacados.',
