@@ -143,6 +143,10 @@ export const en = {
       releaseTitle: 'Six workflows that define Lingua 1.0.',
       lede: 'Captured from current builds, not mockups. Each workflow states where it runs and when it needs Pro; the complete technical record lives in the changelog.',
       cta: 'Read the full changelog',
+      latest: {
+        label: 'New in',
+        cta: 'Download or read the release notes',
+      },
       history: {
         title: 'Every release before this one',
         lede: 'A steady record of local-first progress. Expand any version for its highlights.',
