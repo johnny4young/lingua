@@ -1,111 +1,111 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-08-09T04:14:47.714Z",
+  "capturedAt": "2026-08-11T01:15:21.146Z",
   "release": {
-    "tag": "v1.0.2",
-    "publishedAt": "2026-08-08T14:24:26Z",
-    "htmlUrl": "https://github.com/johnny4young/lingua/releases/tag/v1.0.2",
+    "tag": "v1.1.0",
+    "publishedAt": "2026-08-10T23:12:46Z",
+    "htmlUrl": "https://github.com/johnny4young/lingua/releases/tag/v1.1.0",
     "draft": false,
     "prerelease": false,
     "assets": [
       {
         "name": "latest-linux.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/latest-linux.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/latest-linux.yml",
         "sizeBytes": 390
       },
       {
         "name": "latest-mac.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/latest-mac.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/latest-mac.yml",
         "sizeBytes": 814
       },
       {
         "name": "latest.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/latest.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/latest.yml",
         "sizeBytes": 345
       },
       {
-        "name": "Lingua-1.0.2-linux-x86_64.AppImage",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-linux-x86_64.AppImage",
-        "sizeBytes": 168695315
+        "name": "Lingua-1.1.0-linux-x86_64.AppImage",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-linux-x86_64.AppImage",
+        "sizeBytes": 168706987
       },
       {
-        "name": "Lingua-1.0.2-mac-arm64.dmg",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-arm64.dmg",
-        "sizeBytes": 159555981
+        "name": "Lingua-1.1.0-mac-arm64.dmg",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-arm64.dmg",
+        "sizeBytes": 159544696
       },
       {
-        "name": "Lingua-1.0.2-mac-arm64.dmg.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-arm64.dmg.blockmap",
-        "sizeBytes": 166814
+        "name": "Lingua-1.1.0-mac-arm64.dmg.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-arm64.dmg.blockmap",
+        "sizeBytes": 166776
       },
       {
-        "name": "Lingua-1.0.2-mac-arm64.zip",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-arm64.zip",
-        "sizeBytes": 159097456
+        "name": "Lingua-1.1.0-mac-arm64.zip",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-arm64.zip",
+        "sizeBytes": 159117219
       },
       {
-        "name": "Lingua-1.0.2-mac-arm64.zip.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-arm64.zip.blockmap",
-        "sizeBytes": 167007
+        "name": "Lingua-1.1.0-mac-arm64.zip.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-arm64.zip.blockmap",
+        "sizeBytes": 166983
       },
       {
-        "name": "Lingua-1.0.2-mac-x64.dmg",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-x64.dmg",
-        "sizeBytes": 164432695
+        "name": "Lingua-1.1.0-mac-x64.dmg",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-x64.dmg",
+        "sizeBytes": 164448935
       },
       {
-        "name": "Lingua-1.0.2-mac-x64.dmg.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-x64.dmg.blockmap",
-        "sizeBytes": 173179
+        "name": "Lingua-1.1.0-mac-x64.dmg.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-x64.dmg.blockmap",
+        "sizeBytes": 173436
       },
       {
-        "name": "Lingua-1.0.2-mac-x64.zip",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-x64.zip",
-        "sizeBytes": 164035536
+        "name": "Lingua-1.1.0-mac-x64.zip",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-x64.zip",
+        "sizeBytes": 164055444
       },
       {
-        "name": "Lingua-1.0.2-mac-x64.zip.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-mac-x64.zip.blockmap",
-        "sizeBytes": 172407
+        "name": "Lingua-1.1.0-mac-x64.zip.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-mac-x64.zip.blockmap",
+        "sizeBytes": 172457
       },
       {
-        "name": "Lingua-1.0.2-win-x64.exe",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-win-x64.exe",
-        "sizeBytes": 133997191
+        "name": "Lingua-1.1.0-win-x64.exe",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-win-x64.exe",
+        "sizeBytes": 134017784
       },
       {
-        "name": "Lingua-1.0.2-win-x64.exe.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/Lingua-1.0.2-win-x64.exe.blockmap",
-        "sizeBytes": 141585
+        "name": "Lingua-1.1.0-win-x64.exe.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/Lingua-1.1.0-win-x64.exe.blockmap",
+        "sizeBytes": 142212
       },
       {
-        "name": "lingua-cli-v1.0.2-linux-x64.tar.gz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/lingua-cli-v1.0.2-linux-x64.tar.gz",
-        "sizeBytes": 42997356
+        "name": "lingua-cli-v1.1.0-linux-x64.tar.gz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/lingua-cli-v1.1.0-linux-x64.tar.gz",
+        "sizeBytes": 43003811
       },
       {
-        "name": "lingua-cli-v1.0.2-windows-x64.tar.gz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/lingua-cli-v1.0.2-windows-x64.tar.gz",
-        "sizeBytes": 34687914
+        "name": "lingua-cli-v1.1.0-windows-x64.tar.gz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/lingua-cli-v1.1.0-windows-x64.tar.gz",
+        "sizeBytes": 34694374
       },
       {
         "name": "lingua-sbom.cyclonedx.json",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/lingua-sbom.cyclonedx.json",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/lingua-sbom.cyclonedx.json",
         "sizeBytes": 5817
       },
       {
-        "name": "linguacode-cli-1.0.2.tgz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/linguacode-cli-1.0.2.tgz",
-        "sizeBytes": 78464
+        "name": "linguacode-cli-1.1.0.tgz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/linguacode-cli-1.1.0.tgz",
+        "sizeBytes": 84966
       },
       {
         "name": "SHA256SUMS.txt",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/SHA256SUMS.txt",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/SHA256SUMS.txt",
         "sizeBytes": 1789
       },
       {
         "name": "THIRD_PARTY_LICENSE_REPORT.md",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.0.2/THIRD_PARTY_LICENSE_REPORT.md",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.1.0/THIRD_PARTY_LICENSE_REPORT.md",
         "sizeBytes": 2745
       }
     ]
