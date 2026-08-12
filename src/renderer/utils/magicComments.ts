@@ -15,7 +15,7 @@
  *     with `type: 'watch'` (vs `'magic'` for arrows) so the panel can
  *     render a pin icon + sticky semantics.
  *
- *   - **Auto-log (implementation, JS / TS only)** — opt-in
+ *   - **Auto-log (JS / TS source pass)** — opt-in
  *     whole-buffer pass. Every TOP-LEVEL bare expression statement
  *     is replaced with a `__mc(line, value)` capture so the expression
  *     executes once and its value surfaces inline without the user
@@ -25,9 +25,9 @@
  *     auto-log on the same line (the detector explicitly excludes
  *     them).
  *
- * All variants funnel through the same `__mc` runner injection — no
- * worker protocol change. The per-line `kind` lives in a side-table
- * the runner reads when stitching results back into `LineResult[]`.
+ * Python Scratchpad auto-log uses CPython's AST inside the Pyodide worker and
+ * funnels into the same `__mc` result channel. Explicit Python arrows/watches
+ * remain owned by this source transform.
  */
 
 import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../shared/languageFamilies';
@@ -1009,7 +1009,7 @@ function buildAutoLogCapture(
   lineNumber: number,
   expression: string
 ): string {
-  return `__mc(${lineNumber}, await (async () => { try { return (${expression}); } catch(__e) { return __e instanceof Error ? __e.message : String(__e); } })())`;
+  return `__mc(${lineNumber}, await (async () => { try { return (${expression}); } catch(__e) { return __e instanceof Error ? __e : new Error(String(__e)); } })())`;
 }
 
 /**
@@ -1165,9 +1165,8 @@ export function transformPythonMagicComments(code: string): string {
 }
 
 /**
- * implementation — runner-side option bag. Auto-log is opt-in and
- * JS / TS only. Python is excluded by construction (the option is
- * silently ignored for Python).
+ * Runner-side option bag for the JS / TS source pass. Python auto-log is
+ * worker-owned and therefore intentionally ignored here.
  */
 export interface MagicCommentTransformOptions {
   /**

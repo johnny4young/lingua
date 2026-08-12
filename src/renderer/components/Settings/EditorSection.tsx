@@ -657,16 +657,16 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation — per-language opt-in for the bare-expression
-            auto-log mode. JS / TS only this change. Default OFF so the
-            first install never surfaces a wall of inline values before
-            the user explicitly enables the feature. */}
+        {/* Per-language default for Scratchpad expression capture. JS/TS use
+            source instrumentation; Python uses CPython AST instrumentation.
+            Defaults ON because inline feedback defines Scratchpad, while each
+            language and tab remains explicitly disable-able. */}
         <SpecRow
           label={t('autoLog.settings.title')}
           description={t('autoLog.settings.description')}
           control={
             <div data-testid="settings-auto-log-defaults" className="grid w-72 gap-2">
-              {(['javascript', 'typescript'] as const).map((lang) => {
+              {(['javascript', 'typescript', 'python'] as const).map((lang) => {
                 const enabled = scratchpadAutoLogByLanguage[lang] === true;
                 return (
                   <label

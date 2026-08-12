@@ -20,6 +20,10 @@ import {
   buildPythonExecutionBootstrapSource,
   PYTHON_STREAM_STATE_SOURCE,
 } from './python-worker-sources';
+import {
+  buildPythonAutoLogExecutionSource,
+  PYTHON_AUTO_LOG_HELPERS_SOURCE,
+} from './python-worker-auto-log-source';
 
 export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: PythonRuntimeAdapter) {
   let appliedUserEnvKeys: string[] = [];
@@ -122,7 +126,10 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         py.globals.set('__lingua_emit_image', richMediaBridge.image);
         py.globals.set('__lingua_emit_html', richMediaBridge.html);
 
-        await py.runPythonAsync(buildPythonExecutionBootstrapSource(msg));
+        const bootstrapSource = msg.autoLog
+          ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}`
+          : buildPythonExecutionBootstrapSource(msg);
+        await py.runPythonAsync(bootstrapSource);
 
         if (captureScope === true) {
           await primePythonBootGlobalsIfNeeded(py);
@@ -133,6 +140,9 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         let errorText: string | null = null;
 
         try {
+          const executionSource = msg.autoLog
+            ? buildPythonAutoLogExecutionSource(code)
+            : code;
           if (typeof scopeId === 'string' && scopeId.length > 0) {
             // implementation — run user code against the notebook's persistent scope
             // dict. Seed it with the framework helpers (refreshed each run),
@@ -160,10 +170,10 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             // explicitly instead so the call never sees an undefined globals.
             result =
               ns !== undefined
-                ? await py.runPythonAsync(code, { globals: ns })
-                : await py.runPythonAsync(code);
+                ? await py.runPythonAsync(executionSource, { globals: ns })
+                : await py.runPythonAsync(executionSource);
           } else {
-            result = await py.runPythonAsync(code);
+            result = await py.runPythonAsync(executionSource);
           }
         } catch (err) {
           errorText = err instanceof Error ? err.message : String(err);
@@ -176,7 +186,13 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             ? (JSON.parse(streamState) as {
                 stdout: string;
                 stderr: string;
-                magic?: Array<{ line: number; value: string; payload?: RichOutputPayload }>;
+                magic?: Array<{
+                  line: number;
+                  value: string;
+                  kind?: 'arrow' | 'watch' | 'autoLog';
+                  is_error?: boolean;
+                  payload?: RichOutputPayload;
+                }>;
                 print_entries?: PythonPrintEntry[];
               })
             : { stdout: '', stderr: '' };
@@ -207,6 +223,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
               runId: string;
               line: number;
               value: string;
+              kind?: 'arrow' | 'watch' | 'autoLog';
+              isError?: boolean;
               payload?: RichOutputPayload;
             } = {
               type: 'magic-comment',
@@ -214,6 +232,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
               line: entry.line,
               value: truncatePythonWorkerValue(entry.value, marker),
             };
+            if (entry.kind) magicMessage.kind = entry.kind;
+            if (entry.is_error === true) magicMessage.isError = true;
             if (entry.payload) magicMessage.payload = entry.payload;
             ctx.postMessage(magicMessage);
           }

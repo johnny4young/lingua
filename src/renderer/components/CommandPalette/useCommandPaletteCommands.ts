@@ -6,10 +6,7 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
-import {
-  isJavaScriptFamily,
-  isWorkerRunnerLanguage,
-} from '../../../shared/languageFamilies';
+import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -103,7 +100,7 @@ export function useCommandPaletteCommands({
     activeTab && isRuntimeTimeoutSupportedLanguage(activeTab.language) ? activeTab.language : null;
   const isAutoLogCommandEligible =
     activeTab !== null &&
-    isJavaScriptFamily(activeTab.language) &&
+    isWorkerRunnerLanguage(activeTab.language) &&
     activeWorkflowMode === 'scratchpad';
   // implementation note — surface the active tab's language to the
   // palette model so the "Pin watch on current line" action only

@@ -284,11 +284,8 @@ export class PythonRunner implements LanguageRunner {
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
     // implementation — per-line side-table for the watch / arrow
     // distinction; consulted at result-stitching time below. implementation
-    // widened `MagicCommentKind` to include `'autoLog'`, but the
-    // Python detector never emits that kind (auto-log is JS / TS
-    // only this change). The wider type stays in the field so the
-    // shared `MagicCommentResult.kind` annotation does not need a
-    // per-language narrowing fork.
+    // Explicit Python arrows/watches still populate this side table. AST
+    // auto-log rows carry their worker-owned kind on the message itself.
     const magicKindByLine: Record<number, MagicCommentKind> = {};
     // implementation note — parallel side-table for the `#=> table`
     // directive so the runner knows when to upgrade the worker's
@@ -454,7 +451,8 @@ export class PythonRunner implements LanguageRunner {
             const entry: MagicCommentResult = {
               line: sourceLineFor(msg.line) ?? msg.line,
               value: msg.value,
-              kind: magicKindByLine[msg.line] ?? 'arrow',
+              kind: msg.kind ?? magicKindByLine[msg.line] ?? 'arrow',
+              ...(msg.isError === true ? { isError: true } : {}),
             };
             if (payload) entry.payload = payload;
             magicResults.push(entry);
@@ -566,6 +564,7 @@ export class PythonRunner implements LanguageRunner {
         // walks frames for origin.
         richConsoleEnabled: true,
         sourceMappingEnabled: true,
+        autoLog: context?.autoLog === true,
       });
     });
   }

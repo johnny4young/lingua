@@ -65,7 +65,7 @@ export function sanitizeRuntimeTimeoutPresets(
 
 /**
  * Sanitize a persisted `scratchpadAutoLogByLanguage` map: drop
- * languages outside the JS / TS pair, coerce non-boolean values to
+ * languages outside the JS / TS / Python Scratchpad set, coerce non-boolean values to
  * `false`. Returns a fresh object so callers can hand it directly
  * to the store without aliasing.
  */

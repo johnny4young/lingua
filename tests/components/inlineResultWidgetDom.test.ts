@@ -31,6 +31,15 @@ describe('inline result widget DOM', () => {
     expect(isHiddenUndefinedLineResult({ line: 4, value: 'undefined', type: 'magic' })).toBe(false);
   });
 
+  it('renders execution errors with the dedicated semantic kind', () => {
+    const node = renderInlineResultNode([
+      { line: 4, value: 'Error: invalid device id', type: 'error' },
+    ]);
+    const part = node.querySelector('[data-result-kind="error"]');
+    expect(part?.textContent).toBe('⟸Error: invalid device iderror');
+    expect(part?.querySelector('[data-type-pill="error"]')).not.toBeNull();
+  });
+
   // internal overflow Prerequisite fix (landed in the implementation
   // commit). Long values used to paint past the editor right edge and
   // wrap onto a second line that overran the gutter; truncate to a

@@ -950,24 +950,24 @@ describe('settingsStore', () => {
   });
 
   describe('implementation — scratchpad auto-log defaults', () => {
-    it('seeds JS + TS to OFF on a fresh store', () => {
+    it('seeds JS + TS + Python to ON on a fresh store', () => {
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
-      ).toEqual({ javascript: false, typescript: false });
+      ).toEqual({ javascript: true, typescript: true, python: true });
     });
 
     it('setScratchpadAutoLogDefault stores a supported override', () => {
-      useSettingsStore.getState().setScratchpadAutoLogDefault('javascript', true);
+      useSettingsStore.getState().setScratchpadAutoLogDefault('python', false);
       expect(
-        useSettingsStore.getState().scratchpadAutoLogByLanguage.javascript
-      ).toBe(true);
+        useSettingsStore.getState().scratchpadAutoLogByLanguage.python
+      ).toBe(false);
     });
 
     it('setScratchpadAutoLogDefault refuses unsupported languages', () => {
-      useSettingsStore.getState().setScratchpadAutoLogDefault('python', true);
+      useSettingsStore.getState().setScratchpadAutoLogDefault('rust', false);
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
-      ).toEqual({ javascript: false, typescript: false });
+      ).toEqual({ javascript: true, typescript: true, python: true });
     });
 
     it('rehydrates a persisted override + reseeds blank slots', async () => {
@@ -977,7 +977,7 @@ describe('settingsStore', () => {
           state: {
             scratchpadAutoLogByLanguage: { javascript: true },
           },
-          version: 0,
+          version: 3,
         })
       );
       await (
@@ -987,7 +987,7 @@ describe('settingsStore', () => {
       ).persist.rehydrate();
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
-      ).toEqual({ javascript: true, typescript: false });
+      ).toEqual({ javascript: true, typescript: true, python: true });
     });
 
     it('sanitizes tampered persisted values on rehydrate', async () => {
@@ -1002,7 +1002,7 @@ describe('settingsStore', () => {
               typescript: 1,
             },
           },
-          version: 0,
+          version: 3,
         })
       );
       await (
@@ -1011,10 +1011,10 @@ describe('settingsStore', () => {
         }
       ).persist.rehydrate();
       // Unknown languages are dropped; non-boolean values coerce to
-      // `false`; missing keys re-seed to `false`.
+      // `false`; missing keys re-seed to the new ON default.
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
-      ).toEqual({ javascript: false, typescript: false });
+      ).toEqual({ javascript: false, typescript: false, python: true });
     });
   });
 

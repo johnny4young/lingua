@@ -2,10 +2,7 @@ import type { FileTab, InputSet } from '../types/editor';
 import type { Language } from '../types/language';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
-import {
-  isJavaScriptFamily,
-  isWorkerRunnerLanguage,
-} from '../../shared/languageFamilies';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 
 /**
  * internal — pure tab helpers extracted verbatim from `editorStore.ts`.
@@ -37,7 +34,7 @@ export function notebookFileNameForTitle(title: string): string {
 }
 
 export function languageSupportsAutoLog(language: Language): boolean {
-  return isJavaScriptFamily(language);
+  return isWorkerRunnerLanguage(language);
 }
 
 export function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {

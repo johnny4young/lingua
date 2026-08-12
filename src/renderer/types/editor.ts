@@ -281,8 +281,8 @@ export interface EditorState {
    * `null` clears the override so the tab falls back to the
    * per-language Settings default. The mutation is a no-op if:
    *   - the tab does not exist;
-   *   - the tab's language is not JS / TS (auto-log is JS/TS-only
-   *     this change; setting the flag elsewhere would be misleading).
+   *   - the tab's language is not JS / TS / Python (the three worker-backed
+   *     Scratchpad expression-capture paths).
    */
   setTabAutoLogEnabled: (id: string, enabled: boolean | null) => void;
   /**

@@ -131,6 +131,7 @@ describe('useRunner', () => {
       { line: 1, value: 'hello', type: 'log' },
       { line: 2, value: 'careful', type: 'warn' },
       { line: 2, value: '42', type: 'result' },
+      { line: 2, value: 'Boom', type: 'error' },
     ]);
     expect(useResultStore.getState().fullOutput).toBe('');
     expect(useResultStore.getState().error).toEqual({ message: 'Boom', line: 2, column: 3 });

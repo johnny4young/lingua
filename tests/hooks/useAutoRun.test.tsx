@@ -996,7 +996,7 @@ describe('useAutoRun', () => {
     });
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
-      autoLog: false,
+      autoLog: true,
       language: 'javascript',
       captureScope: true,
       scopeDepth: 1,
@@ -1024,7 +1024,7 @@ describe('useAutoRun', () => {
     });
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
-      autoLog: false,
+      autoLog: true,
       language: 'javascript',
       stdin: 'Ada',
       captureScope: true,

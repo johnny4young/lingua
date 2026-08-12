@@ -25,6 +25,8 @@ export interface PythonWorkerExecuteMessage {
   scopeDepth?: number;
   richConsoleEnabled?: boolean;
   sourceMappingEnabled?: boolean;
+  /** Capture every module-level expression in Python Scratchpad mode. */
+  autoLog?: boolean;
 }
 
 export interface PythonWorkerListLoadedMessage {

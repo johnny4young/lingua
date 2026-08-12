@@ -15,6 +15,19 @@ function getLastNonEmptyLine(code: string): number {
   return lines.length;
 }
 
+function getInlineErrorLine(code: string, requestedLine: number | undefined): number {
+  const lineCount = code.split('\n').length;
+  if (
+    typeof requestedLine === 'number' &&
+    Number.isInteger(requestedLine) &&
+    requestedLine >= 1 &&
+    requestedLine <= lineCount
+  ) {
+    return requestedLine;
+  }
+  return getLastNonEmptyLine(code);
+}
+
 export function isDynamicResultLanguage(language: Language): boolean {
   return isInlineResultLanguage(language);
 }
@@ -60,7 +73,9 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
       // emits a result without a kind (forward-compat with future
       // adapters).
       const type: LineResult['type'] =
-        magicResult.kind === 'watch'
+        magicResult.isError === true
+          ? 'error'
+          : magicResult.kind === 'watch'
           ? 'watch'
           : magicResult.kind === 'autoLog'
             ? 'autoLog'
@@ -77,6 +92,19 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
       if (magicResult.payload) entry.payload = magicResult.payload;
       lineResults.push(entry);
     }
+  }
+
+  // Structured runtime/transpile failures used to appear only in the console
+  // and marker gutter. Dynamic Scratchpad languages now keep the same
+  // canonical error object while also projecting its bounded message beside
+  // the best available source line. stderr's duplicate error row remains
+  // suppressed above.
+  if (result.error) {
+    lineResults.push({
+      line: getInlineErrorLine(code, result.error.line),
+      value: result.error.message || 'Error',
+      type: 'error',
+    });
   }
 
   return lineResults;

@@ -440,6 +440,7 @@ export class JavaScriptRunner implements LanguageRunner {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
+              ...(msg.isError === true ? { isError: true } : {}),
             };
             if (payload) entry.payload = payload;
             magicResults.push(entry);

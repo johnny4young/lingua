@@ -46,7 +46,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 1, value: 'boom', type: 'error' },
+    ]);
   });
 
   it('keeps an unchanged watch when a different line fails', () => {
@@ -61,6 +63,7 @@ describe('applyAutoRunResult', () => {
     });
 
     expect(useResultStore.getState().lineResults).toEqual([
+      { line: 3, value: 'boom', type: 'error' },
       { line: 2, value: '50', type: 'watch' },
     ]);
   });
@@ -80,7 +83,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 3, value: 'boom', type: 'error' },
+    ]);
   });
 
   it('invalidates a watch when the watch line itself fails', () => {
@@ -94,7 +99,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 2, value: 'total is not defined', type: 'error' },
+    ]);
   });
 
   it('invalidates a watch when the error location is unknown', () => {
@@ -108,7 +115,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 2, value: 'unknown failure', type: 'error' },
+    ]);
   });
 
   it('invalidates a watch inside a ranged error location', () => {
@@ -122,7 +131,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 1, value: 'ranged failure', type: 'error' },
+    ]);
   });
 
   it('invalidates an auto-log row when auto-log is disabled', () => {
@@ -145,7 +156,9 @@ describe('applyAutoRunResult', () => {
       }),
     });
 
-    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 3, value: 'boom', type: 'error' },
+    ]);
   });
 
   it('keeps an unchanged auto-log row while auto-log remains enabled', () => {
@@ -169,6 +182,7 @@ describe('applyAutoRunResult', () => {
     });
 
     expect(useResultStore.getState().lineResults).toEqual([
+      { line: 3, value: 'boom', type: 'error' },
       { line: 2, value: '50', type: 'autoLog' },
     ]);
   });

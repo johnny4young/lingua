@@ -58,6 +58,7 @@ const MODULE_BUDGETS = {
   'python-worker-execution.ts': 420,
   'python-worker-serialization.ts': 520,
   'python-worker-sources.ts': 500,
+  'python-worker-auto-log-source.ts': 120,
   'python-worker-runtime.ts': 220,
   'python-worker-dependencies.ts': 250,
   'python-worker-env.ts': 80,

@@ -1,4 +1,4 @@
-import { isJavaScriptFamily, isWorkerRunnerLanguage } from '../../../../shared/languageFamilies';
+import { isWorkerRunnerLanguage } from '../../../../shared/languageFamilies';
 import { buildActionCommand } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
@@ -77,11 +77,11 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
         ]
       : []),
     // implementation note — toggle auto-log on the active tab.
-    // Only surfaces for JS / TS active tabs; non-JS/TS tabs hide
+    // Only surfaces for JS / TS / Python active tabs; other tabs hide
     // the entry entirely so the palette never advertises an action
     // it would refuse. Reuses the per-tab override path so the
     // toggle is scoped to one tab, not the global Settings default.
-    ...(onToggleAutoLogOnActiveTab && isJavaScriptFamily(activeWatchLanguage)
+    ...(onToggleAutoLogOnActiveTab && isWorkerRunnerLanguage(activeWatchLanguage)
       ? [
           buildActionCommand(
             'action-toggle-auto-log',

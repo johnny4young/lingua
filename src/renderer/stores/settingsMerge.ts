@@ -156,7 +156,7 @@ export function settingsMerge(
   // implementation — sanitize the auto-log map the same way the
   // workflow defaults are sanitized + seeded on rehydrate. A
   // tampered persisted entry never survives into the live store
-  // and missing keys default to `false`.
+  // and missing keys use the current Scratchpad-on defaults.
   const sanitizedAutoLog = sanitizeScratchpadAutoLog(
     merged.scratchpadAutoLogByLanguage
   );

@@ -344,9 +344,14 @@ sys.displayhook = __lingua_displayhook
 
 __lingua_magic_results = []
 __lingua_rich_media_directives = ("chart", "image", "html")
-def __mc(line, expr_fn, directive=None):
+def __mc(line, expr_fn, directive=None, kind=None):
     try:
         val = expr_fn()
+        # Bare calls such as print(...) return None. Match the JS/TS
+        # hide-undefined behavior by omitting that redundant auto-log row;
+        # explicit arrows/watches still show None as before.
+        if kind == "autoLog" and val is None:
+            return val
         # implementation — rich-media directives need JSON-encoded
         # values because the runner side calls
         # \`payloadForRichMediaMagicDirective\` which delegates to
@@ -364,6 +369,10 @@ def __mc(line, expr_fn, directive=None):
         else:
             value_text = repr(val)
         record = {"line": line, "value": value_text}
+        if kind is not None:
+            record["kind"] = kind
+        if isinstance(val, BaseException):
+            record["is_error"] = True
         # implementation note — magic-comment '#=> table' upgrade. When the
         # directive tags 'table', also include a forced-table payload
         # so the renderer can dispatch to the rich table widget.
@@ -375,7 +384,10 @@ def __mc(line, expr_fn, directive=None):
         __lingua_magic_results.append(record)
         return val
     except Exception as e:
-        __lingua_magic_results.append({"line": line, "value": str(e)})
+        record = {"line": line, "value": str(e), "is_error": True}
+        if kind is not None:
+            record["kind"] = kind
+        __lingua_magic_results.append(record)
         return None
 
 # implementation — \`__lingua\` namespace mirror of the JS
