@@ -12,8 +12,21 @@ and compatibility checks.
 
 ## Install / build
 
-`@linguacode/cli` is published on npm. The package is dependency-free and
-declares `engines.node: 24.x`:
+On macOS, install the dedicated Homebrew formula. It downloads the immutable
+release tarball directly, installs `node@24` as a dependency, and exposes
+`lingua` on `PATH` without invoking npm:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+This formula is separate from the `lingua` cask: the formula installs the
+headless command, while `brew install --cask johnny4young/tap/lingua` installs
+the same Desktop application distributed in the `.dmg`.
+
+`@linguacode/cli` also remains published on npm. The package is dependency-free
+and declares `engines.node: 24.x`:
 
 ```bash
 npm install -g @linguacode/cli   # or: npx @linguacode/cli --help
@@ -76,6 +89,10 @@ bootstrap. Later versions use stage-only OIDC and require a maintainer's 2FA
 approval before becoming public. Verification runs before the protected
 environment asks for approval, and the promotion job rechecks the transferred
 tarball before either credential path can reach npm.
+
+The Homebrew `lingua-cli` formula consumes that same checksum-pinned npm-format
+release tarball directly from GitHub. npm is a publication format and optional
+installation channel here, not a command Homebrew runs on the user's machine.
 
 Use `pnpm run distribution:status` for a read-only comparison of the latest
 public release, npm package, Homebrew tap, and generated winget manifests. The
@@ -260,6 +277,12 @@ Project-root detection is explicit and ordered:
 Framework-specific projects should pass their executable source file or invoke
 their framework launcher directly when starting that source alone would not be
 meaningful.
+
+When a required host runtime is absent, plain output names the runtime, gives a
+platform-aware installation action, shows the verification command, and links
+to the troubleshooting guide. JSON output preserves `reason: missing-runtime`
+and adds a structured `recovery` object so CI or wrappers can present the same
+next step without parsing prose.
 
 Execution flags:
 

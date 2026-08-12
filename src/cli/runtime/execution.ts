@@ -14,6 +14,10 @@ import type { ChildProcess, ChildProcessWithoutNullStreams } from 'node:child_pr
 import { rm } from 'node:fs/promises';
 
 import { MAX_NATIVE_STDERR_BYTES } from '../../shared/runnerLimits';
+import {
+  buildMissingRuntimeRecovery,
+  type CliRuntimeRecovery,
+} from './runtimeRecovery';
 
 export const DEFAULT_CLI_RUN_TIMEOUT_MS = 30_000;
 export const MIN_CLI_RUN_TIMEOUT_MS = 100;
@@ -55,6 +59,7 @@ export interface CliExecutionResult {
     | 'stopped'
     | 'spawn-failed';
   detail?: string;
+  recovery?: CliRuntimeRecovery;
 }
 
 interface StepResult {
@@ -101,11 +106,14 @@ export async function executeCliPlan(
 
       if (result.spawnError) {
         const missing = result.spawnError.code === 'ENOENT';
+        const missingRuntime = missing
+          ? buildMissingRuntimeRecovery(step.command, plan.runtime)
+          : undefined;
         return finish(plan, startedAt, result, stdout.value, stderr.value, 'error', {
           reason: missing ? 'missing-runtime' : 'spawn-failed',
-          detail: missing
-            ? `Required runtime ${step.command} was not found on PATH.`
-            : `Failed to start ${step.command}: ${result.spawnError.message}`,
+          detail:
+            missingRuntime?.detail ?? `Failed to start ${step.command}: ${result.spawnError.message}`,
+          ...(missingRuntime ? { recovery: missingRuntime.recovery } : {}),
         });
       }
       if (result.timedOut) {
@@ -159,7 +167,7 @@ function finish(
   stdout: string,
   stderr: string,
   status: Exclude<CliRunStatus, 'success'>,
-  diagnostic: Pick<CliExecutionResult, 'reason' | 'detail'>
+  diagnostic: Pick<CliExecutionResult, 'reason' | 'detail' | 'recovery'>
 ): CliExecutionResult {
   return {
     status,

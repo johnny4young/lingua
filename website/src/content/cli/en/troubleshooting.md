@@ -21,7 +21,19 @@ lingua --version
 
 If `pnpm link --global` succeeds but your shell cannot find the command, inspect `pnpm bin --global` and add that directory to your shell's `PATH`. Restart the shell after changing its profile.
 
-## A runtime is missing
+## Missing runtimes
+
+Lingua now prints the runtime name, a platform-aware install action, a command
+to verify the setup, and this guide whenever `lingua run` cannot find a required
+toolchain. On macOS the direct recovery commands are:
+
+```bash
+brew install python  # Python
+brew install go      # Go
+brew install rust    # Rust and Cargo
+brew install ruby    # Ruby
+brew install lua     # Lua
+```
 
 Confirm that the same shell can find the toolchain:
 
@@ -35,6 +47,10 @@ lua -v
 ```
 
 Desktop applications and login shells can inherit different PATH values. The CLI uses the environment of the shell that launched it, so test in that exact terminal.
+
+In `--json` mode, inspect `run.recovery` (also projected as top-level
+`recovery`) for `runtime`, `executable`, optional `installCommand`,
+`installGuide`, and `verifyCommand` instead of parsing the human text.
 
 ## My program flag is rejected by Lingua
 

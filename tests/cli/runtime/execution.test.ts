@@ -78,6 +78,10 @@ describe('CLI subprocess execution', () => {
       status: 'error',
       reason: 'missing-runtime',
       exitCode: null,
+      recovery: {
+        executable: 'lingua-runtime-that-does-not-exist',
+        installGuide: expect.stringContaining('linguacode.dev'),
+      },
     });
   });
 

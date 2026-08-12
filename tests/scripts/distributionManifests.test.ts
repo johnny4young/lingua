@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseChecksums,
   releaseAssetNames,
+  renderHomebrewCliFormula,
   renderHomebrewCask,
   renderWingetManifests,
   WINGET_MANIFEST_VERSION,
@@ -11,6 +12,7 @@ import {
 const ARM_SHA = 'a'.repeat(64);
 const INTEL_SHA = 'b'.repeat(64);
 const WIN_SHA = 'c'.repeat(64);
+const CLI_SHA = 'd'.repeat(64);
 
 function digestsFor(version: string): Map<string, string> {
   const names = releaseAssetNames(version);
@@ -18,6 +20,7 @@ function digestsFor(version: string): Map<string, string> {
     [names.macArm, ARM_SHA],
     [names.macIntel, INTEL_SHA],
     [names.windows, WIN_SHA],
+    [names.cliNpm, CLI_SHA],
   ]);
 }
 
@@ -97,6 +100,44 @@ describe('renderHomebrewCask', () => {
     expect(() => renderHomebrewCask({ version: '0.14.0', digests: partial })).toThrow(
       /Lingua-0\.14\.0-mac-x64\.dmg/
     );
+  });
+});
+
+describe('renderHomebrewCliFormula', () => {
+  const formula = renderHomebrewCliFormula({
+    version: '1.2.0',
+    digests: digestsFor('1.2.0'),
+  });
+
+  it('installs the immutable release tarball without invoking npm', () => {
+    expect(formula).toContain(
+      'url "https://github.com/johnny4young/lingua/releases/download/v1.2.0/linguacode-cli-1.2.0.tgz"'
+    );
+    expect(formula).toContain(`sha256 "${CLI_SHA}"`);
+    expect(formula).not.toMatch(/npm (?:install|add)/u);
+  });
+
+  it('provides Node 24 and exposes the lingua command with that runtime on PATH', () => {
+    expect(formula).toContain('depends_on "node@24"');
+    expect(formula).toContain('(bin/"lingua").write_env_script');
+    expect(formula).toContain('formula_opt_bin("node@24")');
+  });
+
+  it('smokes both the exact version and a real utility', () => {
+    expect(formula).toContain('shell_output("#{bin}/lingua --version")');
+    expect(formula).toContain(
+      'pipe_output("#{bin}/lingua utility base64-encode", "hello")'
+    );
+  });
+
+  it('fails loudly when the CLI archive is absent from the release', () => {
+    const desktopOnly = new Map([
+      ['Lingua-1.2.0-mac-arm64.dmg', ARM_SHA],
+      ['Lingua-1.2.0-mac-x64.dmg', INTEL_SHA],
+    ]);
+    expect(() =>
+      renderHomebrewCliFormula({ version: '1.2.0', digests: desktopOnly })
+    ).toThrow(/linguacode-cli-1\.2\.0\.tgz/u);
   });
 });
 

@@ -3,7 +3,7 @@ title: Usa Lingua sin abrir una ventana
 description: Conoce el CLI headless de Lingua, compílalo hoy y convierte tu primer comando en un flujo local repetible.
 order: 1
 group: start
-keywords: [instalar, npm, terminal, primeros pasos, headless, offline, ayuda]
+keywords: [instalar, homebrew, brew, npm, terminal, primeros pasos, headless, offline, ayuda]
 ---
 
 El CLI de Lingua sirve cuando una acción útil debe salir de la app y convertirse en un comando de terminal, un pipe o un paso de CI. Ejecuta las mismas utilidades y el mismo esquema de Run Capsules de Lingua, pero **no** abre Electron ni React.
@@ -12,7 +12,16 @@ Es local, automatizable y deliberadamente pequeño. Úsalo para formatear un pay
 
 ## Instálalo
 
-`@linguacode/cli` ya está publicado en npm. No tiene dependencias y necesita Node 24.x:
+En macOS, Homebrew descarga el artefacto oficial del CLI y configura Node 24 automáticamente. No ejecuta npm:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+Esta fórmula es independiente de `brew install --cask johnny4young/tap/lingua`, que instala en `/Applications/lingua.app` la misma aplicación Desktop distribuida en el `.dmg`.
+
+`@linguacode/cli` también continúa disponible en npm para cualquier plataforma compatible con Node. No tiene dependencias de paquete y necesita Node 24.x:
 
 ```bash
 npm install -g @linguacode/cli

@@ -1,26 +1,7 @@
 {
-  "generatedAt": "2026-08-12T16:20:28.816Z",
-  "baseRef": "v1.1.0",
-  "commitCount": 2,
-  "totalSinceBase": 4,
-  "commits": [
-    {
-      "hash": "1005065",
-      "date": "2026-08-12",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "editor",
-      "message": "show scratchpad values and errors inline",
-      "breaking": false
-    },
-    {
-      "hash": "0be17cb",
-      "date": "2026-08-11",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "website",
-      "message": "lead the home page with the release that actually just shipped (#143)",
-      "breaking": false
-    }
-  ]
+  "generatedAt": "2026-08-12T20:44:33.713Z",
+  "baseRef": "v1.2.0",
+  "commitCount": 0,
+  "totalSinceBase": 0,
+  "commits": []
 }

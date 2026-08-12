@@ -111,6 +111,7 @@ export function emitExecution(
         : {
             reason: result.reason ?? result.status,
             detail: result.detail ?? `Run failed with status ${result.status}.`,
+            ...(result.recovery ? { recovery: result.recovery } : {}),
           };
     io.writeStdout(
       `${JSON.stringify({ ok: result.status === 'success', ...extra, ...failure, run: result })}\n`

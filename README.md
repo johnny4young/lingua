@@ -16,11 +16,25 @@ Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two s
 
 ## Install
 
-**macOS** — Homebrew tap (Apple Silicon and Intel):
+**macOS desktop app** — Homebrew cask (Apple Silicon and Intel):
 
 ```bash
 brew install --cask johnny4young/tap/lingua
 ```
+
+This cask installs the same signed and notarized `lingua.app` that the `.dmg`
+contains. Homebrew places it in `/Applications`; it is not a second copy and it
+does not install the headless terminal command.
+
+**macOS command-line interface** — Homebrew formula:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+The formula downloads the checksum-pinned CLI artifact directly from the
+GitHub Release and configures Node 24 automatically. It does not invoke npm.
 
 **Any platform** — the signed macOS builds, the Windows installer, and the Linux
 AppImage are attached to the
@@ -131,7 +145,15 @@ lingua run ./scripts/check.ts --timeout 60000 -- --verbose
 lingua capsule validate ./run.capsule.json --json
 ```
 
-Install it from npm — the package is dependency-free and needs Node 24.x:
+Install it with Homebrew on macOS; this also installs and wires Node 24:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+Or install it from npm on any Node-supported platform — the package is
+dependency-free and needs Node 24.x:
 
 ```bash
 npm install -g @linguacode/cli

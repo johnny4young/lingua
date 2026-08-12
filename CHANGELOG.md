@@ -6,6 +6,14 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-08-12
+
+### Added
+- **The headless CLI now installs directly through Homebrew without asking users to run npm.** `brew install johnny4young/tap/lingua-cli` consumes the checksum-pinned CLI tarball from the immutable GitHub Release, installs Homebrew's Node 24 runtime, and exposes `lingua` on `PATH`; the existing npm channel remains available. The formula stays separate from the Desktop cask so either surface—or both—can be installed intentionally.
+
+### Changed
+- **Missing CLI runtimes now end with a recovery path instead of a bare PATH error.** Python, Go, Rust/Cargo, Ruby, and Lua failures name the missing tool, show a platform-aware installation command, provide the matching version check, and link to the setup guide. JSON mode adds the same information as a structured `recovery` object so scripts can help users without parsing prose.
+
 ## [1.2.0] — 2026-08-12
 
 ### Added

@@ -146,6 +146,31 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     }
   });
 
+  it('explains how to recover when a host runtime is missing', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-missing-runtime-'));
+    try {
+      const entry = path.join(root, 'hello.lua');
+      writeFileSync(entry, 'print("hello")\n', 'utf8');
+      const out = runCli(['run', entry, '--json'], undefined, { PATH: '/usr/bin:/bin' });
+
+      expect(out.code).toBe(3);
+      expect(out.stderr).toBe('');
+      expect(JSON.parse(out.stdout)).toMatchObject({
+        ok: false,
+        reason: 'missing-runtime',
+        recovery: {
+          runtime: 'Lua',
+          executable: 'lua',
+          installGuide: 'https://www.lua.org/download.html',
+          verifyCommand: 'lua --version',
+        },
+        run: { reason: 'missing-runtime' },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('replays a validated Capsule and reports comparison metadata', () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-capsule-'));
     try {

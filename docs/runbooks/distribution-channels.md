@@ -19,14 +19,16 @@ running through pnpm so package-manager progress does not mix with the
 machine-readable document on stdout.
 
 Manifests are never hand-edited. `scripts/generate-distribution-manifests.mjs`
-derives them from a published release's `SHA256SUMS.txt`, so a digest can
-never drift from the artifact it describes:
+derives the Desktop cask, headless CLI formula, and winget documents from a
+published release's `SHA256SUMS.txt`, so a digest can never drift from the
+artifact it describes:
 
 ```bash
 node scripts/generate-distribution-manifests.mjs --tag v0.15.0 --release-date 2026-07-28
 ```
 
-Outputs `packaging/homebrew/Casks/lingua.rb` and the three
+Outputs `packaging/homebrew/Casks/lingua.rb`,
+`packaging/homebrew/Formula/lingua-cli.rb`, and the three
 `packaging/winget/Johnny4young.Lingua*.yaml` documents.
 
 ## npm CLI
@@ -163,13 +165,39 @@ The public [`johnny4young/homebrew-tap`](https://github.com/johnny4young/homebre
 repository already exists. As of 2026-08-01 it does not yet contain
 `Casks/lingua.rb`; the local `v0.15.0` cask is ready for its first promotion.
 
-First promotion:
+Desktop cask promotion:
 
 1. Copy `packaging/homebrew/Casks/lingua.rb` into `Casks/lingua.rb` there and
    push.
 2. Verify from a clean shell: `brew install --cask johnny4young/tap/lingua`.
 
 Per release, regenerate the cask and push the updated file to the tap.
+
+### Headless CLI formula
+
+The same tap also exposes the terminal-only CLI without requiring users to run
+npm themselves:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+```
+
+`Formula/lingua-cli.rb` downloads the checksum-pinned `linguacode-cli-X.Y.Z.tgz`
+from the immutable GitHub Release and depends on Homebrew's keg-only `node@24`.
+Its wrapper puts that runtime on `PATH`, which also makes npm available when
+`lingua run` detects a Node project. The install never calls npm and does not
+install the Electron application. Keep the formula and Desktop cask as separate
+tokens so users can install either surface or both intentionally.
+
+Before pushing, validate the formula from the local tap:
+
+```bash
+cp packaging/homebrew/Formula/lingua-cli.rb "$(brew --repository johnny4young/tap)/Formula/"
+brew style johnny4young/tap/lingua-cli
+brew audit --strict --online johnny4young/tap/lingua-cli
+brew install johnny4young/tap/lingua-cli
+brew test johnny4young/tap/lingua-cli
+```
 
 ### Validating a cask before pushing
 
@@ -247,7 +275,7 @@ shape, identifier, digest casing, and installer semantics.
 
 | Channel          | State                                                           | Gate                                                     |
 | ---------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
-| npm CLI          | Guarded workflow ready; `v0.15.0` correctly remains unpublished | npm organization/environment, next-release bootstrap, then stage-only OIDC |
-| Homebrew tap     | Public tap exists; generated `v0.15.0` cask is ready locally    | Promote `Casks/lingua.rb` and repeat clean install smoke |
+| npm CLI          | `@linguacode/cli@1.2.0` public through guarded stage-only OIDC | Repeat staged approval and public-install smoke per stable release |
+| Homebrew tap     | Desktop cask and headless CLI formula are generated from release checksums | Promote both files and repeat clean install smoke |
 | Homebrew central | Blocked                                                         | 225 stars (self-submission floor)                        |
 | winget           | Generated `v0.15.0` manifests are current and schema-tested     | Public-trust Authenticode signing and Windows validation |
