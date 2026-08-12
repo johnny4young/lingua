@@ -29,6 +29,8 @@ const ROOT = resolve(__dirname, '../..');
 const PACKAGE_JSON_PATH = resolve(ROOT, 'package.json');
 const PNPM_LOCK_PATH = resolve(ROOT, 'pnpm-lock.yaml');
 const PNPM_WORKSPACE_PATH = resolve(ROOT, 'pnpm-workspace.yaml');
+const WEBSITE_PACKAGE_JSON_PATH = resolve(ROOT, 'website/package.json');
+const WEBSITE_PACKAGE_LOCK_PATH = resolve(ROOT, 'website/package-lock.json');
 
 // Documented hold-backs: package -> reason. When you add an entry,
 // also append a bullet to the implementation notes under the matching maintenance
@@ -99,6 +101,21 @@ describe('dependency override hygiene', () => {
     const lockfile = readFileSync(PNPM_LOCK_PATH, 'utf-8');
     expect(lockfile).toMatch(/^\s+yauzl@3\.3\.1:/mu);
     expect(lockfile).not.toMatch(/^\s+yauzl@2\./mu);
+  });
+
+  it('keeps Astro icon tooling off vulnerable extract-zip', () => {
+    const websitePackage = JSON.parse(
+      readFileSync(WEBSITE_PACKAGE_JSON_PATH, 'utf-8')
+    ) as PackageJson;
+    expect(websitePackage.overrides?.['@iconify/tools']).toBe('^5.0.12');
+
+    // astro-icon 1.x still declares @iconify/tools 4.x. The 5.x override is
+    // load-bearing because 4.2.0 pulls extract-zip 2.0.1, which has no patched
+    // release for GHSA-jmr9-qjv8-65gv. Keep the standalone npm lock aligned.
+    const websiteLock = readFileSync(WEBSITE_PACKAGE_LOCK_PATH, 'utf-8');
+    expect(websiteLock).toContain('node_modules/@iconify/tools');
+    expect(websiteLock).toContain('tools-5.0.12.tgz');
+    expect(websiteLock).not.toContain('node_modules/extract-zip');
   });
 });
 
