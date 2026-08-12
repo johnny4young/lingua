@@ -28,7 +28,7 @@
  * The JavaScript language family: JS and its statically-typed dialect
  * TypeScript. This is a *linguistic* fact, not a capability claim —
  * features that happen to apply to exactly the JS family (runtime
- * modes, auto-log, the auto-run gate, browser preview) gate on it.
+ * modes, the JS/TS auto-run gate, browser preview) gate on it.
  */
 export const JS_FAMILY_LANGUAGES: ReadonlySet<string> = new Set([
   'javascript',

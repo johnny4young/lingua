@@ -167,7 +167,7 @@ export interface MagicCommentResult {
    * implementation — which magic-comment shape produced
    * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
    * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
-   * pinned watch; `'autoLog'` for the JS / TS bare-expression
+   * pinned watch; `'autoLog'` for a Scratchpad bare-expression
    * auto-log surface added in implementation. Runners populate this from
    * `magicCommentKindsByLine(language, source, options)` before
    * dispatch. Optional so a future runner that emits magic results
@@ -175,6 +175,12 @@ export interface MagicCommentResult {
    * have to backfill the field.
    */
   kind?: 'arrow' | 'watch' | 'autoLog';
+  /**
+   * The captured expression evaluated to, or threw, an Error-like value.
+   * Presentation promotes this row to the inline error treatment instead of
+   * keeping it as a sticky auto-log value.
+   */
+  isError?: boolean;
   /**
    * implementation — optional structured payload the runner
    * attached after detecting a rich-output directive (`//=> table`)
@@ -401,6 +407,10 @@ export type WorkerResponse =
       runId: string;
       line: number;
       value: string;
+      /** Optional worker-owned classification (Python AST auto-log). */
+      kind?: 'arrow' | 'watch' | 'autoLog';
+      /** True when the captured value represents an execution error. */
+      isError?: boolean;
       /**
        * implementation note — when the source carried a `#=> table`
        * directive, the Python worker computes a forced-table payload

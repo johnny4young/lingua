@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
+import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 import { StatusBadge } from '../ui/StatusBadge';
 
 export function AutoLogStatusPill() {
@@ -27,7 +28,7 @@ export function AutoLogStatusPill() {
 
   if (!activeTab) return null;
   const language = activeTab.language;
-  if (language !== 'javascript' && language !== 'typescript') return null;
+  if (!isWorkerRunnerLanguage(language)) return null;
 
   const workflowMode =
     activeTab.workflowMode ?? defaultWorkflowMode(language);

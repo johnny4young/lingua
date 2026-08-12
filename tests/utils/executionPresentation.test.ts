@@ -29,6 +29,7 @@ describe('executionPresentation helpers', () => {
       { line: 2, value: 'careful', type: 'warn' },
       { line: 2, value: '42', type: 'result' },
       { line: 1, value: 'sum = 1', type: 'magic' },
+      { line: 2, value: 'Boom', type: 'error' },
     ]);
   });
 
@@ -72,7 +73,7 @@ describe('executionPresentation helpers', () => {
     ]);
   });
 
-  it('keeps structured runtime errors out of inline stderr duplication', () => {
+  it('projects one structured runtime error inline without duplicating stderr', () => {
     expect(
       toLineResults(
         {
@@ -83,7 +84,40 @@ describe('executionPresentation helpers', () => {
         },
         'print("Hello, World 2!")\ndde + 2'
       )
-    ).toEqual([{ line: 2, value: 'Hello, World 2!', type: 'log' }]);
+    ).toEqual([
+      { line: 2, value: 'Hello, World 2!', type: 'log' },
+      { line: 2, value: 'Traceback...', type: 'error' },
+    ]);
+  });
+
+  it('falls back to the last non-empty line when an error has no safe location', () => {
+    expect(
+      toLineResults(
+        {
+          stdout: [],
+          stderr: [],
+          executionTime: 1,
+          error: { message: 'worker failed', line: 999 },
+        },
+        'first\nsecond\n\n'
+      )
+    ).toEqual([{ line: 2, value: 'worker failed', type: 'error' }]);
+  });
+
+  it('promotes captured Error values instead of preserving them as sticky auto-log rows', () => {
+    expect(
+      toLineResults(
+        {
+          stdout: [],
+          stderr: [],
+          executionTime: 1,
+          magicResults: [
+            { line: 3, value: 'Error: invalid id', kind: 'autoLog', isError: true },
+          ],
+        },
+        'const x = 1;\nconst y = 2;\nfail()'
+      )
+    ).toEqual([{ line: 3, value: 'Error: invalid id', type: 'error' }]);
   });
 
   it('builds full output for compiled languages', () => {

@@ -5,9 +5,9 @@
  *   - `setTabAutoLogEnabled(true | false)` writes the override.
  *   - `setTabAutoLogEnabled(null)` clears the override so the tab
  *     falls back to the per-language Settings default.
- *   - The setter refuses non-JS/TS tabs (auto-log is JS/TS-only).
- *   - Add/restore sanitize stale non-JS/TS overrides.
- *   - `renameTab` away from JS / TS clears any persisted override
+ *   - The setter supports JS/TS/Python and refuses other tabs.
+ *   - Add/restore sanitize stale non-worker overrides.
+ *   - `renameTab` away from JS / TS / Python clears any persisted override
  *     so a stale flag does not influence the new language.
  */
 
@@ -93,32 +93,32 @@ describe('editorStore — autoLogEnabled per-tab override ', () => {
     expect(useEditorStore.getState().tabs[0]).not.toHaveProperty('autoLogEnabled');
   });
 
-  it('refuses non-JS/TS languages', () => {
+  it('supports Python tabs', () => {
     const { addTab, setTabAutoLogEnabled } = useEditorStore.getState();
     addTab({ id: 't1', name: 'main.py', language: 'python', content: '' });
     setTabAutoLogEnabled('t1', true);
-    expect(useEditorStore.getState().tabs[0]?.autoLogEnabled).toBeUndefined();
+    expect(useEditorStore.getState().tabs[0]?.autoLogEnabled).toBe(true);
   });
 
-  it('drops stale non-JS/TS overrides passed through addTab', () => {
+  it('drops stale non-worker overrides passed through addTab', () => {
     const { addTab } = useEditorStore.getState();
     addTab({
       id: 't1',
-      name: 'main.py',
-      language: 'python',
+      name: 'main.rs',
+      language: 'rust',
       content: '',
       autoLogEnabled: true,
     });
     expect(useEditorStore.getState().tabs[0]).not.toHaveProperty('autoLogEnabled');
   });
 
-  it('drops stale non-JS/TS overrides during session restore', () => {
+  it('drops stale non-worker overrides during session restore', () => {
     useEditorStore.getState().restoreTabs(
       [
         {
           id: 't1',
-          name: 'main.py',
-          language: 'python',
+          name: 'main.rs',
+          language: 'rust',
           content: '',
           autoLogEnabled: true,
         },
@@ -128,7 +128,18 @@ describe('editorStore — autoLogEnabled per-tab override ', () => {
     expect(useEditorStore.getState().tabs[0]).not.toHaveProperty('autoLogEnabled');
   });
 
-  it('renameTab from JS to Python clears any persisted override', () => {
+  it('renameTab from JS to Rust clears any persisted override', () => {
+    const { addTab, setTabAutoLogEnabled, renameTab } =
+      useEditorStore.getState();
+    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
+    setTabAutoLogEnabled('t1', true);
+    renameTab('t1', 'main.rs');
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab?.language).toBe('rust');
+    expect(tab?.autoLogEnabled).toBeUndefined();
+  });
+
+  it('renameTab inside the JS/TS/Python set preserves the override', () => {
     const { addTab, setTabAutoLogEnabled, renameTab } =
       useEditorStore.getState();
     addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
@@ -136,17 +147,6 @@ describe('editorStore — autoLogEnabled per-tab override ', () => {
     renameTab('t1', 'main.py');
     const tab = useEditorStore.getState().tabs[0];
     expect(tab?.language).toBe('python');
-    expect(tab?.autoLogEnabled).toBeUndefined();
-  });
-
-  it('renameTab inside the JS/TS pair preserves the override', () => {
-    const { addTab, setTabAutoLogEnabled, renameTab } =
-      useEditorStore.getState();
-    addTab({ id: 't1', name: 'main.js', language: 'javascript', content: '' });
-    setTabAutoLogEnabled('t1', true);
-    renameTab('t1', 'main.ts');
-    const tab = useEditorStore.getState().tabs[0];
-    expect(tab?.language).toBe('typescript');
     expect(tab?.autoLogEnabled).toBe(true);
   });
 });

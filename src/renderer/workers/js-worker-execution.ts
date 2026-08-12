@@ -186,6 +186,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               runId,
               line,
               value: serialized,
+              ...(value instanceof Error ? { isError: true } : {}),
             });
           };
 

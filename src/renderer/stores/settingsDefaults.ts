@@ -39,14 +39,15 @@ export const SETTINGS_WORKFLOW_MODE_LANGUAGE_SET: ReadonlySet<string> = new Set(
 );
 
 /**
- * implementation — opt-in seed for the bare-expression auto-log mode.
- * JS / TS only. Default OFF so a fresh install never floods the
- * result panel with inline values until the user explicitly enables
- * the feature in Settings → Editor.
+ * implementation — default seed for the bare-expression auto-log mode.
+ * Scratchpad worker languages default ON: inline expression feedback is the
+ * defining behavior of Scratchpad, while Run and Debug remain manual/quiet.
+ * Users can still disable a language default or one tab explicitly.
  */
 export const SCRATCHPAD_AUTO_LOG_DEFAULT_SEED: Record<string, boolean> = {
-  javascript: false,
-  typescript: false,
+  javascript: true,
+  typescript: true,
+  python: true,
 };
 
 export const SETTINGS_AUTO_LOG_LANGUAGE_SET: ReadonlySet<string> = new Set(
@@ -150,10 +151,9 @@ export function createInitialSettingsState() {
     // value is the implementation note seed; the merge function preserves user
     // overrides on rehydrate and seeds missing keys.
     workflowModeDefaultsByLanguage: { ...WORKFLOW_MODE_DEFAULT_SEED },
-    // implementation — per-language auto-log defaults. JS / TS
-    // only; default OFF so the inline-results experience stays
-    // opt-in (a quietly enabled flag could surprise a user with a
-    // wall of inline values on first open).
+    // implementation — per-language auto-log defaults for every
+    // Scratchpad worker runner. Inline feedback is on by default;
+    // Settings and per-tab overrides remain the explicit opt-out.
     scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
     // implementation — Browser preview follows the fast 300 ms live-refresh
     // path by default. Users can choose Off or 1 s in Settings, while a

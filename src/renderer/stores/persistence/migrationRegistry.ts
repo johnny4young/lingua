@@ -89,6 +89,24 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
         restoreSessionMode: restoreSession === true ? 'always' : 'ask',
       };
     },
+    // v2->v3 — Scratchpad now means live inline expressions for all three
+    // browser-worker languages. The old false values were seeded defaults,
+    // indistinguishable from an explicit opt-out, so this one-time semantic
+    // migration resets the three defaults to ON. Per-tab and Settings toggles
+    // remain available after migration.
+    3: (state) => ({
+      ...state,
+      scratchpadAutoLogByLanguage: {
+        ...(state.scratchpadAutoLogByLanguage &&
+        typeof state.scratchpadAutoLogByLanguage === 'object' &&
+        !Array.isArray(state.scratchpadAutoLogByLanguage)
+          ? (state.scratchpadAutoLogByLanguage as Record<string, unknown>)
+          : {}),
+        javascript: true,
+        typescript: true,
+        python: true,
+      },
+    }),
   },
   // internal v1->v2 — input-set fields are additive optional fields on each
   // saved tab. The identity step re-stamps the envelope without inventing

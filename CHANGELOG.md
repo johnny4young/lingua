@@ -6,6 +6,11 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-08-12
+
+### Added
+- **Scratchpad now keeps live values and failures beside JavaScript, TypeScript, and Python source.** Top-level expressions render inline by default, thrown values use the error treatment without losing their full console detail, and one failed capture no longer prevents later expressions from reporting results. Python selects expressions with CPython's AST inside Pyodide so multiline syntax, indentation, declarations, control flow, function bodies, and docstrings retain their normal semantics; Settings and per-tab controls remain available when a quieter editor is preferred.
+
 ## [1.1.0] — 2026-08-10
 
 ### Added

@@ -81,6 +81,26 @@ describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMod
   });
 });
 
+describe('lingua-settings v2->v3 — Scratchpad inline expressions default on', () => {
+  const migrate = createMigrate('lingua-settings');
+
+  it('enables JS, TS, and Python while preserving unrelated settings', () => {
+    const result = migrate(
+      {
+        theme: 'dark',
+        scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
+      },
+      2
+    ) as Record<string, unknown>;
+    expect(result.theme).toBe('dark');
+    expect(result.scratchpadAutoLogByLanguage).toEqual({
+      javascript: true,
+      typescript: true,
+      python: true,
+    });
+  });
+});
+
 describe('lingua-utility-state v1->v2 — workspace state extraction', () => {
   const migrate = createMigrate('lingua-utility-state');
 

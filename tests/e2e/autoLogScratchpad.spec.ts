@@ -3,7 +3,7 @@
  *
  * Locks the user-visible contract:
  *
- *   - With auto-log enabled for JavaScript via `localStorage`,
+ *   - With auto-log enabled for Scratchpad worker languages via `localStorage`,
  *     bare expressions on their own line surface a
  *     `data-result-kind="autoLog"` row.
  *   - Magic-comment arrow precedence is preserved: a line with `//=>`
@@ -17,6 +17,7 @@
 import type { Page } from '@playwright/test';
 import {
   createJavaScriptTab,
+  createLanguageTab,
   dismissWhatsNew,
   expect,
   gotoApp,
@@ -40,10 +41,10 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
  * Seed the auto-log Settings flag for the next page navigation via an
  * init script (runs BEFORE the renderer loads, same shape as
  * `seedSession`). Reads any existing `lingua-settings` payload and
- * merges in `scratchpadAutoLogByLanguage: { javascript: true }` so
+ * merges in the JS / TS / Python `scratchpadAutoLogByLanguage` defaults so
  * the settings store rehydrate path sees the field on first load.
  */
-async function enableAutoLogForJavaScript(page: Page): Promise<void> {
+async function enableAutoLogForScratchpadLanguages(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const settingsKey = 'lingua-settings';
     const raw = window.localStorage.getItem(settingsKey);
@@ -51,7 +52,8 @@ async function enableAutoLogForJavaScript(page: Page): Promise<void> {
     parsed.state = parsed.state ?? {};
     parsed.state.scratchpadAutoLogByLanguage = {
       javascript: true,
-      typescript: false,
+      typescript: true,
+      python: true,
     };
     window.localStorage.setItem(settingsKey, JSON.stringify(parsed));
   });
@@ -62,7 +64,7 @@ test.describe('expression auto-log ', () => {
     page,
   }) => {
     await seedSession(page, { language: 'en' });
-    await enableAutoLogForJavaScript(page);
+    await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
@@ -86,7 +88,7 @@ test.describe('expression auto-log ', () => {
     page,
   }) => {
     await seedSession(page, { language: 'en' });
-    await enableAutoLogForJavaScript(page);
+    await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
@@ -108,7 +110,7 @@ test.describe('expression auto-log ', () => {
 
   test('AutoLog status pill mirrors the resolved gate', async ({ page }) => {
     await seedSession(page, { language: 'en' });
-    await enableAutoLogForJavaScript(page);
+    await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
@@ -118,5 +120,57 @@ test.describe('expression auto-log ', () => {
     await expect(
       page.locator('[data-result-kind="autoLog-pill"]')
     ).toBeVisible();
+  });
+
+  test('surfaces TypeScript values and Error objects on their source lines', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await enableAutoLogForScratchpadLanguages(page);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createLanguageTab(page, /^TypeScript\b/i, /TS .*\.ts/i);
+
+    await replaceEditorText(
+      page,
+      [
+        'eval(`throw new Error("device id must be numeric: dd")`);',
+        "Number('42');",
+      ].join('\n')
+    );
+
+    const errorRow = page.locator('[data-result-kind="error"]');
+    await expect(errorRow).toBeVisible();
+    await expect(errorRow).toContainText('device id must be numeric: dd');
+    await expect(errorRow.locator('[data-type-pill="error"]')).toBeVisible();
+    const valueRows = page.locator('[data-result-kind="autoLog"]');
+    await expect(valueRows).toHaveCount(1);
+    await expect(valueRows).toContainText('42');
+  });
+
+  test('uses CPython AST auto-log for top-level Python expressions', async ({ page }) => {
+    test.setTimeout(90_000);
+    await seedSession(page, { language: 'es' });
+    await enableAutoLogForScratchpadLanguages(page);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createLanguageTab(page, /^Python\b/i, /PY .*\.py/i);
+
+    await replaceEditorText(
+      page,
+      [
+        'int("dd")',
+        'int("42")',
+        '1 + 1',
+      ].join('\n')
+    );
+
+    const errorRow = page.locator('[data-result-kind="error"]');
+    await expect(errorRow).toBeVisible({ timeout: 75_000 });
+    await expect(errorRow).toContainText('invalid literal for int()');
+    const valueRows = page.locator('[data-result-kind="autoLog"]');
+    await expect(valueRows).toHaveCount(2);
+    await expect(valueRows.nth(0)).toContainText('42');
+    await expect(valueRows.nth(1)).toContainText('2');
   });
 });

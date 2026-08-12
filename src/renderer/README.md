@@ -184,6 +184,11 @@ Renderer-local language intelligence also stays activation-scoped:
 Inline execution feedback separates diagnostic correctness from result
 presentation:
 
+- Scratchpad defaults to live top-level expression capture for JavaScript,
+  TypeScript, and Python. JS/TS instrument source before worker execution;
+  Python delegates module-level selection to CPython's `ast` parser inside
+  Pyodide so indentation, multiline syntax, docstrings, and function bodies are
+  not guessed by a TypeScript-side line scanner.
 - [`hooks/useExecutionMarkers.ts`](hooks/useExecutionMarkers.ts) keeps Monaco
   error and warning markers eager because a compile failure can arrive without
   a displayable line result.
@@ -194,6 +199,9 @@ presentation:
   owns overlay DOM, positioning, timing chips, and rich-output summaries.
   Failed chunk delivery reports localized reload guidance instead of silently
   dropping execution output.
+- Structured runtime and transpile failures also project one bounded red inline
+  row onto their source line (or the last non-empty line when no trustworthy
+  location exists); the console keeps the full stack/detail surface.
 - [`hooks/autoRunStickyResults.ts`](hooks/autoRunStickyResults.ts) preserves a
   sticky watch or auto-log value after failure only when its exact source line
   is unchanged and the error belongs elsewhere. Editing, removing, or disabling

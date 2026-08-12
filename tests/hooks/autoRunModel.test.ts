@@ -18,8 +18,8 @@ const BASE_INPUT: AutoRunInput = {
 };
 
 describe('autoRunModel', () => {
-  it('resolves JS and TS auto-log from tab overrides before defaults', () => {
-    const defaults = { javascript: true, typescript: false };
+  it('resolves JS, TS, and Python auto-log from tab overrides before defaults', () => {
+    const defaults = { javascript: true, typescript: false, python: true };
 
     expect(
       resolveAutoLogEnabled('javascript', 'scratchpad', undefined, defaults)
@@ -30,10 +30,13 @@ describe('autoRunModel', () => {
     expect(
       resolveAutoLogEnabled('typescript', 'scratchpad', true, defaults)
     ).toBe(true);
+    expect(
+      resolveAutoLogEnabled('python', 'scratchpad', undefined, defaults)
+    ).toBe(true);
   });
 
-  it('keeps auto-log off outside JS-family Scratchpad workflows', () => {
-    expect(resolveAutoLogEnabled('python', 'scratchpad', true, {})).toBe(false);
+  it('keeps auto-log off outside worker-runner Scratchpad workflows', () => {
+    expect(resolveAutoLogEnabled('rust', 'scratchpad', true, {})).toBe(false);
     expect(resolveAutoLogEnabled('javascript', 'run', true, {})).toBe(false);
     expect(resolveAutoLogEnabled('typescript', 'debug', true, {})).toBe(false);
   });

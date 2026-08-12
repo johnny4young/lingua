@@ -1,5 +1,5 @@
 import type { WorkflowMode } from '../../shared/workflowMode';
-import { isJavaScriptFamily } from '../../shared/languageFamilies';
+import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import type { FileTab } from '../types/editor';
 import type { Language } from '../types/language';
 import {
@@ -30,7 +30,7 @@ export function resolveAutoLogEnabled(
   tabOverride: boolean | undefined,
   defaults: AutoLogDefaults
 ): boolean {
-  if (!isJavaScriptFamily(language) || workflowMode !== 'scratchpad') {
+  if (!isWorkerRunnerLanguage(language) || workflowMode !== 'scratchpad') {
     return false;
   }
   return tabOverride === undefined

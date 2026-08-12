@@ -14,6 +14,7 @@ import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   isVariableInspectorSupportedLanguage,
+  languageSupportsAutoLog,
 } from './editorTabUtils';
 
 /**
@@ -140,11 +141,10 @@ export function createModeActions(
     setTabAutoLogEnabled: (id, enabled) => {
       const target = get().tabs.find((t) => t.id === id);
       if (!target) return;
-      // implementation note — auto-log is JS/TS-only this slice; the
-      // setter refuses any other language so a programmatic palette /
-      // shortcut entry point cannot leave a misleading flag on a Rust
-      // or Python tab.
-      if (target.language !== 'javascript' && target.language !== 'typescript') {
+      // Keep the tab override on the same capability predicate used by
+      // persistence and auto-run resolution. Python joined JS/TS once its
+      // worker gained AST-backed expression capture.
+      if (!languageSupportsAutoLog(target.language)) {
         return;
       }
       set((state) => ({

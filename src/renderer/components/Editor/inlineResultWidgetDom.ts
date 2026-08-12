@@ -69,7 +69,12 @@ export function renderInlineResultNode(
     // code path keeps its rendering).
     const richPreview = result.payload ? formatPayloadInlineSummary(result.payload) : null;
     const valueStr = richPreview ? richPreview.display : String(result.value ?? '');
-    const kind = richPreview ? richPreview.kindLabel : inferKind(valueStr);
+    const kind =
+      result.type === 'error'
+        ? 'error'
+        : richPreview
+          ? richPreview.kindLabel
+          : inferKind(valueStr);
     const part = document.createElement('span');
     part.className = 'lingua-inline-result-part';
     part.setAttribute('data-result-kind', result.type);

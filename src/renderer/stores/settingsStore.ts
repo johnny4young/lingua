@@ -58,8 +58,9 @@ export const useSettingsStore = create<SettingsState>()(
       // is identity (no shape change yet); the existing onRehydrate/merge
       // sanitizers still run after migrate. internal added the 1->2 step
       // (restoreSession boolean -> restoreSessionMode enum) in
-      // migrationRegistry; bump here in lockstep.
-      version: 2,
+      // migrationRegistry; v3 enables live inline expressions for Scratchpad
+      // JS/TS/Python by default. Bump here in lockstep.
+      version: 3,
       migrate: createMigrate('lingua-settings'),
       partialize: settingsPartialize,
       merge: settingsMerge,

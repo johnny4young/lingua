@@ -18,6 +18,10 @@ import type {
   PythonRuntimeAdapter,
 } from '../../src/renderer/workers/python-worker-runtime';
 import { PYTHON_STREAM_STATE_SOURCE } from '../../src/renderer/workers/python-worker-sources';
+import {
+  buildPythonAutoLogExecutionSource,
+  PYTHON_AUTO_LOG_HELPERS_SOURCE,
+} from '../../src/renderer/workers/python-worker-auto-log-source';
 
 function createPythonExecutionHarness(overrides: Partial<PythonRuntimeAdapter> = {}) {
   const messages: PythonWorkerOutboundMessage[] = [];
@@ -142,5 +146,81 @@ describe('Python execution worker adapter', () => {
     expect(harness.runtime.setActiveRunId).toHaveBeenNthCalledWith(1, 'python-run-1');
     expect(harness.runtime.setActiveRunId).toHaveBeenLastCalledWith(null);
     expect(harness.runtime.resetStdin).toHaveBeenCalledOnce();
+  });
+
+  it('routes Python Scratchpad expressions through CPython AST instrumentation', async () => {
+    const harness = createPythonExecutionHarness();
+    const source = 'value = 21\nvalue * 2';
+    const executionSource = buildPythonAutoLogExecutionSource(source);
+    const runPythonAsync = vi.fn(async (incoming: string) => {
+      if (incoming.includes(PYTHON_AUTO_LOG_HELPERS_SOURCE)) return null;
+      if (incoming === executionSource) return null;
+      if (incoming === PYTHON_STREAM_STATE_SOURCE) {
+        return JSON.stringify({
+          stdout: '',
+          stderr: '',
+          magic: [{ line: 2, value: '42', kind: 'autoLog' }],
+          print_entries: [],
+        });
+      }
+      return null;
+    });
+    harness.runtimeValue.runPythonAsync = runPythonAsync;
+    const handle = createPythonExecutionHandler(harness.port, harness.runtime);
+
+    await handle({
+      type: 'execute',
+      runId: 'python-auto-log-1',
+      code: source,
+      autoLog: true,
+    });
+
+    expect(runPythonAsync).toHaveBeenCalledWith(executionSource);
+    expect(harness.messages).toContainEqual({
+      type: 'magic-comment',
+      runId: 'python-auto-log-1',
+      line: 2,
+      value: '42',
+      kind: 'autoLog',
+    });
+  });
+
+  it('preserves Python auto-log error classification from the worker', async () => {
+    const harness = createPythonExecutionHarness();
+    harness.runtimeValue.runPythonAsync = vi.fn(async (incoming: string) => {
+      if (incoming === PYTHON_STREAM_STATE_SOURCE) {
+        return JSON.stringify({
+          stdout: '',
+          stderr: '',
+          magic: [
+            {
+              line: 1,
+              value: 'bad input',
+              kind: 'autoLog',
+              is_error: true,
+            },
+          ],
+          print_entries: [],
+        });
+      }
+      return null;
+    });
+    const handle = createPythonExecutionHandler(harness.port, harness.runtime);
+
+    await handle({
+      type: 'execute',
+      runId: 'python-auto-log-error',
+      code: 'int("bad")',
+      autoLog: true,
+    });
+
+    expect(harness.messages).toContainEqual({
+      type: 'magic-comment',
+      runId: 'python-auto-log-error',
+      line: 1,
+      value: 'bad input',
+      kind: 'autoLog',
+      isError: true,
+    });
   });
 });
