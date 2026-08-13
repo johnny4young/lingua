@@ -87,6 +87,11 @@ overrides:
   # ViteConfigGenerator in scripts/build-desktop-bundles.mjs). Re-check if
   # packaging ever moves back to Forge or extract-zip publishes a fix.
   "ip-address": "^10.3.1"
+  # nanoid <3.3.18: custom generators can loop indefinitely when size is
+  # zero. Build-tooling only (postcss), but the website audit gate is
+  # blocking and its previous EXACT pin (3.3.17) froze the tree one patch
+  # below the fix — range pins so the next advisory bump flows through.
+  "nanoid": "^3.3.18"
   "brace-expansion@2.1.1": "2.1.4"
   "brace-expansion@5.0.6": "5.0.9"
   "fast-uri": "3.1.5"
