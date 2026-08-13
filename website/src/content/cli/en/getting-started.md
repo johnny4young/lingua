@@ -96,6 +96,7 @@ The CLI itself does not need a network. Your program can still use the network, 
 
 - [Run files and projects](/cli/run-code)
 - [Pipe through developer utilities](/cli/utilities)
+- [Copy practical recipes for APIs, repositories, CI, containers, and PowerShell](/cli/recipes)
 - [Validate and replay Run Capsules](/cli/capsules)
 - [Use Lingua in scripts and CI](/cli/automation)
 - [Fix PATH, runtime, and output problems](/cli/troubleshooting)

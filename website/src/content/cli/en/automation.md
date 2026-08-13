@@ -69,3 +69,7 @@ lingua completion fish
 ```
 
 Completion generation is deterministic and network-free, so package scripts can install it without contacting a service.
+
+See [Practical recipes for everyday development](/cli/recipes) for complete
+GitHub Actions, Git hook, package script, Make, Docker, Bash, and PowerShell
+patterns.

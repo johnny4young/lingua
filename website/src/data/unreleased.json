@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-08-13T00:08:54.799Z",
+  "generatedAt": "2026-08-13T01:56:43.250Z",
   "baseRef": "v1.2.0",
-  "commitCount": 2,
-  "totalSinceBase": 2,
+  "commitCount": 3,
+  "totalSinceBase": 4,
   "commits": [
+    {
+      "hash": "dba6730",
+      "date": "2026-08-12",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "install detected shell completions",
+      "breaking": false
+    },
     {
       "hash": "c6f166c",
       "date": "2026-08-12",

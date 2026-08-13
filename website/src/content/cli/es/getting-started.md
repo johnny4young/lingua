@@ -96,6 +96,7 @@ El CLI no necesita red. Tu programa sí puede usarla, y cada lenguaje requiere s
 
 - [Ejecuta archivos y proyectos](/es/cli/run-code)
 - [Conecta utilidades en pipes](/es/cli/utilities)
+- [Copia recetas para APIs, repositorios, CI, contenedores y PowerShell](/es/cli/recipes)
 - [Valida y repite Run Capsules](/es/cli/capsules)
 - [Usa Lingua en scripts y CI](/es/cli/automation)
 - [Resuelve problemas de PATH, runtimes y salida](/es/cli/troubleshooting)

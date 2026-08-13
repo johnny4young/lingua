@@ -69,3 +69,7 @@ lingua completion fish
 ```
 
 La generación es determinista y no usa red, por lo que un script de instalación puede ejecutarla sin contactar servicios.
+
+Consulta [Recetas prácticas para el desarrollo diario](/es/cli/recipes) para
+ver patrones completos de GitHub Actions, hooks de Git, scripts de paquete,
+Make, Docker, Bash y PowerShell.

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import generatedCatalog from '../src/data/cli-reference.json' with { type: 'json' };
 import { CLI_HELP_CATALOG } from '../../src/cli/helpCatalog.ts';
+import rootPackage from '../../package.json' with { type: 'json' };
 
 const here = dirname(fileURLToPath(import.meta.url));
 const websiteRoot = resolve(here, '..');
@@ -24,11 +25,41 @@ test('English and Spanish CLI documentation have the same routes', async () => {
     'automation.md',
     'capsules.md',
     'getting-started.md',
+    'recipes.md',
     'reference.md',
     'run-code.md',
     'troubleshooting.md',
     'utilities.md',
   ]);
+});
+
+test('practical recipes cover common developer ecosystems in both locales', async () => {
+  for (const locale of ['en', 'es'] as const) {
+    const recipes = await readFile(
+      resolve(websiteRoot, `src/content/cli/${locale}/recipes.md`),
+      'utf8'
+    );
+    assert.ok(
+      (recipes.match(/\blingua\s+(?:utility|run|capsule|completion|list)\b/g) ?? []).length >= 25,
+      `${locale} recipes should keep at least 25 copy-ready Lingua invocations`
+    );
+    for (const required of [
+      'curl',
+      'package.json',
+      'GitHub Actions',
+      'dockerfile',
+      'PowerShell',
+      'capsule replay',
+      'completion --dry-run',
+    ]) {
+      assert.ok(recipes.includes(required), `${locale} recipes miss ${required}`);
+    }
+    assert.ok(
+      recipes.includes(`@linguacode/cli\": \"${rootPackage.version}`) &&
+        recipes.includes(`@linguacode/cli@${rootPackage.version}`),
+      `${locale} recipes should pin package.json and container examples to ${rootPackage.version}`
+    );
+  }
 });
 
 test('both localized references cover every command and flag syntax', async () => {
