@@ -61,3 +61,7 @@ lingua utility json-format --input raw.json --json | jq -r '.value'
 ```
 
 Binary utility output is intentionally unsupported in this headless text contract and exits with code 3 rather than corrupting a terminal stream.
+
+For option-aware examples covering APIs, JWTs, hashes, Unicode, identifiers,
+cron, source rewrites, and more, continue with [Practical recipes for everyday
+development](/cli/recipes).

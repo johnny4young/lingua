@@ -61,3 +61,7 @@ lingua utility json-format --input raw.json --json | jq -r '.value'
 ```
 
 La salida binaria no forma parte de este contrato headless textual. Lingua termina con código 3 en vez de corromper el flujo de la terminal.
+
+Para ver ejemplos con opciones sobre APIs, JWTs, hashes, Unicode,
+identificadores, cron, reemplazos de código y más, continúa con [Recetas
+prácticas para el desarrollo diario](/es/cli/recipes).

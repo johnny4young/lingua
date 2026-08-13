@@ -46,27 +46,30 @@ The allowed range is 100–300000 ms, with a 30000 ms default. Timeout and Ctrl+
 
 ## Install shell completion
 
-### Bash
+Homebrew installs Bash, Zsh, and Fish completion files automatically. For
+other install channels, let Lingua detect the supported shells on `PATH`, show
+the exact target files, and ask once before writing:
 
 ```bash
-mkdir -p ~/.local/share/bash-completion/completions
-lingua completion bash > ~/.local/share/bash-completion/completions/lingua
+lingua completion
+lingua completion --dry-run
+lingua completion install --yes # explicit non-interactive approval
 ```
 
-### Zsh
+The installer marks the current shell, configures standard Bash and Fish user
+directories, and maintains one delimited Zsh block in `.zshrc`. It refuses to
+write from CI or a pipe unless `--yes` is present.
 
-```zsh
-mkdir -p ~/.zfunc
-lingua completion zsh > ~/.zfunc/_lingua
-fpath=(~/.zfunc $fpath)
-autoload -Uz compinit && compinit
-```
+You can still generate one deterministic script manually:
 
-### Fish
-
-```fish
-mkdir -p ~/.config/fish/completions
-lingua completion fish > ~/.config/fish/completions/lingua.fish
+```bash
+lingua completion bash
+lingua completion zsh
+lingua completion fish
 ```
 
 Completion generation is deterministic and network-free, so package scripts can install it without contacting a service.
+
+See [Practical recipes for everyday development](/cli/recipes) for complete
+GitHub Actions, Git hook, package script, Make, Docker, Bash, and PowerShell
+patterns.

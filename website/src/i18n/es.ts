@@ -504,7 +504,7 @@ export const es = {
       reference: 'Referencia',
     },
     releaseNote:
-      'El CLI se publica en npm como @linguacode/cli. Instálalo de forma global, ejecútalo con npx o compílalo desde el código fuente.',
+      'Instala el CLI con Homebrew en macOS, usa @linguacode/cli mediante npm o npx, o compílalo desde el código fuente. Fija una versión para automatización.',
   },
   seo: {
     download: 'Descargar Lingua',

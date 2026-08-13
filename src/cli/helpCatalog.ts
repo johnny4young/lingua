@@ -127,15 +127,19 @@ export const CLI_HELP_CATALOG = {
     {
       id: 'completion',
       topLevel: 'completion',
-      invocation: 'lingua completion bash|zsh|fish',
-      summary: 'Generate a deterministic shell completion script.',
+      invocation: 'lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]',
+      summary: 'Install completions interactively or print one shell script.',
       description:
-        'Prints network-free Bash, Zsh, or Fish completion source without ANSI styling.',
-      flags: ['color', 'help'],
+        'With no target or with install, detects Bash, Zsh, and Fish, shows the target files, and asks before writing. A shell target prints deterministic network-free source.',
+      flags: ['yes', 'dry-run', 'color', 'help'],
       examples: [
         {
-          command: 'lingua completion zsh > ~/.zfunc/_lingua',
-          description: 'Install the Zsh completion file.',
+          command: 'lingua completion',
+          description: 'Detect supported shells and offer to install their completions.',
+        },
+        {
+          command: 'lingua completion install --yes',
+          description: 'Install every detected completion without prompting.',
         },
       ],
     },
@@ -148,6 +152,8 @@ export const CLI_HELP_CATALOG = {
     { id: 'option', syntax: '--option key=value', summary: 'Repeat to pass an adapter option.', commands: ['utility'] },
     { id: 'json', syntax: '--json', summary: 'Emit a stable structured JSON body instead of plain text.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'run', 'list-utilities'] },
     { id: 'quiet', syntax: '--quiet', summary: 'Suppress Lingua diagnostics while preserving command output.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'run', 'list-utilities'] },
+    { id: 'yes', syntax: '--yes', summary: 'Approve detected shell-completion changes without prompting.', commands: ['completion'] },
+    { id: 'dry-run', syntax: '--dry-run', summary: 'Show detected shells and target files without writing.', commands: ['completion'] },
     { id: 'color', syntax: '--color <auto|always|never>', summary: 'Control diagnostic color. The default is auto.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'run', 'list-utilities', 'completion'] },
     { id: 'separator', syntax: '--', summary: 'Forward every remaining token to the executed program unchanged.', commands: ['run'] },
     { id: 'help', syntax: '--help, -h', summary: 'Show help.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'run', 'list-utilities', 'completion'] },

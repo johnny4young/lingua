@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Generate the Homebrew cask and winget manifests for a published release.
+ * Generate the Homebrew desktop cask, CLI formula, and winget manifests for a
+ * published release.
  *
  * Both package managers describe a release by (version, download URL,
  * SHA256). All three already exist on the GitHub Release, so this script
@@ -78,7 +79,48 @@ export function releaseAssetNames(version) {
     macArm: `Lingua-${version}-mac-arm64.dmg`,
     macIntel: `Lingua-${version}-mac-x64.dmg`,
     windows: `Lingua-${version}-win-x64.exe`,
+    cliNpm: `linguacode-cli-${version}.tgz`,
   };
+}
+
+/**
+ * Render the headless CLI formula separately from the desktop cask.
+ *
+ * The source archive is the exact dependency-free npm-format tarball attached
+ * to the immutable GitHub Release. Homebrew downloads and installs it directly;
+ * npm is not invoked. `node@24` remains an explicit runtime dependency because
+ * macOS does not yet ship a separately notarized standalone CLI binary.
+ */
+export function renderHomebrewCliFormula({ version, digests, repo = GITHUB_REPO }) {
+  const archive = releaseAssetNames(version).cliNpm;
+  const sha = requireDigest(digests, archive);
+
+  return `class LinguaCli < Formula
+  desc "Headless offline CLI for Lingua utilities, runners, and Run Capsules"
+  homepage "https://linguacode.dev/cli"
+  url "https://github.com/${repo}/releases/download/v${version}/${archive}"
+  sha256 "${sha}"
+  license :cannot_represent
+
+  depends_on "node@24"
+
+  def install
+    package_root = (buildpath/"package").directory? ? buildpath/"package" : buildpath
+    libexec.install package_root/"LICENSE", package_root/"README.md", package_root/"package.json"
+    (libexec/"bin").install package_root/"bin/lingua.cjs"
+    (bin/"lingua").write_env_script libexec/"bin/lingua.cjs", PATH: "#{formula_opt_bin("node@24")}:$PATH"
+    generate_completions_from_executable(bin/"lingua", "completion")
+  end
+
+  test do
+    assert_equal version.to_s, shell_output("#{bin}/lingua --version").strip
+    assert_equal "aGVsbG8=", pipe_output("#{bin}/lingua utility base64-encode", "hello").strip
+    assert_path_exists bash_completion/"lingua"
+    assert_path_exists zsh_completion/"_lingua"
+    assert_path_exists fish_completion/"lingua.fish"
+  end
+end
+`;
 }
 
 /**
@@ -248,17 +290,23 @@ export async function generateDistributionManifests({
   const digests = parseChecksums(checksumText);
 
   const cask = renderHomebrewCask({ version, digests, repo });
+  const formula = renderHomebrewCliFormula({ version, digests, repo });
   const winget = renderWingetManifests({ version, digests, repo, releaseDate });
 
   const caskDir = path.join(outputRoot, 'homebrew', 'Casks');
+  const formulaDir = path.join(outputRoot, 'homebrew', 'Formula');
   const wingetDir = path.join(outputRoot, 'winget');
   await mkdir(caskDir, { recursive: true });
+  await mkdir(formulaDir, { recursive: true });
   await mkdir(wingetDir, { recursive: true });
 
   const written = [];
   const caskPath = path.join(caskDir, 'lingua.rb');
   await writeFile(caskPath, cask, 'utf8');
   written.push(caskPath);
+  const formulaPath = path.join(formulaDir, 'lingua-cli.rb');
+  await writeFile(formulaPath, formula, 'utf8');
+  written.push(formulaPath);
   for (const [name, contents] of Object.entries(winget)) {
     const target = path.join(wingetDir, name);
     await writeFile(target, contents, 'utf8');

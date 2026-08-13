@@ -3,7 +3,7 @@ title: Use Lingua without opening a window
 description: Meet the headless Lingua CLI, build it today, and turn a first command into a repeatable local workflow.
 order: 1
 group: start
-keywords: [install, npm, terminal, quickstart, headless, offline, help]
+keywords: [install, homebrew, brew, npm, terminal, quickstart, headless, offline, help]
 ---
 
 The Lingua CLI is for the moment when a useful action needs to leave the app and become a terminal command, a shell pipe, or a CI step. It runs the same utility adapters and Run Capsule schema as Lingua, but it does **not** start Electron or React.
@@ -12,7 +12,16 @@ It is local, scriptable, and intentionally small. Use it to format a payload on 
 
 ## Install it
 
-`@linguacode/cli` is published on npm. It has no dependencies and needs Node 24.x:
+On macOS, Homebrew downloads the release-owned CLI artifact and configures Node 24 for you. It does not invoke npm:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+This is separate from `brew install --cask johnny4young/tap/lingua`, which installs the same Desktop application distributed in the `.dmg` under `/Applications/lingua.app`.
+
+`@linguacode/cli` also remains available on npm for every Node-supported platform. It has no package dependencies and needs Node 24.x:
 
 ```bash
 npm install -g @linguacode/cli
@@ -87,6 +96,7 @@ The CLI itself does not need a network. Your program can still use the network, 
 
 - [Run files and projects](/cli/run-code)
 - [Pipe through developer utilities](/cli/utilities)
+- [Copy practical recipes for APIs, repositories, CI, containers, and PowerShell](/cli/recipes)
 - [Validate and replay Run Capsules](/cli/capsules)
 - [Use Lingua in scripts and CI](/cli/automation)
 - [Fix PATH, runtime, and output problems](/cli/troubleshooting)

@@ -270,6 +270,10 @@ const pageHeadings = headings.filter(heading => heading.depth === 2 || heading.d
       top: 92px;
       align-self: start;
       min-width: 0;
+      max-height: calc(100vh - 112px);
+      padding-right: 0.35rem;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
     }
     .page-outline p {
       margin: 0 0 0.65rem;

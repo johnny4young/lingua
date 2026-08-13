@@ -12,8 +12,21 @@ and compatibility checks.
 
 ## Install / build
 
-`@linguacode/cli` is published on npm. The package is dependency-free and
-declares `engines.node: 24.x`:
+On macOS, install the dedicated Homebrew formula. It downloads the immutable
+release tarball directly, installs `node@24` as a dependency, and exposes
+`lingua` on `PATH` without invoking npm:
+
+```bash
+brew install johnny4young/tap/lingua-cli
+lingua --help
+```
+
+This formula is separate from the `lingua` cask: the formula installs the
+headless command, while `brew install --cask johnny4young/tap/lingua` installs
+the same Desktop application distributed in the `.dmg`.
+
+`@linguacode/cli` also remains published on npm. The package is dependency-free
+and declares `engines.node: 24.x`:
 
 ```bash
 npm install -g @linguacode/cli   # or: npx @linguacode/cli --help
@@ -77,6 +90,10 @@ approval before becoming public. Verification runs before the protected
 environment asks for approval, and the promotion job rechecks the transferred
 tarball before either credential path can reach npm.
 
+The Homebrew `lingua-cli` formula consumes that same checksum-pinned npm-format
+release tarball directly from GitHub. npm is a publication format and optional
+installation channel here, not a command Homebrew runs on the user's machine.
+
 Use `pnpm run distribution:status` for a read-only comparison of the latest
 public release, npm package, Homebrew tap, and generated winget manifests. The
 report can also emit machine-readable JSON or bilingual standalone HTML. It
@@ -96,9 +113,25 @@ rollback sequence lives in
 
 ## Shell completion
 
-`lingua completion` prints deterministic, network-free completion scripts. It
-never emits ANSI styling, so the output can be sourced for the current session
-or written to the shell's normal completion directory.
+Homebrew installs Bash, Zsh, and Fish completions automatically. For npm,
+standalone, or development installs, run the guided installer:
+
+```bash
+lingua completion                 # detect shells, show paths, ask once
+lingua completion --dry-run       # inspect without writing
+lingua completion install --yes   # non-interactive approval
+```
+
+The assistant detects supported executables on `PATH`, identifies the current
+shell from `SHELL`, and shows every target before asking for confirmation. It
+writes Bash and Fish scripts to their standard user completion directories.
+For Zsh it also maintains one clearly delimited block in `.zshrc`, making
+repeat runs idempotent. In a pipe or CI environment it refuses to write unless
+`--yes` is present.
+
+`lingua completion bash|zsh|fish` remains the low-level, deterministic,
+network-free generator. It never emits ANSI styling, so its output can still
+be sourced or redirected manually.
 
 ### Bash
 
@@ -128,7 +161,8 @@ lingua completion fish > ~/.config/fish/completions/lingua.fish
 ```
 
 All three scripts complete commands, command-specific flags, color modes,
-Capsule actions, shells, files, and the shared utility registry.
+Capsule actions, completion installation, shells, files, and the shared
+utility registry.
 
 ## Commands
 
@@ -260,6 +294,12 @@ Project-root detection is explicit and ordered:
 Framework-specific projects should pass their executable source file or invoke
 their framework launcher directly when starting that source alone would not be
 meaningful.
+
+When a required host runtime is absent, plain output names the runtime, gives a
+platform-aware installation action, shows the verification command, and links
+to the troubleshooting guide. JSON output preserves `reason: missing-runtime`
+and adds a structured `recovery` object so CI or wrappers can present the same
+next step without parsing prose.
 
 Execution flags:
 

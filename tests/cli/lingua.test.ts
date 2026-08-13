@@ -104,6 +104,17 @@ describe('dispatch', () => {
     expect(state.stdout).not.toContain('\u001b[');
   });
 
+  it('routes a bare completion command to a safe detected-shell dry run', async () => {
+    const { io, state } = createFakeIo({
+      environment: { HOME: '/tmp', SHELL: '/bin/zsh', PATH: '/bin:/usr/bin' },
+    });
+    const code = await dispatch(['completion', '--dry-run'], io);
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    expect(state.stdout).toContain('Lingua detected these supported shells:');
+    expect(state.stdout).toContain('Dry run: no files were changed.');
+    expect(state.prompts).toEqual([]);
+  });
+
   it('routes run through the headless executor', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'lingua-dispatch-run-'));
     try {

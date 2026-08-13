@@ -23,6 +23,18 @@ Si `pnpm link --global` funciona pero el shell no encuentra el comando, revisa `
 
 ## Falta un runtime
 
+Lingua ahora muestra el nombre del runtime, una acción de instalación para tu
+plataforma, un comando de verificación y esta guía cuando `lingua run` no
+encuentra un toolchain. En macOS puedes corregirlo directamente con:
+
+```bash
+brew install python  # Python
+brew install go      # Go
+brew install rust    # Rust y Cargo
+brew install ruby    # Ruby
+brew install lua     # Lua
+```
+
 Confirma que el mismo shell encuentre el toolchain:
 
 ```bash
@@ -35,6 +47,10 @@ lua -v
 ```
 
 Una app de escritorio y un login shell pueden heredar valores PATH diferentes. El CLI usa el entorno de la terminal que lo inició, así que valida desde esa terminal exacta.
+
+En modo `--json`, revisa `run.recovery` (también disponible como `recovery` en
+el nivel superior) para obtener `runtime`, `executable`, `installCommand`
+opcional, `installGuide` y `verifyCommand` sin analizar el texto humano.
 
 ## Lingua rechaza una opción de mi programa
 

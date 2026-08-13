@@ -11,7 +11,7 @@
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json]            (implementation note)
- *   lingua completion bash|zsh|fish
+ *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
  *   lingua --version                          (implementation note)
  *   lingua --help | lingua <cmd> --help
  *
@@ -46,6 +46,7 @@ export type CliCommandName =
   | 'run'
   | 'list-utilities'
   | 'completion'
+  | 'completion-install'
   | 'help'
   | 'version';
 
@@ -76,6 +77,10 @@ export interface ParsedArgs {
     options: ReadonlyArray<{ key: string; value: string }>;
     /** `--help` requested anywhere in the argv. */
     help: boolean;
+    /** Approve a guided completion install without an interactive prompt. */
+    yes: boolean;
+    /** Show the completion install plan without writing files. */
+    dryRun: boolean;
   };
 }
 
@@ -90,6 +95,8 @@ interface InProgressFlags {
   programArgs: string[];
   options: Array<{ key: string; value: string }>;
   help: boolean;
+  yes: boolean;
+  dryRun: boolean;
 }
 
 /** Flags every command accepts. */
@@ -149,6 +156,8 @@ function freshFlags(color: CliColorMode = 'auto'): InProgressFlags {
     env: [],
     programArgs: [],
     help: false,
+    yes: false,
+    dryRun: false,
   };
 }
 
@@ -171,6 +180,8 @@ function finalize(
       env: flags.env,
       programArgs: flags.programArgs,
       help: flags.help,
+      yes: flags.yes,
+      dryRun: flags.dryRun,
     },
   };
 }
@@ -421,17 +432,20 @@ function parseCompletion(rest: ReadonlyArray<string>, color: CliColorMode): Pars
       flags.help = true;
       continue;
     }
+    if (arg === '--yes') {
+      flags.yes = true;
+      continue;
+    }
+    if (arg === '--dry-run') {
+      flags.dryRun = true;
+      continue;
+    }
     if (arg.startsWith('-')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua completion". Allowed: --color, --help`
+        `Unknown flag "${arg}" for "lingua completion". Allowed: --yes, --dry-run, --color, --help`
       );
     }
     positionals.push(arg);
-  }
-  if (!flags.help && positionals.length === 0) {
-    throw new CliUsageError(
-      `lingua completion requires a <shell> positional. Available: ${CLI_COMPLETION_SHELLS.join(', ')}`
-    );
   }
   if (positionals.length > 1) {
     throw new CliUsageError(
@@ -439,12 +453,16 @@ function parseCompletion(rest: ReadonlyArray<string>, color: CliColorMode): Pars
     );
   }
   const shell = positionals[0];
-  if (!flags.help && shell !== undefined && !isCliCompletionShell(shell)) {
+  if (!flags.help && shell !== undefined && shell !== 'install' && !isCliCompletionShell(shell)) {
     throw new CliUsageError(
-      `Unknown completion shell "${shell}". Available: ${CLI_COMPLETION_SHELLS.join(', ')}`
+      `Unknown completion target "${shell}". Available: install, ${CLI_COMPLETION_SHELLS.join(', ')}`
     );
   }
-  return finalize('completion', positionals, flags);
+  const installing = shell === undefined || shell === 'install';
+  if (!installing && (flags.yes || flags.dryRun)) {
+    throw new CliUsageError('--yes and --dry-run are only valid for completion installation');
+  }
+  return finalize(installing ? 'completion-install' : 'completion', positionals, flags);
 }
 
 interface ExtractedColorFlag {

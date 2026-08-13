@@ -111,6 +111,17 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     expect(out.stdout).not.toContain('\u001b[');
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'detects installed shells from the bundled CLI without writing in dry-run mode',
+    () => {
+      const out = runCli(['completion', '--dry-run']);
+      expect(out.code).toBe(0);
+      expect(out.stderr).toBe('');
+      expect(out.stdout).toContain('Lingua detected these supported shells:');
+      expect(out.stdout).toContain('Dry run: no files were changed.');
+    }
+  );
+
   it('exits 1 with file-not-found when validating a missing capsule', () => {
     const out = runCli(['capsule', 'validate', '/definitely/not/here.json']);
     expect(out.code).toBe(1);
@@ -141,6 +152,31 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
       const out = runCli(['run', root]);
       expect(out.code).toBe(0);
       expect(out.stdout).toBe('project-root\n');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('explains how to recover when a host runtime is missing', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'lingua-cli-missing-runtime-'));
+    try {
+      const entry = path.join(root, 'hello.lua');
+      writeFileSync(entry, 'print("hello")\n', 'utf8');
+      const out = runCli(['run', entry, '--json'], undefined, { PATH: '/usr/bin:/bin' });
+
+      expect(out.code).toBe(3);
+      expect(out.stderr).toBe('');
+      expect(JSON.parse(out.stdout)).toMatchObject({
+        ok: false,
+        reason: 'missing-runtime',
+        recovery: {
+          runtime: 'Lua',
+          executable: 'lua',
+          installGuide: 'https://www.lua.org/download.html',
+          verifyCommand: 'lua --version',
+        },
+        run: { reason: 'missing-runtime' },
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
