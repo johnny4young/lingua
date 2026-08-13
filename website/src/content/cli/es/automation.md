@@ -46,27 +46,26 @@ El rango permitido es 100–300000 ms y el valor predeterminado es 30000 ms. El 
 
 ## Instala autocompletado
 
-### Bash
+Homebrew instala automáticamente los archivos de Bash, Zsh y Fish. Con los
+demás canales, permite que Lingua detecte los shells compatibles en `PATH`,
+muestre cada archivo de destino y pida confirmación una sola vez:
 
 ```bash
-mkdir -p ~/.local/share/bash-completion/completions
-lingua completion bash > ~/.local/share/bash-completion/completions/lingua
+lingua completion
+lingua completion --dry-run
+lingua completion install --yes # aprobación no interactiva explícita
 ```
 
-### Zsh
+El instalador marca el shell actual, configura los directorios estándar de
+usuario para Bash y Fish, y mantiene un único bloque delimitado en `.zshrc`
+para Zsh. Desde CI o un pipe no escribe nada sin `--yes`.
 
-```zsh
-mkdir -p ~/.zfunc
-lingua completion zsh > ~/.zfunc/_lingua
-fpath=(~/.zfunc $fpath)
-autoload -Uz compinit && compinit
-```
+También puedes generar manualmente un script determinista:
 
-### Fish
-
-```fish
-mkdir -p ~/.config/fish/completions
-lingua completion fish > ~/.config/fish/completions/lingua.fish
+```bash
+lingua completion bash
+lingua completion zsh
+lingua completion fish
 ```
 
 La generación es determinista y no usa red, por lo que un script de instalación puede ejecutarla sin contactar servicios.

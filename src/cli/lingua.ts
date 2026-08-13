@@ -13,7 +13,7 @@
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
  *   lingua list utilities [--json] [--quiet]            (implementation note)
- *   lingua completion bash|zsh|fish
+ *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
  *   lingua --version                                    (implementation note)
  *   lingua --help | <cmd> --help
  *
@@ -30,6 +30,7 @@
  */
 
 import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
+import { runCompletionInstallCommand } from './commands/completionInstall';
 import { runTargetCommand } from './commands/run';
 import { runListUtilitiesCommand, runUtilityCommand } from './commands/utility';
 import { isCliColorMode, type CliColorMode } from './commandModel';
@@ -114,6 +115,13 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
     }
     io.writeStdout(renderCompletion(shell));
     return CLI_EXIT_CODES.ok;
+  }
+
+  if (parsed.command === 'completion-install') {
+    return runCompletionInstallCommand(
+      { assumeYes: parsed.flags.yes, dryRun: parsed.flags.dryRun },
+      io
+    );
   }
 
   if (parsed.command === 'utility') {

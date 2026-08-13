@@ -113,9 +113,25 @@ rollback sequence lives in
 
 ## Shell completion
 
-`lingua completion` prints deterministic, network-free completion scripts. It
-never emits ANSI styling, so the output can be sourced for the current session
-or written to the shell's normal completion directory.
+Homebrew installs Bash, Zsh, and Fish completions automatically. For npm,
+standalone, or development installs, run the guided installer:
+
+```bash
+lingua completion                 # detect shells, show paths, ask once
+lingua completion --dry-run       # inspect without writing
+lingua completion install --yes   # non-interactive approval
+```
+
+The assistant detects supported executables on `PATH`, identifies the current
+shell from `SHELL`, and shows every target before asking for confirmation. It
+writes Bash and Fish scripts to their standard user completion directories.
+For Zsh it also maintains one clearly delimited block in `.zshrc`, making
+repeat runs idempotent. In a pipe or CI environment it refuses to write unless
+`--yes` is present.
+
+`lingua completion bash|zsh|fish` remains the low-level, deterministic,
+network-free generator. It never emits ANSI styling, so its output can still
+be sourced or redirected manually.
 
 ### Bash
 
@@ -145,7 +161,8 @@ lingua completion fish > ~/.config/fish/completions/lingua.fish
 ```
 
 All three scripts complete commands, command-specific flags, color modes,
-Capsule actions, shells, files, and the shared utility registry.
+Capsule actions, completion installation, shells, files, and the shared
+utility registry.
 
 ## Commands
 

@@ -17,7 +17,7 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `lingua capsule replay <file>` | Verify and replay a trusted single-source Capsule. |
 | `lingua run <file-or-directory>` | Execute a source file or conventional project root. |
 | `lingua list utilities` | Print the live utility registry. |
-| `lingua completion bash\|zsh\|fish` | Generate shell completion source. |
+| `lingua completion [bash\|zsh\|fish\|install]` | Detect and install completions, or generate one shell script. |
 | `lingua --version` | Print the build-time CLI version. |
 | `lingua --help` | Print terminal help. |
 
@@ -32,6 +32,8 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `--env NAME=value` | `run`, `capsule replay` | Repeat to add an explicit environment value. |
 | `--json` | data-producing commands | Emit one structured JSON document. |
 | `--quiet` | data-producing commands | Suppress Lingua diagnostics, not command output. |
+| `--yes` | `completion` | Approve detected completion changes without prompting. |
+| `--dry-run` | `completion` | Show detected shells and target files without writing. |
 | `--color <auto\|always\|never>` | all commands | Control human diagnostic styling. |
 | `--` | `run` | Forward every remaining token to the program. |
 | `--help`, `-h` | all commands | Show help. |

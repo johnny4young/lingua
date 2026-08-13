@@ -34,7 +34,9 @@ lingua --help
 ```
 
 The formula downloads the checksum-pinned CLI artifact directly from the
-GitHub Release and configures Node 24 automatically. It does not invoke npm.
+GitHub Release, configures Node 24, and installs Bash, Zsh, and Fish
+completions automatically. It does not invoke npm. Other install channels can
+run `lingua completion` for a detected-shell setup assistant.
 
 **Any platform** — the signed macOS builds, the Windows installer, and the Linux
 AppImage are attached to the

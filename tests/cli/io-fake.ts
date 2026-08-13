@@ -12,6 +12,7 @@ import type { CliIo } from '../../src/cli/io';
 export interface FakeIoState {
   stdout: string;
   stderr: string;
+  prompts: string[];
 }
 
 export interface FakeIoOptions {
@@ -22,15 +23,20 @@ export interface FakeIoOptions {
   stdoutSupportsColor?: boolean;
   stderrSupportsColor?: boolean;
   environment?: Readonly<Record<string, string | undefined>>;
+  confirm?: boolean | null;
 }
 
 export function createFakeIo(options: FakeIoOptions = {}): { io: CliIo; state: FakeIoState } {
-  const state: FakeIoState = { stdout: '', stderr: '' };
+  const state: FakeIoState = { stdout: '', stderr: '', prompts: [] };
   const io: CliIo = {
     stdoutSupportsColor: options.stdoutSupportsColor ?? false,
     stderrSupportsColor: options.stderrSupportsColor ?? false,
     getEnvironmentValue(name) {
       return options.environment?.[name];
+    },
+    async confirm(message) {
+      state.prompts.push(message);
+      return options.confirm ?? null;
     },
     writeStdout(text) {
       state.stdout += text;

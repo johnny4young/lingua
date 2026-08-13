@@ -14,6 +14,8 @@ brew install johnny4young/tap/lingua-cli
 lingua --version
 ```
 
+Homebrew also installs Bash, Zsh, and Fish completion files automatically.
+
 The npm package remains available on every Node-supported platform and
 requires Node.js 24.x:
 
@@ -35,6 +37,7 @@ printf 'hello' | lingua utility base64-encode
 lingua run ./script.ts -- --name Ada
 lingua capsule validate ./run.capsule.json
 lingua capsule replay ./run.capsule.json --json
+lingua completion                 # detect shells and offer to install completions
 ```
 
 See the complete command, output, and exit-code contract in

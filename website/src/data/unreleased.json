@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-08-12T20:44:33.713Z",
+  "generatedAt": "2026-08-13T00:08:54.799Z",
   "baseRef": "v1.2.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 2,
+  "totalSinceBase": 2,
+  "commits": [
+    {
+      "hash": "c6f166c",
+      "date": "2026-08-12",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "remove vulnerable ZIP extraction",
+      "breaking": false
+    },
+    {
+      "hash": "6065ede",
+      "date": "2026-08-12",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "cli",
+      "message": "add Homebrew install and runtime recovery",
+      "breaking": false
+    }
+  ]
 }

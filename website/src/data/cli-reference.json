@@ -124,17 +124,23 @@
     {
       "id": "completion",
       "topLevel": "completion",
-      "invocation": "lingua completion bash|zsh|fish",
-      "summary": "Generate a deterministic shell completion script.",
-      "description": "Prints network-free Bash, Zsh, or Fish completion source without ANSI styling.",
+      "invocation": "lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]",
+      "summary": "Install completions interactively or print one shell script.",
+      "description": "With no target or with install, detects Bash, Zsh, and Fish, shows the target files, and asks before writing. A shell target prints deterministic network-free source.",
       "flags": [
+        "yes",
+        "dry-run",
         "color",
         "help"
       ],
       "examples": [
         {
-          "command": "lingua completion zsh > ~/.zfunc/_lingua",
-          "description": "Install the Zsh completion file."
+          "command": "lingua completion",
+          "description": "Detect supported shells and offer to install their completions."
+        },
+        {
+          "command": "lingua completion install --yes",
+          "description": "Install every detected completion without prompting."
         }
       ]
     }
@@ -204,6 +210,22 @@
         "capsule-replay",
         "run",
         "list-utilities"
+      ]
+    },
+    {
+      "id": "yes",
+      "syntax": "--yes",
+      "summary": "Approve detected shell-completion changes without prompting.",
+      "commands": [
+        "completion"
+      ]
+    },
+    {
+      "id": "dry-run",
+      "syntax": "--dry-run",
+      "summary": "Show detected shells and target files without writing.",
+      "commands": [
+        "completion"
       ]
     },
     {

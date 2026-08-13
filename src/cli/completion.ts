@@ -4,14 +4,14 @@
 import { UTILITY_ADAPTER_IDS } from '../shared/utilities/types';
 import {
   CLI_COLOR_MODES,
-  CLI_COMPLETION_SHELLS,
+  CLI_COMPLETION_TARGETS,
   CLI_TOP_LEVEL_COMMANDS,
   type CliCompletionShell,
 } from './commandModel';
 
 const commandWords = CLI_TOP_LEVEL_COMMANDS.join(' ');
 const colorWords = CLI_COLOR_MODES.join(' ');
-const shellWords = CLI_COMPLETION_SHELLS.join(' ');
+const shellWords = CLI_COMPLETION_TARGETS.join(' ');
 const utilityWords = [...UTILITY_ADAPTER_IDS].sort().join(' ');
 
 export function renderCompletion(shell: CliCompletionShell): string {
@@ -126,7 +126,7 @@ _lingua() {
       if (( relative == 1 )); then
         COMPREPLY=( $(compgen -W "${shellWords}" -- "$cur") )
       else
-        COMPREPLY=( $(compgen -W "--color --help" -- "$cur") )
+        COMPREPLY=( $(compgen -W "--yes --dry-run --color --help" -- "$cur") )
       fi
       ;;
   esac
@@ -141,7 +141,7 @@ function renderZshCompletion(): string {
 _lingua() {
   local context state state_descr line
   typeset -A opt_args
-  local -a commands utilities color_modes shells
+  local -a commands utilities color_modes completion_targets
   local command_index index
   commands=(
     'utility:Run a shared utility adapter'
@@ -152,7 +152,7 @@ _lingua() {
   )
   utilities=(${utilityWords})
   color_modes=(${colorWords})
-  shells=(${shellWords})
+  completion_targets=(${shellWords})
 
   _arguments -C \\
     '(-h --help)'{-h,--help}'[Show help]' \\
@@ -229,7 +229,12 @@ _lingua() {
           _values 'list target' utilities
           ;;
         completion)
-          _describe -t shells 'shell' shells
+          _arguments \
+            '1:completion target:(bash zsh fish install)' \
+            '--yes[Install without an interactive confirmation]' \
+            '--dry-run[Show detected shells and target files without writing]' \
+            '--color=[Control diagnostic color]:mode:(auto always never)' \
+            '(-h --help)'{-h,--help}'[Show help]'
           ;;
       esac
       ;;
@@ -331,5 +336,7 @@ complete -c lingua -n '__fish_lingua_using_command capsule' -l env -r -d 'Add an
 
 complete -c lingua -n '__fish_lingua_needs_first_argument list' -a 'utilities'
 complete -c lingua -n '__fish_lingua_needs_first_argument completion' -a '${shellWords}'
+complete -c lingua -n '__fish_lingua_using_command completion' -l yes -d 'Install without interactive confirmation'
+complete -c lingua -n '__fish_lingua_using_command completion' -l dry-run -d 'Show the install plan without writing files'
 `;
 }

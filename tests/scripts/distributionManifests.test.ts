@@ -123,6 +123,15 @@ describe('renderHomebrewCliFormula', () => {
     expect(formula).toContain('formula_opt_bin("node@24")');
   });
 
+  it('installs native Bash, Zsh, and Fish completion files through Homebrew', () => {
+    expect(formula).toContain(
+      'generate_completions_from_executable(bin/"lingua", "completion")'
+    );
+    expect(formula).toContain('assert_path_exists bash_completion/"lingua"');
+    expect(formula).toContain('assert_path_exists zsh_completion/"_lingua"');
+    expect(formula).toContain('assert_path_exists fish_completion/"lingua.fish"');
+  });
+
   it('smokes both the exact version and a real utility', () => {
     expect(formula).toContain('shell_output("#{bin}/lingua --version")');
     expect(formula).toContain(

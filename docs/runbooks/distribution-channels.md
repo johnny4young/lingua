@@ -187,7 +187,10 @@ from the immutable GitHub Release and depends on Homebrew's keg-only `node@24`.
 Its wrapper puts that runtime on `PATH`, which also makes npm available when
 `lingua run` detects a Node project. The install never calls npm and does not
 install the Electron application. Keep the formula and Desktop cask as separate
-tokens so users can install either surface or both intentionally.
+tokens so users can install either surface or both intentionally. The formula
+uses Homebrew's `generate_completions_from_executable` helper, so Bash, Zsh,
+and Fish completion files land in Homebrew's native directories without
+editing user dotfiles or prompting during `brew install`.
 
 Before pushing, validate the formula from the local tap:
 

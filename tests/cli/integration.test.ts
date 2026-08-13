@@ -111,6 +111,17 @@ describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
     expect(out.stdout).not.toContain('\u001b[');
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'detects installed shells from the bundled CLI without writing in dry-run mode',
+    () => {
+      const out = runCli(['completion', '--dry-run']);
+      expect(out.code).toBe(0);
+      expect(out.stderr).toBe('');
+      expect(out.stdout).toContain('Lingua detected these supported shells:');
+      expect(out.stdout).toContain('Dry run: no files were changed.');
+    }
+  );
+
   it('exits 1 with file-not-found when validating a missing capsule', () => {
     const out = runCli(['capsule', 'validate', '/definitely/not/here.json']);
     expect(out.code).toBe(1);

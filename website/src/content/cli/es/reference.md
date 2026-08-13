@@ -17,7 +17,7 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `lingua capsule replay <file>` | Verifica y repite una Capsule confiable de una sola fuente. |
 | `lingua run <file-or-directory>` | Ejecuta un archivo o proyecto convencional. |
 | `lingua list utilities` | Imprime el registro actual de utilidades. |
-| `lingua completion bash\|zsh\|fish` | Genera código de autocompletado para el shell. |
+| `lingua completion [bash\|zsh\|fish\|install]` | Detecta e instala autocompletado o genera el script de un shell. |
 | `lingua --version` | Imprime la versión del CLI integrada en el build. |
 | `lingua --help` | Imprime la ayuda de terminal. |
 
@@ -32,6 +32,8 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `--env NAME=value` | `run`, `capsule replay` | Repítela para agregar una variable explícita. |
 | `--json` | comandos con datos | Emite un documento JSON estructurado. |
 | `--quiet` | comandos con datos | Oculta diagnósticos de Lingua, no la salida del comando. |
+| `--yes` | `completion` | Aprueba los cambios detectados sin pedir confirmación. |
+| `--dry-run` | `completion` | Muestra shells y archivos de destino sin escribir. |
 | `--color <auto\|always\|never>` | todos | Controla los estilos de diagnósticos humanos. |
 | `--` | `run` | Envía cada token restante al programa. |
 | `--help`, `-h` | todos | Muestra ayuda. |

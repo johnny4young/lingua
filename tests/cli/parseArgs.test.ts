@@ -36,6 +36,8 @@ describe('parseArgs', () => {
         env: [],
         programArgs: [],
         help: false,
+        yes: false,
+        dryRun: false,
       },
     });
   });
@@ -268,9 +270,18 @@ describe('parseArgs', () => {
       expect(parsed.positionals).toEqual([shell]);
     });
 
-    it('rejects a missing or unknown shell', () => {
-      expect(() => parseArgs(['completion'])).toThrow(CliUsageError);
+    it('routes a missing target or install to the guided installer', () => {
+      expect(parseArgs(['completion']).command).toBe('completion-install');
+      expect(parseArgs(['completion', 'install']).command).toBe('completion-install');
+      const approved = parseArgs(['completion', 'install', '--yes']);
+      expect(approved.flags.yes).toBe(true);
+      const preview = parseArgs(['completion', '--dry-run']);
+      expect(preview.flags.dryRun).toBe(true);
+    });
+
+    it('rejects an unknown target or install-only flags on generators', () => {
       expect(() => parseArgs(['completion', 'powershell'])).toThrow(CliUsageError);
+      expect(() => parseArgs(['completion', 'zsh', '--yes'])).toThrow(CliUsageError);
     });
   });
 

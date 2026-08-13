@@ -12,6 +12,7 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { createInterface } from 'node:readline/promises';
 
 export interface CliIo {
   /** Print to stdout. No trailing newline added — caller controls it. */
@@ -33,6 +34,11 @@ export interface CliIo {
   stderrSupportsColor: boolean;
   /** Read one process environment value without exposing a mutable env object. */
   getEnvironmentValue(name: string): string | undefined;
+  /**
+   * Ask one yes/no question. Returns `null` when either side is not attached
+   * to a TTY so commands never hang in CI or a pipe.
+   */
+  confirm(message: string, defaultAnswer: boolean): Promise<boolean | null>;
 }
 
 export function createDefaultIo(): CliIo {
@@ -45,6 +51,20 @@ export function createDefaultIo(): CliIo {
       (typeof process.stderr.hasColors !== 'function' || process.stderr.hasColors()),
     getEnvironmentValue(name) {
       return process.env[name];
+    },
+    async confirm(message, defaultAnswer) {
+      if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
+        return null;
+      }
+      const choices = defaultAnswer ? 'Y/n' : 'y/N';
+      const readline = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        const answer = (await readline.question(`${message} [${choices}] `)).trim().toLowerCase();
+        if (answer.length === 0) return defaultAnswer;
+        return answer === 'y' || answer === 'yes';
+      } finally {
+        readline.close();
+      }
     },
     writeStdout(text) {
       process.stdout.write(text);
