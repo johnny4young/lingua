@@ -72,6 +72,21 @@ overrides:
   # transitive upgrade. The remaining pins are patch/minor-compatible with
   # their parents and remove known advisories from the install graph.
   "brace-expansion@1.1.15": "1.1.18"
+  # ip-address <=10.3.0 carries three advisories (leading-zero octets decoded
+  # as decimal, a CIDR suffix suppressing special-use detection, and
+  # IPv4-mapped/NAT64 misclassification). It reaches the tree only through
+  # dev tooling (@electron/rebuild -> make-fetch-happen -> socks), but 10.3.1
+  # is a compatible patch inside socks' declared range, so move the whole
+  # graph onto it rather than reasoning about reachability.
+  #
+  # extract-zip (same @electron-forge/shared-types branch) has NO patched
+  # release for its symlink-traversal advisory — every published version is
+  # in range. There is nothing to pin; the alert is dismissed as not_used
+  # because the extraction path belongs to @electron/packager, which this
+  # repo replaced with electron-builder (plugin-vite is imported only for
+  # ViteConfigGenerator in scripts/build-desktop-bundles.mjs). Re-check if
+  # packaging ever moves back to Forge or extract-zip publishes a fix.
+  "ip-address": "^10.3.1"
   "brace-expansion@2.1.1": "2.1.4"
   "brace-expansion@5.0.6": "5.0.9"
   "fast-uri": "3.1.5"
