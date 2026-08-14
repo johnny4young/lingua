@@ -10,7 +10,7 @@
  * is set in wrangler.toml. Adding a JS implementation would bloat the
  * worker bundle by 30-50KB for zero functional gain.
  *
- * implementation only signs tokens issued from the worker (Polar webhook +
+ * implementation only signs tokens issued from the worker (Lemon Squeezy webhook +
  * future trial / education / recovery endpoints). Verification of
  * tokens received from clients (`/licenses/activate`, `/licenses/status`,
  * `/licenses/devices/remove`) uses the public key stored as a worker
@@ -145,9 +145,9 @@ function getSubtle(): SubtleCrypto | null {
  * or a tagged-union failure shape.
  *
  * implementation callers:
- * - Polar webhook handler (mints a fresh token on `order.paid` and
+ * - Lemon Squeezy webhook handler (mints a fresh token on `order_created` and
  *   `subscription.created`).
- * - Polar webhook handler (re-mints on `subscription.updated` so the
+ * - Lemon Squeezy webhook handler (re-mints on `subscription_updated` so the
  *   client picks up a refreshed `expires_at` via `/licenses/status`).
  *
  * Future implementation callers:

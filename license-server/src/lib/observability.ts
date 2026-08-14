@@ -9,7 +9,7 @@
  *
  * The redactor strips fields that should never appear in operator-
  * visible logs (license tokens, private keys, JWKs, signatures, raw
- * email bodies, Polar webhook payloads). Defense-in-depth — the
+ * email bodies, merchant webhook payloads). Defense-in-depth — the
  * existing privacy posture (`PRIVACY.md`) already forbids logging
  * those, this turns the policy into a typed function call sites use
  * uniformly.
@@ -17,7 +17,7 @@
  * Error classification gives the operator one signal per request:
  *   - client   → bad input, user error, no oncall page
  *   - server   → bug in our code, page oncall on threshold breach
- *   - upstream → Polar / Resend / GitHub / D1 returned 5xx
+ *   - upstream → Lemon Squeezy / Resend / GitHub / D1 returned 5xx
  *   - storage  → D1 / KV failure (own infra)
  *
  * Pure module, no Hono import beyond the Context type — keeps it
@@ -59,8 +59,8 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set(
     'auth',
     'cookie',
     'signature',
-    'polarSignature',
-    'polar_signature',
+    'lemonSqueezySignature',
+    'x-signature',
     'jwk',
     'publicKeyJwk',
     'privateKey',
@@ -150,7 +150,7 @@ export function classifyError(err: unknown): ErrorClass {
   if (name === 'TypeError' && /fetch failed|network/i.test(message)) {
     return 'upstream';
   }
-  if (/\b(github|polar|resend)\b.*(5\d\d|timeout|unreachable)/i.test(message)) {
+  if (/\b(github|lemonsqueezy|lemon squeezy|resend)\b.*(5\d\d|timeout|unreachable)/i.test(message)) {
     return 'upstream';
   }
 
@@ -253,7 +253,7 @@ export function routeNameFromPath(path: string): string {
   if (cleanPath === '/education/start') return 'education.start';
   if (cleanPath === '/education/confirm') return 'education.confirm';
   if (cleanPath === '/education/renew') return 'education.renew';
-  if (cleanPath === '/webhooks/polar') return 'webhooks.polar';
+  if (cleanPath === '/webhooks/lemonsqueezy') return 'webhooks.lemonsqueezy';
   return 'unknown';
 }
 

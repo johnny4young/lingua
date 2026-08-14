@@ -316,8 +316,8 @@ educationRouter.get('/confirm', async (c) => {
     expiresAt,
     supportWindowEndsAt: expiresAt,
     status: 'active',
-    polarOrderId: null,
-    polarSubscriptionId: null,
+    merchantOrderId: null,
+    merchantSubscriptionId: null,
   });
   await insertEducation(c.env.DB, {
     id: educationId,

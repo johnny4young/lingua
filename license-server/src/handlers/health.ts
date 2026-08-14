@@ -2,7 +2,7 @@
  * GET /health — liveness check.
  * GET /health/ready — readiness check.
  *
- * Liveness ("am I up?") MUST succeed even if D1 / Polar / Resend are
+ * Liveness ("am I up?") MUST succeed even if D1 / Lemon Squeezy / Resend are
  * down so the maintainer can distinguish "worker is up but D1 is
  * broken" from "worker is down". Returns a minimal payload that the
  * uptime monitor / smoke tests pin against.
@@ -12,7 +12,7 @@
  * dashboard / synthetic monitor uses this signal to decide whether
  * to silence alerts during a partial outage. Probe results are cached
  * for 30s in module-local storage so a 30s-poll synthetic monitor
- * doesn't pile up on Polar / Resend.
+ * doesn't pile up on Lemon Squeezy / Resend.
  */
 
 import { Hono } from 'hono';
@@ -25,7 +25,7 @@ export const SERVER_NAME = 'lingua-license-server';
 export const SERVER_VERSION = '0.1.0';
 
 export type DependencyState = 'ok' | 'degraded' | 'unknown';
-export type DependencyName = 'd1' | 'kv' | 'polar' | 'resend';
+export type DependencyName = 'd1' | 'kv' | 'lemonsqueezy' | 'resend';
 
 export interface ReadinessSnapshot {
   ok: boolean;
@@ -44,7 +44,7 @@ interface CachedProbe {
 interface ProbeCache {
   d1: CachedProbe | null;
   kv: CachedProbe | null;
-  polar: CachedProbe | null;
+  lemonsqueezy: CachedProbe | null;
   resend: CachedProbe | null;
 }
 
@@ -52,12 +52,12 @@ interface ProbeCache {
  * Module-local probe cache. Cloudflare Workers persist module state
  * across requests within the same isolate, so a 30s TTL means at most
  * 2 probes/min per isolate per dependency — orders of magnitude below
- * Polar's / Resend's rate limits.
+ * Lemon Squeezy's / Resend's rate limits.
  */
 const probeCache: ProbeCache = {
   d1: null,
   kv: null,
-  polar: null,
+  lemonsqueezy: null,
   resend: null,
 };
 
@@ -68,7 +68,7 @@ const probeCache: ProbeCache = {
 export function _resetReadinessProbeCache(): void {
   probeCache.d1 = null;
   probeCache.kv = null;
-  probeCache.polar = null;
+  probeCache.lemonsqueezy = null;
   probeCache.resend = null;
 }
 
@@ -152,8 +152,11 @@ async function probeHttp(target: string, timeoutMs: number): Promise<DependencyS
   }
 }
 
-async function probePolar(): Promise<DependencyState> {
-  return probeHttp('https://api.polar.sh/healthz', PROBE_TIMEOUT_MS);
+async function probeLemonSqueezy(): Promise<DependencyState> {
+  // Lemon Squeezy exposes no unauthenticated healthz; /v1 answers 401
+  // to anonymous requests, and probeHttp treats any non-5xx round-trip
+  // as reachable, which is exactly the signal we want.
+  return probeHttp('https://api.lemonsqueezy.com/v1', PROBE_TIMEOUT_MS);
 }
 
 async function probeResend(): Promise<DependencyState> {
@@ -166,13 +169,13 @@ async function probeResend(): Promise<DependencyState> {
  * test suite can assert the contract directly.
  */
 export async function evaluateReadiness(env: Env): Promise<ReadinessSnapshot> {
-  const [d1, kv, polar, resend] = await Promise.all([
+  const [d1, kv, lemonsqueezy, resend] = await Promise.all([
     readCached('d1', () => probeD1(env)),
     readCached('kv', () => probeKV(env)),
-    readCached('polar', () => probePolar()),
+    readCached('lemonsqueezy', () => probeLemonSqueezy()),
     readCached('resend', () => probeResend()),
   ]);
-  const dependencies: Record<DependencyName, DependencyState> = { d1, kv, polar, resend };
+  const dependencies: Record<DependencyName, DependencyState> = { d1, kv, lemonsqueezy, resend };
   const degraded = (Object.entries(dependencies) as [DependencyName, DependencyState][])
     .filter(([, state]) => state === 'degraded')
     .map(([name]) => name);

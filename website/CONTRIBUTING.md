@@ -46,7 +46,7 @@ with:
 - Build output: `dist`
 - Compatibility date: matches `wrangler.toml`
 - Environment variables: set the ones documented in `.env.example` in the CF
-  dashboard. `PUBLIC_POLAR_CHECKOUT_*` left blank renders disabled buttons.
+  dashboard. `PUBLIC_LS_CHECKOUT_*` left blank renders disabled buttons.
 
 The default build fetches the latest public release from the GitHub Releases
 API. Download links point directly at the attached GitHub assets. Cloudflare R2

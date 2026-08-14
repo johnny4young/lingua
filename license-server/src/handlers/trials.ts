@@ -159,8 +159,8 @@ trialsRouter.post('/start', async (c) => {
     expiresAt,
     supportWindowEndsAt: expiresAt,
     status: 'active',
-    polarOrderId: null,
-    polarSubscriptionId: null,
+    merchantOrderId: null,
+    merchantSubscriptionId: null,
   });
   await insertTrial(c.env.DB, { id: trialId, email, deviceId, licenseId, issuedAt });
 

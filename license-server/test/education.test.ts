@@ -333,8 +333,8 @@ describe('POST /education/renew', () => {
       expires_at: issuedAt + 86_400 * 30, // 30 days remaining
       support_window_ends_at: issuedAt + 86_400 * 30,
       status: 'active',
-      polar_order_id: null,
-      polar_subscription_id: null,
+      merchant_order_id: null,
+      merchant_subscription_id: null,
       created_at: issuedAt,
       updated_at: issuedAt,
     });

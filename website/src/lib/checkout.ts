@@ -1,8 +1,9 @@
 /**
- * Polar.sh checkout URL validation.
+ * Checkout URL validation (merchant-agnostic; today the URLs point at
+ * Lemon Squeezy).
  *
  * This module is intentionally env-var-free. The marketing site reads
- * `PUBLIC_POLAR_CHECKOUT_*` at the consumption site (the .astro frontmatter
+ * `PUBLIC_LS_CHECKOUT_*` at the consumption site (the .astro frontmatter
  * that renders the pricing buttons), using Astro/Vite `import.meta.env` and
  * Node `process.env` as build-time sources. Keeping env-var reading out of
  * shared library code avoids the SSR-sandbox hydration quirks we hit when

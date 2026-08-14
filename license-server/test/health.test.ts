@@ -62,16 +62,16 @@ describe('GET /health/ready', () => {
     expect(body.dependencies).toEqual({
       d1: 'ok',
       kv: 'ok',
-      polar: 'ok',
+      lemonsqueezy: 'ok',
       resend: 'ok',
     });
   });
 
-  it('flags polar + resend as degraded when their HTTP probes return 5xx', async () => {
+  it('flags lemonsqueezy + resend as degraded when their HTTP probes return 5xx', async () => {
     const env = createMockEnv();
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
-      if (url.includes('polar.sh') || url.includes('resend.com')) {
+      if (url.includes('lemonsqueezy.com') || url.includes('resend.com')) {
         return new Response(null, { status: 503 });
       }
       return new Response(null, { status: 200 });
@@ -84,8 +84,8 @@ describe('GET /health/ready', () => {
       dependencies: Record<string, string>;
     };
     expect(body.ok).toBe(false);
-    expect(body.degraded.sort()).toEqual(['polar', 'resend']);
-    expect(body.dependencies.polar).toBe('degraded');
+    expect(body.degraded.sort()).toEqual(['lemonsqueezy', 'resend']);
+    expect(body.dependencies.lemonsqueezy).toBe('degraded');
     expect(body.dependencies.resend).toBe('degraded');
     expect(body.dependencies.d1).toBe('ok');
     expect(body.dependencies.kv).toBe('ok');

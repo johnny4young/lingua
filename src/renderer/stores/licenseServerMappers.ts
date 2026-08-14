@@ -24,7 +24,7 @@ export function serverStatusKindToStatus(
     case 'active':
     case 'cancel_at_period_end':
       // Cancel-at-period-end behaves like active until expires_at; the
-      // renderer already shows the cancellation copy via Polar customer
+      // renderer already shows the cancellation copy via the merchant customer
       // portal, not via the status pill, so we collapse it to active here.
       if (localStatus.kind === 'active' || localStatus.kind === 'grace') {
         return { kind: 'active', verification: localStatus.verification };

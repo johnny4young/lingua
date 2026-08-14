@@ -112,7 +112,7 @@ describe('signLicenseToken + verifyLicenseToken', () => {
     expect(verified.reason).toBe('unsupported-tier');
   });
 
-  it('accepts tier=trial and tier=education (server-minted SKUs that are not Polar products)', async () => {
+  it('accepts tier=trial and tier=education (server-minted SKUs that are not merchant products)', async () => {
     for (const tier of ['trial', 'education'] as const) {
       const signed = await signLicenseToken(freshPayload({ tier }), keys.privateKeyJwk);
       expect(signed.ok).toBe(true);

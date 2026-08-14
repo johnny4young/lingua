@@ -2,7 +2,7 @@
  * License token mint helper — assembles a `LicensePayload` from
  * webhook context and signs it via `sign.ts`.
  *
- * Centralises the contract between Polar event types and the renderer
+ * Centralises the contract between merchant webhook events and the renderer
  * entitlement matrix:
  *
  *   - `lingua_monthly`   → tier `'pro'`, expires_at = subscription period_end
@@ -96,7 +96,7 @@ export function buildLicensePayload(input: MintInput): LicensePayload {
 
 /**
  * Mint + sign in one call. Wraps `buildLicensePayload` + `signLicenseToken`.
- * implementation callers reach this from the Polar webhook handler.
+ * implementation callers reach this from the Lemon Squeezy webhook handler.
  */
 export async function mintAndSignToken(
   input: MintInput,

@@ -30,8 +30,8 @@ export interface LicenseRow {
   expires_at: number | null;
   support_window_ends_at: number | null;
   status: LicenseStatus;
-  polar_order_id: string | null;
-  polar_subscription_id: string | null;
+  merchant_order_id: string | null;
+  merchant_subscription_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -59,8 +59,8 @@ export interface InsertLicenseInput {
   expiresAt: number | null;
   supportWindowEndsAt: number | null;
   status: LicenseStatus;
-  polarOrderId: string | null;
-  polarSubscriptionId: string | null;
+  merchantOrderId: string | null;
+  merchantSubscriptionId: string | null;
 }
 
 export async function insertLicense(db: D1Database, input: InsertLicenseInput): Promise<void> {
@@ -70,7 +70,7 @@ export async function insertLicense(db: D1Database, input: InsertLicenseInput): 
       `INSERT INTO licenses (
         id, token, product_id, tier, device_limit, issued_to,
         issued_at, expires_at, support_window_ends_at, status,
-        polar_order_id, polar_subscription_id, created_at, updated_at
+        merchant_order_id, merchant_subscription_id, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
@@ -84,8 +84,8 @@ export async function insertLicense(db: D1Database, input: InsertLicenseInput): 
       input.expiresAt,
       input.supportWindowEndsAt,
       input.status,
-      input.polarOrderId,
-      input.polarSubscriptionId,
+      input.merchantOrderId,
+      input.merchantSubscriptionId,
       now,
       now
     )
@@ -112,22 +112,22 @@ export async function findLicenseById(
     .first<LicenseRow>();
 }
 
-export async function findLicenseByPolarSubscription(
+export async function findLicenseByMerchantSubscription(
   db: D1Database,
   subscriptionId: string
 ): Promise<LicenseRow | null> {
   return db
-    .prepare(`SELECT * FROM licenses WHERE polar_subscription_id = ? LIMIT 1`)
+    .prepare(`SELECT * FROM licenses WHERE merchant_subscription_id = ? LIMIT 1`)
     .bind(subscriptionId)
     .first<LicenseRow>();
 }
 
-export async function findLicenseByPolarOrder(
+export async function findLicenseByMerchantOrder(
   db: D1Database,
   orderId: string
 ): Promise<LicenseRow | null> {
   return db
-    .prepare(`SELECT * FROM licenses WHERE polar_order_id = ? LIMIT 1`)
+    .prepare(`SELECT * FROM licenses WHERE merchant_order_id = ? LIMIT 1`)
     .bind(orderId)
     .first<LicenseRow>();
 }

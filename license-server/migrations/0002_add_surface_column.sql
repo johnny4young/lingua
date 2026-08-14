@@ -13,7 +13,7 @@
 --
 -- The `licenses.device_limit` column is unchanged — it now means
 -- "max devices PER SURFACE" rather than "max devices total". Team
--- products that override via Polar `metadata.device_limit: N` apply N
+-- products that override via checkout custom data `device_limit: N` apply N
 -- to BOTH surfaces (so a metadata.device_limit:10 Team license gets
 -- 10 desktop + 10 web slots = 20 total). Asymmetric per-surface limits
 -- (e.g. 50 desktop + 5 web) require a follow-up migration once a

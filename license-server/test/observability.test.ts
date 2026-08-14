@@ -73,16 +73,18 @@ describe('redact', () => {
     ]);
   });
 
-  it('redacts polar webhook signature headers', () => {
+  it('redacts lemon squeezy webhook signature headers', () => {
     expect(
       redact({
-        eventType: 'subscription.created',
-        polarSignature: 'sha256=...',
+        eventType: 'subscription_created',
+        lemonSqueezySignature: 'deadbeef...',
+        'x-signature': 'deadbeef...',
         customerId: 'c_123',
       }),
     ).toEqual({
-      eventType: 'subscription.created',
-      polarSignature: '[redacted]',
+      eventType: 'subscription_created',
+      lemonSqueezySignature: '[redacted]',
+      'x-signature': '[redacted]',
       customerId: 'c_123',
     });
   });
@@ -136,8 +138,8 @@ describe('classifyError', () => {
     expect(classifyError(err)).toBe('upstream');
   });
 
-  it('tags polar/resend/github 5xx-style messages as upstream', () => {
-    expect(classifyError(new Error('polar returned 503 unreachable'))).toBe('upstream');
+  it('tags lemonsqueezy/resend/github 5xx-style messages as upstream', () => {
+    expect(classifyError(new Error('lemonsqueezy returned 503 unreachable'))).toBe('upstream');
     expect(classifyError(new Error('resend timeout'))).toBe('upstream');
     expect(classifyError(new Error('github 502 bad gateway'))).toBe('upstream');
   });

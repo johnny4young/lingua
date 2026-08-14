@@ -31,8 +31,8 @@ interface LicenseRow {
   expires_at: number | null;
   support_window_ends_at: number | null;
   status: string;
-  polar_order_id: string | null;
-  polar_subscription_id: string | null;
+  merchant_order_id: string | null;
+  merchant_subscription_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -136,16 +136,16 @@ class MockStatement {
       const row = this.db.licenses.get(id);
       return row ? [row] : [];
     }
-    if (q.startsWith('SELECT * FROM licenses WHERE polar_subscription_id =')) {
+    if (q.startsWith('SELECT * FROM licenses WHERE merchant_subscription_id =')) {
       const [subscriptionId] = this.boundParams as [string];
       const row = [...this.db.licenses.values()].find(
-        (r) => r.polar_subscription_id === subscriptionId
+        (r) => r.merchant_subscription_id === subscriptionId
       );
       return row ? [row] : [];
     }
-    if (q.startsWith('SELECT * FROM licenses WHERE polar_order_id =')) {
+    if (q.startsWith('SELECT * FROM licenses WHERE merchant_order_id =')) {
       const [orderId] = this.boundParams as [string];
-      const row = [...this.db.licenses.values()].find((r) => r.polar_order_id === orderId);
+      const row = [...this.db.licenses.values()].find((r) => r.merchant_order_id === orderId);
       return row ? [row] : [];
     }
     if (q.startsWith('SELECT * FROM devices WHERE license_id = ? AND device_id = ? AND surface =')) {
@@ -242,8 +242,8 @@ class MockStatement {
         expires_at,
         support_window_ends_at,
         status,
-        polar_order_id,
-        polar_subscription_id,
+        merchant_order_id,
+        merchant_subscription_id,
         created_at,
         updated_at,
       ] = this.boundParams as [
@@ -273,8 +273,8 @@ class MockStatement {
         expires_at,
         support_window_ends_at,
         status,
-        polar_order_id,
-        polar_subscription_id,
+        merchant_order_id,
+        merchant_subscription_id,
         created_at,
         updated_at,
       });
@@ -583,7 +583,11 @@ export function createMockKV(): KVNamespace {
 }
 
 export interface MockEnvOptions {
-  polarWebhookSecret?: string;
+  lsWebhookSecret?: string;
+  lsStoreId?: string;
+  lsVariantMonthly?: string;
+  lsVariantLifetime?: string;
+  lsVariantTeam?: string;
   privateKeyJwk?: JsonWebKey;
   nextPrivateKeyJwk?: JsonWebKey;
   signingKeySlot?: 'current' | 'next';
@@ -598,8 +602,12 @@ export function createMockEnv(options: MockEnvOptions = {}): Env & { __db: MockD
   return {
     DB: db as unknown as D1Database,
     RATE_LIMIT: createMockKV(),
-    POLAR_WEBHOOK_SECRET: options.polarWebhookSecret ?? '',
-    POLAR_API_KEY: 'pk_mock',
+    LS_WEBHOOK_SECRET: options.lsWebhookSecret ?? '',
+    LS_API_KEY: 'lsk_mock',
+    LS_STORE_ID: options.lsStoreId ?? '',
+    LS_VARIANT_MONTHLY: options.lsVariantMonthly ?? '111',
+    LS_VARIANT_LIFETIME: options.lsVariantLifetime ?? '222',
+    LS_VARIANT_TEAM: options.lsVariantTeam ?? '333',
     LINGUA_LICENSE_PRIVATE_KEY_JWK: options.privateKeyJwk ? JSON.stringify(options.privateKeyJwk) : '',
     LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK: options.nextPrivateKeyJwk
       ? JSON.stringify(options.nextPrivateKeyJwk)
@@ -635,26 +643,25 @@ export async function generateEd25519Keypair(): Promise<{
   };
 }
 
+
 /**
- * Build a Polar webhook signed with `secret`. Returns headers + body
- * pair ready to plug into `app.request(...)`.
+ * Build a Lemon Squeezy webhook request: HMAC-SHA256 lowercase-hex of
+ * the RAW body in `X-Signature` — no message id, no signed timestamp
+ * (see src/lib/lemonsqueezy.ts for why the replay stance differs from
+ * the Polar-era Standard Webhooks scheme).
  */
-export async function buildSignedPolarWebhook(
+export async function buildSignedLemonSqueezyWebhook(
   secret: string,
-  event: { type: string; data: unknown },
-  options: { id?: string; timestamp?: number } = {}
+  event: {
+    meta: { event_name: string; custom_data?: Record<string, unknown> };
+    data: unknown;
+  },
+  options: { signatureOverride?: string } = {}
 ): Promise<{ headers: Headers; body: string }> {
   const body = JSON.stringify(event);
-  const id = options.id ?? `msg_${crypto.randomUUID()}`;
-  const timestamp = options.timestamp ?? Math.floor(Date.now() / 1000);
-  const signingString = `${id}.${timestamp}.${body}`;
-
-  const keyBytes = secret.startsWith('whsec_')
-    ? base64ToBytes(secret.slice('whsec_'.length))
-    : new TextEncoder().encode(secret);
   const key = await crypto.subtle.importKey(
     'raw',
-    keyBytes as BufferSource,
+    new TextEncoder().encode(secret) as BufferSource,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -662,27 +669,16 @@ export async function buildSignedPolarWebhook(
   const sigBuf = await crypto.subtle.sign(
     'HMAC',
     key,
-    new TextEncoder().encode(signingString) as BufferSource
+    new TextEncoder().encode(body) as BufferSource
   );
-  const sigBytes = new Uint8Array(sigBuf);
-  let binary = '';
-  for (const byte of sigBytes) binary += String.fromCharCode(byte);
-  const sigBase64 = btoa(binary);
+  const bytes = new Uint8Array(sigBuf);
+  let hex = '';
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
 
   const headers = new Headers({
     'content-type': 'application/json',
-    'webhook-id': id,
-    'webhook-timestamp': String(timestamp),
-    'webhook-signature': `v1,${sigBase64}`,
+    'x-signature': options.signatureOverride ?? hex,
+    'x-event-name': event.meta.event_name,
   });
   return { headers, body };
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  const padLength = (4 - (base64.length % 4)) % 4;
-  const normalized = base64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat(padLength);
-  const binary = atob(normalized);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
 }

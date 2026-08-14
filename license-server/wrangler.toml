@@ -8,8 +8,8 @@ compatibility_flags = ["nodejs_compat"]
 #   2. wrangler kv namespace create lingua-licenses-rl → fill in `id` below
 #      (rate-limit bucket; consumed by /trials/start in implementation and
 #      /licenses/recover in implementation).
-#   3. wrangler secret put POLAR_WEBHOOK_SECRET
-#   4. wrangler secret put POLAR_API_KEY
+#   3. wrangler secret put LS_WEBHOOK_SECRET  (Lemon Squeezy webhook signing secret)
+#   4. wrangler secret put LS_API_KEY  (reserved; the worker never calls the LS API today)
 #   5. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK
 #   6. wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK
 #   Rotation overlap only: wrangler secret put LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK
@@ -57,6 +57,16 @@ LINGUA_LICENSE_SIGNING_KEY_SLOT = "next"
 # CORS allowed origins for browser-side activation calls from the web
 # build. Add additional origins (e.g. preview deploys) here.
 CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http://localhost:5174,http://localhost:4173"
+# Lemon Squeezy identity pins (public numeric ids, not secrets). The
+# store is SHARED with the maintainer's other products, so the worker
+# only mints when an event's variant id matches one of these; empty
+# values make every event ack `unknown-product` (safe half-configured
+# state). They differ between LS test mode and live — fill from the LS
+# dashboard before certification.
+LS_STORE_ID = ""
+LS_VARIANT_MONTHLY = ""
+LS_VARIANT_LIFETIME = ""
+LS_VARIANT_TEAM = ""
 
 [observability]
 enabled = true

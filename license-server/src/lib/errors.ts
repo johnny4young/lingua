@@ -15,7 +15,7 @@
  *   - 'invalid-input'      — body shape failed validation (400)
  *   - 'method-not-allowed' — HTTP verb mismatch on a known route (405)
  *   - 'not-found'          — unknown route (404)
- *   - 'not-implemented'    — endpoint scaffolded but Polar/D1 wiring
+ *   - 'not-implemented'    — endpoint scaffolded but merchant/D1 wiring
  *                            still pending implementation (501)
  *
  * implementation will add 'exhausted', 'expired', 'invalid-signature',
