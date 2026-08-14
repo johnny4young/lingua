@@ -2,7 +2,7 @@
  * Resend HTTP client — handles every transactional email Lingua's
  * license-server sends.
  *
- * implementation introduced `sendLicenseEmail` for the paid Polar
+ * implementation introduced `sendLicenseEmail` for the paid merchant
  * `order.paid` flow. implementation adds five more wrappers for the
  * trial / education / recovery surfaces, each backed by an HTML
  * template under `src/emails/*.html` rendered through

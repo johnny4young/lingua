@@ -374,7 +374,7 @@ export const es = {
       mostPopular: 'Más popular',
       disabled: 'Checkout próximamente',
       disabledTitle:
-        'La URL de checkout de Polar no está configurada — define PUBLIC_POLAR_CHECKOUT_* en Cloudflare Pages',
+        'La URL de checkout no está configurada — define PUBLIC_LS_CHECKOUT_* en Cloudflare Pages',
       educationTitle: 'Educación',
       education:
         'Pro gratis durante un año, renovable. Abre Lingua → Settings → License → Licencia educativa, ingresa tu email académico (cualquier dominio .edu más .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br y .ac.in) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',

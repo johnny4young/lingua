@@ -5,7 +5,7 @@
  * Workers can't easily share TypeScript across project boundaries
  * without a custom build step, so this module is intentionally a copy
  * of the license-server contract — same event taxonomy, same redactor,
- * same error classifier, narrower sensitive-key set (no Polar / Resend
+ * same error classifier, narrower sensitive-key set (no merchant / Resend
  * paths in this project).
  *
  * Update-server doesn't use Hono — it dispatches by `URL.pathname` in

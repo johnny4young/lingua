@@ -53,7 +53,7 @@ These labels appear in `request.received.route` and `request.completed.route`.
 | `education.start` | `POST /education/start` | Education confirmation email request. |
 | `education.confirm` | `GET /education/confirm` | Education token issuance. |
 | `education.renew` | `POST /education/renew` | Education renewal path. |
-| `webhooks.polar` | `POST /webhooks/polar` | Polar delivery success and failure are inferred from `status` + D1 / Polar dashboards. |
+| `webhooks.lemonsqueezy` | `POST /webhooks/lemonsqueezy` | Lemon Squeezy delivery success and failure are inferred from `status` + D1 / the Lemon Squeezy dashboard. |
 | `unknown` | any unmatched path | Should be low volume; investigate spikes. |
 
 ### update-server route labels
@@ -88,7 +88,7 @@ Every `errorClass` is one of four:
 |---|---|---|---|
 | `client` | Bad input from the caller. Hono validation, 4xx, signature failures. | `unauthorized request`, `invalid signature` | No (informational). |
 | `server` | Bug in our code. Default classification when no other rule fires. | unhandled `TypeError`, missing field crash | Yes — page on threshold breach. |
-| `upstream` | External dependency failure. GitHub / Polar / Resend 5xx, fetch failure. | `fetch failed`, `github 502` | Page on rate spike (>5%/10min) — usually means GitHub status is red. |
+| `upstream` | External dependency failure. GitHub / Lemon Squeezy / Resend 5xx, fetch failure. | `fetch failed`, `github 502` | Page on rate spike (>5%/10min) — usually means GitHub status is red. |
 | `storage` | Own infra failure. D1 or KV. | `D1_TYPE_ERROR`, `KV_GET_MISSING` | Page immediately — own-infra outage. |
 
 `classifyError` lives in each worker's `src/lib/observability.ts`. The classifier is heuristic and fall-back to `server` when it can't tell — so an unrecognised failure is always page-able by default.
@@ -99,7 +99,7 @@ The structured logger walks every payload before emission and replaces values fo
 
 ### license-server denylist
 
-`token`, `tokens`, `authorization`, `auth`, `cookie`, `signature`, `polarSignature`, `polar_signature`, `jwk`, `publicKeyJwk`, `privateKey`, `privateKeyJwk`, `secret`, `apiKey`, `api_key`, `password`, `webhookSecret`, `emailBody`, `email_body`, `htmlBody`, `textBody`.
+`token`, `tokens`, `authorization`, `auth`, `cookie`, `signature`, `lemonSqueezySignature`, `x-signature`, `jwk`, `publicKeyJwk`, `privateKey`, `privateKeyJwk`, `secret`, `apiKey`, `api_key`, `password`, `webhookSecret`, `emailBody`, `email_body`, `htmlBody`, `textBody`.
 
 ### update-server denylist
 
@@ -114,9 +114,9 @@ To extend the list when a new sensitive key surfaces:
 ### What is NOT redacted (and why)
 
 - **Email addresses** (`to`, `email`, `issued_to`) — operator correlation requires the lookup key. Privacy posture: emails are not sensitive at the same level as tokens; users provide them at purchase. If a future requirement says "redact emails too", flip the policy here, not at call sites.
-- **Polar order ids** (`polarOrderId`) — public identifiers from Polar's webhook envelope; safe to log.
+- **Merchant order ids** (`merchantOrderId`) — public identifiers from Lemon Squeezy's webhook envelope; safe to log.
 - **License ids** (`licenseId`) — internal D1 primary key; meaningless without D1 access.
-- **Customer ids** (`customerId`) — Polar's identifier for the customer; safe to log.
+- **Customer ids** (`customerId`) — the merchant's identifier for the customer; safe to log.
 
 ## Health endpoint contract
 
@@ -141,7 +141,7 @@ Returns `{ ok, server, version, degraded[], dependencies }` where `dependencies`
 |---|---|---|---|
 | `d1` | `SELECT 1 AS ok` against `env.DB` | 1s | Exercises the binding + the prepared-statement path. |
 | `kv` | `env.RATE_LIMIT.get('__health_probe__')` | 1s | A null result is success; the probe is round-trip-only. |
-| `polar` | HEAD `https://api.polar.sh/healthz` | 1s | Polar exposes a documented health endpoint. |
+| `lemonsqueezy` | HEAD `https://api.lemonsqueezy.com/v1` | 1s | No public healthz; an anonymous 401 proves reachability, and the probe treats any non-5xx as ok. |
 | `resend` | HEAD `https://api.resend.com/` | 1s | No public health endpoint; HEAD on root is the conventional reachability probe. |
 
 #### update-server dependencies
@@ -159,7 +159,7 @@ Operator-facing dashboards should pin to the structured-log surface above. Recom
 1. **Request rate by route** — stacked bar of `request.received` counts, grouped by `route`. 1m bins.
 2. **Latency p50 / p95 / p99 by route** — derived from `request.completed.durationMs`, grouped by `route`. 1m bins.
 3. **Error rate by class** — stacked bar of `request.completed` where `errorClass` is set, grouped by `errorClass`. 1m bins.
-4. **Webhook request outcome** — `request.completed` where `route = 'webhooks.polar'`, grouped by `status` and `errorClass`.
+4. **Webhook request outcome** — `request.completed` where `route = 'webhooks.lemonsqueezy'`, grouped by `status` and `errorClass`.
 5. **Recovery request outcome** — `request.completed` where `route` starts with `licenses.recover`, grouped by `status` and `errorClass`. Pair with the Resend dashboard for delivery success.
 6. **Dependency health** — last value of `health.ready.dependencies.*` per dep.
 
@@ -178,9 +178,9 @@ Operator-facing dashboards should pin to the structured-log surface above. Recom
 | **S0** | `errorClass: 'storage'` rate >0% over 5min on either server. | Page immediately. Own-infra outage; check D1 / KV bindings + Cloudflare status. |
 | **S0** | `health.ready.degraded` includes `'d1'` for ≥3 consecutive probes. | Same as above — D1 is unreachable. |
 | **S1** | `errorClass: 'server'` rate >1% over 5min. | Page. Bug in our code; pull recent commits + `wrangler tail`. |
-| **S1** | `request.completed { route: 'webhooks.polar', errorClass: 'client' }` rate >0% over 1h. | Page. Likely Polar webhook secret drift or forged deliveries; cross-check Polar delivery status. |
+| **S1** | `request.completed { route: 'webhooks.lemonsqueezy', errorClass: 'client' }` rate >0% over 1h. | Page. Likely webhook secret drift or forged deliveries; cross-check the Lemon Squeezy delivery log. |
 | **S1** | Resend dashboard rejected / failed email rate >5% over 1h, or `licenses.recover.*` server/upstream errors >5% over 1h. | Page. Resend outage or address-deliverability issue. |
-| **S2** | `errorClass: 'upstream'` rate >5% over 10min. | Notify (don't page). Usually means GitHub / Polar / Resend status page is red — see runbooks. |
+| **S2** | `errorClass: 'upstream'` rate >5% over 10min. | Notify (don't page). Usually means GitHub / Lemon Squeezy / Resend status page is red — see runbooks. |
 | **S2** | `health.ready.degraded` includes any non-D1 dep for ≥3 consecutive probes. | Notify. Cross-check vendor status pages. |
 | **S2** | Any `request.completed.durationMs` p95 doubles its 7-day baseline. | Notify. Latent regression or upstream slowdown. |
 
@@ -191,7 +191,7 @@ Alerting destination is **maintainer email** until a paging vendor (PagerDuty / 
 | Severity | User impact | Examples | SLA |
 |---|---|---|---|
 | **S0** | User-facing breakage. Activation, recovery, or auto-update fails for a meaningful cohort. | D1 outage, license-server 5xx storm, bad release shipped to auto-update. | Respond in 30 minutes; engaged until resolved. |
-| **S1** | Degraded but workable. Some flow fails but the user can work around it (manual recovery, reload). | Polar webhook delays, Resend hard-bounce on a domain, intermittent license-server timeouts. | Respond in 4 hours; runbook-driven. |
+| **S1** | Degraded but workable. Some flow fails but the user can work around it (manual recovery, reload). | Lemon Squeezy webhook delays, Resend hard-bounce on a domain, intermittent license-server timeouts. | Respond in 4 hours; runbook-driven. |
 | **S2** | Operationally noisy. No user impact today but the trend is bad. | GitHub API 5xx rate spike, p95 latency drift, cache hit rate drop. | Triage in 1 business day. |
 
 ## Rotation

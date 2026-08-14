@@ -30,11 +30,11 @@ If this works, the operator does nothing further.
 
 Reasons path A is blocked: customer's email provider rejects Resend mail (corporate spam filter); customer typoed the email at purchase; customer no longer has access to the original mailbox.
 
-1. Verify the customer's identity. Confirm Polar order id (from their receipt) or last 4 of the card used.
+1. Verify the customer's identity. Confirm the Lemon Squeezy order id (from their receipt) or last 4 of the card used.
 2. Look up the license:
    ```bash
    wrangler d1 execute lingua-licenses --command \
-     "SELECT id, issued_to, tier, status FROM licenses WHERE issued_to = '<email>' OR polar_order_id = '<order_id>';"
+     "SELECT id, issued_to, tier, status FROM licenses WHERE issued_to = '<email>' OR merchant_order_id = '<order_id>';"
    ```
 3. If the customer wants the token sent to a new email, update `issued_to` first:
    ```sql

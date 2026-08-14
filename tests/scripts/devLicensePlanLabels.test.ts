@@ -14,7 +14,7 @@ import {
  * "Monthly" rather than "Pro". That hint is only useful if it stays in lockstep
  * with the real `license.tier.*` i18n the app renders — this test pins it.
  *
- * Background (verified against license-server): the Polar product
+ * Background (verified against license-server): the merchant product
  * `lingua_monthly` maps to internal tier `pro` (public plan "Monthly"), and
  * `lingua_lifetime` maps to `pro_lifetime` (public plan "Pro"). So
  * `pro → Monthly` is correct by design, NOT a label bug.

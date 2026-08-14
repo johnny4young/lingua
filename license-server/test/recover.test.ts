@@ -82,8 +82,8 @@ describe('POST /licenses/recover/start', () => {
       expiresAt: null,
       supportWindowEndsAt: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
       status: 'active',
-      polarOrderId: 'order_1',
-      polarSubscriptionId: null,
+      merchantOrderId: 'order_1',
+      merchantSubscriptionId: null,
     });
 
     const response = await postJson(
@@ -237,8 +237,8 @@ describe('GET /licenses/recover/confirm', () => {
       expiresAt: null,
       supportWindowEndsAt: Math.floor(Date.parse('2027-01-01T00:00:00.000Z') / 1000),
       status: 'active',
-      polarOrderId: null,
-      polarSubscriptionId: null,
+      merchantOrderId: null,
+      merchantSubscriptionId: null,
     });
     const pendingId = '11111111-2222-3333-4444-555555555555';
     const now = Math.floor(Date.now() / 1000);
@@ -298,8 +298,8 @@ describe('GET /licenses/recover/confirm', () => {
       expiresAt: null,
       supportWindowEndsAt: null,
       status: 'active',
-      polarOrderId: 'order_paid',
-      polarSubscriptionId: 'sub_paid',
+      merchantOrderId: 'order_paid',
+      merchantSubscriptionId: 'sub_paid',
     });
     const paidRow = env.__db.licenses.get('lic_paid_older');
     if (paidRow) paidRow.created_at = now - 30 * 24 * 60 * 60;
@@ -315,8 +315,8 @@ describe('GET /licenses/recover/confirm', () => {
       expiresAt: now + 14 * 24 * 60 * 60,
       supportWindowEndsAt: null,
       status: 'active',
-      polarOrderId: null,
-      polarSubscriptionId: null,
+      merchantOrderId: null,
+      merchantSubscriptionId: null,
     });
     const trialRow = env.__db.licenses.get('lic_trial_newer');
     if (trialRow) trialRow.created_at = now;
@@ -444,8 +444,8 @@ describe('GET /licenses/recover/confirm', () => {
       expiresAt: null,
       supportWindowEndsAt: null,
       status: 'active',
-      polarOrderId: null,
-      polarSubscriptionId: null,
+      merchantOrderId: null,
+      merchantSubscriptionId: null,
     });
     const pendingId = '55555555-6666-7777-8888-999999999999';
     const now = Math.floor(Date.now() / 1000);

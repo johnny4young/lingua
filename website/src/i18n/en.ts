@@ -374,7 +374,7 @@ export const en = {
       mostPopular: 'Most popular',
       disabled: 'Checkout coming soon',
       disabledTitle:
-        'Polar checkout URL not configured yet — set PUBLIC_POLAR_CHECKOUT_* env vars in Cloudflare Pages',
+        'Checkout URL not configured yet — set PUBLIC_LS_CHECKOUT_* env vars in Cloudflare Pages',
       educationTitle: 'Education',
       education:
         'Free Pro for one year, renewable. Open Lingua → Settings → License → Educational license, enter your school email (any .edu domain plus .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br, .ac.in), and confirm with the magic link we send. The token arrives by email and pastes itself into the app.',

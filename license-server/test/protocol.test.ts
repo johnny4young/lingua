@@ -19,7 +19,7 @@ describe('license-server protocol envelope', () => {
     }
   );
 
-  it.each(['/health', '/education/start', '/webhooks/polar'])(
+  it.each(['/health', '/education/start', '/webhooks/lemonsqueezy'])(
     'does not extend the internal contract to %s',
     path => {
       const body = { ok: true };

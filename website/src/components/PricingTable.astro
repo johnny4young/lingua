@@ -1,6 +1,6 @@
 ---
 import { Icon } from 'astro-icon/components';
-import { validateCheckoutUrl, type PaidTier } from '~/lib/polar';
+import { validateCheckoutUrl, type PaidTier } from '~/lib/checkout';
 import { type Locale, localizePath, t } from '~/lib/i18n';
 
 interface Props {
@@ -11,9 +11,9 @@ const { locale } = Astro.props;
 const copy = t(locale).pricing.table;
 
 type CheckoutEnvKey =
-  | 'PUBLIC_POLAR_CHECKOUT_PRO'
-  | 'PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME'
-  | 'PUBLIC_POLAR_CHECKOUT_TEAM';
+  | 'PUBLIC_LS_CHECKOUT_PRO'
+  | 'PUBLIC_LS_CHECKOUT_PRO_LIFETIME'
+  | 'PUBLIC_LS_CHECKOUT_TEAM';
 type CheckoutEnvSource = 'import.meta.env' | 'process.env' | 'missing';
 type CheckoutEnvEntry = { key: CheckoutEnvKey; value: string | undefined; source: CheckoutEnvSource };
 
@@ -25,12 +25,12 @@ function checkoutEnvValue(key: CheckoutEnvKey, importMetaValue: string | undefin
 }
 
 const checkoutEnv: Record<PaidTier, CheckoutEnvEntry> = {
-  pro: checkoutEnvValue('PUBLIC_POLAR_CHECKOUT_PRO', import.meta.env.PUBLIC_POLAR_CHECKOUT_PRO),
+  pro: checkoutEnvValue('PUBLIC_LS_CHECKOUT_PRO', import.meta.env.PUBLIC_LS_CHECKOUT_PRO),
   pro_lifetime: checkoutEnvValue(
-    'PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME',
-    import.meta.env.PUBLIC_POLAR_CHECKOUT_PRO_LIFETIME,
+    'PUBLIC_LS_CHECKOUT_PRO_LIFETIME',
+    import.meta.env.PUBLIC_LS_CHECKOUT_PRO_LIFETIME,
   ),
-  team: checkoutEnvValue('PUBLIC_POLAR_CHECKOUT_TEAM', import.meta.env.PUBLIC_POLAR_CHECKOUT_TEAM),
+  team: checkoutEnvValue('PUBLIC_LS_CHECKOUT_TEAM', import.meta.env.PUBLIC_LS_CHECKOUT_TEAM),
 };
 
 const urls: Record<PaidTier, string | null> = {
@@ -48,14 +48,14 @@ if (process.env.CF_PAGES === '1') {
     })
     .join(', ');
 
-  console.log(`[pricing] Polar checkout env: ${statuses}`);
+  console.log(`[pricing] Lemon Squeezy checkout env: ${statuses}`);
 }
 
 const TIER_META = {
   free: { href: '/releases', primary: false },
-  pro: { polarTier: 'pro' as PaidTier, primary: true },
-  pro_lifetime: { polarTier: 'pro_lifetime' as PaidTier, primary: false },
-  team: { polarTier: 'team' as PaidTier, primary: false },
+  pro: { paidTier: 'pro' as PaidTier, primary: true },
+  pro_lifetime: { paidTier: 'pro_lifetime' as PaidTier, primary: false },
+  team: { paidTier: 'team' as PaidTier, primary: false },
 } as const;
 
 function buttonForTier(tier: (typeof copy.tiers)[number]) {
@@ -63,8 +63,8 @@ function buttonForTier(tier: (typeof copy.tiers)[number]) {
   if ('href' in meta && meta.href) {
     return { label: tier.cta, href: localizePath(locale, meta.href), disabled: false, external: false };
   }
-  if ('polarTier' in meta && meta.polarTier) {
-    const url = urls[meta.polarTier];
+  if ('paidTier' in meta && meta.paidTier) {
+    const url = urls[meta.paidTier];
     if (!url) return { label: copy.disabled, href: null, disabled: true, external: false };
     return { label: tier.cta, href: url, disabled: false, external: true };
   }

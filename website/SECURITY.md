@@ -33,7 +33,7 @@ Review these areas carefully:
 
 - Cloudflare Pages headers, especially CSP and cache behavior.
 - Release/download links and SHA256SUMS references.
-- Polar checkout URL handling.
+- Lemon Squeezy checkout URL handling.
 - Cloudflare Web Analytics configuration.
 - Content synchronized from the repository root into the static website.
 - Build scripts that generate public artifacts such as the press kit ZIP.
@@ -44,7 +44,7 @@ Review these areas carefully:
 
 Never commit:
 
-- GitHub, Cloudflare, Polar, Resend, or analytics tokens.
+- GitHub, Cloudflare, Lemon Squeezy, Resend, or analytics tokens.
 - Personal access tokens or deployment credentials.
 - Webhook secrets.
 - Real customer license tokens.

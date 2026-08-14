@@ -7,7 +7,7 @@
  * and renewal token refresh — see the internal licensing ADR Decision 2.
  *
  * implementation shipped the router skeleton + D1 schema + 501 stubs.
- * implementation promotes /webhooks/polar + /licenses/{activate,status,
+ * implementation promotes /webhooks/lemonsqueezy + /licenses/{activate,status,
  * devices/remove} to real D1-backed implementations, with split-bucket
  * device limit (3 desktop + 3 web) per the 2026-04-26 design lock.
  * implementation ships the device-management UI in the Electron renderer;
@@ -47,16 +47,37 @@ export interface Env {
    */
   RATE_LIMIT: KVNamespace;
   /**
-   * Polar webhook secret (HMAC). Set via `wrangler secret put
-   * POLAR_WEBHOOK_SECRET`.
+   * Lemon Squeezy webhook signing secret (HMAC over the raw body). Set
+   * via `wrangler secret put LS_WEBHOOK_SECRET`.
    */
-  POLAR_WEBHOOK_SECRET: string;
+  LS_WEBHOOK_SECRET: string;
   /**
-   * Polar API key. implementation declares it but does not call back into
-   * Polar — webhook signature + D1 idempotency are sufficient.
-   * Reserved for implementation (checkout-link generation).
+   * Lemon Squeezy API key. Declared but the worker does not call back
+   * into Lemon Squeezy — webhook signature + D1 idempotency are
+   * sufficient. Reserved for future refund automation.
    */
-  POLAR_API_KEY: string;
+  LS_API_KEY: string;
+  /**
+   * Shared-store defense (non-secret, wrangler.toml [vars]): when set,
+   * webhook events whose store_id differs are acked `unknown-store`.
+   * The Lemon Squeezy store also sells the maintainer's other products.
+   */
+  LS_STORE_ID?: string;
+  /**
+   * Numeric Lemon Squeezy variant ids mapping checkout variants to the
+   * canonical Lingua SKUs (non-secret, wrangler.toml [vars]; they
+   * differ between test mode and live). Until set, every event acks
+   * `unknown-product` — the safe half-configured failure mode.
+   */
+  LS_VARIANT_MONTHLY?: string;
+  LS_VARIANT_LIFETIME?: string;
+  LS_VARIANT_TEAM?: string;
+  /**
+   * Device limit for Team licenses (non-secret, wrangler.toml [vars]).
+   * MAINTAINER-owned: checkout custom data is buyer-controlled and must
+   * never decide entitlements. Unset/invalid falls back to 3.
+   */
+  LS_TEAM_DEVICE_LIMIT?: string;
   /**
    * Ed25519 private key (JWK string). Set via `wrangler secret put
    * LINGUA_LICENSE_PRIVATE_KEY_JWK`.
@@ -76,7 +97,7 @@ export interface Env {
   LINGUA_LICENSE_PUBLIC_KEY_JWK: string;
   /**
    * Resend API key. Set via `wrangler secret put RESEND_API_KEY`.
-   * implementation sends the buyer email when a Polar webhook successfully
+   * implementation sends the buyer email when a Lemon Squeezy webhook successfully
    * mints a license.
    */
   RESEND_API_KEY: string;
@@ -106,8 +127,8 @@ app.use('*', requestObservabilityMiddleware());
  * at request time from the `CORS_ALLOWED_ORIGINS` env var so a preview
  * deploy can extend the list without a code change.
  *
- * The `/webhooks/polar` route deliberately bypasses CORS — webhooks
- * come from Polar's IP range with no Origin header, and applying CORS
+ * The `/webhooks/lemonsqueezy` route deliberately bypasses CORS — webhooks
+ * come from Lemon Squeezy's servers with no Origin header, and applying CORS
  * would just add noise to the headers.
  */
 function buildCorsMiddleware(

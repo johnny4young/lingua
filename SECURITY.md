@@ -46,7 +46,7 @@ Cloudflare Workers secrets, Apple/Windows signing stores, or local ignored env
 files:
 
 - private Ed25519 license-signing keys
-- Polar, Resend, GitHub, or Cloudflare API tokens
+- Lemon Squeezy, Resend, GitHub, or Cloudflare API tokens
 - webhook secrets
 - Apple or Windows signing certificates and passwords
 - real customer license tokens
