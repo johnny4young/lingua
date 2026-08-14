@@ -49,7 +49,7 @@ To revoke a license that was minted in error:
 ```sql
 -- D1 console (wrangler d1 execute lingua-licenses --command)
 UPDATE licenses
-   SET status = 'refunded', updated_at = strftime('%s', 'now') * 1000
+   SET status = 'refunded', updated_at = strftime('%s', 'now')
  WHERE merchant_order_id = '<order_id>';
 ```
 

@@ -127,23 +127,24 @@ describe('storeMatches', () => {
 });
 
 describe('deviceLimitForProduct', () => {
-  it('hard-codes 3 for monthly / lifetime regardless of custom data', () => {
-    expect(deviceLimitForProduct('lingua_monthly', { device_limit: 50 })).toBe(3);
-    expect(deviceLimitForProduct('lingua_lifetime', { device_limit: 50 })).toBe(3);
+  // The limit is MAINTAINER-owned env config. Checkout custom data is
+  // buyer-controlled (URL parameters), so it must never decide
+  // entitlements — these tests pin that the function does not even
+  // accept a custom-data argument anymore.
+  it('hard-codes 3 for monthly / lifetime regardless of config', () => {
+    expect(deviceLimitForProduct('lingua_monthly', { LS_TEAM_DEVICE_LIMIT: '50' })).toBe(3);
+    expect(deviceLimitForProduct('lingua_lifetime', { LS_TEAM_DEVICE_LIMIT: '50' })).toBe(3);
   });
 
-  it('reads custom_data.device_limit only for the team SKU', () => {
-    expect(deviceLimitForProduct('lingua_team', { device_limit: 25 })).toBe(25);
-    expect(deviceLimitForProduct('lingua_team', undefined)).toBe(3);
-  });
-
-  it('parses string-typed values defensively (checkout custom data serializes as strings)', () => {
-    expect(deviceLimitForProduct('lingua_team', { device_limit: '10' })).toBe(10);
+  it('reads LS_TEAM_DEVICE_LIMIT only for the team SKU, defaulting to 3 when unset', () => {
+    expect(deviceLimitForProduct('lingua_team', { LS_TEAM_DEVICE_LIMIT: '25' })).toBe(25);
+    expect(deviceLimitForProduct('lingua_team', {})).toBe(3);
+    expect(deviceLimitForProduct('lingua_team', { LS_TEAM_DEVICE_LIMIT: '   ' })).toBe(3);
   });
 
   it('clamps absurd values (negative / NaN / huge) to the default 3 to keep the schema CHECK happy', () => {
-    expect(deviceLimitForProduct('lingua_team', { device_limit: -5 })).toBe(3);
-    expect(deviceLimitForProduct('lingua_team', { device_limit: 'not-a-number' })).toBe(3);
-    expect(deviceLimitForProduct('lingua_team', { device_limit: 99999 })).toBe(3);
+    expect(deviceLimitForProduct('lingua_team', { LS_TEAM_DEVICE_LIMIT: '-5' })).toBe(3);
+    expect(deviceLimitForProduct('lingua_team', { LS_TEAM_DEVICE_LIMIT: 'not-a-number' })).toBe(3);
+    expect(deviceLimitForProduct('lingua_team', { LS_TEAM_DEVICE_LIMIT: '99999' })).toBe(3);
   });
 });

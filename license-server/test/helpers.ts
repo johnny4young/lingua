@@ -313,11 +313,13 @@ class MockStatement {
         string,
       ];
       const row = this.db.licenses.get(id);
-      if (!row) return 0;
+      // Mirrors src/lib/db.ts refreshLicenseToken: refunded rows are
+      // untouchable, expired rows revive, other statuses are preserved.
+      if (!row || row.status === 'refunded') return 0;
       row.token = token;
       row.expires_at = expiresAt;
       row.support_window_ends_at = supportWindowEndsAt;
-      row.status = 'active';
+      if (row.status === 'expired') row.status = 'active';
       row.updated_at = updatedAt;
       return 1;
     }
@@ -584,10 +586,12 @@ export function createMockKV(): KVNamespace {
 
 export interface MockEnvOptions {
   lsWebhookSecret?: string;
+  lsApiKey?: string;
   lsStoreId?: string;
   lsVariantMonthly?: string;
   lsVariantLifetime?: string;
   lsVariantTeam?: string;
+  lsTeamDeviceLimit?: string;
   privateKeyJwk?: JsonWebKey;
   nextPrivateKeyJwk?: JsonWebKey;
   signingKeySlot?: 'current' | 'next';
@@ -603,11 +607,14 @@ export function createMockEnv(options: MockEnvOptions = {}): Env & { __db: MockD
     DB: db as unknown as D1Database,
     RATE_LIMIT: createMockKV(),
     LS_WEBHOOK_SECRET: options.lsWebhookSecret ?? '',
-    LS_API_KEY: 'lsk_mock',
+    // Default EMPTY so tests exercise the webhook-only configuration;
+    // the API-fallback tests opt in explicitly and stub global fetch.
+    LS_API_KEY: options.lsApiKey ?? '',
     LS_STORE_ID: options.lsStoreId ?? '',
     LS_VARIANT_MONTHLY: options.lsVariantMonthly ?? '111',
     LS_VARIANT_LIFETIME: options.lsVariantLifetime ?? '222',
     LS_VARIANT_TEAM: options.lsVariantTeam ?? '333',
+    LS_TEAM_DEVICE_LIMIT: options.lsTeamDeviceLimit ?? '',
     LINGUA_LICENSE_PRIVATE_KEY_JWK: options.privateKeyJwk ? JSON.stringify(options.privateKeyJwk) : '',
     LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK: options.nextPrivateKeyJwk
       ? JSON.stringify(options.nextPrivateKeyJwk)

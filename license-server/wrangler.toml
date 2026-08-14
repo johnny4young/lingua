@@ -67,6 +67,9 @@ LS_STORE_ID = ""
 LS_VARIANT_MONTHLY = ""
 LS_VARIANT_LIFETIME = ""
 LS_VARIANT_TEAM = ""
+# Team seat count, maintainer-owned. Checkout custom data is
+# buyer-controlled (URL parameters) and must never decide entitlements.
+LS_TEAM_DEVICE_LIMIT = "3"
 
 [observability]
 enabled = true

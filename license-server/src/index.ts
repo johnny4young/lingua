@@ -73,6 +73,12 @@ export interface Env {
   LS_VARIANT_LIFETIME?: string;
   LS_VARIANT_TEAM?: string;
   /**
+   * Device limit for Team licenses (non-secret, wrangler.toml [vars]).
+   * MAINTAINER-owned: checkout custom data is buyer-controlled and must
+   * never decide entitlements. Unset/invalid falls back to 3.
+   */
+  LS_TEAM_DEVICE_LIMIT?: string;
+  /**
    * Ed25519 private key (JWK string). Set via `wrangler secret put
    * LINGUA_LICENSE_PRIVATE_KEY_JWK`.
    */

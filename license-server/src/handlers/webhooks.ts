@@ -38,6 +38,7 @@ import { errorResponse, methodNotAllowedResponse } from '../lib/errors';
 import { jsonNoStore } from '../lib/json';
 import {
   deviceLimitForProduct,
+  invoiceAttributes,
   orderAttributes,
   resolveVariantSku,
   storeMatches,
@@ -124,10 +125,7 @@ webhooksRouter.post('/lemonsqueezy', async c => {
     case 'subscription_cancelled':
       return handleSubscriptionCancelled(c, event);
     case 'subscription_payment_success':
-      // Renewal refreshes ride on `subscription_updated`, which carries
-      // the advanced `renews_at`. The invoice event is acked so Lemon
-      // Squeezy stops retrying it, but it never mints.
-      return jsonNoStore(c, { ok: true, ignored: 'handled-via-subscription-updated' });
+      return handleSubscriptionPaymentSuccess(c, event);
     default:
       return jsonNoStore(c, { ok: true, ignored: 'unknown-event', type: eventName });
   }
@@ -244,6 +242,14 @@ async function handleOrderCreated(c: WebhookContext, event: LemonSqueezyEvent): 
     return jsonNoStore(c, { ok: true, ignored: 'awaiting-subscription-created', orderId });
   }
 
+  // Out-of-order delivery guard: a retried `order_created` can land
+  // AFTER the refund settled. Minting an active license for an order
+  // Lemon Squeezy already reports as refunded would hand a paid-for
+  // token to a refunded buyer.
+  if (attrs.refunded === true || attrs.status === 'refunded') {
+    return jsonNoStore(c, { ok: true, ignored: 'order-already-refunded', orderId });
+  }
+
   const existing = await findLicenseByMerchantOrder(c.env.DB, orderId);
   if (existing) {
     return jsonNoStore(c, { ok: true, ignored: 'duplicate', licenseId: existing.id });
@@ -251,7 +257,7 @@ async function handleOrderCreated(c: WebhookContext, event: LemonSqueezyEvent): 
 
   const issuedAt = Math.floor(Date.now() / 1000);
   const supportWindowEndsAt = issuedAt + PRO_LIFETIME_INCLUDED_UPDATES_SECONDS;
-  const deviceLimit = deviceLimitForProduct(productId, event.meta?.custom_data);
+  const deviceLimit = deviceLimitForProduct(productId, c.env);
 
   return emitLicenseAndEmail(c, {
     licenseRowId: crypto.randomUUID(),
@@ -323,7 +329,7 @@ async function handleSubscriptionCreated(
 
   const issuedAt = Math.floor(Date.now() / 1000);
   const supportWindowEndsAt = expiresAt + SUPPORT_GRACE_SECONDS;
-  const deviceLimit = deviceLimitForProduct(productId, event.meta?.custom_data);
+  const deviceLimit = deviceLimitForProduct(productId, c.env);
 
   return emitLicenseAndEmail(c, {
     licenseRowId: crypto.randomUUID(),
@@ -356,6 +362,12 @@ async function handleSubscriptionUpdated(
     // Ack so the created event does the actual mint.
     return jsonNoStore(c, { ok: true, ignored: 'unknown-subscription', subscriptionId });
   }
+  if (license.status === 'refunded') {
+    // A delayed or replayed update after the refund settled must not
+    // flip status or hand back a fresh token. The DB-level refresh
+    // guard enforces the same rule; this pre-check keeps the ack loud.
+    return jsonNoStore(c, { ok: true, ignored: 'refunded', licenseId: license.id });
+  }
 
   const cancelled = attrs.cancelled === true;
   if (cancelled) {
@@ -373,30 +385,13 @@ async function handleSubscriptionUpdated(
     return jsonNoStore(c, { ok: true, licenseId: license.id, cancelAtPeriodEnd: cancelled });
   }
 
-  const signingKey = resolveLicenseSigningKey(c.env);
-  if (!signingKey) {
-    return errorResponse(c, 'not-implemented', {
-      message: 'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured.',
-    });
-  }
-  const supportWindowEndsAt = renewsAt + SUPPORT_GRACE_SECONDS;
-  const minted = await mintAndSignToken(
-    {
-      licenseId: license.id,
-      productId: license.product_id as LinguaProductId,
-      issuedTo: license.issued_to,
-      issuedAt: license.issued_at,
-      expiresAt: renewsAt,
-      supportWindowEndsAt,
-    },
-    signingKey.privateKeyJwk
-  );
-  if (!minted.ok) {
-    return errorResponse(c, 'not-implemented', {
-      message: `Token re-mint failed: ${minted.reason}`,
-    });
-  }
-  await refreshLicenseToken(c.env.DB, license.id, minted.token, renewsAt, supportWindowEndsAt);
+  const refreshed = await refreshSubscriptionLicense(c, license.id, {
+    productId: license.product_id as LinguaProductId,
+    issuedTo: license.issued_to,
+    issuedAt: license.issued_at,
+    renewsAt,
+  });
+  if (!refreshed.ok) return refreshed.response;
   return jsonNoStore(c, {
     ok: true,
     licenseId: license.id,
@@ -404,6 +399,122 @@ async function handleSubscriptionUpdated(
     cancelAtPeriodEnd: cancelled,
     source: 'subscription_updated',
   });
+}
+
+/**
+ * Fallback renewal trigger. Lemon Squeezy documents `subscription_updated`
+ * as firing on every subscription change (renewals advance `renews_at`),
+ * and that event is the primary refresh path. But the invoice event is
+ * the one LS GUARANTEES for a successful renewal payment, and its
+ * payload carries no `renews_at` — so when `LS_API_KEY` is configured
+ * the handler fetches the subscription from the LS API and refreshes
+ * from its authoritative `renews_at`. Without the key it acks and
+ * relies on `subscription_updated`, which keeps the worker functional
+ * with webhook-only configuration.
+ */
+async function handleSubscriptionPaymentSuccess(
+  c: WebhookContext,
+  event: LemonSqueezyEvent
+): Promise<Response> {
+  const attrs = invoiceAttributes(event);
+  const subscriptionId = attrs.subscription_id !== undefined ? String(attrs.subscription_id) : null;
+  if (!subscriptionId) {
+    return jsonNoStore(c, { ok: true, ignored: 'invoice-missing-subscription-id' });
+  }
+
+  const license = await findLicenseByMerchantSubscription(c.env.DB, subscriptionId);
+  if (!license) {
+    // First invoice can land before subscription_created mints.
+    return jsonNoStore(c, { ok: true, ignored: 'unknown-subscription', subscriptionId });
+  }
+  if (license.status === 'refunded') {
+    return jsonNoStore(c, { ok: true, ignored: 'refunded', licenseId: license.id });
+  }
+  if (!c.env.LS_API_KEY) {
+    return jsonNoStore(c, { ok: true, ignored: 'awaiting-subscription-updated' });
+  }
+
+  let renewsAt = Number.NaN;
+  try {
+    const response = await fetch(
+      `https://api.lemonsqueezy.com/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+      {
+        headers: {
+          Accept: 'application/vnd.api+json',
+          Authorization: `Bearer ${c.env.LS_API_KEY}`,
+        },
+      }
+    );
+    if (response.ok) {
+      const payload = (await response.json()) as {
+        data?: { attributes?: { renews_at?: string | null } };
+      };
+      const iso = payload.data?.attributes?.renews_at;
+      if (iso) renewsAt = Math.floor(Date.parse(iso) / 1000);
+    }
+  } catch {
+    // Fall through to the ack below — the primary subscription_updated
+    // path still covers the renewal, and LS retries nothing on a 200.
+  }
+
+  const advanced =
+    Number.isFinite(renewsAt) && (license.expires_at === null || renewsAt > license.expires_at);
+  if (!advanced) {
+    return jsonNoStore(c, { ok: true, ignored: 'awaiting-subscription-updated' });
+  }
+
+  const refreshed = await refreshSubscriptionLicense(c, license.id, {
+    productId: license.product_id as LinguaProductId,
+    issuedTo: license.issued_to,
+    issuedAt: license.issued_at,
+    renewsAt,
+  });
+  if (!refreshed.ok) return refreshed.response;
+  return jsonNoStore(c, {
+    ok: true,
+    licenseId: license.id,
+    refreshedTokenIssued: true,
+    source: 'subscription_payment_success',
+  });
+}
+
+/** Re-mint + persist a subscription renewal. Shared by both renewal triggers. */
+async function refreshSubscriptionLicense(
+  c: WebhookContext,
+  licenseId: string,
+  args: { productId: LinguaProductId; issuedTo: string; issuedAt: number; renewsAt: number }
+): Promise<{ ok: true } | { ok: false; response: Response }> {
+  const signingKey = resolveLicenseSigningKey(c.env);
+  if (!signingKey) {
+    return {
+      ok: false,
+      response: errorResponse(c, 'not-implemented', {
+        message: 'LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured.',
+      }),
+    };
+  }
+  const supportWindowEndsAt = args.renewsAt + SUPPORT_GRACE_SECONDS;
+  const minted = await mintAndSignToken(
+    {
+      licenseId,
+      productId: args.productId,
+      issuedTo: args.issuedTo,
+      issuedAt: args.issuedAt,
+      expiresAt: args.renewsAt,
+      supportWindowEndsAt,
+    },
+    signingKey.privateKeyJwk
+  );
+  if (!minted.ok) {
+    return {
+      ok: false,
+      response: errorResponse(c, 'not-implemented', {
+        message: `Token re-mint failed: ${minted.reason}`,
+      }),
+    };
+  }
+  await refreshLicenseToken(c.env.DB, licenseId, minted.token, args.renewsAt, supportWindowEndsAt);
+  return { ok: true };
 }
 
 async function handleSubscriptionCancelled(

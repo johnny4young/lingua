@@ -145,10 +145,18 @@ export async function refreshLicenseToken(
   supportWindowEndsAt: number | null
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
+  // Status semantics: a paid renewal revives an `expired` row, leaves
+  // `active` and `cancel_at_period_end` as the webhook handlers set them
+  // (paid-through-but-still-ending is a valid state), and NEVER touches a
+  // `refunded` row — a delayed or replayed subscription_updated after a
+  // refund must not hand the buyer a fresh token. With no signed
+  // timestamp in the merchant's webhook scheme, this guard is part of
+  // the replay defense, not just tidiness.
   await db
     .prepare(
       `UPDATE licenses SET token = ?, expires_at = ?, support_window_ends_at = ?,
-       status = 'active', updated_at = ? WHERE id = ?`
+       status = CASE WHEN status = 'expired' THEN 'active' ELSE status END,
+       updated_at = ? WHERE id = ? AND status != 'refunded'`
     )
     .bind(newToken, expiresAt, supportWindowEndsAt, now, licenseId)
     .run();

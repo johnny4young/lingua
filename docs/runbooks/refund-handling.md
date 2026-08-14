@@ -20,8 +20,12 @@ When the webhook fires successfully, the handler:
 
 1. Looks up the license by `merchant_order_id`.
 2. Sets `licenses.status = 'refunded'` in D1.
-3. Sets `devices.removed_at = now()` for every device on that license.
-4. Emits a `request.completed` envelope for `route = 'webhooks.lemonsqueezy'`.
+3. Emits a `request.completed` envelope for `route = 'webhooks.lemonsqueezy'`.
+
+Device rows are intentionally left in place: activation and status checks
+gate on `licenses.status`, so a refunded license cannot activate anything
+regardless of its device list. Clearing `devices.removed_at` is optional
+manual hygiene (Path B includes the SQL).
 
 The desktop client polls `licenses/status` every 24h; the web build polls every 30 minutes. After the next poll, the user's app surface flips to the Free tier.
 
@@ -34,11 +38,11 @@ If Lemon Squeezy reports a refund but the webhook didn't auto-process (D1 still 
 
    ```sql
    UPDATE licenses
-      SET status = 'refunded', updated_at = strftime('%s', 'now') * 1000
+      SET status = 'refunded', updated_at = strftime('%s', 'now')
     WHERE merchant_order_id = '<order_id>';
 
    UPDATE devices
-      SET removed_at = strftime('%s', 'now') * 1000
+      SET removed_at = strftime('%s', 'now')
     WHERE license_id = '<license_id>'
       AND removed_at IS NULL;
    ```
@@ -62,7 +66,7 @@ If the deactivation was triggered in error (e.g., wrong customer email matched),
 
 ```sql
 UPDATE licenses
-   SET status = 'active', updated_at = strftime('%s', 'now') * 1000
+   SET status = 'active', updated_at = strftime('%s', 'now')
  WHERE id = '<license_id>'
    AND merchant_order_id = '<order_id>';
 ```

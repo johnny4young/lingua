@@ -97,14 +97,17 @@ describe('POST /webhooks/lemonsqueezy', () => {
     expect(env.__db.licenses.size).toBe(0);
   });
 
-  it('mints an expiring Team license from subscription_created, storing BOTH merchant ids so a later order_refunded can revoke it', async () => {
+  it('mints an expiring Team license from subscription_created, storing BOTH merchant ids so a later order_refunded can revoke it — and takes the device limit from maintainer env, IGNORING buyer custom data', async () => {
     const keys = await generateEd25519Keypair();
     const env = createMockEnv({
       lsWebhookSecret: SECRET,
       privateKeyJwk: keys.privateKeyJwk,
+      lsTeamDeviceLimit: '10',
     });
     const { headers, body } = await buildSignedLemonSqueezyWebhook(SECRET, {
-      meta: { event_name: 'subscription_created', custom_data: { device_limit: '10' } },
+      // custom_data is buyer-controlled checkout input; 999 here proves
+      // it cannot escalate the seat count.
+      meta: { event_name: 'subscription_created', custom_data: { device_limit: '999' } },
       data: {
         type: 'subscriptions',
         id: 'sub_team',
@@ -444,11 +447,15 @@ describe('POST /webhooks/lemonsqueezy', () => {
     expect(row!.status).toBe('refunded');
   });
 
-  it('acks subscription_payment_success as handled-via-subscription-updated without minting', async () => {
+  it('acks subscription_payment_success for an unknown subscription without minting (first invoice can beat subscription_created)', async () => {
     const env = createMockEnv({ lsWebhookSecret: SECRET });
     const { headers, body } = await buildSignedLemonSqueezyWebhook(SECRET, {
       meta: { event_name: 'subscription_payment_success' },
-      data: { type: 'subscription-invoices', id: '4001', attributes: { store_id: 7 } },
+      data: {
+        type: 'subscription-invoices',
+        id: '4001',
+        attributes: { store_id: 7, subscription_id: 424242, billing_reason: 'initial' },
+      },
     });
 
     const response = await app.request(
@@ -459,7 +466,218 @@ describe('POST /webhooks/lemonsqueezy', () => {
 
     expect(response.status).toBe(200);
     const parsed = (await response.json()) as { ok: boolean; ignored?: string };
-    expect(parsed).toMatchObject({ ok: true, ignored: 'handled-via-subscription-updated' });
+    expect(parsed).toMatchObject({ ok: true, ignored: 'unknown-subscription' });
+    expect(env.__db.licenses.size).toBe(0);
+  });
+
+  it('acks subscription_payment_success without LS_API_KEY and relies on subscription_updated for the refresh', async () => {
+    const keys = await generateEd25519Keypair();
+    const env = createMockEnv({
+      lsWebhookSecret: SECRET,
+      privateKeyJwk: keys.privateKeyJwk,
+    });
+    const created = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_created' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_invoice_nokey',
+        attributes: {
+          store_id: 7,
+          order_id: 6200,
+          variant_id: 111,
+          user_email: 'buyer@example.com',
+          renews_at: '2026-09-13T00:00:00.000Z',
+        },
+      },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: created.headers, body: created.body },
+      env
+    );
+
+    const invoice = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_payment_success' },
+      data: {
+        type: 'subscription-invoices',
+        id: '4002',
+        attributes: { store_id: 7, subscription_id: 'sub_invoice_nokey', billing_reason: 'renewal' },
+      },
+    });
+    const response = await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: invoice.headers, body: invoice.body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'awaiting-subscription-updated' });
+  });
+
+  it('refreshes from the LS API on subscription_payment_success when LS_API_KEY is configured — the authoritative renewal fallback', async () => {
+    const keys = await generateEd25519Keypair();
+    const env = createMockEnv({
+      lsWebhookSecret: SECRET,
+      privateKeyJwk: keys.privateKeyJwk,
+      lsApiKey: 'lsk_test',
+    });
+    const created = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_created' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_invoice_renew',
+        attributes: {
+          store_id: 7,
+          order_id: 6300,
+          variant_id: 111,
+          user_email: 'buyer@example.com',
+          renews_at: '2026-09-13T00:00:00.000Z',
+        },
+      },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: created.headers, body: created.body },
+      env
+    );
+    const [beforeRow] = [...env.__db.licenses.values()];
+    const tokenBefore = beforeRow!.token;
+
+    const fetchMock = vi.fn(
+      async (input: Parameters<typeof fetch>[0], _init?: Parameters<typeof fetch>[1]) => {
+        expect(String(input)).toContain('/v1/subscriptions/sub_invoice_renew');
+        return new Response(
+          JSON.stringify({
+            data: { attributes: { renews_at: '2026-10-13T00:00:00.000Z' } },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const invoice = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_payment_success' },
+      data: {
+        type: 'subscription-invoices',
+        id: '4003',
+        attributes: { store_id: 7, subscription_id: 'sub_invoice_renew', billing_reason: 'renewal' },
+      },
+    });
+    const response = await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: invoice.headers, body: invoice.body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; refreshedTokenIssued?: boolean };
+    expect(parsed).toMatchObject({
+      ok: true,
+      refreshedTokenIssued: true,
+      source: 'subscription_payment_success',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [afterRow] = [...env.__db.licenses.values()];
+    expect(afterRow!.token).not.toBe(tokenBefore);
+    expect(afterRow!.expires_at).toBe(Math.floor(Date.parse('2026-10-13T00:00:00.000Z') / 1000));
+  });
+
+  it('does NOT resurrect a refunded license when a late subscription_updated arrives with a newer renews_at', async () => {
+    const keys = await generateEd25519Keypair();
+    const env = createMockEnv({
+      lsWebhookSecret: SECRET,
+      privateKeyJwk: keys.privateKeyJwk,
+    });
+    const created = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_created' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_zombie',
+        attributes: {
+          store_id: 7,
+          order_id: 6400,
+          variant_id: 111,
+          user_email: 'buyer@example.com',
+          renews_at: '2026-09-13T00:00:00.000Z',
+        },
+      },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: created.headers, body: created.body },
+      env
+    );
+    const refunded = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'order_refunded' },
+      data: { type: 'orders', id: '6400', attributes: { store_id: 7, refunded: true } },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: refunded.headers, body: refunded.body },
+      env
+    );
+    const [row] = [...env.__db.licenses.values()];
+    const tokenAfterRefund = row!.token;
+    expect(row!.status).toBe('refunded');
+
+    // The zombie: a replayed/late update with an advanced renews_at.
+    const zombie = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_updated' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_zombie',
+        attributes: {
+          store_id: 7,
+          variant_id: 111,
+          user_email: 'buyer@example.com',
+          status: 'active',
+          cancelled: false,
+          renews_at: '2026-12-13T00:00:00.000Z',
+        },
+      },
+    });
+    const response = await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: zombie.headers, body: zombie.body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'refunded' });
+    const [after] = [...env.__db.licenses.values()];
+    expect(after!.status).toBe('refunded');
+    expect(after!.token).toBe(tokenAfterRefund);
+  });
+
+  it('refuses to mint from an order_created that Lemon Squeezy already reports as refunded', async () => {
+    const env = createMockEnv({ lsWebhookSecret: SECRET });
+    const { headers, body } = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'order_created' },
+      data: {
+        type: 'orders',
+        id: '9001',
+        attributes: {
+          store_id: 7,
+          user_email: 'buyer@example.com',
+          status: 'refunded',
+          refunded: true,
+          first_order_item: { variant_id: 222 },
+        },
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'order-already-refunded' });
     expect(env.__db.licenses.size).toBe(0);
   });
 });

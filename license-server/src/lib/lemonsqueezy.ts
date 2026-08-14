@@ -124,6 +124,7 @@ export interface VariantConfig {
   LS_VARIANT_MONTHLY?: string;
   LS_VARIANT_LIFETIME?: string;
   LS_VARIANT_TEAM?: string;
+  LS_TEAM_DEVICE_LIMIT?: string;
 }
 
 export interface LemonSqueezyOrderAttributes {
@@ -164,6 +165,17 @@ export interface LemonSqueezyEvent {
 /** Narrowed accessors — LS attributes arrive as a loose JSON:API bag. */
 export function orderAttributes(event: LemonSqueezyEvent): LemonSqueezyOrderAttributes {
   return (event.data?.attributes ?? {}) as LemonSqueezyOrderAttributes;
+}
+
+export interface LemonSqueezyInvoiceAttributes {
+  store_id?: number;
+  subscription_id?: number;
+  billing_reason?: string;
+  status?: string;
+}
+
+export function invoiceAttributes(event: LemonSqueezyEvent): LemonSqueezyInvoiceAttributes {
+  return (event.data?.attributes ?? {}) as LemonSqueezyInvoiceAttributes;
 }
 
 export function subscriptionAttributes(
@@ -212,24 +224,21 @@ function trimmedOrNull(value: string | undefined): string | null {
 }
 
 /**
- * Read `device_limit` from the checkout's custom data, with the same
- * clamping the Polar path used. Only `lingua_team` honours the
- * override; monthly + lifetime are hard-3. Lemon Squeezy carries
- * checkout custom data in `meta.custom_data` on every webhook for the
- * resulting order/subscription.
+ * Device limit per SKU. Only `lingua_team` honours an override, and it
+ * comes from the MAINTAINER-owned `LS_TEAM_DEVICE_LIMIT` env var —
+ * never from `meta.custom_data`. Custom data originates from checkout
+ * URL parameters, which the BUYER controls even though Lemon Squeezy
+ * signs the resulting webhook; reading a limit from it would let any
+ * Team buyer grant themselves up to the clamp ceiling. (Polar's
+ * equivalent was product metadata, which only the maintainer could
+ * set — the trust model changed with the merchant, so the source of
+ * truth moved server-side.) Monthly + lifetime are hard-3.
  */
-export function deviceLimitForProduct(
-  productId: string,
-  customData: Record<string, unknown> | undefined
-): number {
+export function deviceLimitForProduct(productId: string, config: VariantConfig): number {
   if (productId !== 'lingua_team') return 3;
-  const raw = customData?.device_limit;
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 1 && raw <= 1000) {
-    return Math.floor(raw);
-  }
-  if (typeof raw === 'string') {
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 1000) return parsed;
-  }
+  const raw = config.LS_TEAM_DEVICE_LIMIT?.trim();
+  if (!raw) return 3;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 1000) return parsed;
   return 3;
 }
