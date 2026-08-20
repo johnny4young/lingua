@@ -531,6 +531,14 @@ async function handleSubscriptionCancelled(
   if (!license) {
     return jsonNoStore(c, { ok: true, ignored: 'unknown-subscription', subscriptionId });
   }
+  if (license.status === 'refunded') {
+    // Refunded is terminal. Refund-then-cancel is a natural operator
+    // sequence and Lemon Squeezy delivers both events; without this
+    // guard the cancellation downgrades refunded to
+    // cancel_at_period_end, leaving a refunded license valid until
+    // period end.
+    return jsonNoStore(c, { ok: true, ignored: 'refunded', licenseId: license.id });
+  }
   await setLicenseStatus(c.env.DB, license.id, 'cancel_at_period_end');
   return jsonNoStore(c, { ok: true, licenseId: license.id, status: 'cancel_at_period_end' });
 }
