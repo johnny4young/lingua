@@ -652,7 +652,7 @@ describe('POST /webhooks/lemonsqueezy', () => {
     expect(after!.token).toBe(tokenAfterRefund);
   });
 
-  it('does NOT downgrade a refunded license when subscription_cancelled arrives after the refund — the exact live sequence from the phase-4 QA', async () => {
+  it('does NOT downgrade a refunded license when subscription_cancelled arrives after the refund — refund-then-cancel is the natural operator sequence', async () => {
     const keys = await generateEd25519Keypair();
     const env = createMockEnv({
       lsWebhookSecret: SECRET,
