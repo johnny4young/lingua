@@ -652,6 +652,64 @@ describe('POST /webhooks/lemonsqueezy', () => {
     expect(after!.token).toBe(tokenAfterRefund);
   });
 
+  it('does NOT downgrade a refunded license when subscription_cancelled arrives after the refund — the exact live sequence from the phase-4 QA', async () => {
+    const keys = await generateEd25519Keypair();
+    const env = createMockEnv({
+      lsWebhookSecret: SECRET,
+      privateKeyJwk: keys.privateKeyJwk,
+    });
+    const created = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_created' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_refund_then_cancel',
+        attributes: {
+          store_id: 7,
+          order_id: 6500,
+          variant_id: 111,
+          user_email: 'buyer@example.com',
+          renews_at: '2026-09-20T00:00:00.000Z',
+        },
+      },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: created.headers, body: created.body },
+      env
+    );
+    const refunded = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'order_refunded' },
+      data: { type: 'orders', id: '6500', attributes: { store_id: 7, refunded: true } },
+    });
+    await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: refunded.headers, body: refunded.body },
+      env
+    );
+
+    // The operator refunds FIRST and cancels SECOND; the cancel event
+    // lands on an already-refunded license and must not touch it.
+    const cancelled = await buildSignedLemonSqueezyWebhook(SECRET, {
+      meta: { event_name: 'subscription_cancelled' },
+      data: {
+        type: 'subscriptions',
+        id: 'sub_refund_then_cancel',
+        attributes: { store_id: 7, cancelled: true },
+      },
+    });
+    const response = await app.request(
+      'http://localhost/webhooks/lemonsqueezy',
+      { method: 'POST', headers: cancelled.headers, body: cancelled.body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'refunded' });
+    const [row] = [...env.__db.licenses.values()];
+    expect(row!.status).toBe('refunded');
+  });
+
   it('refuses to mint from an order_created that Lemon Squeezy already reports as refunded', async () => {
     const env = createMockEnv({ lsWebhookSecret: SECRET });
     const { headers, body } = await buildSignedLemonSqueezyWebhook(SECRET, {
