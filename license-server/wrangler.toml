@@ -63,15 +63,15 @@ CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http:/
 # values make every event ack `unknown-product` (safe half-configured
 # state). They differ between LS test mode and live — fill from the LS
 # dashboard before certification.
-# TEST-MODE identity (store johnny4young.lemonsqueezy.com). These are the
-# test-mode variant ids; live mode issues DIFFERENT ids — replace all
-# four values during the live cutover, never mix modes. LS_STORE_ID
-# Store 408765 (Johnny Young) — the shared store that also sells the
-# sibling products; events from any other store ack unknown-store.
+# LIVE identity (store johnny4young.lemonsqueezy.com, id 408765 — shared
+# with the sibling products; events from any other store ack
+# unknown-store). LIVE-mode variant ids, verified against the public
+# checkout pages on 2026-08-20; test mode issues DIFFERENT ids (the
+# certification ran on 2037844/2037843/2037841) — never mix modes.
 LS_STORE_ID = "408765"
-LS_VARIANT_MONTHLY = "2037844"
-LS_VARIANT_LIFETIME = "2037843"
-LS_VARIANT_TEAM = "2037841"
+LS_VARIANT_MONTHLY = "2040641"
+LS_VARIANT_LIFETIME = "2040643"
+LS_VARIANT_TEAM = "2040645"
 # Team seat count, maintainer-owned. Checkout custom data is
 # buyer-controlled (URL parameters) and must never decide entitlements.
 LS_TEAM_DEVICE_LIMIT = "3"

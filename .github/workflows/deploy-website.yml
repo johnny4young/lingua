@@ -88,6 +88,13 @@ jobs:
           # from its validated file so every localized route sees one immutable
           # metadata view and does not repeat retries during an API incident.
           LINGUA_SOURCE: local
+          # Lemon Squeezy checkout URLs (public, repository variables — not
+          # secrets). The pricing buttons render disabled when these are
+          # unset, so a fork or a repo without the vars builds a working
+          # site with purchasing off.
+          PUBLIC_LS_CHECKOUT_PRO: ${{ vars.PUBLIC_LS_CHECKOUT_PRO }}
+          PUBLIC_LS_CHECKOUT_PRO_LIFETIME: ${{ vars.PUBLIC_LS_CHECKOUT_PRO_LIFETIME }}
+          PUBLIC_LS_CHECKOUT_TEAM: ${{ vars.PUBLIC_LS_CHECKOUT_TEAM }}
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
