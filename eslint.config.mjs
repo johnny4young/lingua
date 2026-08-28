@@ -19,6 +19,15 @@ export default tseslint.config(
       // The marketing site is a standalone Astro package with its own
       // toolchain (npm, its own tsconfig/eslint); the root lint never owns it.
       'website/',
+      // Design-system sync artefacts. `ds-bundle/` is generated build output
+      // and `.ds-sync/` is the staged upstream converter (both gitignored, and
+      // together they raise ~2450 errors that would mask real ones on any
+      // machine that has run a sync). `.design-sync/` is committed sync input,
+      // not app code: the preview compositions import from a synthetic
+      // `lingua` package that only exists during a build.
+      'ds-bundle/',
+      '.ds-sync/',
+      '.design-sync/',
     ],
   },
   js.configs.recommended,

@@ -1,0 +1,12 @@
+# Regenerable scaffolding — see ../NOTES.md "This repo is an app, not a
+# component package" for the commands that rebuild each of these.
+# Committed by hand: package.json, ds-provider.tsx, fonts.css,
+# src/chrome.tsx (the Kbd-collision shim) and types/index.d.ts.
+src/*
+!src/chrome.tsx
+types/*
+!types/index.d.ts
+docs
+styles.css
+i18n-en.json
+*.woff2

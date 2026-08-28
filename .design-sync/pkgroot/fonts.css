@@ -1,0 +1,18 @@
+/* JetBrains Mono — the family Lingua actually ships (public/fonts). Inter is
+   deliberately absent: the app declares it only as the head of a fallback
+   stack and ships no file, so the product renders with system-ui on most
+   machines. Shipping Inter here would make previews diverge from the app. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('jetbrains-mono-latin-700-normal.woff2') format('woff2');
+}

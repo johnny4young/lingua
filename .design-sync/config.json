@@ -1,0 +1,53 @@
+{
+  "projectId": "39c0118b-7849-4a7e-b75b-f158dd90cf4a",
+  "shape": "package",
+  "pkg": "lingua",
+  "globalName": "Lingua",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": "styles.css",
+  "extraFonts": [
+    "fonts.css"
+  ],
+  "docsDir": "docs",
+  "extraEntries": [
+    "./ds-provider.tsx"
+  ],
+  "provider": {
+    "component": "DsProvider"
+  },
+  "overrides": {
+    "ModalShell": {
+      "cardMode": "single",
+      "viewport": "720x420"
+    },
+    "ConfirmDialog": {
+      "cardMode": "single",
+      "viewport": "720x300"
+    },
+    "OverlayBackdrop": {
+      "cardMode": "single",
+      "viewport": "720x420"
+    },
+    "OverlayCard": {
+      "cardMode": "single",
+      "viewport": "640x360"
+    },
+    "ResultHeader": {
+      "cardMode": "column"
+    },
+    "FileDropZone": {
+      "cardMode": "column"
+    },
+    "SettingsSection": {
+      "cardMode": "column"
+    },
+    "SpecCard": {
+      "cardMode": "column"
+    },
+    "SpecRow": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

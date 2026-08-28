@@ -128,3 +128,8 @@ default.profraw
 /docs/AI_BRIDGE_ADR.md
 /docs/DEPENDENCY_MANAGER_ADR.md
 /docs/VITE_UPGRADE_ADR.md
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
