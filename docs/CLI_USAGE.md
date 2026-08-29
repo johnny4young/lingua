@@ -10,6 +10,20 @@ Start with the task-based, searchable guide at
 This file is the precise in-repository reference for maintainers, automation,
 and compatibility checks.
 
+## AI agents
+
+The public Agent Plugins 1.0 manifest at [`plugin.json`](../plugin.json)
+packages [`skills/lingua-verify/SKILL.md`](../skills/lingua-verify/SKILL.md).
+The instruction-only skill teaches shell-capable agents to select the narrowest
+CLI command, request stable JSON, interpret exit codes, and report execution
+evidence without adding an MCP server, background hook, or new authority.
+
+Install and trust the CLI separately before enabling the skill. The skill never
+installs software, supplies environment values, or treats `lingua run` as a
+sandbox. See [`AGENT_INTEGRATION.md`](./AGENT_INTEGRATION.md) for client setup,
+the complete evidence workflow, and the distinction from Lingua Desktop's
+read-only local MCP server.
+
 ## Install / build
 
 On macOS, install the dedicated Homebrew formula. It downloads the immutable

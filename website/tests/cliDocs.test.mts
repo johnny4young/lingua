@@ -22,6 +22,7 @@ test('generated CLI reference exactly matches the runtime help catalog', () => {
 test('English and Spanish CLI documentation have the same routes', async () => {
   assert.deepEqual(await contentFiles('en'), await contentFiles('es'));
   assert.deepEqual(await contentFiles('en'), [
+    'ai-agents.md',
     'automation.md',
     'capsules.md',
     'getting-started.md',

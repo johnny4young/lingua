@@ -188,6 +188,21 @@ you trust or place the CLI inside your own sandbox. See the
 search, examples, and troubleshooting, or [`docs/CLI_USAGE.md`](./docs/CLI_USAGE.md)
 for the exact command and exit-code contract.
 
+### Verify AI-generated code with an agent
+
+This repository is also an Agent Plugins 1.0 package. Its portable
+[`lingua-verify` skill](./skills/lingua-verify/SKILL.md) teaches compatible
+agents to use the existing CLI's stable JSON and exit codes instead of guessing
+whether generated code worked. It adds no MCP server, hook, credential, or
+automatic installer.
+
+The skill can run a trusted file or project, validate a Run Capsule without
+executing it, replay a trusted Capsule, or apply one of Lingua's pure developer
+utilities. It reports missing runtimes, timeouts, truncation, non-zero exits,
+and output drift as evidence rather than hiding them. Read the
+[agent integration guide](./docs/AGENT_INTEGRATION.md) for VS Code, Codex, and
+Claude Code setup plus the full execution boundary.
+
 ## Requirements
 
 | Dependency     | Version | Notes                                                          |
