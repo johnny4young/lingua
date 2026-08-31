@@ -53,8 +53,9 @@ $skill-installer
 Install skills/lingua-verify from https://github.com/johnny4young/lingua
 ```
 
-The installed skill is available as `$lingua-verify`. Codex may also activate
-it automatically when a request matches its description.
+The installed skill is available as `$lingua-verify` on the next Codex turn.
+Codex may also activate it automatically when a request matches its
+description.
 
 ### Claude Code
 

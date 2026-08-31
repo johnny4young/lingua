@@ -97,3 +97,8 @@ test('CLI routes expose dedicated English and Spanish entry points', async () =>
     assert.match(await readFile(resolve(websiteRoot, route), 'utf8'), /<CliDoc/);
   }
 });
+
+test('CLI in-page anchors clear the sticky header', async () => {
+  const layout = await readFile(resolve(websiteRoot, 'src/layouts/CliDoc.astro'), 'utf8');
+  assert.match(layout, /:global\(h2\[id\]\)[\s\S]*:global\(h3\[id\]\)[\s\S]*scroll-margin-top/u);
+});

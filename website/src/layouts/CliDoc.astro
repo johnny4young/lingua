@@ -195,6 +195,10 @@ const pageHeadings = headings.filter(heading => heading.depth === 2 || heading.d
   .cli-prose {
     max-width: 78ch;
   }
+  .cli-prose :global(h2[id]),
+  .cli-prose :global(h3[id]) {
+    scroll-margin-top: 7rem;
+  }
   .cli-prose :global(pre) {
     position: relative;
     padding-top: 2.8rem;

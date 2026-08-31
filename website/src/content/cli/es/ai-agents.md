@@ -69,7 +69,8 @@ $skill-installer
 Instala skills/lingua-verify desde https://github.com/johnny4young/lingua
 ```
 
-Después menciona `$lingua-verify` o pídele a Codex verificar un script local confiable con Lingua.
+La skill instalada queda disponible en el siguiente turno de Codex. Después menciona
+`$lingua-verify` o pídele a Codex verificar un script local confiable con Lingua.
 
 ### Claude Code
 
@@ -78,6 +79,9 @@ Clona o descarga el repositorio y copia o enlaza `skills/lingua-verify` en:
 ```text
 ~/.claude/skills/lingua-verify
 ```
+
+Si `~/.claude/skills` no existía cuando inició la sesión actual, reinicia Claude Code una vez para
+que comience a observar el nuevo directorio principal.
 
 Invócala como `/lingua-verify` o describe una tarea de verificación que coincida con la skill.
 

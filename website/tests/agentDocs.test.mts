@@ -7,6 +7,8 @@ import rootPackage from '../../package.json' with { type: 'json' };
 
 const here = dirname(fileURLToPath(import.meta.url));
 const websiteRoot = resolve(here, '..');
+const spanishVoseoPattern =
+  /(?<![\p{L}\p{N}_])(?:instalá|invocá|pedile|podés|querés|verificá|ejecutá)(?![\p{L}\p{N}_])/iu;
 
 async function agentGuide(locale: 'en' | 'es') {
   return readFile(resolve(websiteRoot, `src/content/cli/${locale}/ai-agents.md`), 'utf8');
@@ -86,5 +88,11 @@ test('agent guides state the execution and MCP boundaries in both languages', as
     assert.ok(spanish.includes(phrase), `Spanish agent guide misses ${phrase}`);
   }
 
-  assert.doesNotMatch(spanish, /\b(?:instalá|invocá|pedile|podés|querés|verificá|ejecutá)\b/iu);
+  assert.doesNotMatch(spanish, spanishVoseoPattern);
+});
+
+test('Spanish copy guard recognizes every listed voseo form', () => {
+  for (const word of ['instalá', 'invocá', 'pedile', 'podés', 'querés', 'verificá', 'ejecutá']) {
+    assert.match(word, spanishVoseoPattern, `copy guard misses ${word}`);
+  }
 });
