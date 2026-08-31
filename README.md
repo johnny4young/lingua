@@ -170,8 +170,10 @@ npx @linguacode/cli utility json-format
 
 Every stable release also attaches standalone
 `lingua-cli-v<version>-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives to
-the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) for
-machines without Node. Contributors can build and link it from this repository
+the [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
+Those x64 binaries run utilities and validate Capsules without a separate Node
+installation; executing or replaying JavaScript or TypeScript still requires
+Node.js 24 on `PATH`. Contributors can build and link from this repository
 instead:
 
 ```bash
@@ -190,7 +192,8 @@ for the exact command and exit-code contract.
 
 ### Verify AI-generated code with an agent
 
-This repository is also an Agent Plugins 1.0 package. Its portable
+This repository is also an Agent Plugins 1.0 package and a native Claude Code
+marketplace. Its portable
 [`lingua-verify` skill](./skills/lingua-verify/SKILL.md) teaches compatible
 agents to use the existing CLI's stable JSON and exit codes instead of guessing
 whether generated code worked. It adds no MCP server, hook, credential, or
@@ -201,7 +204,8 @@ executing it, replay a trusted Capsule, or apply one of Lingua's pure developer
 utilities. It reports missing runtimes, timeouts, truncation, non-zero exits,
 and output drift as evidence rather than hiding them. Read the
 [agent integration guide](./docs/AGENT_INTEGRATION.md) for VS Code, Codex, and
-Claude Code setup plus the full execution boundary.
+Claude Code setup—including Claude's managed install/update/uninstall
+lifecycle—plus the full execution boundary.
 
 ## Requirements
 

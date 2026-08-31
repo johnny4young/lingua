@@ -7,9 +7,16 @@ import { CLI_HELP_CATALOG } from '../../src/cli/helpCatalog';
 
 const ROOT = resolve(__dirname, '../..');
 const SKILL_PATH = resolve(ROOT, 'skills/lingua-verify/SKILL.md');
+const CLAUDE_PLUGIN_PATH = resolve(ROOT, 'skills/.claude-plugin/plugin.json');
+const CLAUDE_MARKETPLACE_PATH = resolve(ROOT, '.claude-plugin/marketplace.json');
 const skill = readFileSync(SKILL_PATH, 'utf8');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
   version: string;
+};
+const claudePlugin = JSON.parse(readFileSync(CLAUDE_PLUGIN_PATH, 'utf8')) as Record<string, unknown>;
+const claudeMarketplace = JSON.parse(readFileSync(CLAUDE_MARKETPLACE_PATH, 'utf8')) as {
+  name: string;
+  plugins: Array<Record<string, unknown>>;
 };
 
 interface SkillFrontmatter {
@@ -45,6 +52,7 @@ describe('lingua-verify Agent Skill', () => {
     expect(frontmatter.description.length).toBeGreaterThan(1);
     expect(frontmatter.description.length).toBeLessThanOrEqual(1024);
     expect(frontmatter.compatibility).toContain(`CLI ${packageJson.version}`);
+    expect(frontmatter.compatibility).toContain('target language runtime');
     expect(frontmatter.license).toBe(
       'SEE LICENSE IN https://github.com/johnny4young/lingua/blob/main/LICENSE'
     );
@@ -94,6 +102,8 @@ describe('lingua-verify Agent Skill', () => {
     expect(skill).toContain('Capsule validation is non-executing');
     expect(skill).toContain('Capsule replay is executing');
     expect(skill).toContain('Do not use shell interpolation');
+    expect(skill).toContain('Standalone Windows/Linux x64 builds');
+    expect(skill).toContain('`python`/`py`/`python3` on Windows');
 
     const bashBlocks = [...skill.matchAll(/```bash\n([\s\S]*?)```/gu)].flatMap(match =>
       match[1]!.trim().split('\n')
@@ -102,5 +112,38 @@ describe('lingua-verify Agent Skill', () => {
     expect(bashBlocks.every(line => line.startsWith('lingua '))).toBe(true);
     expect(existsSync(resolve(ROOT, 'skills/lingua-verify/mcp.json'))).toBe(false);
     expect(existsSync(resolve(ROOT, 'skills/lingua-verify/hooks.json'))).toBe(false);
+  });
+});
+
+describe('native Claude Code distribution', () => {
+  it('publishes the skills directory as a version-aligned native plugin', () => {
+    expect(claudePlugin).toMatchObject({
+      name: 'lingua',
+      displayName: 'Lingua CLI Verification',
+      version: packageJson.version,
+      repository: 'https://github.com/johnny4young/lingua',
+      skills: './',
+    });
+    expect(Object.keys(claudePlugin)).not.toContain('agents');
+    expect(Object.keys(claudePlugin)).not.toContain('hooks');
+    expect(Object.keys(claudePlugin)).not.toContain('mcpServers');
+    expect(Object.keys(claudePlugin)).not.toContain('lspServers');
+    expect(readFileSync(resolve(ROOT, 'skills/LICENSE'), 'utf8')).toBe(
+      readFileSync(resolve(ROOT, 'LICENSE'), 'utf8')
+    );
+  });
+
+  it('publishes a sparse marketplace entry for the native plugin', () => {
+    expect(claudeMarketplace.name).toBe('linguacode');
+    expect(claudeMarketplace.plugins).toHaveLength(1);
+    expect(claudeMarketplace.plugins[0]).toMatchObject({
+      name: 'lingua',
+      version: packageJson.version,
+      source: {
+        source: 'git-subdir',
+        url: 'johnny4young/lingua',
+        path: 'skills',
+      },
+    });
   });
 });

@@ -102,3 +102,17 @@ test('CLI in-page anchors clear the sticky header', async () => {
   const layout = await readFile(resolve(websiteRoot, 'src/layouts/CliDoc.astro'), 'utf8');
   assert.match(layout, /:global\(h2\[id\]\)[\s\S]*:global\(h3\[id\]\)[\s\S]*scroll-margin-top/u);
 });
+
+test('CLI pages can override route-derived hero commands with real commands', async () => {
+  const layout = await readFile(resolve(websiteRoot, 'src/layouts/CliDoc.astro'), 'utf8');
+  const schema = await readFile(resolve(websiteRoot, 'src/content.config.ts'), 'utf8');
+
+  assert.match(schema, /heroCommand:\s*z\.string\(\)\.optional\(\)/u);
+  assert.match(layout, /entry\.data\.heroCommand\s*\?\?/u);
+  assert.match(layout, /lingua \{heroCommand\}/u);
+
+  for (const locale of ['en', 'es']) {
+    const guide = await readFile(resolve(websiteRoot, `src/content/cli/${locale}/ai-agents.md`), 'utf8');
+    assert.match(guide, /^heroCommand:\s*--version$/mu);
+  }
+});

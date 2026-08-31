@@ -86,10 +86,14 @@ delivery artifacts from the same bundled command surface:
 - `lingua-cli-v<version>-windows-x64.tar.gz` — standalone Windows executable.
 
 The standalone archives use Node's single-executable application format, so
-users do not install Node separately. Every build runs `--version` and a real
-utility smoke before archiving. The release payload includes these artifacts
-in `SHA256SUMS.txt`, while the Windows executable is signed after its embedded
-blob is injected whenever the Authenticode secrets are configured.
+utilities and Capsule validation do not need a separate Node installation.
+JavaScript and TypeScript execution deliberately resolves a host Node.js 24
+binary from `PATH` rather than recursively launching the Lingua SEA; other
+languages need their matching host toolchains. Every standalone build runs
+`--version`, a real utility, and a JavaScript execution smoke before archiving.
+The release payload includes these artifacts in `SHA256SUMS.txt`, while the
+Windows executable is signed after its embedded blob is injected whenever the
+Authenticode secrets are configured.
 
 The npm tarball is intentionally separate from the private desktop
 `package.json`: it contains only `bin/lingua.cjs`, its README, the commercial

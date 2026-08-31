@@ -46,6 +46,9 @@ describe('public agent plugin manifest', () => {
 
     const releasePolicy = readFileSync(resolve(ROOT, 'docs/PUBLIC_RELEASE_CHECKLIST.md'), 'utf8');
     expect(releasePolicy).toContain('plugin.json');
+    expect(releasePolicy).toContain('.claude-plugin/marketplace.json');
+    expect(releasePolicy).toContain('skills/.claude-plugin/plugin.json');
+    expect(releasePolicy).toContain('skills/LICENSE');
     expect(releasePolicy).toContain('skills/lingua-verify/');
     expect(releasePolicy).toContain('.agents/');
     expect(releasePolicy).toContain('private maintainer command skills');

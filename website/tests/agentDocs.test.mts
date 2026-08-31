@@ -33,6 +33,7 @@ test('agent guides keep matching localized routes and current version metadata',
   for (const guide of [english, spanish]) {
     assert.equal(frontmatterValue(guide, 'order'), '45');
     assert.equal(frontmatterValue(guide, 'group'), 'automation');
+    assert.equal(frontmatterValue(guide, 'heroCommand'), '--version');
     assert.ok(frontmatterValue(guide, 'description').length <= 180);
     assert.match(guide, new RegExp(`CLI ${rootPackage.version.replaceAll('.', '\\.')}`));
     assert.match(guide, /skills\/lingua-verify/u);
@@ -89,6 +90,40 @@ test('agent guides state the execution and MCP boundaries in both languages', as
   }
 
   assert.doesNotMatch(spanish, spanishVoseoPattern);
+});
+
+test('agent guides expose prerequisites and native Claude plugin lifecycle', async () => {
+  const [english, spanish] = await Promise.all([agentGuide('en'), agentGuide('es')]);
+
+  for (const guide of [english, spanish]) {
+    for (const prerequisite of [
+      'Node.js 24',
+      'chat.plugins.enabled',
+      '$skill-installer',
+      'claude plugin',
+      'claude plugin marketplace add',
+      'claude plugin install lingua@linguacode',
+      'claude plugin update lingua@linguacode',
+      'claude plugin uninstall lingua@linguacode',
+      'claude --plugin-dir ./skills',
+      '/reload-plugins',
+      '/lingua:lingua-verify',
+      'Windows x64',
+      'Linux x64',
+      '`python`',
+      '`py`',
+      '`go`',
+      '`rustc`',
+      '`cargo`',
+      '`ruby`',
+      '`lua`',
+    ]) {
+      assert.ok(guide.includes(prerequisite), `agent guide misses ${prerequisite}`);
+    }
+    assert.match(guide, /default\s+branch|rama\s+predeterminada/u);
+    assert.match(guide, /pull-request\s+head|cabecera\s+de\s+un\s+pull\s+request/u);
+    assert.doesNotMatch(guide, /Copy-Item|cp -R|git clone --depth 1/u);
+  }
 });
 
 test('Spanish copy guard recognizes every listed voseo form', () => {

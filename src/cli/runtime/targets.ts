@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** Resolve source files, conventional project roots, and Capsule source into execution plans. */
 
+import { constants as fsConstants } from 'node:fs';
 import { access, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { isSea } from 'node:sea';
 
 import { sourceRequiresModuleInput } from '../../shared/nodeSourceMode';
 import type { CliExecutionPlan } from './execution';
@@ -202,11 +204,14 @@ async function planFile(
     case '.js':
     case '.mjs':
     case '.cjs':
-      return singleStep(displayTarget, 'node', cwd, process.execPath, [absolute, ...programArgs]);
+      return singleStep(displayTarget, 'node', cwd, nodeRuntimeExecutable(), [
+        absolute,
+        ...programArgs,
+      ]);
     case '.ts':
     case '.mts':
     case '.cts':
-      return singleStep(displayTarget, 'node-typescript', cwd, process.execPath, [
+      return singleStep(displayTarget, 'node-typescript', cwd, nodeRuntimeExecutable(), [
         '--experimental-strip-types',
         absolute,
         ...programArgs,
@@ -331,7 +336,7 @@ function planJavaScriptCapsule(
       displayTarget,
       typescript ? 'node-typescript-worker' : 'node-worker',
       cwd,
-      process.execPath,
+      nodeRuntimeExecutable(),
       [
         ...(typescript ? ['--experimental-strip-types'] : []),
         '--input-type=commonjs',
@@ -346,7 +351,7 @@ function planJavaScriptCapsule(
       displayTarget,
       typescript ? 'node-typescript' : 'node',
       cwd,
-      process.execPath,
+      nodeRuntimeExecutable(),
       [
         ...(typescript ? ['--experimental-strip-types'] : []),
         `--input-type=${sourceRequiresModuleInput(input.source) ? 'module' : 'commonjs'}`,
@@ -362,6 +367,17 @@ function planJavaScriptCapsule(
   );
 }
 
+export function pythonCommandCandidates(
+  platform: NodeJS.Platform = process.platform
+): ReadonlyArray<string> {
+  return platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
+}
+
+export function nodeRuntimeExecutable(options?: { sea?: boolean; execPath?: string }): string {
+  const sea = options?.sea ?? isSea();
+  return sea ? commandName('node') : (options?.execPath ?? process.execPath);
+}
+
 async function findPython(startDirectory: string): Promise<string> {
   let current = startDirectory;
   while (true) {
@@ -374,7 +390,45 @@ async function findPython(startDirectory: string): Promise<string> {
     if (parent === current) break;
     current = parent;
   }
-  return process.env.PYTHON || commandName('python3');
+  if (process.env.PYTHON) return process.env.PYTHON;
+
+  const candidates = pythonCommandCandidates();
+  for (const candidate of candidates) {
+    if (await executableIsOnPath(candidate)) return commandName(candidate);
+  }
+  return commandName(candidates[0]!);
+}
+
+async function executableIsOnPath(
+  executable: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<boolean> {
+  const pathValue = env.PATH ?? env.Path ?? env.path;
+  if (!pathValue) return false;
+
+  const windows = platform === 'win32';
+  const pathApi = windows ? path.win32 : path.posix;
+  const delimiter = windows ? ';' : ':';
+  const extensions = windows
+    ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+        .split(';')
+        .filter(Boolean)
+        .map(extension => extension.toLowerCase())
+    : [''];
+  const hasExtension = pathApi.extname(executable).length > 0;
+
+  for (const rawEntry of pathValue.split(delimiter)) {
+    const entry = rawEntry.trim().replace(/^"|"$/gu, '');
+    if (!entry) continue;
+    const base = pathApi.join(entry, executable);
+    const candidates =
+      windows && !hasExtension ? extensions.map(extension => base + extension) : [base];
+    for (const candidate of candidates) {
+      if (await isExecutableFile(candidate, platform)) return true;
+    }
+  }
+  return false;
 }
 
 function commandName(name: string): string {
@@ -393,6 +447,20 @@ async function exists(filePath: string): Promise<boolean> {
 async function isFile(filePath: string): Promise<boolean> {
   try {
     return (await stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function isExecutableFile(
+  filePath: string,
+  platform: NodeJS.Platform = process.platform
+): Promise<boolean> {
+  if (!(await isFile(filePath))) return false;
+  if (platform === 'win32') return true;
+  try {
+    await access(filePath, fsConstants.X_OK);
+    return true;
   } catch {
     return false;
   }

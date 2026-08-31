@@ -34,7 +34,7 @@ lingua --help
 npx @linguacode/cli --help
 ```
 
-En máquinas sin Node puedes usar los archivos independientes `lingua-cli-*-linux-x64.tar.gz` y `-windows-x64.tar.gz` que vienen adjuntos a cada [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) estable.
+En Windows x64 y Linux x64 puedes usar los archivos independientes `lingua-cli-*-linux-x64.tar.gz` y `-windows-x64.tar.gz` incluidos en cada [GitHub Release](https://github.com/johnny4young/lingua/releases/latest) estable. Las utilidades y la validación de Capsules no requieren una instalación separada de Node; ejecutar o reproducir JavaScript y TypeScript todavía requiere Node.js 24 en `PATH`.
 
 ## Compílalo desde el código fuente
 

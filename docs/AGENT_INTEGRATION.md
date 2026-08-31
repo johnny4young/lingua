@@ -11,22 +11,64 @@ and discovers the skill from
 maintainer workflows under `.agents/` remain machine-local and are not part of
 the product integration.
 
-## Prerequisite
+## Prerequisites
 
-Install the headless CLI and confirm that it is on `PATH`:
+The skill is portable Markdown, but using it still needs a supported agent,
+the Lingua CLI, and any runtime required by the target code.
+
+### Install the CLI
+
+Choose one installation channel and confirm that `lingua` is on `PATH`:
 
 ```bash
 # macOS
 brew install johnny4young/tap/lingua-cli
 
-# Any platform supported by Node.js 24
+# Windows, Linux, or macOS with Node.js 24 and npm
 npm install -g @linguacode/cli
 
 lingua --version
 ```
 
+The Homebrew formula requires Homebrew and installs `node@24` automatically.
+The npm channel requires Node.js 24.x, npm, network access to the registry, and
+a user-writable global npm prefix whose bin directory is on `PATH`. Do not work
+around a permissions error with an unreviewed `sudo npm install`; fix the npm
+prefix or use a user-scoped Node installation instead.
+
+Stable releases also include standalone Windows x64 and Linux x64 archives.
+They need no separate Node installation for utilities or Capsule validation,
+but JavaScript and TypeScript execution still resolves Node.js 24 from `PATH`.
+Other operating systems and architectures should use npm.
+
 The skill requires Lingua CLI 1.3.0 or later. It never installs the CLI on the
 user's behalf.
+
+### Check the agent client
+
+| Client                   | Required before installing the skill                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| VS Code + GitHub Copilot | Current VS Code with Copilot access, Git, HTTPS access to GitHub, and `chat.plugins.enabled: true`   |
+| Codex                    | A Codex build with the built-in `$skill-installer`, GitHub network access, and a writable skills dir |
+| Claude Code              | Current Claude Code with `claude plugin`, Git, and HTTPS access to GitHub                            |
+
+URL-based installers read the repository's default branch. To test unpublished
+plugin work, use a local checkout or pin the branch/ref when the client supports
+it; a bare repository URL does not install a pull-request head.
+
+### Check target runtimes
+
+Utilities and Capsule validation do not require a language toolchain. Running
+or replaying code does:
+
+| Target                  | Runtime on `PATH`                                       |
+| ----------------------- | ------------------------------------------------------- |
+| JavaScript / TypeScript | Node.js 24.x                                            |
+| Python                  | Project `.venv`, `PYTHON`, `python3`, `python`, or `py` |
+| Go                      | `go`                                                    |
+| Rust file / project     | `rustc` / `cargo`                                       |
+| Ruby                    | `ruby`                                                  |
+| Lua                     | `lua`                                                   |
 
 ## Install the skill
 
@@ -41,7 +83,8 @@ https://github.com/johnny4young/lingua
 
 VS Code recognizes the root `plugin.json`, validates the Agent Plugins 1.0
 manifest, and discovers `skills/lingua-verify/SKILL.md`. Review and trust the
-repository before enabling it.
+repository before enabling it. If the command is missing, update VS Code,
+confirm GitHub Copilot access, and enable `chat.plugins.enabled`.
 
 ### Codex
 
@@ -59,17 +102,40 @@ description.
 
 ### Claude Code
 
-Claude Code can load the same standards-compliant `SKILL.md` as a personal
-skill. Clone or download this repository, then copy or symlink the
-`skills/lingua-verify` directory to:
+Claude Code loads the same standards-compliant `SKILL.md` through Lingua's
+native plugin and marketplace. Add the marketplace, then install the plugin.
+The commands are identical in macOS, Linux, and Windows terminals:
 
-```text
-~/.claude/skills/lingua-verify
+```bash
+claude plugin marketplace add https://raw.githubusercontent.com/johnny4young/lingua/main/.claude-plugin/marketplace.json --scope user
+claude plugin install lingua@linguacode --scope user
 ```
 
-Restart Claude Code if the directory did not exist when the session started.
-Invoke the installed skill as `/lingua-verify` or ask Claude to verify a trusted
-local script with Lingua.
+Start a new Claude Code session after a shell installation, or run
+`/reload-plugins` inside an existing session. Invoke the namespaced skill as
+`/lingua:lingua-verify`, or ask Claude to verify a trusted local script with
+Lingua.
+
+Claude owns the installed plugin's update and removal lifecycle:
+
+```bash
+claude plugin update lingua@linguacode
+claude plugin uninstall lingua@linguacode
+```
+
+To preview unpublished changes from a local checkout without installing them or
+changing personal configuration:
+
+```bash
+claude --plugin-dir ./skills
+```
+
+Then invoke `/lingua:lingua-verify`. The public marketplace follows the default
+branch, so it does not install a pull-request head until that change is merged.
+In a managed environment that blocks third-party marketplaces, an administrator
+can review and copy `skills/lingua-verify` into the approved Claude skills
+directory. That fallback gives up Claude's native update and uninstall
+lifecycle.
 
 ## What the skill does
 
@@ -127,6 +193,11 @@ can expose execution or replay.
 The repository gates pin the portable contract:
 
 - `plugin.json.version` equals `package.json.version`;
+- the Claude plugin and marketplace versions equal `package.json.version`;
+- the license included in the sparse Claude plugin matches the repository
+  license;
+- Claude discovers exactly one skill and no agents, hooks, MCP servers, or LSP
+  servers from the native plugin;
 - the manifest uses the canonical Agent Plugins 1.0 schema and only supported
   fields;
 - the skill directory matches its frontmatter `name`;

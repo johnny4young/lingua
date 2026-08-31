@@ -32,8 +32,9 @@ planning metadata. It is separate from `RELEASE.md`, which gates binaries.
   from the tracked tree. `.agents/skills/lingua-review` and
   `.agents/skills/lingua-ship` may exist locally, but they must stay ignored
   and untracked before publication. The audited public Agent Plugins package is
-  deliberately separate: root `plugin.json` plus `skills/lingua-verify/` are
-  product artifacts and remain tracked.
+  deliberately separate: root `plugin.json`, `.claude-plugin/marketplace.json`,
+  `skills/.claude-plugin/plugin.json`, `skills/LICENSE`, and
+  `skills/lingua-verify/` are product artifacts and remain tracked.
 - `README.md`, `LICENSE`, press-kit copy, and roadmap docs agree on
   `linguacode.dev` as the public domain and source-available commercial as the
   repo posture.

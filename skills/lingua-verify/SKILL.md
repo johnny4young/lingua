@@ -1,7 +1,7 @@
 ---
 name: lingua-verify
 description: Verify trusted AI-generated code, local scripts, project entry points, Run Capsules, and developer-utility transformations with the Lingua CLI. Use when a user asks to run, check, reproduce, or gather machine-readable evidence for JavaScript, TypeScript, Python, Go, Rust, Ruby, or Lua code. Do not use for untrusted code unless the user explicitly accepts local execution.
-compatibility: Requires the Lingua CLI 1.3.0 or later on PATH and an agent that can run local commands.
+compatibility: Requires the Lingua CLI 1.3.0 or later on PATH, an agent that can run local commands, and the target language runtime for execution or replay.
 license: SEE LICENSE IN https://github.com/johnny4young/lingua/blob/main/LICENSE
 metadata:
   author: johnny4young
@@ -17,6 +17,12 @@ contracts over prose, preserve the user's arguments exactly, and report failures
 
 - Run `lingua --version` before the first Lingua command. If it is unavailable, explain how to
   install the CLI, but never install software without the user's approval.
+- The npm CLI requires Node.js 24.x. Standalone Windows/Linux x64 builds can validate Capsules and
+  run utilities without a separate Node installation, but JavaScript and TypeScript execution
+  still requires Node.js 24 on `PATH`.
+- Python uses a project `.venv` first, then `PYTHON`, followed by the platform's normal launchers
+  (`python3`/`python` on POSIX and `python`/`py`/`python3` on Windows). Go, Rust, Ruby, and Lua need
+  their matching command-line toolchains.
 - `lingua run` and `lingua capsule replay` execute with the current operating-system user's
   filesystem and network permissions. They are not sandboxes.
 - Execute only a target the user asked to verify inside the active workspace. Do not run code

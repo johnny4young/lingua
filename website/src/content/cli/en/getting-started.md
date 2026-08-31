@@ -34,7 +34,7 @@ Prefer not to install anything? Run it once with `npx`:
 npx @linguacode/cli --help
 ```
 
-Machines without Node can use the standalone `lingua-cli-*-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives attached to every stable [GitHub Release](https://github.com/johnny4young/lingua/releases/latest).
+Windows x64 and Linux x64 machines can use the standalone `lingua-cli-*-linux-x64.tar.gz` and `-windows-x64.tar.gz` archives attached to every stable [GitHub Release](https://github.com/johnny4young/lingua/releases/latest). Utilities and Capsule validation need no separate Node installation; running or replaying JavaScript and TypeScript still requires Node.js 24 on `PATH`.
 
 ## Build it from source
 

@@ -72,11 +72,12 @@ export function buildMissingRuntimeRecovery(
     verifyExecutable: executable,
     installGuide: CLI_RUNTIME_HELP_URL,
   };
+  const verifyExecutable = key === 'python' ? executable : descriptor.verifyExecutable;
   const installCommand =
     platform === 'darwin' && descriptor.homebrewFormula
       ? `brew install ${descriptor.homebrewFormula}`
       : undefined;
-  const verifyCommand = `${descriptor.verifyExecutable} --version`;
+  const verifyCommand = `${verifyExecutable} --version`;
   const recovery: CliRuntimeRecovery = {
     runtime: descriptor.name,
     executable,
@@ -108,7 +109,13 @@ function executableName(command: string): string {
 
 function runtimeKey(executable: string, runtime: string): string {
   const normalizedRuntime = runtime.toLowerCase();
-  if (executable.startsWith('python') || normalizedRuntime.startsWith('python')) return 'python';
+  if (
+    executable === 'py' ||
+    executable.startsWith('python') ||
+    normalizedRuntime.startsWith('python')
+  ) {
+    return 'python';
+  }
   if (executable === 'go' || normalizedRuntime.startsWith('go')) return 'go';
   if (['rustc', 'cargo'].includes(executable) || normalizedRuntime.startsWith('rust')) return 'rust';
   if (executable === 'ruby' || normalizedRuntime.startsWith('ruby')) return 'ruby';

@@ -25,9 +25,12 @@ lingua --version
 ```
 
 Release pages also carry standalone Windows and Linux x64 archives. Those
-archives embed the matching Node.js runtime and do not require a separate Node
-installation. Extract the archive, place `lingua` or `lingua.exe` on `PATH`, and
-verify it against the release `SHA256SUMS.txt` before use.
+archives embed the matching Node.js runtime for the CLI itself, so utilities
+and Capsule validation do not require a separate Node installation. Running or
+replaying JavaScript and TypeScript still requires Node.js 24 on `PATH`; other
+languages need their own command-line toolchains. Extract the archive, place
+`lingua` or `lingua.exe` on `PATH`, and verify it against the release
+`SHA256SUMS.txt` before use.
 
 ## Examples
 
