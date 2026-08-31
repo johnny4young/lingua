@@ -80,6 +80,35 @@ describe('CLI execution target resolution', () => {
     }
   });
 
+  it('resolves the Python launcher against the environment the child will receive', async () => {
+    const root = await tempRoot();
+    const bin = path.join(root, 'bin');
+    const entry = path.join(root, 'main.py');
+    const launcher = process.platform === 'win32' ? 'python.exe' : 'python';
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, launcher), '', 'utf8');
+    if (process.platform !== 'win32') await chmod(path.join(bin, launcher), 0o755);
+    await writeFile(entry, 'print("hello")\n', 'utf8');
+
+    // process.env is deliberately untouched: discovery must read the provided
+    // child environment (--env PATH=...), which only offers `python`.
+    const plan = await resolveExecutionTarget(entry, [], { PATH: bin });
+    expect(plan.steps[0]?.command).toBe('python');
+
+    const override = await resolveExecutionTarget(entry, [], {
+      PATH: bin,
+      PYTHON: path.join(bin, launcher),
+    });
+    expect(override.steps[0]?.command).toBe(path.join(bin, launcher));
+
+    const capsule = await resolveCapsuleSource(
+      { language: 'python', runtimeMode: 'worker', source: 'print(1)', capsuleId: 'cap-env' },
+      [],
+      { PATH: bin }
+    );
+    expect(capsule.steps[0]?.command).toBe('python');
+  });
+
   it.skipIf(process.platform === 'win32')(
     'ignores a non-executable Python-looking file on a POSIX PATH',
     async () => {

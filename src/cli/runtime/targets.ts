@@ -31,7 +31,8 @@ export class ExecutionTargetError extends Error {
 
 export async function resolveExecutionTarget(
   target: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<CliExecutionPlan> {
   const absolute = path.resolve(target);
   let targetStat;
@@ -48,10 +49,10 @@ export async function resolveExecutionTarget(
   }
 
   if (targetStat.isFile()) {
-    return planFile(absolute, target, programArgs);
+    return planFile(absolute, target, programArgs, env);
   }
   if (targetStat.isDirectory()) {
-    return planProject(absolute, target, programArgs);
+    return planProject(absolute, target, programArgs, env);
   }
   throw new ExecutionTargetError(
     'unsupported-file-type',
@@ -66,7 +67,8 @@ export async function resolveCapsuleSource(
     source: string;
     capsuleId: string;
   },
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<CliExecutionPlan> {
   if (input.runtimeMode === 'browser-preview') {
     throw new ExecutionTargetError(
@@ -85,7 +87,7 @@ export async function resolveCapsuleSource(
       return planJavaScriptCapsule(displayTarget, cwd, input, programArgs, true);
     }
     case 'python':
-      return singleStep(displayTarget, 'python', cwd, await findPython(cwd), [
+      return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
         '-c',
         input.source,
         ...programArgs,
@@ -117,7 +119,8 @@ export async function resolveCapsuleSource(
 async function planProject(
   root: string,
   displayTarget: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv
 ): Promise<CliExecutionPlan> {
   const packageJson = path.join(root, 'package.json');
   if (await exists(packageJson)) {
@@ -143,7 +146,7 @@ async function planProject(
     }
     if (isRecord(manifest) && typeof manifest.main === 'string') {
       const mainPath = path.resolve(root, manifest.main);
-      if (await isFile(mainPath)) return planFile(mainPath, displayTarget, programArgs);
+      if (await isFile(mainPath)) return planFile(mainPath, displayTarget, programArgs, env);
     }
   }
 
@@ -165,7 +168,7 @@ async function planProject(
 
   for (const candidate of PROJECT_ENTRY_CANDIDATES) {
     const entry = path.join(root, candidate);
-    if (await isFile(entry)) return planFile(entry, displayTarget, programArgs);
+    if (await isFile(entry)) return planFile(entry, displayTarget, programArgs, env);
   }
 
   throw new ExecutionTargetError(
@@ -196,7 +199,8 @@ const PROJECT_ENTRY_CANDIDATES = [
 async function planFile(
   absolute: string,
   displayTarget: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv
 ): Promise<CliExecutionPlan> {
   const cwd = path.dirname(absolute);
   const extension = path.extname(absolute).toLowerCase();
@@ -217,7 +221,7 @@ async function planFile(
         ...programArgs,
       ]);
     case '.py':
-      return singleStep(displayTarget, 'python', cwd, await findPython(cwd), [
+      return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
         absolute,
         ...programArgs,
       ]);
@@ -378,7 +382,16 @@ export function nodeRuntimeExecutable(options?: { sea?: boolean; execPath?: stri
   return sea ? commandName('node') : (options?.execPath ?? process.execPath);
 }
 
-async function findPython(startDirectory: string): Promise<string> {
+/**
+ * Discovery must probe the SAME environment the child is spawned with
+ * (`buildCliRuntimeEnvironment`), not the parent `process.env`: with
+ * `--env PATH=...` the two diverge, and probing the parent can select a
+ * launcher that is absent from the child PATH or skip one that is present.
+ */
+async function findPython(
+  startDirectory: string,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string> {
   let current = startDirectory;
   while (true) {
     const local =
@@ -390,11 +403,11 @@ async function findPython(startDirectory: string): Promise<string> {
     if (parent === current) break;
     current = parent;
   }
-  if (process.env.PYTHON) return process.env.PYTHON;
+  if (env.PYTHON) return env.PYTHON;
 
   const candidates = pythonCommandCandidates();
   for (const candidate of candidates) {
-    if (await executableIsOnPath(candidate)) return commandName(candidate);
+    if (await executableIsOnPath(candidate, process.platform, env)) return commandName(candidate);
   }
   return commandName(candidates[0]!);
 }

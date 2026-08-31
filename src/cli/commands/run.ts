@@ -59,7 +59,7 @@ export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<
 
   let plan;
   try {
-    plan = await resolveExecutionTarget(args.target, args.programArgs);
+    plan = await resolveExecutionTarget(args.target, args.programArgs, env);
   } catch (error) {
     if (error instanceof ExecutionTargetError) {
       const unsupported = [
