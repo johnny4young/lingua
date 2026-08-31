@@ -28,10 +28,13 @@ planning metadata. It is separate from `RELEASE.md`, which gates binaries.
 - `.env.example` exists and contains placeholders only.
 - Machine-local absolute Markdown links are blocked by
   `tests/docs/publicDocs.test.ts`.
-- Generated local artifacts and local agent command skills are removed from
-  the tracked tree. `.agents/skills/lingua-review` and
+- Generated local artifacts and private maintainer command skills are removed
+  from the tracked tree. `.agents/skills/lingua-review` and
   `.agents/skills/lingua-ship` may exist locally, but they must stay ignored
-  and untracked before publication.
+  and untracked before publication. The audited public Agent Plugins package is
+  deliberately separate: root `plugin.json`, `.claude-plugin/marketplace.json`,
+  `skills/.claude-plugin/plugin.json`, `skills/LICENSE`, and
+  `skills/lingua-verify/` are product artifacts and remain tracked.
 - `README.md`, `LICENSE`, press-kit copy, and roadmap docs agree on
   `linguacode.dev` as the public domain and source-available commercial as the
   repo posture.

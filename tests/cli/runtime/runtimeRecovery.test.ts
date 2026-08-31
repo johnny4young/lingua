@@ -41,6 +41,21 @@ describe('CLI missing runtime recovery', () => {
     expect(result.detail).not.toContain('brew install');
   });
 
+  it.each(['python', 'py', 'python3'])(
+    'keeps the discovered Windows Python launcher in its recovery check: %s',
+    command => {
+      const result = buildMissingRuntimeRecovery(command, 'python', 'win32');
+
+      expect(result.recovery).toMatchObject({
+        runtime: 'Python',
+        executable: command,
+        verifyCommand: `${command} --version`,
+      });
+      expect(result.recovery.installCommand).toBeUndefined();
+      expect(result.detail).toContain('https://www.python.org/downloads/');
+    }
+  );
+
   it('keeps unknown executables actionable without inventing an installer', () => {
     const result = buildMissingRuntimeRecovery('custom-tool', 'custom', 'darwin');
 

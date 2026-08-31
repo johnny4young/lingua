@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** Resolve source files, conventional project roots, and Capsule source into execution plans. */
 
+import { constants as fsConstants } from 'node:fs';
 import { access, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { isSea } from 'node:sea';
 
 import { sourceRequiresModuleInput } from '../../shared/nodeSourceMode';
 import type { CliExecutionPlan } from './execution';
@@ -29,7 +31,8 @@ export class ExecutionTargetError extends Error {
 
 export async function resolveExecutionTarget(
   target: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<CliExecutionPlan> {
   const absolute = path.resolve(target);
   let targetStat;
@@ -46,10 +49,10 @@ export async function resolveExecutionTarget(
   }
 
   if (targetStat.isFile()) {
-    return planFile(absolute, target, programArgs);
+    return planFile(absolute, target, programArgs, env);
   }
   if (targetStat.isDirectory()) {
-    return planProject(absolute, target, programArgs);
+    return planProject(absolute, target, programArgs, env);
   }
   throw new ExecutionTargetError(
     'unsupported-file-type',
@@ -64,7 +67,8 @@ export async function resolveCapsuleSource(
     source: string;
     capsuleId: string;
   },
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<CliExecutionPlan> {
   if (input.runtimeMode === 'browser-preview') {
     throw new ExecutionTargetError(
@@ -83,7 +87,7 @@ export async function resolveCapsuleSource(
       return planJavaScriptCapsule(displayTarget, cwd, input, programArgs, true);
     }
     case 'python':
-      return singleStep(displayTarget, 'python', cwd, await findPython(cwd), [
+      return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
         '-c',
         input.source,
         ...programArgs,
@@ -115,7 +119,8 @@ export async function resolveCapsuleSource(
 async function planProject(
   root: string,
   displayTarget: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv
 ): Promise<CliExecutionPlan> {
   const packageJson = path.join(root, 'package.json');
   if (await exists(packageJson)) {
@@ -141,7 +146,7 @@ async function planProject(
     }
     if (isRecord(manifest) && typeof manifest.main === 'string') {
       const mainPath = path.resolve(root, manifest.main);
-      if (await isFile(mainPath)) return planFile(mainPath, displayTarget, programArgs);
+      if (await isFile(mainPath)) return planFile(mainPath, displayTarget, programArgs, env);
     }
   }
 
@@ -163,7 +168,7 @@ async function planProject(
 
   for (const candidate of PROJECT_ENTRY_CANDIDATES) {
     const entry = path.join(root, candidate);
-    if (await isFile(entry)) return planFile(entry, displayTarget, programArgs);
+    if (await isFile(entry)) return planFile(entry, displayTarget, programArgs, env);
   }
 
   throw new ExecutionTargetError(
@@ -194,7 +199,8 @@ const PROJECT_ENTRY_CANDIDATES = [
 async function planFile(
   absolute: string,
   displayTarget: string,
-  programArgs: ReadonlyArray<string>
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv
 ): Promise<CliExecutionPlan> {
   const cwd = path.dirname(absolute);
   const extension = path.extname(absolute).toLowerCase();
@@ -202,17 +208,20 @@ async function planFile(
     case '.js':
     case '.mjs':
     case '.cjs':
-      return singleStep(displayTarget, 'node', cwd, process.execPath, [absolute, ...programArgs]);
+      return singleStep(displayTarget, 'node', cwd, nodeRuntimeExecutable(), [
+        absolute,
+        ...programArgs,
+      ]);
     case '.ts':
     case '.mts':
     case '.cts':
-      return singleStep(displayTarget, 'node-typescript', cwd, process.execPath, [
+      return singleStep(displayTarget, 'node-typescript', cwd, nodeRuntimeExecutable(), [
         '--experimental-strip-types',
         absolute,
         ...programArgs,
       ]);
     case '.py':
-      return singleStep(displayTarget, 'python', cwd, await findPython(cwd), [
+      return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
         absolute,
         ...programArgs,
       ]);
@@ -331,7 +340,7 @@ function planJavaScriptCapsule(
       displayTarget,
       typescript ? 'node-typescript-worker' : 'node-worker',
       cwd,
-      process.execPath,
+      nodeRuntimeExecutable(),
       [
         ...(typescript ? ['--experimental-strip-types'] : []),
         '--input-type=commonjs',
@@ -346,7 +355,7 @@ function planJavaScriptCapsule(
       displayTarget,
       typescript ? 'node-typescript' : 'node',
       cwd,
-      process.execPath,
+      nodeRuntimeExecutable(),
       [
         ...(typescript ? ['--experimental-strip-types'] : []),
         `--input-type=${sourceRequiresModuleInput(input.source) ? 'module' : 'commonjs'}`,
@@ -362,7 +371,27 @@ function planJavaScriptCapsule(
   );
 }
 
-async function findPython(startDirectory: string): Promise<string> {
+export function pythonCommandCandidates(
+  platform: NodeJS.Platform = process.platform
+): ReadonlyArray<string> {
+  return platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
+}
+
+export function nodeRuntimeExecutable(options?: { sea?: boolean; execPath?: string }): string {
+  const sea = options?.sea ?? isSea();
+  return sea ? commandName('node') : (options?.execPath ?? process.execPath);
+}
+
+/**
+ * Discovery must probe the SAME environment the child is spawned with
+ * (`buildCliRuntimeEnvironment`), not the parent `process.env`: with
+ * `--env PATH=...` the two diverge, and probing the parent can select a
+ * launcher that is absent from the child PATH or skip one that is present.
+ */
+async function findPython(
+  startDirectory: string,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string> {
   let current = startDirectory;
   while (true) {
     const local =
@@ -374,7 +403,45 @@ async function findPython(startDirectory: string): Promise<string> {
     if (parent === current) break;
     current = parent;
   }
-  return process.env.PYTHON || commandName('python3');
+  if (env.PYTHON) return env.PYTHON;
+
+  const candidates = pythonCommandCandidates();
+  for (const candidate of candidates) {
+    if (await executableIsOnPath(candidate, process.platform, env)) return commandName(candidate);
+  }
+  return commandName(candidates[0]!);
+}
+
+async function executableIsOnPath(
+  executable: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<boolean> {
+  const pathValue = env.PATH ?? env.Path ?? env.path;
+  if (!pathValue) return false;
+
+  const windows = platform === 'win32';
+  const pathApi = windows ? path.win32 : path.posix;
+  const delimiter = windows ? ';' : ':';
+  const extensions = windows
+    ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+        .split(';')
+        .filter(Boolean)
+        .map(extension => extension.toLowerCase())
+    : [''];
+  const hasExtension = pathApi.extname(executable).length > 0;
+
+  for (const rawEntry of pathValue.split(delimiter)) {
+    const entry = rawEntry.trim().replace(/^"|"$/gu, '');
+    if (!entry) continue;
+    const base = pathApi.join(entry, executable);
+    const candidates =
+      windows && !hasExtension ? extensions.map(extension => base + extension) : [base];
+    for (const candidate of candidates) {
+      if (await isExecutableFile(candidate, platform)) return true;
+    }
+  }
+  return false;
 }
 
 function commandName(name: string): string {
@@ -393,6 +460,20 @@ async function exists(filePath: string): Promise<boolean> {
 async function isFile(filePath: string): Promise<boolean> {
   try {
     return (await stat(filePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function isExecutableFile(
+  filePath: string,
+  platform: NodeJS.Platform = process.platform
+): Promise<boolean> {
+  if (!(await isFile(filePath))) return false;
+  if (platform === 'win32') return true;
+  try {
+    await access(filePath, fsConstants.X_OK);
+    return true;
   } catch {
     return false;
   }

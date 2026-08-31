@@ -119,7 +119,8 @@ export async function runReplayCapsuleCommand(
         source: capsule.source.content,
         capsuleId: capsule.capsuleId,
       },
-      capsule.input.args ?? []
+      capsule.input.args ?? [],
+      env
     );
   } catch (error) {
     if (error instanceof ExecutionTargetError) {

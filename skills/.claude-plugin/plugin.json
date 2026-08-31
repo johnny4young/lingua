@@ -1,0 +1,15 @@
+{
+  "name": "lingua",
+  "displayName": "Lingua CLI Verification",
+  "version": "1.3.0",
+  "description": "Verify trusted generated code locally with the Lingua CLI and structured evidence.",
+  "author": {
+    "name": "johnny4young",
+    "url": "https://github.com/johnny4young"
+  },
+  "homepage": "https://linguacode.dev/cli/ai-agents",
+  "repository": "https://github.com/johnny4young/lingua",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": ["lingua", "cli", "code-verification", "agent-skills", "offline"],
+  "skills": "./"
+}

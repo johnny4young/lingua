@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   ExecutionTargetError,
+  nodeRuntimeExecutable,
+  pythonCommandCandidates,
   resolveCapsuleSource,
   resolveExecutionTarget,
 } from '../../../src/cli/runtime/targets';
@@ -39,6 +41,102 @@ describe('CLI execution target resolution', () => {
       },
     ]);
   });
+
+  it('uses a host Node executable instead of recursively spawning a standalone SEA', () => {
+    expect(nodeRuntimeExecutable({ sea: false, execPath: '/opt/node/bin/node' })).toBe(
+      '/opt/node/bin/node'
+    );
+    expect(nodeRuntimeExecutable({ sea: true, execPath: '/usr/local/bin/lingua' })).toBe('node');
+  });
+
+  it('uses platform-native Python command precedence', () => {
+    expect(pythonCommandCandidates('darwin')).toEqual(['python3', 'python']);
+    expect(pythonCommandCandidates('linux')).toEqual(['python3', 'python']);
+    expect(pythonCommandCandidates('win32')).toEqual(['python', 'py', 'python3']);
+  });
+
+  it('falls back to an available platform Python command on PATH', async () => {
+    const root = await tempRoot();
+    const bin = path.join(root, 'bin');
+    const entry = path.join(root, 'main.py');
+    const launcher = process.platform === 'win32' ? 'python.exe' : 'python';
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, launcher), '', 'utf8');
+    if (process.platform !== 'win32') await chmod(path.join(bin, launcher), 0o755);
+    await writeFile(entry, 'print("hello")\n', 'utf8');
+
+    const previousPath = process.env.PATH;
+    const previousPython = process.env.PYTHON;
+    process.env.PATH = bin;
+    delete process.env.PYTHON;
+    try {
+      const plan = await resolveExecutionTarget(entry, []);
+      expect(plan.steps[0]?.command).toBe('python');
+    } finally {
+      if (previousPath === undefined) delete process.env.PATH;
+      else process.env.PATH = previousPath;
+      if (previousPython === undefined) delete process.env.PYTHON;
+      else process.env.PYTHON = previousPython;
+    }
+  });
+
+  it('resolves the Python launcher against the environment the child will receive', async () => {
+    const root = await tempRoot();
+    const bin = path.join(root, 'bin');
+    const entry = path.join(root, 'main.py');
+    const launcher = process.platform === 'win32' ? 'python.exe' : 'python';
+    await mkdir(bin, { recursive: true });
+    await writeFile(path.join(bin, launcher), '', 'utf8');
+    if (process.platform !== 'win32') await chmod(path.join(bin, launcher), 0o755);
+    await writeFile(entry, 'print("hello")\n', 'utf8');
+
+    // process.env is deliberately untouched: discovery must read the provided
+    // child environment (--env PATH=...), which only offers `python`.
+    const plan = await resolveExecutionTarget(entry, [], { PATH: bin });
+    expect(plan.steps[0]?.command).toBe('python');
+
+    const override = await resolveExecutionTarget(entry, [], {
+      PATH: bin,
+      PYTHON: path.join(bin, launcher),
+    });
+    expect(override.steps[0]?.command).toBe(path.join(bin, launcher));
+
+    const capsule = await resolveCapsuleSource(
+      { language: 'python', runtimeMode: 'worker', source: 'print(1)', capsuleId: 'cap-env' },
+      [],
+      { PATH: bin }
+    );
+    expect(capsule.steps[0]?.command).toBe('python');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'ignores a non-executable Python-looking file on a POSIX PATH',
+    async () => {
+      const root = await tempRoot();
+      const bin = path.join(root, 'bin');
+      const entry = path.join(root, 'main.py');
+      await mkdir(bin, { recursive: true });
+      await writeFile(path.join(bin, 'python3'), '', 'utf8');
+      await writeFile(path.join(bin, 'python'), '', 'utf8');
+      await chmod(path.join(bin, 'python3'), 0o644);
+      await chmod(path.join(bin, 'python'), 0o755);
+      await writeFile(entry, 'print("hello")\n', 'utf8');
+
+      const previousPath = process.env.PATH;
+      const previousPython = process.env.PYTHON;
+      process.env.PATH = bin;
+      delete process.env.PYTHON;
+      try {
+        const plan = await resolveExecutionTarget(entry, []);
+        expect(plan.steps[0]?.command).toBe('python');
+      } finally {
+        if (previousPath === undefined) delete process.env.PATH;
+        else process.env.PATH = previousPath;
+        if (previousPython === undefined) delete process.env.PYTHON;
+        else process.env.PYTHON = previousPython;
+      }
+    }
+  );
 
   it('prefers a package start script for a Node project root', async () => {
     const root = await tempRoot();

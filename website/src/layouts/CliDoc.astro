@@ -23,6 +23,7 @@ interface Props {
 const { entry, allDocs, locale, headings } = Astro.props;
 const copy = t(locale).cli;
 const activeSlug = cliSlugFor(entry.id);
+const heroCommand = entry.data.heroCommand ?? (activeSlug === 'getting-started' ? '--help' : activeSlug);
 const referenceTerms = JSON.stringify(cliReference);
 const searchItems = buildCliSearchItems(allDocs, locale, referenceTerms);
 const serializedSearchItems = JSON.stringify(searchItems).replaceAll('<', '\\u003c');
@@ -45,7 +46,7 @@ const pageHeadings = headings.filter(heading => heading.depth === 2 || heading.d
         <p>{entry.data.description}</p>
       </div>
       <div class="terminal-mark" aria-hidden="true">
-        <span>$</span> lingua {activeSlug === 'getting-started' ? '--help' : activeSlug}
+        <span>$</span> lingua {heroCommand}
       </div>
     </header>
 
@@ -194,6 +195,10 @@ const pageHeadings = headings.filter(heading => heading.depth === 2 || heading.d
   }
   .cli-prose {
     max-width: 78ch;
+  }
+  .cli-prose :global(h2[id]),
+  .cli-prose :global(h3[id]) {
+    scroll-margin-top: 7rem;
   }
   .cli-prose :global(pre) {
     position: relative;

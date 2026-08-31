@@ -258,6 +258,21 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
     throw new Error(`Standalone CLI utility smoke failed: ${utilitySmoke.stdout.trim()}`);
   }
 
+  // A SEA's process.execPath points back to the Lingua executable, not a
+  // general-purpose Node binary. The CLI therefore resolves `node` from PATH
+  // for JS/TS targets when packaged as a standalone. Prove that native path on
+  // every Linux/Windows packaging runner instead of smoking utilities only.
+  const runtimeSmokePath = path.join(staging, 'standalone-runtime-smoke.js');
+  writeFileSync(runtimeSmokePath, 'console.log("lingua-standalone-runtime-ok")\n', 'utf8');
+  const runtimeSmoke = run(binaryPath, ['run', runtimeSmokePath, '--json'], { capture: true });
+  const runtimeEnvelope = JSON.parse(runtimeSmoke.stdout);
+  if (
+    runtimeEnvelope?.ok !== true ||
+    runtimeEnvelope?.run?.stdout !== 'lingua-standalone-runtime-ok\n'
+  ) {
+    throw new Error(`Standalone CLI runtime smoke failed: ${runtimeSmoke.stdout.trim()}`);
+  }
+
   await cp(
     path.join(repoRoot, 'packaging', 'cli', 'README.md'),
     path.join(releaseRoot, 'README.md')

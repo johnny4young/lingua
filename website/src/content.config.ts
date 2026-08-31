@@ -31,6 +31,7 @@ const cli = defineCollection({
     order: z.number(),
     group: z.enum(['start', 'guides', 'automation', 'reference']),
     keywords: z.array(z.string()).default([]),
+    heroCommand: z.string().optional(),
   }),
 });
 
