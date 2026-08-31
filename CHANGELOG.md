@@ -6,6 +6,18 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-08-31
+
+### Added
+- **Agent verification now installs through native client workflows instead of manual file copying.** Lingua ships one portable `lingua-verify` skill through the Agent Plugins 1.0 package and a native Claude Code marketplace, with managed install, update, reload, and uninstall commands plus bilingual setup guidance for VS Code, Codex, and Claude. The skill turns trusted local CLI runs, Capsule validation or replay, and utility transformations into structured evidence while adding no hook, credential, MCP server, or hidden execution authority.
+
+### Changed
+- **Paid checkout and license issuance now run through Lemon Squeezy.** The pricing site uses the live Lemon Squeezy checkout destinations, while the existing Ed25519 license token contract remains unchanged for the app and CLI. The license Worker validates signed webhook bodies, pins the accepted store and variant identities, deduplicates deliveries with merchant IDs, stores merchant-neutral order and subscription references, and keeps unknown products and incomplete configuration fail-closed.
+
+### Fixed
+- **Packaged and custom-environment CLI runs now select host runtimes consistently.** Standalone builds invoke the host Node.js executable instead of recursively launching themselves for JavaScript or TypeScript, while Python discovery follows Windows launcher and `PATHEXT` semantics, requires executable candidates on POSIX, and resolves `PATH` and `PYTHON` against the same filtered child environment used for execution. The standalone release packager now proves the JavaScript path with a real runtime smoke.
+- **Refunded subscriptions can no longer regain a paid access window when later cancellation events arrive.** Refund status is terminal across cancellation and renewal webhook paths, delayed deliveries cannot revive the license or mint a fresh token, and order refunds revoke both lifetime and subscription licenses through their stored merchant order identity.
+
 ## [1.3.0] — 2026-08-12
 
 ### Added

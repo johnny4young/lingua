@@ -9,6 +9,7 @@ const ROOT = resolve(__dirname, '../..');
 const SKILL_PATH = resolve(ROOT, 'skills/lingua-verify/SKILL.md');
 const CLAUDE_PLUGIN_PATH = resolve(ROOT, 'skills/.claude-plugin/plugin.json');
 const CLAUDE_MARKETPLACE_PATH = resolve(ROOT, '.claude-plugin/marketplace.json');
+const MINIMUM_CLI_VERSION = '1.3.0';
 const skill = readFileSync(SKILL_PATH, 'utf8');
 const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
   version: string;
@@ -51,7 +52,7 @@ describe('lingua-verify Agent Skill', () => {
     expect(frontmatter.name).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
     expect(frontmatter.description.length).toBeGreaterThan(1);
     expect(frontmatter.description.length).toBeLessThanOrEqual(1024);
-    expect(frontmatter.compatibility).toContain(`CLI ${packageJson.version}`);
+    expect(frontmatter.compatibility).toContain(`CLI ${MINIMUM_CLI_VERSION}`);
     expect(frontmatter.compatibility).toContain('target language runtime');
     expect(frontmatter.license).toBe(
       'SEE LICENSE IN https://github.com/johnny4young/lingua/blob/main/LICENSE'
@@ -60,6 +61,7 @@ describe('lingua-verify Agent Skill', () => {
       author: 'johnny4young',
       version: packageJson.version,
     });
+    expect(skill).toContain(`Require version ${MINIMUM_CLI_VERSION} or later`);
     expect(frontmatter['allowed-tools']).toBeUndefined();
   });
 
