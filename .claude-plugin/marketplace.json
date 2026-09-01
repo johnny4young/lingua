@@ -14,7 +14,7 @@
         "path": "skills"
       },
       "description": "Verify trusted generated code locally with the Lingua CLI and structured evidence.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": {
         "name": "johnny4young"
       },

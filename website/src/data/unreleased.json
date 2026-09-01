@@ -1,71 +1,7 @@
 {
-  "generatedAt": "2026-08-31T22:38:06.990Z",
-  "baseRef": "v1.3.0",
-  "commitCount": 7,
-  "totalSinceBase": 15,
-  "commits": [
-    {
-      "hash": "a39d790",
-      "date": "2026-08-31",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "cli",
-      "message": "address review findings on env-consistent discovery and hook gates",
-      "breaking": false
-    },
-    {
-      "hash": "b7533bb",
-      "date": "2026-08-31",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "cli",
-      "message": "ship portable agent integration",
-      "breaking": false
-    },
-    {
-      "hash": "4c90f4d",
-      "date": "2026-08-30",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "docs",
-      "message": "harden agent integration guidance",
-      "breaking": false
-    },
-    {
-      "hash": "6c16a56",
-      "date": "2026-08-29",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "cli",
-      "message": "add agent verification skill",
-      "breaking": false
-    },
-    {
-      "hash": "eb02cbd",
-      "date": "2026-08-20",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "licensing",
-      "message": "subscription_cancelled no longer downgrades a refunded license (#151)",
-      "breaking": false
-    },
-    {
-      "hash": "92b7bed",
-      "date": "2026-08-20",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "licensing",
-      "message": "cut the payments surface over to Lemon Squeezy live mode (#150)",
-      "breaking": false
-    },
-    {
-      "hash": "fa5277c",
-      "date": "2026-08-14",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "licensing",
-      "message": "move the merchant of record from Polar to Lemon Squeezy (#148)",
-      "breaking": false
-    }
-  ]
+  "generatedAt": "2026-09-01T04:04:11.415Z",
+  "baseRef": "v1.4.0",
+  "commitCount": 0,
+  "totalSinceBase": 0,
+  "commits": []
 }

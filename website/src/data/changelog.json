@@ -1,6 +1,19 @@
 {
-  "generatedAt": "2026-08-31T22:51:48.184Z",
+  "generatedAt": "2026-09-01T04:04:11.370Z",
   "entries": [
+    {
+      "version": "1.4.1",
+      "date": "2026-08-31",
+      "sections": [
+        {
+          "heading": "Fixed",
+          "items": [
+            "<strong>The Windows desktop installer is back in the release payload.</strong> Version 1.4.0 published without a Windows build, so Windows installs and auto-updates stayed on 1.3.0. This release restores the NSIS installer and its update manifest with no other changes."
+          ]
+        }
+      ],
+      "raw": "### Fixed\n- **The Windows desktop installer is back in the release payload.** Version 1.4.0 published without a Windows build, so Windows installs and auto-updates stayed on 1.3.0. This release restores the NSIS installer and its update manifest with no other changes."
+    },
     {
       "version": "1.4.0",
       "date": "2026-08-31",

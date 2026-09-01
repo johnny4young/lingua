@@ -1,7 +1,7 @@
 {
   "name": "lingua",
   "displayName": "Lingua CLI Verification",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Verify trusted generated code locally with the Lingua CLI and structured evidence.",
   "author": {
     "name": "johnny4young",

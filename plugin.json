@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "lingua",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Verify trusted AI-generated code locally with the Lingua CLI and stable machine-readable evidence.",
   "author": {
     "name": "johnny4young",
