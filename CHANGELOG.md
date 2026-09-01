@@ -6,6 +6,11 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-08-31
+
+### Fixed
+- **The Windows desktop installer is back in the release payload.** Version 1.4.0 published without a Windows build, so Windows installs and auto-updates stayed on 1.3.0. This release restores the NSIS installer and its update manifest with no other changes.
+
 ## [1.4.0] — 2026-08-31
 
 ### Added
