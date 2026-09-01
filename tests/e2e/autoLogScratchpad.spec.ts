@@ -15,14 +15,6 @@
  */
 
 import type { Page } from '@playwright/test';
-
-declare global {
-  interface Window {
-    __linguaE2e?: {
-      pythonRuntimeBooted?: () => Promise<boolean>;
-    };
-  }
-}
 import {
   createJavaScriptTab,
   createLanguageTab,
@@ -32,6 +24,14 @@ import {
   seedSession,
   test,
 } from './licenseWeb.helpers';
+
+declare global {
+  interface Window {
+    __linguaE2e?: {
+      pythonRuntimeBooted?: () => Promise<boolean>;
+    };
+  }
+}
 
 async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page
