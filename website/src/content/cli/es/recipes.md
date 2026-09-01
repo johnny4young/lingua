@@ -242,7 +242,7 @@ Fija el CLI en `devDependencies` y ofrece al equipo un script fácil de recordar
 ```json
 {
   "devDependencies": {
-    "@linguacode/cli": "1.3.0"
+    "@linguacode/cli": "1.4.1"
   },
   "scripts": {
     "check:local": "lingua run ./scripts/check.ts --timeout 60000 -- --changed-only",
@@ -373,7 +373,7 @@ Replay puede terminar con código 0 cuando el programa se ejecutó correctamente
 ```dockerfile
 FROM node:24-bookworm-slim
 
-RUN npm install --global @linguacode/cli@1.3.0
+RUN npm install --global @linguacode/cli@1.4.1
 WORKDIR /workspace
 ENTRYPOINT ["lingua"]
 CMD ["--help"]
