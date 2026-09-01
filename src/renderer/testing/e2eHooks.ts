@@ -11,6 +11,12 @@ interface LinguaE2eHooks {
   addConsoleEntries: (entries: ConsoleEntrySeed[]) => void;
   armWorkspaceCrash: (region: WorkspaceErrorBoundaryRegion) => void;
   showLspAdapterLoadFailure: (language: 'go' | 'rust') => void;
+  /**
+   * True once the Pyodide worker completed its init handshake. Passive: reads
+   * the runner's boot flag without triggering a boot, so tests observing the
+   * auto-run-boots-the-runtime contract still exercise the real trigger.
+   */
+  pythonRuntimeBooted: () => Promise<boolean>;
 }
 
 let armedWorkspaceCrash: WorkspaceErrorBoundaryRegion | null = null;
@@ -55,6 +61,23 @@ export function installE2eHooks(): void {
         kind: 'degraded',
         reason: 'adapter-load-failed',
       });
+    },
+    pythonRuntimeBooted: async () => {
+      // Dynamic imports: this module is on the startup path (web/main.tsx),
+      // and static runner imports would drag the whole runner graph into the
+      // eager bundle — tests/build/monacoInitialGraph.test.ts and
+      // tests/scripts/activationMetrics.test.ts gate exactly that. By the
+      // time a test polls this hook the app has loaded these modules anyway,
+      // so the import() resolves from the module registry.
+      const [{ runnerManager }, { PythonRunner }] = await Promise.all([
+        import('../runners/manager'),
+        import('../runners/python'),
+      ]);
+      // getRunner only instantiates the runner object (its init() is a flag
+      // set) — Pyodide itself boots lazily on first execution, so this stays
+      // a read, never a trigger.
+      const runner = await runnerManager.getRunner('python');
+      return runner instanceof PythonRunner && runner.isPyodideBooted();
     },
   };
 }

@@ -359,21 +359,36 @@ export async function dismissWhatsNew(page: Page): Promise<void> {
 }
 
 export async function openSettings(page: Page): Promise<void> {
-  const trigger = page.getByTestId('action-pill-settings');
-  const canClick = await trigger
-    .click({ trial: true, timeout: 1000 })
-    .then(() => true)
-    .catch(() => false);
-  if (canClick) {
-    await trigger.click();
-  } else {
-    await page.keyboard.press('ControlOrMeta+Comma');
-  }
-  await expect(
-    page.getByRole('heading', {
-      name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
-    })
-  ).toBeVisible();
+  const heading = page.getByRole('heading', {
+    name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
+  });
+  // A single gesture can land in a dead window under CI load: the pill's
+  // 1s trial click fails while the app is still hydrating, and the keyboard
+  // fallback fires before the shortcut listener exists — after which one
+  // long heading wait watches an overlay that was never asked to open.
+  // Retry the GESTURE with a short per-attempt wait instead. Two details
+  // matter: the shortcut is toggleOverlay('settings'), so every attempt
+  // must confirm the heading is still absent before gesturing again, and
+  // the Settings overlay chunk is lazy-loaded, so the 5s per-attempt window
+  // gives a dispatched-but-still-fetching open time to render rather than
+  // toggling it back closed.
+  await expect(async () => {
+    if (await heading.isVisible().catch(() => false)) return;
+    // Hydration can restore the What's New overlay after gotoApp resolves;
+    // it would swallow both the pill click and the shortcut.
+    await dismissWhatsNew(page);
+    const trigger = page.getByTestId('action-pill-settings');
+    const canClick = await trigger
+      .click({ trial: true, timeout: 1000 })
+      .then(() => true)
+      .catch(() => false);
+    if (canClick) {
+      await trigger.click();
+    } else {
+      await page.keyboard.press('ControlOrMeta+Comma');
+    }
+    await expect(heading).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 45_000 });
 }
 
 type SettingsTabId =

@@ -15,6 +15,14 @@
  */
 
 import type { Page } from '@playwright/test';
+
+declare global {
+  interface Window {
+    __linguaE2e?: {
+      pythonRuntimeBooted?: () => Promise<boolean>;
+    };
+  }
+}
 import {
   createJavaScriptTab,
   createLanguageTab,
@@ -149,7 +157,7 @@ test.describe('expression auto-log ', () => {
   });
 
   test('uses CPython AST auto-log for top-level Python expressions', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(150_000);
     await seedSession(page, { language: 'es' });
     await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
@@ -165,8 +173,24 @@ test.describe('expression auto-log ', () => {
       ].join('\n')
     );
 
+    // The debounced auto-run above is what triggers the Pyodide boot — the
+    // contract this test locks. Stage the wait to match the app's own
+    // budget: the runner allows PYODIDE_LOAD_TIMEOUT (90s) for the boot, so
+    // a single 75s wait on the result row undercut it under CI load and
+    // flaked. Boot first on the app budget plus margin, rows second on a
+    // normal assertion window.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => window.__linguaE2e?.pythonRuntimeBooted?.() ?? false
+          ),
+        { timeout: 100_000, intervals: [1_000] }
+      )
+      .toBe(true);
+
     const errorRow = page.locator('[data-result-kind="error"]');
-    await expect(errorRow).toBeVisible({ timeout: 75_000 });
+    await expect(errorRow).toBeVisible({ timeout: 15_000 });
     await expect(errorRow).toContainText('invalid literal for int()');
     const valueRows = page.locator('[data-result-kind="autoLog"]');
     await expect(valueRows).toHaveCount(2);
