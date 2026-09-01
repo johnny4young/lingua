@@ -89,6 +89,18 @@ export class PythonRunner implements LanguageRunner {
   }
 
   /**
+   * Whether the Pyodide worker finished its init handshake. `isReady()` only
+   * says the runner object exists; this flag flips when the worker posts
+   * `ready`, i.e. the WASM runtime is actually usable. The e2e hooks read it
+   * so tests can stage their waits: boot first (on the app's own
+   * PYODIDE_LOAD_TIMEOUT budget), result rows second (on a normal assertion
+   * budget) — instead of one long wait that undercuts the boot budget.
+   */
+  isPyodideBooted(): boolean {
+    return this.pyodideLoaded;
+  }
+
+  /**
    * implementation — public accessor over the private `ensurePyodide`
    * boot ceremony. `pythonWebInstaller` calls into this so the
    * installer and the runner share the same Pyodide worker (one
