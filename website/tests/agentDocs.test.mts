@@ -3,10 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import rootPackage from '../../package.json' with { type: 'json' };
 
 const here = dirname(fileURLToPath(import.meta.url));
 const websiteRoot = resolve(here, '..');
+const minimumCliVersion = '1.3.0';
 const spanishVoseoPattern =
   /(?<![\p{L}\p{N}_])(?:instalá|invocá|pedile|podés|querés|verificá|ejecutá)(?![\p{L}\p{N}_])/iu;
 
@@ -35,7 +35,7 @@ test('agent guides keep matching localized routes and current version metadata',
     assert.equal(frontmatterValue(guide, 'group'), 'automation');
     assert.equal(frontmatterValue(guide, 'heroCommand'), '--version');
     assert.ok(frontmatterValue(guide, 'description').length <= 180);
-    assert.match(guide, new RegExp(`CLI ${rootPackage.version.replaceAll('.', '\\.')}`));
+    assert.match(guide, new RegExp(`CLI ${minimumCliVersion.replaceAll('.', '\\.')}`));
     assert.match(guide, /skills\/lingua-verify/u);
     assert.match(guide, /plugin\.json/u);
   }

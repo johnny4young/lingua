@@ -20,6 +20,7 @@ function readJson<T>(relativePath: string): T {
 }
 
 const rootPackage = readJson<{ version: string }>('package.json');
+const designSyncPackage = readJson<{ version: string }>('.design-sync/pkgroot/package.json');
 const changelog = read('CHANGELOG.md');
 const generatedChangelog = readJson<{ entries: Array<{ version: string }> }>(
   'website/src/data/changelog.json'
@@ -54,6 +55,7 @@ function compareStableVersions(left: string, right: string): number {
 describe('release candidate version contract', () => {
   it('keeps package, changelog, and generated website candidate data aligned', () => {
     expect(rootPackage.version).toMatch(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
+    expect(designSyncPackage.version).toBe(rootPackage.version);
     expect(firstReleaseVersion()).toBe(rootPackage.version);
     expect(generatedChangelog.entries[0]?.version).toBe(rootPackage.version);
     expect(changelog).toMatch(

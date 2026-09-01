@@ -4,11 +4,12 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import generatedCatalog from '../src/data/cli-reference.json' with { type: 'json' };
+import releaseSnapshot from '../src/data/latest-release.json' with { type: 'json' };
 import { CLI_HELP_CATALOG } from '../../src/cli/helpCatalog.ts';
-import rootPackage from '../../package.json' with { type: 'json' };
 
 const here = dirname(fileURLToPath(import.meta.url));
 const websiteRoot = resolve(here, '..');
+const publicCliVersion = releaseSnapshot.release.tag.replace(/^v/u, '');
 
 async function contentFiles(locale: 'en' | 'es') {
   const directory = resolve(websiteRoot, `src/content/cli/${locale}`);
@@ -56,9 +57,9 @@ test('practical recipes cover common developer ecosystems in both locales', asyn
       assert.ok(recipes.includes(required), `${locale} recipes miss ${required}`);
     }
     assert.ok(
-      recipes.includes(`@linguacode/cli\": \"${rootPackage.version}`) &&
-        recipes.includes(`@linguacode/cli@${rootPackage.version}`),
-      `${locale} recipes should pin package.json and container examples to ${rootPackage.version}`
+      recipes.includes(`@linguacode/cli\": \"${publicCliVersion}`) &&
+        recipes.includes(`@linguacode/cli@${publicCliVersion}`),
+      `${locale} recipes should pin package.json and container examples to public ${publicCliVersion}`
     );
   }
 });

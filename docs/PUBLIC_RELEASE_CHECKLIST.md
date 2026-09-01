@@ -35,6 +35,12 @@ planning metadata. It is separate from `RELEASE.md`, which gates binaries.
   deliberately separate: root `plugin.json`, `.claude-plugin/marketplace.json`,
   `skills/.claude-plugin/plugin.json`, `skills/LICENSE`, and
   `skills/lingua-verify/` are product artifacts and remain tracked.
+- Before a versioned release, keep `package.json`, `plugin.json`,
+  `.claude-plugin/marketplace.json`, `skills/.claude-plugin/plugin.json`, the
+  `lingua-verify` metadata version, and `.design-sync/pkgroot/package.json`
+  aligned. The skill's minimum compatible CLI version is a separate runtime
+  contract: bump it only when the documented workflow actually needs a newer
+  CLI, not merely because the distribution version changed.
 - `README.md`, `LICENSE`, press-kit copy, and roadmap docs agree on
   `linguacode.dev` as the public domain and source-available commercial as the
   repo posture.
