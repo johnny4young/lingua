@@ -241,7 +241,10 @@ export function isSameOriginRuntimeShape(target) {
  * Pick the targets named by --target=<id>[,<id>]; every id must exist so a
  * typo cannot silently turn a baseline refresh into a no-op.
  */
-export function selectTargets(targets, ids) {
+export function selectTargets(targets, ids, { requireAllTargets = false } = {}) {
+  if (requireAllTargets && ids?.length > 0) {
+    throw new Error('--target cannot be combined with --require-all-targets.');
+  }
   if (!ids || ids.length === 0) return targets;
   const byId = new Map(targets.map((target) => [target.id, target]));
   const unknown = ids.filter((id) => !byId.has(id));
@@ -763,6 +766,13 @@ export function createBaseline(report, existingBaseline = null) {
   }
   const refreshed = deriveBudgetsFromMeasurements(report);
   const lastRefresh = { ...(existingBaseline?.lastRefresh ?? {}) };
+  if (typeof existingBaseline?.generatedAt === 'string') {
+    for (const targetId of Object.keys(existingBaseline?.budgets ?? {})) {
+      if (!(targetId in lastRefresh)) {
+        lastRefresh[targetId] = existingBaseline.generatedAt;
+      }
+    }
+  }
   for (const targetId of Object.keys(refreshed)) {
     lastRefresh[targetId] = report.generatedAt;
   }
@@ -833,13 +843,15 @@ async function main() {
   const report = await buildPerformanceReport({
     baselinePath,
     desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
-    targets: selectTargets(DEFAULT_TARGETS, options.targetIds),
+    targets: selectTargets(DEFAULT_TARGETS, options.targetIds, {
+      requireAllTargets: options.requireAllTargets,
+    }),
     check: options.check,
     requireAllTargets: options.requireAllTargets,
   });
 
   if (options.writeBaseline) {
-    if (options.requireAllTargets) {
+    if (options.requireAllTargets || options.targetIds.length > 0) {
       assertAllTargetsAvailable(report);
     }
     let existingBaseline = null;

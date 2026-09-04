@@ -399,11 +399,13 @@ pnpm run check:performance
 
 The baseline records `lastRefresh` per target so a review can see which
 half was measured when. Add `--require-all-targets` when a refresh must
-cover every target (release cuts). Use `performance:report` for a
-non-mutating report; it still marks the desktop renderer as unavailable
-when that build output is not present. Run `pnpm run smoke:desktop`
-before `performance:report` when you want the runtime observability
-section populated from a fresh smoke artifact.
+cover every target (release cuts); do not combine it with `--target`.
+An explicit `--target` also fails when that target's build output is
+missing instead of succeeding without refreshing it. Use
+`performance:report` for a non-mutating report; it still marks the desktop
+renderer as unavailable when that build output is not present. Run
+`pnpm run smoke:desktop` before `performance:report` when you want the runtime
+observability section populated from a fresh smoke artifact.
 
 A baseline cannot be written from a build created with
 `LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` — `performance:baseline` refuses the

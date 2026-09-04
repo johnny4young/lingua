@@ -374,7 +374,7 @@ describe('performance-report', () => {
     };
     const existing = {
       schemaVersion: 1,
-      lastRefresh: { renderer: '2026-07-29T00:00:00.000Z' },
+      generatedAt: '2026-07-29T00:00:00.000Z',
       budgets: {
         web: { initial: { baselineBytes: 2000, maxBytes: 2200 } },
         renderer: { initial: { baselineBytes: 5000, maxBytes: 5500 } },
@@ -412,6 +412,9 @@ describe('performance-report', () => {
     expect(selectTargets(targets, [])).toBe(targets);
     expect(selectTargets(targets, ['web']).map((target) => target.id)).toEqual(['web']);
     expect(() => selectTargets(targets, ['wbe'])).toThrow(/Unknown performance target/u);
+    expect(() =>
+      selectTargets(targets, ['web'], { requireAllTargets: true })
+    ).toThrow(/cannot be combined/u);
   });
 
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {
