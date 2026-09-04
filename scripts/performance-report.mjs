@@ -26,12 +26,20 @@ const DEFAULT_TARGETS = [
     label: 'Web build',
     root: path.join(repoRoot, 'dist', 'web'),
     required: true,
+    // Production web builds point Ruby and DuckDB at the owned R2 runtime
+    // URLs; only the hermetic e2e build (LINGUA_WEB_RUNTIME_SAME_ORIGIN=1)
+    // copies those WASM files into dist/web. Their presence means the byte
+    // totals describe a build that never ships, so the check rejects the
+    // shape instead of reporting a wall of runtime overages.
+    rejectSameOriginRuntime: true,
   },
   {
     id: 'renderer',
     label: 'Desktop renderer build',
     root: path.join(repoRoot, '.vite', 'renderer', 'main_window'),
     required: false,
+    // The desktop bundle ships every runtime same-origin by design.
+    rejectSameOriginRuntime: false,
   },
 ];
 
@@ -57,6 +65,19 @@ const UTILITY_CHUNK_PATTERNS = [
   /standalone-/iu,
   /typescript-/iu,
 ];
+
+/** Runtime assets that only exist in a same-origin (e2e) web build. */
+const SAME_ORIGIN_RUNTIME_PATTERNS = [/duckdb-mvp[^/]*\.wasm$/iu, /ruby\+stdlib[^/]*\.wasm$/iu];
+
+/**
+ * A category that measures far below its committed baseline is a budget
+ * that stopped protecting anything: the ceiling still sits at the old size
+ * plus headroom, so a regression back up to it passes silently. The check
+ * warns (or fails with --fail-on-slack) when a tracked category is under
+ * this fraction of its baseline, which is the signal to re-baseline.
+ */
+const BUDGET_SLACK_RATIO = 0.75;
+const BUDGET_SLACK_CATEGORIES = ['initial', 'lazy'];
 
 function normalizeRelativePath(value) {
   return value.split(path.sep).join('/');
@@ -167,6 +188,8 @@ export async function collectBuildTarget(target) {
       categories: createEmptyCategoryTotals(),
       assets: [],
       initialAssets: [],
+      sameOriginRuntimeAssets: [],
+      rejectSameOriginRuntime: Boolean(target.rejectSameOriginRuntime),
     };
   }
 
@@ -177,9 +200,13 @@ export async function collectBuildTarget(target) {
   const files = await listFiles(target.root);
   const categories = createEmptyCategoryTotals();
   const assets = [];
+  const sameOriginRuntimeAssets = [];
 
   for (const filePath of files) {
     const relativePath = normalizeRelativePath(path.relative(target.root, filePath));
+    if (SAME_ORIGIN_RUNTIME_PATTERNS.some((pattern) => pattern.test(relativePath))) {
+      sameOriginRuntimeAssets.push(relativePath);
+    }
     const bytes = (await stat(filePath)).size;
     const gzipBytes = gzipSync(await readFile(filePath)).byteLength;
     const category = classifyAsset(relativePath, initialAssets);
@@ -197,7 +224,33 @@ export async function collectBuildTarget(target) {
     categories,
     assets,
     initialAssets: [...initialAssets].sort(),
+    sameOriginRuntimeAssets: sameOriginRuntimeAssets.sort(),
+    rejectSameOriginRuntime: Boolean(target.rejectSameOriginRuntime),
   };
+}
+
+export function isSameOriginRuntimeShape(target) {
+  return Boolean(
+    target?.available &&
+      target.rejectSameOriginRuntime &&
+      target.sameOriginRuntimeAssets?.length > 0
+  );
+}
+
+/**
+ * Pick the targets named by --target=<id>[,<id>]; every id must exist so a
+ * typo cannot silently turn a baseline refresh into a no-op.
+ */
+export function selectTargets(targets, ids) {
+  if (!ids || ids.length === 0) return targets;
+  const byId = new Map(targets.map((target) => [target.id, target]));
+  const unknown = ids.filter((id) => !byId.has(id));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown performance target(s): ${unknown.join(', ')}. Known targets: ${[...byId.keys()].join(', ')}.`
+    );
+  }
+  return ids.map((id) => byId.get(id));
 }
 
 /**
@@ -251,6 +304,18 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
       continue;
     }
 
+    if (isSameOriginRuntimeShape(target)) {
+      violations.push({
+        target: targetId,
+        category: 'shape',
+        metric: 'same-origin-runtime',
+        actual: target.sameOriginRuntimeAssets.length,
+        max: 0,
+        message: `${targetId} build is the same-origin runtime shape (${target.sameOriginRuntimeAssets.join(', ')}); rebuild without LINGUA_WEB_RUNTIME_SAME_ORIGIN before checking budgets`,
+      });
+      continue;
+    }
+
     for (const [category, budget] of Object.entries(categoryBudgets)) {
       const total = target.categories[category];
       if (!total) continue;
@@ -286,6 +351,43 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
   }
 
   return violations;
+}
+
+/**
+ * Categories measuring far below their committed baseline. Not a failure by
+ * default: the report prints them so the maintainer re-baselines, and
+ * --fail-on-slack turns them into a gate once the budgets are trusted.
+ */
+export function findBudgetSlack(measurements, baseline, { ratio = BUDGET_SLACK_RATIO } = {}) {
+  const warnings = [];
+  const baselineBudgets = baseline?.budgets ?? {};
+  for (const target of measurements.targets) {
+    if (!target.available || isSameOriginRuntimeShape(target)) continue;
+    const categoryBudgets = baselineBudgets[target.id];
+    if (!categoryBudgets) continue;
+    for (const category of BUDGET_SLACK_CATEGORIES) {
+      const total = target.categories[category];
+      const budget = categoryBudgets[category];
+      if (!total || !budget) continue;
+      for (const metric of ['bytes', 'gzipBytes']) {
+        const baselineKey = metric === 'bytes' ? 'baselineBytes' : 'baselineGzipBytes';
+        const baselineValue = budget[baselineKey];
+        if (typeof baselineValue !== 'number' || baselineValue <= 0) continue;
+        if (total[metric] < baselineValue * ratio) {
+          warnings.push({
+            target: target.id,
+            category,
+            metric,
+            actual: total[metric],
+            baseline: baselineValue,
+            ratio,
+            message: `${target.id}.${category}.${metric} ${total[metric]} is below ${Math.round(ratio * 100)}% of its baseline ${baselineValue}; the budget has stopped protecting this category, refresh it with pnpm run performance:baseline --target=${target.id}`,
+          });
+        }
+      }
+    }
+  }
+  return warnings;
 }
 
 export function validateBaseline(baseline) {
@@ -458,6 +560,7 @@ export async function buildPerformanceReport({
   const violations = baseline
     ? compareWithBudgets(measurements, baseline, { requireAllTargets })
     : [];
+  const warnings = baseline ? findBudgetSlack(measurements, baseline) : [];
   const runtimeObservability = await collectDesktopSmokePerformance(
     desktopSmokePerformancePath
   );
@@ -469,6 +572,7 @@ export async function buildPerformanceReport({
     measurements: measurements.targets,
     budgets,
     violations,
+    warnings,
     runtimeObservability,
     baselinePath,
   };
@@ -530,6 +634,13 @@ export function renderConsoleTable(report) {
     );
   }
   lines.push('');
+
+  if (report.warnings?.length > 0) {
+    lines.push('Budget warnings:');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning.message}`);
+    }
+  }
 
   if (report.violations.length === 0) {
     lines.push('Budget result: pass');
@@ -611,6 +722,15 @@ export function renderMarkdownReport(report) {
     lines.push('');
   }
 
+  if (report.warnings?.length > 0) {
+    lines.push('## Budget Warnings');
+    lines.push('');
+    for (const warning of report.warnings) {
+      lines.push(`- ${warning.message}`);
+    }
+    lines.push('');
+  }
+
   lines.push('## Budget Result');
   lines.push('');
   if (report.violations.length === 0) {
@@ -625,12 +745,33 @@ export function renderMarkdownReport(report) {
   return `${lines.join('\n')}\n`;
 }
 
-function createBaseline(report) {
+/**
+ * Refresh the budgets of every target that was measured and keep the rest
+ * from the existing baseline. A web-only refresh on a laptop without a
+ * desktop renderer build used to overwrite the whole file, which is why
+ * nobody re-baselined after the Monaco split and the initial gate sat at
+ * twice the real size for a month. Merging makes the cheap refresh safe.
+ */
+export function createBaseline(report, existingBaseline = null) {
+  const sameOriginTargets = report.targets.filter(isSameOriginRuntimeShape);
+  if (sameOriginTargets.length > 0) {
+    throw new Error(
+      `Refusing to write a baseline from a same-origin runtime build (${sameOriginTargets
+        .map((target) => target.id)
+        .join(', ')}). Rebuild without LINGUA_WEB_RUNTIME_SAME_ORIGIN first.`
+    );
+  }
+  const refreshed = deriveBudgetsFromMeasurements(report);
+  const lastRefresh = { ...(existingBaseline?.lastRefresh ?? {}) };
+  for (const targetId of Object.keys(refreshed)) {
+    lastRefresh[targetId] = report.generatedAt;
+  }
   return {
     schemaVersion: 1,
     generatedAt: report.generatedAt,
-    note: 'Generated by pnpm run performance:baseline. Budgets use current measurements plus per-category headroom.',
-    budgets: deriveBudgetsFromMeasurements(report),
+    note: 'Generated by pnpm run performance:baseline. Budgets use current measurements plus per-category headroom; targets without a build output keep their previous budgets.',
+    lastRefresh,
+    budgets: { ...(existingBaseline?.budgets ?? {}), ...refreshed },
   };
 }
 
@@ -650,6 +791,14 @@ function parseArgs(argv) {
     check: argv.includes('--check'),
     writeBaseline: argv.includes('--write-baseline'),
     requireAllTargets: argv.includes('--require-all-targets'),
+    failOnSlack: argv.includes('--fail-on-slack'),
+    targetIds:
+      argv
+        .find((arg) => arg.startsWith('--target='))
+        ?.slice('--target='.length)
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean) ?? [],
     outputDir:
       argv.find((arg) => arg.startsWith('--output-dir='))?.slice('--output-dir='.length) ??
       DEFAULT_OUTPUT_DIR,
@@ -680,9 +829,11 @@ async function writeReportArtifacts(report, outputDir) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const baselinePath = path.resolve(options.baselinePath);
   const report = await buildPerformanceReport({
-    baselinePath: path.resolve(options.baselinePath),
+    baselinePath,
     desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
+    targets: selectTargets(DEFAULT_TARGETS, options.targetIds),
     check: options.check,
     requireAllTargets: options.requireAllTargets,
   });
@@ -691,7 +842,12 @@ async function main() {
     if (options.requireAllTargets) {
       assertAllTargetsAvailable(report);
     }
-    const baseline = createBaseline(report);
+    let existingBaseline = null;
+    if (await pathExists(baselinePath)) {
+      existingBaseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+      validateBaseline(existingBaseline);
+    }
+    const baseline = createBaseline(report, existingBaseline);
     await mkdir(path.dirname(path.resolve(options.baselinePath)), { recursive: true });
     await writeFile(
       path.resolve(options.baselinePath),
@@ -704,6 +860,9 @@ async function main() {
   process.stdout.write(renderConsoleTable(report));
 
   if (options.check && report.violations.length > 0) {
+    process.exitCode = 1;
+  }
+  if (options.check && options.failOnSlack && report.warnings.length > 0) {
     process.exitCode = 1;
   }
 }

@@ -10,8 +10,12 @@ import {
   collectBuildTarget,
   collectDesktopSmokePerformance,
   compareWithBudgets,
+  createBaseline,
+  findBudgetSlack,
   parseInitialAssetReferences,
+  renderConsoleTable,
   renderMarkdownReport,
+  selectTargets,
   validateBaseline,
 } from '../../scripts/performance-report.mjs';
 
@@ -258,6 +262,156 @@ describe('performance-report', () => {
       available: false,
       reason: 'missing-desktop-smoke-performance',
     });
+  });
+
+  it('flags a same-origin runtime build once instead of reporting its byte overages', async () => {
+    const root = await createFixtureBuild();
+    try {
+      await writeFile(path.join(root, 'assets', 'duckdb-mvp-abc123.wasm'), 'wasm', 'utf8');
+      await mkdir(path.join(root, 'ruby'), { recursive: true });
+      await writeFile(path.join(root, 'ruby', 'ruby+stdlib.wasm'), 'wasm', 'utf8');
+
+      const web = await collectBuildTarget({
+        id: 'web',
+        label: 'Web',
+        root,
+        required: true,
+        rejectSameOriginRuntime: true,
+      });
+      expect(web.sameOriginRuntimeAssets).toEqual([
+        'assets/duckdb-mvp-abc123.wasm',
+        'ruby/ruby+stdlib.wasm',
+      ]);
+
+      const baseline = {
+        budgets: {
+          web: {
+            initial: { maxBytes: 1, maxGzipBytes: 1 },
+            runtime: { maxBytes: 1, maxGzipBytes: 1 },
+          },
+        },
+      };
+      const violations = compareWithBudgets({ targets: [web] }, baseline);
+      expect(violations).toHaveLength(1);
+      expect(violations[0]).toMatchObject({ target: 'web', category: 'shape' });
+      expect(violations[0].message).toMatch(/rebuild without LINGUA_WEB_RUNTIME_SAME_ORIGIN/u);
+
+      // The desktop renderer ships every runtime same-origin by design, so
+      // the same files are not a shape violation there.
+      const renderer = await collectBuildTarget({
+        id: 'renderer',
+        label: 'Renderer',
+        root,
+        required: false,
+        rejectSameOriginRuntime: false,
+      });
+      expect(
+        compareWithBudgets({ targets: [renderer] }, { budgets: { renderer: {} } })
+      ).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('warns when a tracked category measures far below its baseline', () => {
+    const measurements = {
+      targets: [
+        {
+          id: 'web',
+          available: true,
+          categories: {
+            initial: { files: 1, bytes: 100, gzipBytes: 90 },
+            lazy: { files: 1, bytes: 1000, gzipBytes: 900 },
+          },
+        },
+      ],
+    };
+    const baseline = {
+      budgets: {
+        web: {
+          initial: { baselineBytes: 200, baselineGzipBytes: 100, maxBytes: 220, maxGzipBytes: 110 },
+          lazy: { baselineBytes: 1000, baselineGzipBytes: 1000, maxBytes: 1150, maxGzipBytes: 1150 },
+        },
+      },
+    };
+
+    const warnings = findBudgetSlack(measurements, baseline);
+    expect(warnings.map((warning) => `${warning.category}.${warning.metric}`)).toEqual([
+      'initial.bytes',
+    ]);
+    expect(warnings[0].message).toMatch(/performance:baseline --target=web/u);
+    expect(compareWithBudgets(measurements, baseline)).toEqual([]);
+
+    const report = {
+      generatedAt: 'now',
+      targets: [],
+      violations: [],
+      warnings,
+      runtimeObservability: { available: false, reason: 'missing' },
+    };
+    expect(renderConsoleTable(report)).toContain('Budget warnings:');
+    expect(renderMarkdownReport(report)).toContain('## Budget Warnings');
+  });
+
+  it('refreshes measured targets and keeps the budgets of targets without a build', () => {
+    const report = {
+      generatedAt: '2026-09-04T00:00:00.000Z',
+      targets: [
+        {
+          id: 'web',
+          available: true,
+          categories: {
+            initial: { files: 2, bytes: 1000, gzipBytes: 300 },
+            runtime: { files: 0, bytes: 0, gzipBytes: 0 },
+            worker: { files: 0, bytes: 0, gzipBytes: 0 },
+            utility: { files: 0, bytes: 0, gzipBytes: 0 },
+            lazy: { files: 0, bytes: 0, gzipBytes: 0 },
+            other: { files: 0, bytes: 0, gzipBytes: 0 },
+          },
+        },
+        { id: 'renderer', available: false },
+      ],
+    };
+    const existing = {
+      schemaVersion: 1,
+      lastRefresh: { renderer: '2026-07-29T00:00:00.000Z' },
+      budgets: {
+        web: { initial: { baselineBytes: 2000, maxBytes: 2200 } },
+        renderer: { initial: { baselineBytes: 5000, maxBytes: 5500 } },
+      },
+    };
+
+    const baseline = createBaseline(report, existing);
+    expect(baseline.budgets.web.initial).toMatchObject({ baselineBytes: 1000, maxBytes: 1100 });
+    expect(baseline.budgets.renderer).toEqual(existing.budgets.renderer);
+    expect(baseline.lastRefresh).toEqual({
+      renderer: '2026-07-29T00:00:00.000Z',
+      web: '2026-09-04T00:00:00.000Z',
+    });
+    expect(() => validateBaseline(baseline)).not.toThrow();
+  });
+
+  it('refuses to write a baseline from a same-origin runtime build', () => {
+    const report = {
+      generatedAt: 'now',
+      targets: [
+        {
+          id: 'web',
+          available: true,
+          rejectSameOriginRuntime: true,
+          sameOriginRuntimeAssets: ['assets/duckdb-mvp-abc.wasm'],
+          categories: {},
+        },
+      ],
+    };
+    expect(() => createBaseline(report, null)).toThrow(/LINGUA_WEB_RUNTIME_SAME_ORIGIN/u);
+  });
+
+  it('selects targets by id and rejects unknown ids', () => {
+    const targets = [{ id: 'web' }, { id: 'renderer' }];
+    expect(selectTargets(targets, [])).toBe(targets);
+    expect(selectTargets(targets, ['web']).map((target) => target.id)).toEqual(['web']);
+    expect(() => selectTargets(targets, ['wbe'])).toThrow(/Unknown performance target/u);
   });
 
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {
