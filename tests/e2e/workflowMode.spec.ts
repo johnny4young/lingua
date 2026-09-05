@@ -74,12 +74,21 @@ test.describe('Workflow mode action pill ', () => {
       'scratchpad'
     );
 
+    const activeTab = page.locator('[data-tab-id][data-active="true"]');
+    await expect(activeTab).toHaveAttribute('data-execution-state', 'idle');
+
     // Flip to Run mode via the action-pill workflow menu.
     await selectWorkflowMode(page, 'run');
     await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
       'data-workflow',
       'run'
     );
+
+    // The lazy controller can still be loading while data-running is false.
+    // Wait for this first manual run to finish before editing its input.
+    await expect(activeTab).toHaveAttribute('data-execution-state', 'success', {
+      timeout: 30_000,
+    });
 
     // Type an obviously-incomplete buffer; with auto-run off, the
     // implementation gate never fires either — the result panel stays still.
@@ -89,29 +98,52 @@ test.describe('Workflow mode action pill ', () => {
     await expect(page.getByTestId('auto-run-gate-notice')).toHaveCount(0);
   });
 
-  test('switching back to Scratchpad re-enables the auto-run gate', async ({
-    page,
-  }) => {
-    await seedSession(page, { language: 'en' });
-    await gotoApp(page);
-    await dismissWhatsNew(page);
-    await createJavaScriptTab(page);
+  for (const language of ['en', 'es'] as const) {
+    test(`switching back to Scratchpad after a cold Run re-enables auto-run (${language})`, async ({
+      page,
+    }) => {
+      const controllerRequested = Promise.withResolvers<void>();
+      const releaseController = Promise.withResolvers<void>();
+      // Hold the real lazy chunk, not the execution result. This deterministically
+      // exposes the pre-dispatch idle window that a fast local cache can hide.
+      await page.route(/\/assets\/manualRunController-[^/]+\.js$/, async route => {
+        controllerRequested.resolve();
+        await releaseController.promise;
+        await route.continue();
+      });
 
-    // Toggle through Run → Scratchpad and verify the gate still works.
-    await selectWorkflowMode(page, 'run');
-    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
-      'data-workflow',
-      'run'
-    );
+      try {
+        await seedSession(page, { language });
+        await gotoApp(page);
+        await dismissWhatsNew(page);
+        await createJavaScriptTab(page);
 
-    await selectWorkflowMode(page, 'scratchpad');
-    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
-      'data-workflow',
-      'scratchpad'
-    );
+        const activeTab = page.locator('[data-tab-id][data-active="true"]');
+        const runButton = page.getByTestId('action-pill-run');
+        await expect(activeTab).toHaveAttribute('data-execution-state', 'idle');
+        await selectWorkflowMode(page, 'run');
+        await controllerRequested.promise;
+        await expect(runButton).toHaveAttribute('data-workflow', 'run');
+        // Idle here means the controller has not dispatched yet, NOT that the
+        // requested run has finished. Do not try to open the next menu now.
+        await expect(runButton).toHaveAttribute('data-running', 'false');
+        releaseController.resolve();
+        // Success is durable even when the running state lasts less than a
+        // Playwright polling interval. The initial idle assertion excludes a
+        // stale terminal state, and failures still fail this assertion.
+        await expect(activeTab).toHaveAttribute('data-execution-state', 'success', {
+          timeout: 30_000,
+        });
 
-    // The implementation gate should still fire on an incomplete buffer.
-    await replaceEditorText(page, 'const x = ');
-    await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
-  });
+        await selectWorkflowMode(page, 'scratchpad');
+        await expect(runButton).toHaveAttribute('data-workflow', 'scratchpad');
+
+        await replaceEditorText(page, 'const x = ');
+        await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
+      } finally {
+        // Never leave the intercepted request pending when an assertion fails.
+        releaseController.resolve();
+      }
+    });
+  }
 });

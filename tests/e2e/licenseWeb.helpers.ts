@@ -601,15 +601,12 @@ export async function selectRuntimeMode(
 /**
  * Open the workflow menu and pick a mode.
  *
- * Waits for any in-flight execution to settle first. Choosing `run` or `debug`
- * does not only switch the mode — the menu item fires the action so
- * "switch + run" stays one click — which sets `isRunning` and therefore
- * DISABLES the menu trigger (`disabled={isRunning}` in
- * FloatingActionPillRunGroup). A caller that switches to `run` and then
- * immediately switches again would click a disabled button; Playwright
- * auto-waits for it to become enabled, so on a runner where the first run of
- * the session still pays worker warmup this surfaces as an opaque
- * `locator.click: Test timeout exceeded` rather than anything about running.
+ * Waits for an execution already reported by the UI to settle first. Choosing
+ * `run` or `debug` also fires that action, but its lazy controller can still be
+ * loading while `data-running` is false. This helper selects a mode; it does
+ * not guarantee that the dispatched action has completed. Tests that need a
+ * completed run before their next gesture must await a fresh terminal result
+ * (for example the active tab's first transition from idle to success).
  *
  * Same 30s budget and `data-running` signal as `waitForInitialAutoRunCompleted`.
  */

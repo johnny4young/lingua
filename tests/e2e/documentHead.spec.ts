@@ -68,6 +68,8 @@ test.describe('Document head — internal boot hints', () => {
     expect(html).toMatch(/<meta name="color-scheme" content="dark light"/);
 
     const preconnects = html.match(/<link[^>]*rel="preconnect"[^>]*>/g) ?? [];
+    // The E2E build serves WASM locally; it must not warm an external runtime host.
+    expect(preconnects).toHaveLength(2);
     expect(preconnects.some((tag) => tag.includes('https://licenses.linguacode.dev'))).toBe(true);
     expect(preconnects.some((tag) => tag.includes('https://updates.linguacode.dev'))).toBe(true);
     for (const tag of preconnects) {

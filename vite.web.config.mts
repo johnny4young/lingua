@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
+import { injectRuntimePreconnect } from './build/runtimePreconnect.mts';
 import { createWebViteAliases } from './build/viteAliases.mts';
 
 // Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
@@ -86,6 +87,21 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] }),
+      // Production points DuckDB/Ruby at the R2 mirror, an origin the
+      // browser has not touched by the time the user opens SQL or runs
+      // Ruby. Warm the connection from the static head. Same-origin builds
+      // (dev, e2e) never fetch from it, so the hint is gated with the
+      // runtime URLs themselves.
+      ...(useExternalWebRuntime
+        ? [
+            {
+              name: 'lingua-runtime-preconnect',
+              transformIndexHtml(html: string): string {
+                return injectRuntimePreconnect(html, webRuntimeBase);
+              },
+            },
+          ]
+        : []),
       // Dev-only: widen the web CSP's `connect-src` so a local OpenAI-compatible
       // AI server (Ollama on :11434, LM Studio on :1234, …) can be reached
       // directly from the dev browser for the "Explain this error" feature.

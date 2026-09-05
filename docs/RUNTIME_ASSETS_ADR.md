@@ -92,6 +92,15 @@ workflow uploads those versioned objects to Cloudflare R2 before deploying
 the Pages bundle. Local web dev keeps the defines as `null`, so Vite still
 serves local runtime assets from `node_modules`.
 
+Production web HTML also preconnects to the origin of the configured runtime
+base, with anonymous CORS (`crossorigin`) to match the WASM fetches. This is
+only a connection hint, not a WASM preload: DuckDB and Ruby remain lazy, and
+no download-time improvement is guaranteed if the connection expires before
+activation. Dev and `LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` builds omit the hint,
+using the same gate as the external WASM URL defines. The transform keeps
+this hint after the existing first-party preconnects; its tests cover both
+the real HTML entry and the resolved Vite configuration.
+
 Concretely:
 
 - `src/web/index.html` no longer allows `https://cdn.jsdelivr.net` in
