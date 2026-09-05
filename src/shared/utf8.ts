@@ -1,5 +1,5 @@
 /**
- * UTF-8 byte helpers shared by every surface that caps text by bytes.
+ * UTF-8 byte helpers for runner results, CLI output, capsules and share stdin.
  *
  * Three copies of "how many bytes is this string" and two incompatible
  * truncators used to live in the CLI, the capsule sanitiser and the worker
@@ -11,7 +11,8 @@
  */
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf-8', { fatal: false });
+// U+FEFF is payload data, not a transport BOM to strip from a kept prefix.
+const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: true });
 
 /** UTF-8 byte length of a string. */
 export function utf8ByteLength(value: string): number {

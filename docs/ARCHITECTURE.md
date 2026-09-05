@@ -83,6 +83,19 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+### UTF-8 text budgets
+
+`shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for
+worker results, CLI output, Capsule streams, and share-link stdin. It depends
+only on standard text encoders, not Node or renderer APIs. Truncation preserves
+a leading U+FEFF as payload data and never splits a valid surrogate pair.
+
+Worker serialized values reserve space for the localized truncation marker
+inside their 64 KiB UTF-8 budget; even a marker that fills or exceeds that
+budget is bounded first. Share-link stdin uses the same prefix helper in both
+the builder and decoder with its separate 4 KiB budget. Existing byte-counter
+exports remain compatibility facades, and unrelated domain limits are unchanged.
+
 ### Debugger expression boundary
 
 JavaScript and TypeScript debugging uses two distinct execution surfaces. The

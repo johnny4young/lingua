@@ -86,6 +86,29 @@ describe('capStderrIfOverflowing', () => {
 });
 
 describe('truncateSerialized', () => {
+  it.each([
+    ['exact-cap ASCII', 'm'.repeat(MAX_RESULT_BYTES)],
+    ['over-cap ASCII', 'm'.repeat(MAX_RESULT_BYTES + 1)],
+    ['over-cap multibyte', '日'.repeat(MAX_RESULT_BYTES)],
+    ['mixed surrogate boundary', 'a'.repeat(MAX_RESULT_BYTES - 3) + '😀'],
+  ])('bounds an oversized value with a %s marker', (_name, marker) => {
+    const value = 'x'.repeat(MAX_RESULT_BYTES + 1);
+    const result = truncateSerialized(value, marker);
+    expect(utf8ByteLength(result)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+    expect(result.isWellFormed()).toBe(true);
+    expect(result).not.toContain('\uFFFD');
+  });
+
+  it('allows a zero payload budget when the marker fills the cap', () => {
+    const marker = 'm'.repeat(MAX_RESULT_BYTES);
+    expect(truncateSerialized('x'.repeat(MAX_RESULT_BYTES + 1), marker)).toBe(marker);
+  });
+
+  it('does not append an oversized marker to an in-budget value', () => {
+    const value = '😀'.repeat(MAX_RESULT_BYTES / 4);
+    expect(truncateSerialized(value, 'm'.repeat(MAX_RESULT_BYTES + 1))).toBe(value);
+  });
+
   it('returns the input unchanged when under the cap', () => {
     expect(truncateSerialized('hello', '… [trunc]')).toBe('hello');
   });

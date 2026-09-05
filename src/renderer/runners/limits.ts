@@ -108,8 +108,9 @@ export function truncateSerialized(value: string, marker: string): string {
   // edge-case-tight budgets. Both sides count UTF-8 bytes: this cap is what
   // bounds the payload crossing the worker boundary, and slicing by UTF-16
   // units let CJK or emoji results through at three to four times the cap.
-  const headroom = Math.max(1, MAX_RESULT_BYTES - utf8ByteLength(marker));
-  return `${truncateUtf8(value, headroom)}${marker}`;
+  const boundedMarker = truncateUtf8(marker, MAX_RESULT_BYTES);
+  const headroom = MAX_RESULT_BYTES - utf8ByteLength(boundedMarker);
+  return `${truncateUtf8(value, headroom)}${boundedMarker}`;
 }
 
 /**

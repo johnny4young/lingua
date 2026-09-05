@@ -40,6 +40,12 @@ describe('truncateUtf8', () => {
     expect(truncateUtf8('abcdef', 4)).toBe('abcd');
   });
 
+  it('preserves a leading BOM as payload data when truncating', () => {
+    expect(truncateUtf8('\uFEFFabcd', 5)).toBe('\uFEFFab');
+    expect(truncateUtf8('\uFEFFabcd', 3)).toBe('\uFEFF');
+    expect(truncateUtf8('\uFEFFabcd', 2)).toBe('');
+  });
+
   it('never splits a multibyte character', () => {
     // 日 = 3 bytes; a 4-byte budget keeps one character, not one byte of the next
     expect(truncateUtf8('日本語', 4)).toBe('日');
