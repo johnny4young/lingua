@@ -42,7 +42,7 @@
     "check:bundled-audit": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ./scripts/assert-bundled-audit.mjs",
     "performance:report": "node ./scripts/performance-report.mjs",
     "performance:activation": "node ./scripts/measure-activation.mjs",
-    "performance:baseline": "node ./scripts/performance-report.mjs --write-baseline --require-all-targets",
+    "performance:baseline": "node ./scripts/performance-report.mjs --write-baseline",
     "check:performance": "node ./scripts/performance-report.mjs --check",
     "changelog:draft": "node ./scripts/changelog-draft.mjs",
     "changelog:check": "node ./scripts/changelog-check.mjs",

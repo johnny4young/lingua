@@ -354,6 +354,20 @@ A strict release/local check can require every baseline target with:
 node ./scripts/performance-report.mjs --check --require-all-targets
 ```
 
+The check also reports two conditions that are not byte overages:
+
+- **Build shape.** A `dist/web` that contains `duckdb-mvp-*.wasm` or
+  `ruby+stdlib.wasm` was built with `LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` (the
+  hermetic e2e shape); production points those runtimes at R2. The check
+  fails with a single `shape` violation naming the files instead of a wall
+  of runtime overages — run `pnpm run build:web` and check again. The
+  desktop renderer is exempt because it ships every runtime same-origin.
+- **Budget slack.** When `initial` or `lazy` measures below 75% of its
+  committed baseline, the budget has stopped protecting that category: the
+  ceiling still sits at the old size plus headroom. The report prints a
+  `Budget warnings` block pointing at the refresh command; pass
+  `--fail-on-slack` to make it a gate.
+
 The baseline was re-synchronized after v0.15.0 because an exact
 `origin/main` build already exceeded the older pre-release initial ceiling;
 the current branch changed the initial bundle by less than 1 KiB relative to
@@ -373,18 +387,33 @@ pnpm run performance:baseline
 pnpm run check:performance
 ```
 
-`performance:baseline` requires every versioned target to exist so a
-web-only refresh cannot accidentally delete desktop renderer budgets.
-Use `performance:report` for a non-mutating web-only report; it still
-marks the desktop renderer as unavailable when that build output is not
-present. Run `pnpm run smoke:desktop` before `performance:report` when
-you want the runtime observability section populated from a fresh smoke
-artifact.
+`performance:baseline` refreshes only the targets that have a build
+output on disk and keeps the committed budgets of the rest, so a
+web-only refresh on a laptop without a desktop renderer build is safe:
 
-Do not refresh the web baseline from a build created with
-`LINGUA_WEB_RUNTIME_SAME_ORIGIN=1`. That flag intentionally copies oversized
-Ruby and DuckDB assets for hermetic local e2e coverage; production builds use
-the owned R2 runtime URLs and are the only valid input for release budgets.
+```bash
+pnpm run build:web
+pnpm run performance:baseline --target=web
+pnpm run check:performance
+```
+
+The baseline records `lastRefresh` per target so a review can see which
+half was measured when. Add `--require-all-targets` when a refresh must
+cover every target (release cuts); do not combine it with `--target`.
+An explicit `--target` also fails when that target's build output is
+missing instead of succeeding without refreshing it. Use
+`performance:report` for a non-mutating report; it still marks the desktop
+renderer as unavailable when that build output is not present. Run
+`pnpm run smoke:desktop` before `performance:report` when you want the runtime
+observability section populated from a fresh smoke artifact.
+
+A baseline cannot be written from a build created with
+`LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` — `performance:baseline` refuses the
+shape. That flag intentionally copies oversized Ruby and DuckDB assets for
+hermetic local e2e coverage; production builds use the owned R2 runtime
+URLs and are the only valid input for release budgets. After a local
+`pnpm run test:e2e:web`, `dist/web` holds that shape until the next
+`pnpm run build:web`.
 
 ## Investigating regressions
 
