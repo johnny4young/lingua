@@ -372,6 +372,11 @@ export class GoplsLauncher {
 
   private setStatus(status: GoplsStatus): void {
     this.currentStatus = status;
-    this.options.onStatus?.(status);
+    try {
+      this.options.onStatus?.(status);
+    } catch {
+      // Keep the authoritative state even when an IPC observer is gone.
+      // Status delivery must not interrupt cleanup or reject recovery.
+    }
   }
 }

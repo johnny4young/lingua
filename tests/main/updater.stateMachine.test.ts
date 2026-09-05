@@ -136,6 +136,25 @@ describe('updater state-machine guards', () => {
     }
   });
 
+  it('clears both timers when quitting before the startup check', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = await loadUpdaterHarness();
+      const beforeQuit = harness.appOnce.mock.calls.find(([event]) => event === 'before-quit');
+      expect(beforeQuit).toBeDefined();
+      expect(vi.getTimerCount()).toBe(2);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      (beforeQuit![1] as () => void)();
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+      expect(harness.checkForUpdates).not.toHaveBeenCalled();
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it('captures every handler registerUpdater is expected to wire up', async () => {
     const harness = await loadUpdaterHarness();
 

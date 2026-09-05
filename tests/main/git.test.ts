@@ -513,7 +513,7 @@ describe('watchRepoHead ', () => {
     expect(() => handle.dispose()).not.toThrow();
   });
 
-  it('keeps the subscription alive and surfaces resolve-error when onChange throws', async () => {
+  it.each([false, true])('contains onChange failures when diagnostic delivery throws: %s', async (diagnosticThrows) => {
     // `resolveAndEmit` runs fire-and-forget (debounce timer, initial emit).
     // `onChange` is the IPC layer's callback and can throw once the
     // subscribing webContents is gone; before the guard that became an
@@ -533,19 +533,25 @@ describe('watchRepoHead ', () => {
     const rejections: unknown[] = [];
     const onRejection = (reason: unknown) => rejections.push(reason);
     process.on('unhandledRejection', onRejection);
+    let handle: Awaited<ReturnType<typeof watchRepoHead>> | undefined;
     try {
-      const handle = await watchRepoHead(workdir, {
+      handle = await watchRepoHead(workdir, {
         onChange: () => {
           throw new Error('webContents destroyed');
         },
-        onDiagnostic: (diag) => diagnostics.push(diag),
+        onDiagnostic: (diag) => {
+          diagnostics.push(diag);
+          if (diagnosticThrows) throw new Error('diagnostic observer destroyed');
+        },
       });
-      // Let the initial fire-and-forget emit settle.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Wait for actual delivery, not a fixed sleep that races a loaded runner.
+      await vi.waitFor(() => expect(diagnostics).toHaveLength(1));
+      await new Promise((resolve) => setImmediate(resolve));
       expect(rejections).toEqual([]);
       expect(diagnostics).toEqual([{ repoRoot: workdir, reason: 'resolve-error' }]);
-      expect(() => handle.dispose()).not.toThrow();
+      expect(() => handle?.dispose()).not.toThrow();
     } finally {
+      handle?.dispose();
       process.off('unhandledRejection', onRejection);
     }
   });

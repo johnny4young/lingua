@@ -704,7 +704,12 @@ export async function watchRepoHead(
   const surfaceDiagnostic = (
     reason: GitHeadWatcherDiagnostic['reason']
   ): void => {
-    callbacks.onDiagnostic?.({ repoRoot, reason });
+    try {
+      callbacks.onDiagnostic?.({ repoRoot, reason });
+    } catch {
+      // Diagnostic delivery is best effort, including from recovery handlers.
+      // A failing observer must not turn a handled error into a rejection.
+    }
   };
 
   const clearTimers = (): void => {

@@ -195,7 +195,7 @@ describe('RustAnalyzerLauncher initialize params', () => {
 });
 
 describe('RustAnalyzerLauncher crash recovery', () => {
-  it('degrades instead of leaving an unhandled rejection when recovery fails', async () => {
+  it.each([false, true])('contains recovery rejection when status delivery throws: %s', async (statusThrows) => {
     // The exit handler schedules one recovery attempt fire-and-forget. That
     // path resolves the binary and re-runs the initialize handshake, and
     // before the guard a rejection there surfaced as an unhandled rejection
@@ -208,8 +208,12 @@ describe('RustAnalyzerLauncher crash recovery', () => {
       const { RustAnalyzerLauncher } = await import('../../../src/main/lsp/rustAnalyzerLauncher');
       const statuses: Array<{ kind: string; error?: string }> = [];
       const launcher = new RustAnalyzerLauncher({
-        onStatus: (status) => statuses.push(status),
+        onStatus: (status) => {
+          statuses.push(status);
+          if (statusThrows) throw new Error('status observer destroyed');
+        },
       }) as unknown as {
+        status: () => { kind: string; error?: string };
         handleExit: (code: number | null, signal: NodeJS.Signals | null) => void;
         spawnAndInitializeRecovery: (exitDetail: string) => Promise<void>;
       };
@@ -221,6 +225,7 @@ describe('RustAnalyzerLauncher crash recovery', () => {
       await vi.advanceTimersByTimeAsync(1_000);
 
       expect(rejections).toEqual([]);
+      expect(launcher.status()).toEqual(statuses.at(-1));
       expect(statuses.at(-1)).toMatchObject({
         kind: 'degraded',
         error: expect.stringMatching(/rust-analyzer crashed \(code=1 signal=null\) and recovery failed: binary vanished mid-restart/u),

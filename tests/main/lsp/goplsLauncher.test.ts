@@ -173,7 +173,7 @@ describe('GoplsLauncher initialize params', () => {
 });
 
 describe('GoplsLauncher crash recovery', () => {
-  it('degrades instead of leaving an unhandled rejection when recovery fails', async () => {
+  it.each([false, true])('contains recovery rejection when status delivery throws: %s', async (statusThrows) => {
     // The exit handler schedules one recovery attempt fire-and-forget. That
     // path resolves the binary and re-runs the initialize handshake, and
     // before the guard a rejection there surfaced as an unhandled rejection
@@ -186,8 +186,12 @@ describe('GoplsLauncher crash recovery', () => {
       const { GoplsLauncher } = await import('../../../src/main/lsp/goplsLauncher');
       const statuses: Array<{ kind: string; error?: string }> = [];
       const launcher = new GoplsLauncher({
-        onStatus: (status) => statuses.push(status),
+        onStatus: (status) => {
+          statuses.push(status);
+          if (statusThrows) throw new Error('status observer destroyed');
+        },
       }) as unknown as {
+        status: () => { kind: string; error?: string };
         handleExit: (code: number | null, signal: NodeJS.Signals | null) => void;
         spawnAndInitializeRecovery: (exitDetail: string) => Promise<void>;
       };
@@ -199,6 +203,7 @@ describe('GoplsLauncher crash recovery', () => {
       await vi.advanceTimersByTimeAsync(1_000);
 
       expect(rejections).toEqual([]);
+      expect(launcher.status()).toEqual(statuses.at(-1));
       expect(statuses.at(-1)).toMatchObject({
         kind: 'degraded',
         error: expect.stringMatching(/gopls crashed \(code=1 signal=null\) and recovery failed: binary vanished mid-restart/u),
