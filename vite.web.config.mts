@@ -16,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
 import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
+import { injectRuntimePreconnect } from './build/runtimePreconnect.mts';
 import { createWebViteAliases } from './build/viteAliases.mts';
 
 // Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
@@ -92,6 +93,21 @@ export default defineConfig(({ command }) => {
       // Gated on `command === 'serve'`, so it runs ONLY under `dev:web` /
       // `dev:web:pro` — a production `vite build` never sees it and the shipped
       // CSP stays `https:`-only. See docs/runbooks/local-ai-smoke.md.
+      // Production points DuckDB/Ruby at the R2 mirror, an origin the
+      // browser has not touched by the time the user opens SQL or runs
+      // Ruby. Warm the connection from the static head. Same-origin builds
+      // (dev, e2e) never fetch from it, so the hint is gated with the
+      // runtime URLs themselves.
+      ...(useExternalWebRuntime
+        ? [
+            {
+              name: 'lingua-runtime-preconnect',
+              transformIndexHtml(html: string): string {
+                return injectRuntimePreconnect(html, webRuntimeBase);
+              },
+            },
+          ]
+        : []),
       ...(command === 'serve'
         ? [
             {
