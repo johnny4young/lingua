@@ -87,12 +87,6 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] }),
-      // Dev-only: widen the web CSP's `connect-src` so a local OpenAI-compatible
-      // AI server (Ollama on :11434, LM Studio on :1234, …) can be reached
-      // directly from the dev browser for the "Explain this error" feature.
-      // Gated on `command === 'serve'`, so it runs ONLY under `dev:web` /
-      // `dev:web:pro` — a production `vite build` never sees it and the shipped
-      // CSP stays `https:`-only. See docs/runbooks/local-ai-smoke.md.
       // Production points DuckDB/Ruby at the R2 mirror, an origin the
       // browser has not touched by the time the user opens SQL or runs
       // Ruby. Warm the connection from the static head. Same-origin builds
@@ -108,6 +102,12 @@ export default defineConfig(({ command }) => {
             },
           ]
         : []),
+      // Dev-only: widen the web CSP's `connect-src` so a local OpenAI-compatible
+      // AI server (Ollama on :11434, LM Studio on :1234, …) can be reached
+      // directly from the dev browser for the "Explain this error" feature.
+      // Gated on `command === 'serve'`, so it runs ONLY under `dev:web` /
+      // `dev:web:pro` — a production `vite build` never sees it and the shipped
+      // CSP stays `https:`-only. See docs/runbooks/local-ai-smoke.md.
       ...(command === 'serve'
         ? [
             {
