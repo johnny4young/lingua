@@ -453,6 +453,20 @@ route oversized DuckDB and Ruby WASM files through
 assets above 25 MiB. Local dev leaves that variable unset and Vite serves the
 runtime files from `node_modules` / the runtime-asset middleware.
 
+#### Heap for the same-origin e2e build
+
+`pnpm run test:e2e:web` builds the web app with
+`LINGUA_WEB_RUNTIME_SAME_ORIGIN=1` so the Playwright suite never fetches
+from the R2 mirror (its CORS allowlist only admits the production origin).
+That shape emits the 39 MB DuckDB and 30 MB Ruby WASM as build assets on
+top of the 14 MB esbuild WASM, the Monaco TypeScript worker and the raw
+`.d.ts` strings, which is enough to exhaust Node's default old-space heap
+(the build dies with exit code 137). Run it with
+`NODE_OPTIONS=--max-old-space-size=8192`; CI sets the same value on the e2e
+job. The production-shape `pnpm run build:web` does not need it because the
+`__LINGUA_*_WASM_URL__` defines let rolldown drop the same-origin branch
+and never emit those assets.
+
 ## Automation and delivery
 
 - CI runs web build, type checking, linting, tests, i18n guards, changelog/version guard, third-party license policy, and high-severity audit checks.

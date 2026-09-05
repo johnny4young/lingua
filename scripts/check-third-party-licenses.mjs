@@ -65,16 +65,38 @@ function shortPackagePath(storePath, name) {
 }
 
 /**
- * Build-only packages whose artifacts are copied into release output must be
- * reviewed alongside production dependencies even though their JavaScript
- * wrappers are not packaged. Verify metadata from the installed package so a
- * missing dependency fails closed.
+ * Packages that ship to users without being production `dependencies`, so
+ * `pnpm licenses list --prod` never sees them. Two shapes:
+ *
+ *   - build-only packages whose native artifacts are COPIED into the release
+ *     output (`@vscode/ripgrep` under extraResources);
+ *   - devDependencies that Vite INLINES into the main/preload bundles because
+ *     `src/main/**` imports them (`undici`, `ws`) — the same hole the bundled
+ *     audit gate closes for advisories (see scripts/lib/bundledAudit.mjs and
+ *     docs/RELEASE_SECURITY.md); the SBOM and the license report have to
+ *     close it too, or the two artifacts a compliance review reads describe
+ *     a smaller binary than the one that ships.
+ *
+ * Verify metadata from the installed package so a missing dependency fails
+ * closed. tests/scripts/releaseCompliance.test.ts cross-checks this
+ * inventory against the complete scanned main/preload closure (including
+ * transitive packages), not just directly declared devDependencies.
  */
 export const PACKAGED_EXTERNAL_RUNTIME_COMPONENTS = [
   {
     name: '@vscode/ripgrep',
     packageJsonPath: 'node_modules/@vscode/ripgrep/package.json',
     artifactPath: 'extraResources/ripgrep',
+  },
+  {
+    name: 'undici',
+    packageJsonPath: 'node_modules/undici/package.json',
+    artifactPath: '.vite/build/main.js',
+  },
+  {
+    name: 'ws',
+    packageJsonPath: 'node_modules/ws/package.json',
+    artifactPath: '.vite/build/main.js',
   },
 ];
 
@@ -89,6 +111,7 @@ export function collectPackagedExternalRuntimeEntries({ root = process.cwd() } =
         version: typeof manifest.version === 'string' ? manifest.version : '0.0.0',
         license: normalizeLicense(manifest.license),
         path: component.artifactPath,
+        packageJsonPath: component.packageJsonPath,
         missingPackageJson: false,
       };
     } catch {
@@ -97,6 +120,7 @@ export function collectPackagedExternalRuntimeEntries({ root = process.cwd() } =
         version: '0.0.0',
         license: 'UNKNOWN',
         path: component.artifactPath,
+        packageJsonPath: component.packageJsonPath,
         missingPackageJson: true,
       };
     }
@@ -203,7 +227,7 @@ export function reviewLicenseEntry(entry) {
   if (entry.missingPackageJson) {
     return {
       ok: false,
-      reason: `missing package metadata at ${entry.path}/package.json`,
+      reason: `missing package metadata at ${entry.packageJsonPath ?? `${entry.path}/package.json`}`,
     };
   }
 
