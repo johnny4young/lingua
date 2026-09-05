@@ -265,6 +265,22 @@ over each package's `dependencies` plus its non-optional `peerDependencies`
 (that last part is how `hono` is reached, through `@hono/node-server`). It
 judges the FULL `pnpm audit --json` payload restricted to that closure.
 
+**SBOM and license coverage.** `check:licenses` and `sbom:release` share the
+production-license inventory plus `PACKAGED_EXTERNAL_RUNTIME_COMPONENTS` in
+`scripts/check-third-party-licenses.mjs`. Register copied runtime artifacts and
+inlined packages there, including transitive packages not already covered by
+production entries. Keep the installed `packageJsonPath` separate from the
+shipped `artifactPath`: a missing manifest must name the actual metadata path,
+not a path inside a bundle file.
+
+`tests/scripts/releaseCompliance.test.ts` compares the entire scanned closure
+against that union, then verifies names, versions, licenses, deterministic
+output, and the committed report against freshly generated artifacts. After
+changing an entry or its installed version, run `pnpm run license:report` and
+`pnpm run sbom:release`. This is main/preload package-name coverage using the
+audit scanner, not a version-resolved bundler metafile or a renderer inventory;
+it does not certify every byte of the release.
+
 **Scope — main and preload only.** Those run with full OS privileges outside
 the browser sandbox, which is what makes a shipped advisory there materially
 different from one in the renderer graph. Keeping the renderer out is also what

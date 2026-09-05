@@ -78,9 +78,9 @@ function shortPackagePath(storePath, name) {
  *     a smaller binary than the one that ships.
  *
  * Verify metadata from the installed package so a missing dependency fails
- * closed. tests/scripts/checkThirdPartyLicenses.test.ts cross-checks this
- * list against the bundled closure so a third inlined devDependency cannot
- * slip past unlisted.
+ * closed. tests/scripts/releaseCompliance.test.ts cross-checks this
+ * inventory against the complete scanned main/preload closure (including
+ * transitive packages), not just directly declared devDependencies.
  */
 export const PACKAGED_EXTERNAL_RUNTIME_COMPONENTS = [
   {
@@ -111,6 +111,7 @@ export function collectPackagedExternalRuntimeEntries({ root = process.cwd() } =
         version: typeof manifest.version === 'string' ? manifest.version : '0.0.0',
         license: normalizeLicense(manifest.license),
         path: component.artifactPath,
+        packageJsonPath: component.packageJsonPath,
         missingPackageJson: false,
       };
     } catch {
@@ -119,6 +120,7 @@ export function collectPackagedExternalRuntimeEntries({ root = process.cwd() } =
         version: '0.0.0',
         license: 'UNKNOWN',
         path: component.artifactPath,
+        packageJsonPath: component.packageJsonPath,
         missingPackageJson: true,
       };
     }
@@ -225,7 +227,7 @@ export function reviewLicenseEntry(entry) {
   if (entry.missingPackageJson) {
     return {
       ok: false,
-      reason: `missing package metadata at ${entry.path}/package.json`,
+      reason: `missing package metadata at ${entry.packageJsonPath ?? `${entry.path}/package.json`}`,
     };
   }
 

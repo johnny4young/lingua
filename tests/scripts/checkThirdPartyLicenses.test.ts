@@ -1,6 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -34,7 +33,9 @@ describe('check-third-party-licenses', () => {
       ok: false,
       reason: 'missing license metadata',
     });
-    expect(reviewLicenseEntry({ ...baseEntry, license: 'LicenseRef-Reviewed-Later' })).toMatchObject({
+    expect(
+      reviewLicenseEntry({ ...baseEntry, license: 'LicenseRef-Reviewed-Later' })
+    ).toMatchObject({
       ok: false,
       reason: 'unreviewed license expression: LicenseRef-Reviewed-Later',
     });
@@ -67,7 +68,7 @@ describe('check-third-party-licenses', () => {
           version: '1.18.0',
           license: 'MIT',
         }),
-        'utf8',
+        'utf8'
       );
 
       expect(collectPackagedExternalRuntimeEntries({ root })).toContainEqual({
@@ -76,6 +77,7 @@ describe('check-third-party-licenses', () => {
         license: 'MIT',
         path: 'extraResources/ripgrep',
         missingPackageJson: false,
+        packageJsonPath: 'node_modules/@vscode/ripgrep/package.json',
       });
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -94,12 +96,13 @@ describe('check-third-party-licenses', () => {
         await writeFile(
           path.join(packageDirectory, 'package.json'),
           JSON.stringify({ name, version, license }),
-          'utf8',
+          'utf8'
         );
       }
 
       const entries = collectPackagedExternalRuntimeEntries({ root });
       expect(entries).toContainEqual({
+        packageJsonPath: 'node_modules/undici/package.json',
         name: 'undici',
         version: '7.29.0',
         license: 'MIT',
@@ -107,6 +110,7 @@ describe('check-third-party-licenses', () => {
         missingPackageJson: false,
       });
       expect(entries).toContainEqual({
+        packageJsonPath: 'node_modules/ws/package.json',
         name: 'ws',
         version: '8.21.0',
         license: 'MIT',
@@ -118,36 +122,35 @@ describe('check-third-party-licenses', () => {
     }
   });
 
-  it('lists every devDependency the desktop bundles actually inline', async () => {
-    // Same scanner the bundled audit gate uses: anything declared under
-    // devDependencies that reaches src/main or src/preload ships inside
-    // .vite/build/main.js. If this fails, add the package to
-    // PACKAGED_EXTERNAL_RUNTIME_COMPONENTS so the SBOM and the license
-    // report keep describing the binary that ships.
-    // The scanner resolves each bundle's externals by loading the Vite
-    // configs, which rolldown cannot parse under the vitest transform, so
-    // run it in a plain Node process the way tests/scripts/bundledAudit.test.ts
-    // exercises the gate.
-    const scan = spawnSync(
-      process.execPath,
-      [
-        '--experimental-strip-types',
-        '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
-        '-e',
-        "import('./scripts/assert-bundled-audit.mjs').then(async (m) => { process.stdout.write(JSON.stringify(await m.scanBundledClosure())); })",
-      ],
-      { cwd: process.cwd(), encoding: 'utf8' },
-    );
-    expect(scan.status, scan.stderr).toBe(0);
-    const closure = JSON.parse(scan.stdout) as string[];
-    const manifest = JSON.parse(await readFile(path.join(process.cwd(), 'package.json'), 'utf8')) as {
-      devDependencies?: Record<string, string>;
-    };
-    const declaredDev = new Set(Object.keys(manifest.devDependencies ?? {}));
-    const inlinedDev = closure.filter((name) => declaredDev.has(name));
-    const listed = new Set(PACKAGED_EXTERNAL_RUNTIME_COMPONENTS.map((component) => component.name));
-
-    expect(inlinedDev.length).toBeGreaterThan(0);
-    expect(inlinedDev.filter((name) => !listed.has(name))).toEqual([]);
-  }, 60_000);
+  it.each(['missing', 'malformed'])(
+    'reports the metadata path for %s packaged manifests',
+    async state => {
+      const root = await mkdtemp(path.join(process.cwd(), '.tmp-packaged-metadata-'));
+      try {
+        if (state === 'malformed') {
+          for (const component of PACKAGED_EXTERNAL_RUNTIME_COMPONENTS) {
+            const metadataPath = path.join(root, component.packageJsonPath);
+            await mkdir(path.dirname(metadataPath), { recursive: true });
+            await writeFile(metadataPath, '{not json', 'utf8');
+          }
+        }
+        const entries = collectPackagedExternalRuntimeEntries({ root });
+        for (const component of PACKAGED_EXTERNAL_RUNTIME_COMPONENTS) {
+          const entry = entries.find(item => item.name === component.name);
+          expect(entry).toMatchObject({
+            path: component.artifactPath,
+            packageJsonPath: component.packageJsonPath,
+            missingPackageJson: true,
+          });
+          expect(reviewLicenseEntry(entry)).toEqual({
+            ok: false,
+            reason: `missing package metadata at ${component.packageJsonPath}`,
+          });
+          expect(renderMarkdownReport([entry])).toContain(component.packageJsonPath);
+        }
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  );
 });
