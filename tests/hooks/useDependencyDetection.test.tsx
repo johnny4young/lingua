@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useDependencyDetection } from '../../src/renderer/hooks/useDependencyDetection';
+import {
+  dependencyTelemetryDedupSizeForTests,
+  primeDependencyTelemetryDedupForTests,
+  useDependencyDetection,
+} from '../../src/renderer/hooks/useDependencyDetection';
 import { useDependencyDetectionStore } from '../../src/renderer/stores/dependencyDetectionStore';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
@@ -50,6 +54,25 @@ describe('useDependencyDetection', () => {
       activeTabId: 'active-tab',
       pendingReveal: null,
     });
+  });
+
+  it('drops the once-per-tab telemetry keys when their tab closes', () => {
+    const before = dependencyTelemetryDedupSizeForTests();
+    primeDependencyTelemetryDedupForTests('closing-tab', 'javascript');
+    primeDependencyTelemetryDedupForTests('active-tab', 'javascript');
+    expect(dependencyTelemetryDedupSizeForTests()).toBe(before + 4);
+
+    // Closing a tab replaces the tabs array; only the live tab's keys survive.
+    act(() => {
+      useEditorStore.setState({
+        tabs: useEditorStore.getState().tabs.filter((tab) => tab.id === 'active-tab'),
+      });
+    });
+    expect(dependencyTelemetryDedupSizeForTests()).toBe(before + 2);
+
+    // Priming the survivor again is a no-op: the de-dup still holds for it.
+    primeDependencyTelemetryDedupForTests('active-tab', 'javascript');
+    expect(dependencyTelemetryDedupSizeForTests()).toBe(before + 2);
   });
 
   it('clears every cached tab when dependency detection is disabled', async () => {

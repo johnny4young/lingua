@@ -41,12 +41,54 @@ import { useUIStore } from '../stores/uiStore';
 import { loadDependencyDetectionRuntime } from './dependencyDetectionRuntimeLoader';
 import { dependencyDetectionDebounceMs } from './dependencyDetectionPaste';
 
-// Per-session de-dup for the once-per-tab+language telemetry events.
+// Per-session de-dup for the once-per-tab+language telemetry events. Keys
+// are dropped when their tab closes: without eviction both sets grew for the
+// life of the session, one entry per tab ever opened per language, and a
+// closed tab can never fire the event again anyway.
 const bannerShownKeys = new Set<string>();
 const summaryFiredKeys = new Set<string>();
+let dedupEvictionArmed = false;
 
 function bannerKey(tabId: string, language: string): string {
   return `${tabId}::${language}`;
+}
+
+function tabIdOfKey(key: string): string {
+  return key.slice(0, key.indexOf('::'));
+}
+
+/**
+ * Subscribe once to the editor tabs and drop de-dup keys whose tab is gone.
+ * Armed lazily on the first key so a session that never shows a dependency
+ * banner never pays for the subscription.
+ */
+function armDedupEviction(): void {
+  if (dedupEvictionArmed) return;
+  dedupEvictionArmed = true;
+  useEditorStore.subscribe((state, previous) => {
+    if (state.tabs === previous.tabs) return;
+    const live = new Set(state.tabs.map((tab) => tab.id));
+    for (const keys of [bannerShownKeys, summaryFiredKeys]) {
+      for (const key of keys) {
+        if (!live.has(tabIdOfKey(key))) keys.delete(key);
+      }
+    }
+  });
+}
+
+/** Test-only: number of de-dup keys currently held across both sets. */
+export function dependencyTelemetryDedupSizeForTests(): number {
+  return bannerShownKeys.size + summaryFiredKeys.size;
+}
+
+/** Test-only: record both once-per-tab events for a tab without telemetry. */
+export function primeDependencyTelemetryDedupForTests(
+  tabId: string,
+  language: DependencyAdapterLanguage
+): void {
+  const noop: TelemetryTrack = () => {};
+  fireBannerShownTelemetry(noop, tabId, language);
+  fireSummaryTelemetry(noop, tabId, language, []);
 }
 
 // Share the canonical bucketing helper from
@@ -74,6 +116,7 @@ function fireBannerShownTelemetry(
 ): void {
   const key = bannerKey(tabId, language);
   if (bannerShownKeys.has(key)) return;
+  armDedupEviction();
   bannerShownKeys.add(key);
   track('dependency.banner_shown', { language });
 }
@@ -86,6 +129,7 @@ function fireSummaryTelemetry(
 ): void {
   const key = bannerKey(tabId, language);
   if (summaryFiredKeys.has(key)) return;
+  armDedupEviction();
   summaryFiredKeys.add(key);
   let detected = 0;
   let installed = 0;
