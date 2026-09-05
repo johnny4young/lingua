@@ -188,7 +188,8 @@ jobs:
       - name: Install Chromium system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
-      # The web build OOMs on the default heap; see docs/DEVELOPMENT.md.
+      # The same-origin e2e web build OOMs on the default heap; see
+      # docs/DEVELOPMENT.md, Web build, Heap for the same-origin e2e build.
       - name: Web end-to-end suite
         run: pnpm run test:e2e:web
         env:
