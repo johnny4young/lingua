@@ -49,6 +49,10 @@ const MONACO_BARREL = 'src/renderer/monaco.ts';
  */
 const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
   { module: 'src/renderer/data/changelog.ts', why: '77 KiB of release copy' },
+  {
+    module: 'src/renderer/monacoNodeTypes.ts',
+    why: '2.4 MiB of raw @types/node declarations, loaded on idle with the Node runtime or once a buffer refers to Node',
+  },
   { module: 'src/renderer/components/Settings/SettingsModal.tsx', why: 'the whole Settings tree' },
   {
     module: 'src/renderer/components/CommandPalette/CommandPalette.tsx',
