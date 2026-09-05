@@ -28,6 +28,7 @@
  * `docs/CAPSULE_TEST_MATRIX.md` for the test matrix.
  */
 
+import { truncateUtf8, utf8ByteLength } from './utf8';
 import { REDACTION_VERSION, redactFlatRecord } from './redaction';
 
 // ---------------------------------------------------------------------------
@@ -147,9 +148,7 @@ export const MAX_CAPSULE_BYTES = 4_194_304;
 
 export type CapsuleSizeBucket = '<10kb' | '<100kb' | '<1mb' | '<4mb' | '>=4mb';
 
-export function utf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).byteLength;
-}
+export { utf8ByteLength } from './utf8';
 
 /**
  * Telemetry size buckets. Closed enum mirrored in
@@ -164,27 +163,6 @@ export function bucketCapsuleSize(bytes: number): CapsuleSizeBucket {
   return '>=4mb';
 }
 
-function truncateUtf8(value: string, maxBytes: number): string {
-  if (utf8ByteLength(value) <= maxBytes) return value;
-
-  let low = 0;
-  let high = value.length;
-  while (low < high) {
-    const mid = Math.floor((low + high + 1) / 2);
-    if (utf8ByteLength(value.slice(0, mid)) <= maxBytes) {
-      low = mid;
-    } else {
-      high = mid - 1;
-    }
-  }
-
-  let truncated = value.slice(0, low);
-  const last = truncated.charCodeAt(truncated.length - 1);
-  if (last >= 0xd800 && last <= 0xdbff) {
-    truncated = truncated.slice(0, -1);
-  }
-  return truncated;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

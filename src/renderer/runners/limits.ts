@@ -17,6 +17,7 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
+import { truncateUtf8, utf8ByteLength } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
@@ -102,11 +103,13 @@ export function capStderrIfOverflowing(
  * Returns the input unchanged when it already fits.
  */
 export function truncateSerialized(value: string, marker: string): string {
-  if (value.length <= MAX_RESULT_BYTES) return value;
-  // Reserve a few characters for the marker so the suffix is always
-  // visible even on edge-case-tight budgets.
-  const headroom = Math.max(1, MAX_RESULT_BYTES - marker.length);
-  return `${value.slice(0, headroom)}${marker}`;
+  if (utf8ByteLength(value) <= MAX_RESULT_BYTES) return value;
+  // Reserve room for the marker so the suffix is always visible even on
+  // edge-case-tight budgets. Both sides count UTF-8 bytes: this cap is what
+  // bounds the payload crossing the worker boundary, and slicing by UTF-16
+  // units let CJK or emoji results through at three to four times the cap.
+  const headroom = Math.max(1, MAX_RESULT_BYTES - utf8ByteLength(marker));
+  return `${truncateUtf8(value, headroom)}${marker}`;
 }
 
 /**

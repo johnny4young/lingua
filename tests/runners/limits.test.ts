@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+import { utf8ByteLength } from '../../src/shared/utf8';
 import {
   MAX_CONSOLE_ENTRIES,
   MAX_RESULT_BYTES,
@@ -93,7 +95,28 @@ describe('truncateSerialized', () => {
     const value = 'x'.repeat(MAX_RESULT_BYTES + 100);
     const truncated = truncateSerialized(value, marker);
     expect(truncated.endsWith(marker)).toBe(true);
-    expect(truncated.length).toBe(MAX_RESULT_BYTES);
+    expect(utf8ByteLength(truncated)).toBe(MAX_RESULT_BYTES);
+  });
+
+  it('caps multibyte results by UTF-8 bytes, not UTF-16 units', () => {
+    // Each 日 is one code unit but three bytes: slicing by .length let this
+    // payload through at three times the byte cap.
+    const marker = '… [result truncated]';
+    const value = '日'.repeat(MAX_RESULT_BYTES);
+    const truncated = truncateSerialized(value, marker);
+    expect(truncated.endsWith(marker)).toBe(true);
+    expect(utf8ByteLength(truncated)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+    expect(utf8ByteLength(truncated)).toBeGreaterThan(MAX_RESULT_BYTES - 4);
+  });
+
+  it('never ends the kept payload on a lone surrogate', () => {
+    const marker = '…';
+    const value = '😀'.repeat(MAX_RESULT_BYTES);
+    const truncated = truncateSerialized(value, marker);
+    const kept = truncated.slice(0, -marker.length);
+    const last = kept.charCodeAt(kept.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+    expect(utf8ByteLength(truncated)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
   });
 });
 
