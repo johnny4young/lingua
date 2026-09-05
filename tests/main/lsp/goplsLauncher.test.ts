@@ -171,3 +171,41 @@ describe('GoplsLauncher initialize params', () => {
     ]);
   });
 });
+
+describe('GoplsLauncher crash recovery', () => {
+  it('degrades instead of leaving an unhandled rejection when recovery fails', async () => {
+    // The exit handler schedules one recovery attempt fire-and-forget. That
+    // path resolves the binary and re-runs the initialize handshake, and
+    // before the guard a rejection there surfaced as an unhandled rejection
+    // in the main process — precisely when the server had already crashed.
+    vi.useFakeTimers();
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', onRejection);
+    try {
+      const { GoplsLauncher } = await import('../../../src/main/lsp/goplsLauncher');
+      const statuses: Array<{ kind: string; error?: string }> = [];
+      const launcher = new GoplsLauncher({
+        onStatus: (status) => statuses.push(status),
+      }) as unknown as {
+        handleExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+        spawnAndInitializeRecovery: (exitDetail: string) => Promise<void>;
+      };
+      launcher.spawnAndInitializeRecovery = vi
+        .fn()
+        .mockRejectedValue(new Error('binary vanished mid-restart'));
+
+      launcher.handleExit(1, null);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(rejections).toEqual([]);
+      expect(statuses.at(-1)).toMatchObject({
+        kind: 'degraded',
+        error: expect.stringMatching(/gopls crashed \(code=1 signal=null\) and recovery failed: binary vanished mid-restart/u),
+      });
+    } finally {
+      process.off('unhandledRejection', onRejection);
+      vi.useRealTimers();
+    }
+  });
+});

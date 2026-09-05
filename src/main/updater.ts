@@ -172,7 +172,12 @@ function startUpdater(): void {
     });
   };
   setTimeout(runCheck, 10_000);
-  setInterval(runCheck, UPDATE_INTERVAL_MS);
+  // Keep the handle so shutdown can stop the poll: an interval that is never
+  // cleared keeps polling the feed while the app is tearing down and holds
+  // the event loop open for anything that waits on it.
+  const poll = setInterval(runCheck, UPDATE_INTERVAL_MS);
+  poll.unref?.();
+  app.once('before-quit', () => clearInterval(poll));
 }
 
 export function registerUpdater(): void {

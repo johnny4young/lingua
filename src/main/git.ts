@@ -740,19 +740,28 @@ export async function watchRepoHead(
   const headDir = path.dirname(headPath);
   const headBasename = path.basename(headPath);
 
+  // Called fire-and-forget from the debounce timer and from startWatcher, so
+  // it must never reject: an exception here would be an unhandled rejection
+  // in the main process, fired on every HEAD change. `onChange` is supplied
+  // by the IPC layer and can throw once the subscribing webContents is gone;
+  // that is a diagnostic for this subscription, not a crash for the app.
   const resolveAndEmit = async (): Promise<void> => {
     if (cancelled) return;
-    const summary = await resolveHeadSummary(repoRoot);
-    if (cancelled || !summary) return;
-    const branchChanged = initialised ? summary.branch !== lastBranch : false;
-    lastBranch = summary.branch;
-    initialised = true;
-    callbacks.onChange({
-      repoRoot,
-      branchChanged,
-      branch: summary.branch ?? null,
-      ...(summary.commit ? { commit: summary.commit } : {}),
-    });
+    try {
+      const summary = await resolveHeadSummary(repoRoot);
+      if (cancelled || !summary) return;
+      const branchChanged = initialised ? summary.branch !== lastBranch : false;
+      lastBranch = summary.branch;
+      initialised = true;
+      callbacks.onChange({
+        repoRoot,
+        branchChanged,
+        branch: summary.branch ?? null,
+        ...(summary.commit ? { commit: summary.commit } : {}),
+      });
+    } catch {
+      if (!cancelled) surfaceDiagnostic('resolve-error');
+    }
   };
 
   const scheduleResolve = (): void => {
