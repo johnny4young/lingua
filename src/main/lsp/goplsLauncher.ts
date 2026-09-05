@@ -335,7 +335,18 @@ export class GoplsLauncher {
     this.restartAttempted = true;
     setTimeout(() => {
       if (this.disposed) return;
-      void this.spawnAndInitializeRecovery(exitDetail);
+      // The recovery spawn resolves binaries and re-runs the initialize
+      // handshake; any of those can reject. Left unhandled, that rejection
+      // would surface as an uncaught error in the main process precisely
+      // when the server has already crashed once — degrade instead.
+      this.spawnAndInitializeRecovery(exitDetail).catch((error: unknown) => {
+        if (this.disposed) return;
+        const reason = error instanceof Error ? error.message : String(error);
+        this.setStatus({
+          kind: 'degraded',
+          error: `gopls crashed (${exitDetail}) and recovery failed: ${reason}`,
+        });
+      });
     }, RESTART_BACKOFF_MS);
   }
 
@@ -361,6 +372,11 @@ export class GoplsLauncher {
 
   private setStatus(status: GoplsStatus): void {
     this.currentStatus = status;
-    this.options.onStatus?.(status);
+    try {
+      this.options.onStatus?.(status);
+    } catch {
+      // Keep the authoritative state even when an IPC observer is gone.
+      // Status delivery must not interrupt cleanup or reject recovery.
+    }
   }
 }

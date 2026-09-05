@@ -193,3 +193,46 @@ describe('RustAnalyzerLauncher initialize params', () => {
     ]);
   });
 });
+
+describe('RustAnalyzerLauncher crash recovery', () => {
+  it.each([false, true])('contains recovery rejection when status delivery throws: %s', async (statusThrows) => {
+    // The exit handler schedules one recovery attempt fire-and-forget. That
+    // path resolves the binary and re-runs the initialize handshake, and
+    // before the guard a rejection there surfaced as an unhandled rejection
+    // in the main process — precisely when the server had already crashed.
+    vi.useFakeTimers();
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', onRejection);
+    try {
+      const { RustAnalyzerLauncher } = await import('../../../src/main/lsp/rustAnalyzerLauncher');
+      const statuses: Array<{ kind: string; error?: string }> = [];
+      const launcher = new RustAnalyzerLauncher({
+        onStatus: (status) => {
+          statuses.push(status);
+          if (statusThrows) throw new Error('status observer destroyed');
+        },
+      }) as unknown as {
+        status: () => { kind: string; error?: string };
+        handleExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+        spawnAndInitializeRecovery: (exitDetail: string) => Promise<void>;
+      };
+      launcher.spawnAndInitializeRecovery = vi
+        .fn()
+        .mockRejectedValue(new Error('binary vanished mid-restart'));
+
+      launcher.handleExit(1, null);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(rejections).toEqual([]);
+      expect(launcher.status()).toEqual(statuses.at(-1));
+      expect(statuses.at(-1)).toMatchObject({
+        kind: 'degraded',
+        error: expect.stringMatching(/rust-analyzer crashed \(code=1 signal=null\) and recovery failed: binary vanished mid-restart/u),
+      });
+    } finally {
+      process.off('unhandledRejection', onRejection);
+      vi.useRealTimers();
+    }
+  });
+});

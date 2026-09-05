@@ -171,8 +171,16 @@ function startUpdater(): void {
       });
     });
   };
-  setTimeout(runCheck, 10_000);
-  setInterval(runCheck, UPDATE_INTERVAL_MS);
+  // Neither timer should keep the event loop alive or start a check during
+  // shutdown, including a quit before the first ten seconds have elapsed.
+  const initialCheck = setTimeout(runCheck, 10_000);
+  initialCheck.unref?.();
+  const poll = setInterval(runCheck, UPDATE_INTERVAL_MS);
+  poll.unref?.();
+  app.once('before-quit', () => {
+    clearTimeout(initialCheck);
+    clearInterval(poll);
+  });
 }
 
 export function registerUpdater(): void {

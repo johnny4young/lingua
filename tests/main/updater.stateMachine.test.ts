@@ -23,6 +23,7 @@ interface UpdaterHarness {
   autoUpdaterHandlers: Map<string, Handler>;
   ipcHandlers: Map<string, IpcHandler>;
   checkForUpdates: ReturnType<typeof vi.fn>;
+  appOnce: ReturnType<typeof vi.fn>;
   quitAndInstall: ReturnType<typeof vi.fn>;
   getState: () => Promise<UpdateState>;
 }
@@ -60,12 +61,13 @@ async function loadUpdaterHarness({
   const ipcHandlers = new Map<string, IpcHandler>();
   const checkForUpdates = vi.fn().mockResolvedValue(undefined);
   const quitAndInstall = vi.fn();
+  const appOnce = vi.fn();
 
   vi.doMock('electron', () => ({
     app: {
       isPackaged: packaged,
       isReady: () => true,
-      once: vi.fn(),
+      once: appOnce,
       getVersion: () => '0.3.0',
     },
     BrowserWindow: { getAllWindows: () => [] },
@@ -99,6 +101,7 @@ async function loadUpdaterHarness({
     ipcHandlers,
     checkForUpdates,
     quitAndInstall,
+    appOnce,
     getState: async () => (await getStateHandler!()) as UpdateState,
   };
 }
@@ -112,6 +115,46 @@ afterEach(() => {
 });
 
 describe('updater state-machine guards', () => {
+  it('stops the hourly poll on before-quit instead of leaving the interval running', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = await loadUpdaterHarness();
+      const beforeQuit = harness.appOnce.mock.calls.find(([event]) => event === 'before-quit');
+      expect(beforeQuit).toBeDefined();
+
+      // Initial check after 10 s, then the hourly poll.
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(harness.checkForUpdates).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      expect(harness.checkForUpdates).toHaveBeenCalledTimes(2);
+
+      (beforeQuit![1] as () => void)();
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+      expect(harness.checkForUpdates).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears both timers when quitting before the startup check', async () => {
+    vi.useFakeTimers();
+    try {
+      const harness = await loadUpdaterHarness();
+      const beforeQuit = harness.appOnce.mock.calls.find(([event]) => event === 'before-quit');
+      expect(beforeQuit).toBeDefined();
+      expect(vi.getTimerCount()).toBe(2);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      (beforeQuit![1] as () => void)();
+      expect(vi.getTimerCount()).toBe(0);
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+      expect(harness.checkForUpdates).not.toHaveBeenCalled();
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it('captures every handler registerUpdater is expected to wire up', async () => {
     const harness = await loadUpdaterHarness();
 

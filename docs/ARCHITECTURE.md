@@ -14,6 +14,19 @@ Related reference:
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) records the historical desktop build-system decision and its later migration to electron-builder.
 
+## Main-process background recovery
+
+Git HEAD watcher diagnostics and Go/Rust language-server status observers are
+best-effort notifications. Observer exceptions must not escape timer-driven
+recovery or prevent process cleanup; launchers retain the authoritative status
+before notifying observers. Git reports a failed HEAD emission as `resolve-error`
+and keeps the subscription disposable even if diagnostic delivery also fails.
+
+The desktop updater owns both its ten-second startup timeout and hourly poll.
+Both timers are unreferenced and cleared on `before-quit`, including an early
+quit before the initial check. This stops scheduled checks; it does not cancel
+an update request that has already started.
+
 ## Telemetry responsibility boundaries
 
 `src/shared/telemetry.ts` is a compatibility facade. Product code imports that

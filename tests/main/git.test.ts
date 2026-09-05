@@ -512,6 +512,49 @@ describe('watchRepoHead ', () => {
     // Second dispose is a no-op.
     expect(() => handle.dispose()).not.toThrow();
   });
+
+  it.each([false, true])('contains onChange failures when diagnostic delivery throws: %s', async (diagnosticThrows) => {
+    // `resolveAndEmit` runs fire-and-forget (debounce timer, initial emit).
+    // `onChange` is the IPC layer's callback and can throw once the
+    // subscribing webContents is gone; before the guard that became an
+    // unhandled rejection in the main process on every HEAD change.
+    const { mkdirSync, writeFileSync: writeFile } = await import('node:fs');
+    mkdirSync(path.join(workdir, '.git'), { recursive: true });
+    writeFile(path.join(workdir, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    mocks.inner
+      .mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' })
+      .mockResolvedValue({ stdout: 'main\n', stderr: '' });
+
+    const { watchRepoHead, resetGitProbeCacheForTests } = await import(
+      '../../src/main/git'
+    );
+    resetGitProbeCacheForTests();
+    const diagnostics: Array<{ repoRoot: string; reason: string }> = [];
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on('unhandledRejection', onRejection);
+    let handle: Awaited<ReturnType<typeof watchRepoHead>> | undefined;
+    try {
+      handle = await watchRepoHead(workdir, {
+        onChange: () => {
+          throw new Error('webContents destroyed');
+        },
+        onDiagnostic: (diag) => {
+          diagnostics.push(diag);
+          if (diagnosticThrows) throw new Error('diagnostic observer destroyed');
+        },
+      });
+      // Wait for actual delivery, not a fixed sleep that races a loaded runner.
+      await vi.waitFor(() => expect(diagnostics).toHaveLength(1));
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(rejections).toEqual([]);
+      expect(diagnostics).toEqual([{ repoRoot: workdir, reason: 'resolve-error' }]);
+      expect(() => handle?.dispose()).not.toThrow();
+    } finally {
+      handle?.dispose();
+      process.off('unhandledRejection', onRejection);
+    }
+  });
 });
 
 describe('revealRepo ', () => {
