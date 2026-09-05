@@ -1,5 +1,5 @@
 /**
- * implementation — runtime context notes for the AI "Explain this error" prompt.
+ * Runtime context notes for the AI "Explain this error" prompt.
  *
  * Lingua KNOWS where the failing code actually ran (Pyodide vs a native
  * subprocess, a sandboxed worker vs desktop Node, DuckDB-WASM) — a generic

@@ -39,10 +39,11 @@ describe('buildNlToSqlRequest', () => {
     });
     expect(req.messages).toHaveLength(2);
     expect(req.messages[0]!.role).toBe('system');
-    expect(req.messages[0]!.content).toContain('DuckDB');
-    expect(req.messages[1]!.content).toContain(
-      'orders(id BIGINT, total DOUBLE)'
-    );
+    const systemPrompt = req.messages[0]!.content;
+    expect(systemPrompt).toContain('DuckDB');
+    expect(systemPrompt).toContain('add a brief note only when the query needs explaining');
+    expect(systemPrompt).not.toContain('at most two short sentences');
+    expect(req.messages[1]!.content).toContain('orders(id BIGINT, total DOUBLE)');
     expect(req.messages[1]!.content).toContain('top 5 orders by total');
   });
 

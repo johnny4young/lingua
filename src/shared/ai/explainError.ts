@@ -1,5 +1,5 @@
 /**
- * implementation — "Explain this error" request builder (pure core).
+ * "Explain this error" request builder (pure core).
  *
  * Per `docs/LOCAL_AI_ADR.md`, the first AI feature is opt-in error
  * explanation over a BYO-API-key, OpenAI-compatible `/chat/completions`

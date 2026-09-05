@@ -1,5 +1,5 @@
 /**
- * implementation follow-on — natural-language → SQL request builder (pure core).
+ * Natural-language → SQL request builder (pure core).
  *
  * The SQL workspace already knows the live DuckDB schema (the single
  * `information_schema.columns` probe that feeds the browser + autocomplete).
@@ -71,9 +71,9 @@ const SYSTEM_PROMPT =
   'You are a DuckDB SQL expert embedded in a local SQL workspace. Write ONE ' +
   'SQL query that satisfies the user request, using ONLY the tables and ' +
   'columns in the provided schema — never invent names. Reply with a single ' +
-  'fenced sql code block plus at most two short sentences. Use the DuckDB ' +
-  'dialect. Prefer SELECT; write DDL/DML only when the user explicitly asks ' +
-  'for it.';
+  'fenced sql code block; add a brief note only when the query needs ' +
+  'explaining. Use the DuckDB dialect. Prefer SELECT; write DDL/DML only ' +
+  'when the user explicitly asks for it.';
 
 /**
  * Build the NL→SQL request plus its consent preview. Pure — no network.

@@ -21,9 +21,9 @@ Before making non-trivial changes, open these files (in order).
 
 ## Routing
 
-- Default to `typescript-react-reviewer` for future implementation work in this repository unless the task is clearly outside renderer or React/TypeScript scope.
-- Use `node` for Electron main/preload code, IPC handlers, Vite or Forge configuration, workers, and local toolchain integration.
-- Use `init` when updating this file.
+- Renderer and shared TypeScript/React work: review against `src/renderer/README.md` and the UI verification rules below.
+- Electron main/preload code, IPC handlers, Vite configuration, workers, and local toolchain integration: review against `docs/ARCHITECTURE.md`.
+- If a `typescript-react-reviewer` or `node` skill is installed in the current client, use it for the matching surface; otherwise the two lines above are the review contract.
 
 ## Landmines
 
@@ -33,7 +33,7 @@ Before making non-trivial changes, open these files (in order).
 - **Vite env consumers — audit ALL THREE configs.** When a change introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
-  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. implementation fixed only the web symptom; implementation surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
+  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. An earlier fix covered only the web symptom; the renderer and main gaps only surfaced when the packaged .app rejected every paste with `no-public-key`.
   - **This landmine is now partially mechanized**: `tests/build/envDefineWiring.test.ts` fails CI when a `__LINGUA_*__` define is consumed by a surface whose config never provides it, when `envDir` drifts off the repo root in the renderer/web configs, or when `vite.main.config.mts` stops using the shared four-source cascade (`build/resolveEnv.mts`). New env-sourced main defines MUST go through `resolveBuildTimeEnvVar`. The packaged-build validation advice above still applies for anything the resolved-config check cannot see (dev-launcher injection, electron-builder packaging).
 
 - **Dependency pins live in `pnpm-workspace.yaml`, and a pin is not the same
