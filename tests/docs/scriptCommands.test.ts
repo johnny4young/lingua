@@ -146,6 +146,8 @@ describe('Script naming docs guard', () => {
       'changelog:draft',
       'changelog:check',
       'test',
+      // Instrumented v8 coverage with ratcheted thresholds (vitest.config.mts).
+      'test:coverage',
       // Dead-code gate (knip.jsonc): unreferenced files, unused/unlisted
       // dependencies. Unused exports stay advisory via `pnpm exec knip`.
       'check:deadcode',
