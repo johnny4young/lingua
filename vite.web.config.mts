@@ -201,12 +201,11 @@ export default defineConfig(({ command }) => {
           // graph for visitors who never open one. Pinning it to its own
           // chunk is what keeps Monaco lazy.
           //
-          // This has to be `advancedChunks` rather than a `manualChunks`
-          // branch: the helper's module id is the virtual `\0vite/preload-helper.js`,
-          // which Vite's rollup-compat `manualChunks` layer never consults. The
-          // same applies to every group below: under Vite 8 / rolldown the old
-          // `manualChunks` function produced no named chunk at all (verified on
-          // the built output), so the vendor split it described never existed.
+          // The helper's virtual id is `\0vite/preload-helper.js`. Keep its
+          // pin alongside the vendor groups rather than in a second policy.
+          // Rolldown ignores manualChunks when advancedChunks/codeSplitting
+          // is also supplied, so the former mixed config emitted no named
+          // vendor chunks. Keep all grouping in this one policy.
           advancedChunks: {
             // Per-group threshold, not a global merge: a vendor group that
             // captures under 4 KB is not worth its own request, so rolldown
@@ -214,7 +213,8 @@ export default defineConfig(({ command }) => {
             // chunking. Unrelated small chunks are not coalesced by this.
             minSize: 4096,
             groups: [
-              { name: 'vite-preload', test: /preload-helper/, priority: 100 },
+              // This correctness pin is smaller than the vendor threshold.
+              { name: 'vite-preload', test: /preload-helper/, priority: 100, minSize: 0 },
               // Vendor code below is split so a deploy that touches app code
               // does not invalidate the framework bytes returning visitors
               // already cached. Every group is vendor-only on purpose: app

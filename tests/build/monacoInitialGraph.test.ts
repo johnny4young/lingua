@@ -627,8 +627,8 @@ describe('Monaco stays out of the initial graph', () => {
   it('both bundled configs pin the Vite preload helper to its own chunk', () => {
     // Without this group rolldown folds `\0vite/preload-helper.js` into the
     // monaco chunk, and the entry's need for a 1 KiB helper becomes a static
-    // edge onto the whole editor. `manualChunks` cannot express it: the
-    // rollup-compat layer never sees virtual module ids.
+    // edge onto the whole editor. Keep this pin in the active group policy,
+    // not in a manualChunks callback ignored by the mixed configuration.
     // Comments are stripped first, and the group has to match INSIDE the
     // advancedChunks block in a single pattern. Two independent regexes would
     // both pass on prose that merely mentions the two strings — which is the
@@ -637,6 +637,9 @@ describe('Monaco stays out of the initial graph', () => {
       const source = stripComments(readFileSync(path.join(repoRoot, config), 'utf8'));
       expect(source, `${config} lost its advancedChunks preload-helper group`).toMatch(
         /advancedChunks:\s*\{[^}]*groups:\s*\[[^\]]*test:\s*\/preload-helper\//
+      );
+      expect(source, `${config} lets the vendor threshold disable the preload pin`).toMatch(
+        /\{\s*name:\s*['"]vite-preload['"][^}]*\bminSize:\s*0\b[^}]*\}/
       );
     }
   });
