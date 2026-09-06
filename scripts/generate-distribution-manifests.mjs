@@ -148,8 +148,7 @@ export function renderHomebrewCask({ version, digests, repo = GITHUB_REPO }) {
   sha256 arm:   "${armSha}",
          intel: "${intelSha}"
 
-  url "https://github.com/${repo}/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg",
-      verified: "github.com/${repo}/"
+  url "https://github.com/${repo}/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg"
   name "Lingua"
   desc "Multi-language code runner for your desktop"
   homepage "https://linguacode.dev/"

@@ -1,12 +1,11 @@
 cask "lingua" do
   arch arm: "arm64", intel: "x64"
 
-  version "1.3.0"
-  sha256 arm:   "0546eec170a9e247cd9a6da66227bf8d5fc9ffafe3279572442c18baf6ff8a46",
-         intel: "500c7510d56edae546688a522d4d387113e1efd97cc647b0a459971c54a41be9"
+  version "1.4.1"
+  sha256 arm:   "b1cb5d058f77e7a306141f2f911b3807ddd6ee1e9a1661e82ed830818836bf85",
+         intel: "d09d5d2b3c407cbfcef6b2fa95c46b3c1d050155d7408f52c92408ff01f95da4"
 
-  url "https://github.com/johnny4young/lingua/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg",
-      verified: "github.com/johnny4young/lingua/"
+  url "https://github.com/johnny4young/lingua/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg"
   name "Lingua"
   desc "Multi-language code runner for your desktop"
   homepage "https://linguacode.dev/"

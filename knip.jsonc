@@ -21,6 +21,10 @@
     // Web Workers and plugin runtimes are spawned via `new Worker(new
     // URL(...))` / dynamic registration, not static imports.
     "src/renderer/workers/*.ts",
+    // Loaded by URL through the virtual:lingua-node-typing-url module (see
+    // src/renderer/nodeTypeDefinitionsLoader.ts), so no source import ever
+    // names it; knip would otherwise report its two exports as unused.
+    "src/renderer/monacoNodeTypes.ts",
     "src/renderer/plugins/*.ts",
     // Operational scripts are invoked directly by package.json / CI.
     "scripts/**/*.mjs",
