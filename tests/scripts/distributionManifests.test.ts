@@ -73,6 +73,13 @@ describe('renderHomebrewCask', () => {
     expect(cask).toContain('arch arm: "arm64", intel: "x64"');
   });
 
+  it('does not pass the deprecated verified parameter to the url stanza', () => {
+    // Homebrew deprecated `url ..., verified:` (brew warns on every
+    // `brew update` for the tap); the default URL verification already
+    // accepts GitHub release downloads.
+    expect(cask).not.toContain('verified:');
+  });
+
   it('declares the app artifact, version, and auto-update behaviour', () => {
     expect(cask).toContain('version "0.14.0"');
     // The DMG ships `lingua.app` (electron-builder executableName), and
