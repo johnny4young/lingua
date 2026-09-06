@@ -71,7 +71,12 @@ overrides:
   # existing major so legacy Electron tooling does not receive a breaking
   # transitive upgrade. The remaining pins are patch/minor-compatible with
   # their parents and remove known advisories from the install graph.
-  "brace-expansion@1.1.15": "1.1.18"
+  # Every security pin below is a RANGE (caret inside the major, tilde on
+  # the packaging-critical yauzl) rather than an exact version: an exact
+  # pin froze the tree one patch below a fix more than once (nanoid,
+  # undici, brace-expansion), because the next advisory never re-opens the
+  # pin by itself. minimumReleaseAge still keeps day-old releases out.
+  "brace-expansion@1.1.15": "^1.1.18"
   # ip-address <=10.3.0 carries three advisories (leading-zero octets decoded
   # as decimal, a CIDR suffix suppressing special-use detection, and
   # IPv4-mapped/NAT64 misclassification). It reaches the tree only through
@@ -92,35 +97,35 @@ overrides:
   # blocking and its previous EXACT pin (3.3.17) froze the tree one patch
   # below the fix — range pins so the next advisory bump flows through.
   "nanoid": "^3.3.18"
-  "brace-expansion@2.1.1": "2.1.4"
-  "brace-expansion@5.0.6": "5.0.9"
-  "fast-uri": "3.1.5"
+  "brace-expansion@2.1.1": "^2.1.4"
+  "brace-expansion@5.0.6": "^5.0.9"
+  "fast-uri": "^3.1.5"
   # js-yaml: GHSA-5p4m-2wfm-xmqj (quadratic CPU in !!omap resolution) lands
   # on 4.3.1; the fix was NOT backported to 3.x. It reaches the tree through
   # electron-updater, which ships to users, so this pin has to move with the
   # advisory rather than stay frozen where it was first set.
-  "js-yaml": "4.3.1"
+  "js-yaml": "^4.3.1"
   # hono ships to users: @modelcontextprotocol/node (a production
   # dependency behind the desktop local MCP server) pins @hono/node-server
   # 1.x, which resolves hono itself. Keep it on the patched 4.x line; the
   # MCP package peer-accepts ^4.11.4, so this stays inside its range.
-  "hono": "4.12.34"
+  "hono": "^4.12.34"
   # postcss reaches the tree only through Vite / Tailwind / autoprefixer
   # build tooling, never the packaged artifact. Patch-line pin so the
   # advisory audit stays quiet.
-  "postcss": "8.5.25"
+  "postcss": "^8.5.25"
   # undici is bundled into the desktop main process by Vite (see
   # src/main/httpProxy.ts), so its version ships even though it is only a
   # devDependency and `pnpm audit --prod` cannot see it. Keep it on the
   # patched 7.x line that undici-types@7 also targets.
-  "undici": "7.29.0"
-  "ws": "8.21.0"
+  "undici": "^7.29.0"
+  "ws": "^8.21.1"
   # Electron Forge's macOS packager extracts the Electron ZIP through
   # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
   # can let the process exit before the promise resolves, so Forge exits 0
   # without out/make artifacts. Keep the release workflow on Node 24.x by
   # moving only the ZIP reader forward instead of pinning Node.
-  "yauzl": "3.3.1"
+  "yauzl": "~3.3.1"
   # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65). It
   # reaches the tree only through dev/build tooling — @electron-forge's
   # @inquirer/editor prompts and the fengari → electron-installer Linux
@@ -143,7 +148,7 @@ overrides:
 # reviewed runtime release to install reproducibly.
 minimumReleaseAgeExclude:
   - electron@43.1.1
-  # Same-day security releases for published GitHub advisories. Exact pins
-  # keep the age bypass narrow and reproducible.
+  # Same-day security releases for published GitHub advisories. Exact
+  # entries keep the age bypass narrow and reproducible; drop an entry once
+  # the resolved version is older than the age window (ws left 8.21.0).
   - esbuild@0.28.1
-  - ws@8.21.0
