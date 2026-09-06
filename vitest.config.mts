@@ -1,3 +1,4 @@
+import { nodeTypingChunkPlugin } from './build/nodeTypingChunkPlugin.mts';
 import { configDefaults, defineConfig } from 'vitest/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,7 @@ applySharedEnvDefaults();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  plugins: [nodeTypingChunkPlugin()],
   define: getSharedBuildDefines(),
   test: {
     globals: true,

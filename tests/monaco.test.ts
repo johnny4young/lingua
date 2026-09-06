@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
@@ -85,6 +85,11 @@ vi.mock('@monaco-editor/react', () => ({
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({
+  javascriptDefaults: monacoMock.languages.typescript.javascriptDefaults,
+  typescriptDefaults: monacoMock.languages.typescript.typescriptDefaults,
+  ModuleKind: monacoMock.languages.typescript.ModuleKind,
+  ModuleResolutionKind: monacoMock.languages.typescript.ModuleResolutionKind,
+  ScriptTarget: monacoMock.languages.typescript.ScriptTarget,
   getJavaScriptWorker,
   getTypeScriptWorker,
 }));
@@ -173,7 +178,14 @@ describe('applyTypeScriptDefaults', () => {
   it('applies worker-runtime JS and TS compiler defaults to the given Monaco instance', async () => {
     const { applyTypeScriptDefaults } = await import('@/monaco');
 
-    applyTypeScriptDefaults(monacoMock as never);
+    // Desktop shape: the Node runtime bridge is present, so the typings load
+    // on idle right after the first editor mount.
+    (window as unknown as { lingua?: unknown }).lingua = { node: {} };
+    try {
+      applyTypeScriptDefaults(monacoMock as never);
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
 
     expect(jsSetEagerModelSync).toHaveBeenCalledWith(true);
     expect(tsSetEagerModelSync).toHaveBeenCalledWith(true);
@@ -213,8 +225,8 @@ describe('applyTypeScriptDefaults', () => {
         target: 9,
       })
     );
-    // RL review: the Node typings register lazily (eager:false), so
-    // addExtraLib fires after the type chunk resolves — await it rather than
+    // The Node typings arrive through one dynamic import scheduled on idle,
+    // so addExtraLib fires after that chunk resolves — await it rather than
     // asserting synchronously.
     await vi.waitFor(
       () => {
@@ -241,6 +253,287 @@ describe('applyTypeScriptDefaults', () => {
         expect(tsAddExtraLib).toHaveBeenCalledWith(
           expect.stringContaining("export * from './fetch'"),
           'file:///node_modules/undici-types/index.d.ts'
+        );
+      },
+      { timeout: 20_000 }
+    );
+  }, 25_000);
+});
+
+describe('Node typings on the web build', () => {
+  type FakeModel = {
+    getLanguageId: () => string;
+    getValue: () => string;
+    getValueLength: () => number;
+    onDidChangeContent: (listener: () => void) => { dispose: () => void };
+    setValue: (next: string) => void;
+    dispose: () => void;
+    listeners: Set<() => void>;
+    disposing: Set<() => void>;
+    onWillDispose: (listener: () => void) => { dispose: () => void };
+    setLanguage: (next: string) => void;
+  };
+
+  function fakeModel(languageId: string, initial: string): FakeModel {
+    let value = initial;
+    const listeners = new Set<() => void>();
+    const disposing = new Set<() => void>();
+    return {
+      listeners,
+      disposing,
+      setLanguage: next => {
+        languageId = next;
+      },
+      dispose: () => {
+        for (const listener of [...disposing]) listener();
+      },
+      onWillDispose: listener => {
+        disposing.add(listener);
+        return { dispose: () => disposing.delete(listener) };
+      },
+      getLanguageId: () => languageId,
+      getValue: vi.fn(() => value),
+      getValueLength: () => value.length,
+      onDidChangeContent: listener => {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      },
+      setValue: next => {
+        value = next;
+        for (const listener of listeners) listener();
+      },
+    };
+  }
+
+  function fakeEditorNamespace(models: FakeModel[]) {
+    const created = new Set<(model: FakeModel) => void>();
+    const changed = new Set<(event: { model: FakeModel }) => void>();
+    return {
+      created,
+      changed,
+      changeLanguage: (model: FakeModel, language: string) => {
+        model.setLanguage(language);
+        for (const listener of changed) listener({ model });
+      },
+      namespace: {
+        onDidChangeModelLanguage: (listener: (event: { model: FakeModel }) => void) => {
+          changed.add(listener);
+          return { dispose: () => changed.delete(listener) };
+        },
+        getModels: () => models,
+        onDidCreateModel: (listener: (model: FakeModel) => void) => {
+          created.add(listener);
+          return { dispose: () => created.delete(listener) };
+        },
+      },
+      create: (model: FakeModel) => {
+        models.push(model);
+        for (const listener of created) listener(model);
+      },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    delete (window as unknown as { lingua?: unknown }).lingua;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.doUnmock('../src/renderer/monacoNodeTypes');
+  });
+
+  it.each([
+    "import 'node:fs';",
+    "await import('node:fs');",
+    "import { readFile } from 'fs/promises';",
+    "import assert from 'assert';",
+    "require ('fs');",
+    "import 'node:test';",
+    "import { strict } from 'assert/strict';",
+  ])('loads typings for %s', async source => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const editor = fakeEditorNamespace([fakeModel('typescript', source)]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled(), { timeout: 2000 });
+  });
+
+  it('shares one observer set across repeated editor mounts', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const model = fakeModel('javascript', '1 + 1');
+    const editor = fakeEditorNamespace([model]);
+    for (let i = 0; i < 10; i++)
+      applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    expect(editor.created.size).toBe(1);
+    expect(model.listeners.size).toBe(1);
+    expect(model.disposing.size).toBe(1);
+  });
+
+  it('clears disposal listeners and queued scans when a model closes', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    vi.useFakeTimers();
+    const model = fakeModel('javascript', '1 + 1');
+    const editor = fakeEditorNamespace([model]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    model.setValue('process.env');
+    model.dispose();
+    const reads = vi.mocked(model.getValue).mock.calls.length;
+    await vi.advanceTimersByTimeAsync(350);
+    expect(vi.mocked(model.getValue).mock.calls.length).toBe(reads);
+    expect(model.listeners.size).toBe(0);
+    expect(model.disposing.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(tsAddExtraLib).not.toHaveBeenCalled();
+  });
+
+  it('cleans global observers after an existing model triggers loading', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const model = fakeModel('javascript', 'Buffer.from("x")');
+    const editor = fakeEditorNamespace([model]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
+    expect(editor.created.size).toBe(0);
+    expect(editor.changed.size).toBe(0);
+    expect(model.listeners.size).toBe(0);
+    expect(model.disposing.size).toBe(0);
+    expect(jsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.javascriptDefaults);
+    expect(tsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.typescriptDefaults);
+  });
+
+  it('invokes extra-lib registration with the original defaults receivers', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const editor = fakeEditorNamespace([fakeModel('javascript', 'process.env')]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
+    expect(
+      jsAddExtraLib.mock.contexts.every(
+        context => context === monacoMock.languages.typescript.javascriptDefaults
+      )
+    ).toBe(true);
+    expect(
+      tsAddExtraLib.mock.contexts.every(
+        context => context === monacoMock.languages.typescript.typescriptDefaults
+      )
+    ).toBe(true);
+  });
+
+  it('registers typings with current ESM Monaco without changing compiler defaults', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const editor = fakeEditorNamespace([fakeModel('typescript', "import 'node:fs';")]);
+    const currentMonaco = {
+      ...monacoMock,
+      editor: editor.namespace,
+      languages: { ...monacoMock.languages, typescript: undefined },
+    };
+    applyTypeScriptDefaults(currentMonaco as never);
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
+    expect(tsSetCompilerOptions).not.toHaveBeenCalled();
+    expect(tsSetDiagnosticsOptions).not.toHaveBeenCalled();
+    expect(tsSetEagerModelSync).not.toHaveBeenCalled();
+    expect(tsAddExtraLib.mock.contexts[0]).toBe(monacoMock.languages.typescript.typescriptDefaults);
+  });
+
+  it('coalesces desktop idle work across repeated mounts', async () => {
+    const idleCallbacks: Array<() => void> = [];
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+      idleCallbacks.push(callback);
+      return 1;
+    });
+    (window as unknown as { lingua?: unknown }).lingua = { node: {} };
+    try {
+      const { applyTypeScriptDefaults } = await import('@/monaco');
+      const editor = fakeEditorNamespace([fakeModel('javascript', 'process.env')]);
+      for (let i = 0; i < 10; i++)
+        applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+      expect(idleCallbacks).toHaveLength(1);
+      expect(tsAddExtraLib).not.toHaveBeenCalled();
+      idleCallbacks[0]!();
+      await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
+      expect(editor.created.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
+  });
+
+  it('detects a language switch without requiring a content edit', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const model = fakeModel('plaintext', "import 'node:fs';");
+    const editor = fakeEditorNamespace([model]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    editor.changeLanguage(model, 'typescript');
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled());
+  });
+
+  it('retries after a failed chunk on a later edit without remounting', async () => {
+    const failedLoad = vi.fn(() => {
+      throw new Error('offline');
+    });
+    vi.doMock('../src/renderer/monacoNodeTypes', failedLoad);
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const model = fakeModel('javascript', "require('fs');");
+    const editor = fakeEditorNamespace([model]);
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await vi.waitFor(() => expect(failedLoad).toHaveBeenCalledOnce());
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(tsAddExtraLib).not.toHaveBeenCalled();
+    vi.doMock('../src/renderer/monacoNodeTypes', () => ({
+      NODE_TYPE_DEFINITIONS: { '../../node_modules/@types/node/fs.d.ts': 'declare module "fs" {}' },
+      UNDICI_TYPE_DEFINITIONS: {},
+    }));
+    model.setValue("require('fs'); // retry");
+    await vi.waitFor(() => expect(tsAddExtraLib).toHaveBeenCalled(), { timeout: 1500 });
+    expect(editor.created.size).toBe(0);
+  });
+
+  it('does not download the typings while no buffer refers to Node', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const editor = fakeEditorNamespace([
+      fakeModel('javascript', 'const x = [1, 2].map(n => n * 2);'),
+    ]);
+
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(jsAddExtraLib).not.toHaveBeenCalled();
+    expect(tsAddExtraLib).not.toHaveBeenCalled();
+  });
+
+  it('downloads the typings once a JS buffer starts referring to Node', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const model = fakeModel('javascript', 'const x = 1;');
+    const editor = fakeEditorNamespace([model]);
+
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    expect(jsAddExtraLib).not.toHaveBeenCalled();
+
+    model.setValue("const fs = require('fs');");
+    await vi.waitFor(
+      () => {
+        expect(jsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('declare module "fs"'),
+          'file:///node_modules/@types/node/fs.d.ts'
+        );
+      },
+      { timeout: 20_000 }
+    );
+  }, 25_000);
+
+  it('ignores Node references in non-JS buffers and picks up later JS models', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+    const editor = fakeEditorNamespace([fakeModel('python', 'import os\nprocess.env')]);
+
+    applyTypeScriptDefaults({ ...monacoMock, editor: editor.namespace } as never);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(jsAddExtraLib).not.toHaveBeenCalled();
+
+    editor.create(fakeModel('typescript', "import { readFile } from 'node:fs';"));
+    await vi.waitFor(
+      () => {
+        expect(tsAddExtraLib).toHaveBeenCalledWith(
+          expect.stringContaining('declare module "fs"'),
+          'file:///node_modules/@types/node/fs.d.ts'
         );
       },
       { timeout: 20_000 }

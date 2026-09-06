@@ -297,6 +297,29 @@ promotion/research decision driven by arbitrary `pip` demand.
 
 ## Lazy Monaco language registration
 
+Node and Undici declarations live in one eager-globbed module reached only
+through a dynamic import, not a waterfall of individual declaration requests.
+Desktop schedules its first load on idle when the Node bridge is present.
+Web waits for a Node reference in a JavaScript/TypeScript model: globals,
+CommonJS calls, static/side-effect/dynamic imports, and built-in subpaths are
+recognized by a bounded heuristic (not a full parser). Buffers above 200,000
+characters are not scanned. A Node-looking comment/string may conservatively
+trigger the load; an ordinary browser or Python buffer does not.
+
+The observer set is shared across editor and notebook mounts. Model disposal
+clears its debounce and both subscriptions; language changes are inspected
+without requiring an edit. In-flight registration is deduplicated and uses
+the current ESM contribution's extra-lib defaults (or the legacy namespace)
+and Monaco methods with their original receivers, batching extra libraries in one
+tick. Observers are released only after registration succeeds. A failed load
+or partial registration remains retryable on a later matching edit/model;
+there is no automatic retry loop. The shared Vite plugin emits a trusted,
+chunk-relative URL, and only retries append a fresh query to bypass the native
+ESM cache of rejected imports. No eval, blob URL, or eagerly loaded declarations
+are needed. Both packaged renderer and web builds use the same URL provider.
+Loading types does not enable Node execution
+on web or change compiler options, model synchronization, or hidden-tab diagnostics.
+
 Monaco language contributions register per active language through
 `registerLanguageOnce(monaco, languageId)` (see `src/renderer/monaco.ts`),
 not all at once on first editor mount. JavaScript and TypeScript are

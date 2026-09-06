@@ -27,6 +27,8 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
+import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
+import { NODE_BUILTINS } from '../shared/dependencies/nodeBuiltins';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -35,34 +37,20 @@ const NODE_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/@types/node/';
 const NODE_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/@types/node/';
 const UNDICI_TYPE_DEFINITION_ROOT_MARKER = 'node_modules/undici-types/';
 const UNDICI_TYPE_DEFINITION_ROOT_URI = 'file:///node_modules/undici-types/';
-// Lazy (NOT eager): @types/node is ~2.4 MB of raw .d.ts across ~126 files.
-// Eager-globbing it would inline all of that into whatever chunk imports this
-// module (loaded at first editor mount, even for a Python-only user) and into
-// the web bundle, where the Node runner cannot even run. Each entry is a
-// `() => Promise<string>` instead, so the type chunk only downloads the first
-// time `applyTypeScriptDefaults` runs, off the initial path.
-const NODE_TYPE_DEFINITION_MODULES = import.meta.glob<string>(
-  [
-    '../../node_modules/@types/node/**/*.d.ts',
-    '!../../node_modules/@types/node/ts5.6/**/*.d.ts',
-    '!../../node_modules/@types/node/ts5.7/**/*.d.ts',
-  ],
-  {
-    import: 'default',
-    query: '?raw',
-  }
-);
-// @types/node v25 references the `undici-types` package for fetch/WebSocket/
-// MessageEvent declarations. Register those files beside the Node definitions
-// so Monaco's TypeScript worker can resolve bare `undici-types` imports instead
-// of surfacing phantom missing-module diagnostics in JS/TS tabs.
-const UNDICI_TYPE_DEFINITION_MODULES = import.meta.glob<string>(
-  ['../../node_modules/undici-types/**/*.d.ts'],
-  {
-    import: 'default',
-    query: '?raw',
-  }
-);
+// The Node typings live in `./monacoNodeTypes.ts` behind a dynamic import:
+// ~2.4 MB of raw .d.ts that must never reach the initial graph, and that the
+// web build only needs when a JS/TS model actually refers to Node. See
+// `scheduleNodeTypeDefinitions` for who loads it and when.
+const NODE_TYPINGS_LANGUAGES = new Set(['javascript', 'typescript']);
+// Cheap signal that a JS/TS buffer is Node code and would benefit from the
+// Node typings: CommonJS require, the process/Buffer globals, __dirname,
+// or an import of a Node built-in (with or without the node: prefix).
+const NODE_GLOBAL_REFERENCE_RE =
+  /\b(?:require\s*\(|process\b|Buffer\b|__dirname\b|__filename\b|NodeJS\b|global\b|module\s*\.\s*exports|exports\s*[.[])/u;
+const MODULE_REFERENCE_RE = /\b(?:from\s*|import\s*(?:\(\s*)?)['"]([^'"\r\n]+)['"]/gu;
+// Bound per-edit scanning cost; oversized buffers are reconsidered on edits.
+const NODE_REFERENCE_SCAN_MAX_CHARS = 200_000;
+const NODE_REFERENCE_SCAN_DEBOUNCE_MS = 300;
 
 const workerFactories: Record<string, MonacoWorkerFactory> = {
   json: JsonWorker,
@@ -82,6 +70,8 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 
 let configured = false;
 let nodeTypeDefinitionsRegistered = false;
+let nodeTypeDefinitionsLoading: Promise<boolean> | null = null;
+let nodeTypeDefinitionsScheduled = false;
 
 /**
  * Per-language registration cache, keyed by Monaco language id. The value is the
@@ -95,8 +85,7 @@ const languageRegistrations = new Map<string, Promise<void>>();
 /**
  * Set up the worker environment and loader. Must be called once before any
  * MonacoEditor component renders. TypeScript language defaults are intentionally
- * NOT configured here because monaco.languages.typescript is only guaranteed to
- * exist after the editor's beforeMount callback fires. Call
+ * NOT configured here; the lazy typing scheduler needs the editor lifecycle. Call
  * applyTypeScriptDefaults(monaco) in the beforeMount prop instead.
  */
 export function configureMonaco(): void {
@@ -227,24 +216,30 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
  * where `requestIdleCallback` is unavailable (Electron renderer, jsdom).
  */
 export function prefetchLanguage(languageId: string): void {
-  const run = (): void => {
+  runWhenIdle(() => {
     // `configureMonaco()` calls loader.config({ monaco }), so @monaco-editor/react
     // and this singleton are the same instance sharing one global language
     // registry — registering against either is equivalent. The cast only bridges
     // the narrower editor.api.js namespace type to the full Monaco type.
     void registerLanguageOnce(monaco as unknown as Monaco, languageId);
-  };
+  });
+}
+
+/**
+ * Run `callback` during browser idle time, or on a 0ms timeout where
+ * `requestIdleCallback` is unavailable (Electron renderer, jsdom). The timeout
+ * guarantees the work still runs under sustained main-thread load.
+ */
+function runWhenIdle(callback: () => void): void {
   const idle = (
     globalThis as typeof globalThis & {
       requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
     }
   ).requestIdleCallback;
   if (typeof idle === 'function') {
-    // The timeout guarantees the warm-up still runs under sustained main-thread
-    // load; CodeEditor's active-language effect is the backstop if it slips.
-    idle(run, { timeout: 2000 });
+    idle(callback, { timeout: 2000 });
   } else {
-    setTimeout(run, 0);
+    setTimeout(callback, 0);
   }
 }
 
@@ -277,48 +272,192 @@ function typeDefinitionUri(modulePath: string): string | null {
   return null;
 }
 
-async function registerNodeTypeDefinitions(
-  ts: MonacoTypeScriptDefaultsWithExtraLib
-): Promise<void> {
-  if (nodeTypeDefinitionsRegistered) return;
-  const jsAddExtraLib = ts.javascriptDefaults.addExtraLib;
-  const tsAddExtraLib = ts.typescriptDefaults.addExtraLib;
-  if (typeof jsAddExtraLib !== 'function' || typeof tsAddExtraLib !== 'function') {
+function registerNodeTypeDefinitions(ts: MonacoTypeScriptDefaultsWithExtraLib): Promise<boolean> {
+  if (nodeTypeDefinitionsRegistered) return Promise.resolve(true);
+  if (nodeTypeDefinitionsLoading) return nodeTypeDefinitionsLoading;
+  if (
+    typeof ts.javascriptDefaults.addExtraLib !== 'function' ||
+    typeof ts.typescriptDefaults.addExtraLib !== 'function'
+  )
+    return Promise.resolve(false);
+
+  nodeTypeDefinitionsLoading = (async () => {
+    try {
+      const definitions = await loadNodeTypeDefinitions();
+      const typeDefinitions = {
+        ...definitions.NODE_TYPE_DEFINITIONS,
+        ...definitions.UNDICI_TYPE_DEFINITIONS,
+      };
+      // Register in one tick to preserve Monaco's resync debounce. These are
+      // receiver-dependent methods, not standalone callbacks.
+      for (const [modulePath, content] of Object.entries(typeDefinitions).sort(([left], [right]) =>
+        left.localeCompare(right)
+      )) {
+        const filePath = typeDefinitionUri(modulePath);
+        if (!filePath) continue;
+        ts.javascriptDefaults.addExtraLib!(content, filePath);
+        ts.typescriptDefaults.addExtraLib!(content, filePath);
+      }
+      nodeTypeDefinitionsRegistered = true;
+      return true;
+    } catch {
+      // Best effort, including registration failures: retain observers so a
+      // later edit/model can retry, without an automatic retry loop. Monaco
+      // deduplicates identical extra-lib content if a partial pass is retried.
+      return false;
+    } finally {
+      nodeTypeDefinitionsLoading = null;
+    }
+  })();
+  return nodeTypeDefinitionsLoading;
+}
+
+type MonacoTextModelLike = {
+  getLanguageId: () => string;
+  getValue: () => string;
+  getValueLength: () => number;
+  isDisposed?: () => boolean;
+  onDidChangeContent: (listener: () => void) => { dispose: () => void };
+  onWillDispose?: (listener: () => void) => { dispose: () => void };
+};
+
+type MonacoEditorNamespaceLike = {
+  getModels?: () => MonacoTextModelLike[];
+  onDidChangeModelLanguage?: (listener: (event: { model: MonacoTextModelLike }) => void) => {
+    dispose: () => void;
+  };
+  onDidCreateModel?: (listener: (model: MonacoTextModelLike) => void) => { dispose: () => void };
+};
+
+function hasNodeRuntime(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    Boolean((window as { lingua?: { node?: unknown } }).lingua?.node)
+  );
+}
+
+function modelReferencesNode(model: MonacoTextModelLike): boolean {
+  if (model.isDisposed?.() || !NODE_TYPINGS_LANGUAGES.has(model.getLanguageId())) return false;
+  if (model.getValueLength() > NODE_REFERENCE_SCAN_MAX_CHARS) return false;
+  const value = model.getValue();
+  if (NODE_GLOBAL_REFERENCE_RE.test(value)) return true;
+  for (const match of value.matchAll(MODULE_REFERENCE_RE)) {
+    const specifier = match[1]!;
+    if (specifier.startsWith('node:') || NODE_BUILTINS.has(specifier.split('/')[0]!)) return true;
+  }
+  return false;
+}
+
+/**
+ * Decide when the Node typings load.
+ *
+ * Desktop with the Node runtime: on idle after the first editor mount — the
+ * user can run Node code there, so `crypto`/`fs` intellisense should be ready
+ * by the time they type. Web: Node code cannot run, so the 2.4 MB chunk is
+ * only worth its download once a JS/TS buffer actually refers to Node; watch
+ * the models and load on the first match, then stop watching.
+ */
+function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
+  if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;
+  const desktop = hasNodeRuntime();
+  const editorNamespace = m.editor as unknown as MonacoEditorNamespaceLike;
+  if (
+    typeof editorNamespace.onDidCreateModel !== 'function' ||
+    typeof editorNamespace.getModels !== 'function'
+  ) {
+    if (desktop) {
+      nodeTypeDefinitionsScheduled = true;
+      runWhenIdle(() => {
+        void registerNodeTypeDefinitions(ts).finally(() => {
+          nodeTypeDefinitionsScheduled = false;
+        });
+      });
+    }
     return;
   }
-  // Claim the one-shot flag up front so a second editor mount arriving while
-  // the type chunk is still downloading does not start a duplicate pass.
-  nodeTypeDefinitionsRegistered = true;
 
-  const typeDefinitionModules = {
-    ...NODE_TYPE_DEFINITION_MODULES,
-    ...UNDICI_TYPE_DEFINITION_MODULES,
+  nodeTypeDefinitionsScheduled = true;
+  const models = new Map<MonacoTextModelLike, () => void>();
+  const observers: Array<{ dispose: () => void }> = [];
+  let loading = false;
+  let idlePending = desktop;
+  const trigger = async (): Promise<void> => {
+    if (loading || nodeTypeDefinitionsRegistered) return;
+    loading = true;
+    const success = await registerNodeTypeDefinitions(ts);
+    loading = false;
+    if (!success) return;
+    for (const cleanup of models.values()) cleanup();
+    for (const observer of observers.splice(0)) observer.dispose();
+    nodeTypeDefinitionsScheduled = false;
+  };
+  const inspect = (model: MonacoTextModelLike): void => {
+    if (idlePending || model.isDisposed?.()) return;
+    if (modelReferencesNode(model)) void trigger();
+  };
+  const watch = (model: MonacoTextModelLike): void => {
+    if (nodeTypeDefinitionsRegistered || models.has(model) || model.isDisposed?.()) return;
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+    const subscription = model.onDidChangeContent(() => {
+      if (debounce !== null) clearTimeout(debounce);
+      debounce = null;
+      if (loading || !NODE_TYPINGS_LANGUAGES.has(model.getLanguageId())) return;
+      debounce = setTimeout(() => {
+        debounce = null;
+        if (!disposed) inspect(model);
+      }, NODE_REFERENCE_SCAN_DEBOUNCE_MS);
+    });
+    const cleanup = (): void => {
+      if (disposed) return;
+      disposed = true;
+      if (debounce !== null) clearTimeout(debounce);
+      debounce = null;
+      subscription.dispose();
+      disposal?.dispose();
+      models.delete(model);
+    };
+    models.set(model, cleanup);
+    const disposal = model.onWillDispose?.(cleanup);
+    // Desktop's first attempt remains idle-scheduled; after an unsuccessful
+    // attempt new models and edits provide the same demand-driven retry path.
+    inspect(model);
   };
 
-  for (const [modulePath, loadContent] of Object.entries(typeDefinitionModules).sort(
-    ([left], [right]) => left.localeCompare(right)
-  )) {
-    const filePath = typeDefinitionUri(modulePath);
-    if (!filePath) continue;
-    try {
-      const content = await loadContent();
-      jsAddExtraLib(content, filePath);
-      tsAddExtraLib(content, filePath);
-    } catch {
-      // Best-effort: a .d.ts chunk that fails to load just leaves that
-      // built-in module untyped; the editor stays usable.
-    }
-  }
+  // Subscribe before scanning existing models so an immediate match cannot
+  // leave a newly-added global observer behind after successful registration.
+  observers.push(editorNamespace.onDidCreateModel(watch));
+  const languageObserver = editorNamespace.onDidChangeModelLanguage?.(({ model }) => {
+    watch(model);
+    inspect(model);
+  });
+  if (languageObserver) observers.push(languageObserver);
+  for (const model of editorNamespace.getModels()) watch(model);
+  if (desktop)
+    runWhenIdle(() => {
+      idlePending = false;
+      void trigger();
+    });
 }
 
 /**
  * Configure TypeScript/JavaScript language defaults. Must be called inside a
  * MonacoEditor beforeMount callback where the monaco instance is fully
- * initialised and monaco.languages.typescript is guaranteed to exist.
+ * initialised. Modern ESM exposes TypeScript defaults via its contribution
+ * module rather than the legacy core namespace.
  */
 export function applyTypeScriptDefaults(m: Monaco): void {
   const ts = m.languages.typescript;
-  if (!ts) return;
+  if (!ts) {
+    // Monaco 0.55's core API omits the legacy namespace. Typing registration
+    // must still run via the ESM contribution. Do not change unrelated
+    // compiler/diagnostic defaults while repairing this lazy-load boundary.
+    scheduleNodeTypeDefinitions(
+      m,
+      typeScriptContribution as unknown as MonacoTypeScriptDefaultsWithExtraLib
+    );
+    return;
+  }
 
   const compilerOptions = {
     allowJs: true,
@@ -348,11 +487,10 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
   ts.typescriptDefaults.setCompilerOptions(compilerOptions);
 
-  // Fire-and-forget: the Node typings download lazily off the first-mount path
-  // (see NODE_TYPE_DEFINITION_MODULES). beforeMount is synchronous, so we do
-  // not block editor creation on the type chunk; intellisense for crypto/fs/etc
-  // lights up a tick after the editor appears.
-  void registerNodeTypeDefinitions(ts);
+  // beforeMount is synchronous, so editor creation never waits on the Node
+  // typings; `scheduleNodeTypeDefinitions` decides whether they load on idle
+  // (desktop) or only once a buffer refers to Node (web).
+  scheduleNodeTypeDefinitions(m, ts);
 }
 
 /**
