@@ -2,7 +2,7 @@
  * Node.js type declarations for Monaco's TypeScript worker — one lazy chunk.
  *
  * This module must only ever be reached through `import()` from
- * `./monaco.ts`; `tests/build/monacoInitialGraph.test.ts` fails the build if
+ * `./nodeTypeDefinitionsLoader.ts`; `tests/build/monacoInitialGraph.test.ts` fails the build if
  * it becomes statically reachable from either entry. The globs are EAGER on
  * purpose: `@types/node` is ~126 files / ~2.4 MB of raw `.d.ts`, and loading
  * them as 126 lazy `?raw` modules produced a 126-request waterfall on first

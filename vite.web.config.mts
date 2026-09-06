@@ -1,3 +1,4 @@
+import { nodeTypingChunkPlugin } from './build/nodeTypingChunkPlugin.mts';
 /**
  * Vite config for the standalone web build.
  *
@@ -85,6 +86,7 @@ export default defineConfig(({ command }) => {
   return {
     base,
     plugins: [
+      nodeTypingChunkPlugin(),
       react(),
       copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] }),
       // Production points DuckDB/Ruby at the R2 mirror, an origin the

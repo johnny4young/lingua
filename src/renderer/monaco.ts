@@ -27,6 +27,8 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { getLanguageSupportDescriptor } from './languageSupport/registry';
 import type { NavigationTreeItem } from './utils/symbolNavigation';
+import { loadNodeTypeDefinitions } from './nodeTypeDefinitionsLoader';
+import { NODE_BUILTINS } from '../shared/dependencies/nodeBuiltins';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -43,10 +45,10 @@ const NODE_TYPINGS_LANGUAGES = new Set(['javascript', 'typescript']);
 // Cheap signal that a JS/TS buffer is Node code and would benefit from the
 // Node typings: CommonJS require, the process/Buffer globals, __dirname,
 // or an import of a Node built-in (with or without the node: prefix).
-const NODE_REFERENCE_RE =
-  /\brequire\(|\bprocess\.|\bBuffer\b|__dirname|__filename|from\s+['"](?:node:|(?:fs|path|os|crypto|http|https|child_process|url|util|stream|events|buffer|readline|net|zlib|worker_threads)['"])/u;
-// Above this many characters the regex scan is skipped: a buffer that large
-// is not a scratchpad snippet, and the change listener re-runs on edits.
+const NODE_GLOBAL_REFERENCE_RE =
+  /\b(?:require\s*\(|process\b|Buffer\b|__dirname\b|__filename\b|NodeJS\b|global\b|module\s*\.\s*exports|exports\s*[.[])/u;
+const MODULE_REFERENCE_RE = /\b(?:from\s*|import\s*(?:\(\s*)?)['"]([^'"\r\n]+)['"]/gu;
+// Bound per-edit scanning cost; oversized buffers are reconsidered on edits.
 const NODE_REFERENCE_SCAN_MAX_CHARS = 200_000;
 const NODE_REFERENCE_SCAN_DEBOUNCE_MS = 300;
 
@@ -68,6 +70,8 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 
 let configured = false;
 let nodeTypeDefinitionsRegistered = false;
+let nodeTypeDefinitionsLoading: Promise<boolean> | null = null;
+let nodeTypeDefinitionsScheduled = false;
 
 /**
  * Per-language registration cache, keyed by Monaco language id. The value is the
@@ -81,8 +85,7 @@ const languageRegistrations = new Map<string, Promise<void>>();
 /**
  * Set up the worker environment and loader. Must be called once before any
  * MonacoEditor component renders. TypeScript language defaults are intentionally
- * NOT configured here because monaco.languages.typescript is only guaranteed to
- * exist after the editor's beforeMount callback fires. Call
+ * NOT configured here; the lazy typing scheduler needs the editor lifecycle. Call
  * applyTypeScriptDefaults(monaco) in the beforeMount prop instead.
  */
 export function configureMonaco(): void {
@@ -269,58 +272,60 @@ function typeDefinitionUri(modulePath: string): string | null {
   return null;
 }
 
-async function registerNodeTypeDefinitions(
-  ts: MonacoTypeScriptDefaultsWithExtraLib
-): Promise<void> {
-  if (nodeTypeDefinitionsRegistered) return;
-  const jsAddExtraLib = ts.javascriptDefaults.addExtraLib;
-  const tsAddExtraLib = ts.typescriptDefaults.addExtraLib;
-  if (typeof jsAddExtraLib !== 'function' || typeof tsAddExtraLib !== 'function') {
-    return;
-  }
-  // Claim the one-shot flag up front so a second editor mount arriving while
-  // the type chunk is still downloading does not start a duplicate pass.
-  nodeTypeDefinitionsRegistered = true;
+function registerNodeTypeDefinitions(ts: MonacoTypeScriptDefaultsWithExtraLib): Promise<boolean> {
+  if (nodeTypeDefinitionsRegistered) return Promise.resolve(true);
+  if (nodeTypeDefinitionsLoading) return nodeTypeDefinitionsLoading;
+  if (
+    typeof ts.javascriptDefaults.addExtraLib !== 'function' ||
+    typeof ts.typescriptDefaults.addExtraLib !== 'function'
+  )
+    return Promise.resolve(false);
 
-  let definitions: typeof import('./monacoNodeTypes');
-  try {
-    definitions = await import('./monacoNodeTypes');
-  } catch {
-    // Best-effort: if the type chunk fails to load the built-in modules stay
-    // untyped and the editor stays usable. Release the flag so a later
-    // trigger can retry once the network is back.
-    nodeTypeDefinitionsRegistered = false;
-    return;
-  }
-
-  const typeDefinitions = {
-    ...definitions.NODE_TYPE_DEFINITIONS,
-    ...definitions.UNDICI_TYPE_DEFINITIONS,
-  };
-
-  // Every addExtraLib call lands in the same tick, so monaco-typescript's
-  // setTimeout(0) resync debounce collapses the ~126 registrations into one
-  // worker resync instead of one per awaited file.
-  for (const [modulePath, content] of Object.entries(typeDefinitions).sort(
-    ([left], [right]) => left.localeCompare(right)
-  )) {
-    const filePath = typeDefinitionUri(modulePath);
-    if (!filePath) continue;
-    jsAddExtraLib(content, filePath);
-    tsAddExtraLib(content, filePath);
-  }
+  nodeTypeDefinitionsLoading = (async () => {
+    try {
+      const definitions = await loadNodeTypeDefinitions();
+      const typeDefinitions = {
+        ...definitions.NODE_TYPE_DEFINITIONS,
+        ...definitions.UNDICI_TYPE_DEFINITIONS,
+      };
+      // Register in one tick to preserve Monaco's resync debounce. These are
+      // receiver-dependent methods, not standalone callbacks.
+      for (const [modulePath, content] of Object.entries(typeDefinitions).sort(([left], [right]) =>
+        left.localeCompare(right)
+      )) {
+        const filePath = typeDefinitionUri(modulePath);
+        if (!filePath) continue;
+        ts.javascriptDefaults.addExtraLib!(content, filePath);
+        ts.typescriptDefaults.addExtraLib!(content, filePath);
+      }
+      nodeTypeDefinitionsRegistered = true;
+      return true;
+    } catch {
+      // Best effort, including registration failures: retain observers so a
+      // later edit/model can retry, without an automatic retry loop. Monaco
+      // deduplicates identical extra-lib content if a partial pass is retried.
+      return false;
+    } finally {
+      nodeTypeDefinitionsLoading = null;
+    }
+  })();
+  return nodeTypeDefinitionsLoading;
 }
 
 type MonacoTextModelLike = {
   getLanguageId: () => string;
   getValue: () => string;
   getValueLength: () => number;
+  isDisposed?: () => boolean;
   onDidChangeContent: (listener: () => void) => { dispose: () => void };
   onWillDispose?: (listener: () => void) => { dispose: () => void };
 };
 
 type MonacoEditorNamespaceLike = {
   getModels?: () => MonacoTextModelLike[];
+  onDidChangeModelLanguage?: (listener: (event: { model: MonacoTextModelLike }) => void) => {
+    dispose: () => void;
+  };
   onDidCreateModel?: (listener: (model: MonacoTextModelLike) => void) => { dispose: () => void };
 };
 
@@ -332,9 +337,15 @@ function hasNodeRuntime(): boolean {
 }
 
 function modelReferencesNode(model: MonacoTextModelLike): boolean {
-  if (!NODE_TYPINGS_LANGUAGES.has(model.getLanguageId())) return false;
+  if (model.isDisposed?.() || !NODE_TYPINGS_LANGUAGES.has(model.getLanguageId())) return false;
   if (model.getValueLength() > NODE_REFERENCE_SCAN_MAX_CHARS) return false;
-  return NODE_REFERENCE_RE.test(model.getValue());
+  const value = model.getValue();
+  if (NODE_GLOBAL_REFERENCE_RE.test(value)) return true;
+  for (const match of value.matchAll(MODULE_REFERENCE_RE)) {
+    const specifier = match[1]!;
+    if (specifier.startsWith('node:') || NODE_BUILTINS.has(specifier.split('/')[0]!)) return true;
+  }
+  return false;
 }
 
 /**
@@ -347,65 +358,106 @@ function modelReferencesNode(model: MonacoTextModelLike): boolean {
  * the models and load on the first match, then stop watching.
  */
 function scheduleNodeTypeDefinitions(m: Monaco, ts: MonacoTypeScriptDefaultsWithExtraLib): void {
-  if (nodeTypeDefinitionsRegistered) return;
-  if (hasNodeRuntime()) {
-    runWhenIdle(() => {
-      void registerNodeTypeDefinitions(ts);
-    });
-    return;
-  }
-
+  if (nodeTypeDefinitionsRegistered || nodeTypeDefinitionsScheduled) return;
+  const desktop = hasNodeRuntime();
   const editorNamespace = m.editor as unknown as MonacoEditorNamespaceLike;
   if (
     typeof editorNamespace.onDidCreateModel !== 'function' ||
     typeof editorNamespace.getModels !== 'function'
   ) {
+    if (desktop) {
+      nodeTypeDefinitionsScheduled = true;
+      runWhenIdle(() => {
+        void registerNodeTypeDefinitions(ts).finally(() => {
+          nodeTypeDefinitionsScheduled = false;
+        });
+      });
+    }
     return;
   }
 
-  const disposables: Array<{ dispose: () => void }> = [];
-  let triggered = false;
-  const trigger = (): void => {
-    if (triggered) return;
-    triggered = true;
-    for (const disposable of disposables.splice(0)) disposable.dispose();
-    void registerNodeTypeDefinitions(ts);
+  nodeTypeDefinitionsScheduled = true;
+  const models = new Map<MonacoTextModelLike, () => void>();
+  const observers: Array<{ dispose: () => void }> = [];
+  let loading = false;
+  let idlePending = desktop;
+  const trigger = async (): Promise<void> => {
+    if (loading || nodeTypeDefinitionsRegistered) return;
+    loading = true;
+    const success = await registerNodeTypeDefinitions(ts);
+    loading = false;
+    if (!success) return;
+    for (const cleanup of models.values()) cleanup();
+    for (const observer of observers.splice(0)) observer.dispose();
+    nodeTypeDefinitionsScheduled = false;
+  };
+  const inspect = (model: MonacoTextModelLike): void => {
+    if (idlePending || model.isDisposed?.()) return;
+    if (modelReferencesNode(model)) void trigger();
   };
   const watch = (model: MonacoTextModelLike): void => {
-    if (triggered) return;
-    if (modelReferencesNode(model)) {
-      trigger();
-      return;
-    }
+    if (nodeTypeDefinitionsRegistered || models.has(model) || model.isDisposed?.()) return;
     let debounce: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
     const subscription = model.onDidChangeContent(() => {
-      if (debounce) clearTimeout(debounce);
+      if (debounce !== null) clearTimeout(debounce);
+      debounce = null;
+      if (loading || !NODE_TYPINGS_LANGUAGES.has(model.getLanguageId())) return;
       debounce = setTimeout(() => {
         debounce = null;
-        if (modelReferencesNode(model)) trigger();
+        if (!disposed) inspect(model);
       }, NODE_REFERENCE_SCAN_DEBOUNCE_MS);
     });
-    disposables.push({
-      dispose: () => {
-        if (debounce) clearTimeout(debounce);
-        subscription.dispose();
-      },
-    });
-    model.onWillDispose?.(() => subscription.dispose());
+    const cleanup = (): void => {
+      if (disposed) return;
+      disposed = true;
+      if (debounce !== null) clearTimeout(debounce);
+      debounce = null;
+      subscription.dispose();
+      disposal?.dispose();
+      models.delete(model);
+    };
+    models.set(model, cleanup);
+    const disposal = model.onWillDispose?.(cleanup);
+    // Desktop's first attempt remains idle-scheduled; after an unsuccessful
+    // attempt new models and edits provide the same demand-driven retry path.
+    inspect(model);
   };
 
+  // Subscribe before scanning existing models so an immediate match cannot
+  // leave a newly-added global observer behind after successful registration.
+  observers.push(editorNamespace.onDidCreateModel(watch));
+  const languageObserver = editorNamespace.onDidChangeModelLanguage?.(({ model }) => {
+    watch(model);
+    inspect(model);
+  });
+  if (languageObserver) observers.push(languageObserver);
   for (const model of editorNamespace.getModels()) watch(model);
-  disposables.push(editorNamespace.onDidCreateModel(watch));
+  if (desktop)
+    runWhenIdle(() => {
+      idlePending = false;
+      void trigger();
+    });
 }
 
 /**
  * Configure TypeScript/JavaScript language defaults. Must be called inside a
  * MonacoEditor beforeMount callback where the monaco instance is fully
- * initialised and monaco.languages.typescript is guaranteed to exist.
+ * initialised. Modern ESM exposes TypeScript defaults via its contribution
+ * module rather than the legacy core namespace.
  */
 export function applyTypeScriptDefaults(m: Monaco): void {
   const ts = m.languages.typescript;
-  if (!ts) return;
+  if (!ts) {
+    // Monaco 0.55's core API omits the legacy namespace. Typing registration
+    // must still run via the ESM contribution. Do not change unrelated
+    // compiler/diagnostic defaults while repairing this lazy-load boundary.
+    scheduleNodeTypeDefinitions(
+      m,
+      typeScriptContribution as unknown as MonacoTypeScriptDefaultsWithExtraLib
+    );
+    return;
+  }
 
   const compilerOptions = {
     allowJs: true,

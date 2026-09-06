@@ -1,3 +1,4 @@
+import { nodeTypingChunkPlugin } from './build/nodeTypingChunkPlugin.mts';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
@@ -14,7 +15,7 @@ applySharedEnvDefaults();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), copyRuntimeAssetsPlugin()],
+  plugins: [nodeTypingChunkPlugin(),react(), copyRuntimeAssetsPlugin()],
   define: {
     ...getSharedBuildDefines(),
     // Desktop renderer loads Pyodide from the local copy placed under
