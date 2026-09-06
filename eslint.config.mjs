@@ -111,6 +111,24 @@ export default tseslint.config(
     },
   },
   {
+    // Store reads inside components must select a slice. A bare
+    // `useXStore()` subscribes the component to every field of the store,
+    // so any unrelated update re-renders it (CodeEditor rebuilt its Monaco
+    // options on each settings change this way). Use a single-field
+    // selector or `useShallow` from zustand/react/shallow.
+    files: ['src/renderer/components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.name=/^use[A-Z]\\w*Store$/][arguments.length=0]',
+          message:
+            'Select a store slice: useXStore(state => state.field) or useXStore(useShallow(state => ({ ... }))). A selector-less read re-renders on every store update.',
+        },
+      ],
+    },
+  },
+  {
     files: ['src/main/**/*.ts', 'src/preload/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { claimCapsuleListSurface } from './CapsuleList/capsuleListSurface';
 import { replayHistoryEntry } from '../utils/replayHistoryEntry';
 import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
@@ -9,6 +9,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackEvent } from '../utils/telemetry';
+import { runWhenIdle } from '../utils/runWhenIdle';
 import type { AppOverlay } from '../hooks/useGlobalShortcuts';
 import { requestSettingsTarget } from './Settings/pendingSettingsTab';
 
@@ -129,6 +130,18 @@ export function AppOverlays({
   isRunning,
   exportProjectBundle,
 }: AppOverlaysProps) {
+  // Warm Quick Open (Cmd+P) once the shell is idle after boot. It stays
+  // lazy for the initial graph (a dynamic import of the same chunk the
+  // `lazy()` factory above resolves), but the first Cmd+P no longer opens
+  // onto an empty Suspense fallback while the chunk downloads. The command
+  // palette is deliberately NOT warmed: its chunk carries the developer
+  // utility reference catalog, and tests/e2e/overlays.spec.ts pins that
+  // catalog to load only after the palette actually opens.
+  useEffect(() => {
+    runWhenIdle(() => {
+      void import('./QuickOpen/QuickOpen');
+    });
+  }, []);
   return (
     <Suspense fallback={null}>
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}

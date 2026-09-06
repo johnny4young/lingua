@@ -17,6 +17,14 @@ export interface ProjectSearchMatch {
  * root. Consumers compose `currentProject.rootPath + '/' + relativePath`
  * for display only; the IPC layer never sees an absolute path.
  */
+/**
+ * Upper bound on matches a single search returns. The filesystem bridge
+ * enforces it (maxTotalMatches), so the renderer never receives more rows
+ * than it is willing to lay out; the UI shows a refine-your-query notice
+ * when the bound was hit.
+ */
+export const PROJECT_SEARCH_MAX_MATCHES = 500;
+
 export interface ProjectSearchResult {
   /** Path relative to the project root the search was scoped to. */
   relativePath: string;
@@ -32,6 +40,8 @@ interface ProjectSearchState {
   status: ProjectSearchStatus;
   results: ProjectSearchResult[];
   totalMatches: number;
+  /** True when the result set was cut at PROJECT_SEARCH_MAX_MATCHES. */
+  truncated: boolean;
   error: string | null;
   /** Monotonically increasing request id so stale responses can be dropped. */
   requestId: number;
@@ -64,6 +74,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
   status: 'idle',
   results: [],
   totalMatches: 0,
+  truncated: false,
   error: null,
   requestId: 0,
 
@@ -81,6 +92,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         status: 'idle',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: null,
       });
       return;
@@ -98,6 +110,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         status: 'ready',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: null,
       });
       return;
@@ -107,7 +120,9 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
     set({ query, rootId, status: 'loading', error: null, requestId });
 
     try {
-      const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed);
+      const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed, {
+        maxTotalMatches: PROJECT_SEARCH_MAX_MATCHES,
+      });
       // Drop the response if a newer search has already started. Without this
       // guard, a slow search against a large project could overwrite fresher
       // results typed by the user milliseconds later.
@@ -116,11 +131,13 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         relativePath: result.relativePath,
         matches: result.matches,
       }));
+      const totalMatches = sumMatches(projectResults);
       set({
         resultsQuery: query,
         status: 'ready',
         results: projectResults,
-        totalMatches: sumMatches(projectResults),
+        totalMatches,
+        truncated: totalMatches >= PROJECT_SEARCH_MAX_MATCHES,
         error: null,
       });
     } catch (err) {
@@ -143,6 +160,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       status: 'idle',
       results: [],
       totalMatches: 0,
+      truncated: false,
       error: null,
     });
   },

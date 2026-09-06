@@ -1,5 +1,6 @@
 import { BookCopy, Plus, Save, Trash2 } from 'lucide-react';
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
@@ -91,7 +92,16 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     removeSnippet,
     updateSnippet,
     setPendingLinkedSnippetId,
-  } = useSnippetsStore();
+  } = useSnippetsStore(
+    useShallow((state) => ({
+      snippets: state.snippets,
+      pendingLinkedSnippetId: state.pendingLinkedSnippetId,
+      addSnippet: state.addSnippet,
+      removeSnippet: state.removeSnippet,
+      updateSnippet: state.updateSnippet,
+      setPendingLinkedSnippetId: state.setPendingLinkedSnippetId,
+    }))
+  );
   const activeTabId = useEditorStore((state) => state.activeTabId);
   const addTab = useEditorStore((state) => state.addTab);
   const updateContent = useEditorStore((state) => state.updateContent);

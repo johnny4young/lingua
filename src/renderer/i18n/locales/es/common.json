@@ -2446,6 +2446,7 @@
   "projectSearch.hint.open": "abrir",
   "projectSearch.count_one": "{{count}} coincidencia en {{files}} archivo",
   "projectSearch.count_other": "{{count}} coincidencias en {{files}} archivos",
+  "projectSearch.truncated": "Se muestran las primeras {{count}} coincidencias. Afina la búsqueda para acotar los resultados.",
   "commandPalette.action.openFile.label": "Abrir archivo",
   "commandPalette.action.openFile.description": "Abrir un archivo desde disco (Cmd+O)",
   "commandPalette.action.saveAs.label": "Guardar como",

@@ -1,9 +1,11 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useListWindow } from '../../hooks/useListWindow';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import {
+  PROJECT_SEARCH_MAX_MATCHES,
   useProjectSearchStore,
   type ProjectSearchMatch,
   type ProjectSearchResult,
@@ -17,6 +19,8 @@ import { handleCloseOnEscape } from '../ui/keyboard';
 
 // Long enough to coalesce typing bursts without making search feel stale.
 const SEARCH_DEBOUNCE_MS = 220;
+/** Fallback row height for the windowed result list (CSS px). */
+const SEARCH_ROW_ESTIMATE_PX = 36;
 
 interface ProjectSearchProps {
   onClose: () => void;
@@ -84,6 +88,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const resultsQuery = useProjectSearchStore((state) => state.resultsQuery);
   const results = useProjectSearchStore((state) => state.results);
   const totalMatches = useProjectSearchStore((state) => state.totalMatches);
+  const truncated = useProjectSearchStore((state) => state.truncated);
   const error = useProjectSearchStore((state) => state.error);
 
   // Debounce query → search. Disabled when no project is active.
@@ -111,6 +116,15 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   // Enter handling operate only on concrete match rows.
   const rows = useMemo(() => buildFlatRows(results), [results]);
   const matchRows = useMemo(() => rows.filter((row) => row.kind === 'match'), [rows]);
+  // A capped result set can still be 500 match rows plus file headers;
+  // window them like the file tree so the overlay mounts only what the
+  // 28rem list can show.
+  const rowKeys = useMemo(() => rows.map((row) => row.key), [rows]);
+  const { listWindow, measureRef, scrollToIndex } = useListWindow({
+    scrollRef: listRef,
+    keys: rowKeys,
+    estimate: SEARCH_ROW_ESTIMATE_PX,
+  });
   // Keep user intent as the only state. The effective selection is derived so
   // a changed result set immediately falls back to its first match without a
   // second render or an effect-driven state repair.
@@ -128,13 +142,23 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
     if (!selectedMatchKey) return;
     const list = listRef.current;
     if (!list) return;
+    // A keyboard jump can target a row that is currently windowed out;
+    // scroll the container to its offset first so the row mounts.
+    const rowIndex = rows.findIndex((row) => row.key === selectedMatchKey);
+    if (
+      rowIndex !== -1 &&
+      (rowIndex < listWindow.startIndex || rowIndex > listWindow.endIndex)
+    ) {
+      scrollToIndex(rowIndex);
+      return;
+    }
     for (const child of Array.from(list.children) as HTMLElement[]) {
       if (child.dataset.rowKey === selectedMatchKey) {
         child.scrollIntoView({ block: 'nearest' });
         break;
       }
     }
-  }, [selectedMatchKey]);
+  }, [selectedMatchKey, rows, listWindow.startIndex, listWindow.endIndex, scrollToIndex]);
 
   const openMatch = async (row: FlatRow) => {
     if (!row.match) return;
@@ -287,11 +311,16 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
               {t('projectSearch.empty.hint')}
             </p>
           ) : (
-            rows.map((row) => {
+            <>
+            {listWindow.topSpacer > 0 && (
+              <div style={{ height: `${listWindow.topSpacer}px` }} aria-hidden role="presentation" />
+            )}
+            {rows.slice(listWindow.startIndex, listWindow.endIndex + 1).map((row) => {
               if (row.kind === 'file') {
                 return (
                   <div
                     key={row.key}
+                    ref={measureRef(row.key)}
                     data-row-key={row.key}
                     className="mt-3 px-3 py-1 text-body-sm font-semibold uppercase tracking-[0.14em] text-muted"
                   >
@@ -304,6 +333,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
               return (
                 <button
                   key={row.key}
+                  ref={measureRef(row.key)}
                   type="button"
                   data-row-key={row.key}
                   onClick={() => void openMatch(row)}
@@ -318,7 +348,11 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                   {row.match && <MatchPreview match={row.match} />}
                 </button>
               );
-            })
+            })}
+            {listWindow.bottomSpacer > 0 && (
+              <div style={{ height: `${listWindow.bottomSpacer}px` }} aria-hidden role="presentation" />
+            )}
+            </>
           )}
         </div>
 
@@ -332,10 +366,12 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
           <span className="ml-auto">
             {status === 'loading'
               ? t('projectSearch.loading')
-              : t('projectSearch.count', {
-                  count: totalMatches,
-                  files: results.length,
-                })}
+              : truncated
+                ? t('projectSearch.truncated', { count: PROJECT_SEARCH_MAX_MATCHES })
+                : t('projectSearch.count', {
+                    count: totalMatches,
+                    files: results.length,
+                  })}
           </span>
         </div>
       </OverlayCard>

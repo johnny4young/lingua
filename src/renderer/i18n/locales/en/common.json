@@ -2419,6 +2419,7 @@
   "projectSearch.hint.open": "open",
   "projectSearch.count_one": "{{count}} match in {{files}} file",
   "projectSearch.count_other": "{{count}} matches in {{files}} files",
+  "projectSearch.truncated": "Showing the first {{count}} matches. Refine the query to narrow the results.",
   "commandPalette.action.openFile.label": "Open File",
   "commandPalette.action.openFile.description": "Open a file from disk (Cmd+O)",
   "commandPalette.action.saveAs.label": "Save As",
