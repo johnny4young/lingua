@@ -138,8 +138,10 @@ export function AppOverlays({
   // utility reference catalog, and tests/e2e/overlays.spec.ts pins that
   // catalog to load only after the palette actually opens.
   useEffect(() => {
-    runWhenIdle(() => {
-      void import('./QuickOpen/QuickOpen');
+    return runWhenIdle(() => {
+      // Optional warming must not surface offline/chunk-load failures.
+      // A user-triggered lazy load still owns its normal error boundary.
+      void import('./QuickOpen/QuickOpen').catch(() => {});
     });
   }, []);
   return (

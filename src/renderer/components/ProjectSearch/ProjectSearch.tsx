@@ -142,23 +142,24 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
     if (!selectedMatchKey) return;
     const list = listRef.current;
     if (!list) return;
-    // A keyboard jump can target a row that is currently windowed out;
-    // scroll the container to its offset first so the row mounts.
-    const rowIndex = rows.findIndex((row) => row.key === selectedMatchKey);
-    if (
-      rowIndex !== -1 &&
-      (rowIndex < listWindow.startIndex || rowIndex > listWindow.endIndex)
-    ) {
-      scrollToIndex(rowIndex);
-      return;
-    }
-    for (const child of Array.from(list.children) as HTMLElement[]) {
-      if (child.dataset.rowKey === selectedMatchKey) {
-        child.scrollIntoView({ block: 'nearest' });
-        break;
+    const revealMounted = () => {
+      for (const child of Array.from(list.children) as HTMLElement[]) {
+        if (child.dataset.rowKey === selectedMatchKey) {
+          child.scrollIntoView({ block: 'nearest' });
+          return true;
+        }
       }
-    }
-  }, [selectedMatchKey, rows, listWindow.startIndex, listWindow.endIndex, scrollToIndex]);
+      return false;
+    };
+    if (revealMounted()) return;
+    // Only a changed selection should scroll. Window bounds change during
+    // manual scrolling and must never pull the viewport back to selection.
+    const rowIndex = rows.findIndex((row) => row.key === selectedMatchKey);
+    if (rowIndex === -1) return;
+    scrollToIndex(rowIndex);
+    const frame = requestAnimationFrame(revealMounted);
+    return () => cancelAnimationFrame(frame);
+  }, [selectedMatchKey, rows, scrollToIndex]);
 
   const openMatch = async (row: FlatRow) => {
     if (!row.match) return;
@@ -242,7 +243,9 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
       announce(
         results.length === 0
           ? t('projectSearch.empty.noMatch', { query })
-          : t('projectSearch.count', {
+          : truncated
+            ? t('projectSearch.truncated', { count: PROJECT_SEARCH_MAX_MATCHES })
+            : t('projectSearch.count', {
               count: totalMatches,
               files: results.length,
             })
@@ -251,6 +254,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   }, [
     status,
     totalMatches,
+    truncated,
     results.length,
     error,
     query,
@@ -312,46 +316,46 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
             </p>
           ) : (
             <>
-            {listWindow.topSpacer > 0 && (
-              <div style={{ height: `${listWindow.topSpacer}px` }} aria-hidden role="presentation" />
-            )}
-            {rows.slice(listWindow.startIndex, listWindow.endIndex + 1).map((row) => {
-              if (row.kind === 'file') {
+              {listWindow.topSpacer > 0 && (
+                <div style={{ height: `${listWindow.topSpacer}px` }} aria-hidden role="presentation" />
+              )}
+              {rows.slice(listWindow.startIndex, listWindow.endIndex + 1).map((row) => {
+                if (row.kind === 'file') {
+                  return (
+                    <div
+                      key={row.key}
+                      ref={measureRef(row.key)}
+                      data-row-key={row.key}
+                      className="px-3 pt-4 pb-1 text-body-sm font-semibold uppercase tracking-[0.14em] text-muted"
+                    >
+                      {row.result.relativePath}
+                    </div>
+                  );
+                }
+
+                const isSelected = row.key === selectedMatchKey;
                 return (
-                  <div
+                  <button
                     key={row.key}
                     ref={measureRef(row.key)}
+                    type="button"
                     data-row-key={row.key}
-                    className="mt-3 px-3 py-1 text-body-sm font-semibold uppercase tracking-[0.14em] text-muted"
+                    onClick={() => void openMatch(row)}
+                    onMouseEnter={() => setPreferredMatchKey(row.key)}
+                    className={`focus-ring flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
+                      isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
+                    }`}
                   >
-                    {row.result.relativePath}
-                  </div>
+                    <span className="mt-[0.2rem] w-12 shrink-0 text-right font-mono text-body-sm text-muted">
+                      {row.match?.line}:{row.match?.column}
+                    </span>
+                    {row.match && <MatchPreview match={row.match} />}
+                  </button>
                 );
-              }
-
-              const isSelected = row.key === selectedMatchKey;
-              return (
-                <button
-                  key={row.key}
-                  ref={measureRef(row.key)}
-                  type="button"
-                  data-row-key={row.key}
-                  onClick={() => void openMatch(row)}
-                  onMouseEnter={() => setPreferredMatchKey(row.key)}
-                  className={`focus-ring flex w-full items-start gap-3 rounded-4xl px-3 py-2 text-left transition-colors ${
-                    isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
-                  }`}
-                >
-                  <span className="mt-[0.2rem] w-12 shrink-0 text-right font-mono text-body-sm text-muted">
-                    {row.match?.line}:{row.match?.column}
-                  </span>
-                  {row.match && <MatchPreview match={row.match} />}
-                </button>
-              );
-            })}
-            {listWindow.bottomSpacer > 0 && (
-              <div style={{ height: `${listWindow.bottomSpacer}px` }} aria-hidden role="presentation" />
-            )}
+              })}
+              {listWindow.bottomSpacer > 0 && (
+                <div style={{ height: `${listWindow.bottomSpacer}px` }} aria-hidden role="presentation" />
+              )}
             </>
           )}
         </div>

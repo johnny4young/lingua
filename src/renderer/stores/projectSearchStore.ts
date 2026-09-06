@@ -12,19 +12,10 @@ export interface ProjectSearchMatch {
   matchEnd: number;
 }
 
-/**
- * internal — search results carry the relative path inside the project
- * root. Consumers compose `currentProject.rootPath + '/' + relativePath`
- * for display only; the IPC layer never sees an absolute path.
- */
-/**
- * Upper bound on matches a single search returns. The filesystem bridge
- * enforces it (maxTotalMatches), so the renderer never receives more rows
- * than it is willing to lay out; the UI shows a refine-your-query notice
- * when the bound was hit.
- */
+/** Maximum displayed matches; the bridge supplies one extra truncation sentinel. */
 export const PROJECT_SEARCH_MAX_MATCHES = 500;
 
+/** Search paths stay relative to the approved root across the filesystem bridge. */
 export interface ProjectSearchResult {
   /** Path relative to the project root the search was scoped to. */
   relativePath: string;
@@ -78,14 +69,16 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
   error: null,
   requestId: 0,
 
-  setQuery: (query) => set({ query }),
+  setQuery: query => set({ query }),
 
   search: async (rootId, query) => {
     const trimmed = query.trim();
+    const requestId = get().requestId + 1;
     // Empty queries short-circuit — the UI shouldn't enter a loading state
     // just because the input was cleared.
     if (trimmed.length === 0) {
       set({
+        requestId,
         query,
         rootId,
         resultsQuery: query,
@@ -104,6 +97,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       // rather than error so the UI can render an empty state instead of a
       // red failure banner.
       set({
+        requestId,
         query,
         rootId,
         resultsQuery: query,
@@ -116,28 +110,33 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       return;
     }
 
-    const requestId = get().requestId + 1;
-    set({ query, rootId, status: 'loading', error: null, requestId });
+    set({ query, rootId, truncated: false, status: 'loading', error: null, requestId });
 
     try {
       const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed, {
-        maxTotalMatches: PROJECT_SEARCH_MAX_MATCHES,
+        maxTotalMatches: PROJECT_SEARCH_MAX_MATCHES + 1,
       });
       // Drop the response if a newer search has already started. Without this
       // guard, a slow search against a large project could overwrite fresher
       // results typed by the user milliseconds later.
       if (get().requestId !== requestId) return;
-      const projectResults: ProjectSearchResult[] = results.map((result) => ({
-        relativePath: result.relativePath,
-        matches: result.matches,
-      }));
-      const totalMatches = sumMatches(projectResults);
+      const truncated = sumMatches(results) > PROJECT_SEARCH_MAX_MATCHES;
+      let remaining = PROJECT_SEARCH_MAX_MATCHES;
+      const projectResults: ProjectSearchResult[] = [];
+      for (const result of results) {
+        if (remaining === 0) break;
+        const matches = result.matches.slice(0, remaining);
+        if (matches.length === 0) continue;
+        projectResults.push({ relativePath: result.relativePath, matches });
+        remaining -= matches.length;
+      }
+      const totalMatches = PROJECT_SEARCH_MAX_MATCHES - remaining;
       set({
         resultsQuery: query,
         status: 'ready',
         results: projectResults,
         totalMatches,
-        truncated: totalMatches >= PROJECT_SEARCH_MAX_MATCHES,
+        truncated,
         error: null,
       });
     } catch (err) {
@@ -147,6 +146,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         status: 'error',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: userFacingSearchError(err),
       });
     }
@@ -154,6 +154,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
 
   clear: () => {
     set({
+      requestId: get().requestId + 1,
       query: '',
       rootId: null,
       resultsQuery: '',

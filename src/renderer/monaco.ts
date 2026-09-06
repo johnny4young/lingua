@@ -226,12 +226,6 @@ export function prefetchLanguage(languageId: string): void {
   });
 }
 
-/**
- * Run `callback` during browser idle time, or on a 0ms timeout where
- * `requestIdleCallback` is unavailable (Electron renderer, jsdom). The timeout
- * guarantees the work still runs under sustained main-thread load.
- */
-
 type MonacoLanguageDefaultsWithExtraLib = {
   addExtraLib?: (content: string, filePath?: string) => unknown;
 };
