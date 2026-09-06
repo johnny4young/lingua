@@ -109,12 +109,12 @@ describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () =
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
-  it('forwards the request init (Subresource Integrity) to every fetch attempt', async () => {
+  it('forwards non-SRI request options to every fetch attempt', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Service Unavailable' }))
       .mockResolvedValueOnce(new Response('wasm', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    const init = { integrity: 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' };
+    const init = { cache: 'no-cache' as const };
 
     const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 3, 1, noSleep, init);
 

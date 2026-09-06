@@ -83,6 +83,26 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+### Mirrored WASM integrity and failure recovery
+
+Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256
+computed from the lockfile-verified build inputs. Ruby tees its response so
+compilation overlaps downloading, but the module is not returned for
+instantiation until the digest matches. This is streaming compilation, not a
+constant-memory hash: Web Crypto still requires an accumulated byte buffer.
+
+DuckDB requires a URL, so its download uses browser Subresource Integrity
+before creating a blob URL. SRI rejection can represent a network error,
+tampered bytes, or an HTTP error body whose digest does not match. The browser
+hides that HTTP status; this path makes one attempt and surfaces the existing
+engine-load failure for explicit user retry. It never retries without integrity
+or guesses a status. Non-SRI requests retain bounded network/5xx retries and
+return deterministic 4xx responses without retrying.
+
+Same-origin development and standard E2E builds do not enter these verified
+branches. Qualify the production-shaped branches separately with matching and
+mismatched assets; deployed mirror CORS remains an independent operational gate.
+
 ### UTF-8 text budgets
 
 `shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for

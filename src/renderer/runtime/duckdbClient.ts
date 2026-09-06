@@ -392,7 +392,9 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
  * network error (offline, DNS, reset) — with exponential backoff. A `4xx`
  * is deterministic (a Bot-Fight-Mode `403`, a `404` for a missing object)
  * and must NOT be retried: retrying only delays the inevitable failure and
- * hammers the origin. Exported for tests; `sleep` is injectable so specs
+ * hammers the origin. SRI requests make one attempt: integrity failures
+ * can hide HTTP error statuses and cannot be classified as transient.
+ * Exported for tests; `sleep` is injectable so specs
  * don't wait real time.
  */
 const DUCKDB_WASM_FETCH_MAX_RETRIES = 3;
@@ -406,13 +408,14 @@ export async function fetchRuntimeAssetWithRetry(
     new Promise((resolve) => setTimeout(resolve, ms)),
   init?: RequestInit
 ): Promise<Response> {
+  // Fetch validates SRI before exposing the Response, including error
+  // bodies. Do not retry an opaque rejection that could be a 403/404 or
+  // tampered payload. Recovery remains an explicit user retry.
+  if (init?.integrity) return fetch(url, init);
+
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // `init` carries the Subresource Integrity metadata for the R2
-      // mirror; a mismatch rejects like a network error (the browser
-      // does not distinguish them), so it is retried the same bounded
-      // number of times and then surfaces through the caller.
       const response = await fetch(url, init);
       // Only a transient server error is worth another attempt; any other
       // status (2xx success, or a deterministic 4xx) is returned as-is for
@@ -422,7 +425,7 @@ export async function fetchRuntimeAssetWithRetry(
       }
       lastError = new Error(`${response.status} ${response.statusText}`);
     } catch (networkError) {
-      // fetch() rejects only on a network-layer failure — always transient.
+      // Without SRI, retry rejected requests within the bounded budget.
       lastError = networkError instanceof Error ? networkError : new Error(String(networkError));
       if (attempt === maxRetries) throw lastError;
     }
@@ -464,7 +467,8 @@ async function fetchVerifiedWasmUrl(
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
       `Failed to fetch DuckDB runtime (${reason}). Either the network dropped or the ` +
-        `mirrored asset failed its integrity check against sha256 ${expectedSha256}.`,
+        `mirror returned an HTTP error or failed its integrity check against sha256 ${expectedSha256}. ` +
+        'The browser does not expose the status for integrity failures; no automatic retry was attempted.',
       { cause: error }
     );
   }

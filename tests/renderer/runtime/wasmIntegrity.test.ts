@@ -111,3 +111,44 @@ describe('compileWasmStreamingVerified', () => {
     expect(compile).not.toHaveBeenCalled();
   });
 });
+
+// Exercise the real compiler, not only injected stand-ins. Keep EOF under
+// test control to prove that starting compilation cannot release a module.
+describe('verified streaming compilation with native WebAssembly', () => {
+  const wasm = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]);
+  const wasmSha256 = '93a44bbb96c751218e4c00d479e4c14358122a389acca16205b1e4d0dc5f9476';
+
+  it('starts compilation before EOF but releases the module only after verification', async () => {
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const stream = new ReadableStream<Uint8Array>({
+      start(value) { controller = value; },
+    });
+    const compile = vi.fn((response: Response) => WebAssembly.compileStreaming(response));
+    let released = false;
+    const pending = compileWasmStreamingVerified(new Response(stream), wasmSha256, 'Ruby', compile)
+      .then(module => { released = true; return module; });
+    controller.enqueue(wasm.subarray(0, 4));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(compile).toHaveBeenCalledTimes(1);
+    expect(released).toBe(false);
+    controller.enqueue(wasm.subarray(4));
+    controller.close();
+    expect(await pending).toBeInstanceOf(WebAssembly.Module);
+  });
+
+  it('rejects valid executable bytes with the wrong digest', async () => {
+    await expect(compileWasmStreamingVerified(new Response(wasm), ABC_SHA256, 'Ruby'))
+      .rejects.toThrow(/integrity check failed/);
+  });
+
+  it('rejects a download interrupted after the wasm header', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(wasm.subarray(0, 4));
+        controller.error(new Error('download interrupted'));
+      },
+    });
+    await expect(compileWasmStreamingVerified(new Response(stream), wasmSha256, 'Ruby'))
+      .rejects.toThrow(/download interrupted/);
+  });
+});
