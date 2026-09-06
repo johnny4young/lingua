@@ -153,9 +153,11 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/snippetsStore', () => ({
-  useSnippetsStore: () => ({
-    snippets: [],
-  }),
+  // Selector-aware: the palette hook reads `snippets` through a selector.
+  useSnippetsStore: (selector?: (state: unknown) => unknown) => {
+    const state = { snippets: [] };
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock('../../src/renderer/stores/settingsStore', () => {
@@ -165,13 +167,19 @@ vi.mock('../../src/renderer/stores/settingsStore', () => {
   return { useSettingsStore };
 });
 
-vi.mock('../../src/renderer/stores/updateStore', () => ({
-  useUpdateStore: () => ({
+vi.mock('../../src/renderer/stores/updateStore', () => {
+  const state = {
     checkForUpdates: vi.fn().mockResolvedValue(undefined),
     restartToApply: vi.fn().mockResolvedValue(true),
     status: 'idle',
-  }),
-}));
+  };
+  return {
+    // Selector-aware, with a stable state object so useShallow slices
+    // compare equal across renders.
+    useUpdateStore: (selector?: (s: typeof state) => unknown) =>
+      selector ? selector(state) : state,
+  };
+});
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   Kbd: ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>,

@@ -12,11 +12,10 @@ export interface ProjectSearchMatch {
   matchEnd: number;
 }
 
-/**
- * internal — search results carry the relative path inside the project
- * root. Consumers compose `currentProject.rootPath + '/' + relativePath`
- * for display only; the IPC layer never sees an absolute path.
- */
+/** Maximum displayed matches; the bridge supplies one extra truncation sentinel. */
+export const PROJECT_SEARCH_MAX_MATCHES = 500;
+
+/** Search paths stay relative to the approved root across the filesystem bridge. */
 export interface ProjectSearchResult {
   /** Path relative to the project root the search was scoped to. */
   relativePath: string;
@@ -32,6 +31,8 @@ interface ProjectSearchState {
   status: ProjectSearchStatus;
   results: ProjectSearchResult[];
   totalMatches: number;
+  /** True when the result set was cut at PROJECT_SEARCH_MAX_MATCHES. */
+  truncated: boolean;
   error: string | null;
   /** Monotonically increasing request id so stale responses can be dropped. */
   requestId: number;
@@ -64,23 +65,27 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
   status: 'idle',
   results: [],
   totalMatches: 0,
+  truncated: false,
   error: null,
   requestId: 0,
 
-  setQuery: (query) => set({ query }),
+  setQuery: query => set({ query }),
 
   search: async (rootId, query) => {
     const trimmed = query.trim();
+    const requestId = get().requestId + 1;
     // Empty queries short-circuit — the UI shouldn't enter a loading state
     // just because the input was cleared.
     if (trimmed.length === 0) {
       set({
+        requestId,
         query,
         rootId,
         resultsQuery: query,
         status: 'idle',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: null,
       });
       return;
@@ -92,35 +97,46 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
       // rather than error so the UI can render an empty state instead of a
       // red failure banner.
       set({
+        requestId,
         query,
         rootId,
         resultsQuery: query,
         status: 'ready',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: null,
       });
       return;
     }
 
-    const requestId = get().requestId + 1;
-    set({ query, rootId, status: 'loading', error: null, requestId });
+    set({ query, rootId, truncated: false, status: 'loading', error: null, requestId });
 
     try {
-      const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed);
+      const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed, {
+        maxTotalMatches: PROJECT_SEARCH_MAX_MATCHES + 1,
+      });
       // Drop the response if a newer search has already started. Without this
       // guard, a slow search against a large project could overwrite fresher
       // results typed by the user milliseconds later.
       if (get().requestId !== requestId) return;
-      const projectResults: ProjectSearchResult[] = results.map((result) => ({
-        relativePath: result.relativePath,
-        matches: result.matches,
-      }));
+      const truncated = sumMatches(results) > PROJECT_SEARCH_MAX_MATCHES;
+      let remaining = PROJECT_SEARCH_MAX_MATCHES;
+      const projectResults: ProjectSearchResult[] = [];
+      for (const result of results) {
+        if (remaining === 0) break;
+        const matches = result.matches.slice(0, remaining);
+        if (matches.length === 0) continue;
+        projectResults.push({ relativePath: result.relativePath, matches });
+        remaining -= matches.length;
+      }
+      const totalMatches = PROJECT_SEARCH_MAX_MATCHES - remaining;
       set({
         resultsQuery: query,
         status: 'ready',
         results: projectResults,
-        totalMatches: sumMatches(projectResults),
+        totalMatches,
+        truncated,
         error: null,
       });
     } catch (err) {
@@ -130,6 +146,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
         status: 'error',
         results: [],
         totalMatches: 0,
+        truncated: false,
         error: userFacingSearchError(err),
       });
     }
@@ -137,12 +154,14 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
 
   clear: () => {
     set({
+      requestId: get().requestId + 1,
       query: '',
       rootId: null,
       resultsQuery: '',
       status: 'idle',
       results: [],
       totalMatches: 0,
+      truncated: false,
       error: null,
     });
   },

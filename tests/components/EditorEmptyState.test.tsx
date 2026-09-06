@@ -6,7 +6,11 @@ import i18next from 'i18next';
 const mockAddTab = vi.fn();
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: () => ({ addTab: mockAddTab }),
+  // Selector-aware: the component reads addTab through a selector.
+  useEditorStore: (selector?: (state: unknown) => unknown) => {
+    const state = { addTab: mockAddTab };
+    return selector ? selector(state) : state;
+  },
   createDefaultTab: (language: string) => ({
     id: `new-${language}`,
     name: `untitled.${language === 'typescript' ? 'ts' : 'js'}`,

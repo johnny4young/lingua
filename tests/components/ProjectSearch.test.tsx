@@ -65,12 +65,30 @@ describe('ProjectSearch', () => {
       status: 'idle',
       results: [],
       totalMatches: 0,
+      truncated: false,
       error: null,
       requestId: 0,
     });
     (window as LinguaTestWindow).lingua = {
       fs: { searchInFiles: mockSearchInFiles },
     };
+  });
+
+  it('replaces the count with a refine-your-query notice when the result set was capped', () => {
+    useProjectSearchStore.setState({
+      query: 'needle',
+      rootId: 'root-1',
+      resultsQuery: 'needle',
+      status: 'ready',
+      results: [{ relativePath: 'a.ts', matches: [] }],
+      totalMatches: 500,
+      truncated: true,
+      error: null,
+    });
+    render(<ProjectSearch onClose={vi.fn()} />);
+    expect(screen.getByText(/Showing the first 500 matches/)).toBeTruthy();
+    expect(screen.queryByText(/500 matches in 1 file/)).toBeNull();
+    expect(useAnnouncerStore.getState().message).toContain('Showing the first 500 matches');
   });
 
   it('renders the prompt when the query is empty', () => {

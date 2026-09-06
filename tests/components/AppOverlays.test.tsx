@@ -1,6 +1,22 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const idleWarmup = vi.hoisted(() => ({
+  callback: null as (() => void) | null,
+  cancel: vi.fn(),
+  load: vi.fn(),
+}));
+vi.mock('../../src/renderer/utils/runWhenIdle', () => ({
+  runWhenIdle: (callback: () => void) => {
+    idleWarmup.callback = callback;
+    return idleWarmup.cancel;
+  },
+}));
+vi.mock('../../src/renderer/components/QuickOpen/QuickOpen', () => {
+  idleWarmup.load();
+  throw new Error('optional chunk unavailable');
+});
+
 const lifecycle = vi.hoisted(() => ({ mounts: 0 }));
 const notebookExport = vi.hoisted(() => ({
   load: vi.fn(),
@@ -73,6 +89,18 @@ describe('AppOverlays', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it('contains optional warmup failures and cancels pending work on unmount', async () => {
+    const { unmount } = render(<AppOverlays overlay={null} {...callbacks} />);
+    expect(idleWarmup.load).not.toHaveBeenCalled();
+    idleWarmup.callback?.();
+    await vi.dynamicImportSettled();
+    expect(idleWarmup.load).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    unmount();
+    expect(idleWarmup.cancel).toHaveBeenCalled();
+    // Vitest also fails this test on any unhandled import rejection.
   });
 
   // Overlays load behind a lazy boundary, so the first paint of each is a

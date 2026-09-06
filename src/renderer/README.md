@@ -588,6 +588,26 @@ Use the closest store that already owns the product concept instead of adding cr
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
+### Project search limits and virtual rows
+
+Project search displays at most 500 matches. It asks the filesystem bridge for
+501 matches and discards the extra sentinel, so exactly 500 matches do not
+produce a false truncation notice. Existing per-file and file-scan limits still
+apply. A truncated result announces the same refine-query notice visually and
+through the polite live region. Loading, errors, clearing and superseding
+requests cannot retain an obsolete truncation flag.
+
+File headers and matches share `useListWindow`; all row spacing must be inside
+the measured border box, not external margins. Selection changes reveal the
+chosen row, including an unmounted keyboard target. Manual scrolling must not
+reveal the old selection again just because the window bounds changed.
+
+`AppOverlays` warms only Quick Open during idle time, cancels pending warmup on
+unmount and contains optional import failures. Command Palette and its utility
+and export graphs remain demand-loaded. Component store reads must select a
+slice; their lint rule composes with, rather than replaces, the renderer-wide
+active-tab selector restrictions.
+
 ## Global action entry points
 
 The Command Palette is the canonical text entry point for global actions. A

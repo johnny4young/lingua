@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { Download, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -29,7 +30,15 @@ function presetParseFailureKey(result: Extract<ParseThemePresetResult, { ok: fal
 
 export function ThemePresetControls() {
   const { t } = useTranslation();
-  const settings = useSettingsStore();
+  const settings = useSettingsStore(
+    useShallow((s) => ({
+      theme: s.theme,
+      editorTheme: s.editorTheme,
+      fontFamily: s.fontFamily,
+      fontSize: s.fontSize,
+      layoutPreset: s.layoutPreset,
+    }))
+  );
   const applyThemePreset = useSettingsStore((s) => s.applyThemePreset);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
 

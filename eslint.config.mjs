@@ -4,6 +4,22 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 
+// Flat-config rule options replace, rather than merge, earlier arrays.
+const activeTabRestrictions = [
+  {
+    selector:
+      'CallExpression[callee.property.name="find"][callee.object.name="tabs"]:has(Identifier[name="activeTabId"])',
+    message:
+      'Use useActiveTab() / getActiveTab(state) instead of an inline tabs.find(... === activeTabId). See internal',
+  },
+  {
+    selector:
+      'CallExpression[callee.property.name="find"][callee.object.property.name="tabs"]:has(Identifier[name="activeTabId"])',
+    message:
+      'Use useActiveTab() / getActiveTab(state) instead of an inline state.tabs.find(... === activeTabId). See internal',
+  },
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -35,7 +51,10 @@ export default tseslint.config(
   // Global: honour _ prefix for intentionally unused identifiers across all files
   {
     rules: {
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       // ESLint 10's two new recommended rules were demoted to warn by the
       // dep-sweep so the bumps could land; the 2026-05-18 cleanup change
       // fixed every call site so both are re-promoted to error.
@@ -93,19 +112,24 @@ export default tseslint.config(
     files: ['src/renderer/**/*.{ts,tsx}'],
     ignores: ['src/renderer/stores/editorSelectors.ts'],
     rules: {
+      'no-restricted-syntax': ['error', ...activeTabRestrictions],
+    },
+  },
+  {
+    // Store reads inside components must select a slice. A bare
+    // `useXStore()` subscribes the component to every field of the store,
+    // so any unrelated update re-renders it (CodeEditor rebuilt its Monaco
+    // options on each settings change this way). Use a single-field
+    // selector or `useShallow` from zustand/react/shallow.
+    files: ['src/renderer/components/**/*.{ts,tsx}'],
+    rules: {
       'no-restricted-syntax': [
         'error',
+        ...activeTabRestrictions,
         {
-          selector:
-            'CallExpression[callee.property.name="find"][callee.object.name="tabs"]:has(Identifier[name="activeTabId"])',
+          selector: 'CallExpression[callee.name=/^use[A-Z]\\w*Store$/][arguments.length=0]',
           message:
-            'Use useActiveTab() / getActiveTab(state) instead of an inline tabs.find(... === activeTabId). See internal',
-        },
-        {
-          selector:
-            'CallExpression[callee.property.name="find"][callee.object.property.name="tabs"]:has(Identifier[name="activeTabId"])',
-          message:
-            'Use useActiveTab() / getActiveTab(state) instead of an inline state.tabs.find(... === activeTabId). See internal',
+            'Select a store slice: useXStore(state => state.field) or useXStore(useShallow(state => ({ ... }))). A selector-less read re-renders on every store update.',
         },
       ],
     },

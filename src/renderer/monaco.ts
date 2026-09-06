@@ -1,4 +1,5 @@
 import { loader, type Monaco } from '@monaco-editor/react';
+import { runWhenIdle } from './utils/runWhenIdle';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 
 // `editor.api.js` only ships the core API surface. Editor contributions
@@ -223,24 +224,6 @@ export function prefetchLanguage(languageId: string): void {
     // the narrower editor.api.js namespace type to the full Monaco type.
     void registerLanguageOnce(monaco as unknown as Monaco, languageId);
   });
-}
-
-/**
- * Run `callback` during browser idle time, or on a 0ms timeout where
- * `requestIdleCallback` is unavailable (Electron renderer, jsdom). The timeout
- * guarantees the work still runs under sustained main-thread load.
- */
-function runWhenIdle(callback: () => void): void {
-  const idle = (
-    globalThis as typeof globalThis & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-    }
-  ).requestIdleCallback;
-  if (typeof idle === 'function') {
-    idle(callback, { timeout: 2000 });
-  } else {
-    setTimeout(callback, 0);
-  }
 }
 
 type MonacoLanguageDefaultsWithExtraLib = {

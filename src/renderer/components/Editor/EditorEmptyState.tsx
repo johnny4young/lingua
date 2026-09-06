@@ -34,7 +34,7 @@ const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6);
 const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
 
 export function EditorEmptyState() {
-  const { addTab } = useEditorStore();
+  const addTab = useEditorStore((state) => state.addTab);
   const { t } = useTranslation();
   // Mirror the platform-gate idiom used elsewhere (Toolbar, FileTree).
   // The "Desktop only" pill only makes sense on the web build —

@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useTranslation } from 'react-i18next';
@@ -106,7 +107,7 @@ export function useCommandPaletteCommands({
   // palette model so the "Pin watch on current line" action only
   // appears for JS / TS / Python.
   const activeWatchLanguage = activeTab?.language ?? null;
-  const { snippets } = useSnippetsStore();
+  const snippets = useSnippetsStore(state => state.snippets);
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const canBenchmark = useEntitlement('BENCHMARK');
   const canExplainError = useEntitlement('LOCAL_AI');
@@ -137,7 +138,7 @@ export function useCommandPaletteCommands({
     dependencyDetectionEntry.language === activeTab.language &&
     (dependencyDetectionEntry.dependencies.length > 0 ||
       dependencyDetectionEntry.skippedReason !== undefined);
-  const { setLayoutPreset } = useSettingsStore();
+  const setLayoutPreset = useSettingsStore(state => state.setLayoutPreset);
   const togglePresenterMode = usePresenterModeStore(state => state.toggle);
   const vimMode = useSettingsStore(state => state.vimMode);
   // implementation — gate the "Focus status bar" palette command on the bar's
@@ -151,7 +152,13 @@ export function useCommandPaletteCommands({
     const pendingCount = getPendingSessionRestoreTabCount();
     return pendingCount > 0 ? pendingCount : state.savedTabs.length;
   });
-  const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
+  const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore(
+    useShallow(state => ({
+      checkForUpdates: state.checkForUpdates,
+      restartToApply: state.restartToApply,
+      status: state.status,
+    }))
+  );
   const { t, i18n } = useTranslation();
   const { info, success, warning } = useStatusNotice();
 
