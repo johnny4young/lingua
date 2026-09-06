@@ -230,6 +230,16 @@ describe('computeContentHash — collision smoke (Dimension 8)', () => {
 // ---------------------------------------------------------------------------
 
 describe('sanitizeRunCapsule — stream truncation', () => {
+  it.each(['stdout', 'stderr'] as const)('preserves a leading BOM in truncated %s', field => {
+    const capsule: RunCapsuleV1 = {
+      ...FIXTURE_MINIMAL_JS,
+      result: { ...FIXTURE_MINIMAL_JS.result, [field]: '\uFEFF' + 'a'.repeat(MAX_STREAM_BYTES) },
+    };
+    const sanitised = sanitizeRunCapsule(capsule);
+    expect(sanitised.result[field]).toBe('\uFEFF' + 'a'.repeat(MAX_STREAM_BYTES - 3));
+    expect(sanitised.privacy.omittedFields).toContain(`result.${field}`);
+  });
+
   it('truncates oversized stdout to MAX_STREAM_BYTES and flags the field', () => {
     const sanitised = sanitizeRunCapsule(FIXTURE_LARGE_STDOUT);
     expect(sanitised.result.stdout?.length).toBe(MAX_STREAM_BYTES);

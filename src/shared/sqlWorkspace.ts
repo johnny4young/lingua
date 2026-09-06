@@ -38,6 +38,8 @@
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
  * with a parity test.
  */
+import { utf8ByteLength } from './utf8';
+
 export const SQL_QUERY_STATUSES = [
   'success',
   'sql-error',
@@ -122,7 +124,8 @@ export type SqlStorageMode = 'opfs' | 'memory';
 export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — file → DuckDB table import helpers.
+// internal (SQL import) — file → DuckDB table
+// import helpers.
 //
 // Pure, side-effect-free helpers shared by the renderer import flow and
 // its unit tests. The renderer's `duckdbClient` registers the file bytes
@@ -326,9 +329,7 @@ export function isValidTableName(name: string): boolean {
 }
 
 /** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspaceSchema.ts. */
-export function utf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).byteLength;
-}
+export { utf8ByteLength } from './utf8';
 
 /**
  * Heuristic: does the SQL text contain a schema-changing (DDL) statement?

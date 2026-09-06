@@ -34,6 +34,9 @@ import { SHARE_FRAGMENT_PREFIX } from './shareProtocol';
 import { getLanguagePackById } from './languagePacks';
 import { RUNTIME_MODES, type RuntimeMode } from './runtimeModes';
 import { WORKFLOW_MODES, type WorkflowMode } from './workflowMode';
+import { truncateUtf8, utf8ByteLength } from './utf8';
+
+export { utf8ByteLength } from './utf8';
 
 export const SHARE_PAYLOAD_VERSION = 1 as const;
 
@@ -407,32 +410,6 @@ function textDecoder(): TextDecoder {
     _textDecoder = new TextDecoder('utf-8', { fatal: true });
   }
   return _textDecoder;
-}
-
-export function utf8ByteLength(s: string): number {
-  return textEncoder().encode(s).byteLength;
-}
-
-/**
- * Truncate a UTF-8 string so the encoded byte length never exceeds
- * `capBytes`. Iterates by 1 character at a time from the end to
- * avoid splitting surrogate pairs (the same defensive pattern used
- * by `truncateUtf8` in `runCapsule.ts`).
- */
-function truncateUtf8(s: string, capBytes: number): string {
-  if (utf8ByteLength(s) <= capBytes) return s;
-  let lo = 0;
-  let hi = s.length;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >>> 1;
-    const slice = s.slice(0, mid);
-    if (utf8ByteLength(slice) <= capBytes) {
-      lo = mid;
-    } else {
-      hi = mid - 1;
-    }
-  }
-  return s.slice(0, lo);
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

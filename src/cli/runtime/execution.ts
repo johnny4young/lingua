@@ -9,6 +9,7 @@
  * termination, and deterministic result classification.
  */
 
+import { truncateUtf8 } from '../../shared/utf8';
 import { execFile, spawn } from 'node:child_process';
 import type { ChildProcess, ChildProcessWithoutNullStreams } from 'node:child_process';
 import { rm } from 'node:fs/promises';
@@ -294,7 +295,7 @@ class CappedOutput {
     }
 
     const remainingBytes = Math.max(0, payloadCap - currentBytes);
-    const prefix = utf8Prefix(chunk, remainingBytes);
+    const prefix = truncateUtf8(chunk, remainingBytes);
     const accepted = `${prefix}${OUTPUT_TRUNCATION_MARKER}`;
     this.value += accepted;
     this.truncated = true;
@@ -309,15 +310,6 @@ function forwardOutput(
 ): void {
   const accepted = output.append(chunk);
   if (accepted) listener?.(accepted);
-}
-
-function utf8Prefix(value: string, maxBytes: number): string {
-  if (maxBytes <= 0) return '';
-  const bytes = Buffer.from(value, 'utf8');
-  if (bytes.length <= maxBytes) return value;
-  let end = maxBytes;
-  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end -= 1;
-  return bytes.subarray(0, end).toString('utf8');
 }
 
 function asErrno(error: unknown): NodeJS.ErrnoException {

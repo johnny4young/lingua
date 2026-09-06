@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+import { utf8ByteLength } from '../../src/shared/utf8';
 import {
   MAX_CONSOLE_ENTRIES,
   MAX_RESULT_BYTES,
@@ -84,6 +86,29 @@ describe('capStderrIfOverflowing', () => {
 });
 
 describe('truncateSerialized', () => {
+  it.each([
+    ['exact-cap ASCII', 'm'.repeat(MAX_RESULT_BYTES)],
+    ['over-cap ASCII', 'm'.repeat(MAX_RESULT_BYTES + 1)],
+    ['over-cap multibyte', '日'.repeat(MAX_RESULT_BYTES)],
+    ['mixed surrogate boundary', 'a'.repeat(MAX_RESULT_BYTES - 3) + '😀'],
+  ])('bounds an oversized value with a %s marker', (_name, marker) => {
+    const value = 'x'.repeat(MAX_RESULT_BYTES + 1);
+    const result = truncateSerialized(value, marker);
+    expect(utf8ByteLength(result)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+    expect(result.isWellFormed()).toBe(true);
+    expect(result).not.toContain('\uFFFD');
+  });
+
+  it('allows a zero payload budget when the marker fills the cap', () => {
+    const marker = 'm'.repeat(MAX_RESULT_BYTES);
+    expect(truncateSerialized('x'.repeat(MAX_RESULT_BYTES + 1), marker)).toBe(marker);
+  });
+
+  it('does not append an oversized marker to an in-budget value', () => {
+    const value = '😀'.repeat(MAX_RESULT_BYTES / 4);
+    expect(truncateSerialized(value, 'm'.repeat(MAX_RESULT_BYTES + 1))).toBe(value);
+  });
+
   it('returns the input unchanged when under the cap', () => {
     expect(truncateSerialized('hello', '… [trunc]')).toBe('hello');
   });
@@ -93,7 +118,28 @@ describe('truncateSerialized', () => {
     const value = 'x'.repeat(MAX_RESULT_BYTES + 100);
     const truncated = truncateSerialized(value, marker);
     expect(truncated.endsWith(marker)).toBe(true);
-    expect(truncated.length).toBe(MAX_RESULT_BYTES);
+    expect(utf8ByteLength(truncated)).toBe(MAX_RESULT_BYTES);
+  });
+
+  it('caps multibyte results by UTF-8 bytes, not UTF-16 units', () => {
+    // Each 日 is one code unit but three bytes: slicing by .length let this
+    // payload through at three times the byte cap.
+    const marker = '… [result truncated]';
+    const value = '日'.repeat(MAX_RESULT_BYTES);
+    const truncated = truncateSerialized(value, marker);
+    expect(truncated.endsWith(marker)).toBe(true);
+    expect(utf8ByteLength(truncated)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
+    expect(utf8ByteLength(truncated)).toBeGreaterThan(MAX_RESULT_BYTES - 4);
+  });
+
+  it('never ends the kept payload on a lone surrogate', () => {
+    const marker = '…';
+    const value = '😀'.repeat(MAX_RESULT_BYTES);
+    const truncated = truncateSerialized(value, marker);
+    const kept = truncated.slice(0, -marker.length);
+    const last = kept.charCodeAt(kept.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+    expect(utf8ByteLength(truncated)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
   });
 });
 

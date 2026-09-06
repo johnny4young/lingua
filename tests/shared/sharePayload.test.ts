@@ -97,6 +97,24 @@ describe('SharePayloadV1 — builder', () => {
     });
     expect(payload.input).toBeUndefined();
   });
+
+  it('drops a whole emoji at a mixed stdin boundary in builders and decoded links', async () => {
+    const prefix = 'a'.repeat(MAX_SHARE_STDIN_BYTES - 3);
+    const stdin = prefix + '😀';
+    const payload = buildSharePayload({
+      name: 'a.js', language: 'javascript', content: 'x', stdinBuffer: stdin,
+    });
+    expect(payload.input?.stdin).toBe(prefix);
+
+    // Bypass the builder so decoding must independently enforce the cap.
+    const encoded = await encodeShareFragment({ ...happyPayload, input: { stdin } });
+    expect(encoded.ok).toBe(true);
+    if (!encoded.ok) return;
+    const decoded = await decodeShareFragment(encoded.fragment);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.payload.input?.stdin).toBe(prefix);
+  });
 });
 
 describe('encodeShareFragment / decodeShareFragment — round-trip', () => {
