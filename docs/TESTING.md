@@ -78,6 +78,20 @@ Add `pnpm run check:performance`, `pnpm run check:licenses`, and
 `pnpm run compliance:release` when the change touches release posture,
 dependency/runtime assets, or public release evidence.
 
+### Coverage
+
+`pnpm run test:coverage` runs the same vitest suite instrumented with the v8
+provider and writes `text-summary`, `json-summary`, and `lcov` reports to
+`output/coverage/` (gitignored). The plain `pnpm test` stays uninstrumented so
+the everyday gate keeps its speed. Timing benches (`*.bench.test.ts`) are
+excluded from the instrumented run: v8 instrumentation makes them three
+times slower and their budgets would fail for reasons unrelated to
+coverage. The global thresholds in
+`vitest.config.mts` are a ratchet: each one sits two points below the first
+measured run and only moves up. Raise them when a change lifts the number;
+never lower them to make a run pass, and never set a number that was not
+measured.
+
 ### Web Base
 
 ```bash

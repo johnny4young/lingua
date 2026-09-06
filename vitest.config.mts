@@ -32,6 +32,25 @@ export default defineConfig({
     // Website unit tests belong with the website toolchain; keep them out
     // of the app's root run.
     exclude: [...configDefaults.exclude, 'tests/website/**'],
+    // Instrumented coverage runs only under `pnpm run test:coverage`; the
+    // plain `pnpm test` stays uninstrumented. Thresholds are a ratchet set
+    // two points below the first measured run, never an invented target.
+    coverage: {
+      provider: 'v8',
+      enabled: false,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts', 'src/types.d.ts'],
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+      reportsDirectory: 'output/coverage',
+      // Measured 2026-09-06 on the full suite (benches excluded):
+      // lines 80.69, statements 77.92, functions 78.99, branches 69.82.
+      thresholds: {
+        lines: 78,
+        statements: 75,
+        functions: 76,
+        branches: 67,
+      },
+    },
   },
   resolve: {
     alias: {
