@@ -56,6 +56,17 @@ function resolvePyodideIndexUrl(): string {
 
 const PYODIDE_INDEX_URL = resolvePyodideIndexUrl();
 
+/**
+ * The pre-warm streams `pyodide.asm.wasm` once, purely to surface byte
+ * progress and prime the HTTP cache before `loadPyodide` fetches it for
+ * real. That only pays off over the network: the desktop build serves the
+ * runtime from the packaged app (file: or app: scheme), where the extra
+ * pass is a redundant read of ~10 MB straight before the real load.
+ */
+export function shouldPrewarmPyodide(indexUrl: string): boolean {
+  return /^https?:\/\//i.test(indexUrl);
+}
+
 export function createPythonRuntimeAdapter(ctx: PythonWorkerPort): PythonRuntimeAdapter {
   let pyodide: PyodideRuntime | null = null;
   let activeRunId: string | null = null;
@@ -85,7 +96,9 @@ export function createPythonRuntimeAdapter(ctx: PythonWorkerPort): PythonRuntime
 
   const loadPyodide = async (): Promise<PyodideRuntime> => {
     if (pyodide) return pyodide;
-    await prewarmPyodideWithProgress();
+    if (shouldPrewarmPyodide(PYODIDE_INDEX_URL)) {
+      await prewarmPyodideWithProgress();
+    }
 
     const loader = (await import(
       /* @vite-ignore */ `${PYODIDE_INDEX_URL}pyodide.mjs`
