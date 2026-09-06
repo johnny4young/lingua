@@ -39,6 +39,7 @@
 import { consolePrinter, RubyVM } from '@ruby/wasm-wasi';
 import { File, OpenFile, PreopenDirectory, WASI } from '@bjorn3/browser_wasi_shim';
 import { responseWithBootstrapProgress } from './bootstrapProgress';
+import { compileWasmStreamingVerified } from '../runtime/wasmIntegrity';
 
 const ctx = self as unknown as Worker;
 
@@ -99,30 +100,6 @@ let stdoutBuffer: StreamBuffer = { method: 'log', pending: '' };
 // when `result.error` exists, and user stderr must survive that filter.
 let stderrBuffer: StreamBuffer = { method: 'warn', pending: '' };
 
-/**
- * Verify R2-mirrored bytes against the build-time expected sha256 before
- * compiling. Only the standalone web build fetches the runtime from the
- * R2 mirror (the define is null otherwise), and only that path needs the
- * check: a tampered bucket object must fail loudly here instead of being
- * instantiated. The expected hash comes from the pnpm-lock-verified
- * node_modules payload, computed in vite.web.config.mts.
- */
-async function compileVerified(
-  bytes: ArrayBuffer,
-  expectedSha256: string
-): Promise<WebAssembly.Module> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const actual = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-  if (actual !== expectedSha256) {
-    throw new Error(
-      `Ruby runtime integrity check failed: expected sha256 ${expectedSha256}, got ${actual}. ` +
-        'The mirrored runtime asset does not match this build.'
-    );
-  }
-  return WebAssembly.compile(bytes);
-}
 
 async function loadRuby(): Promise<RubyVM> {
   if (vm) return vm;
@@ -147,8 +124,14 @@ async function loadRuby(): Promise<RubyVM> {
   const expectedSha256 = __LINGUA_RUBY_WASM_URL__
     ? __LINGUA_RUBY_WASM_SHA256__
     : null;
+  // Only the standalone web build fetches the runtime from the R2 mirror
+  // (the define is null otherwise), and only that path needs the check: a
+  // tampered bucket object must fail loudly before it is instantiated.
+  // Both paths compile while the bytes stream in; the verified one tees
+  // the body so the digest runs alongside instead of after a full
+  // arrayBuffer() (previously ~30 MB buffered before compile even began).
   const wasmModule = expectedSha256
-    ? await compileVerified(await trackedResponse.arrayBuffer(), expectedSha256)
+    ? await compileWasmStreamingVerified(trackedResponse, expectedSha256, 'Ruby')
     : await WebAssembly.compileStreaming(trackedResponse);
 
   // The consolePrinter overrides WASI `fd_write` for fd 1 (stdout) and
