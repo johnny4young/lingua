@@ -92,61 +92,39 @@ export default defineConfig({
         // import needs, the entry included. Rolldown otherwise parks it inside
         // the monaco chunk, which turns that need into a static edge onto the
         // whole editor and pins Monaco to the initial graph. The helper's id
-        // is the virtual `\0vite/preload-helper.js`, which the rollup-compat
-        // `manualChunks` layer below never sees, so it has to be a group here.
+        // is the virtual `\0vite/preload-helper.js`; keep its pin alongside
+        // the vendor groups rather than in a second policy.
+        // Rolldown ignores manualChunks when advancedChunks/codeSplitting
+        // is also supplied. The former mixed config therefore emitted no
+        // named vendor chunks; keep all grouping in this one policy.
         advancedChunks: {
-          groups: [{ name: 'vite-preload', test: /preload-helper/, priority: 100 }],
-        },
-        manualChunks: (id) => {
-          // Monaco editor and language workers — largest chunk, load separately
-          if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
-            return 'monaco';
-          }
-          // Pyodide static assets are copied to <outDir>/pyodide/ by
-          // copyRuntimeAssetsPlugin  — no JS chunking
-          // is involved. esbuild-wasm still ships in-bundle.
-          if (id.includes('esbuild-wasm')) {
-            return 'esbuild-wasm';
-          }
-          // React + ReactDOM together
-          if (id.includes('react-dom') || id.includes('react/')) {
-            return 'react';
-          }
-          // Zustand store infrastructure
-          if (id.includes('zustand')) {
-            return 'zustand';
-          }
-          // Lucide icons
-          if (id.includes('lucide-react')) {
-            return 'lucide';
-          }
-          // implementation — mirror the web chart chunk split
-          // for the packaged desktop renderer. <RichValueChart>
-          // lazy-loads vega-embed, so these deps should stay grouped
-          // behind that first chart render in both shipped surfaces.
-          if (
-            id.includes('vega-embed') ||
-            id.includes('vega-lite') ||
-            id.includes('node_modules/vega/')
-          ) {
-            return 'vega-embed';
-          }
-          // implementation — mirror the web SQL chunk split for the
-          // packaged desktop renderer. <SqlWorkspacePanel> lazy-loads
-          // @duckdb/duckdb-wasm + apache-arrow, so these deps should
-          // stay grouped behind that first SQL tab open in both
-          // shipped surfaces.
-          if (
-            id.includes('@duckdb/duckdb-wasm') ||
-            id.includes('apache-arrow')
-          ) {
-            return 'duckdb-wasm';
-          }
-          // Web workers — bundled separately by Vite's worker import syntax,
-          // but any shared worker utilities should be isolated
-          if (id.includes('/workers/')) {
-            return 'workers';
-          }
+          // Per-group threshold, not a global merge: a vendor group that
+          // captures under 4 KB is not worth its own request, so rolldown
+          // drops the group and lets those modules fall back to automatic
+          // chunking. Unrelated small chunks are not coalesced by this.
+          minSize: 4096,
+          groups: [
+            // This correctness pin is smaller than the vendor threshold.
+            { name: 'vite-preload', test: /preload-helper/, priority: 100, minSize: 0 },
+            // Vendor code below is split so a deploy that touches app code
+            // does not invalidate the framework bytes returning visitors
+            // already cached. Every group is vendor-only on purpose: app
+            // modules keep following their lazy boundaries, Monaco stays
+            // owned by its dynamic import plus monacoInitialGraph.test.ts,
+            // and worker entries must remain separate files for
+            // `new Worker(new URL(...))`, so neither gets a group.
+            { name: 'react', test: /node_modules\/(?:react|react-dom|scheduler)\//, priority: 50 },
+            { name: 'zustand', test: /node_modules\/zustand\//, priority: 50 },
+            { name: 'lucide', test: /node_modules\/lucide-react\//, priority: 50 },
+            { name: 'i18next', test: /node_modules\/(?:i18next|react-i18next)\//, priority: 50 },
+            // vega-embed chart renderer stays in its own chunk so the charting
+            // bundle only loads when <RichValueChart> mounts.
+            { name: 'vega-embed', test: /node_modules\/(?:vega-embed|vega-lite|vega)\//, priority: 50 },
+            // DuckDB-WASM SQL engine plus Apache Arrow ride together behind the
+            // first SQL workspace open.
+            { name: 'duckdb-wasm', test: /node_modules\/(?:@duckdb\/duckdb-wasm|apache-arrow)\//, priority: 50 },
+            { name: 'esbuild-wasm', test: /node_modules\/esbuild-wasm\//, priority: 50 },
+          ],
         },
       },
     },

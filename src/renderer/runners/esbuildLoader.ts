@@ -4,7 +4,7 @@
  *
  * esbuild-wasm's JS shim used to be a STATIC `import * as esbuild` in both
  * runners, which keeps the whole `esbuild-wasm` chunk on the startup import
- * graph (the manualChunks split makes it a separate file, but a static edge
+ * graph (the esbuild-wasm chunk group makes it a separate file, but a static edge
  * still loads it eagerly at boot) — and its module body has side effects
  * that other modules already had to route around (see the import-shape note
  * in `src/renderer/stores/notebookStore.ts`). Importing it dynamically on

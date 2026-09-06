@@ -35,8 +35,8 @@ import { useProjectStore } from '../../stores/projectStore';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
 // full monaco chunk into the INITIAL bundle — the git-diff tab is
-// conditional (desktop, repo detected, tab opened), and `manualChunks`
-// groups @monaco-editor/react with monaco-editor itself, so this single
+// conditional (desktop, repo detected, tab opened), and @monaco-editor/react
+// shares the lazy monaco chunk with monaco-editor itself, so this single
 // static edge was enough to ship ~3.8 MB of editor JS on cold load.
 const GitDiffPanel = lazy(async () => {
   const module = await import('../Editor/GitDiffPanel');

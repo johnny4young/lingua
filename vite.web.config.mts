@@ -201,52 +201,39 @@ export default defineConfig(({ command }) => {
           // graph for visitors who never open one. Pinning it to its own
           // chunk is what keeps Monaco lazy.
           //
-          // This has to be `advancedChunks` rather than a `manualChunks`
-          // branch: the helper's module id is the virtual `\0vite/preload-helper.js`,
-          // which Vite's rollup-compat `manualChunks` layer never consults.
+          // The helper's virtual id is `\0vite/preload-helper.js`. Keep its
+          // pin alongside the vendor groups rather than in a second policy.
+          // Rolldown ignores manualChunks when advancedChunks/codeSplitting
+          // is also supplied, so the former mixed config emitted no named
+          // vendor chunks. Keep all grouping in this one policy.
           advancedChunks: {
-            groups: [{ name: 'vite-preload', test: /preload-helper/, priority: 100 }],
-          },
-          manualChunks: id => {
-            if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
-              return 'monaco';
-            }
-            if (id.includes('esbuild-wasm')) {
-              return 'esbuild-wasm';
-            }
-            if (id.includes('react-dom') || id.includes('react/')) {
-              return 'react';
-            }
-            if (id.includes('zustand')) {
-              return 'zustand';
-            }
-            if (id.includes('lucide-react')) {
-              return 'lucide';
-            }
-            // implementation — vega-embed chart renderer ships in its
-            // own chunk so the charting bundle stays out of the
-            // main entry. The chunk only loads when <RichValueChart>
-            // mounts (first chart payload), mirroring the Pyodide
-            // lazy-load pattern.
-            if (
-              id.includes('vega-embed') ||
-              id.includes('vega-lite') ||
-              id.includes('node_modules/vega/')
-            ) {
-              return 'vega-embed';
-            }
-            // implementation — DuckDB-WASM SQL engine ships in its own
-            // chunk so the ~7 MiB WASM bundle never touches the main
-            // entry. The chunk loads only when the SQL workspace tab is
-            // opened for the first time, mirroring the vega-embed +
-            // Pyodide lazy-load patterns. Apache Arrow rides along
-            // (DuckDB depends on it for the result format).
-            if (id.includes('@duckdb/duckdb-wasm') || id.includes('apache-arrow')) {
-              return 'duckdb-wasm';
-            }
-            if (id.includes('/workers/')) {
-              return 'workers';
-            }
+            // Per-group threshold, not a global merge: a vendor group that
+            // captures under 4 KB is not worth its own request, so rolldown
+            // drops the group and lets those modules fall back to automatic
+            // chunking. Unrelated small chunks are not coalesced by this.
+            minSize: 4096,
+            groups: [
+              // This correctness pin is smaller than the vendor threshold.
+              { name: 'vite-preload', test: /preload-helper/, priority: 100, minSize: 0 },
+              // Vendor code below is split so a deploy that touches app code
+              // does not invalidate the framework bytes returning visitors
+              // already cached. Every group is vendor-only on purpose: app
+              // modules keep following their lazy boundaries, Monaco stays
+              // owned by its dynamic import plus monacoInitialGraph.test.ts,
+              // and worker entries must remain separate files for
+              // `new Worker(new URL(...))`, so neither gets a group.
+              { name: 'react', test: /node_modules\/(?:react|react-dom|scheduler)\//, priority: 50 },
+              { name: 'zustand', test: /node_modules\/zustand\//, priority: 50 },
+              { name: 'lucide', test: /node_modules\/lucide-react\//, priority: 50 },
+              { name: 'i18next', test: /node_modules\/(?:i18next|react-i18next)\//, priority: 50 },
+              // vega-embed chart renderer stays in its own chunk so the charting
+              // bundle only loads when <RichValueChart> mounts.
+              { name: 'vega-embed', test: /node_modules\/(?:vega-embed|vega-lite|vega)\//, priority: 50 },
+              // DuckDB-WASM SQL engine plus Apache Arrow ride together behind the
+              // first SQL workspace open.
+              { name: 'duckdb-wasm', test: /node_modules\/(?:@duckdb\/duckdb-wasm|apache-arrow)\//, priority: 50 },
+              { name: 'esbuild-wasm', test: /node_modules\/esbuild-wasm\//, priority: 50 },
+            ],
           },
         },
       },

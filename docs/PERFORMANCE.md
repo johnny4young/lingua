@@ -30,6 +30,24 @@ Assets are grouped into:
 - `lazy` — other lazy JS/CSS chunks.
 - `other` — manifests, icons, fonts, and uncategorized files.
 
+Vendor code is split into named chunks by rolldown `advancedChunks`
+groups in `vite.web.config.mts` and `vite.renderer.config.mts`
+(`react`, `zustand`, `lucide`, `i18next`, `vega-embed`, `duckdb-wasm`,
+`esbuild-wasm`, plus the `vite-preload` pin). The split does not shrink
+`initial`; it keeps framework bytes on a hash that survives app-only
+deploys, so returning visitors reuse them from cache. Rolldown ignores
+`manualChunks` when `advancedChunks`/`codeSplitting` is also configured;
+the former mixed configuration therefore never emitted its named vendor
+groups. Keep new groups in the same policy instead of combining both APIs.
+The 4 KiB threshold applies to vendor groups, but `vite-preload` explicitly
+uses `minSize: 0`: this small correctness pin must never fall back to
+automatic placement. Resolved-config and real-build tests lock that
+exception in both bundled surfaces.
+Groups are vendor-only on purpose: app modules keep following their
+lazy boundaries, Monaco stays owned by its dynamic import plus
+`tests/build/monacoInitialGraph.test.ts`, and worker entries must remain
+separate files.
+
 Desktop smoke also writes
 `output/playwright/desktop-smoke/desktop-smoke-performance.json` with:
 
