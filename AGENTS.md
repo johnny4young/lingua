@@ -123,10 +123,10 @@ through to Electron smoke. Never skip both tiers silently.
 
 ## Workflow conventions
 
-- Run `pnpm test -- --run`, `pnpm exec tsc --noEmit`, `pnpm run lint`,
-  `pnpm run check:i18n`, and `pnpm run check:i18n:copy` before declaring
-  a slice done. The `check:i18n` guards catch untranslated keys and
-  hardcoded renderer copy.
+- Run `pnpm test -- --run`, `pnpm exec tsc --noEmit`,
+  `pnpm run typecheck:tests`, `pnpm run lint`, `pnpm run check:i18n`, and
+  `pnpm run check:i18n:copy` before declaring a slice done. The
+  `check:i18n` guards catch untranslated keys and hardcoded renderer copy.
 - The root `tsconfig.json` includes `src/**` only, and `pnpm test` runs
   vitest in transpile-only mode, so neither default gate type-checks
   files under `tests/`. A `// @ts-expect-error` in a test is therefore
@@ -139,8 +139,8 @@ through to Electron smoke. Never skip both tiers silently.
   — most test files were never type-checked and carry pre-existing
   strictness errors; add only files that are meant to be compile gates and
   already type-check clean. The first such guard lives in
-  `tests/main/projectCapabilitiesBrand.test.ts`, which also shells out to
-  the same tsc pass so `pnpm test` alone enforces it.
+  `tests/main/projectCapabilitiesBrand.test.ts`; `pnpm test` alone does
+  not enforce it, which is why `typecheck:tests` is on the list above.
 - Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in the implementation notes rather than expanding the current change.
