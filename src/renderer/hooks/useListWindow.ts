@@ -228,7 +228,9 @@ export function useListWindow({
   // implementation note — prune cached heights and ref callbacks for keys that have left
   // the list (clear, filter toggle), so the caches cannot grow unbounded
   // across a long session.
-  const keySignature = keys.join(',');
+  // Callers memoize `keys` on their row source, so this only re-joins
+  // when the list actually changes instead of on every render.
+  const keySignature = useMemo(() => keys.join(','), [keys]);
   useLayoutEffect(() => {
     const live = new Set(keys);
     for (const key of heightsRef.current.keys()) {

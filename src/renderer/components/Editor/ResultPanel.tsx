@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { useMemo, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { useActiveTab } from '../../hooks/useActiveTab';
@@ -42,7 +43,15 @@ function FullOutputView({
 
 export function ResultPanel() {
   const { t } = useTranslation();
-  const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore();
+  const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore(
+    useShallow(state => ({
+      lineResults: state.lineResults,
+      fullOutput: state.fullOutput,
+      error: state.error,
+      executionTime: state.executionTime,
+      isAutoRunning: state.isAutoRunning,
+    }))
+  );
   const activeTab = useActiveTab();
   const scrollRef = useRef<HTMLDivElement>(null);
   // implementation — hide-undefined is baseline; the runtime button + Settings

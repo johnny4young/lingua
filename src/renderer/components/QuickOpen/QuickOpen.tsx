@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import {
@@ -46,9 +47,15 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const optionId = (index: number) => `${listboxId}-opt-${index}`;
 
   const { t } = useTranslation();
-  const { tabs, setActiveTab, openFile } = useEditorStore();
-  const { nodes } = useProjectStore();
-  const { recentFiles } = useRecentFilesStore();
+  const { tabs, setActiveTab, openFile } = useEditorStore(
+    useShallow((state) => ({
+      tabs: state.tabs,
+      setActiveTab: state.setActiveTab,
+      openFile: state.openFile,
+    }))
+  );
+  const nodes = useProjectStore((state) => state.nodes);
+  const recentFiles = useRecentFilesStore((state) => state.recentFiles);
   const indexEntries = useProjectIndexStore((state) => state.entries);
   const indexStatus = useProjectIndexStore((state) => state.status);
 

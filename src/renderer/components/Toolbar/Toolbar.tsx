@@ -8,6 +8,7 @@ import {
   Square,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
@@ -47,7 +48,12 @@ export function Toolbar() {
   const addTab = useEditorStore((state) => state.addTab);
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const activeTab = useActiveTab();
-  const { sidebarVisible, toggleSidebar } = useUIStore();
+  const { sidebarVisible, toggleSidebar } = useUIStore(
+    useShallow((state) => ({
+      sidebarVisible: state.sidebarVisible,
+      toggleSidebar: state.toggleSidebar,
+    }))
+  );
   const plugins = usePluginStore((state) => state.plugins);
   const enabledBreakpointCount = useDebuggerStore((state) => {
     if (!activeTab) return 0;

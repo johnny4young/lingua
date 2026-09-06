@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import type { RefObject } from 'react';
 import { ChevronUp, PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -511,8 +512,13 @@ export function AppLayout({
   utilitiesOpen,
 }: AppLayoutProps) {
   const { t } = useTranslation();
-  const { layoutPreset } = useSettingsStore();
-  const { sidebarVisible, setSidebarVisible } = useUIStore();
+  const layoutPreset = useSettingsStore(state => state.layoutPreset);
+  const { sidebarVisible, setSidebarVisible } = useUIStore(
+    useShallow(state => ({
+      sidebarVisible: state.sidebarVisible,
+      setSidebarVisible: state.setSidebarVisible,
+    }))
+  );
   const isCompactShell = useCompactShellLayout();
   const compactDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const compactDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
