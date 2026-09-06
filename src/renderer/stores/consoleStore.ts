@@ -80,7 +80,7 @@ function collapseConsoleEntries(
   return rows;
 }
 
-export const useConsoleStore = create<ConsoleState>((set) => ({
+export const useConsoleStore = create<ConsoleState>((set, get) => ({
   entries: [],
   collapsedEntries: [],
   activeFilters: new Set<ConsoleEntryType>(ALL_TYPES),
@@ -90,33 +90,42 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   hiddenPayloadKinds: new Set<ConsolePayloadKindFilter>(),
   showTimestamps: true,
 
-  addEntry: (entry) => {
-    entryCounter++;
-    const equalityHash = consoleEntryHash(entry);
-    // Spread carries the additive `payload?` field through to the
-    // stored ConsoleEntry — additive, never overwriting `content`.
-    const newEntry: ConsoleEntry = {
-      ...entry,
-      id: `entry-${entryCounter}`,
-      timestamp: Date.now(),
-      equalityHash,
-    };
+  addEntry: (entry) => get().addEntries([entry]),
+
+  addEntries: (batch) => {
+    if (batch.length === 0) return;
+    const newEntries: ConsoleEntry[] = batch.map((entry) => {
+      entryCounter++;
+      // Spread carries the additive `payload?` field through to the
+      // stored ConsoleEntry — additive, never overwriting `content`.
+      return {
+        ...entry,
+        id: `entry-${entryCounter}`,
+        timestamp: Date.now(),
+        equalityHash: consoleEntryHash(entry),
+      };
+    });
     set((state) => {
       // internal — collapse consecutive identical entries here (once per
       // push) instead of in the ConsolePanel render. Collapsed groups are
       // homogeneous, so the panel can filter these rows by type / payload
-      // kind and still match a filter-then-collapse result.
-      const collapsed = state.collapsedEntries;
-      const last = collapsed.length > 0 ? collapsed[collapsed.length - 1] : undefined;
-      const collapsedEntries =
-        last && last.entry.equalityHash === equalityHash
-          ? [
-              ...collapsed.slice(0, -1),
-              { entry: last.entry, repeatCount: last.repeatCount + 1 },
-            ]
-          : [...collapsed, { entry: newEntry, repeatCount: 1 }];
+      // kind and still match a filter-then-collapse result. The batch is
+      // folded onto ONE copy of the previous rows; a repeat that straddles
+      // the batch boundary still merges into the last existing row.
+      const collapsedEntries = state.collapsedEntries.slice();
+      for (const entry of newEntries) {
+        const last = collapsedEntries[collapsedEntries.length - 1];
+        if (last && last.entry.equalityHash === entry.equalityHash) {
+          collapsedEntries[collapsedEntries.length - 1] = {
+            entry: last.entry,
+            repeatCount: last.repeatCount + 1,
+          };
+        } else {
+          collapsedEntries.push({ entry, repeatCount: 1 });
+        }
+      }
       return {
-        entries: [...state.entries, newEntry],
+        entries: [...state.entries, ...newEntries],
         collapsedEntries,
       };
     });

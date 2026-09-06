@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useConsoleStore } from '@/stores/consoleStore';
 
 describe('consoleStore', () => {
@@ -143,6 +143,38 @@ describe('consoleStore', () => {
     const dupRow = restored.collapsedEntries[1];
     expect(dupRow.entry.content).toBe('dup');
     expect(dupRow.repeatCount).toBe(2);
+  });
+
+  it('addEntries appends a batch in one update and collapses across the batch boundary', () => {
+    const { addEntry, addEntries } = useConsoleStore.getState();
+    const listener = vi.fn();
+    const unsubscribe = useConsoleStore.subscribe(listener);
+    addEntry({ type: 'log', content: 'same' });
+    addEntries([
+      { type: 'log', content: 'same' },
+      { type: 'log', content: 'same' },
+      { type: 'warn', content: 'other' },
+      { type: 'warn', content: 'other' },
+    ]);
+    unsubscribe();
+
+    const { entries, collapsedEntries } = useConsoleStore.getState();
+    expect(entries).toHaveLength(5);
+    expect(new Set(entries.map((entry) => entry.id)).size).toBe(5);
+    expect(collapsedEntries.map((row) => [row.entry.content, row.repeatCount])).toEqual([
+      ['same', 3],
+      ['other', 2],
+    ]);
+    // One notification for addEntry, one for the whole batch.
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('addEntries with an empty batch does not notify subscribers', () => {
+    const listener = vi.fn();
+    const unsubscribe = useConsoleStore.subscribe(listener);
+    useConsoleStore.getState().addEntries([]);
+    unsubscribe();
+    expect(listener).not.toHaveBeenCalled();
   });
 
   it('should assign unique IDs to each entry', () => {

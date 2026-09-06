@@ -19,7 +19,7 @@
  * CI gets a 1.5x multiplier per the pattern in `consoleOutputBadge.bench.test.ts`.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { computeWindow } from '@/hooks/useListWindow';
 
@@ -60,6 +60,28 @@ describe('console store-side collapse + hash — 500 entries', () => {
     expect(collapsedEntries).toHaveLength(167);
     expect(collapsedEntries[0]!.repeatCount).toBe(3);
     expect(elapsed).toBeLessThan(budget(200));
+  });
+});
+
+describe('console store batch append — 1,000-line flood', () => {
+  it('appends a 1,000-entry flood through addEntries in one update within budget', () => {
+    resetStore();
+    const listener = vi.fn();
+    const unsubscribe = useConsoleStore.subscribe(listener);
+    const { addEntries } = useConsoleStore.getState();
+    const flood = Array.from({ length: 1000 }, (_, i) => ({
+      type: 'log' as const,
+      content: `line ${Math.floor(i / 4)}`,
+    }));
+    const start = performance.now();
+    addEntries(flood);
+    const elapsed = performance.now() - start;
+    unsubscribe();
+    const { entries, collapsedEntries } = useConsoleStore.getState();
+    expect(entries).toHaveLength(1000);
+    expect(collapsedEntries).toHaveLength(250);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(elapsed).toBeLessThan(budget(60));
   });
 });
 

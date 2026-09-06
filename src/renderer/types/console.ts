@@ -104,6 +104,13 @@ export interface ConsoleState {
   hiddenPayloadKinds: Set<ConsolePayloadKindFilter>;
   showTimestamps: boolean;
   addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
+  /**
+   * Append a batch in one store update: one copy of `entries`, one
+   * incremental collapse pass, one subscriber notification. `addEntry` is
+   * the batch-of-one case; a flood of N lines through `addEntry` costs
+   * O(N^2) copies and N notifications, through `addEntries` O(N) and one.
+   */
+  addEntries: (entries: ReadonlyArray<Omit<ConsoleEntry, 'id' | 'timestamp'>>) => void;
   clear: () => void;
   /**
    * accessibility pass — re-instate a {@link ConsoleClearSnapshot} that

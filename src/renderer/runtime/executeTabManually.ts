@@ -3,6 +3,7 @@ import { runnerManager } from '../runners';
 import { buildRunCapsule, type RunCapsuleV1 } from '../../shared/runCapsule';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { useConsoleStore } from '../stores/consoleStore';
+import { createConsoleEntryBatcher, type NewConsoleEntry } from '../stores/consoleEntryBatcher';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import {
@@ -330,11 +331,16 @@ export async function executeTabManually(
   activeTab: FileTab,
   lifecycle: ManualExecutionLifecycle = {}
 ): Promise<ManualExecutionSummary> {
-  const { addEntry, clear } = useConsoleStore.getState();
+  const { addEntries, clear } = useConsoleStore.getState();
   let consoleEntryCount = 0;
-  const addRunEntry: typeof addEntry = (entry) => {
+  // Console output is coalesced per frame: a worker posts one message per
+  // stdout line, so a print loop used to cost one store update and one
+  // re-render per line. Every exit path flushes so nothing stays queued
+  // when the summary is returned.
+  const runEntries = createConsoleEntryBatcher({ addEntries });
+  const addRunEntry = (entry: NewConsoleEntry): void => {
     consoleEntryCount += 1;
-    addEntry(entry);
+    runEntries.push(entry);
   };
   const {
     clear: clearResults,
@@ -374,6 +380,7 @@ export async function executeTabManually(
     });
     setFullOutput('This file type is editable only. Lingua will not execute or validate it yet.');
     lifecycle.setCurrentLanguage?.(null);
+    runEntries.flush();
     return {
       mode: 'view',
       ok: true,
@@ -411,6 +418,7 @@ export async function executeTabManually(
         executionTime: validation.executionTime,
       });
 
+      runEntries.flush();
       return {
         mode: 'validate',
         ok: !hasErrors,
@@ -431,6 +439,7 @@ export async function executeTabManually(
       content: `Runner for ${language} is not available yet. Coming in a future update.`,
     });
     lifecycle.setCurrentLanguage?.(null);
+    runEntries.flush();
     return {
       mode: 'run',
       ok: false,
@@ -974,6 +983,7 @@ export async function executeTabManually(
       message,
     };
   } finally {
+    runEntries.flush();
     setIsManualRunning(false);
     lifecycle.setIsRunning?.(false);
     lifecycle.setIsInitializing?.(false);
