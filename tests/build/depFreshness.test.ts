@@ -93,7 +93,9 @@ describe('dependency override hygiene', () => {
 
   it('keeps Electron ZIP extraction on the Node 24-compatible yauzl line', () => {
     const workspace = readFileSync(PNPM_WORKSPACE_PATH, 'utf-8');
-    expect(workspace).toMatch(/["']?yauzl["']?:\s*["']3\.3\./u);
+    // Tilde range: patches flow, the minor stays put (the ZIP reader sits on
+    // the packaging path and a minor bump needs make:desktop validation).
+    expect(workspace).toMatch(/["']?yauzl["']?:\s*["']~3\.3\./u);
 
     // Do not read node_modules here: pnpm can leave local trees stale until a
     // full relink, while CI installs from the lockfile. The lock is the
