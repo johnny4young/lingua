@@ -589,6 +589,20 @@ Use the closest store that already owns the product concept instead of adding cr
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
+### Console batch delivery
+
+Manual execution queues console output per animation frame (a 16 ms timer when
+animation frames are unavailable). Each entry retains its renderer-receipt time,
+not the later flush time; callers with a timestamp can preserve it explicitly.
+`addEntries` assigns IDs and equality hashes in one update and keeps adjacent
+collapse semantics across batch boundaries. Every execution exit drains pending
+output before settling, including failed validation and runner initialization.
+Clearing the console invalidates older queued output without dropping lines received
+after the clear. Undo restores only its captured snapshot, not discarded queued lines.
+Background windows may delay frame delivery until execution ends or frames resume.
+This optimization reduces console-store copies and notifications, not the separate
+per-line result presentation work or the total retained console history.
+
 ### Project search limits and virtual rows
 
 Project search displays at most 500 matches. It asks the filesystem bridge for

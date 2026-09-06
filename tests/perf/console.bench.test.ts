@@ -21,6 +21,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { useConsoleStore } from '@/stores/consoleStore';
+import { createConsoleEntryBatcher } from '@/stores/consoleEntryBatcher';
 import { computeWindow } from '@/hooks/useListWindow';
 
 const IS_CI = process.env.CI === 'true';
@@ -109,4 +110,37 @@ describe('console windowing — bounded visible set for 500 rows (implementation
     const elapsed = performance.now() - start;
     expect(elapsed).toBeLessThan(budget(50));
   });
+});
+
+// This measures the actual queue + store path, not an assumed React render count.
+it('coalesces a scheduled 1,000-line burst with fewer store notifications', () => {
+  const flood = Array.from({ length: 1_000 }, (_, i) => ({
+    type: 'log' as const, content: `flood ${i}`,
+  }));
+  resetStore();
+  let notifications = 0;
+  const unsubscribe = useConsoleStore.subscribe(() => { notifications += 1; });
+  try {
+    const directStart = performance.now();
+    for (const entry of flood) useConsoleStore.getState().addEntry(entry);
+    const directMs = performance.now() - directStart;
+    expect(notifications).toBe(1_000);
+    resetStore();
+    notifications = 0;
+    let pending: (() => void) | undefined;
+    const batcher = createConsoleEntryBatcher({
+      addEntries: useConsoleStore.getState().addEntries,
+      schedule: callback => { pending = callback; },
+    });
+    const batchStart = performance.now();
+    for (const entry of flood) batcher.push(entry);
+    expect(notifications).toBe(0);
+    pending!();
+    const batchMs = performance.now() - batchStart;
+    expect(notifications).toBe(1);
+    expect(useConsoleStore.getState().entries).toHaveLength(1_000);
+    expect(batchMs).toBeLessThan(budget(60));
+    console.info('console ingestion measurement', { entries: flood.length, directMs, batchMs,
+      directNotifications: 1_000, batchNotifications: notifications });
+  } finally { unsubscribe(); }
 });

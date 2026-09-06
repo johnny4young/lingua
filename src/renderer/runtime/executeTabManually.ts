@@ -3,7 +3,8 @@ import { runnerManager } from '../runners';
 import { buildRunCapsule, type RunCapsuleV1 } from '../../shared/runCapsule';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { useConsoleStore } from '../stores/consoleStore';
-import { createConsoleEntryBatcher, type NewConsoleEntry } from '../stores/consoleEntryBatcher';
+import { createConsoleEntryBatcher } from '../stores/consoleEntryBatcher';
+import type { NewConsoleEntry } from '../types/console';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import {
@@ -337,7 +338,10 @@ export async function executeTabManually(
   // stdout line, so a print loop used to cost one store update and one
   // re-render per line. Every exit path flushes so nothing stays queued
   // when the summary is returned.
-  const runEntries = createConsoleEntryBatcher({ addEntries });
+  const runEntries = createConsoleEntryBatcher({
+    addEntries,
+    getClearVersion: () => useConsoleStore.getState().clearVersion,
+  });
   const addRunEntry = (entry: NewConsoleEntry): void => {
     consoleEntryCount += 1;
     runEntries.push(entry);
@@ -418,7 +422,6 @@ export async function executeTabManually(
         executionTime: validation.executionTime,
       });
 
-      runEntries.flush();
       return {
         mode: 'validate',
         ok: !hasErrors,
@@ -427,6 +430,7 @@ export async function executeTabManually(
         message: hasErrors ? validation.fullOutput : `Validation passed for ${name}.`,
       };
     } finally {
+      runEntries.flush();
       setIsManualRunning(false);
       lifecycle.setIsRunning?.(false);
       lifecycle.setCurrentLanguage?.(null);

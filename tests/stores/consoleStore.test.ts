@@ -169,6 +169,19 @@ describe('consoleStore', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves supplied emission times, including zero, and defaults direct entries to now', () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(9_000);
+    try {
+      useConsoleStore.getState().addEntries([
+        { type: 'log', content: 'first', timestamp: 0 },
+        { type: 'log', content: 'second', timestamp: 2_000 },
+        { type: 'log', content: 'direct' },
+      ]);
+      expect(useConsoleStore.getState().entries.map(entry => entry.timestamp))
+        .toEqual([0, 2_000, 9_000]);
+    } finally { clock.mockRestore(); }
+  });
+
   it('addEntries with an empty batch does not notify subscribers', () => {
     const listener = vi.fn();
     const unsubscribe = useConsoleStore.subscribe(listener);

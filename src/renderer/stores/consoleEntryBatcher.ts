@@ -1,6 +1,4 @@
-import type { ConsoleEntry } from '../types/console';
-
-export type NewConsoleEntry = Omit<ConsoleEntry, 'id' | 'timestamp'>;
+import type { NewConsoleEntry } from '../types/console';
 
 export interface ConsoleEntryBatcher {
   /** Queue an entry; it reaches the store on the next flush. */
@@ -12,6 +10,8 @@ export interface ConsoleEntryBatcher {
 export interface ConsoleEntryBatcherOptions {
   /** Store sink; `useConsoleStore.getState().addEntries` in production. */
   addEntries: (entries: NewConsoleEntry[]) => void;
+  /** Discard output queued before a console clear, without subscribing to the store. */
+  getClearVersion?: () => number;
   /**
    * Schedules the next flush. Defaults to `requestAnimationFrame` (one
    * store update per painted frame while output floods in) with a 16 ms
@@ -21,9 +21,11 @@ export interface ConsoleEntryBatcherOptions {
 }
 
 function defaultSchedule(flush: () => void): void {
-  const raf = (globalThis as typeof globalThis & {
-    requestAnimationFrame?: (callback: () => void) => number;
-  }).requestAnimationFrame;
+  const raf = (
+    globalThis as typeof globalThis & {
+      requestAnimationFrame?: (callback: () => void) => number;
+    }
+  ).requestAnimationFrame;
   if (typeof raf === 'function') {
     raf(flush);
   } else {
@@ -42,21 +44,26 @@ function defaultSchedule(flush: () => void): void {
 export function createConsoleEntryBatcher({
   addEntries,
   schedule = defaultSchedule,
+  getClearVersion = () => 0,
 }: ConsoleEntryBatcherOptions): ConsoleEntryBatcher {
   let queue: NewConsoleEntry[] = [];
   let scheduled = false;
+  let queueVersion = getClearVersion();
 
   const flush = (): void => {
     scheduled = false;
     if (queue.length === 0) return;
     const batch = queue;
     queue = [];
-    addEntries(batch);
+    if (queueVersion === getClearVersion()) addEntries(batch);
   };
 
   return {
-    push: (entry) => {
-      queue.push(entry);
+    push: entry => {
+      const currentVersion = getClearVersion();
+      if (queueVersion !== currentVersion) queue = [];
+      queueVersion = currentVersion;
+      queue.push({ ...entry, timestamp: entry.timestamp ?? Date.now() });
       if (!scheduled) {
         scheduled = true;
         schedule(flush);

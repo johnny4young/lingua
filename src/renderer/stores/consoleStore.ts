@@ -81,6 +81,7 @@ function collapseConsoleEntries(
 }
 
 export const useConsoleStore = create<ConsoleState>((set, get) => ({
+  clearVersion: 0,
   entries: [],
   collapsedEntries: [],
   activeFilters: new Set<ConsoleEntryType>(ALL_TYPES),
@@ -101,7 +102,7 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
       return {
         ...entry,
         id: `entry-${entryCounter}`,
-        timestamp: Date.now(),
+        timestamp: entry.timestamp ?? Date.now(),
         equalityHash: consoleEntryHash(entry),
       };
     });
@@ -136,7 +137,10 @@ export const useConsoleStore = create<ConsoleState>((set, get) => ({
     // payload-kind filter chips the user had toggled off, so a fresh
     // run never displays "No entries match the active filters" against
     // stale filter state from a previous session.
-    set({ entries: [], collapsedEntries: [], hiddenPayloadKinds: new Set() }),
+    set((state) => ({
+      entries: [], collapsedEntries: [], hiddenPayloadKinds: new Set(),
+      clearVersion: state.clearVersion + 1,
+    })),
 
   restore: (snapshot) =>
     // accessibility pass — Undo for a console clear. Copy the arrays /
