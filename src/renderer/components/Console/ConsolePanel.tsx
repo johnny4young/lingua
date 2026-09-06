@@ -1,5 +1,6 @@
 import { Check, Clock, ListFilter, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types/console';
@@ -137,7 +138,21 @@ export function ConsolePanel() {
     toggleFilter,
     togglePayloadKindFilter,
     toggleTimestamps,
-  } = useConsoleStore();
+  } = useConsoleStore(
+    useShallow(state => ({
+      entries: state.entries,
+      collapsedEntries: state.collapsedEntries,
+      activeFilters: state.activeFilters,
+      hiddenPayloadKinds: state.hiddenPayloadKinds,
+      showTimestamps: state.showTimestamps,
+      addEntry: state.addEntry,
+      clear: state.clear,
+      restore: state.restore,
+      toggleFilter: state.toggleFilter,
+      togglePayloadKindFilter: state.togglePayloadKindFilter,
+      toggleTimestamps: state.toggleTimestamps,
+    }))
+  );
   const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
   // implementation — offer "Explain this error" when the active tab's run left an error

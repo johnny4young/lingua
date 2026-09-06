@@ -1,6 +1,7 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
@@ -52,7 +53,18 @@ export function CodeEditor() {
   const updateContent = useEditorStore(state => state.updateContent);
   const pendingReveal = useEditorStore(state => state.pendingReveal);
   const clearPendingReveal = useEditorStore(state => state.clearPendingReveal);
-  const { editorTheme, fontSize, fontFamily, wordWrap, minimap } = useSettingsStore();
+  // Shallow slice: the settings store holds ~50 fields, and subscribing to
+  // the whole object re-rendered the editor (and rebuilt its Monaco options)
+  // on every unrelated preference change.
+  const { editorTheme, fontSize, fontFamily, wordWrap, minimap } = useSettingsStore(
+    useShallow(state => ({
+      editorTheme: state.editorTheme,
+      fontSize: state.fontSize,
+      fontFamily: state.fontFamily,
+      wordWrap: state.wordWrap,
+      minimap: state.minimap,
+    }))
+  );
   const vimMode = useSettingsStore(state => state.vimMode);
   const { t } = useTranslation();
   // Stash `t` in a ref so the Vim init effect doesn't re-run (and tear
@@ -88,6 +100,22 @@ export function CodeEditor() {
   );
 
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
+  // Stable options object: @monaco-editor/react diffs `options` by
+  // identity and calls `editor.updateOptions` (a relayout) whenever it
+  // changes, so it must only change when one of its inputs does.
+  // Presenter mode lifts the editor font without touching the persisted
+  // preference.
+  const editorOptions = useMemo(
+    () =>
+      getEditorOptions({
+        fontSize: presenterActive ? fontSize + PRESENTER_EDITOR_FONT_LIFT : fontSize,
+        fontFamily,
+        fontLigatures: effectiveFontLigatures,
+        wordWrap,
+        minimap,
+      }),
+    [presenterActive, fontSize, fontFamily, effectiveFontLigatures, wordWrap, minimap]
+  );
 
   const activeTab = useActiveTab();
 
@@ -385,15 +413,7 @@ export function CodeEditor() {
               updateContent(activeTab.id, value);
             }
           }}
-          options={getEditorOptions({
-            // internal — presenter mode lifts the editor font without
-            // touching the persisted preference.
-            fontSize: presenterActive ? fontSize + PRESENTER_EDITOR_FONT_LIFT : fontSize,
-            fontFamily,
-            fontLigatures: effectiveFontLigatures,
-            wordWrap,
-            minimap,
-          })}
+          options={editorOptions}
         />
         <InlineResultWidgetsHost
           editor={editorInstance}

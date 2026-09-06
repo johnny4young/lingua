@@ -7,11 +7,15 @@ const mockOpenFile = vi.fn().mockResolvedValue(undefined);
 const mockSetActiveTab = vi.fn();
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: () => ({
-    tabs: [],
-    setActiveTab: mockSetActiveTab,
-    openFile: mockOpenFile,
-  }),
+  // Selector-aware: QuickOpen reads a shallow slice, not the whole store.
+  useEditorStore: (selector?: (state: unknown) => unknown) => {
+    const state = {
+      tabs: [],
+      setActiveTab: mockSetActiveTab,
+      openFile: mockOpenFile,
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 const PROJECT_FIXTURE = {
@@ -45,13 +49,17 @@ const projectStoreState = {
 
 vi.mock('../../src/renderer/stores/projectStore', () => ({
   useProjectStore: Object.assign(
-    () => projectStoreState,
+    (selector?: (state: unknown) => unknown) =>
+      selector ? selector(projectStoreState) : projectStoreState,
     { getState: () => projectStoreState }
   ),
 }));
 
 vi.mock('../../src/renderer/stores/recentFilesStore', () => ({
-  useRecentFilesStore: () => ({ recentFiles: [] }),
+  useRecentFilesStore: (selector?: (state: unknown) => unknown) => {
+    const state = { recentFiles: [] };
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock('lucide-react', () => ({
