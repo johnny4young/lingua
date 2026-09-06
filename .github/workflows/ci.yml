@@ -54,8 +54,8 @@ jobs:
       # a real tsc program so its `@ts-expect-error` swap matrix becomes a
       # gate: revert any branded id to a bare string and this step fails
       # with TS2578 'unused @ts-expect-error directive'. The vitest run
-      # below also enforces this via a shell-out, but this step fails fast
-      # and pinpoints the regression.
+      # below transpiles only and never type-checks that file, so this
+      # step is the one gate for it.
       - name: Type check (tests compile guards)
         run: pnpm run typecheck:tests
       - name: Lint

@@ -19,22 +19,21 @@
  * IMPORTANT — what makes that lock real: the root `tsconfig.json` only
  * includes `src/**`, and `pnpm test` runs vitest in transpile-only mode,
  * so neither default gate type-checks anything under `tests/`. On their
- * own the directives below are inert. The `enforces the compile guard as
- * a real gate` test at the bottom of this file closes that hole: it
- * shells out to `tsc --noEmit -p tsconfig.test.json` — a scoped program
- * that DOES include this file alongside the `src/**` it imports — and
- * asserts a clean exit. Run inside `pnpm test`, that makes the swap
- * matrix load-bearing: revert any brand to a bare `string` and this test
- * fails with the TS2578s above. (Verified by temporarily reverting
- * `RootId` and confirming the gate goes red.)
+ * own the directives below are inert. `tsconfig.test.json` closes that
+ * hole: it is a scoped program that DOES include this file alongside the
+ * `src/**` it imports, and `pnpm run typecheck:tests` (a CI step, and on
+ * the pre-done checklist in AGENTS.md) type-checks it. That makes the
+ * swap matrix load-bearing: revert any brand to a bare `string` and that
+ * step fails with the TS2578s above. (Verified by temporarily reverting
+ * `RootId` and confirming the gate goes red.) This file deliberately
+ * does NOT shell out to tsc itself: a full tsc program inside the unit
+ * suite duplicated the CI step and grew with every file added to
+ * `tsconfig.test.json`.
  *
  * The brands erase to `string` at runtime, so there is nothing to assert
  * dynamically beyond a trivial sanity check on the legitimate calls.
  */
 
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   asRelativePath,
@@ -45,8 +44,6 @@ import {
   type WatchId,
 } from '../../src/shared/fs/brandedIds';
 import { lookupRoot, revokeRoot } from '../../src/main/ipc/projectCapabilities';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 // Minimal sinks that demand exactly one branded id each. `lookupRoot` /
 // `revokeRoot` already require a `RootId`; these locals pin the other two
@@ -103,32 +100,4 @@ describe('branded fs ids — swap-attack compile guard', () => {
 
     expect(rawString).toBe('arbitrary-untrusted-string');
   });
-
-  it(
-    'enforces the compile guard as a real gate (tsc -p tsconfig.test.json)',
-    () => {
-      // Without this, the `@ts-expect-error` matrix above is never
-      // type-checked: tests/** is outside the root tsconfig program and
-      // vitest transpiles in type-stripping mode. Running tsc over the
-      // scoped `tsconfig.test.json` (which includes this file) is what
-      // turns a brand regression into a failing build. A non-zero tsc
-      // exit throws and fails this test; its stderr/stdout names the
-      // offending directive.
-      //
-      // Invoke the resolved tsc binary directly (not `pnpm exec`) to skip
-      // the package-manager spawn overhead, and give it a generous
-      // timeout: a cold tsc program over the whole `src/**` tree can take
-      // 10s+ when the rest of the suite is saturating the box, well past
-      // vitest's 5s default.
-      const tscBin = path.join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc');
-      expect(() =>
-        execFileSync(process.execPath, [tscBin, '--noEmit', '-p', 'tsconfig.test.json'], {
-          cwd: repoRoot,
-          stdio: 'pipe',
-          encoding: 'utf8',
-        }),
-      ).not.toThrow();
-    },
-    60_000,
-  );
 });
