@@ -109,6 +109,22 @@ describe('fetchRuntimeAssetWithRetry — R2 runtime WASM fetch resilience', () =
     expect(fetchMock).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
+  it('forwards non-SRI request options to every fetch attempt', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503, statusText: 'Service Unavailable' }))
+      .mockResolvedValueOnce(new Response('wasm', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const init = { cache: 'no-cache' as const };
+
+    const res = await fetchRuntimeAssetWithRetry('https://mirror/duckdb.wasm', 3, 1, noSleep, init);
+
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const call of fetchMock.mock.calls) {
+      expect(call).toEqual(['https://mirror/duckdb.wasm', init]);
+    }
+  });
+
   it('throws the network error when every attempt rejects', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('offline'));
     globalThis.fetch = fetchMock as unknown as typeof fetch;

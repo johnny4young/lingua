@@ -33,6 +33,7 @@
  *     same code path as web.
  */
 
+import { sha256HexToIntegrity } from './wasmIntegrity';
 import {
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
@@ -391,7 +392,9 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
  * network error (offline, DNS, reset) — with exponential backoff. A `4xx`
  * is deterministic (a Bot-Fight-Mode `403`, a `404` for a missing object)
  * and must NOT be retried: retrying only delays the inevitable failure and
- * hammers the origin. Exported for tests; `sleep` is injectable so specs
+ * hammers the origin. SRI requests make one attempt: integrity failures
+ * can hide HTTP error statuses and cannot be classified as transient.
+ * Exported for tests; `sleep` is injectable so specs
  * don't wait real time.
  */
 const DUCKDB_WASM_FETCH_MAX_RETRIES = 3;
@@ -402,12 +405,18 @@ export async function fetchRuntimeAssetWithRetry(
   maxRetries: number = DUCKDB_WASM_FETCH_MAX_RETRIES,
   baseDelayMs: number = DUCKDB_WASM_FETCH_BASE_DELAY_MS,
   sleep: (ms: number) => Promise<void> = (ms) =>
-    new Promise((resolve) => setTimeout(resolve, ms))
+    new Promise((resolve) => setTimeout(resolve, ms)),
+  init?: RequestInit
 ): Promise<Response> {
+  // Fetch validates SRI before exposing the Response, including error
+  // bodies. Do not retry an opaque rejection that could be a 403/404 or
+  // tampered payload. Recovery remains an explicit user retry.
+  if (init?.integrity) return fetch(url, init);
+
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, init);
       // Only a transient server error is worth another attempt; any other
       // status (2xx success, or a deterministic 4xx) is returned as-is for
       // the caller's `response.ok` check to handle.
@@ -416,7 +425,7 @@ export async function fetchRuntimeAssetWithRetry(
       }
       lastError = new Error(`${response.status} ${response.statusText}`);
     } catch (networkError) {
-      // fetch() rejects only on a network-layer failure — always transient.
+      // Without SRI, retry rejected requests within the bounded budget.
       lastError = networkError instanceof Error ? networkError : new Error(String(networkError));
       if (attempt === maxRetries) throw lastError;
     }
@@ -427,37 +436,48 @@ export async function fetchRuntimeAssetWithRetry(
 }
 
 /**
- * Fetch the R2-mirrored DuckDB WASM, verify it against the build-time
- * expected sha256 (computed from the pnpm-lock-verified node_modules
- * payload in vite.web.config.mts), and hand back a blob URL DuckDB can
- * instantiate from. A tampered bucket object fails loudly here — the
- * existing `engine-load-failed` band surfaces it — instead of being
- * executed unchecked. The caller owns revoking the blob URL.
+ * Fetch the R2-mirrored DuckDB WASM verified against the build-time expected
+ * sha256 (computed from the pnpm-lock-verified node_modules payload in
+ * vite.web.config.mts) and hand back a blob URL DuckDB can instantiate from.
+ * Verification is delegated to the browser through Subresource Integrity:
+ * `fetch(url, { integrity })` checks the bytes off the main thread and
+ * rejects on mismatch, so the previous arrayBuffer -> subtle.digest -> Blob
+ * choreography (three copies of a 39 MB payload on the main thread) is gone
+ * and `response.blob()` is the only materialization. A tampered bucket
+ * object still fails loudly here — the existing `engine-load-failed` band
+ * surfaces it — instead of being executed unchecked. SRI needs the mirror to
+ * answer CORS for this origin, which the R2 bucket does for the production
+ * app origin. The caller owns revoking the blob URL.
  */
 async function fetchVerifiedWasmUrl(
   url: string,
   expectedSha256: string
 ): Promise<string> {
-  const response = await fetchRuntimeAssetWithRetry(url);
+  const integrity = sha256HexToIntegrity(expectedSha256);
+  let response: Response;
+  try {
+    response = await fetchRuntimeAssetWithRetry(
+      url,
+      undefined,
+      undefined,
+      undefined,
+      { integrity }
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to fetch DuckDB runtime (${reason}). Either the network dropped or the ` +
+        `mirror returned an HTTP error or failed its integrity check against sha256 ${expectedSha256}. ` +
+        'The browser does not expose the status for integrity failures; no automatic retry was attempted.',
+      { cause: error }
+    );
+  }
   if (!response.ok) {
     throw new Error(
       `Failed to fetch DuckDB runtime (${response.status} ${response.statusText})`
     );
   }
-  const bytes = await response.arrayBuffer();
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const actual = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-  if (actual !== expectedSha256) {
-    throw new Error(
-      `DuckDB runtime integrity check failed: expected sha256 ${expectedSha256}, got ${actual}. ` +
-        'The mirrored runtime asset does not match this build.'
-    );
-  }
-  return URL.createObjectURL(
-    new Blob([bytes], { type: 'application/wasm' })
-  );
+  return URL.createObjectURL(await response.blob());
 }
 
 /**
