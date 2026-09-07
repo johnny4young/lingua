@@ -60,9 +60,7 @@ export function applyAutoRunResult({
   // path instead of publishing only the inline full-output projection.
   const consoleStore = useConsoleStore.getState();
   consoleStore.clear();
-  for (const entry of toConsoleEntries(result, language)) {
-    consoleStore.addEntry(entry);
-  }
+  consoleStore.addEntries(toConsoleEntries(result, language));
 
   setStdinConsumed(result.stdinConsumed ?? null);
   setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));

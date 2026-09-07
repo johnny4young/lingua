@@ -83,7 +83,14 @@ export interface ConsoleClearSnapshot {
   hiddenPayloadKinds: Set<ConsolePayloadKindFilter>;
 }
 
+/** Console ingestion accepts an emission time; direct callers may omit it. */
+export type NewConsoleEntry = Omit<ConsoleEntry, 'id' | 'timestamp'> & {
+  timestamp?: number;
+};
+
 export interface ConsoleState {
+  /** Monotonic clear boundary for delayed output; not part of Undo snapshots. */
+  clearVersion: number;
   entries: ConsoleEntry[];
   /**
    * implementation detail — consecutive identical entries collapsed once at
@@ -103,7 +110,14 @@ export interface ConsoleState {
    */
   hiddenPayloadKinds: Set<ConsolePayloadKindFilter>;
   showTimestamps: boolean;
-  addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
+  addEntry: (entry: NewConsoleEntry) => void;
+  /**
+   * Append a batch in one store update: one copy of `entries`, one
+   * incremental collapse pass, one subscriber notification. `addEntry` is
+   * the batch-of-one case; a flood of N lines through `addEntry` costs
+   * O(N^2) copies and N notifications, through `addEntries` O(N) and one.
+   */
+  addEntries: (entries: ReadonlyArray<NewConsoleEntry>) => void;
   clear: () => void;
   /**
    * accessibility pass — re-instate a {@link ConsoleClearSnapshot} that

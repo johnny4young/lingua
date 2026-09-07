@@ -47,10 +47,7 @@ export function installE2eHooks(): void {
       useConsoleStore.getState().clear();
     },
     addConsoleEntries: entries => {
-      const { addEntry } = useConsoleStore.getState();
-      for (const entry of entries) {
-        addEntry(entry);
-      }
+      useConsoleStore.getState().addEntries(entries);
     },
     armWorkspaceCrash: region => {
       armedWorkspaceCrash = region;

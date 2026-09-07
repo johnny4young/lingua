@@ -546,6 +546,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | editor split — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorInputActions.ts](stores/editorInputActions.ts) (stdin/argv/named input sets), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
 | [resultStore.ts](stores/resultStore.ts)     | inline results, diagnostics, shared manual-run lifecycle, run timing, compare snapshots, variable scope |
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
+| [consoleEntryBatcher.ts](stores/consoleEntryBatcher.ts) | per-frame coalescing of streamed console entries into one `addEntries` update |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [projectTestStore.ts](stores/projectTestStore.ts) | transient capability binding, detection selection, native-execution gate, live output, and active project-test run lifecycle |
@@ -587,6 +588,20 @@ Use the closest store that already owns the product concept instead of adding cr
 | [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
 | [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
+
+### Console batch delivery
+
+Manual execution queues console output per animation frame (a 16 ms timer when
+animation frames are unavailable). Each entry retains its renderer-receipt time,
+not the later flush time; callers with a timestamp can preserve it explicitly.
+`addEntries` assigns IDs and equality hashes in one update and keeps adjacent
+collapse semantics across batch boundaries. Every execution exit drains pending
+output before settling, including failed validation and runner initialization.
+Clearing the console invalidates older queued output without dropping lines received
+after the clear. Undo restores only its captured snapshot, not discarded queued lines.
+Background windows may delay frame delivery until execution ends or frames resume.
+This optimization reduces console-store copies and notifications, not the separate
+per-line result presentation work or the total retained console history.
 
 ### Project search limits and virtual rows
 
