@@ -163,13 +163,31 @@ for (const language of ['en', 'es'] as const) {
     });
     // Newly measured rows can grow the estimated scroll height. Keep wheeling
     // until the physical end settles, as with any variable-height virtual list.
+    // Settling is judged on the LAST row, not only on scrollTop: reaching the
+    // estimated bottom mounts the final slice, whose ResizeObserver
+    // measurements can grow the content again right after scrollTop reports
+    // the end (longer Spanish rows wrap more, so this raced only in es). A
+    // scrollTop-only check could settle one frame before that growth and leave
+    // the last row just below the viewport with nothing left to scroll it in.
+    const lastRowSelector = '[data-row-key="match:search-049.txt:10:1"]';
     await expect
-      .poll(async () => {
-        await page.mouse.wheel(0, 100000);
-        return list.evaluate(node => node.scrollHeight - node.clientHeight - node.scrollTop);
-      })
-      .toBeLessThan(1);
-    await expect(dialog.locator('[data-row-key="match:search-049.txt:10:1"]')).toBeInViewport();
+      .poll(
+        async () => {
+          await page.mouse.wheel(0, 100000);
+          return list.evaluate((node, selector) => {
+            const gap = node.scrollHeight - node.clientHeight - node.scrollTop;
+            const row = node.querySelector(selector);
+            if (!row) return `gap=${gap.toFixed(1)} last-row=unmounted`;
+            const container = node.getBoundingClientRect();
+            const rect = row.getBoundingClientRect();
+            const inViewport = rect.top >= container.top - 1 && rect.bottom <= container.bottom + 1;
+            return gap < 1 && inViewport ? 'settled' : `gap=${gap.toFixed(1)} in-viewport=${inViewport}`;
+          }, lastRowSelector);
+        },
+        { message: 'scroll-to-end must settle with the last capped row inside the viewport' }
+      )
+      .toBe('settled');
+    await expect(dialog.locator(lastRowSelector)).toBeInViewport();
     await expect(dialog.locator('[data-row-key^="match:search-050.txt"]')).toHaveCount(0);
     // Keyboard selection can jump back to a row outside the mounted window.
     await input.press('ArrowDown');
