@@ -34,7 +34,8 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, 'tests/website/**'],
     // Instrumented coverage runs only under `pnpm run test:coverage`; the
     // plain `pnpm test` stays uninstrumented. Thresholds are a ratchet set
-    // two points below the first measured run, never an invented target.
+    // Math.floor(measured percentage - 2) initially, then only raised.
+    // Rounding leaves at least two but less than three points of headroom.
     coverage: {
       provider: 'v8',
       enabled: false,
@@ -43,11 +44,12 @@ export default defineConfig({
       reporter: ['text-summary', 'json-summary', 'lcov'],
       reportsDirectory: 'output/coverage',
       // Measured 2026-09-06 on the full suite (benches excluded):
-      // lines 80.69, statements 77.92, functions 78.99, branches 69.82.
+      // Initial: lines 80.69, statements 77.92, functions 78.99, branches 69.82.
+      // A fresh full run measured functions 79.04, raising that floor to 77.
       thresholds: {
         lines: 78,
         statements: 75,
-        functions: 76,
+        functions: 77,
         branches: 67,
       },
     },

@@ -47,7 +47,7 @@
     "changelog:draft": "node ./scripts/changelog-draft.mjs",
     "changelog:check": "node ./scripts/changelog-check.mjs",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --exclude **/*.bench.test.ts",
+    "test:coverage": "vitest run --coverage --exclude \"**/*.bench.test.ts\"",
     "check:deadcode": "knip",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:e2e:web": "PLAYWRIGHT_BROWSERS_PATH=0 node ./scripts/run-playwright-web-validation.mjs",
@@ -162,7 +162,7 @@
     "vega-embed": "^7.1.0",
     "vega-lite": "^6.4.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.8",
+    "vitest": "4.1.8",
     "wrangler": "^4.99.0",
     "ws": "8.21.1",
     "zustand": "^5.0.14"
