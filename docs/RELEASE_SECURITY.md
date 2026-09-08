@@ -300,8 +300,17 @@ no available fix and the risk is assessed acceptable for a release:
 1. Document the advisory id, the affected package + path (`pnpm why <pkg>`),
    the risk assessment, and the planned remediation date in the PR
    description.
-2. Add a transitive `pnpm.overrides` pin in `package.json` to the patched
-   version if one exists; re-run `pnpm run check:prod-audit` to confirm green.
+2. If a patched version exists, update `overrides` in `pnpm-workspace.yaml`
+   (the pnpm source of truth) and the corresponding npm `overrides` mirror in
+   `package.json`. Keep direct dependency specs aligned with their npm
+   overrides. Prefer a compatible caret range with a patched lower bound;
+   `yauzl` deliberately stays on `~3.3.1` so patches can advance while a minor
+   change requires separate packaging validation. Regenerate the lockfile and
+   inspect the actual version delta: ranges permit later refreshes but do not
+   update a frozen lockfile automatically. Preserve pnpm's release-age guard
+   and narrow, reviewed exceptions. Independent website and Worker lockfiles
+   require their own package-manager updates. Re-run `check:prod-audit` and
+   `check:bundled-audit` plus the affected independent audits to confirm green.
 3. If no patched version exists, raise the gate threshold for that single run
    only via `node scripts/assert-prod-audit.mjs --level critical` in a
    dedicated commit whose message records the vendored exception, and open a
