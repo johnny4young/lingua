@@ -17,9 +17,8 @@ import {
   lineTimingRequestedByMagicComment,
   transformJSAutoLog,
   transformJSLineTiming,
-  type MagicCommentKind,
-  type MagicCommentDirective,
 } from '../utils/magicComments';
+import { buildMagicLineMaps, markAutoLogLines } from './magicLineMap';
 import {
   forceTablePayload,
   payloadForRichMediaMagicDirective,
@@ -194,15 +193,8 @@ export class TypeScriptRunner implements LanguageRunner {
     // implementation — per-line kind side-table keyed by the
     // PRE-transpile line number (which is what `__mc` carries into
     // the worker; the transpile pass preserves that argument as-is).
-    const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // implementation — parallel directive side-table for `//=> table`.
-    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
-    for (const entry of magicEntries) {
-      magicKindByLine[entry.line] = entry.kind;
-      if (entry.directive) {
-        magicDirectiveByLine[entry.line] = entry.directive;
-      }
-    }
+    const { kindByLine: magicKindByLine, directiveByLine: magicDirectiveByLine } =
+      buildMagicLineMaps(magicEntries);
     // implementation — opt-in auto-log pass before transpile. The
     // detector reads the PRE-transpile source (TypeScript syntax) so
     // a TypeScript-only construct like a type-only `as` cast does
@@ -215,11 +207,7 @@ export class TypeScriptRunner implements LanguageRunner {
       const autoLogLines = detectJSAutoLogLines(processedCode, magicLines);
       if (autoLogLines.length > 0) {
         codeForTranspile = transformJSAutoLog(magicTransformed, autoLogLines);
-        for (const line of autoLogLines) {
-          if (!(line in magicKindByLine)) {
-            magicKindByLine[line] = 'autoLog';
-          }
-        }
+        markAutoLogLines(magicKindByLine, autoLogLines);
       }
     }
 

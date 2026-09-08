@@ -173,7 +173,7 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the Python dependency scanner used only when source may reference a package',
   },
   {
-    module: 'src/renderer/utils/magicComments.ts',
+    module: 'src/renderer/utils/magicComments/index.ts',
     why: 'magic-comment transforms used only by editor providers and execution',
   },
   {
