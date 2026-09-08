@@ -1,5 +1,6 @@
 import type { ConsoleEntry } from '../types/console';
 import { useConsoleStore } from '../stores/consoleStore';
+import { useResultStore } from '../stores/resultStore';
 import { useGoLanguageStore } from '../stores/goLanguageStore';
 import { useRustLanguageStore } from '../stores/rustLanguageStore';
 import type { WorkspaceErrorBoundaryRegion } from '../components/Layout/WorkspaceErrorBoundary';
@@ -17,6 +18,21 @@ interface LinguaE2eHooks {
    * auto-run-boots-the-runtime contract still exercise the real trigger.
    */
   pythonRuntimeBooted: () => Promise<boolean>;
+  /**
+   * True once the in-flight auto-run has settled and published a result.
+   *
+   * Booting a runtime is not the same as finishing a run: the first
+   * execution after a cold Pyodide boot still has to initialise the worker
+   * and run the CPython auto-log pass, which on a loaded CI runner takes
+   * far longer than a steady-state assertion window. Tests poll this
+   * between the boot wait and their row assertions so a slow first run
+   * reads as "still working" instead of "produced nothing".
+   *
+   * `clearVisibleResults()` nulls `executionTime` at the start of every
+   * auto-run, before any runner work, so this never reports a settled state
+   * left over from a previous run.
+   */
+  autoRunSettled: () => boolean;
 }
 
 let armedWorkspaceCrash: WorkspaceErrorBoundaryRegion | null = null;
@@ -75,6 +91,19 @@ export function installE2eHooks(): void {
       // a read, never a trigger.
       const runner = await runnerManager.getRunner('python');
       return runner instanceof PythonRunner && runner.isPyodideBooted();
+    },
+    autoRunSettled: () => {
+      // Static import, unlike the runner hook above: resultStore is already
+      // statically imported by CodeEditor and friends, so a dynamic import
+      // here moves nothing into another chunk and rolldown warns about it
+      // (INEFFECTIVE_DYNAMIC_IMPORT). The runner graph is the thing that has
+      // to stay lazy, not the store.
+      const { isAutoRunning, executionTime, error } = useResultStore.getState();
+      if (isAutoRunning) return false;
+      // A run that failed hard never publishes a duration, so accept an
+      // error as a settled outcome too — the assertions that follow are
+      // what decide whether it is the RIGHT outcome.
+      return executionTime !== null || error !== null;
     },
   };
 }
