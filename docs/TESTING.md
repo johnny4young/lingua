@@ -78,6 +78,42 @@ Add `pnpm run check:performance`, `pnpm run check:licenses`, and
 `pnpm run compliance:release` when the change touches release posture,
 dependency/runtime assets, or public release evidence.
 
+### Coverage
+
+`pnpm run test:coverage` runs the same vitest suite instrumented with the v8
+provider and writes `text-summary`, `json-summary`, and `lcov` reports to
+`output/coverage/` (gitignored). The plain `pnpm test` stays uninstrumented so
+the everyday gate keeps its speed. Timing benches (`*.bench.test.ts`) are
+excluded from the instrumented run: V8 instrumentation adds overhead
+and can fail timing budgets for reasons unrelated to application behavior.
+The report measures root `src/**`, including untested source, but not the
+independently managed website or Workers projects. Their existing gates are
+unchanged. The global thresholds in
+`vitest.config.mts` are a manually maintained ratchet. Initial floors use
+`Math.floor(measured percentage - 2)`: subtract two percentage points, then
+round down to an integer (at least two but less than three points of headroom).
+
+| Metric | Initial measurement | Initial floor |
+| --- | ---: | ---: |
+| Lines | 80.69% | 78 |
+| Statements | 77.92% | 75 |
+| Functions | 78.99% | 76 |
+| Branches | 69.82% | 67 |
+
+A fresh full instrumented review run measured functions at 79.04%, raising
+the configured function floor from 76 to 77; the other floors remain unchanged.
+
+After a fresh full instrumented run, raise a floor when that formula yields a
+higher value; otherwise leave it unchanged. Never lower a floor to make a run
+pass or substitute a partial-suite measurement. The command validates these
+floors but does not automatically update them. CI does not run instrumented
+coverage yet; its ordinary test job remains uninstrumented.
+
+Keep `vitest` and `@vitest/coverage-v8` pinned to the same exact version and
+update them together: the provider declares an exact runner peer dependency.
+The script quotes the benchmark glob so shells cannot turn matching files
+into positional test filters. Benchmarks remain part of the ordinary test run.
+
 ### Web Base
 
 ```bash
