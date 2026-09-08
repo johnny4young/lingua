@@ -46,7 +46,7 @@
   "overrides": {
     "@iconify/tools": "^5.0.12",
     "fast-uri": "^3.1.6",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "nanoid": "^3.3.18",
     "yaml": "^2.8.4",
     "postcss": "^8.5.18"

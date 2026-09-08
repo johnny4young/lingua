@@ -51,9 +51,11 @@ Keep the always-mounted Git surfaces separate from the transformation engine:
 - [`utils/gitMagicCommentPolicy.ts`](utils/gitMagicCommentPolicy.ts) owns the
   lightweight `@git-status-off` and `@git-watch-head-off` buffer predicates
   used by Git detection, status, and tab affordances.
-- [`utils/magicComments.ts`](utils/magicComments.ts) owns source
-  transformations and presentation directives. It stays behind editor-provider
-  and execution boundaries; Git consumers must not import it.
+- [`utils/magicComments/`](utils/magicComments/) owns source
+  transformations and presentation directives. Its `index.ts` preserves the
+  public import path; directive, lexer, and transform modules use direct sibling
+  imports internally. The entire folder stays behind editor-provider and
+  execution boundaries; Git consumers must not import it or its submodules.
 - [`testing/RichConsoleE2eFixture.tsx`](testing/RichConsoleE2eFixture.tsx) is
   reached from the web entry through a conditional `import()` only. A static
   import would put the complete Console tree back into normal web startup.
@@ -665,7 +667,7 @@ Use the existing file names as the rule instead of introducing alternate pattern
 | Hooks                            | `useX.ts`                            | `useRunner.ts`, `useAutoRun.ts`, `useProjectWatchSync.ts`         |
 | Zustand stores                   | `xStore.ts`                          | `editorStore.ts`, `resultStore.ts`, `updateStore.ts`              |
 | Pure store helpers               | feature helper file beside the store | `projectTree.ts` beside `projectStore.ts`                         |
-| Renderer utilities               | domain-oriented lowercase file       | `executionPresentation.ts`, `languageMeta.ts`, `magicComments.ts` |
+| Renderer utilities               | domain-oriented lowercase file/folder | `executionPresentation.ts`, `languageMeta.ts`, `magicComments/` |
 | Shared presentational primitives | short semantic names                 | `chrome.tsx`, `keyboard.ts`                                       |
 
 Prefer direct imports over renderer-wide barrel files. The historical

@@ -18,7 +18,8 @@
  * performance budget in `docs/performance/baseline.json`.
  */
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createRendererViteAliases, createWebViteAliases } from '../../build/viteAliases.mts';
@@ -173,7 +174,7 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'the Python dependency scanner used only when source may reference a package',
   },
   {
-    module: 'src/renderer/utils/magicComments/index.ts',
+    module: 'src/renderer/utils/magicComments/',
     why: 'magic-comment transforms used only by editor providers and execution',
   },
   {
@@ -397,6 +398,17 @@ function staticallyReachable(
   return graph.parents;
 }
 
+/** A trailing slash protects the whole folder, including future deep imports. */
+function deferredImplementationLeaks(reachable: Map<string, string | null>) {
+  return DEFERRED_IMPLEMENTATION_MODULES.flatMap(target =>
+    [...reachable.keys()]
+      .filter(module =>
+        target.module.endsWith('/') ? module.startsWith(target.module) : module === target.module
+      )
+      .map(module => ({ module, why: target.why }))
+  );
+}
+
 describe('Monaco stays out of the initial graph', () => {
   for (const [surface, entry] of Object.entries(ENTRIES)) {
     it(`${surface}: no statically-reachable module imports the monaco barrel`, () => {
@@ -470,7 +482,7 @@ describe('Monaco stays out of the initial graph', () => {
         undefined,
         SURFACE_ALIASES[surface as keyof typeof ENTRIES]
       );
-      const leaked = DEFERRED_IMPLEMENTATION_MODULES.filter(target => reachable.has(target.module));
+      const leaked = deferredImplementationLeaks(reachable);
       if (leaked.length > 0) {
         throw new Error(
           leaked
@@ -535,6 +547,44 @@ describe('Monaco stays out of the initial graph', () => {
       }
     });
   }
+
+  describe('deferred folder boundaries', () => {
+    it.each([
+      ['barrel import', "import './src/renderer/utils/magicComments';", 'index.ts'],
+      ['deep import', "import './src/renderer/utils/magicComments/jsLexer';", 'jsLexer.ts'],
+      [
+        'future nested import',
+        "export { value } from './src/renderer/utils/magicComments/new/helper';",
+        'new/helper.ts',
+      ],
+      ['dynamic import', "const lazy = import('./src/renderer/utils/magicComments/jsLexer');", null],
+      [
+        'type-only import',
+        "import type { Value } from './src/renderer/utils/magicComments/jsLexer';",
+        null,
+      ],
+      ['similarly named sibling', "import './src/renderer/utils/magicCommentsExtra';", null],
+    ])('detects only eager folder edges: %s', (_label, source, expected) => {
+      const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'lingua-lazy-folder-'));
+      const folder = 'src/renderer/utils/magicComments/';
+      try {
+        mkdirSync(path.join(fixtureRoot, folder, 'new'), { recursive: true });
+        for (const file of ['index.ts', 'jsLexer.ts', 'new/helper.ts']) {
+          writeFileSync(path.join(fixtureRoot, folder, file), 'export const value = 1;');
+        }
+        writeFileSync(path.join(fixtureRoot, 'src/renderer/utils/magicCommentsExtra.ts'), '');
+        writeFileSync(path.join(fixtureRoot, 'entry.ts'), source);
+        const { parents } = walkStaticImportGraph({ repoRoot: fixtureRoot, entry: 'entry.ts' });
+        const leaked = deferredImplementationLeaks(parents);
+        expect(leaked.map(target => target.module)).toEqual(expected ? [folder + expected] : []);
+        if (expected) {
+          expect(importChain(parents, folder + expected)).toEqual(['entry.ts', folder + expected]);
+        }
+      } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    });
+  });
 
   describe('the walker itself', () => {
     it('ignores an import that is commented out on its own line', () => {
