@@ -29,6 +29,7 @@ declare global {
   interface Window {
     __linguaE2e?: {
       pythonRuntimeBooted?: () => Promise<boolean>;
+      autoRunSettled?: () => boolean;
     };
   }
 }
@@ -157,7 +158,10 @@ test.describe('expression auto-log ', () => {
   });
 
   test('uses CPython AST auto-log for top-level Python expressions', async ({ page }) => {
-    test.setTimeout(150_000);
+    // Sized from the stages below, not guessed: 100s boot + 60s run +
+    // the 30s CI expect budget = 190s, plus setup. A ceiling under that
+    // sum would cut off the very stage it exists to accommodate.
+    test.setTimeout(210_000);
     await seedSession(page, { language: 'es' });
     await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
@@ -174,11 +178,11 @@ test.describe('expression auto-log ', () => {
     );
 
     // The debounced auto-run above is what triggers the Pyodide boot — the
-    // contract this test locks. Stage the wait to match the app's own
-    // budget: the runner allows PYODIDE_LOAD_TIMEOUT (90s) for the boot, so
-    // a single 75s wait on the result row undercut it under CI load and
-    // flaked. Boot first on the app budget plus margin, rows second on a
-    // normal assertion window.
+    // contract this test locks. Three stages, each waiting on the signal that
+    // actually governs it, so a slow phase never reads as a missing result.
+    //
+    // 1. Boot, on the app's own budget: the runner allows PYODIDE_LOAD_TIMEOUT
+    //    (90s), so a single 75s wait on the result row undercut it and flaked.
     await expect
       .poll(
         () =>
@@ -189,8 +193,25 @@ test.describe('expression auto-log ', () => {
       )
       .toBe(true);
 
+    // 2. Run completion. Booted is not finished: the first execution after a
+    //    cold boot still initialises the worker and runs the CPython auto-log
+    //    pass, and on a loaded runner that overran the 15s the row assertion
+    //    used to allow. Polling the settle flag makes a slow run wait and a
+    //    genuinely empty run fail here, with the reason on the tin.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => window.__linguaE2e?.autoRunSettled?.() ?? false),
+        { timeout: 60_000, intervals: [500] }
+      )
+      .toBe(true);
+
+    // 3. The rows themselves, on the project's own expect budget (30s on CI,
+    //    playwright.license-web.config.mts). The old explicit 15s here was
+    //    not just short, it OVERRODE that budget downward. By now the run has
+    //    published, so anything missing is a real regression.
     const errorRow = page.locator('[data-result-kind="error"]');
-    await expect(errorRow).toBeVisible({ timeout: 15_000 });
+    await expect(errorRow).toBeVisible();
     await expect(errorRow).toContainText('invalid literal for int()');
     const valueRows = page.locator('[data-result-kind="autoLog"]');
     await expect(valueRows).toHaveCount(2);
