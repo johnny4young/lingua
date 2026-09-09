@@ -18,6 +18,7 @@ import type {
   ProjectTestRunResult,
 } from '../shared/projectTests';
 import { isProjectTestFramework } from '../shared/projectTests';
+import { resolvePythonInterpreter } from '../shared/python/interpreter';
 import {
   NODE_TOOLCHAIN_KEYS,
   RUST_TOOLCHAIN_KEYS,
@@ -203,24 +204,27 @@ async function pytestFileEvidence(rootPath: string): Promise<string[]> {
   return evidence;
 }
 
+/**
+ * Candidate order is the shared policy; the probe stays local because this
+ * surface resolves PATH names through `resolveHostExecutable`, which only
+ * accepts absolute PATH segments (a relative one would resolve against the
+ * untrusted project directory).
+ *
+ * No walk-up: this surface is handed a project root, not an arbitrary cwd.
+ */
 async function pythonExecutable(
   rootPath: string,
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform
 ): Promise<string | null> {
-  const localCandidates =
-    platform === 'win32'
-      ? ['.venv/Scripts/python.exe', 'venv/Scripts/python.exe']
-      : ['.venv/bin/python', 'venv/bin/python'];
-  for (const relative of localCandidates) {
-    const candidate = path.join(rootPath, relative);
-    if (await fileExists(candidate, platform !== 'win32')) return candidate;
-  }
-  return resolveHostExecutable(
-    platform === 'win32' ? ['python', 'py'] : ['python3', 'python'],
-    env,
-    platform
-  );
+  return resolvePythonInterpreter({ startDirectory: rootPath, platform, env }, async candidate => {
+    if (candidate.source === 'path') {
+      return resolveHostExecutable([candidate.command], env, platform);
+    }
+    return (await fileExists(candidate.command, platform !== 'win32'))
+      ? candidate.command
+      : null;
+  });
 }
 
 function candidate(
