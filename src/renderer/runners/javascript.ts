@@ -17,9 +17,8 @@ import {
   lineTimingRequestedByMagicComment,
   transformJSAutoLog,
   transformJSLineTiming,
-  type MagicCommentKind,
-  type MagicCommentDirective,
 } from '../utils/magicComments';
+import { buildMagicLineMaps, markAutoLogLines } from './magicLineMap';
 import {
   forceTablePayload,
   payloadForRichMediaMagicDirective,
@@ -181,20 +180,11 @@ export class JavaScriptRunner implements LanguageRunner {
     const magicEntries = detectJSMagicComments(protectedCode);
     const hasMagic = magicEntries.length > 0;
     const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
-    // implementation — side-table the worker reads is per-line. The
-    // worker postMessage protocol stays kind-agnostic.
-    const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // implementation — parallel side-table for `//=> table`
-    // directives. The runner consults this when stitching back the
-    // magic-comment result so it can upgrade the stringified value
-    // to a typed `RichOutputPayload` before the renderer reads it.
-    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
-    for (const entry of magicEntries) {
-      magicKindByLine[entry.line] = entry.kind;
-      if (entry.directive) {
-        magicDirectiveByLine[entry.line] = entry.directive;
-      }
-    }
+    // The worker postMessage protocol stays kind-agnostic, so the
+    // variant and the rich-output directive of each line travel in
+    // side-tables consulted at result-stitching time below.
+    const { kindByLine: magicKindByLine, directiveByLine: magicDirectiveByLine } =
+      buildMagicLineMaps(magicEntries);
     // implementation — opt-in auto-log pass after the magic-comment
     // transform. The detector excludes lines already claimed by an
     // arrow / watch (magic-comment precedence is preserved), and the
@@ -210,11 +200,7 @@ export class JavaScriptRunner implements LanguageRunner {
       const autoLogLines = detectJSAutoLogLines(protectedCode, magicLines);
       if (autoLogLines.length > 0) {
         codeWithAutoLog = transformJSAutoLog(magicTransformed, autoLogLines);
-        for (const line of autoLogLines) {
-          if (!(line in magicKindByLine)) {
-            magicKindByLine[line] = 'autoLog';
-          }
-        }
+        markAutoLogLines(magicKindByLine, autoLogLines);
       }
     }
 

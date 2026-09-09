@@ -12,9 +12,8 @@ import type {
 import {
   transformPythonMagicComments,
   detectPythonMagicComments,
-  type MagicCommentKind,
-  type MagicCommentDirective,
 } from '../utils/magicComments';
+import { buildMagicLineMaps } from './magicLineMap';
 import { injectPythonLoopProtectionWithLineMap } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
@@ -294,22 +293,11 @@ export class PythonRunner implements LanguageRunner {
     const magicEntries = detectPythonMagicComments(processedCode);
     const hasMagic = magicEntries.length > 0;
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
-    // implementation — per-line side-table for the watch / arrow
-    // distinction; consulted at result-stitching time below. implementation
-    // Explicit Python arrows/watches still populate this side table. AST
-    // auto-log rows carry their worker-owned kind on the message itself.
-    const magicKindByLine: Record<number, MagicCommentKind> = {};
-    // implementation note — parallel side-table for the `#=> table`
-    // directive so the runner knows when to upgrade the worker's
-    // `value` text into a typed `RichOutputTable` payload. JS / TS use
-    // a sibling pattern in their respective runners.
-    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
-    for (const entry of magicEntries) {
-      magicKindByLine[entry.line] = entry.kind;
-      if (entry.directive) {
-        magicDirectiveByLine[entry.line] = entry.directive;
-      }
-    }
+    // Explicit Python arrows and watches populate these side-tables;
+    // AST auto-log rows carry their worker-owned kind on the message
+    // itself, which is why Python never merges auto-log lines here.
+    const { kindByLine: magicKindByLine, directiveByLine: magicDirectiveByLine } =
+      buildMagicLineMaps(magicEntries);
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;

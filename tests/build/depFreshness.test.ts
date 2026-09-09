@@ -77,6 +77,44 @@ function assertYauzlLockfile(lockfile: string): void {
 }
 
 describe('dependency override hygiene', () => {
+  it.each(['js-yaml/package.json', 'electron-updater/package.json'])(
+    'counts empty merge sources against the YAML budget through %s', owner => {
+      const rootRequire = createRequire(PACKAGE_JSON_PATH);
+      const ownerRequire = createRequire(rootRequire.resolve(owner));
+      const yaml = ownerRequire('js-yaml') as {
+        load: (source: string, options: { maxTotalMergeKeys: number }) => unknown;
+      };
+      // A tiny deterministic budget avoids a timing-sensitive denial-of-service
+      // fixture: three empty mappings must consume three units, not zero.
+      expect(() => yaml.load(
+        'base: &base {}\nresult: { <<: [*base, *base, *base] }',
+        { maxTotalMergeKeys: 2 }
+      )).toThrow(/maxTotalMergeKeys/);
+      // Ordinary updater-style YAML and an in-budget merge remain compatible.
+      expect(yaml.load(
+        'base: &base { version: 1.4.1 }\nresult: { <<: *base }',
+        { maxTotalMergeKeys: 2 }
+      )).toEqual({ base: { version: '1.4.1' }, result: { version: '1.4.1' } });
+    }
+  );
+
+  it('keeps the independently locked website on a patched YAML parser', () => {
+    const websiteLock = JSON.parse(readFileSync(WEBSITE_PACKAGE_LOCK_PATH, 'utf-8')) as {
+      packages: Record<string, { version?: string }>;
+    };
+    const versions = Object.entries(websiteLock.packages)
+      .filter(([name]) => name.endsWith('node_modules/js-yaml'))
+      .map(([, pkg]) => pkg.version);
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      const match = /^4\.(\d+)\.(\d+)$/u.exec(version ?? '');
+      expect(match, `Unexpected js-yaml version: ${version}`).not.toBeNull();
+      const minor = Number(match![1]);
+      const patch = Number(match![2]);
+      expect(minor > 3 || (minor === 3 && patch >= 2), `Unpatched js-yaml: ${version}`).toBe(true);
+    }
+  });
+
   it('does not decode nested host escapes into a live destination in packaging tooling', () => {
     const rootRequire = createRequire(PACKAGE_JSON_PATH);
     const builderRequire = createRequire(rootRequire.resolve('app-builder-lib/package.json'));
