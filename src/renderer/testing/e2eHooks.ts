@@ -29,8 +29,12 @@ interface LinguaE2eHooks {
    * reads as "still working" instead of "produced nothing".
    *
    * `clearVisibleResults()` nulls `executionTime` at the start of every
-   * auto-run, before any runner work, so this never reports a settled state
-   * left over from a previous run.
+   * auto-run, before any runner work — so once a run is under way this can
+   * never report a previous run's outcome. It says nothing about the
+   * debounce window BEFORE that: between an edit and the run it schedules,
+   * an earlier run's result is still published and this reads `true`. Poll
+   * it only once something proves the run you care about has started, the
+   * way the Python auto-log spec gates on the Pyodide boot first.
    */
   autoRunSettled: () => boolean;
 }

@@ -29,7 +29,7 @@ declare global {
   interface Window {
     __linguaE2e?: {
       pythonRuntimeBooted?: () => Promise<boolean>;
-      autoRunSettled?: () => Promise<boolean>;
+      autoRunSettled?: () => boolean;
     };
   }
 }
@@ -158,7 +158,10 @@ test.describe('expression auto-log ', () => {
   });
 
   test('uses CPython AST auto-log for top-level Python expressions', async ({ page }) => {
-    test.setTimeout(180_000);
+    // Sized from the stages below, not guessed: 100s boot + 60s run +
+    // the 30s CI expect budget = 190s, plus setup. A ceiling under that
+    // sum would cut off the very stage it exists to accommodate.
+    test.setTimeout(210_000);
     await seedSession(page, { language: 'es' });
     await enableAutoLogForScratchpadLanguages(page);
     await gotoApp(page);
@@ -203,8 +206,10 @@ test.describe('expression auto-log ', () => {
       )
       .toBe(true);
 
-    // 3. The rows themselves, on a normal assertion window — by now the run
-    //    has published, so anything missing here is a real regression.
+    // 3. The rows themselves, on the project's own expect budget (30s on CI,
+    //    playwright.license-web.config.mts). The old explicit 15s here was
+    //    not just short, it OVERRODE that budget downward. By now the run has
+    //    published, so anything missing is a real regression.
     const errorRow = page.locator('[data-result-kind="error"]');
     await expect(errorRow).toBeVisible();
     await expect(errorRow).toContainText('invalid literal for int()');
