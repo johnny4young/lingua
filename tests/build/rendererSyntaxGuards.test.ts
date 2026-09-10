@@ -9,6 +9,20 @@
  * `interpreterConsolidation`, `sharedNodeBuiltinBoundary` and
  * `codeEditorChunkBoundary` are all tests, not lint rules.
  *
+ * The AST comes from `oxc-parser`, not from the `typescript` package, for two
+ * reasons.
+ *
+ *   - It is ESTree-shaped, the same vocabulary the original selectors were
+ *     written against, so each guard below is a transcription rather than a
+ *     translation into the TypeScript compiler's separate node model.
+ *   - It survives TypeScript 7. The `typescript@7` main export is a native
+ *     binary shim that exposes `version` and little else; `createSourceFile`
+ *     lives on neither it nor `./unstable/ast`, which ships type guards and a
+ *     scanner but no standalone parse entry point. Every existing
+ *     `import ts from 'typescript'` in this suite is therefore a rewrite the
+ *     TS 7 bump will have to pay for. This guard does not need to join that
+ *     queue to do its job.
+ *
  * Each guard below reproduces its original selector exactly, including scope:
  *
  *   1. Inline active-tab derivation — `tabs.find(… activeTabId)` anywhere in
@@ -28,7 +42,8 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
+import { parseSync, visitorKeys } from 'oxc-parser';
+import type { Node, Program } from 'oxc-parser';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -59,79 +74,125 @@ function sourceFilesUnder(relativeRoot: string): string[] {
   return found.sort();
 }
 
-function parse(file: string): ts.SourceFile {
-  return ts.createSourceFile(
-    file,
-    readFileSync(path.join(repoRoot, file), 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+function languageOf(file: string): 'dts' | 'ts' | 'tsx' {
+  if (file.endsWith('.d.ts')) return 'dts';
+  if (file.endsWith('.tsx')) return 'tsx';
+  return 'ts';
+}
+
+interface Parsed {
+  program: Program;
+  source: string;
+  errors: string[];
+}
+
+function parse(file: string, source: string): Parsed {
+  const result = parseSync(file, source, { lang: languageOf(file) });
+  return {
+    program: result.program,
+    source,
+    errors: result.errors.map(error => error.message),
+  };
+}
+
+function parseFile(file: string): Parsed {
+  return parse(file, readFileSync(path.join(repoRoot, file), 'utf8'));
+}
+
+function isNode(value: unknown): value is Node {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { type?: unknown }).type === 'string'
   );
 }
 
-function locate(node: ts.Node, source: ts.SourceFile, file: string): Violation {
-  const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
-  return {
-    file,
-    line: line + 1,
-    text: node.getText(source).replace(/\s+/gu, ' ').slice(0, 100),
-  };
+/**
+ * Depth-first walk over `visitorKeys`, the parser's own child table.
+ *
+ * A node type missing from that table would silently prune its whole subtree,
+ * which for a guard means a violation that stops being reported rather than a
+ * test that goes red. Throw instead, so a parser upgrade that outgrows the
+ * table fails loudly.
+ */
+function walk(node: Node, visit: (node: Node) => void): void {
+  visit(node);
+  const keys = visitorKeys[node.type];
+  if (keys === undefined) {
+    throw new Error(`oxc-parser reported node type ${node.type}, absent from visitorKeys`);
+  }
+  for (const key of keys) {
+    const child = (node as unknown as Record<string, unknown>)[key];
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        if (isNode(item)) walk(item, visit);
+      }
+      continue;
+    }
+    if (isNode(child)) walk(child, visit);
+  }
 }
 
-function walk(source: ts.SourceFile, visit: (node: ts.Node) => void): void {
-  const step = (node: ts.Node): void => {
-    visit(node);
-    ts.forEachChild(node, step);
+function walkDescendants(node: Node, visit: (node: Node) => void): void {
+  walk(node, candidate => {
+    if (candidate !== node) visit(candidate);
+  });
+}
+
+function locate(node: Node, parsed: Parsed, file: string): Violation {
+  return {
+    file,
+    line: parsed.source.slice(0, node.start).split('\n').length,
+    text: parsed.source.slice(node.start, node.end).replace(/\s+/gu, ' ').slice(0, 100),
   };
-  ts.forEachChild(source, step);
 }
 
 /** `:has(Identifier[name="activeTabId"])` — anywhere in the subtree. */
-function subtreeReferences(node: ts.Node, identifier: string): boolean {
+function subtreeReferences(node: Node, identifier: string): boolean {
   let found = false;
-  const step = (child: ts.Node): void => {
-    if (found) return;
-    if (ts.isIdentifier(child) && child.text === identifier) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(child, step);
-  };
-  ts.forEachChild(node, step);
+  walkDescendants(node, child => {
+    if (child.type === 'Identifier' && child.name === identifier) found = true;
+  });
   return found;
+}
+
+/** `foo.bar` with `bar` spelled as a plain identifier, as the selectors assumed. */
+function staticProperty(node: Node): string | undefined {
+  if (node.type !== 'MemberExpression') return undefined;
+  if (node.computed) return undefined;
+  return node.property.type === 'Identifier' ? node.property.name : undefined;
 }
 
 /**
  * `callee.object.name === 'tabs'` or `callee.object.property.name === 'tabs'`,
  * i.e. `tabs.find(…)` and `state.tabs.find(…)`.
  */
-function isTabsFindCall(node: ts.Node): node is ts.CallExpression {
-  if (!ts.isCallExpression(node)) return false;
-  const callee = node.expression;
-  if (!ts.isPropertyAccessExpression(callee)) return false;
-  if (callee.name.text !== 'find') return false;
-  const object = callee.expression;
-  if (ts.isIdentifier(object)) return object.text === 'tabs';
-  if (ts.isPropertyAccessExpression(object)) return object.name.text === 'tabs';
-  return false;
+function isTabsFindCall(node: Node): boolean {
+  if (node.type !== 'CallExpression') return false;
+  const callee = node.callee;
+  if (callee.type !== 'MemberExpression') return false;
+  if (staticProperty(callee) !== 'find') return false;
+  const object = callee.object;
+  if (object.type === 'Identifier') return object.name === 'tabs';
+  return staticProperty(object) === 'tabs';
 }
 
 /** `useXStore()` — the regex and the zero-argument condition, together. */
 const STORE_HOOK = /^use[A-Z]\w*Store$/u;
 
-function isSelectorLessStoreRead(node: ts.Node): node is ts.CallExpression {
-  if (!ts.isCallExpression(node)) return false;
+function isSelectorLessStoreRead(node: Node): boolean {
+  if (node.type !== 'CallExpression') return false;
   if (node.arguments.length !== 0) return false;
-  const callee = node.expression;
-  return ts.isIdentifier(callee) && STORE_HOOK.test(callee.text);
+  const callee = node.callee;
+  return callee.type === 'Identifier' && STORE_HOOK.test(callee.name);
 }
 
-function findViolations(files: string[], matches: (node: ts.Node) => boolean): Violation[] {
+function findViolations(files: string[], matches: (node: Node) => boolean): Violation[] {
   const violations: Violation[] = [];
   for (const file of files) {
-    const source = parse(file);
-    walk(source, node => {
-      if (matches(node)) violations.push(locate(node, source, file));
+    const parsed = parseFile(file);
+    walk(parsed.program, node => {
+      if (matches(node)) violations.push(locate(node, parsed, file));
     });
   }
   return violations;
@@ -140,6 +201,29 @@ function findViolations(files: string[], matches: (node: ts.Node) => boolean): V
 function format(violations: Violation[]): string {
   return violations.map(v => `  ${v.file}:${v.line}  ${v.text}`).join('\n');
 }
+
+function hitLines(source: string, matches: (node: Node) => boolean): number[] {
+  const parsed = parse('fixture.tsx', source);
+  expect(parsed.errors).toEqual([]);
+  const lines: number[] = [];
+  walk(parsed.program, node => {
+    if (matches(node)) lines.push(locate(node, parsed, 'fixture.tsx').line);
+  });
+  return lines;
+}
+
+describe('the renderer parses', () => {
+  it('cleanly, so a guard below cannot pass by failing to read a file', () => {
+    // Both guards report what they find, so a file the parser chokes on would
+    // look exactly like a file with nothing to report.
+    const unparseable = sourceFilesUnder('src/renderer')
+      .map(file => ({ file, errors: parseFile(file).errors }))
+      .filter(entry => entry.errors.length > 0)
+      .map(entry => `${entry.file}: ${entry.errors[0]}`);
+
+    expect(unparseable).toEqual([]);
+  });
+});
 
 describe('inline active-tab derivation', () => {
   const files = sourceFilesUnder('src/renderer').filter(file => file !== ACTIVE_TAB_CANONICAL_SITE);
@@ -164,23 +248,15 @@ describe('inline active-tab derivation', () => {
   it('still recognises the pattern it bans', () => {
     // The guard is worthless if the matcher stopped matching. Prove it against
     // both shapes the original selectors covered, plus a near-miss.
-    const fixture = ts.createSourceFile(
-      'fixture.ts',
+    const hits = hitLines(
       [
         'const a = tabs.find(tab => tab.id === activeTabId);',
         'const b = state.tabs.find(tab => tab.id === state.activeTabId);',
         'const c = tabs.find(tab => tab.id === someOtherId);',
         'const d = items.find(item => item.id === activeTabId);',
       ].join('\n'),
-      ts.ScriptTarget.Latest,
-      true
+      node => isTabsFindCall(node) && subtreeReferences(node, 'activeTabId')
     );
-    const hits: number[] = [];
-    walk(fixture, node => {
-      if (isTabsFindCall(node) && subtreeReferences(node, 'activeTabId')) {
-        hits.push(fixture.getLineAndCharacterOfPosition(node.getStart(fixture)).line + 1);
-      }
-    });
 
     // Lines 1 and 2 are the banned shapes; 3 uses a different id and 4 a
     // different collection, so neither is the pattern this guard owns.
@@ -213,8 +289,7 @@ describe('selector-less store reads', () => {
   });
 
   it('still recognises the pattern it bans', () => {
-    const fixture = ts.createSourceFile(
-      'fixture.tsx',
+    const hits = hitLines(
       [
         'const a = useSettingsStore();',
         'const b = useEditorStore(state => state.tabs);',
@@ -224,15 +299,8 @@ describe('selector-less store reads', () => {
         // Imperative access is not a subscription, so it was always allowed.
         'const f = useSettingsStore.getState();',
       ].join('\n'),
-      ts.ScriptTarget.Latest,
-      true
+      isSelectorLessStoreRead
     );
-    const hits: number[] = [];
-    walk(fixture, node => {
-      if (isSelectorLessStoreRead(node)) {
-        hits.push(fixture.getLineAndCharacterOfPosition(node.getStart(fixture)).line + 1);
-      }
-    });
 
     // Only line 1: lines 2 and 5 pass a selector, line 3 has no capitalised
     // segment before `Store`, line 4 fails the leading `use[A-Z]`, and line 6
