@@ -24,6 +24,7 @@ import {
   type PdbCommandResult,
   type PdbLocation,
 } from '../pythonDebugger';
+import { resolvePythonInterpreter } from '../../shared/python/interpreter';
 import { buildNativeRunnerEnv, combinedAllowlist } from '../runners/nativeEnv';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
@@ -136,24 +137,22 @@ async function probePython(binary: string, env: NodeJS.ProcessEnv): Promise<bool
   });
 }
 
-/** Prefer a project venv, then fall back to the platform PATH. */
+/**
+ * Prefer a project venv, then fall back to the platform PATH.
+ *
+ * Candidate order is the shared policy. The probe is a real `--version` spawn
+ * rather than a filesystem check: a debugger needs an interpreter that RUNS,
+ * and a bare PATH name cannot be stat-ed anyway. That also means this surface
+ * is the slowest of the three, so the candidate list stays short-circuiting.
+ */
 async function findPythonDebuggerBinary(
   cwd: string,
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform
 ): Promise<string | null> {
-  const projectCandidates =
-    platform === 'win32'
-      ? [
-          path.join(cwd, '.venv', 'Scripts', 'python.exe'),
-          path.join(cwd, 'venv', 'Scripts', 'python.exe'),
-        ]
-      : [path.join(cwd, '.venv', 'bin', 'python'), path.join(cwd, 'venv', 'bin', 'python')];
-  const pathCandidates = platform === 'win32' ? ['python'] : ['python3', 'python'];
-  for (const candidate of [...projectCandidates, ...pathCandidates]) {
-    if (await probePython(candidate, env)) return candidate;
-  }
-  return null;
+  return resolvePythonInterpreter({ startDirectory: cwd, platform, env }, async candidate =>
+    (await probePython(candidate.command, env)) ? candidate.command : null
+  );
 }
 
 function parseLocals(output: string): Record<string, string> {

@@ -8,6 +8,10 @@ import path from 'node:path';
 import { isSea } from 'node:sea';
 
 import { sourceRequiresModuleInput } from '../../shared/nodeSourceMode';
+import {
+  pythonCommandCandidates,
+  resolvePythonInterpreter,
+} from '../../shared/python/interpreter';
 import type { CliExecutionPlan } from './execution';
 
 export type ExecutionTargetReason =
@@ -371,11 +375,7 @@ function planJavaScriptCapsule(
   );
 }
 
-export function pythonCommandCandidates(
-  platform: NodeJS.Platform = process.platform
-): ReadonlyArray<string> {
-  return platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
-}
+export { pythonCommandCandidates } from '../../shared/python/interpreter';
 
 export function nodeRuntimeExecutable(options?: { sea?: boolean; execPath?: string }): string {
   const sea = options?.sea ?? isSea();
@@ -387,29 +387,32 @@ export function nodeRuntimeExecutable(options?: { sea?: boolean; execPath?: stri
  * (`buildCliRuntimeEnvironment`), not the parent `process.env`: with
  * `--env PATH=...` the two diverge, and probing the parent can select a
  * launcher that is absent from the child PATH or skip one that is present.
+ *
+ * The candidate ORDER is the shared policy; the probe below is the CLI's own,
+ * because only this surface resolves against the child environment.
  */
 async function findPython(
   startDirectory: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform
 ): Promise<string> {
-  let current = startDirectory;
-  while (true) {
-    const local =
-      process.platform === 'win32'
-        ? path.join(current, '.venv', 'Scripts', 'python.exe')
-        : path.join(current, '.venv', 'bin', 'python');
-    if (await isFile(local)) return local;
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  if (env.PYTHON) return env.PYTHON;
-
-  const candidates = pythonCommandCandidates();
-  for (const candidate of candidates) {
-    if (await executableIsOnPath(candidate, process.platform, env)) return commandName(candidate);
-  }
-  return commandName(candidates[0]!);
+  const resolved = await resolvePythonInterpreter(
+    { startDirectory, platform, env, walkUp: true, respectPythonEnv: true },
+    async candidate => {
+      if (candidate.source === 'path') {
+        return (await executableIsOnPath(candidate.command, platform, env))
+          ? commandName(candidate.command)
+          : null;
+      }
+      // An explicit PYTHON override is taken at its word, as before: the user
+      // naming an interpreter outranks our ability to stat it.
+      if (candidate.source === 'python-env') return candidate.command;
+      return (await isFile(candidate.command)) ? candidate.command : null;
+    }
+  );
+  // Nothing matched. Hand back the leading command name so the spawn fails
+  // with a recognisable "python not found" instead of a null downstream.
+  return resolved ?? commandName(pythonCommandCandidates(platform)[0]!);
 }
 
 async function executableIsOnPath(
