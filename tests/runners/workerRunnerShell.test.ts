@@ -14,6 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkerRunnerShell, type WorkerRunSpec } from '@/runners/workerRunnerShell';
+import { useDebuggerStore } from '@/stores/debuggerStore';
 
 class ControllableWorker {
   static latest: ControllableWorker | null = null;
@@ -23,6 +24,8 @@ class ControllableWorker {
   private errorHandlers: Array<(event: { message: string }) => void> = [];
   posted: Array<Record<string, unknown>> = [];
   terminated = false;
+  /** Counted, so a test can prove a cleared deadline never fires a second one. */
+  terminateCount = 0;
 
   constructor(_url: URL | string, _options?: WorkerOptions) {
     ControllableWorker.latest = this;
@@ -40,6 +43,7 @@ class ControllableWorker {
 
   terminate(): void {
     this.terminated = true;
+    this.terminateCount += 1;
   }
 
   /** The runId the shell minted for this run. */
@@ -62,6 +66,16 @@ class ControllableWorker {
 }
 
 const originalWorker = globalThis.Worker;
+
+/**
+ * Every shell a test starts, so teardown can stop it.
+ *
+ * A run that is never finished leaves its real kill timer armed. That timer
+ * outlives the test, and when it fires it touches the shared debugger store
+ * and keeps the Vitest worker alive — so a case that only asserts on the
+ * execute payload would quietly interfere with later ones.
+ */
+const startedShells: WorkerRunnerShell[] = [];
 
 function spec(overrides: Partial<WorkerRunSpec> = {}): WorkerRunSpec {
   return {
@@ -89,12 +103,16 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Stop before restoring timers: a shell stopped under fake timers clears its
+  // deadline through the same fake clock it armed on.
+  for (const shell of startedShells.splice(0)) shell.stop();
   (globalThis as { Worker: unknown }).Worker = originalWorker;
   vi.useRealTimers();
 });
 
 function startRun(overrides: Partial<WorkerRunSpec> = {}) {
   const shell = new WorkerRunnerShell();
+  startedShells.push(shell);
   const promise = shell.run(spec(overrides));
   const worker = ControllableWorker.latest;
   if (!worker) throw new Error('the shell did not boot a worker');
@@ -315,6 +333,21 @@ describe('stop', () => {
     expect(worker.terminated).toBe(true);
   });
 
+  it('clears the deadline, so an abandoned run cannot fire one later', async () => {
+    // This is the mechanism the suite teardown relies on: every shell a test
+    // starts gets stopped, and a stopped shell must not leave a timer armed
+    // that would fire into a later case.
+    vi.useFakeTimers();
+    const { shell, promise, worker } = startRun({ timeout: 1_000 });
+
+    shell.stop();
+    await promise;
+    const afterStop = worker.terminateCount;
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(worker.terminateCount).toBe(afterStop);
+  });
+
   it('is safe with no run in flight', () => {
     const shell = new WorkerRunnerShell();
 
@@ -335,6 +368,7 @@ describe('stop', () => {
 
   it('terminates the previous worker when a new run starts', async () => {
     const shell = new WorkerRunnerShell();
+    startedShells.push(shell);
     const first = shell.run(spec());
     const firstWorker = ControllableWorker.latest!;
 
@@ -345,6 +379,47 @@ describe('stop', () => {
     await first;
     ControllableWorker.latest!.emitForRun({ type: 'done', executionTime: 1 });
     await second;
+  });
+});
+
+describe('a stale worker error', () => {
+  it('does not detach the debugger session of the run that replaced it', async () => {
+    const shell = new WorkerRunnerShell();
+    startedShells.push(shell);
+    const debugSpec = spec({ debug: true, context: { tabId: 'tab-1' } });
+
+    const first = shell.run(debugSpec);
+    const firstWorker = ControllableWorker.latest!;
+    const second = shell.run(debugSpec);
+    const secondWorker = ControllableWorker.latest!;
+    await first;
+
+    // The second run owns the debugger session now.
+    expect(useDebuggerStore.getState().session).not.toBeNull();
+
+    // A worker that was terminated when the second run began can still flush a
+    // queued error. Its own finish() is already a no-op, but the debugger
+    // cleanup that follows is shell-wide.
+    firstWorker.emitError('late crash from a replaced worker');
+
+    expect(useDebuggerStore.getState().session).not.toBeNull();
+
+    secondWorker.emitForRun({ type: 'done', executionTime: 1 });
+    await second;
+  });
+
+  it('still cleans up when the crash belongs to the live run', async () => {
+    const shell = new WorkerRunnerShell();
+    startedShells.push(shell);
+    const promise = shell.run(spec({ debug: true, context: { tabId: 'tab-1' } }));
+    const worker = ControllableWorker.latest!;
+
+    expect(useDebuggerStore.getState().session).not.toBeNull();
+    worker.emitError('real crash');
+
+    const result = await promise;
+    expect(result.kind).toBe('error');
+    expect(useDebuggerStore.getState().session).toBeNull();
   });
 });
 

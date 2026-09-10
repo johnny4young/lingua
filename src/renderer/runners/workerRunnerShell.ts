@@ -406,6 +406,17 @@ export class WorkerRunnerShell {
       });
 
       worker.addEventListener('error', event => {
+        // The same staleness guard the message listener carries. A worker
+        // terminated when a newer run began can still flush a queued error,
+        // and while its own `finish` is already a no-op, the debugger cleanup
+        // below is shell-wide: without this it would detach the session and
+        // clear the active worker bridge belonging to the run that replaced
+        // it. Terminating an already-dead worker is harmless, so that is all
+        // a stale error gets.
+        if (this.currentRunId !== runId) {
+          worker.terminate();
+          return;
+        }
         finish({
           stdout,
           stderr,
