@@ -107,7 +107,7 @@ describe('activate', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(`${BASE_URL}/licenses/activate`);
     expect(init?.method).toBe('POST');
-    expect((init?.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/json');
     expect(JSON.parse(init?.body as string)).toEqual({
       token: 'tok_abc',
       deviceId: 'dev_xyz',
@@ -262,7 +262,7 @@ describe('status', () => {
     // CF logs would otherwise capture the token verbatim — the wrapper
     // MUST keep it in Authorization, never on the URL.
     expect(parsed.searchParams.get('token')).toBeNull();
-    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer tok_secret');
+    expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer tok_secret');
     expect(init?.method).toBe('GET');
   });
 

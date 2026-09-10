@@ -32,7 +32,6 @@
     "vite.preload.config.mts",
     "vite.renderer.config.mts",
     "playwright.license-web.config.mts",
-    "eslint.config.*",
     "tests/**/*.{ts,tsx}",
   ],
   "project": ["src/**/*.{ts,tsx,d.ts}", "scripts/**/*.mjs"],

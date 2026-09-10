@@ -17,8 +17,8 @@ const ALLOWED_LITERALS = new Set(['Lingua']);
 // so it code-splits into a lazy chunk that loads behind that param and
 // is never reached in normal use (it is reviewed against the prod
 // `preview:web` build). The "no hardcoded copy" rule guards shippable
-// product copy, not internal demo scaffolding — mirroring the eslint
-// `ignores` precedent for `dist/`, `out/`, and friends.
+// product copy, not internal demo scaffolding — mirroring the linter's
+// `ignorePatterns` precedent for `dist/`, `out/`, and friends.
 const EXCLUDED_PATH_SEGMENTS = [`${path.sep}src${path.sep}renderer${path.sep}devShowcase${path.sep}`];
 
 function isExcludedPath(filePath) {
