@@ -132,7 +132,7 @@ describe('activate', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(`${BASE_URL}/licenses/activate`);
     expect(init?.method).toBe('POST');
-    expect((init?.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/json');
     const body = JSON.parse(init?.body as string);
     expect(body).toEqual({
       token: 'tok-payload',
@@ -270,7 +270,7 @@ describe('status', () => {
     expect(String(url)).toContain('deviceId=dev-uuid');
     expect(String(url)).toContain('surface=desktop');
     expect(String(url)).not.toContain('sensitive.token.value');
-    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer sensitive.token.value');
+    expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer sensitive.token.value');
   });
 
   it('returns the StatusSuccess payload including refreshedToken when present', async () => {

@@ -40,9 +40,6 @@
  * it as such and do not paper over it.
  */
 
-// Make this file a module so TS doesn't merge its scope with other workers
-export {};
-
 import { createJsWorkerMessageHandler } from './js-worker-execution';
 
 const ctx = self as unknown as Worker;

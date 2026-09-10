@@ -1,0 +1,245 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react",
+    "react-hooks"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": [
+    "dist/",
+    "out/",
+    "out-builder/",
+    "out-cli/",
+    "output/",
+    ".vite/",
+    ".claude/",
+    "node_modules/",
+    "website/",
+    "ds-bundle/",
+    ".ds-sync/",
+    ".design-sync/"
+  ],
+  "rules": {
+    "typescript/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-useless-assignment": "error",
+    "preserve-caught-error": "error",
+    "react/immutability": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/globals": "off",
+    "react/only-export-components": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/triple-slash-reference": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-array-constructor": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-unused-expressions": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/renderer/**/*.ts",
+        "src/renderer/**/*.tsx"
+      ],
+      "rules": {
+        "react-hooks/exhaustive-deps": "warn",
+        "react-hooks/rules-of-hooks": "error",
+        "typescript/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_"
+          }
+        ],
+        "react/set-state-in-effect": "warn",
+        "react/immutability": "warn",
+        "react/purity": "error",
+        "react/refs": "warn",
+        "react/only-export-components": [
+          "warn",
+          {
+            "allowConstantExport": true
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/main/**/*.ts",
+        "src/preload/**/*.ts"
+      ],
+      "rules": {
+        "typescript/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_"
+          }
+        ],
+        "typescript/no-require-imports": "off"
+      }
+    },
+    {
+      "files": [
+        "src/renderer/stores/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "*/hooks/*",
+                  "**/hooks/**"
+                ],
+                "message": "Stores must not import from the hooks layer (latent init-order cycle). Move the non-React helper into stores/ (see licenseSelectors.ts) or utils/."
+              },
+              {
+                "group": [
+                  "*/components/*",
+                  "**/components/**"
+                ],
+                "message": "Stores must not import from the components layer. Move the shared helper into utils/ (see editorThemeCatalog.ts) or shared/."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/shared/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "electron",
+                "message": "src/shared is environment-agnostic \u2014 Electron is off-limits."
+              },
+              {
+                "name": "react",
+                "message": "src/shared is environment-agnostic \u2014 React is off-limits."
+              },
+              {
+                "name": "react-dom",
+                "message": "src/shared is environment-agnostic \u2014 React DOM is off-limits."
+              },
+              {
+                "name": "zustand",
+                "message": "src/shared is environment-agnostic \u2014 Zustand stores are renderer-only."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "*/renderer/*",
+                  "**/renderer/**"
+                ],
+                "message": "src/shared must not depend on renderer code."
+              },
+              {
+                "group": [
+                  "*/main/*",
+                  "**/main/**"
+                ],
+                "message": "src/shared must not depend on main-process code."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/cli/**/*.ts"
+      ],
+      "rules": {
+        "typescript/no-require-imports": "off",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "message": "React must not reach the CLI bundle."
+              },
+              {
+                "name": "react-dom",
+                "message": "React DOM must not reach the CLI bundle."
+              },
+              {
+                "name": "react-i18next",
+                "message": "i18n is renderer-only; the CLI is English only."
+              },
+              {
+                "name": "electron",
+                "message": "Electron must not reach the CLI bundle."
+              },
+              {
+                "name": "zustand",
+                "message": "Zustand stores are renderer-only; the CLI is stateless."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "*/renderer/*",
+                  "**/renderer/**"
+                ],
+                "message": "The CLI bundle must not import renderer code. Use shared modules under src/shared/ instead."
+              },
+              {
+                "group": [
+                  "*/main/*",
+                  "**/main/**"
+                ],
+                "message": "The CLI runs outside Electron \u2014 main-process modules are off-limits."
+              },
+              {
+                "group": [
+                  "*/preload/*",
+                  "**/preload/**"
+                ],
+                "message": "The CLI runs outside Electron \u2014 preload modules are off-limits."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "**/*.d.ts"
+      ],
+      "rules": {
+        "no-shadow-restricted-names": "off"
+      }
+    }
+  ]
+}

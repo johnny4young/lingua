@@ -385,7 +385,7 @@ describe('UtilityPipelinePanel', () => {
       call => call[0] === 'capsule.exported'
     );
     expect(exportCall).toBeDefined();
-    expect((exportCall?.[1] as { trigger?: string }).trigger).toBe('pipeline-run');
+    expect((exportCall![1] as { trigger?: string }).trigger).toBe('pipeline-run');
 
     // The run row carries a success status + a toast confirmed the save.
     expect(useExecutionHistoryStore.getState().entries[0]?.status).toBe('ok');
