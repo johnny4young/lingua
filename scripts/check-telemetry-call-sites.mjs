@@ -48,11 +48,14 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/hooks/useSessionRestoreBoot.ts': 3,
   'src/renderer/hooks/utilityPipelineTelemetry.ts': 1,
   'src/renderer/runners/env.ts': 1,
-  'src/renderer/runners/javascript.ts': 5,
   'src/renderer/runners/nodeRunner.ts': 2,
   'src/renderer/runners/python.ts': 3,
   'src/renderer/runners/ruby.ts': 1,
-  'src/renderer/runners/typescript.ts': 5,
+  // The JS and TS runners each held 5 direct calls in their duplicated worker
+  // shell. Extracting the shell merged those two sets into this one file, so
+  // the ceiling across the three dropped from 10 to 5 and both runner entries
+  // are gone rather than zeroed.
+  'src/renderer/runners/workerRunnerShell.ts': 5,
   'src/renderer/runtime/executeTabManually.ts': 4,
   'src/renderer/stores/editorCloseActions.ts': 1,
   'src/renderer/stores/editorModeActions.ts': 3,

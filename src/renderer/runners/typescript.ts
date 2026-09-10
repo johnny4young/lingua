@@ -3,11 +3,7 @@ import type {
   LanguageRunner,
   ExecutionContext,
   ExecutionResult,
-  ConsoleOutput,
   ExecutionError,
-  LineTimingEntry,
-  MagicCommentResult,
-  WorkerResponse,
 } from '../types/execution';
 import {
   transformJSMagicComments,
@@ -19,12 +15,7 @@ import {
   transformJSLineTiming,
 } from '../utils/magicComments';
 import { buildMagicLineMaps, markAutoLogLines } from './magicLineMap';
-import {
-  forceTablePayload,
-  payloadForRichMediaMagicDirective,
-  tryParseJsonForPayload,
-  type RichOutputPayload,
-} from '../../shared/richOutput';
+import { WorkerRunnerShell } from './workerRunnerShell';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
@@ -33,20 +24,12 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
-import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
-import { trackEvent } from '../utils/telemetry';
 import {
   appendScopeCapture,
   collectTopLevelScopeNames,
 } from '../utils/scopeCapture';
 import { buildGeneratedSourceLineMap } from '../utils/sourceLineMap';
-import {
-  appendCappedConsole,
-  capStderrIfOverflowing,
-  runnerStoppedResult,
-  runnerTimeoutResult,
-  type TranslateFn,
-} from './limits';
+import { runnerStoppedResult, type TranslateFn } from './limits';
 import { loadEsbuild } from './esbuildLoader';
 
 // implementation — the literal DEFAULT_TIMEOUT is gone; the runner
@@ -62,39 +45,17 @@ export class TypeScriptRunner implements LanguageRunner {
   language = 'typescript' as const;
   extensions = ['.ts', '.tsx'];
 
-  private worker: Worker | null = null;
   private ready = false;
-  /** internal — see JavaScriptRunner.currentRunId. */
-  private currentRunId: string | null = null;
-  private debugSessionActive = false;
-  /** internal — see JavaScriptRunner.cancelInFlight. */
-  private cancelInFlight: (() => void) | null = null;
   /**
-   * TypeScript has an async transpile phase before the worker starts.
-   * This token invalidates stale transpiles when Run/Stop is pressed
-   * while esbuild is still resolving.
+   * TypeScript has an async transpile phase before the worker starts. This
+   * token invalidates stale transpiles when Run/Stop is pressed while esbuild
+   * is still resolving — the one piece of worker lifecycle the shell cannot
+   * own, because the shell has no async step of its own.
    */
   private executionGeneration = 0;
 
-  private clearDebuggerSession(
-    reasonBucket:
-      | 'run-complete'
-      | 'crash'
-      | 'stop'
-      | 'user-detach' = 'run-complete'
-  ): void {
-    if (!this.debugSessionActive) return;
-    this.debugSessionActive = false;
-    // See JavaScriptRunner.clearDebuggerSession — the drawer's user-detach
-    // path clears the store session before the worker's `done` message
-    // arrives, so we skip the second telemetry fire on the runner side.
-    const userDetachedAlready = useDebuggerStore.getState().session === null;
-    useDebuggerStore.getState().detachSession();
-    setActiveDebugWorker(null);
-    if (!userDetachedAlready) {
-      void trackEvent('debugger.detached', { language: 'js', reasonBucket });
-    }
-  }
+  /** Worker boot, message pump and result assembly, shared with the JS runner. */
+  private readonly shell = new WorkerRunnerShell();
 
   async init(): Promise<void> {
     // Lazy-loads + initializes esbuild-wasm exactly once across all
@@ -288,317 +249,34 @@ export class TypeScriptRunner implements LanguageRunner {
     }
 
     // Step 3: Execute the transpiled JS using the same JS worker
-    const stdout: ConsoleOutput[] = [];
-    const stderr: ConsoleOutput[] = [];
-    const magicResults: MagicCommentResult[] = [];
-    let lineTimings: LineTimingEntry[] = [];
-    let result: unknown;
-    let error: ExecutionError | undefined;
-    // implementation note — see JavaScriptRunner; the same JS
-    // worker hosts the TS path post-transpile, so the same
-    // `stdin-consumed` message arrives here too.
-    let stdinConsumed: { count: number; total: number } | undefined;
-    // implementation — scope snapshot relay; same shape as JS runner.
-    let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
-    // Independent caps per stream — see JavaScriptRunner.
-    let droppedStdout = 0;
-    let droppedStderr = 0;
-    let stderrByteTruncated = false;
-
-    const runId = crypto.randomUUID();
-    this.currentRunId = runId;
-
-    return new Promise<ExecutionResult>((resolve) => {
-      this.worker = new Worker(
-        new URL('../workers/js-worker.ts', import.meta.url),
-        { type: 'module' }
-      );
-      const worker = this.worker;
-      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-      let resolved = false;
-      const clearDeadline = () => {
-        if (timeoutHandle !== null) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
-        }
-      };
-      const armDeadline = () => {
-        clearDeadline();
-        timeoutHandle = setTimeout(() => {
-          worker.terminate();
-          if (this.worker === worker) this.worker = null;
-          // implementation — clear the debugger bridge + session on
-          // timeout so a follow-up F5/F10 doesn't post to a dead worker.
-          this.clearDebuggerSession('stop');
-          finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
-        }, timeout);
-      };
-
-      const finish = (value: ExecutionResult) => {
-        if (resolved) return;
-        resolved = true;
-        clearDeadline();
-        if (this.currentRunId === runId) {
-          this.currentRunId = null;
-        }
-        if (this.cancelInFlight === cancelInFlight) {
-          this.cancelInFlight = null;
-        }
-        resolve(value);
-      };
-
-      const cancelInFlight = () => {
-        finish(runnerStoppedResult(t, { stdout, stderr }));
-      };
-      this.cancelInFlight = cancelInFlight;
-
-      worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
-        const msg = event.data;
-        if (!('runId' in msg) || msg.runId !== runId) return;
-        if (this.currentRunId !== runId) return;
-
-        switch (msg.type) {
-          case 'console': {
-            // implementation — same payload pass-through as the JS
-            // runner; TS rides the JS worker post-esbuild so it gets
-            // the typed `RichOutputPayload[]` array for free.
-            const output: ConsoleOutput = msg.payload
-              ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
-              : { type: msg.method, args: msg.args, line: msg.line };
-            if (msg.consoleTableInvoked === true) {
-              void trackEvent('runtime.console_table_called', {
-                language: 'typescript',
-              });
-            }
-            // implementation-β-β-α implementation note — mirror of the JS runner
-            // rejection forwarding (TS rides the JS worker, so the
-            // bridge emits the same `richMediaRejected` flag shape).
-            if (msg.richMediaRejected) {
-              const { kind, reason } = msg.richMediaRejected;
-              void trackEvent('runtime.rich_media_payload_rejected', {
-                kind,
-                reason,
-              });
-            }
-            if (msg.method === 'error') {
-              if (!stderrByteTruncated) {
-                droppedStderr = appendCappedConsole(
-                  stderr,
-                  output,
-                  droppedStderr,
-                  t
-                );
-                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-              }
-            } else {
-              droppedStdout = appendCappedConsole(
-                stdout,
-                output,
-                droppedStdout,
-                t
-              );
-            }
-            context?.onConsole?.(output);
-            break;
-          }
-          case 'stdin-consumed': {
-            const summary = msg as unknown as {
-              count: unknown;
-              total: unknown;
-            };
-            const count =
-              typeof summary.count === 'number' && Number.isInteger(summary.count)
-                ? Math.max(0, summary.count)
-                : 0;
-            const total =
-              typeof summary.total === 'number' && Number.isInteger(summary.total)
-                ? Math.max(0, summary.total)
-                : 0;
-            stdinConsumed = { count, total };
-            break;
-          }
-          case 'scope-snapshot': {
-            // implementation — relay scope capture; same defensive
-            // shape coercion as the JS runner.
-            const incoming = msg as unknown as {
-              snapshot?: { language?: unknown; variables?: unknown };
-            };
-            if (
-              incoming.snapshot &&
-              typeof (incoming.snapshot as { language?: unknown }).language === 'string' &&
-              Array.isArray((incoming.snapshot as { variables?: unknown }).variables)
-            ) {
-              scopeSnapshot = incoming.snapshot as ExecutionResult['scopeSnapshot'];
-            }
-            break;
-          }
-          case 'magic-comment': {
-            // implementation — mirror of the JS runner: when the
-            // user attached a `//=> table` directive, parse the
-            // worker's stringified JSON-compatible value back into a
-            // typed payload while keeping `value` as the text fallback.
-            const directive = magicDirectiveByLine[msg.line];
-            let payload: RichOutputPayload | undefined;
-            if (directive === 'table') {
-              const parsed = tryParseJsonForPayload(msg.value);
-              if (parsed.ok) {
-                payload = forceTablePayload(parsed.value);
-              }
-            } else if (
-              directive === 'chart' ||
-              directive === 'image' ||
-              directive === 'html'
-            ) {
-              payload = payloadForRichMediaMagicDirective(directive, msg.value);
-            }
-            const entry: MagicCommentResult = {
-              line: msg.line,
-              value: msg.value,
-              kind: magicKindByLine[msg.line] ?? 'arrow',
-              ...(msg.isError === true ? { isError: true } : {}),
-            };
-            if (payload) entry.payload = payload;
-            magicResults.push(entry);
-            break;
-          }
-          case 'line-timing':
-            // internal — batched per-statement timings (one message per run).
-            lineTimings = msg.entries;
-            break;
-          case 'result':
-            result = msg.value;
-            break;
-          case 'error':
-            error = msg.error;
-            break;
-          case 'paused': {
-            const paused = msg as unknown as {
-              line: number;
-              reason: 'user-breakpoint' | 'step';
-              locals: Record<string, string>;
-              callStack: { functionName: string; line: number }[];
-              watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
-              conditionError?: string;
-            };
-            if (context?.tabId) {
-              useDebuggerStore.getState().setPausedFrame({
-                tabId: context.tabId,
-                line: paused.line,
-                reason: paused.reason,
-                locals: paused.locals,
-                callStack: paused.callStack,
-                watchResults: paused.watchResults,
-                conditionError: paused.conditionError,
-              });
-              void trackEvent('debugger.paused', {
-                language: 'js',
-                reasonBucket: paused.reason,
-              });
-            }
-            clearDeadline();
-            break;
-          }
-          case 'watch-results':
-            useDebuggerStore.getState().updateWatchResults(msg.watchResults);
-            break;
-          case 'resumed':
-            armDeadline();
-            break;
-          case 'done':
-            finish({
-              stdout,
-              stderr,
-              result,
-              executionTime: msg.executionTime,
-              error,
-              magicResults: magicResults.length > 0 ? magicResults : undefined,
-              ...(lineTimings.length > 0 ? { lineTimings } : {}),
-              stdinConsumed,
-              kind: error ? 'error' : 'success',
-              timeoutPreset,
-              timeoutMs: timeout,
-              scopeSnapshot,
-            });
-            this.clearDebuggerSession('run-complete');
-            worker.terminate();
-            if (this.worker === worker) this.worker = null;
-            break;
-        }
-      });
-
-      worker.addEventListener('error', (event) => {
-        finish({
-          stdout,
-          stderr,
-          result: undefined,
-          executionTime: 0,
-          error: { message: event.message || 'Worker error' },
-          kind: 'error',
-          timeoutPreset,
-          timeoutMs: timeout,
-        });
-        // implementation — same cleanup as the JS runner crash path.
-        this.clearDebuggerSession('crash');
-        worker.terminate();
-        if (this.worker === worker) this.worker = null;
-      });
-
-      // internal — parent-owned kill timer. Debug pauses clear and
-      // re-arm this deadline around user-controlled stepping.
-      armDeadline();
-
-      if (debug && context?.tabId) {
-        this.debugSessionActive = true;
-        useDebuggerStore.getState().attachSession({
-          runtime: 'js',
-          tabId: context.tabId,
-          attachedAt: Date.now(),
-        });
-        setActiveDebugWorker(worker);
-        // implementation — `language: 'js'` is correct because the
-        // runtime adapter is the JS worker (TS transpiles through
-        // esbuild and runs in the same worker).
-        void trackEvent('debugger.attached', { language: 'js', reasonBucket: 'attach' });
-      }
-      worker.postMessage({
-        type: 'execute',
-        runId,
-        code: instrumented,
-        timeout,
-        resultTruncationMarker: t('runner.truncated.result'),
-        debug,
-        breakpoints: tabBreakpoints.map((bp) => ({
-          line: bp.line,
-          mode: bp.mode,
-          condition: bp.condition,
-          logMessage: bp.logMessage,
-        })),
-        watches: debug ? debugStore.watches.map((w) => w.expression) : [],
-        sourceLineMap,
-        sourceMappingEnabled,
-        stdin: context?.stdin,
-        // implementation — TS pipes through the JS worker post
-        // transpile; stamp `'typescript'` on the snapshot so the
-        // toggle in the renderer self-gates on the right language.
-        captureScope: !debug && context?.captureScope === true,
-        scopeDepth: context?.scopeDepth,
-        scopeLanguage: 'typescript',
-      });
+    // Step 3: hand the transpiled JS to the shell shared with the JavaScript
+    // runner — same worker, same message pump, same result assembly.
+    return this.shell.run({
+      code: instrumented,
+      language: 'typescript',
+      timeout,
+      timeoutPreset,
+      debug,
+      breakpoints: tabBreakpoints,
+      watches: debug ? debugStore.watches.map(w => w.expression) : [],
+      sourceLineMap,
+      sourceMappingEnabled,
+      magicKindByLine,
+      magicDirectiveByLine,
+      // Notebook cells transpile TypeScript themselves and run through the
+      // JavaScript runner, so this path never captures a structured result.
+      captureStructuredResult: false,
+      context,
     });
   }
 
+  /**
+   * Bump the generation before delegating: a stop during the async transpile
+   * must abort that run before it ever boots a worker. The shell has no async
+   * step of its own, so the counter stays here rather than moving into it.
+   */
   stop(): void {
     this.executionGeneration += 1;
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
-    }
-    this.currentRunId = null;
-    this.clearDebuggerSession('stop');
-    if (this.cancelInFlight) {
-      const cancel = this.cancelInFlight;
-      this.cancelInFlight = null;
-      cancel();
-    }
+    this.shell.stop();
   }
 }
