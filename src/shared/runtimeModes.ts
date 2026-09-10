@@ -33,6 +33,22 @@ export type RuntimeMode = (typeof RUNTIME_MODES)[number];
 const RUNTIME_MODE_SET: ReadonlySet<string> = new Set(RUNTIME_MODES);
 
 /**
+ * Whether a mode reaches a runner that transpiles TypeScript through
+ * esbuild-wasm.
+ *
+ * `worker` runs the TypeScriptRunner and `node` the desktop NodeRunner; both
+ * call `loadEsbuild()`. The other three never do — `BrowserPreviewRunner.init`
+ * is a no-op, and Deno and Bun execute TypeScript natively, so the raw source
+ * crosses IPC untouched. An undefined mode is `worker`, the default.
+ *
+ * Callers use this to decide whether warming the toolchain is worth a ~14 MB
+ * WebAssembly download that a run in that mode would never touch.
+ */
+export function runtimeModeTranspilesTypeScript(mode: RuntimeMode | undefined): boolean {
+  return mode === undefined || mode === 'worker' || mode === 'node';
+}
+
+/**
  * Languages for which the per-tab runtime-mode selector applies.
  * Mirror this with the Toolbar render guard. Adding a language to the
  * runtime-mode surface requires (1) the runner registry to honour the

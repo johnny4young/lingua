@@ -83,7 +83,17 @@ describe('the editor chunk', () => {
     const source = readCodeEditor();
 
     expect(source).toContain("import('../../runners/manager')");
-    expect(source).toContain("prepareRunner('typescript')");
+    expect(source).toContain("prepareRunner('typescript'");
+  });
+
+  it('keeps the warm gated on the runtime mode', () => {
+    // Browser Preview, Deno and Bun reach runners that never transpile, so an
+    // ungated warm downloads esbuild for a run that discards it. The predicate
+    // itself is covered in tests/shared/runtimeModeTranspile.test.ts; this pins
+    // that CodeEditor still consults it.
+    const source = readCodeEditor();
+
+    expect(source).toContain('runtimeModeTranspilesTypeScript');
   });
 });
 
