@@ -83,6 +83,16 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+The Python runner lets one execution reach that persistent worker at a time.
+A new `execute()` stops a run already in flight by terminating the worker, so
+the new call boots Pyodide again. A call still waiting for the boot holds no
+run id to stop, so the runner numbers every call before awaiting the boot and
+only the newest waiter posts once the boot resolves; older waiters settle as
+stopped and the boot stays in place. Runs posted together would interleave at
+every `await` over the runtime's shared capture buffers and lose their
+magic-comment and auto-log rows. `tests/runners/python.test.ts` covers the
+boot overlap.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256
