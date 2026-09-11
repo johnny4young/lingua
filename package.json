@@ -151,7 +151,7 @@
     "sql-formatter": "^15.8.1",
     "tailwindcss": "^4.3.0",
     "terser": "^5.48.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "undici": "^7.29.0",
     "undici-types": "^7.24.6",
     "vega": "^6.2.0",

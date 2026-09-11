@@ -14,7 +14,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "sourceMap": true,
-    "baseUrl": ".",
+    // No `baseUrl`: TypeScript 7 removed the option (TS5102). The path
+    // mapping never needed it — the target is already relative to this
+    // file, which is how `paths` resolves without a base.
     "paths": {
       "@/*": ["./src/renderer/*"]
     },
