@@ -33,8 +33,11 @@ interface LinguaE2eHooks {
    * never report a previous run's outcome. It says nothing about the
    * debounce window BEFORE that: between an edit and the run it schedules,
    * an earlier run's result is still published and this reads `true`. Poll
-   * it only once something proves the run you care about has started, the
-   * way the Python auto-log spec gates on the Pyodide boot first.
+   * it only when no earlier result can still be published. The Python
+   * auto-log spec qualifies because its tab is new and its select-all and
+   * delete empty the buffer, which clears visible results before the
+   * replacement text schedules its run. Its Pyodide boot wait does not prove
+   * that run started: the seeded code's own auto-run can start the boot.
    */
   autoRunSettled: () => boolean;
 }

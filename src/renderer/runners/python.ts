@@ -77,6 +77,16 @@ export class PythonRunner implements LanguageRunner {
   private currentRunId: string | null = null;
   /** internal — see JavaScriptRunner.cancelInFlight. */
   private cancelInFlight: (() => void) | null = null;
+  /**
+   * Sequence number of the newest execute() call. A call still waiting for
+   * the Pyodide boot has no runId or cancelInFlight yet, so the stop guard at
+   * the top of execute() cannot see it. Without this check a newer call made
+   * during the boot would post a second run once the boot resolved: the
+   * persistent worker interleaves concurrent runs over its shared capture
+   * buffers, so the newer run would publish without its rows, and the older
+   * run's kill timer would later terminate the worker under the next run.
+   */
+  private latestExecuteSeq = 0;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -256,6 +266,7 @@ export class PythonRunner implements LanguageRunner {
     if (this.currentRunId !== null || this.cancelInFlight !== null) {
       this.stop();
     }
+    const executeSeq = ++this.latestExecuteSeq;
 
     let worker: Worker;
     try {
@@ -275,6 +286,14 @@ export class PythonRunner implements LanguageRunner {
         // implementation — bootstrap failures count as `'error'`.
         kind: 'error',
       };
+    }
+
+    // A newer execute() arrived while this one waited for the boot. Only the
+    // newest call may reach the worker, so this one settles as stopped, the
+    // outcome the stop guard above gives a run already in flight, and the
+    // shared boot stays in place for the newer call.
+    if (executeSeq !== this.latestExecuteSeq) {
+      return runnerStoppedResult(t, { stdout, stderr });
     }
 
     // implementation — loop protection is baseline.

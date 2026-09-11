@@ -548,6 +548,74 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(terminateCount).toBe(1);
   });
 
+  it('lets only the newest execute reach the worker when calls overlap the Pyodide boot', async () => {
+    // A new Python tab auto-runs its seeded code, which starts the boot, and
+    // an edit made before the boot finishes schedules a second run. Both calls
+    // wait on the same boot; if both then posted, the persistent worker would
+    // interleave them and the newer run would publish without its rows.
+    const listeners = new Set<(event: MessageEvent) => void>();
+    let releaseBoot = (): void => {
+      throw new Error('the runner never posted init');
+    };
+    let terminateCount = 0;
+    class BootGateWorker {
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') listeners.add(handler);
+      }
+
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') listeners.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        const emit = (data: Record<string, unknown>) => {
+          for (const listener of [...listeners]) {
+            listener({ data } as MessageEvent);
+          }
+        };
+        if (message.type === 'init') {
+          // Hold the boot until both calls are waiting on it.
+          releaseBoot = () => emit({ type: 'ready' });
+          return;
+        }
+        if (message.type === 'execute') {
+          emit({ type: 'done', runId: message.runId, executionTime: 1 });
+        }
+      }
+
+      terminate(): void {
+        terminateCount += 1;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: BootGateWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const seeded = runner.execute('counter = 5');
+    const edited = runner.execute('1 + 1');
+    releaseBoot();
+    const [seededResult, editedResult] = await Promise.all([seeded, edited]);
+
+    const executeMessages = postedMessages.filter((m) => m.type === 'execute');
+    expect(executeMessages).toHaveLength(1);
+    expect(executeMessages[0]?.code).toContain('1 + 1');
+    expect(executeMessages[0]?.code).not.toContain('counter = 5');
+    expect(seededResult.cancelled).toBe(true);
+    expect(editedResult.kind).toBe('success');
+    expect(editedResult.cancelled).toBeUndefined();
+    // Superseding the older call must not cancel the boot the newer one uses.
+    expect(terminateCount).toBe(0);
+    expect(runner.isPyodideBooted()).toBe(true);
+  });
+
   // implementation — Python paridad rich-media.
 
   it('upgrades a magic-comment chart directive to a typed payload', async () => {
