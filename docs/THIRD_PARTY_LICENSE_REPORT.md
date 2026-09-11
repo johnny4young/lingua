@@ -51,7 +51,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |
 | `graceful-fs` | `4.2.11` | `ISC` | `node_modules/graceful-fs` |
-| `hono` | `4.12.34` | `MIT` | `node_modules/hono` |
+| `hono` | `4.13.7` | `MIT` | `node_modules/hono` |
 | `js-yaml` | `4.3.2` | `MIT` | `node_modules/js-yaml` |
 | `jsonfile` | `6.2.1` | `MIT` | `node_modules/jsonfile` |
 | `lazy-val` | `1.0.5` | `MIT` | `node_modules/lazy-val` |
