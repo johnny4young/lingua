@@ -95,6 +95,17 @@ class WasmRubyRunner implements LanguageRunner {
   private loadingCancel: (() => void) | null = null;
   private currentRunId: string | null = null;
   private cancelInFlight: (() => void) | null = null;
+  /**
+   * Sequence number of the newest execute() call. A call still waiting for
+   * the Ruby boot has no runId or cancelInFlight yet, so the stop guard at the
+   * top of execute() cannot see it. Without this check a newer call made
+   * during the boot would post a second run once the boot resolved. The
+   * worker would run both, but the runId guard drops the older run's done
+   * reply, so that call would settle only when its kill timer fired, and the
+   * timer would terminate the worker and leave the next run to boot Ruby
+   * again.
+   */
+  private latestExecuteSeq = 0;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -238,6 +249,7 @@ class WasmRubyRunner implements LanguageRunner {
     if (this.currentRunId !== null || this.cancelInFlight !== null) {
       this.stop();
     }
+    const executeSeq = ++this.latestExecuteSeq;
 
     let worker: Worker;
     try {
@@ -256,6 +268,14 @@ class WasmRubyRunner implements LanguageRunner {
         },
         kind: 'error',
       };
+    }
+
+    // A newer execute() arrived while this one waited for the boot. Only the
+    // newest call may reach the worker, so this one settles as stopped, the
+    // outcome the stop guard above gives a run already in flight, and the
+    // shared boot stays in place for the newer call.
+    if (executeSeq !== this.latestExecuteSeq) {
+      return runnerStoppedResult(t, { stdout, stderr });
     }
 
     const runId = crypto.randomUUID();
