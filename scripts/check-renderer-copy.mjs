@@ -96,7 +96,7 @@ export function findHardcodedCopyViolations(sourceText, filePath) {
           line,
           column,
           text,
-          reason: `Attribute "${node.name.text}" should use translated copy instead of a hardcoded string literal.`,
+          reason: `Attribute "${getJsxTagName(node.name)}" should use translated copy instead of a hardcoded string literal.`,
         });
       }
     }

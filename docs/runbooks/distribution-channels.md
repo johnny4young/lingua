@@ -219,7 +219,9 @@ brew untap lingua-validate/tap
 `brew audit --online` is the valuable one: it downloads the artifact, checks
 the digest, and compares `depends_on macos:` against the `LSMinimumSystemVersion`
 inside the shipped `.app`. That check is what caught the cask claiming Big Sur
-while the Electron 43 build actually requires **Monterey (12.0)**.
+while the Electron build of the day actually required Monterey (12.0).
+Electron 44 raises that floor again: the generator now emits **Ventura
+(13.0)**, which is the `LSMinimumSystemVersion` the Electron 44 bundle carries.
 
 To test an install without disturbing an existing `/Applications/Lingua.app`,
 install into a scratch directory:

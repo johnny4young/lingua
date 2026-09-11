@@ -129,7 +129,11 @@ function directTrackEventCallCount(sourceText, fileName) {
     if (callee.property.type !== 'Identifier' || callee.property.name !== 'then') return;
     if (callee.object.type !== 'ImportExpression') return;
     const moduleSpecifier = callee.object.source;
-    if (moduleSpecifier.type !== 'Literal') return;
+    // A Literal is not necessarily a string: `import(1).then(...)` parses, and
+    // resolving a number would crash the audit instead of skipping the call.
+    if (moduleSpecifier.type !== 'Literal' || typeof moduleSpecifier.value !== 'string') {
+      return;
+    }
     if (!targetsTelemetryEmitter(moduleSpecifier.value, fileName)) return;
     const callback = node.arguments[0];
     if (

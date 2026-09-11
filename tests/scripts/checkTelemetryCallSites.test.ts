@@ -97,6 +97,19 @@ describe('telemetry call-site audit', () => {
     expect(scanDirectTelemetryCalls(root).get('src/renderer/aliased.ts')).toBe(1);
   });
 
+  it('skips a dynamic import whose specifier is not a string', () => {
+    // `import(1).then(...)` parses. Resolving a number crashed the audit
+    // before, which took the whole gate down instead of skipping the call.
+    const root = makeRoot({
+      'src/renderer/utils/oddCaller.ts':
+        "void import(1).then(({ trackEvent }) => { void trackEvent('app.launched'); });",
+    });
+
+    expect(() => scanDirectTelemetryCalls(root)).not.toThrow();
+    // Only files with at least one direct call are recorded.
+    expect(scanDirectTelemetryCalls(root).has('src/renderer/utils/oddCaller.ts')).toBe(false);
+  });
+
   it('detects relative utility imports and aliased dynamic imports', () => {
     const root = makeRoot({
       'src/renderer/utils/staticCaller.ts':

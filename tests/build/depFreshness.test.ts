@@ -143,8 +143,20 @@ describe('dependency override hygiene', () => {
   it('lets npm load the declared undici override without EOVERRIDE', () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as PackageJson;
     const lock = load(readFileSync(PNPM_LOCK_PATH, 'utf-8')) as {
-      importers: Record<string, { devDependencies: Record<string, { version: string }> }>;
+      snapshots?: Record<string, unknown>;
     };
+    // The override is a per-major selector, so the probe has to declare a
+    // matching 7.x dependency: npm applies `undici@7` only to a spec inside
+    // that major. Reading the bare `undici` key here would serialize to
+    // `undefined`, drop out of the JSON, and leave the probe asserting
+    // nothing about the selector this repo actually ships.
+    const selector = 'undici@7';
+    const overrideSpec = pkg.overrides?.[selector];
+    expect(typeof overrideSpec, `${selector} override`).toBe('string');
+    const installedVersion = Object.keys(lock.snapshots ?? {})
+      .map(key => /^undici@(7\.[\d.]+)$/u.exec(key)?.[1])
+      .find((version): version is string => version !== undefined);
+    expect(installedVersion, 'lockfile carries no undici 7.x').toBeDefined();
     const cwd = mkdtempSync(resolve(tmpdir(), 'lingua-npm-override-'));
     try {
       // A minimal installed tree exercises npm's real override resolver offline.
@@ -155,17 +167,14 @@ describe('dependency override hygiene', () => {
           name: 'override-probe',
           version: '1.0.0',
           private: true,
-          devDependencies: { undici: pkg.devDependencies?.undici },
-          overrides: { undici: pkg.overrides?.undici },
+          devDependencies: { undici: overrideSpec },
+          overrides: { [selector]: overrideSpec },
         })
       );
       mkdirSync(resolve(cwd, 'node_modules/undici'), { recursive: true });
       writeFileSync(
         resolve(cwd, 'node_modules/undici/package.json'),
-        JSON.stringify({
-          name: 'undici',
-          version: lock.importers['.']!.devDependencies.undici!.version,
-        })
+        JSON.stringify({ name: 'undici', version: installedVersion })
       );
       const output = execFileSync(
         process.platform === 'win32' ? 'npm.cmd' : 'npm',
@@ -178,9 +187,7 @@ describe('dependency override hygiene', () => {
           shell: process.platform === 'win32',
         }
       );
-      expect(JSON.parse(output).dependencies.undici.version).toBe(
-        lock.importers['.']!.devDependencies.undici!.version
-      );
+      expect(JSON.parse(output).dependencies.undici.version).toBe(installedVersion);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
