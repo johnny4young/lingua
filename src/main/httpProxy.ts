@@ -680,7 +680,11 @@ export async function executeHttpProxyRequest(
       } else {
         // Pin the socket lookup to the exact addresses that passed the SSRF
         // guard. This closes the DNS-rebinding gap between validation and dial.
+        // allowH2 stays off: undici 8 negotiates HTTP/2 by default, which would
+        // silently change the protocol the HTTP workspace speaks to any TLS
+        // server that offers it. tests/main/httpProxyDispatcher.test.ts pins it.
         hopDispatcher = new Agent({
+          allowH2: false,
           connect: { lookup: createPinnedLookup(target.addresses) },
         });
         const serializedHeaders: Array<[string, string]> = [];
