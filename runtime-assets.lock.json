@@ -11,10 +11,10 @@
     }
   },
   "ruby": {
-    "version": "2.9.3-2.9.4",
-    "sourceUrl": "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/ruby+stdlib.wasm",
+    "version": "2.10.1",
+    "sourceUrl": "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm",
     "integrity": {
-      "ruby+stdlib.wasm": "sha256-81bc8bbb2130ea34f30826e03d850661bb6cb1c7fe72be598584f12b2810c9de"
+      "ruby+stdlib.wasm": "sha256-4b814fc9d13505ea5b4c1f3bd3a7cc7ccca137f551196b9b21f0a7caf9cc5878"
     }
   }
 }
