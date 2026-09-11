@@ -364,6 +364,133 @@ describe('RubyRunner — parent-owned timeout', () => {
   });
 });
 
+describe('RubyRunner — execute calls that overlap the Ruby boot', () => {
+  let originalWorker: typeof globalThis.Worker;
+  let postedMessages: Array<Record<string, unknown>>;
+  let terminateCount: number;
+  let releaseBoot: () => void;
+  // Null answers an execute inside postMessage. A number defers the done reply
+  // to a timer, the way a real worker answers: on a later task, after every
+  // call that resumed from the boot has already run.
+  let executeReplyDelayMs: number | null;
+
+  // Holds the init reply until the test releases the boot, so two execute()
+  // calls can both wait on it. A terminated worker stops replying.
+  class BootGateWorker {
+    private listeners = new Set<(event: MessageEvent) => void>();
+    private terminated = false;
+
+    constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+    addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+      if (type === 'message') this.listeners.add(handler);
+    }
+
+    removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+      if (type === 'message') this.listeners.delete(handler);
+    }
+
+    postMessage(message: Record<string, unknown>): void {
+      postedMessages.push(message);
+      const emit = (data: Record<string, unknown>) => {
+        if (this.terminated) return;
+        for (const listener of [...this.listeners]) {
+          listener({ data } as MessageEvent);
+        }
+      };
+      if (message.type === 'init') {
+        releaseBoot = () => emit({ type: 'ready' });
+        return;
+      }
+      if (message.type === 'execute') {
+        const reply = () => emit({ type: 'done', runId: message.runId, executionTime: 1 });
+        if (executeReplyDelayMs === null) {
+          reply();
+        } else {
+          setTimeout(reply, executeReplyDelayMs);
+        }
+      }
+    }
+
+    terminate(): void {
+      this.terminated = true;
+      terminateCount += 1;
+    }
+  }
+
+  beforeEach(() => {
+    postedMessages = [];
+    terminateCount = 0;
+    executeReplyDelayMs = null;
+    releaseBoot = () => {
+      throw new Error('the runner never posted init');
+    };
+    originalWorker = globalThis.Worker;
+    Object.defineProperty(globalThis, 'Worker', {
+      value: BootGateWorker,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(globalThis, 'Worker', {
+      value: originalWorker,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it('lets only the newest execute reach the worker when calls overlap the Ruby boot', async () => {
+    // Two runs requested while the Ruby runtime is still booting both wait on
+    // that one boot. Only the newer call may post to the worker once it
+    // resolves; the older call is superseded like a run already in flight.
+    const runner = new RubyRunner();
+    await runner.init();
+    const seeded = runner.execute('counter = 5');
+    const edited = runner.execute('puts 1 + 1');
+    releaseBoot();
+    const [seededResult, editedResult] = await Promise.all([seeded, edited]);
+
+    const executeMessages = postedMessages.filter((m) => m.type === 'execute');
+    expect(executeMessages).toHaveLength(1);
+    expect(executeMessages[0]?.code).toBe('puts 1 + 1');
+    expect(seededResult.kind).toBe('stopped');
+    expect(seededResult.cancelled).toBe(true);
+    expect(editedResult.kind).toBe('success');
+    expect(editedResult.cancelled).toBeUndefined();
+    // Superseding the older call must not cancel the boot the newer one uses.
+    expect(terminateCount).toBe(0);
+  });
+
+  it('leaves no kill timer behind that terminates the worker after an overlap', async () => {
+    // A real worker answers on a later task, after the newer call has taken
+    // the runId, so a posted older run would lose its done reply and settle
+    // only when its kill timer fired and terminated the shared worker.
+    vi.useFakeTimers();
+    executeReplyDelayMs = 0;
+    const timeout = 5_000;
+    const runner = new RubyRunner();
+    await runner.init();
+    const seeded = runner.execute('counter = 5', { timeout });
+    const edited = runner.execute('puts 1 + 1', { timeout });
+    releaseBoot();
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await edited).kind).toBe('success');
+
+    await vi.advanceTimersByTimeAsync(timeout * 2);
+    expect(terminateCount).toBe(0);
+    expect((await seeded).kind).toBe('stopped');
+
+    // The next run reuses the booted worker instead of booting Ruby again.
+    const followUp = runner.execute('puts 3', { timeout });
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await followUp).kind).toBe('success');
+    expect(postedMessages.filter((m) => m.type === 'init')).toHaveLength(1);
+  });
+});
+
 // ----------------------------------------------------------------------
 // implementation — hybrid dispatcher routing
 // ----------------------------------------------------------------------
