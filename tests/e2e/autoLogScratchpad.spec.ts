@@ -177,9 +177,12 @@ test.describe('expression auto-log ', () => {
       ].join('\n')
     );
 
-    // The debounced auto-run above is what triggers the Pyodide boot — the
-    // contract this test locks. Three stages, each waiting on the signal that
-    // actually governs it, so a slow phase never reads as a missing result.
+    // Auto-run is what triggers the Pyodide boot — the contract this test
+    // locks. On a loaded host the new tab's seeded code can start that boot
+    // before the replacement text lands, so the edit's run reaches the runner
+    // mid-boot; the runner lets only that newer run reach the worker. Three
+    // stages, each waiting on the signal that actually governs it, so a slow
+    // phase never reads as a missing result.
     //
     // 1. Boot, on the app's own budget: the runner allows PYODIDE_LOAD_TIMEOUT
     //    (90s), so a single 75s wait on the result row undercut it and flaked.
