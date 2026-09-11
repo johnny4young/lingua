@@ -130,6 +130,11 @@ overrides:
   # Electron 44: packaging failed with could not detect abi for 44.3.0. 4.35
   # carries the Electron 44 entry. Raise this floor with each Electron major.
   "node-abi@4": "^4.35.0"
+  # plist pulls @xmldom/xmldom on two lines, 0.8 through plist 3.1.0 and 0.9
+  # through plist 3.1.1. The advisory-fixed patches fit both declared ranges,
+  # so these floors only stop a lockfile from sliding back below them.
+  "@xmldom/xmldom@0.8": "^0.8.15"
+  "@xmldom/xmldom@0.9": "^0.9.12"
   "ws": "^8.21.1"
   # Electron Forge's macOS packager extracts the Electron ZIP through
   # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
