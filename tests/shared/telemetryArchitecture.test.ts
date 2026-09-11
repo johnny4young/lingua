@@ -8,8 +8,8 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { parseSourceFile, topLevelImports } from '../__fixtures__/sourceAst';
 import * as facade from '../../src/shared/telemetry';
 import {
   EVENT_PROPERTY_ALLOWLIST,
@@ -138,20 +138,11 @@ function lineCount(relativePath: string): number {
 }
 
 function telemetryInternalImports(sourceModule: string): string[] {
-  const absolutePath = path.join(repoRoot, sourceModule);
-  const source = readFileSync(absolutePath, 'utf8');
-  const sourceFile = ts.createSourceFile(absolutePath, source, ts.ScriptTarget.Latest, true);
+  const parsed = parseSourceFile(path.join(repoRoot, sourceModule), sourceModule);
 
-  return sourceFile.statements.flatMap(statement => {
-    if (
-      !ts.isImportDeclaration(statement) ||
-      !ts.isStringLiteral(statement.moduleSpecifier) ||
-      !/(^|\/)shared\/telemetry\//u.test(statement.moduleSpecifier.text)
-    ) {
-      return [];
-    }
-    return [statement.moduleSpecifier.text];
-  });
+  return topLevelImports(parsed.program)
+    .map(statement => statement.source.value)
+    .filter(specifier => /(^|\/)shared\/telemetry\//u.test(specifier));
 }
 
 describe('shared telemetry architecture', () => {
