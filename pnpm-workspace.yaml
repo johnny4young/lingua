@@ -110,7 +110,7 @@ overrides:
   # dependency behind the desktop local MCP server) pins @hono/node-server
   # 1.x, which resolves hono itself. Keep it on the patched 4.x line; the
   # MCP package peer-accepts ^4.11.4, so this stays inside its range.
-  "hono": "^4.12.34"
+  "hono": "^4.13.7"
   # postcss reaches the tree only through Vite / Tailwind / autoprefixer
   # build tooling, never the packaged artifact. Patch-line pin so the
   # advisory audit stays quiet.
