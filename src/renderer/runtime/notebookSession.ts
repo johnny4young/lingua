@@ -182,10 +182,11 @@ export function serializeRowsWithinCap(rows: Array<Record<string, unknown>>): {
  * Parse a cell body.
  *
  * The composed source is the BODY of an `AsyncFunction`, so top-level
- * `await` and `return` are legal there while `import` / `export` never
- * were — which is exactly `sourceType: 'script'` plus the two
- * allowances, the same shape `utils/scopeCapture.ts` already uses on
- * user code.
+ * `await`, `return` and `using` are legal there. `sourceType: 'module'`
+ * accepts all three — script mode rejects a top-level `using` — and
+ * parses strict, matching the composed body's `"use strict"`. `import` /
+ * `export` still parse here but fail when the cell runs, as they always
+ * did.
  *
  * Returns `null` on a syntax error instead of throwing. The previous
  * implementation read `parseDiagnostics` off the returned SourceFile, a
@@ -196,7 +197,7 @@ function parseCellBody(source: string): AcornProgram | null {
   try {
     return parse(source, {
       ecmaVersion: 'latest',
-      sourceType: 'script',
+      sourceType: 'module',
       allowAwaitOutsideFunction: true,
       allowReturnOutsideFunction: true,
     });
