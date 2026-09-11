@@ -93,6 +93,17 @@ every `await` over the runtime's shared capture buffers and lose their
 magic-comment and auto-log rows. `tests/runners/python.test.ts` covers the
 boot overlap.
 
+The WASM Ruby runner applies the same rule to its persistent worker. A new
+`execute()` stops a run already in flight by terminating the worker, and a
+call still waiting for the Ruby boot is numbered so that only the newest
+waiter posts once the boot resolves; older waiters settle as stopped and the
+boot stays in place. The Ruby worker evaluates each run synchronously, so runs
+posted together would execute back to back rather than interleave, but the
+runner would drop the older run's `done` reply by run id. That run would then
+settle only when its kill timer fired, terminating the worker under whichever
+run was using it and forcing the next run to boot Ruby again.
+`tests/runners/ruby.test.ts` covers the boot overlap.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256
