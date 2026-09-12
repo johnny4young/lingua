@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
+import { lineAndColumn, parseSourceText } from './lib/estree.mjs';
 
 const execFile = promisify(execFileCallback);
 const COPY_ATTRIBUTES = new Set(['title', 'aria-label', 'placeholder', 'alt', 'label']);
@@ -37,45 +37,45 @@ function isAllowedLiteral(value) {
   return ALLOWED_LITERALS.has(normalizeText(value));
 }
 
-function getLineAndColumn(sourceFile, pos) {
-  const { line, character } = sourceFile.getLineAndCharacterOfPosition(pos);
-  return { line: line + 1, column: character + 1 };
+function getJsxTagName(name) {
+  if (name.type === 'JSXIdentifier') return name.name;
+  if (name.type === 'JSXMemberExpression') return name.property.name;
+  if (name.type === 'JSXNamespacedName') return name.name.name;
+  return '';
 }
 
-function getJsxTagName(tagName) {
-  if (ts.isIdentifier(tagName)) return tagName.text;
-  if (ts.isPropertyAccessExpression(tagName)) return tagName.name.text;
-  return tagName.getText();
-}
-
-function isUnderSkippedTag(node) {
-  let current = node.parent;
-
-  while (current) {
-    if (ts.isJsxElement(current)) {
-      if (SKIPPED_TAGS.has(getJsxTagName(current.openingElement.tagName))) return true;
-    }
-
-    if (ts.isJsxSelfClosingElement(current)) {
-      if (SKIPPED_TAGS.has(getJsxTagName(current.tagName))) return true;
-    }
-
-    current = current.parent;
+/**
+ * A string the attribute carries directly — `title="Save"` or the
+ * `title={'Save'}` / `title={`Save`}` spellings, which the TypeScript-based
+ * version matched through `isStringLiteralLike`. An interpolated template
+ * is not copy this guard can own, so it stays excluded.
+ */
+function literalAttributeText(value) {
+  if (value == null) return '';
+  if (value.type === 'Literal') return typeof value.value === 'string' ? value.value : '';
+  if (value.type !== 'JSXExpressionContainer') return '';
+  const expression = value.expression;
+  if (expression.type === 'Literal') {
+    return typeof expression.value === 'string' ? expression.value : '';
   }
-
-  return false;
+  if (expression.type === 'TemplateLiteral' && expression.expressions.length === 0) {
+    return expression.quasis[0]?.value.cooked ?? '';
+  }
+  return '';
 }
 
 export function findHardcodedCopyViolations(sourceText, filePath) {
-  const scriptKind = filePath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKind);
+  const program = parseSourceText(filePath, sourceText);
   const violations = [];
 
-  function visit(node) {
-    if (ts.isJsxText(node)) {
-      const text = normalizeText(node.getText(sourceFile));
-      if (text && containsHumanCopy(text) && !isAllowedLiteral(text) && !isUnderSkippedTag(node)) {
-        const { line, column } = getLineAndColumn(sourceFile, node.getStart(sourceFile));
+  // The TypeScript version walked UP through `node.parent` to find a
+  // skipped ancestor, which needed `setParentNodes`. Carrying the answer
+  // down the walk is the same predicate without the parent pointers.
+  function visit(node, underSkippedTag) {
+    if (node.type === 'JSXText') {
+      const text = normalizeText(node.value);
+      if (text && containsHumanCopy(text) && !isAllowedLiteral(text) && !underSkippedTag) {
+        const { line, column } = lineAndColumn(sourceText, node.start);
         violations.push({
           filePath,
           line,
@@ -86,37 +86,44 @@ export function findHardcodedCopyViolations(sourceText, filePath) {
       }
     }
 
-    if (ts.isJsxAttribute(node) && COPY_ATTRIBUTES.has(node.name.text)) {
-      const initializer = node.initializer;
-      let text = '';
-
-      if (initializer && ts.isStringLiteral(initializer)) {
-        text = initializer.text;
-      } else if (
-        initializer &&
-        ts.isJsxExpression(initializer) &&
-        initializer.expression &&
-        ts.isStringLiteralLike(initializer.expression)
-      ) {
-        text = initializer.expression.text;
-      }
+    if (node.type === 'JSXAttribute' && COPY_ATTRIBUTES.has(getJsxTagName(node.name))) {
+      const text = literalAttributeText(node.value);
 
       if (text && containsHumanCopy(text) && !isAllowedLiteral(text)) {
-        const { line, column } = getLineAndColumn(sourceFile, node.getStart(sourceFile));
+        const { line, column } = lineAndColumn(sourceText, node.start);
         violations.push({
           filePath,
           line,
           column,
           text,
-          reason: `Attribute "${node.name.text}" should use translated copy instead of a hardcoded string literal.`,
+          reason: `Attribute "${getJsxTagName(node.name)}" should use translated copy instead of a hardcoded string literal.`,
         });
       }
     }
 
-    ts.forEachChild(node, visit);
+    const nextSkipped =
+      underSkippedTag ||
+      (node.type === 'JSXElement' &&
+        SKIPPED_TAGS.has(getJsxTagName(node.openingElement.name)));
+
+    for (const key of Object.keys(node)) {
+      if (key === 'type' || key === 'start' || key === 'end') continue;
+      const child = node[key];
+      if (Array.isArray(child)) {
+        for (const item of child) {
+          if (item !== null && typeof item === 'object' && typeof item.type === 'string') {
+            visit(item, nextSkipped);
+          }
+        }
+        continue;
+      }
+      if (child !== null && typeof child === 'object' && typeof child.type === 'string') {
+        visit(child, nextSkipped);
+      }
+    }
   }
 
-  visit(sourceFile);
+  visit(program, false);
   return violations;
 }
 

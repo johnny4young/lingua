@@ -82,7 +82,7 @@ export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
  * either onboarding (`'high'`) or routine product feedback
  * (`'normal'`).
  */
-export type StatusNoticePriority = 'low' | 'normal' | 'high';
+type StatusNoticePriority = 'low' | 'normal' | 'high';
 
 export interface StatusNotice {
   id: number;

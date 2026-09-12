@@ -92,9 +92,10 @@ describe('renderHomebrewCask', () => {
 
   it('pins the minimum macOS the shipped app bundle actually declares', () => {
     // `brew audit --online` compares this against LSMinimumSystemVersion
-    // inside the real .app; Electron 43 builds target Monterey. Claiming a
-    // lower floor would let Big Sur users install something that cannot run.
-    expect(cask).toContain('depends_on macos: :monterey');
+    // inside the real .app; Electron 44 declares 13.0, so the cask floor is
+    // Ventura. Claiming a lower one would let Monterey users install
+    // something that cannot launch.
+    expect(cask).toContain('depends_on macos: :ventura');
   });
 
   it('zaps the real bundle-id paths on uninstall', () => {

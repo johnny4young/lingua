@@ -9,19 +9,11 @@
  * `interpreterConsolidation`, `sharedNodeBuiltinBoundary` and
  * `codeEditorChunkBoundary` are all tests, not lint rules.
  *
- * The AST comes from `oxc-parser`, not from the `typescript` package, for two
- * reasons.
- *
- *   - It is ESTree-shaped, the same vocabulary the original selectors were
- *     written against, so each guard below is a transcription rather than a
- *     translation into the TypeScript compiler's separate node model.
- *   - It survives TypeScript 7. The `typescript@7` main export is a native
- *     binary shim that exposes `version` and little else; `createSourceFile`
- *     lives on neither it nor `./unstable/ast`, which ships type guards and a
- *     scanner but no standalone parse entry point. Every existing
- *     `import ts from 'typescript'` in this suite is therefore a rewrite the
- *     TS 7 bump will have to pay for. This guard does not need to join that
- *     queue to do its job.
+ * The AST is ESTree-shaped, from `oxc-parser` via `tests/__fixtures__/sourceAst`
+ * — the same vocabulary the original selectors were written against, so each
+ * guard below is a transcription rather than a translation into the
+ * TypeScript compiler's separate node model. See that module for why the
+ * compiler API is off the table entirely.
  *
  * Each guard below reproduces its original selector exactly, including scope:
  *
@@ -40,11 +32,19 @@
  * the callee alone.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import { parseSync, visitorKeys } from 'oxc-parser';
-import type { Node, Program } from 'oxc-parser';
+import type { Node } from 'oxc-parser';
 import { describe, expect, it } from 'vitest';
+import {
+  lineOf,
+  parseSourceFile,
+  parseSource,
+  textOf,
+  walk,
+  walkDescendants,
+  type ParsedSource,
+} from '../__fixtures__/sourceAst';
 
 const repoRoot = path.resolve(__dirname, '../..');
 
@@ -74,76 +74,11 @@ function sourceFilesUnder(relativeRoot: string): string[] {
   return found.sort();
 }
 
-function languageOf(file: string): 'dts' | 'ts' | 'tsx' {
-  if (file.endsWith('.d.ts')) return 'dts';
-  if (file.endsWith('.tsx')) return 'tsx';
-  return 'ts';
-}
-
-interface Parsed {
-  program: Program;
-  source: string;
-  errors: string[];
-}
-
-function parse(file: string, source: string): Parsed {
-  const result = parseSync(file, source, { lang: languageOf(file) });
+function locate(node: Node, parsed: ParsedSource): Violation {
   return {
-    program: result.program,
-    source,
-    errors: result.errors.map(error => error.message),
-  };
-}
-
-function parseFile(file: string): Parsed {
-  return parse(file, readFileSync(path.join(repoRoot, file), 'utf8'));
-}
-
-function isNode(value: unknown): value is Node {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { type?: unknown }).type === 'string'
-  );
-}
-
-/**
- * Depth-first walk over `visitorKeys`, the parser's own child table.
- *
- * A node type missing from that table would silently prune its whole subtree,
- * which for a guard means a violation that stops being reported rather than a
- * test that goes red. Throw instead, so a parser upgrade that outgrows the
- * table fails loudly.
- */
-function walk(node: Node, visit: (node: Node) => void): void {
-  visit(node);
-  const keys = visitorKeys[node.type];
-  if (keys === undefined) {
-    throw new Error(`oxc-parser reported node type ${node.type}, absent from visitorKeys`);
-  }
-  for (const key of keys) {
-    const child = (node as unknown as Record<string, unknown>)[key];
-    if (Array.isArray(child)) {
-      for (const item of child) {
-        if (isNode(item)) walk(item, visit);
-      }
-      continue;
-    }
-    if (isNode(child)) walk(child, visit);
-  }
-}
-
-function walkDescendants(node: Node, visit: (node: Node) => void): void {
-  walk(node, candidate => {
-    if (candidate !== node) visit(candidate);
-  });
-}
-
-function locate(node: Node, parsed: Parsed, file: string): Violation {
-  return {
-    file,
-    line: parsed.source.slice(0, node.start).split('\n').length,
-    text: parsed.source.slice(node.start, node.end).replace(/\s+/gu, ' ').slice(0, 100),
+    file: parsed.file,
+    line: lineOf(parsed.source, node.start),
+    text: textOf(parsed, node).replace(/\s+/gu, ' ').slice(0, 100),
   };
 }
 
@@ -190,9 +125,9 @@ function isSelectorLessStoreRead(node: Node): boolean {
 function findViolations(files: string[], matches: (node: Node) => boolean): Violation[] {
   const violations: Violation[] = [];
   for (const file of files) {
-    const parsed = parseFile(file);
+    const parsed = parseSourceFile(path.join(repoRoot, file), file);
     walk(parsed.program, node => {
-      if (matches(node)) violations.push(locate(node, parsed, file));
+      if (matches(node)) violations.push(locate(node, parsed));
     });
   }
   return violations;
@@ -203,11 +138,10 @@ function format(violations: Violation[]): string {
 }
 
 function hitLines(source: string, matches: (node: Node) => boolean): number[] {
-  const parsed = parse('fixture.tsx', source);
-  expect(parsed.errors).toEqual([]);
+  const parsed = parseSource('fixture.tsx', source);
   const lines: number[] = [];
   walk(parsed.program, node => {
-    if (matches(node)) lines.push(locate(node, parsed, 'fixture.tsx').line);
+    if (matches(node)) lines.push(locate(node, parsed).line);
   });
   return lines;
 }
@@ -216,10 +150,14 @@ describe('the renderer parses', () => {
   it('cleanly, so a guard below cannot pass by failing to read a file', () => {
     // Both guards report what they find, so a file the parser chokes on would
     // look exactly like a file with nothing to report.
-    const unparseable = sourceFilesUnder('src/renderer')
-      .map(file => ({ file, errors: parseFile(file).errors }))
-      .filter(entry => entry.errors.length > 0)
-      .map(entry => `${entry.file}: ${entry.errors[0]}`);
+    const unparseable = sourceFilesUnder('src/renderer').flatMap(file => {
+      try {
+        parseSourceFile(path.join(repoRoot, file), file);
+        return [];
+      } catch (error) {
+        return [error instanceof Error ? error.message : String(error)];
+      }
+    });
 
     expect(unparseable).toEqual([]);
   });

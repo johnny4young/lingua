@@ -92,9 +92,9 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
   // build plugin serves from `node_modules/@ruby/3.4-wasm-wasi/dist`
   // (dev) or copies into `<outDir>/ruby/` (production).
   ruby: {
-    version: '2.9.3-2.9.4',
+    version: '2.10.1',
     sourceUrl:
-      'https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/ruby+stdlib.wasm',
+      'https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm',
     nodeModulesPath: 'node_modules/@ruby/3.4-wasm-wasi/dist',
     packageDir: 'node_modules/@ruby/3.4-wasm-wasi',
     servedPath: 'ruby',

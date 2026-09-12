@@ -4,9 +4,26 @@
  * Tests the pure helpers (`composeNotebookCellSource`,
  * `rewriteTopLevelDeclarationsForSession`, `extractSerializableDelta`)
  * + the manager via a stubbed `runnerManager.execute`.
+ *
+ * @vitest-environment node
+ *
+ * The node environment is load-bearing: esbuild refuses to run under jsdom
+ * (`new TextEncoder().encode('') instanceof Uint8Array` is false there,
+ * which esbuild treats as a broken host), and the type-stripping cases below
+ * are only worth anything against the REAL transpiler. This file touches no
+ * DOM, so node costs it nothing.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The browser loader resolves the wasm through `new URL(..., import.meta.url)`,
+// which has no meaning here. Swap in the same esbuild, initialised the way
+// node can: the transpiler under test stays real, only its fetch does not.
+vi.mock('../../../src/renderer/runners/esbuildLoader', async () => {
+  const esbuild = await import('esbuild-wasm');
+  await esbuild.initialize({}).catch(() => {});
+  return { loadEsbuild: async () => esbuild };
+});
 
 const mockResetScope = vi.fn();
 vi.mock('../../../src/renderer/runners', () => {
@@ -44,7 +61,7 @@ import {
 import { runnerManager } from '../../../src/renderer/runners';
 import { executeQuery } from '../../../src/renderer/runtime/duckdbClient';
 import type { NotebookCellLanguage } from '../../../src/shared/notebook';
-import * as ts from 'typescript';
+import { parse } from 'acorn';
 
 const mockExecuteQuery = executeQuery as unknown as ReturnType<typeof vi.fn>;
 
@@ -74,21 +91,27 @@ function sqlOutcome(
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
 /**
- * Count parser-level syntax errors in a source string. `parseDiagnostics`
- * is the parser's own syntax-error list — not in the public typings, but
- * the canonical way TS tooling reads parse errors. Used by the implementation note
- * round-trip guard to assert the rewriter introduces no new syntax error.
+ * Whether a source string parses at all, under the same rules the composed
+ * cell body runs under: it is an `AsyncFunction` body, so top-level `await`
+ * and `return` are legal there. Used by the implementation note round-trip
+ * guard to assert the rewriter introduces no new syntax error.
+ *
+ * The compiler-based version of this helper counted `parseDiagnostics`, a
+ * field the TypeScript typings never exposed. acorn throws on the first
+ * syntax error, which is the same signal through a public API.
  */
-function syntaxErrorCount(source: string): number {
-  const sf = ts.createSourceFile(
-    'guard.js',
-    source,
-    ts.ScriptTarget.Latest,
-    false,
-    ts.ScriptKind.JS
-  );
-  return (sf as unknown as { parseDiagnostics: ReadonlyArray<unknown> })
-    .parseDiagnostics.length;
+function parses(source: string): boolean {
+  try {
+    parse(source, {
+      ecmaVersion: 'latest',
+      sourceType: 'script',
+      allowAwaitOutsideFunction: true,
+      allowReturnOutsideFunction: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function executeComposedNotebookSource(
@@ -221,7 +244,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     ];
     for (const input of inputs) {
       const rewritten = await rewriteTopLevelDeclarationsForSession(input);
-      expect(syntaxErrorCount(rewritten), input).toBe(syntaxErrorCount(input));
+      expect(parses(rewritten), input).toBe(parses(input));
     }
   });
 

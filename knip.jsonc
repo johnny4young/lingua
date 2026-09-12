@@ -48,16 +48,16 @@
     // Operating-system tools intentionally spawned by packaging, process-tree,
     // completion, release-readiness, and benchmark checks. They are host capabilities, not npm
     // dependencies that belong in package.json.
-    "taskkill",
     "ditto",
     "file",
-    "tar",
-    "gh",
-    "zsh",
     "fish",
     "ruby",
   ],
   "ignoreDependencies": [
+    // Loaded by the Monaco Node typings through an import.meta.glob path
+    // string (src/renderer/monacoNodeTypes.ts), which static analysis
+    // cannot follow.
+    "undici-types",
     // Loaded from node_modules by the Vite build plugins as static
     // runtime assets (copied into <outDir>/pyodide and served for the
     // Ruby wasm payload) — no static import for knip to see.

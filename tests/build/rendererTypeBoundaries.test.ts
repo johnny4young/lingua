@@ -9,8 +9,8 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { parseSource, parseSourceFile, topLevelImports } from '../__fixtures__/sourceAst';
 import type {
   AppLanguage as FacadeAppLanguage,
   BuiltInLanguage as FacadeBuiltInLanguage,
@@ -145,17 +145,10 @@ function typeSource(filename: string): string {
 }
 
 function leafDependencies(filename: string): string[] {
-  const sourceFile = ts.createSourceFile(
-    filename,
-    typeSource(filename),
-    ts.ScriptTarget.Latest,
-    true
-  );
+  const parsed = parseSource(filename, typeSource(filename));
 
-  return sourceFile.statements
-    .filter(ts.isImportDeclaration)
-    .filter(statement => ts.isStringLiteral(statement.moduleSpecifier))
-    .map(statement => (statement.moduleSpecifier as ts.StringLiteral).text)
+  return topLevelImports(parsed.program)
+    .map(statement => statement.source.value)
     .filter(specifier => specifier.startsWith('./'))
     .map(specifier => `${specifier.slice(2).replace(/\.ts$/u, '')}.ts`)
     .filter(dependency => dependency in MODULE_BUDGETS && dependency !== 'index.ts');
@@ -205,17 +198,10 @@ function resolvesToFacade(sourceModule: string, specifier: string): boolean {
 }
 
 function facadeImports(sourceModule: string): string[] {
-  const absolutePath = path.join(repoRoot, sourceModule);
-  const sourceFile = ts.createSourceFile(
-    absolutePath,
-    readFileSync(absolutePath, 'utf8'),
-    ts.ScriptTarget.Latest,
-    true
-  );
-  return sourceFile.statements
-    .filter(ts.isImportDeclaration)
-    .filter(statement => ts.isStringLiteral(statement.moduleSpecifier))
-    .map(statement => (statement.moduleSpecifier as ts.StringLiteral).text)
+  const parsed = parseSourceFile(path.join(repoRoot, sourceModule), sourceModule);
+
+  return topLevelImports(parsed.program)
+    .map(statement => statement.source.value)
     .filter(specifier => resolvesToFacade(sourceModule, specifier));
 }
 
@@ -244,15 +230,10 @@ describe('renderer type boundaries', () => {
     const graph = new Map<string, readonly string[]>();
 
     for (const filename of leafFilenames) {
-      const sourceFile = ts.createSourceFile(
-        filename,
-        typeSource(filename),
-        ts.ScriptTarget.Latest,
-        true
-      );
-      const imports = sourceFile.statements.filter(ts.isImportDeclaration);
+      const parsed = parseSource(filename, typeSource(filename));
+      const imports = topLevelImports(parsed.program);
       expect(
-        imports.every(statement => statement.importClause?.isTypeOnly),
+        imports.every(statement => statement.importKind === 'type'),
         `${filename} contains a value import`
       ).toBe(true);
       expect(typeSource(filename)).not.toContain("from './index'");

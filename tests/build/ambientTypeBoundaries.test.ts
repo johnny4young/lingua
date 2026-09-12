@@ -8,8 +8,13 @@
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import {
+  parseSourceFile,
+  textOf,
+  topLevelImports,
+  unwrapExport,
+} from '../__fixtures__/sourceAst';
 import type { AppInfo as CanonicalAppInfo } from '../../src/shared/appInfo';
 import type {
   DependencyInstallLogStream as CanonicalDependencyInstallLogStream,
@@ -184,23 +189,23 @@ describe('ambient desktop bridge type boundaries', () => {
   });
 
   it('keeps canonical bridge names as aliases instead of structural copies', () => {
-    const source = readFileSync(ambientPath, 'utf8');
-    const sourceFile = ts.createSourceFile(ambientPath, source, ts.ScriptTarget.Latest, true);
+    const parsed = parseSourceFile(ambientPath, 'src/types.d.ts');
     const declarations = new Map(
-      sourceFile.statements
+      parsed.program.body
+        .map(unwrapExport)
         .filter(
-          (statement): statement is ts.InterfaceDeclaration | ts.TypeAliasDeclaration =>
-            ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)
+          node =>
+            node.type === 'TSInterfaceDeclaration' || node.type === 'TSTypeAliasDeclaration'
         )
-        .map(statement => [statement.name.text, statement] as const)
+        .map(node => [(node as { id: { name: string } }).id.name, node] as const)
     );
 
     for (const name of CANONICAL_ALIAS_NAMES) {
       const declaration = declarations.get(name);
       expect(declaration, `${name} is missing`).toBeDefined();
-      expect(ts.isTypeAliasDeclaration(declaration!), `${name} is a structural copy`).toBe(true);
+      expect(declaration!.type, `${name} is a structural copy`).toBe('TSTypeAliasDeclaration');
       expect(
-        declaration!.getText(sourceFile),
+        textOf(parsed, declaration!),
         `${name} does not point to a shared canonical contract`
       ).toContain("import('./shared/");
     }
@@ -215,19 +220,13 @@ describe('ambient desktop bridge type boundaries', () => {
     for (const [relativePath, budget] of Object.entries(SHARED_CONTRACT_BUDGETS)) {
       const absolutePath = path.join(repoRoot, relativePath);
       const source = readFileSync(absolutePath, 'utf8');
-      const sourceFile = ts.createSourceFile(
-        absolutePath,
-        source,
-        ts.ScriptTarget.Latest,
-        true
-      );
-      const imports = sourceFile.statements.filter(ts.isImportDeclaration);
+      const imports = topLevelImports(parseSourceFile(absolutePath, relativePath).program);
 
       expect(source.split('\n').length, `${relativePath} exceeds ${budget} lines`).toBeLessThanOrEqual(
         budget
       );
       expect(
-        imports.every(statement => statement.importClause?.isTypeOnly),
+        imports.every(statement => statement.importKind === 'type'),
         `${relativePath} contains a value import`
       ).toBe(true);
       expect(source, `${relativePath} depends on an application layer`).not.toMatch(

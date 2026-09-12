@@ -159,7 +159,7 @@ export function renderHomebrewCask({ version, digests, repo = GITHUB_REPO }) {
   end
 
   auto_updates true
-  depends_on macos: :monterey
+  depends_on macos: :ventura
 
   app "lingua.app"
 

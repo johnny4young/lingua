@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
+import { parseSourceText, walk } from './lib/estree.mjs';
 
 const TELEMETRY_HOOK_PATH = 'src/renderer/hooks/useTelemetry.ts';
 
@@ -96,75 +96,74 @@ function targetsTelemetryEmitter(moduleSpecifier, fileName) {
   return resolved.endsWith(path.join('src', 'renderer', 'utils', 'telemetry'));
 }
 
+/** The name an import specifier binds FROM — `a` in `{ a as b }`. */
+function importedNameOf(specifier) {
+  const imported = specifier.imported;
+  if (imported === undefined) return specifier.local.name;
+  return imported.type === 'Identifier' ? imported.name : imported.value;
+}
+
 function directTrackEventCallCount(sourceText, fileName) {
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true,
-    fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  );
+  const program = parseSourceText(fileName, sourceText);
   const localNames = new Set();
 
-  for (const statement of sourceFile.statements) {
-    if (!ts.isImportDeclaration(statement)) continue;
-    if (!ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    if (!targetsTelemetryEmitter(statement.moduleSpecifier.text, fileName)) continue;
-    const imports = statement.importClause?.namedBindings;
-    if (!imports || !ts.isNamedImports(imports)) continue;
-    for (const element of imports.elements) {
-      if ((element.propertyName ?? element.name).text === 'trackEvent') {
-        localNames.add(element.name.text);
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration') continue;
+    if (!targetsTelemetryEmitter(statement.source.value, fileName)) continue;
+    for (const specifier of statement.specifiers) {
+      // Named bindings only: a default or namespace import cannot bind
+      // `trackEvent` by that name, exactly as the previous scan assumed.
+      if (specifier.type !== 'ImportSpecifier') continue;
+      if (importedNameOf(specifier) === 'trackEvent') {
+        localNames.add(specifier.local.name);
       }
     }
   }
 
-  const collectDynamicImportBindings = (node) => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === 'then' &&
-      ts.isCallExpression(node.expression.expression) &&
-      node.expression.expression.expression.kind === ts.SyntaxKind.ImportKeyword
-    ) {
-      const importCall = node.expression.expression;
-      const moduleSpecifier = importCall.arguments[0];
-      const callback = node.arguments[0];
-      if (
-        moduleSpecifier &&
-        ts.isStringLiteral(moduleSpecifier) &&
-        targetsTelemetryEmitter(moduleSpecifier.text, fileName) &&
-        callback &&
-        (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
-      ) {
-        const parameter = callback.parameters[0]?.name;
-        if (parameter && ts.isObjectBindingPattern(parameter)) {
-          for (const element of parameter.elements) {
-            if (element.dotDotDotToken || !ts.isIdentifier(element.name)) continue;
-            const importedName = element.propertyName ?? element.name;
-            if (ts.isIdentifier(importedName) && importedName.text === 'trackEvent') {
-              localNames.add(element.name.text);
-            }
-          }
-        }
-      }
+  // `import('...').then(({ trackEvent }) => ...)`. In ESTree the dynamic
+  // import is an `ImportExpression`, not a call on an import keyword.
+  walk(program, (node) => {
+    if (node.type !== 'CallExpression') return;
+    const callee = node.callee;
+    if (callee.type !== 'MemberExpression' || callee.computed) return;
+    if (callee.property.type !== 'Identifier' || callee.property.name !== 'then') return;
+    if (callee.object.type !== 'ImportExpression') return;
+    const moduleSpecifier = callee.object.source;
+    // A Literal is not necessarily a string: `import(1).then(...)` parses, and
+    // resolving a number would crash the audit instead of skipping the call.
+    if (moduleSpecifier.type !== 'Literal' || typeof moduleSpecifier.value !== 'string') {
+      return;
     }
-    ts.forEachChild(node, collectDynamicImportBindings);
-  };
-  collectDynamicImportBindings(sourceFile);
+    if (!targetsTelemetryEmitter(moduleSpecifier.value, fileName)) return;
+    const callback = node.arguments[0];
+    if (
+      callback === undefined ||
+      (callback.type !== 'ArrowFunctionExpression' && callback.type !== 'FunctionExpression')
+    ) {
+      return;
+    }
+    const parameter = callback.params[0];
+    if (parameter === undefined || parameter.type !== 'ObjectPattern') return;
+    for (const property of parameter.properties) {
+      // A rest element binds no single name, as before.
+      if (property.type !== 'Property') continue;
+      if (property.value.type !== 'Identifier') continue;
+      const key = property.key;
+      const keyName = key.type === 'Identifier' ? key.name : key.value;
+      if (keyName === 'trackEvent') localNames.add(property.value.name);
+    }
+  });
 
   let count = 0;
-  const visit = (node) => {
+  walk(program, (node) => {
     if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      localNames.has(node.expression.text)
+      node.type === 'CallExpression' &&
+      node.callee.type === 'Identifier' &&
+      localNames.has(node.callee.name)
     ) {
       count += 1;
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
+  });
   return count;
 }
 

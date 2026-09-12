@@ -46,12 +46,14 @@
  * presets + implementation detail hardening apply unchanged.
  */
 
-// Type-only import is fully erased at build, so it adds ZERO bundle
-// weight. The TypeScript COMPILER (~2.5 MB) is loaded lazily via the
-// dynamic `import('typescript')` in `loadTypescript()` below — a
-// separate async chunk fetched only when a cell first runs, NOT inlined
-// into the notebook chunk (implementation bundle guard).
-import type * as TsTypes from 'typescript';
+// acorn parses the cell body for the cross-cell rewriter. Static import
+// on purpose: the renderer already ships acorn for the debugger and the
+// dependency detector, so the notebook chunk reaches it for free. It
+// replaces a lazy `import('typescript')` that pulled the ~0.9 MB gzip
+// compiler on EVERY cell run, JavaScript cells included.
+import { parse } from 'acorn';
+import type { Node as AcornNode, Program as AcornProgram } from 'acorn';
+import { loadEsbuild } from '../runners/esbuildLoader';
 import { runnerManager } from '../runners';
 import { executeQuery } from './duckdbClient';
 import {
@@ -86,9 +88,9 @@ export type NotebookSessionRejectReason =
 
 /**
  * Code-cell run gate. JavaScript runs directly; TypeScript (internal
- * implementation) is type-stripped to JavaScript via `ts.transpileModule`
- * (the same lazily-loaded compiler the cross-cell rewriter uses) and
- * then runs through the identical `'javascript'` worker pipeline, so
+ * implementation) is type-stripped to JavaScript by esbuild — the same
+ * transpiler the TypeScript runner uses — and then runs through the
+ * identical `'javascript'` worker pipeline, so
  * cross-cell sharing, timeouts, and the structured-result channel all
  * apply unchanged. Python  runs through the existing
  * Python runner (web Pyodide / desktop native) but INDEPENDENTLY per
@@ -177,24 +179,31 @@ export function serializeRowsWithinCap(rows: Array<Record<string, unknown>>): {
 // ---------------------------------------------------------------------------
 
 /**
- * Lazily-loaded TypeScript compiler. Cached as a Promise so concurrent
- * cell runs share one load. Dynamic import keeps the ~2.5 MB compiler
- * in its own async chunk (fetched on first cell run) instead of inlined
- * into the notebook chunk.
+ * Parse a cell body.
+ *
+ * The composed source is the BODY of an `AsyncFunction`, so top-level
+ * `await`, `return` and `using` are legal there. `sourceType: 'module'`
+ * accepts all three — script mode rejects a top-level `using` — and
+ * parses strict, matching the composed body's `"use strict"`. `import` /
+ * `export` still parse here but fail when the cell runs, as they always
+ * did.
+ *
+ * Returns `null` on a syntax error instead of throwing. The previous
+ * implementation read `parseDiagnostics` off the returned SourceFile, a
+ * property the TypeScript typings never exposed; acorn simply throws,
+ * so the intent no longer needs an undocumented field to express it.
  */
-let cachedTypescript: Promise<typeof TsTypes> | null = null;
-function loadTypescript(): Promise<typeof TsTypes> {
-  if (cachedTypescript === null) {
-    // Reset the cache on a rejected import so a transient chunk-load
-    // failure (corrupt asset, disk error) doesn't permanently break
-    // every later cell run — the next run re-attempts. Mirrors the
-    // `getDuckDbEngine` cache-reset precedent.
-    cachedTypescript = import('typescript').catch((err: unknown) => {
-      cachedTypescript = null;
-      throw err;
+function parseCellBody(source: string): AcornProgram | null {
+  try {
+    return parse(source, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      allowAwaitOutsideFunction: true,
+      allowReturnOutsideFunction: true,
     });
+  } catch {
+    return null;
   }
-  return cachedTypescript;
 }
 
 /**
@@ -204,23 +213,35 @@ function loadTypescript(): Promise<typeof TsTypes> {
  * has a syntax error, so the cell surfaces a precise message instead of
  * a generic failure.
  */
+/** The narrow shape this module reads off an esbuild TransformFailure. */
+interface EsbuildTransformError {
+  readonly text: string;
+  readonly location: {
+    readonly line: number;
+    readonly column: number;
+  } | null;
+}
+
 export type NotebookTranspileResult =
   | { readonly ok: true; readonly js: string }
   | { readonly ok: false; readonly message: string };
 
 /**
  * implementation — type-strip a TypeScript cell to JavaScript so it runs
- * through the JS worker pipeline. Uses `ts.transpileModule` on the
- * already-lazily-loaded compiler (no extra dependency, no esbuild-wasm
- * fetch on the notebook path). `module: Preserve` + `target: ES2022`
- * type-strips without inventing an `export {}` module marker for
- * type-only imports/exports; value imports/exports remain unsupported
- * cell-module syntax and naturally surface as run errors. `enum` /
- * `namespace` emit a serializable runtime value that the cross-cell
- * rewriter then captures.
+ * through the JS worker pipeline. Uses the same esbuild the TypeScript
+ * runner already loads, so the product carries ONE transpiler instead
+ * of a second compiler for this path alone.
  *
- * `transpileModule` does NOT type-check; the reported diagnostics are
- * parser-level syntax errors only. We surface the first one (implementation note) and
+ * `loader: 'ts'` mirrors the old `fileName: 'notebook-cell.ts'`: angle
+ * bracket casts stay legal and JSX stays out, which is what a cell
+ * whose sandbox has no React runtime wants. No `format` is set, so the
+ * output keeps the input's module shape the way `module: Preserve`
+ * did. `enum` / `namespace` still emit a serializable runtime value
+ * that the cross-cell rewriter captures — the reason strip-only
+ * transpilers were rejected for this path.
+ *
+ * esbuild does NOT type-check; the reported errors are parser-level
+ * syntax errors only. We surface the first one (implementation note) and
  * leave a clean cell unchanged. The emitted JS then flows through the
  * existing rewriter + `composeNotebookCellSource` untouched, so a TS
  * cell shares declarations cross-cell exactly like a JS cell.
@@ -228,30 +249,29 @@ export type NotebookTranspileResult =
 export async function transpileTypescriptCell(
   source: string
 ): Promise<NotebookTranspileResult> {
-  const ts = await loadTypescript();
-  const result = ts.transpileModule(source, {
-    fileName: 'notebook-cell.ts',
-    reportDiagnostics: true,
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.Preserve,
-    },
-  });
-  const firstError = (result.diagnostics ?? []).find(
-    (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error
-  );
-  if (firstError !== undefined) {
-    const text = ts.flattenDiagnosticMessageText(firstError.messageText, '\n');
+  const esbuild = await loadEsbuild();
+  try {
+    const result = await esbuild.transform(source, {
+      loader: 'ts',
+      target: 'es2022',
+      sourcefile: 'notebook-cell.ts',
+    });
+    return { ok: true, js: result.code };
+  } catch (err) {
+    const failure = err as {
+      errors?: ReadonlyArray<EsbuildTransformError>;
+    };
+    const firstError = failure.errors?.[0];
+    if (firstError === undefined) throw err;
     let position = '';
-    if (firstError.file !== undefined && typeof firstError.start === 'number') {
-      const { line, character } =
-        firstError.file.getLineAndCharacterOfPosition(firstError.start);
-      // 1-based for display, mirroring how editors report TS errors.
-      position = ` (${line + 1}:${character + 1})`;
+    if (firstError.location !== null && firstError.location !== undefined) {
+      // esbuild lines are already 1-based; its columns are not. Display
+      // both 1-based, mirroring how editors report TS errors.
+      const { line, column } = firstError.location;
+      position = ` (${line}:${column + 1})`;
     }
-    return { ok: false, message: `TypeScript: ${text}${position}` };
+    return { ok: false, message: `TypeScript: ${firstError.text}${position}` };
   }
-  return { ok: true, js: result.outputText };
 }
 
 /**
@@ -262,21 +282,42 @@ export async function transpileTypescriptCell(
  * compiler module (passed in so this helper stays free of a static
  * `typescript` value import).
  */
-function collectBindingNames(
-  tsApi: typeof TsTypes,
-  name: TsTypes.BindingName,
-  out: string[]
-): void {
-  if (tsApi.isIdentifier(name)) {
-    out.push(name.text);
-    return;
-  }
-  // ObjectBindingPattern | ArrayBindingPattern — both expose `.elements`
-  // of BindingElement (each carrying its own `.name: BindingName`), with
-  // array patterns also allowing OmittedExpression holes.
-  for (const element of name.elements) {
-    if (tsApi.isOmittedExpression(element)) continue;
-    collectBindingNames(tsApi, element.name, out);
+function collectBindingNames(pattern: AcornNode, out: string[]): void {
+  const node = pattern as unknown as {
+    name?: string;
+    properties?: Array<{ value?: AcornNode; argument?: AcornNode }>;
+    elements?: Array<AcornNode | null>;
+    left?: AcornNode;
+    argument?: AcornNode;
+  };
+  switch (pattern.type) {
+    case 'Identifier':
+      if (node.name !== undefined) out.push(node.name);
+      return;
+    case 'ObjectPattern':
+      // `{ a, b: c, ...rest }` — a property binds its VALUE (`c` in
+      // `b: c`), while a rest element carries its own argument.
+      for (const property of node.properties ?? []) {
+        const child = property.value ?? property.argument;
+        if (child !== undefined) collectBindingNames(child, out);
+      }
+      return;
+    case 'ArrayPattern':
+      // `[, y]` — a hole is a null element, the ESTree spelling of the
+      // OmittedExpression the compiler-based version skipped.
+      for (const element of node.elements ?? []) {
+        if (element !== null) collectBindingNames(element, out);
+      }
+      return;
+    case 'AssignmentPattern':
+      // `{ a = 1 }` / `[b = 2]` — the default value is not a binding.
+      if (node.left !== undefined) collectBindingNames(node.left, out);
+      return;
+    case 'RestElement':
+      if (node.argument !== undefined) collectBindingNames(node.argument, out);
+      return;
+    default:
+      return;
   }
 }
 
@@ -287,11 +328,11 @@ function collectBindingNames(
  * rewritten — declarations nested inside `if` / `for` / functions stay
  * local + invisible to subsequent cells, exactly as before.
  *
- * This replaces the implementation column-zero regex with a TypeScript-AST walk
- * (`ts.createSourceFile`), which robustly handles the cases the regex
- * could not: object/array destructuring (incl. rest, renamed, defaults,
- * holes), multi-line declarations, `var`, and `class Name {}` — all now
- * shared across cells.
+ * This replaces the implementation column-zero regex with an AST walk,
+ * which robustly handles the cases the regex could not: object/array
+ * destructuring (incl. rest, renamed, defaults, holes), multi-line
+ * declarations, `var`, and `class Name {}` — all now shared across
+ * cells.
  *
  * The rewrite preserves source ordering and never deletes user code: it
  * splices `try { _sessionDelta.NAME = NAME; } catch {}` in after each
@@ -303,54 +344,43 @@ function collectBindingNames(
  * A parse failure (invalid JS) returns the source unchanged — the run
  * pipeline surfaces the syntax error as it does today.
  *
- * Async because the TypeScript compiler is loaded lazily (see
- * `loadTypescript`); the only caller (`composeNotebookCellSource`)
- * already runs inside the async `runNotebookCell` path.
+ * Still async: the only caller (`composeNotebookCellSource`) already
+ * runs inside the async `runNotebookCell` path, and keeping the
+ * signature confines this change to the parser.
  */
 export async function rewriteTopLevelDeclarationsForSession(
   source: string
 ): Promise<string> {
-  const ts = await loadTypescript();
-  const sourceFile = ts.createSourceFile(
-    'notebook-cell.js',
-    source,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ false,
-    ts.ScriptKind.JS
-  );
-  // `createSourceFile` is intentionally tolerant and still returns a tree for
-  // broken input. Do not splice into that recovery tree: the user's original
-  // syntax error is clearer than a secondary error from a best-effort insert.
-  const parseDiagnostics = (
-    sourceFile as TsTypes.SourceFile & {
-      parseDiagnostics?: ReadonlyArray<unknown>;
-    }
-  ).parseDiagnostics;
-  if (parseDiagnostics && parseDiagnostics.length > 0) return source;
+  // Do not splice into broken input: the user's original syntax error is
+  // clearer than a secondary error from a best-effort insert.
+  const program = parseCellBody(source);
+  if (program === null) return source;
   // One insertion per top-level declaration: its source end offset + the
   // names it binds. Uninitialized top-level variables are deferred to
-  // end-of-cell because TypeScript lowers `enum` / `namespace` to
-  // `var Name; (function (Name) { ... })(Name || (Name = {}));`;
-  // capturing immediately after `var Name;` would snapshot `undefined`
-  // and drop the serializable object those TS constructs create.
+  // end-of-cell because a transpiled `namespace` lowers to
+  // `var Name; ((Name) => { ... })(Name || (Name = {}));`; capturing
+  // immediately after `var Name;` would snapshot `undefined` and drop
+  // the serializable object that construct creates.
   const inserts: Array<{ end: number; names: string[] }> = [];
   const deferredVariableNames: string[] = [];
-  for (const statement of sourceFile.statements) {
+  for (const statement of program.body) {
     const names: string[] = [];
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
+    if (statement.type === 'VariableDeclaration') {
+      for (const declaration of statement.declarations) {
         const declarationNames: string[] = [];
-        collectBindingNames(ts, declaration.name, declarationNames);
-        if (declaration.initializer === undefined) {
+        collectBindingNames(declaration.id, declarationNames);
+        if (declaration.init === null || declaration.init === undefined) {
           deferredVariableNames.push(...declarationNames);
         } else {
           names.push(...declarationNames);
         }
       }
-    } else if (ts.isFunctionDeclaration(statement) && statement.name) {
-      names.push(statement.name.text);
-    } else if (ts.isClassDeclaration(statement) && statement.name) {
-      names.push(statement.name.text);
+    } else if (
+      (statement.type === 'FunctionDeclaration' ||
+        statement.type === 'ClassDeclaration') &&
+      statement.id !== null
+    ) {
+      names.push(statement.id.name);
     }
     if (names.length > 0) {
       inserts.push({ end: statement.end, names });
@@ -390,26 +420,21 @@ export async function collectTopLevelDeclaredNames(
   source: string
 ): Promise<ReadonlySet<string>> {
   const declared = new Set<string>();
-  const ts = await loadTypescript();
-  const sourceFile = ts.createSourceFile(
-    'notebook-cell.js',
-    source,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ false,
-    ts.ScriptKind.JS
-  );
-  for (const statement of sourceFile.statements) {
-    if (ts.isVariableStatement(statement)) {
+  const program = parseCellBody(source);
+  if (program === null) return declared;
+  for (const statement of program.body) {
+    if (statement.type === 'VariableDeclaration') {
       const names: string[] = [];
-      for (const declaration of statement.declarationList.declarations) {
-        collectBindingNames(ts, declaration.name, names);
+      for (const declaration of statement.declarations) {
+        collectBindingNames(declaration.id, names);
       }
       for (const name of names) declared.add(name);
     } else if (
-      (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) &&
-      statement.name
+      (statement.type === 'FunctionDeclaration' ||
+        statement.type === 'ClassDeclaration') &&
+      statement.id !== null
     ) {
-      declared.add(statement.name.text);
+      declared.add(statement.id.name);
     }
   }
   return declared;

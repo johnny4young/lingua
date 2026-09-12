@@ -7,10 +7,11 @@
  * observable and can expose partially initialized Zustand stores.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
+import type { ExportAllDeclaration, ExportNamedDeclaration, ImportDeclaration } from 'oxc-parser';
 import { describe, expect, it } from 'vitest';
+import { parseSourceFile } from '../__fixtures__/sourceAst';
 
 const repoRoot = path.resolve(__dirname, '../..');
 const sourceRoot = path.join(repoRoot, 'src');
@@ -24,47 +25,42 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-function hasRuntimeImport(statement: ts.ImportDeclaration): boolean {
-  const clause = statement.importClause;
-  if (!clause) return true;
-  if (clause.isTypeOnly) return false;
-  if (clause.name || !clause.namedBindings) return true;
-  if (ts.isNamespaceImport(clause.namedBindings)) return true;
-  return clause.namedBindings.elements.some(element => !element.isTypeOnly);
+/**
+ * `import './side-effect'` carries no specifiers and always runs. So does
+ * `import {} from './x'`, which the TypeScript-based version of this guard
+ * treated as type-only — the two are indistinguishable in ESTree, and the
+ * runtime answer is the one this guard wants. No `src` file uses the empty
+ * form today, so the difference is inert; it is recorded rather than hidden.
+ */
+function hasRuntimeImport(statement: ImportDeclaration): boolean {
+  if (statement.importKind === 'type') return false;
+  if (statement.specifiers.length === 0) return true;
+  // Default and namespace specifiers carry no per-specifier kind: a
+  // type-only one can only be spelled `import type`, caught above.
+  return statement.specifiers.some(
+    specifier => specifier.type !== 'ImportSpecifier' || specifier.importKind !== 'type'
+  );
 }
 
-function hasRuntimeExport(statement: ts.ExportDeclaration): boolean {
-  if (statement.isTypeOnly) return false;
-  if (!statement.exportClause || ts.isNamespaceExport(statement.exportClause)) {
-    return true;
-  }
-  return statement.exportClause.elements.some(element => !element.isTypeOnly);
+function hasRuntimeExport(statement: ExportAllDeclaration | ExportNamedDeclaration): boolean {
+  if (statement.exportKind === 'type') return false;
+  // `export * from` / `export * as ns from` re-export values wholesale.
+  if (statement.type === 'ExportAllDeclaration') return true;
+  return statement.specifiers.some(specifier => specifier.exportKind !== 'type');
 }
 
 function runtimeSpecifiers(filename: string): string[] {
-  const sourceFile = ts.createSourceFile(
-    filename,
-    readFileSync(filename, 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-    filename.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  );
+  const parsed = parseSourceFile(filename, path.relative(repoRoot, filename));
 
-  return sourceFile.statements.flatMap(statement => {
-    if (
-      ts.isImportDeclaration(statement) &&
-      ts.isStringLiteral(statement.moduleSpecifier) &&
-      hasRuntimeImport(statement)
-    ) {
-      return [statement.moduleSpecifier.text];
+  return parsed.program.body.flatMap(statement => {
+    if (statement.type === 'ImportDeclaration') {
+      return hasRuntimeImport(statement) ? [statement.source.value] : [];
     }
-    if (
-      ts.isExportDeclaration(statement) &&
-      statement.moduleSpecifier &&
-      ts.isStringLiteral(statement.moduleSpecifier) &&
-      hasRuntimeExport(statement)
-    ) {
-      return [statement.moduleSpecifier.text];
+    if (statement.type === 'ExportAllDeclaration') {
+      return hasRuntimeExport(statement) ? [statement.source.value] : [];
+    }
+    if (statement.type === 'ExportNamedDeclaration' && statement.source != null) {
+      return hasRuntimeExport(statement) ? [statement.source.value] : [];
     }
     return [];
   });

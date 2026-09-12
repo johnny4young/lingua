@@ -9,7 +9,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
 
@@ -30,9 +30,21 @@ function toBase64Url(value: unknown): string {
 }
 
 describe('JwtUtilityPanel', () => {
+  const originalCss = globalThis.CSS;
+
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');
+    // JsonSyntaxOutput picks its rendering path by probing CSS.escape: absent,
+    // it decorates timestamps synchronously on plain text; present, it waits
+    // for Monaco to colorize first. jsdom 30 ships CSS.escape, so pin the
+    // plain-text path this suite was written against. The Monaco path has its
+    // own coverage in JsonSyntaxOutput.test.tsx, which pins the opposite way.
+    Object.defineProperty(globalThis, 'CSS', { configurable: true, value: undefined });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'CSS', { configurable: true, value: originalCss });
   });
 
   it('renders the Decode form by default and preserves the existing decode output', async () => {

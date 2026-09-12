@@ -63,7 +63,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `sax` | `1.6.0` | `BlueOak-1.0.0` | `node_modules/sax` |
 | `semver` | `7.7.4` | `ISC` | `node_modules/semver` |
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |
-| `undici` | `7.29.0` | `MIT` | `.vite/build/main.js` |
+| `undici` | `8.10.2` | `MIT` | `.vite/build/main.js` |
 | `universalify` | `2.0.1` | `MIT` | `node_modules/universalify` |
 | `ws` | `8.21.3` | `MIT` | `.vite/build/main.js` |
 | `zod` | `4.4.3` | `MIT` | `node_modules/zod` |
