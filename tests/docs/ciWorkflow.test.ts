@@ -24,15 +24,18 @@ interface WorkflowStep {
   name?: string;
   run?: string;
   uses?: string;
+  env?: Record<string, string>;
   with?: Record<string, unknown>;
   'continue-on-error'?: boolean;
   'working-directory'?: string;
 }
 
 interface WorkflowJob {
+  name?: string;
   if?: string;
   needs?: string | string[];
   'runs-on'?: string;
+  strategy?: { 'fail-fast'?: boolean; matrix?: { shard?: number[] } };
   steps?: WorkflowStep[];
 }
 
@@ -156,6 +159,28 @@ describe('CI workflow', () => {
     expect(workflowText).toMatch(
       /windows-path-hardening:[\s\S]*?Windows standalone CLI packaging smoke[\s\S]*?pnpm run package:cli -- --binary-only --expect-target windows-x64/u
     );
+  });
+
+  it('shards the end-to-end suite across parallel runners', () => {
+    const job = workflow.jobs?.['web-e2e'];
+    const shards = job?.strategy?.matrix?.shard ?? [];
+    const total = shards.length;
+    expect(total).toBeGreaterThan(1);
+    expect(shards).toEqual(Array.from({ length: total }, (_, index) => index + 1));
+    // One red shard must not cancel the results of the others.
+    expect(job?.strategy?.['fail-fast']).toBe(false);
+
+    const steps = stepsOf(workflow, 'web-e2e');
+    const suite = steps.find(step => step.name === 'Web end-to-end suite');
+    // The shard index arrives through the environment, and the denominator
+    // has to match the matrix or part of the suite would never run.
+    expect(suite?.run).toBe('pnpm run test:e2e:web --shard="$SHARD/' + total + '"');
+    expect(suite?.env?.SHARD).toBe('${{ matrix.shard }}');
+    expect(job?.name).toContain('${{ matrix.shard }}/' + total);
+
+    // Artifact names must be unique within a workflow run.
+    const upload = steps.find(step => step.uses?.startsWith('actions/upload-artifact@'));
+    expect(String(upload?.with?.name)).toContain('${{ matrix.shard }}');
   });
 
   it('keeps the end-to-end and Windows jobs on pull requests only', () => {

@@ -128,9 +128,13 @@ pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4
 Pull requests run the full `pnpm run test:e2e:web` suite in a dedicated
 `web-e2e` job. It runs in parallel with the Linux gate jobs (`static`, `unit`,
 `coverage`, `build-web`, and `subprojects`), so a red gate in one of them
-never hides the result of another. The job restores the Playwright browser
-cache, uploads the HTML report and `test-results` on failure, and uses
-CI-only timeout scaling so local feedback stays fast.
+never hides the result of another. The job is a matrix of three shards on
+separate runners; each shard builds its own `dist/web`, runs its slice of the
+suite with `--shard=<n>/3`, and on failure uploads its traces and screenshots
+as a `playwright-web-e2e-shard-<n>` artifact. Re-running failed jobs repeats
+only the shard that failed. Reproduce one shard locally with
+`pnpm run test:e2e:web --shard=2/3`. The job restores the Playwright browser
+cache and uses CI-only timeout scaling so local feedback stays fast.
 
 ### Electron Base
 
