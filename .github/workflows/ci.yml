@@ -20,27 +20,29 @@ permissions:
   contents: read
 
 jobs:
-  # All Linux gates collapsed into one job so we pay one pnpm install per
-  # run instead of six times. Each gate stays distinct as a named step
-  # so failures still pinpoint exactly what broke. ~5 min saved per
-  # run vs six parallel jobs.
-  linux-gates:
-    name: Linux gates (build + typecheck + lint + i18n + changelog + test + audit)
+  # The Linux gates run as parallel jobs. In one serial job a failing test
+  # skipped every step behind it (the web build, the performance budget, the
+  # license policy and all audits), so a red run hid whether those gates were
+  # broken too. Each job repeats the pnpm install, which restores from the
+  # shared cache in about 20 s; the pull request wall clock stays bounded by
+  # web-e2e either way.
+  static:
+    name: Static gates (typecheck + lint + i18n + changelog + licenses + audit)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # changelog:check reads the commit range since the last release tag.
           fetch-depth: 0
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.x'
           cache: 'pnpm'
-          # implementation — also key the pnpm cache on the
-          # update-server lockfile so the worker's install (added
-          # below) reuses cached deps instead of taking a cold install
-          # on every CI run.
+          # Key the pnpm store on every independently locked project so the
+          # update-server install in the subprojects job restores from the
+          # same cache entry as the root install in every Linux job.
           cache-dependency-path: |
             pnpm-lock.yaml
             license-server/pnpm-lock.yaml
@@ -48,14 +50,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Type check
         run: pnpm exec tsc --noEmit
-      # implementation detail — the root tsconfig only includes src/**, so the
-      # `tsc --noEmit` above never type-checks files under tests/. This
-      # scoped pass pulls tests/main/projectCapabilitiesBrand.test.ts into
-      # a real tsc program so its `@ts-expect-error` swap matrix becomes a
-      # gate: revert any branded id to a bare string and this step fails
-      # with TS2578 'unused @ts-expect-error directive'. The vitest run
-      # below transpiles only and never type-checks that file, so this
-      # step is the one gate for it.
+      # The root tsconfig only includes src/**, so the step above never
+      # type-checks tests/. This scoped pass pulls the compile-time guards
+      # listed in tsconfig.test.json, such as the branded-id swap matrix in
+      # tests/main/projectCapabilitiesBrand.test.ts, into a real tsc program:
+      # revert a branded id to a bare string and it fails with TS2578. vitest
+      # only transpiles, so this step is the one gate for those files.
       - name: Type check (tests compile guards)
         run: pnpm run typecheck:tests
       - name: Lint
@@ -66,12 +66,55 @@ jobs:
         run: pnpm run check:i18n:copy
       - name: Changelog/version guard
         run: pnpm run changelog:check
-      # internal — PR-time mirror of the release-blocking rotation gate so a
-      # license-key SLA breach surfaces the week it happens instead of on
-      # release day. Note main can go red purely by time passing the SLA;
-      # that pressure is deliberate — rotate per docs/RELEASE_SECURITY.md.
+      # PR-time mirror of the release-blocking rotation gate so a license-key
+      # SLA breach surfaces the week it happens instead of on release day.
+      # main can go red purely by time passing the SLA; that pressure is
+      # deliberate, rotate per docs/RELEASE_SECURITY.md.
       - name: License-key rotation policy
         run: pnpm run check:license-rotation
+      - name: Third-party license policy
+        run: pnpm run check:licenses
+      # Blocking production-graph audit at PR time. The release pipeline
+      # already gated prod advisories; this brings the same fail-closed gate
+      # to every PR so a prod high/critical dependency is caught before merge,
+      # not only at release. The dev-inclusive full audit below stays advisory
+      # by design (see docs/RELEASE_SECURITY.md).
+      - name: Production dependency audit (blocking)
+        run: pnpm run check:prod-audit
+      # `pnpm audit --prod` only inspects package.json "dependencies". Vite
+      # INLINES the main/preload graphs, so a devDependency imported by
+      # src/main (undici, ws) ships inside the packaged bundle unseen by the
+      # gate above. This audits exactly that set.
+      - name: Bundled dependency audit (blocking)
+        run: pnpm run check:bundled-audit
+      - name: Independent production dependency audits (blocking)
+        run: |
+          pnpm --dir license-server audit --prod --audit-level high
+          pnpm --dir update-server audit --prod --audit-level high
+          npm --prefix website audit --package-lock-only --omit=dev --audit-level=high
+      - name: Security audit (advisory, full graph)
+        run: pnpm audit --audit-level high
+        continue-on-error: true
+
+  unit:
+    name: Unit tests + project template smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # The full suite, benchmarks included. The coverage job runs the
+      # instrumented pass without them, so this job is what keeps the timing
+      # budgets in *.bench.test.ts gated.
       - name: Tests
         run: pnpm test
       - name: Curated project template runtime smoke
@@ -83,11 +126,75 @@ jobs:
           name: project-template-runtime-smoke
           path: output/project-template-smoke/project-template-smoke-summary.json
           if-no-files-found: error
-      # implementation — the update-server has its own tsconfig and
-      # vitest config outside the root TypeScript project. Wire both
-      # gates into CI so the `/update/:platform/:version` smoke landed
-      # for internal actually gates pull requests. Run block uses only
-      # static pnpm commands — no github.event inputs are interpolated,
+
+  coverage:
+    name: Coverage floors (instrumented unit suite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # Enforces the measured floors in vitest.config.mts (docs/TESTING.md,
+      # Coverage). It runs beside the unit job rather than replacing it,
+      # because the instrumented run excludes the timing benches.
+      - name: Coverage floors
+        run: pnpm run test:coverage
+
+  build-web:
+    name: Web build + performance budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Build web
+        run: pnpm run build:web
+      - name: Performance report
+        run: pnpm run performance:report
+      # --fail-on-slack fails a category that measures under 75% of its
+      # baseline: a ceiling that far above reality has stopped protecting it.
+      # Only targets built in this job are measured, so the desktop renderer
+      # is judged by the scheduled renderer-budget workflow instead.
+      - name: Performance budget check
+        run: pnpm run check:performance --fail-on-slack
+
+  subprojects:
+    name: Independent projects (update-server + website)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            license-server/pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # The update-server has its own tsconfig and vitest config outside the
+      # root TypeScript project, so both gates run here. The run block uses
+      # only static pnpm commands; no github.event inputs are interpolated,
       # so the workflow is not exposed to script injection.
       - name: Update-server gates
         working-directory: update-server
@@ -106,44 +213,15 @@ jobs:
       # the root pnpm workspace does not provide the website dependency graph.
       #
       # Deliberately not filtered to website/**: three of these test files
-      # assert ACROSS the repo boundary — cliDocs against the root
-      # src/cli/helpCatalog.ts, releases against the root package.json version,
-      # v1LaunchStory against the root README.md and tests/e2e specs. A
+      # assert ACROSS the repo boundary. cliDocs imports the root
+      # src/cli/helpCatalog.ts, releases reads the root package.json version,
+      # and v1LaunchStory reads the root README.md and tests/e2e specs. A
       # website-only path filter would let exactly those rot.
       - name: Website gates
         working-directory: website
         run: |
           npm ci --no-audit --no-fund
           npm test
-      - name: Build web
-        run: pnpm run build:web
-      - name: Performance report
-        run: pnpm run performance:report
-      - name: Performance budget check
-        run: pnpm run check:performance
-      - name: Third-party license policy
-        run: pnpm run check:licenses
-      # internal — blocking production-graph audit at PR time. The release
-      # pipeline already gated prod advisories; this brings the
-      # same fail-closed gate to every PR so a prod high/critical dep is
-      # caught before merge, not only at release. The dev-inclusive full
-      # audit below stays advisory by design (see docs/RELEASE_SECURITY.md).
-      - name: Production dependency audit (blocking)
-        run: pnpm run check:prod-audit
-      # `pnpm audit --prod` only inspects package.json "dependencies". Vite
-      # INLINES the main/preload graphs, so a devDependency imported by
-      # src/main (undici, ws) ships inside the packaged bundle unseen by the
-      # gate above. This audits exactly that set.
-      - name: Bundled dependency audit (blocking)
-        run: pnpm run check:bundled-audit
-      - name: Independent production dependency audits (blocking)
-        run: |
-          pnpm --dir license-server audit --prod --audit-level high
-          pnpm --dir update-server audit --prod --audit-level high
-          npm --prefix website audit --package-lock-only --omit=dev --audit-level=high
-      - name: Security audit (advisory, full graph)
-        run: pnpm audit --audit-level high
-        continue-on-error: true
 
   web-e2e:
     name: Web end-to-end (Playwright)

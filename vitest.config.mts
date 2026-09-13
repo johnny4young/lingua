@@ -46,11 +46,14 @@ export default defineConfig({
       // Measured 2026-09-06 on the full suite (benches excluded):
       // Initial: lines 80.69, statements 77.92, functions 78.99, branches 69.82.
       // A fresh full run measured functions 79.04, raising that floor to 77.
+      // Under vitest 5 a fresh full run measured lines 80.89, statements 78.10,
+      // functions 79.06 and branches 70.01, raising statements to 76 and
+      // branches to 68.
       thresholds: {
         lines: 78,
-        statements: 75,
+        statements: 76,
         functions: 77,
-        branches: 67,
+        branches: 68,
       },
     },
   },

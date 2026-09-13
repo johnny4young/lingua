@@ -102,12 +102,16 @@ round down to an integer (at least two but less than three points of headroom).
 
 A fresh full instrumented review run measured functions at 79.04%, raising
 the configured function floor from 76 to 77; the other floors remain unchanged.
+After the move to vitest 5, a fresh full run measured lines at 80.89%,
+statements at 78.10%, functions at 79.06%, and branches at 70.01%, raising the
+statement floor to 76 and the branch floor to 68.
 
 After a fresh full instrumented run, raise a floor when that formula yields a
 higher value; otherwise leave it unchanged. Never lower a floor to make a run
 pass or substitute a partial-suite measurement. The command validates these
-floors but does not automatically update them. CI does not run instrumented
-coverage yet; its ordinary test job remains uninstrumented.
+floors but does not automatically update them. CI enforces the floors in a
+dedicated `coverage` job that runs beside the uninstrumented `unit` job, which
+keeps the benchmarks gated.
 
 Keep `vitest` and `@vitest/coverage-v8` pinned to the same exact version and
 update them together: the provider declares an exact runner peer dependency.
@@ -122,9 +126,11 @@ pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4
 ```
 
 Pull requests run the full `pnpm run test:e2e:web` suite in a dedicated
-`web-e2e` job after the baseline Linux gates pass. The job restores the
-Playwright browser cache, uploads the HTML report and `test-results` on
-failure, and uses CI-only timeout scaling so local feedback stays fast.
+`web-e2e` job. It runs in parallel with the Linux gate jobs (`static`, `unit`,
+`coverage`, `build-web`, and `subprojects`), so a red gate in one of them
+never hides the result of another. The job restores the Playwright browser
+cache, uploads the HTML report and `test-results` on failure, and uses
+CI-only timeout scaling so local feedback stays fast.
 
 ### Electron Base
 
