@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 import { describe, expect, it } from 'vitest';
 import wranglerToml from '../wrangler.toml?raw';
 import app from '../src/index';
