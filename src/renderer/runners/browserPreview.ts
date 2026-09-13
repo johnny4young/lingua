@@ -38,6 +38,7 @@
  */
 
 import i18next from 'i18next';
+import type { BeforeExecuteContext } from '../types/editor';
 import type {
   ConsoleOutput,
   ExecutionContext,
@@ -51,6 +52,7 @@ import {
   type BridgeMessage,
 } from '../components/BrowserPreview/iframeBridge';
 import { getActiveBrowserPreviewIframe, activateBrowserPreviewTab } from '../runtime/browserPreviewBridge';
+import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
   resolveTimeoutMs,
@@ -104,12 +106,25 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   /**
-   * implementation note wiring — the runner manager calls this BEFORE
-   * `execute()` so the iframe srcdoc can splice sibling CSS /
-   * HTML. Optional; missing or null clears the seed.
+   * implementation note wiring — seed the next `execute()` so the
+   * iframe srcdoc can splice sibling CSS / HTML. Tab runs reach it
+   * through `beforeExecute`. Optional; missing or null clears the seed.
    */
   setSiblingSources(sources: BrowserPreviewSiblingSources | null): void {
     this.siblingSources = sources;
+  }
+
+  /**
+   * Seed the preview with the running tab's sibling `.css` and `.html`
+   * tabs before the manual Run or auto-run executes it. A failed lookup
+   * keeps the previous seed.
+   */
+  beforeExecute({ tab, tabs }: BeforeExecuteContext): void {
+    try {
+      this.setSiblingSources(collectBrowserPreviewSiblingSources(tabs, tab));
+    } catch {
+      // Sibling lookup is best-effort; plain execution remains valid.
+    }
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {

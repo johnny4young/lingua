@@ -23,9 +23,10 @@
  *
  * Wiring status: this module ships the tested execution backend and its
  * IPC handlers, and the renderer exposes Deno / Bun through the same
- * runtime-mode surface as Worker / Node / Browser Preview. Each renderer
- * runner still self-gates on bridge availability and binary detection so
- * web builds and hosts without the toolchain degrade with actionable errors.
+ * runtime-mode surface as Worker / Node / Browser Preview. The renderer
+ * runner manager checks bridge availability before it constructs a runner,
+ * and each runner handles binary detection, so web builds and hosts without
+ * the toolchain degrade with actionable errors.
  */
 
 import { typedHandle } from './ipc/typedHandle';

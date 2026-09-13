@@ -19,7 +19,8 @@
  *     `runId` does not match the active run.
  *   - `execute()` resolves on a `done` message, captures console
  *     entries inline, and fires `setSiblingSources` through into
- *     the rendered srcdoc.
+ *     the rendered srcdoc, including the seed `beforeExecute`
+ *     collects from the open tabs.
  *   - Timeout: parent clears the iframe `srcdoc` and resolves with
  *     `runnerTimeoutResult`.
  */
@@ -632,6 +633,84 @@ describe('BrowserPreviewRunner — execute()', () => {
       type: 'done',
     });
     await promise;
+  });
+
+  it('seeds sibling sources from the workspace handed to beforeExecute', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    const active = tab({
+      id: 'active',
+      name: 'app.js',
+      relativePath: 'demo/app.js',
+      rootId: 'root-a',
+    });
+
+    runner.beforeExecute({
+      tab: active,
+      tabs: [
+        active,
+        tab({
+          id: 'css',
+          name: 'style.css',
+          content: '.seeded { color: teal; }',
+          relativePath: 'demo/style.css',
+          rootId: 'root-a',
+        }),
+        tab({
+          id: 'html',
+          name: 'index.html',
+          content: '<p id="seeded">hi</p>',
+          relativePath: 'demo/index.html',
+          rootId: 'root-a',
+        }),
+      ],
+    });
+
+    const promise = runner.execute('// noop');
+    await Promise.resolve();
+    const srcdoc = iframe.srcdoc;
+    expect(srcdoc).toContain('.seeded { color: teal; }');
+    expect(srcdoc).toContain('<p id="seeded">hi</p>');
+
+    const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId,
+      type: 'done',
+    });
+    await promise;
+  });
+
+  it('keeps the previous seed and still runs when the sibling lookup throws', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    runner.setSiblingSources({ css: '.previous { color: red; }' });
+    const unreadableTabs = new Proxy([], {
+      get() {
+        throw new Error('tabs unavailable');
+      },
+    }) as FileTab[];
+
+    expect(() =>
+      runner.beforeExecute({ tab: tab({ id: 'active' }), tabs: unreadableTabs })
+    ).not.toThrow();
+
+    const promise = runner.execute('// noop');
+    await Promise.resolve();
+    const srcdoc = iframe.srcdoc;
+    expect(srcdoc).toContain('.previous { color: red; }');
+
+    const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId,
+      type: 'done',
+    });
+    await expect(promise).resolves.toMatchObject({ kind: 'success' });
   });
 
   it('times out by clearing srcdoc + resolving with the timeout result', async () => {

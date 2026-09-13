@@ -26,8 +26,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import type { FileTab } from '../types/editor';
 import type { Language } from '../types/language';
-import type { ConsoleOutput, ExecutionResult } from '../types/execution';
-import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
+import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../types/execution';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -260,6 +259,9 @@ function joinConsoleEntries(entries: ConsoleOutput[]): string {
 type RuntimeBootstrapOutcome =
   | { kind: 'completed'; durationMs: number }
   | { kind: 'failed' };
+
+/** What a manual run calls on the manager's runner or the native debugger session. */
+type TabRunRunner = Pick<LanguageRunner, 'beforeExecute' | 'execute'>;
 
 /** Emit one closed bootstrap outcome without growing direct telemetry calls. */
 function trackRuntimeBootstrapOutcome(
@@ -507,22 +509,7 @@ export async function executeTabManually(
   const gitSnapshot = snapshotGitPosture();
 
   try {
-    // implementation note — feed sibling .css / .html tabs to
-    // the browser-preview runner BEFORE prepareRunner so the
-    // first execute() picks them up. Editor store is already a
-    // hard dep elsewhere in this module (other surfaces import
-    // it), so the static reference does not change bundle shape.
-    if (runtimeMode === 'browser-preview') {
-      try {
-        const editorState = useEditorStore.getState();
-        const siblingSources = collectBrowserPreviewSiblingSources(editorState.tabs, activeTab);
-        runnerManager.getBrowserPreviewRunner()?.setSiblingSources(siblingSources);
-      } catch {
-        /* if the sibling lookup throws, fall back to plain execution */
-      }
-    }
-
-    const prepared = usesNativeDebugger
+    const prepared: { runner: TabRunRunner | null } = usesNativeDebugger
       ? {
           runner: {
             execute: async (
@@ -695,6 +682,7 @@ export async function executeTabManually(
       setRunDeadlineAt(Date.now() + deadlineTimeoutMs);
     }
 
+    runner.beforeExecute?.({ tab: activeTab, tabs: useEditorStore.getState().tabs });
     const result = await runner.execute(content, executionContext);
     // Tear down the in-flight deadline immediately; the pill flips
     // to the termination variant on the next render.

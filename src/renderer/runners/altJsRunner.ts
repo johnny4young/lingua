@@ -1,9 +1,11 @@
 /**
  * implementation — renderer-side `LanguageRunner` for the Deno and Bun runtime modes.
  *
- * Mounted as the runtime-mode override for `'deno'` / `'bun'` in
- * `RunnerManager.runtimeModeRunners`. JS / TS tabs whose `runtimeMode`
- * selects one of these resolve here instead of the worker runners.
+ * Registered as the runtime-mode override for `'deno'` / `'bun'` in the
+ * `RunnerManager` registry. JS / TS tabs whose `runtimeMode` selects one of
+ * these resolve here instead of the worker runners. The manager only
+ * constructs a runner when its `window.lingua.deno` / `.bun` bridge exists;
+ * without it a run reports the desktop-only error from the manager instead.
  *
  * Unlike `NodeRunner`, Deno and Bun execute TypeScript natively, so there
  * is NO esbuild transpile step — the raw source crosses IPC and the main
@@ -72,25 +74,8 @@ export class AltJsRunner implements LanguageRunner {
     return this.ready;
   }
 
-  private bridge() {
-    if (typeof window === 'undefined' || !window.lingua) return null;
-    return this.id === 'deno' ? window.lingua.deno ?? null : window.lingua.bun ?? null;
-  }
-
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const bridge = this.bridge();
-    if (!bridge) {
-      return {
-        stdout: [],
-        stderr: [],
-        result: undefined,
-        executionTime: 0,
-        error: {
-          message: `${this.name} runtime mode is only available in the desktop build.`,
-        },
-        kind: 'error',
-      };
-    }
+    const bridge = this.id === 'deno' ? window.lingua.deno! : window.lingua.bun!;
 
     this.stop();
 

@@ -9,6 +9,7 @@
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
+import type { BeforeExecuteContext } from './editor';
 import type { Language } from './language';
 
 export interface ExecutionContext {
@@ -320,6 +321,8 @@ export interface LanguageRunner {
   /** File extensions associated with the language (".go", ".rs"). */
   extensions: string[];
   init(): Promise<void>;
+  /** Optional and synchronous; must not throw, so a failed lookup still lets the run go ahead. */
+  beforeExecute?(context: BeforeExecuteContext): void;
   execute(code: string, context?: ExecutionContext): Promise<ExecutionResult>;
   stop(): void;
   isReady(): boolean;

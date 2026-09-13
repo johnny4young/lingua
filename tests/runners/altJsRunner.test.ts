@@ -67,19 +67,6 @@ describe('AltJsRunner', () => {
     expect(bridge.run).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces a desktop-only error when the bridge is absent (web build)', async () => {
-    Object.defineProperty(window, 'lingua', {
-      value: { platform: 'web' },
-      writable: true,
-      configurable: true,
-    });
-    const runner = new AltJsRunner('deno');
-    await runner.init();
-    const result = await runner.execute('console.log(1)');
-    expect(result.kind).toBe('error');
-    expect(result.error?.message).toContain('desktop build');
-  });
-
   it('maps missing-binary to a clear error', async () => {
     installBridge('deno', {
       run: vi.fn().mockResolvedValue({

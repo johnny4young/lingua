@@ -93,9 +93,10 @@ plain product copy, while this ADR keeps the delivery detail.
 Post-closeout note: Browser Preview shipped on 2026-05-12, Node mode on
 2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The selector and Settings
 default-mode select now show all five options enabled at the entitlement
-gate; each desktop runner still self-gates on bridge availability and local
-binary detection, so web builds and hosts without Deno/Bun degrade with a
-clear runtime error rather than silently falling back to Worker.
+gate. The runner manager checks bridge availability before it constructs a
+desktop runner, and each runner still handles local binary detection, so web
+builds and hosts without Deno/Bun degrade with a clear runtime error rather
+than silently falling back to Worker.
 
 ### 4. No silent fallback to Worker
 
@@ -198,11 +199,13 @@ path stayed intact.
   Node mode.
 - `src/preload/index.ts` + `src/shared/ipcContract.ts` — expose
   `deno:*` and `bun:*` typed IPC channels in the desktop shell. The web
-  adapter omits those bridges, so renderer runners surface a desktop-only
-  error instead of dereferencing an unavailable API.
+  adapter omits those bridges, so the runner manager resolves those modes to a
+  desktop-only error instead of constructing a runner that would dereference
+  an unavailable API.
 - `src/renderer/runners/altJsRunner.ts` — runtime-mode runner used for both
-  Deno and Bun. It self-gates on bridge availability, binary detection, and
-  the existing first-run native-runtime trust notice.
+  Deno and Bun. The manager only constructs it when the matching bridge
+  exists; it handles binary detection and the existing first-run
+  native-runtime trust notice.
 - `src/shared/runtimeModes.ts`, `RuntimeModeSelector`, Settings default mode,
   command-palette runtime switching, and telemetry parity all include
   `deno` / `bun` so persisted sessions and emitted events stay closed-enum
@@ -218,8 +221,9 @@ path stayed intact.
   short buffers or as a temp `.cjs` / `.mjs` file for larger buffers.
 - `src/preload/index.ts` — exposes `window.lingua.node.detect`,
   `window.lingua.node.run`, and `window.lingua.node.stop`. The web
-  adapter deliberately omits this bridge, so `NodeRunner` reports a
-  desktop-only error instead of dereferencing a missing IPC surface.
+  adapter deliberately omits this bridge, so the runner manager resolves
+  Node mode to a desktop-only error instead of constructing a `NodeRunner`
+  that would dereference a missing IPC surface.
 - `src/renderer/runners/nodeRunner.ts` — runtime-mode override used
   when a JavaScript or TypeScript tab selects `runtimeMode === 'node'`.
   TypeScript tabs transpile through `esbuild-wasm` before IPC; the
@@ -227,7 +231,8 @@ path stayed intact.
   presets and cwd resolution match the active tab.
 - `src/renderer/runners/manager.ts` — keeps the normal language
   registry for Worker mode and adds a runtime-mode map for `node`
-  and `browser-preview`.
+  and `browser-preview`. Runners are constructed the first time a run
+  resolves them.
 
 ### Process and sandbox contract
 
@@ -333,10 +338,11 @@ message listener.
 
 ### Multi-file preview seed
 
-`executeTabManually` looks for sibling `.css` and `.html` tabs
-in the editor store BEFORE calling `runnerManager.prepareRunner`.
-If found, the runner's `setSiblingSources({ css, html })` push
-threads them into the next `srcdoc`:
+Manual Run and auto-run hand the running tab and the open editor
+tabs to `BrowserPreviewRunner.beforeExecute` right before
+`execute()`. The runner picks sibling `.css` and `.html` tabs, and
+its `setSiblingSources({ css, html })` push threads them into the
+next `srcdoc`:
 
 - `siblingCss` → `<style>` block in `<head>`.
 - `siblingHtml` → injected literally as the `<body>` seed

@@ -2,10 +2,12 @@
  * implementation — renderer-side `LanguageRunner` for the Node
  * runtime mode.
  *
- * Mounted as the runtime-mode override for `'node'` in
- * `RunnerManager.runtimeModeRunners`. JS / TS tabs whose
+ * Registered as the runtime-mode override for `'node'` in the
+ * `RunnerManager` registry. JS / TS tabs whose
  * `runtimeMode === 'node'` resolve here instead of the worker-based
- * JavaScript / TypeScript runners.
+ * JavaScript / TypeScript runners. The manager only constructs this
+ * runner when `window.lingua.node` exists; without the bridge a run
+ * reports the desktop-only error from the manager instead.
  *
  * Responsibilities:
  *
@@ -134,22 +136,6 @@ export class NodeRunner implements LanguageRunner {
     code: string,
     context?: ExecutionContext
   ): Promise<ExecutionResult> {
-    if (typeof window === 'undefined' || !window.lingua || !window.lingua.node) {
-      // Web build OR a desktop preload that never landed implementation.
-      // Surface a clear renderer-side error rather than a TypeError.
-      return {
-        stdout: [],
-        stderr: [],
-        result: undefined,
-        executionTime: 0,
-        error: {
-          message:
-            'Node runtime mode is only available in the desktop build.',
-        },
-        kind: 'error',
-      };
-    }
-
     this.stop();
 
     // Resolve the per-run deadline from the per-language preset

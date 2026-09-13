@@ -16,16 +16,21 @@ import { languageHasRuntimeModes } from '../../shared/runtimeModes';
 export interface RunnerPreparationResult {
   runner: LanguageRunner | null;
   initialized: boolean;
+  /**
+   * Set when the requested runtime mode cannot run on this host. `runner` is
+   * then a stand-in whose `execute()` reports why, so every caller surfaces
+   * the same error through its normal result path.
+   */
+  unavailable?: 'desktop-only';
 }
 
 /**
  * Built-in runner factories keyed by `LanguagePack.runnerId` .
  *
- * The `RunnerManager` constructor walks `LANGUAGE_PACKS`, finds every pack
- * whose `runnerId` is present in this map, and instantiates the factory.
- * Packs whose `runnerId` is absent from the map (today: `lua`) intentionally
- * fall through to the plugin registry — implementation is additive, not a
- * pluginRegistry replacement.
+ * `BUILT_IN_LANGUAGE_RUNNERS` walks `LANGUAGE_PACKS` and keeps every pack
+ * whose `runnerId` is present in this map. Packs whose `runnerId` is absent
+ * from the map (today: `lua`) intentionally fall through to the plugin
+ * registry — implementation is additive, not a pluginRegistry replacement.
  */
 const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
   javascript: () => new JavaScriptRunner(),
@@ -34,55 +39,135 @@ const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
   python: () => new PythonRunner(),
   // implementation — Ruby web runtime via `@ruby/wasm-wasi`. The
   // pack's `runnerId` flipped from `null` to `'ruby'` in the same
-  // slice; the factory must land alongside or the manager's
-  // constructor walk skips the entry and Ruby tabs fall through to
-  // the `'No runner available'` message.
+  // slice; the factory must land alongside or the registry walk
+  // skips the entry and Ruby tabs fall through to the
+  // `'No runner available'` message.
   ruby: () => new RubyRunner(),
   rust: () => new RustRunner(),
 };
+
+/** Language-pack id to built-in runner factory, in `LANGUAGE_PACKS` order. */
+const BUILT_IN_LANGUAGE_RUNNERS: ReadonlyMap<string, () => LanguageRunner> = new Map(
+  LANGUAGE_PACKS.flatMap(pack => {
+    const factory = pack.runnerId === null ? undefined : BUILT_IN_RUNNER_FACTORIES[pack.runnerId];
+    return factory ? [[pack.id, factory] as const] : [];
+  })
+);
+
+type DesktopBridge = 'node' | 'deno' | 'bun';
+
+interface RuntimeModeRunnerEntry {
+  create: () => LanguageRunner;
+  /**
+   * Set for modes that spawn a local binary through the desktop shell: the
+   * `window.lingua` bridge the runner calls, and the error a run reports on a
+   * host without it (the web build, or a desktop preload that never exposed
+   * the bridge).
+   */
+  desktopOnly?: { bridge: DesktopBridge; message: string };
+}
+
+/**
+ * Runtime-mode runners that override the default language-keyed dispatch
+ * when the active tab carries an explicit `runtimeMode`. The keys mirror the
+ * implemented RuntimeMode values; `'worker'` intentionally has no entry so
+ * the default language-keyed path stays the source of truth for the JS
+ * Worker, TS Worker, Python Pyodide worker, etc.
+ */
+const RUNTIME_MODE_RUNNERS: Partial<Record<RuntimeMode, RuntimeModeRunnerEntry>> = {
+  'browser-preview': { create: () => new BrowserPreviewRunner() },
+  // Desktop Node child-spawn runner.
+  node: {
+    create: () => new NodeRunner(),
+    desktopOnly: {
+      bridge: 'node',
+      message: 'Node runtime mode is only available in the desktop build.',
+    },
+  },
+  // Deno and Bun desktop runtimes.
+  deno: {
+    create: () => new AltJsRunner('deno'),
+    desktopOnly: {
+      bridge: 'deno',
+      message: 'Deno (desktop) runtime mode is only available in the desktop build.',
+    },
+  },
+  bun: {
+    create: () => new AltJsRunner('bun'),
+    desktopOnly: {
+      bridge: 'bun',
+      message: 'Bun (desktop) runtime mode is only available in the desktop build.',
+    },
+  },
+};
+
+function hasDesktopBridge(bridge: DesktopBridge): boolean {
+  if (typeof window === 'undefined' || !window.lingua) return false;
+  return Boolean(window.lingua[bridge]);
+}
+
+/**
+ * Stands in for a desktop-only runtime-mode runner on a host without its
+ * bridge. It needs no initialization and never reaches the bridge; a run
+ * resolves with the desktop-only error.
+ */
+class DesktopOnlyRunner implements LanguageRunner {
+  readonly id: string;
+  readonly name: string;
+  readonly language = 'javascript' as const;
+  readonly extensions: string[] = [];
+  private readonly message: string;
+
+  constructor(mode: RuntimeMode, message: string) {
+    this.id = mode;
+    this.name = mode;
+    this.message = message;
+  }
+
+  async init(): Promise<void> {
+    // Nothing to boot: the run only reports that the mode is unavailable.
+  }
+
+  isReady(): boolean {
+    return true;
+  }
+
+  async execute(): Promise<ExecutionResult> {
+    return {
+      stdout: [],
+      stderr: [],
+      result: undefined,
+      executionTime: 0,
+      error: { message: this.message },
+      kind: 'error',
+    };
+  }
+
+  stop(): void {
+    // No run is ever in flight.
+  }
+}
+
+interface ResolvedRunner {
+  runner: LanguageRunner;
+  unavailable?: RunnerPreparationResult['unavailable'];
+}
 
 /**
  * RunnerManager orchestrates language runners.
  * Selects the appropriate runner based on language, manages lifecycle,
  * and provides a unified execution API.
+ *
+ * Runners are constructed from the registries above the first time a run
+ * resolves them, then cached, so a session only builds the runtimes it uses.
  */
 export class RunnerManager {
+  /** Constructed language runners: built-ins once resolved, plus plugin runners. */
   private runners: Map<string, LanguageRunner> = new Map();
   private initializing: Map<string, Promise<void>> = new Map();
-  /**
-   * implementation — runtime-mode-aware runners that override the
-   * default language-keyed dispatch when the active tab carries an
-   * explicit `runtimeMode`. The keys mirror the implemented
-   * RuntimeMode values; `'worker'` intentionally has no entry so
-   * the default language-keyed path stays the source of truth for
-   * the JS Worker, TS Worker, Python Pyodide worker, etc.
-   */
-  private runtimeModeRunners: Map<string, LanguageRunner> = new Map<
-    string,
-    LanguageRunner
-  >([
-    ['browser-preview', new BrowserPreviewRunner()],
-    // implementation — desktop Node child-spawn runner. Self-gates
-    // on `window.lingua.node` availability inside `.execute()`
-    // (web builds surface a clear renderer-side error instead of
-    // crashing the manager registration on import).
-    ['node', new NodeRunner()],
-    // implementation — Deno / Bun desktop runtimes. Same self-gating: each runner
-    // checks `window.lingua.deno` / `.bun` inside `.execute()` and surfaces
-    // a desktop-only error on the web build.
-    ['deno', new AltJsRunner('deno')],
-    ['bun', new AltJsRunner('bun')],
-  ]);
+  /** Constructed runtime-mode runners, keyed by mode once resolved. */
+  private runtimeModeRunners: Map<RuntimeMode, LanguageRunner> = new Map();
   private runtimeModeInitializing: Map<string, Promise<void>> = new Map();
-
-  constructor() {
-    for (const pack of LANGUAGE_PACKS) {
-      if (pack.runnerId === null) continue;
-      const factory = BUILT_IN_RUNNER_FACTORIES[pack.runnerId];
-      if (!factory) continue;
-      this.runners.set(pack.id, factory());
-    }
-  }
 
   /**
    * Resolve the active runner for the given language + optional
@@ -99,29 +184,67 @@ export class RunnerManager {
       runtimeMode &&
       runtimeMode !== 'worker' &&
       languageHasRuntimeModes(language) &&
-      this.runtimeModeRunners.has(runtimeMode)
+      RUNTIME_MODE_RUNNERS[runtimeMode] !== undefined
     ) {
       return { kind: 'runtime-mode', mode: runtimeMode };
     }
     return { kind: 'language', language };
   }
 
+  /**
+   * The runtime-mode runner, constructed on first use. A desktop-only mode on
+   * a host without its bridge resolves to a stand-in instead, and the real
+   * runner is never constructed.
+   */
+  private resolveRuntimeModeRunner(mode: RuntimeMode): ResolvedRunner | null {
+    const entry = RUNTIME_MODE_RUNNERS[mode];
+    if (!entry) return null;
+    if (entry.desktopOnly && !hasDesktopBridge(entry.desktopOnly.bridge)) {
+      return {
+        runner: new DesktopOnlyRunner(mode, entry.desktopOnly.message),
+        unavailable: 'desktop-only',
+      };
+    }
+    let runner = this.runtimeModeRunners.get(mode);
+    if (!runner) {
+      runner = entry.create();
+      this.runtimeModeRunners.set(mode, runner);
+    }
+    return { runner };
+  }
+
+  /** A constructed language runner, or the built-in one constructed on first use. */
+  private resolveLanguageRunner(language: string): LanguageRunner | null {
+    const existing = this.runners.get(language);
+    if (existing) return existing;
+    const factory = BUILT_IN_LANGUAGE_RUNNERS.get(language);
+    if (!factory) return null;
+    const runner = factory();
+    this.runners.set(language, runner);
+    return runner;
+  }
+
   private async ensureRunner(
     language: string,
     runtimeMode?: RuntimeMode
-  ): Promise<LanguageRunner | null> {
+  ): Promise<ResolvedRunner | null> {
     const key = this.resolveRunnerKey(language, runtimeMode);
     if (key.kind === 'runtime-mode') {
-      return this.runtimeModeRunners.get(key.mode) ?? null;
+      return this.resolveRuntimeModeRunner(key.mode);
+    }
+    const builtIn = this.resolveLanguageRunner(language);
+    if (builtIn) {
+      return { runner: builtIn };
     }
     const plugin = pluginRegistry.getByLanguage(language);
 
-    if (!this.runners.has(language) && plugin) {
+    if (plugin) {
       const pluginRunner = await plugin.createRunner();
       this.runners.set(language, pluginRunner as unknown as LanguageRunner);
     }
 
-    return this.runners.get(language) ?? null;
+    const runner = this.runners.get(language);
+    return runner ? { runner } : null;
   }
 
   private async initializeRunner(
@@ -146,17 +269,17 @@ export class RunnerManager {
   needsInitialization(language: string, runtimeMode?: RuntimeMode): boolean {
     const key = this.resolveRunnerKey(language, runtimeMode);
     if (key.kind === 'runtime-mode') {
-      const runtimeRunner = this.runtimeModeRunners.get(key.mode);
-      if (!runtimeRunner) return false;
+      const resolved = this.resolveRuntimeModeRunner(key.mode);
+      if (!resolved || resolved.unavailable) return false;
       if (this.runtimeModeInitializing.has(key.mode)) return true;
-      return !runtimeRunner.isReady();
+      return !resolved.runner.isReady();
     }
 
     if (this.initializing.has(language)) {
       return true;
     }
 
-    const runner = this.runners.get(language);
+    const runner = this.resolveLanguageRunner(language);
     if (runner) {
       return !runner.isReady();
     }
@@ -169,9 +292,14 @@ export class RunnerManager {
     language: string,
     runtimeMode?: RuntimeMode
   ): Promise<RunnerPreparationResult> {
-    const runner = await this.ensureRunner(language, runtimeMode);
-    if (!runner) {
+    const resolved = await this.ensureRunner(language, runtimeMode);
+    if (!resolved) {
       return { runner: null, initialized: false };
+    }
+
+    const { runner, unavailable } = resolved;
+    if (unavailable) {
+      return { runner, initialized: false, unavailable };
     }
 
     const initialized = !runner.isReady();
@@ -216,29 +344,14 @@ export class RunnerManager {
     };
   }
 
-  /** Stop execution for a given language */
+  /** Stop execution for a given language. Only a constructed runner can be running. */
   stop(language: string, runtimeMode?: RuntimeMode): void {
     const key = this.resolveRunnerKey(language, runtimeMode);
-    if (key.kind === 'runtime-mode') {
-      const runtimeRunner = this.runtimeModeRunners.get(key.mode);
-      runtimeRunner?.stop();
-      return;
-    }
-    const runner = this.runners.get(language);
-    if (runner) {
-      runner.stop();
-    }
-  }
-
-  /**
-   * implementation — accessor for the BrowserPreviewRunner. Lets
-   * `executeTabManually` push implementation note sibling sources before
-   * calling `execute()`. Returns `null` when the runner is not
-   * registered (defensive — implementation always registers it).
-   */
-  getBrowserPreviewRunner(): BrowserPreviewRunner | null {
-    const runner = this.runtimeModeRunners.get('browser-preview');
-    return runner instanceof BrowserPreviewRunner ? runner : null;
+    const runner =
+      key.kind === 'runtime-mode'
+        ? this.runtimeModeRunners.get(key.mode)
+        : this.runners.get(language);
+    runner?.stop();
   }
 
   /**
@@ -250,11 +363,11 @@ export class RunnerManager {
    * pared-down build).
    */
   getPythonRunner(): PythonRunner | null {
-    const runner = this.runners.get('python');
+    const runner = this.resolveLanguageRunner('python');
     return runner instanceof PythonRunner ? runner : null;
   }
 
-  /** Stop all runners */
+  /** Stop every constructed runner */
   stopAll(): void {
     for (const runner of this.runners.values()) {
       runner.stop();
@@ -269,12 +382,17 @@ export class RunnerManager {
 
   /** Check if a language is supported */
   isSupported(language: string): boolean {
-    return this.runners.has(language) || pluginRegistry.hasLanguage(language);
+    return (
+      BUILT_IN_LANGUAGE_RUNNERS.has(language) ||
+      this.runners.has(language) ||
+      pluginRegistry.hasLanguage(language)
+    );
   }
 
   /** Get list of supported languages */
   getSupportedLanguages(): string[] {
     return Array.from(new Set([
+      ...BUILT_IN_LANGUAGE_RUNNERS.keys(),
       ...this.runners.keys(),
       ...pluginRegistry.getAll().map((plugin) => plugin.language),
     ]));

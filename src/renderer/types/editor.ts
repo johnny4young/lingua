@@ -197,6 +197,19 @@ export interface FileTab {
 }
 
 /**
+ * Editor state a tab run (manual Run or auto-run) hands to
+ * `LanguageRunner.beforeExecute` right before `execute()`, so a runner that
+ * needs more than its source reads it there instead of callers special-casing
+ * that runtime.
+ */
+export interface BeforeExecuteContext {
+  /** The tab whose source is about to run. */
+  tab: FileTab;
+  /** Every open editor tab when the run starts, the running one included. */
+  tabs: readonly FileTab[];
+}
+
+/**
  * Either `filePath` OR `tabId` pins the request to a target tab:
  *
  *   - `filePath` mode — used by Project Search and future open-from-link

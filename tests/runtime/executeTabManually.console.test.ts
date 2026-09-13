@@ -16,6 +16,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({ trackEvent: vi.fn() }));
 
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import { useConsoleStore } from '../../src/renderer/stores/consoleStore';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
 
 const tab: FileTab = {
   id: 'batch-run',
@@ -30,6 +31,8 @@ const result: ExecutionResult = { stdout: [output], stderr: [], executionTime: 1
 // Keep the actual batcher/store/presentation. Suppress scheduled callbacks so
 // only explicit completion flushes can deliver output before the promise settles.
 describe('executeTabManually — console delivery', () => {
+  const initialEditor = useEditorStore.getState();
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal(
@@ -47,6 +50,7 @@ describe('executeTabManually — console delivery', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
+    useEditorStore.setState(initialEditor, true);
   });
 
   const contents = () => useConsoleStore.getState().entries.map(entry => entry.content);
@@ -96,6 +100,31 @@ describe('executeTabManually — console delivery', () => {
         ? 'Failed to initialize javascript runner.'
         : 'Failed to initialize javascript runner: boot failed',
     ]);
+  });
+
+  it('hands the running tab and the open tabs to the runner right before execute', async () => {
+    const calls: string[] = [];
+    const beforeExecute = vi.fn(() => {
+      calls.push('beforeExecute');
+    });
+    execute.mockImplementation(async () => {
+      calls.push('execute');
+      return result;
+    });
+    prepare.mockResolvedValue({ runner: { beforeExecute, execute }, initialized: false });
+    const styles: FileTab = {
+      id: 'styles',
+      name: 'styles.css',
+      language: 'css',
+      content: 'p { color: teal; }',
+      isDirty: false,
+    };
+    useEditorStore.setState({ tabs: [tab, styles] });
+
+    await executeTabManually(tab, { recordHistory: false });
+
+    expect(beforeExecute).toHaveBeenCalledWith({ tab, tabs: [tab, styles] });
+    expect(calls).toEqual(['beforeExecute', 'execute']);
   });
 
   it('does not resurrect pre-clear queued output when the run finishes', async () => {

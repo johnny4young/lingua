@@ -163,6 +163,43 @@ describe('useAutoRun', () => {
     expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
   });
 
+  it('hands the running tab and the open tabs to the runner right before execute', async () => {
+    const calls: string[] = [];
+    const beforeExecute = vi.fn(() => {
+      calls.push('beforeExecute');
+    });
+    const execute = vi.fn(async () => {
+      calls.push('execute');
+      return { stdout: [], stderr: [], result: undefined, executionTime: 5, error: null };
+    });
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { beforeExecute, execute },
+      initialized: false,
+    });
+    seedBrowserPreviewTab();
+    const previewTab = useEditorStore.getState().tabs[0]!;
+    const styles = {
+      id: 'tab-styles',
+      name: 'styles.css',
+      language: 'css',
+      content: 'p { color: teal; }',
+      isDirty: false,
+    };
+    useEditorStore.setState({ tabs: [previewTab, styles] });
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(beforeExecute).toHaveBeenCalledTimes(1);
+    expect(beforeExecute).toHaveBeenCalledWith({
+      tab: expect.objectContaining({ id: 'tab-preview' }),
+      tabs: [previewTab, styles],
+    });
+    expect(calls).toEqual(['beforeExecute', 'execute']);
+  });
+
   it('internal — Off leaves Browser preview manual-only', async () => {
     mockSuccessfulRunner();
     useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 });
