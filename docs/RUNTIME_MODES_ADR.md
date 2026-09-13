@@ -338,11 +338,10 @@ message listener.
 
 ### Multi-file preview seed
 
-Manual Run and auto-run hand the running tab and the open editor
-tabs to `BrowserPreviewRunner.beforeExecute` right before
-`execute()`. The runner picks sibling `.css` and `.html` tabs, and
-its `setSiblingSources({ css, html })` push threads them into the
-next `srcdoc`:
+Manual Run and auto-run name the running tab through
+`ExecutionContext.tabId`. `BrowserPreviewRunner.execute` reads that
+tab's sibling `.css` and `.html` tabs from the editor store and
+threads them into the `srcdoc` it builds:
 
 - `siblingCss` → `<style>` block in `<head>`.
 - `siblingHtml` → injected literally as the `<body>` seed

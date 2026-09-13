@@ -26,7 +26,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import type { FileTab } from '../types/editor';
 import type { Language } from '../types/language';
-import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../types/execution';
+import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -259,9 +259,6 @@ function joinConsoleEntries(entries: ConsoleOutput[]): string {
 type RuntimeBootstrapOutcome =
   | { kind: 'completed'; durationMs: number }
   | { kind: 'failed' };
-
-/** What a manual run calls on the manager's runner or the native debugger session. */
-type TabRunRunner = Pick<LanguageRunner, 'beforeExecute' | 'execute'>;
 
 /** Emit one closed bootstrap outcome without growing direct telemetry calls. */
 function trackRuntimeBootstrapOutcome(
@@ -509,7 +506,7 @@ export async function executeTabManually(
   const gitSnapshot = snapshotGitPosture();
 
   try {
-    const prepared: { runner: TabRunRunner | null } = usesNativeDebugger
+    const prepared = usesNativeDebugger
       ? {
           runner: {
             execute: async (
@@ -682,7 +679,6 @@ export async function executeTabManually(
       setRunDeadlineAt(Date.now() + deadlineTimeoutMs);
     }
 
-    runner.beforeExecute?.({ tab: activeTab, tabs: useEditorStore.getState().tabs });
     const result = await runner.execute(content, executionContext);
     // Tear down the in-flight deadline immediately; the pill flips
     // to the termination variant on the next render.

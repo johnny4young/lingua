@@ -9,7 +9,6 @@
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
-import type { BeforeExecuteContext } from './editor';
 import type { Language } from './language';
 
 export interface ExecutionContext {
@@ -41,7 +40,8 @@ export interface ExecutionContext {
    * implementation — tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
    * store keyed by this id, so a run on a different tab does not
-   * trigger pauses set on another tab.
+   * trigger pauses set on another tab. The Browser preview runner
+   * reads the tab's sibling css / html tabs from the editor store.
    */
   tabId?: string;
   /**
@@ -321,8 +321,6 @@ export interface LanguageRunner {
   /** File extensions associated with the language (".go", ".rs"). */
   extensions: string[];
   init(): Promise<void>;
-  /** Optional and synchronous; must not throw, so a failed lookup still lets the run go ahead. */
-  beforeExecute?(context: BeforeExecuteContext): void;
   execute(code: string, context?: ExecutionContext): Promise<ExecutionResult>;
   stop(): void;
   isReady(): boolean;

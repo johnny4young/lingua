@@ -181,10 +181,10 @@ export async function executeAutoRun({
         browserPreviewRefreshIntervalMs
       );
     }
-    runner.beforeExecute?.({ tab: activeTab, tabs: useEditorStore.getState().tabs });
     const result = await runner.execute(code, {
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
+      tabId: activeTab.id,
       autoLog: autoLogEnabled,
       // internal — Settings-level per-line timing; the runner also honors
       // an in-buffer // @time directive on its own.
