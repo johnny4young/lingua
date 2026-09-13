@@ -1,0 +1,43 @@
+name: Renderer budget
+
+# The desktop renderer ships to users but CI only builds the web target, so
+# its performance budget had no automatic check. It runs weekly and on demand
+# rather than per pull request: the desktop bundle build costs minutes, and
+# the renderer budget moves with dependency and runtime refreshes, not with
+# ordinary product changes.
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays at 06:17 UTC.
+    - cron: '17 6 * * 1'
+
+concurrency:
+  group: renderer-budget-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  renderer-budget:
+    name: Renderer and web performance budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build web
+        run: pnpm run build:web
+      - name: Build desktop bundles
+        run: pnpm run build:desktop-bundles
+      - name: Performance report
+        run: pnpm run performance:report
+      # Every baseline target must be present and inside its budget, and a
+      # category measuring under 75% of its baseline fails as slack.
+      - name: Performance budget check (all targets)
+        run: pnpm run check:performance --require-all-targets --fail-on-slack

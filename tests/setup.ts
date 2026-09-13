@@ -25,6 +25,43 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
   })) as typeof window.matchMedia;
 }
 
+// jsdom's user agent carries AppleWebKit without a Chrome or Safari token, so
+// Monaco treats the environment as a WebKit web view and installs its clipboard
+// workaround: click and keydown listeners on the document body that build a
+// ClipboardItem. jsdom implements none, so the first click after an editor
+// mounts throws inside that listener and vitest 5 fails the run on the
+// unhandled error. Mirror the shape user-event's clipboard stub already
+// expects (types plus an async getType returning a Blob), and keep the
+// property writable so tests can still remove it to exercise fallbacks.
+if (typeof window !== 'undefined' && typeof globalThis.ClipboardItem !== 'function') {
+  class ClipboardItemStub {
+    readonly presentationStyle = 'unspecified';
+
+    constructor(private readonly data: Record<string, string | Blob | PromiseLike<string | Blob>>) {}
+
+    get types(): string[] {
+      return Object.keys(this.data);
+    }
+
+    async getType(type: string): Promise<Blob> {
+      const value = await this.data[type];
+      if (value === undefined) {
+        throw new Error(`${type} is not one of the available MIME types on this item.`);
+      }
+      return value instanceof Blob ? value : new Blob([value], { type });
+    }
+
+    static supports(): boolean {
+      return true;
+    }
+  }
+  Object.defineProperty(globalThis, 'ClipboardItem', {
+    value: ClipboardItemStub,
+    writable: true,
+    configurable: true,
+  });
+}
+
 // Provide a working localStorage mock for environments (jsdom) that
 // don't fully implement the Web Storage API.
 const storage = new Map<string, string>();
