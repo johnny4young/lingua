@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 import { describe, expect, it, vi } from 'vitest';
 import migrationSql from '../migrations/0001_initial.sql?raw';
 import migrationSqlSurface from '../migrations/0002_add_surface_column.sql?raw';
