@@ -240,6 +240,14 @@ orchestration:
   entitlement checks, native trust gating, runner lifecycle, tab status,
   accessibility announcements, and telemetry. It loads only after a user asks
   Lingua to run or debug a tab.
+- [`runtime/executeTabManually.ts`](runtime/executeTabManually.ts) is the
+  short orchestrator every manual run shares. Its steps live in
+  [`runtime/execute/`](runtime/execute): `resolveRunPlan` decides the mode,
+  debug path, timeout precedence and execution context without touching
+  state; `prepareRunner` shows the runtime bootstrap and gets the runner (or a
+  native debugger session); `runAndCollect` runs it, streaming console output
+  and arming the countdown deadline; `publishRunResult` shows the outcome;
+  `recordRunHistory` builds the run capsule and the history record.
 
 The opt-in Run Ledger has a similar persistence boundary:
 
@@ -780,9 +788,11 @@ If you add a new global class, place it in the closest subsection instead of app
 Touch these areas together:
 
 - [`hooks/useRunner.ts`](hooks/useRunner.ts)
-- [`runtime/executeTabManually.ts`](runtime/executeTabManually.ts) and
+- [`runtime/execute/resolveRunPlan.ts`](runtime/execute/resolveRunPlan.ts) and
   [`hooks/autoRunExecution.ts`](hooks/autoRunExecution.ts), which build the
   `ExecutionContext` every runner receives
+- the matching step in [`runtime/execute/`](runtime/execute) when manual Run
+  output, history or telemetry changes
 - [`stores/resultStore.ts`](stores/resultStore.ts)
 - the relevant file in [`runners/`](runners)
 - [`utils/executionPresentation.ts`](utils/executionPresentation.ts) when output formatting changes

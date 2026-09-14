@@ -158,6 +158,18 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'manual runner orchestration used only after Run, Debug, replay, or smoke starts',
   },
   {
+    module: 'src/renderer/runtime/execute/prepareRunner.ts',
+    why: 'runtime bootstrap and runner acquisition that reach the runner graph, used only after a manual run starts',
+  },
+  {
+    module: 'src/renderer/runtime/execute/publishRunResult.ts',
+    why: 'manual run result publishing with document validation, used only after a manual run starts',
+  },
+  {
+    module: 'src/renderer/runtime/execute/recordRunHistory.ts',
+    why: 'run capsule construction and history recording, used only after a manual run finishes',
+  },
+  {
     module: 'src/renderer/runtime/manualRunController.ts',
     why: 'manual-run entitlement checks, native trust gating, lifecycle, announcements, and telemetry used only after Run or Debug starts',
   },

@@ -1,0 +1,143 @@
+/**
+ * The run itself: the console sink every step writes to, and one
+ * `runner.execute` call that streams output into the console and the result
+ * panel while it runs, arms the countdown deadline, and records how the run
+ * terminated.
+ */
+
+import { createConsoleEntryBatcher } from '../../stores/consoleEntryBatcher';
+import { useConsoleStore } from '../../stores/consoleStore';
+import { useResultStore } from '../../stores/resultStore';
+import type { FileTab } from '../../types/editor';
+import type { NewConsoleEntry } from '../../types/console';
+import type { ConsoleOutput, ExecutionResult, LanguageRunner } from '../../types/execution';
+import { toExecutionPresentation } from '../../utils/executionPresentation';
+import type { RunExecution } from './resolveRunPlan';
+
+export interface RunConsole {
+  /** Queue one entry; it reaches the store on the next flush. */
+  add: (entry: NewConsoleEntry) => void;
+  /** Deliver everything queued so far, synchronously. */
+  flush: () => void;
+  /** Entries this run has emitted so far. */
+  count: () => number;
+}
+
+export interface CollectedRun {
+  result: ExecutionResult;
+  /** Console outputs the runner streamed while running, already in the console. */
+  streamedConsoleCount: number;
+}
+
+export function createRunConsole(): RunConsole {
+  const { addEntries } = useConsoleStore.getState();
+  let count = 0;
+  // Console output is coalesced per frame: a worker posts one message per
+  // stdout line, so a print loop used to cost one store update and one
+  // re-render per line. Every exit path flushes so nothing stays queued
+  // when the summary is returned.
+  const entries = createConsoleEntryBatcher({
+    addEntries,
+    getClearVersion: () => useConsoleStore.getState().clearVersion,
+  });
+  return {
+    add: entry => {
+      count += 1;
+      entries.push(entry);
+    },
+    flush: entries.flush,
+    count: () => count,
+  };
+}
+
+/**
+ * implementation — forward the additive rich payload alongside the legacy
+ * text content so the console renderer can dispatch even on the streamed path
+ * (manual Run, hot scratchpad).
+ */
+export function consoleEntryFromOutput(output: ConsoleOutput, language: string): NewConsoleEntry {
+  return output.payload
+    ? {
+        type: output.type,
+        content: output.args.join(' '),
+        line: output.line,
+        ...(language ? { language } : {}),
+        payload: output.payload,
+      }
+    : {
+        type: output.type,
+        content: output.args.join(' '),
+        line: output.line,
+        ...(language ? { language } : {}),
+      };
+}
+
+export async function runAndCollect(
+  runner: Pick<LanguageRunner, 'execute'>,
+  activeTab: FileTab,
+  execution: RunExecution,
+  runConsole: RunConsole
+): Promise<CollectedRun> {
+  const { language, content } = activeTab;
+  const {
+    setError,
+    setExecutionTime,
+    setFullOutput,
+    setLineResults,
+    setLineTimings,
+    setRunDeadlineAt,
+    setRunTermination,
+  } = useResultStore.getState();
+
+  const streamedStdout: ConsoleOutput[] = [];
+  const streamedStderr: ConsoleOutput[] = [];
+  let streamedConsoleCount = 0;
+  const streamConsoleOutput = (output: ConsoleOutput) => {
+    streamedConsoleCount += 1;
+    if (output.type === 'error') {
+      streamedStderr.push(output);
+    } else {
+      streamedStdout.push(output);
+    }
+    runConsole.add(consoleEntryFromOutput(output, language));
+
+    const presentation = toExecutionPresentation(language, content, {
+      stdout: streamedStdout,
+      stderr: streamedStderr,
+      result: undefined,
+      executionTime: 0,
+    });
+    setLineResults(presentation.lineResults);
+    setLineTimings([]);
+    setFullOutput(presentation.fullOutput);
+    setError(null);
+    setExecutionTime(null);
+  };
+
+  // implementation note — set the in-flight deadline so the countdown pill
+  // can render `mm:ss` until termination; the pill reads
+  // `useResultStore.runDeadlineAt` to compute the remaining time.
+  if (execution.deadlineTimeoutMs !== undefined) {
+    setRunDeadlineAt(Date.now() + execution.deadlineTimeoutMs);
+  }
+
+  const result = await runner.execute(content, {
+    ...execution.context,
+    onConsole: streamConsoleOutput,
+  });
+  // Tear down the in-flight deadline immediately; the pill flips to the
+  // termination variant on the next render.
+  setRunDeadlineAt(null);
+  // implementation — propagate the termination summary so `<RunStatusPill>`
+  // can render the right variant. Runners that don't set `kind` default to a
+  // best-effort guess based on `error` / `cancelled`.
+  const terminationKind: 'success' | 'error' | 'timeout' | 'stopped' =
+    result.kind ?? (result.cancelled ? 'stopped' : result.error ? 'error' : 'success');
+  setRunTermination({
+    kind: terminationKind,
+    timeoutPreset: result.timeoutPreset,
+    timeoutMs: result.timeoutMs,
+  });
+
+  return { result, streamedConsoleCount };
+}
