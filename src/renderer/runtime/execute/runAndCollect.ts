@@ -5,7 +5,8 @@
  * terminated.
  */
 
-import { createConsoleEntryBatcher } from '../../stores/consoleEntryBatcher';
+import { toConsoleEntry } from '../../hooks/runnerOutput';
+import { createConsoleEntryBatcher, scheduleNextFrame } from '../../stores/consoleEntryBatcher';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
@@ -50,28 +51,6 @@ export function createRunConsole(): RunConsole {
   };
 }
 
-/**
- * implementation — forward the additive rich payload alongside the legacy
- * text content so the console renderer can dispatch even on the streamed path
- * (manual Run, hot scratchpad).
- */
-export function consoleEntryFromOutput(output: ConsoleOutput, language: string): NewConsoleEntry {
-  return output.payload
-    ? {
-        type: output.type,
-        content: output.args.join(' '),
-        line: output.line,
-        ...(language ? { language } : {}),
-        payload: output.payload,
-      }
-    : {
-        type: output.type,
-        content: output.args.join(' '),
-        line: output.line,
-        ...(language ? { language } : {}),
-      };
-}
-
 export async function runAndCollect(
   runner: Pick<LanguageRunner, 'execute'>,
   activeTab: FileTab,
@@ -92,15 +71,14 @@ export async function runAndCollect(
   const streamedStdout: ConsoleOutput[] = [];
   const streamedStderr: ConsoleOutput[] = [];
   let streamedConsoleCount = 0;
-  const streamConsoleOutput = (output: ConsoleOutput) => {
-    streamedConsoleCount += 1;
-    if (output.type === 'error') {
-      streamedStderr.push(output);
-    } else {
-      streamedStdout.push(output);
-    }
-    runConsole.add(consoleEntryFromOutput(output, language));
-
+  let presentationPending = false;
+  let settled = false;
+  // A runner can stream one message per output line. Rebuild the result panel
+  // at most once per frame, and never once the run has settled: the outcome
+  // publishes the final presentation, which a late frame must not overwrite.
+  const publishStreamedPresentation = () => {
+    presentationPending = false;
+    if (settled) return;
     const presentation = toExecutionPresentation(language, content, {
       stdout: streamedStdout,
       stderr: streamedStderr,
@@ -113,6 +91,19 @@ export async function runAndCollect(
     setError(null);
     setExecutionTime(null);
   };
+  const streamConsoleOutput = (output: ConsoleOutput) => {
+    streamedConsoleCount += 1;
+    if (output.type === 'error') {
+      streamedStderr.push(output);
+    } else {
+      streamedStdout.push(output);
+    }
+    runConsole.add(toConsoleEntry(output, language));
+    if (!presentationPending && !settled) {
+      presentationPending = true;
+      scheduleNextFrame(publishStreamedPresentation);
+    }
+  };
 
   // implementation note — set the in-flight deadline so the countdown pill
   // can render `mm:ss` until termination; the pill reads
@@ -121,10 +112,15 @@ export async function runAndCollect(
     setRunDeadlineAt(Date.now() + execution.deadlineTimeoutMs);
   }
 
-  const result = await runner.execute(content, {
-    ...execution.context,
-    onConsole: streamConsoleOutput,
-  });
+  let result: ExecutionResult;
+  try {
+    result = await runner.execute(content, {
+      ...execution.context,
+      onConsole: streamConsoleOutput,
+    });
+  } finally {
+    settled = true;
+  }
   // Tear down the in-flight deadline immediately; the pill flips to the
   // termination variant on the next render.
   setRunDeadlineAt(null);

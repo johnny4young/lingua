@@ -2,7 +2,9 @@
  * Decisions for one manual run, derived from the tab, the caller's lifecycle
  * options and the settings snapshot. Nothing here reads a store or writes
  * state: the orchestrator reads settings, and applies the one-shot timeout
- * consumption this module only reports.
+ * consumption this module only reports. The execution mode comes from the
+ * language metadata, which also consults the plugin registry for languages
+ * outside the built-in packs.
  */
 
 import {

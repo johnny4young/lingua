@@ -81,7 +81,9 @@ vi.mock('../../src/renderer/validation', () => ({
   validateDocument: vi.fn(() => []),
 }));
 
-vi.mock('../../src/renderer/hooks/runnerOutput', () => ({
+vi.mock('../../src/renderer/hooks/runnerOutput', async importOriginal => ({
+  // Keep the real per-output mapper the streamed and cancelled paths share.
+  ...(await importOriginal<typeof import('../../src/renderer/hooks/runnerOutput')>()),
   getCompilationLoadingMessage: () => null,
   getCompilationMessage: () => null,
   getInitializationMessage: () => null,

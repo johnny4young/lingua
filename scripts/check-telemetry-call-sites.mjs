@@ -57,10 +57,10 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   // are gone rather than zeroed.
   'src/renderer/runners/workerRunnerShell.ts': 5,
   // The manual run orchestrator held 4 direct calls. Splitting it into the
-  // run pipeline moved the bootstrap outcome into prepareRunner and the
+  // run pipeline moved the bootstrap outcome into prepareRun and the
   // runner.executed / stdin events into publishRunResult; the total stays 4
   // and the orchestrator entry is gone rather than zeroed.
-  'src/renderer/runtime/execute/prepareRunner.ts': 1,
+  'src/renderer/runtime/execute/prepareRun.ts': 1,
   'src/renderer/runtime/execute/publishRunResult.ts': 3,
   'src/renderer/stores/editorCloseActions.ts': 1,
   'src/renderer/stores/editorModeActions.ts': 3,

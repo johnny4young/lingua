@@ -1,15 +1,15 @@
 /**
  * Everything a manual run shows or records once its outcome is known: the
  * console entries, the result panel, the history record and the
- * `runner.executed` telemetry. The view-only, validation and unsupported
- * branches end their own lifecycle; the run path's shared teardown lives in
- * the orchestrator's `finally`.
+ * `runner.executed` telemetry. Publishers never call lifecycle callbacks,
+ * flush the console or report the runtime bootstrap; the orchestrator owns
+ * every exit's teardown.
  */
 
 import i18next from 'i18next';
 import { bucketDurationMs } from '../../../shared/telemetry';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
-import { toConsoleEntries } from '../../hooks/runnerOutput';
+import { toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
@@ -18,17 +18,12 @@ import { toExecutionDiagnostics } from '../../utils/executionDiagnostics';
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import { trackEvent } from '../../utils/telemetry';
 import { validateDocument } from '../../validation';
-import type { RunnerBootstrap } from './prepareRunner';
 import { recordCompletedRun, recordFailedRun, type GitSnapshot } from './recordRunHistory';
 import type { RunPlan } from './resolveRunPlan';
-import { consoleEntryFromOutput, type CollectedRun, type RunConsole } from './runAndCollect';
-import type { ManualExecutionLifecycle, ManualExecutionSummary } from './types';
+import type { CollectedRun, RunConsole } from './runAndCollect';
+import type { ManualExecutionSummary } from './types';
 
-export function publishViewOnly(
-  activeTab: FileTab,
-  lifecycle: ManualExecutionLifecycle,
-  runConsole: RunConsole
-): ManualExecutionSummary {
+export function publishViewOnly(activeTab: FileTab, runConsole: RunConsole): ManualExecutionSummary {
   const { clear, setDiagnostics, setExecutionSource, setFullOutput, setIsAutoRunning } =
     useResultStore.getState();
   useConsoleStore.getState().clear();
@@ -41,8 +36,6 @@ export function publishViewOnly(
     content: `${activeTab.name} is editable, but Lingua does not run or lint this file type yet.`,
   });
   setFullOutput('This file type is editable only. Lingua will not execute or validate it yet.');
-  lifecycle.setCurrentLanguage?.(null);
-  runConsole.flush();
   return {
     mode: 'view',
     ok: true,
@@ -52,78 +45,58 @@ export function publishViewOnly(
   };
 }
 
-/** Validates the document synchronously and publishes its diagnostics. */
-export function publishValidation(
-  activeTab: FileTab,
-  lifecycle: ManualExecutionLifecycle,
-  runConsole: RunConsole
-): ManualExecutionSummary {
-  const { language, content, name } = activeTab;
-  const {
-    clear,
-    setDiagnostics,
-    setError,
-    setExecutionSource,
-    setExecutionTime,
-    setFullOutput,
-    setIsAutoRunning,
-    setIsManualRunning,
-    setLineResults,
-    setLineTimings,
-  } = useResultStore.getState();
+/** Clears the previous output and marks a validation as started. */
+export function publishValidationStart(activeTab: FileTab, runConsole: RunConsole): void {
+  const { clear, setExecutionSource, setIsAutoRunning, setIsManualRunning } =
+    useResultStore.getState();
   useConsoleStore.getState().clear();
   clear();
   setExecutionSource('manual');
   setIsAutoRunning(false);
   setIsManualRunning(true);
-  lifecycle.setIsRunning?.(true);
-  runConsole.add({ type: 'info', content: `Validating ${name}...` });
+  runConsole.add({ type: 'info', content: `Validating ${activeTab.name}...` });
+}
 
-  try {
-    const validation = validateDocument(language, content);
-    setDiagnostics(validation.diagnostics);
-    setLineResults([]);
-    setLineTimings([]);
-    setFullOutput(validation.fullOutput);
-    setError(null);
-    setExecutionTime(validation.executionTime);
-    const hasErrors = validation.diagnostics.some((item) => item.severity === 'error');
+/** Validates the document synchronously and publishes its diagnostics. */
+export function publishValidation(activeTab: FileTab, runConsole: RunConsole): ManualExecutionSummary {
+  const { language, content, name } = activeTab;
+  const { setDiagnostics, setError, setExecutionTime, setFullOutput, setLineResults, setLineTimings } =
+    useResultStore.getState();
+  const validation = validateDocument(language, content);
+  setDiagnostics(validation.diagnostics);
+  setLineResults([]);
+  setLineTimings([]);
+  setFullOutput(validation.fullOutput);
+  setError(null);
+  setExecutionTime(validation.executionTime);
+  const hasErrors = validation.diagnostics.some((item) => item.severity === 'error');
 
-    runConsole.add({
-      type: hasErrors ? 'error' : 'info',
-      content:
-        validation.diagnostics.length === 0
-          ? `Validation passed for ${name}.`
-          : `Validation found ${validation.diagnostics.length} issue${validation.diagnostics.length === 1 ? '' : 's'} in ${name}.`,
-      executionTime: validation.executionTime,
-    });
+  runConsole.add({
+    type: hasErrors ? 'error' : 'info',
+    content:
+      validation.diagnostics.length === 0
+        ? `Validation passed for ${name}.`
+        : `Validation found ${validation.diagnostics.length} issue${validation.diagnostics.length === 1 ? '' : 's'} in ${name}.`,
+    executionTime: validation.executionTime,
+  });
 
-    return {
-      mode: 'validate',
-      ok: !hasErrors,
-      executionTime: validation.executionTime,
-      diagnosticsCount: validation.diagnostics.length,
-      message: hasErrors ? validation.fullOutput : `Validation passed for ${name}.`,
-    };
-  } finally {
-    runConsole.flush();
-    setIsManualRunning(false);
-    lifecycle.setIsRunning?.(false);
-    lifecycle.setCurrentLanguage?.(null);
-  }
+  return {
+    mode: 'validate',
+    ok: !hasErrors,
+    executionTime: validation.executionTime,
+    diagnosticsCount: validation.diagnostics.length,
+    message: hasErrors ? validation.fullOutput : `Validation passed for ${name}.`,
+  };
 }
 
 export function publishUnsupportedRunner(
   language: Language,
-  lifecycle: ManualExecutionLifecycle,
   runConsole: RunConsole
 ): ManualExecutionSummary {
   runConsole.add({
     type: 'error',
     content: `Runner for ${language} is not available yet. Coming in a future update.`,
   });
-  lifecycle.setCurrentLanguage?.(null);
-  runConsole.flush();
   return {
     mode: 'run',
     ok: false,
@@ -134,12 +107,7 @@ export function publishUnsupportedRunner(
 }
 
 /** Clears the previous output and marks the manual run as started. */
-export function publishRunStart(
-  activeTab: FileTab,
-  plan: RunPlan,
-  lifecycle: ManualExecutionLifecycle,
-  runConsole: RunConsole
-): void {
+export function publishRunStart(activeTab: FileTab, plan: RunPlan, runConsole: RunConsole): void {
   const { clearVisibleResults, setDiagnostics, setExecutionSource, setIsAutoRunning, setIsManualRunning } =
     useResultStore.getState();
   const { name } = activeTab;
@@ -155,7 +123,6 @@ export function publishRunStart(
       ? (i18next.t('runner.debuggingFile', { name }) as string)
       : `Running ${name}...`,
   });
-  lifecycle.setIsRunning?.(true);
 }
 
 export function publishMissingRunner(
@@ -193,7 +160,7 @@ export function publishCancelledRun(
   setExecutionTime(result.executionTime);
   const cancelledOutputs = streamedConsoleCount > 0 ? [] : [...result.stdout, ...result.stderr];
   for (const output of cancelledOutputs) {
-    runConsole.add(consoleEntryFromOutput(output, language));
+    runConsole.add(toConsoleEntry(output, language));
   }
   runConsole.add({
     type: 'warn',
@@ -310,19 +277,17 @@ export async function publishCompletedRun(
   };
 }
 
-export async function publishFailedRun(args: {
-  activeTab: FileTab;
-  plan: RunPlan;
-  error: unknown;
-  runnerPrepared: boolean;
-  bootstrap: Pick<RunnerBootstrap, 'fail'>;
-  gitSnapshot: GitSnapshot | undefined;
-  runConsole: RunConsole;
-}): Promise<ManualExecutionSummary> {
-  const { activeTab, plan, error, runnerPrepared, bootstrap, gitSnapshot, runConsole } = args;
-  const { language } = activeTab;
-  const { setDiagnostics, setError, setRunDeadlineAt, setRunTermination } =
-    useResultStore.getState();
+/**
+ * Reports a run that threw before producing a result: the pill, the history
+ * record and `runner.executed` telemetry. Resolves with the thrown message.
+ */
+export async function publishRunFailure(
+  activeTab: FileTab,
+  plan: RunPlan,
+  error: unknown,
+  gitSnapshot: GitSnapshot | undefined
+): Promise<string> {
+  const { setRunDeadlineAt, setRunTermination } = useResultStore.getState();
   const message = error instanceof Error ? error.message : String(error);
   // implementation — surface the failure via the pill too.
   setRunDeadlineAt(null);
@@ -334,12 +299,22 @@ export async function publishFailedRun(args: {
   // internal — mirror the error path in telemetry. `durationBucketMs: 0`
   // because the runner never completed a timed window.
   void trackEvent('runner.executed', {
-    language,
+    language: activeTab.language,
     status: 'error',
     durationBucketMs: 0,
   });
+  return message;
+}
+
+/** Shows why a thrown run failed: during runner preparation, or after it. */
+export function publishFailedRun(
+  language: Language,
+  message: string,
+  runnerPrepared: boolean,
+  runConsole: RunConsole
+): ManualExecutionSummary {
+  const { setDiagnostics, setError } = useResultStore.getState();
   if (!runnerPrepared) {
-    bootstrap.fail();
     setDiagnostics([]);
     setError({
       message: `Failed to initialize ${language} runner: ${message}`,

@@ -244,7 +244,7 @@ orchestration:
   short orchestrator every manual run shares. Its steps live in
   [`runtime/execute/`](runtime/execute): `resolveRunPlan` decides the mode,
   debug path, timeout precedence and execution context without touching
-  state; `prepareRunner` shows the runtime bootstrap and gets the runner (or a
+  state; `prepareRun` shows the runtime bootstrap and gets the runner (or a
   native debugger session); `runAndCollect` runs it, streaming console output
   and arming the countdown deadline; `publishRunResult` shows the outcome;
   `recordRunHistory` builds the run capsule and the history record.

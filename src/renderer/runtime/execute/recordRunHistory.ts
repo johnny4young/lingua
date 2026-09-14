@@ -76,14 +76,6 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
   return richOutputs.length > 0 ? richOutputs : undefined;
 }
 
-// implementation reviewer pass — `stripRichOutputOrigin`,
-// `stripConsoleOutputOrigin`, and `stripExecutionOutputOrigins`
-// were dead code once `outputSourceMappingEnabled` became a
-// hardcoded `true`. Removed entirely; the per-tab
-// `// @origin off` magic-comment opt-out at the renderer layer
-// remains the user-controlled escape hatch (badge + capsule
-// surfaces still consult `originSuppressedByMagicComment`).
-
 /**
  * implementation — capsule construction wrapper. Returns the built
  * capsule on the happy path; returns `null` and swallows the error
@@ -203,10 +195,11 @@ async function tryBuildCapsule(args: {
  * unavailable (web build, no-git folder, detached HEAD), in which
  * case the capsule's `environment.git` slot is omitted entirely.
  *
- * This module already depends on renderer stores for execution
- * lifecycle, so the git store is imported statically. A lazy
- * CommonJS `require()` would be undefined in Vite's browser-style
- * renderer bundle and would silently drop the Git snapshot.
+ * The git store is imported statically: this module only loads with
+ * the manual run pipeline, after a run starts, so the import adds
+ * nothing to startup. A lazy CommonJS `require()` would be undefined
+ * in Vite's browser-style renderer bundle and would silently drop
+ * the Git snapshot.
  */
 export function snapshotGitPosture(): GitSnapshot | undefined {
   try {

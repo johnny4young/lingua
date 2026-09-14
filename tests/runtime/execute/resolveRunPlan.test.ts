@@ -1,7 +1,8 @@
 /**
- * Direct coverage for the pure decisions of a manual run. The integration
- * guards in `tests/runtime/executeTabManually.*.test.ts` cover how those
- * decisions reach the stores, the runner and telemetry.
+ * Direct coverage for the store-free decisions of a manual run. They use only
+ * built-in languages, so no registered plugin can change a mode. The
+ * integration guards in `tests/runtime/executeTabManually.*.test.ts` cover how
+ * those decisions reach the stores, the runner and telemetry.
  */
 
 import { describe, expect, it } from 'vitest';

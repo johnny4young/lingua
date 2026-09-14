@@ -158,7 +158,7 @@ const DEFERRED_IMPLEMENTATION_MODULES: Array<{
     why: 'manual runner orchestration used only after Run, Debug, replay, or smoke starts',
   },
   {
-    module: 'src/renderer/runtime/execute/prepareRunner.ts',
+    module: 'src/renderer/runtime/execute/prepareRun.ts',
     why: 'runtime bootstrap and runner acquisition that reach the runner graph, used only after a manual run starts',
   },
   {
