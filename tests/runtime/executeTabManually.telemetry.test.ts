@@ -87,7 +87,9 @@ vi.mock('../../src/renderer/validation', () => ({
   validateDocument: vi.fn(() => []),
 }));
 
-vi.mock('../../src/renderer/hooks/runnerOutput', () => ({
+vi.mock('../../src/renderer/hooks/runnerOutput', async importOriginal => ({
+  // Keep the real per-output mapper the streamed and cancelled paths share.
+  ...(await importOriginal<typeof import('../../src/renderer/hooks/runnerOutput')>()),
   getCompilationLoadingMessage: () => null,
   getCompilationMessage: () => null,
   getInitializationMessage: (language: string) => `Loading ${language}`,
@@ -103,10 +105,17 @@ vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
 }));
 
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
+import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import type { FileTab } from '../../src/renderer/types/editor';
 import { defaultRuntimeTimeoutPresetSeed } from '../../src/shared/runtimeTimeoutPresets';
 
 describe('executeTabManually — runner.executed telemetry', () => {
+  const initialEditor = useEditorStore.getState();
+  const initialHistory = useExecutionHistoryStore.getState();
+  const initialSettings = useSettingsStore.getState();
+
   beforeEach(() => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
@@ -123,6 +132,10 @@ describe('executeTabManually — runner.executed telemetry', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    mockTrackEvent.mockReset().mockResolvedValue(undefined);
+    useEditorStore.setState(initialEditor, true);
+    useExecutionHistoryStore.setState(initialHistory, true);
+    useSettingsStore.setState(initialSettings, true);
   });
 
   it('fires runner.executed with status=ok and a bucketed duration on success', async () => {
@@ -360,6 +373,119 @@ describe('executeTabManually — runner.executed telemetry', () => {
     });
 
     expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  describe('ordering the orchestrator preserves', () => {
+    const overrideTab: FileTab = {
+      id: 'tab-override',
+      name: 'main.py',
+      language: 'python',
+      content: 'print(1)',
+      isDirty: false,
+      nextRunTimeoutOverrideMs: 60_000,
+    };
+    const storedOverride = () =>
+      useEditorStore.getState().tabs.find(tab => tab.id === overrideTab.id)
+        ?.nextRunTimeoutOverrideMs;
+
+    it.each([
+      ['returns no runner', () =>
+        mockRunnerManagerPrepare.mockResolvedValue({ runner: null, initialized: false })],
+      ['throws', () => mockRunnerManagerPrepare.mockRejectedValue(new Error('boot failed'))],
+    ] as const)(
+      'keeps the one-shot timeout override when preparation %s',
+      async (_label, arrangePreparation) => {
+        useEditorStore.setState({ tabs: [overrideTab], activeTabId: overrideTab.id });
+        arrangePreparation();
+
+        await executeTabManually(overrideTab);
+
+        // The user's extended timeout survives for the retry.
+        expect(storedOverride()).toBe(60_000);
+      }
+    );
+
+    it('consumes the one-shot timeout override once the runner is prepared', async () => {
+      useEditorStore.setState({ tabs: [overrideTab], activeTabId: overrideTab.id });
+      mockRunnerManagerPrepare.mockResolvedValue({
+        runner: {
+          execute: mockRunnerExecute.mockResolvedValue({
+            stdout: [],
+            stderr: [],
+            result: undefined,
+            executionTime: 1,
+          }),
+        },
+        initialized: false,
+      });
+
+      await executeTabManually(overrideTab);
+
+      expect(mockRunnerExecute).toHaveBeenCalledWith(
+        'print(1)',
+        expect.objectContaining({ timeout: 60_000 })
+      );
+      expect(storedOverride()).toBeUndefined();
+    });
+
+    it('reports a failed preparation to history and runner.executed before the bootstrap failure', async () => {
+      const order: string[] = [];
+      mockNeedsInitialization.mockReturnValue(true);
+      mockTrackEvent.mockImplementation(async (event: string) => {
+        order.push(event);
+      });
+      const record = vi
+        .spyOn(useExecutionHistoryStore.getState(), 'record')
+        .mockImplementation(() => {
+          order.push('history');
+        });
+      mockRunnerManagerPrepare.mockRejectedValue(new Error('boot failed'));
+
+      await executeTabManually({
+        id: 'tab-order',
+        name: 'main.py',
+        language: 'python',
+        content: 'print(1)',
+        isDirty: false,
+      });
+
+      expect(record).toHaveBeenCalledTimes(1);
+      expect(order).toEqual(['history', 'runner.executed', 'runtime.bootstrap_failed']);
+    });
+
+    it('reads settings after the runner is prepared', async () => {
+      useSettingsStore.setState({ showLineTiming: false });
+      let finishPreparation!: (value: unknown) => void;
+      mockRunnerManagerPrepare.mockReturnValue(
+        new Promise(resolve => {
+          finishPreparation = resolve;
+        })
+      );
+      mockRunnerExecute.mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        result: undefined,
+        executionTime: 1,
+      });
+
+      const run = executeTabManually({
+        id: 'tab-settings',
+        name: 'main.js',
+        language: 'javascript',
+        content: 'console.log(1)',
+        isDirty: false,
+      });
+      await vi.waitFor(() => expect(mockRunnerManagerPrepare).toHaveBeenCalled());
+      // A setting changed while the runtime boots applies to this run.
+      useSettingsStore.setState({ showLineTiming: true });
+      finishPreparation({ runner: { execute: mockRunnerExecute }, initialized: true });
+      await run;
+
+      expect(mockRunnerExecute).toHaveBeenCalledWith(
+        'console.log(1)',
+        expect.objectContaining({ lineTiming: true })
+      );
+    });
   });
 
   it('emits one completed bootstrap outcome and closes the loading lifecycle', async () => {

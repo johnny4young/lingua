@@ -1,6 +1,6 @@
 import type { ConsoleEntry } from '../types/console';
 import type { Language } from '../types/language';
-import type { ExecutionResult } from '../types/execution';
+import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 
 type ConsoleEntryInput = Omit<ConsoleEntry, 'id' | 'timestamp'>;
 
@@ -73,6 +73,28 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
   return entry;
 }
 
+/**
+ * One runner console output as a console entry. implementation — forward the
+ * optional rich payload alongside the legacy text content so the console
+ * renderer can dispatch on every path: streamed, cancelled and completed runs.
+ */
+export function toConsoleEntry(output: ConsoleOutput, language?: Language): ConsoleEntryInput {
+  return output.payload
+    ? {
+        type: output.type,
+        content: output.args.join(' '),
+        line: output.line,
+        ...(language ? { language } : {}),
+        payload: output.payload,
+      }
+    : {
+        type: output.type,
+        content: output.args.join(' '),
+        line: output.line,
+        ...(language ? { language } : {}),
+      };
+}
+
 export function toConsoleEntries(
   result: ExecutionResult,
   language?: Language
@@ -80,43 +102,11 @@ export function toConsoleEntries(
   const entries: ConsoleEntryInput[] = [];
 
   for (const output of result.stdout) {
-    // implementation — forward the optional rich payload alongside
-    // the legacy text content so the console renderer can dispatch.
-    entries.push(
-      output.payload
-        ? {
-            type: output.type,
-            content: output.args.join(' '),
-            line: output.line,
-            ...(language ? { language } : {}),
-            payload: output.payload,
-          }
-        : {
-            type: output.type,
-            content: output.args.join(' '),
-            line: output.line,
-            ...(language ? { language } : {}),
-          }
-    );
+    entries.push(toConsoleEntry(output, language));
   }
 
   for (const output of result.stderr) {
-    entries.push(
-      output.payload
-        ? {
-            type: output.type,
-            content: output.args.join(' '),
-            line: output.line,
-            ...(language ? { language } : {}),
-            payload: output.payload,
-          }
-        : {
-            type: output.type,
-            content: output.args.join(' '),
-            line: output.line,
-            ...(language ? { language } : {}),
-          }
-    );
+    entries.push(toConsoleEntry(output, language));
   }
 
   if (result.result !== undefined) {

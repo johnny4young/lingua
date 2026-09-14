@@ -16,6 +16,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({ trackEvent: vi.fn() }));
 
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import { useConsoleStore } from '../../src/renderer/stores/consoleStore';
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 
 const tab: FileTab = {
   id: 'batch-run',
@@ -107,6 +108,51 @@ describe('executeTabManually — console delivery', () => {
       tab.content,
       expect.objectContaining({ tabId: 'batch-run' })
     );
+  });
+
+  it('updates the result panel from streamed output at most once per frame and never after the run settles', async () => {
+    const frames: Array<() => void> = [];
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: () => void) => {
+        frames.push(callback);
+        return frames.length;
+      })
+    );
+    let emit: ((value: ConsoleOutput) => void) | undefined;
+    let finish!: (value: ExecutionResult) => void;
+    execute.mockImplementation(
+      (_source: string, context: { onConsole: (value: ConsoleOutput) => void }) => {
+        emit = context.onConsole;
+        return new Promise<ExecutionResult>(resolve => {
+          finish = resolve;
+        });
+      }
+    );
+    // JavaScript shows streamed output as inline line results.
+    const panel = () => useResultStore.getState().lineResults.map(line => line.value);
+
+    const run = executeTabManually(tab, { recordHistory: false });
+    for (let tick = 0; tick < 50 && !emit; tick += 1) await Promise.resolve();
+    frames.splice(0).forEach(frame => frame());
+
+    emit!({ type: 'log', args: ['one'] });
+    emit!({ type: 'log', args: ['two'] });
+    emit!({ type: 'log', args: ['three'] });
+    // Three streamed lines queue one console flush and one panel update.
+    expect(frames).toHaveLength(2);
+    expect(panel()).toEqual([]);
+    frames.splice(0).forEach(frame => frame());
+    expect(panel()).toEqual(['one', 'two', 'three']);
+
+    emit!({ type: 'log', args: ['late'] });
+    finish({ stdout: [{ type: 'log', args: ['final'] }], stderr: [], executionTime: 5 });
+    await run;
+    const published = useResultStore.getState().lineResults;
+    expect(panel()).toEqual(['final']);
+    frames.splice(0).forEach(frame => frame());
+    // The frame queued before the run settled must not overwrite the outcome.
+    expect(useResultStore.getState().lineResults).toBe(published);
   });
 
   it('does not resurrect pre-clear queued output when the run finishes', async () => {

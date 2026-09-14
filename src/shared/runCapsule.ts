@@ -85,8 +85,8 @@ interface RunCapsuleEnvironment {
   /** Optional dependency summary opaque to the schema. */
   dependencySummary?: unknown;
   /**
-   * implementation note — pre-run branch snapshot. Captured at
-   * `executeTabManually.record()` START so a mid-run sibling-terminal
+   * implementation note — pre-run branch snapshot. Captured when
+   * `executeTabManually` starts a run so a mid-run sibling-terminal
    * `git checkout` does NOT pollute the capsule with the post-checkout
    * branch. Absent on web builds (no git layer), in detached-HEAD
    * states, or when the gitStore posture is unavailable. Branch /
@@ -686,7 +686,7 @@ export function summarizeRunCapsule(capsule: RunCapsuleV1): string {
  * (e.g. an unsupported polyfill, an old Electron pre-Chromium 95).
  * Callers should treat the throw as terminal and fall back to a
  * capsule-less record (mirror of `tryBuildCapsule` in
- * `src/renderer/runtime/executeTabManually.ts`).
+ * `src/renderer/runtime/execute/recordRunHistory.ts`).
  *
  * Implementation detail: keep the helper exported so the test suite
  * can verify determinism + cross-input distinctness directly.

@@ -73,7 +73,7 @@ export const SETTINGS_INLINE_LINT_LANGUAGE_SET: ReadonlySet<string> = new Set(
  * internal — platform-aware default for the persistent status-bar toggle.
  * ON for the desktop shell (where the chrome echoes a native IDE) and OFF
  * for web (keep the lighter browser canvas quiet by default). Mirrors the
- * platform probe in `executeTabManually.ts` but guards `window` so it stays
+ * platform probe in `runtime/execute/recordRunHistory.ts` but guards `window` so it stays
  * safe in non-DOM test contexts (returns `false` when window / lingua absent).
  */
 export function defaultShowStatusBar(): boolean {

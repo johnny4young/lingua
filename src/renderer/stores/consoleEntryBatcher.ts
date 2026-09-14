@@ -20,16 +20,20 @@ export interface ConsoleEntryBatcherOptions {
   schedule?: (flush: () => void) => void;
 }
 
-function defaultSchedule(flush: () => void): void {
+/**
+ * Run `callback` on the next animation frame, or after 16 ms where
+ * `requestAnimationFrame` is unavailable.
+ */
+export function scheduleNextFrame(callback: () => void): void {
   const raf = (
     globalThis as typeof globalThis & {
       requestAnimationFrame?: (callback: () => void) => number;
     }
   ).requestAnimationFrame;
   if (typeof raf === 'function') {
-    raf(flush);
+    raf(callback);
   } else {
-    setTimeout(flush, 16);
+    setTimeout(callback, 16);
   }
 }
 
@@ -43,7 +47,7 @@ function defaultSchedule(flush: () => void): void {
  */
 export function createConsoleEntryBatcher({
   addEntries,
-  schedule = defaultSchedule,
+  schedule = scheduleNextFrame,
   getClearVersion = () => 0,
 }: ConsoleEntryBatcherOptions): ConsoleEntryBatcher {
   let queue: NewConsoleEntry[] = [];
