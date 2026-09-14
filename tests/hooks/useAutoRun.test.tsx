@@ -163,6 +163,24 @@ describe('useAutoRun', () => {
     expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
   });
 
+  it('names the running tab in the execution context', async () => {
+    const execute = mockSuccessfulRunner();
+    seedBrowserPreviewTab();
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    // Runners that need workspace state (Browser preview reads sibling
+    // css / html tabs) look it up by this id instead of callers seeding it.
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(
+      'document.body.textContent = "ready";',
+      expect.objectContaining({ tabId: 'tab-preview' })
+    );
+  });
+
   it('internal — Off leaves Browser preview manual-only', async () => {
     mockSuccessfulRunner();
     useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 });
@@ -935,6 +953,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: false,
       language: 'javascript',
+      tabId: 'tab-js-auto-log-toggle',
       // implementation — auto-run requests a scope capture for
       // inspector-supported languages so the toggle lights up on
       // the first clean run.
@@ -958,6 +977,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: true,
       language: 'javascript',
+      tabId: 'tab-js-auto-log-toggle',
       captureScope: true,
       scopeDepth: 1,
     });
@@ -998,6 +1018,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
       autoLog: true,
       language: 'javascript',
+      tabId: 'tab-js-stdin-toggle',
       captureScope: true,
       scopeDepth: 1,
     });
@@ -1026,6 +1047,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
       autoLog: true,
       language: 'javascript',
+      tabId: 'tab-js-stdin-toggle',
       stdin: 'Ada',
       captureScope: true,
       scopeDepth: 1,

@@ -223,7 +223,9 @@ export function CodeEditor() {
   // Gated on the runtime mode too: Browser Preview, Deno and Bun reach runners
   // that never transpile, so warming there would download esbuild for a run
   // that will not use it — the opposite of the point. The mode is a dependency
-  // so a tab switched back to Worker or Node still gets its warm.
+  // so a tab switched back to Worker or Node still gets its warm. Node on the
+  // web build resolves to a desktop-only stand-in that warms nothing, so that
+  // attempt hands the warm back for the next mode.
   const activeRuntimeMode = activeTab?.runtimeMode;
   const didWarmTypeScriptRef = useRef(false);
   useEffect(() => {
@@ -235,6 +237,9 @@ export function CodeEditor() {
       // the real run still owns its own error reporting.
       void import('../../runners/manager')
         .then(({ runnerManager }) => runnerManager.prepareRunner('typescript', activeRuntimeMode))
+        .then(({ unavailable }) => {
+          if (unavailable) didWarmTypeScriptRef.current = false;
+        })
         .catch(() => {});
     });
   }, [activeLanguage, activeRuntimeMode]);

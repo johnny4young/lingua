@@ -3,7 +3,6 @@ import { isLikelyComplete } from '../../shared/autoRunGating';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTimeoutPresets';
 import { runnerManager } from '../runners';
-import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -145,7 +144,6 @@ export async function executeAutoRun({
   setAutoRunGateReason(gate.reason);
 
   try {
-    seedBrowserPreviewSiblings(runtimeMode, activeTab);
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner || shouldDiscard()) {
       finish();
@@ -186,6 +184,7 @@ export async function executeAutoRun({
     const result = await runner.execute(code, {
       language,
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
+      tabId: activeTab.id,
       autoLog: autoLogEnabled,
       // internal — Settings-level per-line timing; the runner also honors
       // an in-buffer // @time directive on its own.
@@ -238,22 +237,5 @@ export async function executeAutoRun({
     }
   } finally {
     finish();
-  }
-}
-
-function seedBrowserPreviewSiblings(
-  runtimeMode: FileTab['runtimeMode'],
-  activeTab: FileTab
-): void {
-  if (runtimeMode !== 'browser-preview') return;
-  try {
-    const editorState = useEditorStore.getState();
-    const siblings = collectBrowserPreviewSiblingSources(
-      editorState.tabs,
-      activeTab
-    );
-    runnerManager.getBrowserPreviewRunner()?.setSiblingSources(siblings);
-  } catch {
-    // Sibling lookup is best-effort; plain execution remains valid.
   }
 }

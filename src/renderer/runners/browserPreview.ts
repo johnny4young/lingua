@@ -24,7 +24,9 @@
  *   1. `execute()` mints a fresh `runId` (UUID), checks for a
  *      registered iframe ref, and ensures the Browser preview tab
  *      is the active bottom-panel tab.
- *   2. The renderer builds the srcdoc with `buildPreviewDocument`,
+ *   2. The renderer picks the sibling `.css` / `.html` tabs of the
+ *      tab named by `context.tabId` from the editor store, builds the
+ *      srcdoc with `buildPreviewDocument`,
  *      installs a `message` listener gated on (origin === 'null'
  *      OR origin === window.origin) + runId, then assigns
  *      `iframe.srcdoc`.
@@ -51,6 +53,11 @@ import {
   type BridgeMessage,
 } from '../components/BrowserPreview/iframeBridge';
 import { getActiveBrowserPreviewIframe, activateBrowserPreviewTab } from '../runtime/browserPreviewBridge';
+import {
+  collectBrowserPreviewSiblingSources,
+  type BrowserPreviewSiblingSources,
+} from '../runtime/browserPreviewSiblings';
+import { useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
   resolveTimeoutMs,
@@ -73,11 +80,20 @@ import {
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
-export interface BrowserPreviewSiblingSources {
-  /** Sibling `.css` tab content (implementation note multi-file seed). */
-  css?: string;
-  /** Sibling `.html` tab content (implementation note — sets initial body markup). */
-  html?: string;
+/**
+ * Sibling `.css` / `.html` tabs of the running tab, read from the editor
+ * store at execute time. A run without a `tabId`, an unknown tab, or a
+ * lookup that throws yields no seed; plain execution remains valid.
+ */
+function siblingSourcesFor(tabId: string | undefined): BrowserPreviewSiblingSources | null {
+  if (!tabId) return null;
+  try {
+    const { tabs } = useEditorStore.getState();
+    const activeTab = tabs.find(tab => tab.id === tabId);
+    return activeTab ? collectBrowserPreviewSiblingSources(tabs, activeTab) : null;
+  } catch {
+    return null;
+  }
 }
 
 export class BrowserPreviewRunner implements LanguageRunner {
@@ -89,7 +105,6 @@ export class BrowserPreviewRunner implements LanguageRunner {
   private ready = false;
   private currentRunId: string | null = null;
   private cancelInFlight: (() => void) | null = null;
-  private siblingSources: BrowserPreviewSiblingSources | null = null;
   // Keep only the serializable document. Retaining the iframe would pin a
   // detached BrowserPreviewPanel for the renderer session and would prevent a
   // remounted panel from recovering the last successful preview.
@@ -101,15 +116,6 @@ export class BrowserPreviewRunner implements LanguageRunner {
 
   isReady(): boolean {
     return this.ready;
-  }
-
-  /**
-   * implementation note wiring — the runner manager calls this BEFORE
-   * `execute()` so the iframe srcdoc can splice sibling CSS /
-   * HTML. Optional; missing or null clears the seed.
-   */
-  setSiblingSources(sources: BrowserPreviewSiblingSources | null): void {
-    this.siblingSources = sources;
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
@@ -166,11 +172,12 @@ export class BrowserPreviewRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const siblingSources = siblingSourcesFor(context?.tabId);
     const doc = buildPreviewDocument({
       runId,
       userCode: code,
-      siblingCss: this.siblingSources?.css,
-      siblingHtml: this.siblingSources?.html,
+      siblingCss: siblingSources?.css,
+      siblingHtml: siblingSources?.html,
     });
 
     return new Promise<ExecutionResult>((resolve) => {

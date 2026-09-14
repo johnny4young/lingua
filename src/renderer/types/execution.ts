@@ -40,7 +40,8 @@ export interface ExecutionContext {
    * implementation — tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
    * store keyed by this id, so a run on a different tab does not
-   * trigger pauses set on another tab.
+   * trigger pauses set on another tab. The Browser preview runner
+   * reads the tab's sibling css / html tabs from the editor store.
    */
   tabId?: string;
   /**

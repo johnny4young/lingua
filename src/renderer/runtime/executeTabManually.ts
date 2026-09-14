@@ -27,7 +27,6 @@ import {
 import type { FileTab } from '../types/editor';
 import type { Language } from '../types/language';
 import type { ConsoleOutput, ExecutionResult } from '../types/execution';
-import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -507,21 +506,6 @@ export async function executeTabManually(
   const gitSnapshot = snapshotGitPosture();
 
   try {
-    // implementation note — feed sibling .css / .html tabs to
-    // the browser-preview runner BEFORE prepareRunner so the
-    // first execute() picks them up. Editor store is already a
-    // hard dep elsewhere in this module (other surfaces import
-    // it), so the static reference does not change bundle shape.
-    if (runtimeMode === 'browser-preview') {
-      try {
-        const editorState = useEditorStore.getState();
-        const siblingSources = collectBrowserPreviewSiblingSources(editorState.tabs, activeTab);
-        runnerManager.getBrowserPreviewRunner()?.setSiblingSources(siblingSources);
-      } catch {
-        /* if the sibling lookup throws, fall back to plain execution */
-      }
-    }
-
     const prepared = usesNativeDebugger
       ? {
           runner: {

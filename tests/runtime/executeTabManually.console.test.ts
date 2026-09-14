@@ -98,6 +98,17 @@ describe('executeTabManually — console delivery', () => {
     ]);
   });
 
+  it('names the running tab in the execution context', async () => {
+    execute.mockResolvedValue(result);
+
+    await executeTabManually(tab, { recordHistory: false });
+
+    expect(execute).toHaveBeenCalledWith(
+      tab.content,
+      expect.objectContaining({ tabId: 'batch-run' })
+    );
+  });
+
   it('does not resurrect pre-clear queued output when the run finishes', async () => {
     execute.mockImplementation(
       async (_source: string, context: { onConsole: (value: ConsoleOutput) => void }) => {

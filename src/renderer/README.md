@@ -780,7 +780,9 @@ If you add a new global class, place it in the closest subsection instead of app
 Touch these areas together:
 
 - [`hooks/useRunner.ts`](hooks/useRunner.ts)
-- [`runtime/executeTabManually.ts`](runtime/executeTabManually.ts)
+- [`runtime/executeTabManually.ts`](runtime/executeTabManually.ts) and
+  [`hooks/autoRunExecution.ts`](hooks/autoRunExecution.ts), which build the
+  `ExecutionContext` every runner receives
 - [`stores/resultStore.ts`](stores/resultStore.ts)
 - the relevant file in [`runners/`](runners)
 - [`utils/executionPresentation.ts`](utils/executionPresentation.ts) when output formatting changes

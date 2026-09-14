@@ -18,8 +18,8 @@
  *     accept-set (`null` or our app origin) and messages whose
  *     `runId` does not match the active run.
  *   - `execute()` resolves on a `done` message, captures console
- *     entries inline, and fires `setSiblingSources` through into
- *     the rendered srcdoc.
+ *     entries inline, and seeds the rendered srcdoc with the sibling
+ *     css / html tabs of the tab named by `context.tabId`.
  *   - Timeout: parent clears the iframe `srcdoc` and resolves with
  *     `runnerTimeoutResult`.
  */
@@ -39,6 +39,7 @@ import {
   _resetBrowserPreviewBridgeForTesting,
 } from '@/runtime/browserPreviewBridge';
 import { collectBrowserPreviewSiblingSources } from '@/runtime/browserPreviewSiblings';
+import { useEditorStore } from '@/stores/editorStore';
 import type { FileTab } from '@/types';
 
 describe('BrowserPreviewRunner — metadata', () => {
@@ -368,6 +369,8 @@ function resetBody(): void {
 }
 
 describe('BrowserPreviewRunner — execute()', () => {
+  const initialEditor = useEditorStore.getState();
+
   beforeEach(() => {
     _resetBrowserPreviewBridgeForTesting();
     resetBody();
@@ -376,6 +379,7 @@ describe('BrowserPreviewRunner — execute()', () => {
   afterEach(() => {
     _resetBrowserPreviewBridgeForTesting();
     resetBody();
+    useEditorStore.setState(initialEditor, true);
     vi.useRealTimers();
   });
 
@@ -608,22 +612,43 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(remountedIframe.srcdoc).toBe(stableDocument);
   });
 
-  it('honors implementation note sibling sources via setSiblingSources', async () => {
+  it('seeds the sibling css and html tabs of the tab named by context.tabId', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
     const iframe = createFakeIframe();
     setActiveBrowserPreviewIframe(iframe);
-
-    runner.setSiblingSources({
-      css: '.x { color: red; }',
-      html: '<div id="seed">hello</div>',
+    const active = tab({
+      id: 'active',
+      name: 'app.js',
+      relativePath: 'demo/app.js',
+      rootId: 'root-a',
+    });
+    useEditorStore.setState({
+      tabs: [
+        active,
+        tab({
+          id: 'css',
+          name: 'style.css',
+          content: '.seeded { color: teal; }',
+          relativePath: 'demo/style.css',
+          rootId: 'root-a',
+        }),
+        tab({
+          id: 'html',
+          name: 'index.html',
+          content: '<p id="seeded">hi</p>',
+          relativePath: 'demo/index.html',
+          rootId: 'root-a',
+        }),
+      ],
+      activeTabId: 'active',
     });
 
-    const promise = runner.execute('// noop');
+    const promise = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
     const srcdoc = iframe.srcdoc;
-    expect(srcdoc).toContain('.x { color: red; }');
-    expect(srcdoc).toContain('<div id="seed">hello</div>');
+    expect(srcdoc).toContain('.seeded { color: teal; }');
+    expect(srcdoc).toContain('<p id="seeded">hi</p>');
 
     const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
@@ -632,6 +657,72 @@ describe('BrowserPreviewRunner — execute()', () => {
       type: 'done',
     });
     await promise;
+  });
+
+  it('reads the seed at execute time, so the next run sees the edited sibling', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    const active = tab({ id: 'active', name: 'app.js' });
+    const css = tab({ id: 'css', name: 'style.css', content: '.first { color: red; }' });
+    useEditorStore.setState({ tabs: [active, css], activeTabId: 'active' });
+
+    const first = runner.execute('// noop', { tabId: 'active' });
+    await Promise.resolve();
+    expect(iframe.srcdoc).toContain('.first { color: red; }');
+    runner.stop();
+    await first;
+
+    useEditorStore.setState({
+      tabs: [active, { ...css, content: '.second { color: blue; }' }],
+      activeTabId: 'active',
+    });
+    const second = runner.execute('// noop', { tabId: 'active' });
+    await Promise.resolve();
+    expect(iframe.srcdoc).toContain('.second { color: blue; }');
+    expect(iframe.srcdoc).not.toContain('.first { color: red; }');
+    runner.stop();
+    await second;
+  });
+
+  it('runs without a seed when the context names no tab or the lookup throws', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    useEditorStore.setState({
+      tabs: [
+        tab({ id: 'active', name: 'app.js' }),
+        tab({ id: 'css', name: 'style.css', content: '.unseeded { color: red; }' }),
+      ],
+      activeTabId: 'active',
+    });
+
+    // No tabId: the manager execute path (benchmarks) never names a tab.
+    const anonymous = runner.execute('// noop');
+    await Promise.resolve();
+    expect(iframe.srcdoc).not.toContain('.unseeded');
+    runner.stop();
+    await anonymous;
+
+    // A throwing store read degrades to a plain run instead of failing it.
+    const getState = vi.spyOn(useEditorStore, 'getState').mockImplementationOnce(() => {
+      throw new Error('store unavailable');
+    });
+    const degraded = runner.execute('// noop', { tabId: 'active' });
+    await Promise.resolve();
+    const srcdoc = iframe.srcdoc;
+    expect(srcdoc).not.toContain('.unseeded');
+    getState.mockRestore();
+
+    const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId,
+      type: 'done',
+    });
+    await expect(degraded).resolves.toMatchObject({ kind: 'success' });
   });
 
   it('times out by clearing srcdoc + resolving with the timeout result', async () => {
