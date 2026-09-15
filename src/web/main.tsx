@@ -1,15 +1,30 @@
 /**
  * Web entry point — imports the browser adapter BEFORE React renders
  * so that window.lingua is available when App and its stores initialise.
+ *
+ * It is also the composition root of `src/web`: the only module there that
+ * may import renderer stores, telemetry or i18n. It hands them to the
+ * adapters through their hooks, and lint rejects those imports elsewhere.
  */
 
+// Keep this bare import first: it installs window.lingua even if the named
+// adapter imports below stop being used, which a transpiler would drop.
 import './adapter';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
-import { getBrowserSystemLanguages, initI18n, resolveSystemLanguage } from '../renderer/i18n';
+import {
+  getBrowserSystemLanguages,
+  initI18n,
+  resolveSystemLanguage,
+  translateAppCommon,
+} from '../renderer/i18n';
 import { useSettingsStore } from '../renderer/stores/settingsStore';
+import { useUIStore } from '../renderer/stores/uiStore';
+import { trackEvent } from '../renderer/utils/telemetry';
+import { configureWebAdapter } from './adapter';
+import { configureWebFsAdapter } from './fs-adapter';
 import {
   manageServiceWorker,
   shouldRegisterServiceWorkerForMode,
@@ -25,6 +40,17 @@ import {
 } from '../renderer/utils/safeBoot';
 import '../renderer/index.css';
 import { markBootPhase } from '../renderer/utils/bootTimings';
+
+// Connect the adapters before anything can call into them. Their stubs
+// translate when called, so the language active at that moment still wins.
+configureWebAdapter({
+  translate: (key) => translateAppCommon(key),
+  getSystemLanguages: () => getBrowserSystemLanguages(),
+});
+configureWebFsAdapter({
+  pushStatusNotice: (notice) => useUIStore.getState().pushStatusNotice(notice),
+  trackEvent,
+});
 
 // internal — mirror the boot recovery state on `<html data-recovery-state>`
 // and install global error listeners so async + event-handler errors

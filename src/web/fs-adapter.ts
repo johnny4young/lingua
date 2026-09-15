@@ -16,8 +16,7 @@
  */
 
 import { OPEN_FILE_PICKER_TYPES } from '../shared/filePickerTypes';
-import { useUIStore } from '../renderer/stores/uiStore';
-import { trackEvent } from '../renderer/utils/telemetry';
+import type { TelemetryEventName } from '../shared/telemetry';
 import {
   asRelativePath,
   asRootId,
@@ -263,6 +262,35 @@ function bucketUserAgent(ua: string): 'safari' | 'firefox' | 'edge-old' | 'other
   return 'other';
 }
 
+/**
+ * What the adapter needs from the app shell. `src/web/main.tsx` connects it
+ * before the app renders, so this module never imports renderer stores or
+ * telemetry; lint rejects those imports anywhere else in `src/web`.
+ */
+export interface WebFsAdapterHooks {
+  /** Show a status notice in the app shell. */
+  pushStatusNotice: (notice: {
+    tone: 'info' | 'success' | 'warning' | 'error';
+    messageKey: string;
+  }) => void;
+  /** Report a telemetry event. Consent and redaction stay with the app. */
+  trackEvent: (
+    event: TelemetryEventName,
+    properties: Record<string, string | number | boolean>
+  ) => void | Promise<void>;
+}
+
+// Until the app connects, notices and telemetry are dropped.
+let hooks: WebFsAdapterHooks = {
+  pushStatusNotice: () => {},
+  trackEvent: () => {},
+};
+
+/** Connect the adapter to the app shell. Call once, before the app renders. */
+export function configureWebFsAdapter(next: WebFsAdapterHooks): void {
+  hooks = next;
+}
+
 let directoryPickerUnsupportedReported = false;
 const DIRECTORY_UNSUPPORTED_NOTICE_DEBOUNCE_MS = 1500;
 let lastDirectoryUnsupportedNoticeAt = Number.NEGATIVE_INFINITY;
@@ -275,15 +303,12 @@ export function _resetWebFsAdapterUnsupportedStateForTests(): void {
 function emitDirectoryPickerUnsupportedOnce(): void {
   if (directoryPickerUnsupportedReported) return;
   directoryPickerUnsupportedReported = true;
-  // Both `uiStore` and `telemetry` are already in the web main bundle
-  // via other consumers, so the static imports at the top of this file
-  // do not widen the initial bundle beyond modules already loaded.
   try {
     const ua =
       typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string'
         ? navigator.userAgent
         : '';
-    void trackEvent('runtime.fs_directory_picker_unsupported', {
+    void hooks.trackEvent('runtime.fs_directory_picker_unsupported', {
       userAgentBucket: bucketUserAgent(ua),
     });
   } catch {
@@ -301,7 +326,7 @@ function pushDirectoryUnsupportedNoticeDebounced(): void {
   }
   lastDirectoryUnsupportedNoticeAt = now;
   try {
-    useUIStore.getState().pushStatusNotice({
+    hooks.pushStatusNotice({
       tone: 'warning',
       messageKey: 'fileTree.web.directoryUnsupported',
     });

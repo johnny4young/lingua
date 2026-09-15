@@ -1,12 +1,25 @@
 import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { initI18n } from '../../src/renderer/i18n';
+import {
+  getBrowserSystemLanguages,
+  initI18n,
+  translateAppCommon,
+} from '../../src/renderer/i18n';
 import pkg from '../../package.json';
+
+/** The hooks src/web/main.tsx connects. */
+async function connectAppHooks(): Promise<void> {
+  const { configureWebAdapter } = await import('../../src/web/adapter');
+  configureWebAdapter({
+    translate: (key) => translateAppCommon(key),
+    getSystemLanguages: () => getBrowserSystemLanguages(),
+  });
+}
 
 describe('web adapter', () => {
   beforeAll(async () => {
     initI18n('en');
-    await import('../../src/web/adapter');
+    await connectAppHooks();
   });
 
   beforeEach(async () => {
@@ -48,6 +61,43 @@ describe('web adapter', () => {
     );
   });
 
+  it('returns localized formatter availability errors in the active language', async () => {
+    await expect(window.lingua.format.gofmt()).resolves.toMatchObject({
+      available: false,
+      error: 'Formatting Go or Rust requires the desktop build.',
+    });
+
+    await i18next.changeLanguage('es');
+
+    await expect(window.lingua.format.rustfmt()).resolves.toMatchObject({
+      available: false,
+      error: 'Formatear Go o Rust requiere la versión de escritorio.',
+    });
+  });
+
+  it('reports the browser languages through the connected hook', async () => {
+    await expect(window.lingua.getSystemLanguages()).resolves.toEqual(
+      getBrowserSystemLanguages()
+    );
+  });
+
+  it('uses the hooks connected most recently', async () => {
+    const { configureWebAdapter } = await import('../../src/web/adapter');
+    configureWebAdapter({
+      translate: (key) => `translated:${key}`,
+      getSystemLanguages: () => ['es-CO', 'en'],
+    });
+    try {
+      await expect(window.lingua.rust.detect()).resolves.toEqual({
+        installed: false,
+        error: 'translated:errors.rust.webUnavailable',
+      });
+      await expect(window.lingua.getSystemLanguages()).resolves.toEqual(['es-CO', 'en']);
+    } finally {
+      await connectAppHooks();
+    }
+  });
+
   it('returns bundled app metadata in the browser build', async () => {
     const info = await window.lingua.getAppInfo();
 
@@ -86,5 +136,22 @@ describe('web adapter', () => {
   it('reports no installed plugins in the browser build', async () => {
     await expect(window.lingua.plugins.getInstallDirectory()).resolves.toBeNull();
     await expect(window.lingua.plugins.list()).resolves.toEqual([]);
+  });
+});
+
+describe('web adapter before the app connects it', () => {
+  it('answers with copy keys and no system languages instead of throwing', async () => {
+    vi.resetModules();
+    await import('../../src/web/adapter');
+
+    await expect(window.lingua.go.detect()).resolves.toEqual({
+      installed: false,
+      error: 'errors.go.webUnavailable',
+    });
+    await expect(window.lingua.updates.getState()).resolves.toMatchObject({
+      status: 'unavailable',
+      message: 'updates.message.webUnavailable',
+    });
+    await expect(window.lingua.getSystemLanguages()).resolves.toEqual([]);
   });
 });

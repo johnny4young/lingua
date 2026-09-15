@@ -9,17 +9,37 @@
  * return a descriptive "not available" result.
  *
  * This module must be imported BEFORE the React application renders.
+ * `src/web/main.tsx` imports it first, then connects its hooks.
  */
 
-import {
-  getBrowserSystemLanguages,
-  translateAppCommon,
-} from '../renderer/i18n';
 import { getBundledAppInfo, normalizeExternalUrl } from '../shared/appInfo';
 import { webFsAdapter } from './fs-adapter';
 
+/**
+ * What the adapter needs from the app. `src/web/main.tsx` connects it before
+ * the app renders, so this module never imports renderer i18n; lint rejects
+ * that import anywhere else in `src/web`.
+ */
+export interface WebAdapterHooks {
+  /** Translate an app copy key in the language active at call time. */
+  translate: (key: string) => string;
+  /** The browser's preferred languages, most preferred first. */
+  getSystemLanguages: () => string[];
+}
+
+// Until the app connects, the stubs answer with the copy key itself.
+let hooks: WebAdapterHooks = {
+  translate: (key) => key,
+  getSystemLanguages: () => [],
+};
+
+/** Connect the adapter to the app's i18n. Call once, before the app renders. */
+export function configureWebAdapter(next: WebAdapterHooks): void {
+  hooks = next;
+}
+
 function t(key: string): string {
-  return translateAppCommon(key);
+  return hooks.translate(key);
 }
 
 const goStub: LinguaAPI['go'] = {
@@ -108,7 +128,7 @@ const pluginStub: LinguaAPI['plugins'] = {
 
 const webLingua: LinguaAPI = {
   platform: 'web',
-  getSystemLanguages: async () => getBrowserSystemLanguages(),
+  getSystemLanguages: async () => hooks.getSystemLanguages(),
   getAppInfo: async () => getBundledAppInfo(),
   openExternal: async (url: string) => {
     const normalizedUrl = normalizeExternalUrl(url);
