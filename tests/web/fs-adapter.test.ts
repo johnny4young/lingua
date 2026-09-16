@@ -133,14 +133,27 @@ describe('webFsAdapter — selectDirectory cancellation', async () => {
 
 describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
   const fsAdapterModule = await import('../../src/web/fs-adapter');
-  const uiStoreModule = await import('../../src/renderer/stores/uiStore');
+  const pushStatusNotice = vi.fn();
+  const trackEvent = vi.fn();
 
   const originalShowDirectoryPicker = (
     window as unknown as { showDirectoryPicker?: unknown }
   ).showDirectoryPicker;
 
+  // Simulate a browser without File System Access API (Safari /
+  // older Firefox).
+  const removeDirectoryPicker = () => {
+    delete (
+      window as unknown as { showDirectoryPicker?: unknown }
+    ).showDirectoryPicker;
+  };
+
   beforeEach(() => {
     fsAdapterModule._resetWebFsAdapterUnsupportedStateForTests();
+    pushStatusNotice.mockReset();
+    trackEvent.mockReset();
+    // The hooks src/web/main.tsx connects to the app shell.
+    fsAdapterModule.configureWebFsAdapter({ pushStatusNotice, trackEvent });
   });
 
   afterEach(() => {
@@ -155,44 +168,96 @@ describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
         window as unknown as { showDirectoryPicker?: unknown }
       ).showDirectoryPicker;
     }
-    uiStoreModule.useUIStore.setState({ statusNotice: null });
   });
 
   it('pushes a status notice when showDirectoryPicker is missing', async () => {
-    // Simulate a browser without File System Access API (Safari /
-    // older Firefox).
-    delete (
-      window as unknown as { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    removeDirectoryPicker();
 
     const result = await fsAdapterModule.webFsAdapter.selectDirectory();
 
     expect(result).toEqual({ canceled: true });
-    const notice = uiStoreModule.useUIStore.getState().statusNotice;
-    expect(notice?.messageKey).toBe('fileTree.web.directoryUnsupported');
-    expect(notice?.tone).toBe('warning');
+    expect(pushStatusNotice).toHaveBeenCalledWith({
+      tone: 'warning',
+      messageKey: 'fileTree.web.directoryUnsupported',
+    });
   });
 
   it('debounces repeated unsupported notices during click bursts', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
-    delete (
-      window as unknown as { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
-    const pushSpy = vi.spyOn(
-      uiStoreModule.useUIStore.getState(),
-      'pushStatusNotice'
-    );
+    removeDirectoryPicker();
 
     await fsAdapterModule.webFsAdapter.selectDirectory();
     await fsAdapterModule.webFsAdapter.selectDirectory();
 
-    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(pushStatusNotice).toHaveBeenCalledTimes(1);
 
     vi.setSystemTime(2_600);
     await fsAdapterModule.webFsAdapter.selectDirectory();
 
-    expect(pushSpy).toHaveBeenCalledTimes(2);
+    expect(pushStatusNotice).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the missing picker to telemetry once, with the browser bucket', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
+    );
+    removeDirectoryPicker();
+
+    await fsAdapterModule.webFsAdapter.selectDirectory();
+    vi.setSystemTime(5_000);
+    await fsAdapterModule.webFsAdapter.selectDirectory();
+
+    // The notice repeats once the debounce window passes; telemetry does not.
+    expect(pushStatusNotice).toHaveBeenCalledTimes(2);
+    expect(trackEvent).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith('runtime.fs_directory_picker_unsupported', {
+      userAgentBucket: 'safari',
+    });
+  });
+
+  it('keeps the canceled result when the app hooks throw', async () => {
+    fsAdapterModule.configureWebFsAdapter({
+      pushStatusNotice: () => {
+        throw new Error('notice failed');
+      },
+      trackEvent: () => {
+        throw new Error('telemetry failed');
+      },
+    });
+    removeDirectoryPicker();
+
+    await expect(fsAdapterModule.webFsAdapter.selectDirectory()).resolves.toEqual({
+      canceled: true,
+    });
+  });
+
+  it('drops the notice and telemetry until the app connects the adapter', async () => {
+    vi.resetModules();
+    const unconnected = await import('../../src/web/fs-adapter');
+    const freshNotice = vi.fn();
+    const freshTrackEvent = vi.fn();
+    removeDirectoryPicker();
+
+    await expect(unconnected.webFsAdapter.selectDirectory()).resolves.toEqual({
+      canceled: true,
+    });
+
+    // Connecting the same instance turns the very same call into a notice and
+    // an event, so the silence above was the missing connection, not a module
+    // that cannot report at all.
+    unconnected.configureWebFsAdapter({
+      pushStatusNotice: freshNotice,
+      trackEvent: freshTrackEvent,
+    });
+    unconnected._resetWebFsAdapterUnsupportedStateForTests();
+
+    await unconnected.webFsAdapter.selectDirectory();
+
+    expect(freshNotice).toHaveBeenCalledTimes(1);
+    expect(freshTrackEvent).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,14 +1,24 @@
 /**
  * Web entry point — imports the browser adapter BEFORE React renders
  * so that window.lingua is available when App and its stores initialise.
+ *
+ * With `./connectAdapters`, which it imports first, it is the composition root
+ * of `src/web`: the only place allowed to import renderer code. Lint rejects
+ * those imports everywhere else in `src/web`.
  */
 
-import './adapter';
+// Keep this bare import first: it installs window.lingua and connects the
+// adapters to the app before any module below evaluates.
+import './connectAdapters';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
-import { getBrowserSystemLanguages, initI18n, resolveSystemLanguage } from '../renderer/i18n';
+import {
+  getBrowserSystemLanguages,
+  initI18n,
+  resolveSystemLanguage,
+} from '../renderer/i18n';
 import { useSettingsStore } from '../renderer/stores/settingsStore';
 import {
   manageServiceWorker,

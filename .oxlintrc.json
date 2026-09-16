@@ -235,6 +235,33 @@
     },
     {
       "files": [
+        "src/web/**/*.ts",
+        "src/web/**/*.tsx"
+      ],
+      "excludeFiles": [
+        "src/web/connectAdapters.ts",
+        "src/web/main.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "*/renderer/*",
+                  "**/renderer/**"
+                ],
+                "allowTypeImports": true,
+                "message": "The web layer must not import renderer code at runtime. Take a hook that src/web/connectAdapters.ts connects (see configureWebAdapter and configureWebFsAdapter), or move the shared piece into src/shared. Type-only imports are allowed."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "**/*.d.ts"
       ],
       "rules": {
