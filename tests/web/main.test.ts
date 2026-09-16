@@ -7,11 +7,26 @@
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-const { render, trackEvent, adapterStateAtRender } = vi.hoisted(() => ({
+const { render, trackEvent, adapterState } = vi.hoisted(() => ({
   render: vi.fn(),
   trackEvent: vi.fn(async () => {}),
-  adapterStateAtRender: { updatesMessage: undefined as string | undefined },
+  adapterState: {
+    languagesAtAppImport: undefined as string[] | undefined,
+    updatesMessageAtRender: undefined as string | undefined,
+  },
 }));
+
+/**
+ * The adapter answers with the browser languages once connected, and with an
+ * empty list before that, so this says whether the hooks were already in place
+ * at the moment it runs. i18n is not initialised yet during the import phase,
+ * which is why this probe does not use translated copy.
+ */
+function recordLanguages(): void {
+  void window.lingua.getSystemLanguages().then((languages) => {
+    adapterState.languagesAtAppImport = languages;
+  });
+}
 
 vi.mock('react-dom/client', () => ({
   createRoot: () => ({
@@ -19,12 +34,16 @@ vi.mock('react-dom/client', () => ({
       render(tree);
       // Record what a component would see if it asked on its first render.
       void window.lingua.updates.getState().then((state) => {
-        adapterStateAtRender.updatesMessage = state.message;
+        adapterState.updatesMessageAtRender = state.message;
       });
     },
   }),
 }));
-vi.mock('../../src/renderer/App', () => ({ App: () => null }));
+vi.mock('../../src/renderer/App', () => {
+  // Runs while the entry evaluates its imports, before its body.
+  recordLanguages();
+  return { App: () => null };
+});
 vi.mock('../../src/renderer/testing/e2eHooks', () => ({ installE2eHooks: () => {} }));
 vi.mock('../../src/web/serviceWorker', () => ({
   manageServiceWorker: async () => {},
@@ -35,6 +54,7 @@ vi.mock('../../src/renderer/utils/telemetry', async (importOriginal) => ({
   trackEvent,
 }));
 
+import { getBrowserSystemLanguages } from '../../src/renderer/i18n';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 describe('web entry point', () => {
@@ -46,9 +66,16 @@ describe('web entry point', () => {
     await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(1));
   });
 
+  it('connects the adapters before the rest of the entry graph evaluates', async () => {
+    await vi.waitFor(() =>
+      expect(adapterState.languagesAtAppImport).toEqual(getBrowserSystemLanguages())
+    );
+    expect(adapterState.languagesAtAppImport).not.toEqual([]);
+  });
+
   it('connects the adapter to the app translations before the first render', async () => {
     await vi.waitFor(() =>
-      expect(adapterStateAtRender.updatesMessage).toBe(
+      expect(adapterState.updatesMessageAtRender).toBe(
         'Automatic updates are not available in the web version.'
       )
     );

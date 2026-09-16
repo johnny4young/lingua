@@ -1059,14 +1059,19 @@ However the watch semantics are different:
 
 The web implementation is in [`src/web/fs-adapter.ts`](../src/web/fs-adapter.ts).
 
-The web adapters do not import renderer stores, telemetry or i18n.
+The web adapters do not import renderer code at runtime.
 [`src/web/adapter.ts`](../src/web/adapter.ts) installs `window.lingua` when
 imported, with `fs-adapter.ts` behind its `fs` namespace. Both receive what they
 need from the app through hooks: `configureWebAdapter` for translated copy and
 the browser languages, and `configureWebFsAdapter` for status notices and
-telemetry. [`src/web/main.tsx`](../src/web/main.tsx) is the composition root
-that connects them before the app renders. An oxlint rule rejects those imports
-anywhere else in `src/web`.
+telemetry.
+
+[`src/web/connectAdapters.ts`](../src/web/connectAdapters.ts) connects those
+hooks, and [`src/web/main.tsx`](../src/web/main.tsx) imports it first, before
+React, App and the stores evaluate. Those two files are the composition root and
+the only ones in `src/web` allowed to import renderer code. An oxlint rule
+rejects renderer imports everywhere else there; type-only imports stay allowed,
+because they carry no runtime dependency.
 
 Important limitation:
 
@@ -1090,7 +1095,7 @@ Follow this path:
    capability-resolved file operations, or the search/bundle/watcher group for
    those domains). Keep `fileSystem.ts` as assembly only.
 4. Decide whether the web adapter should support it in [`src/web/fs-adapter.ts`](../src/web/fs-adapter.ts).
-   If it needs app state, add a hook and connect it in `src/web/main.tsx`.
+   If it needs app state, add a hook and connect it in `src/web/connectAdapters.ts`.
 5. Call it from renderer state or hooks, not directly from many UI components.
 
 Reason:

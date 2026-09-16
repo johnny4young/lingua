@@ -237,13 +237,27 @@ describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
   it('drops the notice and telemetry until the app connects the adapter', async () => {
     vi.resetModules();
     const unconnected = await import('../../src/web/fs-adapter');
+    const freshNotice = vi.fn();
+    const freshTrackEvent = vi.fn();
     removeDirectoryPicker();
 
     await expect(unconnected.webFsAdapter.selectDirectory()).resolves.toEqual({
       canceled: true,
     });
-    expect(pushStatusNotice).not.toHaveBeenCalled();
-    expect(trackEvent).not.toHaveBeenCalled();
+
+    // Connecting the same instance turns the very same call into a notice and
+    // an event, so the silence above was the missing connection, not a module
+    // that cannot report at all.
+    unconnected.configureWebFsAdapter({
+      pushStatusNotice: freshNotice,
+      trackEvent: freshTrackEvent,
+    });
+    unconnected._resetWebFsAdapterUnsupportedStateForTests();
+
+    await unconnected.webFsAdapter.selectDirectory();
+
+    expect(freshNotice).toHaveBeenCalledTimes(1);
+    expect(freshTrackEvent).toHaveBeenCalledTimes(1);
   });
 });
 

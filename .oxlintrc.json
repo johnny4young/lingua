@@ -238,6 +238,10 @@
         "src/web/**/*.ts",
         "src/web/**/*.tsx"
       ],
+      "excludeFiles": [
+        "src/web/connectAdapters.ts",
+        "src/web/main.tsx"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -245,37 +249,15 @@
             "patterns": [
               {
                 "group": [
-                  "*/renderer/stores/*",
-                  "**/renderer/stores/**"
+                  "*/renderer/*",
+                  "**/renderer/**"
                 ],
-                "message": "The web adapters must not read renderer stores. Take a hook that src/web/main.tsx connects (see configureWebFsAdapter)."
-              },
-              {
-                "group": [
-                  "*/renderer/utils/telemetry*",
-                  "**/renderer/utils/telemetry*"
-                ],
-                "message": "The web adapters must not import renderer telemetry. Take a hook that src/web/main.tsx connects (see configureWebFsAdapter)."
-              },
-              {
-                "group": [
-                  "*/renderer/i18n",
-                  "**/renderer/i18n",
-                  "**/renderer/i18n/**"
-                ],
-                "message": "The web adapters must not import renderer i18n. Take a hook that src/web/main.tsx connects (see configureWebAdapter)."
+                "allowTypeImports": true,
+                "message": "The web layer must not import renderer code at runtime. Take a hook that src/web/connectAdapters.ts connects (see configureWebAdapter and configureWebFsAdapter), or move the shared piece into src/shared. Type-only imports are allowed."
               }
             ]
           }
         ]
-      }
-    },
-    {
-      "files": [
-        "src/web/main.tsx"
-      ],
-      "rules": {
-        "no-restricted-imports": "off"
       }
     },
     {

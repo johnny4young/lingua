@@ -60,7 +60,12 @@ async function captureTelemetry(page: Page): Promise<CapturedEvent[]> {
       });
       return;
     }
-    captured.push(route.request().postDataJSON() as CapturedEvent);
+    try {
+      captured.push(route.request().postDataJSON() as CapturedEvent);
+    } catch {
+      // A non-JSON body must still be fulfilled, or the page request hangs.
+      captured.push({ event: '<unparseable>' });
+    }
     await route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } });
   });
   return captured;
