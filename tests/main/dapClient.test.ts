@@ -33,7 +33,7 @@ describe('DapClient', () => {
     const { server, port } = await listen(socket => {
       let request = Buffer.alloc(0);
       socket.on('data', chunk => {
-        request = Buffer.concat([request, chunk]);
+        request = Buffer.concat([request, typeof chunk === 'string' ? Buffer.from(chunk) : chunk]);
         const headerEnd = request.indexOf('\r\n\r\n');
         if (headerEnd < 0) return;
         const body = JSON.parse(request.subarray(headerEnd + 4).toString('utf8')) as {
@@ -67,8 +67,9 @@ describe('DapClient', () => {
   it('rejects failed responses with Delve diagnostics', async () => {
     const { server, port } = await listen(socket => {
       socket.once('data', chunk => {
-        const headerEnd = chunk.indexOf('\r\n\r\n');
-        const body = JSON.parse(chunk.subarray(headerEnd + 4).toString('utf8')) as { seq: number };
+        const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+        const headerEnd = bytes.indexOf('\r\n\r\n');
+        const body = JSON.parse(bytes.subarray(headerEnd + 4).toString('utf8')) as { seq: number };
         socket.write(
           frame({
             seq: 2,
