@@ -265,7 +265,7 @@ describe('RubyRunner — load failure + timeout', () => {
       if (message.type === 'init') {
         // Simulate the @ruby/wasm-wasi fetch path blowing up.
         this.listeners.get('error')?.(
-          new ErrorEvent('error', { message: 'ruby wasm fetch failed' })
+          Object.assign(new Event('error'), { message: 'ruby wasm fetch failed' })
         );
       }
     }

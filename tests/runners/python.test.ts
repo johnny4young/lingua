@@ -409,8 +409,11 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
       postMessage(message: Record<string, unknown>): void {
         postedMessages.push(message);
         if (message.type === 'init') {
+          // A real Event carrying the message the runner reads. ErrorEvent is
+          // a DOM global, so building it this way keeps the test environment
+          // free.
           this.listeners.get('error')?.(
-            new ErrorEvent('error', { message: 'worker script failed' })
+            Object.assign(new Event('error'), { message: 'worker script failed' })
           );
         }
       }

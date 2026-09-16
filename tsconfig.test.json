@@ -6,10 +6,11 @@
 // below, which is why the compile guards (branded-id swaps, architecture
 // fixtures) were the first entries.
 //
-// Whole directories follow, cheapest first, measured once with a scratch
-// config per directory: cli 0 errors, docs 1, runners 20, build 30 (plus 14 in
-// the root `.mts` configs it pulls in), main 35, shared 51, scripts 53,
-// hooks 80, components 95, stores 214.
+// Whole directories follow, cheapest first. Measured with a scratch config
+// per directory at 803ad417 (2026-09-16), so re-measure before trusting these
+// for scope: cli 0 errors, docs 1, runners 20, build 30 (plus 14 in the root
+// `.mts` configs it pulls in), main 35, shared 51, scripts 53, hooks 80,
+// components 95, stores 214.
 //
 // Rules for widening:
 //  - one directory per change, with its errors fixed rather than silenced:
@@ -24,8 +25,9 @@
     "src/**/*.tsx",
     "src/types.d.ts",
     "forge.env.d.ts",
-    // Compile guards: the swap matrix below is inert unless it is checked,
-    // since a brand reverted to a bare string would let every swap compile.
+    // Compile guards. The `@ts-expect-error` swap matrix inside
+    // projectCapabilitiesBrand.test.ts is inert unless it is checked: a brand
+    // reverted to a bare string would let every swap compile.
     "tests/main/projectCapabilitiesBrand.test.ts",
     "tests/hooks/useTelemetry.types.test.ts",
     "tests/build/rendererTypeBoundaries.test.ts",
