@@ -18,6 +18,7 @@
  *   - Streamed log onLog callback receives stdout / stderr chunks.
  */
 
+import type { SpawnOptions } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -36,6 +37,13 @@ interface FakeChild extends EventEmitter {
   stdout: EventEmitter;
   stderr: EventEmitter;
   kill: ReturnType<typeof vi.fn>;
+}
+
+/** A spawn spy typed with the call production makes, so its recorded calls can be read. */
+function spawnSpyReturning(child: FakeChild) {
+  return vi.fn(
+    (_command: string, _args: readonly string[], _options: SpawnOptions) => child as never
+  );
 }
 
 function createChild(): FakeChild {
@@ -138,7 +146,7 @@ describe('installJsDependencyBatch', () => {
   it('spawns npm directly on POSIX with shell:false and the locked argv shape', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -165,9 +173,8 @@ describe('installJsDependencyBatch', () => {
     expect(argv).not.toContain('-g');
     expect(argv).not.toContain('--global');
     expect(argv).not.toContain('--prefix');
-    const options = opts as { shell?: boolean; cwd?: string };
-    expect(options.shell).toBe(false);
-    expect(options.cwd).toBe(workdir);
+    expect(opts.shell).toBe(false);
+    expect(opts.cwd).toBe(workdir);
 
     child.emit('close', 0);
     const result = await promise;
@@ -189,7 +196,7 @@ describe('installJsDependencyBatch', () => {
     vi.stubEnv('PATH', npmHome);
     vi.stubEnv('PATHEXT', '.COM;.EXE;.BAT;.CMD');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -216,14 +223,9 @@ describe('installJsDependencyBatch', () => {
       '--no-progress',
       '--save',
     ]);
-    const options = opts as {
-      shell?: boolean;
-      env?: NodeJS.ProcessEnv;
-      windowsHide?: boolean;
-    };
-    expect(options.shell).toBe(false);
-    expect(options.windowsHide).toBe(true);
-    expect(options.env).toMatchObject({
+    expect(opts.shell).toBe(false);
+    expect(opts.windowsHide).toBe(true);
+    expect(opts.env).toMatchObject({
       COMSPEC: comspec,
       PATH: npmHome,
       PATHEXT: '.COM;.EXE;.BAT;.CMD',
@@ -309,7 +311,7 @@ describe('installJsDependencyBatch', () => {
   it('maps a non-zero exit to a failed outcome with exit-nonzero reason', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -333,7 +335,7 @@ describe('installJsDependencyBatch', () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     vi.useFakeTimers();
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -388,7 +390,7 @@ describe('installJsDependencyBatch', () => {
   it('maps an ENOENT spawn error to binary-missing', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -411,7 +413,7 @@ describe('installJsDependencyBatch', () => {
   it('caps onLog volume after the log cap is reached', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -446,7 +448,7 @@ describe('installJsDependencyBatch', () => {
   it('streams stdout / stderr chunks to the onLog callback', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
     );
@@ -472,7 +474,7 @@ describe('installJsDependencyBatch', () => {
   it('cancels an active install via cancelJsDependencyInstall', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
     const child = createChild();
-    const spawnSpy = vi.fn(() => child as never);
+    const spawnSpy = spawnSpyReturning(child);
     const {
       installJsDependencyBatch,
       cancelJsDependencyInstall,

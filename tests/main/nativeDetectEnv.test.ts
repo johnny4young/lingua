@@ -107,7 +107,7 @@ describe('native toolchain detection env', () => {
 
     expect(result.installed).toBe(true);
     expect(mocks.execFileAsync).toHaveBeenCalledTimes(1);
-    const options = mocks.execFileAsync.mock.calls[0][2] as { env?: NodeJS.ProcessEnv };
+    const options = mocks.execFileAsync.mock.calls[0]![2] as { env?: NodeJS.ProcessEnv };
     expect(options.env?.PATH).toBe('/usr/bin');
     expect(options.env?.CARGO_HOME).toBe('/tmp/cargo-home');
     expect(options.env?.LINGUA_SMOKE_SECRET).toBeUndefined();

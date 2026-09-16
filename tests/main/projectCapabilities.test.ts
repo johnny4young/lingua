@@ -26,6 +26,7 @@ import {
   resolveCapabilityPath,
   revokeRoot,
 } from '../../src/main/ipc/projectCapabilities';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 
 let tmpRoot: string;
 const repoTmpPrefix = path.join(process.cwd(), '.tmp-lingua-cap-');
@@ -55,7 +56,7 @@ describe('mintRootCapability + lookupRoot + revokeRoot', () => {
   });
 
   it('lookupRoot returns null for unknown / revoked tokens', () => {
-    expect(lookupRoot('not-a-real-token')).toBeNull();
+    expect(lookupRoot(asRootId('not-a-real-token'))).toBeNull();
 
     const { rootId } = mintRootCapability(tmpRoot);
     expect(revokeRoot(rootId)).toBe(true);

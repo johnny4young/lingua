@@ -153,7 +153,8 @@ describe('project test execution', () => {
   });
 
   it('spawns a fixed argv in the approved project cwd without a shell', async () => {
-    let captured: SpawnNativeRunOptions | null = null;
+    // Assigned inside the spawn callback; the cast stops TypeScript narrowing it to null.
+    let captured = null as SpawnNativeRunOptions | null;
     const result = await runProjectTests(rootPath, 'vitest', 'run-1', {
       platform: 'linux',
       env: { PATH: binPath },

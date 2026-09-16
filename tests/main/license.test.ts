@@ -512,7 +512,7 @@ describe('registerLicenseHandlers', () => {
     expect(get).toBeDefined();
 
     let settled = false;
-    const snapshotPromise = get!({}).then((snapshot) => {
+    const snapshotPromise = Promise.resolve(get!({})).then((snapshot) => {
       settled = true;
       return snapshot;
     });

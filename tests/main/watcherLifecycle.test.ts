@@ -126,6 +126,15 @@ async function invoke(
   return handler({ sender }, ...args);
 }
 
+/** The item the handler produced at `index`; fails with a clear message when it never did. */
+function nth<T>(items: readonly T[], index: number, what: string): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`expected ${what} at index ${index}, found ${items.length}`);
+  }
+  return item;
+}
+
 function mintFor(rootPath: string): { rootId: string; rootPath: string } {
   return mintRootCapability(rootPath);
 }
@@ -182,7 +191,7 @@ describe('fs:watch-start happy path', () => {
     const { rootId } = mintFor(tmpRoot);
     const sender = makeSender();
     const idA = await invoke('fs:watch-start', sender, rootId, '');
-    const firstFake = fakeWatcherInstances[0];
+    const firstFake = nth(fakeWatcherInstances, 0, 'a watcher');
 
     const idB = await invoke('fs:watch-start', sender, rootId, '');
     expect(idB).not.toBe(idA);
@@ -198,8 +207,8 @@ describe('fs:watch-start happy path', () => {
     await invoke('fs:watch-start', sender, rootB, '');
     expect(fakeWatcherInstances).toHaveLength(2);
     // Neither was closed by the other registration.
-    expect(fakeWatcherInstances[0].close).not.toHaveBeenCalled();
-    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+    expect(nth(fakeWatcherInstances, 0, 'a watcher').close).not.toHaveBeenCalled();
+    expect(nth(fakeWatcherInstances, 1, 'a watcher').close).not.toHaveBeenCalled();
   });
 
   it('an async watcher error deregisters the watcher and emits fs:watcher-failed instead of crashing', async () => {
@@ -207,7 +216,7 @@ describe('fs:watch-start happy path', () => {
     const sender = makeSender();
     const id = await invoke('fs:watch-start', sender, rootId, '');
     expect(typeof id).toBe('string');
-    const fake = fakeWatcherInstances[0];
+    const fake = nth(fakeWatcherInstances, 0, 'a watcher');
 
     // Simulate the async EPERM/ENOSPC an FSWatcher emits after registration.
     fake.emitError(Object.assign(new Error('EPERM'), { code: 'EPERM' }));
@@ -223,14 +232,14 @@ describe('fs:watch-start happy path', () => {
     // NOT stop a stale watcher (there is none to stop).
     const idB = await invoke('fs:watch-start', sender, rootId, '');
     expect(idB).not.toBe(id);
-    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+    expect(nth(fakeWatcherInstances, 1, 'a watcher').close).not.toHaveBeenCalled();
   });
 
   it('disposes a sender-owned watcher when the webContents is destroyed ', async () => {
     const { rootId } = mintFor(tmpRoot);
     const sender = makeSender();
     await invoke('fs:watch-start', sender, rootId, '');
-    const fake = fakeWatcherInstances[0];
+    const fake = nth(fakeWatcherInstances, 0, 'a watcher');
 
     // Window close / renderer reload → the sender's 'destroyed' fires.
     sender.emitDestroyed();
@@ -240,7 +249,7 @@ describe('fs:watch-start happy path', () => {
     // stale watcher (there is none left to stop).
     const idB = await invoke('fs:watch-start', sender, rootId, '');
     expect(typeof idB).toBe('string');
-    expect(fakeWatcherInstances[1].close).not.toHaveBeenCalled();
+    expect(nth(fakeWatcherInstances, 1, 'a watcher').close).not.toHaveBeenCalled();
   });
 
   it('installs the destroyed listener at most once per sender across multiple watch-starts', async () => {
@@ -257,15 +266,15 @@ describe('fs:watch-start happy path', () => {
 
     // One destroyed event tears down BOTH watchers the sender owns.
     sender.emitDestroyed();
-    expect(fakeWatcherInstances[0].close).toHaveBeenCalledTimes(1);
-    expect(fakeWatcherInstances[1].close).toHaveBeenCalledTimes(1);
+    expect(nth(fakeWatcherInstances, 0, 'a watcher').close).toHaveBeenCalledTimes(1);
+    expect(nth(fakeWatcherInstances, 1, 'a watcher').close).toHaveBeenCalledTimes(1);
   });
 
   it('watch-stop closes the watcher and frees the registration slot', async () => {
     const { rootId } = mintFor(tmpRoot);
     const sender = makeSender();
     const id = await invoke('fs:watch-start', sender, rootId, '');
-    const fake = fakeWatcherInstances[0];
+    const fake = nth(fakeWatcherInstances, 0, 'a watcher');
     const stopped = await invoke('fs:watch-stop', sender, id as string);
     expect(stopped).toBe(true);
     expect(fake.close).toHaveBeenCalledTimes(1);
@@ -284,7 +293,7 @@ describe('fs:watch-start happy path', () => {
     expect(watchCallbacks).toHaveLength(1);
 
     for (let i = 0; i < 21; i += 1) {
-      watchCallbacks[0]('rename', null);
+      nth(watchCallbacks, 0, 'a watch callback')('rename', null);
     }
 
     expect(sender.send).toHaveBeenCalledWith(
@@ -399,10 +408,7 @@ describe('fs:watch-start failure paths', () => {
 
   it('does not crash when sender is destroyed mid-failure', async () => {
     const { rootId } = mintFor(tmpRoot);
-    const destroyedSender: FakeSender = {
-      isDestroyed: () => true,
-      send: vi.fn(),
-    };
+    const destroyedSender: FakeSender = { ...makeSender(), isDestroyed: () => true };
     watchImpl.mockImplementationOnce(() => {
       throw Object.assign(new Error('boom'), { code: 'EACCES' });
     });
@@ -447,8 +453,8 @@ describe('before-quit cleanup', () => {
       listener();
     }
 
-    expect(fakeWatcherInstances[0].close).toHaveBeenCalledTimes(1);
-    expect(fakeWatcherInstances[1].close).toHaveBeenCalledTimes(1);
+    expect(nth(fakeWatcherInstances, 0, 'a watcher').close).toHaveBeenCalledTimes(1);
+    expect(nth(fakeWatcherInstances, 1, 'a watcher').close).toHaveBeenCalledTimes(1);
   });
 
   it('tolerates a watcher that throws on close', async () => {

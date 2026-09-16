@@ -7,10 +7,10 @@
 // fixtures) were the first entries.
 //
 // Whole directories follow, cheapest first. Measured with a scratch config
-// per directory at 803ad417 (2026-09-16), so re-measure before trusting these
-// for scope: cli 0 errors, docs 1, runners 20, build 30 (plus 14 in the root
-// `.mts` configs it pulls in), main 35, shared 51, scripts 53, hooks 80,
-// components 95, stores 214.
+// per directory, last at a342ee98 (2026-09-16), so re-measure before trusting
+// these for scope. Already in: cli, docs, runners, main. Remaining: build 30
+// errors (plus 14 in the root `.mts` configs it pulls in), shared 51,
+// scripts 53, hooks 80, components 95, stores 214.
 //
 // Rules for widening:
 //  - one directory per change, with its errors fixed rather than silenced:
@@ -20,6 +20,15 @@
 
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // A child `paths` replaces the parent's, so `@/*` is repeated here.
+    // `#src/*` mirrors the test-only alias in vitest.config.mts; it stays out
+    // of the root config because no production bundle defines it.
+    "paths": {
+      "@/*": ["./src/renderer/*"],
+      "#src/*": ["./src/*"]
+    }
+  },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
@@ -40,7 +49,9 @@
     "tests/docs/**/*.ts",
     "tests/docs/**/*.tsx",
     "tests/runners/**/*.ts",
-    "tests/runners/**/*.tsx"
+    "tests/runners/**/*.tsx",
+    "tests/main/**/*.ts",
+    "tests/main/**/*.tsx"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }
