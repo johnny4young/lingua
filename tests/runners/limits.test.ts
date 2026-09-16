@@ -11,6 +11,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { utf8ByteLength } from '../../src/shared/utf8';
+
+/**
+ * `String.prototype.isWellFormed` is ES2024 and the repo compiles against the
+ * ES2022 libs, so the method needs a local signature to be callable here.
+ */
+function isWellFormed(value: string): boolean {
+  return (value as unknown as { isWellFormed(): boolean }).isWellFormed();
+}
 import {
   MAX_CONSOLE_ENTRIES,
   MAX_RESULT_BYTES,
@@ -95,7 +103,7 @@ describe('truncateSerialized', () => {
     const value = 'x'.repeat(MAX_RESULT_BYTES + 1);
     const result = truncateSerialized(value, marker);
     expect(utf8ByteLength(result)).toBeLessThanOrEqual(MAX_RESULT_BYTES);
-    expect(result.isWellFormed()).toBe(true);
+    expect(isWellFormed(result)).toBe(true);
     expect(result).not.toContain('\uFFFD');
   });
 

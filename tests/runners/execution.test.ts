@@ -69,8 +69,8 @@ describe('JavaScriptRunner execution integration', () => {
     const result = await runner.execute('console.log("hello")', {});
 
     expect(result.stdout).toHaveLength(1);
-    expect(result.stdout[0].args[0]).toBe('hello');
-    expect(result.stdout[0].type).toBe('log');
+    expect(result.stdout[0]?.args[0]).toBe('hello');
+    expect(result.stdout[0]?.type).toBe('log');
   });
 
   it('execute() returns an executionTime', async () => {

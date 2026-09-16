@@ -3,6 +3,7 @@ import { PythonRunner } from '@/runners/python';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 
 describe('PythonRunner', () => {
@@ -142,6 +143,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
         id: 'proj-1',
         name: 'Fixture',
         rootPath: '/tmp/fixture',
+        rootId: asRootId('root-fixture'),
         openedAt: Date.now(),
       },
     });
@@ -407,7 +409,9 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
       postMessage(message: Record<string, unknown>): void {
         postedMessages.push(message);
         if (message.type === 'init') {
-          this.listeners.get('error')?.({ message: 'worker script failed' } as Event);
+          this.listeners.get('error')?.(
+            new ErrorEvent('error', { message: 'worker script failed' })
+          );
         }
       }
 

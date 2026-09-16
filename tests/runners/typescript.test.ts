@@ -1,5 +1,7 @@
 import MagicString from 'magic-string';
+import type { TransformResult } from 'esbuild-wasm';
 import { describe, it, expect, vi } from 'vitest';
+import { transformResult } from '../__fixtures__/esbuildTransform';
 
 // Mock esbuild-wasm to avoid jsdom TextEncoder incompatibility
 vi.mock('esbuild-wasm', () => ({
@@ -31,10 +33,7 @@ describe('TypeScriptRunner', () => {
 
   it('attaches a table payload for table-directed magic comments', async () => {
     const esbuild = await import('esbuild-wasm');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: 'rows;',
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('rows;'));
 
     const originalWorker = globalThis.Worker;
 
@@ -97,10 +96,7 @@ describe('TypeScriptRunner', () => {
 
   it('attaches raw-string image and html payloads for rich-media magic comments', async () => {
     const esbuild = await import('esbuild-wasm');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: 'imageSrc;\nhtml;',
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('imageSrc;\nhtml;'));
 
     const originalWorker = globalThis.Worker;
 
@@ -180,10 +176,7 @@ describe('TypeScriptRunner', () => {
 
   it('forwards rich console payloads from the shared JS worker', async () => {
     const esbuild = await import('esbuild-wasm');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: 'console.table(rows)',
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('console.table(rows)'));
 
     const originalWorker = globalThis.Worker;
 
@@ -256,10 +249,7 @@ describe('TypeScriptRunner', () => {
 
   it('should preserve worker line numbers on console output', async () => {
     const esbuild = await import('esbuild-wasm');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: 'console.log("hello")',
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(transformResult('console.log("hello")'));
 
     const originalWorker = globalThis.Worker;
 
@@ -318,17 +308,18 @@ describe('TypeScriptRunner', () => {
     const source = 'console.log("hello")';
     const ms = new MagicString(source);
     ms.prepend('// generated helper\n');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: ms.toString(),
-      map: ms
-        .generateMap({
-          source: 'scratchpad.ts',
-          includeContent: true,
-          hires: true,
-        })
-        .toString(),
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(
+      transformResult(
+        ms.toString(),
+        ms
+          .generateMap({
+            source: 'scratchpad.ts',
+            includeContent: true,
+            hires: true,
+          })
+          .toString()
+      )
+    );
 
     const originalWorker = globalThis.Worker;
     let postedLineMap: Record<number, number> | undefined;
@@ -396,7 +387,7 @@ describe('TypeScriptRunner', () => {
     let transpileInput = '';
     vi.mocked(esbuild.transform).mockImplementation(async code => {
       transpileInput = String(code);
-      return { code: String(code), map: '', warnings: [] };
+      return transformResult(String(code));
     });
 
     const originalWorker = globalThis.Worker;
@@ -449,7 +440,7 @@ describe('TypeScriptRunner', () => {
 
   it('does not let a stale transpile supersede a newer execution', async () => {
     const esbuild = await import('esbuild-wasm');
-    let resolveFirstTranspile!: (value: { code: string; warnings: [] }) => void;
+    let resolveFirstTranspile!: (value: TransformResult) => void;
     let transformCount = 0;
     vi.mocked(esbuild.transform).mockImplementation(() => {
       transformCount += 1;
@@ -458,7 +449,7 @@ describe('TypeScriptRunner', () => {
           resolveFirstTranspile = resolve;
         });
       }
-      return Promise.resolve({ code: 'console.log("new")', warnings: [] });
+      return Promise.resolve(transformResult('console.log("new")'));
     });
 
     const originalWorker = globalThis.Worker;
@@ -500,7 +491,7 @@ describe('TypeScriptRunner', () => {
 
       await expect(newerRun).resolves.toMatchObject({ error: undefined });
 
-      resolveFirstTranspile({ code: 'console.log("old")', warnings: [] });
+      resolveFirstTranspile(transformResult('console.log("old")'));
       await expect(staleRun).resolves.toMatchObject({
         cancelled: true,
         error: { message: 'Execution stopped by user.' },
@@ -517,7 +508,7 @@ describe('TypeScriptRunner', () => {
 
   it('does not spawn a worker after stop() during transpilation', async () => {
     const esbuild = await import('esbuild-wasm');
-    let resolveTranspile!: (value: { code: string; warnings: [] }) => void;
+    let resolveTranspile!: (value: TransformResult) => void;
     vi.mocked(esbuild.transform).mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -547,7 +538,7 @@ describe('TypeScriptRunner', () => {
       const promise = runner.execute('const value: number = 1');
       await Promise.resolve();
       runner.stop();
-      resolveTranspile({ code: 'console.log("old")', warnings: [] });
+      resolveTranspile(transformResult('console.log("old")'));
 
       await expect(promise).resolves.toMatchObject({
         cancelled: true,

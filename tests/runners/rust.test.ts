@@ -23,6 +23,7 @@ import { RustRunner } from '@/runners/rust';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 import { useUIStore } from '@/stores/uiStore';
 
 describe('RustRunner', () => {
@@ -105,8 +106,8 @@ describe('RustRunner', () => {
 
     expect(result.error).toBeUndefined();
     expect(result.stdout).toHaveLength(2);
-    expect(result.stdout[0].args[0]).toBe('Hello, World!');
-    expect(result.stdout[1].args[0]).toBe('Line 2');
+    expect(result.stdout[0]?.args[0]).toBe('Hello, World!');
+    expect(result.stdout[1]?.args[0]).toBe('Line 2');
     expect(result.executionTime).toBe(420);
   });
 
@@ -166,6 +167,7 @@ describe('RustRunner', () => {
         id: 'proj-1',
         name: 'Fixture',
         rootPath: '/tmp/fixture',
+        rootId: asRootId('root-fixture'),
         openedAt: Date.now(),
       },
     });

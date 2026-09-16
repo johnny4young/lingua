@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { transformResult } from '../__fixtures__/esbuildTransform';
 
 vi.mock('esbuild-wasm', () => ({
   initialize: vi.fn(),
@@ -74,10 +75,9 @@ describe('implementation — runner scope-capture wiring', () => {
 
   it('injects a lexical scope capture into transpiled TypeScript runs', async () => {
     const esbuild = await import('esbuild-wasm');
-    vi.mocked(esbuild.transform).mockResolvedValue({
-      code: 'const answer = 42;\nclass Box {}',
-      warnings: [],
-    });
+    vi.mocked(esbuild.transform).mockResolvedValue(
+      transformResult('const answer = 42;\nclass Box {}')
+    );
 
     const worker = installCapturingWorker();
     try {
