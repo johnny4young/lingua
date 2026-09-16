@@ -17,6 +17,9 @@
     // No `baseUrl`: TypeScript 7 removed the option (TS5102). The path
     // mapping never needed it — the target is already relative to this
     // file, which is how `paths` resolves without a base.
+    // tsconfig.test.json repeats these mappings, because a child `paths`
+    // replaces the parent's; tests/build/testTypecheckPaths.test.ts keeps
+    // the copies in step.
     "paths": {
       "@/*": ["./src/renderer/*"]
     },

@@ -24,6 +24,7 @@
     // A child `paths` replaces the parent's, so `@/*` is repeated here.
     // `#src/*` mirrors the test-only alias in vitest.config.mts; it stays out
     // of the root config because no production bundle defines it.
+    // tests/build/testTypecheckPaths.test.ts checks both copies.
     "paths": {
       "@/*": ["./src/renderer/*"],
       "#src/*": ["./src/*"]
