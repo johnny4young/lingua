@@ -22,6 +22,7 @@ import { GoRunner } from '@/runners/go';
 import { useEnvVarsStore } from '@/stores/envVarsStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { asRootId } from '../../src/shared/fs/brandedIds';
 import { useUIStore } from '@/stores/uiStore';
 
 describe('GoRunner', () => {
@@ -266,6 +267,7 @@ describe('GoRunner', () => {
         id: 'proj-1',
         name: 'Fixture',
         rootPath: '/tmp/fixture',
+        rootId: asRootId('root-fixture'),
         openedAt: Date.now(),
       },
     });

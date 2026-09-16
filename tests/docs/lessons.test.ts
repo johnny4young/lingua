@@ -98,7 +98,7 @@ describe('docs/lessons', () => {
 
   it('lesson language ids match a built-in LanguagePack id', async () => {
     const { LANGUAGE_PACKS } = await import('../../src/shared/languagePacks');
-    const knownIds = new Set(LANGUAGE_PACKS.map((pack) => pack.id));
+    const knownIds = new Set<string>(LANGUAGE_PACKS.map((pack) => pack.id));
     for (const filename of listLessons()) {
       const fm = readFrontMatter(resolve(LESSONS_DIR, filename));
       expect(knownIds.has(fm.language ?? ''), `unknown language ${fm.language} in ${filename}`).toBe(true);
