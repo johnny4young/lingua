@@ -176,8 +176,29 @@ jobs:
       - name: Performance budget check
         run: pnpm run check:performance --fail-on-slack
 
+  desktop-bundles:
+    name: Desktop bundles (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Qualify the native Vite resolver on every release OS without signing
+      # or publishing. Packaging/notarization remain separate release gates.
+      - run: pnpm run build:desktop-bundles
+      - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+
   subprojects:
-    name: Independent projects (update-server + website)
+    name: Independent projects (Workers + website)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -192,16 +213,28 @@ jobs:
             license-server/pnpm-lock.yaml
             update-server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - name: License-server gates
+        working-directory: license-server
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm test
+          pnpm exec wrangler deploy --dry-run
       # The update-server has its own tsconfig and vitest config outside the
       # root TypeScript project, so both gates run here. The run block uses
       # only static pnpm commands; no github.event inputs are interpolated,
       # so the workflow is not exposed to script injection.
       - name: Update-server gates
         working-directory: update-server
+        env:
+          WRANGLER_SEND_METRICS: 'false'
         run: |
           pnpm install --frozen-lockfile
           pnpm run typecheck
           pnpm test
+          pnpm exec wrangler deploy --dry-run
       # The marketing site in website/ is a standalone npm package outside the
       # pnpm workspace. Its node:test suite had no PR-time gate: deploy-website
       # reaches it only indirectly, through the "npm test &&" prefix of

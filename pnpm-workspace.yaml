@@ -28,12 +28,9 @@ supportedArchitectures:
 allowBuilds:
   electron: true
   esbuild: true
-  # electron-winstaller's install script downloads the Squirrel.Windows
-  # stub — only relevant on the Windows release runner, and a slow/hanging
-  # download on macOS/Linux dev. Left blocked: maker-squirrel fetches
-  # Squirrel at make time on the Windows job. TODO (release verification):
-  # confirm the Windows installer still builds in CI with this blocked;
-  # flip to true on the Windows runner via a CI-local pnpm setting if not.
+  # electron-builder still pulls electron-winstaller for its optional Squirrel
+  # target. Lingua uses NSIS; explicitly deny its download script. Omitting
+  # this decision makes clean CI installs fail with ERR_PNPM_IGNORED_BUILDS.
   electron-winstaller: false
   # Root deploy-web uses Wrangler for Cloudflare Pages direct uploads.
   # Wrangler's install graph needs workerd and sharp build scripts.
@@ -41,13 +38,7 @@ allowBuilds:
   workerd: true
   node-pty: true
 
-# implementation  — supply-chain hardening re-enabled. electron-forge 7.x pulls
-# @electron/rebuild@3.7.2 → @electron/node-gyp, which was declared as a
-# git-URL dependency, forcing pnpm to fetch an exotic codeload.github.com
-# tarball and making us relax this block. The fork now publishes to the npm
-# registry, so the `@electron/node-gyp` override above pins the registry
-# release and the git tarball is gone from the lockfile — the guard is back
-# on so a future exotic (git/tarball) subdependency fails the install.
+# Reject git/tarball subdependencies; all tooling resolves from the registry.
 blockExoticSubdeps: true
 
 # Dependency overrides. pnpm does NOT read npm's top-level `overrides`
@@ -60,12 +51,6 @@ blockExoticSubdeps: true
 # npm-style `overrides` block stays in package.json too (npm-compat +
 # asserted by the depFreshness test).
 overrides:
-  # implementation  — @electron/rebuild@3.7.2 (pulled by @electron-forge 7.x)
-  # declared @electron/node-gyp as a git-URL dependency, forcing pnpm to
-  # fetch an exotic codeload.github.com tarball and keeping
-  # `blockExoticSubdeps` disabled above. The fork now publishes to the npm
-  # registry, so we pin it to the registry release and re-enable the guard.
-  "@electron/node-gyp": "10.2.0-electron.2"
   "monaco-editor>dompurify": "^3.4.15"
   # Security patch pins. Keep each brace-expansion override inside its
   # existing major so legacy Electron tooling does not receive a breaking
@@ -77,21 +62,6 @@ overrides:
   # undici, brace-expansion), because the next advisory never re-opens the
   # pin by itself. minimumReleaseAge still keeps day-old releases out.
   "brace-expansion@1.1.15": "^1.1.18"
-  # ip-address <=10.3.0 carries three advisories (leading-zero octets decoded
-  # as decimal, a CIDR suffix suppressing special-use detection, and
-  # IPv4-mapped/NAT64 misclassification). It reaches the tree only through
-  # dev tooling (@electron/rebuild -> make-fetch-happen -> socks), but 10.3.1
-  # is a compatible patch inside socks' declared range, so move the whole
-  # graph onto it rather than reasoning about reachability.
-  #
-  # extract-zip (same @electron-forge/shared-types branch) has NO patched
-  # release for its symlink-traversal advisory — every published version is
-  # in range. There is nothing to pin; the alert is dismissed as not_used
-  # because the extraction path belongs to @electron/packager, which this
-  # repo replaced with electron-builder (plugin-vite is imported only for
-  # ViteConfigGenerator in scripts/build-desktop-bundles.mjs). Re-check if
-  # packaging ever moves back to Forge or extract-zip publishes a fix.
-  "ip-address": "^10.3.1"
   # nanoid <3.3.18: custom generators can loop indefinitely when size is
   # zero. Build-tooling only (postcss), but the website audit gate is
   # blocking and its previous EXACT pin (3.3.17) froze the tree one patch
@@ -137,31 +107,11 @@ overrides:
   "@xmldom/xmldom@0.9": "^0.9.12"
   # tar 7 feeds electron-builder's packaging chain (app-builder-lib, node-gyp
   # 12). GHSA-r292-9mhp-454m reaches it through 7.5.20; both consumers accept
-  # the 7.5.21 fix. The 6.x line is deliberately untouched: see the tar@^6
-  # note on the tmp override below.
+  # the 7.5.21 fix. Removing the residual Forge graph also removes tar 6.
   "tar@7": "^7.5.21"
   "ws": "^8.21.1"
-  # Electron Forge's macOS packager extracts the Electron ZIP through
-  # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
-  # can let the process exit before the promise resolves, so Forge exits 0
-  # without out/make artifacts. Keep the release workflow on Node 24.x by
-  # moving only the ZIP reader forward instead of pinning Node.
-  "yauzl": "~3.3.1"
-  # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65). It
-  # reaches the tree only through dev/build tooling — @electron-forge's
-  # @inquirer/editor prompts and the fengari → electron-installer Linux
-  # makers — so the release-blocking `pnpm audit --prod` was already
-  # clean. Force the patched 0.2.7 anyway to clear the advisory from the
-  # full (advisory) audit and keep the dev toolchain off the vulnerable
-  # range.
-  #
-  # tar: the remaining node-tar advisories publish fixes only on 7.5.19+
-  # while every path here runs through dev-only @electron/rebuild →
-  # node-gyp/cacache packages that still declare tar@^6. Do not force the
-  # 6→7 major blindly: it needs make:desktop validation on every release
-  # platform or an upstream toolchain update. `pnpm audit --prod` stays
-  # clean and the dev-inclusive audit remains advisory by policy; re-check
-  # on the next @electron-forge bump (see the TODO above).
+  # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65).
+  # Keep the patched floor for fengari and packaging's tmp-promise chain.
   "tmp": "^0.2.7"
 
 minimumReleaseAgeExclude:

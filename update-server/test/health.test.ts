@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import worker, { resetReadinessProbeCacheForTests, SERVER_NAME, SERVER_VERSION } from '../src/index';
+import worker from '../src/index';
+import { resetReadinessProbeCacheForTests, SERVER_NAME, SERVER_VERSION } from '../src/lib/health';
 import type { Env } from '../src/index';
 
 const stubEnv: Env = { GITHUB_TOKEN: 'test-token' };

@@ -10,7 +10,6 @@ import { findDarwinZipAsset } from './darwinAsset';
 import { log, wrapRequestObservability } from './lib/observability';
 import {
   evaluateReadiness,
-  resetReadinessProbeCacheForTests,
   SERVER_NAME,
   SERVER_VERSION,
 } from './lib/health';
@@ -31,10 +30,6 @@ const WEB_VERSION_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Max-Age': '86400',
 } as const;
-
-// Re-export so tests can clear the probe cache between cases without
-// reaching into the lib path directly.
-export { resetReadinessProbeCacheForTests, SERVER_NAME, SERVER_VERSION };
 
 export function resolveReleaseChannel(env: Pick<Env, 'GITHUB_RELEASE_CHANNEL'>): ReleaseChannel {
   return env.GITHUB_RELEASE_CHANNEL === 'draft' ? 'draft' : 'stable';
