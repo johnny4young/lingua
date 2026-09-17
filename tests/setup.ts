@@ -33,11 +33,22 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
 // unhandled error. Mirror the shape user-event's clipboard stub already
 // expects (types plus an async getType returning a Blob), and keep the
 // property writable so tests can still remove it to exercise fallbacks.
+// Like a real ClipboardItem, the stub also observes the promises it is given:
+// the workaround cancels the previous click's pending write on every click,
+// and an unobserved cancellation fails the run as an unhandled rejection
+// (tests/clipboardItemStub.test.tsx).
 if (typeof window !== 'undefined' && typeof globalThis.ClipboardItem !== 'function') {
   class ClipboardItemStub {
     readonly presentationStyle = 'unspecified';
 
-    constructor(private readonly data: Record<string, string | Blob | PromiseLike<string | Blob>>) {}
+    constructor(private readonly data: Record<string, string | Blob | PromiseLike<string | Blob>>) {
+      for (const value of Object.values(data)) {
+        if (typeof value === 'object' && value !== null && 'then' in value) {
+          // getType still awaits the original, so a reader sees the rejection.
+          Promise.resolve(value).catch(() => {});
+        }
+      }
+    }
 
     get types(): string[] {
       return Object.keys(this.data);
