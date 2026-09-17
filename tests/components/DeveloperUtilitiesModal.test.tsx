@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
 import {
@@ -12,6 +12,10 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useUtilityHistoryStore } from '../../src/renderer/stores/utilityHistoryStore';
 import { useUtilityWorkspaceStore } from '../../src/renderer/stores/utilityWorkspaceStore';
+import {
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
+  warmUpUtilityPanels,
+} from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -24,6 +28,25 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
     <div {...props}>{children}</div>
   ),
 }));
+
+// Resolve every lazy panel this file opens before any test runs
+// (tests/__fixtures__/utilityPanels.tsx).
+beforeAll(
+  () =>
+    warmUpUtilityPanels([
+      'base64',
+      'color',
+      'diff',
+      'json',
+      'jwt',
+      'mock-data',
+      'number-base',
+      'regex',
+      'timestamp',
+      'utility-pipelines',
+    ]),
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS
+);
 
 describe('DeveloperUtilitiesModal', () => {
   beforeEach(async () => {

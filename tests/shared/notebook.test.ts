@@ -84,8 +84,8 @@ describe('shared/notebook closed enums', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       const cell = result.notebook.cells[0];
-      expect(cell.kind).toBe('code');
-      if (cell.kind === 'code') expect(cell.language).toBe('sql');
+      expect(cell?.kind).toBe('code');
+      if (cell?.kind === 'code') expect(cell.language).toBe('sql');
     }
   });
 

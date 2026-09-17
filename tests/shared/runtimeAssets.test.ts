@@ -45,7 +45,7 @@ describe('internal — runtime-assets.lock.json integrity', () => {
 
     for (const [id, entry] of Object.entries(RUNTIME_ASSETS)) {
       const lockEntry = lock[id];
-      expect(lockEntry, `lock missing entry for ${id}`).toBeDefined();
+      if (lockEntry === undefined) throw new Error(`lock missing entry for ${id}`);
       expect(lockEntry.version).toBe(entry.version);
       expect(lockEntry.sourceUrl).toBe(entry.sourceUrl);
 

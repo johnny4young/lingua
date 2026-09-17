@@ -123,7 +123,7 @@ describe('internal — packBundle', () => {
         { maxEntryBytes: 8 }
       )
     ).toThrow(
-      expect.objectContaining<ProjectBundleExportError>({
+      expect.objectContaining<Pick<ProjectBundleExportError, 'reason'>>({
         reason: 'entry-too-large',
       })
     );
@@ -140,7 +140,7 @@ describe('internal — packBundle', () => {
         { maxUncompressedBytes: 100 }
       )
     ).toThrow(
-      expect.objectContaining<ProjectBundleExportError>({ reason: 'too-large' })
+      expect.objectContaining<Pick<ProjectBundleExportError, 'reason'>>({ reason: 'too-large' })
     );
   });
 
@@ -152,7 +152,7 @@ describe('internal — packBundle', () => {
         { maxBundleBytes: 4 }
       )
     ).toThrow(
-      expect.objectContaining<ProjectBundleExportError>({ reason: 'too-large' })
+      expect.objectContaining<Pick<ProjectBundleExportError, 'reason'>>({ reason: 'too-large' })
     );
   });
 

@@ -3,6 +3,7 @@ import {
   buildWatcherDiagnostic,
   classifyWatcherError,
 } from '#src/shared/fs/watcherDiagnostic';
+import { asRelativePath, asRootId } from '#src/shared/fs/brandedIds';
 
 describe('classifyWatcherError', () => {
   it('returns unknown for null / undefined inputs', () => {
@@ -64,7 +65,7 @@ describe('classifyWatcherError', () => {
 describe('buildWatcherDiagnostic', () => {
   it('returns a fully-shaped diagnostic with the classified kind', () => {
     const err = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
-    const diagnostic = buildWatcherDiagnostic(err, 'root_42', 'src/foo');
+    const diagnostic = buildWatcherDiagnostic(err, asRootId('root_42'), asRelativePath('src/foo'));
 
     expect(diagnostic).toEqual({
       kind: 'permission-denied',
@@ -75,13 +76,13 @@ describe('buildWatcherDiagnostic', () => {
   });
 
   it('uses the string error verbatim when not an Error instance', () => {
-    const diagnostic = buildWatcherDiagnostic('plain string failure', 'r', '');
+    const diagnostic = buildWatcherDiagnostic('plain string failure', asRootId('r'), asRelativePath(''));
     expect(diagnostic.errorMessage).toBe('plain string failure');
     expect(diagnostic.kind).toBe('unknown');
   });
 
   it('falls back to unknown error for non-Error non-string inputs', () => {
-    const diagnostic = buildWatcherDiagnostic({ weird: true }, 'r', '');
+    const diagnostic = buildWatcherDiagnostic({ weird: true }, asRootId('r'), asRelativePath(''));
     expect(diagnostic.errorMessage).toBe('unknown error');
     expect(diagnostic.kind).toBe('unknown');
   });

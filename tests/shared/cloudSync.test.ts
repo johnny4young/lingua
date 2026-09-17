@@ -45,7 +45,7 @@ describe('mergeSnapshots', () => {
     const local: SyncSnapshot = { a: { value: 'local', updatedAt: 10 } };
     const remote: SyncSnapshot = { a: { value: 'remote', updatedAt: 10 } };
     const { merged, conflicts } = mergeSnapshots(local, remote);
-    expect(merged.a.value).toBe('local');
+    expect(merged.a?.value).toBe('local');
     expect(conflicts[0]?.winner).toBe('local');
   });
 
@@ -60,7 +60,7 @@ describe('mergeSnapshots', () => {
     const local: SyncSnapshot = { a: { value: 'x', updatedAt: 30, deleted: true } };
     const remote: SyncSnapshot = { a: { value: 'x', updatedAt: 20 } };
     const { merged } = mergeSnapshots(local, remote);
-    expect(merged.a.deleted).toBe(true);
+    expect(merged.a?.deleted).toBe(true);
   });
 
   it('flags changedFromRemote when the merge introduces a local-only key', () => {

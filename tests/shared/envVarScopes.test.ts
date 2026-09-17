@@ -74,11 +74,10 @@ describe('sanitizeScope', () => {
   });
 
   it('drops non-string values defensively', () => {
+    // Simulate runtime bad data; the double cast lets the invalid values through.
     const scope = sanitizeScope({
       FOO: 'ok',
-      // @ts-expect-error — simulate runtime bad data
       BAR: 42,
-      // @ts-expect-error — simulate runtime bad data
       BAZ: null,
     } as unknown as Record<string, string>);
     expect(scope).toEqual({ FOO: 'ok' });

@@ -5,6 +5,15 @@ import {
   parsePythonTraceback,
 } from '../../src/shared/errorStack';
 
+/** The frame at `index`; fails the test when the parser produced fewer frames. */
+function frameAt<T>(frames: readonly T[], index: number): T {
+  const frame = frames[index];
+  if (frame === undefined) {
+    throw new Error(`expected a frame at index ${index}, found ${frames.length}`);
+  }
+  return frame;
+}
+
 describe('parseJsErrorStack', () => {
   it('returns empty array for missing input', () => {
     expect(parseJsErrorStack(undefined)).toEqual([]);
@@ -21,7 +30,7 @@ describe('parseJsErrorStack', () => {
     expect(frames).toHaveLength(3);
     // Header
     expect(frames[0]).toMatchObject({ text: 'Error: boom' });
-    expect(frames[0].file).toBeUndefined();
+    expect(frameAt(frames, 0).file).toBeUndefined();
     // First frame
     expect(frames[1]).toMatchObject({
       fnName: 'handler',
@@ -46,7 +55,7 @@ describe('parseJsErrorStack', () => {
       line: 1,
       column: 1,
     });
-    expect(frames[1].fnName).toBeUndefined();
+    expect(frameAt(frames, 1).fnName).toBeUndefined();
   });
 
   it('parses SpiderMonkey frames', () => {
@@ -60,17 +69,17 @@ describe('parseJsErrorStack', () => {
     });
     // The anonymous-toplevel frame retains the file/line/column;
     // `fnName` is intentionally absent because nothing precedes `@`.
-    expect(frames[1].fnName).toBeUndefined();
-    expect(frames[1].file).toBe('/Users/me/x.js');
+    expect(frameAt(frames, 1).fnName).toBeUndefined();
+    expect(frameAt(frames, 1).file).toBe('/Users/me/x.js');
   });
 
   it('keeps unrecognised lines as text-only frames', () => {
     const stack = 'Error: boom\nat eval (eval at <anonymous> (:1:1))';
     const frames = parseJsErrorStack(stack);
     expect(frames).toHaveLength(2);
-    expect(frames[1].file).toBeUndefined();
-    expect(frames[1].line).toBeUndefined();
-    expect(frames[1].text).toContain('eval');
+    expect(frameAt(frames, 1).file).toBeUndefined();
+    expect(frameAt(frames, 1).line).toBeUndefined();
+    expect(frameAt(frames, 1).text).toContain('eval');
   });
 
   it('survives malformed input without throwing', () => {
@@ -92,13 +101,13 @@ describe('parseJsErrorStack', () => {
     // Header + 2 eval-internal frames.
     expect(frames).toHaveLength(3);
     // Both eval frames must be text-only (no file/line/column).
-    expect(frames[1].file).toBeUndefined();
-    expect(frames[1].line).toBeUndefined();
-    expect(frames[1].column).toBeUndefined();
+    expect(frameAt(frames, 1).file).toBeUndefined();
+    expect(frameAt(frames, 1).line).toBeUndefined();
+    expect(frameAt(frames, 1).column).toBeUndefined();
     // Function name preserved in fnName + visible in text.
-    expect(frames[1].fnName).toBe('inner');
-    expect(frames[1].text).toContain('inner');
-    expect(frames[2].fnName).toBe('outer');
+    expect(frameAt(frames, 1).fnName).toBe('inner');
+    expect(frameAt(frames, 1).text).toContain('inner');
+    expect(frameAt(frames, 2).fnName).toBe('outer');
   });
 
   it('still treats genuine user-source frames as clickable', () => {

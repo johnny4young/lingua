@@ -8,10 +8,14 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
 import { BASE64_IMAGE_MAX_BYTES } from '../../src/renderer/utils/base64Image';
+import {
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
+  warmUpUtilityPanels,
+} from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -36,6 +40,10 @@ const ONE_BY_ONE_PNG = new Uint8Array([
   0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
   0x42, 0x60, 0x82,
 ]);
+
+// Resolve every lazy panel this file opens before any test runs
+// (tests/__fixtures__/utilityPanels.tsx).
+beforeAll(() => warmUpUtilityPanels(['base64-image']), UTILITY_PANEL_WARM_UP_TIMEOUT_MS);
 
 describe('Base64ImagePanel', () => {
   beforeEach(async () => {

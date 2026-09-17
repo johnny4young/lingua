@@ -11,11 +11,15 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
 import { useUtilityOutputStore } from '../../src/renderer/stores/utilityOutputStore';
 import { decodeQrFromFile, type QrDecodeResult } from '../../src/renderer/utils/qrCode';
+import {
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
+  warmUpUtilityPanels,
+} from '../__fixtures__/utilityPanels';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -55,6 +59,10 @@ vi.mock('../../src/renderer/utils/qrCode', async () => {
     }),
   };
 });
+
+// Resolve every lazy panel this file opens before any test runs
+// (tests/__fixtures__/utilityPanels.tsx).
+beforeAll(() => warmUpUtilityPanels(['qr-code']), UTILITY_PANEL_WARM_UP_TIMEOUT_MS);
 
 describe('QrCodePanel', () => {
   beforeEach(async () => {
