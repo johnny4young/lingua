@@ -168,6 +168,13 @@ Desktop baseline must guarantee:
 - closing Electron does not leave orphaned renderer/server processes
 - compact-width shell behavior keeps the editor usable, with the sidebar switching to an overlay drawer instead of collapsing into an unusable split
 
+Desktop bundle changes are also built on Linux, Windows, and macOS by the
+`desktop-bundles` matrix. It exercises the native Vite production resolver and
+its config-contract tests without signing or publishing installers. A local
+packaged-app smoke and release packaging/notarization remain separate evidence.
+The independent-projects job tests and typechecks both Workers and runs Wrangler
+`deploy --dry-run` for each; those commands build locally and do not deploy.
+
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
 filesystem permission regression, it executes the real
 `cmd.exe /d /c npm.cmd` dependency-install boundary against a deterministic

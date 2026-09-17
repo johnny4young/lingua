@@ -8,9 +8,9 @@
   // CLI and runtime surfaces.
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    // Electron process entries (forge.config.ts build section). The
-    // renderer/web entries and the vite configs themselves are picked
-    // up automatically by knip's vite + electron-forge plugins.
+    // Electron process entries (scripts/lib/desktopViteConfig.mjs). The
+    // renderer/web entries are picked up by knip's Vite plugin; the
+    // production configs are also explicit entries below.
     "src/main/index.ts",
     "src/preload/index.ts",
     // Web-only module wired via the `@/plugins/catalog` alias in

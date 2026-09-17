@@ -9,9 +9,11 @@
 > **Superseded 2026-06-28.** Desktop packaging moved off the Electron Forge
 > makers to **electron-builder** (mac dmg+zip, win NSIS, linux AppImage) with
 > **electron-updater** reading the auto-update feed from **GitHub Releases**.
-> `@electron-forge/plugin-vite` is retained only as the bundler inside
-> `scripts/build-desktop-bundles.mjs`; the Forge makers, publisher, CLI, and
-> fuses plugin are gone (fuses are now set via `electron-builder.yml`
+> Production bundles use native Vite configs through
+> `scripts/build-desktop-bundles.mjs`; the residual Forge Vite generator was
+> removed on 2026-09-17 along with its unused vulnerable packaging graph.
+> The Forge makers, publisher, CLI, and fuses plugin are gone (fuses are now
+> set via `electron-builder.yml`
 > `electronFuses`). The Cloudflare update Worker + R2 release mirror leave the
 > desktop path; licensing stays on Cloudflare. The original 2026-04-19 analysis
 > below is kept for the record.
@@ -29,6 +31,26 @@ React's development diagnostics remain. This makes release artifacts and
 performance measurements independent of the shell or CI process that invoked
 the build, even if future chunk naming moves React out of its current runtime
 chunk.
+
+## Dependency security boundary
+
+The desktop resolver in `scripts/lib/desktopViteConfig.mjs` keeps the existing
+main/preload CommonJS entries, Node externals and main resolution conditions,
+unsplit preload, relative renderer asset URLs and `main_window` directory.
+It loads all three repository configs in production mode, including their
+repository-root environment handling. Main and preload must not erase each
+other's outputs. The managed development launcher is unchanged.
+
+Removing `@electron-forge/plugin-vite` removes the unused packager's unpatched
+`extract-zip` and legacy `tar` 6 graph instead of overriding incompatible APIs
+or dismissing security alerts. Electron itself already uses its maintained
+`@electron-internal/extract-zip` package. electron-builder keeps its supported
+`tar` 7 chain. Regression tests guard both the config contract and lockfiles.
+
+The independently locked license and update Workers use the same Wrangler
+line as the root tooling, which brings a patched `sharp` through Miniflare.
+Their own tests, typechecks and local dry-run bundles qualify that update;
+no Worker deployment or change to production application behavior is implied.
 
 ## Context
 

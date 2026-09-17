@@ -64,18 +64,6 @@ function latestMajor(pkg: string): number | null {
   }
 }
 
-function assertYauzlLockfile(lockfile: string): void {
-  const lock = load(lockfile) as Record<'packages' | 'snapshots', Record<string, unknown>>;
-  for (const section of ['packages', 'snapshots'] as const) {
-    const entries = Object.keys(lock[section]).filter(key => key.startsWith('yauzl@'));
-    expect(entries.length, `Missing yauzl ${section}`).toBeGreaterThan(0);
-    for (const entry of entries) {
-      // Accept patches >= 3.3.1, but reject old, prerelease, or new minor lines.
-      expect(entry).toMatch(/^yauzl@3\.3\.[1-9]\d*$/u);
-    }
-  }
-}
-
 describe('dependency override hygiene', () => {
   it.each(['js-yaml/package.json', 'electron-updater/package.json'])(
     'counts empty merge sources against the YAML budget through %s', owner => {
@@ -222,32 +210,42 @@ describe('dependency override hygiene', () => {
     ).toBe(false);
   });
 
-  it('keeps Electron ZIP extraction on the Node 24-compatible yauzl line', () => {
-    const workspace = readFileSync(PNPM_WORKSPACE_PATH, 'utf-8');
-    // Tilde range: patches flow, the minor stays put (the ZIP reader sits on
-    // the packaging path and a minor bump needs make:desktop validation).
-    expect(workspace).toMatch(/["']?yauzl["']?:\s*["']~3\.3\./u);
-
-    // Do not read node_modules here: pnpm can leave local trees stale until a
-    // full relink, while CI installs from the lockfile. The lock is the
-    // release-build source of truth for this transitive override.
-    const lockfile = readFileSync(PNPM_LOCK_PATH, 'utf-8');
-    assertYauzlLockfile(lockfile);
+  it('keeps the root graph free of the unused vulnerable Forge archive toolchain', () => {
+    const lock = load(readFileSync(PNPM_LOCK_PATH, 'utf-8')) as {
+      packages: Record<string, unknown>;
+      snapshots: Record<string, unknown>;
+    };
+    for (const section of [lock.packages, lock.snapshots]) {
+      const names = Object.keys(section);
+      expect(names.some(name => name.startsWith('@electron-forge/'))).toBe(false);
+      expect(names.some(name => name.startsWith('extract-zip@'))).toBe(false);
+      expect(names.some(name => name.startsWith('yauzl@'))).toBe(false);
+      expect(names.some(name => name.startsWith('@electron-internal/extract-zip@'))).toBe(true);
+      const tar = names.filter(name => name.startsWith('tar@'));
+      expect(tar.length).toBeGreaterThan(0);
+      for (const name of tar) {
+        const match = /^tar@7\.5\.(\d+)$/u.exec(name);
+        expect(match, name).not.toBeNull();
+        expect(Number(match![1]), name).toBeGreaterThanOrEqual(21);
+      }
+    }
   });
 
-  it.each(['3.3.1', '3.3.2', '3.3.12'])('permits a yauzl patch refresh to %s', version => {
-    assertYauzlLockfile(`packages:\n  yauzl@${version}: {}\nsnapshots:\n  yauzl@${version}: {}`);
-  });
-
-  it.each(['2.10.0', '3.3.0', '3.4.0', '4.0.0', '3.3.2-beta.1'])(
-    'rejects a yauzl resolution outside the reviewed patch line: %s',
-    version => {
-      // Even a valid entry must not mask an additional disallowed resolution.
-      expect(() =>
-        assertYauzlLockfile(
-          `packages:\n  yauzl@3.3.1: {}\n  yauzl@${version}: {}\nsnapshots:\n  yauzl@3.3.1: {}`
-        )
-      ).toThrow();
+  it.each(['license-server', 'update-server'])(
+    'keeps every sharp resolution patched in the independent %s lockfile', project => {
+      const lock = load(readFileSync(resolve(ROOT, project, 'pnpm-lock.yaml'), 'utf-8')) as {
+        packages: Record<string, unknown>;
+        snapshots: Record<string, unknown>;
+      };
+      for (const section of [lock.packages, lock.snapshots]) {
+        const sharp = Object.keys(section).filter(name => name.startsWith('sharp@'));
+        expect(sharp.length).toBeGreaterThan(0);
+        for (const name of sharp) {
+          const match = /^sharp@0\.35\.(\d+)(?:\(|$)/u.exec(name);
+          expect(match, name).not.toBeNull();
+          expect(Number(match![1]), name).toBeGreaterThanOrEqual(4);
+        }
+      }
     }
   );
 
