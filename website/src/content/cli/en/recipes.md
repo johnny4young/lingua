@@ -242,7 +242,7 @@ Pin the CLI in `devDependencies`, then give collaborators one memorable script:
 ```json
 {
   "devDependencies": {
-    "@linguacode/cli": "1.4.1"
+    "@linguacode/cli": "1.5.0"
   },
   "scripts": {
     "check:local": "lingua run ./scripts/check.ts --timeout 60000 -- --changed-only",
@@ -373,7 +373,7 @@ Replay itself can exit 0 when the program ran successfully but differed from the
 ```dockerfile
 FROM node:24-bookworm-slim
 
-RUN npm install --global @linguacode/cli@1.4.1
+RUN npm install --global @linguacode/cli@1.5.0
 WORKDIR /workspace
 ENTRYPOINT ["lingua"]
 CMD ["--help"]
