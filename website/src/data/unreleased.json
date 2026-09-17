@@ -1,7 +1,116 @@
 {
-  "generatedAt": "2026-09-01T04:04:11.415Z",
-  "baseRef": "v1.4.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "generatedAt": "2026-09-17T03:06:14.794Z",
+  "baseRef": "v1.4.1",
+  "commitCount": 12,
+  "totalSinceBase": 132,
+  "commits": [
+    {
+      "hash": "10e8a4f",
+      "date": "2026-09-16",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "tests",
+      "message": "warm up the pipelines panel in the utilities modal tests",
+      "breaking": false
+    },
+    {
+      "hash": "b035e3c",
+      "date": "2026-09-12",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "license-server",
+      "message": "typecheck tests without the root node_modules",
+      "breaking": false
+    },
+    {
+      "hash": "7b675ae",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "notebook",
+      "message": "parse cells as modules so top-level using keeps sharing",
+      "breaking": false
+    },
+    {
+      "hash": "1980f70",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "docs",
+      "message": "record the one Ruby run per worker invariant",
+      "breaking": false
+    },
+    {
+      "hash": "a51cfcf",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "let only the newest Ruby run reach a booting worker",
+      "breaking": false
+    },
+    {
+      "hash": "24aed0e",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "docs",
+      "message": "record the one Python run per worker invariant",
+      "breaking": false
+    },
+    {
+      "hash": "ec904b5",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "let only the newest Python run reach a booting worker",
+      "breaking": false
+    },
+    {
+      "hash": "68c3e18",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "floor tar 7 at the patch for the recursion advisory",
+      "breaking": false
+    },
+    {
+      "hash": "ef9b3cf",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "floor @xmldom/xmldom on both lines at the advisory-fixed patches",
+      "breaking": false
+    },
+    {
+      "hash": "a617f40",
+      "date": "2026-09-11",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "move hono to 4.13.7 to clear three request-parsing advisories",
+      "breaking": false
+    },
+    {
+      "hash": "74b3a8e",
+      "date": "2026-09-11",
+      "type": "perf",
+      "typeLabel": "Performance",
+      "scope": "notebook",
+      "message": "transpile cells with esbuild and move to TypeScript 7",
+      "breaking": false
+    },
+    {
+      "hash": "5006b14",
+      "date": "2026-09-10",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "lint",
+      "message": "restore the recommended rule set and gate the warm on runtime mode",
+      "breaking": false
+    }
+  ]
 }
