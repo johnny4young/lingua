@@ -118,7 +118,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'editorconfig',
       'shellscript',
     ];
-    const ids = new Set(LANGUAGE_PACKS.map((pack) => pack.id));
+    const ids = new Set<string>(LANGUAGE_PACKS.map((pack) => pack.id));
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }

@@ -7,10 +7,10 @@
 // fixtures) were the first entries.
 //
 // Whole directories follow, cheapest first. Measured with a scratch config
-// per directory, last at a342ee98 (2026-09-16), so re-measure before trusting
-// these for scope. Already in: cli, docs, runners, main. Remaining: build 30
-// errors (plus 14 in the root `.mts` configs it pulls in), shared 51,
-// scripts 53, hooks 80, components 95, stores 214.
+// per directory at a342ee98 (2026-09-16), so re-measure before trusting these
+// for scope. Already in: cli, docs, runners, main, shared. Remaining: build 30
+// errors (plus 14 in the root `.mts` configs it pulls in), scripts 53,
+// hooks 80, components 95, stores 214.
 //
 // Rules for widening:
 //  - one directory per change, with its errors fixed rather than silenced:
@@ -52,7 +52,9 @@
     "tests/runners/**/*.ts",
     "tests/runners/**/*.tsx",
     "tests/main/**/*.ts",
-    "tests/main/**/*.tsx"
+    "tests/main/**/*.tsx",
+    "tests/shared/**/*.ts",
+    "tests/shared/**/*.tsx"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }

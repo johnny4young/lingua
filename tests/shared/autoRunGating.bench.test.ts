@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isLikelyComplete } from '#src/shared/autoRunGating';
+import { isLikelyComplete, type AutoRunGateResult } from '#src/shared/autoRunGating';
 
 const IS_CI = process.env.CI === 'true';
 const CI_MULTIPLIER = 2;
@@ -84,7 +84,7 @@ describe('autoRunGating bench — 5 KB / 5 000 iterations', () => {
     // wiring a Monaco / TS-worker round-trip in makes EVERY run — and
     // thus the minimum — blow past the budget by orders of magnitude.
     const RUNS = 3;
-    let last = { ready: true, reason: 'ok' as const };
+    let last: AutoRunGateResult = { ready: true, reason: 'ok' };
     let bestElapsedMs = Infinity;
     for (let run = 0; run < RUNS; run++) {
       const elapsed = createElapsedTimer();
