@@ -9,9 +9,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import {
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
+  warmUpUtilityPanels,
+} from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -28,6 +32,10 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
 function toBase64Url(value: unknown): string {
   return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
 }
+
+// Resolve every lazy panel this file opens before any test runs
+// (tests/__fixtures__/utilityPanels.tsx).
+beforeAll(() => warmUpUtilityPanels(['jwt']), UTILITY_PANEL_WARM_UP_TIMEOUT_MS);
 
 describe('JwtUtilityPanel', () => {
   const originalCss = globalThis.CSS;

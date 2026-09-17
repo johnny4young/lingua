@@ -12,6 +12,10 @@ import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import {
+  UTILITY_PANEL_WARM_UP_TIMEOUT_MS,
+  warmUpUtilityPanels,
+} from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -29,21 +33,11 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
   ),
 }));
 
-describe('BackslashEscapePanel', () => {
-  // The modal renders each panel through React.lazy, and a lazy component only
-  // renders synchronously once its first load has resolved. Resolve it here,
-  // before any test, so no test depends on another having loaded the panel,
-  // and the slow first import under coverage instrumentation stays out of each
-  // test's own waiting window.
-  beforeAll(async () => {
-    initI18n('en');
-    const { unmount } = render(
-      <DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="backslash-escape" />
-    );
-    await screen.findByTestId('backslash-escape-output', undefined, { timeout: 10_000 });
-    unmount();
-  }, 15_000);
+// Resolve every lazy panel this file opens before any test runs
+// (tests/__fixtures__/utilityPanels.tsx).
+beforeAll(() => warmUpUtilityPanels(['backslash-escape']), UTILITY_PANEL_WARM_UP_TIMEOUT_MS);
 
+describe('BackslashEscapePanel', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');
