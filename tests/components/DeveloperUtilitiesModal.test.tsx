@@ -43,6 +43,7 @@ beforeAll(
       'number-base',
       'regex',
       'timestamp',
+      'utility-pipelines',
     ]),
   UTILITY_PANEL_WARM_UP_TIMEOUT_MS
 );
