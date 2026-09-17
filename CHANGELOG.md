@@ -6,6 +6,31 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-09-17
+
+### Security
+- **The desktop app's local MCP server no longer ships a vulnerable request parser.** `hono` moves to 4.13.7, clearing three advisories: `toSSG()` writing files outside its output directory, unbounded dot-notation nesting in `parseBody()` exhausting memory, and query parameters read after the URL fragment. The license service picks up the same fix.
+- **The desktop app now runs on Electron 44.** The upgrade brings the matching Chromium security fixes. The main process's bundled HTTP client moves to `undici` 8 and its WebSocket client to `ws` 8.21.3, both still covered by the bundled-dependency audit gate.
+
+### Changed
+- **The first TypeScript run is faster.** The TypeScript toolchain now warms up while you type in a TypeScript tab, so the first run no longer waits for it. The first run measured about a third faster, and a real session gives the warm-up more time than the benchmark did.
+- **Running a JavaScript notebook cell no longer downloads the TypeScript compiler.** Notebook cells previously pulled about 0.9 MB of compiler on their first run, whatever their language; TypeScript cells now transpile with esbuild instead.
+- **The editor loads Node.js typings only for the Node runtime, in one request.** It used to fetch 126 typing files one after another (about 2.5 MB) as soon as you started typing, including on the web, where the Node runtime is unavailable.
+- **Large runtimes start sooner on the web.** The app opens its connection to the runtime download host ahead of time. Ruby now compiles while it downloads, and DuckDB verifies its payload's integrity off the main thread, with fewer copies of it in memory.
+- **Programs that print a lot keep the console and results panel responsive.** Streamed output now reaches the console and the results panel at most once per frame instead of once per line.
+- **Project search caps results at 500 and says so.** When a search hits the cap, a notice asks you to refine the query, and long result lists render only the rows in view.
+- **Choosing Node, Deno or Bun in the web app reports right away that the runtime is desktop-only.** It no longer downloads esbuild (about 14 MB) first.
+- **Desktop Python starts without an extra read of its 10 MB runtime.**
+- **The natural-language SQL assistant adds a note only when a query needs explaining.**
+
+### Fixed
+- **Editing a new Python tab while Python is still loading no longer loses results.** The tab's automatic first run and the run triggered by the edit could both reach the runtime once it finished loading, and the inline results of the newer run could go missing.
+- **Python is found the same way across the command line, the debugger and project tests.** On Windows, debugging now works with only the `py` launcher installed; project tests also consider `python3`; and command-line runs pick up a virtual environment in a `venv` folder, not just `.venv`.
+- **Background failures in the desktop app's main process no longer crash the app.** This covers the Git HEAD watcher after its window closes and the rust-analyzer and gopls crash-recovery paths; the update check timer is also cleared on quit.
+- **Long output with multibyte characters is cut at the real 64 KB limit.** Text in scripts such as Chinese or emoji could previously pass three to four times the limit, and a cut could split a character.
+- **Homebrew no longer warns about the Lingua cask on every update.** The generated cask drops the deprecated `verified:` parameter.
+- **Long sessions no longer accumulate memory for closed tabs** in dependency telemetry bookkeeping.
+
 ## [1.4.1] — 2026-08-31
 
 ### Fixed
