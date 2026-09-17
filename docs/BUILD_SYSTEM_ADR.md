@@ -49,7 +49,9 @@ or dismissing security alerts. Electron itself already uses its maintained
 
 The independently locked license and update Workers use the same Wrangler
 line as the root tooling, which brings a patched `sharp` through Miniflare.
-Their own tests, typechecks and local dry-run bundles qualify that update;
+Their own tests, typechecks and local dry-run bundles qualify that update.
+An update-Worker integration test also starts real workerd: test-only constant
+exports are imported from the health helper, not exposed as Worker entrypoints;
 no Worker deployment or change to production application behavior is implied.
 
 ## Context

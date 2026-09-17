@@ -174,6 +174,8 @@ its config-contract tests without signing or publishing installers. A local
 packaged-app smoke and release packaging/notarization remain separate evidence.
 The independent-projects job tests and typechecks both Workers and runs Wrangler
 `deploy --dry-run` for each; those commands build locally and do not deploy.
+The update Worker also runs a workerd startup/health/404 integration test: a
+successful dry-run bundle alone does not validate its exported entrypoints.
 
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
 filesystem permission regression, it executes the real

@@ -65,6 +65,13 @@ function latestMajor(pkg: string): number | null {
 }
 
 describe('dependency override hygiene', () => {
+  it('explicitly denies the unused Squirrel installer script on clean CI installs', () => {
+    const workspace = load(readFileSync(PNPM_WORKSPACE_PATH, 'utf-8')) as {
+      allowBuilds: Record<string, boolean>;
+    };
+    expect(workspace.allowBuilds['electron-winstaller']).toBe(false);
+  });
+
   it.each(['js-yaml/package.json', 'electron-updater/package.json'])(
     'counts empty merge sources against the YAML budget through %s', owner => {
       const rootRequire = createRequire(PACKAGE_JSON_PATH);

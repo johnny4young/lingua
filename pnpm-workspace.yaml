@@ -28,6 +28,10 @@ supportedArchitectures:
 allowBuilds:
   electron: true
   esbuild: true
+  # electron-builder still pulls electron-winstaller for its optional Squirrel
+  # target. Lingua uses NSIS; explicitly deny its download script. Omitting
+  # this decision makes clean CI installs fail with ERR_PNPM_IGNORED_BUILDS.
+  electron-winstaller: false
   # Root deploy-web uses Wrangler for Cloudflare Pages direct uploads.
   # Wrangler's install graph needs workerd and sharp build scripts.
   sharp: true
