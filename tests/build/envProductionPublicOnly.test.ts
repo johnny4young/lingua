@@ -40,8 +40,9 @@ function parseAssignments(text: string): Assignment[] {
     if (line.length === 0 || line.startsWith('#')) return;
     const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/u);
     if (!match) return;
-    const name = match[1];
-    let value = match[2].trim();
+    const [, name, rawValue] = match;
+    if (name === undefined || rawValue === undefined) return;
+    let value = rawValue.trim();
     if (
       (value.startsWith("'") && value.endsWith("'")) ||
       (value.startsWith('"') && value.endsWith('"'))

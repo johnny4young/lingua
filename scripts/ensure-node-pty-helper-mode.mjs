@@ -16,6 +16,10 @@ async function exists(filePath) {
   }
 }
 
+/**
+ * @param {{ nodePtyRoot?: string; platform?: NodeJS.Platform }} [options]
+ * @returns {Promise<string[]>} the helper paths made executable
+ */
 export async function ensureNodePtyHelperModes({ nodePtyRoot, platform = process.platform } = {}) {
   if (platform === 'win32') return [];
   if (!nodePtyRoot) {

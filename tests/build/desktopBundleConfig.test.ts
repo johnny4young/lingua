@@ -3,15 +3,24 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { getDesktopBuildConfigs } from '../../scripts/lib/desktopViteConfig.mjs';
 
 const root = resolve(__dirname, '../..');
-let configs: Awaited<ReturnType<typeof getDesktopBuildConfigs>>;
+type DesktopConfig = Awaited<ReturnType<typeof getDesktopBuildConfigs>>[number];
+let main: DesktopConfig;
+let preload: DesktopConfig;
+let renderer: DesktopConfig;
 
 beforeAll(async () => {
-  configs = await getDesktopBuildConfigs(root);
+  const configs = await getDesktopBuildConfigs(root);
+  const [mainConfig, preloadConfig, rendererConfig] = configs;
+  if (!mainConfig || !preloadConfig || !rendererConfig) {
+    throw new Error(`expected main, preload and renderer configs, got ${configs.length}`);
+  }
+  main = mainConfig;
+  preload = preloadConfig;
+  renderer = rendererConfig;
 });
 
 describe('production desktop bundle contract', () => {
   it('preserves main/preload entries, native externals and shared output', () => {
-    const [main, preload] = configs;
     for (const config of [main, preload]) {
       expect(config).toMatchObject({
         root,
@@ -43,7 +52,6 @@ describe('production desktop bundle contract', () => {
   });
 
   it('preserves file-protocol renderer assets and repository environment defines', () => {
-    const [main, , renderer] = configs;
     expect(renderer).toMatchObject({
       root, mode: 'production', base: './', envDir: root,
       build: { outDir: '.vite/renderer/main_window', copyPublicDir: true },

@@ -113,7 +113,9 @@ function workerEntries(): string[] {
 
 /** Every browser bundle root: the two app entries plus every worker entry. */
 function browserEntries(): Array<{ label: string; entry: string; surface: keyof typeof APP_ENTRIES }> {
-  const roots = Object.entries(APP_ENTRIES).map(([surface, entry]) => ({
+  const roots: Array<{ label: string; entry: string; surface: keyof typeof APP_ENTRIES }> = Object.entries(
+    APP_ENTRIES
+  ).map(([surface, entry]) => ({
     label: surface,
     entry,
     surface: surface as keyof typeof APP_ENTRIES,

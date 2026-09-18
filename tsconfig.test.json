@@ -7,10 +7,12 @@
 // fixtures) were the first entries.
 //
 // Whole directories follow, cheapest first. Measured with a scratch config
-// per directory at a342ee98 (2026-09-16), so re-measure before trusting these
-// for scope. Already in: cli, docs, runners, main, shared. Remaining: build 30
-// errors (plus 14 in the root `.mts` configs it pulls in), scripts 53,
-// hooks 80, components 95, stores 214.
+// per directory at f07dabe1 (2026-09-17), so re-measure before trusting these
+// for scope. Already in: cli, docs, runners, main, shared, build. Remaining:
+// i18n 0 errors, workers 4, scripts 57, web 57, hooks 80, components 94,
+// stores 212. Adding a directory that imports the root `.mts` configs or
+// `scripts/**/*.mjs` pulls those files into the program too; type them at
+// the source (JSDoc for the scripts) rather than casting in the tests.
 //
 // Rules for widening:
 //  - one directory per change, with its errors fixed rather than silenced:
@@ -21,6 +23,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    // This config only checks, never emits, which is what lets test files
+    // import the root Vite configs and build helpers by their real `.mts`
+    // names, the way vitest resolves them.
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    // tests/build imports the packaging helpers under scripts/ as plain
+    // `.mjs`; allowJs lets tsc infer their signatures from the source
+    // instead of typing every export as any.
+    "allowJs": true,
     // A child `paths` replaces the parent's, so `@/*` is repeated here.
     // `#src/*` mirrors the test-only alias in vitest.config.mts; it stays out
     // of the root config because no production bundle defines it.
@@ -54,7 +65,9 @@
     "tests/main/**/*.ts",
     "tests/main/**/*.tsx",
     "tests/shared/**/*.ts",
-    "tests/shared/**/*.tsx"
+    "tests/shared/**/*.tsx",
+    "tests/build/**/*.ts",
+    "tests/build/**/*.tsx"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }
