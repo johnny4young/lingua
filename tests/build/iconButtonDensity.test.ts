@@ -114,7 +114,7 @@ describe('icon-button density scale', () => {
       ['sm', 'icon-button-sm'],
       ['md', 'icon-button-md'],
     ] as const) {
-      const cls = boxes![1].match(new RegExp(`${step}:\\s*'size-(\\d+)'`, 'u'));
+      const cls = (boxes?.[1] ?? '').match(new RegExp(`${step}:\\s*'size-(\\d+)'`, 'u'));
       expect(cls, `ICON_BUTTON_BOX.${step} must use a Tailwind size-N class`).not.toBeNull();
       expect(
         Number(cls![1]) * TAILWIND_STEP_PX,

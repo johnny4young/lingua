@@ -39,6 +39,13 @@ function packageBinaryPath(repoRoot, target) {
  * architecture-specific build path. electron-builder selects the matching
  * directory with its ${platform}/${arch} macros and copies only that binary
  * outside app.asar.
+ *
+ * @param {{
+ *   repoRoot?: string;
+ *   targets?: Array<{ platform: NodeJS.Platform; arch: string }>;
+ *   sourcePathForTarget?: (target: { platform: NodeJS.Platform; arch: string }) => string;
+ * }} [options]
+ * @returns {Promise<string[]>} the destination paths written, in target order
  */
 export async function copyRipgrepBinaries({
   repoRoot = defaultRepoRoot,

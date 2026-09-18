@@ -24,11 +24,14 @@ describe('ripgrep desktop packaging', () => {
     await chmod(sourcePath, 0o755);
 
     const target = { platform: process.platform, arch: process.arch };
-    const [destinationPath] = await copyRipgrepBinaries({
+    const destinationPaths = await copyRipgrepBinaries({
       repoRoot: temporaryRoot,
       targets: [target],
       sourcePathForTarget: () => sourcePath,
     });
+    expect(destinationPaths).toHaveLength(1);
+    const [destinationPath] = destinationPaths;
+    if (!destinationPath) throw new Error('copyRipgrepBinaries returned no destination');
 
     expect(await readFile(destinationPath, 'utf8')).toBe('binary fixture');
     expect(destinationPath).toBe(

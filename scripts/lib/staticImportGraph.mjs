@@ -66,9 +66,13 @@ function namedBindingsAreTypeOnly(clause) {
 /**
  * Return static runtime imports and re-exports. Type-only and dynamic imports
  * are intentionally excluded because neither creates an eager bundle edge.
+ *
+ * @param {string} source
+ * @returns {string[]}
  */
 export function staticSpecifiers(source) {
   const uncommented = stripComments(source);
+  /** @type {string[]} */
   const specifiers = [];
   const importRe = /^\s*import\s+(?!type\s)([^;]*?)from\s*['"]([^'"]+)['"]/gmu;
   const bareImportRe = /^\s*import\s*['"]([^'"]+)['"]/gmu;
@@ -99,6 +103,12 @@ function applyAlias(specifier, aliases) {
 /**
  * Resolve a source import the same limited way the graph guard needs:
  * relative paths and already-normalized Vite aliases only.
+ *
+ * @param {string} repoRoot
+ * @param {string} fromFile
+ * @param {string} specifier
+ * @param {Array<[string, string]>} [aliases]
+ * @returns {string | null}
  */
 export function resolveSourceImport(repoRoot, fromFile, specifier, aliases = []) {
   const aliased = specifier.startsWith('.') ? null : applyAlias(specifier, aliases);
@@ -134,10 +144,16 @@ export function resolveSourceImport(repoRoot, fromFile, specifier, aliases = [])
  * map records the first (therefore shortest breadth-first) path to each file.
  * Bare imports are retained separately with all reachable importers so reports
  * can explain why a package is still part of the eager graph.
+ *
+ * @param {{ repoRoot: string; entry: string; aliases?: Array<[string, string]> }} options
+ * @returns {{ parents: Map<string, string | null>; bareImporters: Map<string, string[]> }}
  */
 export function walkStaticImportGraph({ repoRoot, entry, aliases = [] }) {
+  /** @type {Map<string, string | null>} */
   const parents = new Map();
+  /** @type {Map<string, string[]>} */
   const bareImporters = new Map();
+  /** @type {Array<[string, string | null]>} */
   const queue = [[entry, null]];
 
   while (queue.length > 0) {
