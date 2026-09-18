@@ -8,6 +8,28 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { asRelativePath, asRootId, asWatchId } from '../../src/shared/fs/brandedIds';
+
+// ---- File System Access API pickers -------------------------------------
+
+/**
+ * jsdom's Window has no File System Access pickers, and the DOM lib does not
+ * declare them either. The adapter reads them through its own local view of
+ * the window (src/web/fs-adapter.ts), so the tests install and remove mocks
+ * through the same shape; Partial keeps `delete` legal for the missing-API
+ * cases.
+ */
+interface FileSystemPickerWindow {
+  showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite' }): Promise<FileSystemDirectoryHandle>;
+  showOpenFilePicker(opts?: {
+    multiple?: boolean;
+    excludeAcceptAllOption?: boolean;
+    types?: Array<{ description?: string; accept?: Record<string, string[]> }>;
+  }): Promise<FileSystemFileHandle[]>;
+  showSaveFilePicker(opts?: { suggestedName?: string }): Promise<FileSystemFileHandle>;
+}
+
+const pickerWindow = window as Window & Partial<FileSystemPickerWindow>;
 
 // ---- Synthetic FSA handle factory ---------------------------------------
 
@@ -96,12 +118,12 @@ describe('webFsAdapter — watchStart / watchStop no-ops', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
 
   it('watchStart returns a string id', async () => {
-    const id = await webFsAdapter.watchStart('any-root', '');
+    const id = await webFsAdapter.watchStart(asRootId('any-root'), asRelativePath(''));
     expect(typeof id).toBe('string');
   });
 
   it('watchStop returns true', async () => {
-    const result = await webFsAdapter.watchStop('web-noop-watcher');
+    const result = await webFsAdapter.watchStop(asWatchId('web-noop-watcher'));
     expect(result).toBe(true);
   });
 
@@ -118,16 +140,12 @@ describe('webFsAdapter — selectDirectory cancellation', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
 
   it('returns canceled=true when picker throws (user cancelled)', async () => {
-    (
-      window as unknown as { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker = vi.fn().mockRejectedValue(new Error('AbortError'));
+    pickerWindow.showDirectoryPicker = vi.fn().mockRejectedValue(new Error('AbortError'));
 
     const result = await webFsAdapter.selectDirectory();
     expect(result).toEqual({ canceled: true });
 
-    delete (
-      window as unknown as { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 });
 
@@ -136,16 +154,12 @@ describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
   const pushStatusNotice = vi.fn();
   const trackEvent = vi.fn();
 
-  const originalShowDirectoryPicker = (
-    window as unknown as { showDirectoryPicker?: unknown }
-  ).showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   // Simulate a browser without File System Access API (Safari /
   // older Firefox).
   const removeDirectoryPicker = () => {
-    delete (
-      window as unknown as { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   };
 
   beforeEach(() => {
@@ -160,13 +174,9 @@ describe('webFsAdapter — selectDirectory unsupported branch ', async () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     if (originalShowDirectoryPicker) {
-      (
-        window as unknown as { showDirectoryPicker?: unknown }
-      ).showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
     } else {
-      delete (
-        window as unknown as { showDirectoryPicker?: unknown }
-      ).showDirectoryPicker;
+      delete pickerWindow.showDirectoryPicker;
     }
   });
 
@@ -272,23 +282,21 @@ describe('webFsAdapter — selectFile cancellation', async () => {
 
 describe('webFsAdapter — selectFile constraints', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowOpenFilePicker = window.showOpenFilePicker;
+  const originalShowOpenFilePicker = pickerWindow.showOpenFilePicker;
 
   afterEach(() => {
     if (originalShowOpenFilePicker) {
-      window.showOpenFilePicker = originalShowOpenFilePicker;
+      pickerWindow.showOpenFilePicker = originalShowOpenFilePicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showOpenFilePicker?: unknown }
-    ).showOpenFilePicker;
+    delete pickerWindow.showOpenFilePicker;
   });
 
   it('mints a single-file capability and returns content atomically', async () => {
     const handle = buildFileHandle({ name: 'script.ts', content: 'const x = 1;\n' });
     const showOpenFilePicker = vi.fn().mockResolvedValue([handle]);
-    window.showOpenFilePicker =
-      showOpenFilePicker as typeof window.showOpenFilePicker;
+    pickerWindow.showOpenFilePicker =
+      showOpenFilePicker as typeof pickerWindow.showOpenFilePicker;
 
     const result = await webFsAdapter.selectFile();
 
@@ -323,30 +331,28 @@ describe('webFsAdapter — selectFile constraints', async () => {
 
 describe('webFsAdapter — saveDialog single-file capability', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowSaveFilePicker = window.showSaveFilePicker;
+  const originalShowSaveFilePicker = pickerWindow.showSaveFilePicker;
 
   afterEach(() => {
     if (originalShowSaveFilePicker) {
-      window.showSaveFilePicker = originalShowSaveFilePicker;
+      pickerWindow.showSaveFilePicker = originalShowSaveFilePicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showSaveFilePicker?: unknown }
-    ).showSaveFilePicker;
+    delete pickerWindow.showSaveFilePicker;
   });
 
   it('exposes only the chosen file inside the minted proxy root', async () => {
     const chosen = { name: 'chosen.txt', content: '' };
-    window.showSaveFilePicker = vi
+    pickerWindow.showSaveFilePicker = vi
       .fn()
-      .mockResolvedValue(buildFileHandle(chosen)) as typeof window.showSaveFilePicker;
+      .mockResolvedValue(buildFileHandle(chosen)) as typeof pickerWindow.showSaveFilePicker;
 
     const picked = await webFsAdapter.saveDialog('chosen.txt');
     if (picked.canceled !== false) throw new Error('save canceled');
 
     expect(picked.rootPath).toBe('/');
     await expect(
-      webFsAdapter.write(picked.rootId, 'other.txt', 'wrong target')
+      webFsAdapter.write(picked.rootId, asRelativePath('other.txt'), 'wrong target')
     ).resolves.toBe(false);
     await expect(
       webFsAdapter.write(picked.rootId, picked.fileRelativePath, 'ok')
@@ -368,36 +374,34 @@ describe('webFsAdapter — unknown rootId rejection', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
 
   it('throws "unknown-root" on readdir against an unknown token', async () => {
-    await expect(webFsAdapter.readdir('not-a-real-token', '')).rejects.toThrow(
+    await expect(webFsAdapter.readdir(asRootId('not-a-real-token'), asRelativePath(''))).rejects.toThrow(
       'unknown-root'
     );
   });
 
   it('throws on stat against an unknown token', async () => {
     await expect(
-      webFsAdapter.stat('not-a-real-token', 'whatever.ts')
+      webFsAdapter.stat(asRootId('not-a-real-token'), asRelativePath('whatever.ts'))
     ).rejects.toThrow();
   });
 
   it('throws on listAllFiles against an unknown token', async () => {
     await expect(
-      webFsAdapter.listAllFiles('not-a-real-token', '')
+      webFsAdapter.listAllFiles(asRootId('not-a-real-token'), asRelativePath(''))
     ).rejects.toThrow('unknown-root');
   });
 });
 
 describe('webFsAdapter — selectDirectory mints + readdir round-trip', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('mints a rootId the renderer can call readdir against', async () => {
@@ -409,15 +413,15 @@ describe('webFsAdapter — selectDirectory mints + readdir round-trip', async ()
       ],
       dirs: [{ name: 'src', files: [{ name: 'main.ts', content: 'main\n' }] }],
     });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     expect(picked.canceled).toBe(false);
     if (picked.canceled !== false) return;
 
-    const entries = await webFsAdapter.readdir(picked.rootId, '');
+    const entries = await webFsAdapter.readdir(picked.rootId, asRelativePath(''));
     const names = entries.map((e) => e.name).sort();
     expect(names).toEqual(['README.md', 'script.ts', 'src']);
     const dirEntry = entries.find((e) => e.name === 'src');
@@ -427,16 +431,14 @@ describe('webFsAdapter — selectDirectory mints + readdir round-trip', async ()
 
 describe('webFsAdapter — listAllFiles walks recursively', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('returns relative paths and skips hidden directories', async () => {
@@ -455,14 +457,14 @@ describe('webFsAdapter — listAllFiles walks recursively', async () => {
         },
       ],
     });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
-    const files = await webFsAdapter.listAllFiles(picked.rootId, '');
+    const files = await webFsAdapter.listAllFiles(picked.rootId, asRelativePath(''));
     const paths = files.map((f) => f.relativePath).sort();
     expect(paths).toEqual(['src/main.ts', 'src/utils/helpers.ts', 'top.md']);
   });
@@ -470,20 +472,18 @@ describe('webFsAdapter — listAllFiles walks recursively', async () => {
 
 describe('webFsAdapter — searchInFiles', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('short-circuits empty queries without resolving the root', async () => {
-    const result = await webFsAdapter.searchInFiles('not-a-real-token', '', '');
+    const result = await webFsAdapter.searchInFiles(asRootId('not-a-real-token'), asRelativePath(''), '');
     expect(result).toEqual([]);
   });
 
@@ -498,14 +498,14 @@ describe('webFsAdapter — searchInFiles', async () => {
         },
       ],
     });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
-    const result = await webFsAdapter.searchInFiles(picked.rootId, '', 'todo');
+    const result = await webFsAdapter.searchInFiles(picked.rootId, asRelativePath(''), 'todo');
     expect(result.map((r) => r.relativePath)).toEqual(['code.ts']);
     expect(result[0]!.matches).toHaveLength(2);
   });
@@ -517,16 +517,16 @@ describe('webFsAdapter — searchInFiles', async () => {
         { name: 'code.ts', content: '  todo\n  todo\n' },
       ],
     });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
     const result = await webFsAdapter.searchInFiles(
       picked.rootId,
-      '',
+      asRelativePath(''),
       '  todo',
       { maxMatchesPerFile: Number.NaN }
     );
@@ -537,56 +537,54 @@ describe('webFsAdapter — searchInFiles', async () => {
 
 describe('webFsAdapter — traversal rejection', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('rejects ".." escapes against a known rootId', async () => {
     const dh = buildDirHandle({ name: 'project', files: [] });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
     await expect(
-      webFsAdapter.readdir(picked.rootId, '../escape')
+      webFsAdapter.readdir(picked.rootId, asRelativePath('../escape'))
     ).rejects.toThrow('unsafe-path');
   });
 
   it('rejects NUL byte in relativePath', async () => {
     const dh = buildDirHandle({ name: 'project', files: [] });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
     await expect(
-      webFsAdapter.readdir(picked.rootId, `evil${String.fromCharCode(0)}name`)
+      webFsAdapter.readdir(picked.rootId, asRelativePath(`evil${String.fromCharCode(0)}name`))
     ).rejects.toThrow('unsafe-path');
   });
 
   it('rejects Windows drive-relative paths such as C:foo', async () => {
     const dh = buildDirHandle({ name: 'project', files: [] });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
-    await expect(webFsAdapter.readdir(picked.rootId, 'C:foo')).rejects.toThrow(
+    await expect(webFsAdapter.readdir(picked.rootId, asRelativePath('C:foo'))).rejects.toThrow(
       'unsafe-path'
     );
   });
@@ -594,16 +592,14 @@ describe('webFsAdapter — traversal rejection', async () => {
 
 describe('webFsAdapter — rename safety', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('rejects unsafe new names without deleting the original file', async () => {
@@ -611,17 +607,17 @@ describe('webFsAdapter — rename safety', async () => {
       name: 'project',
       files: [{ name: 'old.ts', content: 'keep me' }],
     });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
     await expect(
-      webFsAdapter.rename(picked.rootId, 'old.ts', '../escape.ts')
+      webFsAdapter.rename(picked.rootId, asRelativePath('old.ts'), '../escape.ts')
     ).rejects.toThrow('unsafe-path');
-    await expect(webFsAdapter.read(picked.rootId, 'old.ts')).resolves.toBe(
+    await expect(webFsAdapter.read(picked.rootId, asRelativePath('old.ts'))).resolves.toBe(
       'keep me'
     );
   });
@@ -643,30 +639,28 @@ describe('webFsAdapter — reopenRoot is unsupported on the web', async () => {
 
 describe('webFsAdapter — revokeRoot', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
-  const originalShowDirectoryPicker = window.showDirectoryPicker;
+  const originalShowDirectoryPicker = pickerWindow.showDirectoryPicker;
 
   afterEach(() => {
     if (originalShowDirectoryPicker) {
-      window.showDirectoryPicker = originalShowDirectoryPicker;
+      pickerWindow.showDirectoryPicker = originalShowDirectoryPicker;
       return;
     }
-    delete (
-      window as Window & typeof globalThis & { showDirectoryPicker?: unknown }
-    ).showDirectoryPicker;
+    delete pickerWindow.showDirectoryPicker;
   });
 
   it('drops the capability so subsequent reads fail', async () => {
     const dh = buildDirHandle({ name: 'project', files: [] });
-    window.showDirectoryPicker = vi
+    pickerWindow.showDirectoryPicker = vi
       .fn()
-      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+      .mockResolvedValue(dh) as typeof pickerWindow.showDirectoryPicker;
 
     const picked = await webFsAdapter.selectDirectory();
     if (picked.canceled !== false) throw new Error('picker canceled');
 
     expect(await webFsAdapter.revokeRoot(picked.rootId)).toBe(true);
     expect(await webFsAdapter.revokeRoot(picked.rootId)).toBe(false); // idempotent
-    await expect(webFsAdapter.readdir(picked.rootId, '')).rejects.toThrow(
+    await expect(webFsAdapter.readdir(picked.rootId, asRelativePath(''))).rejects.toThrow(
       'unknown-root'
     );
   });

@@ -62,14 +62,14 @@ describe('web adapter', () => {
   });
 
   it('returns localized formatter availability errors in the active language', async () => {
-    await expect(window.lingua.format.gofmt()).resolves.toMatchObject({
+    await expect(window.lingua.format.gofmt('package main\n')).resolves.toMatchObject({
       available: false,
       error: 'Formatting Go or Rust requires the desktop build.',
     });
 
     await i18next.changeLanguage('es');
 
-    await expect(window.lingua.format.rustfmt()).resolves.toMatchObject({
+    await expect(window.lingua.format.rustfmt('fn main() {}\n')).resolves.toMatchObject({
       available: false,
       error: 'Formatear Go o Rust requiere la versión de escritorio.',
     });
