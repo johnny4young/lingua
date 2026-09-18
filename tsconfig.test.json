@@ -7,9 +7,9 @@
 // fixtures) were the first entries.
 //
 // Whole directories follow, cheapest first. Measured with a scratch config
-// per directory at f07dabe1 (2026-09-17), so re-measure before trusting these
-// for scope. Already in: cli, docs, runners, main, shared, build. Remaining:
-// i18n 0 errors, workers 4, scripts 57, web 57, hooks 80, components 94,
+// per directory at c36339f7 (2026-09-17), so re-measure before trusting these
+// for scope. Already in: cli, docs, runners, main, shared, build, i18n,
+// workers. Remaining: scripts 57 errors, web 57, hooks 80, components 94,
 // stores 212. Adding a directory that imports the root `.mts` configs or
 // `scripts/**/*.mjs` pulls those files into the program too; type them at
 // the source (JSDoc for the scripts) rather than casting in the tests.
@@ -55,7 +55,6 @@
     "tests/build/ambientTypeBoundaries.test.ts",
     "tests/shared/telemetryArchitecture.test.ts",
     "tests/components/commandPaletteArchitecture.test.ts",
-    "tests/workers/workerArchitecture.test.ts",
     "tests/cli/**/*.ts",
     "tests/cli/**/*.tsx",
     "tests/docs/**/*.ts",
@@ -67,7 +66,11 @@
     "tests/shared/**/*.ts",
     "tests/shared/**/*.tsx",
     "tests/build/**/*.ts",
-    "tests/build/**/*.tsx"
+    "tests/build/**/*.tsx",
+    "tests/i18n/**/*.ts",
+    "tests/i18n/**/*.tsx",
+    "tests/workers/**/*.ts",
+    "tests/workers/**/*.tsx"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }

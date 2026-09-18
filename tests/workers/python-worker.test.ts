@@ -23,8 +23,10 @@ describe('python-worker env sync helper', () => {
     });
     expect(set).toHaveBeenCalledWith('_LINGUA_PREV_ENV_KEYS', ['SHARED', 'OLD_ONLY']);
     expect(runPythonAsync).toHaveBeenCalledTimes(1);
-    expect(runPythonAsync.mock.calls[0][0]).toContain('os.environ.pop(_k, None)');
-    expect(runPythonAsync.mock.calls[0][0]).toContain('_LINGUA_PREV_ENV_KEYS');
+    const [firstCall] = runPythonAsync.mock.calls;
+    if (!firstCall) throw new Error('runPythonAsync was not called');
+    expect(firstCall[0]).toContain('os.environ.pop(_k, None)');
+    expect(firstCall[0]).toContain('_LINGUA_PREV_ENV_KEYS');
     expect(del).toHaveBeenCalledWith('_LINGUA_USER_ENV');
     expect(del).toHaveBeenCalledWith('_LINGUA_PREV_ENV_KEYS');
   });
