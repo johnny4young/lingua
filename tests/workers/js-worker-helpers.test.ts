@@ -363,10 +363,10 @@ function parseError(err: unknown): { message: string; line?: number; column?: nu
     stack: err.stack,
   };
   if (err.stack) {
-    const match = err.stack.match(/<anonymous>:(\d+):(\d+)/);
-    if (match) {
-      result.line = parseInt(match[1], 10);
-      result.column = parseInt(match[2], 10);
+    const [, line, column] = err.stack.match(/<anonymous>:(\d+):(\d+)/) ?? [];
+    if (line !== undefined && column !== undefined) {
+      result.line = parseInt(line, 10);
+      result.column = parseInt(column, 10);
     }
   }
   return result;
