@@ -1392,6 +1392,11 @@ The main Node, Ruby, Deno and Bun backends reserve run identities before runtime
 detection, version-file selection, cwd resolution or staging. A duplicate live identity is rejected rather than replacing
 its Stop/stdin owner. Cancellation during preparation returns `stopped`; the shared
 native spawn boundary refuses already-aborted signals before creating a child.
+Their version probes use that same boundary with the preparation signal, a five-second
+parent-owned timeout, bounded output and process-group termination. Stop, owner loss
+and app shutdown therefore cancel both a hung wrapper and its descendants rather
+than merely ignoring a late detector result. Standalone capability refreshes use
+the same bounded supervisor without acquiring execution authority.
 Staged files and identity registrations are cleaned in `finally`, including cancelled
 runs. This complements the renderer fence after IPC has crossed into main.
 

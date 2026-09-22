@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     exec,
     execFile: Object.assign(vi.fn(), { [Symbol.for('nodejs.util.promisify.custom')]: exec }),
     spawn: vi.fn(),
+    probeChildren: [] as Array<{ kill: ReturnType<typeof vi.fn> }>,
   };
 });
 vi.mock('electron', () => ({
@@ -18,9 +19,36 @@ vi.mock('electron', () => ({
 }));
 vi.mock('node:child_process', async importOriginal => {
   const { ChildProcess } = await importOriginal<typeof import('node:child_process')>();
+  const { EventEmitter } = await import('node:events');
+  const spawn = (command: string, args: string[], options: unknown) => {
+    if (args.length !== 1 || args[0] !== '--version') {
+      return mocks.spawn(command, args, options);
+    }
+    const process = Object.assign(new EventEmitter(), {
+      stdout: Object.assign(new EventEmitter(), { resume: vi.fn() }),
+      stderr: Object.assign(new EventEmitter(), { resume: vi.fn() }),
+      stdin: { on: vi.fn(), write: vi.fn(), end: vi.fn() },
+      kill: vi.fn((_signal?: string) => {
+        queueMicrotask(() => process.emit('close', null));
+        return true;
+      }),
+    });
+    mocks.probeChildren.push(process);
+    Promise.resolve()
+      .then(() => mocks.exec(command, args, options))
+      .then(
+        result => {
+          process.stdout.emit('data', Buffer.from(String(result.stdout ?? '')));
+          process.stderr.emit('data', Buffer.from(String(result.stderr ?? '')));
+          process.emit('close', 0);
+        },
+        error => process.emit('error', error)
+      );
+    return process;
+  };
   return {
-    ChildProcess, execFile: mocks.execFile, spawn: mocks.spawn,
-    default: { ChildProcess, execFile: mocks.execFile, spawn: mocks.spawn },
+    ChildProcess, execFile: mocks.execFile, spawn,
+    default: { ChildProcess, execFile: mocks.execFile, spawn },
   };
 });
 function owner() {
@@ -53,6 +81,7 @@ beforeEach(() => {
   mocks.handlers.clear();
   mocks.execFile.mockClear();
   mocks.exec.mockReset().mockResolvedValue({ stdout: 'v24.0.0', stderr: '' });
+  mocks.probeChildren.length = 0;
   mocks.spawn.mockReset();
 });
 
@@ -70,6 +99,8 @@ describe.each(['node', 'ruby', 'deno', 'bun'])('%s native owner lifecycle', runt
     const pending = run({ sender }, 'cancelled source', { runId: 'preparing' });
     await vi.waitFor(() => expect(detect).toBeTypeOf('function'));
     sender.destroy();
+    expect(mocks.probeChildren).toHaveLength(1);
+    expect(mocks.probeChildren[0]?.kill).toHaveBeenCalledWith('SIGKILL');
     detect({ stdout: 'v24.0.0', stderr: '' });
     const result = await pending;
     expect(mocks.spawn).not.toHaveBeenCalled();
@@ -95,6 +126,8 @@ describe.each(['node', 'ruby', 'deno', 'bun'])('%s native owner lifecycle', runt
     await vi.waitFor(() => expect(detect).toBeTypeOf('function'));
     const { disposeNativeRuns } = await import('../../src/main/runners/nativeRunLifecycle');
     disposeNativeRuns();
+    expect(mocks.probeChildren).toHaveLength(1);
+    expect(mocks.probeChildren[0]?.kill).toHaveBeenCalledWith('SIGKILL');
     detect({ stdout: 'v24.0.0', stderr: '' });
     expect((await pending).kind).toBe('stopped');
     expect(mocks.spawn).not.toHaveBeenCalled();

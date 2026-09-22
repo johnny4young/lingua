@@ -263,7 +263,8 @@ function absoluteNodePath(env: NodeJS.ProcessEnv, node?: string | null): string 
  * locations, but keep both its probe and the eventual runner PATH absolute. */
 async function projectNodeExecutable(
   hostEnv: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform
+  platform: NodeJS.Platform,
+  signal?: AbortSignal
 ): Promise<string | null> {
   // detectNode treats its argument as explicit user overrides. Passing the
   // whole host environment here would bypass its allowlist during --version.
@@ -273,7 +274,7 @@ async function projectNodeExecutable(
     ).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   );
   env.PATH = absoluteNodePath(hostEnv);
-  const detected = await detectNode(env);
+  const detected = await detectNode(env, false, signal);
   if (!detected.installed || !detected.binary) return null;
   return path.isAbsolute(detected.binary)
     ? detected.binary
@@ -289,7 +290,7 @@ async function executionSpecs(
   const manifest = await packageManifest(rootPath);
   const specs: ProjectTestExecutionSpec[] = [];
   let nodeProbe: Promise<string | null> | undefined;
-  const getNode = () => (nodeProbe ??= projectNodeExecutable(hostEnv, platform));
+  const getNode = () => (nodeProbe ??= projectNodeExecutable(hostEnv, platform, options.signal));
 
   const vitestEvidence = await existingNames(rootPath, VITEST_CONFIGS);
   if (manifest && dependencyMentions(manifest, 'vitest'))
@@ -499,7 +500,7 @@ export async function runProjectTests(
   options.signal?.addEventListener('abort', stopForOwnerLifecycle, { once: true });
   activeRuns.set(runId, { rootKey, controller });
   try {
-    const spec = (await executionSpecs(rootPath, options)).find(
+    const spec = (await executionSpecs(rootPath, { ...options, signal: controller.signal })).find(
       entry => entry.candidate.framework === framework
     );
     if (controller.signal.aborted) {

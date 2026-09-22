@@ -9,7 +9,29 @@ const mocks = vi.hoisted(() => {
   const execFile = Object.assign(vi.fn(), {
     [Symbol.for('nodejs.util.promisify.custom')]: execFileAsync,
   });
-  return { handlers, execFile, execFileAsync, spawn: vi.fn(), writeFile: vi.fn() };
+  return {
+    handlers,
+    execFile,
+    execFileAsync,
+    spawn: vi.fn(),
+    writeFile: vi.fn(),
+    probeSignals: [] as AbortSignal[],
+  };
+});
+
+vi.mock('../../src/main/runners/spawnNativeRun', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/main/runners/spawnNativeRun')>();
+  const { mockNativeVersionProbe } = await import('../utils/mockNativeVersionProbe');
+  return {
+    ...actual,
+    spawnNativeRun: mockNativeVersionProbe(
+      actual.spawnNativeRun,
+      (command, args, options) => mocks.execFileAsync(command, args, options),
+      signal => {
+        if (signal) mocks.probeSignals.push(signal);
+      }
+    ),
+  };
 });
 
 vi.mock('node:fs/promises', async importOriginal => {
@@ -64,6 +86,7 @@ describe('implementation: Deno & Bun runtimes', () => {
     mocks.writeFile.mockReset().mockImplementation(actualFs.writeFile);
     mocks.execFile.mockReset();
     mocks.execFileAsync.mockReset();
+    mocks.probeSignals.length = 0;
     mocks.spawn.mockReset();
   });
 
@@ -81,6 +104,8 @@ describe('implementation: Deno & Bun runtimes', () => {
     const pending = handlerFor<RunHandler>(`${id}:run`)({}, 'console.log("cancelled")', { runId: 'preparing' });
     await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
     const stopped = stopAltRun('preparing');
+    expect(mocks.probeSignals).toHaveLength(1);
+    expect(mocks.probeSignals[0]?.aborted).toBe(true);
     complete({ stdout: '1.0.0', stderr: '' });
     const result = await pending;
     expect(stopped).toEqual({ stopped: true });

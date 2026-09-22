@@ -80,6 +80,87 @@ try {
       syncBuiltinESMExports();
     });
     if (phase === 'debugger-cleanup') {
+      for (const runtime of runtimes) {
+        const directory = path.join(fixture, `${runtime}-version-probe-stop`);
+        await mkdir(directory);
+        const parentFile = path.join(directory, 'parent.pid');
+        const childFile = path.join(directory, 'child.pid');
+        debuggerPidFiles.push(parentFile, childFile);
+        const childCode = `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(childFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+        const executable = path.join(directory, runtime);
+        await writeFile(executable, `#!${process.execPath}
+const { spawn } = require('node:child_process');
+const { existsSync, writeFileSync } = require('node:fs');
+writeFileSync(${JSON.stringify(parentFile)}, String(process.pid));
+spawn(${JSON.stringify(process.execPath)}, ['-e', ${JSON.stringify(childCode)}], { stdio: 'ignore' });
+const wait = () => {
+  if (!existsSync(${JSON.stringify(childFile)})) return setTimeout(wait, 10);
+  process.on('SIGTERM', () => {});
+  setInterval(() => {}, 1000);
+};
+wait();
+`);
+        await chmod(executable, 0o755);
+        const runId = `${runtime}-version-probe-stop`;
+        const source = runtime === 'ruby' ? "puts 'must not run'" : "console.log('must not run')";
+        await page.evaluate(({ runtime, source, runId, pathValue }) => {
+          globalThis.__pendingVersionProbeRun = window.lingua[runtime].run(source, {
+            runId,
+            timeoutMs: 60000,
+            userEnv: { PATH: pathValue },
+          });
+        }, {
+          runtime,
+          source,
+          runId,
+          pathValue: `${directory}${path.delimiter}${process.env.PATH}`,
+        });
+        await until(async () => {
+          try {
+            return Number(await readFile(parentFile, 'utf8')) > 0
+              && Number(await readFile(childFile, 'utf8')) > 0;
+          } catch (error) {
+            if (error.code === 'ENOENT') return false;
+            throw error;
+          }
+        }, `${runtime} version probe did not create its resistant descendant`);
+        const pids = [
+          Number(await readFile(parentFile, 'utf8')),
+          Number(await readFile(childFile, 'utf8')),
+        ];
+        for (const pid of pids) {
+          assert(pid > 0 && alive(pid));
+          ownedPids.add(pid);
+        }
+        const stopped = await page.evaluate(
+          ({ runtime, runId }) => window.lingua[runtime].stop(runId),
+          { runtime, runId }
+        );
+        assert.deepEqual(stopped, { stopped: true });
+        const result = await page.evaluate(() => globalThis.__pendingVersionProbeRun);
+        assert.equal(result.kind, 'stopped');
+        // The old unowned version checks waited five seconds and could leave the
+        // descendant behind. Ownership must reap both well before that timeout.
+        await until(
+          () => pids.every(pid => !alive(pid)),
+          `${runtime} version-probe Stop leaked a process`,
+          70
+        );
+        const recovered = await page.evaluate(({ runtime, runId }) => window.lingua[runtime].run(
+          runtime === 'ruby' ? "puts 'recovered'" : "console.log('recovered')",
+          { runId: `${runId}-recovery` }
+        ), { runtime, runId });
+        assert.equal(recovered.kind, 'success', JSON.stringify(recovered));
+        assert.equal(recovered.stdout.trim(), 'recovered');
+        results.push({
+          phase,
+          runtime,
+          mode: 'version-probe-stop',
+          parentGone: true,
+          descendantGone: true,
+          recovery: true,
+        });
+      }
       for (const runtime of ['python', 'go', 'rust']) {
         const directory = path.join(fixture, `${runtime}-preparation-stop`);
         await mkdir(directory);
@@ -361,8 +442,11 @@ console.log('lldb-dap fixture');
     }, sources);
     let records;
     await until(async () => {
-      records = await app.evaluate(() => globalThis.__nativeLifecycleChildren);
-      for (const record of records) ownedPids.add(record.pid);
+      const observed = await app.evaluate(() => globalThis.__nativeLifecycleChildren);
+      for (const record of observed) ownedPids.add(record.pid);
+      // Version detection now uses the same supervised spawn boundary as the
+      // runtime, so the observer sees short-lived probe children as well.
+      records = observed.filter(record => record.ready);
       return records.length === 4 && records.every(record => record.ready);
     }, 'All four installed runtimes must start and install their TERM handlers');
     let grandchild;

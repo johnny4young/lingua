@@ -18,6 +18,22 @@ const mocks = vi.hoisted(() => {
     spawn: vi.fn(),
     writeFile: vi.fn(),
     getPath: vi.fn(() => '/tmp/lingua-ruby-test'),
+    probeSignals: [] as AbortSignal[],
+  };
+});
+
+vi.mock('../../src/main/runners/spawnNativeRun', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/main/runners/spawnNativeRun')>();
+  const { mockNativeVersionProbe } = await import('../utils/mockNativeVersionProbe');
+  return {
+    ...actual,
+    spawnNativeRun: mockNativeVersionProbe(
+      actual.spawnNativeRun,
+      (command, args, options) => mocks.execFileAsync(command, args, options),
+      signal => {
+        if (signal) mocks.probeSignals.push(signal);
+      }
+    ),
   };
 });
 
@@ -105,6 +121,7 @@ describe('main ruby runner', () => {
       stdout: 'ruby 3.3.6 (2024-11-05 revision 75015a4f5e) [arm64-darwin23]\n',
       stderr: '',
     });
+    mocks.probeSignals.length = 0;
     mocks.spawn.mockReset();
     mocks.getPath.mockReturnValue('/tmp/lingua-ruby-test');
     tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-ruby-runner-'));
@@ -127,6 +144,8 @@ describe('main ruby runner', () => {
     const pending = run({}, 'console.log("cancelled")', { runId: 'preparing' });
     await vi.waitFor(() => expect(completeDetection).toBeTypeOf('function'));
     const stopped = await stop({}, 'preparing');
+    expect(mocks.probeSignals).toHaveLength(1);
+    expect(mocks.probeSignals[0]?.aborted).toBe(true);
     completeDetection({ stdout: 'ruby 3.3.6\n', stderr: '' });
     const result = await pending;
     expect(stopped).toEqual({ stopped: true });

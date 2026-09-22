@@ -33,24 +33,21 @@ import type { WebContents } from 'electron';
 import { createNativeRunLifecycle, NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './runners/nativeRunLifecycle';
 import { typedHandle } from './ipc/typedHandle';
 import {
-  execFile,
   spawn,
   type ChildProcessWithoutNullStreams,
 } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import type {
   AltJsDetectResult,
   AltJsRunKind,
   AltJsRunResult,
 } from '../shared/nativeRuntimeTypes';
-
-const execFileAsync = promisify(execFile);
 
 const KILL_ESCALATION_DELAY_MS = 200;
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -112,7 +109,8 @@ function resolveEnv(id: AltJsRuntimeId, userEnv?: Record<string, string>): NodeJ
 async function detectAltRuntime(
   id: AltJsRuntimeId,
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<AltJsDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force) {
@@ -120,16 +118,18 @@ async function detectAltRuntime(
     if (cached) return cached;
   }
   let result: AltJsDetectResult;
-  try {
-    const { stdout } = await execFileAsync(CONFIGS[id].binary, ['--version'], {
-      env: resolveEnv(id, userEnv),
-      timeout: 5_000,
-    });
-    result = { installed: true, version: stdout.trim().split('\n')[0] };
-  } catch {
+  const version = await detectNativeRuntimeVersion({
+    command: CONFIGS[id].binary,
+    env: resolveEnv(id, userEnv),
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (version !== null) {
+    result = { installed: true, version: version.split('\n')[0] };
+  } else {
     result = { installed: false, error: CONFIGS[id].installHint };
   }
-  if (cacheable) detectCache.set(id, result);
+  if (cacheable && !signal?.aborted) detectCache.set(id, result);
   return result;
 }
 
@@ -329,7 +329,7 @@ async function runAltRuntime(
   if (options.runId) activeRuns.set(options.runId, stop);
   try {
     if (controller.signal.aborted) return stoppedAltRunResult(options);
-    const detect = await detectAltRuntime(id, options.userEnv);
+    const detect = await detectAltRuntime(id, options.userEnv, false, controller.signal);
     if (controller.signal.aborted) return stoppedAltRunResult(options);
     if (!detect.installed) {
       return {

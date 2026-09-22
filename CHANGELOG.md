@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Stop now cancels Node, Ruby, Deno and Bun version checks at their source.** Hung runtime shims and their descendants are terminated during preparation, output is bounded, and a cancelled check cannot execute code or poison the next run.
 - **Python, Go and Rust Debug can now be stopped before a debugger session exists.** Stop, window closure and app shutdown cancel authorization, source staging, tool discovery and Rust compilation; cancelled probes and compilers clean up their process trees, and late work cannot replace a newer debug run.
 - **Native debugger Stop cancels adapter startup and connection.** Late adapters cannot launch after cancellation, failed handshakes clean up their resources, and closed transports no longer deliver stale events. Missing LLDB executables surface as errors rather than uncaught child-process failures.
 - **Stopping Python or native DAP debugging reaps remaining descendants after the adapter exits.** Failed Delve startup also cleans its tree on timeout, early exit or connection failure.

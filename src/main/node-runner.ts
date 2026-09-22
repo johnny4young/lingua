@@ -46,11 +46,9 @@ import { app } from 'electron';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import * as childProc from 'node:child_process';
 import { access, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_NATIVE_STDERR_BYTES,
   MAX_STDIN_WRITE_BYTES,
@@ -68,6 +66,7 @@ import {
   spawnNativeRun,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import type {
   NodeDetectResult,
   NodeRunKind,
@@ -76,8 +75,6 @@ import type {
 export type {
   NodeDetectResult,
 } from '../shared/nativeRuntimeTypes';
-
-const execFileAsync = promisify(childProc.execFile);
 
 /**
  * Source-size threshold above which we write a temp file instead of
@@ -101,7 +98,6 @@ const KILL_ESCALATION_DELAY_MS = 200;
  * defends with a sensible default if the IPC was malformed.
  */
 const DEFAULT_NODE_TIMEOUT_MS = 30_000;
-const NODE_DETECT_TIMEOUT_MS = 5_000;
 
 /**
  * Packaged GUI launches can inherit a narrower PATH than the user's terminal:
@@ -400,8 +396,10 @@ async function windowsNodeBinaryCandidates(
 }
 
 async function nodeBinaryCandidates(
-  userEnv?: Record<string, string>
+  userEnv?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<string[]> {
+  if (signal?.aborted) return [];
   const candidates =
     process.platform === 'win32'
       ? await windowsNodeBinaryCandidates(userEnv)
@@ -414,29 +412,23 @@ async function nodeBinaryCandidates(
     return true;
   });
   const existing = await Promise.all(unique.map(pathExists));
+  if (signal?.aborted) return [];
   return unique.filter((_candidate, index) => existing[index] === true);
 }
 
 async function probeNodeBinary(
   binary: string,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal
 ): Promise<NodeDetectResult | null> {
-  try {
-    const { stdout } = await execFileAsync(binary, ['--version'], {
-      env,
-      // A hung PATH shim (rustup-style proxy, corporate wrapper) must not
-      // wedge the detect IPC promise forever. Matches the LSP launchers'
-      // 5s probe convention.
-      timeout: NODE_DETECT_TIMEOUT_MS,
-    });
-    return {
-      installed: true,
-      binary,
-      version: stdout.trim(),
-    };
-  } catch {
-    return null;
-  }
+  const version = await detectNativeRuntimeVersion({
+    command: binary,
+    env,
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (version === null) return null;
+  return { installed: true, binary, version };
 }
 
 function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
@@ -460,17 +452,19 @@ function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.Proce
  */
 export async function detectNode(
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<NodeDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
   const env = resolveNodeRunEnv(userEnv);
-  let result = await probeNodeBinary('node', env);
+  let result = await probeNodeBinary('node', env, signal);
 
-  if (!result) {
-    for (const candidate of await nodeBinaryCandidates(userEnv)) {
-      result = await probeNodeBinary(candidate, env);
+  if (!result && !signal?.aborted) {
+    for (const candidate of await nodeBinaryCandidates(userEnv, signal)) {
+      result = await probeNodeBinary(candidate, env, signal);
       if (result) break;
+      if (signal?.aborted) break;
     }
   }
 
@@ -480,7 +474,7 @@ export async function detectNode(
       error: 'Node.js is not installed. Install it from https://nodejs.org',
     };
   }
-  if (cacheable) cachedDetect = result;
+  if (cacheable && !signal?.aborted) cachedDetect = result;
   return result;
 }
 
@@ -810,7 +804,7 @@ async function runNodeCode(
   if (options.runId) activeNodeRuns.set(options.runId, stop);
   try {
     if (controller.signal.aborted) return stoppedNodeRunResult(options);
-    const detect = await detectNode(options.userEnv);
+    const detect = await detectNode(options.userEnv, false, controller.signal);
     if (controller.signal.aborted) return stoppedNodeRunResult(options);
     if (!detect.installed) {
       return {

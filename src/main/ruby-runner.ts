@@ -47,11 +47,9 @@ import { app } from 'electron';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import * as childProc from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_NATIVE_STDERR_BYTES,
   MAX_STDIN_WRITE_BYTES,
@@ -60,6 +58,7 @@ import {
   spawnNativeRun,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import {
   RUBY_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -73,8 +72,6 @@ import type {
 export type {
   RubyDetectResult,
 } from '../shared/nativeRuntimeTypes';
-
-const execFileAsync = promisify(childProc.execFile);
 
 /**
  * implementation note — SIGTERM → SIGKILL escalation window. Ruby's `at_exit` and
@@ -164,20 +161,19 @@ export function parseRubyVersion(line: string): { semver?: string; platform?: st
  */
 export async function detectRuby(
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<RubyDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
   let result: RubyDetectResult;
-  try {
-    const { stdout } = await execFileAsync('ruby', ['--version'], {
-      env: resolveRubyRunEnv(userEnv),
-      // A hung PATH shim (rbenv proxy, corporate wrapper) must not wedge
-      // the detect IPC promise forever. Matches the LSP launchers' 5s
-      // probe convention.
-      timeout: 5_000,
-    });
-    const version = stdout.trim();
+  const version = await detectNativeRuntimeVersion({
+    command: 'ruby',
+    env: resolveRubyRunEnv(userEnv),
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (version !== null) {
     const { semver, platform } = parseRubyVersion(version);
     result = {
       installed: true,
@@ -185,13 +181,13 @@ export async function detectRuby(
       ...(semver ? { semver } : {}),
       ...(platform ? { platform } : {}),
     };
-  } catch {
+  } else {
     result = {
       installed: false,
       error: 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
     };
   }
-  if (cacheable) cachedDetect = result;
+  if (cacheable && !signal?.aborted) cachedDetect = result;
   return result;
 }
 
@@ -481,7 +477,7 @@ async function runRubyCode(
   if (options.runId) activeRubyRuns.set(options.runId, stop);
   try {
     if (controller.signal.aborted) return stoppedRubyRunResult(options);
-    const detect = await detectRuby(options.userEnv);
+    const detect = await detectRuby(options.userEnv, false, controller.signal);
     if (controller.signal.aborted) return stoppedRubyRunResult(options);
     if (!detect.installed) {
       return {

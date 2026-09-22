@@ -175,7 +175,11 @@ describe('project test discovery', () => {
       },
       spawnImpl,
     });
-    expect(detectNode).toHaveBeenLastCalledWith({ PATH: binPath });
+    expect(detectNode).toHaveBeenLastCalledWith(
+      { PATH: binPath },
+      false,
+      expect.any(AbortSignal)
+    );
     expect(spawnImpl).toHaveBeenCalledWith(
       expect.objectContaining({
         command: path.join(binPath, nodeName),
