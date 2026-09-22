@@ -3,8 +3,9 @@
 import { createRequire } from 'node:module';
 import { _electron } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 
 assert.notEqual(process.platform, 'win32', 'POSIX live smoke; Windows tree termination is covered in CI');
@@ -18,6 +19,7 @@ const runtimes = ['node', 'ruby', 'deno', 'bun'];
 const errors = [];
 const results = [];
 const ownedPids = new Set();
+const debuggerPidFiles = [];
 let server;
 let app;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -47,7 +49,7 @@ try {
     assert.equal(server.exitCode, null, 'Renderer server remains alive');
     try { return (await fetch(rendererUrl)).ok; } catch { return false; }
   }, 'Renderer server did not become ready');
-  for (const phase of ['early-parent-close', 'window-close', 'app-quit']) {
+  for (const phase of ['debugger-cleanup', 'early-parent-close', 'window-close', 'app-quit']) {
     const profile = path.join(fixture, phase);
     app = await _electron.launch({ executablePath: electronBinary, args: [root], cwd: root, env: {
       ...process.env, LINGUA_SMOKE_USER_DATA_DIR: profile, LINGUA_RENDERER_URL: rendererUrl,
@@ -77,6 +79,83 @@ try {
       };
       syncBuiltinESMExports();
     });
+    if (phase === 'debugger-cleanup') {
+      for (const [runtime, mode] of [['python', 'stop'], ['go', 'stop'], ['go', 'timeout'], ['go', 'exit'], ['go', 'connection']]) {
+        const name = `${runtime}-${mode}`;
+        const directory = path.join(fixture, name);
+        await mkdir(directory);
+        const parentFile = path.join(directory, 'parent.pid');
+        const childFile = path.join(directory, 'child.pid');
+        debuggerPidFiles.push(parentFile, childFile);
+        const childCode = `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(childFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+        let source;
+        let userEnv;
+        let executable;
+        let healthyAdapter;
+        if (runtime === 'python') {
+          source = [
+            'import os, subprocess, time',
+            `open(${JSON.stringify(parentFile)}, 'w').write(str(os.getpid()))`,
+            `subprocess.Popen([${JSON.stringify(process.execPath)}, '-e', ${JSON.stringify(childCode)}], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)`,
+            `while not os.path.exists(${JSON.stringify(childFile)}): time.sleep(0.01)`,
+            'marker = 1',
+            'while True: time.sleep(0.1)',
+          ].join('\n');
+        } else {
+          // Controlled real adapter process, not a claim about installed Delve.
+          // Real IPC still performs detection, staging and the DAP handshake.
+          source = 'package main\nfunc main() {\nprintln(1)\n}';
+          executable = path.join(directory, 'dlv');
+          const protocol = pathToFileURL(path.join(root, 'tests/__fixtures__/fake-dlv.mjs')).href;
+          const version = `if (process.argv[2] === 'version') { console.log('Delve Debugger fixture'); process.exit(0); }`;
+          healthyAdapter = `#!/usr/bin/env node\n${version}\nawait import(${JSON.stringify(protocol)});\n`;
+          const action = mode === 'stop' ? `await import(${JSON.stringify(protocol)});` : mode === 'exit' ? 'process.exit(2);' : mode === 'connection' ? `
+            const net = await import('node:net');
+            const server = net.createServer();
+            server.listen(0, '127.0.0.1', () => {
+              const port = server.address().port;
+              server.close(() => console.log('DAP server listening at: 127.0.0.1:' + port));
+            });
+            setInterval(() => {}, 1000);` : 'setInterval(() => {}, 1000);';
+          await writeFile(executable, `#!/usr/bin/env node
+${version}
+const { spawn } = await import('node:child_process');
+const { existsSync, writeFileSync } = await import('node:fs');
+writeFileSync(${JSON.stringify(parentFile)}, String(process.pid));
+spawn(${JSON.stringify(process.execPath)}, ['-e', ${JSON.stringify(childCode)}], { stdio: 'ignore' });
+while (!existsSync(${JSON.stringify(childFile)})) await new Promise(resolve => setTimeout(resolve, 10));
+${mode === 'stop' ? '' : "process.on('SIGTERM', () => {});"}
+${action}
+`);
+          await chmod(executable, 0o755);
+          userEnv = { PATH: `${directory}${path.delimiter}${process.env.PATH}` };
+        }
+        const request = { tabId: name, source, fileName: runtime === 'python' ? 'main.py' : 'main.go', breakpoints: [runtime === 'python' ? 5 : 3], watches: [], userEnv };
+        const result = await page.evaluate(({ runtime, request }) => window.lingua[`${runtime}Debugger`].start(request), { runtime, request });
+        const pids = [Number(await readFile(parentFile, 'utf8')), Number(await readFile(childFile, 'utf8'))];
+        for (const pid of pids) { assert(pid > 0); ownedPids.add(pid); }
+        if (mode === 'stop') {
+          assert.equal(result.kind, 'paused', JSON.stringify(result));
+          assert(pids.every(alive));
+          const stopped = await page.evaluate(({ runtime, id }) => window.lingua[`${runtime}Debugger`].stop(id), { runtime, id: result.sessionId });
+          assert.equal(stopped.kind, 'stopped');
+        } else {
+          assert.equal(result.kind, 'error');
+          assert.match(result.message ?? '', mode === 'timeout' ? /startup timed out/i : mode === 'exit' ? /exited before startup/i : /ECONNREFUSED/);
+        }
+        await until(() => pids.every(pid => !alive(pid)), `${name} debugger left an adapter/debuggee alive`);
+        if (executable) await writeFile(executable, healthyAdapter);
+        const recoveryRequest = { ...request, tabId: `${name}-recovery`, source: runtime === 'python' ? 'value = 1\nvalue += 1\nprint(value)' : source, breakpoints: [runtime === 'python' ? 2 : 3] };
+        const recovered = await page.evaluate(({ runtime, request }) => window.lingua[`${runtime}Debugger`].start(request), { runtime, request: recoveryRequest });
+        assert.equal(recovered.kind, 'paused', JSON.stringify(recovered));
+        const stopped = await page.evaluate(({ runtime, id }) => window.lingua[`${runtime}Debugger`].stop(id), { runtime, id: recovered.sessionId });
+        assert.equal(stopped.kind, 'stopped');
+        results.push({ phase, runtime, mode, parentGone: true, descendantGone: true, recovery: true, adapterFixture: runtime === 'go' });
+      }
+      await app.close();
+      app = undefined;
+      continue;
+    }
     if (phase === 'early-parent-close') {
       // Node exercises the shared supervisor; installed Bun exercises the Alt
       // supervisor. Deno's read-only sandbox is deliberately not widened.
@@ -181,9 +260,12 @@ try {
     app = undefined;
   }
   assert.deepEqual(errors, []);
-  await writeFile(path.join(artifacts, 'result.json'), JSON.stringify({ results, errors, packaged: false, harness: 'Real Electron/main/preload, installed runtimes ignoring TERM, observed actual child PIDs' }, null, 2));
+  await writeFile(path.join(artifacts, 'result.json'), JSON.stringify({ results, errors, packaged: false, harness: 'Real Electron/main/preload, installed runtimes and controlled DAP adapter fixtures, observed actual child PIDs' }, null, 2));
   console.log('Native lifecycle passed: early parent close after Stop/timeout, window close, app quit, real runtimes, descendants, recovery, zero errors');
 } finally {
+  for (const file of debuggerPidFiles) {
+    try { const pid = Number(await readFile(file, 'utf8')); if (pid > 0) ownedPids.add(pid); } catch {}
+  }
   await app?.close().catch(() => {});
   // Only exact PIDs observed from this isolated app/fixture; never broad pkill.
   for (const pid of ownedPids) {

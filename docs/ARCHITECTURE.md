@@ -1410,6 +1410,10 @@ with independent pipes may outlive the parent and ignore TERM; parent close alon
 is not evidence of tree exit. Normal successful completion does not terminate
 background descendants. Deliberately detached descendants are outside the POSIX
 process-group boundary; this is lifecycle cleanup, not a process sandbox.
+Python and native DAP debug sessions likewise finish pending tree termination
+when their parent exits before escalation. A failed Delve startup (timeout, early
+exit or refused DAP connection) has no session owner and force-cleans its tree
+immediately, preserving the original startup diagnostic.
 
 The native process registry tracks the shared spawn boundary (also used by Rust and
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels

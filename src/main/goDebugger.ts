@@ -81,42 +81,43 @@ async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdin.on('error', () => undefined);
-  const address = await new Promise<{ host: string; port: number }>((resolve, reject) => {
-    let startup = '';
-    const settle = (callback: () => void): void => {
-      clearTimeout(timer);
-      child.stdout.off('data', onData);
-      child.stderr.off('data', onData);
-      child.off('error', onError);
-      child.off('exit', onExit);
-      callback();
-    };
-    const timer = setTimeout(() => {
-      settle(() => {
-        killProcessTree(child, 'SIGTERM');
-        reject(new Error(`Delve DAP startup timed out: ${startup.trim()}`));
-      });
-    }, DELVE_START_TIMEOUT_MS);
-    const onData = (chunk: string): void => {
-      startup = `${startup}${chunk}`.slice(-MAX_DELVE_STARTUP_BYTES);
-      const match = /DAP server listening at:\s*127\.0\.0\.1:(\d+)/u.exec(startup);
-      if (!match) return;
-      const port = Number(match[1]);
-      if (!Number.isInteger(port) || port <= 0 || port > 65_535) return;
-      settle(() => resolve({ host: '127.0.0.1', port }));
-    };
-    const onError = (error: Error): void => settle(() => reject(error));
-    const onExit = (code: number | null): void =>
-      settle(() => reject(new Error(`Delve exited before startup (${code ?? 'signal'}): ${startup}`)));
-    child.stdout.on('data', onData);
-    child.stderr.on('data', onData);
-    child.once('error', onError);
-    child.once('exit', onExit);
-  });
   try {
+    const address = await new Promise<{ host: string; port: number }>((resolve, reject) => {
+      let startup = '';
+      const settle = (callback: () => void): void => {
+        clearTimeout(timer);
+        child.stdout.off('data', onData);
+        child.stderr.off('data', onData);
+        child.off('error', onError);
+        child.off('exit', onExit);
+        callback();
+      };
+      const timer = setTimeout(() => {
+        settle(() => {
+          reject(new Error(`Delve DAP startup timed out: ${startup.trim()}`));
+        });
+      }, DELVE_START_TIMEOUT_MS);
+      const onData = (chunk: string): void => {
+        startup = `${startup}${chunk}`.slice(-MAX_DELVE_STARTUP_BYTES);
+        const match = /DAP server listening at:\s*127\.0\.0\.1:(\d+)/u.exec(startup);
+        if (!match) return;
+        const port = Number(match[1]);
+        if (!Number.isInteger(port) || port <= 0 || port > 65_535) return;
+        settle(() => resolve({ host: '127.0.0.1', port }));
+      };
+      const onError = (error: Error): void => settle(() => reject(error));
+      const onExit = (code: number | null): void =>
+        settle(() => reject(new Error(`Delve exited before startup (${code ?? 'signal'}): ${startup}`)));
+      child.stdout.on('data', onData);
+      child.stderr.on('data', onData);
+      child.once('error', onError);
+      child.once('exit', onExit);
+    });
     return { child, client: await DapClient.connect(address.host, address.port) };
   } catch (error) {
-    killProcessTree(child, 'SIGTERM');
+    // No session owns a failed adapter startup. Reap the complete tree now,
+    // including descendants of an adapter that already exited.
+    killProcessTree(child, 'SIGKILL');
     throw error;
   }
 }

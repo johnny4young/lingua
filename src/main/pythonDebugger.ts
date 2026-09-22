@@ -256,8 +256,10 @@ export class PythonDebugSession {
       const shouldEmit = !this.exited;
       this.exited = true;
       this.exitCode = code;
-      // A natural exit means the SIGKILL escalation is moot — drop the timer.
+      // A stopped parent may exit before its independent-pipe descendants.
+      // Complete the pending tree cleanup before discarding escalation.
       if (this.killEscalationTimer) {
+        killProcessTree(child, 'SIGKILL');
         clearTimeout(this.killEscalationTimer);
         this.killEscalationTimer = null;
       }

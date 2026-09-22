@@ -99,6 +99,8 @@ export class NativeDapSession {
     client.onEvent(message => this.onEvent(message));
     child.once('exit', () => {
       if (this.killTimer) {
+        // Adapter exit does not prove its debuggee tree has exited.
+        killProcessTree(child, 'SIGKILL');
         clearTimeout(this.killTimer);
         this.killTimer = null;
       }
