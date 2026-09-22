@@ -75,6 +75,7 @@ pnpm run check:prod-audit
 pnpm run check:bundled-audit
 pnpm run build:web
 pnpm run smoke:desktop:stagewright
+pnpm run smoke:desktop:fs-ipc
 pnpm run smoke:desktop
 ```
 
@@ -104,6 +105,7 @@ reference for what each command owns.
 | `preview:web`                | Serves the latest built web bundle locally.                                                                                                                                                                                          |
 | `smoke:project-templates`    | Materializes, installs, and executes every curated multi-file project template, then writes a diagnostic JSON artifact.                                                                                                              |
 | `smoke:desktop:stagewright`  | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke.                                                                                                                                                 |
+| `smoke:desktop:fs-ipc`      | Real main/preload filesystem boundary smoke for malformed payload rejection and valid file/watch recovery; build desktop bundles first.                                                                                                |
 | `smoke:desktop`              | Full desktop smoke flow against the dev server.                                                                                                                                                                                      |
 | `smoke:desktop:offline`      | Desktop smoke with non-loopback network requests blocked.                                                                                                                                                                            |
 | `smoke:desktop:packaged`     | Release-blocking packaged-app smoke against the host-native app under `out-builder`.                                                                                                                                                 |

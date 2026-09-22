@@ -754,11 +754,27 @@ both ends to that map:
   ([`src/preload/ipcTyped.ts`](../src/preload/ipcTyped.ts)) — no more
   `ipcRenderer.invoke('chan', …) as Promise<X>` casts; the channel name is a
   contract key and the result type is derived.
-- main handlers register through `typedHandle`
-  ([`src/main/ipc/typedHandle.ts`](../src/main/ipc/typedHandle.ts)), which
-  binds the handler's **return type** to the contract result. Handler
-  arguments stay `unknown` — they arrive from an untrusted renderer and each
-  handler validates them itself.
+- main handlers register through `typedHandle` or `validatedHandle`
+  ([`src/main/ipc/typedHandle.ts`](../src/main/ipc/typedHandle.ts)). Both bind
+  the handler's **return type** to the contract result. `typedHandle` leaves
+  wire arguments loose for handlers with an established local parser;
+  `validatedHandle` keeps them `unknown` until a channel-specific parser
+  returns the exact contract tuple.
+
+Filesystem channels use `validatedHandle` with the parsers in
+[`src/main/ipc/fs/fsArgs.ts`](../src/main/ipc/fs/fsArgs.ts). The parser checks
+arity, branded capability/watch tokens, path and text byte budgets, strict
+search/replace options, booleans and binary bundle input before opening a
+dialog, resolving a capability, aborting another search, creating a watcher or
+performing disk I/O. A malformed call raises a value-free
+`ERR_INVALID_IPC_ARGUMENTS`; ordinary in-contract failures keep their existing
+typed result shapes. The 16 MiB desktop text-write ceiling intentionally reuses
+the existing per-file project-bundle budget instead of adding an unrelated
+limit.
+
+The real main/preload regression is `pnpm run smoke:desktop:fs-ipc` after
+`pnpm run build:desktop-bundles`; it checks both rejection before effects and
+valid filesystem/watch recovery.
 
 The payoff: a renamed channel or a payload whose shape drifts between main
 and the renderer is now a **compile error**, and

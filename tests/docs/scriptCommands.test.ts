@@ -110,6 +110,7 @@ describe('Script naming docs guard', () => {
       'smoke:project-templates',
       'smoke:desktop',
       'smoke:desktop:stagewright',
+      'smoke:desktop:fs-ipc',
       // implementation — runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
       // implementation — packaged desktop smoke (release-blocking)

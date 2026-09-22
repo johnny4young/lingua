@@ -14,6 +14,8 @@ place:
 - component/unit coverage through `pnpm test -- --run`
 - lightweight Electron Stagewright MCP desktop UI smoke through
   `pnpm run smoke:desktop:stagewright`
+- real main/preload filesystem trust-boundary smoke through
+  `pnpm run smoke:desktop:fs-ipc`
 - managed Electron desktop smoke through `pnpm run smoke:desktop`
 - packaged-app smoke through `pnpm run smoke:desktop:packaged`
 
@@ -154,10 +156,20 @@ For repeatable validation, prefer the scripted smoke commands:
 
 ```bash
 pnpm run smoke:desktop:stagewright
+pnpm run smoke:desktop:fs-ipc
 pnpm run smoke:desktop
 pnpm run smoke:desktop:offline
 pnpm run smoke:desktop:packaged
 ```
+
+The filesystem smoke builds no bundles itself: run
+`pnpm run build:desktop-bundles` first. It creates a disposable project under
+the current repository root, then verifies malformed write, delete, search,
+bundle and watcher calls do not mutate files, open dialogs, or close a valid
+watcher. The valid write/read/watch round-trip must still work with zero
+renderer errors. If the checkout sits under a protected directory such as
+`.codex`, set `LINGUA_SMOKE_FIXTURE_DIR` to a safe project directory; the
+temporary fixture is removed on exit.
 
 Desktop baseline must guarantee:
 
