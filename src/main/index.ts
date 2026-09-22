@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
   consumePendingDeepLink,
@@ -170,6 +171,8 @@ const createWindow = () => {
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
+  const rendererFile = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+  const rendererDocumentUrl = rendererUrl ?? pathToFileURL(rendererFile).href;
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -231,7 +234,7 @@ const createWindow = () => {
     event.preventDefault();
   });
   window.webContents.on('will-navigate', (event, targetUrl) => {
-    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+    if (!isAllowedNavigationTarget(targetUrl, rendererDocumentUrl)) {
       event.preventDefault();
     }
   });
@@ -239,7 +242,7 @@ const createWindow = () => {
   // does not cover — gate them with the identical allowlist so a redirect
   // cannot reach an origin a direct navigation would be denied.
   window.webContents.on('will-redirect', (event, targetUrl) => {
-    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+    if (!isAllowedNavigationTarget(targetUrl, rendererDocumentUrl)) {
       event.preventDefault();
     }
   });
@@ -258,9 +261,7 @@ const createWindow = () => {
     };
     loadWithRetry();
   } else {
-    window.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
-    );
+    window.loadFile(rendererFile);
   }
 
   // DevTools available via Cmd+Option+I but not opened automatically

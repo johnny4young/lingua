@@ -11,6 +11,7 @@ The format follows Keep a Changelog and groups changes by release.
 This version is being prepared; no release artifacts have been published.
 
 ### Security
+- **The desktop window navigates only to its own renderer document.** Other local files, same-origin server documents and query variants are rejected, including redirects; normal reload and fragments remain supported.
 - **Git inspection no longer runs configured filesystem-monitor hooks or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.
 - **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.

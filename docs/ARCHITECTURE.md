@@ -1308,3 +1308,21 @@ import changes the bundle schema or persisted user data.
 
 References: [Git configuration](https://git-scm.com/docs/git-config#Documentation/git-config.txt-corefsmonitor)
 and [Git environment](https://git-scm.com/docs/git#_environment_variables).
+
+
+### Desktop shell navigation boundary
+
+The main window may reload only its chosen renderer document. The navigation
+policy compares complete normalized URLs, ignoring fragments but preserving the
+path and query. A development server's origin does not authorize other files on
+that server; packaged file mode does not authorize arbitrary local files. The
+expected packaged URL is derived from the exact loadFile path with pathToFileURL,
+including escaped paths and Windows drive/UNC locations. The same policy handles
+page-initiated navigation and HTTP redirects. Resource loading and sandboxed
+preview documents remain separate from main-window navigation.
+
+Electron main-process loadURL/loadFile calls do not emit will-navigate; those
+calls must continue to use the chosen target, not an untrusted renderer payload.
+The permanent real-Electron navigation smoke exercises both built file mode and
+a loopback server, including an actual redirect, reload, fragments and EN/ES.
+See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).

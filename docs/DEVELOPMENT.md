@@ -508,3 +508,20 @@ and never emit those assets.
 - The active production release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 
 For the full release operator checklist and required secrets, see [`RELEASE.md`](../RELEASE.md). For the public-release security sign-off, see [`docs/RELEASE_SECURITY.md`](./RELEASE_SECURITY.md).
+
+
+### Shell navigation smoke
+
+After `pnpm run build:desktop-bundles`, run:
+
+```sh
+node scripts/smoke-shell-navigation.mjs [path-to-electron-executable]
+```
+
+This runs the real main/preload and built renderer in fresh profiles, first from
+file URLs and then from a temporary loopback server. It asserts document-only
+navigation and redirect rejection, permitted reload/fragments, preserved EN/ES
+rendering, and zero renderer console errors. Results and screenshots are written
+to `output/playwright/shell-navigation/`; the owned profiles and server are cleaned
+up. It does not use the installed application's profile or claim release-package
+fuse/signing coverage; packaged acceptance remains a separate gate.
