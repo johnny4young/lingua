@@ -12,8 +12,8 @@ import type { Env } from '../index';
 export const SERVER_NAME = 'lingua-update-server';
 export const SERVER_VERSION = '0.1.0';
 
-export type DependencyState = 'ok' | 'degraded' | 'unknown';
-export type DependencyName = 'github';
+type DependencyState = 'ok' | 'degraded' | 'unknown';
+type DependencyName = 'github';
 
 export interface ReadinessSnapshot {
   ok: boolean;

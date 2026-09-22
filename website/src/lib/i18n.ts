@@ -2,7 +2,7 @@ import { en } from '~/i18n/en';
 import { es } from '~/i18n/es';
 import { SITE } from '~/lib/site';
 
-export const DEFAULT_LOCALE = 'en';
+const DEFAULT_LOCALE = 'en';
 export const LOCALES = [
   { code: 'en', path: '', label: 'English', shortLabel: 'EN', htmlLang: 'en', ogLocale: 'en_US' },
   { code: 'es', path: 'es', label: 'Español', shortLabel: 'ES', htmlLang: 'es', ogLocale: 'es_ES' },
@@ -13,7 +13,7 @@ export type Locale = (typeof LOCALES)[number]['code'];
 const DICTIONARIES = { en, es } as const;
 const LOCALE_CODES = new Set<string>(LOCALES.map((locale) => locale.code));
 
-export function isLocale(value: string | undefined): value is Locale {
+function isLocale(value: string | undefined): value is Locale {
   return Boolean(value && LOCALE_CODES.has(value));
 }
 
@@ -62,7 +62,7 @@ export function switchLocalePath(currentPath: string, targetLocale: Locale): str
   return localizePath(targetLocale, hasLocalizedRoute(targetLocale, stripped) ? stripped : '/');
 }
 
-export function absoluteUrl(path: string): string {
+function absoluteUrl(path: string): string {
   return new URL(path, SITE.url).toString();
 }
 
@@ -90,7 +90,7 @@ export function isExternalPath(path: string): boolean {
   return /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(path) || /^(?:mailto|tel|lingua):/i.test(path);
 }
 
-export function hasLocalizedRoute(locale: Locale, path: string): boolean {
+function hasLocalizedRoute(locale: Locale, path: string): boolean {
   return ROUTES_BY_LOCALE[locale].has(stripLocaleFromPath(path));
 }
 

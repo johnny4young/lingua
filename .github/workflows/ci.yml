@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # Stacked pull requests use a feature branch as their base. Run the same
+  # review gates for every pull request instead of silently skipping those
+  # intermediate heads.
   pull_request:
-    branches: [main]
 
 # Cancel in-flight runs when a new commit lands on the same branch /
 # PR — the older run becomes irrelevant the moment a fix is pushed,
@@ -255,6 +257,14 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm test
+      # Run only after all independently locked packages are installed. The
+      # configuration models each package as its own dependency boundary, and
+      # the second command plants then removes one unused file per boundary to
+      # prove that a missing workspace cannot make the gate silently green.
+      - name: Dead-code analysis across package boundaries
+        run: |
+          pnpm run check:deadcode
+          pnpm run check:deadcode:config
 
   web-e2e:
     name: Web end-to-end (Playwright) ${{ matrix.shard }}/3

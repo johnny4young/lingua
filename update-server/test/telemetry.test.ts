@@ -1771,7 +1771,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
-      /export const CONSOLE_RICH_KIND_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+      /(?:export\s+)?const\s+CONSOLE_RICH_KIND_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
     const workerMatch = workerSource.match(literalRe);
     const sharedMatch = sharedSource.match(literalRe);
     expect(workerMatch).not.toBeNull();
@@ -1886,11 +1886,11 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const modeRe =
-      /export const RUBY_DISPATCHED_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+      /(?:export\s+)?const\s+RUBY_DISPATCHED_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
     const spawnRe =
-      /export const RUBY_SPAWN_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+      /(?:export\s+)?const\s+RUBY_SPAWN_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
     const prefRe =
-      /export const RUBY_RUNTIME_PREFERENCE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+      /(?:export\s+)?const\s+RUBY_RUNTIME_PREFERENCE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
     for (const [label, re] of [
       ['mode', modeRe],
       ['spawn', spawnRe],
@@ -2324,7 +2324,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     const workerSource = await fs.readFile(workerPath, 'utf-8');
     const sharedSource = await fs.readFile(sharedPath, 'utf-8');
     const literalRe =
-      /export const FS_DIRECTORY_PICKER_UA_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+      /(?:export\s+)?const\s+FS_DIRECTORY_PICKER_UA_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
     const workerMatch = workerSource.match(literalRe);
     const sharedMatch = sharedSource.match(literalRe);
     expect(workerMatch).not.toBeNull();

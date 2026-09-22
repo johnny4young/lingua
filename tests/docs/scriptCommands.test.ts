@@ -148,9 +148,9 @@ describe('Script naming docs guard', () => {
       'test',
       // Instrumented v8 coverage with ratcheted thresholds (vitest.config.mts).
       'test:coverage',
-      // Dead-code gate (knip.jsonc): unreferenced files, unused/unlisted
-      // dependencies. Unused exports stay advisory via `pnpm exec knip`.
+      // Complete four-package dead-code gate plus its negative boundary proof.
       'check:deadcode',
+      'check:deadcode:config',
       // implementation detail — scoped tsc gate that type-checks the branded-id
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',

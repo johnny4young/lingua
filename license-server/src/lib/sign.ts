@@ -28,7 +28,7 @@ export interface LicensePayload {
   entitlements: readonly string[];
 }
 
-export type TokenSignFailure =
+type TokenSignFailure =
   | { ok: false; reason: 'invalid-private-key'; message?: string }
   | { ok: false; reason: 'subtle-unavailable'; message?: string };
 
@@ -36,7 +36,7 @@ export type TokenSignResult =
   | { ok: true; token: string }
   | TokenSignFailure;
 
-export type TokenVerifyFailure =
+type TokenVerifyFailure =
   | { ok: false; reason: 'malformed'; message?: string }
   | { ok: false; reason: 'invalid-signature'; message?: string }
   | { ok: false; reason: 'invalid-public-key'; message?: string }
@@ -291,6 +291,3 @@ export async function verifyLicenseToken(
 
   return { ok: true, payload: parsed, keyIndex: verifiedKeyIndex };
 }
-
-/** Exposed only for tests that decode payloads without a public key. */
-export { base64UrlDecode, base64UrlEncode };

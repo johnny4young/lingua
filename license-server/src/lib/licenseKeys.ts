@@ -9,7 +9,7 @@
  * overwritten with the following rotation key and the selector toggled back.
  */
 
-export type LicenseSigningKeySlot = 'current' | 'next';
+type LicenseSigningKeySlot = 'current' | 'next';
 
 export interface LicenseSigningKeyEnv {
   LINGUA_LICENSE_PRIVATE_KEY_JWK: string;

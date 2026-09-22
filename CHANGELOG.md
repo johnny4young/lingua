@@ -10,6 +10,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 This version is being prepared; no release artifacts have been published.
 
+### Changed
+- **Dead-code checks now cover every independently locked package.** CI analyzes the root app, website, license Worker and update Worker with explicit package boundaries, proves each boundary with a temporary negative fixture, and runs for stacked pull requests as well as pull requests targeting `main`.
+
 ### Security
 - **Production web and desktop shells block arbitrary inline scripts.** Only the exact prepaint bootstrap is hash-authorized; Browser preview and rich HTML retain script support in separately governed opaque sandboxes with cancelable, source-checked document loading.
 - **The desktop window navigates only to its own renderer document.** Other local files, same-origin server documents and query variants are rejected, including redirects; normal reload and fragments remain supported.

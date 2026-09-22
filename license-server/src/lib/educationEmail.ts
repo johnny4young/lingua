@@ -81,8 +81,3 @@ export function isEducationalEmail(email: string): EducationalEmailResult {
 
   return { ok: false };
 }
-
-/**
- * Exported for tests that pin the allow-list shape.
- */
-export const _ADDITIONAL_EDUCATIONAL_TLDS_FOR_TEST = ADDITIONAL_EDUCATIONAL_TLDS;

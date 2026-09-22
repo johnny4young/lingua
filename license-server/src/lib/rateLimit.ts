@@ -33,7 +33,7 @@ export interface RateLimitInput {
   now?: () => number;
 }
 
-export interface RateLimitAllowed {
+interface RateLimitAllowed {
   allowed: true;
   /** Number of hits already recorded BEFORE this one. After this call, count is `prior + 1`. */
   prior: number;
@@ -41,7 +41,7 @@ export interface RateLimitAllowed {
   current: number;
 }
 
-export interface RateLimitDenied {
+interface RateLimitDenied {
   allowed: false;
   /** Hits already recorded. Caller should NOT increment this number — denial is final for the day. */
   current: number;

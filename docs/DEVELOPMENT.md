@@ -68,6 +68,7 @@ pnpm run check:telemetry-call-sites
 pnpm run check:i18n
 pnpm run check:i18n:copy
 pnpm run check:deadcode
+pnpm run check:deadcode:config
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run check:prod-audit
@@ -77,7 +78,7 @@ pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
+These are the main local verification commands. The independent-project CI job runs both dead-code commands after installing the root, website, and Worker lockfiles; the package-boundary probe creates and removes one temporary unused file in each package and fails if Knip misses any of them. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 
@@ -124,7 +125,8 @@ reference for what each command owns.
 | `changelog:draft`            | Drafts changelog entries from conventional commits.                                                                                                                                                                                  |
 | `changelog:check`            | Blocks version/changelog drift before release.                                                                                                                                                                                       |
 | `test`                       | Runs the Vitest suite once.                                                                                                                                                                                                          |
-| `check:deadcode`             | Complete Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, and unexpected binaries. Known host commands used by platform scripts, completion tests, and benchmarks are allowlisted explicitly. |
+| `check:deadcode`             | Complete Knip gate across the root app, standalone website, license Worker, and update Worker (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, unexpected binaries, and configuration hints. Narrow dynamic-runtime and host-command allowlists are documented in place. |
+| `check:deadcode:config`      | Negative configuration proof: creates one temporary unused source file inside each of the four package boundaries, requires Knip to report all four, and removes every probe in a `finally` block. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
 | `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |

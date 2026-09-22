@@ -33,7 +33,7 @@ export type ErrorReason =
   | 'not-found'
   | 'not-implemented';
 
-export interface ErrorBody {
+interface ErrorBody {
   ok: false;
   reason: ErrorReason;
   message?: string;

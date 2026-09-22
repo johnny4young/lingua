@@ -207,28 +207,6 @@ export interface InsertDeviceInput {
   surface: Surface;
 }
 
-export async function insertDevice(db: D1Database, input: InsertDeviceInput): Promise<void> {
-  const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
-      `INSERT INTO devices (
-        id, license_id, device_id, device_name, os, surface,
-        activated_at, last_seen_at, removed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`
-    )
-    .bind(
-      input.id,
-      input.licenseId,
-      input.deviceId,
-      input.deviceName,
-      input.os,
-      input.surface,
-      now,
-      now
-    )
-    .run();
-}
-
 export async function findDeviceByLicenseAndId(
   db: D1Database,
   licenseId: string,
@@ -243,21 +221,6 @@ export async function findDeviceByLicenseAndId(
     .first<DeviceRow>();
 }
 
-export async function listActiveDevices(
-  db: D1Database,
-  licenseId: string,
-  surface: Surface
-): Promise<DeviceRow[]> {
-  const result = await db
-    .prepare(
-      `SELECT * FROM devices WHERE license_id = ? AND surface = ? AND removed_at IS NULL
-       ORDER BY activated_at ASC`
-    )
-    .bind(licenseId, surface)
-    .all<DeviceRow>();
-  return result.results ?? [];
-}
-
 export async function listAllActiveDevices(
   db: D1Database,
   licenseId: string
@@ -270,21 +233,6 @@ export async function listAllActiveDevices(
     .bind(licenseId)
     .all<DeviceRow>();
   return result.results ?? [];
-}
-
-export async function countActiveDevices(
-  db: D1Database,
-  licenseId: string,
-  surface: Surface
-): Promise<number> {
-  const row = await db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM devices
-       WHERE license_id = ? AND surface = ? AND removed_at IS NULL`
-    )
-    .bind(licenseId, surface)
-    .first<{ n: number }>();
-  return row?.n ?? 0;
 }
 
 export async function insertDeviceIfSlotAvailable(

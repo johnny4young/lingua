@@ -11,7 +11,7 @@ import packageJson from '../../../package.json' with { type: 'json' };
 import releaseSnapshot from '../data/latest-release.json' with { type: 'json' };
 import { compareStableVersions, parseReleaseSnapshot } from './releaseSnapshot.ts';
 
-export type ChangelogSection = {
+type ChangelogSection = {
   heading: string;
   items: string[];
 };

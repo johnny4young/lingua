@@ -16,7 +16,7 @@
 
 export type ErrorClass = 'client' | 'server' | 'upstream' | 'storage';
 
-export interface LogEvent {
+interface LogEvent {
   event: string;
   timestamp: string;
   route?: string;

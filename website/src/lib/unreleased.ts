@@ -7,7 +7,7 @@
 
 import data from '../data/unreleased.json';
 
-export interface UnreleasedCommit {
+interface UnreleasedCommit {
   hash: string;
   date: string;
   type: string;

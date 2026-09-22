@@ -37,7 +37,7 @@
 
 const ENCODER = new TextEncoder();
 
-export type LemonSqueezyVerifyFailure =
+type LemonSqueezyVerifyFailure =
   | { ok: false; reason: 'missing-headers'; message: string }
   | { ok: false; reason: 'invalid-signature'; message: string }
   | { ok: false; reason: 'invalid-secret'; message: string };
