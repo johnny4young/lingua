@@ -25,6 +25,7 @@ import type { RunConsole } from './runAndCollect';
 import type { ManualExecutionLifecycle } from './types';
 
 export interface RunnerBootstrap {
+  dispose: () => void;
   /** The runner is ready; emits the completed outcome when a boot was shown. */
   complete: () => void;
   /** Preparation failed; emits the failed outcome when a boot was shown. */
@@ -75,11 +76,17 @@ export function startRunnerBootstrap(
       }
     });
   }
+  const dispose = () => {
+    unsubscribeBootstrapProgress?.();
+    unsubscribeBootstrapProgress = undefined;
+  };
+  const unregisterCancel = lifecycle.session?.onCancel(dispose);
   const settle = (outcome: RuntimeBootstrapOutcome) => {
     if (!shouldShowInitialization || bootstrapSettled) return;
     bootstrapSettled = true;
     unsubscribeBootstrapProgress?.();
     unsubscribeBootstrapProgress = undefined;
+    if (lifecycle.session && !lifecycle.session.isCurrent()) return;
     useBootstrapProgressStore.getState().clear(language);
     lifecycle.setIsInitializing?.(false);
     lifecycle.setLoadingMessage?.(null);
@@ -87,6 +94,10 @@ export function startRunnerBootstrap(
   };
 
   return {
+    dispose: () => {
+      dispose();
+      unregisterCancel?.();
+    },
     complete: () => {
       if (!shouldShowInitialization) return;
       // internal — bucketed adoption signal; exact durations stay local.
@@ -118,15 +129,35 @@ function nativeDebuggerRunner(
   return {
     execute: async (_source: string, context?: ExecutionContext) => {
       if (language === 'python') {
-        const { executePythonDebugSession } = await import('../pythonDebuggerBridge');
-        return executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+        const { executePythonDebugSession, stopActivePythonDebugger } =
+          await import('../pythonDebuggerBridge');
+        if (lifecycle.session && !lifecycle.session.isCurrent()) return cancelledResult();
+        const unregister = lifecycle.session?.onCancel(stopActivePythonDebugger);
+        try {
+          return await executePythonDebugSession(activeTab, context?.onConsole, lifecycle.track);
+        } finally {
+          unregister?.();
+        }
       }
       if (language === 'go') {
-        const { executeGoDebugSession } = await import('../goDebuggerBridge');
-        return executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
+        const { executeGoDebugSession, stopActiveGoDebugger } = await import('../goDebuggerBridge');
+        if (lifecycle.session && !lifecycle.session.isCurrent()) return cancelledResult();
+        const unregister = lifecycle.session?.onCancel(stopActiveGoDebugger);
+        try {
+          return await executeGoDebugSession(activeTab, context?.onConsole, lifecycle.track);
+        } finally {
+          unregister?.();
+        }
       }
-      const { executeRustDebugSession } = await import('../rustDebuggerBridge');
-      return executeRustDebugSession(activeTab, context?.onConsole, lifecycle.track);
+      const { executeRustDebugSession, stopActiveRustDebugger } =
+        await import('../rustDebuggerBridge');
+      if (lifecycle.session && !lifecycle.session.isCurrent()) return cancelledResult();
+      const unregister = lifecycle.session?.onCancel(stopActiveRustDebugger);
+      try {
+        return await executeRustDebugSession(activeTab, context?.onConsole, lifecycle.track);
+      } finally {
+        unregister?.();
+      }
     },
   };
 }
@@ -142,4 +173,8 @@ export function announceCompilation(
     lifecycle.setLoadingMessage?.(compilationLoadingMessage);
     runConsole.add(compilationMessage);
   }
+}
+
+function cancelledResult() {
+  return { stdout: [], stderr: [], executionTime: 0, cancelled: true };
 }

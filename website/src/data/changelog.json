@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T02:57:28.347Z",
+  "generatedAt": "2026-09-22T03:19:29.142Z",
   "entries": [
     {
       "version": "1.5.1",
@@ -16,12 +16,13 @@
         {
           "heading": "Fixed",
           "items": [
+            "<strong>Stop takes effect during runner preparation and keeps cancelled runs from changing later results.</strong> Late output, history records and finalizers are ignored; closing the running tab cancels its execution.",
             "<strong>MCP text continuation preserves multibyte UTF-8 characters.</strong> Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.",
             "<strong>Packaged project tests use the installed Node.js runtime.</strong> Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions."
           ]
         }
       ],
-      "raw": "This version is being prepared; no release artifacts have been published.\n\n### Security\n- **Git inspection no longer runs configured filesystem-monitor hooks or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.\n- **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.\n- **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.\n\n### Fixed\n- **MCP text continuation preserves multibyte UTF-8 characters.** Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.\n- **Packaged project tests use the installed Node.js runtime.** Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions."
+      "raw": "This version is being prepared; no release artifacts have been published.\n\n### Security\n- **Git inspection no longer runs configured filesystem-monitor hooks or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.\n- **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.\n- **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.\n\n### Fixed\n- **Stop takes effect during runner preparation and keeps cancelled runs from changing later results.** Late output, history records and finalizers are ignored; closing the running tab cancels its execution.\n- **MCP text continuation preserves multibyte UTF-8 characters.** Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.\n- **Packaged project tests use the installed Node.js runtime.** Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions."
     },
     {
       "version": "1.5.0",

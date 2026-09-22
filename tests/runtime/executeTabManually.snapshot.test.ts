@@ -43,32 +43,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
   return { useConsoleStore: { getState: () => state } };
 });
 
-vi.mock('../../src/renderer/stores/resultStore', () => {
-  const state = {
-    clear: vi.fn(),
-    clearVisibleResults: vi.fn(),
-    setError: vi.fn(),
-    setExecutionTime: vi.fn(),
-    setExecutionSource: vi.fn(),
-    setFullOutput: vi.fn(),
-    setIsAutoRunning: vi.fn(),
-    setIsManualRunning: vi.fn(),
-    setLineResults: vi.fn(),
-    setStdinConsumed: vi.fn(),
-    setDiagnostics: vi.fn(),
-    // implementation — pill state setters required by the
-    // executeTabManually result-store destructure.
-    setRunTermination: vi.fn(),
-    setRunDeadlineAt: vi.fn(),
-    // implementation — manual Run captures the snapshot on clean
-    // success. The vi.fn() lets tests assert that the capture
-    // fires (and never fires on cancel / timeout / error).
-    captureSuccessfulSnapshot: vi.fn(),
-    // implementation — variable inspector snapshot setter.
-    setScopeSnapshot: vi.fn(),
-  };
-  return { useResultStore: { getState: () => state } };
-});
+
 
 vi.mock('../../src/renderer/validation', () => ({
   validateDocument: vi.fn(() => []),
@@ -95,6 +70,7 @@ vi.mock('../../src/renderer/hooks/useEntitlement', () => ({
   currentEffectiveTier: mockCurrentEffectiveTier,
 }));
 
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
@@ -134,7 +110,9 @@ const runError = () =>
   });
 
 describe('executeTabManually — snapshot gate', () => {
+  const initialResultState = useResultStore.getState();
   beforeEach(() => {
+    useResultStore.setState(initialResultState, true);
     useExecutionHistoryStore.setState(initialHistory, true);
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
@@ -143,6 +121,7 @@ describe('executeTabManually — snapshot gate', () => {
   });
 
   afterEach(() => {
+    useResultStore.setState(initialResultState, true);
     useExecutionHistoryStore.setState(initialHistory, true);
     vi.restoreAllMocks();
   });

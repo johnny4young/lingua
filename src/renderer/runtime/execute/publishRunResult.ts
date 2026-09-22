@@ -23,7 +23,10 @@ import type { RunPlan } from './resolveRunPlan';
 import type { CollectedRun, RunConsole } from './runAndCollect';
 import type { ManualExecutionSummary } from './types';
 
-export function publishViewOnly(activeTab: FileTab, runConsole: RunConsole): ManualExecutionSummary {
+export function publishViewOnly(
+  activeTab: FileTab,
+  runConsole: RunConsole
+): ManualExecutionSummary {
   const { clear, setDiagnostics, setExecutionSource, setFullOutput, setIsAutoRunning } =
     useResultStore.getState();
   useConsoleStore.getState().clear();
@@ -58,10 +61,19 @@ export function publishValidationStart(activeTab: FileTab, runConsole: RunConsol
 }
 
 /** Validates the document synchronously and publishes its diagnostics. */
-export function publishValidation(activeTab: FileTab, runConsole: RunConsole): ManualExecutionSummary {
+export function publishValidation(
+  activeTab: FileTab,
+  runConsole: RunConsole
+): ManualExecutionSummary {
   const { language, content, name } = activeTab;
-  const { setDiagnostics, setError, setExecutionTime, setFullOutput, setLineResults, setLineTimings } =
-    useResultStore.getState();
+  const {
+    setDiagnostics,
+    setError,
+    setExecutionTime,
+    setFullOutput,
+    setLineResults,
+    setLineTimings,
+  } = useResultStore.getState();
   const validation = validateDocument(language, content);
   setDiagnostics(validation.diagnostics);
   setLineResults([]);
@@ -69,7 +81,7 @@ export function publishValidation(activeTab: FileTab, runConsole: RunConsole): M
   setFullOutput(validation.fullOutput);
   setError(null);
   setExecutionTime(validation.executionTime);
-  const hasErrors = validation.diagnostics.some((item) => item.severity === 'error');
+  const hasErrors = validation.diagnostics.some(item => item.severity === 'error');
 
   runConsole.add({
     type: hasErrors ? 'error' : 'info',
@@ -108,8 +120,13 @@ export function publishUnsupportedRunner(
 
 /** Clears the previous output and marks the manual run as started. */
 export function publishRunStart(activeTab: FileTab, plan: RunPlan, runConsole: RunConsole): void {
-  const { clearVisibleResults, setDiagnostics, setExecutionSource, setIsAutoRunning, setIsManualRunning } =
-    useResultStore.getState();
+  const {
+    clearVisibleResults,
+    setDiagnostics,
+    setExecutionSource,
+    setIsAutoRunning,
+    setIsManualRunning,
+  } = useResultStore.getState();
   const { name } = activeTab;
   useConsoleStore.getState().clear();
   clearVisibleResults();
@@ -145,8 +162,14 @@ export function publishCancelledRun(
   runConsole: RunConsole
 ): ManualExecutionSummary {
   const { language, content } = activeTab;
-  const { setDiagnostics, setError, setExecutionTime, setFullOutput, setLineResults, setLineTimings } =
-    useResultStore.getState();
+  const {
+    setDiagnostics,
+    setError,
+    setExecutionTime,
+    setFullOutput,
+    setLineResults,
+    setLineTimings,
+  } = useResultStore.getState();
   const message = result.error?.message ?? (i18next.t('runner.stopped.message') as string);
   const presentation = toExecutionPresentation(language, content, {
     ...result,
@@ -182,7 +205,8 @@ export async function publishCompletedRun(
   plan: RunPlan,
   { result, streamedConsoleCount }: CollectedRun,
   gitSnapshot: GitSnapshot | undefined,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  isCurrent: () => boolean = () => true
 ): Promise<ManualExecutionSummary> {
   const { language, content, name } = activeTab;
   const {
@@ -195,6 +219,36 @@ export async function publishCompletedRun(
     setStdinConsumed,
   } = useResultStore.getState();
   const presentation = toExecutionPresentation(language, content, result);
+  const diagnostics = toExecutionDiagnostics(language, result.error ?? null);
+  const runStatus: 'ok' | 'error' | 'timeout' | 'stopped' =
+    result.kind === 'timeout'
+      ? 'timeout'
+      : result.kind === 'stopped'
+        ? 'stopped'
+        : result.error
+          ? 'error'
+          : 'ok';
+  if (plan.recordHistory) {
+    await recordCompletedRun({
+      activeTab,
+      result,
+      runStatus,
+      lineResults: presentation.lineResults,
+      diagnostics,
+      gitSnapshot,
+      isCurrent,
+    });
+  }
+
+  if (!isCurrent())
+    return {
+      mode: 'run',
+      ok: false,
+      cancelled: true,
+      executionTime: null,
+      diagnosticsCount: 0,
+      message: '',
+    };
   setLineResults(presentation.lineResults);
   setLineTimings(result.lineTimings ?? []);
   setFullOutput(presentation.fullOutput);
@@ -202,7 +256,6 @@ export async function publishCompletedRun(
   // manual-run results, same as the auto-run path.
   setStdinConsumed(result.stdinConsumed ?? null);
   setError(result.error ?? null);
-  const diagnostics = toExecutionDiagnostics(language, result.error ?? null);
   setDiagnostics(diagnostics);
   setExecutionTime(result.executionTime);
 
@@ -226,29 +279,6 @@ export async function publishCompletedRun(
     runConsole.add(entry);
   }
 
-  // implementation note — `runner.executed.status` distinguishes `'timeout'`
-  // and `'stopped'` from generic `'error'`. Prefer the explicit `result.kind`
-  // set by the runner; fall back to the legacy boolean for runners that never
-  // set the field.
-  const runStatus: 'ok' | 'error' | 'timeout' | 'stopped' =
-    result.kind === 'timeout'
-      ? 'timeout'
-      : result.kind === 'stopped'
-        ? 'stopped'
-        : result.error
-          ? 'error'
-          : 'ok';
-  if (plan.recordHistory) {
-    await recordCompletedRun({
-      activeTab,
-      result,
-      runStatus,
-      lineResults: presentation.lineResults,
-      diagnostics,
-      gitSnapshot,
-    });
-  }
-
   // internal — emit runner.executed so consenting users' telemetry reflects
   // runtime usage. `durationBucketMs` is already coarse, and the property
   // allowlist rejects anything beyond language/status/durationBucketMs.
@@ -259,11 +289,7 @@ export async function publishCompletedRun(
   });
   // implementation note — same adoption signal as the auto-run path: both run
   // surfaces share the buffer and worker (≥1 line consumed, JS / TS / Python).
-  if (
-    result.stdinConsumed &&
-    result.stdinConsumed.count > 0 &&
-    isWorkerRunnerLanguage(language)
-  ) {
+  if (result.stdinConsumed && result.stdinConsumed.count > 0 && isWorkerRunnerLanguage(language)) {
     void trackEvent('runtime.stdin_used', { language });
   }
 
@@ -285,16 +311,18 @@ export async function publishRunFailure(
   activeTab: FileTab,
   plan: RunPlan,
   error: unknown,
-  gitSnapshot: GitSnapshot | undefined
+  gitSnapshot: GitSnapshot | undefined,
+  isCurrent: () => boolean = () => true
 ): Promise<string> {
   const { setRunDeadlineAt, setRunTermination } = useResultStore.getState();
   const message = error instanceof Error ? error.message : String(error);
   // implementation — surface the failure via the pill too.
+  if (plan.recordHistory) {
+    await recordFailedRun(activeTab, message, gitSnapshot, isCurrent);
+  }
+  if (!isCurrent()) return message;
   setRunDeadlineAt(null);
   setRunTermination({ kind: 'error' });
-  if (plan.recordHistory) {
-    await recordFailedRun(activeTab, message, gitSnapshot);
-  }
 
   // internal — mirror the error path in telemetry. `durationBucketMs: 0`
   // because the runner never completed a timed window.

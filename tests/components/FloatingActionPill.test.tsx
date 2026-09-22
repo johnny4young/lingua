@@ -25,6 +25,7 @@ import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { useEditorStore } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
+import { useResultStore } from '@/stores/resultStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 
 const runMock = vi.fn();
@@ -51,6 +52,7 @@ vi.mock('@/stores/licenseSelectors', () => ({
 }));
 
 beforeEach(async () => {
+  useResultStore.setState({ isAutoRunning: false });
   await initI18n();
   runMock.mockClear();
   stopMock.mockClear();
@@ -320,7 +322,17 @@ describe('FloatingActionPill', () => {
     expect(structuralDividers).toHaveLength(1);
   });
 
+  it('does not replace idle Run with progress from a cancelled initialization', () => {
+    useEditorStore.setState({ tabs: [{ id: 'stopped-python', name: 'stopped.py', language: 'python', content: 'print(1)', isDirty: false }], activeTabId: 'stopped-python' });
+    renderPill();
+    act(() => {
+      useBootstrapProgressStore.getState().report({ language: 'python', loadedBytes: 1024 * 1024, totalBytes: null });
+    });
+    expect(screen.getByTestId('action-pill-run').textContent).not.toContain('MB');
+  });
+
   it('only shows bootstrap progress for the active tab language', async () => {
+    useResultStore.setState({ isAutoRunning: true });
     renderPill();
     act(() => {
       useBootstrapProgressStore.getState().report({

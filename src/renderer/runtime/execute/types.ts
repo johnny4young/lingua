@@ -1,7 +1,9 @@
+import type { ManualRunSession } from '../manualRunSession';
 import type { TelemetryTrack } from '../../hooks/useTelemetry';
 import type { Language } from '../../types/language';
 
 export interface ManualExecutionLifecycle {
+  session?: ManualRunSession;
   setIsRunning?: (value: boolean) => void;
   setIsInitializing?: (value: boolean) => void;
   setLoadingMessage?: (value: string | null) => void;

@@ -55,27 +55,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
   return { useConsoleStore: { getState: () => state } };
 });
 
-vi.mock('../../src/renderer/stores/resultStore', () => {
-  const state = {
-    clear: vi.fn(),
-    clearVisibleResults: vi.fn(),
-    setError: vi.fn(),
-    setExecutionTime: vi.fn(),
-    setExecutionSource: vi.fn(),
-    setFullOutput: vi.fn(),
-    setIsAutoRunning: vi.fn(),
-    setIsManualRunning: vi.fn(),
-    setLineResults: vi.fn(),
-    setLineTimings: vi.fn(),
-    setStdinConsumed: vi.fn(),
-    setDiagnostics: vi.fn(),
-    setRunTermination: mockSetRunTermination,
-    setRunDeadlineAt: mockSetRunDeadlineAt,
-    captureSuccessfulSnapshot: vi.fn(),
-    setScopeSnapshot: vi.fn(),
-  };
-  return { useResultStore: { getState: () => state } };
-});
+
 
 vi.mock('../../src/renderer/validation', () => ({
   validateDocument: vi.fn(() => []),
@@ -98,6 +78,7 @@ vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
   toExecutionDiagnostics: mockToExecutionDiagnostics,
 }));
 
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import {
   CAPSULE_LRU_CAP,
@@ -107,7 +88,9 @@ import { useGitStore } from '../../src/renderer/stores/gitStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 describe('executeTabManually — capsule attach ', () => {
+  const initialResultState = useResultStore.getState();
   beforeEach(() => {
+    useResultStore.setState(initialResultState, true);
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
@@ -126,6 +109,7 @@ describe('executeTabManually — capsule attach ', () => {
   });
 
   afterEach(() => {
+    useResultStore.setState(initialResultState, true);
     vi.restoreAllMocks();
   });
 

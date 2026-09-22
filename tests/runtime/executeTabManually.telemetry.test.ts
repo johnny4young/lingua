@@ -48,39 +48,14 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
   };
 });
 
-vi.mock('../../src/renderer/stores/resultStore', () => {
-  const state = {
-    clear: vi.fn(),
-    clearVisibleResults: vi.fn(),
-    setError: vi.fn(),
-    setExecutionTime: vi.fn(),
-    setExecutionSource: vi.fn(),
-    setFullOutput: vi.fn(),
-    setIsAutoRunning: vi.fn(),
-    setIsManualRunning: vi.fn(),
-    setLineResults: vi.fn(),
-    setLineTimings: vi.fn(),
-    setStdinConsumed: vi.fn(),
-    setDiagnostics: vi.fn(),
-    // implementation — pill state setters; consumers must mock them
-    // or `executeTabManually` will throw `setRunDeadlineAt is not a
-    // function` on the result-store destructure.
-    setRunTermination: mockSetRunTermination,
-    setRunDeadlineAt: mockSetRunDeadlineAt,
-    // implementation — manual Run captures the snapshot on clean
-    // success. Mocked as vi.fn() so the telemetry tests don't crash
-    // when the new capture branch fires.
-    captureSuccessfulSnapshot: vi.fn(),
-    // implementation — manual Run also writes the variable inspector
-    // snapshot on the clean-success branch. Mocked so the
-    // destructure doesn't crash.
-    setScopeSnapshot: vi.fn(),
-  };
-  return {
-    useResultStore: {
-      getState: () => state,
-    },
-  };
+vi.mock('../../src/renderer/stores/resultStore', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/renderer/stores/resultStore')>();
+  const { setRunTermination, setRunDeadlineAt } = actual.useResultStore.getState();
+  actual.useResultStore.setState({
+    setRunTermination: value => { mockSetRunTermination(value); setRunTermination(value); },
+    setRunDeadlineAt: value => { mockSetRunDeadlineAt(value); setRunDeadlineAt(value); },
+  });
+  return actual;
 });
 
 vi.mock('../../src/renderer/validation', () => ({
@@ -104,6 +79,7 @@ vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
   toExecutionDiagnostics: () => [],
 }));
 
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
@@ -112,11 +88,13 @@ import type { FileTab } from '../../src/renderer/types/editor';
 import { defaultRuntimeTimeoutPresetSeed } from '../../src/shared/runtimeTimeoutPresets';
 
 describe('executeTabManually — runner.executed telemetry', () => {
+  const initialResultState = useResultStore.getState();
   const initialEditor = useEditorStore.getState();
   const initialHistory = useExecutionHistoryStore.getState();
   const initialSettings = useSettingsStore.getState();
 
   beforeEach(() => {
+    useResultStore.setState(initialResultState, true);
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
@@ -130,6 +108,7 @@ describe('executeTabManually — runner.executed telemetry', () => {
   });
 
   afterEach(() => {
+    useResultStore.setState(initialResultState, true);
     vi.useRealTimers();
     vi.restoreAllMocks();
     mockTrackEvent.mockReset().mockResolvedValue(undefined);

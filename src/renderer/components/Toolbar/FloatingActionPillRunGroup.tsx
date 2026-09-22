@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from 'react';
+import { useResultStore } from '../../stores/resultStore';
 import {
   formatBootstrapProgress,
   useBootstrapProgressStore,
@@ -64,6 +65,7 @@ export function FloatingActionPillRunGroup({
   setTabWorkflowMode,
 }: RunGroupProps) {
   const { t } = useTranslation();
+  const isAutoRunning = useResultStore(state => state.isAutoRunning);
   // internal — live runtime-bootstrap progress, path-agnostic: the
   // store is fed by the worker whether the boot started from a manual
   // run's initialization window OR the scratchpad auto-run, so the
@@ -71,7 +73,7 @@ export function FloatingActionPillRunGroup({
   const bootstrapProgress = useBootstrapProgressStore(state =>
     state.progress?.language === language ? state.progress : null
   );
-  const bootstrapLabel = bootstrapProgress
+  const bootstrapLabel = bootstrapProgress && (isRunning || isInitializing || isAutoRunning)
     ? formatBootstrapProgress(
         getInitializationMessage(bootstrapProgress.language),
         bootstrapProgress

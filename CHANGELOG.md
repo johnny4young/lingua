@@ -16,6 +16,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Stop takes effect during runner preparation and keeps cancelled runs from changing later results.** Late output, history records and finalizers are ignored; closing the running tab cancels its execution.
 - **MCP text continuation preserves multibyte UTF-8 characters.** Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.
 - **Packaged project tests use the installed Node.js runtime.** Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions.
 

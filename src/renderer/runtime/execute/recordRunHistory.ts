@@ -257,6 +257,7 @@ export async function recordCompletedRun(args: {
   lineResults: unknown[];
   diagnostics: unknown[];
   gitSnapshot: GitSnapshot | undefined;
+  isCurrent?: () => boolean;
 }): Promise<void> {
   const { activeTab, result, runStatus, lineResults, diagnostics, gitSnapshot } = args;
   const { language, content } = activeTab;
@@ -272,6 +273,7 @@ export async function recordCompletedRun(args: {
     errorMessage: result.error?.message,
   });
 
+  if (args.isCurrent && !args.isCurrent()) return;
   useExecutionHistoryStore.getState().record({
     language,
     status: runStatus === 'ok' ? 'ok' : 'error',
@@ -297,7 +299,8 @@ export async function recordCompletedRun(args: {
 export async function recordFailedRun(
   activeTab: FileTab,
   message: string,
-  gitSnapshot: GitSnapshot | undefined
+  gitSnapshot: GitSnapshot | undefined,
+  isCurrent: () => boolean = () => true
 ): Promise<void> {
   const { language, content } = activeTab;
   const capsule = await tryBuildCapsule({
@@ -306,6 +309,7 @@ export async function recordFailedRun(
     durationMs: 0,
     errorMessage: message,
   });
+  if (!isCurrent()) return;
   useExecutionHistoryStore.getState().record({
     language,
     status: 'error',

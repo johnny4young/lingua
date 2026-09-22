@@ -1,3 +1,4 @@
+import { beginManualRun } from './manualRunSession';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
@@ -46,7 +47,48 @@ export async function executeTabManually(
   activeTab: FileTab,
   lifecycle: ManualExecutionLifecycle = {}
 ): Promise<ManualExecutionSummary> {
-  const runConsole = createRunConsole();
+  const session = lifecycle.session ?? beginManualRun(activeTab, lifecycle.debug);
+  if (!session || !session.isCurrent()) return cancelledSummary();
+  const guardedLifecycle: ManualExecutionLifecycle = {
+    ...lifecycle,
+    session,
+    setIsRunning: value => {
+      if (session.isCurrent()) lifecycle.setIsRunning?.(value);
+    },
+    setIsInitializing: value => {
+      if (session.isCurrent()) lifecycle.setIsInitializing?.(value);
+    },
+    setLoadingMessage: value => {
+      if (session.isCurrent()) lifecycle.setLoadingMessage?.(value);
+    },
+    setCurrentLanguage: value => {
+      if (session.isCurrent()) lifecycle.setCurrentLanguage?.(value);
+    },
+  };
+  try {
+    return await executeOwnedTab(activeTab, guardedLifecycle);
+  } finally {
+    if (!lifecycle.session) session.finish();
+  }
+}
+
+function cancelledSummary(): ManualExecutionSummary {
+  return {
+    mode: 'run',
+    ok: false,
+    cancelled: true,
+    executionTime: null,
+    diagnosticsCount: 0,
+    message: '',
+  };
+}
+
+async function executeOwnedTab(
+  activeTab: FileTab,
+  lifecycle: ManualExecutionLifecycle
+): Promise<ManualExecutionSummary> {
+  const session = lifecycle.session!;
+  const runConsole = createRunConsole(session.isCurrent);
   const plan = resolveRunPlan(activeTab, lifecycle);
   const { language } = activeTab;
 
@@ -89,6 +131,7 @@ export async function executeTabManually(
 
   try {
     const runner = await acquireRunner(activeTab, plan, lifecycle);
+    if (!session.isCurrent()) return cancelledSummary();
     if (!runner) {
       bootstrap.fail();
       return publishMissingRunner(language, runConsole);
@@ -105,20 +148,39 @@ export async function executeTabManually(
       useEditorStore.getState().setTabNextRunTimeoutOverride(activeTab.id, null);
     }
 
-    const run = await runAndCollect(runner, activeTab, execution, runConsole);
+    const unregisterStop = plan.usesNativeDebugger
+      ? () => {}
+      : session.onCancel(() => runnerManager.stop(language, activeTab.runtimeMode));
+    let run;
+    try {
+      run = await runAndCollect(runner, activeTab, execution, runConsole, session.isCurrent);
+    } finally {
+      unregisterStop();
+    }
+    if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
       return publishCancelledRun(activeTab, run, runConsole);
     }
-    return await publishCompletedRun(activeTab, plan, run, gitSnapshot, runConsole);
+    return await publishCompletedRun(
+      activeTab,
+      plan,
+      run,
+      gitSnapshot,
+      runConsole,
+      session.isCurrent
+    );
   } catch (error) {
-    const message = await publishRunFailure(activeTab, plan, error, gitSnapshot);
+    if (!session.isCurrent()) return cancelledSummary();
+    const message = await publishRunFailure(activeTab, plan, error, gitSnapshot, session.isCurrent);
+    if (!session.isCurrent()) return cancelledSummary();
     if (!runnerPrepared) {
       bootstrap.fail();
     }
     return publishFailedRun(language, message, runnerPrepared, runConsole);
   } finally {
+    bootstrap.dispose();
     runConsole.flush();
-    useResultStore.getState().setIsManualRunning(false);
+    if (session.isCurrent()) useResultStore.getState().setIsManualRunning(false);
     lifecycle.setIsRunning?.(false);
     lifecycle.setIsInitializing?.(false);
     lifecycle.setLoadingMessage?.(null);

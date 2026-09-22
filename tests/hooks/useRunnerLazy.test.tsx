@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRunner } from '../../src/renderer/hooks/useRunner';
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 const mocks = vi.hoisted(() => ({
@@ -35,10 +36,14 @@ describe('useRunner activation boundary', () => {
     });
 
     expect(mocks.loadController).toHaveBeenCalledOnce();
-    expect(mocks.runActiveTab).toHaveBeenCalledWith(expect.any(Function), {
-      debug: true,
-      recordHistory: false,
-    });
+    expect(mocks.runActiveTab).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        debug: true,
+        recordHistory: false,
+      },
+      expect.objectContaining({ isCurrent: expect.any(Function), cancel: expect.any(Function) })
+    );
   });
 
   it('turns a failed chunk request into localized recovery and retries later', async () => {
@@ -64,4 +69,39 @@ describe('useRunner activation boundary', () => {
     expect(mocks.loadController).toHaveBeenCalledTimes(2);
     expect(mocks.runActiveTab).toHaveBeenCalledOnce();
   });
+  it.each(['resolve', 'reject'])(
+    'does not revive a stopped controller load that later %ss',
+    async outcome => {
+      let resolve!: (value: { runActiveTab: typeof mocks.runActiveTab }) => void;
+      let reject!: (error: Error) => void;
+      mocks.loadController.mockReturnValueOnce(
+        new Promise((yes, no) => {
+          resolve = yes;
+          reject = no;
+        })
+      );
+      const { result } = renderHook(() => useRunner());
+      let oldRun!: Promise<void>;
+      act(() => {
+        oldRun = result.current.run();
+      });
+      expect(result.current.isRunning).toBe(true);
+      act(() => {
+        result.current.stop();
+        result.current.stop();
+      });
+      expect(result.current.isRunning).toBe(false);
+      await act(async () => {
+        await result.current.run();
+      });
+      await act(async () => {
+        if (outcome === 'resolve') resolve({ runActiveTab: mocks.runActiveTab });
+        else reject(new Error('obsolete chunk failure'));
+        await oldRun;
+      });
+      expect(mocks.runActiveTab).toHaveBeenCalledOnce();
+      expect(useUIStore.getState().statusNotice).toBeNull();
+      expect(useResultStore.getState().manualRunSession).toBeNull();
+    }
+  );
 });

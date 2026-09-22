@@ -1,11 +1,10 @@
+import type { ManualRunSession } from '../runtime/manualRunSession';
 import { create } from 'zustand';
-import type { Language } from '../types/language';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { EditorDiagnostic, ExecutionError, LineTimingEntry } from '../types/execution';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
-import type { RuntimeMode } from '../../shared/runtimeModes';
 
 /**
  * implementation — terminator summary surfaced via `<RunStatusPill>`.
@@ -19,10 +18,6 @@ interface RunTerminationSummary {
   timeoutMs?: number;
 }
 
-interface ManualExecutionTarget {
-  language: Language;
-  runtimeMode?: RuntimeMode;
-}
 
 export interface LineResult {
   line: number;
@@ -153,14 +148,13 @@ interface ResultState {
   isAutoRunning: boolean;
   /** Whether a user-triggered run/validation is currently executing */
   isManualRunning: boolean;
+  manualRunSession: ManualRunSession | null;
   /** Whether the active manual run is bootstrapping its runtime */
   isManualInitializing: boolean;
   /** Runtime bootstrap or compilation status shared by every run control */
   manualLoadingMessage: string | null;
   /** User intent for the active manual execution */
   manualRunMode: 'run' | 'debug' | null;
-  /** Runner identity used by any surface that asks to stop the active run */
-  manualExecutionTarget: ManualExecutionTarget | null;
   /** Origin of the currently surfaced execution state */
   executionSource: 'manual' | 'auto' | null;
   /**
@@ -235,8 +229,6 @@ interface ResultState {
   setIsManualRunning: (running: boolean) => void;
   setIsManualInitializing: (initializing: boolean) => void;
   setManualLoadingMessage: (message: string | null) => void;
-  setManualRunMode: (mode: 'run' | 'debug' | null) => void;
-  setManualExecutionTarget: (target: ManualExecutionTarget | null) => void;
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
   setAutoRunGateReason: (reason: AutoRunGateReason | null) => void;
   /**
@@ -392,8 +384,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
   isManualRunning: false,
   isManualInitializing: false,
   manualLoadingMessage: null,
+  manualRunSession: null,
   manualRunMode: null,
-  manualExecutionTarget: null,
   executionSource: null,
   autoRunGateReason: null,
   lastSuccessfulSnapshot: null,
@@ -420,9 +412,6 @@ export const useResultStore = create<ResultState>((set, get) => ({
     set({ isManualInitializing }),
   setManualLoadingMessage: (manualLoadingMessage) =>
     set({ manualLoadingMessage }),
-  setManualRunMode: (manualRunMode) => set({ manualRunMode }),
-  setManualExecutionTarget: (manualExecutionTarget) =>
-    set({ manualExecutionTarget }),
   setExecutionSource: (executionSource) => set({ executionSource }),
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
   setRunTermination: (runTermination) => set({ runTermination }),

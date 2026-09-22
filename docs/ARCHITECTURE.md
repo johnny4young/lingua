@@ -104,6 +104,27 @@ settle only when its kill timer fired, terminating the worker under whichever
 run was using it and forcing the next run to boot Ruby again.
 `tests/runners/ruby.test.ts` covers the boot overlap.
 
+### Manual run ownership and cancellation
+
+All manual controls claim an in-memory session before loading the execution
+controller. That session, not a shared running boolean, owns runner preparation,
+stream delivery, history/capsule publication and teardown. Stop revokes publication
+synchronously, marks the run stopped and invokes only cancellation callbacks
+registered by that session. Closing its editor tab cancels the same session.
+A late result, rejected preparation or finalizer cannot mutate the next run.
+
+Runtime initialization can be shared and may finish after cancellation; a cancelled
+waiter must never execute when that initialization resolves. Physical stop is
+registered only after a regular runner is ready. Native debugger adapters register
+their already-loaded stop operation before starting the debugger and retain their
+own start-generation fence. Stop never loads a global stop function asynchronously.
+
+Console frame callbacks and capsule construction recheck ownership before writes.
+Only a current session publishes a completed snapshot or history entry. Run identity
+is not persisted in tabs, settings, history or `RunCapsuleV1`, so existing saved
+sessions remain compatible. Regression coverage exercises Stop → Run → late result,
+cancelled preparation, closed tabs and cancellation during capsule construction.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256
