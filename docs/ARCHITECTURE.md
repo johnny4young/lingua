@@ -1365,3 +1365,13 @@ publication, so a single noisy pipe cannot silently stop the transcript.
 Separate stdout/stderr remain in the IPC result
 for compatibility. Legacy or non-streamed replies without a transcript retain
 explicitly labeled separate buffers; the UI does not invent interleaving.
+
+### Native Node preparation cancellation
+
+Node's renderer adapter claims a transient identity before awaiting TypeScript
+transpilation. Stop revokes it immediately, even before a native child exists.
+After compilation settles, only the current identity may send code over IPC or
+install its child cancellation callback. A late compiler result or rejection from
+a stopped run becomes `stopped` and cannot replace the next child's Stop owner.
+This supplements the manual-session publication guards; suppressing output alone
+would still allow the cancelled code's filesystem/network side effects.

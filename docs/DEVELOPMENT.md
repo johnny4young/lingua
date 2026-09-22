@@ -557,3 +557,14 @@ It checks live and final order, failure then recovery, EN/light and ES/dark,
 Screenshots and results are in `output/playwright/project-test-output-ui/`.
 The picker is stubbed to the explicit fixture; execution and IPC are not stubbed.
 This complements the packaged Vitest/Jest and release-fuse smoke, not replaces it.
+
+### Native preparation cancellation smoke
+
+After building desktop bundles, run
+`node scripts/smoke-node-preparation.mjs [path-to-electron-executable]`.
+The isolated Electron fixture runs actual esbuild, holds its continuation, stops
+that run, starts a real newer Node child, and then releases the old compiler.
+It verifies that the cancelled source never writes its sentinel and that Stop
+still kills the newer PID, with zero renderer console errors. Only the compiler
+continuation is controlled; native IPC/process execution is real. Evidence is
+written to `output/playwright/node-preparation/` and owned fixtures are removed.

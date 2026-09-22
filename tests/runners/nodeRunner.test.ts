@@ -110,9 +110,7 @@ describe('NodeRunner', () => {
   });
 
   it('offers install guidance and a forced retry when Node is missing', async () => {
-    const detect = vi
-      .fn()
-      .mockResolvedValue({ installed: true, version: 'v24.0.0' });
+    const detect = vi.fn().mockResolvedValue({ installed: true, version: 'v24.0.0' });
     const node = installNodeBridge({
       detect,
       run: vi.fn().mockResolvedValue({
@@ -142,12 +140,75 @@ describe('NodeRunner', () => {
     expect(node.run).toHaveBeenCalledOnce();
   });
 
+  it('does not launch native code after Stop during TypeScript preparation', async () => {
+    let finishTransform!: (value: { code: string }) => void;
+    esbuildTransformMock.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishTransform = resolve;
+      })
+    );
+    const node = installNodeBridge();
+    const runner = new NodeRunner();
+    const pending = runner.execute('const old: number = 1;', { language: 'typescript' });
+    await vi.waitFor(() => expect(esbuildTransformMock).toHaveBeenCalledOnce());
+    runner.stop();
+    finishTransform({ code: 'OLD_MUST_NOT_EXECUTE' });
+    expect(await pending).toMatchObject({ kind: 'stopped', cancelled: true });
+    expect(node.run).not.toHaveBeenCalled();
+    expect(node.stop).not.toHaveBeenCalled();
+  });
+
+  it('keeps a cancelled compiler rejection from becoming a new run error', async () => {
+    let rejectTransform!: (error: Error) => void;
+    esbuildTransformMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectTransform = reject;
+      })
+    );
+    const node = installNodeBridge();
+    const runner = new NodeRunner();
+    const pending = runner.execute('const value: number = 1;', { language: 'typescript' });
+    await vi.waitFor(() => expect(esbuildTransformMock).toHaveBeenCalledOnce());
+    runner.stop();
+    rejectTransform(new Error('old compiler failure'));
+    expect(await pending).toMatchObject({ kind: 'stopped', cancelled: true });
+    expect(node.run).not.toHaveBeenCalled();
+  });
+
+  it('keeps Stop bound to the newer child after cancelled transpilation settles', async () => {
+    let finishTransform!: (value: { code: string }) => void;
+    esbuildTransformMock.mockReturnValueOnce(
+      new Promise(resolve => {
+        finishTransform = resolve;
+      })
+    );
+    const run = vi.fn<NonNullable<LinguaAPI['node']>['run']>(() => new Promise(() => {}));
+    const node = installNodeBridge({ run });
+    const runner = new NodeRunner();
+    const old = runner.execute('const old: number = 1;', { language: 'typescript' });
+    await vi.waitFor(() => expect(esbuildTransformMock).toHaveBeenCalledOnce());
+    runner.stop();
+    const current = runner.execute('CURRENT', { language: 'javascript' });
+    const currentRunId = run.mock.calls[0]?.[1]?.runId;
+    expect(currentRunId).toBeTruthy();
+    finishTransform({ code: 'OLD_MUST_NOT_EXECUTE' });
+    // Observe the old result without making this regression wait for its erroneous child.
+    const oldResult = vi.fn();
+    void old.then(oldResult);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(node.run).toHaveBeenCalledTimes(1);
+    expect(oldResult).toHaveBeenCalledWith(expect.objectContaining({ kind: 'stopped' }));
+    runner.stop();
+    expect(node.stop).toHaveBeenCalledExactlyOnceWith(currentRunId);
+    expect(await current).toMatchObject({ kind: 'stopped' });
+  });
+
   it('stops the main-process child for the active run', async () => {
     let resolveRun!: (value: NodeRunResult) => void;
     const node = installNodeBridge({
       run: vi.fn(
         () =>
-          new Promise<NodeRunResult>((resolve) => {
+          new Promise<NodeRunResult>(resolve => {
             resolveRun = resolve;
           })
       ),
