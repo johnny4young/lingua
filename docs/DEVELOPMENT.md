@@ -525,3 +525,23 @@ rendering, and zero renderer console errors. Results and screenshots are written
 to `output/playwright/shell-navigation/`; the owned profiles and server are cleaned
 up. It does not use the installed application's profile or claim release-package
 fuse/signing coverage; packaged acceptance remains a separate gate.
+
+### Startup failure smoke
+
+After building desktop bundles:
+
+```sh
+node scripts/smoke-startup-failure.mjs [path-to-electron-executable]
+# Interactive native dialog verification; dismiss OK to finish each run:
+node scripts/smoke-startup-failure.mjs --show-dialog=en
+node scripts/smoke-startup-failure.mjs --show-dialog=es
+```
+
+The unattended pass asserts no IPC/window registration in a refused secondary
+instance, one safe EN/ES diagnostic and exit 1 on initialization or missing HTML,
+the real thirty-second hanging-load deadline, and clean quit during loading.
+Fault injection lives only in disposable fixture bootstraps, not production flags.
+It writes `output/playwright/startup-failure/` evidence and removes its profiles.
+The expected failure diagnostic is intentional; unexpected errors still fail
+normal shell smoke. Interactive runs allow two minutes to inspect and dismiss the
+dialog. This does not replace normal rendering or release-package acceptance.

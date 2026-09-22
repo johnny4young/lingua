@@ -1326,3 +1326,26 @@ calls must continue to use the chosen target, not an untrusted renderer payload.
 The permanent real-Electron navigation smoke exercises both built file mode and
 a loopback server, including an actual redirect, reload, fragments and EN/ES.
 See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).
+
+### Terminal desktop startup failures
+
+`src/main/startup.ts` owns the terminal startup signal. Losing the single-instance
+lock returns before IPC registration or window creation. Synchronous registration,
+async initialization and renderer loading failures are observed by the same guard;
+a failure cancels later work, attempts cleanup, displays one native EN/ES recovery
+dialog, and exits with status 1 even if displaying the dialog itself fails. The
+user-facing diagnostic contains only a stage and an allowlisted code, never the
+thrown message, stack, filesystem path or token.
+
+Renderer loading has a thirty-second aggregate deadline, including a pending
+load. Only the development server receives bounded retries; missing packaged HTML
+fails immediately. Window closure and final app quit cancel loading and retries,
+and late load settlements cannot reopen a window. A window is shown only after
+both successful loading and ready-to-show. Before-quit does not invalidate an
+already initialized app because unsaved-change confirmation can cancel quitting.
+
+The permanent startup smoke uses real Electron and built main code with isolated
+profiles, synthetic initialization faults, a genuinely missing HTML document,
+a pending load, and intentional quit. It captures native dialog arguments for
+unattended runs; an explicit interactive mode displays the actual native dialog.
+Neither mode validates signing or release-package fuses.
