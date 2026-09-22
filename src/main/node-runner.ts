@@ -43,6 +43,8 @@
  */
 
 import { app } from 'electron';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { access, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -795,17 +797,19 @@ function stoppedNodeRunResult(options: NodeRunOptions): NodeRunResult {
 
 async function runNodeCode(
   source: string,
-  options: NodeRunOptions
+  options: NodeRunOptions,
+  owner?: WebContents
 ): Promise<NodeRunResult> {
   // Reserve the identity synchronously, before detection, cwd lookup or staging.
   // Reusing a live identity must never replace another child's Stop/stdin owner.
   if (options.runId && activeNodeRuns.has(options.runId)) {
     return invalidNodeRunResult('A Node run with this identity is already active.');
   }
-  const controller = new AbortController();
+  const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
   if (options.runId) activeNodeRuns.set(options.runId, stop);
   try {
+    if (controller.signal.aborted) return stoppedNodeRunResult(options);
     const detect = await detectNode(options.userEnv);
     if (controller.signal.aborted) return stoppedNodeRunResult(options);
     if (!detect.installed) {
@@ -821,6 +825,7 @@ async function runNodeCode(
     }
     return await spawnNode(source, options, controller.signal, detect.binary ?? 'node');
   } finally {
+    release();
     if (options.runId && activeNodeRuns.get(options.runId) === stop) {
       activeNodeRuns.delete(options.runId);
       activeNodeStdins.delete(options.runId);
@@ -902,7 +907,7 @@ export function registerNodeJSHandlers(): void {
           }
         };
       }
-      return runNodeCode(source, normalized);
+      return runNodeCode(source, normalized, event.sender);
     }
   );
   typedHandle(

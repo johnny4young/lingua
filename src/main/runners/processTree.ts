@@ -13,7 +13,7 @@
  *     `killProcessTree()` must always be used together.
  *   - Windows: `detached` would allocate a new console, and POSIX process
  *     groups do not exist; tree termination goes through
- *     `taskkill /pid <pid> /T /F` at the hard-kill stage instead.
+ *     `taskkill /pid <pid> /T /F` at either termination stage instead.
  *
  * Both paths fall back to plain `child.kill(signal)` when the group/taskkill
  * route is unavailable (child never spawned, already reaped, test doubles
@@ -39,8 +39,9 @@ export function detachedSpawnOptions(): { detached: boolean } {
  *
  * POSIX: signals the child's process group (`-pid`); falls back to the direct
  * child if the group signal fails (ESRCH after reap, EPERM, missing pid).
- * Windows: SIGTERM-stage signals the direct child only (there is no graceful
- * tree signal); SIGKILL-stage runs `taskkill /T /F` to fell the whole tree.
+ * Windows: both stages use `taskkill /T /F`. Node emulates SIGTERM by killing
+ * the parent unconditionally; doing that first loses the ancestry taskkill
+ * needs to find descendants during a later escalation.
  * Never throws — termination races with natural exit by design.
  */
 export function killProcessTree(
@@ -50,10 +51,13 @@ export function killProcessTree(
   const pid = child.pid;
 
   if (isWindows) {
-    if (signal === 'SIGKILL' && typeof pid === 'number' && pid > 0) {
+    if (typeof pid === 'number' && pid > 0) {
       try {
-        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], () => {
-          // Exit status intentionally ignored — the tree may already be gone.
+        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], error => {
+          if (!error) return;
+          // Missing taskkill is asynchronous too. Keep direct-child termination
+          // as a best-effort floor without killing the parent ahead of the tree.
+          try { child.kill(signal); } catch { /* Already exited. */ }
         });
         return;
       } catch {

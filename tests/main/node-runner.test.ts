@@ -235,7 +235,7 @@ describe('main node runner', () => {
   it('implementation: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
-    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+    const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
 
     const mod = await import('../../src/main/node-runner');
     mod.registerNodeJSHandlers();
@@ -268,7 +268,7 @@ describe('main node runner', () => {
   it('implementation: does not stream chunks for non-interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
-    const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+    const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
 
     const mod = await import('../../src/main/node-runner');
     mod.registerNodeJSHandlers();

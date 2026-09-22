@@ -35,6 +35,7 @@
  */
 
 import * as childProc from 'node:child_process';
+import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
 import { truncateBytes } from '../../shared/runnerLimits';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
 
@@ -175,12 +176,18 @@ export function spawnNativeRun(
       return;
     }
 
+    const releaseChild = trackNativeRunProcess(child, signal);
     const terminate = (reason: 'timeout' | 'stopped') => {
       if (resolved) return;
       if (reason === 'timeout') {
         timedOut = true;
       } else {
         killed = true;
+      }
+      // An owner that no longer exists cannot resume or observe graceful exit.
+      if (reason === 'stopped' && signal?.reason === NATIVE_RUN_OWNER_GONE) {
+        killProcessTree(child, 'SIGKILL');
+        return;
       }
       killProcessTree(child, 'SIGTERM');
       if (escalationTimer === null) {
@@ -276,6 +283,7 @@ export function spawnNativeRun(
     const finish = (result: SpawnNativeRunResult) => {
       if (resolved) return;
       resolved = true;
+      releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
       if (signal) signal.removeEventListener('abort', onAbort);

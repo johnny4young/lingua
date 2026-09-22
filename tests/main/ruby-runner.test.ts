@@ -339,7 +339,7 @@ describe('main ruby runner', () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);
-      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const promise = handler({ sender }, 'STDIN.gets', {
         runId: 'ruby-stream',
@@ -367,7 +367,7 @@ describe('main ruby runner', () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);
-      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const promise = handler({ sender }, 'puts 1', {
         runId: 'ruby-batch',

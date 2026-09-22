@@ -44,6 +44,7 @@ import {
 } from './ipc/pythonDebugger';
 import { disposeGoDebuggerSessions, registerGoDebuggerHandlers } from './ipc/goDebugger';
 import { disposeRustDebuggerSessions, registerRustDebuggerHandlers } from './ipc/rustDebugger';
+import { disposeNativeRuns } from './runners/nativeRunLifecycle';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -110,6 +111,7 @@ function registerProtocolClient() {
 function disposeMainResources() {
   // A failed disposer must not strand the remaining children or prevent exit.
   for (const dispose of [
+    disposeNativeRuns,
     disposeLspBridge,
     disposeProjectTestRuns,
     disposeProjectTerminalSessions,

@@ -44,6 +44,8 @@
  */
 
 import { app } from 'electron';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
 import * as childProc from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -467,16 +469,18 @@ function stoppedRubyRunResult(options: RubyRunOptions): RubyRunResult {
 
 async function runRubyCode(
   source: string,
-  options: RubyRunOptions
+  options: RubyRunOptions,
+  owner?: WebContents
 ): Promise<RubyRunResult> {
   if (options.runId && activeRubyRuns.has(options.runId)) {
     return invalidRubyRunResult('A Ruby run with this identity is already active.');
   }
   // Own detection, version selection and staging, not just the spawned child.
-  const controller = new AbortController();
+  const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
   if (options.runId) activeRubyRuns.set(options.runId, stop);
   try {
+    if (controller.signal.aborted) return stoppedRubyRunResult(options);
     const detect = await detectRuby(options.userEnv);
     if (controller.signal.aborted) return stoppedRubyRunResult(options);
     if (!detect.installed) {
@@ -492,6 +496,7 @@ async function runRubyCode(
     }
     return await spawnRuby(source, options, controller.signal);
   } finally {
+    release();
     if (options.runId && activeRubyRuns.get(options.runId) === stop) {
       activeRubyRuns.delete(options.runId);
       activeRubyStdins.delete(options.runId);
@@ -567,7 +572,7 @@ export function registerRubyHandlers(): void {
           }
         };
       }
-      return runRubyCode(source, normalized);
+      return runRubyCode(source, normalized, event.sender);
     }
   );
   typedHandle('ruby:stop', async (_event, runId?: unknown) =>

@@ -29,6 +29,8 @@
  * the toolchain degrade with actionable errors.
  */
 
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle, NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './runners/nativeRunLifecycle';
 import { typedHandle } from './ipc/typedHandle';
 import {
   execFile,
@@ -208,11 +210,16 @@ async function spawnAltRuntime(
         return;
       }
 
+      const releaseChild = trackNativeRunProcess(child, signal);
       const terminate = (next: 'timeout' | 'stopped') => {
         if (resolved) return;
         if (next === 'timeout') killedByTimer = true;
         else stoppedByUser = true;
         kind = next;
+        if (next === 'stopped' && signal.reason === NATIVE_RUN_OWNER_GONE) {
+          killProcessTree(child, 'SIGKILL');
+          return;
+        }
         killProcessTree(child, 'SIGTERM');
         if (escalationTimer === null) {
           escalationTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
@@ -254,6 +261,7 @@ async function spawnAltRuntime(
       const finish = (result: AltJsRunResult) => {
         if (resolved) return;
         resolved = true;
+        releaseChild();
         clearTimeout(killTimer);
         if (escalationTimer !== null) clearTimeout(escalationTimer);
         signal.removeEventListener('abort', onAbort);
@@ -302,7 +310,8 @@ function stoppedAltRunResult(options: AltJsRunOptions): AltJsRunResult {
 async function runAltRuntime(
   id: AltJsRuntimeId,
   source: string,
-  options: AltJsRunOptions
+  options: AltJsRunOptions,
+  owner?: WebContents
 ): Promise<AltJsRunResult> {
   if (options.runId && activeRuns.has(options.runId)) {
     return {
@@ -311,10 +320,11 @@ async function runAltRuntime(
       timeoutMs: clampTimeout(options.timeoutMs),
     };
   }
-  const controller = new AbortController();
+  const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
   if (options.runId) activeRuns.set(options.runId, stop);
   try {
+    if (controller.signal.aborted) return stoppedAltRunResult(options);
     const detect = await detectAltRuntime(id, options.userEnv);
     if (controller.signal.aborted) return stoppedAltRunResult(options);
     if (!detect.installed) {
@@ -330,6 +340,7 @@ async function runAltRuntime(
     }
     return await spawnAltRuntime(id, source, options, controller.signal);
   } finally {
+    release();
     if (options.runId && activeRuns.get(options.runId) === stop) activeRuns.delete(options.runId);
   }
 }
@@ -390,9 +401,9 @@ export function registerAltJsRuntimeHandlers(): void {
   typedHandle('deno:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
     detectAltRuntime('deno', userEnv, force === true)
   );
-  typedHandle('deno:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+  typedHandle('deno:run', async (event, source: string, options?: AltJsRunInvokeOptions) =>
     typeof source === 'string'
-      ? runAltRuntime('deno', source, normalizeAltRunOptions(options))
+      ? runAltRuntime('deno', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('deno')
   );
   typedHandle('deno:stop', async (_event, runId: string) => stopAltRun(runId));
@@ -400,9 +411,9 @@ export function registerAltJsRuntimeHandlers(): void {
   typedHandle('bun:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
     detectAltRuntime('bun', userEnv, force === true)
   );
-  typedHandle('bun:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+  typedHandle('bun:run', async (event, source: string, options?: AltJsRunInvokeOptions) =>
     typeof source === 'string'
-      ? runAltRuntime('bun', source, normalizeAltRunOptions(options))
+      ? runAltRuntime('bun', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('bun')
   );
   typedHandle('bun:stop', async (_event, runId: string) => stopAltRun(runId));

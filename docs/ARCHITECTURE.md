@@ -1395,3 +1395,26 @@ The execution backend reserves the canonical root and run identity before framew
 discovery. Preparing runs therefore participate in the existing single-suite-per-root
 rule. Disposal cancels preparation, and a late finalizer removes only its own
 controller, never a replacement run's registration.
+
+### Native run resource lifecycle
+
+Node, Ruby, Deno and Bun register preparation controllers with their originating
+WebContents before asynchronous discovery, including requests without a run ID.
+One destruction listener per owner cancels its requests and force-terminates only
+its tracked processes, including a child already waiting for graceful Stop.
+On POSIX, ordinary user Stop keeps the existing TERM-to-KILL grace period; disappearing
+owners cannot observe or resume a graceful exit and use immediate tree termination.
+
+The native process registry tracks the shared spawn boundary (also used by Rust and
+project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
+preparation and explicitly force-terminates remaining tracked trees because Electron
+may exit before an escalation timer fires. Settled runs release process entries and
+owner listeners; shutdown is not a persistent latch, so a cancelled app quit does
+not permanently disable subsequent runs. This does not extend runtime permissions.
+
+On Windows, either termination stage invokes `taskkill /T /F` before directly
+killing the parent. [Node emulates SIGTERM as unconditional termination](https://nodejs.org/download/release/v24.11.0/docs/api/process.html#signal-events);
+a parent-first kill can lose the ancestry needed to terminate descendants. A
+failed taskkill falls back to the direct child. Hosted Windows acceptance includes
+real Node parent/grandchild processes for owner loss, Stop-then-owner-loss and
+shutdown, in addition to the platform-seam contract tests.

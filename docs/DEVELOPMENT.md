@@ -581,3 +581,13 @@ real Node version probe during framework discovery. Both phases assert Stop prev
 execution; duplicate identities are rejected, same-root concurrent discovery is
 busy, and a final project run recovers. The filesystem hook and PATH change are
 restricted to the isolated Electron process and restored in cleanup.
+
+`node scripts/smoke-native-lifecycle.mjs` runs the real Electron main/preload with
+installed Node, Ruby, Deno and Bun on POSIX. All four sources ignore TERM; Node
+also launches a grandchild. An observer around the real child spawn records PIDs
+without replacing execution. The smoke verifies Stop followed by window closure,
+app quit, complete process-tree disappearance and, on macOS, recovery in a new
+window of the same app. It uses an isolated profile, bounds waits, checks zero
+renderer errors and cleans only its own captured PIDs/fixtures. Windows exercises
+the same lifecycle regressions, the taskkill contract and real Node parent/grandchild
+termination in platform CI.
