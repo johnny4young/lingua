@@ -86,7 +86,6 @@ function spec(overrides: Partial<WorkerRunSpec> = {}): WorkerRunSpec {
     debug: false,
     breakpoints: [],
     watches: [],
-    sourceLineMap: undefined,
     sourceMappingEnabled: true,
     magicKindByLine: {},
     magicDirectiveByLine: {},

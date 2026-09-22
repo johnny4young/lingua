@@ -86,7 +86,9 @@ export interface WorkerRunSpec {
   debug: boolean;
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
-  sourceLineMap: Record<number, number> | undefined;
+  /** Character-accurate maps, newest transform first. */
+  sourceMaps?: string[];
+  sourceLineCount?: number;
   sourceMappingEnabled: boolean;
   /** Per-line side tables the worker protocol cannot carry. */
   magicKindByLine: Record<number, MagicCommentKind>;
@@ -146,7 +148,8 @@ export class WorkerRunnerShell {
       debug,
       breakpoints,
       watches,
-      sourceLineMap,
+      sourceMaps,
+      sourceLineCount,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,
@@ -313,7 +316,7 @@ export class WorkerRunnerShell {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
-              ...(msg.isError === true ? { isError: true } : {}),
+              ...(msg.isError === true ? { isError: true, ...(msg.error ? { error: msg.error } : {}) } : {}),
             };
             if (payload) entry.payload = payload;
             magicResults.push(entry);
@@ -472,7 +475,8 @@ export class WorkerRunnerShell {
           logMessage: bp.logMessage,
         })),
         watches,
-        sourceLineMap,
+        sourceMaps,
+        sourceLineCount,
         sourceMappingEnabled,
         // Pre-set stdin buffer the worker installs as the source of `prompt()`
         // / `readline()` answers. Empty or undefined leaves the native worker

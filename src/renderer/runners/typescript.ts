@@ -1,3 +1,4 @@
+import { createSourcePositionMapper } from '../../shared/sourcePosition';
 import i18next from 'i18next';
 import type {
   LanguageRunner,
@@ -28,7 +29,6 @@ import {
   appendScopeCapture,
   collectTopLevelScopeNames,
 } from '../utils/scopeCapture';
-import { buildGeneratedSourceLineMap } from '../utils/sourceLineMap';
 import { runnerStoppedResult, type TranslateFn } from './limits';
 import { loadEsbuild } from './esbuildLoader';
 
@@ -73,8 +73,8 @@ export class TypeScriptRunner implements LanguageRunner {
    *
    * implementation note — when `withMap` is true we ask esbuild for an
    * external source map. Debug runs compose it with the debugger
-   * instrumenter map; normal worker runs use it to report console
-   * output on the original TS line instead of the post-transpile JS line.
+   * instrumenter map; normal worker runs compose it with all preceding source transforms
+   * for original line and column coordinates.
    */
   private async transpile(
     code: string,
@@ -100,16 +100,22 @@ export class TypeScriptRunner implements LanguageRunner {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
-      // Try to parse esbuild error for line/column info
-      const lineMatch = message.match(/(\d+):(\d+)/);
-      const lineValue = lineMatch?.[1];
-      const columnValue = lineMatch?.[2];
+      // esbuild locations use one-based lines and zero-based columns.
+      // Message text can contain unrelated numbers and is not a coordinate API.
+      const errors: unknown[] = err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)
+        ? err.errors : [];
+      const first = errors[0];
+      const location = first && typeof first === 'object' && 'location' in first ? first.location : null;
+      const line = location && typeof location === 'object' && 'line' in location && typeof location.line === 'number'
+        ? location.line : undefined;
+      const column = location && typeof location === 'object' && 'column' in location && typeof location.column === 'number'
+        ? location.column + 1 : undefined;
       return {
         js: '',
         error: {
           message: `TypeScript transpilation error: ${message}`,
-          line: lineValue ? parseInt(lineValue, 10) : undefined,
-          column: columnValue ? parseInt(columnValue, 10) : undefined,
+          line,
+          column,
         },
       };
     }
@@ -119,6 +125,8 @@ export class TypeScriptRunner implements LanguageRunner {
     // internal debugger refinement — debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
     const sourceMappingEnabled = true;
+    const sourceMaps: string[] = [];
+    const recordMap = (map: string) => sourceMaps.unshift(map);
     const settings = useSettingsStore.getState();
     // implementation — resolve timeout from the per-language preset
     // unless the caller passed an explicit override.
@@ -141,7 +149,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // Step 1: Apply loop protection unless debug mode is active.
     const { maxLoopIterations } = settings;
     const processedCode = !debug
-      ? injectJSLoopProtection(code, maxLoopIterations)
+      ? injectJSLoopProtection(code, maxLoopIterations, recordMap)
       : code;
 
     // Step 1b: Transform magic comments before transpilation
@@ -149,7 +157,7 @@ export class TypeScriptRunner implements LanguageRunner {
     const magicEntries = detectJSMagicComments(processedCode);
     const hasMagic = magicEntries.length > 0;
     const magicTransformed = hasMagic
-      ? transformJSMagicComments(processedCode)
+      ? transformJSMagicComments(processedCode, recordMap)
       : processedCode;
     // implementation — per-line kind side-table keyed by the
     // PRE-transpile line number (which is what `__mc` carries into
@@ -167,7 +175,7 @@ export class TypeScriptRunner implements LanguageRunner {
       const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
       const autoLogLines = detectJSAutoLogLines(processedCode, magicLines);
       if (autoLogLines.length > 0) {
-        codeForTranspile = transformJSAutoLog(magicTransformed, autoLogLines);
+        codeForTranspile = transformJSAutoLog(magicTransformed, autoLogLines, recordMap);
         markAutoLogLines(magicKindByLine, autoLogLines);
       }
     }
@@ -184,7 +192,7 @@ export class TypeScriptRunner implements LanguageRunner {
     ) {
       const statementLines = detectJSStatementStartLines(codeForTranspile);
       if (statementLines.length > 0) {
-        codeWithTiming = transformJSLineTiming(codeForTranspile, statementLines);
+        codeWithTiming = transformJSLineTiming(codeForTranspile, statementLines, recordMap);
       }
     }
 
@@ -195,7 +203,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // kill timer arms; an esbuild parse error reports immediately and
     // never spawns a worker. Request a source map for TS coordinate
     // repair: debug composes it with the instrumenter map, while normal
-    // runs pass a generated-line map into the worker for console output.
+    // runs pass the complete map chain into the worker for output and errors.
     const { js, map: tsMap, error: transpileError } =
       await this.transpile(codeWithTiming, true);
 
@@ -204,17 +212,23 @@ export class TypeScriptRunner implements LanguageRunner {
     }
 
     if (transpileError) {
+      const position = transpileError.line && transpileError.column
+        ? createSourcePositionMapper(sourceMaps, code.split('\n').length)({
+            line: transpileError.line, column: transpileError.column,
+          }) : null;
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
-        error: transpileError,
+        error: { ...transpileError, line: undefined, column: undefined, ...position },
         // implementation — transpile failures count as `'error'` so
         // the result-panel pill surfaces a clear failure variant.
         kind: 'error',
       };
     }
+
+    if (tsMap) recordMap(tsMap);
 
     // implementation — instrument the transpiled JS when debug is on.
     // implementation note — pass the esbuild TS→JS map so the instrumenter
@@ -227,7 +241,6 @@ export class TypeScriptRunner implements LanguageRunner {
         : js;
 
     let instrumented = jsWithScopeCapture;
-    let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
         const result = instrumentForDebugger(js, {
@@ -235,20 +248,12 @@ export class TypeScriptRunner implements LanguageRunner {
           inputMap: tsMap,
         });
         instrumented = result.code;
-        sourceLineMap = result.sourceLineMap;
+        recordMap(result.map);
       } catch {
         instrumented = js;
       }
-    } else if (sourceMappingEnabled) {
-      const generatedLineMap = buildGeneratedSourceLineMap(
-        jsWithScopeCapture,
-        tsMap,
-      );
-      sourceLineMap =
-        Object.keys(generatedLineMap).length > 0 ? generatedLineMap : undefined;
     }
 
-    // Step 3: Execute the transpiled JS using the same JS worker
     // Step 3: hand the transpiled JS to the shell shared with the JavaScript
     // runner — same worker, same message pump, same result assembly.
     return this.shell.run({
@@ -259,7 +264,8 @@ export class TypeScriptRunner implements LanguageRunner {
       debug,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
-      sourceLineMap,
+      sourceMaps,
+      sourceLineCount: code.split('\n').length,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,

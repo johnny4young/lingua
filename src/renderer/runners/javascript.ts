@@ -59,6 +59,8 @@ export class JavaScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     // implementation — origin capture is baseline; no runtime opt-out.
     const sourceMappingEnabled = true;
+    const sourceMaps: string[] = [];
+    const recordMap = (map: string) => sourceMaps.unshift(map);
 
     // internal debugger refinement — debug mode is now an explicit UI
     // intent. Normal Run ignores breakpoints so gutter marks do not
@@ -93,13 +95,13 @@ export class JavaScriptRunner implements LanguageRunner {
     // against `while(true)` cannot be user-tunable on a code editor).
     const { maxLoopIterations } = settings;
     const protectedCode = !debug
-      ? injectJSLoopProtection(code, maxLoopIterations)
+      ? injectJSLoopProtection(code, maxLoopIterations, recordMap)
       : code;
 
     // Transform magic comments before execution
     const magicEntries = detectJSMagicComments(protectedCode);
     const hasMagic = magicEntries.length > 0;
-    const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
+    const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode, recordMap) : protectedCode;
     // The worker postMessage protocol stays kind-agnostic, so the
     // variant and the rich-output directive of each line travel in
     // side-tables consulted at result-stitching time below.
@@ -119,7 +121,7 @@ export class JavaScriptRunner implements LanguageRunner {
       const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
       const autoLogLines = detectJSAutoLogLines(protectedCode, magicLines);
       if (autoLogLines.length > 0) {
-        codeWithAutoLog = transformJSAutoLog(magicTransformed, autoLogLines);
+        codeWithAutoLog = transformJSAutoLog(magicTransformed, autoLogLines, recordMap);
         markAutoLogLines(magicKindByLine, autoLogLines);
       }
     }
@@ -139,7 +141,7 @@ export class JavaScriptRunner implements LanguageRunner {
     ) {
       const statementLines = detectJSStatementStartLines(codeWithAutoLog);
       if (statementLines.length > 0) {
-        codeWithTiming = transformJSLineTiming(codeWithAutoLog, statementLines);
+        codeWithTiming = transformJSLineTiming(codeWithAutoLog, statementLines, recordMap);
       }
     }
 
@@ -152,14 +154,13 @@ export class JavaScriptRunner implements LanguageRunner {
     }
 
     let transformedCode = codeWithScopeCapture;
-    let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
         const instrumented = instrumentForDebugger(codeWithAutoLog, {
           filename: context?.tabId ?? 'user-code.js',
         });
         transformedCode = instrumented.code;
-        sourceLineMap = instrumented.sourceLineMap;
+        recordMap(instrumented.map);
       } catch {
         // Instrumentation failure should NOT block a run — fall back
         // to executing the un-instrumented source so the user still
@@ -179,7 +180,8 @@ export class JavaScriptRunner implements LanguageRunner {
       debug,
       breakpoints: tabBreakpoints,
       watches: debug ? debugStore.watches.map(w => w.expression) : [],
-      sourceLineMap,
+      sourceMaps,
+      sourceLineCount: code.split('\n').length,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,

@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-09-22T03:52:18.473Z",
+  "generatedAt": "2026-09-22T04:18:16.260Z",
   "baseRef": "v1.5.0",
-  "commitCount": 4,
-  "totalSinceBase": 17,
+  "commitCount": 5,
+  "totalSinceBase": 18,
   "commits": [
+    {
+      "hash": "cf243b4",
+      "date": "2026-09-21",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runtime",
+      "message": "surface captured errors as failed executions",
+      "breaking": false
+    },
     {
       "hash": "ee57897",
       "date": "2026-09-21",

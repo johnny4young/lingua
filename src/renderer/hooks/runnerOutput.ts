@@ -130,6 +130,9 @@ export function toConsoleEntries(
       content: error.message,
       line: error.line,
       ...(language ? { language } : {}),
+      ...(error.frames?.length ? {
+        payload: [{ kind: 'error' as const, message: error.message, stack: error.frames }],
+      } : {}),
     });
   }
 

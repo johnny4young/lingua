@@ -182,6 +182,8 @@ export interface MagicCommentResult {
    * keeping it as a sticky auto-log value.
    */
   isError?: boolean;
+  /** Mapped error details when a captured expression threw in the JS worker. */
+  error?: ExecutionError;
   /**
    * implementation — optional structured payload the runner
    * attached after detecting a rich-output directive (`//=> table`)
@@ -326,15 +328,6 @@ export interface LanguageRunner {
   isReady(): boolean;
 }
 
-// internal — the stale `WorkerRequest` union that used to live here is
-// gone: nothing imported it, its shape had drifted from what the runner
-// actually posts (no `stop` message exists — runners `terminate()`), and
-// it silently omitted the debugger-control variants. The REAL inbound
-// contract lives at the receiving end: `WorkerInboundMessage` in
-// `workers/js-worker-protocol.ts` (= `JsWorkerExecuteMessage` + the shared
-// `DebuggerControlMessage` from `runtime/debuggerWorkerBridge`), enforced
-// there by an exhaustiveness `never` guard.
-
 /**
  * Messages sent from the worker to the main thread.
  *
@@ -412,6 +405,7 @@ export type WorkerResponse =
       kind?: 'arrow' | 'watch' | 'autoLog';
       /** True when the captured value represents an execution error. */
       isError?: boolean;
+      error?: ExecutionError;
       /**
        * implementation note — when the source carried a `#=> table`
        * directive, the Python worker computes a forced-table payload

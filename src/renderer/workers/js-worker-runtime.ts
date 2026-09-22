@@ -1,6 +1,5 @@
 import type { RichOutputPayload } from '../../shared/richOutput';
 import { validateChartSpec, validateHtmlPayload, validateImageSrc } from '../../shared/richOutput';
-import { parseJsErrorStack } from '../../shared/errorStack';
 
 /**
  * implementation — `lingua` worker bridge factory. Returns the
@@ -112,54 +111,4 @@ export function buildLinguaWorkerBridge(
       postPayload({ kind: 'html', html: validated }, '[html sandboxed]');
     },
   };
-}
-
-/**
- * Parse error to extract line/column from stack trace + structured
- * stack frames for the renderer's clickable-stack surface (internal
- * implementation).
- */
-export function parseJsWorkerError(err: unknown): {
-  message: string;
-  line?: number;
-  column?: number;
-  stack?: string;
-  frames?: import('../../shared/errorStack').ClickableStackFrame[];
-} {
-  if (!(err instanceof Error)) {
-    return { message: String(err) };
-  }
-
-  const result: {
-    message: string;
-    line?: number;
-    column?: number;
-    stack?: string;
-    frames?: import('../../shared/errorStack').ClickableStackFrame[];
-  } = {
-    message: err.message,
-    stack: err.stack,
-  };
-
-  // Try to extract line/column from stack trace
-  // Format: "at eval (eval at <anonymous> (:1:1), <anonymous>:LINE:COL)"
-  // or:     "at <anonymous>:LINE:COL"
-  if (err.stack) {
-    const match = err.stack.match(/<anonymous>:(\d+):(\d+)/);
-    const lineValue = match?.[1];
-    const columnValue = match?.[2];
-    if (lineValue && columnValue) {
-      result.line = parseInt(lineValue, 10);
-      result.column = parseInt(columnValue, 10);
-    }
-    // implementation — structured stack for the renderer's
-    // `<RichValueError>` surface. Best-effort: unparseable frames stay
-    // as text-only in the parsed array.
-    const frames = parseJsErrorStack(err.stack);
-    if (frames.length > 0) {
-      result.frames = frames;
-    }
-  }
-
-  return result;
 }

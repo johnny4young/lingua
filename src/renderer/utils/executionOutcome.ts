@@ -6,7 +6,7 @@ type Outcome = Pick<ExecutionResult, 'kind' | 'cancelled' | 'error' | 'magicResu
 export function capturedExecutionErrors(result: Outcome): ExecutionError[] {
   return (result.magicResults ?? [])
     .filter(entry => entry.isError === true)
-    .map(entry => ({ message: entry.value, line: entry.line }));
+    .map(entry => ({ line: entry.line, ...entry.error, message: entry.value }));
 }
 
 export function primaryExecutionError(result: Outcome): ExecutionError | null {

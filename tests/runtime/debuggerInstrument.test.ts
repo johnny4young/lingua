@@ -1,3 +1,4 @@
+import { createSourcePositionMapper } from '../../src/shared/sourcePosition';
 import { describe, expect, it } from 'vitest';
 import { instrumentForDebugger } from '@/runtime/debuggerInstrument';
 
@@ -69,8 +70,12 @@ describe('instrumentForDebugger ', () => {
 
   it('maps generated debug lines back to source lines for console output', () => {
     const result = instrumentForDebugger(`console.log("hello");\nconst value = 1;\n`);
-    expect(Object.values(result.sourceLineMap)).toContain(1);
-    expect(Object.values(result.sourceLineMap)).toContain(2);
+    const map = createSourcePositionMapper([result.map]);
+    for (const [needle, line] of [['console.log', 1], ['const value', 2]] as const) {
+      const index = result.code.indexOf(needle);
+      const prefix = result.code.slice(0, index).split('\n');
+      expect(map({ line: prefix.length, column: prefix.at(-1)!.length + 1 })).toEqual({ line, column: 1 });
+    }
   });
 
   it('uses a custom helper name when provided', () => {

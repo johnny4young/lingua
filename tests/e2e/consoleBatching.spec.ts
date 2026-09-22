@@ -35,7 +35,7 @@ for (const language of ['en', 'es'] as const) {
       })
       .click();
     const rows = page.getByTestId('console-entry-row');
-    await expect(rows.filter({ hasText: 'Completed in' })).toBeVisible();
+    await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toBeVisible();
     await expect(
       rows.filter({ hasText: 'batch-repeat' }).getByTestId('console-repeat-count')
     ).toHaveText('×50');
@@ -49,7 +49,7 @@ for (const language of ['en', 'es'] as const) {
     await clickRun(page);
     await expect(rows.filter({ hasText: 'before-batch-error' })).toBeVisible();
     await expect(rows.filter({ hasText: 'batch-error-marker' }).first()).toBeVisible();
-    await expect(rows.filter({ hasText: 'Completed in' })).toBeVisible();
+    await expect(rows.filter({ hasText: language === 'en' ? 'Failed in' : 'Falló en' })).toBeVisible();
     await expect(rows.filter({ hasText: 'batch-repeat' })).toHaveCount(0);
     // The shared fixture asserts zero unexpected console/page errors on teardown.
   });

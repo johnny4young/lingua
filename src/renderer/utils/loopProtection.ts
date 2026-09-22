@@ -6,6 +6,9 @@
  * Prevents infinite loops from freezing the application.
  */
 
+import MagicString from 'magic-string';
+import { finishSourceTransform, type RecordSourceMap } from './sourceTransform';
+
 export const DEFAULT_MAX_ITERATIONS = 10_000;
 
 // ---------------------------------------------------------------------------
@@ -21,33 +24,28 @@ export const DEFAULT_MAX_ITERATIONS = 10_000;
  * results and stack-derived console locations keep matching the editor.
  * Each loop gets a unique counter to support nesting.
  */
-export function injectJSLoopProtection(code: string, maxIterations: number = DEFAULT_MAX_ITERATIONS): string {
-  const lines = code.split('\n');
-  const result: string[] = [];
+export function injectJSLoopProtection(
+  code: string,
+  maxIterations: number = DEFAULT_MAX_ITERATIONS,
+  recordMap?: RecordSourceMap
+): string {
+  const source = new MagicString(code);
   let loopId = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+  let offset = 0;
+  for (const [index, line] of code.split('\n').entries()) {
     const trimmed = line.trimStart();
-
-    // Detect loop start patterns ending with `{`
     const isWhileLoop = /^\s*while\s*\(/.test(line) && trimmed.endsWith('{');
     const isForLoop = /^\s*for\s*\(/.test(line) && trimmed.endsWith('{');
     const isDoLoop = /^\s*do\s*\{/.test(line) || trimmed === 'do {';
-
     if (isWhileLoop || isForLoop || isDoLoop) {
-      const id = loopId++;
-      const counter = `__lp${id}`;
-      const indent = line.slice(0, line.length - trimmed.length);
-      const loopHead = line.slice(indent.length);
-      const guard = `if(++${counter}>${maxIterations}) throw new Error("Loop exceeded ${maxIterations} iterations (line ${i + 1}). Possible infinite loop.");`;
-      result.push(`${indent}var ${counter}=0; ${loopHead} ${guard}`);
-    } else {
-      result.push(line);
+      const counter = `__lp${loopId++}`;
+      source.appendLeft(offset + line.length - trimmed.length, `var ${counter}=0; `);
+      source.appendLeft(offset + line.length,
+        ` if(++${counter}>${maxIterations}) throw new Error("Loop exceeded ${maxIterations} iterations (line ${index + 1}). Possible infinite loop.");`);
     }
+    offset += line.length + 1;
   }
-
-  return result.join('\n');
+  return finishSourceTransform(source, recordMap);
 }
 
 // ---------------------------------------------------------------------------

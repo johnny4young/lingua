@@ -136,6 +136,23 @@ outcomes take precedence over errors captured before termination. The original
 capture remains the inline error; it is not copied into a synthetic top-level
 runner error. Only clean successes replace the last successful snapshot.
 
+### Source coordinates through instrumentation
+
+JS/TS transforms retain the original expression characters and emit high-resolution
+source maps only when requested by a runner. Maps are passed newest-first through
+the worker protocol: debugger instrumentation, TypeScript transpilation, timing,
+captures and loop guards. Both console origins and execution errors use the same
+map chain, including structured errors from non-fatal captures. TypeScript parse
+errors use esbuild's structured locations, not numbers extracted from its message.
+
+The worker labels the dynamic function with a synthetic source URL and measures
+the engine's prelude with an inert probe. It does not assume a universal two-line
+offset. If the engine rejects JavaScript syntax without a source frame, the
+existing Acorn parser supplies a diagnostic location; it never evaluates code or
+prevents engine-valid code from running. Unmapped generated helpers and malformed
+maps stay unknown rather than reporting a guessed original position. Synthetic
+source labels are not filesystem paths and do not advertise cross-file links.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256

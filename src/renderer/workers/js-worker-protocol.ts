@@ -11,7 +11,9 @@ export interface JsWorkerExecuteMessage {
   debug?: boolean;
   breakpoints?: DebuggerBreakpointPayload[];
   watches?: string[];
-  sourceLineMap?: Record<number, number>;
+  /** Character-accurate maps, newest transform first. */
+  sourceMaps?: string[];
+  sourceLineCount?: number;
   /**
    * implementation — false disables console-origin stack capture
    * so the worker does not attach `line` / `payload.origin` metadata

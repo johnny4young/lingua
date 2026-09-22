@@ -273,41 +273,16 @@ function buildConsoleTablePayload(args: unknown[]): RichOutputTable {
   return { kind: 'table', columns: filteredColumns, rows: filteredRows };
 }
 
-function sourceLineFor(
-  generatedLine: number | undefined,
-  sourceLineMap: Record<number, number> | undefined
-): number | undefined {
-  if (generatedLine === undefined) return undefined;
-  const mapped = sourceLineMap?.[generatedLine];
-  return typeof mapped === 'number' && mapped > 0 ? mapped : generatedLine;
-}
-
-function extractCallingLine(sourceLineMap: Record<number, number> | undefined): number | undefined {
-  try {
-    const stack = new Error().stack ?? '';
-    const match = stack.match(/<anonymous>:(\d+):(\d+)/);
-    if (match?.[1]) {
-      const rawLine = parseInt(match[1], 10);
-      // Subtract the 2-line offset from the async function wrapper
-      const generatedLine = rawLine > 2 ? rawLine - 2 : rawLine;
-      return sourceLineFor(generatedLine, sourceLineMap);
-    }
-  } catch {
-    // ignore
-  }
-  return undefined;
-}
-
 export function installJsWorkerConsoleProxy(
   runId: string,
   marker: string,
-  sourceLineMap: Record<number, number> | undefined,
+  callingLine: () => number | undefined,
   sourceMappingEnabled: boolean
 ) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
-      const line = sourceMappingEnabled ? extractCallingLine(sourceLineMap) : undefined;
+      const line = sourceMappingEnabled ? callingLine() : undefined;
       const payload = serializePayloads(args, marker);
       // implementation — stamp the captured source line onto each
       // payload as `origin.line` so the renderer-side
@@ -347,7 +322,7 @@ export function installJsWorkerConsoleProxy(
   //   - `console.table()` with no arguments emits a single empty-table
   //     entry rather than `Table(1×1)` over an undefined cell.
   (console as { table?: (...a: unknown[]) => void }).table = (...args: unknown[]) => {
-    const line = sourceMappingEnabled ? extractCallingLine(sourceLineMap) : undefined;
+    const line = sourceMappingEnabled ? callingLine() : undefined;
     // implementation — mirror the per-method `origin.line`
     // stamp from `createConsoleProxy` (lines 282-292) so the
     // `console.table` shim's table payload also carries an origin.

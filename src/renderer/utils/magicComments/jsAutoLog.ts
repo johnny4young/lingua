@@ -4,6 +4,9 @@
  * capture so the value surfaces inline without an explicit `//=>`.
  */
 
+import MagicString from 'magic-string';
+import { finishSourceTransform, wrapSourceExpression, type RecordSourceMap } from '../sourceTransform';
+
 import {
   EMPTY_MAGIC_LINES,
   scanAutoLogCandidates,
@@ -100,13 +103,6 @@ function splitTrailingLineComment(line: string): {
   return { code: line.trimEnd(), comment: '' };
 }
 
-function buildAutoLogCapture(
-  lineNumber: number,
-  expression: string
-): string {
-  return `__mc(${lineNumber}, await (async () => { try { return (${expression}); } catch(__e) { return __e instanceof Error ? __e : new Error(String(__e)); } })())`;
-}
-
 /**
  * Transform a JS / TS buffer by replacing every line listed in
  * `autoLogLines` with a single `__mc(line, value)` capture. The
@@ -119,34 +115,32 @@ function buildAutoLogCapture(
  */
 export function transformJSAutoLog(
   code: string,
-  autoLogLines: ReadonlyArray<number>
+  autoLogLines: ReadonlyArray<number>,
+  recordMap?: RecordSourceMap
 ): string {
   if (autoLogLines.length === 0) return code;
-  const targets = new Set<number>(autoLogLines);
-  const lines = code.split('\n');
-  const out: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const original = lines[i]!;
-    const lineNumber = i + 1;
-    if (!targets.has(lineNumber)) {
-      out.push(original);
-      continue;
+  const source = new MagicString(code);
+  const targets = new Set(autoLogLines);
+  let offset = 0;
+  for (const [index, original] of code.split('\n').entries()) {
+    if (targets.has(index + 1)) {
+      const { code: expressionCode, comment } = original.includes('//')
+        ? splitTrailingLineComment(original)
+        : { code: original, comment: '' };
+      const expression = stripTrailingSemicolons(trimLine(expressionCode));
+      if (expression) {
+        const start = original.indexOf(expression);
+        wrapSourceExpression(source, {
+          start: offset + start,
+          end: offset + original.length,
+          expressionStart: offset + start,
+          expressionEnd: offset + start + expression.length,
+          prefix: `void (__mc(${index + 1}, await (async () => { try { return (`,
+          suffix: `); } catch(__e) { return __e instanceof Error ? __e : new Error(String(__e)); } })()));${comment ? ' ' + comment : ''}`,
+        });
+      }
     }
-    const { code: codeBeforeComment, comment } = original.includes('//')
-      ? splitTrailingLineComment(original)
-      : { code: original, comment: '' };
-    const trimmed = stripTrailingSemicolons(trimLine(codeBeforeComment));
-    if (trimmed.length === 0) {
-      out.push(original);
-      continue;
-    }
-    const indentMatch = original.match(/^(\s*)/u);
-    const indent = indentMatch?.[1] ?? '';
-    const mcCall = buildAutoLogCapture(lineNumber, trimmed);
-    const suffix = comment ? ` ${comment}` : '';
-    out.push(`${indent}void (${mcCall});${suffix}`);
+    offset += original.length + 1;
   }
-
-  return out.join('\n');
+  return finishSourceTransform(source, recordMap);
 }
