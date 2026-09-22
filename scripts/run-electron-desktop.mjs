@@ -276,8 +276,8 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
   const modeLabel = needsBootstrap ? 'Bootstrapping' : 'Syncing';
   console.log(`[desktop] ${modeLabel} Electron main/preload bundles`);
 
-  // Forge normally injects these defines. The managed launcher bypasses Forge
-  // for speed, so it must recreate the defines that main/preload expect,
+  // The production desktop Vite config injects these defines. This faster
+  // managed launcher must mirror the defines that main/preload expect,
   // including env-derived license/update URLs for production-parity dev modes.
   await runEsbuild([
     path.join(repoRoot, 'src', 'main', 'index.ts'),

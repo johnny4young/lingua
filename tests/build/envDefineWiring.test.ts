@@ -150,7 +150,7 @@ describe('env/define wiring across build configs (AGENTS.md landmine gate)', () 
     const renderer = await resolveConfig(rendererConfigExport, 'production');
     const web = await resolveConfig(webConfigExport, 'production');
     // `envDir` must be the repo root, where .env / .env.production live.
-    // Without the pin, Forge (renderer) or `root: src/web` (web) shift
+    // Without the pin, packaged desktop (renderer) or `root: src/web` (web) shift
     // Vite's default env resolution and every VITE_* substitution
     // silently becomes `undefined` — the exact implementation bug.
     expect(renderer.envDir, 'vite.renderer.config.mts must pin envDir to the repo root').toBe(ROOT);

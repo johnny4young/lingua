@@ -37,7 +37,7 @@ Renderer architecture notes:
 Renderer + main-process build-time variables Lingua reads. Renderer keys are
 substituted into the bundle by Vite at build time; main-process keys are read
 by `vite.main.config.mts` through `loadEnv()` at config-load time so packaged
-Forge builds see repo-root `.env` / `.env.production` values. See
+desktop builds see repo-root `.env` / `.env.production` values. See
 `vite.web.config.mts`, `vite.renderer.config.mts`, and `vite.main.config.mts`
 for the wiring.
 

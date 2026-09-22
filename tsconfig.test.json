@@ -45,7 +45,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/types.d.ts",
-    "forge.env.d.ts",
+    "desktop.env.d.ts",
     // Compile guards. The `@ts-expect-error` swap matrix inside
     // projectCapabilitiesBrand.test.ts is inert unless it is checked: a brand
     // reverted to a bare string would let every swap compile.
