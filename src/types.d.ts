@@ -573,8 +573,10 @@ interface LinguaAPI {
     compile: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
+      messages?: NativeRunnerMessages,
+      runId?: string
     ) => Promise<GoCompileResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
   rust: {

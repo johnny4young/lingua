@@ -608,3 +608,15 @@ Windows process-tree behavior is covered by the separate Windows CI fixture.
 This smoke builds temporary-key desktop bundles. Run
 `node scripts/build-desktop-bundles.mjs` afterwards before using production
 packaging or bundle-audit evidence; it does not create or publish a package.
+
+#### Go compiler and WASM cancellation smoke
+
+`node scripts/smoke-go-cancellation.mjs` uses the installed Go toolchain and a
+real Electron classic WASM worker. Controlled executable wrappers hold the
+version probe, GOROOT probe and build separately; Stop must reap each process,
+return no executable artifact and remove the compile directory. The UI pass
+observes actual worker messages/termination, then verifies compilation failure
+and recovery in EN/light and ES/dark at the same width/zoom matrix as the Rust
+smoke. Results and captures live under `output/playwright/go-cancellation/`.
+Its signed license, issuer isolation, disposable-profile cleanup and subsequent
+production-bundle rebuild requirements are the same as the Rust smoke above.

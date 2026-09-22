@@ -43,6 +43,7 @@ function t(key: string): string {
 }
 
 const goStub: LinguaAPI['go'] = {
+  stop: async () => ({ stopped: false }),
   detect: async (_userEnv?: Record<string, string>): Promise<GoDetectResult> => ({
     installed: false,
     error: t('errors.go.webUnavailable'),

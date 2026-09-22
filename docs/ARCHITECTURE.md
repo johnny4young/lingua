@@ -1439,3 +1439,21 @@ actual phase budget; Rust does not suggest changing unrelated runtime settings.
 Temporary-directory cleanup is awaited after subprocess completion during normal
 Stop. Cleanup failures and app-shutdown artifacts remain best-effort, not a
 persistence guarantee.
+
+### Go compiler-to-worker cancellation
+
+Go remains a hybrid runtime: the host Go toolchain compiles to WASM, and a
+classic worker executes the transferred typed buffer. One transient renderer
+run identity owns both phases. Stop resolves immediately, asks main to cancel
+that identity and terminates only its own worker. A late compiler response,
+worker message or error cannot create a worker or finalize a newer run.
+
+Main owns the requesting window's compile before version/GOROOT detection and
+checks cancellation after directory allocation, source/module writes, compilation,
+artifact sizing and reads. All toolchain processes use the shared supervisor,
+including owner loss and shutdown. Existing 5-second probe and 30-second compile
+budgets remain; compile timeout is distinct from the worker's configurable
+execution deadline. The environment allowlist, runner-owned GOOS/GOARCH target,
+WASM size limit, Go runtime lookup order and zero-copy worker transfer remain.
+The optional final compile argument and additive result metadata preserve existing
+callers; the browser stop stub does not gain host execution authority.

@@ -14,6 +14,8 @@ export interface GoDetectResult {
 }
 
 export interface GoCompileResult {
+  kind?: 'success' | 'error' | 'stopped' | 'timeout';
+  timeoutMs?: number;
   success: boolean;
   wasmBytes?: Uint8Array;
   wasmExecJs?: string;

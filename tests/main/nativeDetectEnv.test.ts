@@ -1,26 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => {
-  const execFileAsync = vi.fn();
-  const execFile = Object.assign(vi.fn(), {
-    [Symbol.for('nodejs.util.promisify.custom')]: execFileAsync,
-  });
-  return {
-    execFile,
-    execFileAsync,
-    handle: vi.fn(),
-    spawnNative: vi.fn(),
-  };
-});
-
-vi.mock('node:child_process', () => ({
-  default: {
-    execFile: mocks.execFile,
-    spawn: vi.fn(),
-  },
-  execFile: mocks.execFile,
-  spawn: vi.fn(),
-}));
+const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawnNative: vi.fn() }));
 
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawnNative }));
 
@@ -32,17 +12,6 @@ vi.mock('electron', () => ({
 
 import { registerGoHandlers } from '../../src/main/go-compiler';
 import { registerRustHandlers } from '../../src/main/rust-compiler';
-
-function completeExecFile(
-  stdoutByCommand: Record<string, string>
-): typeof mocks.execFileAsync {
-  return mocks.execFileAsync.mockImplementation(
-    async (command: string, args: string[], _options: unknown) => {
-      const key = [command, ...args].join(' ');
-      return { stdout: stdoutByCommand[key] ?? '', stderr: '' };
-    }
-  );
-}
 
 function handlerFor<TArgs extends unknown[], TResult>(
   channel: string
@@ -58,8 +27,6 @@ describe('native toolchain detection env', () => {
   const savedEnv = new Map<string, string | undefined>();
 
   beforeEach(() => {
-    mocks.execFile.mockReset();
-    mocks.execFileAsync.mockReset();
     mocks.handle.mockReset();
     mocks.spawnNative.mockReset();
     for (const key of ['PATH', 'LINGUA_SMOKE_SECRET']) {
@@ -81,19 +48,19 @@ describe('native toolchain detection env', () => {
   });
 
   it('filters host secrets from the Go detection subprocesses', async () => {
-    completeExecFile({
-      'go version': 'go version go1.22.0 darwin/arm64\n',
-      'go env GOROOT': '/usr/local/go\n',
-    });
+    mocks.spawnNative.mockImplementation(async ({ args }) => ({
+      stdout: args[0] === 'version' ? 'go version go1.22.0 darwin/arm64\n' : '/usr/local/go\n',
+      stderr: '', exitCode: 0, timedOut: false, killed: false,
+    }));
     registerGoHandlers();
 
     const detect = handlerFor<[unknown, Record<string, string>], GoDetectResult>('go:detect');
-    const result = await detect(null, { GOPATH: '/tmp/go-path' });
+    const result = await detect({}, { GOPATH: '/tmp/go-path' });
 
     expect(result.installed).toBe(true);
-    expect(mocks.execFileAsync).toHaveBeenCalledTimes(2);
-    for (const call of mocks.execFileAsync.mock.calls) {
-      const options = call[2] as { env?: NodeJS.ProcessEnv };
+    expect(mocks.spawnNative).toHaveBeenCalledTimes(2);
+    for (const call of mocks.spawnNative.mock.calls) {
+      const options = call[0] as { env?: NodeJS.ProcessEnv };
       expect(options.env?.PATH).toBe('/usr/bin');
       expect(options.env?.GOPATH).toBe('/tmp/go-path');
       expect(options.env?.LINGUA_SMOKE_SECRET).toBeUndefined();

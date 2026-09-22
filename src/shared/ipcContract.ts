@@ -74,9 +74,10 @@ interface IpcInvokeContract {
     result: GoDetectResult;
   };
   'go:compile': {
-    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages, runId?: string];
     result: GoCompileResult;
   };
+  'go:stop': { args: [runId: string]; result: { stopped: boolean } };
 
   // ----------------------------------------------------------- rust runner
   'rust:detect': {
@@ -597,6 +598,7 @@ export const IPC_INVOKE_CHANNELS = [
   'app:confirm-close-tab',
   'go:detect',
   'go:compile',
+  'go:stop',
   'rust:detect',
   'rust:run',
   'rust:stop',

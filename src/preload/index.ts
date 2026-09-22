@@ -104,8 +104,10 @@ contextBridge.exposeInMainWorld('lingua', {
     compile: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ) => typedInvoke('go:compile', sourceCode, userEnv, messages),
+      messages?: NativeRunnerMessages,
+      runId?: string
+    ) => typedInvoke('go:compile', sourceCode, userEnv, messages, runId),
+    stop: (runId: string) => typedInvoke('go:stop', runId),
   },
 
   // Rust runner IPC
