@@ -28,6 +28,12 @@ interface ActiveNativeDebugRun {
   watchGeneration: number;
 }
 
+interface PendingNativeDebugStart<StartRequest, FailureReason extends string> {
+  readonly api: NativeDebuggerBridge<StartRequest, FailureReason>;
+  readonly generation: number;
+  readonly sessionId: string;
+}
+
 interface NativeDebuggerAdapterOptions<StartRequest, FailureReason extends string> {
   readonly runtime: Extract<DebuggerRuntime, 'python' | 'go' | 'rust'>;
   readonly i18nPrefix: 'pythonDebugger' | 'goDebugger' | 'rustDebugger';
@@ -36,7 +42,8 @@ interface NativeDebuggerAdapterOptions<StartRequest, FailureReason extends strin
   readonly buildStartRequest: (
     tab: FileTab,
     breakpoints: readonly number[],
-    watches: readonly string[]
+    watches: readonly string[],
+    sessionId: string
   ) => StartRequest;
 }
 
@@ -69,11 +76,15 @@ function toPausedFrame(frame: NativeDebuggerPauseFrame): PausedFrame {
  * Own the renderer lifecycle shared by native debuggers while leaving process
  * launch, protocol framing, and failure taxonomy inside each runtime adapter.
  */
-export function createNativeDebuggerAdapter<StartRequest, FailureReason extends string>(
+export function createNativeDebuggerAdapter<
+  StartRequest extends { readonly sessionId?: string },
+  FailureReason extends string,
+>(
   options: NativeDebuggerAdapterOptions<StartRequest, FailureReason>
 ): NativeDebuggerAdapter {
   type Response = NativeDebuggerResponse<FailureReason>;
   let activeRun: ActiveNativeDebugRun | null = null;
+  let pendingStart: PendingNativeDebugStart<StartRequest, FailureReason> | null = null;
   let startGeneration = 0;
 
   const failureMessage = (response: Extract<Response, { kind: 'error' }>): string => {
@@ -219,12 +230,39 @@ export function createNativeDebuggerAdapter<StartRequest, FailureReason extends 
       }
 
       const generation = ++startGeneration;
+      const sessionId = crypto.randomUUID();
+      const start = { api, generation, sessionId };
+      const previousStart = pendingStart;
+      pendingStart = start;
+      if (previousStart) {
+        await previousStart.api.stop(previousStart.sessionId).catch(() => undefined);
+      }
+      if (generation !== startGeneration) {
+        return {
+          stdout: [],
+          stderr: [],
+          executionTime: performance.now() - startedAt,
+          cancelled: true,
+          kind: 'stopped',
+          error: { message: i18next.t('runner.stopped.message') },
+        };
+      }
       if (activeRun) {
         const previous = activeRun;
         const stopped = await api
           .stop(previous.sessionId)
           .catch(() => ({ kind: 'stopped', sessionId: previous.sessionId }) as const);
         applyResponse(previous, stopped);
+      }
+      if (generation !== startGeneration) {
+        return {
+          stdout: [],
+          stderr: [],
+          executionTime: performance.now() - startedAt,
+          cancelled: true,
+          kind: 'stopped',
+          error: { message: i18next.t('runner.stopped.message') },
+        };
       }
       const debuggerState = useDebuggerStore.getState();
       const breakpoints = debuggerState
@@ -237,16 +275,29 @@ export function createNativeDebuggerAdapter<StartRequest, FailureReason extends 
           options.buildStartRequest(
             tab,
             breakpoints,
-            debuggerState.watches.map(watch => watch.expression)
+            debuggerState.watches.map(watch => watch.expression),
+            sessionId
           )
         );
       } catch (error) {
+        if (generation !== startGeneration) {
+          return {
+            stdout: [],
+            stderr: [],
+            executionTime: performance.now() - startedAt,
+            cancelled: true,
+            kind: 'stopped',
+            error: { message: i18next.t('runner.stopped.message') },
+          };
+        }
         return immediateFailure(
           error instanceof Error
             ? error.message
             : i18next.t(`${options.i18nPrefix}.error.command-failed`),
           startedAt
         );
+      } finally {
+        if (pendingStart === start) pendingStart = null;
       }
 
       if (generation !== startGeneration) {
@@ -428,6 +479,12 @@ export function createNativeDebuggerAdapter<StartRequest, FailureReason extends 
 
     stop() {
       startGeneration += 1;
+      const start = pendingStart;
+      if (start) {
+        pendingStart = null;
+        void start.api.stop(start.sessionId).catch(() => undefined);
+        return true;
+      }
       const run = activeRun;
       const api = options.getBridge();
       if (!run || !api) return false;

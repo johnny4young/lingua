@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import {
   MAX_PYTHON_DEBUG_ARGS,
@@ -28,6 +26,8 @@ import { resolvePythonInterpreter } from '../../shared/python/interpreter';
 import { buildNativeRunnerEnv, combinedAllowlist } from '../runners/nativeEnv';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
+import { DebuggerPreparationRegistry } from './debuggerPreparation';
+import { spawnNativeRun } from '../runners/spawnNativeRun';
 
 const PYTHON_PROBE_TIMEOUT_MS = 5_000;
 const MAX_INSPECTED_LOCALS = 100;
@@ -50,6 +50,7 @@ interface PythonDebuggerRecord {
 }
 
 const sessions = new Map<string, PythonDebuggerRecord>();
+const preparations = new DebuggerPreparationRegistry();
 const observedOwners = new WeakSet<WebContents>();
 
 function errorResponse(
@@ -129,12 +130,25 @@ function safeScriptName(value: unknown): string {
   return safe.toLowerCase().endsWith('.py') ? safe : `${safe}.py`;
 }
 
-async function probePython(binary: string, env: NodeJS.ProcessEnv): Promise<boolean> {
-  return new Promise(resolve => {
-    execFile(binary, ['--version'], { env, timeout: PYTHON_PROBE_TIMEOUT_MS }, error => {
-      resolve(error === null);
-    });
+async function probePython(
+  binary: string,
+  env: NodeJS.ProcessEnv,
+  signal: AbortSignal
+): Promise<boolean> {
+  signal.throwIfAborted();
+  const probe = await spawnNativeRun({
+    command: binary,
+    args: ['--version'],
+    env,
+    signal,
+    timeoutMs: PYTHON_PROBE_TIMEOUT_MS,
+    killEscalationMs: 200,
+    maxOutputBytes: 64 * 1024,
+    stdoutTruncationMarker: '\n[Python probe output truncated]',
+    stderrTruncationMarker: '\n[Python probe output truncated]',
   });
+  signal.throwIfAborted();
+  return !probe.spawnError && !probe.timedOut && probe.exitCode === 0;
 }
 
 /**
@@ -148,11 +162,14 @@ async function probePython(binary: string, env: NodeJS.ProcessEnv): Promise<bool
 async function findPythonDebuggerBinary(
   cwd: string,
   env: NodeJS.ProcessEnv,
+  signal: AbortSignal,
   platform: NodeJS.Platform = process.platform
 ): Promise<string | null> {
-  return resolvePythonInterpreter({ startDirectory: cwd, platform, env }, async candidate =>
-    (await probePython(candidate.command, env)) ? candidate.command : null
-  );
+  signal.throwIfAborted();
+  return resolvePythonInterpreter({ startDirectory: cwd, platform, env }, async candidate => {
+    signal.throwIfAborted();
+    return (await probePython(candidate.command, env, signal)) ? candidate.command : null;
+  });
 }
 
 function parseLocals(output: string): Record<string, string> {
@@ -244,9 +261,9 @@ async function inspectPausedFrame(
   };
 }
 
-async function removeRecord(record: PythonDebuggerRecord): Promise<void> {
-  sessions.delete(record.id);
-  record.session.terminate();
+async function removeRecord(record: PythonDebuggerRecord, force = false): Promise<void> {
+  if (sessions.get(record.id) === record) sessions.delete(record.id);
+  record.session.terminate(force);
   await rm(record.tempDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
@@ -261,14 +278,15 @@ function observeOwner(sender: WebContents): void {
 function disposePythonDebuggerSessionsForOwner(ownerId: number): void {
   for (const record of [...sessions.values()]) {
     if (record.ownerId !== ownerId) continue;
-    void removeRecord(record);
+    void removeRecord(record, true);
   }
 }
 
 export function disposePythonDebuggerSessions(): void {
+  preparations.disposeAll();
   for (const record of [...sessions.values()]) {
     sessions.delete(record.id);
-    record.session.terminate();
+    record.session.terminate(true);
     try {
       // before-quit does not await promises; remove synchronously so the
       // private source cannot survive a normal application shutdown.
@@ -321,8 +339,10 @@ async function responseForResult(
 }
 
 async function approvedWorkingDirectory(
-  request: PythonDebuggerStartRequest
+  request: PythonDebuggerStartRequest,
+  signal: AbortSignal
 ): Promise<{ ok: true; cwd: string } | { ok: false }> {
+  signal.throwIfAborted();
   if (request.rootId === undefined && request.relativePath === undefined) {
     return { ok: true, cwd: '' };
   }
@@ -330,11 +350,12 @@ async function approvedWorkingDirectory(
     return { ok: false };
   }
   const resolved = await resolveCapabilityPath(request.rootId, request.relativePath, 'read');
+  signal.throwIfAborted();
   if (!resolved.ok) return { ok: false };
   return { ok: true, cwd: path.dirname(resolved.absolutePath) };
 }
 
-async function startSession(ownerId: number, rawRequest: unknown): Promise<PythonDebuggerResponse> {
+async function startSession(owner: WebContents, rawRequest: unknown): Promise<PythonDebuggerResponse> {
   if (!rawRequest || typeof rawRequest !== 'object' || Array.isArray(rawRequest)) {
     return errorResponse('invalid-request');
   }
@@ -351,93 +372,110 @@ async function startSession(ownerId: number, rawRequest: unknown): Promise<Pytho
   }
   const breakpoints = normalizeBreakpoints(request.breakpoints);
   if (breakpoints.length === 0) return errorResponse('no-breakpoints');
-  const approved = await approvedWorkingDirectory(request);
-  if (!approved.ok) return errorResponse('unapproved-path');
 
-  disposePythonDebuggerSessionsForOwner(ownerId);
+  const preparation = preparations.reserve(owner, request.sessionId, id => sessions.has(id));
+  if (!preparation) return errorResponse('invalid-request');
+  const { id, signal } = preparation;
   let tempDir: string | null = null;
-  let scriptPath: string;
+  let transferred = false;
   try {
+    const approved = await approvedWorkingDirectory(request, signal);
+    if (!approved.ok) return errorResponse('unapproved-path');
+    signal.throwIfAborted();
+    disposePythonDebuggerSessionsForOwner(owner.id);
+
     tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-python-debug-'));
+    preparation.setCleanupPath(tempDir);
+    signal.throwIfAborted();
     const target = path.join(tempDir, safeScriptName(request.fileName));
-    await writeFile(target, request.source, { encoding: 'utf8', mode: 0o600 });
-    scriptPath = await realpath(target);
+    await writeFile(target, request.source, { encoding: 'utf8', mode: 0o600, signal });
+    signal.throwIfAborted();
+    const scriptPath = await realpath(target);
+    signal.throwIfAborted();
+    const cwd = approved.cwd || tempDir;
+    const userEnv = normalizeStringMap(request.userEnv);
+    const env = buildNativeRunnerEnv(combinedAllowlist([]), userEnv, {
+      PYTHONUNBUFFERED: '1',
+      ...(cwd !== tempDir
+        ? {
+            PYTHONPATH: userEnv?.PYTHONPATH ? `${cwd}${path.delimiter}${userEnv.PYTHONPATH}` : cwd,
+          }
+        : {}),
+    });
+    const pythonPath = await findPythonDebuggerBinary(cwd, env, signal);
+    signal.throwIfAborted();
+    if (!pythonPath) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+      return errorResponse('binary-missing');
+    }
+
+    const session = new PythonDebugSession({
+      scriptPath,
+      pythonPath,
+      cwd,
+      env,
+      programArgs: normalizeProgramArgs(request.programArgs),
+    });
+    const record: PythonDebuggerRecord = {
+      id,
+      ownerId: owner.id,
+      tabId: request.tabId,
+      tempDir,
+      scriptPath,
+      session,
+      breakpoints: new Set(),
+      watches: normalizeWatches(request.watches),
+      location: null,
+      pauseReason: 'user-breakpoint',
+    };
+    sessions.set(id, record);
+    transferred = true;
+    preparation.finish();
+
+    try {
+      const initial = await session.start();
+      if (/Uncaught exception|Traceback \(most recent call last\)|SyntaxError:/u.test(initial.output)) {
+        await removeRecord(record, true);
+        return errorResponse('process-exited', 'Python could not start the script.', {
+          output: initial.output,
+          outputTruncated: initial.outputTruncated,
+        });
+      }
+      for (const line of breakpoints) {
+        const result = await session.setBreakpoint(line);
+        if (!/^Breakpoint \d+ at /mu.test(result.output)) continue;
+        record.breakpoints.add(line);
+      }
+      if (record.breakpoints.size === 0) {
+        await removeRecord(record, true);
+        return errorResponse('no-breakpoints');
+      }
+      const firstStop = await session.continue();
+      const reason = /Uncaught exception|Traceback \(most recent call last\)/u.test(firstStop.output)
+        ? 'exception'
+        : 'user-breakpoint';
+      return responseForResult(record, firstStop, reason);
+    } catch (error) {
+      const stopped = sessions.get(id) !== record;
+      await removeRecord(record, true);
+      return stopped
+        ? { kind: 'stopped', sessionId: id }
+        : errorResponse(
+            'command-failed',
+            error instanceof Error ? error.message : 'Failed to start Python debugger'
+          );
+    }
   } catch (error) {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    if (!transferred && tempDir) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    if (signal.aborted) return { kind: 'stopped', sessionId: id };
     return errorResponse(
       'command-failed',
       error instanceof Error ? error.message : 'Could not prepare Python debugger source'
     );
-  }
-  const cwd = approved.cwd || tempDir;
-  const userEnv = normalizeStringMap(request.userEnv);
-  const env = buildNativeRunnerEnv(combinedAllowlist([]), userEnv, {
-    PYTHONUNBUFFERED: '1',
-    ...(cwd !== tempDir
-      ? {
-          PYTHONPATH: userEnv?.PYTHONPATH ? `${cwd}${path.delimiter}${userEnv.PYTHONPATH}` : cwd,
-        }
-      : {}),
-  });
-  const pythonPath = await findPythonDebuggerBinary(cwd, env);
-  if (!pythonPath) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse('binary-missing');
-  }
-
-  const id = randomUUID();
-  const session = new PythonDebugSession({
-    scriptPath,
-    pythonPath,
-    cwd,
-    env,
-    programArgs: normalizeProgramArgs(request.programArgs),
-  });
-  const record: PythonDebuggerRecord = {
-    id,
-    ownerId,
-    tabId: request.tabId,
-    tempDir,
-    scriptPath,
-    session,
-    breakpoints: new Set(),
-    watches: normalizeWatches(request.watches),
-    location: null,
-    pauseReason: 'user-breakpoint',
-  };
-  sessions.set(id, record);
-
-  try {
-    const initial = await session.start();
-    if (
-      /Uncaught exception|Traceback \(most recent call last\)|SyntaxError:/u.test(initial.output)
-    ) {
-      await removeRecord(record);
-      return errorResponse('process-exited', 'Python could not start the script.', {
-        output: initial.output,
-        outputTruncated: initial.outputTruncated,
-      });
-    }
-    for (const line of breakpoints) {
-      const result = await session.setBreakpoint(line);
-      if (!/^Breakpoint \d+ at /mu.test(result.output)) continue;
-      record.breakpoints.add(line);
-    }
-    if (record.breakpoints.size === 0) {
-      await removeRecord(record);
-      return errorResponse('no-breakpoints');
-    }
-    const firstStop = await session.continue();
-    const reason = /Uncaught exception|Traceback \(most recent call last\)/u.test(firstStop.output)
-      ? 'exception'
-      : 'user-breakpoint';
-    return responseForResult(record, firstStop, reason);
-  } catch (error) {
-    await removeRecord(record);
-    return errorResponse(
-      'command-failed',
-      error instanceof Error ? error.message : 'Failed to start Python debugger'
-    );
+  } finally {
+    preparation.finish();
   }
 }
 
@@ -535,7 +573,7 @@ async function syncWatches(
 export function registerPythonDebuggerHandlers(): void {
   typedHandle('debugger:python:start', async (event, request: unknown) => {
     observeOwner(event.sender);
-    return startSession(event.sender.id, request);
+    return startSession(event.sender, request);
   });
   typedHandle('debugger:python:command', async (event, sessionId: unknown, command: unknown) => {
     const record = ownedRecord(event.sender.id, sessionId);
@@ -560,6 +598,8 @@ export function registerPythonDebuggerHandlers(): void {
     }
   );
   typedHandle('debugger:python:stop', async (event, sessionId: unknown) => {
+    const preparingId = preparations.stop(event.sender.id, sessionId);
+    if (preparingId) return { kind: 'stopped', sessionId: preparingId };
     const record = ownedRecord(event.sender.id, sessionId);
     if (!record) return errorResponse('session-not-found');
     await removeRecord(record);

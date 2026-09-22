@@ -8,7 +8,8 @@ const adapter = createNativeDebuggerAdapter({
   i18nPrefix: 'goDebugger',
   commandFailedReason: 'command-failed' as const,
   getBridge: () => (typeof window !== 'undefined' ? (window.lingua?.goDebugger ?? null) : null),
-  buildStartRequest: (tab, breakpoints, watches) => ({
+  buildStartRequest: (tab, breakpoints, watches, sessionId) => ({
+    sessionId,
     tabId: tab.id,
     source: tab.content,
     fileName: tab.name,

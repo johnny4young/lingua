@@ -295,6 +295,18 @@ transport behind the same bounded framing and request correlation. Native
 watches run in the real process and can have side effects, so all three
 adapters expose only standard pause breakpoints and retain the UI warning.
 
+The renderer allocates an ephemeral debugger session ID before the start IPC.
+Main reserves that ID in an owner-bound preparation registry before capability
+authorization, source staging, interpreter/tool discovery, or Rust compilation.
+Stop can therefore address a start before a protocol session exists; owner loss
+and app shutdown cancel the same preparation, and a duplicate ID is rejected
+before another authorization attempt. Python, Delve, rustc, and lldb-dap probes
+use the tracked native spawn boundary, so cancellation reaps their process trees.
+Once the protocol session is installed, ownership transfers to its runtime map.
+Map deletion is record-identity-safe, preventing an older finalizer from deleting
+a later session that reuses the same ID. The ID is not persisted and remains
+optional on the preload contract for compatible direct callers.
+
 ## Notebook lazy-reactivity boundary
 
 Notebook languages do not share one typed value graph. JavaScript and
@@ -1419,8 +1431,10 @@ Delve address discovery and TCP connection, rejects late adapter resources befor
 initialization, and prevents later handshake steps or events. LLDB observes child
 spawn failure before handing off its stdio transport. Terminal handshake failures
 close the transport and force-clean the child; closed transports discard buffered
-events and settle pending requests. These session guarantees do not replace the
-separate IPC preparation/owner lifecycle before a session is constructed.
+events and settle pending requests. Before that session exists, the shared debugger
+preparation registry owns the renderer-provided identity across authorization,
+staging, probes, and Rust compilation, and transfers it exactly once into the
+runtime session map.
 
 The native process registry tracks the shared spawn boundary (also used by Rust and
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels

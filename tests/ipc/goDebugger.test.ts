@@ -17,7 +17,7 @@ vi.mock('electron', () => ({
 }));
 
 function sender(id: number) {
-  return { id, once: vi.fn(), isDestroyed: vi.fn(() => false) };
+  return { id, once: vi.fn(), removeListener: vi.fn(), isDestroyed: vi.fn(() => false) };
 }
 
 beforeAll(() => {

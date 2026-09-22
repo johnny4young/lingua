@@ -1,10 +1,7 @@
 import { rmSync } from 'node:fs';
-import { execFile } from 'node:child_process';
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { promisify } from 'node:util';
 import type { WebContents } from 'electron';
 import {
   MAX_RUST_DEBUG_ARGS,
@@ -34,9 +31,12 @@ import {
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
 import { MAX_COMPILE_OUTPUT_BYTES, truncateBytes } from '../../shared/runnerLimits';
+import { DebuggerPreparationRegistry } from './debuggerPreparation';
+import { spawnNativeRun } from '../runners/spawnNativeRun';
 
-const execFileAsync = promisify(execFile);
 const RUST_COMPILE_TIMEOUT_MS = 60_000;
+const RUST_COMPILE_KILL_ESCALATION_MS = 200;
+const RUST_COMPILE_TRUNCATION_MARKER = '\n[Compile output truncated]';
 
 const MAX_USER_ENV_VARS = 100;
 const MAX_USER_ENV_KEY_LENGTH = 128;
@@ -57,6 +57,7 @@ interface RustDebuggerRecord {
 }
 
 const sessions = new Map<string, RustDebuggerRecord>();
+const preparations = new DebuggerPreparationRegistry();
 const observedOwners = new WeakSet<WebContents>();
 
 function errorResponse(
@@ -137,26 +138,29 @@ function safeRustFileName(value: unknown): string {
 }
 
 async function approvedWorkingDirectory(
-  request: RustDebuggerStartRequest
+  request: RustDebuggerStartRequest,
+  signal: AbortSignal
 ): Promise<{ ok: true; cwd: string } | { ok: false }> {
+  signal.throwIfAborted();
   if (request.rootId === undefined && request.relativePath === undefined) {
     return { ok: true, cwd: '' };
   }
   if (request.rootId === undefined || request.relativePath === undefined) return { ok: false };
   const resolved = await resolveCapabilityPath(request.rootId, request.relativePath, 'read');
+  signal.throwIfAborted();
   if (!resolved.ok) return { ok: false };
   return { ok: true, cwd: path.dirname(resolved.absolutePath) };
 }
 
-async function removeRecord(record: RustDebuggerRecord): Promise<void> {
-  sessions.delete(record.id);
-  record.session.terminate();
+async function removeRecord(record: RustDebuggerRecord, force = false): Promise<void> {
+  if (sessions.get(record.id) === record) sessions.delete(record.id);
+  record.session.terminate(force);
   await rm(record.tempDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 function disposeForOwner(ownerId: number): void {
   for (const record of [...sessions.values()]) {
-    if (record.ownerId === ownerId) void removeRecord(record);
+    if (record.ownerId === ownerId) void removeRecord(record, true);
   }
 }
 
@@ -167,9 +171,10 @@ function observeOwner(sender: WebContents): void {
 }
 
 export function disposeRustDebuggerSessions(): void {
+  preparations.disposeAll();
   for (const record of [...sessions.values()]) {
     sessions.delete(record.id);
-    record.session.terminate();
+    record.session.terminate(true);
     try {
       rmSync(record.tempDir, { recursive: true, force: true });
     } catch {
@@ -237,7 +242,7 @@ export function classifyRustDebuggerStartFailure(
   return 'command-failed';
 }
 
-async function startSession(ownerId: number, rawRequest: unknown): Promise<RustDebuggerResponse> {
+async function startSession(owner: WebContents, rawRequest: unknown): Promise<RustDebuggerResponse> {
   if (!rawRequest || typeof rawRequest !== 'object' || Array.isArray(rawRequest)) {
     return errorResponse('invalid-request');
   }
@@ -254,45 +259,50 @@ async function startSession(ownerId: number, rawRequest: unknown): Promise<RustD
   }
   const breakpoints = normalizeBreakpoints(request.breakpoints);
   if (breakpoints.length === 0) return errorResponse('no-breakpoints');
-  const approved = await approvedWorkingDirectory(request);
-  if (!approved.ok) return errorResponse('unapproved-path');
 
-  disposeForOwner(ownerId);
+  const preparation = preparations.reserve(owner, request.sessionId, id => sessions.has(id));
+  if (!preparation) return errorResponse('invalid-request');
+  const { id, signal } = preparation;
   let tempDir: string | null = null;
-  let scriptPath: string;
+  let transferred = false;
   try {
+    const approved = await approvedWorkingDirectory(request, signal);
+    if (!approved.ok) return errorResponse('unapproved-path');
+    signal.throwIfAborted();
+    disposeForOwner(owner.id);
+
     tempDir = await realpath(await mkdtemp(path.join(tmpdir(), 'lingua-rust-debug-')));
-    scriptPath = path.join(tempDir, safeRustFileName(request.fileName));
-    await writeFile(scriptPath, request.source, { encoding: 'utf8', mode: 0o600 });
-  } catch (error) {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse(
-      'command-failed',
-      error instanceof Error ? error.message : 'Could not prepare Rust debugger source'
+    preparation.setCleanupPath(tempDir);
+    signal.throwIfAborted();
+    const scriptPath = path.join(tempDir, safeRustFileName(request.fileName));
+    await writeFile(scriptPath, request.source, { encoding: 'utf8', mode: 0o600, signal });
+    signal.throwIfAborted();
+
+    const userEnv = normalizeStringMap(request.userEnv);
+    const env = buildNativeRunnerEnv(
+      combinedAllowlist([...RUST_TOOLCHAIN_KEYS, ...RUST_DEBUGGER_TOOLCHAIN_KEYS]),
+      userEnv
     );
-  }
+    const compiler = await resolveRustCompiler(env, process.platform, signal);
+    signal.throwIfAborted();
+    if (!compiler) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+      return errorResponse('rustc-missing');
+    }
+    const lldbDap = await resolveLldbDapBinary(env, process.platform, signal);
+    signal.throwIfAborted();
+    if (!lldbDap) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+      return errorResponse('lldb-dap-missing');
+    }
 
-  const userEnv = normalizeStringMap(request.userEnv);
-  const env = buildNativeRunnerEnv(
-    combinedAllowlist([...RUST_TOOLCHAIN_KEYS, ...RUST_DEBUGGER_TOOLCHAIN_KEYS]),
-    userEnv
-  );
-  const compiler = await resolveRustCompiler(env);
-  if (!compiler) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse('rustc-missing');
-  }
-  const lldbDap = await resolveLldbDapBinary(env);
-  if (!lldbDap) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse('lldb-dap-missing');
-  }
-
-  const binaryPath = path.join(tempDir, process.platform === 'win32' ? 'lingua-debug.exe' : 'lingua-debug');
-  try {
-    await execFileAsync(
-      compiler.command,
-      [
+    const binaryPath = path.join(
+      tempDir,
+      process.platform === 'win32' ? 'lingua-debug.exe' : 'lingua-debug'
+    );
+    const compiled = await spawnNativeRun({
+      command: compiler.command,
+      args: [
         '--edition',
         '2021',
         '--crate-name',
@@ -302,59 +312,83 @@ async function startSession(ownerId: number, rawRequest: unknown): Promise<RustD
         '-o',
         binaryPath,
       ],
-      {
-        cwd: tempDir,
-        env,
-        timeout: RUST_COMPILE_TIMEOUT_MS,
-        maxBuffer: MAX_COMPILE_OUTPUT_BYTES,
-      }
-    );
-  } catch (error) {
-    const stderr = (error as { stderr?: string }).stderr;
-    const stdout = (error as { stdout?: string }).stdout;
-    const raw = [stderr, stdout, error instanceof Error ? error.message : String(error)]
-      .filter((value): value is string => typeof value === 'string' && value.length > 0)
-      .join('\n');
-    const outputTruncated = Buffer.byteLength(raw, 'utf8') > MAX_COMPILE_OUTPUT_BYTES;
-    const output = truncateBytes(raw, MAX_COMPILE_OUTPUT_BYTES, '\n[Compile output truncated]');
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse('compile-failed', undefined, { output, outputTruncated });
-  }
+      cwd: tempDir,
+      env,
+      signal,
+      timeoutMs: RUST_COMPILE_TIMEOUT_MS,
+      killEscalationMs: RUST_COMPILE_KILL_ESCALATION_MS,
+      maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
+      stdoutTruncationMarker: RUST_COMPILE_TRUNCATION_MARKER,
+      stderrTruncationMarker: RUST_COMPILE_TRUNCATION_MARKER,
+    });
+    signal.throwIfAborted();
+    if (compiled.spawnError || compiled.timedOut || compiled.exitCode !== 0) {
+      const raw = [
+        compiled.stderr,
+        compiled.stdout,
+        compiled.spawnError?.message,
+        compiled.timedOut ? `Rust compilation timed out after ${RUST_COMPILE_TIMEOUT_MS}ms` : '',
+      ]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .join('\n');
+      const outputTruncated =
+        raw.includes(RUST_COMPILE_TRUNCATION_MARKER) ||
+        Buffer.byteLength(raw, 'utf8') > MAX_COMPILE_OUTPUT_BYTES;
+      const output = truncateBytes(raw, MAX_COMPILE_OUTPUT_BYTES, RUST_COMPILE_TRUNCATION_MARKER);
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+      return errorResponse('compile-failed', undefined, { output, outputTruncated });
+    }
 
-  const id = randomUUID();
-  const session = new RustDebugSession({
-    lldbDapPath: lldbDap.command,
-    scriptPath,
-    binaryPath,
-    cwd: approved.cwd || tempDir,
-    env,
-    programArgs: normalizeProgramArgs(request.programArgs),
-  });
-  const record: RustDebuggerRecord = {
-    id,
-    ownerId,
-    tabId: request.tabId,
-    tempDir,
-    session,
-    breakpoints: new Set(breakpoints),
-    watches: normalizeWatches(request.watches),
-    paused: false,
-    pauseReason: 'user-breakpoint',
-    pauseGeneration: 0,
-    watchGeneration: 0,
-  };
-  sessions.set(id, record);
-  try {
-    const transition = await session.start(breakpoints);
-    return responseForTransition(record, transition);
+    const session = new RustDebugSession({
+      lldbDapPath: lldbDap.command,
+      scriptPath,
+      binaryPath,
+      cwd: approved.cwd || tempDir,
+      env,
+      programArgs: normalizeProgramArgs(request.programArgs),
+    });
+    const record: RustDebuggerRecord = {
+      id,
+      ownerId: owner.id,
+      tabId: request.tabId,
+      tempDir,
+      session,
+      breakpoints: new Set(breakpoints),
+      watches: normalizeWatches(request.watches),
+      paused: false,
+      pauseReason: 'user-breakpoint',
+      pauseGeneration: 0,
+      watchGeneration: 0,
+    };
+    sessions.set(id, record);
+    transferred = true;
+    preparation.finish();
+    try {
+      const transition = await session.start(breakpoints);
+      return responseForTransition(record, transition);
+    } catch (error) {
+      const output = session.drainOutput();
+      const stopped = sessions.get(id) !== record;
+      await removeRecord(record, true);
+      return stopped
+        ? { kind: 'stopped', sessionId: id }
+        : errorResponse(
+            classifyRustDebuggerStartFailure(error),
+            error instanceof Error ? error.message : String(error),
+            output
+          );
+    }
   } catch (error) {
-    const output = session.drainOutput();
-    await removeRecord(record);
+    if (!transferred && tempDir) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    if (signal.aborted) return { kind: 'stopped', sessionId: id };
     return errorResponse(
-      classifyRustDebuggerStartFailure(error),
-      error instanceof Error ? error.message : String(error),
-      output
+      'command-failed',
+      error instanceof Error ? error.message : 'Could not prepare Rust debugger source'
     );
+  } finally {
+    preparation.finish();
   }
 }
 
@@ -436,7 +470,7 @@ async function syncWatches(
 export function registerRustDebuggerHandlers(): void {
   typedHandle('debugger:rust:start', async (event, request: unknown) => {
     observeOwner(event.sender);
-    return startSession(event.sender.id, request);
+    return startSession(event.sender, request);
   });
   typedHandle('debugger:rust:command', async (event, sessionId: unknown, command: unknown) => {
     const record = ownedRecord(event.sender.id, sessionId);
@@ -456,6 +490,8 @@ export function registerRustDebuggerHandlers(): void {
     return syncWatches(record, value);
   });
   typedHandle('debugger:rust:stop', async (event, sessionId: unknown) => {
+    const preparingId = preparations.stop(event.sender.id, sessionId);
+    if (preparingId) return { kind: 'stopped', sessionId: preparingId };
     const record = ownedRecord(event.sender.id, sessionId);
     if (!record) return errorResponse('session-not-found');
     await removeRecord(record);

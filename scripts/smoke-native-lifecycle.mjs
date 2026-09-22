@@ -80,6 +80,106 @@ try {
       syncBuiltinESMExports();
     });
     if (phase === 'debugger-cleanup') {
+      for (const runtime of ['python', 'go', 'rust']) {
+        const directory = path.join(fixture, `${runtime}-preparation-stop`);
+        await mkdir(directory);
+        const parentFile = path.join(directory, 'parent.pid');
+        const childFile = path.join(directory, 'child.pid');
+        debuggerPidFiles.push(parentFile, childFile);
+        const childCode = `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(childFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+        const fixtureBody = `
+const { spawn } = await import('node:child_process');
+const { existsSync, writeFileSync } = await import('node:fs');
+writeFileSync(${JSON.stringify(parentFile)}, String(process.pid));
+spawn(${JSON.stringify(process.execPath)}, ['-e', ${JSON.stringify(childCode)}], { stdio: 'ignore' });
+while (!existsSync(${JSON.stringify(childFile)})) await new Promise(resolve => setTimeout(resolve, 10));
+process.on('SIGTERM', () => {});
+setInterval(() => {}, 1000);
+`;
+        let request;
+        if (runtime === 'python') {
+          const python = path.join(directory, 'python3');
+          await writeFile(python, `#!/usr/bin/env node\n${fixtureBody}`);
+          await chmod(python, 0o755);
+          request = {
+            sessionId: 'python-preparation-stop', tabId: 'python-preparation-stop',
+            source: 'value = 1\nvalue += 1\nprint(value)', fileName: 'main.py',
+            breakpoints: [2], watches: [],
+            userEnv: { PATH: `${directory}${path.delimiter}${process.env.PATH}` },
+          };
+        } else if (runtime === 'go') {
+          const delve = path.join(directory, 'dlv');
+          await writeFile(delve, `#!/usr/bin/env node\n${fixtureBody}`);
+          await chmod(delve, 0o755);
+          request = {
+            sessionId: 'go-preparation-stop', tabId: 'go-preparation-stop',
+            source: 'package main\nfunc main() {\nprintln(1)\n}', fileName: 'main.go',
+            breakpoints: [3], watches: [],
+            userEnv: { PATH: `${directory}${path.delimiter}${process.env.PATH}` },
+          };
+        } else {
+          const rustc = path.join(directory, 'rustc');
+          const lldbDap = path.join(root, 'tests/__fixtures__/fake-lldb-dap.mjs');
+          await chmod(lldbDap, 0o755);
+          await writeFile(rustc, `#!/usr/bin/env node
+if (process.argv.includes('--version')) { console.log('rustc fixture'); process.exit(0); }
+${fixtureBody}`);
+          await chmod(rustc, 0o755);
+          request = {
+            sessionId: 'rust-preparation-stop', tabId: 'rust-preparation-stop',
+            source: 'fn main() {\nlet value = 1;\nprintln!("{}", value);\n}', fileName: 'main.rs',
+            breakpoints: [3], watches: [], userEnv: { RUSTC: rustc, LLDB_DAP: lldbDap },
+          };
+        }
+
+        await page.evaluate(({ runtime, request }) => {
+          globalThis.__pendingDebuggerPreparation = window.lingua[`${runtime}Debugger`].start(request);
+        }, { runtime, request });
+        await until(async () => {
+          try {
+            return Number(await readFile(parentFile, 'utf8')) > 0 && Number(await readFile(childFile, 'utf8')) > 0;
+          } catch (error) {
+            if (error.code === 'ENOENT') return false;
+            throw error;
+          }
+        }, `${runtime} preparation fixture did not create its resistant descendant`);
+        const pids = [Number(await readFile(parentFile, 'utf8')), Number(await readFile(childFile, 'utf8'))];
+        for (const pid of pids) { assert(pid > 0 && alive(pid)); ownedPids.add(pid); }
+        const stopped = await page.evaluate(({ runtime, id }) => window.lingua[`${runtime}Debugger`].stop(id), {
+          runtime, id: request.sessionId,
+        });
+        assert.deepEqual(stopped, { kind: 'stopped', sessionId: request.sessionId });
+        const result = await page.evaluate(() => globalThis.__pendingDebuggerPreparation);
+        assert.deepEqual(result, { kind: 'stopped', sessionId: request.sessionId });
+        await until(() => pids.every(pid => !alive(pid)), `${runtime} preparation Stop leaked a process`);
+
+        let recoveryRequest = { ...request, sessionId: `${runtime}-preparation-recovery`, tabId: `${runtime}-preparation-recovery`, userEnv: undefined };
+        if (runtime === 'go') {
+          const delve = path.join(directory, 'dlv');
+          const protocol = pathToFileURL(path.join(root, 'tests/__fixtures__/fake-dlv.mjs')).href;
+          await writeFile(delve, `#!/usr/bin/env node\nif (process.argv[2] === 'version') { console.log('Delve Debugger fixture'); process.exit(0); }\nawait import(${JSON.stringify(protocol)});\n`);
+          await chmod(delve, 0o755);
+          recoveryRequest = { ...recoveryRequest, userEnv: { PATH: `${directory}${path.delimiter}${process.env.PATH}` } };
+        } else if (runtime === 'rust') {
+          recoveryRequest = {
+            ...recoveryRequest,
+            userEnv: {
+              RUSTC: path.join(root, 'tests/__fixtures__/fake-rustc.mjs'),
+              LLDB_DAP: path.join(root, 'tests/__fixtures__/fake-lldb-dap.mjs'),
+            },
+          };
+          await chmod(recoveryRequest.userEnv.RUSTC, 0o755);
+        }
+        const recovered = await page.evaluate(({ runtime, request }) => window.lingua[`${runtime}Debugger`].start(request), {
+          runtime, request: recoveryRequest,
+        });
+        assert.equal(recovered.kind, 'paused', JSON.stringify(recovered));
+        const recoveryStopped = await page.evaluate(({ runtime, id }) => window.lingua[`${runtime}Debugger`].stop(id), {
+          runtime, id: recovered.sessionId,
+        });
+        assert.equal(recoveryStopped.kind, 'stopped');
+        results.push({ phase, runtime, mode: 'preparation-stop', parentGone: true, descendantGone: true, recovery: true });
+      }
       for (const [runtime, mode] of [['python', 'stop'], ['go', 'stop'], ['go', 'timeout'], ['go', 'exit'], ['go', 'connection'], ['go', 'owner-during-start']]) {
         const name = `${runtime}-${mode}`;
         const directory = path.join(fixture, name);

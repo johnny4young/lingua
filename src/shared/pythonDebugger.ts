@@ -17,6 +17,8 @@ export const MAX_PYTHON_DEBUG_ARG_LENGTH = 4_096;
 export type PythonDebuggerStepCommand = NativeDebuggerStepCommand;
 
 export interface PythonDebuggerStartRequest {
+  /** Ephemeral identity allocated before any desktop preparation begins. */
+  readonly sessionId?: string;
   readonly tabId: string;
   readonly source: string;
   readonly fileName: string;

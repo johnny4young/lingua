@@ -1,7 +1,6 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type {
   RustDebuggerPauseFrame,
   RustDebuggerStepCommand,
@@ -12,9 +11,10 @@ import {
   type NativeDapTransition,
 } from './debugger/nativeDapSession';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun } from './runners/spawnNativeRun';
 
-const execFileAsync = promisify(execFile);
 const TOOL_PROBE_TIMEOUT_MS = 5_000;
+const MAX_TOOL_PROBE_OUTPUT_BYTES = 64 * 1024;
 const LLDB_LAUNCH_TIMEOUT_MS = 45_000;
 const LLDB_COMMAND_TIMEOUT_MS = 15_000;
 const MAX_RUST_DEBUG_OUTPUT_BYTES = 1_000_000;
@@ -43,30 +43,47 @@ function firstLine(value: string): string | null {
 async function probeBinary(
   candidate: string,
   args: readonly string[],
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal
 ): Promise<{ command: string; version: string } | null> {
   try {
+    signal?.throwIfAborted();
     if (path.isAbsolute(candidate)) await access(candidate);
-    const { stdout, stderr } = await execFileAsync(candidate, [...args], {
+    signal?.throwIfAborted();
+    const probe = await spawnNativeRun({
+      command: candidate,
+      args: [...args],
       env,
-      timeout: TOOL_PROBE_TIMEOUT_MS,
+      signal,
+      timeoutMs: TOOL_PROBE_TIMEOUT_MS,
+      killEscalationMs: 200,
+      maxOutputBytes: MAX_TOOL_PROBE_OUTPUT_BYTES,
+      stdoutTruncationMarker: '\n[Rust tool probe output truncated]',
+      stderrTruncationMarker: '\n[Rust tool probe output truncated]',
     });
-    return { command: candidate, version: firstLine(`${stdout}\n${stderr}`) ?? candidate };
+    signal?.throwIfAborted();
+    if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) return null;
+    return {
+      command: candidate,
+      version: firstLine(`${probe.stdout}\n${probe.stderr}`) ?? candidate,
+    };
   } catch {
+    signal?.throwIfAborted();
     return null;
   }
 }
 
 export async function resolveRustCompiler(
   env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  signal?: AbortSignal
 ): Promise<{ command: string; version: string } | null> {
   const name = platform === 'win32' ? 'rustc.exe' : 'rustc';
   const candidates = [env.RUSTC, name].filter(
     (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
   );
   for (const candidate of [...new Set(candidates)]) {
-    const result = await probeBinary(candidate, ['--version'], env);
+    const result = await probeBinary(candidate, ['--version'], env, signal);
     if (result) return result;
   }
   return null;
@@ -74,7 +91,8 @@ export async function resolveRustCompiler(
 
 export async function resolveLldbDapBinary(
   env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  signal?: AbortSignal
 ): Promise<{ command: string; version: string } | null> {
   const name = platform === 'win32' ? 'lldb-dap.exe' : 'lldb-dap';
   const candidates = [env.LLDB_DAP, name].filter(
@@ -83,19 +101,29 @@ export async function resolveLldbDapBinary(
 
   if (platform === 'darwin') {
     try {
-      const { stdout } = await execFileAsync('xcrun', ['--find', 'lldb-dap'], {
+      signal?.throwIfAborted();
+      const resolved = await spawnNativeRun({
+        command: 'xcrun',
+        args: ['--find', 'lldb-dap'],
         env,
-        timeout: TOOL_PROBE_TIMEOUT_MS,
+        signal,
+        timeoutMs: TOOL_PROBE_TIMEOUT_MS,
+        killEscalationMs: 200,
+        maxOutputBytes: MAX_TOOL_PROBE_OUTPUT_BYTES,
+        stdoutTruncationMarker: '\n[xcrun output truncated]',
+        stderrTruncationMarker: '\n[xcrun output truncated]',
       });
-      const xcodeLldbDap = stdout.trim();
-      if (xcodeLldbDap) candidates.push(xcodeLldbDap);
+      signal?.throwIfAborted();
+      const xcodeLldbDap = resolved.exitCode === 0 ? resolved.stdout.trim() : '';
+      if (!resolved.spawnError && !resolved.timedOut && xcodeLldbDap) candidates.push(xcodeLldbDap);
     } catch {
+      signal?.throwIfAborted();
       // PATH and an explicit LLDB_DAP remain valid fallbacks without Xcode.
     }
   }
 
   for (const candidate of [...new Set(candidates)]) {
-    const result = await probeBinary(candidate, ['--version'], env);
+    const result = await probeBinary(candidate, ['--version'], env, signal);
     if (result) return result;
   }
   return null;

@@ -1,8 +1,7 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type { GoDebuggerPauseFrame, GoDebuggerStepCommand } from '../shared/goDebugger';
 import { DapClient } from './debugger/dapClient';
 import {
@@ -10,8 +9,8 @@ import {
   type NativeDapTransition,
 } from './debugger/nativeDapSession';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun } from './runners/spawnNativeRun';
 
-const execFileAsync = promisify(execFile);
 const DELVE_START_TIMEOUT_MS = 5_000;
 const DELVE_LAUNCH_TIMEOUT_MS = 45_000;
 const DELVE_COMMAND_TIMEOUT_MS = 15_000;
@@ -41,7 +40,8 @@ function firstLine(value: string): string | null {
 
 export async function resolveDelveBinary(
   env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  signal?: AbortSignal
 ): Promise<{ command: string; version: string } | null> {
   const name = platform === 'win32' ? 'dlv.exe' : 'dlv';
   const candidates = [name];
@@ -55,13 +55,24 @@ export async function resolveDelveBinary(
   for (const candidate of [...new Set(candidates)]) {
     try {
       if (path.isAbsolute(candidate)) await access(candidate);
-      const { stdout, stderr } = await execFileAsync(candidate, ['version'], {
+      signal?.throwIfAborted();
+      const probe = await spawnNativeRun({
+        command: candidate,
+        args: ['version'],
         env,
-        timeout: DELVE_START_TIMEOUT_MS,
+        signal,
+        timeoutMs: DELVE_START_TIMEOUT_MS,
+        killEscalationMs: 200,
+        maxOutputBytes: MAX_DELVE_STARTUP_BYTES,
+        stdoutTruncationMarker: '\n[Delve output truncated]',
+        stderrTruncationMarker: '\n[Delve output truncated]',
       });
-      const version = firstLine(`${stdout}\n${stderr}`) ?? 'Delve';
+      signal?.throwIfAborted();
+      if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) continue;
+      const version = firstLine(`${probe.stdout}\n${probe.stderr}`) ?? 'Delve';
       return { command: candidate, version };
     } catch {
+      signal?.throwIfAborted();
       continue;
     }
   }
