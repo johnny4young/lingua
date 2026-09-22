@@ -14,6 +14,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/release.yml');
+const RETIRED_LINUX_VALIDATOR_PATH = resolve(
+  __dirname,
+  '../../scripts/validate-linux-release-artifacts.mjs'
+);
 const DEPLOY_WEB_WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/deploy-web.yml');
 const PACKAGE_JSON_PATH = resolve(__dirname, '../../package.json');
 
@@ -42,6 +46,16 @@ describe('release workflow', () => {
     // The Forge maker/publish path is retired.
     expect(workflow).not.toContain('electron-forge');
     expect(workflow).not.toContain('make:desktop');
+  });
+
+  it('validates the shipped Linux AppImage and update manifest without the retired Forge package verifier', () => {
+    const linuxJob = workflow.match(/\n {2}build-linux:[\s\S]*?(?=\n {2}publish:)/u)?.[0] ?? '';
+    expect(linuxJob).toContain('npx electron-builder --linux --publish never');
+    expect(linuxJob).toContain("-name '*.AppImage'");
+    expect(linuxJob).toContain('test -f out-builder/latest-linux.yml');
+    expect(linuxJob).toContain('out-builder/*.AppImage');
+    expect(linuxJob).not.toContain('validate-linux-release-artifacts.mjs');
+    expect(existsSync(RETIRED_LINUX_VALIDATOR_PATH)).toBe(false);
   });
 
   it('downloads pre-built artifacts before publishing', () => {
