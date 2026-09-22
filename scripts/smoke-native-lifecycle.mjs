@@ -47,7 +47,7 @@ try {
     assert.equal(server.exitCode, null, 'Renderer server remains alive');
     try { return (await fetch(rendererUrl)).ok; } catch { return false; }
   }, 'Renderer server did not become ready');
-  for (const phase of ['window-close', 'app-quit']) {
+  for (const phase of ['early-parent-close', 'window-close', 'app-quit']) {
     const profile = path.join(fixture, phase);
     app = await _electron.launch({ executablePath: electronBinary, args: [root], cwd: root, env: {
       ...process.env, LINGUA_SMOKE_USER_DATA_DIR: profile, LINGUA_RENDERER_URL: rendererUrl,
@@ -77,6 +77,52 @@ try {
       };
       syncBuiltinESMExports();
     });
+    if (phase === 'early-parent-close') {
+      // Node exercises the shared supervisor; installed Bun exercises the Alt
+      // supervisor. Deno's read-only sandbox is deliberately not widened.
+      for (const runtime of ['node', 'bun']) {
+        for (const mode of ['stop', 'timeout']) {
+          const runId = `${runtime}-${mode}-early-parent`;
+          const pidFile = path.join(fixture, `${runId}.pid`);
+          const childCode = `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+          const source = `require('node:child_process').spawn(${JSON.stringify(process.execPath)}, ['-e', ${JSON.stringify(childCode)}], { stdio: 'ignore' }); console.log('LIFECYCLE_READY'); setInterval(() => {}, 1000);`;
+          const before = await app.evaluate(() => globalThis.__nativeLifecycleChildren.length);
+          await page.evaluate(({ runtime, source, runId, mode }) => {
+            globalThis.__earlyParentRun = window.lingua[runtime].run(source, {
+              runId, timeoutMs: mode === 'timeout' ? 3000 : 60000,
+            });
+          }, { runtime, source, runId, mode });
+          let parent;
+          let descendant;
+          await until(async () => {
+            const records = await app.evaluate((_electron, before) => globalThis.__nativeLifecycleChildren.slice(before), before);
+            for (const record of records) ownedPids.add(record.pid);
+            parent = records.find(record => record.runtime === runtime && record.ready);
+            try { descendant = Number(await readFile(pidFile, 'utf8')); }
+            catch (error) { if (error.code !== 'ENOENT') throw error; }
+            if (descendant > 0) ownedPids.add(descendant);
+            return parent && descendant > 0;
+          }, `${runId} did not start a real parent and resistant descendant`);
+          assert(alive(parent.pid) && alive(descendant), `${runId}: parent ${parent.pid} and descendant ${descendant} must both be alive before cancellation`);
+          if (mode === 'stop') {
+            const stopped = await page.evaluate(({ runtime, runId }) => window.lingua[runtime].stop(runId), { runtime, runId });
+            assert.equal(stopped.stopped, true);
+          }
+          const result = await page.evaluate(() => globalThis.__earlyParentRun);
+          assert.equal(result.kind, mode === 'stop' ? 'stopped' : 'timeout');
+          await until(() => !alive(parent.pid) && !alive(descendant), `${runId} leaked a descendant after parent close`);
+          const recovered = await page.evaluate(({ runtime, runId }) => window.lingua[runtime].run(
+            "console.log('recovered')", { runId: `${runId}-recovery` }
+          ), { runtime, runId });
+          assert.equal(recovered.kind, 'success');
+          assert.equal(recovered.stdout.trim(), 'recovered');
+          results.push({ phase, runtime, mode, parentGone: true, descendantGone: true, recovery: true });
+        }
+      }
+      await app.close();
+      app = undefined;
+      continue;
+    }
     const grandchildFile = path.join(fixture, `${phase}-grandchild.pid`);
     const grandchildCode = `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(grandchildFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
     const sources = {
@@ -136,7 +182,7 @@ try {
   }
   assert.deepEqual(errors, []);
   await writeFile(path.join(artifacts, 'result.json'), JSON.stringify({ results, errors, packaged: false, harness: 'Real Electron/main/preload, installed runtimes ignoring TERM, observed actual child PIDs' }, null, 2));
-  console.log('Native lifecycle passed: window close, app quit, four real runtimes, Node grandchild, recovery, zero errors');
+  console.log('Native lifecycle passed: early parent close after Stop/timeout, window close, app quit, real runtimes, descendants, recovery, zero errors');
 } finally {
   await app?.close().catch(() => {});
   // Only exact PIDs observed from this isolated app/fixture; never broad pkill.

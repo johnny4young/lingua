@@ -18,7 +18,7 @@
  *     not just the direct child.
  *   - Parent-owned timeout: after `timeoutMs` we send SIGTERM and
  *     escalate to SIGKILL `killEscalationMs` later if the child has
- *     not exited.
+ *     not exited; if it exits first, force-stop remaining descendants.
  *   - Optional user-driven abort (Stop button) via an `AbortSignal`,
  *     using the same SIGTERM→SIGKILL escalation.
  *   - stdout / stderr each accumulated and capped at `maxOutputBytes`
@@ -283,6 +283,10 @@ export function spawnNativeRun(
     const finish = (result: SpawnNativeRunResult) => {
       if (resolved) return;
       resolved = true;
+      // Parent close does not imply tree exit: descendants may own independent
+      // pipes and ignore TERM. Finish cancellation before releasing ownership
+      // or clearing escalation; normal completion keeps its existing behavior.
+      if (killed || timedOut) killProcessTree(child, 'SIGKILL');
       releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);

@@ -235,6 +235,40 @@ describe('implementation: Deno & Bun runtimes', () => {
     });
   });
 
+  it.each(['deno', 'bun'])('%s kills remaining descendants when a stopped parent closes early', async id => {
+    mocks.execFileAsync.mockResolvedValue({ stdout: '1.0.0', stderr: '' });
+    const child = createChild();
+    mocks.spawn.mockReturnValue(child);
+    const { registerAltJsRuntimeHandlers, stopAltRun } = await import('../../src/main/altJsRuntimes');
+    registerAltJsRuntimeHandlers();
+    const pending = handlerFor<RunHandler>(`${id}:run`)({}, 'source', { runId: 'early-close' });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    expect(stopAltRun('early-close')).toEqual({ stopped: true });
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    const signalsBeforeClose = child.kill.mock.calls.length;
+    child.emit('close', null);
+    expect(child.kill).toHaveBeenCalledTimes(signalsBeforeClose + 1);
+    await expect(pending).resolves.toMatchObject({ kind: 'stopped' });
+    expect(child.kill).toHaveBeenLastCalledWith('SIGKILL');
+    expect(stopAltRun('early-close')).toEqual({ stopped: false });
+  });
+
+  it.each(['deno', 'bun'])('%s kills remaining descendants when a timed-out parent closes early', async id => {
+    mocks.execFileAsync.mockResolvedValue({ stdout: '1.0.0', stderr: '' });
+    const child = createChild();
+    mocks.spawn.mockReturnValue(child);
+    const { registerAltJsRuntimeHandlers } = await import('../../src/main/altJsRuntimes');
+    registerAltJsRuntimeHandlers();
+    const pending = handlerFor<RunHandler>(`${id}:run`)({}, 'source', { runId: 'early-timeout', timeoutMs: 1000 });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(child.kill).toHaveBeenCalledWith('SIGTERM'), { timeout: 2000, interval: 5 });
+    const signalsBeforeClose = child.kill.mock.calls.length;
+    child.emit('close', null);
+    expect(child.kill).toHaveBeenCalledTimes(signalsBeforeClose + 1);
+    await expect(pending).resolves.toMatchObject({ kind: 'timeout' });
+    expect(child.kill).toHaveBeenLastCalledWith('SIGKILL');
+  });
+
   it('stop terminates an active run by runId', async () => {
     mocks.execFileAsync.mockResolvedValue({ stdout: 'deno 2\n', stderr: '' });
     const child = createChild();

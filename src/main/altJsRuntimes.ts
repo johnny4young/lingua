@@ -261,6 +261,10 @@ async function spawnAltRuntime(
       const finish = (result: AltJsRunResult) => {
         if (resolved) return;
         resolved = true;
+        // Parent close does not imply tree exit: descendants may own independent
+        // pipes and ignore TERM. Finish cancellation before releasing ownership
+        // or clearing escalation; normal completion keeps its existing behavior.
+        if (stoppedByUser || killedByTimer) killProcessTree(child, 'SIGKILL');
         releaseChild();
         clearTimeout(killTimer);
         if (escalationTimer !== null) clearTimeout(escalationTimer);

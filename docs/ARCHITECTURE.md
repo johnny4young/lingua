@@ -1404,6 +1404,12 @@ One destruction listener per owner cancels its requests and force-terminates onl
 its tracked processes, including a child already waiting for graceful Stop.
 On POSIX, ordinary user Stop keeps the existing TERM-to-KILL grace period; disappearing
 owners cannot observe or resume a graceful exit and use immediate tree termination.
+If a stopped or timed-out parent closes before escalation, both native supervisors
+force-stop its remaining process group before releasing ownership. Descendants
+with independent pipes may outlive the parent and ignore TERM; parent close alone
+is not evidence of tree exit. Normal successful completion does not terminate
+background descendants. Deliberately detached descendants are outside the POSIX
+process-group boundary; this is lifecycle cleanup, not a process sandbox.
 
 The native process registry tracks the shared spawn boundary (also used by Rust and
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels

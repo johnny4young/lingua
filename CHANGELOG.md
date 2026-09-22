@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Stop and timeout clean up native descendants even when their parent exits first.** A descendant with independent pipes that ignores graceful termination no longer escapes cleanup when the parent closes.
 - **Go Stop also cancels toolchain discovery and compilation.** Late compiler responses and old worker messages cannot start or stop a newer execution; compilation timeouts are distinct from WASM execution timeouts.
 - **Rust Stop cancels runtime detection, compilation and the native binary.** Closing the owning window cancels the same pipeline; late replies cannot replace a newer run, and timeouts have a distinct status.
 - **Closing a desktop window cancels its Node, Ruby, Deno and Bun runs, including preparation.** App shutdown force-stops remaining native children instead of relying on timers after exit; other windows and later runs remain independent.
