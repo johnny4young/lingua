@@ -8,6 +8,10 @@ import {
   runProjectTests,
   stopProjectTests,
 } from '../../src/main/projectTests';
+import { detectNode } from '../../src/main/node-runner';
+
+vi.mock('../../src/main/node-runner', () => ({ detectNode: vi.fn() }));
+
 import type { SpawnNativeRunOptions } from '../../src/main/runners/spawnNativeRun';
 
 const tmpPrefix = path.join(process.cwd(), '.tmp-lingua-project-tests-');
@@ -27,6 +31,7 @@ async function executable(name: string): Promise<void> {
 }
 
 beforeEach(async () => {
+  vi.mocked(detectNode).mockResolvedValue({ installed: true, binary: process.execPath, version: process.version });
   rootPath = await mkdtemp(tmpPrefix);
   binPath = path.join(rootPath, '.trusted-bin');
   await mkdir(binPath);
@@ -60,7 +65,6 @@ describe('project test discovery', () => {
     const result = await detectProjectTests(rootPath, {
       platform: 'linux',
       env: { PATH: binPath },
-      electronExecutable: '/trusted/electron',
     });
 
     expect(result.kind).toBe('ready');
@@ -120,6 +124,67 @@ describe('project test discovery', () => {
     ]);
   });
 
+  it('does not advertise JavaScript runners when host Node is missing', async () => {
+    vi.mocked(detectNode).mockResolvedValue({ installed: false });
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '*', jest: '*' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    await write('node_modules/jest/bin/jest.js');
+    const spawnImpl = vi.fn();
+    const detection = await detectProjectTests(rootPath);
+    expect(detection.candidates).toHaveLength(2);
+    expect(
+      detection.candidates.every(
+        entry => !entry.available && entry.unavailableReason === 'node-not-found'
+      )
+    ).toBe(true);
+    expect(await runProjectTests(rootPath, 'vitest', 'missing-node', { spawnImpl })).toMatchObject({
+      kind: 'unavailable',
+      unavailableReason: 'node-not-found',
+    });
+    expect(spawnImpl).not.toHaveBeenCalled();
+  });
+
+  it('resolves a PATH-detected node absolutely and strips relative PATH entries', async () => {
+    vi.mocked(detectNode).mockResolvedValue({
+      installed: true,
+      binary: 'node',
+      version: process.version,
+    });
+    const nodeName = process.platform === 'win32' ? 'node.exe' : 'node';
+    await executable(nodeName);
+    await write('package.json', JSON.stringify({ devDependencies: { jest: '*' } }));
+    await write('node_modules/jest/bin/jest.js');
+    const spawnImpl = vi.fn(async (_options: SpawnNativeRunOptions) => ({
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      executionTime: 1,
+      timedOut: false,
+      killed: false,
+    }));
+    await runProjectTests(rootPath, 'jest', 'absolute-node', {
+      env: {
+        PATH: `.${path.delimiter}${binPath}${path.delimiter}relative`,
+        SYNTHETIC_SECRET: 'must-not-reach-detector',
+        NODE_OPTIONS: '--require injected.js',
+        ELECTRON_RUN_AS_NODE: '1',
+      },
+      spawnImpl,
+    });
+    expect(detectNode).toHaveBeenLastCalledWith({ PATH: binPath });
+    expect(spawnImpl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: path.join(binPath, nodeName),
+        args: [
+          path.join(rootPath, 'node_modules/jest/bin/jest.js'),
+          '--runInBand',
+          '--colors=false',
+        ],
+      })
+    );
+    expect(spawnImpl.mock.calls[0]?.[0].env).not.toHaveProperty('ELECTRON_RUN_AS_NODE');
+  });
+
   it('returns none when no supported project marker exists', async () => {
     expect(await detectProjectTests(rootPath, { env: { PATH: '' } })).toEqual({
       kind: 'none',
@@ -158,7 +223,6 @@ describe('project test execution', () => {
     const result = await runProjectTests(rootPath, 'vitest', 'run-1', {
       platform: 'linux',
       env: { PATH: binPath },
-      electronExecutable: '/trusted/electron',
       spawnImpl: async options => {
         captured = options;
         return {
@@ -174,7 +238,7 @@ describe('project test execution', () => {
 
     expect(captured).toEqual(
       expect.objectContaining({
-        command: '/trusted/electron',
+        command: process.execPath,
         args: [path.join(rootPath, 'node_modules/vitest/vitest.mjs'), 'run', '--no-color'],
         cwd: rootPath,
       })
@@ -182,10 +246,10 @@ describe('project test execution', () => {
     expect(captured?.env).toEqual(
       expect.objectContaining({
         CI: '1',
-        ELECTRON_RUN_AS_NODE: '1',
         NO_COLOR: '1',
       })
     );
+    expect(captured?.env).not.toHaveProperty('ELECTRON_RUN_AS_NODE');
     expect(result).toEqual(
       expect.objectContaining({
         kind: 'success',
@@ -209,9 +273,7 @@ describe('project test execution', () => {
       "test('project runner fixture', () => { expect(2 + 2).toBe(4); });\n",
     );
 
-    const result = await runProjectTests(rootPath, 'vitest', 'run-real-vitest', {
-      electronExecutable: process.execPath,
-    });
+    const result = await runProjectTests(rootPath, 'vitest', 'run-real-vitest');
 
     expect(result.kind).toBe('success');
     expect(result.exitCode).toBe(0);
@@ -237,7 +299,6 @@ describe('project test execution', () => {
     });
     const run = runProjectTests(rootPath, 'vitest', 'run-stop', {
       platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -271,7 +332,6 @@ describe('project test execution', () => {
 
     const result = await runProjectTests(rootPath, 'vitest', 'run-owner-gone', {
       platform: 'linux',
-      electronExecutable: '/trusted/electron',
       signal: ownerLifecycle.signal,
       spawnImpl,
     });
@@ -287,7 +347,6 @@ describe('project test execution', () => {
     });
     const firstRun = runProjectTests(rootPath, 'vitest', 'run-first', {
       platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -311,7 +370,6 @@ describe('project test execution', () => {
     await expect(
       runProjectTests(rootPath, 'vitest', 'run-second', {
         platform: 'linux',
-        electronExecutable: '/trusted/electron',
       })
     ).resolves.toEqual(expect.objectContaining({ kind: 'busy' }));
 
@@ -319,10 +377,9 @@ describe('project test execution', () => {
     await expect(firstRun).resolves.toEqual(expect.objectContaining({ kind: 'stopped' }));
   });
 
-  it('reports JavaScript runner spawn failures as missing local dependencies', async () => {
+  it('reports a vanished Node executable as a runtime recovery error', async () => {
     const result = await runProjectTests(rootPath, 'vitest', 'run-spawn-error', {
       platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: async () => ({
         stdout: '',
         stderr: '',
@@ -330,14 +387,14 @@ describe('project test execution', () => {
         executionTime: 2,
         timedOut: false,
         killed: false,
-        spawnError: new Error('entry disappeared'),
+        spawnError: new Error('node disappeared'),
       }),
     });
 
     expect(result).toEqual(
       expect.objectContaining({
         kind: 'unavailable',
-        unavailableReason: 'dependencies-not-installed',
+        unavailableReason: 'node-not-found',
       })
     );
   });
@@ -346,7 +403,6 @@ describe('project test execution', () => {
     const output: string[] = [];
     const result = await runProjectTests(rootPath, 'vitest', 'run-stream', {
       platform: 'linux',
-      electronExecutable: '/trusted/electron',
       onOutput: (stream, chunk) => output.push(`${stream}:${chunk}`),
       spawnImpl: async options => {
         options.onStdout?.('collecting tests\n');
@@ -379,7 +435,6 @@ describe('project test execution', () => {
     const result = await runProjectTests(rootPath, 'vitest', 'run-real-process', {
       platform: process.platform,
       env: process.env,
-      electronExecutable: process.execPath,
       onOutput: (_stream, chunk) => streamed.push(chunk),
     });
 

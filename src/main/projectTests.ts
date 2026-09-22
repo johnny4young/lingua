@@ -11,6 +11,7 @@
 import { constants as fsConstants } from 'node:fs';
 import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { detectNode } from './node-runner';
 import type {
   ProjectTestCandidate,
   ProjectTestDetectionResult,
@@ -49,7 +50,6 @@ interface ProjectTestExecutionSpec {
 interface ProjectTestRuntimeOptions {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
-  electronExecutable?: string;
   spawnImpl?: (options: SpawnNativeRunOptions) => Promise<SpawnNativeRunResult>;
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   signal?: AbortSignal;
@@ -231,7 +231,8 @@ function candidate(
   framework: ProjectTestFramework,
   command: string,
   evidence: string[],
-  available: boolean
+  available: boolean,
+  unavailableReason?: ProjectTestCandidate['unavailableReason']
 ): ProjectTestCandidate {
   return {
     framework,
@@ -242,11 +243,45 @@ function candidate(
       ? {}
       : {
           unavailableReason:
-            framework === 'vitest' || framework === 'jest'
-              ? ('dependencies-not-installed' as const)
-              : ('toolchain-not-found' as const),
+            unavailableReason ??
+            (framework === 'vitest' || framework === 'jest'
+              ? 'dependencies-not-installed'
+              : 'toolchain-not-found'),
         }),
   };
+}
+
+function absoluteNodePath(env: NodeJS.ProcessEnv, node?: string | null): string {
+  return [node ? path.dirname(node) : '', ...(env.PATH ?? '').split(path.delimiter)]
+    .filter(directory => path.isAbsolute(directory))
+    .join(path.delimiter);
+}
+
+/** Resolve before changing cwd: a bare node plus a relative PATH could execute
+ * a project-planted binary. Reuse native Node discovery for GUI-launch fallback
+ * locations, but keep both its probe and the eventual runner PATH absolute. */
+async function projectNodeExecutable(
+  hostEnv: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform
+): Promise<string | null> {
+  // detectNode treats its argument as explicit user overrides. Passing the
+  // whole host environment here would bypass its allowlist during --version.
+  const env = Object.fromEntries(
+    Object.entries(
+      buildNativeRunnerEnv(
+        combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
+        undefined,
+        {},
+        hostEnv
+      )
+    ).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  );
+  env.PATH = absoluteNodePath(hostEnv);
+  const detected = await detectNode(env);
+  if (!detected.installed || !detected.binary) return null;
+  return path.isAbsolute(detected.binary)
+    ? detected.binary
+    : resolveHostExecutable([detected.binary], env, platform);
 }
 
 async function executionSpecs(
@@ -257,6 +292,8 @@ async function executionSpecs(
   const hostEnv = options.env ?? process.env;
   const manifest = await packageManifest(rootPath);
   const specs: ProjectTestExecutionSpec[] = [];
+  let nodeProbe: Promise<string | null> | undefined;
+  const getNode = () => (nodeProbe ??= projectNodeExecutable(hostEnv, platform));
 
   const vitestEvidence = await existingNames(rootPath, VITEST_CONFIGS);
   if (manifest && dependencyMentions(manifest, 'vitest'))
@@ -264,7 +301,9 @@ async function executionSpecs(
   if (manifest && scriptMentions(manifest, 'vitest')) vitestEvidence.push('package.json#scripts');
   if (vitestEvidence.length > 0) {
     const entry = path.join(rootPath, 'node_modules', 'vitest', 'vitest.mjs');
-    const available = await fileExists(entry);
+    const installed = await fileExists(entry);
+    const node = installed ? await getNode() : null;
+    const available = installed && node !== null;
     const env = buildNativeRunnerEnv(
       combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
       undefined,
@@ -272,14 +311,19 @@ async function executionSpecs(
         CI: '1',
         FORCE_COLOR: '0',
         NO_COLOR: '1',
-        ELECTRON_RUN_AS_NODE: '1',
         VITEST_SKIP_INSTALL_CHECKS: '1',
       },
-      hostEnv
+      { ...hostEnv, PATH: absoluteNodePath(hostEnv, node) }
     );
     specs.push({
-      candidate: candidate('vitest', 'vitest run --no-color', vitestEvidence, available),
-      command: options.electronExecutable ?? process.execPath,
+      candidate: candidate(
+        'vitest',
+        'vitest run --no-color',
+        vitestEvidence,
+        available,
+        installed ? 'node-not-found' : 'dependencies-not-installed'
+      ),
+      command: node ?? '',
       args: [entry, 'run', '--no-color'],
       env,
     });
@@ -292,7 +336,9 @@ async function executionSpecs(
   if (manifest && scriptMentions(manifest, 'jest')) jestEvidence.push('package.json#scripts');
   if (jestEvidence.length > 0) {
     const entry = path.join(rootPath, 'node_modules', 'jest', 'bin', 'jest.js');
-    const available = await fileExists(entry);
+    const installed = await fileExists(entry);
+    const node = installed ? await getNode() : null;
+    const available = installed && node !== null;
     const env = buildNativeRunnerEnv(
       combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
       undefined,
@@ -300,13 +346,18 @@ async function executionSpecs(
         CI: '1',
         FORCE_COLOR: '0',
         NO_COLOR: '1',
-        ELECTRON_RUN_AS_NODE: '1',
       },
-      hostEnv
+      { ...hostEnv, PATH: absoluteNodePath(hostEnv, node) }
     );
     specs.push({
-      candidate: candidate('jest', 'jest --runInBand --colors=false', jestEvidence, available),
-      command: options.electronExecutable ?? process.execPath,
+      candidate: candidate(
+        'jest',
+        'jest --runInBand --colors=false',
+        jestEvidence,
+        available,
+        installed ? 'node-not-found' : 'dependencies-not-installed'
+      ),
+      command: node ?? '',
       args: [entry, '--runInBand', '--colors=false'],
       env,
     });
@@ -502,7 +553,7 @@ export async function runProjectTests(
         ? {
             unavailableReason:
               framework === 'vitest' || framework === 'jest'
-                ? ('dependencies-not-installed' as const)
+                ? ('node-not-found' as const)
                 : ('toolchain-not-found' as const),
           }
         : {}),

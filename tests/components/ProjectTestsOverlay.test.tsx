@@ -8,7 +8,7 @@ import { useProjectStore } from '../../src/renderer/stores/projectStore';
 import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
-import type { ProjectTestOutputEvent } from '../../src/shared/projectTests';
+import type { ProjectTestOutputEvent, ProjectTestDetectionResult } from '../../src/shared/projectTests';
 
 const originalLingua = window.lingua;
 const initialProject = useProjectStore.getState();
@@ -43,7 +43,7 @@ function openProject(): void {
 function installDesktopBridge() {
   let outputHandler: ((event: ProjectTestOutputEvent) => void) | null = null;
   const bridge = {
-    detect: vi.fn().mockResolvedValue(detection),
+    detect: vi.fn<() => Promise<ProjectTestDetectionResult>>().mockResolvedValue(detection),
     run: vi.fn().mockImplementation(async (_rootId, _framework, runId) => {
       outputHandler?.({ runId, stream: 'stdout', chunk: 'RUN  v4\n' });
       return {
@@ -87,6 +87,34 @@ describe('ProjectTestsOverlay', () => {
     useNativeExecutionGateStore.setState(initialGate, true);
     vi.clearAllMocks();
   });
+
+  it.each(['en', 'es'])(
+    'explains missing Node and recovers after refresh in %s',
+    async language => {
+      await i18next.changeLanguage(language);
+      openProject();
+      const bridge = installDesktopBridge();
+      bridge.detect.mockResolvedValueOnce({
+        kind: 'ready',
+        candidates: [
+          { ...detection.candidates[0], available: false, unavailableReason: 'node-not-found' },
+        ],
+      });
+      const user = userEvent.setup();
+      render(<ProjectTestsOverlay onClose={vi.fn()} />);
+      await screen.findByText(
+        language === 'en'
+          ? 'Node.js was not found. Install Node.js or make it available in your system PATH, then refresh test detection.'
+          : 'No se encontró Node.js. Instala Node.js o agrégalo al PATH del sistema y luego actualiza la detección de pruebas.'
+      );
+      expect((screen.getByTestId('project-tests-run') as HTMLButtonElement).disabled).toBe(true);
+      await user.click(screen.getByTestId('project-tests-refresh'));
+      await waitFor(() =>
+        expect((screen.getByTestId('project-tests-run') as HTMLButtonElement).disabled).toBe(false)
+      );
+      expect(bridge.run).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps the web limitation explicit instead of pretending to run locally', () => {
     openProject();

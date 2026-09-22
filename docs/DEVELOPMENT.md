@@ -405,6 +405,31 @@ pnpm run smoke:desktop:packaged
 
 The packaged variant runs against the actual `Lingua.app` produced by `pnpm run make:desktop` and is the gate the release workflow runs before publishing artifacts.
 
+### Packaged project tests (host Node)
+
+Project suites use **host Node.js**, not the Electron executable. Do not enable
+`RunAsNode` to make Vitest/Jest work. Install Node and the project's own test
+framework dependencies, then refresh detection in Project tests.
+
+On macOS, after `pnpm run package:desktop`, run this targeted smoke with an
+installed Jest entrypoint (the root already supplies Vitest):
+
+```sh
+node scripts/smoke-packaged-project-tests.mjs \
+  out-builder/mac-arm64/lingua.app /absolute/path/to/jest/bin/jest.js
+```
+
+Use `out-builder/mac/lingua.app` on Intel. A separate, disposable npm fixture
+can supply Jest; do not add it to application production dependencies or run
+untrusted install scripts. The smoke creates its own project and profile,
+executes actual Vitest and Jest suites through the packaged IPC bridge, checks
+that Node is not Electron, and proves Stop removes the child process. It reads
+and asserts the release fuse wire without modifying it. Chromium CDP is opened
+on a temporary loopback port for automation; Node CLI inspection remains fused
+off. Fixtures/profile are removed and the app is closed on exit. Evidence is
+written under `output/playwright/packaged-project-tests/`. This is local
+packaging evidence, not production signing or notarization validation.
+
 Smoke-only environment knobs:
 
 | Name                                   | Purpose                                                                                                                                                                             |

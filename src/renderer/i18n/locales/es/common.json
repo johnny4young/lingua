@@ -2596,6 +2596,7 @@
   "projectTests.runner.ready": "Listo",
   "projectTests.runner.unavailable": "Requiere configuración",
   "projectTests.unavailable.dependencies-not-installed": "El framework está configurado, pero su paquete local no está instalado en node_modules.",
+  "projectTests.unavailable.node-not-found": "No se encontró Node.js. Instala Node.js o agrégalo al PATH del sistema y luego actualiza la detección de pruebas.",
   "projectTests.unavailable.toolchain-not-found": "No se encontró la cadena de herramientas local en una entrada absoluta de PATH ni en el entorno virtual del proyecto.",
   "projectTests.trust.title": "Las pruebas ejecutan código del proyecto en tu equipo",
   "projectTests.trust.description": "Ejecuta solo proyectos en los que confías. Lingua usa argumentos fijos, nunca invoca un shell, filtra las variables heredadas, limita la salida y detiene el árbol de procesos después de cinco minutos.",

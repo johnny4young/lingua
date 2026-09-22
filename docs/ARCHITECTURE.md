@@ -767,7 +767,12 @@ The trust boundary is deliberately narrower than a generic task runner:
 - main resolves the root capability, re-detects the selected framework
   immediately before every spawn, and owns a fixed argument vector for each
   runner;
-- JavaScript runners use their project-local module entrypoint, Python prefers
+- JavaScript runners use their project-local module entrypoint with host Node.js
+  resolved by the native Node detector (including GUI-launch fallback locations),
+  never the Electron executable or `ELECTRON_RUN_AS_NODE`. The release
+  `runAsNode` fuse remains disabled. Missing Node and missing local packages have
+  separate recovery states; refresh detection after installing either.
+- Python prefers
   `.venv`/`venv`, and host toolchains are accepted only from absolute `PATH`
   entries so a relative entry cannot plant an executable in the project cwd;
 - every subprocess runs without a shell, inherits only an audited toolchain

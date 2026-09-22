@@ -354,6 +354,7 @@ jobs:
           pnpm exec vitest run
           tests/ipc/permissions.test.ts
           tests/main/gitSecurity.test.ts
+          tests/main/projectTests.test.ts
           tests/shared/projectBundle.test.ts
           tests/main/dependencies.install.windows.test.ts
           tests/shared/python/interpreter.test.ts
