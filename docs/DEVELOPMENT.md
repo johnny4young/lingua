@@ -574,3 +574,10 @@ reaches main for Node, Ruby, Deno and Bun, then stops and releases it. All four
 runtimes must be installed for their subsequent real execution recovery checks. The cancelled source must never execute,
 and a later native run must succeed. The executable fixture is isolated and bounded;
 Windows exercises the platform-independent ownership checks in unit CI instead.
+
+The same preparation smoke also exercises project tests through a real picker-granted
+capability. It holds a real canonical-path result during authorization, then holds a
+real Node version probe during framework discovery. Both phases assert Stop prevents
+execution; duplicate identities are rejected, same-root concurrent discovery is
+busy, and a final project run recovers. The filesystem hook and PATH change are
+restricted to the isolated Electron process and restored in cleanup.

@@ -1382,3 +1382,16 @@ its Stop/stdin owner. Cancellation during preparation returns `stopped`; the sha
 native spawn boundary refuses already-aborted signals before creating a child.
 Staged files and identity registrations are cleaned in `finally`, including cancelled
 runs. This complements the renderer fence after IPC has crossed into main.
+
+### Project test preparation ownership
+
+Project-test IPC reserves cancellation by sender, root capability and run identity
+before awaiting root authorization. Stop revokes only that sender's matching
+request immediately; root validation still runs, and execution never begins before
+a valid capability resolves. Sender destruction and completed requests invalidate
+output callbacks and remove lifecycle listeners.
+
+The execution backend reserves the canonical root and run identity before framework
+discovery. Preparing runs therefore participate in the existing single-suite-per-root
+rule. Disposal cancels preparation, and a late finalizer removes only its own
+controller, never a replacement run's registration.

@@ -221,6 +221,71 @@ describe('project test execution', () => {
     await write('node_modules/vitest/vitest.mjs');
   });
 
+  it('owns Stop during framework detection and never spawns cancelled tests', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnImpl = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const pending = runProjectTests(rootPath, 'vitest', 'preparing', { spawnImpl });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    const stopped = stopProjectTests(rootPath, 'preparing');
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    const result = await pending;
+    expect(stopped).toBe(true);
+    expect(result.kind).toBe('stopped');
+    expect(spawnImpl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['same-id', 'invalid-request'], ['another-id', 'busy'],
+  ])('reserves preparation against concurrent %s requests', async (secondId, expectedKind) => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnImpl = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const first = runProjectTests(rootPath, 'vitest', 'same-id', { spawnImpl });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    const second = await runProjectTests(rootPath, 'vitest', secondId, { spawnImpl });
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    await first;
+    expect(second.kind).toBe(expectedKind);
+    expect(spawnImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not release a new owner when disposed preparation settles late', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnOld = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const old = runProjectTests(rootPath, 'vitest', 'reused', { spawnImpl: spawnOld });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    disposeProjectTestRuns();
+    let started!: SpawnNativeRunOptions;
+    let finish!: () => void;
+    const current = runProjectTests(rootPath, 'vitest', 'reused', {
+      spawnImpl: options => new Promise(resolve => {
+        started = options;
+        finish = () => resolve({
+          stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+          timedOut: false, killed: options.signal?.aborted ?? false,
+        });
+      }),
+    });
+    await vi.waitFor(() => expect(started).toBeDefined());
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    const oldResult = await old;
+    const stopped = stopProjectTests(rootPath, 'reused');
+    finish();
+    const currentResult = await current;
+    expect(oldResult.kind).toBe('stopped');
+    expect(spawnOld).not.toHaveBeenCalled();
+    expect(stopped).toBe(true);
+    expect(currentResult.kind).toBe('stopped');
+  });
+
   it('marks per-pipe clipping in the observed transcript and bounds live publication', async () => {
     const chunks: string[] = [];
     const result = await runProjectTests(rootPath, 'vitest', 'run-clipped-order', {

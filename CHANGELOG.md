@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Project tests honor Stop and window closure while authorizing the folder or detecting the framework.** Preparing runs cannot bypass the one-suite-per-project limit, and late cleanup or output cannot affect another run.
 - **Ruby, Deno and Bun also honor Stop during runtime discovery and source staging.** Late preparation cannot execute cancelled source or replace another run's Stop owner, and temporary files are cleaned before completion.
 - **Stop also takes effect while the desktop Node backend discovers its runtime or prepares files.** Cancelled work cannot create a child later, and duplicate live run identities cannot replace another run's Stop owner.
 - **Stop during native Node TypeScript preparation cannot launch cancelled code later.** A late compiler result or rejection cannot steal cancellation from the next run.

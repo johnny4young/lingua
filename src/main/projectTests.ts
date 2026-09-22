@@ -24,7 +24,7 @@ import type {
   ProjectTestFramework,
   ProjectTestRunResult,
 } from '../shared/projectTests';
-import { isProjectTestFramework } from '../shared/projectTests';
+import { isProjectTestFramework, isProjectTestRunId } from '../shared/projectTests';
 import { resolvePythonInterpreter } from '../shared/python/interpreter';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -42,7 +42,6 @@ import {
 const PROJECT_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const PROJECT_TEST_KILL_ESCALATION_MS = 300;
 const CONFIG_READ_LIMIT_BYTES = 512 * 1024;
-const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u;
 
 interface ProjectTestExecutionSpec {
   candidate: ProjectTestCandidate;
@@ -451,10 +450,10 @@ export async function detectProjectTests(
   return { kind: candidates.length > 0 ? 'ready' : 'none', candidates };
 }
 
-function emptyRunResult(
+export function emptyProjectTestRunResult(
   kind: ProjectTestRunResult['kind'],
   framework: ProjectTestFramework | null,
-  timeoutMs: number
+  timeoutMs: number = PROJECT_TEST_TIMEOUT_MS
 ): ProjectTestRunResult {
   return {
     kind,
@@ -476,43 +475,45 @@ export async function runProjectTests(
 ): Promise<ProjectTestRunResult> {
   if (
     !isProjectTestFramework(framework) ||
-    typeof runId !== 'string' ||
-    !RUN_ID_PATTERN.test(runId)
+    !isProjectTestRunId(runId)
   ) {
-    return emptyRunResult('invalid-request', null, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('invalid-request', null, PROJECT_TEST_TIMEOUT_MS);
   }
   if (activeRuns.has(runId)) {
-    return emptyRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
   const rootKey = normalizedRootKey(rootPath, options.platform);
   if ([...activeRuns.values()].some(active => active.rootKey === rootKey)) {
-    return emptyRunResult('busy', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('busy', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
-  const spec = (await executionSpecs(rootPath, options)).find(
-    entry => entry.candidate.framework === framework
-  );
-  if (!spec) return emptyRunResult('not-detected', framework, PROJECT_TEST_TIMEOUT_MS);
-  if (!spec.candidate.available) {
-    return {
-      ...emptyRunResult('unavailable', framework, PROJECT_TEST_TIMEOUT_MS),
-      command: spec.candidate.command,
-      unavailableReason: spec.candidate.unavailableReason,
-    };
-  }
-
-  // The renderer may disappear while runner detection is still awaiting the
-  // filesystem. Do not spawn after its lifecycle signal has already fired.
   if (options.signal?.aborted) {
-    return emptyRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
+  // Reserve root and identity before discovery: Stop, owner disposal and
+  // concurrent requests must also see runs that are still preparing.
   const controller = new AbortController();
   const stopForOwnerLifecycle = () => controller.abort();
   options.signal?.addEventListener('abort', stopForOwnerLifecycle, { once: true });
   activeRuns.set(runId, { rootKey, controller });
   try {
+    const spec = (await executionSpecs(rootPath, options)).find(
+      entry => entry.candidate.framework === framework
+    );
+    if (controller.signal.aborted) {
+      return emptyProjectTestRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
+    }
+    if (!spec) return emptyProjectTestRunResult('not-detected', framework, PROJECT_TEST_TIMEOUT_MS);
+    if (!spec.candidate.available) {
+      return {
+        ...emptyProjectTestRunResult('unavailable', framework, PROJECT_TEST_TIMEOUT_MS),
+        command: spec.candidate.command,
+        unavailableReason: spec.candidate.unavailableReason,
+      };
+    }
+
     let transcript: ProjectTestTranscript | undefined;
     const pipeSizes = { stdout: 0, stderr: 0 };
     const clippedPipes = new Set<'stdout' | 'stderr'>();
@@ -576,7 +577,7 @@ export async function runProjectTests(
     };
   } finally {
     options.signal?.removeEventListener('abort', stopForOwnerLifecycle);
-    activeRuns.delete(runId);
+    if (activeRuns.get(runId)?.controller === controller) activeRuns.delete(runId);
   }
 }
 

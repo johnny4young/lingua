@@ -194,6 +194,89 @@ const timer = setInterval(() => {
     assert.equal(recovery.stdout.trim(), 'recovered');
     results.push({ runtime, mainPreparation: 'stopped', oldSideEffectAbsent: true, recovery: 'success' });
   }
+  if (process.platform !== 'win32') {
+    const project = path.join(fixture, 'project');
+    const entry = path.join(project, 'node_modules/vitest/vitest.mjs');
+    const unexpected = path.join(fixture, 'unexpected-project-test');
+    await mkdir(path.dirname(entry), { recursive: true });
+    await writeFile(path.join(project, 'package.json'), JSON.stringify({ devDependencies: { vitest: '*' } }));
+    await writeFile(entry, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(unexpected)}, 'UNEXPECTED');`);
+    await app.evaluate(({ dialog }, project) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [project] });
+    }, project);
+    const rootId = await page.evaluate(async () => {
+      const selected = await window.lingua.fs.selectDirectory();
+      globalThis.__projectTestPrepRootId = selected.rootId;
+      return selected.rootId;
+    });
+    assert(rootId, 'The picker granted a real project capability');
+    for (const phase of ['authorization', 'detection']) {
+      const nodeFixture = path.join(fixture, 'node');
+      await rm(path.join(nodeFixture, 'detecting'), { force: true });
+      await rm(path.join(nodeFixture, 'release-detection'), { force: true });
+      await app.evaluate(async (_, { project, phase, bin }) => {
+        const fs = process.getBuiltinModule('fs/promises');
+        const { syncBuiltinESMExports } = process.getBuiltinModule('module');
+        const realpath = fs.realpath;
+        const originalPath = process.env.PATH;
+        let release;
+        const held = new Promise(resolve => { release = resolve; });
+        const state = { ready: false, release, restore: () => {
+          fs.realpath = realpath;
+          syncBuiltinESMExports();
+          process.env.PATH = originalPath;
+        } };
+        globalThis.__projectTestPreparationHold = state;
+        if (phase === 'detection') process.env.PATH = bin;
+        else {
+          let taken = false;
+          fs.realpath = async (...args) => {
+            if (String(args[0]) !== project || taken) return realpath(...args);
+            taken = true;
+            const canonical = await realpath(...args);
+            state.ready = true;
+            await held;
+            return canonical;
+          };
+          syncBuiltinESMExports();
+        }
+      }, { project, phase, bin: path.join(nodeFixture, 'bin') });
+      await page.evaluate(rootId => {
+        globalThis.__projectTestPreparation = window.lingua.projectTests.run(rootId, 'vitest', 'project-preparing-smoke');
+      }, rootId);
+      let ready = false;
+      for (let i = 0; i < 100; i++) {
+        if (phase === 'authorization') ready = await app.evaluate(() => globalThis.__projectTestPreparationHold.ready);
+        else { try { await access(path.join(nodeFixture, 'detecting')); ready = true; } catch {} }
+        if (ready) break;
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      assert(ready, `Project tests reached real ${phase} preparation`);
+      const duplicate = await page.evaluate(rootId => window.lingua.projectTests.run(rootId, 'vitest', 'project-preparing-smoke'), rootId);
+      assert.equal(duplicate.kind, 'invalid-request');
+      if (phase === 'detection') {
+        const concurrent = await page.evaluate(rootId => window.lingua.projectTests.run(rootId, 'vitest', 'project-concurrent-smoke'), rootId);
+        assert.equal(concurrent.kind, 'busy');
+      }
+      const stopped = await page.evaluate(rootId => window.lingua.projectTests.stop(rootId, 'project-preparing-smoke'), rootId);
+      assert.deepEqual(stopped, { stopped: true });
+      await writeFile(path.join(nodeFixture, 'release-detection'), 'go');
+      await app.evaluate(() => globalThis.__projectTestPreparationHold.release());
+      const cancelled = await page.evaluate(() => globalThis.__projectTestPreparation);
+      assert.equal(cancelled.kind, 'stopped');
+      await assert.rejects(access(unexpected), error => error.code === 'ENOENT');
+      await app.evaluate(() => {
+        globalThis.__projectTestPreparationHold.restore();
+        delete globalThis.__projectTestPreparationHold;
+      });
+      results.push({ projectTestsPreparation: phase, stopped: true, duplicateRejected: true, oldSideEffectAbsent: true });
+    }
+    await writeFile(entry, 'console.log("project recovered");');
+    const recovered = await page.evaluate(rootId => window.lingua.projectTests.run(rootId, 'vitest', 'project-recovery-smoke'), rootId);
+    assert.equal(recovered.kind, 'success');
+    assert.equal(recovered.stdout.trim(), 'project recovered');
+    results.push({ projectTestsRecovery: 'success' });
+  }
   assert.deepEqual(errors, []);
   await writeFile(
     path.join(artifacts, 'result.json'),
@@ -213,10 +296,15 @@ const timer = setInterval(() => {
     'Native preparation smoke passed: real esbuild + Node/Ruby/Deno/Bun IPC, cancelled source never executes, Stop kills only the current child, zero console errors'
   );
 } finally {
+  await app?.evaluate(() => {
+    globalThis.__projectTestPreparationHold?.release();
+    globalThis.__projectTestPreparationHold?.restore();
+  }).catch(() => {});
   // Even a negative-control failure must not orphan the newer real child.
   await page
     ?.evaluate(async () => {
       const state = globalThis.__nodePreparationSmoke;
+      if (globalThis.__projectTestPrepRootId) await window.lingua.projectTests.stop(globalThis.__projectTestPrepRootId, 'project-preparing-smoke');
       const runtime = globalThis.__mainPreparationRuntime;
       if (runtime) {
         await window.lingua[runtime].stop('main-preparing-smoke');

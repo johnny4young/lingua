@@ -63,3 +63,8 @@ export function isProjectTestFramework(value: unknown): value is ProjectTestFram
     typeof value === 'string' && (PROJECT_TEST_FRAMEWORKS as readonly string[]).includes(value)
   );
 }
+
+/** Transient execution correlation only; never a persisted identifier. */
+export function isProjectTestRunId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u.test(value);
+}

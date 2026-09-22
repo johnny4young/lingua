@@ -83,12 +83,12 @@ try {
     dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false });
   }, fixture);
   for (const language of ['en', 'es']) {
-    await page.evaluate(language => {
-      const settings = JSON.parse(localStorage.getItem('lingua-settings') ?? '{"state":{}}');
-      settings.state.language = language;
-      settings.state.theme = language === 'en' ? 'light' : 'dark';
-      settings.state.editorTheme = language === 'en' ? 'lingua-light' : 'lingua-dark';
-      localStorage.setItem('lingua-settings', JSON.stringify(settings));
+    await page.evaluate(async language => {
+      // Use the live owner: raw localStorage edits can be overwritten by a
+      // concurrent persisted settings update before reload.
+      const { useSettingsStore } = await import('/src/renderer/stores/settingsStore.ts');
+      useSettingsStore.getState().setLanguage(language);
+      useSettingsStore.getState().setTheme(language === 'en' ? 'light' : 'dark');
     }, language);
     await page.reload();
     await page.locator('[data-testid="app-chrome"]').waitFor();
