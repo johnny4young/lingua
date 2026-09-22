@@ -1,3 +1,4 @@
+import { orderedConsoleOutputs, isPrimaryErrorOutput } from './capturedOutput';
 import type { LineResult } from '../stores/resultStore';
 import type { Language } from '../types/language';
 import type { ExecutionResult } from '../types/execution';
@@ -36,19 +37,8 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
   const lineResults: LineResult[] = [];
   const fallbackLine = getLastNonEmptyLine(code);
 
-  for (const output of result.stdout) {
-    lineResults.push({
-      line: output.line ?? fallbackLine,
-      value: output.args.join(' '),
-      type: output.type,
-    });
-  }
-
-  for (const output of result.stderr) {
-    if (result.error && output.type === 'error') {
-      continue;
-    }
-
+  for (const output of orderedConsoleOutputs(result)) {
+    if (isPrimaryErrorOutput(result, output)) continue;
     lineResults.push({
       line: output.line ?? fallbackLine,
       value: output.args.join(' '),
@@ -113,15 +103,8 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
 export function toFullOutput(result: ExecutionResult): string {
   const lines: string[] = [];
 
-  for (const output of result.stdout) {
-    lines.push(output.args.join(' '));
-  }
-
-  for (const output of result.stderr) {
-    if (result.error && output.type === 'error') {
-      continue;
-    }
-
+  for (const output of orderedConsoleOutputs(result)) {
+    if (isPrimaryErrorOutput(result, output)) continue;
     lines.push(output.args.join(' '));
   }
 

@@ -220,7 +220,9 @@ export function parsePythonTraceback(text: string | undefined): ClickableStackFr
       const lineNum = Number.parseInt(match.groups.line ?? '', 10);
       frames.push({
         text: raw.trim(),
-        file: match.groups.file,
+        // Synthetic worker envelopes are not files the user can open.
+        file: /^(?:<lingua-bootstrap>|<lingua-execution>)$/.test(match.groups.file ?? '')
+          ? undefined : match.groups.file,
         line: Number.isFinite(lineNum) ? lineNum : undefined,
         fnName: match.groups.fn,
       });

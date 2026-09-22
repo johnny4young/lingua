@@ -159,6 +159,7 @@ export class WorkerRunnerShell {
 
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     const magicResults: MagicCommentResult[] = [];
     let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
@@ -241,6 +242,7 @@ export class WorkerRunnerShell {
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: msg.line };
+            output.captureOrder = nextCaptureOrder++;
             // `console.table` adoption signal. Fire-and-forget; the renderer
             // never blocks on telemetry.
             if (msg.consoleTableInvoked === true) {

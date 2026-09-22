@@ -9,6 +9,23 @@ import {
 } from '@/hooks/runnerOutput';
 
 describe('runnerOutput helpers', () => {
+  it('retains interleaved captures and emits only unstreamed completion entries', () => {
+    const result = {
+      stdout: [{ type: 'log' as const, args: ['middle'], captureOrder: 1 }],
+      stderr: [{ type: 'error' as const, args: ['first'], captureOrder: 0 }], executionTime: 0,
+    };
+    expect(toConsoleEntries(result).slice(0, 2).map(entry => entry.content)).toEqual(['first', 'middle']);
+    expect(toConsoleEntries(result, 'javascript', { streamed: true }).map(entry => entry.content))
+      .toEqual(['Completed in 0.0 ms']);
+  });
+
+  it('does not duplicate a primary browser failure that was already streamed', () => {
+    const result = { stdout: [], stderr: [{ type: 'error' as const, args: ['fatal'],
+      captureOrder: 0, isExecutionError: true }], error: { message: 'fatal' }, executionTime: 0 };
+    expect(toConsoleEntries(result).filter(entry => entry.type === 'error')).toHaveLength(1);
+    expect(toConsoleEntries(result, 'javascript', { streamed: true }).filter(entry => entry.type === 'error')).toHaveLength(0);
+  });
+
   it('surfaces each captured error once without turning later values into errors', () => {
     const entries = toConsoleEntries({
       stdout: [], stderr: [], executionTime: 4, kind: 'success',

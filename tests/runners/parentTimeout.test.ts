@@ -236,7 +236,7 @@ describe('JavaScriptRunner — internal parent-owned timeout', () => {
     await runner.init();
     const result = await runner.execute('void 0', { timeout: 1_000 });
     expect(result.stderr).toEqual([
-      { type: 'error', args: ['[stderr truncated]'] },
+      { type: 'error', args: ['[stderr truncated]'], captureOrder: 0 },
     ]);
   });
 

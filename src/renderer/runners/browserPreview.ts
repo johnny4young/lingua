@@ -135,6 +135,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
       : presetForLanguage ?? 'normal';
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     let droppedStdout = 0;
     let droppedStderr = 0;
     let stderrByteTruncated = false;
@@ -251,6 +252,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
             break;
           case 'console': {
             const output: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
               type: message.method,
               args: message.args,
             };
@@ -267,6 +269,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
           }
           case 'error': {
             const error: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
+              isExecutionError: true,
               type: 'error',
               args: [message.stack ?? message.message],
             };
@@ -285,6 +289,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
           }
           case 'unhandledrejection': {
             const error: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
+              isExecutionError: true,
               type: 'error',
               args: [message.message],
             };

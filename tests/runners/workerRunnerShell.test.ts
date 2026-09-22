@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toFullOutput } from '@/utils/executionPresentation';
 import { WorkerRunnerShell, type WorkerRunSpec } from '@/runners/workerRunnerShell';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 
@@ -192,6 +193,15 @@ describe('the message pump', () => {
     expect(result.stderr).toHaveLength(1);
     expect(result.stdout[0]?.args).toEqual(['out']);
     expect(result.stderr[0]?.args).toEqual(['err']);
+  });
+
+  it('retains message capture order when rebuilding separated streams', async () => {
+    const { promise, worker } = startRun();
+    worker.emitForRun({ type: 'console', method: 'error', args: ['first'] });
+    worker.emitForRun({ type: 'console', method: 'log', args: ['middle'] });
+    worker.emitForRun({ type: 'console', method: 'error', args: ['last'] });
+    worker.emitForRun({ type: 'done', executionTime: 1 });
+    expect(toFullOutput(await promise)).toBe('first\nmiddle\nlast');
   });
 
   it('coerces a malformed stdin summary to bounded integers', async () => {

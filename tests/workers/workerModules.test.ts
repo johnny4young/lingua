@@ -1,3 +1,4 @@
+import { buildPythonBoundedExecutionSource } from '../../src/renderer/workers/python-worker-boundary';
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyJsWorkerExecutePayload,
@@ -111,7 +112,7 @@ describe('Python execution worker adapter', () => {
   it('preserves lifecycle and result ordering through the extracted handler', async () => {
     const harness = createPythonExecutionHarness();
     const runPythonAsync = vi.fn(async (source: string) => {
-      if (source === '40 + 2') return 42;
+      if (source === buildPythonBoundedExecutionSource('40 + 2')) return 42;
       if (source === PYTHON_STREAM_STATE_SOURCE) {
         return JSON.stringify({ stdout: '', stderr: '', magic: [], print_entries: [] });
       }
@@ -151,7 +152,7 @@ describe('Python execution worker adapter', () => {
   it('routes Python Scratchpad expressions through CPython AST instrumentation', async () => {
     const harness = createPythonExecutionHarness();
     const source = 'value = 21\nvalue * 2';
-    const executionSource = buildPythonAutoLogExecutionSource(source);
+    const executionSource = buildPythonBoundedExecutionSource(buildPythonAutoLogExecutionSource(source));
     const runPythonAsync = vi.fn(async (incoming: string) => {
       if (incoming.includes(PYTHON_AUTO_LOG_HELPERS_SOURCE)) return null;
       if (incoming === executionSource) return null;
@@ -175,7 +176,7 @@ describe('Python execution worker adapter', () => {
       autoLog: true,
     });
 
-    expect(runPythonAsync).toHaveBeenCalledWith(executionSource);
+    expect(runPythonAsync).toHaveBeenCalledWith(executionSource, { filename: '<lingua-execution>' });
     expect(harness.messages).toContainEqual({
       type: 'magic-comment',
       runId: 'python-auto-log-1',

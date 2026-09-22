@@ -30,8 +30,8 @@ export function truncatePythonWorkerValue(value: string, marker: string): string
 
 /** Parse Python traceback to extract line/column */
 export function parsePythonWorkerError(errorText: string): { line?: number; message: string } {
-  // Look for "File "<exec>", line N" pattern
-  const lineMatch = errorText.match(/File\s+"<exec>",\s+line\s+(\d+)/);
+  // Python lists outer callers first; the last user frame owns the failure.
+  const lineMatch = [...errorText.matchAll(/File\s+"<exec>",\s+line\s+(\d+)/g)].at(-1);
   // Get the last line as the actual error message
   const lines = errorText.trim().split('\n');
   const message = lines.at(-1) || errorText;
@@ -421,6 +421,7 @@ export interface PythonPrintEntry {
  * legacy `postBufferedOutput` filter.
  */
 export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[]): void {
+  let captureOrder = 0;
   for (const entry of entries) {
     // Filter on `line !== ''` (NOT `line.trim() !== ''`) so the
     // behavior matches `postBufferedOutput` exactly: a `print('   ')`
@@ -433,6 +434,7 @@ export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[
     const rest = lines.slice(1);
     const message: {
       type: 'console';
+      captureOrder: number;
       runId: string;
       method: 'log' | 'error';
       args: string[];
@@ -440,6 +442,7 @@ export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[
       line?: number;
     } = {
       type: 'console',
+      captureOrder: captureOrder++,
       runId,
       method: entry.method,
       args: [first],
@@ -450,12 +453,14 @@ export function postPythonPrintEntries(runId: string, entries: PythonPrintEntry[
     for (const continuation of rest) {
       const continuationMessage: {
         type: 'console';
+        captureOrder: number;
         runId: string;
         method: 'log' | 'error';
         args: string[];
         line?: number;
       } = {
         type: 'console',
+        captureOrder: captureOrder++,
         runId,
         method: entry.method,
         args: [continuation],

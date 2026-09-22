@@ -86,6 +86,20 @@ describe('executeTabManually — console delivery', () => {
     }
   );
 
+  it('keeps the observed stream order in the final result and console without mutating captures', async () => {
+    const first: ConsoleOutput = { type: 'error', args: ['one'], line: 1 };
+    const middle: ConsoleOutput = { type: 'log', args: ['two'], line: 1 };
+    const last: ConsoleOutput = { type: 'error', args: ['three'], line: 1 };
+    execute.mockImplementation(async (_source: string, context: { onConsole: (value: ConsoleOutput) => void }) => {
+      for (const value of [first, middle, last]) context.onConsole(value);
+      return { stdout: [middle], stderr: [first, last], executionTime: 1, error: { message: 'fatal' } };
+    });
+    await executeTabManually(tab, { recordHistory: false });
+    expect(contents()).toEqual(['Running main.js...', 'one', 'two', 'three', 'fatal', 'Failed in 1.0 ms']);
+    expect(useResultStore.getState().lineResults.map(row => row.value)).toEqual(['one', 'two', 'three', 'fatal']);
+    expect(first).not.toHaveProperty('captureOrder');
+  });
+
   it('does not announce completion for an explicit error outcome without a message', async () => {
     execute.mockResolvedValue({ stdout: [], stderr: [], executionTime: 12, kind: 'error' });
     const summary = await executeTabManually(tab, { recordHistory: false });

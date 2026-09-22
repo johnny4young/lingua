@@ -17,6 +17,25 @@ describe('executionPresentation helpers', () => {
     error: { message: 'Boom', line: 2, column: 4 },
   };
 
+  it('preserves observed interleaving and distinct stderr beside a fatal diagnostic', () => {
+    const result: ExecutionResult = {
+      stdout: [{ type: 'log', args: ['middle'], captureOrder: 1 }],
+      stderr: [
+        { type: 'error', args: ['first'], captureOrder: 0 },
+        { type: 'error', args: ['last'], captureOrder: 2 },
+      ], executionTime: 1, error: { message: 'fatal', line: 1 },
+    };
+    expect(toFullOutput(result)).toBe('first\nmiddle\nlast');
+    expect(toLineResults(result, 'source').map(row => row.value)).toEqual(['first', 'middle', 'last', 'fatal']);
+  });
+
+  it('does not erase an independently captured user log with the same error message', () => {
+    expect(toLineResults({ stdout: [], stderr: [
+      { type: 'error', args: ['fatal'], captureOrder: 0, line: 1 },
+    ], error: { message: 'fatal', line: 2 }, executionTime: 0 }, 'a\nb'))
+      .toEqual([{ line: 1, value: 'fatal', type: 'error' }, { line: 2, value: 'fatal', type: 'error' }]);
+  });
+
   it('recognizes dynamic result languages', () => {
     expect(isDynamicResultLanguage('javascript')).toBe(true);
     expect(isDynamicResultLanguage('python')).toBe(true);

@@ -141,6 +141,7 @@ export class GoRunner implements LanguageRunner {
     const wasmExecJs = compileResult.wasmExecJs;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     let error: ExecutionError | undefined;
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -192,6 +193,7 @@ export class GoRunner implements LanguageRunner {
             // the worker didn't already provide a line.
             const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);
             const output: ConsoleOutput = { type: msg.method, args: msg.args, line: enrichedLine };
+            output.captureOrder = nextCaptureOrder++;
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

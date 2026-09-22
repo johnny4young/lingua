@@ -3,6 +3,7 @@
  * the opt-in code snapshot, and the run-start git posture the capsule carries.
  */
 
+import { orderedConsoleOutputs } from '../../utils/capturedOutput';
 import { primaryExecutionError } from '../../utils/executionOutcome';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { isEntitled } from '../../../shared/entitlements';
@@ -66,8 +67,7 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
     }
   };
 
-  collectFromConsole(result.stdout);
-  collectFromConsole(result.stderr);
+  collectFromConsole(orderedConsoleOutputs(result));
   for (const magicResult of result.magicResults ?? []) {
     if (magicResult.payload !== undefined) {
       richOutputs.push(magicResult.payload);

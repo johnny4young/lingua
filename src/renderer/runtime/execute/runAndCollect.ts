@@ -76,6 +76,7 @@ export async function runAndCollect(
   const streamedStdout: ConsoleOutput[] = [];
   const streamedStderr: ConsoleOutput[] = [];
   let streamedConsoleCount = 0;
+  const observedOrders = new WeakMap<ConsoleOutput, number>();
   let presentationPending = false;
   let settled = false;
   // A runner can stream one message per output line. Rebuild the result panel
@@ -96,8 +97,10 @@ export async function runAndCollect(
     setError(null);
     setExecutionTime(null);
   };
-  const streamConsoleOutput = (output: ConsoleOutput) => {
+  const streamConsoleOutput = (captured: ConsoleOutput) => {
     if (settled || !isCurrent()) return;
+    const output = { ...captured, captureOrder: captured.captureOrder ?? streamedConsoleCount };
+    observedOrders.set(captured, output.captureOrder);
     streamedConsoleCount += 1;
     if (output.type === 'error') {
       streamedStderr.push(output);
@@ -127,6 +130,14 @@ export async function runAndCollect(
   } finally {
     settled = true;
   }
+  // Runners may return the same captures without owning ordering metadata.
+  // Reconcile by identity only; matching text could confuse repeated outputs.
+  const retainObservedOrder = (output: ConsoleOutput): ConsoleOutput => {
+    const captureOrder = output.captureOrder ?? observedOrders.get(output);
+    return captureOrder === undefined || output.captureOrder !== undefined
+      ? output : { ...output, captureOrder };
+  };
+  result = { ...result, stdout: result.stdout.map(retainObservedOrder), stderr: result.stderr.map(retainObservedOrder) };
   if (!isCurrent()) return { result, streamedConsoleCount };
   // Tear down the in-flight deadline immediately; the pill flips to the
   // termination variant on the next render.

@@ -6,6 +6,7 @@
  * every exit's teardown.
  */
 
+import { orderedConsoleOutputs } from '../../utils/capturedOutput';
 import { executionKind, primaryExecutionError } from '../../utils/executionOutcome';
 import i18next from 'i18next';
 import { bucketDurationMs } from '../../../shared/telemetry';
@@ -182,7 +183,7 @@ export function publishCancelledRun(
   setError(null);
   setDiagnostics([]);
   setExecutionTime(result.executionTime);
-  const cancelledOutputs = streamedConsoleCount > 0 ? [] : [...result.stdout, ...result.stderr];
+  const cancelledOutputs = streamedConsoleCount > 0 ? [] : orderedConsoleOutputs(result);
   for (const output of cancelledOutputs) {
     runConsole.add(toConsoleEntry(output, language));
   }
@@ -266,11 +267,7 @@ export async function publishCompletedRun(
     useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
   }
 
-  const consoleEntries = toConsoleEntries(result, language);
-  const entriesToAdd =
-    streamedConsoleCount > 0
-      ? consoleEntries.slice(result.stdout.length + result.stderr.length)
-      : consoleEntries;
+  const entriesToAdd = toConsoleEntries(result, language, { streamed: streamedConsoleCount > 0 });
   for (const entry of entriesToAdd) {
     runConsole.add(entry);
   }

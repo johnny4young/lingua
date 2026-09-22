@@ -241,6 +241,7 @@ class WasmRubyRunner implements LanguageRunner {
 
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     let error: ExecutionError | undefined;
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -325,10 +326,12 @@ class WasmRubyRunner implements LanguageRunner {
             break;
           case 'console': {
             const output: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
               type: msg.method,
               args: msg.args,
             };
             if (typeof msg.line === 'number') output.line = msg.line;
+            if (msg.isExecutionError) output.isExecutionError = true;
             if (msg.method === 'error' || msg.method === 'warn') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

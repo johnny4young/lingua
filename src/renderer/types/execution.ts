@@ -277,6 +277,10 @@ export interface ExecutionResult {
 }
 
 export interface ConsoleOutput {
+  /** Run-local observed capture order; absent for independently buffered pipes. */
+  captureOrder?: number;
+  /** A runtime error event, not a user console.error call. */
+  isExecutionError?: boolean;
   type: 'log' | 'warn' | 'error' | 'info';
   args: string[];
   line?: number;
@@ -342,6 +346,8 @@ export interface LanguageRunner {
 export type WorkerResponse =
   | {
       type: 'console';
+      captureOrder?: number;
+      isExecutionError?: boolean;
       runId: string;
       method: ConsoleOutput['type'];
       args: string[];

@@ -1,3 +1,4 @@
+import { orderedConsoleOutputs, isPrimaryErrorOutput } from '../utils/capturedOutput';
 import i18next from 'i18next';
 import { capturedExecutionErrors, executionKind } from '../utils/executionOutcome';
 import type { ConsoleEntry } from '../types/console';
@@ -105,16 +106,16 @@ export function toConsoleEntry(output: ConsoleOutput, language?: Language): Cons
 
 export function toConsoleEntries(
   result: ExecutionResult,
-  language?: Language
+  language?: Language,
+  { streamed = false }: { streamed?: boolean } = {}
 ): ConsoleEntryInput[] {
   const entries: ConsoleEntryInput[] = [];
 
-  for (const output of result.stdout) {
-    entries.push(toConsoleEntry(output, language));
-  }
-
-  for (const output of result.stderr) {
-    entries.push(toConsoleEntry(output, language));
+  const outputs = orderedConsoleOutputs(result);
+  if (!streamed) {
+    for (const output of outputs) {
+      if (!isPrimaryErrorOutput(result, output)) entries.push(toConsoleEntry(output, language));
+    }
   }
 
   if (result.result !== undefined) {
@@ -137,7 +138,9 @@ export function toConsoleEntries(
   }
 
   const executionError = formatExecutionError(result);
-  if (executionError) {
+  const primaryAlreadyStreamed = streamed && outputs.some(output =>
+    output.isExecutionError && isPrimaryErrorOutput(result, output));
+  if (executionError && !primaryAlreadyStreamed) {
     entries.push(executionError);
   }
 

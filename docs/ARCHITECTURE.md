@@ -136,6 +136,28 @@ outcomes take precedence over errors captured before termination. The original
 capture remains the inline error; it is not copied into a synthetic top-level
 runner error. Only clean successes replace the last successful snapshot.
 
+### Captured output order and Python failures
+
+Console captures may carry a transient, run-local `captureOrder`. Presentation
+reconstructs that observed order across stdout/stderr only when every entry has
+a valid, distinct sequence. Legacy independently buffered pipes retain their
+per-stream order; no causal order between operating-system pipes is claimed.
+Manual streaming reconciles returned captures by object identity, never by text.
+Final publication does not replay already streamed output. A runtime diagnostic
+copy is distinct from independent user stderr, even when their text is identical.
+No persisted session or RunCapsuleV1 schema changes are required.
+
+The Python worker executes original source through the public `eval_code_async`
+evaluator, with the same explicit namespace, final-expression and top-level-await
+semantics. A small boundary restores original stdout/stderr before rejection
+crosses into JavaScript. Pyodide formats exceptions through its original stderr
+file descriptor; leaving a redirected StringIO installed would turn the traceback
+into user output and leave the rejected error's message empty. Rejection is never
+classified by message truthiness. Ordered print entries are emitted once, not
+replayed again from the stderr buffer. Python's innermost user frame owns the
+primary coordinate; synthetic worker frames are not filesystem links. Real local
+Pyodide tests cover failure, recovery, notebook namespaces and stream restoration.
+
 ### Source coordinates through instrumentation
 
 JS/TS transforms retain the original expression characters and emit high-resolution

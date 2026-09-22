@@ -377,6 +377,7 @@ export class PythonRunner implements LanguageRunner {
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: originalLine };
+            if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
             // implementation note — adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg

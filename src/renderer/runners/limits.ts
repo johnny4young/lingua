@@ -69,6 +69,7 @@ export function appendCappedConsole(
   }
   if (dropped === 0) {
     entries[MAX_CONSOLE_ENTRIES - 1] = {
+      ...(output.captureOrder !== undefined ? { captureOrder: output.captureOrder } : {}),
       type: 'warn',
       args: [t('runner.truncated.console')],
     };
@@ -92,8 +93,11 @@ export function capStderrIfOverflowing(
     if (total > MAX_STDERR_BYTES) break;
   }
   if (total <= MAX_STDERR_BYTES) return false;
+  const captureOrder = stderr.at(-1)?.captureOrder;
   stderr.length = 0;
-  stderr.push({ type: 'error', args: [t('runner.truncated.stderr')] });
+  stderr.push({ type: 'error', args: [t('runner.truncated.stderr')],
+    ...(captureOrder !== undefined ? { captureOrder } : {}),
+  });
   return true;
 }
 

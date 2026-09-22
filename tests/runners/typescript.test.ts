@@ -294,7 +294,7 @@ describe('TypeScriptRunner', () => {
 
       const result = await runner.execute('console.log("hello")');
 
-      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3 }]);
+      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3, captureOrder: 0 }]);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,
@@ -383,7 +383,7 @@ describe('TypeScriptRunner', () => {
 
       expect(postedMaps).toHaveLength(1);
       expect(createSourcePositionMapper(postedMaps!)({ line: 2, column: 1 })).toEqual({ line: 1, column: 1 });
-      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 1 }]);
+      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 1, captureOrder: 0 }]);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,

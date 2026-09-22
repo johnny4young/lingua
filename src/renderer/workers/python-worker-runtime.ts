@@ -8,7 +8,7 @@ export type PyodidePyModule = {
 };
 
 export type PyodideRuntime = {
-  runPythonAsync(code: string, options?: { globals?: unknown }): Promise<unknown>;
+  runPythonAsync(code: string, options?: { globals?: unknown; filename?: string }): Promise<unknown>;
   runPython?(code: string): unknown;
   loadPackage?: (names: string | readonly string[]) => Promise<unknown>;
   loadedPackages?: Record<string, unknown>;
