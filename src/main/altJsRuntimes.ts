@@ -141,18 +141,25 @@ function clampTimeout(timeoutMs: number | undefined): number {
 async function spawnAltRuntime(
   id: AltJsRuntimeId,
   source: string,
-  options: AltJsRunOptions
+  options: AltJsRunOptions,
+  signal: AbortSignal
 ): Promise<AltJsRunResult> {
   const config = CONFIGS[id];
   const timeoutMs = clampTimeout(options.timeoutMs);
   const env = resolveEnv(id, options.userEnv);
-  const tempDir = await mkdtemp(path.join(tmpdir(), `lingua-${id}-`));
-  const entryFile = path.join(tempDir, `entry.${config.ext(options.language)}`);
-
+  let tempDir: string | undefined;
+  let entryFile: string;
   try {
+    tempDir = await mkdtemp(path.join(tmpdir(), `lingua-${id}-`));
+    if (signal.aborted) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      return stoppedAltRunResult(options);
+    }
+    entryFile = path.join(tempDir, `entry.${config.ext(options.language)}`);
     await writeFile(entryFile, source, 'utf-8');
   } catch (err) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (signal.aborted) return stoppedAltRunResult(options);
     return {
       kind: 'error',
       stdout: '',
@@ -164,29 +171,31 @@ async function spawnAltRuntime(
     };
   }
 
-  return await new Promise<AltJsRunResult>((resolve) => {
-    const start = Date.now();
-    let stdout = '';
-    let stderr = '';
-    let stdoutTruncated = false;
-    let stderrTruncated = false;
-    let resolved = false;
-    let kind: AltJsRunKind = 'success';
-    let killedByTimer = false;
-    let stoppedByUser = false;
-    let escalationTimer: NodeJS.Timeout | null = null;
+  try {
+    if (signal.aborted) return stoppedAltRunResult(options);
+    const directory = tempDir;
+    return await new Promise<AltJsRunResult>((resolve) => {
+      const start = Date.now();
+      let stdout = '';
+      let stderr = '';
+      let stdoutTruncated = false;
+      let stderrTruncated = false;
+      let resolved = false;
+      let kind: AltJsRunKind = 'success';
+      let killedByTimer = false;
+      let stoppedByUser = false;
+      let escalationTimer: NodeJS.Timeout | null = null;
 
-    let child: ChildProcessWithoutNullStreams;
-    try {
-      child = spawn(config.binary, config.runArgs(entryFile, tempDir), {
-        cwd: tempDir,
-        env,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        ...detachedSpawnOptions(),
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      void rm(tempDir, { recursive: true, force: true }).finally(() => {
+      let child: ChildProcessWithoutNullStreams;
+      try {
+        child = spawn(config.binary, config.runArgs(entryFile, directory), {
+          cwd: tempDir,
+          env,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          ...detachedSpawnOptions(),
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         resolve({
           kind: 'error',
           stdout,
@@ -196,88 +205,98 @@ async function spawnAltRuntime(
           error: message,
           timeoutMs,
         });
+        return;
+      }
+
+      const terminate = (next: 'timeout' | 'stopped') => {
+        if (resolved) return;
+        if (next === 'timeout') killedByTimer = true;
+        else stoppedByUser = true;
+        kind = next;
+        killProcessTree(child, 'SIGTERM');
+        if (escalationTimer === null) {
+          escalationTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
+        }
+      };
+
+      const onAbort = () => terminate('stopped');
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+
+      child.stdin.on('error', () => {
+        /* EPIPE — child exited before stdin flush. */
       });
-      return;
-    }
-
-    const terminate = (next: 'timeout' | 'stopped') => {
-      if (resolved) return;
-      if (next === 'timeout') killedByTimer = true;
-      else stoppedByUser = true;
-      kind = next;
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
+      try {
+        child.stdin.end();
+      } catch {
+        /* already closed */
       }
-    };
 
-    if (options.runId) activeRuns.set(options.runId, () => terminate('stopped'));
+      child.stdout.on('data', (chunk: Buffer) => {
+        if (stdoutTruncated) return;
+        stdout += chunk.toString();
+        if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
+          stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, STDOUT_TRUNCATION_MARKER);
+          stdoutTruncated = true;
+        }
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        if (stderrTruncated) return;
+        stderr += chunk.toString();
+        if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
+          stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, STDERR_TRUNCATION_MARKER);
+          stderrTruncated = true;
+        }
+      });
 
-    child.stdin.on('error', () => {
-      /* EPIPE — child exited before stdin flush. */
-    });
-    try {
-      child.stdin.end();
-    } catch {
-      /* already closed */
-    }
+      const killTimer = setTimeout(() => terminate('timeout'), timeoutMs);
 
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutTruncated) return;
-      stdout += chunk.toString();
-      if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-        stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, STDOUT_TRUNCATION_MARKER);
-        stdoutTruncated = true;
-      }
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrTruncated) return;
-      stderr += chunk.toString();
-      if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-        stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, STDERR_TRUNCATION_MARKER);
-        stderrTruncated = true;
-      }
-    });
+      const finish = (result: AltJsRunResult) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(killTimer);
+        if (escalationTimer !== null) clearTimeout(escalationTimer);
+        signal.removeEventListener('abort', onAbort);
+        resolve(result);
+      };
 
-    const killTimer = setTimeout(() => terminate('timeout'), timeoutMs);
+      child.on('close', (code: number | null) => {
+        const exitCode = code ?? -1;
+        if (!killedByTimer && !stoppedByUser && exitCode !== 0) kind = 'error';
+        const errorText =
+          kind === 'timeout'
+            ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
+            : kind === 'error'
+              ? stderr || `Process exited with code ${exitCode}`
+              : undefined;
+        finish({ kind, stdout, stderr, exitCode, executionTime: Date.now() - start, error: errorText, timeoutMs });
+      });
 
-    const finish = async (result: AltJsRunResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(killTimer);
-      if (escalationTimer !== null) clearTimeout(escalationTimer);
-      if (options.runId) activeRuns.delete(options.runId);
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-      resolve(result);
-    };
-
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? -1;
-      if (!killedByTimer && !stoppedByUser && exitCode !== 0) kind = 'error';
-      const errorText =
-        kind === 'timeout'
-          ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
-          : kind === 'error'
-            ? stderr || `Process exited with code ${exitCode}`
-            : undefined;
-      void finish({ kind, stdout, stderr, exitCode, executionTime: Date.now() - start, error: errorText, timeoutMs });
-    });
-
-    child.on('error', (err: Error) => {
-      const message = err.message || `Failed to spawn ${config.binary}`;
-      const missing: AltJsRunKind =
-        /ENOENT/.test(message) || /not found/i.test(message) ? 'missing-binary' : 'error';
-      void finish({
-        kind: missing,
-        stdout,
-        stderr: stderr || message,
-        exitCode: -1,
-        executionTime: Date.now() - start,
-        error: message,
-        timeoutMs,
+      child.on('error', (err: Error) => {
+        const message = err.message || `Failed to spawn ${config.binary}`;
+        const missing: AltJsRunKind =
+          /ENOENT/.test(message) || /not found/i.test(message) ? 'missing-binary' : 'error';
+        finish({
+          kind: missing,
+          stdout,
+          stderr: stderr || message,
+          exitCode: -1,
+          executionTime: Date.now() - start,
+          error: message,
+          timeoutMs,
+        });
       });
     });
-  });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+function stoppedAltRunResult(options: AltJsRunOptions): AltJsRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
 }
 
 async function runAltRuntime(
@@ -285,19 +304,34 @@ async function runAltRuntime(
   source: string,
   options: AltJsRunOptions
 ): Promise<AltJsRunResult> {
-  const detect = await detectAltRuntime(id, options.userEnv);
-  if (!detect.installed) {
+  if (options.runId && activeRuns.has(options.runId)) {
     return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? `${id} is not installed.`,
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
+      kind: 'error', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+      error: 'A native JavaScript run with this identity is already active.',
       timeoutMs: clampTimeout(options.timeoutMs),
     };
   }
-  return spawnAltRuntime(id, source, options);
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  if (options.runId) activeRuns.set(options.runId, stop);
+  try {
+    const detect = await detectAltRuntime(id, options.userEnv);
+    if (controller.signal.aborted) return stoppedAltRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? `${id} is not installed.`,
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnAltRuntime(id, source, options, controller.signal);
+  } finally {
+    if (options.runId && activeRuns.get(options.runId) === stop) activeRuns.delete(options.runId);
+  }
 }
 
 export function stopAltRun(runId: unknown): { stopped: boolean } {

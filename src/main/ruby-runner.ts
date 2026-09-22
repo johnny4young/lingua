@@ -306,7 +306,7 @@ function resolveRubyCwd(filePath?: string): string {
   return app.getPath('temp');
 }
 
-async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyRunResult> {
+async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortSignal): Promise<RubyRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = resolveRubyCwd(options.filePath);
 
@@ -315,6 +315,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   // RBENV_VERSION is silently ignored by the spawned `ruby` and we just
   // fall back to whichever binary `PATH` resolved.
   const rubyVersionPin = await findRubyVersionFile(options.filePath);
+  if (signal.aborted) return stoppedRubyRunResult(options);
   const env = resolveRubyRunEnv(
     options.userEnv,
     rubyVersionPin ? { RBENV_VERSION: rubyVersionPin, ASDF_RUBY_VERSION: rubyVersionPin } : {}
@@ -331,26 +332,24 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   try {
     tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
   } catch (err) {
+    if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp dir: ${message}`);
+  }
+  if (signal.aborted) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    return stoppedRubyRunResult(options);
   }
   const tempFile = path.join(tempDir, 'script.rb');
   try {
     await writeFile(tempFile, source, 'utf-8');
   } catch (err) {
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp script: ${message}`);
   }
   const args = [tempFile];
-
-  // Parent-owned Stop: an AbortController lets `ruby:stop` terminate the
-  // exact child. The shared spawn helper owns the SIGTERM→SIGKILL
-  // escalation once the signal aborts.
-  const controller = new AbortController();
-  if (options.runId) {
-    activeRubyRuns.set(options.runId, () => controller.abort());
-  }
 
   // implementation — interactive mode keeps stdin open so the renderer can stream further
   // input via `ruby:stdin-write`. Requires a runId to key the stream registry;
@@ -389,21 +388,12 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stderr', chunk)
           : undefined,
-      signal: controller.signal,
+      signal,
     });
 
-    const result = mapRubyRunResult(run, timeoutMs);
-    // Resolve the IPC promise before async tempdir cleanup so a fast
-    // follow-up run cannot be delayed behind filesystem teardown. Cleanup
-    // failures are non-fatal because the temp directory is disposable.
-    void rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    return result;
+    return mapRubyRunResult(run, timeoutMs);
   } finally {
-    if (options.runId) {
-      activeRubyRuns.delete(options.runId);
-      // implementation — drop the interactive stdin registration once the run ends.
-      activeRubyStdins.delete(options.runId);
-    }
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -468,23 +458,45 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.floor(timeoutMs);
 }
 
+function stoppedRubyRunResult(options: RubyRunOptions): RubyRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
+}
+
 async function runRubyCode(
   source: string,
   options: RubyRunOptions
 ): Promise<RubyRunResult> {
-  const detect = await detectRuby(options.userEnv);
-  if (!detect.installed) {
-    return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? 'Ruby is not installed.',
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
-      timeoutMs: clampTimeout(options.timeoutMs),
-    };
+  if (options.runId && activeRubyRuns.has(options.runId)) {
+    return invalidRubyRunResult('A Ruby run with this identity is already active.');
   }
-  return spawnRuby(source, options);
+  // Own detection, version selection and staging, not just the spawned child.
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  if (options.runId) activeRubyRuns.set(options.runId, stop);
+  try {
+    const detect = await detectRuby(options.userEnv);
+    if (controller.signal.aborted) return stoppedRubyRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? 'Ruby is not installed.',
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnRuby(source, options, controller.signal);
+  } finally {
+    if (options.runId && activeRubyRuns.get(options.runId) === stop) {
+      activeRubyRuns.delete(options.runId);
+      activeRubyStdins.delete(options.runId);
+    }
+  }
 }
 
 function stopRubyRun(runId: unknown): { stopped: boolean } {

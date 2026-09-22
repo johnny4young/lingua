@@ -570,6 +570,7 @@ continuation is controlled; native IPC/process execution is real. Evidence is
 written to `output/playwright/node-preparation/` and owned fixtures are removed.
 
 On POSIX, the same smoke also holds a real host-runtime version probe after IPC
-reaches main, then stops and releases it. The cancelled source must never execute,
+reaches main for Node, Ruby, Deno and Bun, then stops and releases it. All four
+runtimes must be installed for their subsequent real execution recovery checks. The cancelled source must never execute,
 and a later native run must succeed. The executable fixture is isolated and bounded;
 Windows exercises the platform-independent ownership checks in unit CI instead.

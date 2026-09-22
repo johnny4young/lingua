@@ -144,13 +144,15 @@ try {
   // A real executable pauses only its version probe. This holds main's detector
   // after IPC crossed, rather than mocking the runner or child-process API.
   // POSIX shebang fixture; platform-independent ownership is covered by unit CI.
-  if (process.platform !== 'win32') {
-    const bin = path.join(fixture, 'bin');
-    const detecting = path.join(fixture, 'detecting');
-    const releaseDetection = path.join(fixture, 'release-detection');
-    const unexpected = path.join(fixture, 'unexpected-main-execution');
+  for (const runtime of process.platform === 'win32' ? [] : ['node', 'ruby', 'deno', 'bun']) {
+    const runtimeFixture = path.join(fixture, runtime);
+    await mkdir(runtimeFixture);
+    const bin = path.join(runtimeFixture, 'bin');
+    const detecting = path.join(runtimeFixture, 'detecting');
+    const releaseDetection = path.join(runtimeFixture, 'release-detection');
+    const unexpected = path.join(runtimeFixture, 'unexpected-main-execution');
     await mkdir(bin);
-    const executable = path.join(bin, 'node');
+    const executable = path.join(bin, runtime);
     await writeFile(executable, `#!${process.execPath}
 const fs = require('node:fs');
 if (process.argv[2] !== '--version') {
@@ -162,33 +164,35 @@ const timeout = setTimeout(() => process.exit(2), 4000);
 const timer = setInterval(() => {
   if (!fs.existsSync(${JSON.stringify(releaseDetection)})) return;
   clearInterval(timer); clearTimeout(timeout);
-  console.log(process.version);
+  console.log(${JSON.stringify(runtime === 'ruby' ? 'ruby 3.3.6' : 'v24.19.0')});
 }, 10);
 `);
     await chmod(executable, 0o700);
-    await page.evaluate(({ bin }) => {
-      globalThis.__mainPreparationSmoke = window.lingua.node.run('console.log("must not execute")', {
+    await page.evaluate(({ bin, runtime }) => {
+      globalThis.__mainPreparationRuntime = runtime;
+      globalThis.__mainPreparationSmoke = window.lingua[runtime].run('console.log("must not execute")', {
         runId: 'main-preparing-smoke', userEnv: { PATH: bin },
       });
-    }, { bin });
+    }, { bin, runtime });
     let ready = false;
     for (let i = 0; i < 100; i++) {
       try { await access(detecting); ready = true; break; } catch {}
       await new Promise(resolve => setTimeout(resolve, 20));
     }
     assert(ready, 'The real main-process detector is preparing the run');
-    const stopped = await page.evaluate(() => window.lingua.node.stop('main-preparing-smoke'));
+    const stopped = await page.evaluate(runtime => window.lingua[runtime].stop('main-preparing-smoke'), runtime);
     await writeFile(releaseDetection, 'go');
     const cancelled = await page.evaluate(() => globalThis.__mainPreparationSmoke);
     assert.deepEqual(stopped, { stopped: true });
     assert.equal(cancelled.kind, 'stopped');
     await assert.rejects(access(unexpected), error => error.code === 'ENOENT');
-    const recovery = await page.evaluate(() => window.lingua.node.run('console.log("recovered")', {
-      runId: 'main-recovery-smoke',
-    }));
+    const recovery = await page.evaluate(runtime => window.lingua[runtime].run(
+      runtime === 'ruby' ? "puts 'recovered'" : 'console.log("recovered")',
+      { runId: 'main-recovery-smoke' }
+    ), runtime);
     assert.equal(recovery.kind, 'success');
     assert.equal(recovery.stdout.trim(), 'recovered');
-    results.push({ mainPreparation: 'stopped', oldSideEffectAbsent: true, recovery: 'success' });
+    results.push({ runtime, mainPreparation: 'stopped', oldSideEffectAbsent: true, recovery: 'success' });
   }
   assert.deepEqual(errors, []);
   await writeFile(
@@ -206,15 +210,18 @@ const timer = setInterval(() => {
     )
   );
   console.log(
-    'Node preparation smoke passed: real esbuild + native IPC, cancelled source never executes, Stop kills only the current child, zero console errors'
+    'Native preparation smoke passed: real esbuild + Node/Ruby/Deno/Bun IPC, cancelled source never executes, Stop kills only the current child, zero console errors'
   );
 } finally {
   // Even a negative-control failure must not orphan the newer real child.
   await page
     ?.evaluate(async () => {
       const state = globalThis.__nodePreparationSmoke;
-      await window.lingua.node.stop('main-preparing-smoke');
-      await window.lingua.node.stop('main-recovery-smoke');
+      const runtime = globalThis.__mainPreparationRuntime;
+      if (runtime) {
+        await window.lingua[runtime].stop('main-preparing-smoke');
+        await window.lingua[runtime].stop('main-recovery-smoke');
+      }
       if (!state) return;
       state.release();
       if (state.currentRunId) await window.lingua.node.stop(state.currentRunId);
