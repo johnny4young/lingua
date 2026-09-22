@@ -353,6 +353,8 @@ jobs:
         run: >-
           pnpm exec vitest run
           tests/ipc/permissions.test.ts
+          tests/main/gitSecurity.test.ts
+          tests/shared/projectBundle.test.ts
           tests/main/dependencies.install.windows.test.ts
           tests/shared/python/interpreter.test.ts
       # Build the real standalone archive on win32. Unit tests can prove path

@@ -1194,3 +1194,32 @@ The easiest way to reason about this architecture is:
 - the **disk** is the final source of truth
 
 If you keep that model, future extensions tend to stay coherent.
+
+
+## Read-only Git and project archive trust
+
+Project queries require Git 2.36 or newer because earlier versions can treat
+`core.fsmonitor=false` as a hook executable instead of disabling it. Queries
+share one no-shell invocation boundary with an allowlisted host environment,
+no inherited Git redirection/configuration, no global/system configuration,
+disabled fsmonitor/hooks, external diff/text conversion and recursive submodule
+inspection, and no permitted transport for lazy object fetching. Missing local
+objects degrade the relevant query rather than fetching or invoking a helper.
+The host Git binary and its installation remain trusted.
+
+This does not turn native Run or the integrated terminal into a sandbox: those
+remain explicit execution of project code with the user's authority. Git query
+hardening preserves linked worktrees and submodule roots whose legitimate
+metadata lives outside their working tree; it does not require `.git` to be a
+directory inside the opened root. Ignoring submodule changes in a parent query
+does not prevent opening a submodule directly.
+
+Project bundles cannot carry `.git` files/directories at any depth, including
+case variants and NTFS/HFS aliases. Import rejects the entire archive before
+opening a destination dialog or writing files. The existing `path-traversal`
+rejection covers these filesystem-authority paths; `.gitignore`,
+`.gitattributes`, and `.github` remain ordinary source files. Neither export nor
+import changes the bundle schema or persisted user data.
+
+References: [Git configuration](https://git-scm.com/docs/git-config#Documentation/git-config.txt-corefsmonitor)
+and [Git environment](https://git-scm.com/docs/git#_environment_variables).

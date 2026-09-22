@@ -1,42 +1,8 @@
 /**
- * implementation — main-process Git read-only layer.
- *
- * Surface (exposed via `src/main/ipc/git.ts`):
- *
- *   - `detectGit(folderPath)` resolves `{ installed, version?, repoRoot?, branch? }`
- *     for an opened folder. Probes the `git` binary once per main-process
- *     lifetime (mirrors Ruby's `detectRuby` pattern), then runs
- *     `git rev-parse --show-toplevel` + `git rev-parse --abbrev-ref HEAD`
- *     against the folder.
- *   - `getFileStatus(repoRoot, filePath)` returns the per-file porcelain
- *     status as a closed-enum bucket plus insertion / deletion counts.
- *   - `getFileDiff(repoRoot, filePath)` returns the original (`HEAD:<path>`)
- *     and modified (working tree) content for a Monaco diff editor, with
- *     a truncation flag when either side exceeds `MAX_DIFF_BYTES`.
- *
- * Security posture (same shape as `ruby-runner.ts` + `node-runner.ts`):
- *
- *   - `execFileAsync` only — never the shell-evaluating sibling. The
- *     argv is a fixed array with no user-controlled tokens between
- *     `git` and the literal subcommand. The file path that flows into
- *     `git status -- <file>` / `git diff HEAD -- <file>` is validated
- *     to live UNDER `repoRoot` via `path.relative`; `git:diff` also
- *     re-validates that the claimed root is the actual `rev-parse`
- *     top-level before it reads the working-tree side from disk.
- *   - Env: `process.env` is forwarded as-is. Git only needs PATH to
- *     find itself and HOME to read `~/.gitconfig`; both are already in
- *     `process.env`. We intentionally do NOT use `buildNativeRunnerEnv`
- *     here because git is purely read-only and the user-tier env from
- *     internal does not apply (no toolchain to influence).
- *   - Output caps: stdout capped at 64 KiB per side for diffs (the
- *     unified-diff `truncated` flag tells the renderer it must surface
- *     the cap instead of pretending the diff is complete).
- *   - Timeout: 5s per invocation. A hung `git` (network filesystem
- *     stall, repo corruption) cannot block IPC forever.
- *
- * implementation is read-only: there is no `git add`, no `git commit`, no
- * `git checkout`. implementation adds branch indicator refresh + implementation
- * adds the write surface. Today we read.
+ * Read-only project Git queries. Repository configuration is untrusted:
+ * every invocation uses the same restricted environment and disables hooks,
+ * external diff/text conversion, lazy network fetches and optional writes.
+ * Native execution remains a separate, explicit user action.
  */
 
 import * as childProc from 'node:child_process';
@@ -44,6 +10,7 @@ import { existsSync, promises as fsAsync, watch as fsWatch } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { shell } from 'electron';
+import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import type {
   GitDetectResult,
   GitFileDiff,
@@ -67,6 +34,54 @@ const execFileAsync = promisify(childProc.execFile);
  * (NFS / SMB / sleep-pinned external drive) does not block IPC.
  */
 const GIT_INVOCATION_TIMEOUT_MS = 5_000;
+const GIT_NULL_FILE = process.platform === 'win32' ? 'NUL' : '/dev/null';
+
+function runGit(
+  binary: string,
+  args: string[],
+  options: { cwd?: string; timeout?: number; maxBuffer?: number }
+): Promise<{ stdout: string; stderr: string }> {
+  return execFileAsync(
+    binary,
+    [
+      '--no-pager',
+      '--no-replace-objects',
+      '--literal-pathspecs',
+      '-c',
+      'core.fsmonitor=false',
+      '-c',
+      `core.hooksPath=${GIT_NULL_FILE}`,
+      '-c',
+      'core.untrackedCache=false',
+      '-c',
+      'submodule.recurse=false',
+      '-c',
+      'protocol.allow=never',
+      ...args,
+    ],
+    {
+      ...options,
+      timeout: GIT_INVOCATION_TIMEOUT_MS,
+      env: buildNativeRunnerEnv(combinedAllowlist([]), undefined, {
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_CONFIG_SYSTEM: GIT_NULL_FILE,
+        GIT_CONFIG_GLOBAL: GIT_NULL_FILE,
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_OPTIONAL_LOCKS: '0',
+        GIT_NO_LAZY_FETCH: '1',
+      }),
+    }
+  );
+}
+
+// Older Git versions interpret fsmonitor=false as an executable hook name.
+// Do not run repository queries unless boolean fsmonitor support is known.
+function supportsSafeQueries(version: string): boolean {
+  const match = /^git version (\d+)\.(\d+)(?:\.|$)/u.exec(version);
+  return Boolean(
+    match && (Number(match[1]) > 2 || (Number(match[1]) === 2 && Number(match[2]) >= 36))
+  );
+}
 
 /**
  * Hard cap on each side of the diff payload. A 64 KiB ceiling keeps
@@ -121,10 +136,11 @@ async function probeGitBinary(): Promise<CachedBinaryProbe> {
     // 1. Try whatever PATH resolves first. On every well-configured
     //    machine this is the only path that matters.
     try {
-      const { stdout } = await execFileAsync('git', ['--version'], {
+      const { stdout } = await runGit('git', ['--version'], {
         timeout: GIT_INVOCATION_TIMEOUT_MS,
       });
-      cachedBinary = { binary: 'git', version: stdout.trim() };
+      const version = stdout.trim();
+      cachedBinary = { binary: supportsSafeQueries(version) ? 'git' : null, version };
       return cachedBinary;
     } catch {
       // fall through to the fallback walker
@@ -138,10 +154,11 @@ async function probeGitBinary(): Promise<CachedBinaryProbe> {
       for (const candidate of MAC_GUI_FALLBACK_PATHS) {
         if (!existsSync(candidate)) continue;
         try {
-          const { stdout } = await execFileAsync(candidate, ['--version'], {
+          const { stdout } = await runGit(candidate, ['--version'], {
             timeout: GIT_INVOCATION_TIMEOUT_MS,
           });
-          cachedBinary = { binary: candidate, version: stdout.trim() };
+          const version = stdout.trim();
+          cachedBinary = { binary: supportsSafeQueries(version) ? candidate : null, version };
           return cachedBinary;
         } catch {
           // try the next path
@@ -179,7 +196,7 @@ async function resolveRepoRoot(
   folderPath: string
 ): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runGit(
       binary,
       ['rev-parse', '--show-toplevel'],
       {
@@ -207,7 +224,7 @@ async function resolveBranch(
   repoRoot: string
 ): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runGit(
       binary,
       ['rev-parse', '--abbrev-ref', 'HEAD'],
       {
@@ -234,7 +251,9 @@ export async function detectGit(folderPath?: string): Promise<GitDetectResult> {
     return {
       installed: false,
       error:
-        'Git is not installed. Install it from https://git-scm.com/downloads',
+        probe.version
+          ? 'Git 2.36 or newer is required for safe project queries. Upgrade from https://git-scm.com/downloads'
+          : 'Git is not installed. Install it from https://git-scm.com/downloads',
     };
   }
   const version = probe.version ?? undefined;
@@ -351,9 +370,9 @@ export async function getFileStatus(
     // would use NUL separators but the single-file query already
     // returns at most one record, so the standard newline output is
     // simpler to consume.
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runGit(
       binary,
-      ['status', '--porcelain=v1', '--', relative],
+      ['status', '--porcelain=v1', '--ignore-submodules=all', '--', relative],
       {
         cwd: repoRoot,
         timeout: GIT_INVOCATION_TIMEOUT_MS,
@@ -385,9 +404,9 @@ async function getNumstatForFile(
   relative: string
 ): Promise<{ insertions: number; deletions: number }> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runGit(
       binary,
-      ['diff', '--numstat', 'HEAD', '--', relative],
+      ['diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', '--numstat', 'HEAD', '--', relative],
       {
         cwd: repoRoot,
         timeout: GIT_INVOCATION_TIMEOUT_MS,
@@ -460,9 +479,9 @@ async function readHeadVersion(
   relative: string
 ): Promise<[string, boolean]> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await runGit(
       binary,
-      ['show', `HEAD:${relative}`],
+      ['show', '--no-ext-diff', '--no-textconv', `HEAD:${relative}`],
       {
         cwd: repoRoot,
         timeout: GIT_INVOCATION_TIMEOUT_MS,
@@ -642,11 +661,8 @@ async function resolveHeadSummary(
   if (!binary) return null;
   const branch = await resolveBranch(binary, repoRoot);
   let commit: string | undefined;
-  // Reuse the same execFileAsync envelope the rest of the module
-  // uses (shell: false, 5s timeout, no shell evaluation). The argv
-  // is a fixed array — no user-controlled tokens between `git` and
-  // the literal subcommand. SAFE per implementation security posture.
-  const runner = execFileAsync;
+  // Watch refreshes use the same trust boundary as foreground queries.
+  const runner = runGit;
   try {
     const { stdout } = await runner(binary, ['rev-parse', 'HEAD'], {
       cwd: repoRoot,

@@ -309,3 +309,7 @@ Missing all three, the desktop-native or browser-interpreter path stays.
 | 2026-05-11 | implementation   | Python renderer adapter extended with hover and signature help over a shared symbol table |
 | 2026-05-19 | implementation   | Ruby flipped from validate-only to runnable via `@ruby/wasm-wasi` web worker; native desktop subprocess deferred |
 | 2026-05-20 | implementation   | Ruby desktop native subprocess shipped (`src/main/ruby-runner.ts`); renderer `RubyRunner` becomes a hybrid dispatcher with Settings preference + `.ruby-version` honoring |
+
+Git-backed project inspection requires Git 2.36 or newer. Queries disable
+repository-controlled hooks and external conversions; unsupported host Git
+versions report an upgrade requirement instead of inspecting the repository.

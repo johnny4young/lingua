@@ -301,3 +301,41 @@ describe('internal — BUNDLE_REJECT_REASONS', () => {
     ).toBe(true);
   });
 });
+
+describe('repository metadata boundary', () => {
+  const metadataPaths = [
+    '.git/config',
+    'nested/.git/config',
+    '.GIT/config',
+    '.git',
+    'nested/.git./config',
+    '.git /config',
+    'git~1/config',
+    '.g\u200cit/config',
+    '.git::$INDEX_ALLOCATION/config',
+  ];
+
+  it.each(metadataPaths)('rejects metadata path %s on every platform', entry => {
+    expect(validateBundleEntryPath(entry)).toBeNull();
+    expect(() => packBundle([file(entry)], { createdAt: CREATED_AT })).toThrow();
+  });
+
+  it.each([...metadataPaths, '.git/'])(
+    'rejects an entire imported archive containing %s',
+    entry => {
+      const zip = zipSync({ 'safe.js': strToU8('42'), [entry]: strToU8('untrusted metadata') });
+      expect(unpackBundle(zip)).toEqual({ ok: false, reason: 'path-traversal' });
+    }
+  );
+
+  it('preserves ordinary Git-related source files', () => {
+    const paths = ['.gitignore', '.gitattributes', '.github/workflows/test.yml', 'src/git.ts'];
+    const packed = packBundle(
+      paths.map(entry => file(entry)),
+      { createdAt: CREATED_AT }
+    );
+    const result = unpackBundle(packed);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.files.map(entry => entry.path)).toEqual(paths);
+  });
+});

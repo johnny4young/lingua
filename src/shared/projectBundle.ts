@@ -149,14 +149,26 @@ interface UnpackBundleErr {
 
 export type UnpackBundleResult = UnpackBundleOk | UnpackBundleErr;
 
+/** Git metadata has filesystem aliases on case-insensitive NTFS/HFS volumes. */
+function containsRepositoryMetadata(rawPath: string): boolean {
+  return rawPath.split(/[\\/]/u).some(segment => {
+    const name = segment
+      .replace(/[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]/gu, '')
+      .split(':')[0]!
+      .replace(/[ .]+$/u, '')
+      .toLowerCase();
+    return name === '.git' || /^git~[0-9]+$/u.test(name);
+  });
+}
+
 /**
  * Validate + normalize a single archive entry path. Returns the cleaned
  * POSIX relative path, or `null` when the path is unsafe. This is the
  * sole zip-slip chokepoint — both pack and unpack route through it.
  *
  * Rejects: empty, absolute (`/foo`, `C:\foo`, `\\unc`), any `..`
- * segment, backslashes (Windows separators that a POSIX `split('/')`
- * would miss), and `.`-only / trailing-slash directory markers.
+ * segment, backslashes, alternate data streams, repository metadata aliases,
+ * and paths without a file component.
  */
 export function validateBundleEntryPath(rawPath: string): string | null {
   if (typeof rawPath !== 'string' || rawPath.length === 0) return null;
@@ -165,8 +177,9 @@ export function validateBundleEntryPath(rawPath: string): string | null {
   // wave through. Bundles we write only ever use `/`.
   if (rawPath.includes('\\')) return null;
   if (rawPath.includes('\0')) return null;
-  // Drive-letter / UNC absolute forms.
-  if (/^[a-zA-Z]:/.test(rawPath)) return null;
+  if (containsRepositoryMetadata(rawPath)) return null;
+  // Alternate data streams are not portable regular-file paths.
+  if (rawPath.includes(':')) return null;
   // Leading slash = absolute POSIX.
   if (rawPath.startsWith('/')) return null;
 
@@ -298,6 +311,12 @@ export function unpackBundle(
 
   const unzip = new Unzip((file) => {
     if (fatalReason) {
+      file.terminate();
+      return;
+    }
+    // Reject metadata before extraction, even a directory-only ZIP entry.
+    if (containsRepositoryMetadata(file.name)) {
+      fatalReason = 'path-traversal';
       file.terminate();
       return;
     }

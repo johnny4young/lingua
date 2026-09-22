@@ -1291,6 +1291,15 @@ describe('fs:exportBundle', () => {
 });
 
 describe('fs:importBundle', () => {
+  it.each(['.git/config', 'nested/.GIT/config', '.git/', 'git~1/config'])(
+    'rejects repository metadata %s before choosing or writing a destination',
+    async (entry) => {
+      const bytes = zipSync({ 'safe.js': strToU8('42'), [entry]: strToU8('metadata') });
+      expect(await invoke('fs:importBundle', bytes)).toEqual({ ok: false, reason: 'path-traversal' });
+      expect(showOpenDialog).not.toHaveBeenCalled();
+    }
+  );
+
   it('extracts a bundle into a chosen empty dir and approves the root', async () => {
     const zip = packBundle(
       [

@@ -80,6 +80,19 @@ describe('detectGit', () => {
     expect(result.error).toMatch(/git is not installed/i);
   });
 
+  it.each(['git version 2.35.1', 'unknown version'])(
+    'refuses repository queries for %s',
+    async version => {
+      mocks.inner.mockResolvedValueOnce({ stdout: `${version}\n`, stderr: '' });
+      const { detectGit } = await import('../../src/main/git');
+      expect(await detectGit(workdir)).toMatchObject({
+        installed: false,
+        error: expect.stringContaining('2.36'),
+      });
+      expect(mocks.inner).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it('returns the version line when git resolves on PATH', async () => {
     mocks.inner.mockResolvedValueOnce({
       stdout: 'git version 2.45.2\n',
