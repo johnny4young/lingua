@@ -10,7 +10,8 @@ const PROJECT_TEST_FRAMEWORKS = ['vitest', 'jest', 'pytest', 'go', 'cargo'] as c
 
 export type ProjectTestFramework = (typeof PROJECT_TEST_FRAMEWORKS)[number];
 
-type ProjectTestUnavailableReason = 'dependencies-not-installed' | 'toolchain-not-found' | 'node-not-found';
+type ProjectTestUnavailableReason =
+  'dependencies-not-installed' | 'toolchain-not-found' | 'node-not-found';
 
 export interface ProjectTestCandidate {
   framework: ProjectTestFramework;
@@ -47,6 +48,8 @@ export interface ProjectTestRunResult {
   kind: ProjectTestRunKind;
   framework: ProjectTestFramework | null;
   command: string;
+  /** Capture-observed interleaving; absent for legacy/unstreamed results. */
+  orderedOutput?: string;
   stdout: string;
   stderr: string;
   exitCode: number;

@@ -1349,3 +1349,19 @@ profiles, synthetic initialization faults, a genuinely missing HTML document,
 a pending load, and intentional quit. It captures native dialog arguments for
 unattended runs; an explicit interactive mode displays the actual native dialog.
 Neither mode validates signing or release-package fuses.
+
+### Project-test output chronology
+
+Project tests capture an optional `orderedOutput` transcript in main at the
+stdout/stderr callback boundary. The transient renderer transcript follows the
+same event order and ignores messages from other or completed runs. Live and final
+UI show this transcript once rather than regrouping it by pipe. Its order means
+*observed capture order*, never a causal ordering guarantee between OS pipes.
+
+The transcript is bounded by the sum of the two existing capture budgets (256 Ki
+UTF-16 units per pipe); truncation is explicit, irreversible for that run, and
+never splits a surrogate pair. Per-pipe clipping is also marked before live IPC
+publication, so a single noisy pipe cannot silently stop the transcript.
+Separate stdout/stderr remain in the IPC result
+for compatibility. Legacy or non-streamed replies without a transcript retain
+explicitly labeled separate buffers; the UI does not invent interleaving.

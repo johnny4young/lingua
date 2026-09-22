@@ -1,5 +1,9 @@
 /** Transient renderer orchestration for the desktop project test runner. */
 
+import {
+  appendProjectTestOutput,
+  type ProjectTestTranscript,
+} from '../../shared/projectTestOutput';
 import { create } from 'zustand';
 import type {
   ProjectTestCandidate,
@@ -26,7 +30,7 @@ interface ProjectTestState {
   detection: ProjectTestDetectionResult | null;
   selectedFramework: ProjectTestFramework | null;
   result: ProjectTestRunResult | null;
-  liveOutput: { stdout: string; stderr: string };
+  liveOutput: { stdout: string; stderr: string; transcript?: ProjectTestTranscript };
   error: ProjectTestError;
   activeRunId: string | null;
   detect: (binding: ProjectTestBinding) => Promise<void>;
@@ -66,12 +70,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
   detect: async binding => {
     const bridge = window.lingua?.projectTests;
     const previous = get();
-    if (
-      bridge &&
-      previous.rootId &&
-      previous.rootId !== binding.rootId &&
-      previous.activeRunId
-    ) {
+    if (bridge && previous.rootId && previous.rootId !== binding.rootId && previous.activeRunId) {
       await bridge.stop(previous.rootId, previous.activeRunId).catch(() => ({ stopped: false }));
     }
     set({
@@ -133,6 +132,7 @@ export const useProjectTestStore = create<ProjectTestState>((set, get) => ({
       set(state => ({
         liveOutput: {
           ...state.liveOutput,
+          transcript: appendProjectTestOutput(state.liveOutput.transcript, event.chunk),
           [event.stream]: `${state.liveOutput[event.stream]}${event.chunk}`,
         },
       }));

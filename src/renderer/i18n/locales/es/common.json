@@ -2616,6 +2616,7 @@
   "projectTests.result.invalid-request": "Solicitud no válida",
   "projectTests.result.exitCode": "salida {{code}}",
   "projectTests.result.duration": "{{ms}} ms",
+  "projectTests.output.observed": "Salida (orden de captura)",
   "projectTests.output.stdout": "Salida estándar",
   "projectTests.output.stderr": "Salida de error",
   "projectTests.output.empty": "El runner terminó sin producir salida.",

@@ -2589,6 +2589,7 @@
   "projectTests.result.invalid-request": "Invalid request",
   "projectTests.result.exitCode": "exit {{code}}",
   "projectTests.result.duration": "{{ms}} ms",
+  "projectTests.output.observed": "Output (capture order)",
   "projectTests.output.stdout": "Standard output",
   "projectTests.output.stderr": "Standard error",
   "projectTests.output.empty": "The runner finished without producing output.",

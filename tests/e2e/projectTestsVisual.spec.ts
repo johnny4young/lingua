@@ -30,7 +30,26 @@ test.describe('project tests bilingual evidence', () => {
       await expect(page.getByText(result, { exact: true })).toBeVisible();
       await expect(page.getByRole('radio')).toHaveCount(5);
       await expect(page.getByTestId('project-tests-stdout')).toContainText('7 tests passed');
-      await page.waitForTimeout(250);
+      // Preserve the existing legacy-buffer fixture, then exercise actual store/UI
+      // streaming, failed completion and recovery through the gated bridge fixture.
+      for (const outcome of [locale === 'es' ? 'Fallaron' : 'Failed', result]) {
+        await page.getByTestId('project-tests-run').click();
+        await expect(page.getByTestId('project-tests-live-ordered')).toContainText(
+          'first\nwarning\nlast'
+        );
+        await page.evaluate(() => window.dispatchEvent(new Event('e2e-project-tests-complete')));
+        await expect(page.getByText(outcome, { exact: true })).toBeVisible();
+        await expect(page.getByTestId('project-tests-ordered')).toContainText(
+          'first\nwarning\nlast'
+        );
+        await expect(page.getByTestId('project-tests-stdout')).toHaveCount(0);
+        await expect(page.getByTestId('project-tests-stderr')).toHaveCount(0);
+      }
+      await expect(
+        page.getByText(locale === 'es' ? 'Salida (orden de captura)' : 'Output (capture order)', {
+          exact: true,
+        })
+      ).toBeVisible();
 
       const filePath = path.join(screenshotDir, `project-tests-${locale}.png`);
       await page.screenshot({ path: filePath, fullPage: false, animations: 'disabled' });

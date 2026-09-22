@@ -8,6 +8,12 @@
  * with a persistent trust warning.
  */
 
+import {
+  appendProjectTestOutput,
+  type ProjectTestTranscript,
+  PROJECT_TEST_MAX_OUTPUT_BYTES,
+  PROJECT_TEST_OUTPUT_TRUNCATION_MARKER as OUTPUT_TRUNCATION_MARKER,
+} from '../shared/projectTestOutput';
 import { constants as fsConstants } from 'node:fs';
 import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -35,10 +41,8 @@ import {
 
 const PROJECT_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const PROJECT_TEST_KILL_ESCALATION_MS = 300;
-const PROJECT_TEST_MAX_OUTPUT_BYTES = 256 * 1024;
 const CONFIG_READ_LIMIT_BYTES = 512 * 1024;
 const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u;
-const OUTPUT_TRUNCATION_MARKER = '\n[project test output truncated]';
 
 interface ProjectTestExecutionSpec {
   candidate: ProjectTestCandidate;
@@ -221,9 +225,7 @@ async function pythonExecutable(
     if (candidate.source === 'path') {
       return resolveHostExecutable([candidate.command], env, platform);
     }
-    return (await fileExists(candidate.command, platform !== 'win32'))
-      ? candidate.command
-      : null;
+    return (await fileExists(candidate.command, platform !== 'win32')) ? candidate.command : null;
   });
 }
 
@@ -268,12 +270,7 @@ async function projectNodeExecutable(
   // whole host environment here would bypass its allowlist during --version.
   const env = Object.fromEntries(
     Object.entries(
-      buildNativeRunnerEnv(
-        combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
-        undefined,
-        {},
-        hostEnv
-      )
+      buildNativeRunnerEnv(combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform), undefined, {}, hostEnv)
     ).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   );
   env.PATH = absoluteNodePath(hostEnv);
@@ -516,6 +513,24 @@ export async function runProjectTests(
   options.signal?.addEventListener('abort', stopForOwnerLifecycle, { once: true });
   activeRuns.set(runId, { rootKey, controller });
   try {
+    let transcript: ProjectTestTranscript | undefined;
+    const pipeSizes = { stdout: 0, stderr: 0 };
+    const clippedPipes = new Set<'stdout' | 'stderr'>();
+    const capture = (stream: 'stdout' | 'stderr', chunk: string) => {
+      if (clippedPipes.has(stream)) return;
+      const remaining = PROJECT_TEST_MAX_OUTPUT_BYTES - pipeSizes[stream];
+      let text = chunk;
+      if (chunk.length > remaining) {
+        let end = remaining;
+        const last = chunk.charCodeAt(end - 1);
+        if (last >= 0xd800 && last <= 0xdbff) end--;
+        text = chunk.slice(0, end) + OUTPUT_TRUNCATION_MARKER;
+        clippedPipes.add(stream);
+      }
+      pipeSizes[stream] += chunk.length;
+      transcript = appendProjectTestOutput(transcript, text);
+      options.onOutput?.(stream, text);
+    };
     const execute = options.spawnImpl ?? spawnNativeRun;
     const result = await execute({
       command: spec.command,
@@ -528,8 +543,8 @@ export async function runProjectTests(
       stdoutTruncationMarker: OUTPUT_TRUNCATION_MARKER,
       stderrTruncationMarker: OUTPUT_TRUNCATION_MARKER,
       signal: controller.signal,
-      onStdout: chunk => options.onOutput?.('stdout', chunk),
-      onStderr: chunk => options.onOutput?.('stderr', chunk),
+      onStdout: chunk => capture('stdout', chunk),
+      onStderr: chunk => capture('stderr', chunk),
     });
     const kind: ProjectTestRunResult['kind'] = result.killed
       ? 'stopped'
@@ -544,6 +559,7 @@ export async function runProjectTests(
       kind,
       framework,
       command: spec.candidate.command,
+      ...(transcript === undefined ? {} : { orderedOutput: transcript.text }),
       stdout: result.stdout,
       stderr: result.stderr || result.spawnError?.message || '',
       exitCode: result.exitCode,

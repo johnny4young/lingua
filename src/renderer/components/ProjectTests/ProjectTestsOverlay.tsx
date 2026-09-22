@@ -30,7 +30,8 @@ function resultTone(kind: ProjectTestRunKind): 'success' | 'warning' | 'error' {
     kind === 'unavailable' ||
     kind === 'not-detected' ||
     kind === 'busy'
-  ) return 'warning';
+  )
+    return 'warning';
   return 'error';
 }
 
@@ -334,14 +335,9 @@ export function ProjectTestsOverlay({ onClose }: ProjectTestsOverlayProps) {
                 aria-live="polite"
               >
                 <OutputBlock
-                  label={t('projectTests.output.stdout')}
-                  value={liveOutput.stdout}
-                  testId="project-tests-live-stdout"
-                />
-                <OutputBlock
-                  label={t('projectTests.output.stderr')}
-                  value={liveOutput.stderr}
-                  testId="project-tests-live-stderr"
+                  label={t('projectTests.output.observed')}
+                  value={liveOutput.transcript?.text ?? ''}
+                  testId="project-tests-live-ordered"
                 />
               </section>
             ) : null}
@@ -377,16 +373,26 @@ export function ProjectTestsOverlay({ onClose }: ProjectTestsOverlayProps) {
                     {t(`projectTests.unavailable.${result.unavailableReason}`)}
                   </p>
                 ) : null}
-                <OutputBlock
-                  label={t('projectTests.output.stdout')}
-                  value={result.stdout}
-                  testId="project-tests-stdout"
-                />
-                <OutputBlock
-                  label={t('projectTests.output.stderr')}
-                  value={result.stderr}
-                  testId="project-tests-stderr"
-                />
+                {result.orderedOutput !== undefined ? (
+                  <OutputBlock
+                    label={t('projectTests.output.observed')}
+                    value={result.orderedOutput}
+                    testId="project-tests-ordered"
+                  />
+                ) : (
+                  <>
+                    <OutputBlock
+                      label={t('projectTests.output.stdout')}
+                      value={result.stdout}
+                      testId="project-tests-stdout"
+                    />
+                    <OutputBlock
+                      label={t('projectTests.output.stderr')}
+                      value={result.stderr}
+                      testId="project-tests-stderr"
+                    />
+                  </>
+                )}
                 {!result.stdout && !result.stderr ? (
                   <p className="rounded-lg border border-border-subtle bg-bg-inset p-3 text-body-sm text-fg-subtle">
                     {t('projectTests.output.empty')}

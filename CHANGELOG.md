@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Project tests preserve captured output order while running and after completion.** Standard output and errors share one observed-order transcript, without duplicating messages or implying causal order between separate pipes.
 - **Desktop startup failures now close safely with a concise English or Spanish recovery message.** Missing renderer files and stalled loads cannot leave a blank app running; a refused second instance stops before registering handlers or opening a window.
 - **Captured console output retains its observed order across standard output and errors.** Independent stderr is no longer hidden by a later failure, and streamed runtime diagnostics are not repeated at completion.
 - **Python exceptions are no longer mistaken for successful runs after output redirection.** Tracebacks appear once, nested failures point to the innermost user line, and later runs recover normally.

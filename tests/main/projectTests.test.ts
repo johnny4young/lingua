@@ -31,7 +31,11 @@ async function executable(name: string): Promise<void> {
 }
 
 beforeEach(async () => {
-  vi.mocked(detectNode).mockResolvedValue({ installed: true, binary: process.execPath, version: process.version });
+  vi.mocked(detectNode).mockResolvedValue({
+    installed: true,
+    binary: process.execPath,
+    version: process.version,
+  });
   rootPath = await mkdtemp(tmpPrefix);
   binPath = path.join(rootPath, '.trusted-bin');
   await mkdir(binPath);
@@ -217,6 +221,52 @@ describe('project test execution', () => {
     await write('node_modules/vitest/vitest.mjs');
   });
 
+  it('marks per-pipe clipping in the observed transcript and bounds live publication', async () => {
+    const chunks: string[] = [];
+    const result = await runProjectTests(rootPath, 'vitest', 'run-clipped-order', {
+      onOutput: (_stream, chunk) => chunks.push(chunk),
+      spawnImpl: async options => {
+        options.onStdout?.('a'.repeat(256 * 1024 + 100));
+        options.onStdout?.('MUST_NOT_APPEAR');
+        options.onStderr?.('warning');
+        return {
+          stdout: '',
+          stderr: 'warning',
+          exitCode: 0,
+          executionTime: 3,
+          timedOut: false,
+          killed: false,
+        };
+      },
+    });
+    expect(chunks.join('')).toContain('[project test output truncated]');
+    expect(chunks.join('')).not.toContain('MUST_NOT_APPEAR');
+    expect(chunks.join('').length).toBeLessThan(256 * 1024 + 100);
+    expect(result).toMatchObject({ orderedOutput: chunks.join('') });
+  });
+
+  it('retains the observed stdout/stderr order in the final project-test result', async () => {
+    const observed: string[] = [];
+    const result = await runProjectTests(rootPath, 'vitest', 'run-observed-order', {
+      onOutput: (_stream, chunk) => observed.push(chunk),
+      spawnImpl: async options => {
+        options.onStdout?.('first\n');
+        options.onStderr?.('warning\n');
+        options.onStdout?.('last\n');
+        return {
+          stdout: 'first\nlast\n',
+          stderr: 'warning\n',
+          exitCode: 0,
+          executionTime: 3,
+          timedOut: false,
+          killed: false,
+        };
+      },
+    });
+    expect(observed).toEqual(['first\n', 'warning\n', 'last\n']);
+    expect(result).toMatchObject({ orderedOutput: observed.join('') });
+  });
+
   it('spawns a fixed argv in the approved project cwd without a shell', async () => {
     // Assigned inside the spawn callback; the cast stops TypeScript narrowing it to null.
     let captured = null as SpawnNativeRunOptions | null;
@@ -264,12 +314,12 @@ describe('project test execution', () => {
     const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
     await write(
       'node_modules/vitest/vitest.mjs',
-      `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`,
+      `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`
     );
     await write('vitest.config.mjs', 'export default { test: { globals: true } };\n');
     await write(
       'test/example.test.js',
-      "test('project runner fixture', () => { expect(2 + 2).toBe(4); });\n",
+      "test('project runner fixture', () => { expect(2 + 2).toBe(4); });\n"
     );
 
     const result = await runProjectTests(rootPath, 'vitest', 'run-real-vitest');
@@ -363,9 +413,9 @@ describe('project test execution', () => {
     });
     await didStart;
 
-    await expect(
-      runProjectTests(rootPath, 'vitest', 'run-second')
-    ).resolves.toEqual(expect.objectContaining({ kind: 'busy' }));
+    await expect(runProjectTests(rootPath, 'vitest', 'run-second')).resolves.toEqual(
+      expect.objectContaining({ kind: 'busy' })
+    );
 
     expect(stopProjectTests(rootPath, 'run-first')).toBe(true);
     await expect(firstRun).resolves.toEqual(expect.objectContaining({ kind: 'stopped' }));
@@ -420,7 +470,7 @@ describe('project test execution', () => {
       [
         "if (process.argv.slice(2).join(' ') !== 'run --no-color') process.exit(2);",
         "console.log('fixture suite passed');",
-      ].join('\n'),
+      ].join('\n')
     );
     const streamed: string[] = [];
 
@@ -435,7 +485,7 @@ describe('project test execution', () => {
         kind: 'success',
         exitCode: 0,
         stdout: expect.stringContaining('fixture suite passed'),
-      }),
+      })
     );
     expect(streamed.join('')).toContain('fixture suite passed');
   });

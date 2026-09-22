@@ -8,7 +8,10 @@ import { useProjectStore } from '../../src/renderer/stores/projectStore';
 import { useProjectTestStore } from '../../src/renderer/stores/projectTestStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { asRootId } from '../../src/shared/fs/brandedIds';
-import type { ProjectTestOutputEvent, ProjectTestDetectionResult } from '../../src/shared/projectTests';
+import type {
+  ProjectTestOutputEvent,
+  ProjectTestDetectionResult,
+} from '../../src/shared/projectTests';
 
 const originalLingua = window.lingua;
 const initialProject = useProjectStore.getState();
@@ -126,6 +129,28 @@ describe('ProjectTestsOverlay', () => {
     expect(screen.queryByTestId('project-tests-run')).toBeNull();
   });
 
+  it('renders the captured transcript once instead of regrouping by pipe', async () => {
+    openProject();
+    const bridge = installDesktopBridge();
+    bridge.run.mockResolvedValue({
+      kind: 'failed',
+      framework: 'vitest',
+      command: 'vitest',
+      stdout: 'first\nlast\n',
+      stderr: 'warning\n',
+      orderedOutput: 'first\nwarning\nlast\n',
+      exitCode: 1,
+      executionTime: 3,
+      timeoutMs: 300000,
+    });
+    render(<ProjectTestsOverlay onClose={vi.fn()} />);
+    await screen.findByText('Vitest');
+    await userEvent.setup().click(screen.getByTestId('project-tests-run'));
+    const output = await screen.findByTestId('project-tests-ordered');
+    expect(output.textContent).toContain('first\nwarning\nlast\n');
+    expect(screen.queryByTestId('project-tests-stdout')).toBeNull();
+    expect(screen.queryByTestId('project-tests-stderr')).toBeNull();
+  });
   it('detects a runner and renders its completed output', async () => {
     openProject();
     const bridge = installDesktopBridge();
