@@ -204,7 +204,7 @@ describe('CI workflow', () => {
     );
   });
 
-  it('keeps every gate blocking except the advisory full-graph audit', () => {
+  it('keeps every gate blocking except the advisory i18n inventory and full-graph audit', () => {
     // `pnpm audit --prod` reads package.json "dependencies" only, so a
     // devDependency imported by src/main (undici, ws) ships inside
     // .vite/build/main.js with the production gate green. The bundled audit
@@ -214,7 +214,10 @@ describe('CI workflow', () => {
         .filter(step => step['continue-on-error'] === true)
         .map(step => `${jobId}: ${step.name ?? step.run ?? ''}`)
     );
-    expect(advisory).toEqual(['static: Security audit (advisory, full graph)']);
+    expect(advisory).toEqual([
+      'static: i18n usage inventory (advisory)',
+      'static: Security audit (advisory, full graph)',
+    ]);
   });
 });
 

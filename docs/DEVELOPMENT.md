@@ -67,6 +67,7 @@ pnpm run lint
 pnpm run check:telemetry-call-sites
 pnpm run check:i18n
 pnpm run check:i18n:copy
+pnpm run report:i18n-usage
 pnpm run check:deadcode
 pnpm run check:deadcode:config
 pnpm test
@@ -138,6 +139,7 @@ reference for what each command owns.
 | `check:telemetry-call-sites` | Enforces the typed React telemetry entry point and ratchets the grandfathered lower-level direct-call baseline downward.                                                                                                             |
 | `check:i18n`                 | Validates locale shape and key parity.                                                                                                                                                                                               |
 | `check:i18n:copy`            | Flags obvious hardcoded renderer copy in touched files.                                                                                                                                                                              |
+| `report:i18n-usage`          | Advisory AST inventory of literal, dynamic-family, and plural key usage. Prints possible unused keys but never deletes them or blocks CI; inspect indirect callers before removing anything. |
 | `format`                     | Runs Prettier over source, JSON, Markdown, and CSS files.                                                                                                                                                                            |
 | `prepare:node-pty`           | Restores executable permissions on node-pty's Unix `spawn-helper`; desktop builds run it automatically before packaging.                                                                                                           |
 | `build:desktop-bundles`      | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package.                                                                                                                                          |
@@ -169,6 +171,7 @@ What they enforce:
 
 - `check:i18n` fails on invalid locale JSON, missing translation keys, and orphaned keys relative to the English source locale.
 - `check:i18n:copy` inspects touched `src/renderer/**/*.ts(x)` files and flags obvious hardcoded JSX copy or literal UI attributes such as `title`, `aria-label`, and `placeholder`.
+- `node scripts/report-i18n-usage.mjs --json` prints machine-readable inventory without pnpm's lifecycle banner. The source scanner recognizes literal keys, direct `t`/`translate` template and concatenation families, and i18next plural suffixes. Keys assembled into variables, indirect references, and runtime payloads remain unresolved; a candidate is not proof that removal is safe. CI runs the report with `continue-on-error` rather than treating it as a deletion gate.
 
 ## UI smoke test (web)
 

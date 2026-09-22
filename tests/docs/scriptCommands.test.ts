@@ -163,6 +163,7 @@ describe('Script naming docs guard', () => {
       'check:telemetry-call-sites',
       'check:i18n',
       'check:i18n:copy',
+      'report:i18n-usage',
       'format',
       // Restores execute bits on node-pty's Unix companion helper before
       // desktop bundling; pnpm package extraction can strip them.

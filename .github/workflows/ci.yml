@@ -66,6 +66,11 @@ jobs:
         run: pnpm run check:i18n
       - name: i18n copy guard
         run: pnpm run check:i18n:copy
+      # The usage inventory is intentionally informational: indirect keys and
+      # runtime-composed families cannot be proven absent by static analysis.
+      - name: i18n usage inventory (advisory)
+        run: pnpm run report:i18n-usage
+        continue-on-error: true
       - name: Changelog/version guard
         run: pnpm run changelog:check
       # PR-time mirror of the release-blocking rotation gate so a license-key

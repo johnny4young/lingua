@@ -59,6 +59,7 @@
     "check:telemetry-call-sites": "node ./scripts/check-telemetry-call-sites.mjs",
     "check:i18n": "node ./scripts/check-i18n.mjs",
     "check:i18n:copy": "node ./scripts/check-renderer-copy.mjs",
+    "report:i18n-usage": "node ./scripts/report-i18n-usage.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "prepare:node-pty": "node ./scripts/ensure-node-pty-helper-mode.mjs",
     "build:desktop-bundles": "pnpm run prepare:node-pty && node ./scripts/build-desktop-bundles.mjs",
