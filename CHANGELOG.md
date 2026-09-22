@@ -6,6 +6,19 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-09-21
+
+This version is being prepared; no release artifacts have been published.
+
+### Security
+- **Git inspection no longer runs configured filesystem-monitor hooks or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.
+- **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.
+- **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
+
+### Fixed
+- **MCP text continuation preserves multibyte UTF-8 characters.** Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.
+- **Packaged project tests use the installed Node.js runtime.** Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions.
+
 ## [1.5.0] — 2026-09-17
 
 ### Security

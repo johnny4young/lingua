@@ -221,7 +221,6 @@ describe('project test execution', () => {
     // Assigned inside the spawn callback; the cast stops TypeScript narrowing it to null.
     let captured = null as SpawnNativeRunOptions | null;
     const result = await runProjectTests(rootPath, 'vitest', 'run-1', {
-      platform: 'linux',
       env: { PATH: binPath },
       spawnImpl: async options => {
         captured = options;
@@ -298,7 +297,6 @@ describe('project test execution', () => {
       started = resolve;
     });
     const run = runProjectTests(rootPath, 'vitest', 'run-stop', {
-      platform: 'linux',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -331,7 +329,6 @@ describe('project test execution', () => {
     const spawnImpl = vi.fn();
 
     const result = await runProjectTests(rootPath, 'vitest', 'run-owner-gone', {
-      platform: 'linux',
       signal: ownerLifecycle.signal,
       spawnImpl,
     });
@@ -346,7 +343,6 @@ describe('project test execution', () => {
       started = resolve;
     });
     const firstRun = runProjectTests(rootPath, 'vitest', 'run-first', {
-      platform: 'linux',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -368,9 +364,7 @@ describe('project test execution', () => {
     await didStart;
 
     await expect(
-      runProjectTests(rootPath, 'vitest', 'run-second', {
-        platform: 'linux',
-      })
+      runProjectTests(rootPath, 'vitest', 'run-second')
     ).resolves.toEqual(expect.objectContaining({ kind: 'busy' }));
 
     expect(stopProjectTests(rootPath, 'run-first')).toBe(true);
@@ -379,7 +373,6 @@ describe('project test execution', () => {
 
   it('reports a vanished Node executable as a runtime recovery error', async () => {
     const result = await runProjectTests(rootPath, 'vitest', 'run-spawn-error', {
-      platform: 'linux',
       spawnImpl: async () => ({
         stdout: '',
         stderr: '',
@@ -402,7 +395,6 @@ describe('project test execution', () => {
   it('forwards live stdout and stderr chunks from the bounded native runner', async () => {
     const output: string[] = [];
     const result = await runProjectTests(rootPath, 'vitest', 'run-stream', {
-      platform: 'linux',
       onOutput: (stream, chunk) => output.push(`${stream}:${chunk}`),
       spawnImpl: async options => {
         options.onStdout?.('collecting tests\n');
