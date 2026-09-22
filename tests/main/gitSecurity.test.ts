@@ -95,14 +95,23 @@ describe('read-only Git trust boundary', () => {
   });
 
   it('opens a legitimate submodule without inspecting its configuration from the parent', async () => {
-    const source = path.join(root, 'submodule-source');
-    mkdirSync(source);
-    git(source, 'init', '-b', 'main');
-    writeFileSync(path.join(source, 'child.txt'), 'child\n');
-    git(source, 'add', '--', 'child.txt');
-    git(source, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture');
-    git(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', source, 'module');
+    // Construct a real absorbed submodule without the shell-based submodule
+    // add/clone orchestration (which can outlive its parent on Windows).
+    // The trust boundary under test is opening its gitdir pointer and gitlink.
     const moduleRoot = path.join(root, 'module');
+    const gitDir = path.join(root, '.git', 'modules', 'module');
+    mkdirSync(path.dirname(gitDir), { recursive: true });
+    git(root, 'init', '-b', 'main', '--separate-git-dir', gitDir, moduleRoot);
+    writeFileSync(path.join(moduleRoot, 'child.txt'), 'child\n');
+    git(moduleRoot, 'add', '--', 'child.txt');
+    git(moduleRoot, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'fixture');
+    git(root, 'config', '--file', '.gitmodules', 'submodule.module.path', 'module');
+    git(root, 'config', '--file', '.gitmodules', 'submodule.module.url', './module');
+    git(root, 'add', '--', '.gitmodules', 'module');
+    expect(readFileSync(path.join(moduleRoot, '.git'), 'utf8')).toContain('gitdir:');
+    expect(git(root, 'ls-files', '--stage', '--', 'module')).toMatch(/^160000 /);
+    expect(git(moduleRoot, 'rev-parse', '--show-superproject-working-tree').trim())
+      .toBe(git(root, 'rev-parse', '--show-toplevel').trim());
     git(moduleRoot, 'config', 'core.fsmonitor', 'echo invoked > child-marker');
     expect(await detectGit(moduleRoot)).toMatchObject({ installed: true, repoRoot: git(moduleRoot, 'rev-parse', '--show-toplevel').trim() });
     expect(await getFileStatus(moduleRoot, path.join(moduleRoot, 'child.txt'))).toMatchObject({ status: 'clean' });
