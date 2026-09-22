@@ -140,6 +140,28 @@ describe('useRunner', () => {
     });
   });
 
+  it('records captured failures as errors, not successful restoration targets', async () => {
+    mockPrepareRunner.mockResolvedValue({ runner: { execute: vi.fn().mockResolvedValue({
+      stdout: [], stderr: [], executionTime: 2, kind: 'success', magicResults: [
+        { line: 1, value: 'SyntaxError: bad JSON', kind: 'autoLog', isError: true },
+        { line: 2, value: '42', kind: 'autoLog' },
+      ],
+    }) } });
+    useEditorStore.setState({ tabs: [{
+      id: 'captured-error', name: 'main.js', language: 'javascript',
+      content: 'JSON.parse("invalid")\n42', isDirty: false,
+    }], activeTabId: 'captured-error' });
+    const { result: hook } = renderHook(() => useRunner());
+    await act(async () => { await hook.current.run(); });
+    expect(useResultStore.getState().runTermination?.kind).toBe('error');
+    expect(useResultStore.getState().diagnostics).toMatchObject([{ line: 1, severity: 'error' }]);
+    expect(useResultStore.getState().snapshotRing).toHaveLength(0);
+    expect(useExecutionHistoryStore.getState().entries).toMatchObject([{ status: 'error' }]);
+    expect(useEditorStore.getState().tabs[0]?.executionState).toBe('error');
+    expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
+    expect(useResultStore.getState().lineResults).toContainEqual({ line: 2, value: '42', type: 'autoLog' });
+  });
+
   it('does not route notebook tabs through the file runner', async () => {
     useEditorStore.setState({
       tabs: [
@@ -641,6 +663,14 @@ describe('useRunner', () => {
         useNativeExecutionGateStore.getState().confirm();
       });
       expect(execute).toHaveBeenCalledOnce();
+
+      // confirm() dispatches asynchronously. Wait for history and session
+      // teardown, not merely entry into execute(), before asking for a new run.
+      await waitFor(() => {
+        expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+        expect(useResultStore.getState().manualRunSession).toBeNull();
+        expect(useResultStore.getState().isManualRunning).toBe(false);
+      });
 
       // Reset the acknowledgement → next run opens the gate again.
       useSettingsStore.getState().setNativeExecutionAcknowledged(false);

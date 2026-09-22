@@ -1,3 +1,4 @@
+import { executionKind } from '../utils/executionOutcome';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { isLikelyComplete } from '../../shared/autoRunGating';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
@@ -207,13 +208,7 @@ export async function executeAutoRun({
     // preserve that ordering while the visible result remains protected.
     setRunDeadlineAt(null);
     setRunTermination({
-      kind:
-        result.kind ??
-        (result.cancelled
-          ? 'stopped'
-          : result.error
-            ? 'error'
-            : 'success'),
+      kind: executionKind(result),
       timeoutPreset: result.timeoutPreset,
       timeoutMs: result.timeoutMs,
     });

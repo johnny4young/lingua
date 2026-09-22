@@ -77,7 +77,7 @@ describe('executeTabManually — console delivery', () => {
           : outcome === 'cancelled'
             ? ['stopped']
             : outcome === 'error'
-              ? ['bad input', 'Completed in 12.0 ms']
+              ? ['bad input', 'Failed in 12.0 ms']
               : ['Completed in 12.0 ms']),
       ]);
       const delivered = useConsoleStore.getState().entries;
@@ -85,6 +85,14 @@ describe('executeTabManually — console delivery', () => {
       expect(useConsoleStore.getState().entries).toBe(delivered);
     }
   );
+
+  it('does not announce completion for an explicit error outcome without a message', async () => {
+    execute.mockResolvedValue({ stdout: [], stderr: [], executionTime: 12, kind: 'error' });
+    const summary = await executeTabManually(tab, { recordHistory: false });
+    expect(summary.ok).toBe(false);
+    expect(summary.message).toBe('Failed in 12.0 ms');
+    expect(contents()).toEqual(['Running main.js...', 'Failed in 12.0 ms']);
+  });
 
   it.each(['missing', 'throw'] as const)('flushes an initialization %s failure', async failure => {
     if (failure === 'missing') prepare.mockResolvedValue({ runner: null });

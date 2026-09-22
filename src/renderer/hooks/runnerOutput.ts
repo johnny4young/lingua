@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+import { capturedExecutionErrors, executionKind } from '../utils/executionOutcome';
 import type { ConsoleEntry } from '../types/console';
 import type { Language } from '../types/language';
 import type { ConsoleOutput, ExecutionResult } from '../types/execution';
@@ -13,6 +15,12 @@ const INITIALIZATION_MESSAGES: Partial<Record<Language, string>> = {
 export function formatExecTime(ms: number): string {
   if (ms < 1000) return `${ms.toFixed(1)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
+}
+
+export function formatExecutionSummary(result: ExecutionResult): string {
+  return i18next.t(`runner.summary.${executionKind(result)}`, {
+    duration: formatExecTime(result.executionTime),
+  });
 }
 
 export function getInitializationMessage(language: Language): string {
@@ -116,6 +124,15 @@ export function toConsoleEntries(
     });
   }
 
+  for (const error of capturedExecutionErrors(result)) {
+    entries.push({
+      type: 'error',
+      content: error.message,
+      line: error.line,
+      ...(language ? { language } : {}),
+    });
+  }
+
   const executionError = formatExecutionError(result);
   if (executionError) {
     entries.push(executionError);
@@ -123,7 +140,7 @@ export function toConsoleEntries(
 
   entries.push({
     type: 'info',
-    content: `Completed in ${formatExecTime(result.executionTime)}`,
+    content: formatExecutionSummary(result),
     executionTime: result.executionTime,
   });
 

@@ -5,6 +5,7 @@
  * terminated.
  */
 
+import { executionKind } from '../../utils/executionOutcome';
 import { toConsoleEntry } from '../../hooks/runnerOutput';
 import { createConsoleEntryBatcher, scheduleNextFrame } from '../../stores/consoleEntryBatcher';
 import { useConsoleStore } from '../../stores/consoleStore';
@@ -133,8 +134,7 @@ export async function runAndCollect(
   // implementation — propagate the termination summary so `<RunStatusPill>`
   // can render the right variant. Runners that don't set `kind` default to a
   // best-effort guess based on `error` / `cancelled`.
-  const terminationKind: 'success' | 'error' | 'timeout' | 'stopped' =
-    result.kind ?? (result.cancelled ? 'stopped' : result.error ? 'error' : 'success');
+  const terminationKind = executionKind(result);
   setRunTermination({
     kind: terminationKind,
     timeoutPreset: result.timeoutPreset,

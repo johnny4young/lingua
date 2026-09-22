@@ -1,5 +1,6 @@
+import { capturedExecutionErrors } from './executionOutcome';
 import type { Language } from '../types/language';
-import type { EditorDiagnostic, ExecutionError } from '../types/execution';
+import type { EditorDiagnostic, ExecutionError, ExecutionResult } from '../types/execution';
 
 function firstNonEmptyLine(input?: string | null): string | null {
   if (!input) {
@@ -133,4 +134,10 @@ export function toExecutionDiagnostics(
       source: language,
     },
   ];
+}
+
+/** Include non-fatal captures as well as the top-level execution failure. */
+export function toResultDiagnostics(language: Language, result: ExecutionResult): EditorDiagnostic[] {
+  const errors = [...capturedExecutionErrors(result), ...(result.error ? [result.error] : [])];
+  return errors.flatMap(error => toExecutionDiagnostics(language, error));
 }

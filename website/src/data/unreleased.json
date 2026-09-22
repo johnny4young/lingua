@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-09-22T03:19:29.204Z",
+  "generatedAt": "2026-09-22T03:52:18.473Z",
   "baseRef": "v1.5.0",
-  "commitCount": 3,
-  "totalSinceBase": 16,
+  "commitCount": 4,
+  "totalSinceBase": 17,
   "commits": [
+    {
+      "hash": "ee57897",
+      "date": "2026-09-21",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runtime",
+      "message": "bind manual execution to cancellable sessions",
+      "breaking": false
+    },
     {
       "hash": "bd0a0c4",
       "date": "2026-09-21",

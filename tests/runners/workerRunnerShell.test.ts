@@ -140,6 +140,20 @@ describe('the execution request', () => {
 });
 
 describe('the message pump', () => {
+  it.each(['javascript', 'typescript'] as const)('classifies captured %s errors without aborting later results', async language => {
+    const { promise, worker } = startRun({ language, magicKindByLine: { 1: 'autoLog', 2: 'autoLog' } });
+    worker.emitForRun({ type: 'magic-comment', line: 1, value: 'Error: captured', isError: true });
+    worker.emitForRun({ type: 'magic-comment', line: 2, value: '42' });
+    worker.emitForRun({ type: 'done', executionTime: 2 });
+    const result = await promise;
+    expect(result.kind).toBe('error');
+    expect(result.error).toBeUndefined();
+    expect(result.magicResults).toEqual([
+      { line: 1, value: 'Error: captured', kind: 'autoLog', isError: true },
+      { line: 2, value: '42', kind: 'autoLog' },
+    ]);
+  });
+
   it('assembles console, result and timings onto the finished run', async () => {
     const { promise, worker } = startRun();
 

@@ -6,15 +6,16 @@
  * every exit's teardown.
  */
 
+import { executionKind, primaryExecutionError } from '../../utils/executionOutcome';
 import i18next from 'i18next';
 import { bucketDurationMs } from '../../../shared/telemetry';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
-import { toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
+import { formatExecutionSummary, toConsoleEntries, toConsoleEntry } from '../../hooks/runnerOutput';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useResultStore } from '../../stores/resultStore';
 import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
-import { toExecutionDiagnostics } from '../../utils/executionDiagnostics';
+import { toResultDiagnostics } from '../../utils/executionDiagnostics';
 import { toExecutionPresentation } from '../../utils/executionPresentation';
 import { trackEvent } from '../../utils/telemetry';
 import { validateDocument } from '../../validation';
@@ -219,15 +220,10 @@ export async function publishCompletedRun(
     setStdinConsumed,
   } = useResultStore.getState();
   const presentation = toExecutionPresentation(language, content, result);
-  const diagnostics = toExecutionDiagnostics(language, result.error ?? null);
-  const runStatus: 'ok' | 'error' | 'timeout' | 'stopped' =
-    result.kind === 'timeout'
-      ? 'timeout'
-      : result.kind === 'stopped'
-        ? 'stopped'
-        : result.error
-          ? 'error'
-          : 'ok';
+  const diagnostics = toResultDiagnostics(language, result);
+  const kind = executionKind(result);
+  const error = primaryExecutionError(result);
+  const runStatus = kind === 'success' ? 'ok' : kind;
   if (plan.recordHistory) {
     await recordCompletedRun({
       activeTab,
@@ -255,7 +251,7 @@ export async function publishCompletedRun(
   // implementation note — surface the consumption summary alongside the
   // manual-run results, same as the auto-run path.
   setStdinConsumed(result.stdinConsumed ?? null);
-  setError(result.error ?? null);
+  setError(error);
   setDiagnostics(diagnostics);
   setExecutionTime(result.executionTime);
 
@@ -263,7 +259,7 @@ export async function publishCompletedRun(
   // branch too, so Compare is not scratchpad-only. Errors are not a
   // restoration target. Capture happens after the line results and full
   // output are set so the snapshot reflects what the user just saw.
-  if (!result.error && !result.cancelled) {
+  if (kind === 'success') {
     useResultStore.getState().captureSuccessfulSnapshot(language, content);
     // implementation — surface the variable inspector snapshot if the worker
     // emitted one. `null` clears a stale snapshot from the previous run.
@@ -295,10 +291,10 @@ export async function publishCompletedRun(
 
   return {
     mode: 'run',
-    ok: !result.error,
+    ok: kind === 'success',
     executionTime: result.executionTime,
     diagnosticsCount: diagnostics.length,
-    message: result.error?.message ?? `Completed ${name}`,
+    message: error?.message ?? (kind === 'success' ? `Completed ${name}` : formatExecutionSummary(result)),
     consoleEntryCount: runConsole.count(),
   };
 }

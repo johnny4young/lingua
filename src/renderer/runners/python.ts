@@ -1,3 +1,4 @@
+import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import { useBootstrapProgressStore } from '../stores/bootstrapProgressStore';
 import type {
@@ -523,7 +524,7 @@ export class PythonRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
-              kind: error ? 'error' : 'success',
+              kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
               scopeSnapshot,

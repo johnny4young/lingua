@@ -9,6 +9,48 @@ import {
 } from '@/hooks/runnerOutput';
 
 describe('runnerOutput helpers', () => {
+  it('surfaces each captured error once without turning later values into errors', () => {
+    const entries = toConsoleEntries({
+      stdout: [], stderr: [], executionTime: 4, kind: 'success',
+      magicResults: [
+        { line: 1, value: 'SyntaxError: bad JSON', kind: 'autoLog', isError: true },
+        { line: 2, value: '42', kind: 'autoLog' },
+        { line: 3, value: 'Error: another failure', kind: 'watch', isError: true },
+      ],
+    }, 'javascript');
+    expect(entries.filter(entry => entry.type === 'error')).toEqual([
+      { type: 'error', content: 'SyntaxError: bad JSON', line: 1, language: 'javascript' },
+      { type: 'error', content: 'Error: another failure', line: 3, language: 'javascript' },
+    ]);
+    expect(entries.at(-1)?.content).toBe('Failed in 4.0 ms');
+  });
+
+  it.each([
+    ['success', 'Completed'], ['error', 'Failed'], ['stopped', 'Stopped'], ['timeout', 'Timed out'],
+  ] as const)('labels %s distinctly even without a top-level error', (kind, label) => {
+    const entries = toConsoleEntries({ stdout: [], stderr: [], executionTime: 4, kind });
+    expect(entries.at(-1)?.content).toBe(`${label} in 4.0 ms`);
+  });
+
+  it.each([
+    [{ kind: 'timeout' as const }, 'Timed out'],
+    [{ kind: 'stopped' as const }, 'Stopped'],
+    [{ cancelled: true, kind: 'success' as const }, 'Stopped'],
+  ])('preserves termination precedence over captures (%j)', (termination, label) => {
+    const entries = toConsoleEntries({
+      stdout: [], stderr: [], executionTime: 4, ...termination,
+      magicResults: [{ line: 1, value: 'Error: captured', isError: true }],
+    });
+    expect(entries.at(-1)?.content).toBe(`${label} in 4.0 ms`);
+  });
+
+  it('does not treat console.error as an uncaught execution failure', () => {
+    const entries = toConsoleEntries({
+      stdout: [], stderr: [{ type: 'error', args: ['intentional log'] }], executionTime: 4,
+    });
+    expect(entries.at(-1)?.content).toBe('Completed in 4.0 ms');
+  });
+
   it('formats initialization messages for known and custom languages', () => {
     expect(getInitializationMessage('python')).toBe('Loading Python runtime (Pyodide)...');
     expect(getInitializationMessage('lua')).toBe('Initializing lua runner...');
@@ -38,7 +80,7 @@ describe('runnerOutput helpers', () => {
       { type: 'warn', content: 'careful', line: undefined },
       { type: 'result', content: '42' },
       { type: 'error', content: 'Boom (line 8:3)' },
-      { type: 'info', content: 'Completed in 1.50 s', executionTime: 1500 },
+      { type: 'info', content: 'Failed in 1.50 s', executionTime: 1500 },
     ]);
   });
 

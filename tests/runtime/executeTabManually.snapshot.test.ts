@@ -62,9 +62,6 @@ vi.mock('../../src/renderer/utils/executionPresentation', () => ({
   toExecutionPresentation: () => ({ lineResults: [], fullOutput: '' }),
 }));
 
-vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
-  toExecutionDiagnostics: () => [],
-}));
 
 vi.mock('../../src/renderer/hooks/useEntitlement', () => ({
   currentEffectiveTier: mockCurrentEffectiveTier,

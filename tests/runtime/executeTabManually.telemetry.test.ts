@@ -75,9 +75,6 @@ vi.mock('../../src/renderer/utils/executionPresentation', () => ({
   toExecutionPresentation: () => ({ lineResults: [], fullOutput: '' }),
 }));
 
-vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
-  toExecutionDiagnostics: () => [],
-}));
 
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';

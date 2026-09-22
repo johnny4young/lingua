@@ -105,7 +105,7 @@ test.describe('Workflow mode action pill ', () => {
       const controllerRequested = Promise.withResolvers<void>();
       const releaseController = Promise.withResolvers<void>();
       // Hold the real lazy chunk, not the execution result. This deterministically
-      // exposes the pre-dispatch idle window that a fast local cache can hide.
+      // exposes the preparation window that a fast local cache can hide.
       await page.route(/\/assets\/manualRunController-[^/]+\.js$/, async route => {
         controllerRequested.resolve();
         await releaseController.promise;
@@ -124,9 +124,9 @@ test.describe('Workflow mode action pill ', () => {
         await selectWorkflowMode(page, 'run');
         await controllerRequested.promise;
         await expect(runButton).toHaveAttribute('data-workflow', 'run');
-        // Idle here means the controller has not dispatched yet, NOT that the
-        // requested run has finished. Do not try to open the next menu now.
-        await expect(runButton).toHaveAttribute('data-running', 'false');
+        // The run owns preparation before this lazy chunk resolves. It must
+        // expose Stop now, not pretend the requested run has already finished.
+        await expect(runButton).toHaveAttribute('data-running', 'true');
         releaseController.resolve();
         // Success is durable even when the running state lasts less than a
         // Playwright polling interval. The initial idle assertion excludes a

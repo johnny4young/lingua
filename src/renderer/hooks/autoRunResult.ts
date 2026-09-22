@@ -1,8 +1,9 @@
+import { executionKind, primaryExecutionError } from '../utils/executionOutcome';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useResultStore } from '../stores/resultStore';
 import type { Language } from '../types/language';
 import type { ExecutionResult } from '../types/execution';
-import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
+import { toResultDiagnostics } from '../utils/executionDiagnostics';
 import { toExecutionPresentation } from '../utils/executionPresentation';
 import { trackEvent } from '../utils/telemetry';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
@@ -63,15 +64,11 @@ export function applyAutoRunResult({
   consoleStore.addEntries(toConsoleEntries(result, language));
 
   setStdinConsumed(result.stdinConsumed ?? null);
-  setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
+  setDiagnostics(toResultDiagnostics(language, result));
   setExecutionTime(result.executionTime);
 
-  if (result.error) {
-    setError(result.error);
-    return;
-  }
-
-  setError(null);
+  setError(primaryExecutionError(result));
+  if (executionKind(result) !== 'success') return;
   captureSuccessfulSnapshot(language, code);
   setScopeSnapshot(result.scopeSnapshot ?? null);
   trackAutoRunAdoption(language, result);

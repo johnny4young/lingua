@@ -625,6 +625,38 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
 
   // implementation — Python paridad rich-media.
 
+  it('keeps captured Python failures and later results while classifying the run as an error', async () => {
+    class CapturedErrorWorker {
+      private handler?: (event: MessageEvent) => void;
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.handler = handler;
+      }
+      removeEventListener(): void {}
+      terminate(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.handler?.({ data: { type: 'ready' } } as MessageEvent);
+        } else if (message.type === 'execute') {
+          for (const entry of [
+            { type: 'magic-comment', line: 1, value: 'ValueError: bad input', kind: 'autoLog', isError: true },
+            { type: 'magic-comment', line: 2, value: '42', kind: 'autoLog' },
+            { type: 'done', executionTime: 1 },
+          ]) this.handler?.({ data: { ...entry, runId: message.runId } } as MessageEvent);
+        }
+      }
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: CapturedErrorWorker, writable: true, configurable: true });
+    const runner = new PythonRunner();
+    const result = await runner.execute('int("invalid")\n42', { autoLog: true });
+    expect(result.kind).toBe('error');
+    expect(result.error).toBeUndefined();
+    expect(result.magicResults).toEqual([
+      { line: 1, value: 'ValueError: bad input', kind: 'autoLog', isError: true },
+      { line: 2, value: '42', kind: 'autoLog' },
+    ]);
+    runner.stop();
+  });
+
   it('upgrades a magic-comment chart directive to a typed payload', async () => {
     class ChartDirectiveWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();

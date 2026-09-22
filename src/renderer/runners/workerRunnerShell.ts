@@ -20,6 +20,7 @@
  * agree about them.
  */
 
+import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
   ConsoleOutput,
@@ -391,7 +392,7 @@ export class WorkerRunnerShell {
               // instead of regexing the error message. Timeout and stop paths
               // never reach this branch — they finish() via
               // `runnerTimeoutResult` / `runnerStoppedResult`.
-              kind: error ? 'error' : 'success',
+              kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
               scopeSnapshot,

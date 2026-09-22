@@ -125,6 +125,17 @@ is not persisted in tabs, settings, history or `RunCapsuleV1`, so existing saved
 sessions remain compatible. Regression coverage exercises Stop → Run → late result,
 cancelled preparation, closed tabs and cancellation during capsule construction.
 
+### Execution outcomes and captured errors
+
+A top-level `ExecutionResult.error` describes an aborting failure. A magic-comment
+or auto-log `isError` capture does not abort later independent expressions, but it
+still makes the run an error rather than a successful restoration target.
+`executionOutcome.ts` centralizes that distinction for manual and automatic runs,
+console summaries, diagnostics and history/capsules. Explicit stopped and timeout
+outcomes take precedence over errors captured before termination. The original
+capture remains the inline error; it is not copied into a synthetic top-level
+runner error. Only clean successes replace the last successful snapshot.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256

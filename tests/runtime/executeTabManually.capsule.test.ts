@@ -27,7 +27,7 @@ const {
   mockSetRunTermination,
   mockSetRunDeadlineAt,
   mockToExecutionPresentation,
-  mockToExecutionDiagnostics,
+  mockToResultDiagnostics,
 } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
   mockRunnerManagerPrepare: vi.fn(),
@@ -35,7 +35,7 @@ const {
   mockSetRunTermination: vi.fn(),
   mockSetRunDeadlineAt: vi.fn(),
   mockToExecutionPresentation: vi.fn(),
-  mockToExecutionDiagnostics: vi.fn(),
+  mockToResultDiagnostics: vi.fn(),
 }));
 
 vi.mock('../../src/renderer/utils/telemetry', () => ({
@@ -75,7 +75,7 @@ vi.mock('../../src/renderer/utils/executionPresentation', () => ({
 }));
 
 vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
-  toExecutionDiagnostics: mockToExecutionDiagnostics,
+  toResultDiagnostics: mockToResultDiagnostics,
 }));
 
 import { useResultStore } from '../../src/renderer/stores/resultStore';
@@ -101,8 +101,8 @@ describe('executeTabManually — capsule attach ', () => {
       lineResults: [],
       fullOutput: '',
     });
-    mockToExecutionDiagnostics.mockReset();
-    mockToExecutionDiagnostics.mockReturnValue([]);
+    mockToResultDiagnostics.mockReset();
+    mockToResultDiagnostics.mockReturnValue([]);
     useExecutionHistoryStore.setState({ entries: [] });
     useGitStore.getState().clear();
     useSettingsStore.setState({ outputSourceMappingEnabled: true });
@@ -124,7 +124,7 @@ describe('executeTabManually — capsule attach ', () => {
       lineResults,
       fullOutput: '',
     });
-    mockToExecutionDiagnostics.mockReturnValue(diagnostics);
+    mockToResultDiagnostics.mockReturnValue(diagnostics);
     mockRunnerManagerPrepare.mockResolvedValue({
       runner: {
         execute: mockRunnerExecute.mockResolvedValue({

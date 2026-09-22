@@ -3,6 +3,7 @@
  * the opt-in code snapshot, and the run-start git posture the capsule carries.
  */
 
+import { primaryExecutionError } from '../../utils/executionOutcome';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { isEntitled } from '../../../shared/entitlements';
 import { buildRunCapsule, type RunCapsuleV1 } from '../../../shared/runCapsule';
@@ -270,7 +271,7 @@ export async function recordCompletedRun(args: {
     lineResults: lineResults.length > 0 ? lineResults : undefined,
     richOutputs: collectRichOutputs(result),
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    errorMessage: result.error?.message,
+    errorMessage: primaryExecutionError(result)?.message,
   });
 
   if (args.isCurrent && !args.isCurrent()) return;
