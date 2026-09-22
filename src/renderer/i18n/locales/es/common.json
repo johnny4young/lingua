@@ -1505,6 +1505,7 @@
   "console.rich.imageInvalidSrc": "Imagen rechazada (origen inválido)",
   "console.rich.htmlSandboxed": "Vista previa HTML aislada",
   "console.rich.errorStackHeader": "Traza del error",
+  "console.rich.errorRuntimeFrames": "Detalles internos",
   "console.rich.errorFrameClickable": "Abrir {{file}}:{{line}}",
   "console.rich.errorFrameUnclickable": "Origen no disponible",
   "console.rich.errorFrameMenuCopyLocation": "Copia archivo:línea",

@@ -35,6 +35,18 @@ for (const language of ['en', 'es'] as const) {
       ].join('\n'));
       await run.click();
       await expect(rows.filter({ hasText: 'coordinate marker' })).toContainText('user code:3:7');
+      const details = rows.filter({ hasText: 'coordinate marker' }).getByTestId('console-rich-error-runtime');
+      await expect(details).not.toHaveAttribute('open');
+      const internal = details.getByTestId('console-rich-error-frame-text').first();
+      await expect(internal).not.toBeVisible();
+      const summary = details.locator('summary');
+      await expect(summary).toHaveText(language === 'en' ? 'Runtime details' : 'Detalles internos');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(internal).toBeVisible();
+      await expect(details.getByRole('button')).toHaveCount(0);
+      await page.keyboard.press('Enter');
+      await expect(internal).not.toBeVisible();
       await expect(run).toHaveAttribute('data-running', 'false');
       await page.screenshot({ path: test.info().outputPath(`coordinates-${runtime}-${language}.png`) });
 
@@ -43,6 +55,12 @@ for (const language of ['en', 'es'] as const) {
       await expect(rows.filter({ hasText: 'SyntaxError' })).toHaveCount(1);
       await expect(rows.filter({ hasText: 'SyntaxError' })).toContainText('user code:1:6');
       await expect(rows.filter({ hasText: 'after captured arrow' })).toHaveCount(1);
+      await expect(run).toHaveAttribute('data-running', 'false');
+
+      await edit(page, 'console.error(new Error("logged coordinate"));');
+      await run.click();
+      await expect(rows.filter({ hasText: 'logged coordinate' })).toContainText('user code:1:15');
+      await expect(rows.filter({ hasText: 'logged coordinate' }).getByTestId('console-rich-error-runtime')).not.toHaveAttribute('open');
       await expect(run).toHaveAttribute('data-running', 'false');
 
       await edit(page, 'console.log("coordinates recovered")');

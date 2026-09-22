@@ -28,6 +28,51 @@ describe('worker source coordinates', () => {
     });
   });
 
+  it('classifies runtime frames separately from original user frames', async () => {
+    const messages = await execute('throw new Error("frame marker")');
+    const frames = messages.find(message => message.type === 'error')?.error.frames ?? [];
+    expect(frames.some(frame => frame.text === 'Error: frame marker')).toBe(false);
+    expect(frames.find(frame => frame.provenance === 'user')).toMatchObject({ line: 1, column: 7 });
+    expect(frames.some(frame => frame.provenance === 'runtime')).toBe(true);
+    expect(frames.filter(frame => frame.provenance === 'runtime').every(frame => !frame.file)).toBe(true);
+  });
+
+  it.each([
+    'problem', '{ problem }', 'new Map([["problem", problem]])',
+    'new Set([problem])', '[{ problem }]',
+  ])('retains mapped Error stacks inside logged %s values', async expression => {
+    const maps: string[] = [];
+    const code = transformJSLineTiming(`const problem = new Error("logged marker");\nconsole.error(${expression});`, [1, 2], map => maps.unshift(map));
+    const messages = await execute(code, maps, 2);
+    const output = messages.find(message => message.type === 'console');
+    const serialized = JSON.stringify(output?.payload);
+    expect(serialized).toContain('user code:1:17');
+    expect(serialized).toContain('"provenance":"user"');
+    expect(messages.some(message => message.type === 'error')).toBe(false);
+  });
+
+  it('keeps unknown dependency frames visible and does not change the Error', async () => {
+    const { createJsWorkerSourceMapper } = await import('@/workers/js-worker-source');
+    const source = await createJsWorkerSourceMapper();
+    const error = new Error('dependency');
+    error.stack = 'Error: dependency\n    at external (https://example.invalid/library.js:8:2)';
+    Object.freeze(error);
+    expect(source.errorFrames(error)).toEqual([{ text: 'at external (https://example.invalid/library.js:8:2)',
+      file: 'https://example.invalid/library.js', line: 8, column: 2, fnName: 'external' }]);
+    expect(error.stack).toContain('Error: dependency');
+  });
+
+  it('keeps logging usable when an Error stack accessor throws', async () => {
+    const messages = await execute('const error = new Error("opaque"); Object.defineProperty(error, "stack", { get() { throw new Error("private"); } }); console.error(error); console.log("still running");');
+    expect(messages.some(message => message.type === 'error')).toBe(false);
+    expect(messages.filter(message => message.type === 'console')).toHaveLength(2);
+  });
+
+  it('maps Error cells passed to console.table', async () => {
+    const messages = await execute('console.table([{ problem: new Error("table marker") }]);');
+    expect(JSON.stringify(messages.find(message => message.type === 'console')?.payload)).toContain('user code:1:27');
+  });
+
   it('locates native syntax failures without executing a second copy of user code', async () => {
     const maps: string[] = [];
     const code = transformJSLineTiming('const value = 1;\nconst broken = ;', [1, 2], map => maps.unshift(map));

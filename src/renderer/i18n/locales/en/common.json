@@ -1505,6 +1505,7 @@
   "console.rich.imageInvalidSrc": "Image rejected (invalid source)",
   "console.rich.htmlSandboxed": "Sandboxed HTML preview",
   "console.rich.errorStackHeader": "Stack trace",
+  "console.rich.errorRuntimeFrames": "Runtime details",
   "console.rich.errorFrameClickable": "Open {{file}}:{{line}}",
   "console.rich.errorFrameUnclickable": "Source unavailable",
   "console.rich.errorFrameMenuCopyLocation": "Copy file:line",

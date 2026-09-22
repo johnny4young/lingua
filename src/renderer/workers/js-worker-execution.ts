@@ -120,7 +120,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       const startTime = performance.now();
 
       const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
-      installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false);
+      installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
 
       const session = createJsWorkerDebuggerSession(runId);
       applyJsWorkerExecutePayload(session, exec);

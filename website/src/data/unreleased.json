@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-09-22T04:18:16.260Z",
+  "generatedAt": "2026-09-22T04:42:30.903Z",
   "baseRef": "v1.5.0",
-  "commitCount": 5,
-  "totalSinceBase": 18,
+  "commitCount": 6,
+  "totalSinceBase": 20,
   "commits": [
+    {
+      "hash": "419db52",
+      "date": "2026-09-21",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runtime",
+      "message": "preserve source coordinates through execution transforms",
+      "breaking": false
+    },
     {
       "hash": "cf243b4",
       "date": "2026-09-21",

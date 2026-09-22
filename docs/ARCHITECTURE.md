@@ -153,6 +153,15 @@ prevents engine-valid code from running. Unmapped generated helpers and malforme
 maps stay unknown rather than reporting a guessed original position. Synthetic
 source labels are not filesystem paths and do not advertise cross-file links.
 
+Mapped error frames carry explicit provenance. The worker identifies its own
+runtime files from the inert probe, while unknown dependency frames stay visible.
+The console shows user/unknown frames before collapsed, keyboard-accessible runtime
+details; runtime frames never advertise an editor link. Legacy stacks and Python
+cause chains retain their original order. The same mapper is passed into the
+bounded rich-value serializer for logged Errors, including object, Map, Set and
+table cells, without mutating user Error objects. Unreadable stacks retain the
+message fallback. No new persisted session format is required.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256

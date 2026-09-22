@@ -1,3 +1,4 @@
+import type { SerializeScopeValueOptions } from '../../shared/scopeSnapshot';
 import { truncateSerialized } from '../runners/limits';
 import {
   DEFAULT_SCOPE_DEPTH,
@@ -226,10 +227,11 @@ export function safeJsWorkerStructuredResult(value: unknown): unknown {
  * the canonical fallback; payloads are *additive* on `ConsoleOutput`,
  * never replacing the strings the renderer already paints today.
  */
-function serializePayloads(args: unknown[], marker: string): RichOutputPayload[] {
+function serializePayloads(args: unknown[], marker: string, errorStack?: SerializeScopeValueOptions['errorStack']): RichOutputPayload[] {
   return args.map(arg =>
     serializeRichValue(arg, {
       truncate: input => truncateJsWorkerValue(input, marker),
+      errorStack,
     })
   );
 }
@@ -246,13 +248,13 @@ function serializePayloads(args: unknown[], marker: string): RichOutputPayload[]
  * `forceTablePayload(rows)` when the user passed no column subset, or
  * the requested columns aren't a non-empty subset.
  */
-function buildConsoleTablePayload(args: unknown[]): RichOutputTable {
+function buildConsoleTablePayload(args: unknown[], errorStack?: SerializeScopeValueOptions['errorStack']): RichOutputTable {
   const [rows, columns] = args;
   const subset =
     Array.isArray(columns) && columns.every(c => typeof c === 'string')
       ? (columns as string[])
       : null;
-  const base = forceTablePayload(rows);
+  const base = forceTablePayload(rows, { errorStack });
   if (!subset || subset.length === 0) return base;
   const indices: number[] = [];
   for (const col of subset) {
@@ -277,13 +279,14 @@ export function installJsWorkerConsoleProxy(
   runId: string,
   marker: string,
   callingLine: () => number | undefined,
-  sourceMappingEnabled: boolean
+  sourceMappingEnabled: boolean,
+  errorStack?: SerializeScopeValueOptions['errorStack']
 ) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
       const line = sourceMappingEnabled ? callingLine() : undefined;
-      const payload = serializePayloads(args, marker);
+      const payload = serializePayloads(args, marker, errorStack);
       // implementation — stamp the captured source line onto each
       // payload as `origin.line` so the renderer-side
       // `<OutputLineBadge>` can render a chip without re-deriving the
@@ -359,7 +362,7 @@ export function installJsWorkerConsoleProxy(
       });
       return;
     }
-    const tablePayload = buildConsoleTablePayload(args);
+    const tablePayload = buildConsoleTablePayload(args, errorStack);
     const rowCount = tablePayload.rows.length + (tablePayload.truncatedRowCount ?? 0);
     // The optional `columns` subset argument is consumed by
     // `buildConsoleTablePayload`; do not echo it into the fallback

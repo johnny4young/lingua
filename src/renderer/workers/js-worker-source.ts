@@ -1,5 +1,5 @@
 import { parse } from 'acorn';
-import { parseJsErrorStack } from '../../shared/errorStack';
+import { parseJsErrorStack, type ClickableStackFrame } from '../../shared/errorStack';
 import { createSourcePositionMapper } from '../../shared/sourcePosition';
 import type { ExecutionError } from '../types/execution';
 
@@ -39,7 +39,27 @@ export async function createJsWorkerSourceMapper(
     return position ? `user code:${position.line}:${position.column}` : 'generated code';
   });
 
+  // The inert probe traverses this worker's own call sites. Do not classify
+  // arbitrary dependency URLs as internals or infer provenance in the UI.
+  const runtimeFiles = new Set(parseJsErrorStack(typeof probeStack === 'string' ? probeStack : undefined)
+    .flatMap(frame => frame.file ? [frame.file] : []));
+  const errorFrames = (error: Error): ClickableStackFrame[] => {
+    const header = `${error.name}: ${error.message}`;
+    const stack = error.stack?.startsWith(header + '\n') ? error.stack.slice(header.length + 1) : error.stack;
+    return parseJsErrorStack(stack).map(frame => {
+      if (frame.text.includes(`${USER_SOURCE}:`)) {
+        const position = firstPosition(frame.text);
+        return { text: mappedText(frame.text), fnName: frame.fnName, ...position, provenance: 'user' };
+      }
+      if ((frame.file && runtimeFiles.has(frame.file)) || /\((?:native|<anonymous>)\)$/.test(frame.text)) {
+        return { text: frame.text, fnName: frame.fnName, provenance: 'runtime' };
+      }
+      return frame;
+    });
+  };
+
   return {
+    errorFrames,
     body: (code: string) => `${code}\n//# sourceURL=${USER_SOURCE}`,
     callingLine: () => firstPosition(new Error().stack)?.line,
     parseError: (error: unknown, syntaxCode?: string): ExecutionError => {
@@ -61,13 +81,7 @@ export async function createJsWorkerSourceMapper(
           }
         }
       }
-      const frames = parseJsErrorStack(error.stack).map(frame => {
-        if (!frame.text.includes(`${USER_SOURCE}:`)) return frame;
-        const position = firstPosition(frame.text);
-        // A synthetic source label is not a filesystem path. Keep mapped
-        // coordinates readable without advertising an invalid cross-file link.
-        return { text: mappedText(frame.text), fnName: frame.fnName, ...position };
-      });
+      const frames = errorFrames(error);
       return {
         message: error.message,
         ...position,

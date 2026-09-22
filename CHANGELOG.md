@@ -16,6 +16,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **JavaScript and TypeScript stacks prioritize user code and fold runtime details.** Logged errors retain mapped stacks, including nested values; internal frames no longer offer broken editor links.
 - **JavaScript and TypeScript diagnostics point back to the original source after instrumentation.** Error and console locations compose timing, capture, loop and compiler maps; explicit arrow/watch captures retain their error classification.
 - **Captured expression errors are visible in the console and diagnostics without stopping later captures.** Failed runs no longer replace successful snapshots or appear as successful history. Console summaries distinguish completion, failure, Stop and timeout in English and Spanish.
 - **Stop takes effect during runner preparation and keeps cancelled runs from changing later results.** Late output, history records and finalizers are ignored; closing the running tab cancels its execution.

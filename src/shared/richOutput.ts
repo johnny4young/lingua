@@ -46,7 +46,7 @@
  *     `matplotlib.figure.Figure`.
  */
 
-import type { ScopeValue } from './scopeSnapshot';
+import type { ScopeValue, SerializeScopeValueOptions } from './scopeSnapshot';
 import { serializeScopeValue } from './scopeSnapshot';
 
 // ---------------------------------------------------------------------------
@@ -409,7 +409,7 @@ function validateChartSpecTree(root: object): boolean {
  * to `ScopeValue` so the renderer can iterate without a second
  * walker pass.
  */
-export function detectAutoTable(value: unknown): RichOutputTable | null {
+export function detectAutoTable(value: unknown, options: SerializeRichValueOptions = {}): RichOutputTable | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   for (const entry of value) {
     if (!isPlainObject(entry)) return null;
@@ -427,13 +427,13 @@ export function detectAutoTable(value: unknown): RichOutputTable | null {
   if (columnSet.size === 0) return null;
   const columns = Array.from(columnSet);
   const sliceCount = Math.min(value.length, MAX_TABLE_ROWS);
-  const truncate = (input: string) => input;
+  const truncate = options.truncate ?? ((input: string) => input);
   const rows: ScopeValue[][] = [];
   for (let rowIdx = 0; rowIdx < sliceCount; rowIdx += 1) {
     const row = value[rowIdx] as Record<string, unknown>;
     const cells: ScopeValue[] = columns.map((col) =>
       Object.prototype.hasOwnProperty.call(row, col)
-        ? serializeScopeValue(row[col], { truncate, maxDepth: 1 })
+        ? serializeScopeValue(row[col], { truncate, maxDepth: 1, errorStack: options.errorStack })
         : { kind: 'primitive', type: 'undefined', repr: 'undefined' }
     );
     rows.push(cells);
@@ -458,17 +458,17 @@ export function detectAutoTable(value: unknown): RichOutputTable | null {
  *   - Anything else → one-cell table keyed `'value'` carrying the
  *     serialized payload.
  */
-export function forceTablePayload(value: unknown): RichOutputTable {
-  const autoTable = detectAutoTable(value);
+export function forceTablePayload(value: unknown, options: SerializeRichValueOptions = {}): RichOutputTable {
+  const autoTable = detectAutoTable(value, options);
   if (autoTable) return autoTable;
 
-  const truncate = (input: string) => input;
+  const truncate = options.truncate ?? ((input: string) => input);
 
   if (Array.isArray(value)) {
     const sliceCount = Math.min(value.length, MAX_TABLE_ROWS);
     const rows: ScopeValue[][] = [];
     for (let rowIdx = 0; rowIdx < sliceCount; rowIdx += 1) {
-      rows.push([serializeScopeValue(value[rowIdx], { truncate, maxDepth: 1 })]);
+      rows.push([serializeScopeValue(value[rowIdx], { truncate, maxDepth: 1, errorStack: options.errorStack })]);
     }
     const truncatedRowCount =
       value.length > sliceCount ? value.length - sliceCount : undefined;
@@ -486,7 +486,7 @@ export function forceTablePayload(value: unknown): RichOutputTable {
       return { kind: 'table', columns: [], rows: [] };
     }
     const row: ScopeValue[] = keys.map((key) =>
-      serializeScopeValue(obj[key], { truncate, maxDepth: 1 })
+      serializeScopeValue(obj[key], { truncate, maxDepth: 1, errorStack: options.errorStack })
     );
     return { kind: 'table', columns: keys, rows: [row] };
   }
@@ -494,7 +494,7 @@ export function forceTablePayload(value: unknown): RichOutputTable {
   return {
     kind: 'table',
     columns: ['value'],
-    rows: [[serializeScopeValue(value, { truncate, maxDepth: 1 })]],
+    rows: [[serializeScopeValue(value, { truncate, maxDepth: 1, errorStack: options.errorStack })]],
   };
 }
 
@@ -503,6 +503,7 @@ export function forceTablePayload(value: unknown): RichOutputTable {
 // ---------------------------------------------------------------------------
 
 export interface SerializeRichValueOptions {
+  errorStack?: SerializeScopeValueOptions['errorStack'];
   /**
    * Truncation marker used when a long string is shortened. Defaults
    * to identity (no truncation) — the renderer-side cap applies on
@@ -549,8 +550,8 @@ export function serializeRichValue(
     for (const [key, val] of value.entries()) {
       if (consumed >= cap) break;
       entries.push({
-        key: serializeScopeValue(key, { truncate, maxDepth: 1 }),
-        value: serializeScopeValue(val, { truncate, maxDepth: 1 }),
+        key: serializeScopeValue(key, { truncate, maxDepth: 1, errorStack: options.errorStack }),
+        value: serializeScopeValue(val, { truncate, maxDepth: 1, errorStack: options.errorStack }),
       });
       consumed += 1;
     }
@@ -567,7 +568,7 @@ export function serializeRichValue(
     let consumed = 0;
     for (const item of value.values()) {
       if (consumed >= cap) break;
-      entries.push(serializeScopeValue(item, { truncate, maxDepth: 1 }));
+      entries.push(serializeScopeValue(item, { truncate, maxDepth: 1, errorStack: options.errorStack }));
       consumed += 1;
     }
     const truncatedCount = value.size > cap ? value.size - cap : undefined;
@@ -584,10 +585,10 @@ export function serializeRichValue(
     return { kind: 'promise', state: 'pending' };
   }
 
-  const autoTable = detectAutoTable(value);
+  const autoTable = detectAutoTable(value, options);
   if (autoTable) return autoTable;
 
-  return serializeScopeValue(value, { truncate });
+  return serializeScopeValue(value, { truncate, errorStack: options.errorStack });
 }
 
 // ---------------------------------------------------------------------------

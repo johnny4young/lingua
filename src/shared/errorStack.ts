@@ -21,6 +21,8 @@
 export interface ClickableStackFrame {
   /** Raw source line (e.g. `at fn (file.ts:12:5)`). Always present. */
   text: string;
+  /** Set only by a runtime that can identify its own frames. Legacy stacks keep their order. */
+  provenance?: 'user' | 'runtime';
   /** Resolved file path. Absent when the parser can't extract one. */
   file?: string;
   /** 1-based line number. Absent when the parser can't extract one. */
@@ -254,6 +256,6 @@ export function parsePythonTraceback(text: string | undefined): ClickableStackFr
  */
 export function isClickable(frame: ClickableStackFrame): boolean {
   return (
-    typeof frame.file === 'string' && frame.file.length > 0 && typeof frame.line === 'number'
+    frame.provenance !== 'runtime' && typeof frame.file === 'string' && frame.file.length > 0 && typeof frame.line === 'number'
   );
 }
