@@ -27,22 +27,30 @@ declare global {
   }
 }
 
-test('sandboxed HTML payload cannot mutate parent DOM (cross-origin write blocked)', async ({
-  page,
-}) => {
-  await seedSession(page, { language: 'en' });
-  await page.goto('/?e2e=rich-console-gallery');
-  await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);
+for (const language of ['en', 'es'] as const) {
+  test(`sandboxed HTML executes without parent DOM access (${language})`, async ({ page }) => {
+    await seedSession(page, { language });
+    // Vite preview does not apply Pages _headers. Exercise the sandbox's exact
+    // response policy locally; this is not a claim about deployed headers.
+    await page.route(/\/assets\/lingua-sandbox-[\w-]+\.htm\?/, async route => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), 'content-security-policy': "frame-ancestors 'self'" },
+      });
+    });
+    await page.goto('/?e2e=rich-console-gallery');
+    await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);
 
-  // Tag the parent body with a known sentinel; the malicious payload
-  // inside the iframe will try to overwrite it via cross-origin DOM
-  // access. If sandbox enforcement works the sentinel survives.
-  await page.evaluate(() => {
-    document.body.dataset.linguaSecuritySentinel = 'pristine';
-  });
+    // Tag the parent body with a known sentinel; the malicious payload
+    // inside the iframe will try to overwrite it via cross-origin DOM
+    // access. If sandbox enforcement works the sentinel survives.
+    await page.evaluate(() => {
+      document.body.dataset.linguaSecuritySentinel = 'pristine';
+    });
 
-  const maliciousHtml = `<!doctype html>
+    const maliciousHtml = `<!doctype html>
     <html>
       <body>
         <script>
@@ -60,41 +68,46 @@ test('sandboxed HTML payload cannot mutate parent DOM (cross-origin write blocke
           } catch (e) {
             // expected — cross-origin block
           }
+          document.body.dataset.userScriptExecuted = "yes";
         </script>
         <p>sandbox probe</p>
       </body>
     </html>`;
 
-  await page.evaluate((html) => {
-    const hooks = window.__linguaE2e;
-    if (!hooks) throw new Error('Missing Lingua E2E hooks');
-    hooks.clearConsole();
-    hooks.addConsoleEntries([
-      {
-        type: 'log',
-        content: 'Sandbox probe',
-        language: 'javascript',
-        payload: [{ kind: 'html', height: 80, html }],
-      },
-    ]);
-  }, maliciousHtml);
+    await page.evaluate(html => {
+      const hooks = window.__linguaE2e;
+      if (!hooks) throw new Error('Missing Lingua E2E hooks');
+      hooks.clearConsole();
+      hooks.addConsoleEntries([
+        {
+          type: 'log',
+          content: 'Sandbox probe',
+          language: 'javascript',
+          payload: [{ kind: 'html', height: 80, html }],
+        },
+      ]);
+    }, maliciousHtml);
 
-  // Confirm the iframe rendered with the expected sandbox token.
-  const iframe = page.getByTestId('console-rich-html-iframe');
-  await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts');
+    // Confirm the iframe rendered with the expected sandbox token.
+    const iframe = page.getByTestId('console-rich-html-iframe');
+    await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts');
 
-  // Give the iframe script a beat to run + attempt the breach.
-  await expect(
-    page.frameLocator('[data-testid="console-rich-html-iframe"]').getByText('sandbox probe')
-  ).toBeVisible();
+    // Give the iframe script a beat to run + attempt the breach.
+    await expect(
+      page.frameLocator('[data-testid="console-rich-html-iframe"]').getByText('sandbox probe')
+    ).toBeVisible();
 
-  // Parent body sentinel must be unchanged. If sandbox flags ever
-  // regress to include `allow-same-origin` this assertion fails.
-  const sentinel = await page.evaluate(
-    () => document.body.dataset.linguaSecuritySentinel
-  );
-  expect(sentinel).toBe('pristine');
-});
+    // A blocked script is not evidence of sandbox isolation: prove it ran.
+    await expect(
+      page.frameLocator('[data-testid="console-rich-html-iframe"]').locator('body')
+    ).toHaveAttribute('data-user-script-executed', 'yes');
+
+    // Parent body sentinel must be unchanged. If sandbox flags ever
+    // regress to include `allow-same-origin` this assertion fails.
+    const sentinel = await page.evaluate(() => document.body.dataset.linguaSecuritySentinel);
+    expect(sentinel).toBe('pristine');
+  });
+}
 
 test('counter-assertion: same payload WITH allow-same-origin DOES breach (proves the gate is load-bearing)', async ({
   page,
@@ -111,7 +124,7 @@ test('counter-assertion: same payload WITH allow-same-origin DOES breach (proves
     document.body.dataset.linguaSecuritySentinel = 'pristine';
     const iframe = document.createElement('iframe');
     iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-    const loaded = new Promise((resolve) => {
+    const loaded = new Promise(resolve => {
       iframe.addEventListener('load', () => resolve(null), { once: true });
     });
     iframe.srcdoc = `<!doctype html><html><body><script>
@@ -123,7 +136,7 @@ test('counter-assertion: same payload WITH allow-same-origin DOES breach (proves
     // Wait for the iframe load after the listener is installed; adding
     // the listener after append can miss the event in fast browsers.
     await loaded;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 50));
     return document.body.dataset.linguaSecuritySentinel;
   });
   expect(result).toBe('breached');

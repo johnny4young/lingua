@@ -1,3 +1,4 @@
+import { setSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
 /**
  * implementation — BrowserPreviewPanel surface tests.
  *
@@ -150,11 +151,7 @@ describe('BrowserPreviewPanel', () => {
     const iframe = screen.getByTestId('browser-preview-iframe') as HTMLIFrameElement;
     // Seed the iframe srcdoc so the inspect path has something to
     // serialize as an opaque-origin data URL.
-    Object.defineProperty(iframe, 'srcdoc', {
-      configurable: true,
-      value: '<!DOCTYPE html><html><body><h1>hi</h1></body></html>',
-      writable: true,
-    });
+    setSandboxDocument(iframe, '<!DOCTYPE html><html><body><h1>hi</h1></body></html>');
 
     const openSpy = vi
       .spyOn(window, 'open')
@@ -175,11 +172,7 @@ describe('BrowserPreviewPanel', () => {
     seedActiveTab();
     render(<BrowserPreviewPanel />);
     const iframe = screen.getByTestId('browser-preview-iframe') as HTMLIFrameElement;
-    Object.defineProperty(iframe, 'srcdoc', {
-      configurable: true,
-      value: '<!DOCTYPE html><html><body></body></html>',
-      writable: true,
-    });
+    setSandboxDocument(iframe, '<!DOCTYPE html><html><body></body></html>');
 
     vi.spyOn(window, 'open').mockReturnValue(null);
 

@@ -66,7 +66,8 @@ describe('RUNTIME_MODES_ADR.md', () => {
     expect(adr).toMatch(/script-src 'unsafe-inline'/u);
     // Timeout kill
     expect(adr).toMatch(/Timeout kill/iu);
-    expect(adr).toMatch(/iframe\.srcdoc = ''/u);
+    expect(adr).toContain('clearSandboxDocument(iframe)');
+    expect(adr).toContain('about:blank');
   });
 
   it('records the CSP posture per runtime mode audit', () => {

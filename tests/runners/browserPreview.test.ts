@@ -1,3 +1,4 @@
+import { getSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
 /**
  * implementation — BrowserPreviewRunner + iframe bridge tests.
  *
@@ -357,6 +358,7 @@ function postBridgeMessage(
   const event = new MessageEvent('message', {
     data: payload,
     origin: options.origin ?? 'null',
+    source: document.querySelector('iframe')?.contentWindow,
   });
   window.dispatchEvent(event);
 }
@@ -402,7 +404,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     // Wait one tick so the runner has assigned srcdoc + attached
     // the message listener.
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).toContain('console.log("hello");');
 
     // Extract the runId the runner is listening for. The bridge
@@ -444,7 +446,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop');
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     // Spoofed message — bypassed.
@@ -474,7 +476,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop');
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     // Hostile origin — bypassed even with correct runId.
@@ -506,7 +508,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('throw new Error("boom");');
     await Promise.resolve();
-    const runId = iframe.srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -537,7 +539,7 @@ describe('BrowserPreviewRunner — execute()', () => {
       { preserveBrowserPreviewOnFailure: true }
     );
     await Promise.resolve();
-    const stableDocument = iframe.srcdoc;
+    const stableDocument = getSandboxDocument(iframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -550,7 +552,7 @@ describe('BrowserPreviewRunner — execute()', () => {
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
-    const failedRunId = iframe.srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    const failedRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
       runId: failedRunId,
@@ -565,7 +567,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await failedRefresh;
     expect(result.error?.message).toBe('new failure');
-    expect(iframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(iframe)).toBe(stableDocument);
   });
 
   it('restores the last successful DOM into a remounted preview iframe', async () => {
@@ -576,7 +578,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const firstRun = runner.execute('document.body.textContent = "stable";');
     await Promise.resolve();
-    const stableDocument = firstIframe.srcdoc;
+    const stableDocument = getSandboxDocument(firstIframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -592,7 +594,7 @@ describe('BrowserPreviewRunner — execute()', () => {
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
-    const failedRunId = remountedIframe.srcdoc.match(
+    const failedRunId = getSandboxDocument(remountedIframe).match(
       /var RUN_ID = "([^"]+)";/u
     )![1]!;
     postBridgeMessage({
@@ -609,7 +611,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await failedRefresh;
     expect(result.error?.message).toBe('remount failure');
-    expect(remountedIframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(remountedIframe)).toBe(stableDocument);
   });
 
   it('seeds the sibling css and html tabs of the tab named by context.tabId', async () => {
@@ -646,7 +648,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).toContain('.seeded { color: teal; }');
     expect(srcdoc).toContain('<p id="seeded">hi</p>');
 
@@ -670,7 +672,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const first = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    expect(iframe.srcdoc).toContain('.first { color: red; }');
+    expect(getSandboxDocument(iframe)).toContain('.first { color: red; }');
     runner.stop();
     await first;
 
@@ -680,8 +682,8 @@ describe('BrowserPreviewRunner — execute()', () => {
     });
     const second = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    expect(iframe.srcdoc).toContain('.second { color: blue; }');
-    expect(iframe.srcdoc).not.toContain('.first { color: red; }');
+    expect(getSandboxDocument(iframe)).toContain('.second { color: blue; }');
+    expect(getSandboxDocument(iframe)).not.toContain('.first { color: red; }');
     runner.stop();
     await second;
   });
@@ -702,7 +704,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     // No tabId: the manager execute path (benchmarks) never names a tab.
     const anonymous = runner.execute('// noop');
     await Promise.resolve();
-    expect(iframe.srcdoc).not.toContain('.unseeded');
+    expect(getSandboxDocument(iframe)).not.toContain('.unseeded');
     runner.stop();
     await anonymous;
 
@@ -712,7 +714,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     });
     const degraded = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).not.toContain('.unseeded');
     getState.mockRestore();
 
@@ -736,11 +738,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     // Pump the microtask queue so srcdoc has been assigned and the
     // setTimeout is scheduled.
     await Promise.resolve();
-    expect(iframe.srcdoc.length).toBeGreaterThan(0);
+    expect(getSandboxDocument(iframe).length).toBeGreaterThan(0);
 
     vi.advanceTimersByTime(600);
     const result = await promise;
-    expect(iframe.srcdoc).toBe('');
+    expect(getSandboxDocument(iframe)).toBe('');
     expect(result.error?.message).toMatch(/timed out/i);
   });
 
@@ -752,7 +754,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const firstRun = runner.execute('document.body.textContent = "stable";');
     await Promise.resolve();
-    const stableDocument = iframe.srcdoc;
+    const stableDocument = getSandboxDocument(iframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -771,7 +773,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await timedOutRefresh;
     expect(result.error?.message).toMatch(/timed out/i);
-    expect(iframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(iframe)).toBe(stableDocument);
   });
 
   it('stop() during an in-flight run cancels the promise', async () => {
@@ -785,6 +787,6 @@ describe('BrowserPreviewRunner — execute()', () => {
     runner.stop();
     const result = await promise;
     expect(result.cancelled).toBe(true);
-    expect(iframe.srcdoc).toBe('');
+    expect(getSandboxDocument(iframe)).toBe('');
   });
 });

@@ -5,7 +5,7 @@ import { _electron, expect } from 'playwright/test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -17,6 +17,7 @@ const artifacts = path.join(root, 'output/playwright/shell-navigation');
 await mkdir(artifacts, { recursive: true });
 const contentTypes = {
   '.html': 'text/html',
+  '.htm': 'text/html',
   '.js': 'text/javascript',
   '.css': 'text/css',
   '.json': 'application/json',
@@ -44,6 +45,9 @@ const server = createServer(async (request, response) => {
     response
       .writeHead(200, {
         'Content-Type': contentTypes[path.extname(file)] ?? 'application/octet-stream',
+        ...(path.basename(file).startsWith('lingua-sandbox-')
+          ? { 'Content-Security-Policy': "frame-ancestors 'self'" }
+          : { 'X-Frame-Options': 'DENY' }),
       })
       .end(body);
   } catch {
@@ -54,6 +58,69 @@ server.listen(0, '127.0.0.1');
 await once(server, 'listening');
 const devUrl = `http://127.0.0.1:${server.address().port}/?navigation-smoke=1`;
 const results = [];
+const sandboxAsset = (await readdir(path.join(rendererRoot, 'assets'))).find(name =>
+  /^lingua-sandbox-[\w-]+\.htm$/.test(name)
+);
+assert(sandboxAsset, 'Independent sandbox asset is present in desktop output');
+
+async function checkSandbox(page, label) {
+  const result = await page.evaluate(
+    async ({ asset, label }) => {
+      const policy = document.querySelector('meta[http-equiv="Content-Security-Policy"]').content;
+      const frame = document.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.hidden = true;
+      const token = crypto.randomUUID();
+      const url = new URL(`./assets/${asset}`, location.href);
+      url.searchParams.set('load', token);
+      try {
+        return await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            window.removeEventListener('message', receive);
+            reject(new Error('Sandbox handshake timed out'));
+          }, 10000);
+          function receive(event) {
+            if (event.source !== frame.contentWindow || event.origin !== 'null') return;
+            if (event.data?.type === 'lingua-sandbox-ready' && event.data.token === token) {
+              frame.contentWindow.postMessage(
+                {
+                  type: 'lingua-sandbox-document',
+                  token,
+                  html: `<script>let blocked = false; try { parent.document.body.dataset.breached = 'yes'; } catch { blocked = true; } parent.postMessage({ type: 'smoke-result', token: ${JSON.stringify(token)}, blocked, origin: window.origin }, '*');</script>`,
+                },
+                '*'
+              );
+            } else if (event.data?.type === 'smoke-result' && event.data.token === token) {
+              clearTimeout(timer);
+              window.removeEventListener('message', receive);
+              resolve({
+                policy,
+                label,
+                blocked: event.data.blocked,
+                origin: event.data.origin,
+                breached: document.body.dataset.breached,
+              });
+            }
+          }
+          window.addEventListener('message', receive);
+          frame.src = url.href;
+          document.body.append(frame);
+        });
+      } finally {
+        frame.remove();
+      }
+    },
+    { asset: sandboxAsset, label }
+  );
+  assert.equal(result.blocked, true);
+  assert.equal(result.origin, 'null');
+  assert.equal(result.breached, undefined);
+  const scriptPolicy = result.policy.split(';').find(part => part.trim().startsWith('script-src '));
+  assert(!scriptPolicy.includes("'unsafe-inline'"));
+  assert(scriptPolicy.includes("'sha256-"));
+  results.push(result);
+}
+
 try {
   for (const mode of ['file', 'loopback']) {
     const profile = await mkdtemp(path.join(artifacts, `${mode}-profile-`));
@@ -102,6 +169,7 @@ try {
         }, language);
         await page.reload();
         await page.getByTestId('app-chrome').waitFor();
+        await checkSandbox(page, `${mode}-${language}`);
         await page.evaluate(() => {
           location.hash = 'navigation-smoke';
         });
@@ -186,7 +254,7 @@ try {
   }
   await writeFile(path.join(artifacts, 'result.json'), JSON.stringify(results, null, 2));
   console.log(
-    'Shell navigation smoke passed: file + loopback, EN/ES, exact-document reload/hash, denied foreign document/query and server redirect, zero console errors.'
+    'Shell security smoke passed: file + loopback, EN/ES, hashed shell CSP, independent opaque sandbox execution, exact-document reload/hash, denied foreign document/query and server redirect, zero console errors.'
   );
 } finally {
   server.closeAllConnections();

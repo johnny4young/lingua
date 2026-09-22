@@ -87,7 +87,7 @@ export interface ExecutionContext {
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * implementation — BrowserPreviewRunner keeps the last successful srcdoc
+   * implementation — BrowserPreviewRunner keeps the last successful document
    * visible when a silent live refresh errors, times out, or is superseded.
    * Manual runs omit this flag and keep their explicit stop semantics.
    */

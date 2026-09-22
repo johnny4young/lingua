@@ -85,6 +85,8 @@ describe('public/sw.js — API origin cache bypass', () => {
 interface SwHarness {
   handlers: Record<string, (event: unknown) => void>;
   cacheNames: () => string[];
+  cachedUrls: () => string[];
+  setOffline: () => void;
   unregistered: () => boolean;
   navigated: () => string[];
 }
@@ -97,6 +99,7 @@ function instantiateSw(
   const cacheStore = new Map<string, Map<string, unknown>>();
   for (const name of seedCaches) cacheStore.set(name, new Map());
   let unregistered = false;
+  let offline = false;
   const navigated: string[] = [];
   const origin = `http://${location.hostname}${location.port ? `:${location.port}` : ''}`;
 
@@ -124,14 +127,16 @@ function instantiateSw(
     async delete(name: string) {
       return cacheStore.delete(name);
     },
-    async match() {
+    async match(request: string | { url: string }) {
+      const key = typeof request === 'string' ? request : request.url;
+      for (const bucket of cacheStore.values()) if (bucket.has(key)) return bucket.get(key);
       return undefined;
     },
   };
 
   const handlers: Record<string, (event: unknown) => void> = {};
   const self = {
-    location: { hostname: location.hostname, port: location.port, href: `${origin}/sw.js` },
+    location: { origin, hostname: location.hostname, port: location.port, href: `${origin}/sw.js` },
     registration: {
       scope: `${origin}/`,
       async unregister() {
@@ -171,7 +176,10 @@ function instantiateSw(
         Object.assign(this, init);
       }
     },
-    fetch: async () => ({ ok: true, clone() { return this; } }),
+    fetch: async () => {
+      if (offline) throw new Error('offline');
+      return { ok: true, clone() { return this; } };
+    },
     console,
   };
   vm.createContext(sandbox);
@@ -179,6 +187,8 @@ function instantiateSw(
 
   return {
     handlers,
+    cachedUrls: () => [...cacheStore.values()].flatMap(bucket => [...bucket.keys()]),
+    setOffline: () => { offline = true; },
     cacheNames: () => [...cacheStore.keys()],
     unregistered: () => unregistered,
     navigated: () => navigated,
@@ -242,5 +252,34 @@ describe('public/sw.js — dev-server self-destruct', () => {
     await runActivate(sw);
     expect(sw.unregistered()).toBe(false);
     expect(sw.cacheNames()).toEqual(['lingua-v5']);
+  });
+});
+
+
+describe('sandbox document offline cache', () => {
+  async function load(sw: SwHarness, url: string) {
+    let response: Promise<{ ok?: boolean; status?: number }> | undefined;
+    sw.handlers.fetch?.({
+      request: { method: 'GET', url, mode: 'navigate' },
+      respondWith: (value: typeof response) => { response = value; },
+    });
+    return response;
+  }
+  it('keeps one fingerprinted document across per-run handshake tokens', async () => {
+    const sw = instantiateSw(await readSwSource(), { hostname: 'app.linguacode.dev', port: '' });
+    const asset = 'http://app.linguacode.dev/assets/lingua-sandbox-abc123.htm';
+    await load(sw, `${asset}?load=first`);
+    await load(sw, `${asset}?load=second`);
+    expect(sw.cachedUrls()).toEqual([asset]);
+    sw.setOffline();
+    expect(await load(sw, `${asset}?load=offline-run`)).toMatchObject({ ok: true });
+  });
+  it('does not normalize unrelated navigation queries or foreign origins', async () => {
+    const sw = instantiateSw(await readSwSource(), { hostname: 'app.linguacode.dev', port: '' });
+    const other = 'http://app.linguacode.dev/page?load=first';
+    const foreign = 'https://foreign.test/assets/lingua-sandbox-abc123.htm?load=first';
+    await load(sw, other);
+    await load(sw, foreign);
+    expect(sw.cachedUrls()).toEqual([other, foreign]);
   });
 });

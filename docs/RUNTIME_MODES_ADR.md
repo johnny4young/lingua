@@ -328,10 +328,36 @@ Bridge message types:
   and implementation note (multi-file seed) injects a sibling `.css` tab as
   `<style>` inside the doc.
 
+### Shell and user-document separation
+
+Production web and desktop HTML authorize only the identified prepaint theme
+bootstrap by its emitted SHA-256 hash. The shell does not permit arbitrary
+inline scripts or inline event handlers. `unsafe-eval` remains for execution
+runtimes and `style-src unsafe-inline` remains for Monaco and dynamic styles;
+this is not a claim of a fully strict CSP. Development keeps its HMR policy.
+
+Both Browser preview and rich HTML use `runtime/sandboxDocument.ts` to load a
+fingerprinted `lingua-sandbox-*.htm` asset with its own policy. `srcdoc`, `data:`
+and `blob:` inherit the parent policy and would disable legitimate user scripts.
+The static bootstrap accepts HTML only while in an opaque child frame, from its
+parent, with a matching per-navigation token, once. It replaces its document
+without relaxing its policy. Parent listeners also check the frame source;
+execution messages retain their separate run identity. Teardown cancels pending
+handshakes and cannot clear a replacement run. Inspect retains the original
+serialized document rather than reading the cross-origin frame.
+
+The asset is intentionally not inlined or passed through Vite's HTML/HMR
+transforms. Its content hash changes with its bootstrap/policy, including offline
+caches. The service worker stores one entry per asset, not per handshake token.
+Cloudflare Pages detaches the blanket `X-Frame-Options: DENY` only for this asset
+and adds `frame-ancestors 'self'`; all other documents retain the blanket rule.
+See [Pages header detachment](https://developers.cloudflare.com/pages/configuration/headers/#detach-a-header).
+Local header simulation is not evidence of production deployment.
+
 ### Timeout kill
 
 Parent owns `setTimeout(timeout)`. On fire, the parent assigns
-`iframe.srcdoc = ''`, which the browser treats as a full
+`clearSandboxDocument(iframe)` (navigation to `about:blank`), which the browser treats as a full
 navigation — user code execution is terminated. The runner
 resolves with `runnerTimeoutResult(...)` and detaches the
 message listener.
@@ -341,7 +367,7 @@ message listener.
 Manual Run and auto-run name the running tab through
 `ExecutionContext.tabId`. `BrowserPreviewRunner.execute` reads that
 tab's sibling `.css` and `.html` tabs from the editor store and
-threads them into the `srcdoc` it builds:
+threads them into the isolated document it builds:
 
 - `siblingCss` → `<style>` block in `<head>`.
 - `siblingHtml` → injected literally as the `<body>` seed
@@ -352,7 +378,7 @@ Both are optional; a JS-only tab still works.
 ### Inspect button
 
 The panel's "Open in window" button (`browserPreview.inspect.*`)
-serializes the current `iframe.srcdoc` as a top-level `data:` URL
+serializes the current `getSandboxDocument(iframe)` result as a top-level `data:` URL
 and opens it in a new browser window with `noopener,noreferrer`.
 Using `data:` keeps the inspected document on an opaque origin;
 Blob URLs inherit the creator origin in Chromium and would let
@@ -369,7 +395,7 @@ release security review consults.
 |------|--------|---------|-----|------------|---------|-------|
 | `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
 | `node`  | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node permission flags remain follow-up hardening. |
-| `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
+| `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the isolated document CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
 
 The matrix is the reference for any future mode (for example, a
 hypothetical WebContainer mode). Every new mode adds

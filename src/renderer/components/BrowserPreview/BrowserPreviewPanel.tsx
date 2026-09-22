@@ -1,3 +1,4 @@
+import { clearSandboxDocument, getSandboxDocument } from '../../runtime/sandboxDocument';
 import { Eye, ExternalLink, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +17,7 @@ import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPre
  *
  *   - On mount, registers the iframe element with the
  *     `browserPreviewBridge` so the runner can write into its
- *     `srcdoc`. On unmount, clears the registration so a stale ref
+ *     isolated document. On unmount, clears the registration so a stale ref
  *     never points at a torn-down element.
  *   - The footer reflects running / idle / error / timeout states
  *     by consuming the existing result store (`isManualRunning`,
@@ -64,10 +65,7 @@ export function BrowserPreviewPanel() {
     setActiveBrowserPreviewIframe(element);
     return () => {
       setActiveBrowserPreviewIframe(null);
-      // Reference `element` so the lint rule treats it as
-      // captured. The ref itself moves on remount; the cleanup
-      // intentionally clears the bridge regardless.
-      void element;
+      if (element) clearSandboxDocument(element);
     };
   }, []);
 
@@ -75,7 +73,8 @@ export function BrowserPreviewPanel() {
   const handleInspect = useCallback(() => {
     try {
       const iframe = iframeRef.current;
-      if (!iframe || !iframe.srcdoc) {
+      const html = iframe ? getSandboxDocument(iframe) : '';
+      if (!html) {
         setInspectFailed(true);
         return;
       }
@@ -84,7 +83,7 @@ export function BrowserPreviewPanel() {
       // give user preview code access to Lingua's localStorage in
       // the new window. A data URL gets an opaque origin and keeps
       // the inspect surface aligned with the sandboxed iframe.
-      const url = `data:text/html;charset=utf-8,${encodeURIComponent(iframe.srcdoc)}`;
+      const url = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
       const win = window.open(url, '_blank', 'noopener,noreferrer');
       if (!win) {
         setInspectFailed(true);

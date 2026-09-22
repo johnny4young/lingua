@@ -10,10 +10,7 @@
  *     tab AND surfaces the iframe element.
  *   - Switching back to Worker hides the Browser preview tab.
  *
- * Deeper guarantees (postMessage protocol, runId guard, timeout
- * kill, console capture, DOM rendering) live in the runner unit
- * tests + the component tests — they don't need Playwright to
- * exercise.
+ * Real execution below also checks the emitted CSP and recovery.
  */
 
 import {
@@ -23,6 +20,7 @@ import {
   gotoApp,
   seedSession,
   selectRuntimeMode,
+  selectWorkflowMode,
   test,
 } from './licenseWeb.helpers';
 
@@ -75,3 +73,79 @@ test.describe('Browser preview runtime ', () => {
     await expect(page.getByTestId('bottom-panel-browser-preview-tab')).toBeHidden();
   });
 });
+
+for (const language of ['en', 'es'] as const) {
+  test(`Browser preview executes, reports an error and recovers under the emitted CSP (${language})`, async ({
+    page,
+  }) => {
+    await seedSession(page, { language, workflowModeDefaultsByLanguage: { javascript: 'run' } });
+    await page.addInitScript(language => {
+      if (window !== window.top) return;
+      const settings = JSON.parse(localStorage.getItem('lingua-settings')!);
+      settings.state.theme = language === 'en' ? 'light' : 'dark';
+      settings.state.editorTheme = language === 'en' ? 'lingua-light' : 'lingua-dark';
+      localStorage.setItem('lingua-settings', JSON.stringify(settings));
+    }, language);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await selectRuntimeMode(page, 'browser-preview');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', language === 'en' ? 'light' : 'dark');
+    const run = page.getByTestId('action-pill-run');
+    const preview = page.frameLocator('[data-testid="browser-preview-iframe"]');
+    const waitForDocument = async (text: string) => {
+      // document.open replaces the frame's execution context. Poll the actual
+      // rendered body before asking Playwright's cross-frame visibility query.
+      await expect
+        .poll(async () => {
+          const frame = page
+            .frames()
+            .find(frame => frame.url().includes('/assets/lingua-sandbox-'));
+          if (!frame) return '';
+          try {
+            return await frame.evaluate(() => document.body?.innerText ?? '');
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              /Execution context was destroyed|Frame was detached/.test(error.message)
+            )
+              return '';
+            throw error;
+          }
+        })
+        .toContain(text);
+      await expect(preview.getByText(text, { exact: true })).toBeVisible();
+    };
+    const edit = async (source: string, refresh = 'off') => {
+      await page
+        .locator('.monaco-editor')
+        .first()
+        .click({ position: { x: 140, y: 42 } });
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+      await page.keyboard.insertText(`// @preview-refresh ${refresh}\n${source}`);
+    };
+    await edit('document.body.textContent = "sandbox-first-run";');
+    await run.click();
+    await waitForDocument('sandbox-first-run');
+    await expect(run).toBeEnabled();
+    await edit(
+      'document.body.textContent = "sandbox-error-run"; throw new Error("sandbox-intentional-failure");'
+    );
+    await run.click();
+    await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await edit('document.body.textContent = "sandbox-recovered";');
+    await run.click();
+    await waitForDocument('sandbox-recovered');
+    await selectWorkflowMode(page, 'scratchpad');
+    // Live refresh is a separate journey: no manual Run click, retain the
+    // last accepted document on error, then replace it on successful recovery.
+    await edit('document.body.textContent = "sandbox-auto-stable";', '300');
+    await waitForDocument('sandbox-auto-stable');
+    await edit('throw new Error("sandbox-auto-error");', '300');
+    await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await waitForDocument('sandbox-auto-stable');
+    await edit('document.body.textContent = "sandbox-auto-recovered";', '300');
+    await waitForDocument('sandbox-auto-recovered');
+    await page.screenshot({ path: `output/playwright/sandbox-recovery-${language}.png` });
+  });
+}
