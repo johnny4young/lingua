@@ -591,3 +591,20 @@ window of the same app. It uses an isolated profile, bounds waits, checks zero
 renderer errors and cleans only its own captured PIDs/fixtures. Windows exercises
 the same lifecycle regressions, the taskkill contract and real Node parent/grandchild
 termination in platform CI.
+
+#### Rust cancellation smoke
+
+`node scripts/smoke-rust-cancellation.mjs` exercises the installed Rust compiler
+through real Electron/main/preload and the Run/Stop UI. It uses a disposable
+profile and locally signed Pro license, with issuer URLs disabled in both build
+and runtime configuration. No entitlement or execution stub is installed.
+The POSIX wrapper cases stop real processes during toolchain probing and
+compilation, assert no cancelled source runs, and check private directory cleanup.
+The UI pass covers native binary Stop, compilation failure and successful recovery
+in EN/light and ES/dark, at three widths and 100/125/200 percent zoom, with console
+errors rejected. Evidence is written under `output/playwright/rust-cancellation/`.
+Windows process-tree behavior is covered by the separate Windows CI fixture.
+
+This smoke builds temporary-key desktop bundles. Run
+`node scripts/build-desktop-bundles.mjs` afterwards before using production
+packaging or bundle-audit evidence; it does not create or publish a package.

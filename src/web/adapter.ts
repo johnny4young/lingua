@@ -78,6 +78,7 @@ const formatStub: LinguaAPI['format'] = {
 };
 
 const rustStub: LinguaAPI['rust'] = {
+  stop: async () => ({ stopped: false }),
   detect: async (_userEnv?: Record<string, string>): Promise<RustDetectResult> => ({
     installed: false,
     error: t('errors.rust.webUnavailable'),

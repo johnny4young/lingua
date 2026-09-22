@@ -84,9 +84,10 @@ interface IpcInvokeContract {
     result: RustDetectResult;
   };
   'rust:run': {
-    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages];
+    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages, runId?: string];
     result: RustRunResult;
   };
+  'rust:stop': { args: [runId: string]; result: { stopped: boolean } };
 
   // ----------------------------------------------------------- ruby runner
   'ruby:detect': {
@@ -598,6 +599,7 @@ export const IPC_INVOKE_CHANNELS = [
   'go:compile',
   'rust:detect',
   'rust:run',
+  'rust:stop',
   'ruby:detect',
   'ruby:run',
   'ruby:stop',

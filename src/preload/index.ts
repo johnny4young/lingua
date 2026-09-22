@@ -118,8 +118,10 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ) => typedInvoke('rust:run', sourceCode, userEnv, messages),
+      messages?: NativeRunnerMessages,
+      runId?: string
+    ) => typedInvoke('rust:run', sourceCode, userEnv, messages, runId),
+    stop: (runId: string) => typedInvoke('rust:stop', runId),
   },
 
   // implementation — desktop Ruby child-spawn IPC. Distinct from the

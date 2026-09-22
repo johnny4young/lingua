@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+import { runnerStoppedResult, runnerTimeoutResult, type TranslateFn } from './limits';
 import type {
   LanguageRunner,
   ExecutionContext,
@@ -9,6 +11,8 @@ import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
 import { enrichConsoleOutputLine } from './originSplitter';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
+const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
+
 export class RustRunner implements LanguageRunner {
   id = 'rust';
   name = 'Rust';
@@ -16,6 +20,7 @@ export class RustRunner implements LanguageRunner {
   extensions = ['.rs'];
 
   private ready = false;
+  private cancelInFlight: (() => void) | null = null;
   private rustInstalled = false;
 
   async init(): Promise<void> {
@@ -42,6 +47,7 @@ export class RustRunner implements LanguageRunner {
   }
 
   async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
+    this.stop();
     if (!this.rustInstalled) {
       this.pushMissingToolchainNotice();
       return {
@@ -55,54 +61,67 @@ export class RustRunner implements LanguageRunner {
       };
     }
 
-    // implementation — same resolver Go uses. processEnv stays empty
-    // in the renderer; the internal host allowlist merge happens in main
-    // so host secrets never cross the preload boundary.
-    const userEnv = resolveUserEnvForRunner();
-    const runResult = await window.lingua.rust.run(
-      code,
-      userEnv,
-      resolveNativeRunnerMessages()
-    );
+    return new Promise<ExecutionResult>(resolve => {
+      const runId = crypto.randomUUID();
+      let resolved = false;
+      const finish = (result: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        if (this.cancelInFlight === cancel) this.cancelInFlight = null;
+        resolve(result);
+      };
+      const cancel = () => {
+        void window.lingua.rust.stop(runId).catch(() => {});
+        finish(runnerStoppedResult(t, { stdout: [], stderr: [] }));
+      };
+      this.cancelInFlight = cancel;
+      void window.lingua.rust.run(code, resolveUserEnvForRunner(), resolveNativeRunnerMessages(), runId)
+        .then(runResult => {
+          if (resolved) return;
+          if (runResult.kind === 'stopped') {
+            finish(runnerStoppedResult(t, { stdout: [], stderr: [] }));
+            return;
+          }
+          // implementation — best-effort `file.rs:N` splitter enriches
+          // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`
+          // surfaces a chip on panic / debug rows that mention a source.
+          const stdout: ConsoleOutput[] = runResult.stdout
+            .split('\n')
+            .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
+            .map((line) => ({
+              type: 'log' as const,
+              args: [line],
+              line: enrichConsoleOutputLine('rust', undefined, [line]),
+            }));
 
-    const sourceMappingEnabled = true;
+          const stderr: ConsoleOutput[] = runResult.stderr
+            .split('\n')
+            .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
+            .map((line) => ({
+              type: 'error' as const,
+              args: [line],
+              line: enrichConsoleOutputLine('rust', undefined, [line]),
+            }));
 
-    // implementation — best-effort `file.rs:N` splitter enriches
-    // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`
-    // surfaces a chip on panic / debug rows that mention a source.
-    const stdout: ConsoleOutput[] = runResult.stdout
-      .split('\n')
-      .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
-      .map((line) => ({
-        type: 'log' as const,
-        args: [line],
-        line: sourceMappingEnabled
-          ? enrichConsoleOutputLine('rust', undefined, [line])
-          : undefined,
-      }));
-
-    const stderr: ConsoleOutput[] = runResult.stderr
-      .split('\n')
-      .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
-      .map((line) => ({
-        type: 'error' as const,
-        args: [line],
-        line: sourceMappingEnabled
-          ? enrichConsoleOutputLine('rust', undefined, [line])
-          : undefined,
-      }));
-
-    return {
-      stdout,
-      stderr,
-      result: undefined,
-      executionTime: runResult.executionTime,
-      error: runResult.error
-        ? parseRustExecutionError(runResult.stderr, runResult.error)
-        : undefined,
-    };
+          if (runResult.kind === 'timeout') {
+            finish(runnerTimeoutResult(runResult.timeoutMs ?? 30_000, t, { stdout, stderr }, 'override'));
+            return;
+          }
+          finish({
+            kind: runResult.success ? 'success' : 'error',
+            stdout,
+            stderr,
+            result: undefined,
+            executionTime: runResult.executionTime,
+            error: runResult.error
+              ? parseRustExecutionError(runResult.stderr, runResult.error)
+              : undefined,
+          });
+        })
+        .catch(error => finish({ stdout: [], stderr: [], result: undefined, executionTime: 0,
+          kind: 'error', error: { message: error instanceof Error ? error.message : String(error) } }));
+    });
   }
 
-  /** Rust processes are managed entirely in the main process; stop is a no-op */
-  stop(): void {}
+  stop(): void { this.cancelInFlight?.(); }
 }

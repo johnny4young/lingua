@@ -28,6 +28,9 @@ export interface RustDetectResult {
 }
 
 export interface RustRunResult {
+  /** Transient outcome; absent only in legacy adapters. */
+  kind?: 'success' | 'error' | 'stopped' | 'timeout';
+  timeoutMs?: number;
   success: boolean;
   stdout: string;
   stderr: string;
@@ -94,4 +97,10 @@ export interface AltJsRunResult {
   executionTime: number;
   error?: string;
   timeoutMs: number;
+}
+
+export interface NativeRunnerMessages {
+  compileOutputTruncated?: string;
+  stdoutTruncated?: string;
+  stderrTruncated?: string;
 }

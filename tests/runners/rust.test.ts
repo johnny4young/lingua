@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock window.lingua for IPC calls
 const mockDetect = vi.fn();
 const mockRun = vi.fn();
+const mockStop = vi.fn().mockResolvedValue({ stopped: true });
 
 Object.defineProperty(globalThis, 'window', {
   value: {
@@ -13,6 +14,7 @@ Object.defineProperty(globalThis, 'window', {
       rust: {
         detect: mockDetect,
         run: mockRun,
+        stop: mockStop,
       },
     },
   },
@@ -135,7 +137,40 @@ describe('RustRunner', () => {
     });
   });
 
-  it('should stop without error (no-op for native runner)', () => {
+  it('settles Stop immediately and ignores old replies without cancelling the next run', async () => {
+    mockDetect.mockResolvedValue({ installed: true });
+    let release!: (value: unknown) => void;
+    mockRun.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    const runner = new RustRunner();
+    await runner.init();
+    const old = runner.execute('old');
+    const oldId = mockRun.mock.calls[0]![3];
+    expect(oldId).toEqual(expect.any(String));
+    runner.stop();
+    await expect(old).resolves.toMatchObject({ kind: 'stopped', cancelled: true });
+    expect(mockStop).toHaveBeenCalledWith(oldId);
+    let finishCurrent!: (value: unknown) => void;
+    mockRun.mockReturnValueOnce(new Promise(resolve => { finishCurrent = resolve; }));
+    const current = runner.execute('current');
+    release({ success: true, stdout: 'STALE', stderr: '', executionTime: 1 });
+    await Promise.resolve();
+    runner.stop();
+    expect(mockStop).toHaveBeenLastCalledWith(mockRun.mock.calls[1]![3]);
+    expect(mockRun.mock.calls[1]![3]).not.toBe(oldId);
+    await expect(current).resolves.toMatchObject({ kind: 'stopped' });
+    finishCurrent({ success: true, stdout: '', stderr: '', executionTime: 1 });
+  });
+
+  it('preserves explicit compiler timeout and does not suggest runtime settings', async () => {
+    mockDetect.mockResolvedValue({ installed: true });
+    mockRun.mockResolvedValue({ success: false, kind: 'timeout', timeoutMs: 60000,
+      stdout: '', stderr: '', exitCode: -1, executionTime: 60000 });
+    const runner = new RustRunner();
+    await runner.init();
+    expect(await runner.execute('code')).toMatchObject({ kind: 'timeout', timeoutMs: 60000, timeoutPreset: 'override' });
+  });
+
+  it('allows Stop while idle', () => {
     const runner = new RustRunner();
     expect(() => runner.stop()).not.toThrow();
   });
@@ -197,7 +232,7 @@ describe('RustRunner', () => {
       })
     );
     expect(mockRun).toHaveBeenCalledTimes(1);
-    const [sourceCode, userEnv, messages] = mockRun.mock.calls[0] as [
+    const [sourceCode, userEnv, messages] = mockRun.mock.calls[0]! as [
       string,
       Record<string, string>,
       NativeRunnerMessages,
@@ -231,7 +266,7 @@ describe('RustRunner', () => {
     await runner.execute('fn main() {}');
 
     expect(mockDetect).toHaveBeenCalledWith({});
-    const [, userEnv, messages] = mockRun.mock.calls[0] as [
+    const [, userEnv, messages] = mockRun.mock.calls[0]! as [
       string,
       Record<string, string>,
       NativeRunnerMessages,

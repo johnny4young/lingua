@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Rust Stop cancels runtime detection, compilation and the native binary.** Closing the owning window cancels the same pipeline; late replies cannot replace a newer run, and timeouts have a distinct status.
 - **Closing a desktop window cancels its Node, Ruby, Deno and Bun runs, including preparation.** App shutdown force-stops remaining native children instead of relying on timers after exit; other windows and later runs remain independent.
 - **Project tests honor Stop and window closure while authorizing the folder or detecting the framework.** Preparing runs cannot bypass the one-suite-per-project limit, and late cleanup or output cannot affect another run.
 - **Ruby, Deno and Bun also honor Stop during runtime discovery and source staging.** Late preparation cannot execute cancelled source or replace another run's Stop owner, and temporary files are cleaned before completion.

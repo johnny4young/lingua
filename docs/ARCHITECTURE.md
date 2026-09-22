@@ -1418,3 +1418,24 @@ a parent-first kill can lose the ancestry needed to terminate descendants. A
 failed taskkill falls back to the direct child. Hosted Windows acceptance includes
 real Node parent/grandchild processes for owner loss, Stop-then-owner-loss and
 shutdown, in addition to the platform-seam contract tests.
+
+### Rust pipeline cancellation
+
+Rust keeps one transient run identity and owner-bound abort controller from
+before toolchain detection through directory allocation, source staging,
+compilation and native execution. The optional final `rust:run` argument keeps
+existing source/env/messages callers compatible; `rust:stop` only accepts the
+owning window's live identity. The browser bridge reports no native run to stop.
+Duplicate live identities are rejected, and every async preparation boundary
+checks cancellation before starting the next effect. The renderer resolves Stop
+immediately and ignores late replies, including errors and cleanup from older runs.
+
+Detection, compilation and execution reuse the native subprocess supervisor:
+5-second probe, 60-second compile, 30-second binary limit, POSIX process groups,
+and Windows tree-first termination. Window destruction and application shutdown
+also cancel the compiler, not just the final binary. Rust edition 2021, environment
+allowlisting and output limits are unchanged. Timeout metadata identifies the
+actual phase budget; Rust does not suggest changing unrelated runtime settings.
+Temporary-directory cleanup is awaited after subprocess completion during normal
+Stop. Cleanup failures and app-shutdown artifacts remain best-effort, not a
+persistence guarantee.

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     execFile,
     execFileAsync,
     handle: vi.fn(),
+    spawnNative: vi.fn(),
   };
 });
 
@@ -20,6 +21,8 @@ vi.mock('node:child_process', () => ({
   execFile: mocks.execFile,
   spawn: vi.fn(),
 }));
+
+vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawnNative }));
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -58,6 +61,7 @@ describe('native toolchain detection env', () => {
     mocks.execFile.mockReset();
     mocks.execFileAsync.mockReset();
     mocks.handle.mockReset();
+    mocks.spawnNative.mockReset();
     for (const key of ['PATH', 'LINGUA_SMOKE_SECRET']) {
       savedEnv.set(key, process.env[key]);
     }
@@ -97,17 +101,15 @@ describe('native toolchain detection env', () => {
   });
 
   it('filters host secrets from the Rust detection subprocess', async () => {
-    completeExecFile({
-      'rustc --version': 'rustc 1.78.0\n',
-    });
+    mocks.spawnNative.mockResolvedValue({ stdout: 'rustc 1.78.0\n', stderr: '', exitCode: 0, timedOut: false, killed: false });
     registerRustHandlers();
 
     const detect = handlerFor<[unknown, Record<string, string>], RustDetectResult>('rust:detect');
-    const result = await detect(null, { CARGO_HOME: '/tmp/cargo-home' });
+    const result = await detect({}, { CARGO_HOME: '/tmp/cargo-home' });
 
     expect(result.installed).toBe(true);
-    expect(mocks.execFileAsync).toHaveBeenCalledTimes(1);
-    const options = mocks.execFileAsync.mock.calls[0]![2] as { env?: NodeJS.ProcessEnv };
+    expect(mocks.spawnNative).toHaveBeenCalledTimes(1);
+    const options = mocks.spawnNative.mock.calls[0]![0] as { env?: NodeJS.ProcessEnv };
     expect(options.env?.PATH).toBe('/usr/bin');
     expect(options.env?.CARGO_HOME).toBe('/tmp/cargo-home');
     expect(options.env?.LINGUA_SMOKE_SECRET).toBeUndefined();

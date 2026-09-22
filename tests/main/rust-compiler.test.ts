@@ -13,13 +13,7 @@ const electronMocks = vi.hoisted(() => ({
   mockHandle: vi.fn(),
 }));
 
-const cpMocks = vi.hoisted(() => {
-  const execFileAsync = vi.fn();
-  const execFile = Object.assign(vi.fn(), {
-    [Symbol.for('nodejs.util.promisify.custom')]: execFileAsync,
-  });
-  return { execFile, execFileAsync, spawn: vi.fn() };
-});
+const cpMocks = vi.hoisted(() => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -144,7 +138,6 @@ function createRunChild() {
 describe('rust:run compile + execute contract', () => {
   beforeEach(() => {
     electronMocks.mockHandle.mockClear();
-    cpMocks.execFileAsync.mockReset();
     cpMocks.spawn.mockReset();
   });
 
@@ -162,21 +155,24 @@ describe('rust:run compile + execute contract', () => {
 
   it('compiles with --edition 2021 and tears the run down via SIGTERM then SIGKILL on timeout', async () => {
     vi.useFakeTimers();
-    // First execFileAsync call = rustc --version (detect); second = compile.
-    cpMocks.execFileAsync.mockResolvedValue({ stdout: 'rustc 1.80.0', stderr: '' });
     const child = createRunChild();
-    cpMocks.spawn.mockReturnValue(child);
+    const completed = () => {
+      const child = createRunChild();
+      queueMicrotask(() => { child.stdout.emit('data', Buffer.from('rustc 1.80.0')); child.emit('close', 0); });
+      return child;
+    };
+    cpMocks.spawn.mockImplementationOnce(completed).mockImplementationOnce(completed).mockReturnValue(child);
 
     registerRustHandlers();
     const run = handlerFor('rust:run');
     const promise = run({}, 'fn main() { loop {} }');
 
-    await vi.waitFor(() => expect(cpMocks.spawn).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(cpMocks.spawn).toHaveBeenCalledTimes(3));
 
     // The compile invocation must pin the edition: rustc defaults to 2015
     // without the flag while rustfmt formats as 2021 — the regression this
     // test locks (shared RUST_EDITION constant).
-    const compileCall = cpMocks.execFileAsync.mock.calls.find(
+    const compileCall = cpMocks.spawn.mock.calls.find(
       (call) => Array.isArray(call[1]) && call[1].includes('-o')
     );
     expect(compileCall).toBeDefined();
@@ -204,6 +200,8 @@ describe('rust:run compile + execute contract', () => {
     await expect(promise).resolves.toMatchObject({
       success: false,
       exitCode: -1,
+      kind: 'timeout',
+      timeoutMs: 30_000,
     });
   });
 });
