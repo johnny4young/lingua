@@ -95,6 +95,22 @@ describe.runIf(process.platform !== 'win32')('debugger descendant lifecycle with
     } finally { session.terminate(); await f.cleanup(); }
   }, 15000);
 
+  it('Stop cancels Delve before its startup address arrives', async () => {
+    const f = await fixture();
+    const executable = path.join(f.directory, 'delayed-dlv.mjs');
+    await writeFile(executable, `${f.prefix}\nprocess.on('SIGTERM', () => {}); setInterval(() => {}, 1000);\n`);
+    await chmod(executable, 0o755);
+    const session = new GoDebugSession({ dlvPath: executable, scriptPath: path.join(f.directory, 'main.go'), programDir: f.directory, cwd: f.directory, env: process.env });
+    const outcome = session.start([3]).catch(error => error);
+    try {
+      const ids = await f.identities();
+      session.terminate();
+      await expect.poll(() => alive(ids.parent), { timeout: 1000 }).toBe(false);
+      await expect.poll(() => alive(ids.child), { timeout: 1000 }).toBe(false);
+      expect((await outcome).message).toMatch(/stopped/i);
+    } finally { session.terminate(); await f.cleanup(); await outcome; }
+  }, 15000);
+
   it.each(['timeout', 'exit', 'connection'] as const)('Delve startup %s leaves no adapter tree', async mode => {
     const f = await fixture();
     const executable = path.join(f.directory, 'dlv.mjs');

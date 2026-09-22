@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Native debugger Stop cancels adapter startup and connection.** Late adapters cannot launch after cancellation, failed handshakes clean up their resources, and closed transports no longer deliver stale events. Missing LLDB executables surface as errors rather than uncaught child-process failures.
 - **Stopping Python or native DAP debugging reaps remaining descendants after the adapter exits.** Failed Delve startup also cleans its tree on timeout, early exit or connection failure.
 - **Stop and timeout clean up native descendants even when their parent exits first.** A descendant with independent pipes that ignores graceful termination no longer escapes cleanup when the parent closes.
 - **Go Stop also cancels toolchain discovery and compilation.** Late compiler responses and old worker messages cannot start or stop a newer execution; compilation timeouts are distinct from WASM execution timeouts.

@@ -68,10 +68,11 @@ export async function resolveDelveBinary(
   return null;
 }
 
-async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
+async function launchDelveAdapter(options: GoDebugSessionOptions, signal: AbortSignal): Promise<{
   child: ChildProcessWithoutNullStreams;
   client: DapClient;
 }> {
+  signal.throwIfAborted();
   const child = spawn(options.dlvPath, ['dap', '--listen=127.0.0.1:0'], {
     cwd: options.programDir,
     env: options.env,
@@ -90,6 +91,7 @@ async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
         child.stderr.off('data', onData);
         child.off('error', onError);
         child.off('exit', onExit);
+        signal.removeEventListener('abort', onAbort);
         callback();
       };
       const timer = setTimeout(() => {
@@ -108,12 +110,18 @@ async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
       const onError = (error: Error): void => settle(() => reject(error));
       const onExit = (code: number | null): void =>
         settle(() => reject(new Error(`Delve exited before startup (${code ?? 'signal'}): ${startup}`)));
+      const onAbort = (): void => settle(() => {
+        killProcessTree(child, 'SIGKILL');
+        reject(new Error('Go debugger stopped'));
+      });
       child.stdout.on('data', onData);
       child.stderr.on('data', onData);
       child.once('error', onError);
       child.once('exit', onExit);
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
     });
-    return { child, client: await DapClient.connect(address.host, address.port) };
+    return { child, client: await DapClient.connect(address.host, address.port, DELVE_START_TIMEOUT_MS, signal) };
   } catch (error) {
     // No session owns a failed adapter startup. Reap the complete tree now,
     // including descendants of an adapter that already exited.
@@ -146,7 +154,7 @@ export class GoDebugSession {
         hideSystemGoroutines: true,
         stackTraceDepth: 50,
       },
-      startAdapter: () => launchDelveAdapter(options),
+      startAdapter: signal => launchDelveAdapter(options, signal),
       closeRequest: { command: 'terminate', arguments: { restart: false } },
       singleThreadCommands: true,
       launchTimeoutMs: DELVE_LAUNCH_TIMEOUT_MS,
@@ -179,7 +187,7 @@ export class GoDebugSession {
     return this.session.drainOutput();
   }
 
-  terminate(): void {
-    this.session.terminate();
+  terminate(force = false): void {
+    this.session.terminate(force);
   }
 }

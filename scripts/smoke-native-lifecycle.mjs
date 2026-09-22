@@ -23,8 +23,8 @@ const debuggerPidFiles = [];
 let server;
 let app;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function until(check, message) {
-  for (let i = 0; i < 200; i++) {
+async function until(check, message, attempts = 200) {
+  for (let i = 0; i < attempts; i++) {
     if (await check()) return;
     await delay(50);
   }
@@ -55,7 +55,7 @@ try {
       ...process.env, LINGUA_SMOKE_USER_DATA_DIR: profile, LINGUA_RENDERER_URL: rendererUrl,
       ELECTRON_RUN_AS_NODE: undefined,
     }, timeout: 30000 });
-    const page = await app.firstWindow();
+    let page = await app.firstWindow();
     await watchPage(page);
     await app.evaluate(() => {
       const cp = process.getBuiltinModule('child_process');
@@ -80,7 +80,7 @@ try {
       syncBuiltinESMExports();
     });
     if (phase === 'debugger-cleanup') {
-      for (const [runtime, mode] of [['python', 'stop'], ['go', 'stop'], ['go', 'timeout'], ['go', 'exit'], ['go', 'connection']]) {
+      for (const [runtime, mode] of [['python', 'stop'], ['go', 'stop'], ['go', 'timeout'], ['go', 'exit'], ['go', 'connection'], ['go', 'owner-during-start']]) {
         const name = `${runtime}-${mode}`;
         const directory = path.join(fixture, name);
         await mkdir(directory);
@@ -131,10 +131,30 @@ ${action}
           userEnv = { PATH: `${directory}${path.delimiter}${process.env.PATH}` };
         }
         const request = { tabId: name, source, fileName: runtime === 'python' ? 'main.py' : 'main.go', breakpoints: [runtime === 'python' ? 5 : 3], watches: [], userEnv };
-        const result = await page.evaluate(({ runtime, request }) => window.lingua[`${runtime}Debugger`].start(request), { runtime, request });
+        let result;
+        if (mode === 'owner-during-start') {
+          await page.evaluate(({ runtime, request }) => {
+            globalThis.__pendingDebuggerStart = window.lingua[`${runtime}Debugger`].start(request);
+          }, { runtime, request });
+          await until(async () => {
+            try { return Number(await readFile(childFile, 'utf8')) > 0; }
+            catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+          }, 'Delve startup fixture did not create its resistant descendant');
+        } else {
+          result = await page.evaluate(({ runtime, request }) => window.lingua[`${runtime}Debugger`].start(request), { runtime, request });
+        }
         const pids = [Number(await readFile(parentFile, 'utf8')), Number(await readFile(childFile, 'utf8'))];
         for (const pid of pids) { assert(pid > 0); ownedPids.add(pid); }
-        if (mode === 'stop') {
+        if (mode === 'owner-during-start') {
+          assert(pids.every(alive));
+          await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].destroy());
+          // Must precede the old five-second adapter startup timeout.
+          await until(() => pids.every(pid => !alive(pid)), 'Owner loss did not cancel pending adapter startup', 30);
+          const nextWindow = app.waitForEvent('window');
+          await app.evaluate(({ app }) => app.emit('activate'));
+          page = await nextWindow;
+          await watchPage(page);
+        } else if (mode === 'stop') {
           assert.equal(result.kind, 'paused', JSON.stringify(result));
           assert(pids.every(alive));
           const stopped = await page.evaluate(({ runtime, id }) => window.lingua[`${runtime}Debugger`].stop(id), { runtime, id: result.sessionId });
@@ -152,6 +172,30 @@ ${action}
         assert.equal(stopped.kind, 'stopped');
         results.push({ phase, runtime, mode, parentGone: true, descendantGone: true, recovery: true, adapterFixture: runtime === 'go' });
       }
+      // Reproduce the detection-to-spawn race through IPC, using a disposable
+      // adapter that removes only itself after its successful version probe.
+      const missingAdapter = path.join(fixture, 'vanishing-lldb.mjs');
+      const rustcFixture = path.join(root, 'tests/__fixtures__/fake-rustc.mjs');
+      const lldbFixture = pathToFileURL(path.join(root, 'tests/__fixtures__/fake-lldb-dap.mjs')).href;
+      await chmod(rustcFixture, 0o755);
+      await writeFile(missingAdapter, `#!/usr/bin/env node
+import { unlinkSync } from 'node:fs';
+unlinkSync(process.argv[1]);
+console.log('lldb-dap fixture');
+`);
+      await chmod(missingAdapter, 0o755);
+      const rustRequest = { tabId: 'missing-adapter', source: 'fn main() {\nlet value = 1;\nprintln!("{}", value);\n}', fileName: 'main.rs', breakpoints: [3], watches: [], userEnv: { RUSTC: rustcFixture, LLDB_DAP: missingAdapter } };
+      const missing = await page.evaluate(request => window.lingua.rustDebugger.start(request), rustRequest);
+      assert.equal(missing.kind, 'error');
+      assert.match(missing.message ?? '', /ENOENT/);
+      await page.locator('[data-testid="app-chrome"]').waitFor();
+      await writeFile(missingAdapter, `#!/usr/bin/env node\nawait import(${JSON.stringify(lldbFixture)});\n`);
+      await chmod(missingAdapter, 0o755);
+      const recoveredRust = await page.evaluate(request => window.lingua.rustDebugger.start(request), { ...rustRequest, tabId: 'adapter-recovery' });
+      assert.equal(recoveredRust.kind, 'paused', JSON.stringify(recoveredRust));
+      const stoppedRust = await page.evaluate(id => window.lingua.rustDebugger.stop(id), recoveredRust.sessionId);
+      assert.equal(stoppedRust.kind, 'stopped');
+      results.push({ phase, runtime: 'rust', mode: 'missing-adapter-after-detection', adapterFixture: true, compilerFixture: true, recovered: true });
       await app.close();
       app = undefined;
       continue;

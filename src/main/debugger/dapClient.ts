@@ -48,27 +48,38 @@ export class DapClient {
 
   private constructor(private readonly transport: DapTransport) {}
 
-  static async connect(host: string, port: number, timeoutMs = 5_000): Promise<DapClient> {
+  static async connect(host: string, port: number, timeoutMs = 5_000, signal?: AbortSignal): Promise<DapClient> {
+    signal?.throwIfAborted();
     const socket = net.createConnection({ host, port });
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        socket.off('connect', onConnect);
-        socket.off('error', onError);
-        socket.destroy();
-        reject(new Error(`Delve DAP connection timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-      const settle = (callback: () => void): void => {
-        clearTimeout(timer);
-        socket.off('connect', onConnect);
-        socket.off('error', onError);
-        callback();
-      };
-      const onConnect = (): void => settle(resolve);
-      const onError = (error: Error): void => settle(() => reject(error));
-      socket.once('connect', onConnect);
-      socket.once('error', onError);
-    });
-    return DapClient.fromSocket(socket, 'Delve DAP');
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const settle = (callback: () => void): void => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          socket.off('connect', onConnect);
+          socket.off('error', onError);
+          signal?.removeEventListener('abort', onAbort);
+          callback();
+        };
+        const timer = setTimeout(() => settle(() => {
+          reject(new Error(`Delve DAP connection timed out after ${timeoutMs}ms`));
+        }), timeoutMs);
+        const onConnect = (): void => settle(resolve);
+        const onError = (error: Error): void => settle(() => reject(error));
+        const onAbort = (): void => settle(() => reject(signal?.reason));
+        socket.once('connect', onConnect);
+        socket.once('error', onError);
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) onAbort();
+      });
+      signal?.throwIfAborted();
+      return DapClient.fromSocket(socket, 'Delve DAP');
+    } catch (error) {
+      socket.destroy();
+      throw error;
+    }
   }
 
   /**
@@ -176,17 +187,14 @@ export class DapClient {
   }
 
   close(): void {
-    if (this.closed) return;
-    this.closed = true;
-    this.transport.close();
     this.failAll(new Error(`${this.transport.label} connection closed`));
   }
 
   private onData(chunk: Buffer): void {
+    if (this.closed) return;
     this.buffer = Buffer.concat([this.buffer, chunk]);
     if (this.buffer.length > MAX_DAP_MESSAGE_BYTES * 2) {
       this.failAll(new Error(`${this.transport.label} input exceeded the buffer limit`));
-      this.transport.close();
       return;
     }
 
@@ -197,13 +205,11 @@ export class DapClient {
       const lengthMatch = /^Content-Length:\s*(\d+)\s*$/imu.exec(header);
       if (!lengthMatch) {
         this.failAll(new Error(`${this.transport.label} sent an invalid frame header`));
-        this.transport.close();
         return;
       }
       const length = Number(lengthMatch[1]);
       if (!Number.isSafeInteger(length) || length < 0 || length > MAX_DAP_MESSAGE_BYTES) {
         this.failAll(new Error(`${this.transport.label} sent an oversized frame`));
-        this.transport.close();
         return;
       }
       const bodyStart = headerEnd + 4;
@@ -219,7 +225,6 @@ export class DapClient {
         message = parsed as DapMessage;
       } catch {
         this.failAll(new Error(`${this.transport.label} sent invalid JSON`));
-        this.transport.close();
         return;
       }
       this.dispatch(message);
@@ -261,7 +266,12 @@ export class DapClient {
   }
 
   private failAll(error: Error): void {
-    if (!this.closed) this.closed = true;
+    if (this.closed) return;
+    this.closed = true;
+    this.transport.close();
+    this.listeners.clear();
+    this.bufferedEvents.length = 0;
+    this.buffer = Buffer.alloc(0);
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
       pending.reject(error);

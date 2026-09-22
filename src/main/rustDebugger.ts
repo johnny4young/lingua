@@ -11,7 +11,7 @@ import {
   NativeDapSession,
   type NativeDapTransition,
 } from './debugger/nativeDapSession';
-import { detachedSpawnOptions } from './runners/processTree';
+import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 
 const execFileAsync = promisify(execFile);
 const TOOL_PROBE_TIMEOUT_MS = 5_000;
@@ -101,10 +101,11 @@ export async function resolveLldbDapBinary(
   return null;
 }
 
-function launchLldbAdapter(options: RustDebugSessionOptions): Promise<{
+async function launchLldbAdapter(options: RustDebugSessionOptions, signal: AbortSignal): Promise<{
   child: ChildProcessWithoutNullStreams;
   client: DapClient;
 }> {
+  signal.throwIfAborted();
   const child = spawn(options.lldbDapPath, [], {
     cwd: path.dirname(options.binaryPath),
     env: options.env,
@@ -119,7 +120,32 @@ function launchLldbAdapter(options: RustDebugSessionOptions): Promise<{
     label: 'LLDB DAP',
     close: () => child.stdin.destroy(),
   });
-  return Promise.resolve({ child, client });
+  // Observe spawn errors synchronously: a missing executable emits on the
+  // child, not just its streams, before a caller can adopt the adapter.
+  child.on('error', () => client.close());
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const settle = (callback: () => void): void => {
+        child.off('spawn', onSpawn);
+        child.off('error', onError);
+        signal.removeEventListener('abort', onAbort);
+        callback();
+      };
+      const onSpawn = (): void => settle(resolve);
+      const onError = (error: Error): void => settle(() => reject(error));
+      const onAbort = (): void => settle(() => reject(signal.reason));
+      child.once('spawn', onSpawn);
+      child.once('error', onError);
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+    });
+    signal.throwIfAborted();
+    return { child, client };
+  } catch (error) {
+    client.close();
+    killProcessTree(child, 'SIGKILL');
+    throw error;
+  }
 }
 
 /** Rust-specific compilation target and LLDB launch around shared DAP state. */
@@ -143,7 +169,7 @@ export class RustDebugSession {
         env: options.env,
         stopOnEntry: false,
       },
-      startAdapter: () => launchLldbAdapter(options),
+      startAdapter: signal => launchLldbAdapter(options, signal),
       closeRequest: { command: 'disconnect', arguments: { terminateDebuggee: true } },
       singleThreadCommands: false,
       launchTimeoutMs: LLDB_LAUNCH_TIMEOUT_MS,
@@ -176,7 +202,7 @@ export class RustDebugSession {
     return this.session.drainOutput();
   }
 
-  terminate(): void {
-    this.session.terminate();
+  terminate(force = false): void {
+    this.session.terminate(force);
   }
 }

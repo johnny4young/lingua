@@ -49,7 +49,7 @@ export interface NativeDapSessionOptions {
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
   readonly launchArguments: Readonly<Record<string, unknown>>;
-  readonly startAdapter: () => Promise<{
+  readonly startAdapter: (signal: AbortSignal) => Promise<{
     readonly child: ChildProcessWithoutNullStreams;
     readonly client: DapClient;
   }>;
@@ -85,67 +85,94 @@ export class NativeDapSession {
   private outputBytes = 0;
   private outputTruncated = false;
   private finished = false;
+  private started = false;
+  private stopped = false;
+  private readonly startupController = new AbortController();
+  private stoppingChild: ChildProcessWithoutNullStreams | null = null;
   private killTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: NativeDapSessionOptions) {}
 
   async start(breakpoints: readonly number[]): Promise<NativeDapTransition> {
-    if (this.child || this.client) {
-      throw new Error(`${this.options.runtimeName} debug session already started`);
-    }
-    const { child, client } = await this.options.startAdapter();
-    this.child = child;
-    this.client = client;
-    client.onEvent(message => this.onEvent(message));
-    child.once('exit', () => {
-      if (this.killTimer) {
-        // Adapter exit does not prove its debuggee tree has exited.
+    this.assertNotStopped();
+    if (this.started) throw new Error(`${this.options.runtimeName} debug session already started`);
+    this.started = true;
+    try {
+      const { child, client } = await this.options.startAdapter(this.startupController.signal);
+      if (this.stopped) {
+        // A provider may complete despite cancellation; never initialize it.
+        client.close();
         killProcessTree(child, 'SIGKILL');
-        clearTimeout(this.killTimer);
-        this.killTimer = null;
+        this.assertNotStopped();
       }
-      if (!this.finished) this.pushTransition({ kind: 'finished' });
-    });
+      this.child = child;
+      this.client = client;
+      client.onEvent(message => this.onEvent(message));
+      child.once('exit', () => {
+        if (this.killTimer) {
+          // Adapter exit does not prove its debuggee tree has exited.
+          killProcessTree(child, 'SIGKILL');
+          clearTimeout(this.killTimer);
+          this.killTimer = null;
+        }
+        if (this.stoppingChild === child) this.stoppingChild = null;
+        if (!this.finished) this.pushTransition({ kind: 'finished' });
+      });
 
-    await client.request('initialize', {
-      clientID: 'lingua',
-      clientName: 'Lingua',
-      adapterID: this.options.adapterID,
-      linesStartAt1: true,
-      columnsStartAt1: true,
-      pathFormat: 'path',
-      supportsVariableType: true,
-      supportsVariablePaging: true,
-    });
+      await client.request('initialize', {
+        clientID: 'lingua',
+        clientName: 'Lingua',
+        adapterID: this.options.adapterID,
+        linesStartAt1: true,
+        columnsStartAt1: true,
+        pathFormat: 'path',
+        supportsVariableType: true,
+        supportsVariablePaging: true,
+      });
 
-    const launchTimeoutMs = this.options.launchTimeoutMs ?? DEFAULT_LAUNCH_TIMEOUT_MS;
-    const initialized = client.waitForEvent('initialized', undefined, launchTimeoutMs);
-    const launchOutcome = client
-      .request('launch', this.options.launchArguments, launchTimeoutMs)
-      .then(
-        () => ({ ok: true as const }),
-        error => ({ ok: false as const, error: error as Error })
-      );
+      this.assertNotStopped();
+      const launchTimeoutMs = this.options.launchTimeoutMs ?? DEFAULT_LAUNCH_TIMEOUT_MS;
+      const initialized = client.waitForEvent('initialized', undefined, launchTimeoutMs);
+      const launchOutcome = client
+        .request('launch', this.options.launchArguments, launchTimeoutMs)
+        .then(
+          () => ({ ok: true as const }),
+          error => ({ ok: false as const, error: error as Error })
+        );
 
-    // Some adapters reject launch before emitting initialized (notably LLDB
-    // when macOS denies debugserver). Surface that diagnostic immediately
-    // instead of replacing it with an initialized-event timeout.
-    await Promise.race([
-      initialized,
-      launchOutcome.then(outcome => {
-        if (!outcome.ok) throw outcome.error;
-        return new Promise<never>(() => undefined);
-      }),
-    ]);
-    await initialized;
-    const verified = await this.setBreakpoints(breakpoints);
-    if (verified.length === 0) {
-      throw new Error(`${this.options.runtimeName} did not verify any requested breakpoint`);
+      // Some adapters reject launch before emitting initialized (notably LLDB
+      // when macOS denies debugserver). Surface that diagnostic immediately
+      // instead of replacing it with an initialized-event timeout.
+      await Promise.race([
+        initialized,
+        launchOutcome.then(outcome => {
+          if (!outcome.ok) throw outcome.error;
+          return new Promise<never>(() => undefined);
+        }),
+      ]);
+      await initialized;
+      this.assertNotStopped();
+      const verified = await this.setBreakpoints(breakpoints);
+      this.assertNotStopped();
+      if (verified.length === 0) {
+        throw new Error(`${this.options.runtimeName} did not verify any requested breakpoint`);
+      }
+      await client.request('configurationDone', {}, this.commandTimeoutMs);
+      this.assertNotStopped();
+      const launch = await launchOutcome;
+      if (!launch.ok) throw launch.error;
+      this.assertNotStopped();
+      return await this.waitForTransition(launchTimeoutMs);
+    } catch (error) {
+      const wasStopped = this.stopped;
+      this.terminate(true);
+      if (wasStopped) this.assertNotStopped();
+      throw error;
     }
-    await client.request('configurationDone', {}, this.commandTimeoutMs);
-    const launch = await launchOutcome;
-    if (!launch.ok) throw launch.error;
-    return this.waitForTransition(launchTimeoutMs);
+  }
+
+  private assertNotStopped(): void {
+    if (this.stopped) throw new Error(`${this.options.runtimeName} debugger stopped`);
   }
 
   async setBreakpoints(lines: readonly number[]): Promise<number[]> {
@@ -273,7 +300,14 @@ export class NativeDapSession {
     return result;
   }
 
-  terminate(): void {
+  terminate(force = false): void {
+    this.stopped = true;
+    this.startupController.abort();
+    if (force && this.stoppingChild) {
+      killProcessTree(this.stoppingChild, 'SIGKILL');
+      if (this.killTimer) clearTimeout(this.killTimer);
+      this.killTimer = null;
+    }
     if (this.finished && !this.child && !this.client) return;
     this.finished = true;
     const client = this.client;
@@ -283,16 +317,19 @@ export class NativeDapSession {
         command: 'disconnect' as const,
         arguments: { terminateDebuggee: true },
       };
-      void client
-        .request(closeRequest.command, { ...closeRequest.arguments }, 1_000)
-        .catch(() => undefined);
+      if (!force) {
+        void client
+          .request(closeRequest.command, { ...closeRequest.arguments }, 1_000)
+          .catch(() => undefined);
+      }
       client.close();
     }
     const child = this.child;
     this.child = null;
     if (child) {
-      killProcessTree(child, 'SIGTERM');
-      if (this.killTimer === null) {
+      this.stoppingChild = child;
+      killProcessTree(child, force ? 'SIGKILL' : 'SIGTERM');
+      if (!force && this.killTimer === null) {
         this.killTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
         this.killTimer.unref?.();
       }
@@ -310,6 +347,7 @@ export class NativeDapSession {
   }
 
   private onEvent(message: DapMessage): void {
+    if (this.stopped) return;
     const body = message.body as Record<string, unknown> | undefined;
     if (message.event === 'output' && typeof body?.output === 'string') {
       this.appendOutput(body.output);

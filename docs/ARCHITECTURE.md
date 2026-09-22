@@ -1414,6 +1414,13 @@ Python and native DAP debug sessions likewise finish pending tree termination
 when their parent exits before escalation. A failed Delve startup (timeout, early
 exit or refused DAP connection) has no session owner and force-cleans its tree
 immediately, preserving the original startup diagnostic.
+A native DAP session reserves startup before awaiting its adapter. Stop aborts
+Delve address discovery and TCP connection, rejects late adapter resources before
+initialization, and prevents later handshake steps or events. LLDB observes child
+spawn failure before handing off its stdio transport. Terminal handshake failures
+close the transport and force-clean the child; closed transports discard buffered
+events and settle pending requests. These session guarantees do not replace the
+separate IPC preparation/owner lifecycle before a session is constructed.
 
 The native process registry tracks the shared spawn boundary (also used by Rust and
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
