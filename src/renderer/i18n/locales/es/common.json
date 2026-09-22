@@ -662,7 +662,6 @@
   "importPreview.action.confirm.playground": "Abrir fuente en un tab",
   "importPreview.success.notebookOpened": "Importado como un nuevo notebook.",
   "importPreview.success.playgroundOpened": "La fuente del playground se abrió en un nuevo tab de código.",
-  "importPreview.notice.clipboardAutoDetected": "Encontramos {{format}} en tu portapapeles. ¿Importar?",
   "importPreview.format.curl": "cURL",
   "importPreview.format.ipynb": "Jupyter .ipynb",
   "importPreview.format.linguanb": "Notebook de Lingua",

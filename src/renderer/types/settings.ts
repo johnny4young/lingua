@@ -105,14 +105,6 @@ export interface SettingsState {
    */
   capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * implementation note — import-preview clipboard auto-detect
-   * consent. implementation lands the field on the store + sanitized
-   * rehydrate (no Settings UI surface yet); implementation wires the
-   * actual auto-detect on overlay focus, mirroring the capsule
-   * import flow.
-   */
-  importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
-  /**
    * implementation — master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
    * tier at first rehydrate (implementation note): Free → `false` so the
@@ -215,14 +207,6 @@ export interface SettingsState {
    * of this setting.
    */
   showLineTiming: boolean;
-  /**
-   * implementation note — Settings → Editor master toggle that
-   * decides whether new tabs default to having the Variables panel
-   * armed. Per-tab `variableInspectorEnabled` always wins when set;
-   * this is just the seed for tabs that have not been touched.
-   * Default OFF — the inspector is opt-in like auto-log.
-   */
-  showVariableInspectorByDefault: boolean;
   /**
    * implementation note — recursion depth the workers walk when
    * serializing the scope. `1` is the base scope; `4` is the
@@ -409,11 +393,6 @@ export interface SettingsState {
    * so a single Settings setter never widens the closed enum.
    */
   setCapsuleImportClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
-  /**
-   * implementation note — set the import-preview clipboard consent.
-   * Closed enum mirrors the capsule-import + utilities setters.
-   */
-  setImportPreviewClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /** implementation — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   setHttpAllowPrivateHosts: (enabled: boolean) => void;

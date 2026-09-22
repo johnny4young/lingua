@@ -662,7 +662,6 @@
   "importPreview.action.confirm.playground": "Open source in a tab",
   "importPreview.success.notebookOpened": "Imported as a new notebook tab.",
   "importPreview.success.playgroundOpened": "Playground source opened in a new code tab.",
-  "importPreview.notice.clipboardAutoDetected": "Found {{format}} in your clipboard. Import?",
   "importPreview.format.curl": "cURL",
   "importPreview.format.ipynb": "Jupyter .ipynb",
   "importPreview.format.linguanb": "Lingua notebook",

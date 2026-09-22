@@ -13,6 +13,7 @@ This version is being prepared; no release artifacts have been published.
 ### Changed
 - **Dead-code checks now cover every independently locked package.** CI analyzes the root app, website, license Worker and update Worker with explicit package boundaries, proves each boundary with a temporary negative fixture, and runs for stacked pull requests as well as pull requests targeting `main`.
 - **Desktop filesystem IPC now validates wire payloads before side effects.** File operations, project search and replace, bundle import/export, capability lifecycle and watchers reject malformed types, tuples and oversized text at a shared runtime boundary while preserving the typed preload and web API.
+- **Import Preview no longer reads the clipboard when it opens.** Paste, file selection and drag-and-drop remain explicit; obsolete Import Preview consent and an unused inspector-default setting are ignored on rehydrate without resetting other preferences.
 
 ### Security
 - **Production web and desktop shells block arbitrary inline scripts.** Only the exact prepaint bootstrap is hash-authorized; Browser preview and rich HTML retain script support in separately governed opaque sandboxes with cancelable, source-checked document loading.

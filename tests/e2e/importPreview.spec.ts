@@ -17,6 +17,55 @@ import {
 test.describe.configure({ mode: 'parallel' });
 
 test.describe('Import overlay — Mod+Alt+I binding ', () => {
+  for (const language of ['en', 'es'] as const) {
+    test(`does not read the clipboard on open with a legacy grant (${language})`, async ({ page }) => {
+      await seedSession(page, { language });
+      await gotoApp(page);
+
+      // Simulate a snapshot written by an older build. The current UI has no
+      // way to grant this consent, so opening Import must never use it.
+      await page.evaluate(() => {
+        const stored = JSON.parse(localStorage.getItem('lingua-settings')!);
+        stored.state.importPreviewClipboardOnFocusConsent = 'granted';
+        localStorage.setItem('lingua-settings', JSON.stringify(stored));
+      });
+      await page.addInitScript(() => {
+        const trackedWindow = window as Window & { importClipboardReads?: number };
+        trackedWindow.importClipboardReads = 0;
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: {
+            readText: async () => {
+              trackedWindow.importClipboardReads = (trackedWindow.importClipboardReads ?? 0) + 1;
+              return '{"secret":"do not import"}';
+            },
+          },
+        });
+      });
+      await page.reload();
+      await expect(page.getByTestId('license-badge')).toBeVisible();
+
+      await page.keyboard.press('ControlOrMeta+Alt+I');
+      await expect(page.getByTestId('import-preview-overlay')).toBeVisible();
+      await expect(page.getByTestId('import-preview-paste')).toHaveValue('');
+      await expect(page.getByTestId('import-preview-empty')).toBeVisible();
+      expect(await page.evaluate(() => (
+        window as Window & { importClipboardReads?: number }
+      ).importClipboardReads)).toBe(0);
+
+      await page.getByTestId('import-preview-paste').fill(JSON.stringify({ nbformat: 3, cells: [] }));
+      await expect(page.getByTestId('import-preview-reject')).toBeVisible();
+      await page.getByTestId('import-preview-paste').fill(JSON.stringify({
+        nbformat: 4,
+        cells: [{ cell_type: 'markdown', source: ['# Explicit paste'] }],
+      }));
+      await expect(page.locator('[data-preview-kind="ipynb-notebook"]')).toBeVisible();
+      expect(await page.evaluate(() => (
+        window as Window & { importClipboardReads?: number }
+      ).importClipboardReads)).toBe(0);
+    });
+  }
+
   test('opens via Mod+Alt+I (EN)', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
