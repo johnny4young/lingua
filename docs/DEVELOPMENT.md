@@ -568,3 +568,8 @@ It verifies that the cancelled source never writes its sentinel and that Stop
 still kills the newer PID, with zero renderer console errors. Only the compiler
 continuation is controlled; native IPC/process execution is real. Evidence is
 written to `output/playwright/node-preparation/` and owned fixtures are removed.
+
+On POSIX, the same smoke also holds a real host-runtime version probe after IPC
+reaches main, then stops and releases it. The cancelled source must never execute,
+and a later native run must succeed. The executable fixture is isolated and bounded;
+Windows exercises the platform-independent ownership checks in unit CI instead.

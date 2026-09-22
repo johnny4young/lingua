@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import { _electron } from 'playwright';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm, readFile, access } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, access, chmod } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -141,6 +141,55 @@ try {
   }
   assert(!alive, 'Stop still owns the newer child after the old compiler settles');
   results.push({ ...result, oldSideEffectAbsent: true, currentChildGone: true });
+  // A real executable pauses only its version probe. This holds main's detector
+  // after IPC crossed, rather than mocking the runner or child-process API.
+  // POSIX shebang fixture; platform-independent ownership is covered by unit CI.
+  if (process.platform !== 'win32') {
+    const bin = path.join(fixture, 'bin');
+    const detecting = path.join(fixture, 'detecting');
+    const releaseDetection = path.join(fixture, 'release-detection');
+    const unexpected = path.join(fixture, 'unexpected-main-execution');
+    await mkdir(bin);
+    const executable = path.join(bin, 'node');
+    await writeFile(executable, `#!${process.execPath}
+const fs = require('node:fs');
+if (process.argv[2] !== '--version') {
+  fs.writeFileSync(${JSON.stringify(unexpected)}, 'UNEXPECTED');
+  process.exit(1);
+}
+fs.writeFileSync(${JSON.stringify(detecting)}, 'ready');
+const timeout = setTimeout(() => process.exit(2), 4000);
+const timer = setInterval(() => {
+  if (!fs.existsSync(${JSON.stringify(releaseDetection)})) return;
+  clearInterval(timer); clearTimeout(timeout);
+  console.log(process.version);
+}, 10);
+`);
+    await chmod(executable, 0o700);
+    await page.evaluate(({ bin }) => {
+      globalThis.__mainPreparationSmoke = window.lingua.node.run('console.log("must not execute")', {
+        runId: 'main-preparing-smoke', userEnv: { PATH: bin },
+      });
+    }, { bin });
+    let ready = false;
+    for (let i = 0; i < 100; i++) {
+      try { await access(detecting); ready = true; break; } catch {}
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert(ready, 'The real main-process detector is preparing the run');
+    const stopped = await page.evaluate(() => window.lingua.node.stop('main-preparing-smoke'));
+    await writeFile(releaseDetection, 'go');
+    const cancelled = await page.evaluate(() => globalThis.__mainPreparationSmoke);
+    assert.deepEqual(stopped, { stopped: true });
+    assert.equal(cancelled.kind, 'stopped');
+    await assert.rejects(access(unexpected), error => error.code === 'ENOENT');
+    const recovery = await page.evaluate(() => window.lingua.node.run('console.log("recovered")', {
+      runId: 'main-recovery-smoke',
+    }));
+    assert.equal(recovery.kind, 'success');
+    assert.equal(recovery.stdout.trim(), 'recovered');
+    results.push({ mainPreparation: 'stopped', oldSideEffectAbsent: true, recovery: 'success' });
+  }
   assert.deepEqual(errors, []);
   await writeFile(
     path.join(artifacts, 'result.json'),
@@ -149,7 +198,7 @@ try {
         results,
         errors,
         harness:
-          'Playwright Electron, real main/preload, held real compiler continuation, isolated profile',
+          'Playwright Electron, real main/preload, held real compiler continuation and real host detector fixture, isolated profile',
         packaged: false,
       },
       null,
@@ -164,6 +213,8 @@ try {
   await page
     ?.evaluate(async () => {
       const state = globalThis.__nodePreparationSmoke;
+      await window.lingua.node.stop('main-preparing-smoke');
+      await window.lingua.node.stop('main-recovery-smoke');
       if (!state) return;
       state.release();
       if (state.currentRunId) await window.lingua.node.stop(state.currentRunId);

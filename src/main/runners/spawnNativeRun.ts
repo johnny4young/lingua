@@ -121,6 +121,19 @@ export function spawnNativeRun(
     signal,
   } = options;
 
+  // A cancelled preparation must not briefly create a process: even a child
+  // immediately killed afterwards could already have performed user effects.
+  if (signal?.aborted) {
+    return Promise.resolve({
+      stdout: '',
+      stderr: '',
+      exitCode: -1,
+      executionTime: 0,
+      timedOut: false,
+      killed: true,
+    });
+  }
+
   return new Promise<SpawnNativeRunResult>((resolve) => {
     const start = Date.now();
     let stdout = '';

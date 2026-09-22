@@ -625,11 +625,14 @@ async function pickInputType(
 async function spawnNode(
   source: string,
   options: NodeRunOptions,
+  signal: AbortSignal,
   nodeBinary = 'node'
 ): Promise<NodeRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = await resolveNodeCwd(options.filePath);
+  if (signal.aborted) return stoppedNodeRunResult(options);
   const inputType = await pickInputType(cwd, source, options.filePath);
+  if (signal.aborted) return stoppedNodeRunResult(options);
   const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
 
@@ -647,6 +650,10 @@ async function spawnNode(
     let tempDir: string | null = null;
     try {
       tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-node-'));
+      if (signal.aborted) {
+        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        return stoppedNodeRunResult(options);
+      }
       const ext = inputType === 'module' ? 'mjs' : 'cjs';
       const tempFile = path.join(tempDir, `entry.${ext}`);
       await writeFile(tempFile, source, 'utf-8');
@@ -656,19 +663,12 @@ async function spawnNode(
       if (tempDir) {
         await rm(tempDir, { recursive: true, force: true }).catch(() => {});
       }
+      if (signal.aborted) return stoppedNodeRunResult(options);
       const message = err instanceof Error ? err.message : String(err);
       return invalidNodeRunResult(
         `Failed to stage the run's temp entry file: ${message}`
       );
     }
-  }
-
-  // Parent-owned Stop: an AbortController lets `node:stop` terminate the
-  // exact child backing this run. The shared spawn helper owns the
-  // SIGTERM→SIGKILL escalation once the signal aborts.
-  const controller = new AbortController();
-  if (options.runId) {
-    activeNodeRuns.set(options.runId, () => controller.abort());
   }
 
   // implementation — interactive mode keeps stdin open so the renderer can stream further
@@ -708,21 +708,14 @@ async function spawnNode(
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stderr', chunk)
           : undefined,
-      signal: controller.signal,
+      signal,
     });
-
-    // Clean up the temp entry file (large-source fallback) before
-    // resolving so a fast follow-up run does not race the teardown.
-    if (cleanupTempDir) {
-      await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
-    }
 
     return mapNodeRunResult(run, timeoutMs);
   } finally {
-    if (options.runId) {
-      activeNodeRuns.delete(options.runId);
-      // implementation — drop the interactive stdin registration once the run ends.
-      activeNodeStdins.delete(options.runId);
+    // Also clean staging on early cancellation or an unexpected spawn error.
+    if (cleanupTempDir) {
+      await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
     }
   }
 }
@@ -793,23 +786,46 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.floor(timeoutMs);
 }
 
+function stoppedNodeRunResult(options: NodeRunOptions): NodeRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
+}
+
 async function runNodeCode(
   source: string,
   options: NodeRunOptions
 ): Promise<NodeRunResult> {
-  const detect = await detectNode(options.userEnv);
-  if (!detect.installed) {
-    return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? 'Node.js is not installed.',
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
-      timeoutMs: clampTimeout(options.timeoutMs),
-    };
+  // Reserve the identity synchronously, before detection, cwd lookup or staging.
+  // Reusing a live identity must never replace another child's Stop/stdin owner.
+  if (options.runId && activeNodeRuns.has(options.runId)) {
+    return invalidNodeRunResult('A Node run with this identity is already active.');
   }
-  return spawnNode(source, options, detect.binary ?? 'node');
+  const controller = new AbortController();
+  const stop = () => controller.abort();
+  if (options.runId) activeNodeRuns.set(options.runId, stop);
+  try {
+    const detect = await detectNode(options.userEnv);
+    if (controller.signal.aborted) return stoppedNodeRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? 'Node.js is not installed.',
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnNode(source, options, controller.signal, detect.binary ?? 'node');
+  } finally {
+    if (options.runId && activeNodeRuns.get(options.runId) === stop) {
+      activeNodeRuns.delete(options.runId);
+      activeNodeStdins.delete(options.runId);
+    }
+  }
 }
 
 function stopNodeRun(runId: unknown): { stopped: boolean } {

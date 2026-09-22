@@ -18,6 +18,7 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Stop also takes effect while the desktop Node backend discovers its runtime or prepares files.** Cancelled work cannot create a child later, and duplicate live run identities cannot replace another run's Stop owner.
 - **Stop during native Node TypeScript preparation cannot launch cancelled code later.** A late compiler result or rejection cannot steal cancellation from the next run.
 - **Project tests preserve captured output order while running and after completion.** Standard output and errors share one observed-order transcript, without duplicating messages or implying causal order between separate pipes.
 - **Desktop startup failures now close safely with a concise English or Spanish recovery message.** Missing renderer files and stalled loads cannot leave a blank app running; a refused second instance stops before registering handlers or opening a window.

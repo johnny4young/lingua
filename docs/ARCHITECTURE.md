@@ -1375,3 +1375,10 @@ install its child cancellation callback. A late compiler result or rejection fro
 a stopped run becomes `stopped` and cannot replace the next child's Stop owner.
 This supplements the manual-session publication guards; suppressing output alone
 would still allow the cancelled code's filesystem/network side effects.
+
+The main Node backend reserves its run identity before runtime detection, cwd
+resolution or staging. A duplicate live identity is rejected rather than replacing
+its Stop/stdin owner. Cancellation during preparation returns `stopped`; the shared
+native spawn boundary refuses already-aborted signals before creating a child.
+Staged files and identity registrations are cleaned in `finally`, including cancelled
+runs. This complements the renderer fence after IPC has crossed into main.
