@@ -555,6 +555,145 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(terminateCount).toBe(1);
   });
 
+  it('reboots a fresh worker after a parent timeout and runs the next request', async () => {
+    const workers: TimeoutWorker[] = [];
+    class TimeoutWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+      terminated = false;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.emit({ type: 'ready' });
+        } else if (message.type === 'execute' && workers.length === 2) {
+          this.emit({ type: 'done', runId: message.runId, executionTime: 1 });
+        }
+      }
+
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+
+      terminate(): void {
+        this.terminated = true;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: TimeoutWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    vi.useFakeTimers();
+    try {
+      const timedOut = runner.execute('while True: pass', { timeout: 25 });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(25);
+      const timeoutResult = await timedOut;
+      expect(timeoutResult.kind).toBe('timeout');
+      expect(timeoutResult.timeoutMs).toBe(25);
+      expect(workers[0]?.terminated).toBe(true);
+      expect(runner.isPyodideBooted()).toBe(false);
+
+      const recovered = await runner.execute('print("recovered")', { timeout: 25 });
+      expect(recovered.kind).toBe('success');
+      expect(workers).toHaveLength(2);
+      expect(workers[1]?.terminated).toBe(false);
+      expect(runner.isPyodideBooted()).toBe(true);
+    } finally {
+      runner.stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores foreign run IDs, including stale output and done from a prior run', async () => {
+    const workers: ManualWorker[] = [];
+    class ManualWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') this.emit({ type: 'ready' });
+      }
+
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: ManualWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    try {
+      const first = runner.execute('print("first")', { timeout: 1_000 });
+      await vi.waitFor(() => {
+        expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(1);
+      });
+      const oldId = postedMessages.find(message => message.type === 'execute')?.runId;
+      const worker = workers[0]!;
+      worker.emit({ type: 'done', runId: oldId, executionTime: 1 });
+      expect((await first).kind).toBe('success');
+
+      const second = runner.execute('print("fresh")', { timeout: 1_000 });
+      await vi.waitFor(() => {
+        expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(2);
+      });
+      const newId = postedMessages.filter(message => message.type === 'execute')[1]?.runId;
+      expect(newId).not.toBe(oldId);
+      let settled = false;
+      void second.then(() => {
+        settled = true;
+      });
+      worker.emit({ type: 'console', runId: oldId, method: 'log', args: ['stale'] });
+      worker.emit({ type: 'done', runId: oldId, executionTime: 1 });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      worker.emit({ type: 'console', runId: newId, method: 'log', args: ['fresh'] });
+      worker.emit({ type: 'done', runId: newId, executionTime: 2 });
+      const result = await second;
+      expect(result.kind).toBe('success');
+      expect(result.stdout.map(output => output.args)).toEqual([['fresh']]);
+    } finally {
+      runner.stop();
+    }
+  });
+
   it('lets only the newest execute reach the worker when calls overlap the Pyodide boot', async () => {
     // A new Python tab auto-runs its seeded code, which starts the boot, and
     // an edit made before the boot finishes schedules a second run. Both calls
