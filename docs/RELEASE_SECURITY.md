@@ -117,6 +117,12 @@ entries are verification-only `pending` or `retiring` keys. `.env` and
 `.env.production` must resolve to the same ordered thumbprints. The Settings
 fingerprint shows the first/primary key.
 
+`src/shared/licensePublicKeyring.ts` is the dependency-free parser used by both
+the app verifier and the license Worker. It validates only the public JWK list:
+the Worker still owns issuance and online row/device authority, while the app
+still owns offline signature, grace, and included-update decisions. Keep those
+verifiers separate when changing token or entitlement policy.
+
 The Worker keeps two private-key slots. `LINGUA_LICENSE_PRIVATE_KEY_JWK` is the
 existing `current` slot; `LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK` is prepared before
 rollout. The non-secret `LINGUA_LICENSE_SIGNING_KEY_SLOT` Wrangler var selects

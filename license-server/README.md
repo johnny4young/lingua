@@ -38,6 +38,10 @@ return the JSON `not-found` shape rather than Hono's text fallback.
 - License tokens are signed with Ed25519 and verified against the configured
   public JWK; private signing material is a Worker secret and never enters app
   or website bundles.
+- The public-keyring parser is imported from `../src/shared/licensePublicKeyring.ts`
+  so the Worker and app reject the same malformed rotation lists. This pure
+  leaf does not import the app verifier; token policy and signing remain local
+  to the Worker. Validate the cross-directory import with a Wrangler dry-run.
 - Lemon Squeezy webhooks require HMAC verification and D1-backed idempotency. There is no signed timestamp in the scheme, so the idempotent merchant-id lookups ARE the replay defense.
 - Trial, education, and recovery starts use KV rate limits. Email proof remains
   authoritative because KV is eventually consistent across PoPs.

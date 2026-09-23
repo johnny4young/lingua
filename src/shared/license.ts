@@ -16,6 +16,10 @@
  * result so the renderer and main verifiers can handle them the same way.
  */
 
+import type { LicensePublicKeyring } from './licensePublicKeyring';
+export { parseLicensePublicKeyring } from './licensePublicKeyring';
+export type { LicensePublicKeyring } from './licensePublicKeyring';
+
 /**
  * Closed tier list accepted by every verifier. Keep this in sync with the
  * issuer and entitlement mapping; unknown string tiers are a hard reject so a
@@ -118,53 +122,6 @@ export type DecodedLicense =
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_GRACE_PERIOD_MS = 14 * DAY_MS;
 const DEFAULT_CLOCK_SKEW_MS = DAY_MS;
-const MAX_LICENSE_PUBLIC_KEYS = 3;
-
-export type LicensePublicKeyring = readonly JsonWebKey[];
-
-function isEd25519PublicJwk(value: unknown): value is JsonWebKey {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const candidate = value as JsonWebKey;
-  return (
-    candidate.kty === 'OKP' &&
-    candidate.crv === 'Ed25519' &&
-    typeof candidate.x === 'string' &&
-    candidate.x.length > 0 &&
-    candidate.d === undefined
-  );
-}
-
-/**
- * Parse the build-time trust anchor as either the historical single public
- * JWK or an ordered rotation keyring. The first key is the primary key shown
- * in Settings; remaining keys are verification-only overlap keys.
- *
- * Fail closed on empty, oversized, malformed, duplicate, or private-key
- * material. A committed env value controls the trust boundary, so silently
- * dropping one bad entry would make the shipped keyring differ from the
- * operator's rotation evidence.
- */
-export function parseLicensePublicKeyring(raw: string | undefined | null): LicensePublicKeyring {
-  if (typeof raw !== 'string' || raw.length === 0) return [];
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-
-  const candidates = Array.isArray(parsed) ? parsed : [parsed];
-  if (candidates.length === 0 || candidates.length > MAX_LICENSE_PUBLIC_KEYS) return [];
-  if (!candidates.every(isEd25519PublicJwk)) return [];
-
-  const identities = candidates.map(
-    (candidate) => `${candidate.kty}:${candidate.crv}:${candidate.x}`
-  );
-  if (new Set(identities).size !== identities.length) return [];
-  return candidates;
-}
-
 /**
  * Decode unpadded RFC 4648 section 5 base64url. Returns null instead of
  * throwing so malformed user-pasted tokens stay on the discriminated
