@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import {
   applyDevLicense,
   clickRun,
+  createJavaScriptTab,
   expect,
   gotoApp,
   openSettings,
@@ -17,6 +18,7 @@ test('Free exports a CLI JSON file, copies separate commands and imports it iner
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await seedSession(page, { language: 'en' });
   await gotoApp(page);
+  await createJavaScriptTab(page);
   await clickRun(page);
   await waitForRunCompleted(page);
   await openSettings(page);
@@ -68,10 +70,12 @@ test('Free exports a CLI JSON file, copies separate commands and imports it iner
 test('Spanish guidance distinguishes validation from execution and reports denied clipboard', async ({ page }) => {
   await seedSession(page, { language: 'es' });
   await gotoApp(page);
+  await createJavaScriptTab(page);
   await clickRun(page);
   await waitForRunCompleted(page);
   await openSettings(page);
   await openSettingsTab(page, 'account');
+  await expect(page.getByTestId('capsule-save-json-button')).toBeEnabled();
   await page.getByTestId('capsule-cli-handoff-toggle').click();
   await expect(page.getByText('Validar sin ejecutar')).toBeVisible();
   await expect(page.getByText('Reproducir (ejecuta el código guardado)')).toBeVisible();
