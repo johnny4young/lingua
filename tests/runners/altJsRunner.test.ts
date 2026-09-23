@@ -67,22 +67,44 @@ describe('AltJsRunner', () => {
     expect(bridge.run).toHaveBeenCalledTimes(1);
   });
 
-  it('maps missing-binary to a clear error', async () => {
-    installBridge('deno', {
+  it.each(['deno', 'bun'] as const)('recovers when %s is not installed', async (id) => {
+    const bridge = installBridge(id, {
       run: vi.fn().mockResolvedValue({
         kind: 'missing-binary',
         stdout: '',
         stderr: '',
         exitCode: -1,
         executionTime: 0,
-        error: 'Deno is not installed. Install it from https://deno.com',
+        error: `${id} is not installed`,
         timeoutMs: 30_000,
       }),
+      detect: vi.fn().mockResolvedValue({ installed: true, version: '1.0.0' }),
     });
-    const runner = new AltJsRunner('deno');
+    const runner = new AltJsRunner(id);
     await runner.init();
     const result = await runner.execute('console.log(1)');
     expect(result.kind).toBe('error');
     expect(result.error?.message).toContain('not installed');
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice).toMatchObject({
+      tone: 'warning',
+      priority: 'high',
+      messageKey: 'nativeToolchain.missing.message',
+      values: { toolchain: id === 'deno' ? 'Deno' : 'Bun' },
+      actions: [
+        { labelKey: 'nativeToolchain.action.install' },
+        { labelKey: 'nativeToolchain.action.retry' },
+      ],
+    });
+    const retry = notice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retry?.onClick();
+    await vi.waitFor(() => {
+      expect(bridge.detect).toHaveBeenCalledWith({}, true);
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'success',
+        messageKey: 'nativeToolchain.retry.detected',
+      });
+    });
   });
 });

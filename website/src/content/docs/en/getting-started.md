@@ -48,6 +48,8 @@ the toolchain installed on your machine:
 - **Go:** install the current stable release from [go.dev/dl](https://go.dev/dl/), then confirm `go version` works. For Debug mode, also run `go install github.com/go-delve/delve/cmd/dlv@latest` and confirm `dlv version` works.
 - **Rust:** install through [rustup.rs](https://rustup.rs/), then confirm `rustc --version` works. For Debug mode, install an LLVM package that provides `lldb-dap`; on macOS, Xcode or Xcode Command Line Tools should make `xcrun --find lldb-dap` succeed.
 - **Node.js:** install an active LTS release from [nodejs.org](https://nodejs.org/en/download), then confirm `node --version` works.
+- **Deno:** install from the [official Deno guide](https://docs.deno.com/runtime/getting_started/installation/), then confirm `deno --version` works.
+- **Bun:** install from the [official Bun guide](https://bun.sh/docs/installation), then confirm `bun --version` works.
 - **Ruby:** install a supported Ruby from [ruby-lang.org](https://www.ruby-lang.org/en/documentation/installation/), then confirm `ruby --version` works. Lingua's automatic Ruby mode can keep using its bundled WASM runtime when system Ruby is unavailable.
 
 After installing a missing toolchain, use **Retry detection** in Lingua. You do

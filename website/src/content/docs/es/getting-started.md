@@ -49,6 +49,8 @@ de desktop usan la toolchain instalada en tu máquina:
 - **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona. Para el modo Debug, ejecuta también `go install github.com/go-delve/delve/cmd/dlv@latest` y confirma que `dlv version` funciona.
 - **Rust:** instala Rust desde [rustup.rs](https://rustup.rs/) y confirma que `rustc --version` funciona. Para el modo Debug, instala un paquete de LLVM que incluya `lldb-dap`; en macOS, Xcode o sus herramientas de línea de comandos deben permitir que `xcrun --find lldb-dap` funcione.
 - **Node.js:** instala una versión LTS activa desde [nodejs.org](https://nodejs.org/en/download) y confirma que `node --version` funciona.
+- **Deno:** instala desde la [guía oficial de Deno](https://docs.deno.com/runtime/getting_started/installation/) y confirma que `deno --version` funciona.
+- **Bun:** instala desde la [guía oficial de Bun](https://bun.sh/docs/installation) y confirma que `bun --version` funciona.
 - **Ruby:** instala una versión compatible desde [ruby-lang.org](https://www.ruby-lang.org/es/documentation/installation/) y confirma que `ruby --version` funciona. El modo automático de Ruby puede seguir usando el runtime WASM incluido cuando Ruby no está disponible en el sistema.
 
 Después de instalar una toolchain, selecciona **Volver a comprobar** en Lingua.

@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { useUIStore } from '../stores/uiStore';
 
-export type NativeToolchain = 'go' | 'rust' | 'node' | 'ruby';
+export type NativeToolchain = 'go' | 'rust' | 'node' | 'ruby' | 'deno' | 'bun';
 
 interface NativeToolchainSpec {
   label: string;
@@ -13,6 +13,8 @@ const TOOLCHAIN_SPECS: Record<NativeToolchain, NativeToolchainSpec> = {
   rust: { label: 'Rust', docsPath: '/docs/getting-started' },
   node: { label: 'Node.js', docsPath: '/docs/getting-started' },
   ruby: { label: 'Ruby', docsPath: '/docs/getting-started' },
+  deno: { label: 'Deno', docsPath: '/docs/getting-started' },
+  bun: { label: 'Bun', docsPath: '/docs/getting-started' },
 };
 
 function desktopShell(): LinguaAPI | null {
