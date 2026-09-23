@@ -374,6 +374,24 @@ navigation — user code execution is terminated. The runner
 resolves with `runnerTimeoutResult(...)` and detaches the
 message listener.
 
+### Browser preview completion and error recovery
+
+The iframe's `done` message means the inline script returned, not that the
+browser has delivered every error from that turn. In Chromium an immediately
+rejected Promise can emit `unhandledrejection` **after** `done` reaches the
+parent. The runner therefore keeps its run identity and message listener for
+a short bounded settlement window after `done`; only then does it publish
+success or the captured error. Stop or a replacement run cancels that window,
+so a late rejection cannot alter the next execution. This is not an await of
+arbitrary asynchronous work scheduled by user code.
+
+The preview keeps its existing timeout and sandbox boundaries. When a run
+fails, the panel shows a localized error recovery action over the preview;
+View console opens the captured error and transfers keyboard focus to the
+Console tab. Editing and running again clears the error. An auto-refresh
+failure can retain the last successful document, with the error action making
+that stale view explicit.
+
 ### Multi-file preview seed
 
 Manual Run and auto-run name the running tab through

@@ -80,6 +80,13 @@ import {
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
+// The iframe's done signal only means the inline script ended. Chromium can
+// deliver unhandledrejection in a later task, after done reaches the parent.
+// Keep the run owned and the message listener attached briefly so an
+// immediately rejected Promise is reported rather than published as success.
+// This does not attempt to await arbitrary asynchronous work from user code.
+const POST_DONE_REJECTION_GRACE_MS = 75;
+
 /**
  * Sibling `.css` / `.html` tabs of the running tab, read from the editor
  * store at execute time. A run without a `tabId`, an unknown tab, or a
@@ -184,6 +191,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
     return new Promise<ExecutionResult>((resolve) => {
       let resolved = false;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let settleHandle: ReturnType<typeof setTimeout> | null = null;
       // Capture the wall-clock start so the `done` branch reports
       // actual elapsed time, not the timeout budget. The clock starts
       // just before the listener attaches; the document navigation +
@@ -194,6 +202,13 @@ export class BrowserPreviewRunner implements LanguageRunner {
         if (timeoutHandle !== null) {
           clearTimeout(timeoutHandle);
           timeoutHandle = null;
+        }
+      };
+
+      const clearSettlement = () => {
+        if (settleHandle !== null) {
+          clearTimeout(settleHandle);
+          settleHandle = null;
         }
       };
 
@@ -217,6 +232,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
         if (resolved) return;
         resolved = true;
         clearDeadline();
+        clearSettlement();
         detachListener();
         if (this.currentRunId === runId) this.currentRunId = null;
         if (this.cancelInFlight === cancel) this.cancelInFlight = null;
@@ -306,21 +322,26 @@ export class BrowserPreviewRunner implements LanguageRunner {
             break;
           }
           case 'done': {
-            if (executionError) {
-              restoreLastSuccessfulDocument();
-            } else {
-              this.lastSuccessfulSrcdoc = doc;
-            }
-            finish({
-              stdout,
-              stderr,
-              result: undefined,
-              executionTime: Date.now() - startMs,
-              error: executionError,
-              kind: executionError ? 'error' : 'success',
-              timeoutPreset,
-              timeoutMs: timeout,
-            });
+            if (settleHandle !== null) break;
+            clearDeadline();
+            settleHandle = setTimeout(() => {
+              settleHandle = null;
+              if (executionError) {
+                restoreLastSuccessfulDocument();
+              } else {
+                this.lastSuccessfulSrcdoc = doc;
+              }
+              finish({
+                stdout,
+                stderr,
+                result: undefined,
+                executionTime: Date.now() - startMs,
+                error: executionError,
+                kind: executionError ? 'error' : 'success',
+                timeoutPreset,
+                timeoutMs: timeout,
+              });
+            }, POST_DONE_REJECTION_GRACE_MS);
             break;
           }
         }

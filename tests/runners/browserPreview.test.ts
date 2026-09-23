@@ -104,7 +104,7 @@ describe('iframe bridge — buildBridgeScript', () => {
 });
 
 describe('iframe bridge — buildDoneScript', () => {
-  it('posts the done message via a microtask so sync console flushes first', () => {
+  it('posts a provisional done signal after synchronous script evaluation', () => {
     const script = buildDoneScript('abc');
     expect(script).toContain('Promise.resolve().then');
     expect(script).toContain("type: 'done'");
@@ -526,6 +526,60 @@ describe('BrowserPreviewRunner — execute()', () => {
     const result = await promise;
     expect(result.error?.message).toBe('boom');
     expect(result.stderr.length).toBeGreaterThan(0);
+  });
+
+  it('keeps done provisional so an immediate rejected Promise is not lost', async () => {
+    vi.useFakeTimers();
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const promise = runner.execute('Promise.reject(new Error("rejected"));');
+    await Promise.resolve();
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId,
+      type: 'unhandledrejection',
+      message: 'Error: rejected',
+    });
+
+    await vi.advanceTimersByTimeAsync(100);
+    const result = await promise;
+    expect(result.kind).toBe('error');
+    expect(result.error?.message).toContain('rejected');
+    expect(result.stderr).toHaveLength(1);
+  });
+
+  it('does not let a superseded run settle after done and mutate the next run', async () => {
+    vi.useFakeTimers();
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('Promise.reject(new Error("old"));');
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+
+    const second = runner.execute('document.body.textContent = "new";');
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'unhandledrejection',
+      message: 'Error: old',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect((await first).kind).toBe('stopped');
+    expect((await second).kind).toBe('success');
+    expect(getSandboxDocument(iframe)).toContain('textContent = "new"');
   });
 
   it('keeps the last successful DOM when a silent refresh throws', async () => {

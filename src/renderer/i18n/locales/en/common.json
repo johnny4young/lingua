@@ -1415,6 +1415,8 @@
   "browserPreview.autoRefresh.interval.oneSecond": "1 s",
   "browserPreview.autoRefresh.interval.milliseconds": "{{count}} ms",
   "browserPreview.runtimeError": "Browser preview surfaced an error. See the console tab for details.",
+  "browserPreview.errorRecovery": "Preview failed. Fix the code, then run it again.",
+  "browserPreview.viewConsole": "View console",
   "browserPreview.timeout": "Browser preview timed out.",
   "browserPreview.iframeTitle": "Browser preview output",
   "browserPreview.inspect.label": "Open in window",

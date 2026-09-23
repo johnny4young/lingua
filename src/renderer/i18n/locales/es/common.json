@@ -1415,6 +1415,8 @@
   "browserPreview.autoRefresh.interval.oneSecond": "1 s",
   "browserPreview.autoRefresh.interval.milliseconds": "{{count}} ms",
   "browserPreview.runtimeError": "La Vista previa del navegador mostró un error. Mira la pestaña de consola para detalles.",
+  "browserPreview.errorRecovery": "La vista previa falló. Corrige el código y vuelve a ejecutarlo.",
+  "browserPreview.viewConsole": "Ver consola",
   "browserPreview.timeout": "La Vista previa del navegador agotó el tiempo.",
   "browserPreview.iframeTitle": "Salida de la Vista previa del navegador",
   "browserPreview.inspect.label": "Abrir en ventana",

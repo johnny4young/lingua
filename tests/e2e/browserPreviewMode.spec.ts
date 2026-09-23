@@ -133,9 +133,23 @@ for (const language of ['en', 'es'] as const) {
     );
     await run.click();
     await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await edit('Promise.reject(new Error("sandbox-rejected-promise"));');
+    await run.click();
+    await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await expect(page.getByTestId('browser-preview-error-recovery')).toContainText(
+      language === 'en' ? 'Preview failed' : 'La vista previa falló'
+    );
+    await page.screenshot({ path: `output/playwright/preview-error-${language}.png` });
+    await page.getByTestId('browser-preview-view-console').click();
+    const consoleTab = page.getByTestId('bottom-panel-console-tab');
+    await expect(consoleTab).toHaveAttribute('aria-selected', 'true');
+    await expect(consoleTab).toBeFocused();
+    await expect(page.locator('#guided-tour-console')).toContainText('sandbox-rejected-promise');
+    await page.getByTestId('bottom-panel-browser-preview-tab').click();
     await edit('document.body.textContent = "sandbox-recovered";');
     await run.click();
     await waitForDocument('sandbox-recovered');
+    await expect(page.getByTestId('browser-preview-error-recovery')).toBeHidden();
     await selectWorkflowMode(page, 'scratchpad');
     // Live refresh is a separate journey: no manual Run click, retain the
     // last accepted document on error, then replace it on successful recovery.

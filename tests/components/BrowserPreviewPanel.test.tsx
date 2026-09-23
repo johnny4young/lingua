@@ -16,13 +16,14 @@ import { setSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { BrowserPreviewPanel } from '@/components/BrowserPreview/BrowserPreviewPanel';
 import { useEditorStore } from '@/stores/editorStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useUIStore } from '@/stores/uiStore';
 import {
   getActiveBrowserPreviewIframe,
   _resetBrowserPreviewBridgeForTesting,
@@ -49,12 +50,14 @@ describe('BrowserPreviewPanel', () => {
   const initialEditor = useEditorStore.getState();
   const initialResult = useResultStore.getState();
   const initialSettings = useSettingsStore.getState();
+  const initialUI = useUIStore.getState();
 
   beforeEach(async () => {
     _resetBrowserPreviewBridgeForTesting();
     useEditorStore.setState(initialEditor, true);
     useResultStore.setState(initialResult, true);
     useSettingsStore.setState(initialSettings, true);
+    useUIStore.setState(initialUI, true);
     await i18next.changeLanguage('en');
   });
 
@@ -64,6 +67,7 @@ describe('BrowserPreviewPanel', () => {
     useEditorStore.setState(initialEditor, true);
     useResultStore.setState(initialResult, true);
     useSettingsStore.setState(initialSettings, true);
+    useUIStore.setState(initialUI, true);
     await i18next.changeLanguage('en');
     vi.restoreAllMocks();
   });
@@ -143,6 +147,24 @@ describe('BrowserPreviewPanel', () => {
     render(<BrowserPreviewPanel />);
     const status = screen.getByTestId('browser-preview-status');
     expect(status.textContent).toMatch(/surfaced an error/i);
+  });
+
+  it('offers a direct, focus-preserving console path after a preview error', async () => {
+    seedActiveTab();
+    useResultStore.setState({ ...useResultStore.getState(), error: { message: 'boom' } });
+    render(
+      <>
+        <button id="bottom-panel-console-tab" type="button">Console tab</button>
+        <BrowserPreviewPanel />
+      </>
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Preview failed');
+    await userEvent.click(screen.getByTestId('browser-preview-view-console'));
+    expect(useUIStore.getState().activeBottomPanel).toBe('console');
+    expect(document.activeElement).toBe(screen.getByText('Console tab'));
+    useResultStore.setState({ ...useResultStore.getState(), error: null });
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 
   it('opens a new window when the inspect button is clicked', async () => {

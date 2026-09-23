@@ -198,9 +198,9 @@ ${SERIALIZER}
 }
 
 /**
- * The trailing IIFE that signals execution completion. Runs after
- * user code so we can resolve the runner's promise. We schedule a
- * microtask so any pending sync console.* flush first.
+ * The trailing IIFE signals that synchronous evaluation ended. The runner
+ * treats this as provisional: the browser can deliver unhandledrejection
+ * after this message, so it keeps the listener for a short bounded window.
  */
 export function buildDoneScript(runId: string): string {
   const safeRunId = JSON.stringify(runId);
