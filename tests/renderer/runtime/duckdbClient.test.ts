@@ -17,6 +17,8 @@ import {
   estimateOriginStorageBytes,
   executeQuery,
   fetchRuntimeAssetWithRetry,
+  flushAndReleaseDuckDbEngine,
+  getDuckDbEngine,
   getResolvedSqlStorageMode,
   getResolvedSqlStorageRequestMode,
   importFileAsTable,
@@ -55,6 +57,16 @@ function mockEngine(impl: (sql: string) => Promise<ArrowTableLike>): DuckDbEngin
     }),
     terminate: async () => undefined,
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
+  });
+  return { promise, resolve, reject };
 }
 
 afterEach(() => {
@@ -327,6 +339,148 @@ describe('executeQuery', () => {
 });
 
 describe('OPFS persistence ', () => {
+  it('does not instantiate the next engine until the old engine finishes terminating', async () => {
+    const termination = deferred<void>();
+    const first = mockEngine(async () => arrowTableFrom([], []));
+    first.terminate = vi.fn(() => termination.promise);
+    const next = mockEngine(async () => arrowTableFrom([], []));
+    const factory = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(next);
+    __setDuckDbEngineFactoryForTests(factory);
+
+    expect(await getDuckDbEngine()).toBe(first);
+    const release = flushAndReleaseDuckDbEngine();
+    await vi.waitFor(() => expect(first.terminate).toHaveBeenCalledTimes(1));
+    const nextEngine = getDuckDbEngine();
+    try {
+      await Promise.resolve();
+      expect(factory).toHaveBeenCalledTimes(1);
+    } finally {
+      termination.resolve();
+      await release;
+    }
+    expect(await nextEngine).toBe(next);
+    expect(factory).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a late failed load from discarding the next engine cache', async () => {
+    const firstLoad = deferred<DuckDbEngineHandle>();
+    const next = mockEngine(async () => arrowTableFrom([], []));
+    const factory = vi
+      .fn()
+      .mockImplementationOnce(() => firstLoad.promise)
+      .mockResolvedValue(next);
+    __setDuckDbEngineFactoryForTests(factory);
+
+    const stale = getDuckDbEngine().catch(() => undefined);
+    await vi.waitFor(() => expect(factory).toHaveBeenCalledTimes(1));
+    const release = flushAndReleaseDuckDbEngine();
+    const nextEngine = getDuckDbEngine();
+    firstLoad.reject(new Error('first load failed'));
+    await stale;
+    await release;
+    expect(await nextEngine).toBe(next);
+    expect(await getDuckDbEngine()).toBe(next);
+    expect(factory).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reopen OPFS until clearing both database artifacts completes', async () => {
+    const removal = deferred<void>();
+    const removeEntry = vi
+      .fn()
+      .mockImplementationOnce(() => removal.promise)
+      .mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { storage: { getDirectory: async () => ({ removeEntry }) } });
+    try {
+      const first = mockEngine(async () => arrowTableFrom([], []));
+      const next = mockEngine(async () => arrowTableFrom([], []));
+      const factory = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(next);
+      __setDuckDbEngineFactoryForTests(factory);
+      expect(await getDuckDbEngine()).toBe(first);
+
+      const clear = clearPersistedSqlDatabase();
+      await vi.waitFor(() => expect(removeEntry).toHaveBeenCalledTimes(1));
+      const nextEngine = getDuckDbEngine();
+      try {
+        await Promise.resolve();
+        expect(factory).toHaveBeenCalledTimes(1);
+      } finally {
+        removal.resolve();
+        await clear;
+      }
+      expect(removeEntry).toHaveBeenCalledTimes(2);
+      expect(await nextEngine).toBe(next);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('checkpoints persistent storage before closing and terminating the engine', async () => {
+    const order: string[] = [];
+    __setDuckDbEngineFactoryForTests(async () => ({
+      connect: async () => ({
+        query: async (sql: string) => {
+          order.push(sql);
+          return { columns: [], rows: [], rowCount: 0, tooLarge: false };
+        },
+        close: async () => {
+          order.push('close');
+        },
+      }),
+      terminate: async () => {
+        order.push('terminate');
+      },
+    }));
+    __setResolvedSqlStorageModeForTests('opfs');
+    await getDuckDbEngine();
+
+    await flushAndReleaseDuckDbEngine();
+
+    expect(order).toEqual(['CHECKPOINT', 'close', 'terminate']);
+    expect(getResolvedSqlStorageMode()).toBe('memory');
+  });
+
+  it('still terminates when a best-effort checkpoint fails', async () => {
+    const terminate = vi.fn(async () => undefined);
+    __setDuckDbEngineFactoryForTests(async () => ({
+      connect: async () => ({
+        query: async () => {
+          throw new Error('checkpoint unavailable');
+        },
+        close: async () => undefined,
+      }),
+      terminate,
+    }));
+    __setResolvedSqlStorageModeForTests('opfs');
+    await getDuckDbEngine();
+
+    await expect(flushAndReleaseDuckDbEngine()).resolves.toBeUndefined();
+    expect(terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['reconnect', flushAndReleaseDuckDbEngine],
+    ['clear', clearPersistedSqlDatabase],
+  ])('resets a late storage resolution after %s finishes', async (_label, releaseEngine) => {
+    const instantiate = deferred<void>();
+    const engine = mockEngine(async () => arrowTableFrom([], []));
+    const factory = vi.fn(async () => {
+      await instantiate.promise;
+      __setResolvedSqlStorageModeForTests('opfs');
+      return engine;
+    });
+    __setDuckDbEngineFactoryForTests(factory);
+
+    const pending = getDuckDbEngine();
+    await vi.waitFor(() => expect(factory).toHaveBeenCalledTimes(1));
+    const release = releaseEngine();
+    instantiate.resolve();
+    await pending;
+    await release;
+
+    expect(getResolvedSqlStorageMode()).toBe('memory');
+    expect(getResolvedSqlStorageRequestMode()).toBe('memory');
+  });
+
   it('stays in-memory when persistence is off (no open call)', async () => {
     const open = vi.fn(async () => undefined);
     const mode = await applyDuckDbPersistence({ open }, false, true);

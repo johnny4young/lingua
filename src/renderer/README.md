@@ -44,6 +44,12 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`types/`](types)           | Compatibility facade plus direct language, editor, console, execution, and settings type leaves; production code imports leaves, not the facade |
 | [`devShowcase/`](devShowcase) | Local visual/system showcase utilities, not product runtime code        |
 
+The SQL client in [`runtime/duckdbClient.ts`](runtime/duckdbClient.ts) owns
+queries and persistence policy. Its small
+[`runtime/duckdbEngineLifecycle.ts`](runtime/duckdbEngineLifecycle.ts) helper
+owns only engine generations and serialized release; keep OPFS cleanup inside
+that release transition so a new engine cannot reopen partially cleared data.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:

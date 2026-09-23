@@ -204,6 +204,18 @@ Same-origin development and standard E2E builds do not enter these verified
 branches. Qualify the production-shaped branches separately with matching and
 mismatched assets; deployed mirror CORS remains an independent operational gate.
 
+### DuckDB engine lifecycle
+
+`src/renderer/runtime/duckdbClient.ts` retains SQL execution, persistence
+selection, and the production DuckDB factory. Its cached engine and teardown
+ordering belong to `duckdbEngineLifecycle.ts`. Reconnect and page teardown are
+transitions: the next engine cannot instantiate until the previous generation
+has terminated. Clearing persisted SQL data also waits for both OPFS artifacts
+to be removed before reopening the database. A late factory rejection can only
+evict its own generation, never a newer one. Failed best-effort checkpoints do
+not prevent termination; failed generations remain retryable without changing
+the public SQL client API or persisted workspace data.
+
 ### UTF-8 text budgets
 
 `shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for

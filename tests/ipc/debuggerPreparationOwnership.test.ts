@@ -11,11 +11,9 @@ const mocks = vi.hoisted(() => ({
   pythonSession: vi.fn(),
 }));
 
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, handler: (...args: unknown[]) => unknown) => {
-      mocks.handlers.set(channel, handler);
-    },
+vi.mock('../../src/main/ipc/typedHandle', () => ({
+  typedHandle: (channel: string, handler: (...args: unknown[]) => unknown) => {
+    mocks.handlers.set(channel, handler);
   },
 }));
 vi.mock('../../src/main/ipc/projectCapabilities', () => ({
@@ -92,22 +90,18 @@ beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.handlers.clear();
-  const [python, go, rust] = await Promise.all([
-    import('../../src/main/ipc/pythonDebugger'),
-    import('../../src/main/ipc/goDebugger'),
-    import('../../src/main/ipc/rustDebugger'),
-  ]);
+  const python = await import('../../src/main/ipc/pythonDebugger');
+  const go = await import('../../src/main/ipc/goDebugger');
+  const rust = await import('../../src/main/ipc/rustDebugger');
   python.registerPythonDebuggerHandlers();
   go.registerGoDebuggerHandlers();
   rust.registerRustDebuggerHandlers();
 });
 
 afterEach(async () => {
-  const [python, go, rust] = await Promise.all([
-    import('../../src/main/ipc/pythonDebugger'),
-    import('../../src/main/ipc/goDebugger'),
-    import('../../src/main/ipc/rustDebugger'),
-  ]);
+  const python = await import('../../src/main/ipc/pythonDebugger');
+  const go = await import('../../src/main/ipc/goDebugger');
+  const rust = await import('../../src/main/ipc/rustDebugger');
   python.disposePythonDebuggerSessions();
   go.disposeGoDebuggerSessions();
   rust.disposeRustDebuggerSessions();

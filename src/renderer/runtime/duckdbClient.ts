@@ -34,6 +34,7 @@
  */
 
 import { sha256HexToIntegrity } from './wasmIntegrity';
+import { DuckDbEngineLifecycle } from './duckdbEngineLifecycle';
 import {
   MAX_RESULT_PREVIEW_BYTES,
   MAX_RESULT_ROWS,
@@ -121,8 +122,12 @@ export interface DuckDbEngineHandle {
  */
 export type DuckDbEngineFactory = () => Promise<DuckDbEngineHandle>;
 
-let cachedEngine: Promise<DuckDbEngineHandle> | null = null;
 let activeFactory: DuckDbEngineFactory | null = null;
+let engineLifecycle = createEngineLifecycle();
+
+function createEngineLifecycle(): DuckDbEngineLifecycle<DuckDbEngineHandle> {
+  return new DuckDbEngineLifecycle(() => (activeFactory ?? productionEngineFactory)());
+}
 
 // ---------------------------------------------------------------------------
 // implementation (SQL OPFS) — opt-in table persistence.
@@ -245,23 +250,13 @@ export async function applyDuckDbPersistence(
 }
 
 /**
- * Terminate + drop the cached engine, resetting the resolved mode to
- * the in-memory default. The next `getDuckDbEngine` re-instantiates and
- * re-resolves persistence. Terminating also releases the OPFS sync
- * access handle so the file can be removed or re-opened by another tab.
+ * Reset the reported backing as the last step of a release transition.
+ * A factory already in flight may resolve OPFS after release starts; doing
+ * this earlier would leave its stale mode visible after the engine is gone.
  */
-async function terminateDuckDbEngine(): Promise<void> {
-  const pending = cachedEngine;
-  cachedEngine = null;
+function resetResolvedStorageMode(): void {
   resolvedStorageMode = 'memory';
   resolvedStorageRequestedMode = 'memory';
-  if (pending === null) return;
-  try {
-    const engine = await pending;
-    await engine.terminate();
-  } catch {
-    /* never resolved, or already terminated — nothing to release */
-  }
 }
 
 /**
@@ -273,20 +268,20 @@ async function terminateDuckDbEngine(): Promise<void> {
  * already checkpoints after every write.
  */
 export async function flushAndReleaseDuckDbEngine(): Promise<void> {
-  if (cachedEngine !== null && resolvedStorageMode === 'opfs') {
-    try {
-      const engine = await cachedEngine;
-      const connection = await engine.connect();
-      try {
-        await connection.query('CHECKPOINT');
-      } finally {
-        await connection.close();
-      }
-    } catch {
-      /* best-effort — page may be unloading */
-    }
-  }
-  await terminateDuckDbEngine();
+  const checkpoint = resolvedStorageMode === 'opfs';
+  await engineLifecycle.release({
+    beforeTerminate: checkpoint
+      ? async engine => {
+          const connection = await engine.connect();
+          try {
+            await connection.query('CHECKPOINT');
+          } finally {
+            await connection.close();
+          }
+        }
+      : undefined,
+    afterTerminate: async () => resetResolvedStorageMode(),
+  });
 }
 
 /**
@@ -298,20 +293,25 @@ export async function flushAndReleaseDuckDbEngine(): Promise<void> {
  * is swallowed.
  */
 export async function clearPersistedSqlDatabase(): Promise<void> {
-  await terminateDuckDbEngine();
-  if (!isOpfsStorageAvailable()) return;
-  try {
-    const root = await navigator.storage.getDirectory();
-    for (const name of OPFS_SQL_DB_FILE_NAMES) {
-      try {
-        await root.removeEntry(name);
-      } catch {
-        /* NotFoundError — never existed; idempotent */
+  await engineLifecycle.release({
+    afterTerminate: async () => {
+      if (isOpfsStorageAvailable()) {
+        try {
+          const root = await navigator.storage.getDirectory();
+          for (const name of OPFS_SQL_DB_FILE_NAMES) {
+            try {
+              await root.removeEntry(name);
+            } catch {
+              /* NotFoundError — never existed; idempotent */
+            }
+          }
+        } catch {
+          /* getDirectory failed — nothing to clear */
+        }
       }
-    }
-  } catch {
-    /* getDirectory failed — nothing to clear */
-  }
+      resetResolvedStorageMode();
+    },
+  });
 }
 
 /**
@@ -345,7 +345,7 @@ export function __setDuckDbEngineFactoryForTests(
   factory: DuckDbEngineFactory | null
 ): void {
   activeFactory = factory;
-  cachedEngine = null;
+  engineLifecycle = createEngineLifecycle();
   resolvedStorageMode = 'memory';
   resolvedStorageRequestedMode = 'memory';
   desiredPersistence = false;
@@ -366,21 +366,11 @@ export function __setResolvedSqlStorageModeForTests(
 /**
  * Get-or-instantiate the engine. First call lazy-imports the
  * `@duckdb/duckdb-wasm` chunk; subsequent calls return the cached
- * Promise. Failures cache as rejected Promises and require a manual
- * `__setDuckDbEngineFactoryForTests(null)` to retry — implementation
- * surfaces this as `engine-load-failed` with a retry button.
+ * Promise. Failed generations are dropped so the user-driven retry path
+ * can start a new engine without replacing a newer live generation.
  */
 export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
-  if (cachedEngine !== null) return cachedEngine;
-  const factory = activeFactory ?? productionEngineFactory;
-  cachedEngine = factory().catch((err) => {
-    // Reset the cache on failure so the user-driven retry path can
-    // try again from scratch — otherwise a flaky first-load would
-    // permanently freeze the panel.
-    cachedEngine = null;
-    throw err;
-  });
-  return cachedEngine;
+  return engineLifecycle.get();
 }
 
 /**
