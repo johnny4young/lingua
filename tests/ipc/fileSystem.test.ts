@@ -451,6 +451,32 @@ describe('fs:revoke-root', () => {
     expect(await invoke('fs:revoke-root', rootId)).toBe(true);
     expect(await invoke('fs:revoke-root', rootId)).toBe(false);
   });
+
+  it('denies every read, write, search, watch and reveal path after revocation', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'private.txt');
+    await writeFile(filePath, 'keep this content\n', 'utf-8');
+    expect(await invoke('fs:read', rootId, 'private.txt')).toBe('keep this content\n');
+
+    expect(await invoke('fs:revoke-root', rootId)).toBe(true);
+    for (const [channel, args] of [
+      ['fs:read', [rootId, 'private.txt']],
+      ['fs:readdir', [rootId, '']],
+      ['fs:searchInFiles', [rootId, '', 'content']],
+      ['fs:watch-start', [rootId, '']],
+      ['fs:reveal-in-finder', [rootId, 'private.txt']],
+      ['fs:write', [rootId, 'private.txt', 'stale write']],
+    ] as const) {
+      await expect(invoke(channel, ...args)).rejects.toThrow(/unknown.root/i);
+    }
+    expect(await readFile(filePath, 'utf-8')).toBe('keep this content\n');
+    expect(showItemInFolder).not.toHaveBeenCalled();
+
+    const reopened = mintFor(tmpRoot);
+    expect(await invoke('fs:read', reopened.rootId, 'private.txt')).toBe(
+      'keep this content\n'
+    );
+  });
 });
 
 describe('fs:reveal-in-finder', () => {
