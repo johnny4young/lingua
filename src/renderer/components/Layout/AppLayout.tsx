@@ -678,20 +678,22 @@ export function AppLayout({
         className="flex min-h-0 flex-1 flex-col"
       >
         <AppChrome onOpenSettings={onOpenSettings} />
-        {/* The floating action pill is the only mounted execution chrome.
-            AppChrome already owns the Electron drag region, so a zero-height
-            Toolbar spacer would add subscriptions and DOM without layout
-            value. Presenter mode hides the pill; Cmd+Enter still runs. */}
+        {/* The fixed pill needs its own layout row. Without this reservation it
+            covers the editor tab strip, making tabs impossible to activate or
+            close with a pointer. Presenter mode hides both pill and row. */}
         {!presenterActive && (
-          <FloatingActionPill
-            onOpenSettings={onOpenSettings}
-            onOpenPalette={onOpenPalette}
-            onOpenQuickOpen={onOpenQuickOpen}
-            onOpenSnippets={onOpenSnippets}
-            onOpenUtilities={onOpenUtilities}
-            onOpenRecipes={onOpenRecipes}
-            utilitiesOpen={utilitiesOpen}
-          />
+          <>
+            <div aria-hidden className="h-[52px] shrink-0" data-testid="action-pill-reserved-row" />
+            <FloatingActionPill
+              onOpenSettings={onOpenSettings}
+              onOpenPalette={onOpenPalette}
+              onOpenQuickOpen={onOpenQuickOpen}
+              onOpenSnippets={onOpenSnippets}
+              onOpenUtilities={onOpenUtilities}
+              onOpenRecipes={onOpenRecipes}
+              utilitiesOpen={utilitiesOpen}
+            />
+          </>
         )}
         {showPersistentSidebar ? (
           <Group

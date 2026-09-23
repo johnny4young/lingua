@@ -50,6 +50,11 @@ queries and persistence policy. Its small
 owns only engine generations and serialized release; keep OPFS cleanup inside
 that release transition so a new engine cannot reopen partially cleared data.
 
+The floating action pill is portaled to the viewport, but `AppLayout` reserves
+its own row below `AppChrome`. Do not remove that row without moving the pill
+into normal flow: otherwise the pill sits over the editor tab strip and blocks
+activation and close hit targets. Presenter mode hides both the pill and row.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:
