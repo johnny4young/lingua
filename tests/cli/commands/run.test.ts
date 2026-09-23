@@ -93,6 +93,30 @@ describe('lingua run command', () => {
     expect(state.stderr).toBe('');
   });
 
+  it('returns a runtime exit and a timeout envelope for a hanging program', async () => {
+    const script = await writeScript('setInterval(() => {}, 1_000)');
+    const { io, state } = createFakeIo();
+    const code = await runTargetCommand(
+      {
+        target: script,
+        timeoutMs: 100,
+        env: [],
+        programArgs: [],
+        json: true,
+        quiet: false,
+      },
+      io
+    );
+
+    expect(code).toBe(CLI_EXIT_CODES.runtimeError);
+    expect(JSON.parse(state.stdout)).toMatchObject({
+      ok: false,
+      reason: 'timeout',
+      run: { status: 'timeout', reason: 'timeout', runtime: 'node' },
+    });
+    expect(state.stderr).toBe('');
+  });
+
   it('maps missing and unsupported targets to stable preflight exits', async () => {
     const missing = createFakeIo();
     expect(
