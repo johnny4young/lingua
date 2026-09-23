@@ -1,5 +1,5 @@
-import { rmSync } from 'node:fs';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WebContents } from 'electron';
@@ -384,7 +384,7 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Py
     signal.throwIfAborted();
     disposePythonDebuggerSessionsForOwner(owner.id);
 
-    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-python-debug-'));
+    tempDir = mkdtempSync(path.join(tmpdir(), 'lingua-python-debug-'));
     preparation.setCleanupPath(tempDir);
     signal.throwIfAborted();
     const target = path.join(tempDir, safeScriptName(request.fileName));

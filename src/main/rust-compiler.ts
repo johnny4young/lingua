@@ -18,8 +18,8 @@
 import { typedHandle } from './ipc/typedHandle';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
-import { writeFile, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
@@ -156,7 +156,7 @@ async function runRustCode(
     if (rustInfo.timedOut) return { ...emptyRun, success: false, kind: 'timeout', timeoutMs: 5_000 };
     if (!rustInfo.installed) return failed(rustInfo.error ?? 'Rust is not installed.');
 
-    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-rust-'));
+    tempDir = stageNativeRunTempDir('lingua-rust-');
     if (signal.aborted) return stopped();
     const sourceFile = path.join(tempDir, 'main.rs');
     const binaryFile = path.join(tempDir, process.platform === 'win32' ? 'main.exe' : 'main');
@@ -183,7 +183,7 @@ async function runRustCode(
   } catch (error) {
     return signal.aborted ? stopped() : failed(error instanceof Error ? error.message : String(error));
   } finally {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
     if (runId && activeRuns.get(runId) === active) activeRuns.delete(runId);
     lifecycle.release();
   }

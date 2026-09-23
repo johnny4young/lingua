@@ -47,8 +47,8 @@ import { app } from 'electron';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import {
   MAX_NATIVE_STDERR_BYTES,
@@ -328,21 +328,21 @@ async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortS
   // on every path.
   let tempDir: string;
   try {
-    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+    tempDir = stageNativeRunTempDir('lingua-ruby-');
   } catch (err) {
     if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp dir: ${message}`);
   }
   if (signal.aborted) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupNativeRunTempDir(tempDir);
     return stoppedRubyRunResult(options);
   }
   const tempFile = path.join(tempDir, 'script.rb');
   try {
     await writeFile(tempFile, source, 'utf-8');
   } catch (err) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupNativeRunTempDir(tempDir);
     if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp script: ${message}`);
@@ -391,7 +391,7 @@ async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortS
 
     return mapRubyRunResult(run, timeoutMs);
   } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupNativeRunTempDir(tempDir);
   }
 }
 

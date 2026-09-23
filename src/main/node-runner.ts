@@ -46,8 +46,9 @@ import { app } from 'electron';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import { access, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { access, readdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import {
   MAX_NATIVE_STDERR_BYTES,
@@ -645,9 +646,9 @@ async function spawnNode(
     // the finally { rm } posture of the rust/go compilers.
     let tempDir: string | null = null;
     try {
-      tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-node-'));
+      tempDir = stageNativeRunTempDir('lingua-node-');
       if (signal.aborted) {
-        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        await cleanupNativeRunTempDir(tempDir);
         return stoppedNodeRunResult(options);
       }
       const ext = inputType === 'module' ? 'mjs' : 'cjs';
@@ -657,7 +658,7 @@ async function spawnNode(
       cleanupTempDir = tempDir;
     } catch (err) {
       if (tempDir) {
-        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        await cleanupNativeRunTempDir(tempDir);
       }
       if (signal.aborted) return stoppedNodeRunResult(options);
       const message = err instanceof Error ? err.message : String(err);
@@ -711,7 +712,7 @@ async function spawnNode(
   } finally {
     // Also clean staging on early cancellation or an unexpected spawn error.
     if (cleanupTempDir) {
-      await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
+      await cleanupNativeRunTempDir(cleanupTempDir);
     }
   }
 }

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import * as fsPromises from 'node:fs/promises';
 import os from 'node:os';
@@ -549,6 +550,27 @@ describe('main node runner', () => {
       child.emit('close', null);
       write.mockImplementation(realWrite);
     }
+  });
+
+  it('removes staged source synchronously on app shutdown while the child is active', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    const { disposeNativeRuns } = await import('../../src/main/runners/nativeRunLifecycle');
+    const { disposeNativeRunTempDirs } = await import('../../src/main/runners/nativeRunTempDirs');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const pending = run({}, `/*${'x'.repeat(5000)}*/`, { runId: 'shutdown-staging' });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledOnce());
+    const staged = String(mocks.spawn.mock.calls[0]![1][0]);
+    expect(existsSync(staged)).toBe(true);
+
+    disposeNativeRuns();
+    disposeNativeRunTempDirs();
+    expect(existsSync(path.dirname(staged))).toBe(false);
+
+    child.emit('close', null);
+    await expect(pending).resolves.toMatchObject({ kind: 'stopped' });
   });
 
   it('rejects reuse of an in-flight identity without replacing its Stop owner', async () => {
