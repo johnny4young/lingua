@@ -51,7 +51,9 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
    - macOS arm64 + x64 dmg/zip outputs and the architecture-correct packaged smoke;
    - Windows NSIS structure, `latest.yml`, blockmap, GitHub updater provider,
      and explicit Authenticode state;
-   - Linux AppImage and `latest-linux.yml`;
+   - Linux AppImage and `latest-linux.yml`, validated before upload by
+     `scripts/validate-linux-package.mjs` against the artifact name, type-2
+     header, size, and SHA-512 in the updater manifest;
    - `SHA256SUMS.txt`, SBOM, and third-party license report;
    - Cloudflare web deployment and R2 web-runtime readiness.
 7. Open the draft GitHub Release and confirm that every enabled platform is
@@ -87,7 +89,8 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 - Windows Authenticode is `Valid` when signing secrets are configured. If the
   installer is unsigned, the workflow summary says so and the release is
   treated as preview-quality for Windows.
-- Linux AppImage and `latest-linux.yml` are present.
+- Linux AppImage and `latest-linux.yml` passed
+  `scripts/validate-linux-package.mjs`; presence alone is not an integrity gate.
 - GitHub Release includes the matching `latest-mac.yml`, `latest.yml`, and
   `latest-linux.yml` manifests for enabled platforms.
 - `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and
@@ -101,6 +104,20 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 - The website release page exposes GitHub download URLs for every published platform.
 - Post-publish install/update smoke passed on the supported target machines.
 - The release remains draft until human review is complete.
+
+## Promotion evidence record
+
+Before promoting the draft, preserve the tag, source commit SHA, release
+workflow URL, selected platforms, and the final attached-asset inventory with
+`SHA256SUMS.txt` verification. Record the macOS Developer ID/notarization
+result, the Windows Authenticode result or explicit unsigned-preview state, and
+the Linux AppImage verifier output. Link manual installation evidence for each
+selected platform and the applicable packaged-smoke results; do not infer a
+clean-host install or updater pass from a static manifest check. Keep secrets
+out of the record.
+If a selected job, signature requirement, asset, or human review is pending or
+failed, leave the release in draft. Append the previous-to-current updater smoke
+and any rollback decision after publication, before announcing.
 
 ## Rollback plan
 
