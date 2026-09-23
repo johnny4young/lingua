@@ -120,7 +120,7 @@
   /* Text */
   --color-fg-base: oklch(0.16 0.012 210);
   --color-fg-muted: oklch(0.45 0.018 210);
-  --color-fg-subtle: oklch(0.62 0.015 210);
+  --color-fg-subtle: oklch(0.51 0.015 210);
   --color-fg-on-accent: oklch(1 0 0);
 
   /* Borders */
@@ -165,7 +165,7 @@
   --color-syntax-keyword: oklch(0.45 0.18 265);
   --color-syntax-string: oklch(0.48 0.14 155);
   --color-syntax-number: oklch(0.55 0.15 80);
-  --color-syntax-comment: oklch(0.62 0.015 210);
+  --color-syntax-comment: oklch(0.51 0.015 210);
   --color-syntax-function: oklch(0.5 0.15 285);
   --color-syntax-operator: oklch(0.45 0.018 210);
   --color-syntax-variable: oklch(0.32 0.016 210);
@@ -197,7 +197,7 @@
   /* Editor surfaces */
   --color-editor-bg: oklch(0.99 0.003 210);
   --color-editor-fg: oklch(0.22 0.014 210);
-  --color-editor-gutter-fg: oklch(0.72 0.01 210);
+  --color-editor-gutter-fg: oklch(0.51 0.015 210);
   --color-editor-line-hl: oklch(0.968 0.005 210);
   --color-editor-selection: oklch(0.88 0.07 210);
 
@@ -207,7 +207,7 @@
   --color-console-stderr: oklch(0.45 0.2 22);
   --color-console-warning: oklch(0.42 0.14 70);
   --color-console-info: oklch(0.4 0.15 240);
-  --color-console-timestamp: oklch(0.62 0.015 210);
+  --color-console-timestamp: var(--color-fg-subtle);
   --color-console-prompt: oklch(0.44 0.18 210);
 
   /* Spacing scale — 8pt baseline with a 4px micro step */
@@ -382,7 +382,7 @@
 
   --color-fg-base: oklch(0.98 0.005 210);
   --color-fg-muted: oklch(0.72 0.018 210);
-  --color-fg-subtle: oklch(0.58 0.02 210);
+  --color-fg-subtle: oklch(0.61 0.02 210);
   --color-fg-on-accent: oklch(0.12 0.005 210);
 
   --color-border-subtle: oklch(0.24 0.014 210);
@@ -426,7 +426,7 @@
 
   --color-editor-bg: oklch(0.14 0.008 210);
   --color-editor-fg: oklch(0.92 0.008 210);
-  --color-editor-gutter-fg: oklch(0.44 0.018 210);
+  --color-editor-gutter-fg: oklch(0.61 0.02 210);
   --color-editor-line-hl: oklch(0.18 0.01 210);
   --color-editor-selection: oklch(0.32 0.08 210);
 
@@ -435,7 +435,7 @@
   --color-console-stderr: oklch(0.8 0.18 22);
   --color-console-warning: oklch(0.82 0.12 70);
   --color-console-info: oklch(0.8 0.15 240);
-  --color-console-timestamp: oklch(0.58 0.02 210);
+  --color-console-timestamp: var(--color-fg-subtle);
   --color-console-prompt: oklch(0.8 0.16 210);
 
   /* Shadows (dark — inset highlight + drop shadow per DS spec) */
