@@ -212,6 +212,46 @@ Flags:
 - `--color <auto|always|never>` — control human-facing diagnostic styling.
   The default `auto` colors only a capable TTY and honors `NO_COLOR`.
 
+### App → CLI: save, validate, then optionally replay
+
+After a run, open **Settings → Account → Run capsules**. **Export latest run**
+copies JSON; **Save JSON for CLI** writes the same sanitized `RunCapsuleV1` to a
+file (a capability-scoped Save dialog on desktop, a download on web). The
+suggested name is `lingua-run.capsule.json`. Importing that JSON back into
+Lingua opens a read-only preview first and never runs it.
+
+Open a terminal in the saved file's folder and run validation first:
+
+```bash
+lingua capsule validate "lingua-run.capsule.json" --json
+```
+
+Inspect `source.content` in the JSON. Only if you trust that code, use the
+separate replay command:
+
+```bash
+lingua capsule replay "lingua-run.capsule.json" --json
+```
+
+The app shows both commands separately with explicit Copy buttons. If you
+chose a different filename or folder, change the quoted path. Copying a
+command does not invoke the CLI; validation does not execute code, while
+replay executes locally with your OS permissions.
+
+For a deterministic repository example, use
+[`examples/deterministic-run.capsule.json`](./examples/deterministic-run.capsule.json)
+from the repository root:
+
+```bash
+lingua capsule validate docs/examples/deterministic-run.capsule.json --json
+lingua capsule replay docs/examples/deterministic-run.capsule.json --json
+```
+
+The example's source prints `3`, its recorded stdout is `3\n`, and replay's
+comparison reports `matches: true` with Node.js 24 available. It is a
+single-source fixture, not a Capsule Workspace or a promise of identical
+results for arbitrary code, dependencies, or machines.
+
 ### `lingua capsule validate <file>`
 
 Validates a Lingua run capsule (RunCapsuleV1) using the same

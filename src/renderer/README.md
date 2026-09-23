@@ -84,6 +84,11 @@ absolute file paths and the unselected buffer are never added. The context
 format preserves selected line endings and grows its Markdown fence beyond
 any backticks in the selection. Clipboard access happens only on activation,
 with an EN/ES failure notice when the write is denied.
+Run Capsule Settings can save the same sanitized `RunCapsuleV1` JSON used by
+clipboard export through the existing capability-backed desktop Save dialog or
+web download. A separate disclosure presents copyable CLI validate and replay
+commands; it never invokes the CLI. Import and validation remain inert, while
+replay is explicitly marked as executing trusted source with OS permissions.
 At effective widths below 760 CSS px, Settings moves the rail into a
 horizontally scrollable tablist and stacks spec-row controls beneath their
 labels; the selected panel remains the only mounted tabpanel. Keep tab focus,

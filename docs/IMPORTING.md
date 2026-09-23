@@ -70,6 +70,12 @@ read-only preview. The primary source opens only after confirmation; a Capsule
 Workspace's supplemental files appear in a separate Files tab and open one at
 a time without execution.
 
+The **Save JSON for CLI** action in Settings → Account writes a single
+`RunCapsuleV1`, not a Capsule Workspace or HTML document. You can import that
+file for preview or validate it with `lingua capsule validate`; neither action
+executes its source. `lingua capsule replay` is a separate, explicit execution
+step for trusted files. See [`CLI_USAGE.md`](./CLI_USAGE.md#app--cli-save-validate-then-optionally-replay).
+
 Capsule Workspaces are assembled locally from open code tabs selected by the
 exporter. They contain portable relative paths only, never filesystem
 capability identifiers or absolute host paths. The shared parser enforces 24

@@ -8,6 +8,30 @@ keywords: [capsule, validar, repetir, RunCapsuleV1, hash, comparación, workspac
 
 Las Run Capsules conservan un buffer de código, entrada, argumentos, metadatos de entorno y salida registrada. El CLI puede validar ese contrato o repetir su única fuente con un runtime local.
 
+## De la app a la CLI
+
+Ejecuta código en Lingua y abre **Configuración → Cuenta → Cápsulas de
+ejecución**. Elige **Guardar JSON para CLI**. La app de escritorio usa un diálogo
+local para guardar; el navegador descarga el mismo JSON `RunCapsuleV1` saneado. El nombre
+sugerido es `lingua-run.capsule.json`. También puedes importar el JSON en
+Lingua para previsualizarlo sin ejecutarlo.
+
+En una terminal abierta en la carpeta del archivo, valida primero:
+
+```bash
+lingua capsule validate "lingua-run.capsule.json" --json
+```
+
+Revisa el código en el JSON y usa el comando de replay por separado solo si
+confías en él. Replay ejecuta código con tus permisos del sistema:
+
+```bash
+lingua capsule replay "lingua-run.capsule.json" --json
+```
+
+La app ofrece botones independientes para copiar los comandos; copiarlos no
+ejecuta ninguno. Cambia la ruta entre comillas si elegiste otro nombre o carpeta.
+
 ## Valida sin ejecutar
 
 ```bash

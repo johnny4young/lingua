@@ -5,15 +5,17 @@ import { useUIStore } from '../../stores/uiStore';
 import { summarizeRunCapsule } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { exportCapsuleAsHtml } from '../../utils/exportCapsuleHtml';
+import { exportCapsuleJsonToFile } from '../../utils/exportCapsuleJson';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { emitCommand } from '../../stores/commandBus';
+import { CapsuleCliCommands } from './CapsuleCliCommands';
 
 /**
  * implementation — Settings → Account → Run Capsules.
  *
  * Reads the latest captured `RunCapsuleV1` from the execution-history
  * store via the `latestCapsule()` selector, renders a one-line
- * summary, and offers a single Export button. On click the button:
+ * summary, and offers clipboard, JSON-file and HTML exports. Clipboard export:
  *
  *   1. Runs the capsule through `sanitizeRunCapsule` (truncates
  *      oversized streams + drops non-primitive `dependencySummary`
@@ -27,11 +29,9 @@ import { emitCommand } from '../../stores/commandBus';
  *   4. Fires the `capsule.exported { trigger, sizeBucket }` adoption
  *      telemetry (implementation note) — closed-enum, no payload content leaks.
  *
- * No new IPC. No desktop saveDialog — implementation ships pure
- * clipboard-or-inline; a future work can promote saveDialog when
- * the IPC surface exists. The Settings copy is explicit that nothing
- * leaves the device unless the user pastes it themselves (per
- * Anti-feature §A-006: no mandatory cloud sync).
+ * JSON file handoff reuses the existing one-file save capability on desktop
+ * and browser download on web. Nothing is uploaded or executed automatically;
+ * CLI validation and replay remain separate actions.
  */
 export function RunCapsulesSection() {
   const { t, i18n } = useTranslation();
@@ -92,6 +92,18 @@ export function RunCapsulesSection() {
         }),
     });
   }, [capsule, i18n.language, pushStatusNotice, t]);
+
+  const handleSaveJson = useCallback(async () => {
+    if (!capsule) return;
+    await exportCapsuleJsonToFile(capsule, {
+      onOk: () => pushStatusNotice({
+        tone: 'success', messageKey: 'settings.account.runCapsules.cli.saved',
+      }),
+      onError: () => pushStatusNotice({
+        tone: 'error', messageKey: 'settings.account.runCapsules.cli.saveFailed',
+      }),
+    });
+  }, [capsule, pushStatusNotice]);
 
   return (
     <SettingsSection
@@ -154,6 +166,16 @@ export function RunCapsulesSection() {
                 <button
                   type="button"
                   className="focus-ring rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
+                  onClick={() => void handleSaveJson()}
+                  disabled={!capsule}
+                  data-testid="capsule-save-json-button"
+                  title={t('settings.account.runCapsules.cli.saveHelper')}
+                >
+                  {t('settings.account.runCapsules.cli.saveButton')}
+                </button>
+                <button
+                  type="button"
+                  className="focus-ring rounded-md border border-border-default px-3 py-1.5 text-body-sm text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
                   onClick={() => void handleExportHtml()}
                   disabled={!capsule}
                   data-testid="capsule-export-html-button"
@@ -191,6 +213,7 @@ export function RunCapsulesSection() {
             }
           />
         ) : null}
+        <CapsuleCliCommands available={capsule !== null} />
       </SpecCard>
     </SettingsSection>
   );

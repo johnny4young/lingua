@@ -1,7 +1,7 @@
 /**
  * implementation — Settings → Account → Run Capsules surface test.
  *
- * Covers the four user-facing flows of `RunCapsulesSection`:
+ * Covers the clipboard export, JSON-file handoff and CLI command affordances:
  *
  *   1. Empty state — no captured capsule, button disabled, copy
  *      `emptyState` visible.
@@ -50,8 +50,17 @@ const { mockExportCapsuleAsHtml } = vi.hoisted(() => ({
   mockExportCapsuleAsHtml: vi.fn().mockResolvedValue(undefined),
 }));
 
+const { mockExportCapsuleJsonToFile } = vi.hoisted(() => ({
+  mockExportCapsuleJsonToFile: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../src/renderer/utils/exportCapsuleHtml', () => ({
   exportCapsuleAsHtml: mockExportCapsuleAsHtml,
+}));
+
+vi.mock('../../src/renderer/utils/exportCapsuleJson', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../../src/renderer/utils/exportCapsuleJson')>(),
+  exportCapsuleJsonToFile: mockExportCapsuleJsonToFile,
 }));
 
 const { latestCapsuleRef } = vi.hoisted(() => ({
@@ -71,6 +80,7 @@ describe('RunCapsulesSection', () => {
     mockTrackEvent.mockClear();
     mockPushStatusNotice.mockClear();
     mockExportCapsuleAsHtml.mockReset().mockResolvedValue(undefined);
+    mockExportCapsuleJsonToFile.mockReset().mockResolvedValue(undefined);
     latestCapsuleRef.current = null;
     initI18n('en');
     await i18next.changeLanguage('en');
@@ -88,9 +98,85 @@ describe('RunCapsulesSection', () => {
     const htmlButton = screen.getByTestId('capsule-export-html-button') as HTMLButtonElement;
     expect(htmlButton.disabled).toBe(true);
     expect(htmlButton.className).toContain('focus-ring');
+    expect((screen.getByTestId('capsule-save-json-button') as HTMLButtonElement).disabled).toBe(true);
     expect(
       screen.queryByText('Run any code first; the latest result becomes exportable here.')
     ).not.toBeNull();
+  });
+
+  it('saves RunCapsuleV1 JSON for the CLI without executing it', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    mockExportCapsuleJsonToFile.mockImplementation(
+      async (_capsule, handlers: { onOk: () => void }) => handlers.onOk()
+    );
+    render(<RunCapsulesSection />);
+    fireEvent.click(screen.getByTestId('capsule-save-json-button'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(mockExportCapsuleJsonToFile).toHaveBeenCalledWith(
+      FIXTURE_MINIMAL_JS,
+      expect.objectContaining({ onOk: expect.any(Function), onError: expect.any(Function) })
+    );
+    expect(mockPushStatusNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'settings.account.runCapsules.cli.saved' })
+    );
+  });
+
+  it('reports JSON save errors without falsely claiming a saved capsule', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    mockExportCapsuleJsonToFile.mockImplementation(
+      async (_capsule, handlers: { onError: () => void }) => handlers.onError()
+    );
+    render(<RunCapsulesSection />);
+    fireEvent.click(screen.getByTestId('capsule-save-json-button'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(mockPushStatusNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'settings.account.runCapsules.cli.saveFailed' })
+    );
+    expect(mockPushStatusNotice).not.toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'settings.account.runCapsules.cli.saved' })
+    );
+  });
+
+  it('copies validate and replay instructions separately, with replay identified as executing', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true, value: { writeText },
+    });
+    render(<RunCapsulesSection />);
+    fireEvent.click(screen.getByTestId('capsule-cli-handoff-toggle'));
+    fireEvent.click(screen.getByTestId('capsule-cli-copy-validate'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(writeText).toHaveBeenCalledWith(
+      'lingua capsule validate "lingua-run.capsule.json" --json'
+    );
+    fireEvent.click(screen.getByTestId('capsule-cli-copy-replay'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(writeText).toHaveBeenCalledWith(
+      'lingua capsule replay "lingua-run.capsule.json" --json'
+    );
+    expect(screen.getByTestId('capsule-cli-handoff').textContent)
+      .toContain('Replay (executes the recorded source)');
+  });
+
+  it('shows Spanish clipboard recovery when a command copy is denied', async () => {
+    latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
+    await i18next.changeLanguage('es');
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+    render(<RunCapsulesSection />);
+    fireEvent.click(screen.getByTestId('capsule-cli-handoff-toggle'));
+    expect(screen.getByText('Validar sin ejecutar')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('capsule-cli-copy-validate'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(mockPushStatusNotice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tone: 'warning',
+        messageKey: 'settings.account.runCapsules.cli.clipboardUnavailable',
+      })
+    );
   });
 
   it('emits capsule.openList with the settings surface when Browse is clicked ', () => {

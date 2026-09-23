@@ -109,6 +109,7 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set(['safari', 'firefox', 'edg
 // `update-server/test/telemetry.test.ts` keeps both copies aligned.
 export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
+  'settings-export-file',
   'palette-export',
   // implementation — primary surface: icon button in the result
   // panel header. Tagged distinctly so the dashboard can measure
