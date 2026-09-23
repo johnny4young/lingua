@@ -196,7 +196,8 @@ auto-derived — do not edit by hand.
   the palette probe the Go toolchain on demand; `ENOENT` means missing, while
   a timeout or failed version/root probe means the check failed. The editor
   still opens; running a missing toolchain offers install/retry guidance.
-  Passive probes receive only toolchain-discovery env keys, not project secrets.
+  Passive probes receive only shared toolchain-discovery env keys, not project
+  secrets, and do not count as execution-environment adoption telemetry.
 
 ### Rust
 - **Desktop native stays Primary.** `rustc` is needed for compile, and the

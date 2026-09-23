@@ -3,14 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useNativeLanguageToolchainAvailability } from '../../src/renderer/hooks/useNativeLanguageToolchainAvailability';
 
 vi.mock('../../src/renderer/runners/env', () => ({
-  resolveUserEnvForRunner: () => ({
+  resolveUserEnvForNativeProbe: (mode: string, platform: string) => ({
     PATH: '/opt/toolchains/bin',
-    PATHEXT: '.EXE;.CMD',
-    GOPATH: '/tmp/go-path',
-    CARGO_HOME: '/tmp/cargo-home',
-    API_TOKEN: 'private-project-secret',
-    GOFLAGS: '-mod=mod',
-    RUSTFLAGS: '-Ctarget-cpu=native',
+    ...(platform === 'win32' ? { PATHEXT: '.EXE;.CMD' } : {}),
+    ...(mode === 'go' ? { GOPATH: '/tmp/go-path' } : { CARGO_HOME: '/tmp/cargo-home' }),
   }),
 }));
 

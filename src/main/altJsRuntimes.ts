@@ -40,6 +40,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
+import { BUN_TOOLCHAIN_KEYS, DENO_TOOLCHAIN_KEYS } from '../shared/nativeToolchainEnvKeys';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
@@ -87,7 +88,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
       entryFile,
     ],
     // DENO_DIR is the module/cache root; keep the rest of the host env out.
-    toolchainKeys: ['DENO_DIR'],
+    toolchainKeys: DENO_TOOLCHAIN_KEYS,
   },
   bun: {
     binary: 'bun',
@@ -95,7 +96,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
     ext: (language) => (language === 'typescript' ? 'ts' : 'js'),
     runArgs: (entryFile) => ['run', entryFile],
     // BUN_INSTALL anchors the per-user cache; nothing else leaks.
-    toolchainKeys: ['BUN_INSTALL'],
+    toolchainKeys: BUN_TOOLCHAIN_KEYS,
   },
 };
 

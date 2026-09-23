@@ -75,14 +75,17 @@ Desktop JS runtime pickers and the command palette probe Node, Deno and Bun
 only while their surfaces are open. A known-missing binary leads to the shared
 install/retry notice instead of changing modes; an unverified or failed probe
 does not masquerade as a confirmed missing installation. Web continues to show
-the separate Desktop-only boundary without probing the host.
+the separate Desktop-only boundary without probing the host. Native picker
+previews use only the shared toolchain-discovery env keys (including retry),
+and do not emit the project-env-used event; explicit Run still receives the
+user's configured env and owns that adoption signal.
 Desktop language menus and the palette likewise probe Go and Rust only while
 open. They distinguish a confirmed missing executable from a failed check;
 creating an editor tab remains possible without the compiler, while Run owns
-the localized recovery/error path. These passive probes forward only toolchain
-discovery selectors, never unrelated project secrets or code-loading flags;
-explicit Run keeps the user's full configured environment. Web never probes
-the host toolchains.
+the localized recovery/error path. These passive probes share the same env
+filter and telemetry boundary as the JS runtime picker; unrelated project
+secrets and code-loading flags never reach menu-opened binaries. Web never
+probes the host toolchains.
 Copy reference and Copy with context are Free actions on the main Monaco editor,
 the modified side of the Git diff, and the command palette. They require an
 explicit nonempty selection and read only that Monaco range. Metadata uses the

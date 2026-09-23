@@ -4,7 +4,12 @@ import { useNativeJsRuntimeAvailability } from '../../src/renderer/hooks/useNati
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 vi.mock('../../src/renderer/runners/env', () => ({
-  resolveUserEnvForRunner: () => ({}),
+  resolveUserEnvForNativeProbe: (mode: string) => ({
+    PATH: '/opt/toolchains/bin',
+    ...(mode === 'node' ? { NODE_PATH: '/tmp/node-modules' } : {}),
+    ...(mode === 'deno' ? { DENO_DIR: '/tmp/deno-cache' } : {}),
+    ...(mode === 'bun' ? { BUN_INSTALL: '/tmp/bun-home' } : {}),
+  }),
 }));
 
 const originalLingua = window.lingua;
@@ -42,7 +47,15 @@ describe('native JS runtime availability', () => {
     await waitFor(() => expect(result.current.availability).toEqual({
       node: 'missing', deno: 'installed', bun: 'check-failed',
     }));
-    expect(detect.node).toHaveBeenCalledWith({}, true);
+    expect(detect.node).toHaveBeenCalledWith({
+      PATH: '/opt/toolchains/bin', NODE_PATH: '/tmp/node-modules',
+    }, true);
+    expect(detect.deno).toHaveBeenCalledWith({
+      PATH: '/opt/toolchains/bin', DENO_DIR: '/tmp/deno-cache',
+    }, true);
+    expect(detect.bun).toHaveBeenCalledWith({
+      PATH: '/opt/toolchains/bin', BUN_INSTALL: '/tmp/bun-home',
+    }, true);
     act(() => result.current.recoverMissing('node'));
     const retry = useUIStore.getState().statusNotice?.actions?.[1];
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('nativeToolchain.missing.message');

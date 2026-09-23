@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { pushMissingNativeToolchainNotice } from '../runners/nativeToolchainGuidance';
-import { resolveUserEnvForRunner } from '../runners/env';
+import { resolveUserEnvForNativeProbe } from '../runners/env';
 import type { NativeJsRuntimeMode, NativeJsRuntimeAvailability } from '../utils/nativeJsRuntimeStatus';
 
 const NATIVE_JS_MODES: readonly NativeJsRuntimeMode[] = ['node', 'deno', 'bun'];
@@ -21,15 +21,20 @@ export function useNativeJsRuntimeAvailability(enabled: boolean): {
   useEffect(() => {
     if (!enabled || isWeb) return;
     let cancelled = false;
-    setAvailability(CHECKING);
-    const userEnv = resolveUserEnvForRunner();
+    queueMicrotask(() => {
+      if (!cancelled) setAvailability(CHECKING);
+    });
     for (const mode of NATIVE_JS_MODES) {
       const bridge = window.lingua?.[mode];
       if (!bridge?.detect) {
-        setAvailability(current => ({ ...current, [mode]: 'check-failed' }));
+        queueMicrotask(() => {
+          if (!cancelled) {
+            setAvailability(current => ({ ...current, [mode]: 'check-failed' }));
+          }
+        });
         continue;
       }
-      void bridge.detect(userEnv, true).then(
+      void bridge.detect(resolveUserEnvForNativeProbe(mode, window.lingua?.platform), true).then(
         result => {
           if (!cancelled) {
             setAvailability(current => ({
@@ -55,7 +60,9 @@ export function useNativeJsRuntimeAvailability(enabled: boolean): {
         setAvailability(current => ({ ...current, [mode]: 'check-failed' }));
         return false;
       }
-      const result = await bridge.detect(resolveUserEnvForRunner(), true);
+      const result = await bridge.detect(
+        resolveUserEnvForNativeProbe(mode, window.lingua?.platform), true
+      );
       setAvailability(current => ({
         ...current,
         [mode]: result.installed ? 'installed' : 'missing',
