@@ -168,7 +168,7 @@ describe('executeTabManually — capsule attach ', () => {
     expect(entry.lastCapsule?.tab.language).toBe('javascript');
     expect(entry.lastCapsule?.source.content).toBe('console.log("hi")');
     expect(entry.lastCapsule?.result.status).toBe('success');
-    expect(entry.lastCapsule?.result.stdout).toBe('hi');
+    expect(entry.lastCapsule?.result.stdout).toBe('hi\n');
     expect(entry.lastCapsule?.result.lineResults).toEqual(lineResults);
     expect(entry.lastCapsule?.result.richOutputs).toEqual([
       consolePayload,

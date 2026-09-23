@@ -304,6 +304,12 @@ Replay is intentionally fail-closed:
   drift is evidence, not a runtime failure. Scripts can inspect the comparison
   object when exact reproducibility is required.
 
+New JavaScript/TypeScript Worker capsules preserve the newline emitted by each
+console call in recorded stdout/stderr, so a plain `console.log(3)` compares
+with Node's `3\n` output. Replay still compares the recorded and fresh streams
+exactly; it does not normalize unrelated runtime differences. Older capsules
+that omitted the final console newline remain valid but may report output drift.
+
 RunCapsuleV1 stores one source buffer, stdin, and argv. It does not carry a
 project root or sibling files, so relative imports and project-only dependencies
 are outside this replay boundary. Use `lingua run <project-directory>` when the

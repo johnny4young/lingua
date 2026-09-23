@@ -221,8 +221,13 @@ export function snapshotGitPosture(): GitSnapshot | undefined {
   }
 }
 
-function joinConsoleEntries(entries: ConsoleOutput[]): string {
-  return entries.map((entry) => entry.args.join(' ')).join('\n');
+function joinConsoleEntries(entries: ConsoleOutput[], lineTerminated: boolean): string {
+  const text = entries.map(entry => entry.args.join(' ')).join('\n');
+  // JS/TS worker console calls are captured as logical lines, without their
+  // terminal delimiter. Node's console methods emit one; retain that delimiter
+  // in the capsule so CLI replay compares actual output rather than a display
+  // serialization artifact. Native/other runners keep their existing bytes.
+  return lineTerminated ? `${text}\n` : text;
 }
 
 /** Capsule fields every record shares, read from the tab that ran. */
@@ -262,12 +267,21 @@ export async function recordCompletedRun(args: {
 }): Promise<void> {
   const { activeTab, result, runStatus, lineResults, diagnostics, gitSnapshot } = args;
   const { language, content } = activeTab;
+  const lineTerminatedConsole =
+    (language === 'javascript' || language === 'typescript') &&
+    (activeTab.runtimeMode ?? 'worker') === 'worker';
   const capsule = await tryBuildCapsule({
     ...capsuleTabFields(activeTab, gitSnapshot),
     status: runStatus === 'ok' ? 'success' : runStatus,
     durationMs: result.executionTime ?? 0,
-    stdout: result.stdout.length > 0 ? joinConsoleEntries(result.stdout) : undefined,
-    stderr: result.stderr.length > 0 ? joinConsoleEntries(result.stderr) : undefined,
+    stdout:
+      result.stdout.length > 0
+        ? joinConsoleEntries(result.stdout, lineTerminatedConsole)
+        : undefined,
+    stderr:
+      result.stderr.length > 0
+        ? joinConsoleEntries(result.stderr, lineTerminatedConsole)
+        : undefined,
     lineResults: lineResults.length > 0 ? lineResults : undefined,
     richOutputs: collectRichOutputs(result),
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
