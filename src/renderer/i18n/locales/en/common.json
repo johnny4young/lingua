@@ -60,6 +60,7 @@
   "actionPill.runs": "runs",
   "actionPill.autosave": "autosave",
   "actionPill.dragHandle": "Move the floating action pill",
+  "actionPill.moreActions": "More actions",
   "actionPill.navigate": "navigate",
   "actionPill.badgeActive": "Active",
   "actionPill.badgePro": "PRO",

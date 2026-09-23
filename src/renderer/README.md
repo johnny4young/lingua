@@ -54,6 +54,8 @@ The floating action pill is portaled to the viewport, but `AppLayout` reserves
 its own row below `AppChrome`. Do not remove that row without moving the pill
 into normal flow: otherwise the pill sits over the editor tab strip and blocks
 activation and close hit targets. Presenter mode hides both the pill and row.
+At narrow widths the secondary commands and Settings move into a keyboard-
+operable More actions menu; Run, language, and runtime remain directly available.
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins

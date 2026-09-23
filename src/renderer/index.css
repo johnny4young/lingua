@@ -1597,6 +1597,32 @@
     }
   }
 
+  .action-pill-overflow {
+    display: none;
+  }
+
+  .action-pill-command-actions {
+    display: inline-flex;
+  }
+
+  @media (max-width: 900px) {
+    .action-pill .action-pill-direct-actions,
+    .action-pill .action-pill-direct-settings {
+      display: none;
+    }
+
+    .action-pill .action-pill-overflow {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .action-pill .kbd-shell {
+      display: none;
+    }
+  }
+
   /* implementation — unified mode-aware action button.
      The button colours itself by the active workflow:
        · run        → green (was the only colour previously)

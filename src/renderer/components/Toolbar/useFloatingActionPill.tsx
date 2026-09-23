@@ -47,7 +47,7 @@ import {
   resolveExecutionControlPolicy,
 } from './executionControlPolicy';
 
-export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run';
+export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run' | 'actions';
 export type ActionPillMenuSetter = Dispatch<SetStateAction<ActionPillMenu | null>>;
 
 const FULL_PILL_WIDTH = 820;

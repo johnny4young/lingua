@@ -72,3 +72,60 @@ for (const width of [1024, 1280, 1440]) {
     });
   }
 }
+
+// These CSS widths model a 1024/1280/1440px window at 200% browser zoom.
+for (const width of [512, 640, 720]) {
+  for (const language of ['en', 'es'] as const) {
+    test(`action pill stays usable at narrow ${width}px in ${language}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 768 });
+      await seedSession(page, { language });
+      await gotoApp(page);
+      await createJavaScriptTab(page);
+
+      const pill = page.getByTestId('floating-action-pill');
+      await expect(pill).toBeVisible();
+      const box = await pill.boundingBox();
+      if (!box) throw new Error('Action pill is missing');
+      expect(box.x).toBeGreaterThanOrEqual(8);
+      expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
+      await expect(page.getByTestId('action-pill-run')).toBeVisible();
+      await expect(page.getByTestId('action-pill-quick-open')).toBeHidden();
+
+      const overflow = page.getByTestId('action-pill-overflow');
+      await expect(overflow).toHaveAttribute(
+        'aria-label',
+        language === 'es' ? 'Más acciones' : 'More actions'
+      );
+      await overflow.click();
+      const menu = page.getByRole('menu', {
+        name: language === 'es' ? 'Más acciones' : 'More actions',
+      });
+      await expect(menu).toBeVisible();
+      await page.screenshot({
+        path: test.info().outputPath(`action-overflow-${width}-${language}.png`),
+      });
+      const items = menu.getByRole('menuitem');
+      await expect(items).toHaveCount(7);
+      await expect(items.first()).toBeFocused();
+      await page.keyboard.press('ArrowDown');
+      await expect(items.nth(1)).toBeFocused();
+      await page.keyboard.press('End');
+      await expect(items.last()).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(menu).toBeHidden();
+      await expect(overflow).toBeFocused();
+
+      await overflow.click();
+      await page.getByTestId('action-pill-overflow-quick-open').click();
+      await expect(page.getByPlaceholder(/go to file|ir al archivo/i)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await overflow.click();
+      await page.getByTestId('action-pill-overflow-settings').click();
+      await expect(
+        page.getByRole('heading', {
+          name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
+        })
+      ).toBeVisible();
+    });
+  }
+}
