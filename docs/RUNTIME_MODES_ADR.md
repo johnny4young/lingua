@@ -390,7 +390,11 @@ fails, the panel shows a localized error recovery action over the preview;
 View console opens the captured error and transfers keyboard focus to the
 Console tab. Editing and running again clears the error. An auto-refresh
 failure can retain the last successful document, with the error action making
-that stale view explicit.
+that stale view explicit. The retained document is tagged with its editor tab
+identity: a failed refresh on another tab clears that tab's iframe instead of
+showing source or DOM from the previous tab. The cache remains one serializable
+document, not a retained iframe or an unbounded map of closed tabs. An unnamed
+run cannot establish ownership and does not retain or restore a document.
 
 ### Multi-file preview seed
 

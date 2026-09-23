@@ -115,7 +115,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   // Keep only the serializable document. Retaining the iframe would pin a
   // detached BrowserPreviewPanel for the renderer session and would prevent a
   // remounted panel from recovering the last successful preview.
-  private lastSuccessfulSrcdoc: string | null = null;
+  private lastSuccessfulDocument: { tabId: string; srcdoc: string } | null = null;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -180,6 +180,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const documentTabId = context?.tabId || null;
     const siblingSources = siblingSourcesFor(context?.tabId);
     const doc = buildPreviewDocument({
       runId,
@@ -220,7 +221,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
         const preserve = context?.preserveBrowserPreviewOnFailure === true;
         if (!preserve && !clearWhenDisabled) return;
         try {
-          const previous = preserve ? this.lastSuccessfulSrcdoc : null;
+          const previous =
+            preserve && documentTabId !== null && this.lastSuccessfulDocument?.tabId === documentTabId
+              ? this.lastSuccessfulDocument.srcdoc
+              : null;
           if (previous) setSandboxDocument(iframe, previous);
           else clearSandboxDocument(iframe);
         } catch {
@@ -329,7 +333,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
               if (executionError) {
                 restoreLastSuccessfulDocument();
               } else {
-                this.lastSuccessfulSrcdoc = doc;
+                this.lastSuccessfulDocument =
+                  documentTabId === null ? null : { tabId: documentTabId, srcdoc: doc };
               }
               finish({
                 stdout,

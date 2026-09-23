@@ -590,7 +590,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const firstRun = runner.execute(
       'document.body.textContent = "stable";',
-      { preserveBrowserPreviewOnFailure: true }
+      { tabId: 'stable-tab', preserveBrowserPreviewOnFailure: true }
     );
     await Promise.resolve();
     const stableDocument = getSandboxDocument(iframe);
@@ -603,6 +603,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     await firstRun;
 
     const failedRefresh = runner.execute('throw new Error("new failure");', {
+      tabId: 'stable-tab',
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
@@ -624,13 +625,75 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(getSandboxDocument(iframe)).toBe(stableDocument);
   });
 
+  it('never restores another tab\'s successful document after a failed refresh', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('document.body.textContent = "tab A private";', {
+      tabId: 'tab-a',
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+    await first;
+
+    const second = runner.execute('throw new Error("tab B failed");', {
+      tabId: 'tab-b',
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: secondRunId,
+      type: 'error',
+      message: 'tab B failed',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+    expect((await second).kind).toBe('error');
+    expect(getSandboxDocument(iframe)).toBe('');
+  });
+
+  it('does not treat two anonymous runs as one trusted document owner', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('document.body.textContent = "anonymous private";');
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+    await first;
+
+    const second = runner.execute('throw new Error("anonymous failure");', {
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: secondRunId,
+      type: 'error',
+      message: 'anonymous failure',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+    await second;
+    expect(getSandboxDocument(iframe)).toBe('');
+  });
+
   it('restores the last successful DOM into a remounted preview iframe', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
     const firstIframe = createFakeIframe();
     setActiveBrowserPreviewIframe(firstIframe);
 
-    const firstRun = runner.execute('document.body.textContent = "stable";');
+    const firstRun = runner.execute('document.body.textContent = "stable";', {
+      tabId: 'remounted-tab',
+    });
     await Promise.resolve();
     const stableDocument = getSandboxDocument(firstIframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
@@ -645,6 +708,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     const remountedIframe = createFakeIframe();
     setActiveBrowserPreviewIframe(remountedIframe);
     const failedRefresh = runner.execute('throw new Error("remount failure");', {
+      tabId: 'remounted-tab',
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
@@ -806,7 +870,9 @@ describe('BrowserPreviewRunner — execute()', () => {
     const iframe = createFakeIframe();
     setActiveBrowserPreviewIframe(iframe);
 
-    const firstRun = runner.execute('document.body.textContent = "stable";');
+    const firstRun = runner.execute('document.body.textContent = "stable";', {
+      tabId: 'timeout-tab',
+    });
     await Promise.resolve();
     const stableDocument = getSandboxDocument(iframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
@@ -819,6 +885,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     vi.useFakeTimers();
     const timedOutRefresh = runner.execute('while (true) {}', {
+      tabId: 'timeout-tab',
       timeout: 500,
       preserveBrowserPreviewOnFailure: true,
     });

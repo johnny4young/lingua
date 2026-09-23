@@ -154,6 +154,8 @@ Browser preview treats the iframe's `done` signal as provisional: the runner
 keeps the listener briefly for first-turn `unhandledrejection` delivery before
 publishing a result. A failed run overlays a View console action that moves
 focus to the Console tab; editing and running again removes the recovery UI.
+The retained successful document is restored only for the same editor tab, so
+a failed refresh cannot display another tab's preview.
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
 | [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
