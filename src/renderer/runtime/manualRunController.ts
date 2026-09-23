@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../shared/runtimeModes';
 import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
@@ -10,6 +11,8 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import type { RunOptions } from '../hooks/useRunner';
 import type { TelemetryTrack } from '../hooks/useTelemetry';
+import type { Language } from '../types/language';
+import { languageCapabilityBadgeKey } from '../utils/languageMeta';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { beginManualRun, type ManualRunSession } from './manualRunSession';
@@ -50,6 +53,8 @@ export async function runActiveTab(
     });
     return;
   }
+
+  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode)) return;
 
   // Gate the first Go/Rust/system-Ruby run behind the trust-boundary
   // modal. The resume callback targets the same tab even if the user
@@ -110,6 +115,8 @@ async function executeTabById(
     });
     return;
   }
+
+  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode)) return;
 
   const session = existingSession ?? beginManualRun(activeTab, options.debug);
   if (!session) return;
@@ -185,4 +192,22 @@ function pushNotebookRunNotice(): void {
     tone: 'info',
     messageKey: 'notebook.notice.useNotebookToolbar',
   });
+}
+
+function rejectUnavailableExecution(language: Language, mode: RuntimeMode | undefined): boolean {
+  const webShell = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  if (!webShell) return false;
+  if (languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly') {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'language.notice.desktopOnly',
+    });
+    return true;
+  }
+  if (mode === undefined || isRuntimeModeSupportedInShell(mode, true)) return false;
+  useUIStore.getState().pushStatusNotice({
+    tone: 'info',
+    messageKey: 'runtimeMode.notice.desktopOnly',
+  });
+  return true;
 }

@@ -378,6 +378,7 @@ export function useCommandPaletteCommands({
         activeRuntimeMode !== null && activeTabId
           ? mode => setTabRuntimeMode(activeTabId, mode)
           : undefined,
+      isWebBuild: typeof window !== 'undefined' && window.lingua?.platform === 'web',
       activeRuntimeMode,
       // implementation note — read the editor's current line text,
       // delegate to the pure `appendWatchAtLine` helper, write the

@@ -143,6 +143,10 @@ describe('web license smoke', () => {
 
     expect(screen.getByTestId('license-badge').textContent).toContain('FREE');
     expect(screen.getByText('Recent runs and rerun tools')).toBeTruthy();
+    const runtimeDefault = screen.getByTestId('settings-default-runtime-mode') as HTMLSelectElement;
+    expect(runtimeDefault.querySelector<HTMLOptionElement>('option[value="node"]')?.disabled).toBe(true);
+    expect(runtimeDefault.querySelector<HTMLOptionElement>('option[value="deno"]')?.disabled).toBe(true);
+    expect(runtimeDefault.querySelector<HTMLOptionElement>('option[value="bun"]')?.disabled).toBe(true);
 
     await user.click(screen.getByRole('button', { name: 'New file language menu' }));
     expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');

@@ -12,6 +12,7 @@
 import {
   applyDevLicense,
   clearLicense,
+  closeSettings,
   clickRun,
   createAdditionalJavaScriptTab,
   closeDeveloperUtilities,
@@ -19,6 +20,7 @@ import {
   createLanguageTab,
   expect,
   expectTier,
+  expectNoticeContains,
   gotoApp,
   openCommandPalette,
   openConsole,
@@ -158,6 +160,16 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
 
     // The Run button remains disabled with the desktop-only tooltip.
     await expect(page.getByTestId('action-pill-run')).toBeDisabled();
+    // The palette is a second dispatch path, not a way around the gate.
+    await openPaletteAction(page, 'Run active tab', /Run active tab/i);
+    await expectNoticeContains(page, 'only in Lingua Desktop');
+
+    await openSettings(page);
+    await openSettingsTab(page, 'appearance');
+    await page.getByTestId('app-language-select').selectOption('es');
+    await closeSettings(page);
+    await openPaletteAction(page, 'Ejecutar pestaña activa', /Ejecutar pestaña activa/i);
+    await expectNoticeContains(page, 'solo se ejecuta en Lingua Desktop');
   });
 
   test('keyboard-shortcuts palette action opens the full shortcuts modal', async ({ page }) => {

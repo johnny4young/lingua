@@ -35,6 +35,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     setLayoutPreset,
     onOpenSnippets,
     onSetRuntimeMode,
+    isWebBuild = false,
     activeRuntimeMode = null,
     onClose,
   } = args;
@@ -452,7 +453,9 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-runtime-mode-node',
             translate('commandPalette.action.runtimeMode.node.label'),
-            translate('commandPalette.action.runtimeMode.node.description'),
+            translate(isWebBuild
+              ? 'runtimeMode.hint.desktopOnly'
+              : 'commandPalette.action.runtimeMode.node.description'),
             ['runtime', 'mode', 'node', 'desktop', 'fs', 'path'],
             () => {
               onSetRuntimeMode('node');
@@ -473,7 +476,9 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-runtime-mode-deno',
             translate('commandPalette.action.runtimeMode.deno.label'),
-            translate('commandPalette.action.runtimeMode.deno.description'),
+            translate(isWebBuild
+              ? 'runtimeMode.hint.desktopOnly'
+              : 'commandPalette.action.runtimeMode.deno.description'),
             ['runtime', 'mode', 'deno', 'desktop', 'ts', 'sandbox'],
             () => {
               onSetRuntimeMode('deno');
@@ -483,7 +488,9 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-runtime-mode-bun',
             translate('commandPalette.action.runtimeMode.bun.label'),
-            translate('commandPalette.action.runtimeMode.bun.description'),
+            translate(isWebBuild
+              ? 'runtimeMode.hint.desktopOnly'
+              : 'commandPalette.action.runtimeMode.bun.description'),
             ['runtime', 'mode', 'bun', 'desktop', 'ts', 'fast'],
             () => {
               onSetRuntimeMode('bun');

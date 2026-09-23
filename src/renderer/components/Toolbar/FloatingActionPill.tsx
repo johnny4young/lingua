@@ -184,6 +184,7 @@ export function FloatingActionPill({
             setOpenMenu={setOpenMenu}
             runtimeChip={runtimeChip}
             activeRuntimeMode={activeRuntimeMode}
+            isWebBuild={isWebBuild}
             language={language}
             ensureTabForLanguage={ensureTabForLanguage}
             setTabRuntimeMode={setTabRuntimeMode}

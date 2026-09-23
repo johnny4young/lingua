@@ -55,6 +55,20 @@ shared language-pack capability contract already covers their
 runner identity. The shared helper `languageHasRuntimeModes()` gates
 both the UI surface and the editor-store action.
 
+`isRuntimeModeImplemented()` describes wiring, not shell availability.
+`isRuntimeModeSupportedInShell()` adds the platform boundary: Worker and
+Browser preview run in web and desktop; Node, Deno, and Bun need Desktop.
+Web pickers and Settings keep the latter visible but disabled with a
+Desktop-only explanation. The command palette explains the boundary and
+the editor-store setter rejects programmatic attempts with a notice;
+the runtime-cycle shortcut skips unavailable modes. A previously saved
+desktop-mode tab retains its choice on web but Run is disabled with the
+platform explanation. Manual and automatic execution reject that restored
+mode even when dispatched outside the disabled control. Newly created web
+tabs start in Worker if a saved
+default requests an unavailable desktop mode. The desktop bridge still
+detects missing host binaries separately when a native mode runs.
+
 ### 2. Worker stays the default
 
 Existing JS/TS tabs continue to run in the Worker. A user who never
@@ -66,7 +80,7 @@ leaves the other two intact:
   in the pure helper.
 - `createDefaultTab` consults the per-app `defaultRuntimeMode` from
   Settings but coerces to `'worker'` when the setting names an
-  unimplemented mode.
+  unimplemented or unavailable-in-this-shell mode.
 - Session-store rehydrate (`coerceRuntimeMode`) snaps any unknown
   or unimplemented persisted value back to `'worker'` for JS/TS.
 
@@ -91,12 +105,12 @@ to see the roadmap and self-route to the right tool, even when the
 plain product copy, while this ADR keeps the delivery detail.
 
 Post-closeout note: Browser Preview shipped on 2026-05-12, Node mode on
-2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The selector and Settings
-default-mode select now show all five options enabled at the entitlement
-gate. The runner manager checks bridge availability before it constructs a
-desktop runner, and each runner still handles local binary detection, so web
-builds and hosts without Deno/Bun degrade with a clear runtime error rather
-than silently falling back to Worker.
+2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The
+selector and Settings show all five options; three subprocess modes are
+disabled with a Desktop-only reason on web, while all five remain selectable
+on Desktop. The runner manager checks bridge availability before constructing
+a desktop runner, and each native runner handles missing host binaries at
+execution time instead of silently falling back to Worker.
 
 ### 4. No silent fallback to Worker
 
@@ -158,10 +172,8 @@ path stayed intact.
 
 **Negative:**
 
-- During early implementation, disabled future-mode options created some visual
-  noise. This was temporary: all five known options are now enabled at the
-  entitlement gate, and the disabled copy
-  only protects future enum or detection gaps.
+- Desktop-only options remain visible but disabled on web so their limitation
+  is discoverable without implying a web upgrade can supply a host subprocess.
 
 **Neutral:**
 

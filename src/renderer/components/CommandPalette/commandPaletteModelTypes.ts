@@ -175,6 +175,8 @@ export interface BuildCommandPaletteModelArgs {
    * `runtime.mode_changed` telemetry.
    */
   onSetRuntimeMode?: (mode: RuntimeMode) => void;
+  /** Show an explicit Desktop-only explanation instead of a runnable promise. */
+  isWebBuild?: boolean;
   /**
    * Active tab's current runtime mode; used to highlight the
    * "currently selected" entry. `null` for non-JS/TS tabs, which

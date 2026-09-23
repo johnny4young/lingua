@@ -1,5 +1,6 @@
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
+import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../../shared/runtimeModes';
 import {
   type WorkflowMode,
 } from '../../../shared/workflowMode';
@@ -34,6 +35,7 @@ export interface ExecutionControlPolicy {
 
 interface ExecutionControlPolicyInput {
   language: Language;
+  runtimeMode?: RuntimeMode;
   effectiveTier: LicenseTier;
   isWebBuild: boolean;
   isNotebookTab: boolean;
@@ -56,6 +58,7 @@ function availability(
  */
 export function resolveExecutionControlPolicy({
   language,
+  runtimeMode,
   effectiveTier,
   isWebBuild,
   isNotebookTab,
@@ -67,7 +70,8 @@ export function resolveExecutionControlPolicy({
   const desktopOnlyGate =
     isWebBuild &&
     executionMode === 'run' &&
-    languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
+    (languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly' ||
+      (runtimeMode !== undefined && !isRuntimeModeSupportedInShell(runtimeMode, true)));
   let sharedReason: ExecutionControlDisabledReason | null = null;
   if (isNotebookTab) sharedReason = 'notebook';
   else if (desktopOnlyGate && proLanguageGate) sharedReason = 'desktop-and-pro';

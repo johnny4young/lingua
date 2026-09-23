@@ -87,6 +87,7 @@ export function Toolbar() {
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const executionPolicy = resolveExecutionControlPolicy({
     language: activeLanguage,
+    runtimeMode: activeTab?.runtimeMode,
     effectiveTier,
     isWebBuild,
     isNotebookTab: activeTab?.kind === 'notebook',

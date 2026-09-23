@@ -20,9 +20,9 @@
  * `javascript` / `typescript`, mirroring the language-pack
  * capability contract from internal
  *
- * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
- * keyboard cycle helper / the command palette. All three internal
- * internal modes plus the implementation Deno / Bun extension are implemented.
+ * `isRuntimeModeImplemented(mode)` reports wiring, not availability in a
+ * particular shell. `isRuntimeModeSupportedInShell` applies the web/Desktop
+ * boundary; native runners check host binaries when a run starts.
  */
 
 import { isJavaScriptFamily } from './languageFamilies';
@@ -73,21 +73,24 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
  * Whether a mode is wired today. implementation shipped `worker`; implementation
  * (2026-05-12) added `browser-preview`; **implementation (2026-05-14)
  * flipped `node` to enabled** once the desktop Node child-spawn
- * backend landed. The UI still renders the option as disabled when
- * the detector cannot find a `node` binary on PATH — that's a
- * platform-detection gate, not an implementation gate.
+ * backend landed. A missing host binary is reported by the desktop runner
+ * at execution time, separately from this wiring check.
  */
 export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
   return (
     mode === 'worker' ||
     mode === 'browser-preview' ||
     mode === 'node' ||
-    // implementation — Deno / Bun desktop backends (src/main/altJsRuntimes.ts). Like
-    // `node`, the UI still renders these disabled when the detector cannot
-    // find the binary on PATH; that is a platform gate, not an impl gate.
+    // Desktop Deno/Bun backends are wired; installation is checked when run.
     mode === 'deno' ||
     mode === 'bun'
   );
+}
+
+/** A wired desktop subprocess is not an executable web capability. */
+export function isRuntimeModeSupportedInShell(mode: RuntimeMode, webShell: boolean): boolean {
+  return isRuntimeModeImplemented(mode) &&
+    (!webShell || mode === 'worker' || mode === 'browser-preview');
 }
 
 /**
@@ -116,8 +119,8 @@ export function coerceRuntimeMode(
  * Return the next implemented mode after `current`, cycling through
  * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (implementation note).
  */
-export function cycleRuntimeMode(current: RuntimeMode): RuntimeMode {
-  const implemented = RUNTIME_MODES.filter(isRuntimeModeImplemented);
+export function cycleRuntimeMode(current: RuntimeMode, webShell = false): RuntimeMode {
+  const implemented = RUNTIME_MODES.filter(mode => isRuntimeModeSupportedInShell(mode, webShell));
   if (implemented.length === 0) return current;
   const idx = implemented.indexOf(current);
   // `current` is not implemented (e.g., a future regression that hands

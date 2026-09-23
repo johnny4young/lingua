@@ -263,6 +263,11 @@ orchestration:
   keeps platform and license gates independent. Web users see both requirements
   for a paid desktop language rather than an upgrade message that implies web
   execution becomes available after purchase; selectors keep the same cues.
+- [`utils/runtimeModeSupport.ts`](utils/runtimeModeSupport.ts) applies the
+  shell boundary to JS/TS runtime writes. A restored desktop-mode tab stays
+  intact on web but cannot Run there; new web tabs fall back to Worker, while
+  menus, Settings, the palette, and the runtime-cycle shortcut explain or
+  skip desktop subprocesses without changing the stored session.
 - [`hooks/manualRunControllerLoader.ts`](hooks/manualRunControllerLoader.ts)
   owns the retryable activation load. A rejected request is evicted so the next
   explicit Run action can recover.

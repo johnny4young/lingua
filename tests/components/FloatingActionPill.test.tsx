@@ -417,6 +417,67 @@ describe('FloatingActionPill', () => {
     });
   });
 
+  it('explains desktop runtimes on web and blocks their selection', async () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      const user = userEvent.setup();
+      useEditorStore.setState(state => ({
+        tabs: state.tabs.map(tab => ({ ...tab, runtimeMode: 'worker' })),
+      }));
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-runtime'));
+
+      for (const mode of ['node', 'deno', 'bun']) {
+        const option = screen.getByTestId(`action-pill-runtime-option-${mode}`) as HTMLButtonElement;
+        expect(option.disabled).toBe(true);
+        expect(option.textContent).toContain('Desktop only');
+      }
+      expect((screen.getByTestId('action-pill-runtime-option-worker') as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByTestId('action-pill-runtime-option-browser-preview') as HTMLButtonElement).disabled).toBe(false);
+      expect(useEditorStore.getState().tabs[0]?.runtimeMode).toBe('worker');
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
+  it('keeps a restored desktop runtime visible but disables Run on web', () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      useEditorStore.setState({
+        tabs: [{
+          id: 'restored-node',
+          name: 'restored.js',
+          language: 'javascript',
+          content: 'console.log(1)',
+          runtimeMode: 'node',
+          isDirty: false,
+        }],
+        activeTabId: 'restored-node',
+      });
+      renderPill();
+      expect(screen.getByTestId('action-pill-runtime').textContent).toContain('Node');
+      const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+      expect(run.disabled).toBe(true);
+      expect(run.title).toContain('Lingua Desktop');
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
   it.each([
     ['browser-preview', 'Browser preview'],
     ['deno', 'Deno'],

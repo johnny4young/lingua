@@ -1,6 +1,7 @@
 import { executionKind } from '../utils/executionOutcome';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { isLikelyComplete } from '../../shared/autoRunGating';
+import { isRuntimeModeSupportedInShell } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { defaultRuntimeTimeoutPreset, presetToMs } from '../../shared/runtimeTimeoutPresets';
 import { runnerManager } from '../runners';
@@ -72,8 +73,9 @@ export async function executeAutoRun({
   const desktopOnlyGate =
     isWebBuild &&
     executionMode === 'run' &&
-    languageCapabilityBadgeKey(language) ===
-      'language.capability.desktopOnly';
+    (languageCapabilityBadgeKey(language) ===
+      'language.capability.desktopOnly' ||
+      (runtimeMode !== undefined && !isRuntimeModeSupportedInShell(runtimeMode, true)));
 
   if (executionMode === 'view' || desktopOnlyGate || proLanguageGate) {
     clear();

@@ -17,7 +17,7 @@ import { SqlWorkspaceSettingsSection } from './SqlWorkspaceSettingsSection';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
   RUNTIME_MODES,
-  isRuntimeModeImplemented,
+  isRuntimeModeSupportedInShell,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
 import {
@@ -301,17 +301,25 @@ export function EditorSection() {
               data-testid="settings-default-runtime-mode"
             >
               {RUNTIME_MODES.map((mode) => {
-                const enabled = isRuntimeModeImplemented(mode);
+                const enabled = isRuntimeModeSupportedInShell(
+                  mode,
+                  typeof window !== 'undefined' && window.lingua?.platform === 'web',
+                );
                 const labelKey =
                   mode === 'browser-preview'
                     ? 'runtimeMode.mode.browserPreview'
                     : `runtimeMode.mode.${mode}`;
-                const hintKey =
-                  mode === 'worker'
+                const hintKey = !enabled
+                  ? 'runtimeMode.hint.desktopOnly'
+                  : mode === 'worker'
                     ? 'runtimeMode.hint.worker'
                     : mode === 'node'
                       ? 'runtimeMode.hint.node.ready'
-                      : 'runtimeMode.hint.browserPreview.shipping';
+                      : mode === 'deno'
+                        ? 'runtimeMode.hint.deno.ready'
+                        : mode === 'bun'
+                          ? 'runtimeMode.hint.bun.ready'
+                          : 'runtimeMode.hint.browserPreview.shipping';
                 return (
                   <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
                     {t(labelKey)}

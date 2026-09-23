@@ -98,4 +98,17 @@ describe('executionControlPolicy', () => {
     ).toBe('notebook.notice.useNotebookToolbar');
     expect(viewOnly.actions.run.reason).toBe('view-only');
   });
+
+  it('blocks a restored desktop JS runtime on web without blaming the license', () => {
+    const policy = resolve({
+      language: 'javascript',
+      runtimeMode: 'node',
+      isWebBuild: true,
+    });
+
+    expect(policy.proLanguageGate).toBe(false);
+    expect(policy.desktopOnlyGate).toBe(true);
+    expect(policy.actions.run.reason).toBe('desktop-only');
+    expect(resolve({ language: 'javascript', runtimeMode: 'node', isWebBuild: false }).actions.run.disabled).toBe(false);
+  });
 });

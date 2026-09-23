@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Globe, Package, Rabbit, Terminal, Zap } from 'lucide-react';
-import type { RuntimeMode } from '../../../shared/runtimeModes';
+import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../../shared/runtimeModes';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { MonoBadge } from '../ui/primitives';
@@ -19,6 +19,7 @@ interface RuntimeSegmentProps {
   setOpenMenu: ActionPillMenuSetter;
   runtimeChip: { icon: ReactNode; label: string };
   activeRuntimeMode: FileTab['runtimeMode'];
+  isWebBuild: boolean;
   language: Language;
   ensureTabForLanguage: (lang: Language) => FileTab;
   setTabRuntimeMode: EditorState['setTabRuntimeMode'];
@@ -29,6 +30,7 @@ export function FloatingActionPillRuntimeSegment({
   setOpenMenu,
   runtimeChip,
   activeRuntimeMode,
+  isWebBuild,
   language,
   ensureTabForLanguage,
   setTabRuntimeMode,
@@ -91,15 +93,19 @@ export function FloatingActionPillRuntimeSegment({
           <div className="dropdown-rich absolute left-0 top-[calc(100%+0.4rem)] z-50 w-[340px]" role="menu">
             {runtimeItems.map((item) => {
               const isActive = activeRuntimeMode === item.k;
+              const available = isRuntimeModeSupportedInShell(item.k, isWebBuild);
               return (
                 <button
                   key={item.k}
                   type="button"
                   role="menuitem"
-                  className="dropdown-rich-row w-full"
+                  className="dropdown-rich-row w-full disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   data-testid={`action-pill-runtime-option-${item.k}`}
                   data-active={isActive ? 'true' : 'false'}
+                  disabled={!available}
+                  title={!available ? t('runtimeMode.hint.desktopOnly') : undefined}
                   onClick={() => {
+                    if (!available) return;
                     setOpenMenu(null);
                     // internal follow-up — when the user opens
                     // the Runtime picker without a tab, create
@@ -114,7 +120,9 @@ export function FloatingActionPillRuntimeSegment({
                   <span className="row-icon self-start mt-0.5">{item.icon}</span>
                   <span>
                     <span className="row-label block">{item.label}</span>
-                    <span className="row-desc block">{item.desc}</span>
+                    <span className="row-desc block">
+                      {available ? item.desc : t('runtimeMode.hint.desktopOnly')}
+                    </span>
                   </span>
                   {isActive ? (
                     <MonoBadge tone="accent">{t('actionPill.badgeActive')}</MonoBadge>

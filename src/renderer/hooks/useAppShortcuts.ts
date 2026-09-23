@@ -137,7 +137,10 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       const tab = getActiveTab(state);
       if (!tab || !languageHasRuntimeModes(tab.language)) return;
       const current = tab.runtimeMode ?? 'worker';
-      const next = cycleRuntimeMode(current);
+      const next = cycleRuntimeMode(
+        current,
+        typeof window !== 'undefined' && window.lingua?.platform === 'web',
+      );
       if (next === current) return;
       state.setTabRuntimeMode(tab.id, next);
     },

@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   RUNTIME_MODES,
-  isRuntimeModeImplemented,
+  isRuntimeModeSupportedInShell,
   languageHasRuntimeModes,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
@@ -19,8 +19,8 @@ import { cn } from '../../utils/cn';
  *   - Worker — implementation, enabled.
  *   - Node — implementation, enabled in desktop.
  *   - Browser preview — implementation, enabled.
- *   - Deno — implementation, enabled in desktop when the binary is on PATH.
- *   - Bun — implementation, enabled in desktop when the binary is on PATH.
+ *   - Deno / Bun — available in Desktop; the runner checks their binaries
+ *     when execution starts.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
@@ -42,15 +42,12 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
 
 const MODE_HINT_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.hint.worker',
-  // implementation — node mode is shipping. Detector-failure path
-  // (missing binary on PATH) surfaces a different copy via the
-  // detection notice handled at the click site.
+  // Desktop mode is wired; the runner reports missing Node at execution.
   node: 'runtimeMode.hint.node.ready',
   // implementation — browser-preview is implemented now; use the
   // shipping copy instead of the implementation disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
-  // implementation — Deno / Bun shipping; the binary-detection gate handles the
-  // "not installed on PATH" path at the click site, same as node.
+  // Their desktop runners report missing binaries at execution.
   deno: 'runtimeMode.hint.deno.ready',
   bun: 'runtimeMode.hint.bun.ready',
 };
@@ -70,6 +67,7 @@ export function RuntimeModeSelector() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const activeTab = useActiveTab();
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
 
   useEffect(() => {
     if (!open) return;
@@ -130,10 +128,12 @@ export function RuntimeModeSelector() {
         >
           {RUNTIME_MODES.map((mode) => {
             const Icon = MODE_ICON[mode];
-            const enabled = isRuntimeModeImplemented(mode);
+            const enabled = isRuntimeModeSupportedInShell(mode, isWebBuild);
             const selected = mode === currentMode;
             const labelKey = MODE_LABEL_KEY[mode];
-            const hintKey = MODE_HINT_KEY[mode];
+            const hintKey = enabled
+              ? MODE_HINT_KEY[mode]
+              : 'runtimeMode.hint.desktopOnly';
             return (
               <button
                 key={mode}

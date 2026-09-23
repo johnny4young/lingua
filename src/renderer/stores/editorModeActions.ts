@@ -11,6 +11,7 @@ import {
   defaultWorkflowMode,
 } from '../../shared/workflowMode';
 import { supportsWorkflowModeInShell } from '../utils/workflowModeSupport';
+import { supportsRuntimeModeHere } from '../utils/runtimeModeSupport';
 import type { EditorGet, EditorSet } from './editorStoreContext';
 import {
   isVariableInspectorSupportedLanguage,
@@ -57,6 +58,13 @@ export function createModeActions(
         useUIStore.getState().pushStatusNotice({
           tone: 'info',
           messageKey: 'runtimeMode.notice.notImplemented',
+        });
+        return;
+      }
+      if (!supportsRuntimeModeHere(mode)) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'runtimeMode.notice.desktopOnly',
         });
         return;
       }

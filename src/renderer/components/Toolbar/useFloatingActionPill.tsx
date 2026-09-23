@@ -123,6 +123,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const executionPolicy = resolveExecutionControlPolicy({
     language,
+    runtimeMode: activeTab?.runtimeMode,
     effectiveTier,
     isWebBuild,
     isNotebookTab,
