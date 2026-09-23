@@ -22,7 +22,11 @@ current auto-update smoke happens immediately after promotion.
 2. Confirm the workflow validated:
    - `latest-mac.yml` references the arm64 and x64 zip assets;
    - `latest.yml` references the Windows NSIS installer and its blockmap;
-   - `latest-linux.yml` references the AppImage;
+   - `latest-linux.yml` has a `files[]` entry referencing the executable
+     type-2 AppImage with matching version, size, and SHA-512. The Linux
+     release job runs `scripts/validate-linux-package.mjs` before upload;
+     this static gate does not prove installation or auto-update on a real
+     Linux desktop;
    - each packaged app embeds `provider: github`, owner `johnny4young`, repo `lingua`.
 3. Install the candidate manually on each selected target and launch it.
 4. Exercise Settings → Updates, one native runtime, and one bundled offline runtime.

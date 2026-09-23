@@ -51,8 +51,7 @@ describe('release workflow', () => {
   it('validates the shipped Linux AppImage and update manifest without the retired Forge package verifier', () => {
     const linuxJob = workflow.match(/\n {2}build-linux:[\s\S]*?(?=\n {2}publish:)/u)?.[0] ?? '';
     expect(linuxJob).toContain('npx electron-builder --linux --publish never');
-    expect(linuxJob).toContain("-name '*.AppImage'");
-    expect(linuxJob).toContain('test -f out-builder/latest-linux.yml');
+    expect(linuxJob).toContain('node scripts/validate-linux-package.mjs --root out-builder');
     expect(linuxJob).toContain('out-builder/*.AppImage');
     expect(linuxJob).not.toContain('validate-linux-release-artifacts.mjs');
     expect(existsSync(RETIRED_LINUX_VALIDATOR_PATH)).toBe(false);

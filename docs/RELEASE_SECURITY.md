@@ -81,6 +81,10 @@ an ad-hoc build is validation-only and must not be represented as notarized.
 Linux publishes an AppImage plus `latest-linux.yml`. Integrity is provided by
 the manifest SHA-512 and release `SHA256SUMS.txt`; Authenticode and Apple
 notarization do not apply.
+The Linux build job validates the current AppImage's executable/type-2 header,
+version, `files[]` reference, size, and SHA-512 before upload. This is an
+artifact gate, not evidence of launch, installation, or updater behavior on a
+clean Linux host.
 
 ### Decision: manifest-signing layer (Ed25519 over the feed JSON)
 

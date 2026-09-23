@@ -531,15 +531,7 @@ jobs:
         run: npx electron-builder --linux --publish never
 
       - name: Verify Linux artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! find out-builder -maxdepth 1 -type f -name '*.AppImage' -print -quit | grep -q .; then
-            echo "::error::Expected a Linux .AppImage in out-builder"
-            exit 1
-          fi
-          test -f out-builder/latest-linux.yml || { echo "::error::Missing out-builder/latest-linux.yml update manifest"; exit 1; }
-          echo "Verified Linux AppImage + latest-linux.yml"
+        run: node scripts/validate-linux-package.mjs --root out-builder
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
