@@ -8,6 +8,7 @@
  * inherently tier-sensitive and runs the apply flow in-line.
  */
 
+import { mkdirSync } from 'node:fs';
 import {
   applyDevLicense,
   clearLicense,
@@ -269,11 +270,102 @@ test.describe('Settings — License flows', () => {
     await openSettings(page);
     await openSettingsTab(page, 'account');
 
+    const details = page.getByTestId('license-technical-details');
     const fingerprint = page.getByTestId('license-key-fingerprint');
+    await expect(details).toBeVisible();
+    await expect(fingerprint).toBeHidden();
+    await details.locator('summary').click();
     await expect(fingerprint).toBeVisible();
     await expect(fingerprint).toHaveText(/^[A-Za-z0-9_-]{43}$/);
     await expect(page.getByTestId('license-key-fingerprint-copy')).toBeVisible();
   });
+
+  test('explains plan and platform limits and opens localized pricing', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await openSettings(page);
+    await openSettingsTab(page, 'account');
+
+    await expect(page.getByText(/Free covers core browser-ready work/)).toBeVisible();
+    await expect(page.getByText(/Desktop-only execution needs Lingua Desktop/)).toBeVisible();
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-account', { recursive: true });
+      await page.screenshot({ path: 'output/review/product-account/account-en.png' });
+    }
+    await page.evaluate(() => {
+      window.lingua.openExternal = async (url) => {
+        window.sessionStorage.setItem('e2e-pricing-url', url);
+        return true;
+      };
+    });
+    const pricingEn = page.getByRole('link', { name: 'Compare plans and prices' });
+    await expect(pricingEn).toHaveAttribute('href', 'https://linguacode.dev/pricing');
+    await pricingEn.click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('e2e-pricing-url')))
+      .toBe('https://linguacode.dev/pricing');
+
+    await openSettingsTab(page, 'appearance');
+    await page.getByTestId('app-language-select').selectOption('es');
+    await openSettingsTab(page, 'account');
+    await expect(page.getByText(/pagar en web no las añade/)).toBeVisible();
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      await page.screenshot({ path: 'output/review/product-account/account-es.png' });
+    }
+    const pricingEs = page.getByRole('link', { name: 'Compara planes y precios' });
+    await expect(pricingEs).toHaveAttribute('href', 'https://linguacode.dev/es/pricing');
+    await pricingEs.click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('e2e-pricing-url')))
+      .toBe('https://linguacode.dev/es/pricing');
+    await page.evaluate(() => {
+      window.lingua.openExternal = async () => false;
+    });
+    await pricingEs.click();
+    await expectNoticeContains(page, 'No se pudieron abrir los precios');
+  });
+
+  for (const width of [512, 640, 720, 819, 1024, 1152, 1280, 1440]) {
+    test(`Account primary controls remain reachable at ${width}px effective width`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 820 });
+      await seedSession(page, { language: 'en' });
+      await gotoApp(page);
+      await openSettings(page);
+      await openSettingsTab(page, 'account');
+
+      for (const locator of [
+        page.getByRole('link', { name: 'Compare plans and prices' }),
+        page.getByTestId('license-input'),
+        page.getByTestId('license-apply'),
+      ]) {
+        const box = await locator.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(8);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width - 8);
+      }
+      if (width === 512) {
+        const accountTab = page.getByTestId('settings-tab-account');
+        await accountTab.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('settings-tab-integrations')).toBeFocused();
+        if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+          mkdirSync('output/review/product-account', { recursive: true });
+          await page.screenshot({ path: 'output/review/product-account/account-512-en.png' });
+        }
+        await openSettingsTab(page, 'appearance');
+        await page.getByTestId('app-language-select').selectOption('es');
+        await openSettingsTab(page, 'account');
+        const pricingEs = page.getByRole('link', { name: 'Compara planes y precios' });
+        const esBox = await pricingEs.boundingBox();
+        expect(esBox).not.toBeNull();
+        expect(esBox!.x + esBox!.width).toBeLessThanOrEqual(width - 8);
+        if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+          await page.screenshot({ path: 'output/review/product-account/account-512-es.png' });
+        }
+        await page.getByTestId('license-input').fill('not-a-license');
+        await page.getByTestId('license-apply').click();
+        await expect(page.getByTestId('license-input-error')).toBeVisible();
+      }
+    });
+  }
 
   test('malformed token never leaks developer details to the banner', async ({ page }) => {
     await seedSession(page, { language: 'en' });

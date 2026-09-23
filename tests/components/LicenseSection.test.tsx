@@ -80,6 +80,7 @@ describe('LicenseSection', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    fingerprintMockState.jwk = null;
     act(() => {
       useLicenseStore.setState(initial, true);
     });
@@ -90,6 +91,67 @@ describe('LicenseSection', () => {
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Free plan');
     // Clear button only shows when there is a token
     expect(screen.queryByTestId('license-clear')).toBeNull();
+  });
+
+  it('explains Free versus platform limits and links to canonical pricing', () => {
+    render(<LicenseSection />);
+    expect(screen.getByText(/Free covers core browser-ready work/)).toBeTruthy();
+    expect(screen.getByText(/Desktop-only execution needs Lingua Desktop/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Compare plans and prices' }).getAttribute('href'))
+      .toBe('https://linguacode.dev/pricing');
+  });
+
+  it('reports an external-pricing launch failure instead of failing silently', async () => {
+    const originalLingua = window.lingua;
+    const openExternal = vi.fn().mockResolvedValue(false);
+    window.lingua = { ...(originalLingua ?? ({} as LinguaAPI)), openExternal } as typeof window.lingua;
+    try {
+      const user = userEvent.setup();
+      render(<LicenseSection />);
+      await user.click(screen.getByRole('link', { name: 'Compare plans and prices' }));
+      expect(openExternal).toHaveBeenCalledWith('https://linguacode.dev/pricing');
+      await waitFor(() => {
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          tone: 'error', messageKey: 'license.benefits.pricingOpenFailed',
+        });
+      });
+    } finally {
+      window.lingua = originalLingua;
+    }
+  });
+
+  it('reports a rejected OS pricing launch without an unhandled error', async () => {
+    const originalLingua = window.lingua;
+    window.lingua = {
+      ...(originalLingua ?? ({} as LinguaAPI)),
+      openExternal: vi.fn().mockRejectedValue(new Error('shell rejected')),
+    } as typeof window.lingua;
+    try {
+      const user = userEvent.setup();
+      render(<LicenseSection />);
+      await user.click(screen.getByRole('link', { name: 'Compare plans and prices' }));
+      await waitFor(() => {
+        expect(useUIStore.getState().statusNotice?.messageKey)
+          .toBe('license.benefits.pricingOpenFailed');
+      });
+    } finally {
+      window.lingua = originalLingua;
+    }
+  });
+
+  it('keeps signing-key metadata behind a closed technical disclosure', async () => {
+    fingerprintMockState.jwk = {
+      kty: 'OKP', crv: 'Ed25519',
+      x: '2RLtTcT4AfskWAFBqKI9t_AgFLNvS1hIoGNIK_wr1Kg',
+    };
+    const user = userEvent.setup();
+    render(<LicenseSection />);
+    const details = await screen.findByTestId('license-technical-details') as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    await waitFor(() => expect(screen.getByTestId('license-key-fingerprint')).toBeTruthy());
+    expect(details.contains(screen.getByTestId('license-key-fingerprint'))).toBe(true);
+    await user.click(screen.getByText('License verification details'));
+    expect(details.open).toBe(true);
   });
 
   it('shows the Active pill and tier name when the store holds an active status', () => {
@@ -114,6 +176,7 @@ describe('LicenseSection', () => {
     );
     render(<LicenseSection />);
     expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
+    expect(screen.getByText(/Your plan unlocks paid workflows/)).toBeTruthy();
     expect(screen.getByTestId('license-clear')).toBeTruthy();
     // accessibility pass — the bespoke Remove-license button carries the focus ring.
     expect(screen.getByTestId('license-clear').className).toContain('focus-ring');
@@ -921,6 +984,7 @@ describe('LicenseSection', () => {
       render(<LicenseSection />);
       await waitFor(() => expect(screen.getByTestId('license-key-fingerprint')).toBeTruthy());
 
+      await user.click(screen.getByText('License verification details'));
       await user.click(screen.getByTestId('license-key-fingerprint-copy'));
 
       await waitFor(() =>
@@ -937,6 +1001,7 @@ describe('LicenseSection', () => {
       render(<LicenseSection />);
       await waitFor(() => expect(screen.getByTestId('license-key-fingerprint')).toBeTruthy());
 
+      await user.click(screen.getByText('License verification details'));
       await user.click(screen.getByTestId('license-key-fingerprint-copy'));
 
       await waitFor(() =>

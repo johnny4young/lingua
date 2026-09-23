@@ -189,6 +189,9 @@ export function LicenseSection() {
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const isDevicesExhausted = status.kind === 'invalid' && status.reason === 'devices-exhausted';
   const lifetimeNotice = lifetimeUpdateNotice(status);
+  const pricingUrl = i18n.language.startsWith('es')
+    ? 'https://linguacode.dev/es/pricing'
+    : 'https://linguacode.dev/pricing';
 
   // implementation — when a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
@@ -309,6 +312,15 @@ export function LicenseSection() {
     );
   };
 
+  const handleOpenPricing = async () => {
+    try {
+      if (await window.lingua.openExternal(pricingUrl)) return;
+    } catch {
+      // The OS shell can reject a launch even for a trusted fixed URL.
+    }
+    pushStatusNotice({ tone: 'error', messageKey: 'license.benefits.pricingOpenFailed' });
+  };
+
   const runClear = async () => {
     if (isClearing) return;
     setIsClearing(true);
@@ -330,7 +342,31 @@ export function LicenseSection() {
     (status.kind === 'invalid' && !isDevicesExhausted);
 
   return (
-    <SettingsSection eyebrow={t('license.title')} description={t('license.description')}>
+    <SettingsSection
+      eyebrow={t('license.title')}
+      description={
+        <>
+          <span className="block">
+            {t(status.kind === 'active' || status.kind === 'grace'
+              ? 'license.benefits.active'
+              : 'license.benefits.free')}
+          </span>
+          <span className="mt-1 block">{t('license.benefits.platform')}</span>
+          <a
+            href={pricingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="focus-ring mt-2 inline-block text-accent underline underline-offset-2"
+            onClick={(event) => {
+              event.preventDefault();
+              void handleOpenPricing();
+            }}
+          >
+            {t('license.benefits.pricingLink')}
+          </a>
+        </>
+      }
+    >
       {/* Current plan — proto's spec row with a system StatusBadge. */}
       <SpecCard>
         <SpecRow
@@ -379,11 +415,16 @@ export function LicenseSection() {
         </div>
       ) : null}
 
-      {/* internal — embedded signing-key fingerprint. Rendered only when the
-          build embeds a public key; the operator cross-checks this value
-          against docs/security/license-key-registry.json when rotating. */}
+      {/* Signing-key metadata is useful for support but not a primary account action. */}
       {keyThumbprint ? (
-        <SpecCard>
+        <details
+          className="rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-3"
+          data-testid="license-technical-details"
+        >
+          <summary className="focus-ring cursor-pointer text-body font-medium text-fg-base">
+            {t('license.technicalDetails')}
+          </summary>
+          <p className="mt-2 text-caption leading-5 text-fg-subtle">{t('license.description')}</p>
           <SpecRow
             last
             label={t('license.keyFingerprint.label')}
@@ -408,7 +449,7 @@ export function LicenseSection() {
               </div>
             }
           />
-        </SpecCard>
+        </details>
       ) : null}
 
       {/* Paste a license token. */}

@@ -1978,6 +1978,7 @@
 
   .settings-rail-row {
     @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    width: 100%;
   }
 
   .settings-rail-row:hover {
@@ -2018,6 +2019,102 @@
      bar so the modal feels like part of the editor. */
   .settings-status-bar {
     @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-caption text-fg-subtle;
+  }
+
+  .settings-modal-shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .settings-modal-rail-slot {
+    grid-row: 1 / span 3;
+  }
+  .settings-modal-breadcrumb,
+  .settings-status-shortcuts {
+    display: flex;
+  }
+  .settings-modal-panel {
+    padding: 20px 24px;
+  }
+  .spec-row {
+    align-items: center;
+  }
+
+  /* At 200% zoom a 1024px window has only 512 CSS pixels. Keep the Settings
+     navigation horizontally scrollable rather than shrinking the content
+     column behind the fixed-width rail. */
+  @media (max-width: 760px) {
+    .settings-modal-shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+
+    .settings-modal-rail-slot {
+      grid-row: 2;
+      min-width: 0;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .settings-modal-topbar {
+      grid-row: 1;
+      min-width: 0;
+    }
+    .settings-modal-panel {
+      grid-row: 3;
+      padding: 16px;
+    }
+    .settings-status-bar {
+      grid-row: 4;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .settings-modal-breadcrumb,
+    .settings-modal-esc-key,
+    .settings-status-shortcuts,
+    .settings-rail-heading,
+    .settings-rail-group-label,
+    .settings-rail-shortcut {
+      display: none;
+    }
+
+    .settings-rail {
+      width: max-content;
+      min-width: 100%;
+      height: auto;
+      flex-direction: row;
+      border-right: 0;
+    }
+
+    .settings-rail-group {
+      display: flex;
+      flex: none;
+      padding: 0;
+    }
+    .settings-rail-row {
+      display: inline-flex;
+      width: auto;
+      height: 44px;
+      flex: none;
+      white-space: nowrap;
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      padding-inline: 12px;
+    }
+    .settings-rail-row[data-active='true'] {
+      border-bottom-color: var(--color-accent);
+    }
+
+    .settings-modal-panel .spec-row {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .settings-modal-panel .spec-row-control {
+      min-width: 0;
+      width: 100%;
+    }
   }
 }
 

@@ -67,6 +67,16 @@ Console auto-follow is active only while the viewport remains at the bottom.
 even when an incoming row renders before the browser dispatches `scroll`;
 returning to the bottom resumes follow without clearing existing output.
 
+Account settings explain plan access separately from platform and installed
+toolchains. The pricing link uses the existing `window.lingua.openExternal`
+bridge so Electron's navigation guard stays intact, and signing-key metadata
+stays behind a native disclosure rather than competing with activation.
+At effective widths below 760 CSS px, Settings moves the rail into a
+horizontally scrollable tablist and stacks spec-row controls beneath their
+labels; the selected panel remains the only mounted tabpanel. Keep tab focus,
+search navigation, and activation usable at 200% zoom instead of letting a
+fixed sidebar clip the panel.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:
