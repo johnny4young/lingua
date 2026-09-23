@@ -28,6 +28,9 @@ release checklist.
 ## Updates And Release Artifacts
 
 - Confirm release workflow audit gates passed.
+- For a web promotion, confirm the public Ruby and DuckDB WASM responses passed
+  the post-upload status, CORS, MIME, and streamed SHA-256 comparison against
+  the local build inputs; a local fixture pass is not production-bucket evidence.
 - Confirm packaged smoke passed offline against the produced app.
 - Confirm `SHA256SUMS.txt` exists and was verified.
 - Confirm GitHub Release `latest*.yml` manifests reference only attached

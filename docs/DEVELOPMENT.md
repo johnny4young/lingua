@@ -479,6 +479,11 @@ pnpm run preview:web
 ```
 
 The local web build defaults to `/` as its base path. The Cloudflare Pages deployment workflow builds `dist/web` for the subdomain root at `app.linguacode.dev`; `linguacode.dev` remains reserved for the dedicated marketing/download site.
+Before Pages promotion, the workflow uploads the versioned DuckDB and Ruby WASM
+objects and streams each public response through
+`scripts/verify-web-runtime-mirror.mjs` against its local source file. HTTP,
+CORS, MIME, redirects, and SHA-256 must all pass; see
+[`runbooks/r2-web-runtime-setup.md`](./runbooks/r2-web-runtime-setup.md).
 
 Production web builds keep Pyodide same-origin in `dist/web/pyodide/`, but
 route oversized DuckDB and Ruby WASM files through
