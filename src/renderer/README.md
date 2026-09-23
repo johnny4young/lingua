@@ -55,6 +55,11 @@ its own row below `AppChrome`. Do not remove that row without moving the pill
 into normal flow: otherwise the pill sits over the editor tab strip and blocks
 activation and close hit targets. Presenter mode hides both the pill and row.
 
+Console auto-follow is active only while the viewport remains at the bottom.
+`ConsolePanel` records its last pinned geometry so a manual upward scroll wins
+even when an incoming row renders before the browser dispatches `scroll`;
+returning to the bottom resumes follow without clearing existing output.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:
