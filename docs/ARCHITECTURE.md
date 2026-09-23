@@ -336,6 +336,13 @@ document order instead:
    and Python scope, then replays the executed prefix in document order through
    the requested stale cell. Replay stops on the first error or interruption.
 
+Disposal also revokes the in-flight cell's session identity. A delayed SQL,
+Python, JavaScript, or TypeScript completion returns `session-disposed` rather
+than publishing outputs or status into a closed or same-ID reopened notebook.
+The runner may still settle, but it no longer owns the new notebook lifetime.
+The notebook hook counts active top-level cell/range/replay operations so an
+older finalizer cannot hide the busy state of a newer operation.
+
 The persisted notebook state includes the document plus a validated map of
 cell IDs to execution stamps. This small ledger is necessary because a setup
 cell can mutate a kernel without producing visible output; inferring execution
