@@ -18,8 +18,8 @@ import { typedHandle } from './ipc/typedHandle';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { spawnNativeRun } from './runners/spawnNativeRun';
-import { writeFile, readFile, mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile, readFile, stat } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
@@ -169,7 +169,7 @@ async function compileGoToWasm(
     if (goInfo.timedOut) return { success: false, kind: 'timeout', timeoutMs: 5_000 };
     if (!goInfo.installed || !goInfo.goRoot) return failed(goInfo.error ?? 'Go is not installed.');
     goVersion = goInfo.version;
-    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-go-'));
+    tempDir = stageNativeRunTempDir('lingua-go-');
     if (signal.aborted) return stopped();
     const wasmFile = path.join(tempDir, 'main.wasm');
     await writeFile(path.join(tempDir, 'main.go'), sourceCode, 'utf-8');
@@ -205,7 +205,7 @@ async function compileGoToWasm(
     const message = error instanceof Error ? error.message : String(error);
     return { ...failed(truncateBytes(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
   } finally {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
     if (runId && activeCompiles.get(runId) === active) activeCompiles.delete(runId);
     lifecycle.release();
   }

@@ -1475,6 +1475,10 @@ events and settle pending requests. Before that session exists, the shared debug
 preparation registry owns the renderer-provided identity across authorization,
 staging, probes, and Rust compilation, and transfers it exactly once into the
 runtime session map.
+Debugger staging is likewise allocated synchronously and registered with the
+preparation owner before awaiting path canonicalization or writing private source.
+This closes the gap where shutdown could finish while an asynchronous allocation
+was still pending.
 
 The native process registry tracks the shared spawn boundary (also used by Rust and
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
@@ -1482,6 +1486,13 @@ preparation and explicitly force-terminates remaining tracked trees because Elec
 may exit before an escalation timer fires. Settled runs release process entries and
 owner listeners; shutdown is not a persistent latch, so a cancelled app quit does
 not permanently disable subsequent runs. This does not extend runtime permissions.
+Native Node, Ruby, Deno, Bun, Go and Rust staging directories are created and
+registered in one synchronous turn. Ordinary completion removes each directory
+asynchronously; `before-quit` synchronously removes any still registered source
+or compiled artifacts after terminating tracked children. Only paths created by
+the staging helper are eligible, so unrelated temporary files are untouched.
+Removal can still fail when the OS denies it or another process holds a file;
+that failure is best effort rather than a cross-restart cleanup guarantee.
 
 On Windows, either termination stage invokes `taskkill /T /F` before directly
 killing the parent. [Node emulates SIGTERM as unconditional termination](https://nodejs.org/download/release/v24.11.0/docs/api/process.html#signal-events);
@@ -1508,8 +1519,8 @@ also cancel the compiler, not just the final binary. Rust edition 2021, environm
 allowlisting and output limits are unchanged. Timeout metadata identifies the
 actual phase budget; Rust does not suggest changing unrelated runtime settings.
 Temporary-directory cleanup is awaited after subprocess completion during normal
-Stop. Cleanup failures and app-shutdown artifacts remain best-effort, not a
-persistence guarantee.
+Stop. Shutdown retries tracked temporary-directory cleanup synchronously;
+filesystem failures remain best-effort, not a persistence guarantee.
 
 ### Go compiler-to-worker cancellation
 

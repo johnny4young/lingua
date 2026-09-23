@@ -1,10 +1,11 @@
 import { EventEmitter } from 'node:events';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { rmSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawn: vi.fn(), write: vi.fn(), mkdir: vi.fn(), rm: vi.fn() }));
+const mocks = vi.hoisted(() => ({ handle: vi.fn(), spawn: vi.fn(), write: vi.fn(), rm: vi.fn() }));
 vi.mock('electron', () => ({ ipcMain: { handle: mocks.handle } }));
 vi.mock('../../src/main/runners/spawnNativeRun', () => ({ spawnNativeRun: mocks.spawn }));
-vi.mock('node:fs/promises', () => { const fs = { writeFile: mocks.write, mkdtemp: mocks.mkdir, rm: mocks.rm }; return { ...fs, default: fs }; });
+vi.mock('node:fs/promises', () => { const fs = { writeFile: mocks.write, rm: mocks.rm }; return { ...fs, default: fs }; });
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   const execFile = Object.assign(vi.fn(), { [Symbol.for('nodejs.util.promisify.custom')]: vi.fn().mockResolvedValue({ stdout: 'rustc fixture', stderr: '' }) });
@@ -17,12 +18,15 @@ function deferred<T>() { let resolve!: (value: T) => void; const promise = new P
 // Exercise the actual IPC boundary; malformed payloads are deliberately unknown.
 function handler(channel: string) { return mocks.handle.mock.calls.find(c => c[0] === channel)?.[1]; }
 
+afterEach(() => {
+  for (const [dir] of mocks.rm.mock.calls) rmSync(dir, { recursive: true, force: true });
+});
+
 beforeEach(async () => {
   vi.resetModules();
   vi.clearAllMocks();
   mocks.spawn.mockReset().mockResolvedValue(ok);
   mocks.write.mockReset().mockResolvedValue(undefined);
-  mocks.mkdir.mockReset().mockResolvedValue('/tmp/lingua-rust-fixture');
   mocks.rm.mockReset().mockResolvedValue(undefined);
   const { registerRustHandlers } = await import('../../src/main/rust-compiler');
   registerRustHandlers();
@@ -42,7 +46,7 @@ describe('Rust cancellation owns every preparation phase', () => {
     held.resolve(ok); // Even a late success cannot escape cancellation.
     expect(await run).toMatchObject({ success: false, kind: 'stopped' });
     expect(mocks.spawn).toHaveBeenCalledTimes(phase + 1);
-    if (phase) expect(mocks.rm).toHaveBeenCalledWith('/tmp/lingua-rust-fixture', { recursive: true, force: true });
+    if (phase) expect(mocks.rm).toHaveBeenCalledWith(expect.stringMatching(/lingua-rust-[^/\\]+$/), { recursive: true, force: true });
   });
 
   it('rejects duplicate IDs and a foreign sender cannot stop the owner', async () => {
@@ -73,17 +77,17 @@ describe('Rust cancellation owns every preparation phase', () => {
     expect(mocks.rm).toHaveBeenCalledOnce();
   });
 
-  it('stops while allocating the directory without writing cancelled source', async () => {
-    const held = deferred<string>();
-    mocks.mkdir.mockReturnValueOnce(held.promise);
+  it('stops before staging when toolchain detection resolves late', async () => {
+    const held = deferred<typeof ok>();
+    mocks.spawn.mockReturnValueOnce(held.promise);
     const sender = owner();
     const run = handler('rust:run')({ sender }, 'fn main() {}', {}, undefined, 'a');
-    await vi.waitFor(() => expect(mocks.mkdir).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledOnce());
     await handler('rust:stop')({ sender }, 'a');
-    held.resolve('/tmp/lingua-rust-fixture');
+    held.resolve(ok);
     expect(await run).toMatchObject({ kind: 'stopped' });
     expect(mocks.write).not.toHaveBeenCalled();
-    expect(mocks.rm).toHaveBeenCalledOnce();
+    expect(mocks.rm).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -96,7 +100,7 @@ describe('Rust cancellation owns every preparation phase', () => {
     expect(await handler('rust:run')({ sender: owner() }, 'fn main() {}', env, messages, runId))
       .toMatchObject({ kind: 'error' });
     expect(mocks.spawn).not.toHaveBeenCalled();
-    expect(mocks.mkdir).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
   });
 
   it('owner loss aborts a standalone settings detector as well', async () => {
@@ -114,7 +118,7 @@ describe('Rust cancellation owns every preparation phase', () => {
   it.each([null, {}, 123])('rejects malformed source %j before effects', async source => {
     expect(await handler('rust:run')({ sender: owner() }, source)).toMatchObject({ success: false, kind: 'error' });
     expect(mocks.spawn).not.toHaveBeenCalled();
-    expect(mocks.mkdir).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
   });
 
   it.each([0, 1, 2])('reports timeout in phase %i instead of ordinary exit failure', async phase => {
