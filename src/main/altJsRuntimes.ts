@@ -36,8 +36,8 @@ import {
   spawn,
   type ChildProcessWithoutNullStreams,
 } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
 import { BUN_TOOLCHAIN_KEYS, DENO_TOOLCHAIN_KEYS } from '../shared/nativeToolchainEnvKeys';
@@ -153,15 +153,15 @@ async function spawnAltRuntime(
   let tempDir: string | undefined;
   let entryFile: string;
   try {
-    tempDir = await mkdtemp(path.join(tmpdir(), `lingua-${id}-`));
+    tempDir = stageNativeRunTempDir(`lingua-${id}-`);
     if (signal.aborted) {
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      await cleanupNativeRunTempDir(tempDir);
       return stoppedAltRunResult(options);
     }
     entryFile = path.join(tempDir, `entry.${config.ext(options.language)}`);
     await writeFile(entryFile, source, 'utf-8');
   } catch (err) {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
     if (signal.aborted) return stoppedAltRunResult(options);
     return {
       kind: 'error',
@@ -301,7 +301,7 @@ async function spawnAltRuntime(
       });
     });
   } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupNativeRunTempDir(tempDir);
   }
 }
 

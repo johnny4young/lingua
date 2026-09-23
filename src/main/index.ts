@@ -45,6 +45,7 @@ import {
 import { disposeGoDebuggerSessions, registerGoDebuggerHandlers } from './ipc/goDebugger';
 import { disposeRustDebuggerSessions, registerRustDebuggerHandlers } from './ipc/rustDebugger';
 import { disposeNativeRuns } from './runners/nativeRunLifecycle';
+import { disposeNativeRunTempDirs } from './runners/nativeRunTempDirs';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -112,6 +113,7 @@ function disposeMainResources() {
   // A failed disposer must not strand the remaining children or prevent exit.
   for (const dispose of [
     disposeNativeRuns,
+    disposeNativeRunTempDirs,
     disposeLspBridge,
     disposeProjectTestRuns,
     disposeProjectTerminalSessions,

@@ -1,5 +1,5 @@
-import { rmSync } from 'node:fs';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WebContents } from 'electron';
@@ -271,8 +271,9 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Ru
     signal.throwIfAborted();
     disposeForOwner(owner.id);
 
-    tempDir = await realpath(await mkdtemp(path.join(tmpdir(), 'lingua-rust-debug-')));
+    tempDir = mkdtempSync(path.join(tmpdir(), 'lingua-rust-debug-'));
     preparation.setCleanupPath(tempDir);
+    tempDir = await realpath(tempDir);
     signal.throwIfAborted();
     const scriptPath = path.join(tempDir, safeRustFileName(request.fileName));
     await writeFile(scriptPath, request.source, { encoding: 'utf8', mode: 0o600, signal });
