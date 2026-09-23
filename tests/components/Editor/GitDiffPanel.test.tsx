@@ -11,6 +11,16 @@ const activeTabRef = vi.hoisted(() => ({
     filePath: '/tmp/repo/main.ts',
   },
 }));
+const transfer = vi.hoisted(() => ({
+  onMount: null as null | ((editor: unknown, monaco: unknown) => void),
+  register: vi.fn(() => vi.fn()),
+  original: { side: 'HEAD' },
+  modified: { side: 'working-tree' },
+}));
+
+vi.mock('../../../src/renderer/utils/selectionTransfer', () => ({
+  registerSelectionTransferActions: transfer.register,
+}));
 
 vi.mock('../../../src/renderer/hooks/useActiveTab', () => ({
   useActiveTab: () => activeTabRef.current,
@@ -20,15 +30,20 @@ vi.mock('@monaco-editor/react', () => ({
   DiffEditor: ({
     original,
     modified,
+    onMount,
   }: {
     original: string;
     modified: string;
-  }) => (
-    <div data-testid="mock-diff-editor">
-      <span>{original}</span>
-      <span>{modified}</span>
-    </div>
-  ),
+    onMount?: (editor: unknown, monaco: unknown) => void;
+  }) => {
+    transfer.onMount = onMount ?? null;
+    return (
+      <div data-testid="mock-diff-editor">
+        <span>{original}</span>
+        <span>{modified}</span>
+      </div>
+    );
+  },
 }));
 
 import { GitDiffPanel } from '../../../src/renderer/components/Editor/GitDiffPanel';
@@ -48,6 +63,8 @@ function deferred<T>() {
 
 describe('GitDiffPanel', () => {
   beforeEach(() => {
+    transfer.register.mockClear();
+    transfer.onMount = null;
     useGitStore.getState().clear();
     useGitStore.getState().setPosture({
       available: true,
@@ -120,5 +137,23 @@ describe('GitDiffPanel', () => {
     });
     expect(screen.getByText('current original')).toBeTruthy();
     expect(screen.getByText('current modified')).toBeTruthy();
+
+    act(() => transfer.onMount?.({
+      getOriginalEditor: () => transfer.original,
+      getModifiedEditor: () => transfer.modified,
+    }, {}));
+    expect(transfer.register).toHaveBeenCalledWith(
+      transfer.modified,
+      expect.any(Function),
+      expect.objectContaining({ reference: expect.any(String), context: expect.any(String) })
+    );
+    expect(transfer.register).not.toHaveBeenCalledWith(
+      transfer.original,
+      expect.anything(),
+      expect.anything()
+    );
+    const dispose = transfer.register.mock.results[0]?.value;
+    act(() => useGitStore.getState().clear());
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });

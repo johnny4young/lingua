@@ -2,6 +2,7 @@ import { isWorkerRunnerLanguage } from '../../../../shared/languageFamilies';
 import { buildActionCommand } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 import { nativeJsRuntimeHintKey, type NativeJsRuntimeMode } from '../../../utils/nativeJsRuntimeStatus';
+import { buildSelectionTransferCommands } from './selectionTransferCommands';
 
 export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
@@ -59,6 +60,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
   };
 
   const commands: CommandEntry[] = [
+    ...buildSelectionTransferCommands(args, translate),
     // implementation note — "Pin watch on current line". Only
     // surfaces when the caller wires `onAddWatchToCurrentLine`
     // AND the active tab's language supports `@watch` (JS / TS /

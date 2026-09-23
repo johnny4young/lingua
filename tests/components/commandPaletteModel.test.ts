@@ -8,6 +8,34 @@ import {
 } from '../../src/renderer/components/CommandPalette/commandPaletteModel';
 
 describe('buildCommandPaletteModel', () => {
+  it('keeps selection transfers discoverable but disabled without an explicit selection', () => {
+    const base = {
+      templates: [], snippets: [], activeTab: {
+        id: 'tab-1', name: 'main.ts', language: 'typescript' as const,
+        content: 'secret', isDirty: false,
+      },
+      onCopyReference: vi.fn(),
+      onCopyWithContext: vi.fn(),
+      onClose: vi.fn(),
+      t: i18next.t.bind(i18next),
+    };
+    const without = buildCommandPaletteModel({ ...base, editorSelectionAvailable: false });
+    const reference = without.find(command => command.id === 'action-copy-reference');
+    const context = without.find(command => command.id === 'action-copy-with-context');
+    expect(reference?.disabled).toBe(true);
+    expect(context?.disabled).toBe(true);
+    reference?.action();
+    context?.action();
+    expect(base.onCopyReference).not.toHaveBeenCalled();
+    expect(base.onCopyWithContext).not.toHaveBeenCalled();
+
+    const withSelection = buildCommandPaletteModel({ ...base, editorSelectionAvailable: true });
+    const enabled = withSelection.find(command => command.id === 'action-copy-with-context');
+    expect(enabled?.disabled).toBe(false);
+    enabled?.action();
+    expect(base.onCopyWithContext).toHaveBeenCalledOnce();
+  });
+
   it('explains missing desktop runtimes and routes recovery without changing the mode', () => {
     const onSetRuntimeMode = vi.fn();
     const onMissingNativeRuntime = vi.fn();

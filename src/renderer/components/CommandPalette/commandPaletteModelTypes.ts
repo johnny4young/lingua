@@ -28,6 +28,8 @@ export interface CommandEntry {
   description: string;
   language?: Language;
   keywords: string[];
+  /** Still searchable, but cannot be activated until its prerequisite exists. */
+  disabled?: boolean;
   action: () => void;
 }
 
@@ -97,6 +99,10 @@ export interface BuildCommandPaletteModelArgs {
    * Optional; surfaced only when wired (i.e. an editor is active).
    */
   onPastePlainText?: () => void;
+  /** Explicit editor selection is required; neither action falls back to the buffer. */
+  editorSelectionAvailable?: boolean;
+  onCopyReference?: () => void;
+  onCopyWithContext?: () => void;
   /**
    * implementation — fires the "Toggle status bar" action, flipping the
    * `showStatusBar` setting. Optional; when omitted the command is hidden.

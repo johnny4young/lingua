@@ -76,6 +76,14 @@ only while their surfaces are open. A known-missing binary leads to the shared
 install/retry notice instead of changing modes; an unverified or failed probe
 does not masquerade as a confirmed missing installation. Web continues to show
 the separate Desktop-only boundary without probing the host.
+Copy reference and Copy with context are Free actions on the main Monaco editor,
+the modified side of the Git diff, and the command palette. They require an
+explicit nonempty selection and read only that Monaco range. Metadata uses the
+capability-relative path when safe, otherwise the sanitized tab basename;
+absolute file paths and the unselected buffer are never added. The context
+format preserves selected line endings and grows its Markdown fence beyond
+any backticks in the selection. Clipboard access happens only on activation,
+with an EN/ES failure notice when the write is denied.
 At effective widths below 760 CSS px, Settings moves the rail into a
 horizontally scrollable tablist and stacks spec-row controls beneath their
 labels; the selected panel remains the only mounted tabpanel. Keep tab focus,

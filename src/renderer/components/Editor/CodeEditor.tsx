@@ -2,7 +2,7 @@ import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import {
@@ -43,6 +43,7 @@ import { VimStatusBar } from './VimStatusBar';
 import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 import { emitCommand } from '../../stores/commandBus';
 import { InlineResultWidgetsHost } from './InlineResultWidgetsHost';
+import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 configureMonaco();
 
@@ -68,7 +69,7 @@ export function CodeEditor() {
     }))
   );
   const vimMode = useSettingsStore(state => state.vimMode);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Stash `t` in a ref so the Vim init effect doesn't re-run (and tear
   // down + rebuild the Vim layer, dropping the user's mode + buffer
   // cursor) every time react-i18next emits a fresh translator
@@ -327,6 +328,18 @@ export function CodeEditor() {
     });
     return () => action.dispose();
   }, [editorInstance, aiEntitled, t]);
+
+  useEffect(() => {
+    if (!editorInstance) return;
+    return registerSelectionTransferActions(
+      editorInstance,
+      () => getActiveTab(useEditorStore.getState()),
+      {
+        reference: t('editor.selectionTransfer.reference.label'),
+        context: t('editor.selectionTransfer.context.label'),
+      }
+    );
+  }, [editorInstance, i18n.language, t]);
 
   useEffect(() => {
     applyDiagnostics(editorRef.current, diagnostics, monacoRef.current);

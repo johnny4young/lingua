@@ -50,6 +50,7 @@ import { requestPlainPaste } from '../../hooks/useSmartPaste';
 import { focusStatusBar } from '../StatusBar/statusBarAccess';
 import { copyBootTimingsToClipboard } from '../../utils/bootTimings';
 import { executionModeForLanguage } from '../../utils/languageMeta';
+import { copyEditorSelectionWithNotice, hasExplicitSelection } from '../../utils/selectionTransfer';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export function useCommandPaletteCommands({
@@ -92,6 +93,7 @@ export function useCommandPaletteCommands({
   const updateContent = useEditorStore(state => state.updateContent);
   const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTab = useActiveTab();
+  const editorSelectionAvailable = activeTab !== null && hasExplicitSelection(getActiveEditor());
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
@@ -325,6 +327,13 @@ export function useCommandPaletteCommands({
               openExplainCodeForEditor(editor, activeTab.language, activeTab.name);
             }
           : undefined,
+      editorSelectionAvailable,
+      onCopyReference: activeTab
+        ? () => { void copyEditorSelectionWithNotice(getActiveEditor(), activeTab, 'reference'); }
+        : undefined,
+      onCopyWithContext: activeTab
+        ? () => { void copyEditorSelectionWithNotice(getActiveEditor(), activeTab, 'context'); }
+        : undefined,
       // implementation — install detected Go/Rust/Ruby packages via the desktop
       // toolchain. Wired only for a saved native-language tab with
       // detected third-party deps and the desktop install bridge present.
@@ -696,6 +705,7 @@ export function useCommandPaletteCommands({
     vimMode,
     showStatusBar,
     activeTabId,
+    editorSelectionAvailable,
     activeRuntimeMode,
     isWebBuild,
     nativeRuntimeAvailability,
