@@ -3767,7 +3767,7 @@
   "sqlWorkspace.response.tooLargeBand": "Showing {{shown}} of {{total}} rows",
   "sqlWorkspace.response.tooLargeHint": "The table and copy actions use this truncated preview. Add LIMIT/OFFSET to inspect the rest.",
   "sqlWorkspace.response.engineLoadFailedBand": "Could not load the SQL engine",
-  "sqlWorkspace.response.engineLoadFailedHint": "Offline or a network blocker may be in the way. Reload the tab once you are back online.",
+  "sqlWorkspace.response.engineLoadFailedHint": "Check your connection or runtime asset blocker, then choose Run query again. You do not need to reload the tab.",
   "sqlWorkspace.response.statementCount_one": "{{count}} statement executed",
   "sqlWorkspace.response.statementCount_other": "{{count}} statements executed",
   "sqlWorkspace.response.rowCount_one": "{{count}} row",

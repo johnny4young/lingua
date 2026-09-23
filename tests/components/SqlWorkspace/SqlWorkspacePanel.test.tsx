@@ -251,6 +251,31 @@ describe('SqlWorkspacePanel', () => {
     expect(useAnnouncerStore.getState().message).toMatch(/failed/i);
   });
 
+  it('recovers an engine-load failure through the existing Run action without reloading', async () => {
+    let available = false;
+    const factory = vi.fn(async () => {
+      if (!available) throw new Error('runtime asset unavailable');
+      return happyPathEngine();
+    });
+    __setDuckDbEngineFactoryForTests(factory);
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-query-list-create'));
+    await user.type(screen.getByTestId('sql-query-editor-textarea'), 'SELECT 1');
+    await user.click(screen.getByTestId('sql-query-editor-run'));
+    const error = await screen.findByTestId('sql-result-preview-error-engine-load-failed');
+    expect(error.textContent).toContain('Run query again');
+
+    available = true;
+    await user.click(screen.getByTestId('sql-query-editor-run'));
+    await waitFor(() => {
+      expect(screen.getByTestId('sql-result-preview-table')).toBeTruthy();
+    });
+    // Mount-time schema probing can also instantiate the engine; the
+    // observable contract is that the second user Run succeeds in-place.
+    expect(factory.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('renames a query via double-click input', async () => {
     const user = userEvent.setup();
     render(<SqlWorkspacePanel />);

@@ -3794,7 +3794,7 @@
   "sqlWorkspace.response.tooLargeBand": "Mostrando {{shown}} de {{total}} filas",
   "sqlWorkspace.response.tooLargeHint": "La tabla y las acciones de copia usan esta previsualización truncada. Agrega LIMIT/OFFSET para revisar el resto.",
   "sqlWorkspace.response.engineLoadFailedBand": "No se pudo cargar el motor SQL",
-  "sqlWorkspace.response.engineLoadFailedHint": "Puede haber un problema de conexión o un bloqueo de red. Recarga la pestaña cuando vuelvas a estar en línea.",
+  "sqlWorkspace.response.engineLoadFailedHint": "Revisa la conexión o el bloqueo del archivo del motor y pulsa Ejecuta otra vez. No necesitas recargar la pestaña.",
   "sqlWorkspace.response.statementCount_one": "{{count}} sentencia ejecutada",
   "sqlWorkspace.response.statementCount_other": "{{count}} sentencias ejecutadas",
   "sqlWorkspace.response.rowCount_one": "{{count}} fila",
