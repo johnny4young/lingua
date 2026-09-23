@@ -54,6 +54,21 @@ test('the bilingual walkthrough covers error recovery and separates validation f
   assert.equal(example.result.stdout, '3\n');
 });
 
+test('getting started limits offline claims to bundled local runtimes', () => {
+  const enGuide = read('website/src/content/docs/en/getting-started.md');
+  const esGuide = read('website/src/content/docs/es/getting-started.md');
+  assert.doesNotMatch(enGuide, /Install it once and you have .*Go, and Rust ready/u);
+  assert.doesNotMatch(esGuide, /Lo instalas una vez y tienes .*Go y Rust listos/u);
+  assert.doesNotMatch(enGuide, /Lingua does not need a network connection to run code on the desktop build/u);
+  assert.doesNotMatch(esGuide, /Lingua no necesita conexión para ejecutar código en el build desktop/u);
+  assert.match(enGuide, /## What works offline/u);
+  assert.match(esGuide, /## Qué funciona sin conexión/u);
+  for (const guide of [enGuide, esGuide]) {
+    assert.match(guide, /HTTP/u);
+    assert.match(guide, /Go\/Rust|Go and Rust|Go y Rust/u);
+  }
+});
+
 test('pilot protocol requires consent and records blockers without collecting code or paths', () => {
   const script = read('docs/runbooks/evidence-journey-pilot.md');
   assert.match(script, /consent/u);

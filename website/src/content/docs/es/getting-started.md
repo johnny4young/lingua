@@ -1,11 +1,13 @@
 ---
 title: Primeros pasos
-description: Instala Lingua, ejecuta tu primer snippet en seis lenguajes y encuentra los atajos que hacen rápido el flujo.
+description: Instala Lingua, ejecuta un primer snippet y conoce qué lenguajes necesitan toolchains locales.
 order: 1
 section: guide
 ---
 
-Lingua es un runner de código multi-lenguaje pensado primero para desktop. Lo instalas una vez y tienes JavaScript, TypeScript, Python, Ruby, Go y Rust listos en una sola ventana con Monaco.
+Lingua es un runner de código multilenguaje pensado primero para escritorio.
+JavaScript, TypeScript, Python y Ruby vienen incluidos en una ventana con
+Monaco. Para ejecutar Go y Rust necesitas sus toolchains locales por separado.
 
 ## Descargar
 
@@ -68,9 +70,16 @@ Unos pocos atajos para que Lingua desaparezca del camino:
 
 Vim mode es opt-in: actívalo en Settings → Editor.
 
-## Offline por defecto
+## Qué funciona sin conexión
 
-Lingua no necesita conexión para ejecutar código en el build desktop. Pyodide y Ruby WASM vienen dentro del binario, y Go/Rust usan tu toolchain local. La telemetría está desactivada por defecto; actívala desde Settings si quieres ayudar a mejorar la app.
+Después de instalarla, la app de escritorio puede ejecutar snippets locales
+con los runtimes incluidos de JavaScript, TypeScript, Python y Ruby sin hacer
+solicitudes de red. Go y Rust usan toolchains locales aparte; instalarlas o
+descargar dependencias del proyecto puede requerir conexión. En el navegador
+necesitas una primera carga en línea y los recursos necesarios en caché para
+trabajar luego sin conexión. Funciones como las solicitudes HTTP y la IA remota
+contactan servicios externos de forma intencional. La telemetría está
+desactivada por defecto; puedes activarla desde Configuración.
 
 ## Siguientes pasos
 
