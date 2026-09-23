@@ -102,23 +102,30 @@ async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal):
   GoDetectResult & { timedOut?: boolean }
 > {
   const cacheable = userEnv === undefined;
-  if (signal?.aborted) return { installed: false };
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedGoDetect) return cachedGoDetect;
   const env = resolveGoToolchainEnv(userEnv);
   const outputs: string[] = [];
   for (const args of [['version'], ['env', 'GOROOT']]) {
-    if (signal?.aborted) return { installed: false };
+    if (signal?.aborted) return { installed: false, reason: 'check-failed' };
     const probe = await spawnNativeRun({
       command: 'go', args, env, signal, timeoutMs: 5_000, killEscalationMs: 200,
       maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
       stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
       stderrTruncationMarker: COMPILE_TRUNCATION_MARKER,
     });
-    if (signal?.aborted || probe.killed) return { installed: false };
-    if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) return {
-      installed: false, timedOut: probe.timedOut,
-      error: 'Go is not installed. Install it from https://go.dev/dl/',
-    };
+    if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+    if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
+      const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
+      return {
+        installed: false,
+        reason: missing ? 'missing' : 'check-failed',
+        timedOut: probe.timedOut,
+        error: missing
+          ? 'Go is not installed. Install it from https://go.dev/dl/'
+          : 'Go toolchain check failed. Retry detection or inspect your local Go installation.',
+      };
+    }
     outputs.push(probe.stdout.trim());
   }
   const result: GoDetectResult = { installed: true, version: outputs[0], goRoot: outputs[1] };
@@ -222,7 +229,7 @@ function validRunId(value: unknown): value is string {
 /** Validate wire values before probing, allocating files or spawning. */
 export function registerGoHandlers(): void {
   typedHandle('go:detect', async (event, userEnv?: unknown) => {
-    if (userEnv !== undefined && !stringMap(userEnv)) return { installed: false, error: 'Invalid Go environment.' };
+    if (userEnv !== undefined && !stringMap(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Go environment.' };
     const lifecycle = createNativeRunLifecycle(event.sender);
     try { return await detectGo(userEnv, lifecycle.controller.signal); }
     finally { lifecycle.release(); }

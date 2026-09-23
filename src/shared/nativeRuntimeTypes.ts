@@ -8,6 +8,8 @@
 
 export interface GoDetectResult {
   installed: boolean;
+  /** Missing executable versus a probe that could not establish availability. */
+  reason?: 'missing' | 'check-failed';
   version?: string;
   goRoot?: string;
   error?: string;
@@ -25,6 +27,8 @@ export interface GoCompileResult {
 
 export interface RustDetectResult {
   installed: boolean;
+  /** Missing executable versus a probe that could not establish availability. */
+  reason?: 'missing' | 'check-failed';
   version?: string;
   error?: string;
 }

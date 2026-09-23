@@ -192,10 +192,18 @@ auto-derived — do not edit by hand.
 - **Web build degrades honestly** with the stub in `src/web/adapter.ts`.
   Do not promise Go execution in pure-web without a browser-side compiler
   (not viable today).
+- **Local readiness is distinct from platform and tier.** Desktop menus and
+  the palette probe the Go toolchain on demand; `ENOENT` means missing, while
+  a timeout or failed version/root probe means the check failed. The editor
+  still opens; running a missing toolchain offers install/retry guidance.
+  Passive probes receive only toolchain-discovery env keys, not project secrets.
 
 ### Rust
 - **Desktop native stays Primary.** `rustc` is needed for compile, and the
   toolchain is too heavy to ship as a WASM blob.
+- **Local readiness uses the same distinction as Go.** Desktop surfaces probe
+  `rustc` on demand, without claiming a timeout or nonzero probe is an absent
+  binary. Web keeps its Desktop-only boundary and never probes the host.
 - **Browser WASM compile-and-run** (via `rustc`'s wasm backend or similar)
   is a Future-priority experiment, not a current migration target.
 

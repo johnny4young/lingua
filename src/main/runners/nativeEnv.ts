@@ -10,72 +10,25 @@
  * overrides (e.g. `GOOS=js` / `GOARCH=wasm` for Go) last so user env
  * cannot shadow them.
  *
- * The toolchain-key allowlists are intentionally tight in v1 — if a
- * smoke run on a real host fails because we omitted a key the
- * toolchain needs, add it here explicitly with a comment naming the
- * smoke. Widening on guesswork defeats the leakage defense.
+ * The toolchain-key allowlists in shared/nativeToolchainEnvKeys are
+ * intentionally tight. If a real-host smoke proves a missing key,
+ * add it there with the evidence. Widening on guesswork defeats the
+ * leakage defense and also changes passive renderer probes.
  */
 
-/**
- * Common host-env keys both toolchains need. Lean on purpose:
- *  - PATH lets the toolchain find its own binaries (linker, etc.).
- *  - HOME anchors the per-user toolchain caches (.cargo, .cache/go-build).
- *  - LANG ensures rustc emits UTF-8 diagnostics on locales like POSIX.
- *  - TMPDIR keeps mkdtemp colocated with the user's preferred tmp root.
- *
- * Windows essentials are listed separately and only added when the
- * platform check matches; on POSIX they would all be undefined and
- * dropped by the resolver anyway, but listing them for the wrong
- * platform makes the array harder to audit.
- */
-export const COMMON_TOOLCHAIN_KEYS = ['PATH', 'HOME', 'LANG', 'TMPDIR'] as const;
+import {
+  COMMON_TOOLCHAIN_KEYS,
+  WINDOWS_TOOLCHAIN_KEYS,
+} from '../../shared/nativeToolchainEnvKeys';
 
-/**
- * Windows-specific host-env keys. cmd.exe and the rust/go toolchains
- * derive a lot of behavior from these — without them, even the binary
- * lookup tends to fail.
- */
-export const WINDOWS_TOOLCHAIN_KEYS = [
-  'SYSTEMROOT',
-  'USERPROFILE',
-  'PATHEXT',
-  'COMSPEC',
-] as const;
-
-/**
- * Go-specific host-env keys. GOROOT / GOPATH / GOMODCACHE / GOCACHE /
- * GOTMPDIR cover the toolchain's own cache locations. `GOPROXY` /
- * `GOSUMDB` / `GOFLAGS` / `GOTOOLCHAIN` are intentionally NOT here in
- * v1 — Lingua's hello-world workflow does not fetch external modules,
- * and shipping them silently to the toolchain widens the leak surface.
- * Reintroduce one at a time only when a real smoke breaks without it.
- */
-export const GO_TOOLCHAIN_KEYS = [
-  'GOROOT',
-  'GOPATH',
-  'GOMODCACHE',
-  'GOCACHE',
-  'GOTMPDIR',
-] as const;
-
-/**
- * Rust-specific host-env keys. CARGO_HOME / RUSTUP_HOME / RUSTC /
- * CARGO cover toolchain discovery and cache locations.
- * RUSTUP_TOOLCHAIN selects which installed toolchain rustup invokes
- * (stable / nightly / etc.) — it's a toolchain-selection key, NOT a
- * user output flag, so it belongs in the allowlist alongside
- * RUSTUP_HOME. RUSTFLAGS / RUST_BACKTRACE / RUST_LOG remain excluded
- * because they are user-controllable settings that belong in
- * internal's user env tier (where the user explicitly opts in), not
- * silently leaked from the host.
- */
-export const RUST_TOOLCHAIN_KEYS = [
-  'CARGO_HOME',
-  'RUSTUP_HOME',
-  'RUSTUP_TOOLCHAIN',
-  'RUSTC',
-  'CARGO',
-] as const;
+// Preserve the established main imports; the pure shared source also lets
+// renderer previews use the exact same audited discovery key lists.
+export {
+  COMMON_TOOLCHAIN_KEYS,
+  WINDOWS_TOOLCHAIN_KEYS,
+  GO_TOOLCHAIN_KEYS,
+  RUST_TOOLCHAIN_KEYS,
+} from '../../shared/nativeToolchainEnvKeys';
 
 /**
  * Rust debugger-only discovery keys. LLDB_DAP selects an explicit adapter,

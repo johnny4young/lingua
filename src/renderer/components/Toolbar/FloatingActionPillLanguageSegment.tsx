@@ -12,6 +12,11 @@ import { languageCapabilityBadgeKey, languageBadgeTone, languageLabel } from '..
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
+import { useNativeLanguageToolchainAvailability } from '../../hooks/useNativeLanguageToolchainAvailability';
+import {
+  isNativeLanguageToolchain,
+  nativeLanguageToolchainHintKey,
+} from '../../utils/nativeLanguageToolchainStatus';
 import { Kbd } from '../ui/chrome';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
@@ -77,6 +82,7 @@ export function FloatingActionPillLanguageSegment({
   addNotebookTab,
 }: LanguageSegmentProps) {
   const { t } = useTranslation();
+  const toolchains = useNativeLanguageToolchainAvailability(openMenu === 'lang' && !isWebBuild);
   return (
     <div className="relative inline-flex items-stretch">
       <button
@@ -99,6 +105,9 @@ export function FloatingActionPillLanguageSegment({
             const isDesktopOnly =
               isWebBuild &&
               languageCapabilityBadgeKey(lang) === 'language.capability.desktopOnly';
+            const toolchainHint = !isWebBuild && isNativeLanguageToolchain(lang)
+              ? t(nativeLanguageToolchainHintKey(toolchains[lang]), { toolchain: languageLabel(lang) })
+              : null;
             return (
               <button
                 key={lang}
@@ -108,7 +117,10 @@ export function FloatingActionPillLanguageSegment({
                 onClick={() => onPickLanguage(lang)}
               >
                 <LanguageChip language={lang} size="menu" />
-                <span className="row-label self-center">{languageLabel(lang)}</span>
+                <span className="row-label flex flex-col justify-center">
+                  <span>{languageLabel(lang)}</span>
+                  {toolchainHint ? <span className="text-caption font-normal text-muted">{toolchainHint}</span> : null}
+                </span>
                 <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
                   {isPro ? (
                     <MonoBadge tone="accent">{t('actionPill.badgePro')}</MonoBadge>

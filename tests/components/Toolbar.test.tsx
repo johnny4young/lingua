@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
@@ -450,6 +450,29 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('toolbar-new-file-capability-typescript')).toBeNull();
     expect(screen.queryByTestId('toolbar-new-file-capability-python')).toBeNull();
     expect(screen.queryByTestId('toolbar-new-file-capability-ruby')).toBeNull();
+  });
+
+  it('reports local Go and Rust detection in the fallback desktop language menu', async () => {
+    const originalLingua = window.lingua;
+    const goDetect = vi.fn().mockResolvedValue({ installed: false, reason: 'missing' });
+    const rustDetect = vi.fn().mockResolvedValue({ installed: true });
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'darwin', go: { detect: goDetect }, rust: { detect: rustDetect } },
+    });
+    try {
+      const user = userEvent.setup();
+      render(<Toolbar />);
+      await user.click(screen.getByRole('button', { name: 'New file language menu' }));
+      await waitFor(() => {
+        expect(screen.getByRole('menuitem', { name: /^Go/ }).textContent).toContain('Install Go to run');
+        expect(screen.getByRole('menuitem', { name: /^Rust/ }).textContent).toContain('Local toolchain ready');
+      });
+      await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
+      expect(mockAddTab).toHaveBeenCalledWith(expect.objectContaining({ language: 'go' }));
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
   });
 
   it('disables the Run button and shows the desktop-only tooltip when Go is active on the web build ', async () => {

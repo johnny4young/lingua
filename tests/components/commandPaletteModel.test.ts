@@ -8,6 +8,27 @@ import {
 } from '../../src/renderer/components/CommandPalette/commandPaletteModel';
 
 describe('buildCommandPaletteModel', () => {
+  it('labels Go and Rust templates with the actual platform or local toolchain boundary', () => {
+    const go = BUILT_IN_TEMPLATES.find(template => template.language === 'go');
+    const rust = BUILT_IN_TEMPLATES.find(template => template.language === 'rust');
+    expect(go && rust).toBeTruthy();
+    const base = {
+      templates: [go!, rust!], snippets: [], createTab: vi.fn(),
+      createDefaultTab: vi.fn().mockImplementation((language: string) => ({
+        id: language, name: language, language, content: '', isDirty: false,
+      })),
+      onClose: vi.fn(), t: i18next.t.bind(i18next),
+    };
+    const desktop = buildCommandPaletteModel({
+      ...base, isWebBuild: false,
+      nativeLanguageToolchainAvailability: { go: 'missing', rust: 'installed' },
+    });
+    expect(desktop.find(command => command.id === `tpl-${go!.id}`)?.description).toContain('Install Go to run');
+    expect(desktop.find(command => command.id === `tpl-${rust!.id}`)?.description).toContain('Local toolchain ready');
+    const web = buildCommandPaletteModel({ ...base, isWebBuild: true });
+    expect(web.find(command => command.id === `tpl-${go!.id}`)?.description).toContain('Desktop only');
+  });
+
   it('keeps selection transfers discoverable but disabled without an explicit selection', () => {
     const base = {
       templates: [], snippets: [], activeTab: {

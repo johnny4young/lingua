@@ -1,0 +1,26 @@
+/**
+ * Toolchain-discovery environment keys shared by main's host allowlist and
+ * renderer's passive availability probes. Keep only keys needed to locate or
+ * initialize a compiler; arbitrary user env belongs to explicit Run, not a
+ * menu opening that can spawn an external binary.
+ */
+/** PATH finds binaries, HOME anchors caches, LANG keeps UTF-8 diagnostics,
+ * and TMPDIR keeps temporary files under the user's chosen root. */
+export const COMMON_TOOLCHAIN_KEYS = ['PATH', 'HOME', 'LANG', 'TMPDIR'] as const;
+
+/** Windows shell and binary lookup need these host keys. */
+export const WINDOWS_TOOLCHAIN_KEYS = [
+  'SYSTEMROOT', 'USERPROFILE', 'PATHEXT', 'COMSPEC',
+] as const;
+
+/** Cache and installation locations only. GOPROXY, GOSUMDB, GOFLAGS and
+ * GOTOOLCHAIN are not silently inherited by passive probes. */
+export const GO_TOOLCHAIN_KEYS = [
+  'GOROOT', 'GOPATH', 'GOMODCACHE', 'GOCACHE', 'GOTMPDIR',
+] as const;
+
+/** rustup/cache selection only. RUSTFLAGS, RUST_BACKTRACE and RUST_LOG belong
+ * to explicit user execution rather than passive discovery. */
+export const RUST_TOOLCHAIN_KEYS = [
+  'CARGO_HOME', 'RUSTUP_HOME', 'RUSTUP_TOOLCHAIN', 'RUSTC', 'CARGO',
+] as const;

@@ -22,15 +22,20 @@ export class RustRunner implements LanguageRunner {
   private ready = false;
   private cancelInFlight: (() => void) | null = null;
   private rustInstalled = false;
+  private detectFailure = false;
 
   async init(): Promise<void> {
     const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
     this.rustInstalled = result.installed;
+    this.detectFailure = result.reason === 'check-failed';
     this.ready = true;
 
     if (!result.installed) {
-      this.pushMissingToolchainNotice();
-      throw new Error(result.error ?? 'Rust is not installed.');
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
+      throw new Error(t(
+        this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+        { toolchain: 'Rust' }
+      ));
     }
   }
 
@@ -38,7 +43,8 @@ export class RustRunner implements LanguageRunner {
     pushMissingNativeToolchainNotice('rust', async () => {
       const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
       this.rustInstalled = result.installed;
-      return result.installed;
+      this.detectFailure = result.reason === 'check-failed';
+      return result.reason === 'check-failed' ? 'check-failed' : result.installed;
     });
   }
 
@@ -49,14 +55,17 @@ export class RustRunner implements LanguageRunner {
   async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
     this.stop();
     if (!this.rustInstalled) {
-      this.pushMissingToolchainNotice();
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
         error: {
-          message: 'Rust is not installed on this system.',
+          message: t(
+            this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+            { toolchain: 'Rust' }
+          ),
         },
       };
     }

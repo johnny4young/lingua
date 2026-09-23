@@ -6,6 +6,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
+import { useNativeLanguageToolchainAvailability } from '../../hooks/useNativeLanguageToolchainAvailability';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
@@ -100,6 +101,7 @@ export function useCommandPaletteCommands({
   const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const { availability: nativeRuntimeAvailability, recoverMissing: onMissingNativeRuntime } =
     useNativeJsRuntimeAvailability(activeRuntimeMode !== null && !isWebBuild);
+  const nativeLanguageToolchainAvailability = useNativeLanguageToolchainAvailability(!isWebBuild);
   const activeWorkflowMode = activeTab
     ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : null;
@@ -393,6 +395,7 @@ export function useCommandPaletteCommands({
           : undefined,
       isWebBuild,
       nativeRuntimeAvailability,
+      nativeLanguageToolchainAvailability,
       onMissingNativeRuntime,
       activeRuntimeMode,
       // implementation note — read the editor's current line text,
@@ -709,6 +712,7 @@ export function useCommandPaletteCommands({
     activeRuntimeMode,
     isWebBuild,
     nativeRuntimeAvailability,
+    nativeLanguageToolchainAvailability,
     onMissingNativeRuntime,
     activeTimeoutLanguage,
     setTabRuntimeMode,

@@ -85,9 +85,9 @@ describe('native toolchain guidance', () => {
   });
 
   it.each([
-    ['the toolchain remains missing', () => Promise.resolve(false)],
-    ['detection rejects', () => Promise.reject(new Error('probe failed'))],
-  ])('keeps both recovery actions when %s', async (_case, retryResult) => {
+    ['the toolchain remains missing', () => Promise.resolve(false), 'nativeToolchain.retry.stillMissing'],
+    ['detection rejects', () => Promise.reject(new Error('probe failed')), 'nativeToolchain.retry.checkFailed'],
+  ])('keeps both recovery actions when %s', async (_case, retryResult, messageKey) => {
     const retry = vi.fn(retryResult);
     pushMissingNativeToolchainNotice('go', retry);
 
@@ -100,7 +100,7 @@ describe('native toolchain guidance', () => {
       expect(useUIStore.getState().statusNotice).toMatchObject({
         tone: 'warning',
         priority: 'high',
-        messageKey: 'nativeToolchain.retry.stillMissing',
+        messageKey,
         values: { toolchain: 'Go' },
         actions: [
           { labelKey: 'nativeToolchain.action.install' },

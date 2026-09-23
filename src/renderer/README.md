@@ -76,6 +76,13 @@ only while their surfaces are open. A known-missing binary leads to the shared
 install/retry notice instead of changing modes; an unverified or failed probe
 does not masquerade as a confirmed missing installation. Web continues to show
 the separate Desktop-only boundary without probing the host.
+Desktop language menus and the palette likewise probe Go and Rust only while
+open. They distinguish a confirmed missing executable from a failed check;
+creating an editor tab remains possible without the compiler, while Run owns
+the localized recovery/error path. These passive probes forward only toolchain
+discovery selectors, never unrelated project secrets or code-loading flags;
+explicit Run keeps the user's full configured environment. Web never probes
+the host toolchains.
 Copy reference and Copy with context are Free actions on the main Monaco editor,
 the modified side of the Git diff, and the command palette. They require an
 explicit nonempty selection and read only that Monaco range. Metadata uses the

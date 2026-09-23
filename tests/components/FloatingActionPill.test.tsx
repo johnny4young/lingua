@@ -446,6 +446,35 @@ describe('FloatingActionPill', () => {
     }
   });
 
+  it('shows Go and Rust toolchain state in the desktop language menu without blocking editing', async () => {
+    const originalLingua = window.lingua;
+    const goDetect = vi.fn().mockResolvedValue({ installed: false, reason: 'missing' });
+    const rustDetect = vi.fn().mockResolvedValue({ installed: true });
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        platform: 'darwin',
+        go: { detect: goDetect },
+        rust: { detect: rustDetect },
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-lang'));
+      const menu = screen.getByRole('menu');
+      await waitFor(() => {
+        expect(within(menu).getByRole('menuitem', { name: /Go/ }).textContent).toContain('Install Go to run');
+        expect(within(menu).getByRole('menuitem', { name: /Rust/ }).textContent).toContain('Local toolchain ready');
+      });
+      expect(goDetect).toHaveBeenCalledWith(expect.any(Object));
+      await user.click(within(menu).getByRole('menuitem', { name: /Go/ }));
+      expect(useEditorStore.getState().tabs.some(tab => tab.language === 'go')).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
+  });
+
   it('explains desktop runtimes on web and blocks their selection', async () => {
     const originalLingua = window.lingua;
     Object.defineProperty(window, 'lingua', {

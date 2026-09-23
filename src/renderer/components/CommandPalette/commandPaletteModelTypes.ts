@@ -18,6 +18,7 @@ import type {
   NativeJsRuntimeAvailability,
   NativeJsRuntimeMode,
 } from '../../utils/nativeJsRuntimeStatus';
+import type { NativeLanguageToolchainAvailability } from '../../utils/nativeLanguageToolchainStatus';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -187,6 +188,8 @@ export interface BuildCommandPaletteModelArgs {
   onSetRuntimeMode?: (mode: RuntimeMode) => void;
   /** Desktop-only detection state while the palette is open. */
   nativeRuntimeAvailability?: NativeJsRuntimeAvailability;
+  /** Desktop Go/Rust detection state while the palette is open. */
+  nativeLanguageToolchainAvailability?: NativeLanguageToolchainAvailability;
   /** Do not switch into a known-missing mode; surface its install/retry path. */
   onMissingNativeRuntime?: (mode: NativeJsRuntimeMode) => void;
   /** Show an explicit Desktop-only explanation instead of a runnable promise. */

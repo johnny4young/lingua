@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import i18next from 'i18next';
 
 // Mock window.lingua for IPC calls
 const mockDetect = vi.fn();
@@ -73,6 +74,27 @@ describe('RustRunner', () => {
       tone: 'warning',
       values: { toolchain: 'Rust' },
     });
+  });
+
+  it('does not offer installation after a failed Rust probe', async () => {
+    mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Rust check timed out' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Rust');
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
+  });
+
+  it('explains a failed Rust check in Spanish without prescribing installation', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Rust check timed out' });
+      const runner = new RustRunner();
+      await expect(runner.init()).rejects.toThrow('No se pudo comprobar Rust');
+      const result = await runner.execute('fn main() {}');
+      expect(result.error?.message).toContain('No se pudo comprobar Rust');
+      expect(result.error?.message).not.toContain('Instala');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('should return error result when Rust is not installed and execute is called', async () => {
