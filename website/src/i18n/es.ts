@@ -57,11 +57,16 @@ export const es = {
   home: {
     title: 'Lingua — runner multi-lenguaje para tu escritorio',
     hero: {
-      eyebrow: 'Runner multi-lenguaje · Desktop y web',
-      headline: ['Ejecuta JS, TS, Python,', 'Ruby, Go y Rust', 'en'],
-      headlineSuffix: 'una sola',
-      headlineEnd: 'ventana Monaco.',
-      lede: 'Lingua es el playground que usan developers senior cuando quieren probar un script de 10 líneas en seis lenguajes sin crear un proyecto. Desktop-first, source-available y claro sobre qué corre en cada entorno.',
+      eyebrow: 'Del fragmento a la evidencia reproducible',
+      headline: ['Ejecuta código.', 'Detecta el error.', 'Comparte'],
+      headlineSuffix: 'la',
+      headlineEnd: 'evidencia.',
+      lede: 'Prueba una idea sin crear un proyecto. Revisa el resultado y los errores; después entrega una ejecución revisada en un archivo que puedes validar antes de reproducir. El navegador y la app de escritorio tienen límites distintos.',
+      demoLink: 'Sigue la demo reproducible',
+      availabilityLabel: 'Qué funciona en cada edición',
+      browserAvailability: 'Navegador · JS, TS, Python y Ruby en Free; sin Go ni Rust del equipo.',
+      desktopAvailability: 'Escritorio · Go y Rust requieren toolchains locales y una licencia de pago.',
+      capsuleAvailability: 'Cápsulas · exporta la última ejecución en Free; el historial ampliado es de pago.',
       proofLabel: 'Datos del producto Lingua',
       proof: [
         { value: '6', label: 'lenguajes ejecutables' },
@@ -106,7 +111,7 @@ export const es = {
         {
           icon: 'shield-check',
           title: 'Telemetría desactivada por defecto',
-          body: 'Nada sale de tu máquina hasta que das consentimiento. Nunca transmitimos tu código. La página de privacidad explica exactamente qué se recopila si la activas.',
+          body: 'La telemetría anónima permanece desactivada hasta que das consentimiento y excluye código y rutas de proyecto. Las solicitudes HTTP y la IA remota usan los endpoints que eliges; revisa sus payloads antes de enviarlos.',
         },
         {
           icon: 'git-compare',
@@ -344,9 +349,9 @@ export const es = {
       ],
     },
     privacyCallout: {
-      title: 'Telemetría desactivada por defecto. Nunca leemos tu código.',
+      title: 'Telemetría desactivada por defecto. Las acciones de red son explícitas.',
       bodyStart:
-        'Nada sale de tu máquina hasta que das consentimiento desde Settings. Si la activas, los payloads se limitan a eventos anónimos: sin código fuente ni rutas de proyecto. Lee la',
+        'La telemetría excluye código y rutas de proyecto. Las solicitudes HTTP y la IA remota envían a sus endpoints los payloads que eliges; revísalos antes de enviarlos. Lee la',
       link: 'página de privacidad',
       bodyEnd: 'para ver qué contiene cada evento.',
     },
@@ -445,7 +450,11 @@ export const es = {
       },
       {
         q: '¿Lingua funciona offline?',
-        a: 'En desktop, sí: completamente. Pyodide viene incluido en el binario, JavaScript y TypeScript corren en un Web Worker, y Go y Rust usan tus toolchains locales. La verificación de licencia es offline por diseño (tokens firmados con Ed25519). La versión web en <a href="https://app.linguacode.dev">app.linguacode.dev</a> necesita red en la primera carga; las siguientes ejecuciones quedan cacheadas.',
+        a: 'En escritorio, la edición y los runtimes incluidos de JS, TS, Python y Ruby funcionan offline; Go y Rust necesitan toolchains locales instaladas. Las licencias se verifican offline. La <a href="https://app.linguacode.dev">app web</a> necesita una primera carga con red; su service worker puede reutilizar recursos en caché, pero un recurso no almacenado o una nueva versión puede requerir conexión. Las solicitudes HTTP, la IA remota, el registro de prueba y otros servicios en línea necesitan red en ambas ediciones.',
+      },
+      {
+        q: '¿El servidor MCP local o la CLI pueden ejecutar mi código?',
+        a: 'El MCP local de escritorio expone herramientas acotadas de solo lectura del proyecto después de autorizar una raíz; nunca ejecuta código. La CLI independiente puede validar una cápsula sin ejecutarla. Sus comandos explícitos de replay y run sí ejecutan código confiable con tus permisos del sistema operativo. Consulta la <a href="/es/cli/ai-agents">guía de integración con agentes</a>.',
       },
       {
         q: '¿Puedo probar Pro antes de pagar?',

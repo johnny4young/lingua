@@ -23,6 +23,7 @@ planning is intentionally excluded from the published repository.
 - [`DEBUGGER.md`](./DEBUGGER.md) — current debugger behavior, validation, telemetry, and limitations.
 - [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md) — portable run-capture fixture and compatibility matrix.
 - [`examples/deterministic-run.capsule.json`](./examples/deterministic-run.capsule.json) — executable single-source Run Capsule for the app → CLI validation/replay walkthrough in [`CLI_USAGE.md`](./CLI_USAGE.md).
+- [`runbooks/evidence-journey-pilot.md`](./runbooks/evidence-journey-pilot.md) — consent-first moderator script for a future browser/desktop error-to-evidence pilot; not a claim that sessions ran.
 - [`CAPSULE_WORKSPACES.md`](./CAPSULE_WORKSPACES.md) — bounded multi-file sharing format, privacy boundary, limits, and viewer behavior.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.
 - [`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md) — local MCP threat model, consent boundary, read-only tools, and lifecycle.

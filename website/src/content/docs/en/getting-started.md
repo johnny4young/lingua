@@ -26,13 +26,14 @@ shasum -a 256 -c SHA256SUMS.txt
 Open Lingua. The editor opens on a fresh JavaScript tab. Try this:
 
 ```js
-const stars = await fetch('https://api.github.com/repos/johnny4young/lingua')
-  .then(r => r.json())
-  .then(j => j.stargazers_count);
-console.log(`stars: ${stars}`);
+const x = 1 + 2; console.log(x);
 ```
 
 Hit `Cmd/Ctrl+Enter`. The result panel updates inline.
+
+For an error-and-recovery exercise followed by a reviewed file handoff, follow
+the [reproducible run walkthrough](/docs/reproducible-run). This first example
+needs no network request.
 
 ## Switch language
 
