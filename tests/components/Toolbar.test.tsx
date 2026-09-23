@@ -615,6 +615,7 @@ describe('Toolbar', () => {
 
     await user.click(screen.getByRole('button', { name: 'New file language menu' }));
     expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');
+    expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('Desktop only');
 
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
 
@@ -673,7 +674,7 @@ describe('Toolbar', () => {
   // toolbar buttons removed (relocated to chrome / command palette).
   // Their tests moved to AppChrome.test.tsx / palette suites.
 
-  it('shows the Pro-only tooltip for Go on the Free tier before the desktop-only gate', async () => {
+  it('explains both requirements for Go on Free web without promising web execution', async () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     editorStoreState.tabs = [
       {
@@ -701,7 +702,7 @@ describe('Toolbar', () => {
 
       await user.hover(runBtn);
       expect(screen.getByRole('tooltip').textContent).toContain(
-        'This runtime is available in Lingua Pro.'
+        'This language needs both Lingua Desktop and Pro. Upgrading does not enable it in the web app.'
       );
     } finally {
       Object.defineProperty(window, 'lingua', {

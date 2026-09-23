@@ -12,6 +12,7 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 export type ExecutionControlDisabledReason =
   | 'desktop-only'
+  | 'desktop-and-pro'
   | 'no-enabled-breakpoint'
   | 'notebook'
   | 'pro-only'
@@ -64,19 +65,15 @@ export function resolveExecutionControlPolicy({
   const proLanguageGate =
     executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
   const desktopOnlyGate =
-    !proLanguageGate &&
     isWebBuild &&
     executionMode === 'run' &&
     languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
-  const sharedReason: ExecutionControlDisabledReason | null = isNotebookTab
-    ? 'notebook'
-    : proLanguageGate
-      ? 'pro-only'
-      : desktopOnlyGate
-        ? 'desktop-only'
-        : executionMode === 'view'
-          ? 'view-only'
-          : null;
+  let sharedReason: ExecutionControlDisabledReason | null = null;
+  if (isNotebookTab) sharedReason = 'notebook';
+  else if (desktopOnlyGate && proLanguageGate) sharedReason = 'desktop-and-pro';
+  else if (proLanguageGate) sharedReason = 'pro-only';
+  else if (desktopOnlyGate) sharedReason = 'desktop-only';
+  else if (executionMode === 'view') sharedReason = 'view-only';
   const supportsDebug = supportsWorkflowModeInShell(language, 'debug', isWebBuild);
   const debugReason =
     sharedReason ??
@@ -118,6 +115,7 @@ export function executionDisabledTooltipKey(
 ): string | undefined {
   if (reason === null) return undefined;
   if (reason === 'pro-only') return 'toolbar.run.proOnlyTooltip';
+  if (reason === 'desktop-and-pro') return 'toolbar.run.desktopAndProTooltip';
   if (reason === 'desktop-only') return 'toolbar.run.desktopOnlyTooltip';
   if (reason === 'view-only') return 'toolbar.viewOnly.title';
   if (reason === 'notebook') return 'notebook.notice.useNotebookToolbar';

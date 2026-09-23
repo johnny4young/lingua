@@ -259,6 +259,10 @@ orchestration:
 - The floating action pill's primary button switches its visible name,
   accessible name, and icon to Stop during a run; runtime download progress
   remains secondary text instead of hiding that action.
+- [`components/Toolbar/executionControlPolicy.ts`](components/Toolbar/executionControlPolicy.ts)
+  keeps platform and license gates independent. Web users see both requirements
+  for a paid desktop language rather than an upgrade message that implies web
+  execution becomes available after purchase; selectors keep the same cues.
 - [`hooks/manualRunControllerLoader.ts`](hooks/manualRunControllerLoader.ts)
   owns the retryable activation load. A rejected request is evicted so the next
   explicit Run action can recover.

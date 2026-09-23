@@ -146,10 +146,11 @@ describe('web license smoke', () => {
 
     await user.click(screen.getByRole('button', { name: 'New file language menu' }));
     expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');
+    expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('Desktop only');
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.desktopLanguageOnWeb');
     expect(screen.getByTestId('status-notice-banner').textContent).toContain(
-      'additional language runtimes'
+      'Running Go also requires Lingua Desktop'
     );
 
     await user.click(screen.getByTestId('execution-history-unlock'));
@@ -212,9 +213,10 @@ describe('web license smoke', () => {
 
     await user.click(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' }));
     expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');
+    expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('Solo escritorio');
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
     expect(screen.getByTestId('status-notice-banner').textContent).toContain(
-      'más runtimes de lenguaje'
+      'Ejecutar Go también requiere Lingua Desktop'
     );
   }, 10_000);
 

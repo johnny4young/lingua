@@ -109,13 +109,14 @@ export function FloatingActionPillLanguageSegment({
               >
                 <LanguageChip language={lang} size="menu" />
                 <span className="row-label self-center">{languageLabel(lang)}</span>
-                {isPro ? (
-                  <MonoBadge tone="accent">{t('actionPill.badgePro')}</MonoBadge>
-                ) : isDesktopOnly ? (
-                  <MonoBadge tone="accent">{t('language.capability.desktopOnly')}</MonoBadge>
-                ) : (
-                  <span />
-                )}
+                <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                  {isPro ? (
+                    <MonoBadge tone="accent">{t('actionPill.badgePro')}</MonoBadge>
+                  ) : null}
+                  {isDesktopOnly ? (
+                    <MonoBadge tone="accent">{t('language.capability.desktopOnly')}</MonoBadge>
+                  ) : null}
+                </span>
               </button>
             );
           })}

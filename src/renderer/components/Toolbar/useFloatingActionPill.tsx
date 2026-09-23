@@ -37,6 +37,7 @@ import { useDraggable } from '../../hooks/useDraggable';
 import type { RunHistoryEntry } from '../ui/primitives';
 import type { Language } from '../../types/language';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { languageCapabilityBadgeKey, languageLabel } from '../../utils/languageMeta';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
@@ -215,9 +216,14 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const handleLanguagePick = (lang: Language) => {
     setOpenMenu(null);
     if (!isLanguageAllowed(effectiveTier, lang)) {
+      const needsDesktop = isWebBuild && languageCapabilityBadgeKey(lang) !== null;
       pushUpsellNotice({
-        messageKey: 'upsell.freeCeilingReached',
-        featureLabel: t('upsell.feature.languagePack'),
+        messageKey: needsDesktop
+          ? 'upsell.desktopLanguageOnWeb'
+          : 'upsell.freeCeilingReached',
+        featureLabel: needsDesktop
+          ? languageLabel(lang)
+          : t('upsell.feature.languagePack'),
       });
       return;
     }

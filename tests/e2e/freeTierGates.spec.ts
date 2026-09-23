@@ -37,7 +37,7 @@ test.describe('Free tier gates', () => {
     await expectTier(page, 'FREE');
   });
 
-  test('action pill language menu labels Go/Rust as PRO and blocks selection', async ({ page }) => {
+  test('action pill explains both Go/Rust gates and blocks Free web selection', async ({ page }) => {
     await page.getByTestId('action-pill-lang').click();
 
     const goItem = page.getByRole('menuitem', { name: /^Go/ });
@@ -45,11 +45,58 @@ test.describe('Free tier gates', () => {
 
     await expect(goItem).toContainText('PRO');
     await expect(rustItem).toContainText('PRO');
+    await expect(goItem).toContainText('Desktop only');
+    await expect(rustItem).toContainText('Desktop only');
+    const proBadge = await goItem.getByText('PRO', { exact: true }).boundingBox();
+    const desktopBadge = await goItem.getByText('Desktop only', { exact: true }).boundingBox();
+    expect(proBadge).not.toBeNull();
+    expect(desktopBadge).not.toBeNull();
+    expect(Math.abs(
+      (proBadge?.y ?? 0) + (proBadge?.height ?? 0) / 2 -
+      (desktopBadge?.y ?? 0) - (desktopBadge?.height ?? 0) / 2,
+    )).toBeLessThan(4);
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-capability-gates', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/product-capability-gates/free-web-language-menu-en.png',
+      });
+    }
 
     await goItem.click();
-    await expectNoticeContains(page, 'additional language runtimes');
+    await expectNoticeContains(page, 'Creating Go tabs requires Pro');
+    await expectNoticeContains(page, 'also requires Lingua Desktop');
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-capability-gates', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/product-capability-gates/free-web-go-en.png',
+      });
+    }
     // No Go tab should have been created — the ceiling check fires before
     // the editor store sees the addTab request.
+    await expect(page.getByRole('button', { name: /Go .*\.go/i })).toHaveCount(0);
+  });
+
+  test('Spanish paid desktop language notice keeps the web limit explicit', async ({ page }) => {
+    await openSettings(page);
+    await openSettingsTab(page, 'appearance');
+    await page.getByTestId('app-language-select').selectOption('es');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+    await closeSettings(page);
+
+    await page.getByTestId('action-pill-lang').click();
+    const goItem = page.getByRole('menuitem', { name: /^Go/ });
+    await expect(goItem).toContainText('PRO');
+    await expect(goItem).toContainText('Solo escritorio');
+    await goItem.click();
+    await expectNoticeContains(page, 'Crear pestañas de Go requiere Pro');
+    await expectNoticeContains(page, 'también requiere Lingua Desktop');
+    await expectNoticeContains(page, 'aplicación web');
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-capability-gates', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/product-capability-gates/free-web-go-es.png',
+      });
+    }
     await expect(page.getByRole('button', { name: /Go .*\.go/i })).toHaveCount(0);
   });
 
