@@ -1,6 +1,7 @@
 import { isWorkerRunnerLanguage } from '../../../../shared/languageFamilies';
 import { buildActionCommand } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
+import { nativeJsRuntimeHintKey, type NativeJsRuntimeMode } from '../../../utils/nativeJsRuntimeStatus';
 
 export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate }) => {
   const {
@@ -35,10 +36,27 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     setLayoutPreset,
     onOpenSnippets,
     onSetRuntimeMode,
+    nativeRuntimeAvailability,
+    onMissingNativeRuntime,
     isWebBuild = false,
     activeRuntimeMode = null,
     onClose,
   } = args;
+
+  const nativeRuntimeDescription = (mode: NativeJsRuntimeMode, readyKey: string) =>
+    translate(isWebBuild
+      ? 'runtimeMode.hint.desktopOnly'
+      : nativeRuntimeAvailability
+        ? nativeJsRuntimeHintKey(mode, nativeRuntimeAvailability[mode])
+        : readyKey);
+  const chooseNativeRuntime = (mode: NativeJsRuntimeMode) => {
+    if (nativeRuntimeAvailability?.[mode] === 'missing') {
+      onMissingNativeRuntime?.(mode);
+    } else {
+      onSetRuntimeMode?.(mode);
+    }
+    onClose();
+  };
 
   const commands: CommandEntry[] = [
     // implementation note — "Pin watch on current line". Only
@@ -453,14 +471,9 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-runtime-mode-node',
             translate('commandPalette.action.runtimeMode.node.label'),
-            translate(isWebBuild
-              ? 'runtimeMode.hint.desktopOnly'
-              : 'commandPalette.action.runtimeMode.node.description'),
+            nativeRuntimeDescription('node', 'commandPalette.action.runtimeMode.node.description'),
             ['runtime', 'mode', 'node', 'desktop', 'fs', 'path'],
-            () => {
-              onSetRuntimeMode('node');
-              onClose();
-            }
+            () => chooseNativeRuntime('node')
           ),
           buildActionCommand(
             'action-runtime-mode-browser-preview',
@@ -476,26 +489,16 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-runtime-mode-deno',
             translate('commandPalette.action.runtimeMode.deno.label'),
-            translate(isWebBuild
-              ? 'runtimeMode.hint.desktopOnly'
-              : 'commandPalette.action.runtimeMode.deno.description'),
+            nativeRuntimeDescription('deno', 'commandPalette.action.runtimeMode.deno.description'),
             ['runtime', 'mode', 'deno', 'desktop', 'ts', 'sandbox'],
-            () => {
-              onSetRuntimeMode('deno');
-              onClose();
-            }
+            () => chooseNativeRuntime('deno')
           ),
           buildActionCommand(
             'action-runtime-mode-bun',
             translate('commandPalette.action.runtimeMode.bun.label'),
-            translate(isWebBuild
-              ? 'runtimeMode.hint.desktopOnly'
-              : 'commandPalette.action.runtimeMode.bun.description'),
+            nativeRuntimeDescription('bun', 'commandPalette.action.runtimeMode.bun.description'),
             ['runtime', 'mode', 'bun', 'desktop', 'ts', 'fast'],
-            () => {
-              onSetRuntimeMode('bun');
-              onClose();
-            }
+            () => chooseNativeRuntime('bun')
           ),
         ] as CommandEntry[])
       : []),

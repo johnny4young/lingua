@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
@@ -94,6 +95,9 @@ export function useCommandPaletteCommands({
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability: nativeRuntimeAvailability, recoverMissing: onMissingNativeRuntime } =
+    useNativeJsRuntimeAvailability(activeRuntimeMode !== null && !isWebBuild);
   const activeWorkflowMode = activeTab
     ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : null;
@@ -378,7 +382,9 @@ export function useCommandPaletteCommands({
         activeRuntimeMode !== null && activeTabId
           ? mode => setTabRuntimeMode(activeTabId, mode)
           : undefined,
-      isWebBuild: typeof window !== 'undefined' && window.lingua?.platform === 'web',
+      isWebBuild,
+      nativeRuntimeAvailability,
+      onMissingNativeRuntime,
       activeRuntimeMode,
       // implementation note — read the editor's current line text,
       // delegate to the pure `appendWatchAtLine` helper, write the
@@ -691,6 +697,9 @@ export function useCommandPaletteCommands({
     showStatusBar,
     activeTabId,
     activeRuntimeMode,
+    isWebBuild,
+    nativeRuntimeAvailability,
+    onMissingNativeRuntime,
     activeTimeoutLanguage,
     setTabRuntimeMode,
     addTab,

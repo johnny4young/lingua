@@ -8,6 +8,33 @@ import {
 } from '../../src/renderer/components/CommandPalette/commandPaletteModel';
 
 describe('buildCommandPaletteModel', () => {
+  it('explains missing desktop runtimes and routes recovery without changing the mode', () => {
+    const onSetRuntimeMode = vi.fn();
+    const onMissingNativeRuntime = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      activeRuntimeMode: 'worker',
+      isWebBuild: false,
+      nativeRuntimeAvailability: { node: 'missing', deno: 'checking', bun: 'installed' },
+      onSetRuntimeMode,
+      onMissingNativeRuntime,
+      onClose,
+      t: i18next.t.bind(i18next),
+    });
+    const node = commands.find(command => command.id === 'action-runtime-mode-node');
+    const deno = commands.find(command => command.id === 'action-runtime-mode-deno');
+    const bun = commands.find(command => command.id === 'action-runtime-mode-bun');
+    expect(node?.description).toContain('Install Node.js');
+    expect(deno?.description).toContain('Checking');
+    expect(bun?.description).toContain('Bun');
+    node?.action();
+    expect(onMissingNativeRuntime).toHaveBeenCalledExactlyOnceWith('node');
+    expect(onSetRuntimeMode).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('surfaces the project terminal only when the desktop project action is wired', () => {
     const base = {
       templates: [],

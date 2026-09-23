@@ -417,6 +417,35 @@ describe('FloatingActionPill', () => {
     });
   });
 
+  it('marks a missing desktop binary and offers recovery instead of selecting it', async () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        platform: 'darwin',
+        openExternal: vi.fn().mockResolvedValue(true),
+        node: { detect: vi.fn().mockResolvedValue({ installed: false }) },
+        deno: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+        bun: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-runtime'));
+      const nodeOption = screen.getByTestId('action-pill-runtime-option-node');
+      await waitFor(() => expect(nodeOption.textContent).toContain('Install Node.js'));
+      await user.click(nodeOption);
+      expect(useEditorStore.getState().tabs[0]?.runtimeMode).toBeUndefined();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'nativeToolchain.missing.message',
+        values: { toolchain: 'Node.js' },
+      });
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
+  });
+
   it('explains desktop runtimes on web and blocks their selection', async () => {
     const originalLingua = window.lingua;
     Object.defineProperty(window, 'lingua', {

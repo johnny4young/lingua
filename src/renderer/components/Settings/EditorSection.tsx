@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { trackEvent } from '../../utils/telemetry';
+import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
   DEFAULT_FONT_FAMILY,
@@ -38,6 +40,9 @@ import {
 } from '../../../shared/browserPreviewRefresh';
 
 export function EditorSection() {
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability: nativeRuntimeAvailability, recoverMissing } =
+    useNativeJsRuntimeAvailability(!isWebBuild);
   const effectiveTier = useEffectiveTier();
   const canUseExtendedFonts = useEntitlement('FONT_PACK_EXTENDED');
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
@@ -296,14 +301,21 @@ export function EditorSection() {
           control={
             <Select
               value={defaultRuntimeMode}
-              onChange={(event) => setDefaultRuntimeMode(event.target.value as RuntimeMode)}
+              onChange={(event) => {
+                const mode = event.target.value as RuntimeMode;
+                if (isNativeJsRuntimeMode(mode) && nativeRuntimeAvailability[mode] === 'missing') {
+                  recoverMissing(mode);
+                  return;
+                }
+                setDefaultRuntimeMode(mode);
+              }}
               aria-label={t('runtimeMode.settings.title')}
               data-testid="settings-default-runtime-mode"
             >
               {RUNTIME_MODES.map((mode) => {
                 const enabled = isRuntimeModeSupportedInShell(
                   mode,
-                  typeof window !== 'undefined' && window.lingua?.platform === 'web',
+                  isWebBuild,
                 );
                 const labelKey =
                   mode === 'browser-preview'
@@ -311,19 +323,17 @@ export function EditorSection() {
                     : `runtimeMode.mode.${mode}`;
                 const hintKey = !enabled
                   ? 'runtimeMode.hint.desktopOnly'
-                  : mode === 'worker'
-                    ? 'runtimeMode.hint.worker'
-                    : mode === 'node'
-                      ? 'runtimeMode.hint.node.ready'
-                      : mode === 'deno'
-                        ? 'runtimeMode.hint.deno.ready'
-                        : mode === 'bun'
-                          ? 'runtimeMode.hint.bun.ready'
-                          : 'runtimeMode.hint.browserPreview.shipping';
+                  : isNativeJsRuntimeMode(mode)
+                    ? nativeJsRuntimeHintKey(mode, nativeRuntimeAvailability[mode])
+                    : mode === 'worker'
+                      ? 'runtimeMode.hint.worker'
+                      : 'runtimeMode.hint.browserPreview.shipping';
                 return (
                   <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
                     {t(labelKey)}
-                    {enabled ? '' : ` — ${t(hintKey)}`}
+                    {enabled && (!isNativeJsRuntimeMode(mode) || nativeRuntimeAvailability[mode] === 'installed')
+                      ? ''
+                      : ` — ${t(hintKey)}`}
                   </option>
                 );
               })}

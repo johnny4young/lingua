@@ -9,6 +9,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Globe, Package, Rabbit, Terminal, Zap } from 'lucide-react';
 import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../../shared/runtimeModes';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
+import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import { MonoBadge } from '../ui/primitives';
@@ -36,6 +38,9 @@ export function FloatingActionPillRuntimeSegment({
   setTabRuntimeMode,
 }: RuntimeSegmentProps) {
   const { t } = useTranslation();
+  const { availability, recoverMissing } = useNativeJsRuntimeAvailability(
+    openMenu === 'runtime' && !isWebBuild
+  );
   const runtimeItems: Array<{
     k: RuntimeMode;
     icon: ReactNode;
@@ -94,6 +99,16 @@ export function FloatingActionPillRuntimeSegment({
             {runtimeItems.map((item) => {
               const isActive = activeRuntimeMode === item.k;
               const available = isRuntimeModeSupportedInShell(item.k, isWebBuild);
+              const nativeStatus = isNativeJsRuntimeMode(item.k)
+                ? availability[item.k]
+                : null;
+              const description = !available
+                ? t('runtimeMode.hint.desktopOnly')
+                : nativeStatus !== null && isNativeJsRuntimeMode(item.k)
+                  ? nativeStatus === 'installed'
+                    ? item.desc
+                    : t(nativeJsRuntimeHintKey(item.k, nativeStatus))
+                  : item.desc;
               return (
                 <button
                   key={item.k}
@@ -107,6 +122,10 @@ export function FloatingActionPillRuntimeSegment({
                   onClick={() => {
                     if (!available) return;
                     setOpenMenu(null);
+                    if (nativeStatus === 'missing' && isNativeJsRuntimeMode(item.k)) {
+                      recoverMissing(item.k);
+                      return;
+                    }
                     // internal follow-up — when the user opens
                     // the Runtime picker without a tab, create
                     // one in the chip's current language and
@@ -121,7 +140,7 @@ export function FloatingActionPillRuntimeSegment({
                   <span>
                     <span className="row-label block">{item.label}</span>
                     <span className="row-desc block">
-                      {available ? item.desc : t('runtimeMode.hint.desktopOnly')}
+                      {description}
                     </span>
                   </span>
                   {isActive ? (

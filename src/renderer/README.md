@@ -71,6 +71,11 @@ Account settings explain plan access separately from platform and installed
 toolchains. The pricing link uses the existing `window.lingua.openExternal`
 bridge so Electron's navigation guard stays intact, and signing-key metadata
 stays behind a native disclosure rather than competing with activation.
+Desktop JS runtime pickers and the command palette probe Node, Deno and Bun
+only while their surfaces are open. A known-missing binary leads to the shared
+install/retry notice instead of changing modes; an unverified or failed probe
+does not masquerade as a confirmed missing installation. Web continues to show
+the separate Desktop-only boundary without probing the host.
 At effective widths below 760 CSS px, Settings moves the rail into a
 horizontally scrollable tablist and stacks spec-row controls beneath their
 labels; the selected panel remains the only mounted tabpanel. Keep tab focus,

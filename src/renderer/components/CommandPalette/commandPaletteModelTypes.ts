@@ -14,6 +14,10 @@ import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { LayoutPreset } from '../../types/settings';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
+import type {
+  NativeJsRuntimeAvailability,
+  NativeJsRuntimeMode,
+} from '../../utils/nativeJsRuntimeStatus';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -175,6 +179,10 @@ export interface BuildCommandPaletteModelArgs {
    * `runtime.mode_changed` telemetry.
    */
   onSetRuntimeMode?: (mode: RuntimeMode) => void;
+  /** Desktop-only detection state while the palette is open. */
+  nativeRuntimeAvailability?: NativeJsRuntimeAvailability;
+  /** Do not switch into a known-missing mode; surface its install/retry path. */
+  onMissingNativeRuntime?: (mode: NativeJsRuntimeMode) => void;
   /** Show an explicit Desktop-only explanation instead of a runnable promise. */
   isWebBuild?: boolean;
   /**

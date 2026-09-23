@@ -11,6 +11,8 @@ import {
 } from '../../../shared/runtimeModes';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
+import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 
 /**
  * implementation — explicit per-tab JS/TS runtime mode selector.
@@ -40,16 +42,11 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
   bun: 'runtimeMode.mode.bun',
 };
 
-const MODE_HINT_KEY: Record<RuntimeMode, string> = {
+const MODE_HINT_KEY: Record<'worker' | 'browser-preview', string> = {
   worker: 'runtimeMode.hint.worker',
-  // Desktop mode is wired; the runner reports missing Node at execution.
-  node: 'runtimeMode.hint.node.ready',
   // implementation — browser-preview is implemented now; use the
   // shipping copy instead of the implementation disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
-  // Their desktop runners report missing binaries at execution.
-  deno: 'runtimeMode.hint.deno.ready',
-  bun: 'runtimeMode.hint.bun.ready',
 };
 
 const MODE_ICON: Record<RuntimeMode, typeof Cpu> = {
@@ -68,6 +65,7 @@ export function RuntimeModeSelector() {
 
   const activeTab = useActiveTab();
   const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability, recoverMissing } = useNativeJsRuntimeAvailability(open && !isWebBuild);
 
   useEffect(() => {
     if (!open) return;
@@ -132,7 +130,9 @@ export function RuntimeModeSelector() {
             const selected = mode === currentMode;
             const labelKey = MODE_LABEL_KEY[mode];
             const hintKey = enabled
-              ? MODE_HINT_KEY[mode]
+              ? isNativeJsRuntimeMode(mode)
+                ? nativeJsRuntimeHintKey(mode, availability[mode])
+                : MODE_HINT_KEY[mode]
               : 'runtimeMode.hint.desktopOnly';
             return (
               <button
@@ -141,6 +141,11 @@ export function RuntimeModeSelector() {
                 type="button"
                 onClick={() => {
                   if (!enabled) return;
+                  if (isNativeJsRuntimeMode(mode) && availability[mode] === 'missing') {
+                    recoverMissing(mode);
+                    setOpen(false);
+                    return;
+                  }
                   setTabRuntimeMode(activeTab.id, mode);
                   setOpen(false);
                 }}

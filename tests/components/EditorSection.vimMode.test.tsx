@@ -7,8 +7,8 @@
  * to tuteo Spanish, and Free-tier still gates extended editor fonts.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { initI18n } from '@/i18n';
@@ -88,7 +88,7 @@ describe('EditorSection — Vim mode toggle', () => {
     expect(screen.getByRole('switch', { name: /Modo Vim/i })).toBeTruthy();
   });
 
-  it('shows Node as a ready default-runtime option', () => {
+  it('does not claim a runtime is ready when its detector is unavailable', async () => {
     render(<EditorSection />);
 
     const select = screen.getByTestId('settings-default-runtime-mode');
@@ -96,7 +96,38 @@ describe('EditorSection — Vim mode toggle', () => {
 
     expect(nodeOption).not.toBeNull();
     expect(nodeOption?.getAttribute('disabled')).toBeNull();
-    expect(nodeOption?.getAttribute('title')).toMatch(/desktop Node runtime/i);
+    await waitFor(() => expect(nodeOption?.getAttribute('title')).toMatch(/Could not check/i));
+  });
+
+  it('explains a missing binary and does not save it as the default mode', async () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        platform: 'darwin',
+        openExternal: vi.fn().mockResolvedValue(true),
+        node: { detect: vi.fn().mockResolvedValue({ installed: false }) },
+        deno: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+        bun: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      render(<EditorSection />);
+      const select = screen.getByTestId('settings-default-runtime-mode');
+      await waitFor(() => expect(select.querySelector('option[value="node"]')?.textContent)
+        .toContain('Install Node.js'));
+      const originalMode = useSettingsStore.getState().defaultRuntimeMode;
+      await user.selectOptions(select, 'node');
+      expect(useSettingsStore.getState().defaultRuntimeMode).toBe(originalMode);
+      expect((select as HTMLSelectElement).value).toBe(originalMode);
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'nativeToolchain.missing.message',
+        values: { toolchain: 'Node.js' },
+      });
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
   });
 
   it('blocks extended editor fonts on the Free tier', async () => {
