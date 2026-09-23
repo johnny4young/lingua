@@ -86,7 +86,8 @@ dependency/runtime assets, or public release evidence.
 provider and writes `text-summary`, `json-summary`, and `lcov` reports to
 `output/coverage/` (gitignored). The plain `pnpm test` stays uninstrumented so
 the everyday gate keeps its speed. Timing benches (`*.bench.test.ts`) are
-excluded from the instrumented run: V8 instrumentation adds overhead
+excluded per Vitest project only in the instrumented run: Vitest 5 does not
+forward root CLI `--exclude` to inline projects. V8 instrumentation adds overhead
 and can fail timing budgets for reasons unrelated to application behavior.
 The report measures root `src/**`, including untested source, but not the
 independently managed website or Workers projects. Their existing gates are
@@ -94,6 +95,14 @@ unchanged. The global thresholds in
 `vitest.config.mts` are a manually maintained ratchet. Initial floors use
 `Math.floor(measured percentage - 2)`: subtract two percentage points, then
 round down to an integer (at least two but less than three points of headroom).
+
+The root suite has two isolated Vitest projects. `node-operations` runs docs,
+scripts, main-process, CLI, IPC, and shared-module tests in Node without
+renderer-wide jsdom/i18n setup. `renderer-and-runtime` keeps jsdom and the
+existing setup for all other root tests. The configuration guard requires
+each root test to belong to exactly one project and keeps the independent
+website outside this suite. Both projects retain per-file isolation; ordinary
+tests still include timing benches, and CI runs project-template smoke separately.
 
 | Metric | Initial measurement | Initial floor |
 | --- | ---: | ---: |

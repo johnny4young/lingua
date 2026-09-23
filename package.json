@@ -48,7 +48,7 @@
     "changelog:draft": "node ./scripts/changelog-draft.mjs",
     "changelog:check": "node ./scripts/changelog-check.mjs",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --exclude \"**/*.bench.test.ts\"",
+    "test:coverage": "vitest run --coverage",
     "check:deadcode": "knip --treat-config-hints-as-errors",
     "check:deadcode:config": "node ./scripts/check-deadcode-package-boundaries.mjs",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
