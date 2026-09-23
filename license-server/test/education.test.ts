@@ -159,6 +159,14 @@ describe('POST /education/start', () => {
     expect((await hit('c', 'd3')).status).toBe(200);
     const fourth = await hit('d', 'd4');
     expect(fourth.status).toBe(429);
+    const body = (await fourth.json()) as { ok: boolean; reason: string; retryAfter: number };
+    expect(body).toMatchObject({ ok: false, reason: 'rate-limited' });
+    expect(body.retryAfter).toBeGreaterThan(0);
+    expect(env.__db.educationPending.size).toBe(3);
+    expect(
+      [...env.__db.educationPending.values()].some(row => row.email === 'd@stanford.edu')
+    ).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
   it('rejects a malformed email shape with invalid-input', async () => {

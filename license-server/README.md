@@ -45,6 +45,13 @@ return the JSON `not-found` shape rather than Hono's text fallback.
 - Lemon Squeezy webhooks require HMAC verification and D1-backed idempotency. There is no signed timestamp in the scheme, so the idempotent merchant-id lookups ARE the replay defense.
 - Trial, education, and recovery starts use KV rate limits. Email proof remains
   authoritative because KV is eventually consistent across PoPs.
+- A denied trial or education start returns `429` with `retryAfter` and must
+  create no license/pending row or email. The Worker tests exercise this
+  boundary with one IP and distinct email/device inputs. Shared-IP networks
+  can hit the same daily bucket; investigate a support report before changing
+  limits, and do not infer abuse solely from a single `429`. KV's cross-PoP
+  eventual consistency means these counters are abuse friction, not an
+  atomic entitlement or identity boundary.
 - Browser CORS is an explicit comma-separated allowlist. Production permits the
   marketing site at `https://linguacode.dev` and the web app at
   `https://app.linguacode.dev`; preview origins must be added deliberately.
