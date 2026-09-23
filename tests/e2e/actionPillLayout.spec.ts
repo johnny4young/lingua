@@ -1,13 +1,17 @@
 import {
   createAdditionalJavaScriptTab,
   createJavaScriptTab,
+  closeSettings,
   expect,
   gotoApp,
+  openSettings,
+  openSettingsTab,
   seedSession,
   test,
 } from './licenseWeb.helpers';
 
-for (const width of [1024, 1280, 1440]) {
+// Includes the effective CSS widths for 1024/1440px windows at 125% zoom.
+for (const width of [819, 1024, 1152, 1280, 1440]) {
   for (const language of ['en', 'es'] as const) {
     test(`action pill leaves editor tabs usable at ${width}px in ${language}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 768 });
@@ -90,6 +94,10 @@ for (const width of [512, 640, 720]) {
       expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
       await expect(page.getByTestId('action-pill-run')).toBeVisible();
       await expect(page.getByTestId('action-pill-quick-open')).toBeHidden();
+      if (width <= 600) {
+        await expect(page.getByTestId('action-pill-lang')).toHaveAttribute('aria-label', 'JavaScript');
+        await expect(page.locator('.action-pill-language-label')).toBeHidden();
+      }
 
       const overflow = page.getByTestId('action-pill-overflow');
       await expect(overflow).toHaveAttribute(
@@ -129,3 +137,49 @@ for (const width of [512, 640, 720]) {
     });
   }
 }
+
+test('restored and resized pill position clamps to its rendered width', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 768 });
+  await seedSession(page, { language: 'es' });
+  await gotoApp(page);
+  await createJavaScriptTab(page);
+  await page.evaluate(() => {
+    localStorage.setItem('lingua-ui:action-pill-pos:v4', JSON.stringify({ x: 850, y: 44 }));
+  });
+  await page.reload();
+
+  const pill = page.getByTestId('floating-action-pill');
+  await expect(pill).toBeVisible();
+  await expect.poll(async () => (await pill.boundingBox())?.x ?? -1).toBeGreaterThanOrEqual(8);
+  const restored = await pill.boundingBox();
+  if (!restored) throw new Error('Action pill is missing');
+  expect(restored.x + restored.width).toBeLessThanOrEqual(1432);
+
+  await openSettings(page);
+  await openSettingsTab(page, 'appearance');
+  await page.getByTestId('app-language-select').selectOption('en');
+  await closeSettings(page);
+  await expect
+    .poll(async () => {
+      const box = await pill.boundingBox();
+      return box ? box.x + box.width : Number.POSITIVE_INFINITY;
+    })
+    .toBeLessThanOrEqual(1432);
+
+  await page.getByTestId('action-pill-settings').focus();
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect
+    .poll(async () => {
+      const box = await pill.boundingBox();
+      return box ? box.x + box.width : Number.POSITIVE_INFINITY;
+    })
+    .toBeLessThanOrEqual(1016);
+  await expect(tooltip).toBeVisible();
+  const tooltipBox = await tooltip.boundingBox();
+  if (!tooltipBox) throw new Error('Settings tooltip is missing');
+  expect(tooltipBox.width).toBeGreaterThan(120);
+  expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(1016);
+  await page.screenshot({ path: test.info().outputPath('restored-reclamped-after-resize.png') });
+});

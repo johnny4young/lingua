@@ -146,10 +146,12 @@ export function useFloatingActionPill(t: (k: string) => string) {
     };
   }, [estimatedPillWidth]);
 
+  const pillRef = useRef<HTMLDivElement | null>(null);
   const { position, handleProps, isDragging } = useDraggable({
     storageKey: 'lingua-ui:action-pill-pos:v4',
     defaultPosition: actionPillPosition ?? defaultPos,
     size: { width: estimatedPillWidth, height: 42 },
+    elementRef: pillRef,
     viewportMargin: 8,
     resetSignal: floatingPositionsResetRevision,
   });
@@ -175,8 +177,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
     wasDraggingRef.current = false;
     setActionPillPosition(position);
   }, [isDragging, position, setActionPillPosition]);
-
-  const pillRef = useRef<HTMLDivElement | null>(null);
 
   // Close any open dropdown on outside click or Escape.
   useEffect(() => {

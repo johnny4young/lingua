@@ -14,9 +14,11 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type RefObject,
   type HTMLAttributes,
   type PointerEvent,
 } from 'react';
@@ -35,6 +37,8 @@ export interface UseDraggableOptions {
   viewportMargin?: number;
   /** Width/height hint used by the viewport clamp. Optional. */
   size?: { width: number; height: number };
+  /** Rendered surface; its measured size takes precedence over the hint. */
+  elementRef?: RefObject<HTMLElement | null>;
   /**
    * When the drag region is a whole card/surface, keep interactive
    * children clickable. Leave false for explicit handles, even when
@@ -105,6 +109,7 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
     defaultPosition,
     viewportMargin = 8,
     size,
+    elementRef,
     ignoreInteractiveChildren = false,
     resetSignal,
   } = opts;
@@ -131,7 +136,17 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
     | { pointerX: number; pointerY: number; posX: number; posY: number }
     | null
   >(null);
-  const resetSignalMountedRef = useRef(false);
+  const lastResetSignalRef = useRef(resetSignal);
+
+  const currentSize = useCallback(() => {
+    const element = elementRef?.current;
+    if (!element) return { width: sizeW, height: sizeH };
+    const bounds = element.getBoundingClientRect();
+    return {
+      width: bounds.width || sizeW,
+      height: bounds.height || sizeH,
+    };
+  }, [elementRef, sizeW, sizeH]);
 
   const persist = useCallback(
     (p: DraggablePosition) => {
@@ -147,37 +162,48 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
 
   const setPosition = useCallback(
     (p: DraggablePosition) => {
-      const clamped = clampToViewport(p, { width: sizeW, height: sizeH }, viewportMargin);
+      const clamped = clampToViewport(p, currentSize(), viewportMargin);
       setPositionState(clamped);
       persist(clamped);
     },
-    [persist, sizeW, sizeH, viewportMargin],
+    [currentSize, persist, viewportMargin],
   );
 
   const reset = useCallback(() => {
     setPosition({ x: defaultX, y: defaultY });
   }, [defaultX, defaultY, setPosition]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
-    const onResize = () => {
-      setPositionState((p) => clampToViewport(p, { width: sizeW, height: sizeH }, viewportMargin));
+    const reclamp = () => {
+      setPositionState((p) => {
+        const next = clampToViewport(p, currentSize(), viewportMargin);
+        return next.x === p.x && next.y === p.y ? p : next;
+      });
     };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [sizeW, sizeH, viewportMargin]);
+    reclamp();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reclamp);
+    if (elementRef?.current) observer?.observe(elementRef.current);
+    window.addEventListener('resize', reclamp);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', reclamp);
+    };
+  }, [currentSize, elementRef, viewportMargin]);
 
   useEffect(() => {
-    if (!resetSignalMountedRef.current) {
-      resetSignalMountedRef.current = true;
-      return;
-    }
+    if (Object.is(lastResetSignalRef.current, resetSignal)) return;
+    lastResetSignalRef.current = resetSignal;
     startRef.current = null;
     setIsDragging(false);
     setPositionState(
-      clampToViewport({ x: defaultX, y: defaultY }, { width: sizeW, height: sizeH }, viewportMargin),
+      clampToViewport(
+        { x: defaultX, y: defaultY },
+        currentSize(),
+        viewportMargin,
+      ),
     );
-  }, [resetSignal, defaultX, defaultY, sizeW, sizeH, viewportMargin]);
+  }, [resetSignal, defaultX, defaultY, currentSize, viewportMargin]);
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -211,12 +237,12 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
           x: start.posX + (event.clientX - start.pointerX),
           y: start.posY + (event.clientY - start.pointerY),
         },
-        { width: sizeW, height: sizeH },
+        currentSize(),
         viewportMargin,
       );
       setPositionState(next);
     },
-    [sizeW, sizeH, viewportMargin],
+    [currentSize, viewportMargin],
   );
 
   const onPointerUp = useCallback(

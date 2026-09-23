@@ -56,6 +56,11 @@ into normal flow: otherwise the pill sits over the editor tab strip and blocks
 activation and close hit targets. Presenter mode hides both the pill and row.
 At narrow widths the secondary commands and Settings move into a keyboard-
 operable More actions menu; Run, language, and runtime remain directly available.
+At the smallest widths the language chip keeps its full accessible name but
+uses its short badge rather than a long visible language label.
+`useDraggable` clamps its position against the rendered pill size after mount
+and whenever the element or viewport changes; the width hint only guards the
+first render before a DOM measurement exists.
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins

@@ -897,6 +897,10 @@
 
   .tooltip-content {
     @apply fixed z-[12000] max-w-[22rem] rounded-xl border px-3 py-2 text-caption font-medium leading-5 transition-opacity duration-150;
+    /* Measure intrinsic width before the JS viewport clamp. Fixed auto width
+       otherwise shrinks against its old near-edge position on resize. */
+    width: max-content;
+    max-width: min(22rem, calc(100vw - 24px));
     background: color-mix(in srgb, var(--app-surface) 94%, transparent) !important;
     border-color: color-mix(in srgb, var(--app-border-strong) 82%, transparent) !important;
     color: var(--app-foreground) !important;
@@ -1619,6 +1623,10 @@
 
   @media (max-width: 600px) {
     .action-pill .kbd-shell {
+      display: none;
+    }
+
+    .action-pill-language-label {
       display: none;
     }
   }

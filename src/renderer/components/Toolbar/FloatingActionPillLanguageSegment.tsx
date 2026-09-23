@@ -82,13 +82,14 @@ export function FloatingActionPillLanguageSegment({
       <button
         type="button"
         className="action-pill-segment action-pill-lang rounded-l-lg rounded-r-none"
+        aria-label={languageLabel(language)}
         aria-haspopup="menu"
         aria-expanded={openMenu === 'lang'}
         onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
         data-testid="action-pill-lang"
       >
         <LanguageChip language={language} />
-        <span>{languageLabel(language)}</span>
+        <span className="action-pill-language-label">{languageLabel(language)}</span>
         <ChevronDown size={10} className="text-fg-subtle" aria-hidden />
       </button>
       {openMenu === 'lang' ? (
