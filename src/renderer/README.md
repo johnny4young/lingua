@@ -244,6 +244,9 @@ orchestration:
 - [`hooks/useRunner.ts`](hooks/useRunner.ts) subscribes to shared run status,
   exposes stable Run/Stop callbacks, and keeps Stop available while execution
   implementation chunks are preparing.
+- The floating action pill's primary button switches its visible name,
+  accessible name, and icon to Stop during a run; runtime download progress
+  remains secondary text instead of hiding that action.
 - [`hooks/manualRunControllerLoader.ts`](hooks/manualRunControllerLoader.ts)
   owns the retryable activation load. A rejected request is evicted so the next
   explicit Run action can recover.

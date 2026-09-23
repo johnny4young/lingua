@@ -209,16 +209,45 @@ describe('FloatingActionPill', () => {
     );
   });
 
-  it('keeps the primary action available for Stop while disabling the menu', () => {
+  it.each([
+    ['en', 'Stop'],
+    ['es', 'Detener'],
+  ])('names the primary action Stop in %s and keeps it available', async (language, label) => {
+    await i18next.changeLanguage(language);
     isRunningRef.current = true;
     renderPill();
 
-    expect(
-      (screen.getByTestId('action-pill-run') as HTMLButtonElement).disabled,
-    ).toBe(false);
-    expect(
-      (screen.getByTestId('action-pill-run-menu') as HTMLButtonElement).disabled,
-    ).toBe(true);
+    const stop = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+    expect(stop.disabled).toBe(false);
+    expect(stop.getAttribute('aria-label')).toBe(label);
+    expect(stop.textContent).toContain(label);
+    expect((screen.getByTestId('action-pill-run-menu') as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.setup().click(stop);
+    expect(stopMock).toHaveBeenCalledTimes(1);
+    expect(runMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps Python bootstrap progress visible without hiding the Stop action', async () => {
+    await i18next.changeLanguage('en');
+    isRunningRef.current = true;
+    useEditorStore.setState({
+      tabs: [
+        { id: 'tab-py', name: 'main.py', language: 'python', content: 'print(1)', isDirty: false },
+      ],
+      activeTabId: 'tab-py',
+    });
+    renderPill();
+    act(() => {
+      useBootstrapProgressStore.getState().report({
+        language: 'python',
+        loadedBytes: 2 * 1024 * 1024,
+        totalBytes: null,
+      });
+    });
+    const stop = screen.getByTestId('action-pill-run');
+    expect(stop.getAttribute('aria-label')).toBe('Stop');
+    expect(stop.textContent).toContain('Stop');
+    expect(stop.textContent).toContain('2.0 MB');
   });
 
   it('shows the Settings cog only when onOpenSettings is provided', async () => {

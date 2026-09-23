@@ -55,7 +55,6 @@
   "settings.autosave": "Guardado automático activado",
   "settings.close": "Cerrar configuración",
   "actionPill.run": "Ejecutar",
-  "actionPill.running": "Ejecutando…",
   "actionPill.runDesc": "Ejecuta el archivo y muestra los resultados en línea.",
   "actionPill.debugDesc": "Abre el depurador paso a paso con puntos de interrupción.",
   "actionPill.runs": "historia",

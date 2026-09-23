@@ -55,7 +55,6 @@
   "settings.autosave": "Autosave on",
   "settings.close": "Close settings",
   "actionPill.run": "Run",
-  "actionPill.running": "Running…",
   "actionPill.runDesc": "Run the file and surface inline results.",
   "actionPill.debugDesc": "Open the step-by-step debugger with breakpoints.",
   "actionPill.runs": "runs",
