@@ -778,6 +778,34 @@ describe('useRunner', () => {
       }
     });
 
+    it('explains both gates instead of upselling Go to a Free web user', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'web',
+      } as typeof window.lingua;
+      useLicenseStore.setState(initialLicenseState, true);
+      useEditorStore.setState({
+        tabs: [
+          { id: 'tab-go-free-web', name: 'main.go', language: 'go', content: 'package main', isDirty: false },
+        ],
+        activeTabId: 'tab-go-free-web',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+        await act(async () => {
+          await hook.current.run();
+        });
+        expect(mockPrepareRunner).not.toHaveBeenCalled();
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          messageKey: 'toolbar.run.desktopAndProTooltip',
+        });
+      } finally {
+        window.lingua = originalLingua;
+      }
+    });
+
     it('opens the gate for system Ruby on desktop when unacknowledged', async () => {
       const originalLingua = window.lingua;
       window.lingua = {

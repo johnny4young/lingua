@@ -1,14 +1,12 @@
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
-import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../../shared/runtimeModes';
+import type { RuntimeMode } from '../../../shared/runtimeModes';
+import { webExecutionBoundary } from '../../utils/runtimeModeSupport';
 import {
   type WorkflowMode,
 } from '../../../shared/workflowMode';
 import type { Language } from '../../types/language';
-import {
-  executionModeForLanguage,
-  languageCapabilityBadgeKey,
-} from '../../utils/languageMeta';
+import { executionModeForLanguage } from '../../utils/languageMeta';
 import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 export type ExecutionControlDisabledReason =
@@ -68,10 +66,7 @@ export function resolveExecutionControlPolicy({
   const proLanguageGate =
     executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
   const desktopOnlyGate =
-    isWebBuild &&
-    executionMode === 'run' &&
-    (languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly' ||
-      (runtimeMode !== undefined && !isRuntimeModeSupportedInShell(runtimeMode, true)));
+    executionMode === 'run' && webExecutionBoundary(language, runtimeMode, isWebBuild) !== null;
   let sharedReason: ExecutionControlDisabledReason | null = null;
   if (isNotebookTab) sharedReason = 'notebook';
   else if (desktopOnlyGate && proLanguageGate) sharedReason = 'desktop-and-pro';

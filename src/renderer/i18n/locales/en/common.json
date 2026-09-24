@@ -404,7 +404,7 @@
   "settings.account.runCapsules.cli.saved": "Capsule JSON saved locally.",
   "settings.account.runCapsules.cli.saveFailed": "Could not save the capsule JSON. Check the destination and try again.",
   "settings.account.runCapsules.cli.title": "Use with the CLI",
-  "settings.account.runCapsules.cli.intro": "Save the JSON above, then open a terminal in its folder. The commands assume the name {{filename}}; adjust it if you chose another name. Validation never executes code. Replay executes the recorded source with your OS permissions—inspect it and replay only trusted capsules.",
+  "settings.account.runCapsules.cli.intro": "Save the JSON above, then open a terminal in its folder. The commands use the name {{filename}}; adjust it if the file was saved under another name, for example when a browser renames a repeated download. Validation never executes code. Replay executes the recorded source with your OS permissions—inspect it and replay only trusted capsules.",
   "settings.account.runCapsules.cli.validate": "Validate without executing",
   "settings.account.runCapsules.cli.replay": "Replay (executes the recorded source)",
   "settings.account.runCapsules.cli.copy": "Copy",

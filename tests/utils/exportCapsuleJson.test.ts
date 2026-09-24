@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportCapsuleJsonToFile } from '../../src/renderer/utils/exportCapsuleJson';
+import { capsuleCliCommands, exportCapsuleJsonToFile } from '../../src/renderer/utils/exportCapsuleJson';
 import { saveOrDownloadTextFile } from '../../src/renderer/utils/saveTextFileToDisk';
 import { parseRunCapsule } from '../../src/shared/runCapsule';
 import {
@@ -81,4 +81,30 @@ describe('exportCapsuleJsonToFile', () => {
     expect(onError).toHaveBeenCalledTimes(2);
     expect(save).not.toHaveBeenCalled();
   });
+});
+
+describe('capsule CLI commands', () => {
+  it('forwards the name chosen in the save dialog', async () => {
+    const onOk = vi.fn();
+    save.mockImplementation(async (_body, _name, _mime, handlers) => handlers.onOk('run 2.json'));
+    await exportCapsuleJsonToFile(FIXTURE_MINIMAL_JS, { onOk, onError: vi.fn() });
+    expect(onOk).toHaveBeenCalledWith('run 2.json');
+  });
+
+  it('uses a saved name that needs no shell escaping', () => {
+    expect(capsuleCliCommands('lingua-run.capsule (1).json')).toEqual({
+      fileName: 'lingua-run.capsule (1).json',
+      validate: 'lingua capsule validate "lingua-run.capsule (1).json" --json',
+      replay: 'lingua capsule replay "lingua-run.capsule (1).json" --json',
+    });
+  });
+
+  it.each(['x"; rm -rf ~; ".json', '$(whoami).json', 'a`id`.json', 'notes.txt', ''])(
+    'falls back to the default name for %j',
+    name => {
+      expect(capsuleCliCommands(name).validate).toBe(
+        'lingua capsule validate "lingua-run.capsule.json" --json'
+      );
+    }
+  );
 });

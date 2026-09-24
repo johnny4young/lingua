@@ -35,6 +35,7 @@ import { CapsuleCliCommands } from './CapsuleCliCommands';
  */
 export function RunCapsulesSection() {
   const { t, i18n } = useTranslation();
+  const [savedFileName, setSavedFileName] = useState<string | undefined>();
   // implementation reviewer fix — select the CALL RESULT of
   // `latestCapsule()`, not the function reference. The reference is
   // stable across store updates so subscribing to it would never
@@ -96,9 +97,10 @@ export function RunCapsulesSection() {
   const handleSaveJson = useCallback(async () => {
     if (!capsule) return;
     await exportCapsuleJsonToFile(capsule, {
-      onOk: () => pushStatusNotice({
-        tone: 'success', messageKey: 'settings.account.runCapsules.cli.saved',
-      }),
+      onOk: savedName => {
+        setSavedFileName(savedName);
+        pushStatusNotice({ tone: 'success', messageKey: 'settings.account.runCapsules.cli.saved' });
+      },
       onError: () => pushStatusNotice({
         tone: 'error', messageKey: 'settings.account.runCapsules.cli.saveFailed',
       }),
@@ -213,7 +215,7 @@ export function RunCapsulesSection() {
             }
           />
         ) : null}
-        <CapsuleCliCommands available={capsule !== null} />
+        <CapsuleCliCommands available={capsule !== null} savedFileName={savedFileName} />
       </SpecCard>
     </SettingsSection>
   );

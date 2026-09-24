@@ -112,8 +112,16 @@ for (const width of [512, 640, 720]) {
       await page.screenshot({
         path: test.info().outputPath(`action-overflow-${width}-${language}.png`),
       });
-      const items = menu.getByRole('menuitem');
+      const items = menu.locator('[role="menuitem"], [role="menuitemcheckbox"]');
       await expect(items).toHaveCount(7);
+      await expect(page.getByTestId('action-pill-overflow-utilities')).toHaveAttribute(
+        'role',
+        'menuitemcheckbox'
+      );
+      await expect(page.getByTestId('action-pill-overflow-utilities')).toHaveAttribute(
+        'aria-checked',
+        'false'
+      );
       await expect(items.first()).toBeFocused();
       await page.keyboard.press('ArrowDown');
       await expect(items.nth(1)).toBeFocused();

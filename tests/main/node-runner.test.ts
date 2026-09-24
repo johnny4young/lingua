@@ -393,6 +393,28 @@ describe('main node runner', () => {
     );
   });
 
+  it('caches a missing Node but probes again after a failed check', async () => {
+    process.env.HOME = tempRoot;
+    const { detectNode } = await import('../../src/main/node-runner');
+    mocks.execFileAsync.mockImplementation(async () => {
+      throw Object.assign(new Error('spawn node ENOENT'), { code: 'ENOENT' });
+    });
+    await expect(detectNode()).resolves.toMatchObject({ installed: false, reason: 'missing' });
+    const probesAfterMissing = mocks.execFileAsync.mock.calls.length;
+    await expect(detectNode()).resolves.toMatchObject({ reason: 'missing' });
+    expect(mocks.execFileAsync.mock.calls.length).toBe(probesAfterMissing);
+
+    mocks.execFileAsync.mockImplementation(async () => {
+      throw new Error('version probe timed out');
+    });
+    await expect(detectNode(undefined, true)).resolves.toMatchObject({
+      installed: false,
+      reason: 'check-failed',
+    });
+    mocks.execFileAsync.mockResolvedValue({ stdout: 'v24.11.1\n', stderr: '' });
+    await expect(detectNode()).resolves.toMatchObject({ installed: true, version: 'v24.11.1' });
+  });
+
   it('falls back to a user-level fnm Node binary when GUI PATH cannot find node', async () => {
     process.env.HOME = tempRoot;
     const fallbackNode = path.join(

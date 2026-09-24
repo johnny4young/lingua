@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNativeJsRuntimeAvailability } from '../../src/renderer/hooks/useNativeJsRuntimeAvailability';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { resetNativeProbeCacheForTests } from '../../src/renderer/utils/nativeProbeCache';
 
 vi.mock('../../src/renderer/runners/env', () => ({
   resolveUserEnvForNativeProbe: (mode: string) => ({
@@ -29,6 +30,7 @@ function installShell(platform: string, detect: Record<'node' | 'deno' | 'bun', 
 
 describe('native JS runtime availability', () => {
   beforeEach(() => {
+    resetNativeProbeCacheForTests();
     useUIStore.setState({ statusNotice: null });
   });
 
@@ -66,6 +68,61 @@ describe('native JS runtime availability', () => {
     await waitFor(() => {
       expect(result.current.availability.node).toBe('installed');
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('nativeToolchain.retry.detected');
+    });
+  });
+
+  it('reports a timed-out probe as a failed check, not a missing binary', async () => {
+    const detect = {
+      node: vi.fn().mockResolvedValue({ installed: false, reason: 'check-failed' }),
+      deno: vi.fn().mockResolvedValue({ installed: false, reason: 'missing' }),
+      bun: vi.fn().mockResolvedValue({ installed: true }),
+    };
+    installShell('darwin', detect);
+    const { result } = renderHook(() => useNativeJsRuntimeAvailability(true));
+    await waitFor(() => expect(result.current.availability).toEqual({
+      node: 'check-failed', deno: 'missing', bun: 'installed',
+    }));
+  });
+
+  it('reuses a recent installed answer instead of respawning the binary', async () => {
+    const detect = {
+      node: vi.fn().mockResolvedValue({ installed: true }),
+      deno: vi.fn().mockResolvedValue({ installed: false, reason: 'missing' }),
+      bun: vi.fn().mockResolvedValue({ installed: true }),
+    };
+    installShell('darwin', detect);
+    const { result, rerender } = renderHook(({ open }) => useNativeJsRuntimeAvailability(open), {
+      initialProps: { open: true },
+    });
+    await waitFor(() => expect(result.current.availability.deno).toBe('missing'));
+    rerender({ open: false });
+    rerender({ open: true });
+    await waitFor(() => expect(detect.deno).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.availability.node).toBe('installed'));
+    expect(detect.node).toHaveBeenCalledOnce();
+    expect(detect.bun).toHaveBeenCalledOnce();
+  });
+
+  it('reports a rejected retry as a failed check', async () => {
+    const detect = {
+      node: vi.fn()
+        .mockResolvedValueOnce({ installed: false, reason: 'missing' })
+        .mockRejectedValueOnce(new Error('ipc closed')),
+      deno: vi.fn().mockResolvedValue({ installed: true }),
+      bun: vi.fn().mockResolvedValue({ installed: true }),
+    };
+    installShell('darwin', detect);
+    const { result } = renderHook(() => useNativeJsRuntimeAvailability(true));
+    await waitFor(() => expect(result.current.availability.node).toBe('missing'));
+    act(() => result.current.recoverMissing('node'));
+    const retry = useUIStore.getState().statusNotice?.actions?.[1];
+    act(() => {
+      useUIStore.getState().dismissStatusNotice('cta');
+      retry?.onClick();
+    });
+    await waitFor(() => {
+      expect(result.current.availability.node).toBe('check-failed');
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('nativeToolchain.retry.checkFailed');
     });
   });
 

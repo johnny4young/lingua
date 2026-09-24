@@ -421,15 +421,15 @@ async function probeNodeBinary(
   binary: string,
   env: NodeJS.ProcessEnv,
   signal?: AbortSignal
-): Promise<NodeDetectResult | null> {
-  const version = await detectNativeRuntimeVersion({
+): Promise<NodeDetectResult> {
+  const probe = await detectNativeRuntimeVersion({
     command: binary,
     env,
     signal,
     killEscalationMs: KILL_ESCALATION_DELAY_MS,
   });
-  if (version === null) return null;
-  return { installed: true, binary, version };
+  if (probe.version === null) return { installed: false, reason: probe.reason };
+  return { installed: true, binary, version: probe.version };
 }
 
 function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
@@ -460,22 +460,34 @@ export async function detectNode(
   if (cacheable && !force && cachedDetect) return cachedDetect;
   const env = resolveNodeRunEnv(userEnv);
   let result = await probeNodeBinary('node', env, signal);
+  let checkFailed = result.reason === 'check-failed';
 
-  if (!result && !signal?.aborted) {
+  if (!result.installed && !signal?.aborted) {
     for (const candidate of await nodeBinaryCandidates(userEnv, signal)) {
       result = await probeNodeBinary(candidate, env, signal);
-      if (result) break;
+      if (result.installed) break;
+      checkFailed ||= result.reason === 'check-failed';
       if (signal?.aborted) break;
     }
   }
 
-  if (!result) {
-    result = {
-      installed: false,
-      error: 'Node.js is not installed. Install it from https://nodejs.org',
-    };
+  if (!result.installed) {
+    result = checkFailed || signal?.aborted
+      ? {
+          installed: false,
+          reason: 'check-failed',
+          error: 'Node.js check failed. Retry detection or inspect your local Node.js installation.',
+        }
+      : {
+          installed: false,
+          reason: 'missing',
+          error: 'Node.js is not installed. Install it from https://nodejs.org',
+        };
   }
-  if (cacheable && !signal?.aborted) cachedDetect = result;
+  // A failed check is not an answer: drop any earlier one so the next call probes.
+  if (cacheable && !signal?.aborted) {
+    cachedDetect = result.reason === 'check-failed' ? null : result;
+  }
   return result;
 }
 

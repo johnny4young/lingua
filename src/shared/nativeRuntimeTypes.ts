@@ -49,8 +49,12 @@ type NativeRunKind = 'success' | 'error' | 'timeout' | 'stopped' | 'missing-bina
 
 export type NodeRunKind = NativeRunKind;
 
+/** Missing executable versus a probe that could not establish availability. */
+type NativeDetectFailureReason = 'missing' | 'check-failed';
+
 export interface NodeDetectResult {
   installed: boolean;
+  reason?: NativeDetectFailureReason;
   /** Binary selected for future runs; absolute for GUI fallback probes. */
   binary?: string;
   version?: string;
@@ -71,6 +75,7 @@ export type RubyRunKind = NativeRunKind;
 
 export interface RubyDetectResult {
   installed: boolean;
+  reason?: NativeDetectFailureReason;
   version?: string;
   semver?: string;
   platform?: string;
@@ -91,6 +96,7 @@ export type AltJsRunKind = NativeRunKind;
 
 export interface AltJsDetectResult {
   installed: boolean;
+  reason?: NativeDetectFailureReason;
   version?: string;
   error?: string;
 }

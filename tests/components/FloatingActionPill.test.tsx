@@ -27,17 +27,20 @@ import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
+import { resetLessonProgressStoreForTests, useLessonProgressStore } from '@/stores/lessonProgressStore';
 
 const runMock = vi.fn();
 const stopMock = vi.fn();
 const isRunningRef = { current: false };
+const initializingRef = { current: false as boolean, message: null as string | null };
 
 vi.mock('@/hooks/useRunner', () => ({
   useRunner: () => ({
     run: runMock,
     stop: stopMock,
     isRunning: isRunningRef.current,
-    isInitializing: false,
+    isInitializing: initializingRef.current,
+    loadingMessage: initializingRef.message,
   }),
 }));
 
@@ -57,6 +60,8 @@ beforeEach(async () => {
   runMock.mockClear();
   stopMock.mockClear();
   isRunningRef.current = false;
+  initializingRef.current = false;
+  initializingRef.message = null;
   useEditorStore.setState({
     tabs: [
       {
@@ -248,6 +253,38 @@ describe('FloatingActionPill', () => {
     expect(stop.getAttribute('aria-label')).toBe('Stop');
     expect(stop.textContent).toContain('Stop');
     expect(stop.textContent).toContain('2.0 MB');
+  });
+
+  it('keeps a compilation message visible beside the Stop action', async () => {
+    await i18next.changeLanguage('en');
+    isRunningRef.current = true;
+    initializingRef.current = true;
+    initializingRef.message = 'Compiling Rust...';
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-rs', name: 'main.rs', language: 'rust', content: 'fn main() {}', isDirty: false }],
+      activeTabId: 'tab-rs',
+    });
+    renderPill();
+    const stop = screen.getByTestId('action-pill-run');
+    expect(stop.getAttribute('aria-label')).toBe('Stop');
+    expect(stop.textContent).toContain('Compiling Rust...');
+  });
+
+  it('keeps Utilities state and recipe progress in the overflow menu', async () => {
+    useLessonProgressStore.setState({
+      entries: { 'recipe-a': { status: 'passed' } } as never,
+    });
+    try {
+      renderPill({ onOpenUtilities: vi.fn(), utilitiesOpen: true, onOpenRecipes: vi.fn() });
+      await userEvent.setup().click(screen.getByTestId('action-pill-overflow'));
+      const utilities = screen.getByTestId('action-pill-overflow-utilities');
+      expect(utilities.getAttribute('role')).toBe('menuitemcheckbox');
+      expect(utilities.getAttribute('aria-checked')).toBe('true');
+      expect(screen.getByTestId('action-pill-overflow-recipes').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('action-pill-overflow-recipes-badge').textContent).toBe('1');
+    } finally {
+      resetLessonProgressStoreForTests();
+    }
   });
 
   it('shows the Settings cog only when onOpenSettings is provided', async () => {

@@ -404,7 +404,7 @@
   "settings.account.runCapsules.cli.saved": "JSON de la cápsula guardado localmente.",
   "settings.account.runCapsules.cli.saveFailed": "No se pudo guardar el JSON de la cápsula. Revisa el destino e inténtalo de nuevo.",
   "settings.account.runCapsules.cli.title": "Usar con la CLI",
-  "settings.account.runCapsules.cli.intro": "Guarda el JSON de arriba y abre una terminal en su carpeta. Los comandos usan el nombre {{filename}}; cámbialo si elegiste otro. Validar nunca ejecuta código. Reproducir ejecuta el código guardado con tus permisos del sistema: revísalo y reproduce solo cápsulas confiables.",
+  "settings.account.runCapsules.cli.intro": "Guarda el JSON de arriba y abre una terminal en su carpeta. Los comandos usan el nombre {{filename}}; cámbialo si el archivo quedó con otro nombre, por ejemplo cuando el navegador renombra una descarga repetida. Validar nunca ejecuta código. Reproducir ejecuta el código guardado con tus permisos del sistema: revísalo y reproduce solo cápsulas confiables.",
   "settings.account.runCapsules.cli.validate": "Validar sin ejecutar",
   "settings.account.runCapsules.cli.replay": "Reproducir (ejecuta el código guardado)",
   "settings.account.runCapsules.cli.copy": "Copiar",

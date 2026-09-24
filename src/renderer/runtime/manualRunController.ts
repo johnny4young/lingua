@@ -1,6 +1,6 @@
 import i18next from 'i18next';
 import { isLanguageAllowed } from '../../shared/entitlements';
-import { isRuntimeModeSupportedInShell, type RuntimeMode } from '../../shared/runtimeModes';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
@@ -12,7 +12,7 @@ import { useUIStore } from '../stores/uiStore';
 import type { RunOptions } from '../hooks/useRunner';
 import type { TelemetryTrack } from '../hooks/useTelemetry';
 import type { Language } from '../types/language';
-import { languageCapabilityBadgeKey } from '../utils/languageMeta';
+import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { beginManualRun, type ManualRunSession } from './manualRunSession';
@@ -42,6 +42,8 @@ export async function runActiveTab(
   }
 
   const tier = currentEffectiveTier();
+  // The web boundary comes first: upgrading cannot supply a host toolchain.
+  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode, tier)) return;
   if (!isLanguageAllowed(tier, activeTab.language)) {
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
@@ -53,8 +55,6 @@ export async function runActiveTab(
     });
     return;
   }
-
-  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode)) return;
 
   // Gate the first Go/Rust/system-Ruby run behind the trust-boundary
   // modal. The resume callback targets the same tab even if the user
@@ -194,20 +194,21 @@ function pushNotebookRunNotice(): void {
   });
 }
 
-function rejectUnavailableExecution(language: Language, mode: RuntimeMode | undefined): boolean {
-  const webShell = typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  if (!webShell) return false;
-  if (languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly') {
-    useUIStore.getState().pushStatusNotice({
-      tone: 'info',
-      messageKey: 'language.notice.desktopOnly',
-    });
-    return true;
-  }
-  if (mode === undefined || isRuntimeModeSupportedInShell(mode, true)) return false;
+function rejectUnavailableExecution(
+  language: Language,
+  mode: RuntimeMode | undefined,
+  tier = currentEffectiveTier()
+): boolean {
+  const boundary = webExecutionBoundary(language, mode);
+  if (!boundary) return false;
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
-    messageKey: 'runtimeMode.notice.desktopOnly',
+    messageKey:
+      boundary === 'runtime'
+        ? 'runtimeMode.notice.desktopOnly'
+        : isLanguageAllowed(tier, language)
+          ? 'language.notice.desktopOnly'
+          : 'toolbar.run.desktopAndProTooltip',
   });
   return true;
 }

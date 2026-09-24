@@ -11,17 +11,21 @@ interface NativeRuntimeVersionProbe {
   killEscalationMs: number;
 }
 
+export type NativeRuntimeProbe =
+  | { version: string }
+  | { version: null; reason: 'missing' | 'check-failed' };
+
 /**
  * Run a bounded, cancelable runtime version probe through the same process-tree
- * supervisor used for native execution. A null result means the command could
- * not be trusted as an installed runtime.
+ * supervisor used for native execution. Only a missing executable is reported
+ * as `missing`; timeouts, cancellation and failing binaries are `check-failed`.
  */
 export async function detectNativeRuntimeVersion({
   command,
   env,
   signal,
   killEscalationMs,
-}: NativeRuntimeVersionProbe): Promise<string | null> {
+}: NativeRuntimeVersionProbe): Promise<NativeRuntimeProbe> {
   const probe = await spawnNativeRun({
     command,
     args: ['--version'],
@@ -33,8 +37,11 @@ export async function detectNativeRuntimeVersion({
     stdoutTruncationMarker: VERSION_PROBE_TRUNCATION_MARKER,
     stderrTruncationMarker: VERSION_PROBE_TRUNCATION_MARKER,
   });
-  if (signal?.aborted || probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
-    return null;
+  if (probe.spawnError && (probe.spawnError as NodeJS.ErrnoException).code === 'ENOENT') {
+    return { version: null, reason: 'missing' };
   }
-  return probe.stdout.trim();
+  if (signal?.aborted || probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
+    return { version: null, reason: 'check-failed' };
+  }
+  return { version: probe.stdout.trim() };
 }

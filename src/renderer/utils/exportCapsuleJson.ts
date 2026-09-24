@@ -8,18 +8,25 @@ import { saveOrDownloadTextFile } from './saveTextFileToDisk';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
 
 /** The suggested filename is intentionally independent of source or tab names. */
-export const CAPSULE_CLI_FILENAME = 'lingua-run.capsule.json';
+const CAPSULE_CLI_FILENAME = 'lingua-run.capsule.json';
 const CAPSULE_JSON_MIME = 'application/json;charset=utf-8';
 
-export const CAPSULE_VALIDATE_COMMAND =
-  `lingua capsule validate "${CAPSULE_CLI_FILENAME}" --json`;
-export const CAPSULE_REPLAY_COMMAND =
-  `lingua capsule replay "${CAPSULE_CLI_FILENAME}" --json`;
+// Only names that need no shell escaping are echoed into a copyable command.
+const SHELL_SAFE_FILENAME = /^[\w][\w .()-]*\.json$/u;
+
+export function capsuleCliCommands(fileName: string = CAPSULE_CLI_FILENAME) {
+  const name = SHELL_SAFE_FILENAME.test(fileName) ? fileName : CAPSULE_CLI_FILENAME;
+  return {
+    fileName: name,
+    validate: `lingua capsule validate "${name}" --json`,
+    replay: `lingua capsule replay "${name}" --json`,
+  };
+}
 
 /** Save the same sanitized RunCapsuleV1 consumed by import and CLI validation. */
 export async function exportCapsuleJsonToFile(
   capsule: RunCapsuleV1,
-  handlers: { onOk: () => void; onError: () => void }
+  handlers: { onOk: (savedName?: string) => void; onError: () => void }
 ): Promise<void> {
   const { sanitised, json, sizeBucket } = prepareRunCapsuleExport(capsule);
   // A CLI handoff must not offer a JSON file that the shared parser rejects
@@ -38,14 +45,14 @@ export async function exportCapsuleJsonToFile(
   }
   trackCapsuleExport('settings-export-file', sizeBucket);
   await saveOrDownloadTextFile(json, CAPSULE_CLI_FILENAME, CAPSULE_JSON_MIME, {
-    onOk: () => {
+    onOk: savedName => {
       recordTrustEventBestEffort({
         feature: 'capsule-export',
         action: 'exported',
         sensitivity: 'medium',
         summary: `${sanitised.tab.language} capsule exported as JSON (${sizeBucket})`,
       });
-      handlers.onOk();
+      handlers.onOk(savedName);
     },
     onError: handlers.onError,
   });

@@ -167,13 +167,14 @@ export async function detectRuby(
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
   let result: RubyDetectResult;
-  const version = await detectNativeRuntimeVersion({
+  const probe = await detectNativeRuntimeVersion({
     command: 'ruby',
     env: resolveRubyRunEnv(userEnv),
     signal,
     killEscalationMs: KILL_ESCALATION_DELAY_MS,
   });
-  if (version !== null) {
+  if (probe.version !== null) {
+    const { version } = probe;
     const { semver, platform } = parseRubyVersion(version);
     result = {
       installed: true,
@@ -184,10 +185,13 @@ export async function detectRuby(
   } else {
     result = {
       installed: false,
+      reason: probe.reason,
       error: 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
     };
   }
-  if (cacheable && !signal?.aborted) cachedDetect = result;
+  if (cacheable && !signal?.aborted) {
+    cachedDetect = result.reason === 'check-failed' ? null : result;
+  }
   return result;
 }
 

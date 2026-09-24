@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { pushMissingNativeToolchainNotice } from '../runners/nativeToolchainGuidance';
 import { resolveUserEnvForNativeProbe } from '../runners/env';
-import type { NativeJsRuntimeMode, NativeJsRuntimeAvailability } from '../utils/nativeJsRuntimeStatus';
+import { cachedNativeProbe } from '../utils/nativeProbeCache';
+import {
+  nativeDetectStatus,
+  type NativeJsRuntimeMode,
+  type NativeJsRuntimeAvailability,
+} from '../utils/nativeJsRuntimeStatus';
 
 const NATIVE_JS_MODES: readonly NativeJsRuntimeMode[] = ['node', 'deno', 'bun'];
 const CHECKING: NativeJsRuntimeAvailability = {
@@ -9,6 +14,13 @@ const CHECKING: NativeJsRuntimeAvailability = {
   deno: 'checking',
   bun: 'checking',
 };
+
+function probeRuntime(mode: NativeJsRuntimeMode, refresh = false) {
+  const detect = window.lingua?.[mode]?.detect;
+  if (!detect) return null;
+  const env = resolveUserEnvForNativeProbe(mode, window.lingua?.platform);
+  return cachedNativeProbe(mode, env, () => detect(env, true), { refresh });
+}
 
 /** Probe only while a native-runtime surface is open; never probe in the web shell. */
 export function useNativeJsRuntimeAvailability(enabled: boolean): {
@@ -25,8 +37,8 @@ export function useNativeJsRuntimeAvailability(enabled: boolean): {
       if (!cancelled) setAvailability(CHECKING);
     });
     for (const mode of NATIVE_JS_MODES) {
-      const bridge = window.lingua?.[mode];
-      if (!bridge?.detect) {
+      const probe = probeRuntime(mode);
+      if (!probe) {
         queueMicrotask(() => {
           if (!cancelled) {
             setAvailability(current => ({ ...current, [mode]: 'check-failed' }));
@@ -34,13 +46,10 @@ export function useNativeJsRuntimeAvailability(enabled: boolean): {
         });
         continue;
       }
-      void bridge.detect(resolveUserEnvForNativeProbe(mode, window.lingua?.platform), true).then(
+      void probe.then(
         result => {
           if (!cancelled) {
-            setAvailability(current => ({
-              ...current,
-              [mode]: result.installed ? 'installed' : 'missing',
-            }));
+            setAvailability(current => ({ ...current, [mode]: nativeDetectStatus(result) }));
           }
         },
         () => {
@@ -55,19 +64,15 @@ export function useNativeJsRuntimeAvailability(enabled: boolean): {
 
   const recoverMissing = useCallback((mode: NativeJsRuntimeMode) => {
     pushMissingNativeToolchainNotice(mode, async () => {
-      const bridge = window.lingua?.[mode];
-      if (!bridge?.detect) {
-        setAvailability(current => ({ ...current, [mode]: 'check-failed' }));
-        return false;
+      let status: ReturnType<typeof nativeDetectStatus> = 'check-failed';
+      try {
+        const probe = probeRuntime(mode, true);
+        if (probe) status = nativeDetectStatus(await probe);
+      } catch {
+        // A rejected probe is a failed check, not a missing binary.
       }
-      const result = await bridge.detect(
-        resolveUserEnvForNativeProbe(mode, window.lingua?.platform), true
-      );
-      setAvailability(current => ({
-        ...current,
-        [mode]: result.installed ? 'installed' : 'missing',
-      }));
-      return result.installed;
+      setAvailability(current => ({ ...current, [mode]: status }));
+      return status === 'installed' ? true : status === 'check-failed' ? 'check-failed' : false;
     });
   }, []);
 

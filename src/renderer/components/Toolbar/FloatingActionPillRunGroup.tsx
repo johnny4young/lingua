@@ -113,9 +113,9 @@ export function FloatingActionPillRunGroup({
             : (bootstrapLabel ??
               (isInitializing && loadingMessage ? loadingMessage : workflowChip.label))}
         </span>
-        {isRunning && bootstrapLabel ? (
+        {isRunning && (bootstrapLabel ?? (isInitializing ? loadingMessage : null)) ? (
           <span className="max-w-[180px] truncate text-caption opacity-80" aria-hidden>
-            {bootstrapLabel}
+            {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
         {!isRunning ? <Kbd>⌘⏎</Kbd> : null}

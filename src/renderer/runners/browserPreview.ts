@@ -328,6 +328,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
           case 'done': {
             if (settleHandle !== null) break;
             clearDeadline();
+            // The grace window is listening time, not user execution time.
+            const executionTime = Date.now() - startMs;
             settleHandle = setTimeout(() => {
               settleHandle = null;
               if (executionError) {
@@ -340,7 +342,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
                 stdout,
                 stderr,
                 result: undefined,
-                executionTime: Date.now() - startMs,
+                executionTime,
                 error: executionError,
                 kind: executionError ? 'error' : 'success',
                 timeoutPreset,

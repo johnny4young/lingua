@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { resolveUserEnvForNativeProbe } from '../runners/env';
+import { cachedNativeProbe } from '../utils/nativeProbeCache';
+import { nativeDetectStatus } from '../utils/nativeJsRuntimeStatus';
 import type {
   NativeLanguageToolchainAvailability,
 } from '../utils/nativeLanguageToolchainStatus';
@@ -34,15 +36,11 @@ export function useNativeLanguageToolchainAvailability(
         });
         continue;
       }
-      void bridge.detect(resolveUserEnvForNativeProbe(language, window.lingua?.platform)).then(
+      const env = resolveUserEnvForNativeProbe(language, window.lingua?.platform);
+      void cachedNativeProbe(language, env, () => bridge.detect(env)).then(
         result => {
           if (!cancelled) {
-            setAvailability(current => ({
-              ...current,
-              [language]: result.installed
-                ? 'installed'
-                : result.reason === 'missing' ? 'missing' : 'check-failed',
-            }));
+            setAvailability(current => ({ ...current, [language]: nativeDetectStatus(result) }));
           }
         },
         () => {

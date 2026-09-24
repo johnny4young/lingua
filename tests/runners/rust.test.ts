@@ -83,6 +83,18 @@ describe('RustRunner', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
   });
 
+  it('detects again on the next run after a failed Rust check', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Rust check timed out' })
+      .mockResolvedValueOnce({ installed: true, version: 'rustc 1.80.0' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Rust');
+    expect(runner.isReady()).toBe(false);
+    await runner.init();
+    expect(runner.isReady()).toBe(true);
+    expect(mockDetect).toHaveBeenCalledTimes(2);
+  });
+
   it('explains a failed Rust check in Spanish without prescribing installation', async () => {
     await i18next.changeLanguage('es');
     try {

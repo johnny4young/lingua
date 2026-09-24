@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNativeLanguageToolchainAvailability } from '../../src/renderer/hooks/useNativeLanguageToolchainAvailability';
+import { resetNativeProbeCacheForTests } from '../../src/renderer/utils/nativeProbeCache';
 
 vi.mock('../../src/renderer/runners/env', () => ({
   resolveUserEnvForNativeProbe: (mode: string, platform: string) => ({
@@ -20,6 +21,8 @@ function installShell(platform: string, go: ReturnType<typeof vi.fn>, rust: Retu
 }
 
 describe('native Go and Rust availability', () => {
+  beforeEach(() => resetNativeProbeCacheForTests());
+
   afterEach(() => {
     Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
   });

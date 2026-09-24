@@ -39,13 +39,13 @@ interface PillCommand {
   pressed?: boolean;
 }
 
-function RecipesBadge() {
+function RecipesBadge({ testId = 'action-pill-recipes-badge' }: { testId?: string }) {
   const { t } = useTranslation();
   const passedCount = useLessonProgressStore(state => state.passedCount());
   if (passedCount <= 0) return null;
   return (
     <span
-      data-testid="action-pill-recipes-badge"
+      data-testid={testId}
       data-passed-count={passedCount}
       aria-label={t('chrome.recipes.badgeAria', { count: passedCount })}
       className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-nano font-bold leading-none text-fg-on-accent shadow-sm"
@@ -140,7 +140,7 @@ export function FloatingActionPillCommandActions({
 
   useEffect(() => {
     if (overflowOpen)
-      menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+      menuRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]')?.focus();
   }, [overflowOpen]);
 
   const activate = (command: PillCommand) => {
@@ -149,7 +149,7 @@ export function FloatingActionPillCommandActions({
   };
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const items = [
-      ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []),
+      ...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]') ?? []),
     ];
     const index = items.indexOf(document.activeElement as HTMLButtonElement);
     let next: number;
@@ -225,12 +225,16 @@ export function FloatingActionPillCommandActions({
                 <button
                   key={command.id}
                   type="button"
-                  role="menuitem"
+                  role={command.pressed === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                  aria-checked={command.pressed}
                   data-testid={`action-pill-overflow-${command.id}`}
                   onClick={() => activate(command)}
                   className="dropdown-rich-row flex w-full items-center gap-3 text-left"
                 >
-                  {command.icon}
+                  <span className={command.id === 'recipes' ? 'relative inline-flex' : 'inline-flex'}>
+                    {command.icon}
+                    {command.id === 'recipes' ? <RecipesBadge testId="action-pill-overflow-recipes-badge" /> : null}
+                  </span>
                   <span>{command.label}</span>
                 </button>
               ))}

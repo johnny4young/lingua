@@ -59,7 +59,8 @@ export class GoRunner implements LanguageRunner {
     const result = await window.lingua.go.detect(resolveUserEnvForRunner());
     this.goInstalled = result.installed;
     this.detectFailure = result.reason === 'check-failed';
-    this.ready = true;
+    // A failed check is not an answer: the next run detects again.
+    this.ready = !this.detectFailure;
 
     if (!result.installed) {
       if (!this.detectFailure) this.pushMissingToolchainNotice();

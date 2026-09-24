@@ -115,18 +115,21 @@ async function detectAltRuntime(
     if (cached) return cached;
   }
   let result: AltJsDetectResult;
-  const version = await detectNativeRuntimeVersion({
+  const probe = await detectNativeRuntimeVersion({
     command: CONFIGS[id].binary,
     env: resolveEnv(id, userEnv),
     signal,
     killEscalationMs: KILL_ESCALATION_DELAY_MS,
   });
-  if (version !== null) {
-    result = { installed: true, version: version.split('\n')[0] };
+  if (probe.version !== null) {
+    result = { installed: true, version: probe.version.split('\n')[0] };
   } else {
-    result = { installed: false, error: CONFIGS[id].installHint };
+    result = { installed: false, reason: probe.reason, error: CONFIGS[id].installHint };
   }
-  if (cacheable && !signal?.aborted) detectCache.set(id, result);
+  if (cacheable && !signal?.aborted) {
+    if (result.reason === 'check-failed') detectCache.delete(id);
+    else detectCache.set(id, result);
+  }
   return result;
 }
 

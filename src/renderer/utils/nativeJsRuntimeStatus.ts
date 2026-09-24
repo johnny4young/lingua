@@ -10,6 +10,15 @@ const READY_HINT: Record<NativeJsRuntimeMode, string> = {
   bun: 'runtimeMode.hint.bun.ready',
 };
 
+/** A failed check is reported separately so it never reads as "not installed". */
+export function nativeDetectStatus(result: {
+  installed: boolean;
+  reason?: 'missing' | 'check-failed';
+}): NativeJsRuntimeStatus {
+  if (result.installed) return 'installed';
+  return result.reason === 'check-failed' ? 'check-failed' : 'missing';
+}
+
 export function isNativeJsRuntimeMode(mode: RuntimeMode): mode is NativeJsRuntimeMode {
   return mode === 'node' || mode === 'deno' || mode === 'bun';
 }

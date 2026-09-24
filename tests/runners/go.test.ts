@@ -77,6 +77,18 @@ describe('GoRunner', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
   });
 
+  it('detects again on the next run after a failed Go check', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Go check timed out' })
+      .mockResolvedValueOnce({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' });
+    const runner = new GoRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Go');
+    expect(runner.isReady()).toBe(false);
+    await runner.init();
+    expect(runner.isReady()).toBe(true);
+    expect(mockDetect).toHaveBeenCalledTimes(2);
+  });
+
   it('explains a failed Go check in Spanish without prescribing installation', async () => {
     await i18next.changeLanguage('es');
     try {

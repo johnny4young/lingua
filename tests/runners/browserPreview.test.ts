@@ -438,6 +438,27 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('excludes the post-done rejection grace window from execution time', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      const runner = new BrowserPreviewRunner();
+      await runner.init();
+      const iframe = createFakeIframe();
+      setActiveBrowserPreviewIframe(iframe);
+      const promise = runner.execute('// quick');
+      await Promise.resolve();
+      const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+      postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'ready' });
+      postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+      await vi.advanceTimersByTimeAsync(1_000);
+      const result = await promise;
+      expect(result.error).toBeUndefined();
+      expect(result.executionTime).toBeLessThan(10);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('drops messages with a foreign runId', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();

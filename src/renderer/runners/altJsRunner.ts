@@ -35,6 +35,7 @@ import { useUIStore } from '../stores/uiStore';
 import { resolveUserEnvForRunner } from './env';
 import { runnerStoppedResult, type TranslateFn } from './limits';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
+import { nativeDetectStatus } from '../utils/nativeJsRuntimeStatus';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -138,8 +139,8 @@ export class AltJsRunner implements LanguageRunner {
 
           if (reply.kind === 'missing-binary') {
             pushMissingNativeToolchainNotice(this.id, async () => {
-              const detected = await bridge.detect(userEnv, true);
-              return detected.installed;
+              const status = nativeDetectStatus(await bridge.detect(userEnv, true));
+              return status === 'installed' ? true : status === 'check-failed' ? 'check-failed' : false;
             });
             finish({
               stdout: [],
