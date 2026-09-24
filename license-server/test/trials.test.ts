@@ -299,5 +299,10 @@ describe('POST /trials/start — real flow ', () => {
     expect(body.ok).toBe(false);
     expect(body.reason).toBe('rate-limited');
     expect(body.retryAfter).toBeGreaterThan(0);
+    expect(env.__db.trials.size).toBe(3);
+    expect(env.__db.licenses.size).toBe(3);
+    expect(
+      [...env.__db.trials.values()].some(row => row.email === 'user-d@example.com')
+    ).toBe(false);
   });
 });

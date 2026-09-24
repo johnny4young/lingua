@@ -544,14 +544,14 @@ export const FS_BLOCKED_FAMILIES = new Set([
   'lingua-data',
 ]);
 // internal — mirror of SESSION_RESTORE_SOURCES in src/shared/telemetry.ts.
-export const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
+const SESSION_RESTORE_SOURCES = new Set(['auto', 'prompt']);
 
 // internal — mirror of LINT_RULE_IDS / LINT_SEVERITIES in src/shared/telemetry.ts.
-export const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
-export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
+const LINT_RULE_IDS = new Set(['strict-equality', 'ts-native']);
+const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 // internal — mirror of SMART_PASTE_HANDLERS in src/shared/telemetry.ts.
 // internal — utility suggestions report per-format as utility-<id>.
-export const SMART_PASTE_HANDLERS = new Set([
+const SMART_PASTE_HANDLERS = new Set([
   'share-link',
   'capsule',
   'curl',
@@ -606,7 +606,7 @@ const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
 // implementation — closed-enum mirror of
 // `CONSOLE_RICH_KIND_BUCKETS` in `src/shared/telemetry.ts`. Parity
 // test asserts both Sets stay aligned.
-export const CONSOLE_RICH_KIND_BUCKETS = new Set([
+const CONSOLE_RICH_KIND_BUCKETS = new Set([
   'table',
   'object',
   'array',
@@ -627,34 +627,34 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
 // implementation — closed-enum mirrors of
 // `RICH_MEDIA_REJECTED_KINDS` / `RICH_MEDIA_REJECTED_REASONS` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
-export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html', 'chart']);
-export const RICH_MEDIA_REJECTED_REASONS = new Set([
+const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html', 'chart']);
+const RICH_MEDIA_REJECTED_REASONS = new Set([
   'invalid-src',
   'size-limit',
   'validation-failed',
 ]);
 // implementation — mirrors of the Ruby dispatcher enums in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
-export const RUBY_DISPATCHED_MODE_VALUES = new Set([
+const RUBY_DISPATCHED_MODE_VALUES = new Set([
   'system',
   'wasm',
   'missing',
 ]);
-export const RUBY_SPAWN_BUCKETS = new Set([
+const RUBY_SPAWN_BUCKETS = new Set([
   '<100ms',
   '<300ms',
   '<1s',
   '<3s',
   '>=3s',
 ]);
-export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
+const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
   'auto',
   'system',
   'wasm',
 ]);
 // implementation — mirror of `FS_DIRECTORY_PICKER_UA_BUCKETS` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
-export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
+const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
   'safari',
   'firefox',
   'edge-old',
@@ -663,7 +663,7 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
 // implementation note — mirror of `CAPSULE_EXPORT_TRIGGERS` /
 // `CAPSULE_SIZE_BUCKETS` in `src/shared/telemetry.ts`. Parity test
 // asserts alignment for both Sets.
-export const CAPSULE_EXPORT_TRIGGERS = new Set([
+const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
   'palette-export',
   // implementation — mirror of the result-panel-export trigger.
@@ -679,13 +679,13 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
 ]);
 // implementation note — mirror of `CAPSULE_BROWSE_SURFACES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
-export const CAPSULE_BROWSE_SURFACES = new Set([
+const CAPSULE_BROWSE_SURFACES = new Set([
   'palette',
   'shortcut',
   'settings',
   'action-pill',
 ]);
-export const CAPSULE_SIZE_BUCKETS = new Set([
+const CAPSULE_SIZE_BUCKETS = new Set([
   '<10kb',
   '<100kb',
   '<1mb',
@@ -695,7 +695,7 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
 // internal — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment. `'resized'`
 // = an over-cap image was downscaled to fit before appending.
-export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
+const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
   'pasted',
   'resized',
   'rejected-oversized',
@@ -704,12 +704,12 @@ export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
 // implementation note — mirrors of `CAPSULE_IMPORT_SOURCES` /
 // `CAPSULE_IMPORT_STATUSES` in `src/shared/telemetry.ts`. Parity
 // test asserts alignment for both Sets.
-export const CAPSULE_IMPORT_SOURCES = new Set([
+const CAPSULE_IMPORT_SOURCES = new Set([
   'paste',
   'file-picker',
   'drag-drop',
 ]);
-export const CAPSULE_IMPORT_STATUSES = new Set([
+const CAPSULE_IMPORT_STATUSES = new Set([
   'decoded',
   'open-confirmed',
   'cancelled',
@@ -758,19 +758,19 @@ export const NOTEBOOK_CELL_STATUSES_SET = new Set([
   'error',
   'stopped',
 ]);
-export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
+const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
   'javascript',
   'typescript',
   'python',
 ]);
 // implementation Slice D implementation note — mirror of src/shared/telemetry.ts.
-export const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
+const NOTEBOOK_EXPORT_FORMATS_SET = new Set([
   'script',
   'ipynb',
   'linguanb',
 ]);
 // implementation note — mirror of `LANGUAGE_SCORECARD_SURFACES`.
-export const LANGUAGE_SCORECARD_SURFACES = new Set([
+const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
 ]);
@@ -783,25 +783,25 @@ export const LANGUAGE_SCORECARD_PLATFORMS = new Set([
 ]);
 // implementation Phase A1 implementation note — mirrors of the share-link enums.
 // `cancelled` currently covers user dismissal and clipboard-write failure.
-export const SHARE_CREATE_TRIGGERS = new Set([
+const SHARE_CREATE_TRIGGERS = new Set([
   'button',
   'palette',
   'shortcut',
 ]);
-export const SHARE_CREATE_STATUSES = new Set([
+const SHARE_CREATE_STATUSES = new Set([
   'success',
   'too-large',
   'unknown-language',
   'cancelled',
 ]);
-export const SHARE_OPEN_STATUSES = new Set([
+const SHARE_OPEN_STATUSES = new Set([
   'success',
   'decode-fail',
   'unknown-language',
   'unknown-version',
   'oversized',
 ]);
-export const SHARE_SIZE_BUCKETS = new Set([
+const SHARE_SIZE_BUCKETS = new Set([
   '<1kb',
   '<2kb',
   '<4kb',
@@ -877,7 +877,7 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
 // implementation — mirror of REPLACE_IN_FILES_SCOPES in
 // `src/shared/telemetry.ts`. Parity test enforces both copies stay
 // aligned.
-export const REPLACE_IN_FILES_SCOPES = new Set([
+const REPLACE_IN_FILES_SCOPES = new Set([
   'single-file',
   'all-files',
 ]);
@@ -885,19 +885,19 @@ export const REPLACE_IN_FILES_SCOPES = new Set([
 // `src/shared/telemetry.ts`. `PROJECT_BUNDLE_REJECT_REASONS` also
 // mirrors `BUNDLE_REJECT_REASONS` in `src/shared/projectBundle.ts`; the
 // parity test cross-imports that canonical tuple.
-export const PROJECT_BUNDLE_EXPORT_STATUSES = new Set([
+const PROJECT_BUNDLE_EXPORT_STATUSES = new Set([
   'cancelled',
   'empty',
   'exported',
   'failed',
 ]);
-export const PROJECT_BUNDLE_IMPORT_STATUSES = new Set([
+const PROJECT_BUNDLE_IMPORT_STATUSES = new Set([
   'cancelled',
   'imported',
   'non-empty-dir',
   'rejected',
 ]);
-export const PROJECT_BUNDLE_REJECT_REASONS = new Set([
+const PROJECT_BUNDLE_REJECT_REASONS = new Set([
   'empty',
   'entry-too-large',
   'malformed-zip',
@@ -960,10 +960,10 @@ export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
 // implementation (SQL import) implementation note — mirror of SQL_IMPORT_FORMATS_SET. Source
 // of truth is `SUPPORTED_IMPORT_FORMATS` in
 // `src/shared/sqlWorkspace.ts`; parity test cross-imports it.
-export const SQL_IMPORT_FORMATS_SET = new Set(['csv', 'json', 'parquet']);
+const SQL_IMPORT_FORMATS_SET = new Set(['csv', 'json', 'parquet']);
 // implementation (SQL import) implementation note — mirror of SQL_IMPORT_SOURCES_SET. Parity
 // test cross-imports the shared set.
-export const SQL_IMPORT_SOURCES_SET = new Set(['drop', 'picker']);
+const SQL_IMPORT_SOURCES_SET = new Set(['drop', 'picker']);
 // implementation note — mirror of PIPELINE_RUN_STATUSES_SET. Source
 // of truth lives in `src/shared/utilityPipeline.ts`; duplicated here
 // so the worker validator can stay free of renderer-only imports.
@@ -993,7 +993,7 @@ export const PIPELINE_TEMPLATE_IDS_SET = new Set([
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
 // `src/shared/dependencies/types.ts`. Parity test cross-imports the
 // renderer authority so the two copies cannot drift.
-export const DEPENDENCY_INSTALL_OUTCOMES = new Set([
+const DEPENDENCY_INSTALL_OUTCOMES = new Set([
   'success',
   'partial',
   'failed',
@@ -1004,7 +1004,7 @@ export const DEPENDENCY_INSTALL_OUTCOMES = new Set([
 // DEPENDENCY_INSTALL_FAILURE_REASONS in
 // `src/shared/dependencies/types.ts`. Kept outside the literal so
 // the regex parity test below stays single-quote clean.
-export const DEPENDENCY_INSTALL_FAILURE_REASONS = new Set([
+const DEPENDENCY_INSTALL_FAILURE_REASONS = new Set([
   'invalid-specifier',
   'no-package-json',
   'binary-missing',

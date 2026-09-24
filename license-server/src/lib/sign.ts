@@ -17,6 +17,8 @@
  * secret so the bundle never embeds the keypair.
  */
 
+export { parseLicensePublicKeyring } from '../../../src/shared/licensePublicKeyring';
+
 export interface LicensePayload {
   /** Stable `licenses.id` row id used to recover the current row after token refresh. */
   licenseId?: string;
@@ -28,7 +30,7 @@ export interface LicensePayload {
   entitlements: readonly string[];
 }
 
-export type TokenSignFailure =
+type TokenSignFailure =
   | { ok: false; reason: 'invalid-private-key'; message?: string }
   | { ok: false; reason: 'subtle-unavailable'; message?: string };
 
@@ -36,7 +38,7 @@ export type TokenSignResult =
   | { ok: true; token: string }
   | TokenSignFailure;
 
-export type TokenVerifyFailure =
+type TokenVerifyFailure =
   | { ok: false; reason: 'malformed'; message?: string }
   | { ok: false; reason: 'invalid-signature'; message?: string }
   | { ok: false; reason: 'invalid-public-key'; message?: string }
@@ -54,40 +56,6 @@ const SUPPORTED_TIERS: ReadonlySet<LicensePayload['tier']> = new Set([
   'trial',
   'education',
 ]);
-const MAX_LICENSE_PUBLIC_KEYS = 3;
-
-function isEd25519PublicJwk(value: unknown): value is JsonWebKey {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const candidate = value as JsonWebKey;
-  return (
-    candidate.kty === 'OKP' &&
-    candidate.crv === 'Ed25519' &&
-    typeof candidate.x === 'string' &&
-    candidate.x.length > 0 &&
-    candidate.d === undefined
-  );
-}
-
-/** Parse a backward-compatible single JWK or an ordered rotation keyring. */
-export function parseLicensePublicKeyring(raw: string | undefined): readonly JsonWebKey[] {
-  if (typeof raw !== 'string' || raw.length === 0) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-
-  const candidates = Array.isArray(parsed) ? parsed : [parsed];
-  if (candidates.length === 0 || candidates.length > MAX_LICENSE_PUBLIC_KEYS) return [];
-  if (!candidates.every(isEd25519PublicJwk)) return [];
-  const identities = candidates.map(
-    (candidate) => `${candidate.kty}:${candidate.crv}:${candidate.x}`
-  );
-  if (new Set(identities).size !== identities.length) return [];
-  return candidates;
-}
-
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -291,6 +259,3 @@ export async function verifyLicenseToken(
 
   return { ok: true, payload: parsed, keyIndex: verifiedKeyIndex };
 }
-
-/** Exposed only for tests that decode payloads without a public key. */
-export { base64UrlDecode, base64UrlEncode };

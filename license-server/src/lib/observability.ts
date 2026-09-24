@@ -33,7 +33,7 @@ export type ErrorClass = 'client' | 'server' | 'upstream' | 'storage';
  * `log()` which stamps `event` + `timestamp` and runs the rest of the
  * payload through the redactor.
  */
-export interface LogEvent {
+interface LogEvent {
   event: string;
   timestamp: string;
   route?: string;
@@ -239,7 +239,7 @@ export async function withRequestObservability(
  * `licenses.status`, not 9 distinct labels per token value. Keep in
  * sync with the route surface in `src/index.ts`.
  */
-export function routeNameFromPath(path: string): string {
+function routeNameFromPath(path: string): string {
   // Drop trailing slash + query string so collapsing is consistent.
   const cleanPath = path.split('?')[0]?.replace(/\/$/, '') ?? '';
   if (cleanPath === '' || cleanPath === '/health') return 'health.live';

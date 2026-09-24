@@ -37,7 +37,7 @@ Renderer architecture notes:
 Renderer + main-process build-time variables Lingua reads. Renderer keys are
 substituted into the bundle by Vite at build time; main-process keys are read
 by `vite.main.config.mts` through `loadEnv()` at config-load time so packaged
-Forge builds see repo-root `.env` / `.env.production` values. See
+desktop builds see repo-root `.env` / `.env.production` values. See
 `vite.web.config.mts`, `vite.renderer.config.mts`, and `vite.main.config.mts`
 for the wiring.
 
@@ -67,17 +67,20 @@ pnpm run lint
 pnpm run check:telemetry-call-sites
 pnpm run check:i18n
 pnpm run check:i18n:copy
+pnpm run report:i18n-usage
 pnpm run check:deadcode
+pnpm run check:deadcode:config
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run check:prod-audit
 pnpm run check:bundled-audit
 pnpm run build:web
 pnpm run smoke:desktop:stagewright
+pnpm run smoke:desktop:fs-ipc
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
+These are the main local verification commands. The independent-project CI job runs both dead-code commands after installing the root, website, and Worker lockfiles; the package-boundary probe creates and removes one temporary unused file in each package and fails if Knip misses any of them. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 
@@ -103,6 +106,7 @@ reference for what each command owns.
 | `preview:web`                | Serves the latest built web bundle locally.                                                                                                                                                                                          |
 | `smoke:project-templates`    | Materializes, installs, and executes every curated multi-file project template, then writes a diagnostic JSON artifact.                                                                                                              |
 | `smoke:desktop:stagewright`  | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke.                                                                                                                                                 |
+| `smoke:desktop:fs-ipc`      | Real main/preload filesystem boundary smoke for malformed payload rejection and valid file/watch recovery; build desktop bundles first.                                                                                                |
 | `smoke:desktop`              | Full desktop smoke flow against the dev server.                                                                                                                                                                                      |
 | `smoke:desktop:offline`      | Desktop smoke with non-loopback network requests blocked.                                                                                                                                                                            |
 | `smoke:desktop:packaged`     | Release-blocking packaged-app smoke against the host-native app under `out-builder`.                                                                                                                                                 |
@@ -124,7 +128,8 @@ reference for what each command owns.
 | `changelog:draft`            | Drafts changelog entries from conventional commits.                                                                                                                                                                                  |
 | `changelog:check`            | Blocks version/changelog drift before release.                                                                                                                                                                                       |
 | `test`                       | Runs the Vitest suite once.                                                                                                                                                                                                          |
-| `check:deadcode`             | Complete Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, and unexpected binaries. Known host commands used by platform scripts, completion tests, and benchmarks are allowlisted explicitly. |
+| `check:deadcode`             | Complete Knip gate across the root app, standalone website, license Worker, and update Worker (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, unexpected binaries, and configuration hints. Narrow dynamic-runtime and host-command allowlists are documented in place. |
+| `check:deadcode:config`      | Negative configuration proof: creates one temporary unused source file inside each of the four package boundaries, requires Knip to report all four, and removes every probe in a `finally` block. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
 | `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |
@@ -134,6 +139,7 @@ reference for what each command owns.
 | `check:telemetry-call-sites` | Enforces the typed React telemetry entry point and ratchets the grandfathered lower-level direct-call baseline downward.                                                                                                             |
 | `check:i18n`                 | Validates locale shape and key parity.                                                                                                                                                                                               |
 | `check:i18n:copy`            | Flags obvious hardcoded renderer copy in touched files.                                                                                                                                                                              |
+| `report:i18n-usage`          | Advisory AST inventory of literal, dynamic-family, and plural key usage. Prints possible unused keys but never deletes them or blocks CI; inspect indirect callers before removing anything. |
 | `format`                     | Runs Prettier over source, JSON, Markdown, and CSS files.                                                                                                                                                                            |
 | `prepare:node-pty`           | Restores executable permissions on node-pty's Unix `spawn-helper`; desktop builds run it automatically before packaging.                                                                                                           |
 | `build:desktop-bundles`      | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package.                                                                                                                                          |
@@ -165,6 +171,7 @@ What they enforce:
 
 - `check:i18n` fails on invalid locale JSON, missing translation keys, and orphaned keys relative to the English source locale.
 - `check:i18n:copy` inspects touched `src/renderer/**/*.ts(x)` files and flags obvious hardcoded JSX copy or literal UI attributes such as `title`, `aria-label`, and `placeholder`.
+- `node scripts/report-i18n-usage.mjs --json` prints machine-readable inventory without pnpm's lifecycle banner. The source scanner recognizes literal keys, direct `t`/`translate` template and concatenation families, and i18next plural suffixes. Keys assembled into variables, indirect references, and runtime payloads remain unresolved; a candidate is not proof that removal is safe. CI runs the report with `continue-on-error` rather than treating it as a deletion gate.
 
 ## UI smoke test (web)
 
@@ -472,6 +479,11 @@ pnpm run preview:web
 ```
 
 The local web build defaults to `/` as its base path. The Cloudflare Pages deployment workflow builds `dist/web` for the subdomain root at `app.linguacode.dev`; `linguacode.dev` remains reserved for the dedicated marketing/download site.
+Before Pages promotion, the workflow uploads the versioned DuckDB and Ruby WASM
+objects and streams each public response through
+`scripts/verify-web-runtime-mirror.mjs` against its local source file. HTTP,
+CORS, MIME, redirects, and SHA-256 must all pass; see
+[`runbooks/r2-web-runtime-setup.md`](./runbooks/r2-web-runtime-setup.md).
 
 Production web builds keep Pyodide same-origin in `dist/web/pyodide/`, but
 route oversized DuckDB and Ruby WASM files through

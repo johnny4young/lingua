@@ -8,8 +8,9 @@ import {
   unlink,
   writeFile,
 } from 'node:fs/promises';
-import { typedHandle } from '../typedHandle';
+import { validatedHandle } from '../typedHandle';
 import { asRelativePath, type RootId } from '../../../shared/fs/brandedIds';
+import { fsArgs } from './fsArgs';
 import {
   coercePositiveLimit,
   isRecord,
@@ -107,8 +108,9 @@ export function registerSearchReplaceHandlers(): void {
     await walk(rootAbsolutePath, rootRelativePath);
   }
 
-  typedHandle(
+  validatedHandle(
     'fs:searchInFiles',
+    fsArgs.search,
     async (
       event,
       rootId: RootId,
@@ -175,8 +177,9 @@ export function registerSearchReplaceHandlers(): void {
     }
   );
 
-  typedHandle(
+  validatedHandle(
     'fs:replaceInFiles',
+    (args) => fsArgs.replace('fs:replaceInFiles', args),
     async (
       _event,
       rootId: RootId,
@@ -371,8 +374,9 @@ export function registerSearchReplaceHandlers(): void {
     }
   );
 
-  typedHandle(
+  validatedHandle(
     'fs:applyReplaceInFile',
+    (args) => fsArgs.replace('fs:applyReplaceInFile', args),
     async (
       _event,
       rootId: RootId,

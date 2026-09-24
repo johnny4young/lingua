@@ -512,6 +512,24 @@ describe('runNotebookCell + session manager', () => {
     expect(mockResetScope).toHaveBeenCalledWith('tab-restart');
   });
 
+  it('discards a Python cell result after its notebook scope is disposed', async () => {
+    let finishPython!: (value: unknown) => void;
+    mockExecute.mockImplementationOnce(() => new Promise(resolve => {
+      finishPython = resolve;
+    }));
+    const pending = runNotebookCell({
+      tabId: 'tab-python-closed',
+      language: 'python',
+      source: 'print("late")',
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    disposeNotebookSession('tab-python-closed');
+    finishPython({ kind: 'ok', stdout: [{ args: ['late'] }], stderr: [] });
+
+    expect(await pending).toEqual({ ok: false, reason: 'session-disposed' });
+    expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({ scopeId: 'tab-python-closed' });
+  });
+
   it('surfaces a Python runtime error on the cell outcome ', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
@@ -686,6 +704,37 @@ describe('runNotebookCell + session manager', () => {
     expect(composedForSecond).toContain('const secret = 7;');
   });
 
+  it('shares JS declarations within one notebook but not a different tab', async () => {
+    mockExecute
+      .mockResolvedValueOnce({
+        kind: 'ok',
+        structuredResult: { stdout: [], stderr: [], sessionDelta: { secret: 7 } },
+        stdout: [],
+        stderr: [],
+      })
+      .mockResolvedValueOnce({
+        kind: 'ok',
+        structuredResult: { stdout: [], stderr: [], sessionDelta: { other: 1 } },
+        stdout: [],
+        stderr: [],
+      })
+      .mockResolvedValueOnce({
+        kind: 'ok',
+        structuredResult: { stdout: ['7'], stderr: [], sessionDelta: {} },
+        stdout: [],
+        stderr: [],
+      });
+
+    await runNotebookCell({ tabId: 'tab-a', language: 'javascript', source: 'const secret = 7;' });
+    await runNotebookCell({ tabId: 'tab-b', language: 'javascript', source: 'const other = 1;' });
+    await runNotebookCell({ tabId: 'tab-a', language: 'javascript', source: 'console.log(secret);' });
+
+    expect(String(mockExecute.mock.calls[1]?.[1])).not.toContain('const secret = 7;');
+    expect(String(mockExecute.mock.calls[2]?.[1])).toContain('const secret = 7;');
+    expect(getNotebookSessionKeys('tab-a')).toEqual(['secret']);
+    expect(getNotebookSessionKeys('tab-b')).toEqual(['other']);
+  });
+
   it('type-strips a TypeScript cell before the runner + merges its delta', async () => {
     mockExecute.mockResolvedValue({
       kind: 'ok',
@@ -792,6 +841,46 @@ describe('runNotebookCell + session manager', () => {
     disposeNotebookSession('tab-dispose');
     expect(getNotebookSessionKeys('tab-dispose')).toEqual([]);
   });
+
+  it('rejects a late cell result after its notebook is disposed and reopened', async () => {
+    let finishOldRun!: (value: unknown) => void;
+    mockExecute
+      .mockImplementationOnce(() => new Promise(resolve => {
+        finishOldRun = resolve;
+      }))
+      .mockResolvedValueOnce({
+        kind: 'ok',
+        structuredResult: { stdout: ['fresh'], stderr: [], sessionDelta: { fresh: 2 } },
+        stdout: [],
+        stderr: [],
+      });
+
+    const oldRun = runNotebookCell({
+      tabId: 'tab-reopened',
+      language: 'javascript',
+      source: 'const stale = 1;',
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    disposeNotebookSession('tab-reopened');
+
+    const newRun = await runNotebookCell({
+      tabId: 'tab-reopened',
+      language: 'javascript',
+      source: 'const fresh = 2;',
+    });
+    expect(newRun.ok).toBe(true);
+    expect(getNotebookSessionKeys('tab-reopened')).toEqual(['fresh']);
+    expect(String(mockExecute.mock.calls[1]?.[1])).not.toContain('const stale = 1;');
+
+    finishOldRun({
+      kind: 'ok',
+      structuredResult: { stdout: ['stale'], stderr: [], sessionDelta: { stale: 1 } },
+      stdout: [],
+      stderr: [],
+    });
+    expect(await oldRun).toEqual({ ok: false, reason: 'session-disposed' });
+    expect(getNotebookSessionKeys('tab-reopened')).toEqual(['fresh']);
+  });
 });
 
 describe('runNotebookCell — SQL cells ', () => {
@@ -805,6 +894,24 @@ describe('runNotebookCell — SQL cells ', () => {
 
   it('treats sql as a runnable language', () => {
     expect(isNotebookRunnableLanguage('sql')).toBe(true);
+  });
+
+  it('discards a late SQL result after closing its notebook', async () => {
+    let finishQuery!: (value: unknown) => void;
+    mockExecuteQuery.mockImplementationOnce(() => new Promise(resolve => {
+      finishQuery = resolve;
+    }));
+    const pending = runNotebookCell({
+      tabId: 'tab-sql-closed',
+      language: 'sql',
+      source: 'SELECT 1;',
+    });
+    await vi.waitFor(() => expect(mockExecuteQuery).toHaveBeenCalledTimes(1));
+    disposeNotebookSession('tab-sql-closed');
+    finishQuery(sqlOutcome({ rows: [{ value: 1 }], rowCount: 1 }));
+
+    expect(await pending).toEqual({ ok: false, reason: 'session-disposed' });
+    expect(getNotebookSessionKeys('tab-sql-closed')).toEqual([]);
   });
 
   it('emits a result set as a JSON-array stdout entry (table output)', async () => {

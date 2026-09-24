@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Run after build:desktop-bundles. Uses actual main/preload, isolated profiles,
 // a loopback renderer fixture and the built file renderer; never the user's app.
-import { _electron, expect } from 'playwright/test';
+import { _electron, expect } from '@playwright/test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createRequire } from 'node:module';

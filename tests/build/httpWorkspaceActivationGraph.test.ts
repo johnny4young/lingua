@@ -45,7 +45,15 @@ describe('HTTP workspace activation boundary', () => {
       entry: importPreviewEntry,
     });
 
-    expect(parents.size).toBeGreaterThan(40);
+    // Pin the preview's real eager dependencies rather than a graph-size
+    // threshold: removing an unrelated settings import should make it smaller.
+    for (const previewModule of [
+      'src/renderer/components/ImportPreview/ImportPreviewBody.tsx',
+      'src/renderer/hooks/useImportPreview.ts',
+      'src/shared/importers/registry.ts',
+    ]) {
+      expect(parents.has(previewModule), `${previewModule} left the preview graph`).toBe(true);
+    }
     expect(parents.has(schemaModule)).toBe(true);
 
     for (const deferredModule of [

@@ -12,9 +12,9 @@ let promise: Promise<Highlighter> | null = null;
 export const HERO_LANGS = ['javascript', 'typescript', 'python', 'ruby', 'go', 'rust'] as const;
 export type HeroLang = (typeof HERO_LANGS)[number];
 
-export const HERO_THEME = 'github-dark-default';
+const HERO_THEME = 'github-dark-default';
 
-export async function getHighlighter(): Promise<Highlighter> {
+async function getHighlighter(): Promise<Highlighter> {
   if (!promise) {
     promise = createHighlighter({
       themes: [HERO_THEME],

@@ -57,10 +57,6 @@ export function settingsPartialize(state: SettingsState) {
     // don't have to re-grant every reload.
     capsuleImportClipboardOnFocusConsent:
       state.capsuleImportClipboardOnFocusConsent,
-    // implementation note — persist the import-preview consent
-    // so the user's choice survives reloads.
-    importPreviewClipboardOnFocusConsent:
-      state.importPreviewClipboardOnFocusConsent,
     // implementation — persist the dependency-detection toggle so
     // the user's choice survives reloads. Rehydrate-merge applies
     // the implementation note tier-aware default when this key is absent.

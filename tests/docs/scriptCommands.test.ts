@@ -110,6 +110,7 @@ describe('Script naming docs guard', () => {
       'smoke:project-templates',
       'smoke:desktop',
       'smoke:desktop:stagewright',
+      'smoke:desktop:fs-ipc',
       // implementation — runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
       // implementation — packaged desktop smoke (release-blocking)
@@ -148,9 +149,9 @@ describe('Script naming docs guard', () => {
       'test',
       // Instrumented v8 coverage with ratcheted thresholds (vitest.config.mts).
       'test:coverage',
-      // Dead-code gate (knip.jsonc): unreferenced files, unused/unlisted
-      // dependencies. Unused exports stay advisory via `pnpm exec knip`.
+      // Complete four-package dead-code gate plus its negative boundary proof.
       'check:deadcode',
+      'check:deadcode:config',
       // implementation detail — scoped tsc gate that type-checks the branded-id
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',
@@ -162,6 +163,7 @@ describe('Script naming docs guard', () => {
       'check:telemetry-call-sites',
       'check:i18n',
       'check:i18n:copy',
+      'report:i18n-usage',
       'format',
       // Restores execute bits on node-pty's Unix companion helper before
       // desktop bundling; pnpm package extraction can strip them.

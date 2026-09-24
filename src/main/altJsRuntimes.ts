@@ -1,5 +1,5 @@
 /**
- * implementation — desktop Deno & Bun execution backends.
+ * Desktop Deno and Bun execution backends.
  *
  * Deno and Bun both run JavaScript AND TypeScript directly (no separate
  * transpile step), so a single generic runner drives both — parameterized

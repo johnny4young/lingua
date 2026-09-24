@@ -380,15 +380,13 @@ describe('fs:reopen-root', () => {
     });
   });
 
-  it('returns ok=false / not-found for empty / non-string input', async () => {
-    expect(await invoke('fs:reopen-root', '')).toEqual({
-      ok: false,
-      error: 'not-found',
-    });
-    expect(await invoke('fs:reopen-root', null)).toEqual({
-      ok: false,
-      error: 'not-found',
-    });
+  it('rejects empty and non-string input at the IPC boundary', async () => {
+    await expect(invoke('fs:reopen-root', '')).rejects.toThrow(
+      /Invalid IPC arguments/u
+    );
+    await expect(invoke('fs:reopen-root', null)).rejects.toThrow(
+      /Invalid IPC arguments/u
+    );
   });
 });
 
@@ -452,6 +450,32 @@ describe('fs:revoke-root', () => {
     const { rootId } = mintFor(tmpRoot);
     expect(await invoke('fs:revoke-root', rootId)).toBe(true);
     expect(await invoke('fs:revoke-root', rootId)).toBe(false);
+  });
+
+  it('denies every read, write, search, watch and reveal path after revocation', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'private.txt');
+    await writeFile(filePath, 'keep this content\n', 'utf-8');
+    expect(await invoke('fs:read', rootId, 'private.txt')).toBe('keep this content\n');
+
+    expect(await invoke('fs:revoke-root', rootId)).toBe(true);
+    for (const [channel, args] of [
+      ['fs:read', [rootId, 'private.txt']],
+      ['fs:readdir', [rootId, '']],
+      ['fs:searchInFiles', [rootId, '', 'content']],
+      ['fs:watch-start', [rootId, '']],
+      ['fs:reveal-in-finder', [rootId, 'private.txt']],
+      ['fs:write', [rootId, 'private.txt', 'stale write']],
+    ] as const) {
+      await expect(invoke(channel, ...args)).rejects.toThrow(/unknown.root/i);
+    }
+    expect(await readFile(filePath, 'utf-8')).toBe('keep this content\n');
+    expect(showItemInFolder).not.toHaveBeenCalled();
+
+    const reopened = mintFor(tmpRoot);
+    expect(await invoke('fs:read', reopened.rootId, 'private.txt')).toBe(
+      'keep this content\n'
+    );
   });
 });
 
@@ -554,6 +578,102 @@ describe('fs:write', () => {
     // because the realpath of /etc is denylisted on POSIX.
     const { rootId } = mintFor('/etc');
     await expect(invoke('fs:write', rootId, 'evil.txt', 'x')).rejects.toThrow();
+  });
+
+  it('rejects malformed and oversized content before creating a file', async () => {
+    const { rootId } = mintFor(tmpRoot);
+
+    await expect(
+      invoke('fs:write', rootId, 'object.txt', { text: 'not a string' })
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(stat(path.join(tmpRoot, 'object.txt'))).rejects.toThrow();
+
+    await expect(
+      invoke(
+        'fs:write',
+        rootId,
+        'oversized.txt',
+        'x'.repeat(MAX_BUNDLE_ENTRY_BYTES + 1)
+      )
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(stat(path.join(tmpRoot, 'oversized.txt'))).rejects.toThrow();
+  });
+});
+
+describe('filesystem IPC runtime validation', () => {
+  it('rejects malformed capability and dialog payloads before side effects', async () => {
+    await expect(invoke('fs:revoke-root', ['not-a-token'])).rejects.toThrow(
+      /Invalid IPC arguments/u
+    );
+
+    await expect(invoke('fs:save-dialog', ['not-a-name'])).rejects.toThrow(
+      /Invalid IPC arguments/u
+    );
+    expect(showSaveDialog).not.toHaveBeenCalled();
+
+    await expect(
+      invoke('fs:select-directory', { injected: true })
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(invoke('fs:select-file', { injected: true })).rejects.toThrow(
+      /Invalid IPC arguments/u
+    );
+    expect(showOpenDialog).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed search and replace payloads instead of coercing them', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const file = path.join(tmpRoot, 'sample.txt');
+    await writeFile(file, 'alpha beta\n', 'utf8');
+
+    await expect(
+      invoke('fs:searchInFiles', rootId, '', null, {})
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(
+      invoke('fs:searchInFiles', rootId, '', 'x'.repeat(65_537), {})
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(
+      invoke('fs:replaceInFiles', rootId, '', 'alpha', 'omega', [])
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(
+      invoke('fs:searchInFiles', rootId, '', 'alpha', new Date())
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(
+      invoke(
+        'fs:applyReplaceInFile',
+        rootId,
+        'sample.txt',
+        'alpha',
+        ['omega'],
+        {}
+      )
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+
+    expect(await readFile(file, 'utf8')).toBe('alpha beta\n');
+  });
+
+  it('rejects malformed delete, rename, and bundle metadata before prompts or writes', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const source = path.join(tmpRoot, 'source.txt');
+    await writeFile(source, 'keep', 'utf8');
+
+    await expect(
+      invoke('fs:delete', rootId, 'source.txt', 'directory')
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    expect(showMessageBox).not.toHaveBeenCalled();
+
+    await expect(
+      invoke('fs:rename', rootId, 'source.txt', ['renamed.txt'])
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+
+    await expect(
+      invoke('fs:exportBundle', rootId, ['not-options'])
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    await expect(
+      invoke('fs:exportBundle', rootId, new Map())
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    expect(showSaveDialog).not.toHaveBeenCalled();
+    expect(await readFile(source, 'utf8')).toBe('keep');
+    await expect(stat(path.join(tmpRoot, 'renamed.txt'))).rejects.toThrow();
   });
 });
 
@@ -837,24 +957,19 @@ describe('fs:replaceInFiles (preview)', () => {
     expect(result[0]!.matches[0]!.replacedPreview).toContain('$&-$1');
   });
 
-  it('sanitizes malformed option payloads instead of disabling caps', async () => {
+  it('rejects malformed numeric options before scanning files', async () => {
     const { rootId } = mintFor(tmpRoot);
     await writeFile(
       path.join(tmpRoot, 'a.ts'),
       'oldName\n'.repeat(20),
       'utf-8'
     );
-    const result = (await invoke(
-      'fs:replaceInFiles',
-      rootId,
-      '',
-      'oldName',
-      'newName',
-      { maxTotalMatches: Number.NaN, maxMatchesPerFile: Number.POSITIVE_INFINITY }
-    )) as Array<{ matches: Array<unknown> }>;
-    const total = result.reduce((sum, row) => sum + row.matches.length, 0);
-    expect(total).toBeLessThanOrEqual(20);
-    expect(total).toBeGreaterThan(0);
+    await expect(
+      invoke('fs:replaceInFiles', rootId, '', 'oldName', 'newName', {
+        maxTotalMatches: Number.NaN,
+        maxMatchesPerFile: Number.POSITIVE_INFINITY,
+      })
+    ).rejects.toThrow(/Invalid IPC arguments/u);
   });
 
   it('skips binary files via the NUL probe', async () => {
@@ -1379,8 +1494,9 @@ describe('fs:importBundle', () => {
   });
 
   it('rejects a non-binary payload before prompting for a folder', async () => {
-    const result = await invoke('fs:importBundle', { bytes: 'not-a-typed-array' });
-    expect(result).toEqual({ ok: false, reason: 'malformed-zip' });
+    await expect(
+      invoke('fs:importBundle', { bytes: 'not-a-typed-array' })
+    ).rejects.toThrow(/Invalid IPC arguments/u);
     expect(showOpenDialog).not.toHaveBeenCalled();
   });
 

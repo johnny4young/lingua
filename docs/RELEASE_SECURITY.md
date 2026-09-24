@@ -28,6 +28,9 @@ release checklist.
 ## Updates And Release Artifacts
 
 - Confirm release workflow audit gates passed.
+- For a web promotion, confirm the public Ruby and DuckDB WASM responses passed
+  the post-upload status, CORS, MIME, and streamed SHA-256 comparison against
+  the local build inputs; a local fixture pass is not production-bucket evidence.
 - Confirm packaged smoke passed offline against the produced app.
 - Confirm `SHA256SUMS.txt` exists and was verified.
 - Confirm GitHub Release `latest*.yml` manifests reference only attached
@@ -78,6 +81,10 @@ an ad-hoc build is validation-only and must not be represented as notarized.
 Linux publishes an AppImage plus `latest-linux.yml`. Integrity is provided by
 the manifest SHA-512 and release `SHA256SUMS.txt`; Authenticode and Apple
 notarization do not apply.
+The Linux build job validates the current AppImage's executable/type-2 header,
+version, `files[]` reference, size, and SHA-512 before upload. This is an
+artifact gate, not evidence of launch, installation, or updater behavior on a
+clean Linux host.
 
 ### Decision: manifest-signing layer (Ed25519 over the feed JSON)
 
@@ -116,6 +123,12 @@ rotation the value is an array whose first entry is `active` and whose remaining
 entries are verification-only `pending` or `retiring` keys. `.env` and
 `.env.production` must resolve to the same ordered thumbprints. The Settings
 fingerprint shows the first/primary key.
+
+`src/shared/licensePublicKeyring.ts` is the dependency-free parser used by both
+the app verifier and the license Worker. It validates only the public JWK list:
+the Worker still owns issuance and online row/device authority, while the app
+still owns offline signature, grace, and included-update decisions. Keep those
+verifiers separate when changing token or entitlement policy.
 
 The Worker keeps two private-key slots. `LINGUA_LICENSE_PRIVATE_KEY_JWK` is the
 existing `current` slot; `LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK` is prepared before

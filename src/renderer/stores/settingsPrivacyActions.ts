@@ -20,7 +20,6 @@ export function createPrivacyActions(
   | 'setTelemetryConsent'
   | 'setUtilitiesClipboardOnFocusConsent'
   | 'setCapsuleImportClipboardOnFocusConsent'
-  | 'setImportPreviewClipboardOnFocusConsent'
   | 'toggleDependencyDetectionEnabled'
   | 'addSensitiveHttpHeader'
   | 'removeSensitiveHttpHeader'
@@ -46,15 +45,6 @@ export function createPrivacyActions(
       capsuleImportClipboardOnFocusConsent
     ) => {
       set({ capsuleImportClipboardOnFocusConsent });
-    },
-    // implementation note — import-preview clipboard auto-detect
-    // consent. implementation ships the setter so Settings UI can land
-    // when needed; the actual auto-detect on overlay focus is
-    // deferred to implementation.
-    setImportPreviewClipboardOnFocusConsent: (
-      importPreviewClipboardOnFocusConsent
-    ) => {
-      set({ importPreviewClipboardOnFocusConsent });
     },
     // implementation — dependency detection master switch.
     toggleDependencyDetectionEnabled: () =>

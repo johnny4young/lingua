@@ -8,17 +8,16 @@
  * return one shape while preload cast the result to another, with `tsc`
  * none the wiser).
  *
- * Handler ARGUMENTS stay deliberately loose: values arrive over IPC from an
- * untrusted renderer, so every handler validates them itself (branded-id
- * minting, `typeof` guards, normalizers). Typing them as the contract tuple
- * would be a lie that discourages that validation, so the helper leaves the
- * incoming args untyped and each handler keeps its own `unknown`-typed
- * parameters.
+ * Handler ARGUMENTS stay deliberately loose in `typedHandle`: values arrive
+ * over IPC from an untrusted renderer, so those handlers validate their own
+ * `unknown` inputs. Higher-risk channels use `validatedHandle`, which parses
+ * the raw tuple before invoking an implementation typed to the contract.
  */
 
 import { ipcMain } from 'electron';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import type {
+  IpcInvokeArgs,
   IpcInvokeChannel,
   IpcInvokeResult,
   IpcPushChannel,
@@ -40,6 +39,29 @@ export function typedHandle<C extends IpcInvokeChannel>(
   handler: TypedIpcHandler<C>
 ): void {
   ipcMain.handle(channel, handler);
+}
+
+export type RuntimeIpcArgsParser<C extends IpcInvokeChannel> = (
+  args: readonly unknown[]
+) => IpcInvokeArgs<C>;
+
+export type ValidatedIpcHandler<C extends IpcInvokeChannel> = (
+  event: IpcMainInvokeEvent,
+  ...args: IpcInvokeArgs<C>
+) => IpcInvokeResult<C> | Promise<IpcInvokeResult<C>>;
+
+/**
+ * Register an invoke handler whose wire arguments are parsed before the
+ * implementation runs. IPC values are untrusted at runtime even when preload
+ * exposes a typed API; this wrapper keeps them `unknown` until the supplied
+ * parser returns the exact contract tuple.
+ */
+export function validatedHandle<C extends IpcInvokeChannel>(
+  channel: C,
+  parseArgs: RuntimeIpcArgsParser<C>,
+  handler: ValidatedIpcHandler<C>
+): void {
+  ipcMain.handle(channel, (event, ...args: unknown[]) => handler(event, ...parseArgs(args)));
 }
 
 /**

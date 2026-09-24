@@ -44,6 +44,12 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`types/`](types)           | Compatibility facade plus direct language, editor, console, execution, and settings type leaves; production code imports leaves, not the facade |
 | [`devShowcase/`](devShowcase) | Local visual/system showcase utilities, not product runtime code        |
 
+The SQL client in [`runtime/duckdbClient.ts`](runtime/duckdbClient.ts) owns
+queries and persistence policy. Its small
+[`runtime/duckdbEngineLifecycle.ts`](runtime/duckdbEngineLifecycle.ts) helper
+owns only engine generations and serialized release; keep OPFS cleanup inside
+that release transition so a new engine cannot reopen partially cleared data.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:
@@ -101,7 +107,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
 | [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
-| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
+| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; paste, file and drop are explicit (opening the overlay never reads the clipboard); directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |

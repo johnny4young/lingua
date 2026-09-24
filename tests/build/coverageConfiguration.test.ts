@@ -1,6 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import config from '../../vitest.config.mts';
@@ -10,6 +8,10 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
   devDependencies: Record<string, string>;
   scripts: Record<string, string>;
 };
+
+function hasInlineTestConfig(value: unknown): value is { test?: { exclude?: string[] } } {
+  return typeof value === 'object' && value !== null && 'test' in value;
+}
 
 describe('coverage configuration', () => {
   it('pins the runner and V8 provider to the same exact version', () => {
@@ -27,37 +29,21 @@ describe('coverage configuration', () => {
       reporter: ['text-summary', 'json-summary', 'lcov'],
     });
     // Neither everyday tests nor their budgets may silently lose benchmarks.
-    expect(config.test?.exclude).not.toContain('**/*.bench.test.ts');
+    for (const project of config.test?.projects ?? []) {
+      if (typeof project !== 'object' || project === null || !('test' in project)) continue;
+      expect(project.test?.exclude ?? []).not.toContain('**/*.bench.test.ts');
+    }
     expect(pkg.scripts.test).toBe('vitest run');
   });
 
-  it('passes the benchmark glob literally rather than expanding shell matches', () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'lingua-coverage-argv-'));
-    try {
-      for (const folder of ['one', 'two']) {
-        mkdirSync(join(cwd, folder));
-        writeFileSync(join(cwd, folder, 'sample.bench.test.ts'), '');
-      }
-      const capture = join(cwd, 'capture.mjs');
-      writeFileSync(capture, 'process.stdout.write(JSON.stringify(process.argv.slice(2)));');
-      // Exercise the actual package-script shell syntax, replacing only the
-      // Vitest executable with an argv recorder. Both POSIX sh and Windows cmd
-      // must forward a single glob to Vitest, even when the shell has matches.
-      const coverageCommand = pkg.scripts['test:coverage'];
-      if (!coverageCommand) throw new Error('Missing test:coverage script');
-      const command = coverageCommand.replace(
-        /^vitest\b/,
-        `"${process.execPath}" "${capture}"`
+  it('excludes timing benches inside both projects only during coverage', () => {
+    expect(pkg.scripts['test:coverage']).toBe('vitest run --coverage');
+    const projects = (config.test?.projects ?? []).filter(hasInlineTestConfig);
+    expect(projects).toHaveLength(2);
+    for (const project of projects) {
+      expect(project.test?.exclude?.includes('**/*.bench.test.ts')).toBe(
+        process.argv.includes('--coverage')
       );
-      const output = execFileSync(command, {
-        cwd,
-        shell: process.platform === 'win32' ? true : '/bin/sh',
-        encoding: 'utf8',
-        timeout: 10_000,
-      });
-      expect(JSON.parse(output)).toEqual(['run', '--coverage', '--exclude', '**/*.bench.test.ts']);
-    } finally {
-      rmSync(cwd, { recursive: true, force: true });
     }
   });
 });

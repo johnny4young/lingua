@@ -36,7 +36,7 @@ import { renderTemplate } from './renderTemplate';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-export type ResendFailure =
+type ResendFailure =
   | { ok: false; reason: 'no-api-key' }
   | { ok: false; reason: 'api-error'; status: number; message?: string }
   | { ok: false; reason: 'network-error'; message: string };
@@ -142,7 +142,7 @@ function formatExpiresOn(epochSeconds: number): string {
 
 // ---------------------------------------- implementation: paid licenses
 
-export type PaidTier = 'pro' | 'pro_lifetime' | 'team';
+type PaidTier = 'pro' | 'pro_lifetime' | 'team';
 
 export interface SendLicenseEmailInput {
   to: string;

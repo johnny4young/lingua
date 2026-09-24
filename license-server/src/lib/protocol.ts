@@ -9,7 +9,7 @@
 
 export const LICENSE_SERVER_PROTOCOL_VERSION = 1 as const;
 
-export function isVersionedLicenseServerPath(path: string): boolean {
+function isVersionedLicenseServerPath(path: string): boolean {
   return (
     path === '/licenses' ||
     path.startsWith('/licenses/') ||

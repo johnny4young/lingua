@@ -341,23 +341,23 @@ interface IpcInvokeContract {
     args: [absolutePath: string];
     result: { family: FsBlockedPathFamily | null };
   };
-  'fs:revoke-root': { args: [rootId: string]; result: boolean };
+  'fs:revoke-root': { args: [rootId: RootId]; result: boolean };
   'fs:readdir': {
-    args: [rootId: string, relativePath: string];
+    args: [rootId: RootId, relativePath: RelativePath];
     result: FsDirEntry[];
   };
   'fs:listAllFiles': {
-    args: [rootId: string, relativePath?: string];
+    args: [rootId: RootId, relativePath?: RelativePath];
     result: FsIndexedFile[];
   };
   'fs:searchInFiles': {
-    args: [rootId: string, relativePath: string, query: string, options?: FsSearchOptions];
+    args: [rootId: RootId, relativePath: RelativePath, query: string, options?: FsSearchOptions];
     result: FsSearchResult[];
   };
   'fs:replaceInFiles': {
     args: [
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions,
@@ -366,8 +366,8 @@ interface IpcInvokeContract {
   };
   'fs:applyReplaceInFile': {
     args: [
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions,
@@ -375,34 +375,34 @@ interface IpcInvokeContract {
     result: FsApplyReplaceResult;
   };
   'fs:stat': {
-    args: [rootId: string, relativePath: string];
+    args: [rootId: RootId, relativePath: RelativePath];
     result: FsStatResult;
   };
-  'fs:read': { args: [rootId: string, relativePath: string]; result: string };
+  'fs:read': { args: [rootId: RootId, relativePath: RelativePath]; result: string };
   'fs:read-bytes': {
-    args: [rootId: string, relativePath: string];
+    args: [rootId: RootId, relativePath: RelativePath];
     result: Uint8Array;
   };
   'fs:write': {
-    args: [rootId: string, relativePath: string, content: string];
+    args: [rootId: RootId, relativePath: RelativePath, content: string];
     result: boolean;
   };
   'fs:delete': {
-    args: [rootId: string, relativePath: string, isDirectory?: boolean, language?: string];
+    args: [rootId: RootId, relativePath: RelativePath, isDirectory?: boolean, language?: string];
     result: boolean;
   };
   'fs:rename': {
-    args: [rootId: string, relativeOldPath: string, newName: string];
+    args: [rootId: RootId, relativeOldPath: RelativePath, newName: string];
     result: RelativePath;
   };
-  'fs:mkdir': { args: [rootId: string, relativePath: string]; result: boolean };
-  'fs:touch': { args: [rootId: string, relativePath: string]; result: boolean };
+  'fs:mkdir': { args: [rootId: RootId, relativePath: RelativePath]; result: boolean };
+  'fs:touch': { args: [rootId: RootId, relativePath: RelativePath]; result: boolean };
   'fs:reveal-in-finder': {
-    args: [rootId: string, relativePath: string];
+    args: [rootId: RootId, relativePath: RelativePath];
     result: boolean;
   };
   'fs:exportBundle': {
-    args: [rootId: string, opts?: { entryFile?: string; languageHint?: string }];
+    args: [rootId: RootId, opts?: { entryFile?: string; languageHint?: string }];
     result:
       | { ok: true; fileCount: number; byteLength: number }
       | { canceled: true }
@@ -438,10 +438,10 @@ interface IpcInvokeContract {
         };
   };
   'fs:watch-start': {
-    args: [rootId: string, relativePath?: string];
+    args: [rootId: RootId, relativePath?: RelativePath];
     result: WatchId | { ok: false; diagnostic: WatcherDiagnostic };
   };
-  'fs:watch-stop': { args: [watchId: string]; result: boolean };
+  'fs:watch-stop': { args: [watchId: WatchId]; result: boolean };
 
   // ---------------------------------------------------------------- updates
   'updates:get-state': { args: []; result: UpdateState };

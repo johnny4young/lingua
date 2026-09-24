@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getDesktopBuildConfigs } from '../../scripts/lib/desktopViteConfig.mjs';
@@ -20,6 +21,29 @@ beforeAll(async () => {
 });
 
 describe('production desktop bundle contract', () => {
+  it('types app-owned window defines through the desktop ambient declarations', () => {
+    const ambientName = 'desktop.env.d.ts';
+    const declarations = readFileSync(resolve(root, ambientName), 'utf8');
+    const declaredNames = [...declarations.matchAll(/^declare const (\w+):/gmu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(declaredNames).toEqual([
+      'MAIN_WINDOW_VITE_DEV_SERVER_URL',
+      'MAIN_WINDOW_VITE_NAME',
+    ]);
+
+    for (const configName of ['tsconfig.json', 'tsconfig.test.json']) {
+      const configPath = resolve(root, configName);
+      const config = readFileSync(configPath, 'utf8');
+      expect(config, configName).toContain(`"${ambientName}"`);
+      expect(config, configName).not.toContain('"forge.env.d.ts"');
+    }
+
+    for (const name of declaredNames) {
+      expect(main.define, `${name} must be injected into the main bundle`).toHaveProperty(name);
+    }
+  });
+
   it('preserves main/preload entries, native externals and shared output', () => {
     for (const config of [main, preload]) {
       expect(config).toMatchObject({

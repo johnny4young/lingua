@@ -41,15 +41,36 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
   ),
 }));
 
-// Stub `decodeQrFromFile` so tests don't depend on jsdom's image
-// decoding pipeline. The real helper has full coverage in
-// tests/utils/qrCode.test.ts.
+// This suite verifies panel wiring, not the QR codec. Keep generation
+// deterministic under instrumented coverage; the real codec is exercised by
+// tests/utils/qrCode.test.ts and the browser QR flow in overlays.spec.ts.
 vi.mock('../../src/renderer/utils/qrCode', async () => {
   const actual = await vi.importActual<
     typeof import('../../src/renderer/utils/qrCode')
   >('../../src/renderer/utils/qrCode');
+  const generatedUrl = (
+    mime: 'png' | 'svg+xml',
+    payload: string,
+    level: Parameters<typeof actual.generateQrPngDataUrl>[1],
+    colors: Parameters<typeof actual.generateQrPngDataUrl>[2]
+  ) => {
+    if (payload.length === 0) return { ok: false, kind: 'empty' as const };
+    const capacity = actual.qrCapacityFor(level);
+    if (new TextEncoder().encode(payload).length > capacity) {
+      return { ok: false, kind: 'too-long' as const, capacity };
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify({ payload, level, colors }));
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return { ok: true, value: `data:image/${mime};base64,${base64}` };
+  };
   return {
     ...actual,
+    generateQrPngDataUrl: vi.fn(async (...args: Parameters<typeof actual.generateQrPngDataUrl>) =>
+      generatedUrl('png', ...args)
+    ),
+    generateQrSvgDataUrl: vi.fn(async (...args: Parameters<typeof actual.generateQrSvgDataUrl>) =>
+      generatedUrl('svg+xml', ...args)
+    ),
     decodeQrFromFile: vi.fn(async (file: File | null) => {
       if (!file) return { ok: false, kind: 'empty' as const };
       if (file.name.includes('reject-not-found')) {
@@ -147,6 +168,7 @@ describe('QrCodePanel', () => {
   it('localizes the panel headings and level labels to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="qr-code" />);
+    await screen.findByTestId('qr-code-image');
 
     expect(
       screen.getByRole('heading', { level: 3, name: 'Generar un código QR' })

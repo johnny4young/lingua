@@ -24,7 +24,6 @@
  *   D. Notebook preview band renders cell summary + snippets.
  *   E. Warning telemetry fires for ipynb imports with lossy bits.
  *   F. After-confirm language chip auto-flip.
- *   G. Clipboard auto-detect on overlay focus when consent granted.
  *
  * Escape closes. Click-outside closes. Telemetry (implementation note) is
  * owned by `useImportPreview`; the overlay just calls
@@ -49,7 +48,6 @@ import {
 } from '../../../shared/importers/postmanImporter';
 import type { ImportFlowId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
@@ -80,7 +78,7 @@ function formatLabelKeyForImporter(importerId: ImportFlowId): string {
 export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const { t } = useTranslation();
   // Async handlers call the latest close callback without forcing every
-  // import/clipboard callback to rebind when the parent rerenders.
+  // import callback to rebind when the parent rerenders.
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -99,9 +97,6 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     warnings,
   } = useImportPreview();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
-  const clipboardConsent = useSettingsStore(
-    (s) => s.importPreviewClipboardOnFocusConsent
-  );
 
   const [pasteValue, setPasteValue] = useState('');
   const [playgroundUrl, setPlaygroundUrl] = useState('');
@@ -120,48 +115,6 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   // scrim-click and the header `x`) through the `onClose` we pass it
   // (`handleClose`), which fires `trackCancelled()`. No document-level
   // listener here, otherwise the cancel telemetry would double-fire.
-
-  // implementation note — when consent is granted and the clipboard contains
-  // recognized content, auto-populate the paste textarea on mount.
-  // ALWAYS gated on consent. NEVER auto-imports — only previews;
-  // the user must still click Confirm.
-  useEffect(() => {
-    if (clipboardConsent !== 'granted') return;
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
-      return;
-    }
-    let cancelled = false;
-    navigator.clipboard
-      .readText()
-      .then((text) => {
-        if (cancelled) return;
-        const trimmed = text.trim();
-        if (trimmed.length === 0) return;
-        // Cheap pre-check: only auto-populate when the content looks
-        // like one of our known formats. Avoids leaking arbitrary
-        // clipboard contents into the overlay.
-        const detectedImporter = detectImporter(trimmed);
-        if (detectedImporter === null) return;
-        // Auto-detect stops at preview. The user still has to press the
-        // adapter-specific confirm button before any workspace/tab is created.
-        setPasteValue(text);
-        previewSource(text);
-        pushStatusNotice({
-          tone: 'info',
-          messageKey: 'importPreview.notice.clipboardAutoDetected',
-          values: {
-            format: t(formatLabelKeyForImporter(detectedImporter)),
-          },
-        });
-      })
-      .catch(() => {
-        // Clipboard read denied — silently ignore. The user can
-        // still paste manually.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [clipboardConsent, previewSource, pushStatusNotice, t]);
 
   const handleClose = useCallback(() => {
     trackCancelled();

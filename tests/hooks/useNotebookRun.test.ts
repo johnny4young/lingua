@@ -27,6 +27,7 @@ import { useNotebookRun } from '../../src/renderer/hooks/useNotebookRun';
 import { runnerManager } from '../../src/renderer/runners';
 import { trackEvent } from '../../src/renderer/utils/telemetry';
 import {
+  disposeNotebookSession,
   resetNotebookSessionsForTests,
 } from '../../src/renderer/runtime/notebookSession';
 import {
@@ -164,6 +165,100 @@ describe('useNotebookRun', () => {
       useNotebookStore.getState().getCellRunStatus('tab-3', jsCellId)
     ).toBe('stopped');
     expect(useAnnouncerStore.getState().message).toMatch(/stopped/i);
+  });
+
+  it('does not overwrite a reopened notebook with an old cell completion', async () => {
+    seedSingleCodeCellNotebook('tab-reopened', 'javascript');
+    let finishOldRun!: (value: unknown) => void;
+    mockExecute.mockImplementationOnce(
+      () => new Promise(resolve => {
+        finishOldRun = resolve;
+      })
+    );
+    const { result } = renderHook(() => useNotebookRun());
+    let oldRun!: Promise<void>;
+    act(() => {
+      oldRun = result.current.runCell('tab-reopened', 'cell-1');
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      disposeNotebookSession('tab-reopened');
+      seedSingleCodeCellNotebook('tab-reopened', 'javascript');
+      useNotebookStore.getState().setCellOutputs('tab-reopened', 'cell-1', [
+        { kind: 'text', stream: 'stdout', text: 'new notebook' },
+      ]);
+      useNotebookStore.getState().setCellRunStatus('tab-reopened', 'cell-1', 'ok');
+    });
+    await act(async () => {
+      finishOldRun({
+        kind: 'ok',
+        structuredResult: { stdout: ['old notebook'], stderr: [], sessionDelta: {} },
+        stdout: [],
+        stderr: [],
+      });
+      await oldRun;
+    });
+
+    expect(useNotebookStore.getState().getCellRunStatus('tab-reopened', 'cell-1')).toBe('ok');
+    expect(useNotebookStore.getState().getNotebookForTab('tab-reopened')?.cells).toEqual([
+      expect.objectContaining({
+        outputs: [{ kind: 'text', stream: 'stdout', text: 'new notebook' }],
+      }),
+    ]);
+    expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+
+  it('keeps the busy indicator owned by a newer cell after an old run settles', async () => {
+    seedSingleCodeCellNotebook('tab-busy', 'javascript');
+    let finishOld!: (value: unknown) => void;
+    let finishNew!: (value: unknown) => void;
+    mockExecute
+      .mockImplementationOnce(() => new Promise(resolve => {
+        finishOld = resolve;
+      }))
+      .mockImplementationOnce(() => new Promise(resolve => {
+        finishNew = resolve;
+      }));
+    const { result } = renderHook(() => useNotebookRun());
+    let oldRun!: Promise<void>;
+    act(() => {
+      oldRun = result.current.runCell('tab-busy', 'cell-1');
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    act(() => {
+      disposeNotebookSession('tab-busy');
+      seedSingleCodeCellNotebook('tab-busy', 'javascript');
+    });
+    let newRun!: Promise<void>;
+    act(() => {
+      newRun = result.current.runCell('tab-busy', 'cell-1');
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      finishOld({
+        kind: 'ok',
+        structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
+        stdout: [],
+        stderr: [],
+      });
+      await oldRun;
+    });
+    expect(result.current.isAnyCellRunning).toBe(true);
+    expect(useNotebookStore.getState().getCellRunStatus('tab-busy', 'cell-1')).toBe('running');
+
+    await act(async () => {
+      finishNew({
+        kind: 'ok',
+        structuredResult: { stdout: [], stderr: [], sessionDelta: {} },
+        stdout: [],
+        stderr: [],
+      });
+      await newRun;
+    });
+    expect(result.current.isAnyCellRunning).toBe(false);
+    expect(useNotebookStore.getState().getCellRunStatus('tab-busy', 'cell-1')).toBe('ok');
   });
 
   it('runCell emits a closed-enum telemetry payload', async () => {

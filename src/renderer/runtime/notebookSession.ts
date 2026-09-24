@@ -629,6 +629,10 @@ export async function runNotebookCell(
     return { ok: false, reason: 'concurrent-run' };
   }
   session.isRunning = true;
+  // Closing or restarting a tab removes its session. An older async cell may
+  // still settle after a same-id tab has opened a new session; it must not
+  // publish an outcome or continue dispatching work into that new lifetime.
+  const isCurrentSession = () => sessions.get(request.tabId) === session;
   try {
     // implementation — SQL cells run through the shared DuckDB-WASM engine
     // (`executeQuery`), INDEPENDENTLY of the JS composed-source + sandbox
@@ -648,6 +652,7 @@ export async function runNotebookCell(
         request.source,
         request.timeoutMs !== undefined ? { timeoutMs: request.timeoutMs } : {}
       );
+      if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
       // `too-large` is a capped SUCCESS — DuckDB returned a row preview and
       // set `tooLarge` because the full result exceeded the engine cap. Only
       // sql-error / timeout / engine-load-failed are real failures.
@@ -715,6 +720,7 @@ export async function runNotebookCell(
         scopeId: request.tabId,
         ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
       });
+      if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
       const sandboxKeyCount = Object.keys(session.sandbox).length;
       if (result.kind === 'stopped' || result.cancelled === true) {
         return {
@@ -763,6 +769,7 @@ export async function runNotebookCell(
     let runnableSource = request.source;
     if (request.language === 'typescript') {
       const transpiled = await transpileTypescriptCell(request.source);
+      if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
       if (!transpiled.ok) {
         return {
           ok: true,
@@ -782,6 +789,7 @@ export async function runNotebookCell(
       runnableSource,
       session.sandbox
     );
+    if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
     const result = await runnerManager.execute('javascript', composed, {
       language: 'javascript',
       // implementation — ask the worker to forward the cell's structured
@@ -791,6 +799,7 @@ export async function runNotebookCell(
       captureStructuredResult: true,
       ...(request.timeoutMs !== undefined ? { timeout: request.timeoutMs } : {}),
     });
+    if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
     if (result.kind === 'stopped' || result.cancelled === true) {
       return {
         ok: true,
@@ -871,6 +880,7 @@ export async function runNotebookCell(
       },
     };
   } catch (err) {
+    if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
     const errorMessage = err instanceof Error ? err.message : String(err);
     return {
       ok: true,

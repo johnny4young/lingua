@@ -32,11 +32,11 @@ const TEXT_ENCODER = new TextEncoder();
  * Tauri) without forcing a server change every time the renderer
  * gains a new browser detection branch.
  */
-export const MAX_EMAIL_LENGTH = 254;
-export const MAX_DEVICE_ID_LENGTH = 128;
-export const MAX_DEVICE_NAME_LENGTH = 254;
-export const MAX_TOKEN_LENGTH = 4096;
-export const MAX_OS_LENGTH = 64;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_DEVICE_ID_LENGTH = 128;
+const MAX_DEVICE_NAME_LENGTH = 254;
+const MAX_TOKEN_LENGTH = 4096;
+const MAX_OS_LENGTH = 64;
 
 /**
  * Permissive `os` shape check: lowercase ASCII letters, digits, and

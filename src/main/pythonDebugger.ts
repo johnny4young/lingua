@@ -1,5 +1,5 @@
 /**
- * implementation — main-process Python debugger bridge (engine).
+ * Main-process Python debugger bridge (engine).
  *
  * Lingua *runs* Python in Pyodide (WASM, in the renderer worker), but a
  * source-level debugger needs a real interpreter with `pdb`. This module is

@@ -7,7 +7,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
-import { typedHandle } from '../typedHandle';
+import { validatedHandle } from '../typedHandle';
 import { blockedPathFamily } from '../permissions';
 import { type RootId } from '../projectCapabilities';
 import {
@@ -23,11 +23,11 @@ import {
 } from '../../../shared/projectBundle';
 import {
   EMPTY_DIR_IGNORE,
-  coerceBundleBytes,
   joinRelative,
   resolveOrThrow,
   shouldHide,
 } from './fsShared';
+import { fsArgs } from './fsArgs';
 
 /**
  * internal — project bundle export/import handlers, extracted VERBATIM
@@ -38,8 +38,9 @@ import {
 export function registerBundleHandlers(
   rememberApprovedRoot: (absolutePath: string) => Promise<void>
 ): void {
-  typedHandle(
+  validatedHandle(
     'fs:exportBundle',
+    (args) => fsArgs.rootOnly('fs:exportBundle', args),
     async (
       event,
       rootId: RootId,
@@ -186,20 +187,19 @@ export function registerBundleHandlers(
    * On success it `rememberApprovedRoot`s the target so the renderer's
    * existing `openProject(rootPath)` → `fs:reopen-root` path adopts it.
    */
-  typedHandle(
+  validatedHandle(
     'fs:importBundle',
+    fsArgs.importBundle,
     async (
       _event,
-      zipBytes: unknown
+      zipBytes: Uint8Array
     ): Promise<
       | { ok: true; rootPath: string; fileCount: number; entryFile?: string }
       | { canceled: true }
       | { ok: false; reason: BundleRejectReason | 'non-empty-dir' | 'write-failed' }
     > => {
-      const bytes = coerceBundleBytes(zipBytes);
-      if (!bytes) return { ok: false, reason: 'malformed-zip' };
       const pathOptions = { windowsTarget: process.platform === 'win32' };
-      const unpacked = unpackBundle(bytes, pathOptions);
+      const unpacked = unpackBundle(zipBytes, pathOptions);
       if (!unpacked.ok) return { ok: false, reason: unpacked.reason };
 
       const picked = await dialog.showOpenDialog({
