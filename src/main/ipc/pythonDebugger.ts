@@ -288,7 +288,7 @@ export function disposePythonDebuggerSessions(): void {
     sessions.delete(record.id);
     record.session.terminate(true);
     try {
-      // before-quit does not await promises; remove synchronously so the
+      // will-quit does not await promises; remove synchronously so the
       // private source cannot survive a normal application shutdown.
       rmSync(record.tempDir, { recursive: true, force: true });
     } catch {

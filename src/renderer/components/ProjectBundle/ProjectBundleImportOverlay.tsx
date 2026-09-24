@@ -57,7 +57,7 @@ export function ProjectBundleImportOverlay({
       setBytes(next);
       // Preview failures stay local so users can correct the file before
       // the authoritative main-process import prompts for a destination.
-      setPreview(unpackBundle(next));
+      setPreview(unpackBundle(next, { windowsTarget: window.lingua?.platform === 'win32' }));
     } catch {
       setBytes(null);
       setPreview({ ok: false, reason: 'malformed-zip' });

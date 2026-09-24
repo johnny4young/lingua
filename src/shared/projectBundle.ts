@@ -149,6 +149,11 @@ interface UnpackBundleErr {
 
 export type UnpackBundleResult = UnpackBundleOk | UnpackBundleErr;
 
+export interface BundlePathOptions {
+  /** Extraction writes to a Windows filesystem. */
+  windowsTarget?: boolean;
+}
+
 /** Git metadata has filesystem aliases on case-insensitive NTFS/HFS volumes. */
 function containsRepositoryMetadata(rawPath: string): boolean {
   return rawPath.split(/[\\/]/u).some(segment => {
@@ -167,10 +172,13 @@ function containsRepositoryMetadata(rawPath: string): boolean {
  * sole zip-slip chokepoint — both pack and unpack route through it.
  *
  * Rejects: empty, absolute (`/foo`, `C:\foo`, `\\unc`), any `..`
- * segment, backslashes, alternate data streams, repository metadata aliases,
- * and paths without a file component.
+ * segment, backslashes, repository metadata aliases, paths without a file
+ * component and, for a Windows destination, alternate data streams.
  */
-export function validateBundleEntryPath(rawPath: string): string | null {
+export function validateBundleEntryPath(
+  rawPath: string,
+  { windowsTarget = false }: BundlePathOptions = {}
+): string | null {
   if (typeof rawPath !== 'string' || rawPath.length === 0) return null;
   // Reject backslashes outright rather than converting them: a path like
   // `a\..\..\b` is a Windows traversal that a POSIX-only normalizer would
@@ -178,8 +186,11 @@ export function validateBundleEntryPath(rawPath: string): string | null {
   if (rawPath.includes('\\')) return null;
   if (rawPath.includes('\0')) return null;
   if (containsRepositoryMetadata(rawPath)) return null;
-  // Alternate data streams are not portable regular-file paths.
-  if (rawPath.includes(':')) return null;
+  // Drive-letter absolute forms.
+  if (/^[a-zA-Z]:/.test(rawPath)) return null;
+  // NTFS writes `name:stream` into an alternate data stream of `name`; the
+  // colon is an ordinary filename character on POSIX volumes.
+  if (windowsTarget && rawPath.includes(':')) return null;
   // Leading slash = absolute POSIX.
   if (rawPath.startsWith('/')) return null;
 
@@ -275,7 +286,7 @@ export function packBundle(
  */
 export function unpackBundle(
   zipBytes: Uint8Array,
-  opts: BundleCapOverrides = {}
+  opts: BundleCapOverrides & BundlePathOptions = {}
 ): UnpackBundleResult {
   const caps = resolveBundleCaps(opts);
 
@@ -337,7 +348,7 @@ export function unpackBundle(
 
     const safe = isManifest
       ? PROJECT_BUNDLE_MANIFEST_NAME
-      : validateBundleEntryPath(file.name);
+      : validateBundleEntryPath(file.name, opts);
     if (safe === null) {
       rejectEntry(file, file.name, 'path-traversal');
       return;

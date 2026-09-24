@@ -339,3 +339,32 @@ describe('repository metadata boundary', () => {
     if (result.ok) expect(result.files.map(entry => entry.path)).toEqual(paths);
   });
 });
+
+describe('colon paths', () => {
+  it('exports and imports POSIX names that contain a colon', () => {
+    const paths = ['logs/2024-01-01T10:30.txt', 'notes:draft.md'];
+    const packed = packBundle(
+      paths.map(entry => file(entry)),
+      { createdAt: CREATED_AT }
+    );
+    const result = unpackBundle(packed);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.files.map(entry => entry.path)).toEqual(paths);
+  });
+
+  it('rejects alternate data streams only for a Windows destination', () => {
+    expect(validateBundleEntryPath('notes:draft.md', { windowsTarget: true })).toBeNull();
+    const zip = zipSync({ 'safe.js': strToU8('42'), 'notes:stream': strToU8('hidden') });
+    const result = unpackBundle(zip, { windowsTarget: true });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.files.map(entry => entry.path)).toEqual(['safe.js']);
+      expect(result.rejects).toEqual([{ path: 'notes:stream', reason: 'path-traversal' }]);
+    }
+  });
+
+  it('still rejects drive-letter paths on every platform', () => {
+    expect(validateBundleEntryPath('C:/Windows/evil.txt')).toBeNull();
+    expect(validateBundleEntryPath('c:relative.txt')).toBeNull();
+  });
+});

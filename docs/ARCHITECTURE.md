@@ -1298,9 +1298,13 @@ If you keep that model, future extensions tend to stay coherent.
 Project queries require Git 2.36 or newer because earlier versions can treat
 `core.fsmonitor=false` as a hook executable instead of disabling it. Queries
 share one no-shell invocation boundary with an allowlisted host environment,
-no inherited Git redirection/configuration, no global/system configuration,
-disabled fsmonitor/hooks, external diff/text conversion and recursive submodule
-inspection, and no permitted transport for lazy object fetching. Missing local
+no inherited Git redirection/configuration, no global/system configuration
+except forwarded `safe.directory`, `core.autocrlf`, `core.eol` and
+`core.excludesFile` values, disabled fsmonitor/hooks, repository filter drivers
+(clean/smudge/process), external diff/text conversion and recursive submodule
+inspection, and no permitted transport for lazy object fetching. If filter
+drivers cannot be enumerated, the status query reports unknown instead of
+running. Missing local
 objects degrade the relevant query rather than fetching or invoking a helper.
 The host Git binary and its installation remain trusted.
 
@@ -1349,9 +1353,10 @@ dialog, and exits with status 1 even if displaying the dialog itself fails. The
 user-facing diagnostic contains only a stage and an allowlisted code, never the
 thrown message, stack, filesystem path or token.
 
-Renderer loading has a thirty-second aggregate deadline, including a pending
-load. Only the development server receives bounded retries; missing packaged HTML
-fails immediately. Window closure and final app quit cancel loading and retries,
+Renderer loading has an aggregate deadline that includes a pending load: thirty
+seconds for the development server and two minutes for the packaged document,
+which can be slow on a cold first launch. Only the development server receives
+bounded retries; missing packaged HTML fails immediately. Window closure and final app quit cancel loading and retries,
 and late load settlements cannot reopen a window. A window is shown only after
 both successful loading and ready-to-show. Before-quit does not invalidate an
 already initialized app because unsaved-change confirmation can cancel quitting.
@@ -1449,11 +1454,13 @@ The native process registry tracks the shared spawn boundary (also used by Rust 
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
 preparation and explicitly force-terminates remaining tracked trees because Electron
 may exit before an escalation timer fires. Settled runs release process entries and
-owner listeners; shutdown is not a persistent latch, so a cancelled app quit does
-not permanently disable subsequent runs. This does not extend runtime permissions.
+owner listeners. Shutdown cleanup runs on `will-quit`, after every window has
+closed, so a quit cancelled from the unsaved-changes prompt leaves active runs,
+debuggers, terminals and language servers untouched. This does not extend
+runtime permissions.
 Native Node, Ruby, Deno, Bun, Go and Rust staging directories are created and
 registered in one synchronous turn. Ordinary completion removes each directory
-asynchronously; `before-quit` synchronously removes any still registered source
+asynchronously; `will-quit` synchronously removes any still registered source
 or compiled artifacts after terminating tracked children. Only paths created by
 the staging helper are eligible, so unrelated temporary files are untouched.
 Removal can still fail when the OS denies it or another process holds a file;

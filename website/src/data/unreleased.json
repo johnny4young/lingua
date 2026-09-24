@@ -1,61 +1,115 @@
 {
-  "generatedAt": "2026-09-22T04:42:30.903Z",
+  "generatedAt": "2026-09-24T02:08:35.780Z",
   "baseRef": "v1.5.0",
-  "commitCount": 6,
-  "totalSinceBase": 20,
+  "commitCount": 12,
+  "totalSinceBase": 39,
   "commits": [
     {
-      "hash": "419db52",
-      "date": "2026-09-21",
+      "hash": "062e744",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "clean native run staging on shutdown",
+      "breaking": false
+    },
+    {
+      "hash": "c42d41d",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "preserve source coordinates through execution transforms",
+      "message": "cancel native version probes",
       "breaking": false
     },
     {
-      "hash": "cf243b4",
-      "date": "2026-09-21",
+      "hash": "d17cf6d",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "own preparation before sessions exist",
+      "breaking": false
+    },
+    {
+      "hash": "8a808a1",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "cancel DAP adapter startup safely",
+      "breaking": false
+    },
+    {
+      "hash": "4b757eb",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "reap cancelled and failed adapter trees",
+      "breaking": false
+    },
+    {
+      "hash": "170b579",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "reap cancelled descendants after parent exit",
+      "breaking": false
+    },
+    {
+      "hash": "e2f95db",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "surface captured errors as failed executions",
+      "message": "own Go compilation and worker cancellation",
       "breaking": false
     },
     {
-      "hash": "ee57897",
-      "date": "2026-09-21",
+      "hash": "fce12d2",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "bind manual execution to cancellable sessions",
+      "message": "cancel the complete Rust compilation pipeline",
       "breaking": false
     },
     {
-      "hash": "bd0a0c4",
-      "date": "2026-09-21",
+      "hash": "4c650dd",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "runtime",
-      "message": "run packaged project tests with host Node",
+      "scope": "main",
+      "message": "bind native runs to owner and app lifecycle",
       "breaking": false
     },
     {
-      "hash": "e772e53",
-      "date": "2026-09-21",
+      "hash": "83f26f0",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "mcp",
-      "message": "enforce canonical secret paths and lossless text slices",
+      "scope": "main",
+      "message": "own project test cancellation before preparation",
       "breaking": false
     },
     {
-      "hash": "28d1be2",
-      "date": "2026-09-21",
+      "hash": "19eae4f",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "security",
-      "message": "isolate Git queries and reject repository metadata bundles",
+      "scope": "main",
+      "message": "cancel interpreter preparation before spawning",
+      "breaking": false
+    },
+    {
+      "hash": "89769d7",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "own Node cancellation before runtime preparation",
       "breaking": false
     }
   ]

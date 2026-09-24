@@ -39,7 +39,7 @@ import { GoplsLauncher, type GoplsStatus } from '../lsp/goplsLauncher';
  * `textDocument/publishDiagnostics` reaches the editor.
  *
  * Lifecycle ownership: launchers live at module scope (one per
- * language per main process). `app.on('before-quit')` calls
+ * language per main process). `app.on('will-quit')` calls
  * `disposeLspBridge()` to kill every live child. Tests can call the
  * same helper for cleanup.
  */

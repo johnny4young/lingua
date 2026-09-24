@@ -25,6 +25,15 @@ describe('Windows native process-tree termination', () => {
     expect(kill).not.toHaveBeenCalled();
   });
 
+  it('never targets the PID of a child that has already exited', async () => {
+    const child = Object.assign(new ChildProcess(), { pid: 98765, exitCode: 0 });
+    const kill = vi.spyOn(child, 'kill').mockReturnValue(true);
+    const { killProcessTree } = await import('../../src/main/runners/processTree');
+    killProcessTree(child, 'SIGKILL');
+    expect(mocks.execFile).not.toHaveBeenCalled();
+    expect(kill).not.toHaveBeenCalled();
+  });
+
   it('falls back to the direct child if taskkill fails asynchronously', async () => {
     mocks.execFile.mockImplementation((_command, _args, callback) => {
       callback(new Error('taskkill unavailable'));

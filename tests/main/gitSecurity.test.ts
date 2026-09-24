@@ -94,6 +94,45 @@ describe('read-only Git trust boundary', () => {
     expect(existsSync(path.join(root, 'textconv-marker'))).toBe(false);
   });
 
+  it('does not run repository clean or process filters when comparing content', async () => {
+    const marker = path.join(root, 'filter-marker');
+    writeFileSync(path.join(root, '.gitattributes'), '*.txt filter=untrusted.driver\n');
+    git(root, 'config', 'filter.untrusted.driver.clean', `node -e "require('fs').writeFileSync(process.argv[1], '')" ${JSON.stringify(marker)}; cat`);
+    git(root, 'config', 'filter.untrusted.driver.required', 'true');
+    // Same size, new content: Git must hash the file, which runs the filter.
+    writeFileSync(path.join(root, 'sample.txt'), 'afters\n'.slice(0, 7));
+    git(root, 'status', '--porcelain=v1', '--', 'sample.txt');
+    expect(existsSync(marker)).toBe(true);
+    rmSync(marker);
+    writeFileSync(path.join(root, 'sample.txt'), 'bofore\n');
+    expect(await getFileStatus(root, path.join(root, 'sample.txt'))).toMatchObject({
+      status: 'modified',
+      insertions: 1,
+      deletions: 1,
+    });
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('honors trusted line-ending settings from the user configuration', async () => {
+    const home = realpathSync(mkdtempSync(path.join(tmpdir(), 'lingua-git-home-')));
+    try {
+      writeFileSync(path.join(home, '.gitconfig'), '[core]\n\tautocrlf = true\n\tfsmonitor = echo\n');
+      vi.stubEnv('HOME', home);
+      vi.stubEnv('USERPROFILE', home);
+      writeFileSync(path.join(root, 'lines.txt'), 'a\nb\n');
+      git(root, 'add', '--', 'lines.txt');
+      git(root, 'commit', '-m', 'lines');
+      writeFileSync(path.join(root, 'lines.txt'), 'a\r\nc\r\n');
+      expect(await getFileStatus(root, path.join(root, 'lines.txt'))).toMatchObject({
+        status: 'modified',
+        insertions: 1,
+        deletions: 1,
+      });
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it('opens a legitimate submodule without inspecting its configuration from the parent', async () => {
     // Construct a real absorbed submodule without the shell-based submodule
     // add/clone orchestration (which can outlive its parent on Windows).

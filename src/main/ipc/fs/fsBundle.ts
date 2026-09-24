@@ -198,7 +198,8 @@ export function registerBundleHandlers(
     > => {
       const bytes = coerceBundleBytes(zipBytes);
       if (!bytes) return { ok: false, reason: 'malformed-zip' };
-      const unpacked = unpackBundle(bytes);
+      const pathOptions = { windowsTarget: process.platform === 'win32' };
+      const unpacked = unpackBundle(bytes, pathOptions);
       if (!unpacked.ok) return { ok: false, reason: unpacked.reason };
 
       const picked = await dialog.showOpenDialog({
@@ -229,7 +230,7 @@ export function registerBundleHandlers(
       const targetReal = path.resolve(targetRootPath);
       try {
         for (const file of unpacked.files) {
-          const safe = validateBundleEntryPath(file.path);
+          const safe = validateBundleEntryPath(file.path, pathOptions);
           if (safe === null) continue; // already filtered, belt + braces
           const absolute = path.resolve(targetReal, safe);
           const rel = path.relative(targetReal, absolute);
