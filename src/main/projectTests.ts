@@ -258,6 +258,14 @@ function absoluteNodePath(env: NodeJS.ProcessEnv, node?: string | null): string 
     .join(path.delimiter);
 }
 
+// Only resolved binaries are cached, so a newly installed Node is found on the
+// next detection without restarting.
+const projectNodeCache = new Map<string, string>();
+
+export function resetProjectNodeCacheForTests(): void {
+  projectNodeCache.clear();
+}
+
 /** Resolve before changing cwd: a bare node plus a relative PATH could execute
  * a project-planted binary. Reuse native Node discovery for GUI-launch fallback
  * locations, but keep both its probe and the eventual runner PATH absolute. */
@@ -274,11 +282,16 @@ async function projectNodeExecutable(
     ).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   );
   env.PATH = absoluteNodePath(hostEnv);
+  const cacheKey = JSON.stringify([platform, env]);
+  const cached = projectNodeCache.get(cacheKey);
+  if (cached && (await fileExists(cached, platform !== 'win32'))) return cached;
   const detected = await detectNode(env, false, signal);
   if (!detected.installed || !detected.binary) return null;
-  return path.isAbsolute(detected.binary)
+  const binary = path.isAbsolute(detected.binary)
     ? detected.binary
-    : resolveHostExecutable([detected.binary], env, platform);
+    : await resolveHostExecutable([detected.binary], env, platform);
+  if (binary && !signal?.aborted) projectNodeCache.set(cacheKey, binary);
+  return binary;
 }
 
 async function executionSpecs(

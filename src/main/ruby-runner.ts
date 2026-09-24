@@ -391,7 +391,10 @@ async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortS
 
     return mapRubyRunResult(run, timeoutMs);
   } finally {
-    await cleanupNativeRunTempDir(tempDir);
+    // A completed run replies before filesystem teardown; the staging registry
+    // still owns the directory, so shutdown removes it if this has not finished.
+    const cleanup = cleanupNativeRunTempDir(tempDir);
+    if (signal.aborted) await cleanup;
   }
 }
 

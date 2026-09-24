@@ -6,8 +6,9 @@
  * by the binary name and its argv builder. The security posture matches
  * node-runner.ts / ruby-runner.ts exactly:
  *
- *   - `spawn()` only, never a shell. Source is written to a temp file
- *     under `mkdtemp()` and passed by path — no command-line interpolation.
+ *   - The shared `spawnNativeRun` supervisor, never a shell. Source is
+ *     written to a staged temp file and passed by path — no command-line
+ *     interpolation.
  *   - Env filtered through the internal allowlist + internal user tier; the
  *     host env is never forwarded wholesale.
  *   - Parent-owned timeout with SIGTERM→SIGKILL escalation via
@@ -30,23 +31,18 @@
  */
 
 import type { WebContents } from 'electron';
-import { createNativeRunLifecycle, NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './runners/nativeRunLifecycle';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle } from './ipc/typedHandle';
-import {
-  spawn,
-  type ChildProcessWithoutNullStreams,
-} from 'node:child_process';
 import { writeFile } from 'node:fs/promises';
 import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
+import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import { BUN_TOOLCHAIN_KEYS, DENO_TOOLCHAIN_KEYS } from '../shared/nativeToolchainEnvKeys';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
-import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNativeRun';
 import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import type {
   AltJsDetectResult,
-  AltJsRunKind,
   AltJsRunResult,
 } from '../shared/nativeRuntimeTypes';
 
@@ -176,133 +172,56 @@ async function spawnAltRuntime(
 
   try {
     if (signal.aborted) return stoppedAltRunResult(options);
-    const directory = tempDir;
-    return await new Promise<AltJsRunResult>((resolve) => {
-      const start = Date.now();
-      let stdout = '';
-      let stderr = '';
-      let stdoutTruncated = false;
-      let stderrTruncated = false;
-      let resolved = false;
-      let kind: AltJsRunKind = 'success';
-      let killedByTimer = false;
-      let stoppedByUser = false;
-      let escalationTimer: NodeJS.Timeout | null = null;
-
-      let child: ChildProcessWithoutNullStreams;
-      try {
-        child = spawn(config.binary, config.runArgs(entryFile, directory), {
-          cwd: tempDir,
-          env,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          ...detachedSpawnOptions(),
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        resolve({
-          kind: 'error',
-          stdout,
-          stderr: message,
-          exitCode: -1,
-          executionTime: Date.now() - start,
-          error: message,
-          timeoutMs,
-        });
-        return;
-      }
-
-      const releaseChild = trackNativeRunProcess(child, signal);
-      const terminate = (next: 'timeout' | 'stopped') => {
-        if (resolved) return;
-        if (next === 'timeout') killedByTimer = true;
-        else stoppedByUser = true;
-        kind = next;
-        if (next === 'stopped' && signal.reason === NATIVE_RUN_OWNER_GONE) {
-          killProcessTree(child, 'SIGKILL');
-          return;
-        }
-        killProcessTree(child, 'SIGTERM');
-        if (escalationTimer === null) {
-          escalationTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
-        }
-      };
-
-      const onAbort = () => terminate('stopped');
-      if (signal.aborted) onAbort();
-      else signal.addEventListener('abort', onAbort, { once: true });
-
-      child.stdin.on('error', () => {
-        /* EPIPE — child exited before stdin flush. */
-      });
-      try {
-        child.stdin.end();
-      } catch {
-        /* already closed */
-      }
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        if (stdoutTruncated) return;
-        stdout += chunk.toString();
-        if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-          stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, STDOUT_TRUNCATION_MARKER);
-          stdoutTruncated = true;
-        }
-      });
-      child.stderr.on('data', (chunk: Buffer) => {
-        if (stderrTruncated) return;
-        stderr += chunk.toString();
-        if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-          stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, STDERR_TRUNCATION_MARKER);
-          stderrTruncated = true;
-        }
-      });
-
-      const killTimer = setTimeout(() => terminate('timeout'), timeoutMs);
-
-      const finish = (result: AltJsRunResult) => {
-        if (resolved) return;
-        resolved = true;
-        // Parent close does not imply tree exit: descendants may own independent
-        // pipes and ignore TERM. Finish cancellation before releasing ownership
-        // or clearing escalation; normal completion keeps its existing behavior.
-        if (stoppedByUser || killedByTimer) killProcessTree(child, 'SIGKILL');
-        releaseChild();
-        clearTimeout(killTimer);
-        if (escalationTimer !== null) clearTimeout(escalationTimer);
-        signal.removeEventListener('abort', onAbort);
-        resolve(result);
-      };
-
-      child.on('close', (code: number | null) => {
-        const exitCode = code ?? -1;
-        if (!killedByTimer && !stoppedByUser && exitCode !== 0) kind = 'error';
-        const errorText =
-          kind === 'timeout'
-            ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
-            : kind === 'error'
-              ? stderr || `Process exited with code ${exitCode}`
-              : undefined;
-        finish({ kind, stdout, stderr, exitCode, executionTime: Date.now() - start, error: errorText, timeoutMs });
-      });
-
-      child.on('error', (err: Error) => {
-        const message = err.message || `Failed to spawn ${config.binary}`;
-        const missing: AltJsRunKind =
-          /ENOENT/.test(message) || /not found/i.test(message) ? 'missing-binary' : 'error';
-        finish({
-          kind: missing,
-          stdout,
-          stderr: stderr || message,
-          exitCode: -1,
-          executionTime: Date.now() - start,
-          error: message,
-          timeoutMs,
-        });
-      });
+    const run = await spawnNativeRun({
+      command: config.binary,
+      args: config.runArgs(entryFile, tempDir),
+      cwd: tempDir,
+      env,
+      timeoutMs,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: STDOUT_TRUNCATION_MARKER,
+      stderrTruncationMarker: STDERR_TRUNCATION_MARKER,
+      stdin: {},
+      signal,
     });
+    return mapAltRunResult(run, config.binary, timeoutMs);
   } finally {
     await cleanupNativeRunTempDir(tempDir);
   }
+}
+
+function mapAltRunResult(
+  run: SpawnNativeRunResult,
+  binary: string,
+  timeoutMs: number
+): AltJsRunResult {
+  const base = {
+    stdout: run.stdout,
+    stderr: run.stderr,
+    exitCode: run.exitCode,
+    executionTime: run.executionTime,
+    timeoutMs,
+  };
+  if (run.spawnError) {
+    const message = run.spawnError.message || `Failed to spawn ${binary}`;
+    const missing = /ENOENT/.test(message) || /not found/i.test(message);
+    return {
+      ...base,
+      kind: missing ? 'missing-binary' : 'error',
+      stderr: run.stderr || message,
+      exitCode: -1,
+      error: message,
+    };
+  }
+  if (run.killed) return { ...base, kind: 'stopped' };
+  if (run.timedOut) {
+    return { ...base, kind: 'timeout', error: `Run timed out after ${Math.round(timeoutMs / 1000)}s` };
+  }
+  if (run.exitCode !== 0) {
+    return { ...base, kind: 'error', error: run.stderr || `Process exited with code ${run.exitCode}` };
+  }
+  return { ...base, kind: 'success' };
 }
 
 function stoppedAltRunResult(options: AltJsRunOptions): AltJsRunResult {

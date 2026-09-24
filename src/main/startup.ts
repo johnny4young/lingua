@@ -71,7 +71,10 @@ export function createStartupGuard(report: (failure: StartupFailure) => void, ex
 
 // Preserve the dev server's existing thirty-second startup grace period, but
 // bound a pending load too (not just the pauses between refused connections).
-export const RENDERER_STARTUP_TIMEOUT_MS = 30_000;
+export const RENDERER_DEV_STARTUP_TIMEOUT_MS = 30_000;
+// A packaged document still gets a bound, loose enough for a cold disk or an
+// antivirus scan of the archive on first launch.
+export const RENDERER_FILE_STARTUP_TIMEOUT_MS = 120_000;
 const RETRY_DELAY_MS = 1000;
 
 function waitForRetry(signal: AbortSignal): Promise<void> {
@@ -104,7 +107,7 @@ export async function loadStartupRenderer(
       controller.abort(
         Object.assign(new Error('Renderer startup timed out'), { code: 'ETIMEDOUT' })
       ),
-    RENDERER_STARTUP_TIMEOUT_MS
+    retry ? RENDERER_DEV_STARTUP_TIMEOUT_MS : RENDERER_FILE_STARTUP_TIMEOUT_MS
   );
   const aborted = new Promise<never>((_resolve, reject) => {
     controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {

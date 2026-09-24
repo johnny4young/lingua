@@ -1,7 +1,7 @@
 import { orderedConsoleOutputs, isPrimaryErrorOutput } from './capturedOutput';
 import type { LineResult } from '../stores/resultStore';
 import type { Language } from '../types/language';
-import type { ExecutionResult } from '../types/execution';
+import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import { isInlineResultLanguage } from './languageCapabilities';
 
 function getLastNonEmptyLine(code: string): number {
@@ -33,12 +33,20 @@ export function isDynamicResultLanguage(language: Language): boolean {
   return isInlineResultLanguage(language);
 }
 
+// Legacy/native stderr has no capture order and repeats the failure text line
+// by line. Inline rows would pin each copy beside the error row; full output
+// keeps it as compiler/runtime detail.
+function duplicatesExecutionError(result: ExecutionResult, output: ConsoleOutput): boolean {
+  if (isPrimaryErrorOutput(result, output)) return true;
+  return Boolean(result.error) && output.type === 'error' && output.captureOrder === undefined;
+}
+
 export function toLineResults(result: ExecutionResult, code: string): LineResult[] {
   const lineResults: LineResult[] = [];
   const fallbackLine = getLastNonEmptyLine(code);
 
   for (const output of orderedConsoleOutputs(result)) {
-    if (isPrimaryErrorOutput(result, output)) continue;
+    if (duplicatesExecutionError(result, output)) continue;
     lineResults.push({
       line: output.line ?? fallbackLine,
       value: output.args.join(' '),

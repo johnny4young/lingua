@@ -378,9 +378,12 @@ function registerPrimaryInstance() {
 
   app.on('before-quit', () => {
     if (!initialized) startup.stop();
+  });
+  // Not before-quit: the dirty-tab prompt can still cancel the quit there.
+  app.on('will-quit', () => {
+    startup.stop();
     disposeMainResources();
   });
-  app.on('will-quit', () => startup.stop());
 
   app.on('activate', () => {
     if (!initialized || startup.signal.aborted) return;

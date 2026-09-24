@@ -1,7 +1,8 @@
 /**
  * Read-only project Git queries. Repository configuration is untrusted:
  * every invocation uses the same restricted environment and disables hooks,
- * external diff/text conversion, lazy network fetches and optional writes.
+ * filter drivers, external diff/text conversion, lazy network fetches and
+ * optional writes.
  * Native execution remains a separate, explicit user action.
  */
 
@@ -36,11 +37,32 @@ const execFileAsync = promisify(childProc.execFile);
 const GIT_INVOCATION_TIMEOUT_MS = 5_000;
 const GIT_NULL_FILE = process.platform === 'win32' ? 'NUL' : '/dev/null';
 
+type GitConfigEntry = readonly [key: string, value: string];
+
+// Protected-scope settings that change query results but cannot run code.
+// Forwarded from global/system config, which queries otherwise do not read.
+const FORWARDED_USER_CONFIG = /^(safe\.directory|core\.(autocrlf|eol|excludesfile))$/u;
+let forwardedUserConfig: GitConfigEntry[] = [];
+
 function runGit(
   binary: string,
   args: string[],
-  options: { cwd?: string; timeout?: number; maxBuffer?: number }
+  options: {
+    cwd?: string;
+    timeout?: number;
+    maxBuffer?: number;
+    config?: readonly GitConfigEntry[];
+  }
 ): Promise<{ stdout: string; stderr: string }> {
+  const { config = [], ...execOptions } = options;
+  // Environment entries avoid `-c key=value` parsing of attacker-chosen names.
+  const injected = [...forwardedUserConfig, ...config];
+  const configEnv = Object.fromEntries(
+    injected.flatMap(([key, value], index) => [
+      [`GIT_CONFIG_KEY_${index}`, key],
+      [`GIT_CONFIG_VALUE_${index}`, value],
+    ])
+  );
   return execFileAsync(
     binary,
     [
@@ -60,7 +82,7 @@ function runGit(
       ...args,
     ],
     {
-      ...options,
+      ...execOptions,
       timeout: GIT_INVOCATION_TIMEOUT_MS,
       env: buildNativeRunnerEnv(combinedAllowlist([]), undefined, {
         GIT_CONFIG_NOSYSTEM: '1',
@@ -69,9 +91,72 @@ function runGit(
         GIT_TERMINAL_PROMPT: '0',
         GIT_OPTIONAL_LOCKS: '0',
         GIT_NO_LAZY_FETCH: '1',
+        GIT_CONFIG_COUNT: String(injected.length),
+        ...configEnv,
       }),
     }
   );
+}
+
+function parseConfigList(stdout: string): GitConfigEntry[] {
+  return stdout
+    .split('\0')
+    .filter(Boolean)
+    .map(entry => {
+      const newline = entry.indexOf('\n');
+      return newline === -1 ? [entry, ''] : [entry.slice(0, newline), entry.slice(newline + 1)];
+    });
+}
+
+async function readForwardedUserConfig(binary: string): Promise<GitConfigEntry[]> {
+  const entries: GitConfigEntry[] = [];
+  for (const scope of ['--system', '--global']) {
+    try {
+      const { stdout } = await execFileAsync(
+        binary,
+        ['config', scope, '--includes', '-z', '--get-regexp', FORWARDED_USER_CONFIG.source],
+        {
+          timeout: GIT_INVOCATION_TIMEOUT_MS,
+          env: buildNativeRunnerEnv(combinedAllowlist([]), undefined, { GIT_TERMINAL_PROMPT: '0' }),
+        }
+      );
+      entries.push(...parseConfigList(stdout).filter(([key]) => FORWARDED_USER_CONFIG.test(key)));
+    } catch {
+      // Missing file or no matching keys.
+    }
+  }
+  return entries;
+}
+
+/**
+ * Repository config can define clean/process filters that status and diff run
+ * on stat-dirty files. Null means the drivers could not be enumerated.
+ */
+async function repositoryFilterOverrides(
+  binary: string,
+  cwd: string
+): Promise<GitConfigEntry[] | null> {
+  try {
+    const { stdout } = await runGit(
+      binary,
+      ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'],
+      { cwd }
+    );
+    const drivers = new Set(
+      stdout
+        .split('\0')
+        .filter(key => key.startsWith('filter.') && key.lastIndexOf('.') > 'filter.'.length)
+        .map(key => key.slice('filter.'.length, key.lastIndexOf('.')))
+    );
+    return [...drivers].flatMap(name => [
+      [`filter.${name}.clean`, ''],
+      [`filter.${name}.smudge`, ''],
+      [`filter.${name}.process`, ''],
+      [`filter.${name}.required`, 'false'],
+    ]);
+  } catch (error) {
+    return (error as { code?: unknown }).code === 1 ? [] : null;
+  }
 }
 
 // Older Git versions interpret fsmonitor=false as an executable hook name.
@@ -141,6 +226,7 @@ async function probeGitBinary(): Promise<CachedBinaryProbe> {
       });
       const version = stdout.trim();
       cachedBinary = { binary: supportsSafeQueries(version) ? 'git' : null, version };
+      if (cachedBinary.binary) forwardedUserConfig = await readForwardedUserConfig('git');
       return cachedBinary;
     } catch {
       // fall through to the fallback walker
@@ -159,6 +245,7 @@ async function probeGitBinary(): Promise<CachedBinaryProbe> {
           });
           const version = stdout.trim();
           cachedBinary = { binary: supportsSafeQueries(version) ? candidate : null, version };
+          if (cachedBinary.binary) forwardedUserConfig = await readForwardedUserConfig(candidate);
           return cachedBinary;
         } catch {
           // try the next path
@@ -366,6 +453,8 @@ export async function getFileStatus(
   const relative = validateRepoRelativePath(repoRoot, filePath);
   if (!relative) return { status: 'unknown' };
   try {
+    const filters = await repositoryFilterOverrides(binary, repoRoot);
+    if (!filters) return { status: 'unknown' };
     // `--porcelain=v1` is the stable, parser-friendly format; `-z`
     // would use NUL separators but the single-file query already
     // returns at most one record, so the standard newline output is
@@ -376,6 +465,7 @@ export async function getFileStatus(
       {
         cwd: repoRoot,
         timeout: GIT_INVOCATION_TIMEOUT_MS,
+        config: filters,
       }
     );
     const trimmed = stdout.trim();
@@ -391,7 +481,7 @@ export async function getFileStatus(
     // Anything else with a porcelain line means "tracked + changed
     // in some way (modified, deleted, renamed, added)". Bucket all
     // of these as `modified` for implementation — implementation can split them.
-    const counts = await getNumstatForFile(binary, repoRoot, relative);
+    const counts = await getNumstatForFile(binary, repoRoot, relative, filters);
     return { status: 'modified', ...counts };
   } catch {
     return { status: 'unknown' };
@@ -401,7 +491,8 @@ export async function getFileStatus(
 async function getNumstatForFile(
   binary: string,
   repoRoot: string,
-  relative: string
+  relative: string,
+  filters: readonly GitConfigEntry[]
 ): Promise<{ insertions: number; deletions: number }> {
   try {
     const { stdout } = await runGit(
@@ -410,6 +501,7 @@ async function getNumstatForFile(
       {
         cwd: repoRoot,
         timeout: GIT_INVOCATION_TIMEOUT_MS,
+        config: filters,
       }
     );
     return parseNumstat(stdout);
@@ -554,6 +646,7 @@ async function readWorkingTreeVersion(
  */
 export function resetGitProbeCacheForTests(): void {
   cachedBinary = null;
+  forwardedUserConfig = [];
   probeInFlight = null;
 }
 

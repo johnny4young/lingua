@@ -41,7 +41,8 @@ export function detachedSpawnOptions(): { detached: boolean } {
  * child if the group signal fails (ESRCH after reap, EPERM, missing pid).
  * Windows: both stages use `taskkill /T /F`. Node emulates SIGTERM by killing
  * the parent unconditionally; doing that first loses the ancestry taskkill
- * needs to find descendants during a later escalation.
+ * needs to find descendants during a later escalation. An exited child is left
+ * alone because its PID may already belong to an unrelated process.
  * Never throws — termination races with natural exit by design.
  */
 export function killProcessTree(
@@ -51,6 +52,9 @@ export function killProcessTree(
   const pid = child.pid;
 
   if (isWindows) {
+    // Windows recycles PIDs quickly, and taskkill cannot find descendants of an
+    // exited parent anyway; never target a PID this child no longer owns.
+    if (typeof child.exitCode === 'number' || typeof child.signalCode === 'string') return;
     if (typeof pid === 'number' && pid > 0) {
       try {
         execFile('taskkill', ['/pid', String(pid), '/T', '/F'], error => {

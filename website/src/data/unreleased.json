@@ -1,61 +1,115 @@
 {
-  "generatedAt": "2026-09-22T04:42:30.903Z",
+  "generatedAt": "2026-09-24T02:38:37.156Z",
   "baseRef": "v1.5.0",
-  "commitCount": 6,
-  "totalSinceBase": 20,
+  "commitCount": 12,
+  "totalSinceBase": 83,
   "commits": [
     {
-      "hash": "419db52",
-      "date": "2026-09-21",
+      "hash": "062e744",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "clean native run staging on shutdown",
+      "breaking": false
+    },
+    {
+      "hash": "6d079da",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "capsules",
+      "message": "preserve worker console line endings for replay",
+      "breaking": false
+    },
+    {
+      "hash": "2e88955",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "a11y",
+      "message": "enforce contrast in Lingua themes",
+      "breaking": false
+    },
+    {
+      "hash": "897bf76",
+      "date": "2026-09-23",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "preserve source coordinates through execution transforms",
+      "message": "keep passive probes within toolchain env boundary",
       "breaking": false
     },
     {
-      "hash": "cf243b4",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
+      "hash": "f63090e",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
       "scope": "runtime",
-      "message": "surface captured errors as failed executions",
+      "message": "qualify local Go and Rust toolchains",
       "breaking": false
     },
     {
-      "hash": "ee57897",
-      "date": "2026-09-21",
+      "hash": "269c27a",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "website",
+      "message": "guide reproducible run evidence journey",
+      "breaking": false
+    },
+    {
+      "hash": "9e4950a",
+      "date": "2026-09-23",
       "type": "fix",
       "typeLabel": "Fix",
+      "scope": "preview",
+      "message": "isolate retained documents by tab",
+      "breaking": false
+    },
+    {
+      "hash": "4d1bf2c",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "preview",
+      "message": "capture promise errors and guide recovery",
+      "breaking": false
+    },
+    {
+      "hash": "80c1800",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "sql",
+      "message": "clarify engine recovery without reload",
+      "breaking": false
+    },
+    {
+      "hash": "95cc491",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsules",
+      "message": "hand off validated JSON to CLI",
+      "breaking": false
+    },
+    {
+      "hash": "4d9e92f",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "editor",
+      "message": "copy explicit selection with safe context",
+      "breaking": false
+    },
+    {
+      "hash": "51f4d31",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
       "scope": "runtime",
-      "message": "bind manual execution to cancellable sessions",
-      "breaking": false
-    },
-    {
-      "hash": "bd0a0c4",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runtime",
-      "message": "run packaged project tests with host Node",
-      "breaking": false
-    },
-    {
-      "hash": "e772e53",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "mcp",
-      "message": "enforce canonical secret paths and lossless text slices",
-      "breaking": false
-    },
-    {
-      "hash": "28d1be2",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "security",
-      "message": "isolate Git queries and reject repository metadata bundles",
+      "message": "explain local binary availability before selection",
       "breaking": false
     }
   ]

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   disposeProjectTestRuns,
   detectProjectTests,
+  resetProjectNodeCacheForTests,
   runProjectTests,
   stopProjectTests,
 } from '../../src/main/projectTests';
@@ -31,6 +32,7 @@ async function executable(name: string): Promise<void> {
 }
 
 beforeEach(async () => {
+  resetProjectNodeCacheForTests();
   vi.mocked(detectNode).mockResolvedValue({
     installed: true,
     binary: process.execPath,
@@ -47,6 +49,25 @@ afterEach(async () => {
 });
 
 describe('project test discovery', () => {
+  it('reuses a resolved host Node across detections instead of re-probing', async () => {
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '^4' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    await detectProjectTests(rootPath);
+    await detectProjectTests(rootPath);
+    expect(detectNode).toHaveBeenCalledOnce();
+  });
+
+  it('probes again after a miss so a newly installed Node is found', async () => {
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '^4' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    vi.mocked(detectNode).mockResolvedValueOnce({ installed: false });
+    const missing = await detectProjectTests(rootPath);
+    expect(missing.candidates[0]).toMatchObject({ available: false, unavailableReason: 'node-not-found' });
+    const found = await detectProjectTests(rootPath);
+    expect(found.candidates[0]).toMatchObject({ available: true });
+    expect(detectNode).toHaveBeenCalledTimes(2);
+  });
+
   it('detects every supported root marker in deterministic order', async () => {
     await write(
       'package.json',
