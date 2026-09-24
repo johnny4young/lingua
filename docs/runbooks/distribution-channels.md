@@ -24,7 +24,7 @@ published release's `SHA256SUMS.txt`, so a digest can never drift from the
 artifact it describes:
 
 ```bash
-node scripts/generate-distribution-manifests.mjs --tag v1.5.0 --release-date 2026-09-17
+node scripts/generate-distribution-manifests.mjs --tag v1.5.1 --release-date 2026-09-24
 ```
 
 Outputs `packaging/homebrew/Casks/lingua.rb`,
@@ -33,9 +33,9 @@ Outputs `packaging/homebrew/Casks/lingua.rb`,
 
 ## npm CLI
 
-`@linguacode/cli@1.5.0` is public. Check `pnpm run distribution:status`
-before relying on any version in this runbook: the latest GitHub Release,
-npm package, Homebrew tap, and local winget manifests can move independently.
+Check `pnpm run distribution:status` before relying on any version in this
+runbook: the latest GitHub Release, npm package, Homebrew tap, and local winget
+manifests can move independently.
 Never publish an older version retroactively or rebuild a CLI package outside
 its immutable GitHub Release; the package bytes must match the tagged release.
 
@@ -166,8 +166,7 @@ brew install --cask johnny4young/tap/lingua
 
 The public [`johnny4young/homebrew-tap`](https://github.com/johnny4young/homebrew-tap)
 repository already exists and contains the desktop cask and headless CLI
-formula. The public probe on 2026-09-24 reported both tap recipes at `1.4.1`
-while the latest GitHub Release and npm CLI were `1.5.0`; do not describe a
+formula. Tap versions can lag the GitHub Release and npm CLI; do not describe a
 tap install as the newest release until the tap is promoted and verified.
 
 Desktop cask promotion after each published release:
@@ -274,9 +273,9 @@ Configure Authenticode signing, then re-generate and submit:
 
 The manifests are generated and validated in-repo, but can lag the latest
 release. Regenerate them from the newly published checksums before submission;
-the 2026-09-24 public probe reported local winget manifests at `1.4.1` while
-the latest release was `1.5.0`. Signing and a clean Windows validation remain
-independent gates.
+the in-repository v1.5.1 manifests describe an **unsigned preview** and are
+not eligible for winget submission. Signing and a clean Windows validation
+remain independent gates.
 
 ### Local validation
 
