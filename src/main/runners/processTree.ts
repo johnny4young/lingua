@@ -54,7 +54,7 @@ export function killProcessTree(
   if (isWindows) {
     // Windows recycles PIDs quickly, and taskkill cannot find descendants of an
     // exited parent anyway; never target a PID this child no longer owns.
-    if (child.exitCode !== null || child.signalCode !== null) return;
+    if (typeof child.exitCode === 'number' || typeof child.signalCode === 'string') return;
     if (typeof pid === 'number' && pid > 0) {
       try {
         execFile('taskkill', ['/pid', String(pid), '/T', '/F'], error => {
