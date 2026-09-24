@@ -9,7 +9,7 @@ const active = new Set<string>();
 export function stageNativeRunTempDir(prefix: string): string {
   if (!/^lingua-[a-z-]+-$/.test(prefix)) throw new Error('Invalid native staging prefix');
   // Creation and registration must be one synchronous turn. An async mkdtemp
-  // can finish after Electron's non-awaiting before-quit listener has returned.
+  // can finish after Electron's non-awaiting will-quit listener has returned.
   const dir = mkdtempSync(path.join(tmpdir(), prefix));
   active.add(dir);
   return dir;
@@ -25,7 +25,7 @@ export async function cleanupNativeRunTempDir(dir: string): Promise<void> {
   }
 }
 
-/** before-quit cannot await asynchronous runner finally blocks. */
+/** Shutdown cannot await asynchronous runner finally blocks. */
 export function disposeNativeRunTempDirs(): void {
   for (const dir of active) {
     try {

@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createStartupGuard,
   loadStartupRenderer,
-  RENDERER_STARTUP_TIMEOUT_MS,
+  RENDERER_DEV_STARTUP_TIMEOUT_MS,
+  RENDERER_FILE_STARTUP_TIMEOUT_MS,
   startupFailureMessage,
 } from '../../src/main/startup';
 
@@ -149,7 +150,10 @@ describe('renderer startup loading', () => {
       );
       const promise = loadStartupRenderer(load, new AbortController().signal, retry);
       const assertion = expect(promise).rejects.toMatchObject({ code: 'ETIMEDOUT' });
-      await vi.advanceTimersByTimeAsync(RENDERER_STARTUP_TIMEOUT_MS);
+      const deadline = retry ? RENDERER_DEV_STARTUP_TIMEOUT_MS : RENDERER_FILE_STARTUP_TIMEOUT_MS;
+      await vi.advanceTimersByTimeAsync(deadline - 1);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      await vi.advanceTimersByTimeAsync(1);
       await assertion;
       reject(new Error('late'));
       await Promise.resolve();
@@ -172,7 +176,7 @@ describe('renderer startup loading', () => {
     controller.abort();
     await assertion;
     resolve();
-    await vi.advanceTimersByTimeAsync(RENDERER_STARTUP_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(RENDERER_DEV_STARTUP_TIMEOUT_MS);
     expect(load).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -185,7 +189,7 @@ describe('renderer startup loading', () => {
     await vi.advanceTimersByTimeAsync(10);
     controller.abort();
     await assertion;
-    await vi.advanceTimersByTimeAsync(RENDERER_STARTUP_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(RENDERER_DEV_STARTUP_TIMEOUT_MS);
     expect(load).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -195,12 +199,12 @@ describe('renderer startup loading', () => {
     const assertion = expect(
       loadStartupRenderer(load, new AbortController().signal, true)
     ).rejects.toMatchObject({ code: 'ETIMEDOUT' });
-    await vi.advanceTimersByTimeAsync(RENDERER_STARTUP_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(RENDERER_DEV_STARTUP_TIMEOUT_MS);
     await assertion;
     expect(load.mock.calls.length).toBeGreaterThan(1);
     expect(load.mock.calls.length).toBeLessThanOrEqual(31);
     const count = load.mock.calls.length;
-    await vi.advanceTimersByTimeAsync(RENDERER_STARTUP_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(RENDERER_DEV_STARTUP_TIMEOUT_MS);
     expect(load).toHaveBeenCalledTimes(count);
     expect(vi.getTimerCount()).toBe(0);
   });

@@ -18,6 +18,7 @@
 import { typedHandle } from './ipc/typedHandle';
 import type { WebContents } from 'electron';
 import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
+import { isNativeRunId, isStringRecord } from './runners/nativeRunRequest';
 import { writeFile } from 'node:fs/promises';
 import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
@@ -189,30 +190,23 @@ async function runRustCode(
   }
 }
 
-function stringMap(value: unknown): value is Record<string, string> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    && Object.values(value).every(entry => typeof entry === 'string');
-}
-function validRunId(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0 && value.length <= 128;
-}
 
 /** Validate wire values before probing, allocating files or spawning. */
 export function registerRustHandlers(): void {
   typedHandle('rust:detect', async (event, userEnv?: unknown) => {
-    if (userEnv !== undefined && !stringMap(userEnv)) return { installed: false, error: 'Invalid Rust environment.' };
+    if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, error: 'Invalid Rust environment.' };
     const lifecycle = createNativeRunLifecycle(event.sender);
     try { return await detectRust(userEnv, lifecycle.controller.signal); }
     finally { lifecycle.release(); }
   });
   typedHandle('rust:run', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
-    if (typeof source !== 'string' || (userEnv !== undefined && !stringMap(userEnv))
-      || (messages !== undefined && !stringMap(messages))
-      || (runId !== undefined && !validRunId(runId))) return failed('Invalid Rust run request.');
+    if (typeof source !== 'string' || (userEnv !== undefined && !isStringRecord(userEnv))
+      || (messages !== undefined && !isStringRecord(messages))
+      || (runId !== undefined && !isNativeRunId(runId))) return failed('Invalid Rust run request.');
     return runRustCode(source, userEnv, messages, runId, event.sender);
   });
   typedHandle('rust:stop', async (event, runId: unknown) => {
-    if (!validRunId(runId)) return { stopped: false };
+    if (!isNativeRunId(runId)) return { stopped: false };
     const active = activeRuns.get(runId);
     if (!active || active.owner !== event.sender) return { stopped: false };
     active.controller.abort();

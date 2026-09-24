@@ -59,7 +59,7 @@ export function trackNativeRunProcess(child: ChildProcess, signal?: AbortSignal)
   return () => { children.delete(child); };
 }
 
-/** before-quit cannot rely on escalation timers running after Electron exits. */
+/** Shutdown cannot rely on escalation timers running after Electron exits. */
 export function disposeNativeRuns(): void {
   for (const controller of controllers) controller.abort(NATIVE_RUN_OWNER_GONE);
   for (const child of children.keys()) killProcessTree(child, 'SIGKILL');

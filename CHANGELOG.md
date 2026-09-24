@@ -18,7 +18,7 @@ This version is being prepared; no release artifacts have been published.
 ### Security
 - **Production web and desktop shells block arbitrary inline scripts.** Only the exact prepaint bootstrap is hash-authorized; Browser preview and rich HTML retain script support in separately governed opaque sandboxes with cancelable, source-checked document loading.
 - **The desktop window navigates only to its own renderer document.** Other local files, same-origin server documents and query variants are rejected, including redirects; normal reload and fragments remain supported.
-- **Git inspection no longer runs configured filesystem-monitor hooks or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.
+- **Git inspection no longer runs configured filesystem-monitor hooks, filter drivers or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings, keeping only your trusted `safe.directory`, line-ending and global ignore settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.
 - **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 

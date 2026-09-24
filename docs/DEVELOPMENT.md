@@ -551,7 +551,8 @@ node scripts/smoke-startup-failure.mjs --show-dialog=es
 
 The unattended pass asserts no IPC/window registration in a refused secondary
 instance, one safe EN/ES diagnostic and exit 1 on initialization or missing HTML,
-the real thirty-second hanging-load deadline, and clean quit during loading.
+the real thirty-second hanging-load deadline (through the development-server
+path; packaged documents allow two minutes), and clean quit during loading.
 Fault injection lives only in disposable fixture bootstraps, not production flags.
 It writes `output/playwright/startup-failure/` evidence and removes its profiles.
 The expected failure diagnostic is intentional; unexpected errors still fail

@@ -69,9 +69,12 @@ if (config.scenario === 'missing-renderer') {
   const load = BrowserWindow.prototype.loadFile;
   BrowserWindow.prototype.loadFile = function () { return load.call(this, config.missing); };
 }
-if (['hanging-renderer', 'quit-during-load'].includes(config.scenario)) {
+if (config.scenario === 'hanging-renderer') {
+  BrowserWindow.prototype.loadURL = function () { return new Promise(() => {}); };
+}
+if (config.scenario === 'quit-during-load') {
   BrowserWindow.prototype.loadFile = function () {
-    if (config.scenario === 'quit-during-load') setTimeout(() => app.quit(), 25);
+    setTimeout(() => app.quit(), 25);
     return new Promise(() => {});
   };
 }
@@ -83,7 +86,9 @@ require(config.main);
         env: {
           ...process.env,
           ELECTRON_RUN_AS_NODE: undefined,
-          LINGUA_RENDERER_URL: undefined,
+          // The development-server deadline keeps the hang scenario short.
+          LINGUA_RENDERER_URL:
+            scenario === 'hanging-renderer' ? 'http://127.0.0.1:9/' : undefined,
           LINGUA_SMOKE_USER_DATA_DIR: path.join(fixture, 'profile'),
         },
         stdio: ['pipe', 'pipe', 'pipe'],

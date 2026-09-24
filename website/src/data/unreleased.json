@@ -1,61 +1,115 @@
 {
-  "generatedAt": "2026-09-22T04:42:30.903Z",
+  "generatedAt": "2026-09-24T02:35:17.699Z",
   "baseRef": "v1.5.0",
-  "commitCount": 6,
-  "totalSinceBase": 20,
+  "commitCount": 12,
+  "totalSinceBase": 59,
   "commits": [
     {
-      "hash": "419db52",
-      "date": "2026-09-21",
+      "hash": "062e744",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "clean native run staging on shutdown",
+      "breaking": false
+    },
+    {
+      "hash": "93a1c62",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "release",
+      "message": "validate Linux AppImage against update manifest",
+      "breaking": false
+    },
+    {
+      "hash": "6825c7d",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "release",
+      "message": "verify mirrored WASM bytes before web deploy",
+      "breaking": false
+    },
+    {
+      "hash": "7fa964f",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "notebook",
+      "message": "reject results from disposed sessions",
+      "breaking": false
+    },
+    {
+      "hash": "2667eb5",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "import",
+      "message": "require explicit clipboard input",
+      "breaking": false
+    },
+    {
+      "hash": "2ef4f4c",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "validate filesystem IPC payloads",
+      "breaking": false
+    },
+    {
+      "hash": "c42d41d",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "preserve source coordinates through execution transforms",
+      "message": "cancel native version probes",
       "breaking": false
     },
     {
-      "hash": "cf243b4",
-      "date": "2026-09-21",
+      "hash": "d17cf6d",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "own preparation before sessions exist",
+      "breaking": false
+    },
+    {
+      "hash": "8a808a1",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "cancel DAP adapter startup safely",
+      "breaking": false
+    },
+    {
+      "hash": "4b757eb",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "debugger",
+      "message": "reap cancelled and failed adapter trees",
+      "breaking": false
+    },
+    {
+      "hash": "170b579",
+      "date": "2026-09-22",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "reap cancelled descendants after parent exit",
+      "breaking": false
+    },
+    {
+      "hash": "e2f95db",
+      "date": "2026-09-22",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "surface captured errors as failed executions",
-      "breaking": false
-    },
-    {
-      "hash": "ee57897",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runtime",
-      "message": "bind manual execution to cancellable sessions",
-      "breaking": false
-    },
-    {
-      "hash": "bd0a0c4",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runtime",
-      "message": "run packaged project tests with host Node",
-      "breaking": false
-    },
-    {
-      "hash": "e772e53",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "mcp",
-      "message": "enforce canonical secret paths and lossless text slices",
-      "breaking": false
-    },
-    {
-      "hash": "28d1be2",
-      "date": "2026-09-21",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "security",
-      "message": "isolate Git queries and reject repository metadata bundles",
+      "message": "own Go compilation and worker cancellation",
       "breaking": false
     }
   ]
