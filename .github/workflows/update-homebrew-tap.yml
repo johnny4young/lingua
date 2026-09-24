@@ -1,0 +1,122 @@
+# release.yml only creates a draft, so the tap is promoted when the release is
+# published: both recipes come from the published SHA256SUMS.txt and are pushed
+# over the TAP_DEPLOY_KEY deploy key, like the tap's other upstream repos.
+name: Update Homebrew tap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable tag to promote, for example v1.5.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homebrew-tap
+  cancel-in-progress: false
+
+jobs:
+  update-tap:
+    name: Promote cask and CLI formula
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      TAP_REPOSITORY: johnny4young/homebrew-tap
+    steps:
+      - name: Validate the release tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected a stable vX.Y.Z tag, got '${RELEASE_TAG}'."
+            exit 1
+          fi
+          state="$(gh release view "${RELEASE_TAG}" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "${state}" != "false false" ]]; then
+            echo "::error::${RELEASE_TAG} must be a published, non-prerelease GitHub Release (draft/prerelease: ${state})."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Render recipes from the published checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release download "${RELEASE_TAG}" --pattern SHA256SUMS.txt --dir "${RUNNER_TEMP}" --clobber
+          published="$(gh release view "${RELEASE_TAG}" --json publishedAt --jq '.publishedAt[0:10]')"
+          node scripts/generate-distribution-manifests.mjs \
+            --tag "${RELEASE_TAG}" \
+            --checksums "${RUNNER_TEMP}/SHA256SUMS.txt" \
+            --release-date "${published}"
+          version="${RELEASE_TAG#v}"
+          grep -qx "  version \"${version}\"" packaging/homebrew/Casks/lingua.rb
+          grep -q "/download/${RELEASE_TAG}/linguacode-cli-${version}.tgz\"" packaging/homebrew/Formula/lingua-cli.rb
+          ruby -c packaging/homebrew/Casks/lingua.rb packaging/homebrew/Formula/lingua-cli.rb
+
+      - name: Push to the tap
+        shell: bash
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TAP_DEPLOY_KEY}" ]]; then
+            echo "::warning::TAP_DEPLOY_KEY is not configured; promote ${RELEASE_TAG} to ${TAP_REPOSITORY} manually."
+            exit 0
+          fi
+          key="${RUNNER_TEMP}/tap_deploy_key"
+          trap 'rm -f "${key}"' EXIT
+          printf '%s\n' "${TAP_DEPLOY_KEY}" > "${key}"
+          chmod 600 "${key}"
+          export GIT_SSH_COMMAND="ssh -i ${key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+
+          tap="${RUNNER_TEMP}/homebrew-tap"
+          git clone --depth 1 "git@github.com:${TAP_REPOSITORY}.git" "${tap}"
+          version="${RELEASE_TAG#v}"
+          current="$(sed -n 's/^  version "\(.*\)"$/\1/p' "${tap}/Casks/lingua.rb")"
+          # Re-running an older tag must never downgrade users.
+          if [[ -n "${current}" && "$(printf '%s\n%s\n' "${current}" "${version}" | sort -V | tail -1)" != "${version}" ]]; then
+            echo "::warning::The tap already has ${current}; refusing to replace it with ${version}."
+            exit 0
+          fi
+
+          cp packaging/homebrew/Casks/lingua.rb "${tap}/Casks/lingua.rb"
+          cp packaging/homebrew/Formula/lingua-cli.rb "${tap}/Formula/lingua-cli.rb"
+          cd "${tap}"
+          if git diff --quiet; then
+            echo "The tap already publishes ${RELEASE_TAG}."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/lingua.rb Formula/lingua-cli.rb
+          git commit -m "chore(lingua): publish cask and CLI formula ${RELEASE_TAG}"
+          # Sibling repositories push to the same tap; rebase and retry on a race.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+            git pull --rebase origin main
+          done
+          echo "::error::Could not push ${RELEASE_TAG} to ${TAP_REPOSITORY}."
+          exit 1
