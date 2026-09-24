@@ -22,9 +22,11 @@ Both web surfaces build and deploy **from this repo** to Cloudflare Pages (two s
 brew install --cask johnny4young/tap/lingua
 ```
 
-This cask installs the same signed and notarized `lingua.app` that the `.dmg`
-contains. Homebrew places it in `/Applications`; it is not a second copy and it
-does not install the headless terminal command.
+For a given version, the cask installs the same signed and notarized
+`lingua.app` as the `.dmg`. The community tap can lag the latest GitHub Release;
+check `brew info --cask johnny4young/tap/lingua` for its current version or use
+the release download below. Homebrew places the app in `/Applications`; it does
+not install the headless terminal command.
 
 **macOS command-line interface** — Homebrew formula:
 
@@ -36,7 +38,9 @@ lingua --help
 The formula downloads the checksum-pinned CLI artifact directly from the
 GitHub Release, configures Node 24, and installs Bash, Zsh, and Fish
 completions automatically. It does not invoke npm. Other install channels can
-run `lingua completion` for a detected-shell setup assistant.
+run `lingua completion` for a detected-shell setup assistant. Check
+`brew info johnny4young/tap/lingua-cli` before assuming the tap matches the
+latest GitHub Release.
 
 **Any platform** — the signed macOS builds, the Windows installer, and the Linux
 AppImage are attached to the
@@ -58,7 +62,10 @@ Public tiers:
 - **Free** — personal evaluation, self-learning, single-user non-commercial local use.
 - **Monthly** ($5/month) — paid subscription unlocking the full feature set.
 - **Pro** ($59 once) — a perpetual paid entitlement that never expires, with 12 months of included updates and no recurring subscription; renewal is optional if you want later releases.
+- **Team** ($3/seat/month) — paid entitlements with seat management and invoicing.
 - **Education** — free, renewable, in-app verification for verified students and educators.
+
+A 14-day Pro trial is available without a credit card from Settings → License.
 
 The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacode.dev/pricing) (canonical surface) and mirrors [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md) for in-repo reference.
 
@@ -68,9 +75,9 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 - Teachers and students who want a single offline-capable multi-language sandbox that runs on laptops without per-language CLI setup.
 - Teams who need a lightweight, reviewable, commercial-licensed alternative to web-hosted playgrounds for proprietary code.
 
-## Lingua 1.0 at a glance
+## Lingua at a glance
 
-These are deterministic captures from the current product build, not design mockups. The website presents the same journeys in English and Spanish and labels each one by platform and tier.
+These are deterministic captures from a released product build, not design mockups. The website presents the current journeys in English and Spanish and labels each one by platform and tier.
 
 <table>
   <tr>
@@ -95,6 +102,7 @@ These are deterministic captures from the current product build, not design mock
 - **Smart paste**: pasting a share link, run capsule, cURL command, stack trace, or large JSON offers a one-click import to the right surface — and single values (JWT, UUID, color, Unix timestamp, cron expression, Base64, JSON snippets) offer to open pre-loaded in the matching developer utility.
 - **No-backend share links**: the result-panel share button encodes one bounded tab as a gzip-compressed, base64url URL fragment under `https://app.linguacode.dev/#share=v1.…`. The recipient previews and opens it locally; no database, upload, file path, environment value, license token, or execution result is included.
 - **Run Capsules**: portable, redacted JSON captures of a run (source, output, input, environment) with confirm-first import, a Pro capsule browser with compare, and one-click export to a self-contained syntax-highlighted HTML document. When a run needs a few related files, Capsule Workspaces package explicitly selected open text tabs behind an exact-source privacy review and reopen them inertly, with no backend or filesystem crawl.
+- **Copy reference / Copy with context**: copy an explicitly selected editor range as a relative file reference or a fenced snippet with that reference. These Free actions also work on the modified side of a diff and never copy hidden file contents or absolute paths.
 - **AI assistance (Pro, bring-your-own-key)**: an opt-in, local-first assistant that never sends anything without an explicit action and an exact-payload preview. Explain selected editor code or any failing surface (notebook cell, editor console, SQL query, HTTP request) with streaming answers, follow-up questions, and runtime-aware fixes; Apply & re-run applies a suggested fix behind a diff preview and re-runs; Ask AI turns natural language into SQL using only the live schema (never rows). Point it at a local model (Ollama / LM Studio) so code never leaves the machine, or at any OpenAI-compatible endpoint — Lingua ships no default key or endpoint and makes no background calls.
 - **Notebook mode**: literate, multi-cell notebooks running TypeScript, Python (a persistent per-notebook kernel that shares imports and variables across cells), and SQL on the shared DuckDB engine; edits mark affected executed cells stale across languages, preserve old output, and refresh only on an explicit replay; homogeneous arrays render as tables; lossless export/import supports native `.linguanb` and Jupyter `.ipynb`.
 - **Confirm-first playground import**: paste a TypeScript Playground share link to decode it locally, or a Go Playground link to fetch only its official bounded plain-text source. Lingua shows the code before creating a tab, sends no URL or source through telemetry, rejects redirects and unsupported providers, and documents the exact network contract in the [import guide](./docs/IMPORTING.md).

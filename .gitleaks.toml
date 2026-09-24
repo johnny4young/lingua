@@ -48,3 +48,10 @@ paths = [
   '''tests/e2e/smartPasteUtilities\.spec\.ts''',
 ]
 regexes = ['''eyJhbGciOiJIUzI1Ni[^[:space:]'\"]+c2lnbmF0dXJl''']
+
+[[allowlists]]
+description = "Historic webhook test uses base64-encoded test-secret, not a live Polar key."
+condition = "AND"
+regexTarget = "match"
+paths = ['''license-server/test/webhooks\.test\.ts''']
+regexes = ['''polarWebhookSecret: 'whsec_dGVzdC1zZWNyZXQ='''']

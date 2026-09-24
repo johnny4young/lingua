@@ -22,6 +22,24 @@ The Keyboard Shortcuts overlay (Command Palette → `Open Keyboard Shortcuts`) s
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 
+## Sharing a selected code reference
+
+Select code in the editor, then choose **Copy reference** or **Copy with
+context** from the editor menu or Command Palette. The same actions are
+available on the modified side of a Git diff. They are Free and have no new
+default shortcut. With no explicit selection they are disabled.
+
+Copy reference uses a relative file reference (or the tab name for an unsaved
+tab) and selected line range. Copy with context adds only the selected code in
+a fenced block. Neither action includes an absolute path, other file content,
+or a hidden selection. If clipboard permission is denied, Lingua reports the
+failure instead of claiming the copy succeeded.
+
+For a reproducible run rather than a source excerpt, use the separate
+[Run Capsule → CLI walkthrough](https://linguacode.dev/docs/reproducible-run).
+Exporting or validating a Capsule does not execute its source; replay is an
+explicit trusted-code action.
+
 ## Desktop deep links
 
 Packaged desktop builds register the `lingua://` protocol and handle these entry points:

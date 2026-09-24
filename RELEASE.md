@@ -37,7 +37,13 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
 ## Release steps
 
 1. Run `pnpm run changelog:draft`, finish the release notes, and run
-   `pnpm run changelog:check`.
+   `pnpm run changelog:check`. Compare the full post-tag commit range with
+   `README.md`, the affected `docs/` guides, and the bilingual website copy.
+   Run the website content sync and checks; keep
+   `website/src/data/latest-release.json` at the last **published** tag while
+   this candidate is still a draft. The website deploy refreshes that trusted
+   snapshot after the release is published. Remove candidate-only changelog
+   wording before the final commit reaches `main` and is tagged.
 2. Merge the release-ready state into `main`.
 3. Dispatch the `Release` workflow with the target `release_tag`.
 4. For a stable desktop release, leave macOS, Windows, and Linux enabled. A
