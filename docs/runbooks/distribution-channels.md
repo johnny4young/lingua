@@ -169,13 +169,19 @@ repository already exists and contains the desktop cask and headless CLI
 formula. Tap versions can lag the GitHub Release and npm CLI; do not describe a
 tap install as the newest release until the tap is promoted and verified.
 
-Desktop cask promotion after each published release:
+Publishing a stable release runs
+[`update-homebrew-tap.yml`](../../.github/workflows/update-homebrew-tap.yml).
+It checks out the tag, renders `Casks/lingua.rb` and `Formula/lingua-cli.rb`
+from the published `SHA256SUMS.txt`, and pushes both to the tap over the
+`TAP_DEPLOY_KEY` deploy key, as the tap's other upstream repositories do. It
+refuses drafts, skips prereleases, never downgrades the tap, and is a no-op
+when the tap already matches. Verify from a clean shell afterwards:
+`brew install --cask johnny4young/tap/lingua`.
 
-1. Copy `packaging/homebrew/Casks/lingua.rb` into `Casks/lingua.rb` there and
-   push.
-2. Verify from a clean shell: `brew install --cask johnny4young/tap/lingua`.
-
-Per release, regenerate the cask and push the updated file to the tap.
+One-time setup: add a write-enabled deploy key to the tap and store its private
+half as the `TAP_DEPLOY_KEY` repository secret here. Without it the workflow
+warns and exits; rerun it through `workflow_dispatch` with the tag, or copy the
+generated files into the tap by hand as a fallback.
 
 ### Headless CLI formula
 
@@ -288,6 +294,6 @@ shape, identifier, digest casing, and installer semantics.
 | Channel          | State                                                           | Gate                                                     |
 | ---------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
 | npm CLI          | Public; read the current version with `distribution:status`      | Repeat staged approval and public-install smoke per stable release |
-| Homebrew tap     | Public cask and formula; they may lag the GitHub Release         | Promote both recipes from published checksums and repeat clean install smoke |
+| Homebrew tap     | Public cask and formula, promoted on release publication         | `TAP_DEPLOY_KEY` configured; repeat clean install smoke  |
 | Homebrew central | Blocked                                                         | 225 stars (self-submission floor)                        |
 | winget           | Local generated manifests are not public; check their version    | Public-trust Authenticode signing and Windows validation |

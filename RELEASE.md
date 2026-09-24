@@ -75,9 +75,14 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
     2FA enabled only for that run, then revoke it. Later releases stage through
     OIDC and require npm 2FA approval. Rerun only after approval for the
     idempotent public-install smoke.
-11. Run a post-publish smoke from the previous stable desktop version on every
+11. Publishing triggers `Update Homebrew tap`, which renders the cask and CLI
+    formula from the published `SHA256SUMS.txt` and pushes them to
+    `johnny4young/homebrew-tap`. Confirm the run pushed (or reported the tap
+    already current); a missing `TAP_DEPLOY_KEY` only warns, so rerun it
+    through `workflow_dispatch` with the tag once the key exists.
+12. Run a post-publish smoke from the previous stable desktop version on every
     supported updater platform, and verify `https://updates.linguacode.dev/web/version`.
-12. Announce only after the post-publish smoke passes.
+13. Announce only after the post-publish smoke passes.
 
 ## Validation checklist
 
