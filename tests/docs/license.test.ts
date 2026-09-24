@@ -57,22 +57,19 @@ describe('repository license posture', () => {
     expect(readme).not.toMatch(/commercial license purchased via/i);
   });
 
-  it('README and LICENSE name the public launch tiers (post-2026-05-07 model)', () => {
+  it('README and LICENSE name the public pricing tiers', () => {
     const readme = readFileSync(README_PATH, 'utf-8');
     const license = readFileSync(LICENSE_PATH, 'utf-8');
 
-    // Canonical public tiers after the 2026-05-07 launch-readiness
-    // cleanup: Free, Monthly, Pro, Education. Backend slugs stay
-    // stable; public/legal copy must not expose Lifetime/Team naming.
-    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
+    // Match the published pricing page. Backend slugs stay stable;
+    // public/legal copy must not expose the retired Pro Lifetime name.
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Team', 'Education']) {
       expect(readme, `README must mention ${tier}`).toContain(tier);
       expect(license, `LICENSE must mention ${tier}`).toContain(tier);
     }
 
     expect(readme).not.toMatch(/^- \*\*Pro Lifetime\*\*/mu);
-    expect(readme).not.toMatch(/^- \*\*Team\*\*/mu);
     expect(license).not.toMatch(/\bPro Lifetime\b/u);
-    expect(license).not.toMatch(/\bTeam\b/u);
   });
 
   it('package.json no longer claims the MIT license', () => {

@@ -24,7 +24,7 @@ published release's `SHA256SUMS.txt`, so a digest can never drift from the
 artifact it describes:
 
 ```bash
-node scripts/generate-distribution-manifests.mjs --tag v0.15.0 --release-date 2026-07-28
+node scripts/generate-distribution-manifests.mjs --tag v1.5.0 --release-date 2026-09-17
 ```
 
 Outputs `packaging/homebrew/Casks/lingua.rb`,
@@ -33,10 +33,11 @@ Outputs `packaging/homebrew/Casks/lingua.rb`,
 
 ## npm CLI
 
-`@linguacode/cli` is not public yet. Do not publish `0.15.0` retroactively:
-the public `v0.15.0` tag predates the CLI artifact pipeline, while the current
-post-release branch contains newer product behavior under the same root
-version. Reusing `0.15.0` would make npm and the immutable GitHub tag disagree.
+`@linguacode/cli@1.5.0` is public. Check `pnpm run distribution:status`
+before relying on any version in this runbook: the latest GitHub Release,
+npm package, Homebrew tap, and local winget manifests can move independently.
+Never publish an older version retroactively or rebuild a CLI package outside
+its immutable GitHub Release; the package bytes must match the tagged release.
 
 The manual `Publish CLI to npm` workflow (`.github/workflows/publish-cli.yml`)
 is the sole registry mutation owner. It never rebuilds the CLI. Instead, it:
@@ -84,10 +85,12 @@ The probe uses GitHub's read endpoints for
 [repository release immutability](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository)
 and [deployment environments](https://docs.github.com/en/rest/deployments/environments#get-an-environment).
 
-### One-time bootstrap
+### One-time bootstrap (historical; do not repeat for the existing package)
 
-npm requires a package to exist before trusted publishing or staged publishing
-can be configured. For the first valid version from the next stable release:
+npm required a package to exist before trusted publishing or staged publishing
+could be configured. The public package now exists; the current prerequisite
+probe expects the bootstrap secret to be absent. The following steps apply
+only to a new package or scope, not to a normal Lingua release:
 
 1. Create the `@linguacode` npm organization, require 2FA, and confirm the
    maintainer can publish public packages in that scope.
@@ -162,10 +165,12 @@ brew install --cask johnny4young/tap/lingua
 ```
 
 The public [`johnny4young/homebrew-tap`](https://github.com/johnny4young/homebrew-tap)
-repository already exists. As of 2026-08-01 it does not yet contain
-`Casks/lingua.rb`; the local `v0.15.0` cask is ready for its first promotion.
+repository already exists and contains the desktop cask and headless CLI
+formula. The public probe on 2026-09-24 reported both tap recipes at `1.4.1`
+while the latest GitHub Release and npm CLI were `1.5.0`; do not describe a
+tap install as the newest release until the tap is promoted and verified.
 
-Desktop cask promotion:
+Desktop cask promotion after each published release:
 
 1. Copy `packaging/homebrew/Casks/lingua.rb` into `Casks/lingua.rb` there and
    push.
@@ -267,8 +272,11 @@ Configure Authenticode signing, then re-generate and submit:
    [`wingetcreate`](https://github.com/microsoft/winget-create):
    `wingetcreate submit packaging/winget`.
 
-Until then the manifests are kept current and validated in-repo so submission
-is a single command once signing lands.
+The manifests are generated and validated in-repo, but can lag the latest
+release. Regenerate them from the newly published checksums before submission;
+the 2026-09-24 public probe reported local winget manifests at `1.4.1` while
+the latest release was `1.5.0`. Signing and a clean Windows validation remain
+independent gates.
 
 ### Local validation
 
@@ -280,7 +288,7 @@ shape, identifier, digest casing, and installer semantics.
 
 | Channel          | State                                                           | Gate                                                     |
 | ---------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
-| npm CLI          | `@linguacode/cli@1.2.0` public through guarded stage-only OIDC | Repeat staged approval and public-install smoke per stable release |
-| Homebrew tap     | Desktop cask and headless CLI formula are generated from release checksums | Promote both files and repeat clean install smoke |
+| npm CLI          | Public; read the current version with `distribution:status`      | Repeat staged approval and public-install smoke per stable release |
+| Homebrew tap     | Public cask and formula; they may lag the GitHub Release         | Promote both recipes from published checksums and repeat clean install smoke |
 | Homebrew central | Blocked                                                         | 225 stars (self-submission floor)                        |
-| winget           | Generated `v0.15.0` manifests are current and schema-tested     | Public-trust Authenticode signing and Windows validation |
+| winget           | Local generated manifests are not public; check their version    | Public-trust Authenticode signing and Windows validation |

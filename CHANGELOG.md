@@ -6,14 +6,18 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-## [1.5.1] — 2026-09-21
+## [1.5.1] — 2026-09-24
 
-This version is being prepared; no release artifacts have been published.
+### Added
+- **Selected code can travel with a safe reference.** Copy reference and Copy with context are Free editor and modified-diff actions that require an explicit selection, use a relative file name, and never copy hidden content or an absolute path.
+- **A Run Capsule can move from the app to the CLI.** Export the latest run as JSON in Free, inspect it, validate it without execution, then explicitly replay trusted source to compare status and output. A deterministic example and English/Spanish walkthrough document the boundary.
+- **Runtime availability is explained where actions are chosen.** Menus, the command palette, and Settings distinguish browser limitations, license gates, and missing local Node, Go, Rust, Deno, Bun, or Ruby installations instead of treating payment as an installation step.
 
 ### Changed
 - **Dead-code checks now cover every independently locked package.** CI analyzes the root app, website, license Worker and update Worker with explicit package boundaries, proves each boundary with a temporary negative fixture, and runs for stacked pull requests as well as pull requests targeting `main`.
 - **Desktop filesystem IPC now validates wire payloads before side effects.** File operations, project search and replace, bundle import/export, capability lifecycle and watchers reject malformed types, tuples and oversized text at a shared runtime boundary while preserving the typed preload and web API.
 - **Import Preview no longer reads the clipboard when it opens.** Paste, file selection and drag-and-drop remain explicit; obsolete Import Preview consent and an unused inspector-default setting are ignored on rehydrate without resetting other preferences.
+- **Release evidence is easier to reproduce and review.** The website now links an English/Spanish run-to-capsule walkthrough, and the release gates verify mirrored web-runtime bytes, Linux updater metadata, and package-specific dead code. Production signing and live installation remain separate release checks.
 
 ### Security
 - **Production web and desktop shells block arbitrary inline scripts.** Only the exact prepaint bootstrap is hash-authorized; Browser preview and rich HTML retain script support in separately governed opaque sandboxes with cancelable, source-checked document loading.
@@ -23,6 +27,9 @@ This version is being prepared; no release artifacts have been published.
 - **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
 
 ### Fixed
+- **Run and Stop controls stay reachable and accurately named.** Narrow editor tabs reserve space for the action pill, overflow actions remain accessible, and the controls reclamp after resizing, zoom, locale changes, or restored positions.
+- **Console, Browser preview, and SQL failures have recoverable paths.** Incoming output respects manual scroll, preview promise failures are reported, retained preview documents stay isolated by tab, and SQL explains how to retry an engine failure without reloading the whole app.
+- **Theme contrast and stale results are guarded.** Light and dark editor themes meet measured contrast checks, and disposed notebook sessions cannot publish late output into a replacement session.
 - **Stop now cancels Node, Ruby, Deno and Bun version checks at their source.** Hung runtime shims and their descendants are terminated during preparation, output is bounded, and a cancelled check cannot execute code or poison the next run.
 - **Python, Go and Rust Debug can now be stopped before a debugger session exists.** Stop, window closure and app shutdown cancel authorization, source staging, tool discovery and Rust compilation; cancelled probes and compilers clean up their process trees, and late work cannot replace a newer debug run.
 - **Native debugger Stop cancels adapter startup and connection.** Late adapters cannot launch after cancellation, failed handshakes clean up their resources, and closed transports no longer deliver stale events. Missing LLDB executables surface as errors rather than uncaught child-process failures.
