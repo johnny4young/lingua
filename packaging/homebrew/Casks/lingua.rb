@@ -1,9 +1,9 @@
 cask "lingua" do
   arch arm: "arm64", intel: "x64"
 
-  version "1.4.1"
-  sha256 arm:   "b1cb5d058f77e7a306141f2f911b3807ddd6ee1e9a1661e82ed830818836bf85",
-         intel: "d09d5d2b3c407cbfcef6b2fa95c46b3c1d050155d7408f52c92408ff01f95da4"
+  version "1.5.1"
+  sha256 arm:   "0fee713af4fe3f426395a55beb702b422f1a25218c8e26234c65aa2149921506",
+         intel: "cba07cd472e0505a9cdce1a83ca2f80a555958b332d0c50e1654ada1a9169187"
 
   url "https://github.com/johnny4young/lingua/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg"
   name "Lingua"
@@ -16,7 +16,7 @@ cask "lingua" do
   end
 
   auto_updates true
-  depends_on macos: :monterey
+  depends_on macos: :ventura
 
   app "lingua.app"
 
