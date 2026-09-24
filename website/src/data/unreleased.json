@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-24T02:35:17.699Z",
+  "generatedAt": "2026-09-24T02:38:37.156Z",
   "baseRef": "v1.5.0",
   "commitCount": 12,
-  "totalSinceBase": 59,
+  "totalSinceBase": 83,
   "commits": [
     {
       "hash": "062e744",
@@ -14,102 +14,102 @@
       "breaking": false
     },
     {
-      "hash": "93a1c62",
-      "date": "2026-09-22",
+      "hash": "6d079da",
+      "date": "2026-09-23",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "release",
-      "message": "validate Linux AppImage against update manifest",
+      "scope": "capsules",
+      "message": "preserve worker console line endings for replay",
       "breaking": false
     },
     {
-      "hash": "6825c7d",
-      "date": "2026-09-22",
+      "hash": "2e88955",
+      "date": "2026-09-23",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "release",
-      "message": "verify mirrored WASM bytes before web deploy",
+      "scope": "a11y",
+      "message": "enforce contrast in Lingua themes",
       "breaking": false
     },
     {
-      "hash": "7fa964f",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "notebook",
-      "message": "reject results from disposed sessions",
-      "breaking": false
-    },
-    {
-      "hash": "2667eb5",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "import",
-      "message": "require explicit clipboard input",
-      "breaking": false
-    },
-    {
-      "hash": "2ef4f4c",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "main",
-      "message": "validate filesystem IPC payloads",
-      "breaking": false
-    },
-    {
-      "hash": "c42d41d",
-      "date": "2026-09-22",
+      "hash": "897bf76",
+      "date": "2026-09-23",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "runtime",
-      "message": "cancel native version probes",
+      "message": "keep passive probes within toolchain env boundary",
       "breaking": false
     },
     {
-      "hash": "d17cf6d",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "debugger",
-      "message": "own preparation before sessions exist",
-      "breaking": false
-    },
-    {
-      "hash": "8a808a1",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "debugger",
-      "message": "cancel DAP adapter startup safely",
-      "breaking": false
-    },
-    {
-      "hash": "4b757eb",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "debugger",
-      "message": "reap cancelled and failed adapter trees",
-      "breaking": false
-    },
-    {
-      "hash": "170b579",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runners",
-      "message": "reap cancelled descendants after parent exit",
-      "breaking": false
-    },
-    {
-      "hash": "e2f95db",
-      "date": "2026-09-22",
-      "type": "fix",
-      "typeLabel": "Fix",
+      "hash": "f63090e",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
       "scope": "runtime",
-      "message": "own Go compilation and worker cancellation",
+      "message": "qualify local Go and Rust toolchains",
+      "breaking": false
+    },
+    {
+      "hash": "269c27a",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "website",
+      "message": "guide reproducible run evidence journey",
+      "breaking": false
+    },
+    {
+      "hash": "9e4950a",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "preview",
+      "message": "isolate retained documents by tab",
+      "breaking": false
+    },
+    {
+      "hash": "4d1bf2c",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "preview",
+      "message": "capture promise errors and guide recovery",
+      "breaking": false
+    },
+    {
+      "hash": "80c1800",
+      "date": "2026-09-23",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "sql",
+      "message": "clarify engine recovery without reload",
+      "breaking": false
+    },
+    {
+      "hash": "95cc491",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsules",
+      "message": "hand off validated JSON to CLI",
+      "breaking": false
+    },
+    {
+      "hash": "4d9e92f",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "editor",
+      "message": "copy explicit selection with safe context",
+      "breaking": false
+    },
+    {
+      "hash": "51f4d31",
+      "date": "2026-09-23",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "runtime",
+      "message": "explain local binary availability before selection",
       "breaking": false
     }
   ]

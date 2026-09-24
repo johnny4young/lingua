@@ -60,7 +60,7 @@ describe('executionControlPolicy', () => {
     ).toBe('workflowMode.unsupportedReason.scratchpad');
   });
 
-  it('gives the license gate precedence over the desktop gate', () => {
+  it('reports both independent gates for paid desktop runtimes on web', () => {
     const freeWeb = resolve({
       language: 'go',
       effectiveTier: 'free',
@@ -68,11 +68,22 @@ describe('executionControlPolicy', () => {
     const proWeb = resolve({ language: 'go' });
 
     expect(freeWeb.proLanguageGate).toBe(true);
-    expect(freeWeb.desktopOnlyGate).toBe(false);
-    expect(freeWeb.actions.run.reason).toBe('pro-only');
+    expect(freeWeb.desktopOnlyGate).toBe(true);
+    expect(freeWeb.actions.run.reason).toBe('desktop-and-pro');
+    expect(
+      executionDisabledTooltipKey('run', freeWeb.actions.run.reason),
+    ).toBe('toolbar.run.desktopAndProTooltip');
     expect(proWeb.proLanguageGate).toBe(false);
     expect(proWeb.desktopOnlyGate).toBe(true);
     expect(proWeb.actions.run.reason).toBe('desktop-only');
+
+    const freeDesktop = resolve({
+      language: 'go',
+      effectiveTier: 'free',
+      isWebBuild: false,
+    });
+    expect(freeDesktop.desktopOnlyGate).toBe(false);
+    expect(freeDesktop.actions.run.reason).toBe('pro-only');
   });
 
   it('routes notebooks to their cell controls and blocks view-only tabs', () => {
@@ -86,5 +97,18 @@ describe('executionControlPolicy', () => {
       executionDisabledTooltipKey('run', notebook.actions.run.reason),
     ).toBe('notebook.notice.useNotebookToolbar');
     expect(viewOnly.actions.run.reason).toBe('view-only');
+  });
+
+  it('blocks a restored desktop JS runtime on web without blaming the license', () => {
+    const policy = resolve({
+      language: 'javascript',
+      runtimeMode: 'node',
+      isWebBuild: true,
+    });
+
+    expect(policy.proLanguageGate).toBe(false);
+    expect(policy.desktopOnlyGate).toBe(true);
+    expect(policy.actions.run.reason).toBe('desktop-only');
+    expect(resolve({ language: 'javascript', runtimeMode: 'node', isWebBuild: false }).actions.run.disabled).toBe(false);
   });
 });

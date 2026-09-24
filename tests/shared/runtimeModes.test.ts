@@ -13,6 +13,7 @@ import {
   cycleRuntimeMode,
   defaultRuntimeModeFor,
   isRuntimeModeImplemented,
+  isRuntimeModeSupportedInShell,
   languageHasRuntimeModes,
 } from '#src/shared/runtimeModes';
 
@@ -62,6 +63,17 @@ describe('isRuntimeModeImplemented (after implementation)', () => {
     expect(isRuntimeModeImplemented('worker')).toBe(true);
     expect(isRuntimeModeImplemented('browser-preview')).toBe(true);
     expect(isRuntimeModeImplemented('node')).toBe(true);
+  });
+});
+
+describe('isRuntimeModeSupportedInShell', () => {
+  it.each(['worker', 'browser-preview'] as const)('keeps %s on web', mode => {
+    expect(isRuntimeModeSupportedInShell(mode, true)).toBe(true);
+  });
+
+  it.each(['node', 'deno', 'bun'] as const)('requires Desktop for %s', mode => {
+    expect(isRuntimeModeSupportedInShell(mode, true)).toBe(false);
+    expect(isRuntimeModeSupportedInShell(mode, false)).toBe(true);
   });
 });
 
@@ -133,5 +145,11 @@ describe('cycleRuntimeMode (implementation note)', () => {
     expect(cycleRuntimeMode('browser-preview')).toBe('deno');
     expect(cycleRuntimeMode('deno')).toBe('bun');
     expect(cycleRuntimeMode('bun')).toBe('worker');
+  });
+
+  it('skips desktop subprocess modes on web, including a restored Node tab', () => {
+    expect(cycleRuntimeMode('worker', true)).toBe('browser-preview');
+    expect(cycleRuntimeMode('browser-preview', true)).toBe('worker');
+    expect(cycleRuntimeMode('node', true)).toBe('worker');
   });
 });

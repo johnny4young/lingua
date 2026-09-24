@@ -567,6 +567,7 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'pipeline-run',
       'result-panel-export',
       'settings-export',
+      'settings-export-file',
       // internal — self-contained HTML export from Settings latest-run.
       'settings-export-html',
     ]);

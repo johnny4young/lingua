@@ -23,6 +23,7 @@ import {
 import {
   resolveNativeRunnerMessages,
   resolveUserEnvForRunner,
+  resolveUserEnvForNativeProbe,
 } from './env';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
@@ -51,25 +52,34 @@ export class GoRunner implements LanguageRunner {
 
   private ready = false;
   private goInstalled = false;
+  private detectFailure = false;
   private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
     // Check if Go is installed via IPC
     const result = await window.lingua.go.detect(resolveUserEnvForRunner());
     this.goInstalled = result.installed;
-    this.ready = true;
+    this.detectFailure = result.reason === 'check-failed';
+    // A failed check is not an answer: the next run detects again.
+    this.ready = !this.detectFailure;
 
     if (!result.installed) {
-      this.pushMissingToolchainNotice();
-      throw new Error(result.error ?? 'Go is not installed.');
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
+      throw new Error(t(
+        this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+        { toolchain: 'Go' }
+      ));
     }
   }
 
   private pushMissingToolchainNotice(): void {
     pushMissingNativeToolchainNotice('go', async () => {
-      const result = await window.lingua.go.detect(resolveUserEnvForRunner());
+      const result = await window.lingua.go.detect(
+        resolveUserEnvForNativeProbe('go', window.lingua?.platform)
+      );
       this.goInstalled = result.installed;
-      return result.installed;
+      this.detectFailure = result.reason === 'check-failed';
+      return result.reason === 'check-failed' ? 'check-failed' : result.installed;
     });
   }
 
@@ -92,14 +102,17 @@ export class GoRunner implements LanguageRunner {
       : presetForLanguage ?? 'normal';
 
     if (!this.goInstalled) {
-      this.pushMissingToolchainNotice();
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
         error: {
-          message: 'Go is not installed on this system.',
+          message: t(
+            this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+            { toolchain: 'Go' }
+          ),
         },
         // implementation — host-not-installed counts as `'error'`.
         kind: 'error',

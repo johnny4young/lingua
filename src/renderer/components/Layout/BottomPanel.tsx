@@ -255,6 +255,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
           <button
             type="button"
             role="tab"
+            id="bottom-panel-console-tab"
             data-testid="bottom-panel-console-tab"
             aria-selected={effectiveTab === 'console'}
             onClick={() => selectTab('console')}

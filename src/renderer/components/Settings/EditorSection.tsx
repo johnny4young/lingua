@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { trackEvent } from '../../utils/telemetry';
+import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
   DEFAULT_FONT_FAMILY,
@@ -17,7 +19,7 @@ import { SqlWorkspaceSettingsSection } from './SqlWorkspaceSettingsSection';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
   RUNTIME_MODES,
-  isRuntimeModeImplemented,
+  isRuntimeModeSupportedInShell,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
 import {
@@ -38,6 +40,9 @@ import {
 } from '../../../shared/browserPreviewRefresh';
 
 export function EditorSection() {
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability: nativeRuntimeAvailability, recoverMissing } =
+    useNativeJsRuntimeAvailability(!isWebBuild);
   const effectiveTier = useEffectiveTier();
   const canUseExtendedFonts = useEntitlement('FONT_PACK_EXTENDED');
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
@@ -296,26 +301,39 @@ export function EditorSection() {
           control={
             <Select
               value={defaultRuntimeMode}
-              onChange={(event) => setDefaultRuntimeMode(event.target.value as RuntimeMode)}
+              onChange={(event) => {
+                const mode = event.target.value as RuntimeMode;
+                if (isNativeJsRuntimeMode(mode) && nativeRuntimeAvailability[mode] === 'missing') {
+                  recoverMissing(mode);
+                  return;
+                }
+                setDefaultRuntimeMode(mode);
+              }}
               aria-label={t('runtimeMode.settings.title')}
               data-testid="settings-default-runtime-mode"
             >
               {RUNTIME_MODES.map((mode) => {
-                const enabled = isRuntimeModeImplemented(mode);
+                const enabled = isRuntimeModeSupportedInShell(
+                  mode,
+                  isWebBuild,
+                );
                 const labelKey =
                   mode === 'browser-preview'
                     ? 'runtimeMode.mode.browserPreview'
                     : `runtimeMode.mode.${mode}`;
-                const hintKey =
-                  mode === 'worker'
-                    ? 'runtimeMode.hint.worker'
-                    : mode === 'node'
-                      ? 'runtimeMode.hint.node.ready'
+                const hintKey = !enabled
+                  ? 'runtimeMode.hint.desktopOnly'
+                  : isNativeJsRuntimeMode(mode)
+                    ? nativeJsRuntimeHintKey(mode, nativeRuntimeAvailability[mode])
+                    : mode === 'worker'
+                      ? 'runtimeMode.hint.worker'
                       : 'runtimeMode.hint.browserPreview.shipping';
                 return (
                   <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
                     {t(labelKey)}
-                    {enabled ? '' : ` — ${t(hintKey)}`}
+                    {enabled && (!isNativeJsRuntimeMode(mode) || nativeRuntimeAvailability[mode] === 'installed')
+                      ? ''
+                      : ` — ${t(hintKey)}`}
                   </option>
                 );
               })}

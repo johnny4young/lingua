@@ -31,13 +31,9 @@ export function getEditorThemeSurface(themeId: string): EditorThemeSurface {
 }
 
 export function defineCustomThemes(monaco: Monaco) {
-  // Lingua Dark — DS canonical syntax palette + chrome from
-  // tokens.json (Signal-Slate v1.0.0). The hexes are the OKLCh values
-  // declared in lingua/project/handoff/tokens.json under
-  // color.syntax.* and color.editor.*, converted to sRGB via the
-  // standard OKLab→linear-RGB→sRGB chain. Every foreground passes
-  // WCAG AA against #060a0b (the editor.background); the gate in
-  // tests/components/Editor/editorThemes.test.ts enforces it.
+  // Lingua Dark — syntax and chrome aligned with the shell palette.
+  // Every foreground, including comments and line numbers, passes normal-text
+  // AA contrast against #060a0b; editorThemes.test.ts enforces the boundary.
   //
   // The palette intentionally uses TWO warm hues (number=80 amber,
   // function=285 violet) and one green (string=155) on top of the
@@ -60,7 +56,7 @@ export function defineCustomThemes(monaco: Monaco) {
     colors: {
       'editor.background': EDITOR_THEME_SURFACES['lingua-dark'].background,
       'editor.foreground': EDITOR_THEME_SURFACES['lingua-dark'].foreground,
-      'editorLineNumber.foreground': '#475558',
+      'editorLineNumber.foreground': '#718386',
       'editorLineNumber.activeForeground': '#98a8ab',
       'editor.lineHighlightBackground': '#0d1314',
       'editor.selectionBackground': '#003d4980',
@@ -77,7 +73,7 @@ export function defineCustomThemes(monaco: Monaco) {
     base: 'vs',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '7c898b', fontStyle: 'italic' },
+      { token: 'comment', foreground: '637073', fontStyle: 'italic' },
       { token: 'keyword', foreground: '2249b7' },
       { token: 'string', foreground: '007338' },
       { token: 'number', foreground: '9e6400' },
@@ -89,7 +85,7 @@ export function defineCustomThemes(monaco: Monaco) {
     colors: {
       'editor.background': EDITOR_THEME_SURFACES['lingua-light'].background,
       'editor.foreground': EDITOR_THEME_SURFACES['lingua-light'].foreground,
-      'editorLineNumber.foreground': '#9ea6a8',
+      'editorLineNumber.foreground': '#637073',
       'editorLineNumber.activeForeground': '#4a585b',
       'editor.lineHighlightBackground': '#f1f5f6',
       'editor.selectionBackground': '#a1e5f180',

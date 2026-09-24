@@ -57,11 +57,16 @@ export const en = {
   home: {
     title: 'Lingua — multi-language code runner for your desktop',
     hero: {
-      eyebrow: 'Multi-language code runner · Desktop & web',
-      headline: ['Run JS, TS, Python,', 'Ruby, Go, and Rust', 'in'],
-      headlineSuffix: 'one',
-      headlineEnd: 'Monaco window.',
-      lede: 'Lingua is the playground senior developers reach for when they want to throw a 10-line script at six languages without spinning up a project. Desktop-first, source-available, and plain about what runs where.',
+      eyebrow: 'From scratchpad to reproducible evidence',
+      headline: ['Run a snippet.', 'Find the error.', 'Share'],
+      headlineSuffix: 'the',
+      headlineEnd: 'evidence.',
+      lede: 'Try an idea without creating a project. Inspect its output and errors, then hand off a reviewed run as a file you can validate before replaying. The browser and desktop have different runtime boundaries.',
+      demoLink: 'Follow the reproducible demo',
+      availabilityLabel: 'What works in each edition',
+      browserAvailability: 'Browser · Free JS, TS, Python and Ruby; no host Go or Rust.',
+      desktopAvailability: 'Desktop · Go and Rust need local toolchains and a paid license.',
+      capsuleAvailability: 'Run Capsules · export the latest run in Free; paid history browsing is separate.',
       proofLabel: 'Lingua product facts',
       proof: [
         { value: '6', label: 'runnable languages' },
@@ -106,7 +111,7 @@ export const en = {
         {
           icon: 'shield-check',
           title: 'Telemetry off by default',
-          body: 'Nothing leaves your machine until you opt in. We never transmit your code. Read the privacy page — it says exactly what we collect when you do turn it on.',
+          body: 'Anonymous telemetry stays off until you opt in and excludes source code and project paths. Explicit HTTP requests and remote AI use the endpoints you choose; review their payloads before sending.',
         },
         {
           icon: 'git-compare',
@@ -344,9 +349,9 @@ export const en = {
       ],
     },
     privacyCallout: {
-      title: 'Telemetry off by default. We never read your code.',
+      title: 'Telemetry off by default. Network actions stay explicit.',
       bodyStart:
-        'Nothing leaves your machine until you opt in from Settings. When you do, payloads are scoped to anonymous events — no source, no project paths. Read the',
+        'Telemetry excludes source and project paths. HTTP requests and remote AI send the payloads you choose to their endpoints; review them before sending. Read the',
       link: 'privacy page',
       bodyEnd: 'for what every event contains.',
     },
@@ -445,7 +450,11 @@ export const en = {
       },
       {
         q: 'Does Lingua work offline?',
-        a: 'On desktop, yes — fully. Pyodide is bundled inside the binary, JavaScript and TypeScript run in a Web Worker, and Go and Rust use your local toolchains. License verification is offline by design (Ed25519 signed tokens). The web build at <a href="https://app.linguacode.dev">app.linguacode.dev</a> needs the first page load over the network; subsequent runs are cached.',
+        a: 'Desktop core editing and bundled JS, TS, Python, and Ruby runtimes work offline; Go and Rust need installed local toolchains. License tokens verify offline. The <a href="https://app.linguacode.dev">browser app</a> needs a first online load; its service worker can reuse cached app assets, but an uncached asset or new version may need the network. HTTP requests, remote AI, trial signup, and other online services still need connectivity in either edition.',
+      },
+      {
+        q: 'Can the local MCP server or CLI run my code?',
+        a: 'Desktop local MCP exposes only bounded read-only project tools after you authorize a root; it never runs code. The separate CLI can validate a Run Capsule without executing it. Its explicit replay and run commands do execute trusted code with your operating-system permissions. See the <a href="/cli/ai-agents">agent integration guide</a>.',
       },
       {
         q: 'Can I try Pro before paying?',

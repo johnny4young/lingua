@@ -42,6 +42,7 @@ export function CommandPalette(props: CommandPaletteProps) {
           ? {
               ...command,
               action: () => {
+                if (command.disabled) return;
                 useCommandHistoryStore.getState().recordCommand(command.id);
                 command.action();
               },
@@ -86,7 +87,8 @@ export function CommandPalette(props: CommandPaletteProps) {
     // internal — in the recent stack, 1-8 executes that slot directly.
     if (isRecentVariant && /^[1-8]$/u.test(event.key)) {
       event.preventDefault();
-      filtered[Number(event.key) - 1]?.action();
+      const command = filtered[Number(event.key) - 1];
+      if (command && !command.disabled) command.action();
       return;
     }
 
@@ -104,7 +106,8 @@ export function CommandPalette(props: CommandPaletteProps) {
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      filtered[visibleSelectedIndex]?.action();
+      const command = filtered[visibleSelectedIndex];
+      if (command && !command.disabled) command.action();
       return;
     }
 

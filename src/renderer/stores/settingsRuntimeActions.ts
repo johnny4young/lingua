@@ -4,6 +4,7 @@ import {
   isRuntimeModeImplemented,
   type RuntimeMode,
 } from '../../shared/runtimeModes';
+import { supportsRuntimeModeHere } from '../utils/runtimeModeSupport';
 import {
   isWorkflowMode,
   type WorkflowMode,
@@ -70,7 +71,7 @@ export function createRuntimeActions(
     // defensive for future enum additions that an older build
     // should not persist.
     setDefaultRuntimeMode: (mode: RuntimeMode) => {
-      if (!isRuntimeModeImplemented(mode)) return;
+      if (!isRuntimeModeImplemented(mode) || !supportsRuntimeModeHere(mode)) return;
       set({ defaultRuntimeMode: mode });
     },
     // implementation Slice C implementation note — seed language for new notebook code cells.

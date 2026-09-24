@@ -36,8 +36,14 @@ for (const language of ['en', 'es'] as const) {
     await edit(page, 'while (true) {}');
     await run.click();
     await expect(run).toHaveAttribute('data-running', 'true');
+    const stopLabel = language === 'en' ? 'Stop' : 'Detener';
+    await expect(run).toHaveAttribute('aria-label', stopLabel);
+    await expect(run).toContainText(stopLabel);
+    await expect(run.locator('svg.lucide-square')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`running-stop-${language}.png`) });
     await run.click();
     await expect(run).toHaveAttribute('data-running', 'false');
+    await expect(run).toHaveAttribute('aria-label', language === 'en' ? 'Run' : 'Ejecutar');
     await expect(
       page.locator('[data-result-kind="run-status-pill"][data-run-status="stopped"]')
     ).toBeVisible();

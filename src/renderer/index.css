@@ -120,7 +120,7 @@
   /* Text */
   --color-fg-base: oklch(0.16 0.012 210);
   --color-fg-muted: oklch(0.45 0.018 210);
-  --color-fg-subtle: oklch(0.62 0.015 210);
+  --color-fg-subtle: oklch(0.51 0.015 210);
   --color-fg-on-accent: oklch(1 0 0);
 
   /* Borders */
@@ -165,7 +165,7 @@
   --color-syntax-keyword: oklch(0.45 0.18 265);
   --color-syntax-string: oklch(0.48 0.14 155);
   --color-syntax-number: oklch(0.55 0.15 80);
-  --color-syntax-comment: oklch(0.62 0.015 210);
+  --color-syntax-comment: oklch(0.51 0.015 210);
   --color-syntax-function: oklch(0.5 0.15 285);
   --color-syntax-operator: oklch(0.45 0.018 210);
   --color-syntax-variable: oklch(0.32 0.016 210);
@@ -197,7 +197,7 @@
   /* Editor surfaces */
   --color-editor-bg: oklch(0.99 0.003 210);
   --color-editor-fg: oklch(0.22 0.014 210);
-  --color-editor-gutter-fg: oklch(0.72 0.01 210);
+  --color-editor-gutter-fg: oklch(0.51 0.015 210);
   --color-editor-line-hl: oklch(0.968 0.005 210);
   --color-editor-selection: oklch(0.88 0.07 210);
 
@@ -207,7 +207,7 @@
   --color-console-stderr: oklch(0.45 0.2 22);
   --color-console-warning: oklch(0.42 0.14 70);
   --color-console-info: oklch(0.4 0.15 240);
-  --color-console-timestamp: oklch(0.62 0.015 210);
+  --color-console-timestamp: var(--color-fg-subtle);
   --color-console-prompt: oklch(0.44 0.18 210);
 
   /* Spacing scale — 8pt baseline with a 4px micro step */
@@ -382,7 +382,7 @@
 
   --color-fg-base: oklch(0.98 0.005 210);
   --color-fg-muted: oklch(0.72 0.018 210);
-  --color-fg-subtle: oklch(0.58 0.02 210);
+  --color-fg-subtle: oklch(0.61 0.02 210);
   --color-fg-on-accent: oklch(0.12 0.005 210);
 
   --color-border-subtle: oklch(0.24 0.014 210);
@@ -426,7 +426,7 @@
 
   --color-editor-bg: oklch(0.14 0.008 210);
   --color-editor-fg: oklch(0.92 0.008 210);
-  --color-editor-gutter-fg: oklch(0.44 0.018 210);
+  --color-editor-gutter-fg: oklch(0.61 0.02 210);
   --color-editor-line-hl: oklch(0.18 0.01 210);
   --color-editor-selection: oklch(0.32 0.08 210);
 
@@ -435,7 +435,7 @@
   --color-console-stderr: oklch(0.8 0.18 22);
   --color-console-warning: oklch(0.82 0.12 70);
   --color-console-info: oklch(0.8 0.15 240);
-  --color-console-timestamp: oklch(0.58 0.02 210);
+  --color-console-timestamp: var(--color-fg-subtle);
   --color-console-prompt: oklch(0.8 0.16 210);
 
   /* Shadows (dark — inset highlight + drop shadow per DS spec) */
@@ -897,6 +897,10 @@
 
   .tooltip-content {
     @apply fixed z-[12000] max-w-[22rem] rounded-xl border px-3 py-2 text-caption font-medium leading-5 transition-opacity duration-150;
+    /* Measure intrinsic width before the JS viewport clamp. Fixed auto width
+       otherwise shrinks against its old near-edge position on resize. */
+    width: max-content;
+    max-width: min(22rem, calc(100vw - 24px));
     background: color-mix(in srgb, var(--app-surface) 94%, transparent) !important;
     border-color: color-mix(in srgb, var(--app-border-strong) 82%, transparent) !important;
     color: var(--app-foreground) !important;
@@ -1597,6 +1601,36 @@
     }
   }
 
+  .action-pill-overflow {
+    display: none;
+  }
+
+  .action-pill-command-actions {
+    display: inline-flex;
+  }
+
+  @media (max-width: 900px) {
+    .action-pill .action-pill-direct-actions,
+    .action-pill .action-pill-direct-settings {
+      display: none;
+    }
+
+    .action-pill .action-pill-overflow {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .action-pill .kbd-shell {
+      display: none;
+    }
+
+    .action-pill-language-label {
+      display: none;
+    }
+  }
+
   /* implementation — unified mode-aware action button.
      The button colours itself by the active workflow:
        · run        → green (was the only colour previously)
@@ -1944,6 +1978,7 @@
 
   .settings-rail-row {
     @apply focus-ring grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-body-sm font-[450] text-fg-muted transition-colors duration-150;
+    width: 100%;
   }
 
   .settings-rail-row:hover {
@@ -1984,6 +2019,102 @@
      bar so the modal feels like part of the editor. */
   .settings-status-bar {
     @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-caption text-fg-subtle;
+  }
+
+  .settings-modal-shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .settings-modal-rail-slot {
+    grid-row: 1 / span 3;
+  }
+  .settings-modal-breadcrumb,
+  .settings-status-shortcuts {
+    display: flex;
+  }
+  .settings-modal-panel {
+    padding: 20px 24px;
+  }
+  .spec-row {
+    align-items: center;
+  }
+
+  /* At 200% zoom a 1024px window has only 512 CSS pixels. Keep the Settings
+     navigation horizontally scrollable rather than shrinking the content
+     column behind the fixed-width rail. */
+  @media (max-width: 760px) {
+    .settings-modal-shell {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+
+    .settings-modal-rail-slot {
+      grid-row: 2;
+      min-width: 0;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .settings-modal-topbar {
+      grid-row: 1;
+      min-width: 0;
+    }
+    .settings-modal-panel {
+      grid-row: 3;
+      padding: 16px;
+    }
+    .settings-status-bar {
+      grid-row: 4;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .settings-modal-breadcrumb,
+    .settings-modal-esc-key,
+    .settings-status-shortcuts,
+    .settings-rail-heading,
+    .settings-rail-group-label,
+    .settings-rail-shortcut {
+      display: none;
+    }
+
+    .settings-rail {
+      width: max-content;
+      min-width: 100%;
+      height: auto;
+      flex-direction: row;
+      border-right: 0;
+    }
+
+    .settings-rail-group {
+      display: flex;
+      flex: none;
+      padding: 0;
+    }
+    .settings-rail-row {
+      display: inline-flex;
+      width: auto;
+      height: 44px;
+      flex: none;
+      white-space: nowrap;
+      border-left: 0;
+      border-bottom: 2px solid transparent;
+      padding-inline: 12px;
+    }
+    .settings-rail-row[data-active='true'] {
+      border-bottom-color: var(--color-accent);
+    }
+
+    .settings-modal-panel .spec-row {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .settings-modal-panel .spec-row-control {
+      min-width: 0;
+      width: 100%;
+    }
   }
 }
 

@@ -149,6 +149,8 @@ function renderEntry(
       id={optionId(index)}
       role="option"
       aria-selected={isActive}
+      aria-disabled={command.disabled || undefined}
+      disabled={command.disabled}
       // The combobox input is the single tab stop; options are reached via
       // the arrow keys + aria-activedescendant, not the Tab sequence.
       tabIndex={-1}
@@ -157,7 +159,9 @@ function renderEntry(
       data-result-index={index}
       className={cn(
         'flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors',
-        isActive
+        command.disabled
+          ? 'cursor-not-allowed border-transparent opacity-55'
+          : isActive
           ? 'border-accent/40 bg-primary-soft'
           : 'border-transparent hover:bg-bg-panel-alt'
       )}

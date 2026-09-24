@@ -1437,6 +1437,11 @@ parent-owned timeout, bounded output and process-group termination. Stop, owner 
 and app shutdown therefore cancel both a hung wrapper and its descendants rather
 than merely ignoring a late detector result. Standalone capability refreshes use
 the same bounded supervisor without acquiring execution authority.
+Settings availability checks and missing-toolchain Retry actions pass only
+toolchain-discovery environment keys to IPC; explicit Run alone forwards the
+full user/project/tab environment and records project-scope usage. A failed
+version check (timeout, permission error or nonzero result) is a retryable
+error, not evidence that the binary is absent or a reason to offer installation.
 Staged files and identity registrations are cleaned in `finally`, including cancelled
 runs. This complements the renderer fence after IPC has crossed into main.
 

@@ -46,7 +46,7 @@ export function SpecRow({
       data-settings-search-target={searchTargetId}
       tabIndex={searchTargetId ? -1 : undefined}
       className={cn(
-        'flex items-center justify-between gap-4 rounded-md py-[13px] outline-none',
+        'spec-row flex justify-between gap-4 rounded-md py-[13px] outline-none',
         searchTargetId && 'focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-bg-base',
         last ? '' : 'border-b border-border-subtle'
       )}
@@ -68,7 +68,7 @@ export function SpecRow({
           <div className="mt-[2px] text-caption text-fg-subtle">{description}</div>
         ) : null}
       </div>
-      <div className="shrink-0">{labelledControl}</div>
+      <div className="spec-row-control shrink-0">{labelledControl}</div>
     </div>
   );
 }

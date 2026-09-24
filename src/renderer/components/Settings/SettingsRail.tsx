@@ -54,11 +54,11 @@ export function SettingsRail({
 
   return (
     <aside className="settings-rail" role="tablist" aria-label={t('settings.rail.ariaLabel')}>
-      <div className="px-4 pb-3 pt-5">
+      <div className="settings-rail-heading px-4 pb-3 pt-5">
         <EyebrowMono className="text-fg-subtle">{t('settings.title')}</EyebrowMono>
       </div>
       {groups.map(group => (
-        <div key={group} className="pb-2">
+        <div key={group} className="settings-rail-group pb-2">
           <p className="settings-rail-group-label">{t(`settings.rail.${group}`)}</p>
           {RAIL_ITEMS.filter(it => it.group === group).map(item => {
             const isActive = item.id === active;
@@ -81,7 +81,7 @@ export function SettingsRail({
                 onKeyDown={event => handleRailKeyDown(event, item.id)}
                 data-active={isActive ? 'true' : 'false'}
                 data-dim={!isActive && filter && !isMatch ? 'true' : 'false'}
-                className="settings-rail-row w-full"
+                className="settings-rail-row"
                 data-testid={`settings-tab-${item.id}`}
               >
                 <span className="row-icon">
@@ -89,7 +89,9 @@ export function SettingsRail({
                 </span>
                 <span className="truncate text-left">{t(item.labelKey)}</span>
                 {item.kbdToken ? (
-                  <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+                  <span className="settings-rail-shortcut ml-auto">
+                    <Kbd>⌘{item.kbdToken}</Kbd>
+                  </span>
                 ) : null}
               </button>
             );

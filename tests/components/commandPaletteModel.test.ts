@@ -8,6 +8,82 @@ import {
 } from '../../src/renderer/components/CommandPalette/commandPaletteModel';
 
 describe('buildCommandPaletteModel', () => {
+  it('labels Go and Rust templates with the actual platform or local toolchain boundary', () => {
+    const go = BUILT_IN_TEMPLATES.find(template => template.language === 'go');
+    const rust = BUILT_IN_TEMPLATES.find(template => template.language === 'rust');
+    expect(go && rust).toBeTruthy();
+    const base = {
+      templates: [go!, rust!], snippets: [], createTab: vi.fn(),
+      createDefaultTab: vi.fn().mockImplementation((language: string) => ({
+        id: language, name: language, language, content: '', isDirty: false,
+      })),
+      onClose: vi.fn(), t: i18next.t.bind(i18next),
+    };
+    const desktop = buildCommandPaletteModel({
+      ...base, isWebBuild: false,
+      nativeLanguageToolchainAvailability: { go: 'missing', rust: 'installed' },
+    });
+    expect(desktop.find(command => command.id === `tpl-${go!.id}`)?.description).toContain('Install Go to run');
+    expect(desktop.find(command => command.id === `tpl-${rust!.id}`)?.description).toContain('Local toolchain ready');
+    const web = buildCommandPaletteModel({ ...base, isWebBuild: true });
+    expect(web.find(command => command.id === `tpl-${go!.id}`)?.description).toContain('Desktop only');
+  });
+
+  it('keeps selection transfers discoverable but disabled without an explicit selection', () => {
+    const base = {
+      templates: [], snippets: [], activeTab: {
+        id: 'tab-1', name: 'main.ts', language: 'typescript' as const,
+        content: 'secret', isDirty: false,
+      },
+      onCopyReference: vi.fn(),
+      onCopyWithContext: vi.fn(),
+      onClose: vi.fn(),
+      t: i18next.t.bind(i18next),
+    };
+    const without = buildCommandPaletteModel({ ...base, editorSelectionAvailable: false });
+    const reference = without.find(command => command.id === 'action-copy-reference');
+    const context = without.find(command => command.id === 'action-copy-with-context');
+    expect(reference?.disabled).toBe(true);
+    expect(context?.disabled).toBe(true);
+    reference?.action();
+    context?.action();
+    expect(base.onCopyReference).not.toHaveBeenCalled();
+    expect(base.onCopyWithContext).not.toHaveBeenCalled();
+
+    const withSelection = buildCommandPaletteModel({ ...base, editorSelectionAvailable: true });
+    const enabled = withSelection.find(command => command.id === 'action-copy-with-context');
+    expect(enabled?.disabled).toBe(false);
+    enabled?.action();
+    expect(base.onCopyWithContext).toHaveBeenCalledOnce();
+  });
+
+  it('explains missing desktop runtimes and routes recovery without changing the mode', () => {
+    const onSetRuntimeMode = vi.fn();
+    const onMissingNativeRuntime = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      activeRuntimeMode: 'worker',
+      isWebBuild: false,
+      nativeRuntimeAvailability: { node: 'missing', deno: 'checking', bun: 'installed' },
+      onSetRuntimeMode,
+      onMissingNativeRuntime,
+      onClose,
+      t: i18next.t.bind(i18next),
+    });
+    const node = commands.find(command => command.id === 'action-runtime-mode-node');
+    const deno = commands.find(command => command.id === 'action-runtime-mode-deno');
+    const bun = commands.find(command => command.id === 'action-runtime-mode-bun');
+    expect(node?.description).toContain('Install Node.js');
+    expect(deno?.description).toContain('Checking');
+    expect(bun?.description).toContain('Bun');
+    node?.action();
+    expect(onMissingNativeRuntime).toHaveBeenCalledExactlyOnceWith('node');
+    expect(onSetRuntimeMode).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('surfaces the project terminal only when the desktop project action is wired', () => {
     const base = {
       templates: [],

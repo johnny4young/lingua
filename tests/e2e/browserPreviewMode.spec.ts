@@ -72,6 +72,36 @@ test.describe('Browser preview runtime ', () => {
     await selectRuntimeMode(page, 'worker');
     await expect(page.getByTestId('bottom-panel-browser-preview-tab')).toBeHidden();
   });
+
+  test('a failed refresh in another tab never shows the previous tab document', async ({ page }) => {
+    await seedSession(page, {
+      language: 'en',
+      workflowModeDefaultsByLanguage: { javascript: 'run' },
+    });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await selectRuntimeMode(page, 'browser-preview');
+    const edit = async (source: string) => {
+      await page.locator('.monaco-editor').first().click({ position: { x: 140, y: 42 } });
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+      await page.keyboard.insertText(source);
+    };
+
+    await edit('// @preview-refresh off\ndocument.body.textContent = "tab-A-visual-secret";');
+    await page.getByTestId('action-pill-run').click();
+    const preview = page.frameLocator('[data-testid="browser-preview-iframe"]');
+    await expect(preview.getByText('tab-A-visual-secret')).toBeVisible();
+
+    await page.getByTestId('action-pill-lang').click();
+    await page.getByRole('menuitem', { name: /^JavaScript/ }).click();
+    await selectRuntimeMode(page, 'browser-preview');
+    await edit('throw new Error("tab-B-failed");');
+    await selectWorkflowMode(page, 'scratchpad');
+    await expect(page.getByTestId('browser-preview-error-recovery')).toBeVisible();
+    await expect(preview.locator('body')).not.toContainText('tab-A-visual-secret');
+    await page.screenshot({ path: 'output/playwright/preview-cross-tab-error-en.png' });
+  });
 });
 
 for (const language of ['en', 'es'] as const) {
@@ -133,9 +163,23 @@ for (const language of ['en', 'es'] as const) {
     );
     await run.click();
     await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await edit('Promise.reject(new Error("sandbox-rejected-promise"));');
+    await run.click();
+    await expect(page.getByTestId('browser-preview-status')).toContainText('error');
+    await expect(page.getByTestId('browser-preview-error-recovery')).toContainText(
+      language === 'en' ? 'Preview failed' : 'La vista previa falló'
+    );
+    await page.screenshot({ path: `output/playwright/preview-error-${language}.png` });
+    await page.getByTestId('browser-preview-view-console').click();
+    const consoleTab = page.getByTestId('bottom-panel-console-tab');
+    await expect(consoleTab).toHaveAttribute('aria-selected', 'true');
+    await expect(consoleTab).toBeFocused();
+    await expect(page.locator('#guided-tour-console')).toContainText('sandbox-rejected-promise');
+    await page.getByTestId('bottom-panel-browser-preview-tab').click();
     await edit('document.body.textContent = "sandbox-recovered";');
     await run.click();
     await waitForDocument('sandbox-recovered');
+    await expect(page.getByTestId('browser-preview-error-recovery')).toBeHidden();
     await selectWorkflowMode(page, 'scratchpad');
     // Live refresh is a separate journey: no manual Run click, retain the
     // last accepted document on error, then replace it on successful recovery.

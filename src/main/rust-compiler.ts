@@ -106,7 +106,7 @@ async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal
   RustDetectResult & { timedOut?: boolean }
 > {
   const cacheable = userEnv === undefined;
-  if (signal?.aborted) return { installed: false };
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedRustDetect) return cachedRustDetect;
   const probe = await spawnNativeRun({
     command: 'rustc', args: ['--version'], env: resolveRustRunEnv(userEnv),
@@ -115,11 +115,18 @@ async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal
     stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
     stderrTruncationMarker: COMPILE_TRUNCATION_MARKER, signal,
   });
-  if (signal?.aborted || probe.killed) return { installed: false };
-  if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) return {
-    installed: false, timedOut: probe.timedOut,
-    error: 'Rust is not installed. Install it from https://rustup.rs',
-  };
+  if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+  if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
+    const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
+    return {
+      installed: false,
+      reason: missing ? 'missing' : 'check-failed',
+      timedOut: probe.timedOut,
+      error: missing
+        ? 'Rust is not installed. Install it from https://rustup.rs'
+        : 'Rust toolchain check failed. Retry detection or inspect your local Rust installation.',
+    };
+  }
   const result = { installed: true, version: probe.stdout.trim() };
   if (cacheable) cachedRustDetect = result;
   return result;
@@ -194,7 +201,7 @@ async function runRustCode(
 /** Validate wire values before probing, allocating files or spawning. */
 export function registerRustHandlers(): void {
   typedHandle('rust:detect', async (event, userEnv?: unknown) => {
-    if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, error: 'Invalid Rust environment.' };
+    if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Rust environment.' };
     const lifecycle = createNativeRunLifecycle(event.sender);
     try { return await detectRust(userEnv, lifecycle.controller.signal); }
     finally { lifecycle.release(); }

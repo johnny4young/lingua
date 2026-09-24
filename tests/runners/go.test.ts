@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import i18next from 'i18next';
 
 // Mock window.lingua for IPC calls
 const mockDetect = vi.fn();
@@ -69,7 +70,43 @@ describe('GoRunner', () => {
     });
   });
 
+  it('does not offer installation after a failed Go probe', async () => {
+    mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Go check timed out' });
+    const runner = new GoRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Go');
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
+  });
+
+  it('detects again on the next run after a failed Go check', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Go check timed out' })
+      .mockResolvedValueOnce({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' });
+    const runner = new GoRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Go');
+    expect(runner.isReady()).toBe(false);
+    await runner.init();
+    expect(runner.isReady()).toBe(true);
+    expect(mockDetect).toHaveBeenCalledTimes(2);
+  });
+
+  it('explains a failed Go check in Spanish without prescribing installation', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Go check timed out' });
+      const runner = new GoRunner();
+      await expect(runner.init()).rejects.toThrow('No se pudo comprobar Go');
+      const result = await runner.execute('package main\nfunc main() {}');
+      expect(result.error?.message).toContain('No se pudo comprobar Go');
+      expect(result.error?.message).not.toContain('Instala');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+
   it('retries detection and uses Go without restarting Lingua', async () => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/go/bin', API_TOKEN: 'private-project-secret' },
+    });
     mockDetect
       .mockResolvedValueOnce({ installed: false, error: 'Go is not installed' })
       .mockResolvedValueOnce({
@@ -89,10 +126,25 @@ describe('GoRunner', () => {
         'nativeToolchain.retry.detected'
       );
     });
+    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
 
     const result = await runner.execute('package main\nfunc main() {}');
     expect(mockCompile).toHaveBeenCalledOnce();
     expect(result.error?.message).not.toContain('not installed');
+  });
+
+  it('does not relabel a failed retry as a missing Go installation', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'missing', error: 'Go is not installed' })
+      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Go check timed out' });
+    const runner = new GoRunner();
+    await expect(runner.init()).rejects.toThrow('Go is not installed');
+    const retry = useUIStore.getState().statusNotice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retry?.onClick();
+    await vi.waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('nativeToolchain.retry.checkFailed');
+    });
   });
 
   it('should return error result when Go is not installed and execute is called', async () => {

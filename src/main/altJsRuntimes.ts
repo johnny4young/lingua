@@ -37,6 +37,7 @@ import { writeFile } from 'node:fs/promises';
 import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
 import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
+import { BUN_TOOLCHAIN_KEYS, DENO_TOOLCHAIN_KEYS } from '../shared/nativeToolchainEnvKeys';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNativeRun';
 import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
@@ -83,7 +84,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
       entryFile,
     ],
     // DENO_DIR is the module/cache root; keep the rest of the host env out.
-    toolchainKeys: ['DENO_DIR'],
+    toolchainKeys: DENO_TOOLCHAIN_KEYS,
   },
   bun: {
     binary: 'bun',
@@ -91,7 +92,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
     ext: (language) => (language === 'typescript' ? 'ts' : 'js'),
     runArgs: (entryFile) => ['run', entryFile],
     // BUN_INSTALL anchors the per-user cache; nothing else leaks.
-    toolchainKeys: ['BUN_INSTALL'],
+    toolchainKeys: BUN_TOOLCHAIN_KEYS,
   },
 };
 
@@ -114,18 +115,27 @@ async function detectAltRuntime(
     if (cached) return cached;
   }
   let result: AltJsDetectResult;
-  const version = await detectNativeRuntimeVersion({
+  const probe = await detectNativeRuntimeVersion({
     command: CONFIGS[id].binary,
     env: resolveEnv(id, userEnv),
     signal,
     killEscalationMs: KILL_ESCALATION_DELAY_MS,
   });
-  if (version !== null) {
-    result = { installed: true, version: version.split('\n')[0] };
+  if (probe.version !== null) {
+    result = { installed: true, version: probe.version.split('\n')[0] };
   } else {
-    result = { installed: false, error: CONFIGS[id].installHint };
+    result = {
+      installed: false,
+      reason: probe.reason,
+      error: probe.reason === 'check-failed'
+        ? `Could not check ${id}. Review the local runtime and retry detection.`
+        : CONFIGS[id].installHint,
+    };
   }
-  if (cacheable && !signal?.aborted) detectCache.set(id, result);
+  if (cacheable && !signal?.aborted) {
+    if (result.reason === 'check-failed') detectCache.delete(id);
+    else detectCache.set(id, result);
+  }
   return result;
 }
 
@@ -252,7 +262,7 @@ async function runAltRuntime(
     if (controller.signal.aborted) return stoppedAltRunResult(options);
     if (!detect.installed) {
       return {
-        kind: 'missing-binary',
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
         stdout: '',
         stderr: detect.error ?? `${id} is not installed.`,
         exitCode: -1,

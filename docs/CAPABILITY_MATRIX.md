@@ -192,10 +192,19 @@ auto-derived — do not edit by hand.
 - **Web build degrades honestly** with the stub in `src/web/adapter.ts`.
   Do not promise Go execution in pure-web without a browser-side compiler
   (not viable today).
+- **Local readiness is distinct from platform and tier.** Desktop menus and
+  the palette probe the Go toolchain on demand; `ENOENT` means missing, while
+  a timeout or failed version/root probe means the check failed. The editor
+  still opens; running a missing toolchain offers install/retry guidance.
+  Passive probes receive only shared toolchain-discovery env keys, not project
+  secrets, and do not count as execution-environment adoption telemetry.
 
 ### Rust
 - **Desktop native stays Primary.** `rustc` is needed for compile, and the
   toolchain is too heavy to ship as a WASM blob.
+- **Local readiness uses the same distinction as Go.** Desktop surfaces probe
+  `rustc` on demand, without claiming a timeout or nonzero probe is an absent
+  binary. Web keeps its Desktop-only boundary and never probes the host.
 - **Browser WASM compile-and-run** (via `rustc`'s wasm backend or similar)
   is a Future-priority experiment, not a current migration target.
 
@@ -277,7 +286,9 @@ auto-derived — do not edit by hand.
   preference (`auto` / `system` / `wasm`) and per-session detection.
   `.ruby-version` discovery threads `RBENV_VERSION` so rbenv shims pick
   the right interpreter. Native gems via `bundler` still belong to the
-  internal lane.
+  internal lane. The passive Settings version check uses only Ruby
+  version-manager discovery keys, never arbitrary project env or Run telemetry;
+  a failed check is shown separately from a confirmed missing binary.
 
 ### Local AI inference (internal spike)
 - **Decision deferred.** Write this back into the matrix once the internal

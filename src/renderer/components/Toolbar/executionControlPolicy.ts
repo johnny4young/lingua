@@ -1,17 +1,17 @@
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import type { LicenseTier } from '../../../shared/license';
+import type { RuntimeMode } from '../../../shared/runtimeModes';
+import { webExecutionBoundary } from '../../utils/runtimeModeSupport';
 import {
   type WorkflowMode,
 } from '../../../shared/workflowMode';
 import type { Language } from '../../types/language';
-import {
-  executionModeForLanguage,
-  languageCapabilityBadgeKey,
-} from '../../utils/languageMeta';
+import { executionModeForLanguage } from '../../utils/languageMeta';
 import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 export type ExecutionControlDisabledReason =
   | 'desktop-only'
+  | 'desktop-and-pro'
   | 'no-enabled-breakpoint'
   | 'notebook'
   | 'pro-only'
@@ -33,6 +33,7 @@ export interface ExecutionControlPolicy {
 
 interface ExecutionControlPolicyInput {
   language: Language;
+  runtimeMode?: RuntimeMode;
   effectiveTier: LicenseTier;
   isWebBuild: boolean;
   isNotebookTab: boolean;
@@ -55,6 +56,7 @@ function availability(
  */
 export function resolveExecutionControlPolicy({
   language,
+  runtimeMode,
   effectiveTier,
   isWebBuild,
   isNotebookTab,
@@ -64,19 +66,13 @@ export function resolveExecutionControlPolicy({
   const proLanguageGate =
     executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
   const desktopOnlyGate =
-    !proLanguageGate &&
-    isWebBuild &&
-    executionMode === 'run' &&
-    languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
-  const sharedReason: ExecutionControlDisabledReason | null = isNotebookTab
-    ? 'notebook'
-    : proLanguageGate
-      ? 'pro-only'
-      : desktopOnlyGate
-        ? 'desktop-only'
-        : executionMode === 'view'
-          ? 'view-only'
-          : null;
+    executionMode === 'run' && webExecutionBoundary(language, runtimeMode, isWebBuild) !== null;
+  let sharedReason: ExecutionControlDisabledReason | null = null;
+  if (isNotebookTab) sharedReason = 'notebook';
+  else if (desktopOnlyGate && proLanguageGate) sharedReason = 'desktop-and-pro';
+  else if (proLanguageGate) sharedReason = 'pro-only';
+  else if (desktopOnlyGate) sharedReason = 'desktop-only';
+  else if (executionMode === 'view') sharedReason = 'view-only';
   const supportsDebug = supportsWorkflowModeInShell(language, 'debug', isWebBuild);
   const debugReason =
     sharedReason ??
@@ -118,6 +114,7 @@ export function executionDisabledTooltipKey(
 ): string | undefined {
   if (reason === null) return undefined;
   if (reason === 'pro-only') return 'toolbar.run.proOnlyTooltip';
+  if (reason === 'desktop-and-pro') return 'toolbar.run.desktopAndProTooltip';
   if (reason === 'desktop-only') return 'toolbar.run.desktopOnlyTooltip';
   if (reason === 'view-only') return 'toolbar.viewOnly.title';
   if (reason === 'notebook') return 'notebook.notice.useNotebookToolbar';

@@ -47,9 +47,10 @@ const chartSpec = {
 
 async function seedConsole(
   page: import('@playwright/test').Page,
-  entries: ConsoleEntrySeed[]
+  entries: ConsoleEntrySeed[],
+  language: 'en' | 'es' = 'en'
 ): Promise<void> {
-  await seedSession(page, { language: 'en' });
+  await seedSession(page, { language });
   await page.goto('/?e2e=rich-console-gallery');
   await expect(page.getByTestId('rich-console-e2e-fixture')).toBeVisible();
   await expect.poll(() => page.evaluate(() => Boolean(window.__linguaE2e))).toBe(true);
@@ -121,4 +122,41 @@ test.describe('console windowing (implementation detail implementation)', () => 
     // The chart remounts and renders again.
     await expect(page.getByTestId('console-rich-chart').first()).toBeVisible();
   });
+
+  for (const language of ['en', 'es'] as const) {
+    test(`manual scroll wins when a new console row arrives in ${language}`, async ({ page }) => {
+      const entries: ConsoleEntrySeed[] = Array.from({ length: 400 }, (_, i) => ({
+        type: 'log',
+        content: `row ${i}`,
+        language: 'javascript',
+      }));
+      await seedConsole(page, entries, language);
+      const scroller = page.locator('[data-window-range]');
+      await expect(page.getByText('row 399', { exact: true })).toBeVisible();
+      await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+
+      await scroller.evaluate(element => {
+        element.scrollTop = 0;
+        window.__linguaE2e?.addConsoleEntries([
+          { type: 'log', content: 'new tail', language: 'javascript' },
+        ]);
+      });
+
+      await expect(page.getByText('row 0', { exact: true })).toBeVisible();
+      await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0);
+      await expect(page.getByText('new tail', { exact: true })).toHaveCount(0);
+      await page.screenshot({ path: test.info().outputPath(`manual-scroll-${language}.png`) });
+
+      await scroller.evaluate(element => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect(page.getByText('new tail', { exact: true })).toBeVisible();
+      await scroller.evaluate(() => {
+        window.__linguaE2e?.addConsoleEntries([
+          { type: 'log', content: 'follow resumed', language: 'javascript' },
+        ]);
+      });
+      await expect(page.getByText('follow resumed', { exact: true })).toBeVisible();
+    });
+  }
 });

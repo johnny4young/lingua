@@ -81,4 +81,22 @@ describe('native toolchain detection env', () => {
     expect(options.env?.CARGO_HOME).toBe('/tmp/cargo-home');
     expect(options.env?.LINGUA_SMOKE_SECRET).toBeUndefined();
   });
+
+  it.each([
+    ['go:detect', registerGoHandlers],
+    ['rust:detect', registerRustHandlers],
+  ] as const)('separates absent binaries from failed %s probes', async (channel, register) => {
+    register();
+    const detect = handlerFor<[unknown, Record<string, string>], GoDetectResult | RustDetectResult>(channel);
+    mocks.spawnNative.mockResolvedValueOnce({
+      stdout: '', stderr: '', exitCode: -1, timedOut: false, killed: false,
+      spawnError: Object.assign(new Error('not found'), { code: 'ENOENT' }),
+    });
+    expect(await detect({}, {})).toMatchObject({ installed: false, reason: 'missing' });
+
+    mocks.spawnNative.mockResolvedValueOnce({
+      stdout: '', stderr: '', exitCode: -1, timedOut: true, killed: false,
+    });
+    expect(await detect({}, {})).toMatchObject({ installed: false, reason: 'check-failed' });
+  });
 });

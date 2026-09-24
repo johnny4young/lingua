@@ -447,6 +447,41 @@ describe('CommandPalette', () => {
     }
   });
 
+  it('describes desktop runtimes honestly in the web command palette', () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      editorState.tabs = [{
+        id: 'web-js',
+        language: 'javascript',
+        content: 'console.log(1)',
+        runtimeMode: 'worker',
+      }];
+      editorState.activeTabId = 'web-js';
+      render(
+        <CommandPalette
+          onClose={vi.fn()}
+          onOpenSettings={vi.fn()}
+          onOpenWhatsNew={vi.fn()}
+          onStartGuidedTour={vi.fn()}
+          onOpenSnippets={vi.fn()}
+        />
+      );
+      fireEvent.change(screen.getByPlaceholderText('Search templates, snippets, commands...'), {
+        target: { value: 'runtime to Node' },
+      });
+      expect(screen.getByText(/Desktop only\. This runtime cannot execute in the web app/)).toBeTruthy();
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
   it('flattens results without scope headers when the user types a query', () => {
     render(
       <CommandPalette

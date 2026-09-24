@@ -4,11 +4,12 @@
  *
  * Locks the implementation contract surface:
  *   - The action pill runtime chip renders for JS tabs (default `Worker`).
- *   - Dropdown shows three enabled runtime choices after implementation closed internal
+ *   - Web keeps Worker/Browser preview enabled and explains desktop subprocess limits.
  *   - The chip is hidden for non-JS/TS tabs.
  *   - Spanish locale renders the localized menu descriptions.
  */
 
+import { mkdirSync } from 'node:fs';
 import {
   closeSettings,
   closeActiveEditorTab,
@@ -16,7 +17,9 @@ import {
   createLanguageTab,
   dismissWhatsNew,
   expect,
+  expectNoticeContains,
   gotoApp,
+  openPaletteAction,
   openSettings,
   openSettingsTab,
   seedSession,
@@ -35,7 +38,7 @@ test.describe('Runtime mode selector', () => {
     await expect(button).toContainText('Worker');
   });
 
-  test('dropdown lists three enabled options after implementation', async ({ page }) => {
+  test('web picker and palette explain desktop runtimes without changing mode', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -51,14 +54,31 @@ test.describe('Runtime mode selector', () => {
     await expect(worker).not.toBeDisabled();
 
     await expect(node).toBeVisible();
-    await expect(node).not.toBeDisabled();
-    await expect(node).toContainText(/desktop Node runtime/i);
+    await expect(node).toBeDisabled();
+    await expect(node).toContainText(/Desktop only/i);
+    await expect(page.getByTestId('action-pill-runtime-option-deno')).toBeDisabled();
+    await expect(page.getByTestId('action-pill-runtime-option-bun')).toBeDisabled();
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-runtime-platform', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/product-runtime-platform/web-runtime-menu-en.png',
+      });
+    }
 
     await expect(browserPreview).toBeVisible();
     await expect(browserPreview).not.toBeDisabled();
 
     await page.keyboard.press('Escape');
     await expect(node).toBeHidden();
+
+    await openPaletteAction(page, 'runtime to Node', /Switch runtime to Node/);
+    await expectNoticeContains(page, 'only in Lingua Desktop');
+    await expect(page.getByTestId('action-pill-runtime')).toContainText('Worker');
+
+    await page.keyboard.press('ControlOrMeta+Alt+M');
+    await expect(page.getByTestId('action-pill-runtime')).toContainText('Browser preview');
+    await page.keyboard.press('ControlOrMeta+Alt+M');
+    await expect(page.getByTestId('action-pill-runtime')).toContainText('Worker');
   });
 
   test('selector is hidden when the active tab is not JS/TS', async ({ page }) => {
@@ -92,10 +112,10 @@ test.describe('Runtime mode selector', () => {
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    expect(disabledValues).toEqual([]);
+    expect(disabledValues).toEqual(['node', 'deno', 'bun']);
     await expect(select.locator('option[value="node"]')).toHaveAttribute(
       'title',
-      /desktop Node runtime/i
+      /Desktop only/i
     );
     await expect(select.locator('option[value="browser-preview"]')).toHaveAttribute(
       'title',
@@ -115,10 +135,16 @@ test.describe('Runtime mode selector', () => {
     await expect(button).toContainText('Worker');
 
     await button.click();
-    await expect(page.getByTestId('action-pill-runtime-option-node')).not.toBeDisabled();
+    await expect(page.getByTestId('action-pill-runtime-option-node')).toBeDisabled();
     await expect(page.getByTestId('action-pill-runtime-option-node')).toContainText(
-      /entorno Node de escritorio/iu
+      /Solo escritorio/iu
     );
+    if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {
+      mkdirSync('output/review/product-runtime-platform', { recursive: true });
+      await page.screenshot({
+        path: 'output/review/product-runtime-platform/web-runtime-menu-es.png',
+      });
+    }
     await page.keyboard.press('Escape');
   });
 });

@@ -27,17 +27,20 @@ import { useUIStore } from '@/stores/uiStore';
 import { useBootstrapProgressStore } from '@/stores/bootstrapProgressStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
+import { resetLessonProgressStoreForTests, useLessonProgressStore } from '@/stores/lessonProgressStore';
 
 const runMock = vi.fn();
 const stopMock = vi.fn();
 const isRunningRef = { current: false };
+const initializingRef = { current: false as boolean, message: null as string | null };
 
 vi.mock('@/hooks/useRunner', () => ({
   useRunner: () => ({
     run: runMock,
     stop: stopMock,
     isRunning: isRunningRef.current,
-    isInitializing: false,
+    isInitializing: initializingRef.current,
+    loadingMessage: initializingRef.message,
   }),
 }));
 
@@ -57,6 +60,8 @@ beforeEach(async () => {
   runMock.mockClear();
   stopMock.mockClear();
   isRunningRef.current = false;
+  initializingRef.current = false;
+  initializingRef.message = null;
   useEditorStore.setState({
     tabs: [
       {
@@ -209,16 +214,77 @@ describe('FloatingActionPill', () => {
     );
   });
 
-  it('keeps the primary action available for Stop while disabling the menu', () => {
+  it.each([
+    ['en', 'Stop'],
+    ['es', 'Detener'],
+  ])('names the primary action Stop in %s and keeps it available', async (language, label) => {
+    await i18next.changeLanguage(language);
     isRunningRef.current = true;
     renderPill();
 
-    expect(
-      (screen.getByTestId('action-pill-run') as HTMLButtonElement).disabled,
-    ).toBe(false);
-    expect(
-      (screen.getByTestId('action-pill-run-menu') as HTMLButtonElement).disabled,
-    ).toBe(true);
+    const stop = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+    expect(stop.disabled).toBe(false);
+    expect(stop.getAttribute('aria-label')).toBe(label);
+    expect(stop.textContent).toContain(label);
+    expect((screen.getByTestId('action-pill-run-menu') as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.setup().click(stop);
+    expect(stopMock).toHaveBeenCalledTimes(1);
+    expect(runMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps Python bootstrap progress visible without hiding the Stop action', async () => {
+    await i18next.changeLanguage('en');
+    isRunningRef.current = true;
+    useEditorStore.setState({
+      tabs: [
+        { id: 'tab-py', name: 'main.py', language: 'python', content: 'print(1)', isDirty: false },
+      ],
+      activeTabId: 'tab-py',
+    });
+    renderPill();
+    act(() => {
+      useBootstrapProgressStore.getState().report({
+        language: 'python',
+        loadedBytes: 2 * 1024 * 1024,
+        totalBytes: null,
+      });
+    });
+    const stop = screen.getByTestId('action-pill-run');
+    expect(stop.getAttribute('aria-label')).toBe('Stop');
+    expect(stop.textContent).toContain('Stop');
+    expect(stop.textContent).toContain('2.0 MB');
+  });
+
+  it('keeps a compilation message visible beside the Stop action', async () => {
+    await i18next.changeLanguage('en');
+    isRunningRef.current = true;
+    initializingRef.current = true;
+    initializingRef.message = 'Compiling Rust...';
+    useEditorStore.setState({
+      tabs: [{ id: 'tab-rs', name: 'main.rs', language: 'rust', content: 'fn main() {}', isDirty: false }],
+      activeTabId: 'tab-rs',
+    });
+    renderPill();
+    const stop = screen.getByTestId('action-pill-run');
+    expect(stop.getAttribute('aria-label')).toBe('Stop');
+    expect(stop.textContent).toContain('Compiling Rust...');
+  });
+
+  it('keeps Utilities state and recipe progress in the overflow menu', async () => {
+    useLessonProgressStore.setState({
+      entries: { 'recipe-a': { status: 'passed' } } as never,
+    });
+    try {
+      renderPill({ onOpenUtilities: vi.fn(), utilitiesOpen: true, onOpenRecipes: vi.fn() });
+      await userEvent.setup().click(screen.getByTestId('action-pill-overflow'));
+      const utilities = screen.getByTestId('action-pill-overflow-utilities');
+      expect(utilities.getAttribute('role')).toBe('menuitemcheckbox');
+      expect(utilities.getAttribute('aria-checked')).toBe('true');
+      expect(screen.getByTestId('action-pill-overflow-recipes').getAttribute('role')).toBe('menuitem');
+      expect(screen.getByTestId('action-pill-overflow-recipes-badge').textContent).toBe('1');
+    } finally {
+      resetLessonProgressStoreForTests();
+    }
   });
 
   it('shows the Settings cog only when onOpenSettings is provided', async () => {
@@ -386,6 +452,125 @@ describe('FloatingActionPill', () => {
     await waitFor(() => {
       expect(screen.getByTestId('action-pill-runtime').textContent).toContain('Deno');
     });
+  });
+
+  it('marks a missing desktop binary and offers recovery instead of selecting it', async () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        platform: 'darwin',
+        openExternal: vi.fn().mockResolvedValue(true),
+        node: { detect: vi.fn().mockResolvedValue({ installed: false }) },
+        deno: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+        bun: { detect: vi.fn().mockResolvedValue({ installed: true }) },
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-runtime'));
+      const nodeOption = screen.getByTestId('action-pill-runtime-option-node');
+      await waitFor(() => expect(nodeOption.textContent).toContain('Install Node.js'));
+      await user.click(nodeOption);
+      expect(useEditorStore.getState().tabs[0]?.runtimeMode).toBeUndefined();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'nativeToolchain.missing.message',
+        values: { toolchain: 'Node.js' },
+      });
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
+  });
+
+  it('shows Go and Rust toolchain state in the desktop language menu without blocking editing', async () => {
+    const originalLingua = window.lingua;
+    const goDetect = vi.fn().mockResolvedValue({ installed: false, reason: 'missing' });
+    const rustDetect = vi.fn().mockResolvedValue({ installed: true });
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: {
+        platform: 'darwin',
+        go: { detect: goDetect },
+        rust: { detect: rustDetect },
+      },
+    });
+    try {
+      const user = userEvent.setup();
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-lang'));
+      const menu = screen.getByRole('menu');
+      await waitFor(() => {
+        expect(within(menu).getByRole('menuitem', { name: /Go/ }).textContent).toContain('Install Go to run');
+        expect(within(menu).getByRole('menuitem', { name: /Rust/ }).textContent).toContain('Local toolchain ready');
+      });
+      expect(goDetect).toHaveBeenCalledWith(expect.any(Object));
+      await user.click(within(menu).getByRole('menuitem', { name: /Go/ }));
+      expect(useEditorStore.getState().tabs.some(tab => tab.language === 'go')).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'lingua', { configurable: true, value: originalLingua });
+    }
+  });
+
+  it('explains desktop runtimes on web and blocks their selection', async () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      const user = userEvent.setup();
+      useEditorStore.setState(state => ({
+        tabs: state.tabs.map(tab => ({ ...tab, runtimeMode: 'worker' })),
+      }));
+      renderPill();
+      await user.click(screen.getByTestId('action-pill-runtime'));
+
+      for (const mode of ['node', 'deno', 'bun']) {
+        const option = screen.getByTestId(`action-pill-runtime-option-${mode}`) as HTMLButtonElement;
+        expect(option.disabled).toBe(true);
+        expect(option.textContent).toContain('Desktop only');
+      }
+      expect((screen.getByTestId('action-pill-runtime-option-worker') as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByTestId('action-pill-runtime-option-browser-preview') as HTMLButtonElement).disabled).toBe(false);
+      expect(useEditorStore.getState().tabs[0]?.runtimeMode).toBe('worker');
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
+  it('keeps a restored desktop runtime visible but disables Run on web', () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      useEditorStore.setState({
+        tabs: [{
+          id: 'restored-node',
+          name: 'restored.js',
+          language: 'javascript',
+          content: 'console.log(1)',
+          runtimeMode: 'node',
+          isDirty: false,
+        }],
+        activeTabId: 'restored-node',
+      });
+      renderPill();
+      expect(screen.getByTestId('action-pill-runtime').textContent).toContain('Node');
+      const run = screen.getByTestId('action-pill-run') as HTMLButtonElement;
+      expect(run.disabled).toBe(true);
+      expect(run.title).toContain('Lingua Desktop');
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
   });
 
   it.each([

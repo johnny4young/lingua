@@ -50,6 +50,61 @@ queries and persistence policy. Its small
 owns only engine generations and serialized release; keep OPFS cleanup inside
 that release transition so a new engine cannot reopen partially cleared data.
 
+The floating action pill is portaled to the viewport, but `AppLayout` reserves
+its own row below `AppChrome`. Do not remove that row without moving the pill
+into normal flow: otherwise the pill sits over the editor tab strip and blocks
+activation and close hit targets. Presenter mode hides both the pill and row.
+At narrow widths the secondary commands and Settings move into a keyboard-
+operable More actions menu; Run, language, and runtime remain directly available.
+At the smallest widths the language chip keeps its full accessible name but
+uses its short badge rather than a long visible language label.
+`useDraggable` clamps its position against the rendered pill size after mount
+and whenever the element or viewport changes; the width hint only guards the
+first render before a DOM measurement exists.
+
+Console auto-follow is active only while the viewport remains at the bottom.
+`ConsolePanel` records its last pinned geometry so a manual upward scroll wins
+even when an incoming row renders before the browser dispatches `scroll`;
+returning to the bottom resumes follow without clearing existing output.
+
+Account settings explain plan access separately from platform and installed
+toolchains. The pricing link uses the existing `window.lingua.openExternal`
+bridge so Electron's navigation guard stays intact, and signing-key metadata
+stays behind a native disclosure rather than competing with activation.
+Desktop JS runtime pickers and the command palette probe Node, Deno and Bun
+only while their surfaces are open. A known-missing binary leads to the shared
+install/retry notice instead of changing modes; an unverified or failed probe
+does not masquerade as a confirmed missing installation. Web continues to show
+the separate Desktop-only boundary without probing the host. Native picker
+previews use only the shared toolchain-discovery env keys (including retry),
+and do not emit the project-env-used event; explicit Run still receives the
+user's configured env and owns that adoption signal.
+Desktop language menus and the palette likewise probe Go and Rust only while
+open. They distinguish a confirmed missing executable from a failed check;
+creating an editor tab remains possible without the compiler, while Run owns
+the localized recovery/error path. These passive probes share the same env
+filter and telemetry boundary as the JS runtime picker; unrelated project
+secrets and code-loading flags never reach menu-opened binaries. Web never
+probes the host toolchains.
+Copy reference and Copy with context are Free actions on the main Monaco editor,
+the modified side of the Git diff, and the command palette. They require an
+explicit nonempty selection and read only that Monaco range. Metadata uses the
+capability-relative path when safe, otherwise the sanitized tab basename;
+absolute file paths and the unselected buffer are never added. The context
+format preserves selected line endings and grows its Markdown fence beyond
+any backticks in the selection. Clipboard access happens only on activation,
+with an EN/ES failure notice when the write is denied.
+Run Capsule Settings can save the same sanitized `RunCapsuleV1` JSON used by
+clipboard export through the existing capability-backed desktop Save dialog or
+web download. A separate disclosure presents copyable CLI validate and replay
+commands; it never invokes the CLI. Import and validation remain inert, while
+replay is explicitly marked as executing trusted source with OS permissions.
+At effective widths below 760 CSS px, Settings moves the rail into a
+horizontally scrollable tablist and stacks spec-row controls beneath their
+labels; the selected panel remains the only mounted tabpanel. Keep tab focus,
+search navigation, and activation usable at 200% zoom instead of letting a
+fixed sidebar clip the panel.
+
 ### Magic-comment boundaries
 
 Keep the always-mounted Git surfaces separate from the transformation engine:
@@ -104,6 +159,13 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 31 utility panels plus panel-specific validation/output UX      |
 | [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
 | [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
+
+Browser preview treats the iframe's `done` signal as provisional: the runner
+keeps the listener briefly for first-turn `unhandledrejection` delivery before
+publishing a result. A failed run overlays a View console action that moves
+focus to the Console tab; editing and running again removes the recovery UI.
+The retained successful document is restored only for the same editor tab, so
+a failed refresh cannot display another tab's preview.
 | [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`, `DebuggerBreakpointList.tsx`, `DebuggerWatchList.tsx` | Shared JS/TS/Python/Go/Rust pause controls and paused-frame display; advanced breakpoint modes stay JS/TS-only and native watches disclose side effects |
 | [`components/AI/`](components/AI)                         | `ExplainErrorDialog.tsx`                              | BYO-key "Explain this error" consent + result dialog       |
 | [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
@@ -239,6 +301,18 @@ orchestration:
 - [`hooks/useRunner.ts`](hooks/useRunner.ts) subscribes to shared run status,
   exposes stable Run/Stop callbacks, and keeps Stop available while execution
   implementation chunks are preparing.
+- The floating action pill's primary button switches its visible name,
+  accessible name, and icon to Stop during a run; runtime download progress
+  remains secondary text instead of hiding that action.
+- [`components/Toolbar/executionControlPolicy.ts`](components/Toolbar/executionControlPolicy.ts)
+  keeps platform and license gates independent. Web users see both requirements
+  for a paid desktop language rather than an upgrade message that implies web
+  execution becomes available after purchase; selectors keep the same cues.
+- [`utils/runtimeModeSupport.ts`](utils/runtimeModeSupport.ts) applies the
+  shell boundary to JS/TS runtime writes. A restored desktop-mode tab stays
+  intact on web but cannot Run there; new web tabs fall back to Worker, while
+  menus, Settings, the palette, and the runtime-cycle shortcut explain or
+  skip desktop subprocesses without changing the stored session.
 - [`hooks/manualRunControllerLoader.ts`](hooks/manualRunControllerLoader.ts)
   owns the retryable activation load. A rejected request is evicted so the next
   explicit Run action can recover.

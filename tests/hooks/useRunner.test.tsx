@@ -190,6 +190,28 @@ describe('useRunner', () => {
     });
   });
 
+  it('rejects a restored desktop JS mode in the web shell before preparing a runner', async () => {
+    const originalLingua = window.lingua;
+    window.lingua = { ...(originalLingua ?? ({} as LinguaAPI)), platform: 'web' } as typeof window.lingua;
+    useEditorStore.setState({
+      tabs: [{
+        id: 'node-web', name: 'main.js', language: 'javascript',
+        content: 'console.log(1)', isDirty: false, runtimeMode: 'node',
+      }],
+      activeTabId: 'node-web',
+    });
+    try {
+      const { result: hook } = renderHook(() => useRunner());
+      await act(async () => { await hook.current.run(); });
+      expect(mockPrepareRunner).not.toHaveBeenCalled();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'runtimeMode.notice.desktopOnly',
+      });
+    } finally {
+      window.lingua = originalLingua;
+    }
+  });
+
   it('syncs compiled manual runs into the result store', async () => {
     mockPrepareRunner.mockResolvedValue({
       runner: {
@@ -711,7 +733,7 @@ describe('useRunner', () => {
       expect(execute).toHaveBeenCalledOnce();
     });
 
-    it('does not show the native trust modal for Go in web builds', async () => {
+    it('does not run Go or show the native trust modal in web builds', async () => {
       const originalLingua = window.lingua;
       window.lingua = {
         ...(originalLingua ?? ({} as LinguaAPI)),
@@ -746,7 +768,39 @@ describe('useRunner', () => {
         });
 
         expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
-        expect(execute).toHaveBeenCalledOnce();
+        expect(execute).not.toHaveBeenCalled();
+        expect(mockPrepareRunner).not.toHaveBeenCalled();
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          messageKey: 'language.notice.desktopOnly',
+        });
+      } finally {
+        window.lingua = originalLingua;
+      }
+    });
+
+    it('explains both gates instead of upselling Go to a Free web user', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'web',
+      } as typeof window.lingua;
+      useLicenseStore.setState(initialLicenseState, true);
+      useEditorStore.setState({
+        tabs: [
+          { id: 'tab-go-free-web', name: 'main.go', language: 'go', content: 'package main', isDirty: false },
+        ],
+        activeTabId: 'tab-go-free-web',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+        await act(async () => {
+          await hook.current.run();
+        });
+        expect(mockPrepareRunner).not.toHaveBeenCalled();
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          messageKey: 'toolbar.run.desktopAndProTooltip',
+        });
       } finally {
         window.lingua = originalLingua;
       }

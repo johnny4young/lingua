@@ -25,6 +25,7 @@
  */
 
 import { DiffEditor } from '@monaco-editor/react';
+import type * as monaco from 'monaco-editor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { trackGitDiffPanelOpened } from '../../hooks/gitTelemetry';
@@ -32,6 +33,8 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
+import { registerSelectionTransferActions } from '../../utils/selectionTransfer';
 
 interface DiffState {
   status: 'idle' | 'loading' | 'loaded' | 'error';
@@ -53,7 +56,11 @@ const EMPTY_DIFF: DiffState = {
 };
 
 export function GitDiffPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [mountedDiff, setMountedDiff] = useState<{
+    editor: monaco.editor.IStandaloneDiffEditor;
+    requestKey: string;
+  } | null>(null);
   const activeTab = useActiveTab();
   const posture = useGitStore((state) => state.posture);
   const fileEntry = useGitStore((state) =>
@@ -89,6 +96,24 @@ export function GitDiffPanel() {
       : resolvedDiff?.requestKey === diffRequestKey
         ? resolvedDiff.diff
         : { ...EMPTY_DIFF, status: 'loading' as const };
+
+  useEffect(() => {
+    if (
+      !mountedDiff || mountedDiff.requestKey !== diffRequestKey ||
+      diff.status !== 'loaded' ||
+      (diff.originalContent.length === 0 && diff.modifiedContent.length === 0)
+    ) return;
+    // The original/HEAD side is intentionally excluded: transfer only the
+    // modified editor's explicit selection, never hidden source from HEAD.
+    return registerSelectionTransferActions(
+      mountedDiff.editor.getModifiedEditor(),
+      () => getActiveTab(useEditorStore.getState()),
+      {
+        reference: t('editor.selectionTransfer.reference.label'),
+        context: t('editor.selectionTransfer.context.label'),
+      }
+    );
+  }, [mountedDiff, diffRequestKey, diff.status, diff.originalContent, diff.modifiedContent, i18n.language, t]);
 
   // Fire the panel-opened telemetry once per mount lifecycle when the
   // panel is actually visible. Using `panelIsActive` as the gate
@@ -242,6 +267,9 @@ export function GitDiffPanel() {
       </header>
       <div className="flex-1 min-h-0">
         <DiffEditor
+          onMount={(editor) => {
+            if (diffRequestKey) setMountedDiff({ editor, requestKey: diffRequestKey });
+          }}
           height="100%"
           original={diff.originalContent}
           modified={diff.modifiedContent}

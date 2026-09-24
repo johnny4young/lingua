@@ -665,6 +665,7 @@ const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
 // asserts alignment for both Sets.
 const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
+  'settings-export-file',
   'palette-export',
   // implementation — mirror of the result-panel-export trigger.
   'result-panel-export',

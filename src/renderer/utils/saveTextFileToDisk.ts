@@ -19,7 +19,8 @@ export type TextFileSaveOutcome = 'saved' | 'canceled' | 'unavailable' | 'error'
 
 export async function saveTextViaCapability(
   content: string,
-  suggestedName: string
+  suggestedName: string,
+  onSavedName?: (fileName: string) => void
 ): Promise<TextFileSaveOutcome> {
   if (window.lingua?.platform === 'web') return 'unavailable';
   const fs = window.lingua?.fs;
@@ -30,6 +31,7 @@ export async function saveTextViaCapability(
     if (result.canceled) return result.blockedFamily ? 'error' : 'canceled';
     mintedRootId = result.rootId;
     const wrote = await fs.write(result.rootId, result.fileRelativePath, content);
+    if (wrote) onSavedName?.(String(result.fileRelativePath).split(/[\\/]/u).pop() ?? '');
     return wrote ? 'saved' : 'error';
   } catch {
     return 'error';
@@ -56,10 +58,13 @@ export async function saveOrDownloadTextFile(
   content: string,
   suggestedName: string,
   mimeType: string,
-  handlers: { onOk: () => void; onError: () => void }
+  handlers: { onOk: (savedName?: string) => void; onError: () => void }
 ): Promise<void> {
-  const outcome = await saveTextViaCapability(content, suggestedName);
-  if (outcome === 'saved') return handlers.onOk();
+  let savedName: string | undefined;
+  const outcome = await saveTextViaCapability(content, suggestedName, name => {
+    savedName = name;
+  });
+  if (outcome === 'saved') return handlers.onOk(savedName);
   if (outcome === 'canceled') return;
   if (outcome === 'error') return handlers.onError();
   // 'unavailable' — web build: blob download fallback.
