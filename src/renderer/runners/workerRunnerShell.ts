@@ -20,6 +20,7 @@
  * agree about them.
  */
 
+import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import type {
   ConsoleOutput,
@@ -85,7 +86,9 @@ export interface WorkerRunSpec {
   debug: boolean;
   breakpoints: ReadonlyArray<WorkerBreakpoint>;
   watches: string[];
-  sourceLineMap: Record<number, number> | undefined;
+  /** Character-accurate maps, newest transform first. */
+  sourceMaps?: string[];
+  sourceLineCount?: number;
   sourceMappingEnabled: boolean;
   /** Per-line side tables the worker protocol cannot carry. */
   magicKindByLine: Record<number, MagicCommentKind>;
@@ -145,7 +148,8 @@ export class WorkerRunnerShell {
       debug,
       breakpoints,
       watches,
-      sourceLineMap,
+      sourceMaps,
+      sourceLineCount,
       sourceMappingEnabled,
       magicKindByLine,
       magicDirectiveByLine,
@@ -155,6 +159,7 @@ export class WorkerRunnerShell {
 
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     const magicResults: MagicCommentResult[] = [];
     let lineTimings: LineTimingEntry[] = [];
     let result: unknown;
@@ -237,6 +242,7 @@ export class WorkerRunnerShell {
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: msg.line };
+            output.captureOrder = nextCaptureOrder++;
             // `console.table` adoption signal. Fire-and-forget; the renderer
             // never blocks on telemetry.
             if (msg.consoleTableInvoked === true) {
@@ -312,7 +318,7 @@ export class WorkerRunnerShell {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
-              ...(msg.isError === true ? { isError: true } : {}),
+              ...(msg.isError === true ? { isError: true, ...(msg.error ? { error: msg.error } : {}) } : {}),
             };
             if (payload) entry.payload = payload;
             magicResults.push(entry);
@@ -391,7 +397,7 @@ export class WorkerRunnerShell {
               // instead of regexing the error message. Timeout and stop paths
               // never reach this branch — they finish() via
               // `runnerTimeoutResult` / `runnerStoppedResult`.
-              kind: error ? 'error' : 'success',
+              kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
               scopeSnapshot,
@@ -471,7 +477,8 @@ export class WorkerRunnerShell {
           logMessage: bp.logMessage,
         })),
         watches,
-        sourceLineMap,
+        sourceMaps,
+        sourceLineCount,
         sourceMappingEnabled,
         // Pre-set stdin buffer the worker installs as the source of `prompt()`
         // / `readline()` answers. Empty or undefined leaves the native worker

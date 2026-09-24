@@ -55,6 +55,20 @@ shared language-pack capability contract already covers their
 runner identity. The shared helper `languageHasRuntimeModes()` gates
 both the UI surface and the editor-store action.
 
+`isRuntimeModeImplemented()` describes wiring, not shell availability.
+`isRuntimeModeSupportedInShell()` adds the platform boundary: Worker and
+Browser preview run in web and desktop; Node, Deno, and Bun need Desktop.
+Web pickers and Settings keep the latter visible but disabled with a
+Desktop-only explanation. The command palette explains the boundary and
+the editor-store setter rejects programmatic attempts with a notice;
+the runtime-cycle shortcut skips unavailable modes. A previously saved
+desktop-mode tab retains its choice on web but Run is disabled with the
+platform explanation. Manual and automatic execution reject that restored
+mode even when dispatched outside the disabled control. Newly created web
+tabs start in Worker if a saved
+default requests an unavailable desktop mode. The desktop bridge still
+detects missing host binaries separately when a native mode runs.
+
 ### 2. Worker stays the default
 
 Existing JS/TS tabs continue to run in the Worker. A user who never
@@ -66,7 +80,7 @@ leaves the other two intact:
   in the pure helper.
 - `createDefaultTab` consults the per-app `defaultRuntimeMode` from
   Settings but coerces to `'worker'` when the setting names an
-  unimplemented mode.
+  unimplemented or unavailable-in-this-shell mode.
 - Session-store rehydrate (`coerceRuntimeMode`) snaps any unknown
   or unimplemented persisted value back to `'worker'` for JS/TS.
 
@@ -91,12 +105,12 @@ to see the roadmap and self-route to the right tool, even when the
 plain product copy, while this ADR keeps the delivery detail.
 
 Post-closeout note: Browser Preview shipped on 2026-05-12, Node mode on
-2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The selector and Settings
-default-mode select now show all five options enabled at the entitlement
-gate. The runner manager checks bridge availability before it constructs a
-desktop runner, and each runner still handles local binary detection, so web
-builds and hosts without Deno/Bun degrade with a clear runtime error rather
-than silently falling back to Worker.
+2026-05-14, and Deno/Bun later joined as desktop-native JS/TS modes. The
+selector and Settings show all five options; three subprocess modes are
+disabled with a Desktop-only reason on web, while all five remain selectable
+on Desktop. The runner manager checks bridge availability before constructing
+a desktop runner, and each native runner handles missing host binaries at
+execution time instead of silently falling back to Worker.
 
 ### 4. No silent fallback to Worker
 
@@ -158,10 +172,8 @@ path stayed intact.
 
 **Negative:**
 
-- During early implementation, disabled future-mode options created some visual
-  noise. This was temporary: all five known options are now enabled at the
-  entitlement gate, and the disabled copy
-  only protects future enum or detection gaps.
+- Desktop-only options remain visible but disabled on web so their limitation
+  is discoverable without implying a web upgrade can supply a host subprocess.
 
 **Neutral:**
 
@@ -328,20 +340,68 @@ Bridge message types:
   and implementation note (multi-file seed) injects a sibling `.css` tab as
   `<style>` inside the doc.
 
+### Shell and user-document separation
+
+Production web and desktop HTML authorize only the identified prepaint theme
+bootstrap by its emitted SHA-256 hash. The shell does not permit arbitrary
+inline scripts or inline event handlers. `unsafe-eval` remains for execution
+runtimes and `style-src unsafe-inline` remains for Monaco and dynamic styles;
+this is not a claim of a fully strict CSP. Development keeps its HMR policy.
+
+Both Browser preview and rich HTML use `runtime/sandboxDocument.ts` to load a
+fingerprinted `lingua-sandbox-*.htm` asset with its own policy. `srcdoc`, `data:`
+and `blob:` inherit the parent policy and would disable legitimate user scripts.
+The static bootstrap accepts HTML only while in an opaque child frame, from its
+parent, with a matching per-navigation token, once. It replaces its document
+without relaxing its policy. Parent listeners also check the frame source;
+execution messages retain their separate run identity. Teardown cancels pending
+handshakes and cannot clear a replacement run. Inspect retains the original
+serialized document rather than reading the cross-origin frame.
+
+The asset is intentionally not inlined or passed through Vite's HTML/HMR
+transforms. Its content hash changes with its bootstrap/policy, including offline
+caches. The service worker stores one entry per asset, not per handshake token.
+Cloudflare Pages detaches the blanket `X-Frame-Options: DENY` only for this asset
+and adds `frame-ancestors 'self'`; all other documents retain the blanket rule.
+See [Pages header detachment](https://developers.cloudflare.com/pages/configuration/headers/#detach-a-header).
+Local header simulation is not evidence of production deployment.
+
 ### Timeout kill
 
 Parent owns `setTimeout(timeout)`. On fire, the parent assigns
-`iframe.srcdoc = ''`, which the browser treats as a full
+`clearSandboxDocument(iframe)` (navigation to `about:blank`), which the browser treats as a full
 navigation — user code execution is terminated. The runner
 resolves with `runnerTimeoutResult(...)` and detaches the
 message listener.
+
+### Browser preview completion and error recovery
+
+The iframe's `done` message means the inline script returned, not that the
+browser has delivered every error from that turn. In Chromium an immediately
+rejected Promise can emit `unhandledrejection` **after** `done` reaches the
+parent. The runner therefore keeps its run identity and message listener for
+a short bounded settlement window after `done`; only then does it publish
+success or the captured error. Stop or a replacement run cancels that window,
+so a late rejection cannot alter the next execution. This is not an await of
+arbitrary asynchronous work scheduled by user code.
+
+The preview keeps its existing timeout and sandbox boundaries. When a run
+fails, the panel shows a localized error recovery action over the preview;
+View console opens the captured error and transfers keyboard focus to the
+Console tab. Editing and running again clears the error. An auto-refresh
+failure can retain the last successful document, with the error action making
+that stale view explicit. The retained document is tagged with its editor tab
+identity: a failed refresh on another tab clears that tab's iframe instead of
+showing source or DOM from the previous tab. The cache remains one serializable
+document, not a retained iframe or an unbounded map of closed tabs. An unnamed
+run cannot establish ownership and does not retain or restore a document.
 
 ### Multi-file preview seed
 
 Manual Run and auto-run name the running tab through
 `ExecutionContext.tabId`. `BrowserPreviewRunner.execute` reads that
 tab's sibling `.css` and `.html` tabs from the editor store and
-threads them into the `srcdoc` it builds:
+threads them into the isolated document it builds:
 
 - `siblingCss` → `<style>` block in `<head>`.
 - `siblingHtml` → injected literally as the `<body>` seed
@@ -352,7 +412,7 @@ Both are optional; a JS-only tab still works.
 ### Inspect button
 
 The panel's "Open in window" button (`browserPreview.inspect.*`)
-serializes the current `iframe.srcdoc` as a top-level `data:` URL
+serializes the current `getSandboxDocument(iframe)` result as a top-level `data:` URL
 and opens it in a new browser window with `noopener,noreferrer`.
 Using `data:` keeps the inspected document on an opaque origin;
 Blob URLs inherit the creator origin in Chromium and would let
@@ -369,7 +429,7 @@ release security review consults.
 |------|--------|---------|-----|------------|---------|-------|
 | `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
 | `node`  | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node permission flags remain follow-up hardening. |
-| `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
+| `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the isolated document CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
 
 The matrix is the reference for any future mode (for example, a
 hypothetical WebContainer mode). Every new mode adds

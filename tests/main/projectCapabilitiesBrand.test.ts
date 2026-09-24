@@ -34,7 +34,8 @@
  * dynamically beyond a trivial sanity check on the legitimate calls.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { IpcInvokeArgs } from '../../src/shared/ipcContract';
 import {
   asRelativePath,
   asRootId,
@@ -52,6 +53,13 @@ function requiresRelativePath(_relativePath: RelativePath): void {}
 function requiresWatchId(_watchId: WatchId): void {}
 
 describe('branded fs ids — swap-attack compile guard', () => {
+  it('retains brands at the IPC contract boundary', () => {
+    expectTypeOf<IpcInvokeArgs<'fs:read'>>()
+      .toEqualTypeOf<[rootId: RootId, relativePath: RelativePath]>();
+    expectTypeOf<IpcInvokeArgs<'fs:watch-stop'>>()
+      .toEqualTypeOf<[watchId: WatchId]>();
+  });
+
   it('rejects every cross-brand and raw-string swap at compile time', () => {
     const rootId: RootId = asRootId('root-token');
     const watchId: WatchId = asWatchId('watch-token');

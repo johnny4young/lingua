@@ -85,3 +85,25 @@ The release gate for this surface includes:
 - English and Spanish Settings smoke with both stopped and running states;
 - Electron desktop smoke, because the web build intentionally has no server;
 - package/license/audit gates for the official MCP SDK dependencies.
+
+
+## Canonical paths and text continuation
+
+Secret-path exclusions apply to both the requested relative path and the
+canonical target relative to the canonical approved root. A harmless alias to
+`.env` or an excluded directory is refused by read, list and search. Explicit
+paths through ordinary in-root symlinks remain supported, including a project
+root selected through a symlink; tree enumeration still omits symlink entries.
+Search results are revalidated before returning their previews. This is a path
+policy, not a content classifier: hardlinks or secrets embedded in ordinary
+source files are not universally detectable. It does not promise atomic
+filesystem snapshots against concurrent modification by another host process.
+
+Read offsets, `bytesRead` and `nextOffset` are byte positions, not JavaScript
+string indexes. A chunk never splits a UTF-8 code point, exceeds `maxBytes`, or
+silently removes a leading BOM. Follow `nextOffset` until it is null. Starting
+inside a code point is an error; a budget too small for the next character
+returns an actionable error instead of a non-progressing continuation. Four
+bytes can hold any single UTF-8 code point. Invalid/truncated UTF-8 at EOF and
+binary NUL bytes remain rejected. File modifications between requests can alter
+content; continuation is not a file-version or snapshot guarantee.

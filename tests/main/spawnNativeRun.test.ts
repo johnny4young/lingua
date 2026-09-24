@@ -21,6 +21,35 @@ describe('spawnNativeRun', () => {
     mocks.execFile.mockReset();
   });
 
+  it('does not create a child or forward stdin when already stopped', async () => {
+    mocks.spawn.mockImplementation(() => { throw new Error('Unexpected child spawn'); });
+    const controller = new AbortController();
+    controller.abort();
+    const onStream = vi.fn();
+    const onStdout = vi.fn();
+    const { spawnNativeRun } = await import('../../src/main/runners/spawnNativeRun');
+    const result = await spawnNativeRun({
+      command: 'node',
+      args: ['-e', 'throw new Error("must never execute")'],
+      env: {},
+      timeoutMs: 1_000,
+      killEscalationMs: 200,
+      maxOutputBytes: 1024,
+      stdoutTruncationMarker: '',
+      stderrTruncationMarker: '',
+      signal: controller.signal,
+      stdin: { data: 'private input', keepOpen: true, onStream },
+      onStdout,
+    });
+    expect(mocks.spawn).not.toHaveBeenCalled();
+    expect(onStream).not.toHaveBeenCalled();
+    expect(onStdout).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+      timedOut: false, killed: true,
+    });
+  });
+
   it('resolves a structured spawnError when spawn throws synchronously', async () => {
     mocks.spawn.mockImplementation(() => {
       throw new TypeError('invalid spawn options');

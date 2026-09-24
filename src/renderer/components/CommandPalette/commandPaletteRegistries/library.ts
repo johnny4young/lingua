@@ -1,4 +1,9 @@
 import type { ExecutionHistoryEntry } from '../../../stores/executionHistoryStore';
+import { languageLabel } from '../../../utils/languageMeta';
+import {
+  isNativeLanguageToolchain,
+  nativeLanguageToolchainHintKey,
+} from '../../../utils/nativeLanguageToolchainStatus';
 import {
   MAX_RECENT_RUNS_IN_PALETTE,
   buildRecentRunCommand,
@@ -21,7 +26,27 @@ export const buildLibraryCommands: CommandPaletteRegistry = ({ args, translate }
     createDefaultTab,
     onClose,
     t,
+    isWebBuild,
+    nativeLanguageToolchainAvailability,
   } = args;
+
+  const withNativeLanguageBoundary = (command: CommandEntry): CommandEntry => {
+    if (!command.language || !isNativeLanguageToolchain(command.language)) return command;
+    const boundary = isWebBuild
+      ? translate('language.capability.desktopOnly')
+      : nativeLanguageToolchainAvailability
+        ? translate(
+            nativeLanguageToolchainHintKey(nativeLanguageToolchainAvailability[command.language]),
+            { toolchain: languageLabel(command.language) }
+          )
+        : null;
+    if (!boundary) return command;
+    return {
+      ...command,
+      description: `${command.description} · ${boundary}`,
+      keywords: [...command.keywords, boundary.toLowerCase()],
+    };
+  };
 
   const recentRunEntries = (executionHistory ?? [])
     // Store keeps entries oldest → newest; palette wants newest first.
@@ -52,10 +77,10 @@ export const buildLibraryCommands: CommandPaletteRegistry = ({ args, translate }
 
   const commands: CommandEntry[] = [
     ...templates.map(template =>
-      buildTemplateCommand(template, createTab, createDefaultTab, onClose, t)
+      withNativeLanguageBoundary(buildTemplateCommand(template, createTab, createDefaultTab, onClose, t))
     ),
     ...snippets.map(snippet =>
-      buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)
+      withNativeLanguageBoundary(buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate))
     ),
     // implementation note — per-tab group FIRST so the user sees
     // "what I just ran on this tab" before the global recents.

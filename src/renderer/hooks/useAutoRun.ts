@@ -5,6 +5,7 @@ import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useTelemetry } from './useTelemetry';
 import { loadAutoRunExecution } from './autoRunExecutionLoader';
+import { supportsRuntimeModeHere } from '../utils/runtimeModeSupport';
 import {
   isSameAutoRunInput,
   resolveAutoLogEnabled,
@@ -53,9 +54,10 @@ export function useAutoRun() {
   );
 
   useEffect(() => {
-    // Run and Debug are manual workflows. Invalidate scheduled or in-flight
-    // work without clearing the user's last manual result.
-    if (workflowMode !== 'scratchpad') {
+    // Run and Debug are manual workflows. A restored desktop-only runtime on
+    // web is also not schedulable. Keep the last visible result in both cases.
+    if (workflowMode !== 'scratchpad' ||
+      (runtimeMode !== undefined && !supportsRuntimeModeHere(runtimeMode))) {
       cancelTimer(timerRef);
       abortRef.current = true;
       runTokenRef.current += 1;

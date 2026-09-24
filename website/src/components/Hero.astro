@@ -56,7 +56,16 @@ const hero = copy.home.hero;
             {hero.os.generic}
           </span>
         </a>
+        <a href={localizePath(locale, '/docs/reproducible-run')} class="btn btn-secondary">
+          <Icon name="lucide:route" />
+          {hero.demoLink}
+        </a>
       </div>
+      <ul class="hero-availability" aria-label={hero.availabilityLabel}>
+        <li>{hero.browserAvailability}</li>
+        <li>{hero.desktopAvailability}</li>
+        <li>{hero.capsuleAvailability}</li>
+      </ul>
       <p class="hero-actions-note">
         <Icon name="lucide:zap" />
         {copy.common.tryInBrowserNote}
@@ -248,6 +257,21 @@ const hero = copy.home.hero;
   .hero-actions .btn svg {
     width: 16px;
     height: 16px;
+  }
+  .hero-availability {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0 0 0.85rem;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+  }
+  .hero-availability li::before {
+    content: '·';
+    color: var(--color-accent);
+    margin-right: 0.45rem;
   }
   .hero-actions-note {
     display: flex;

@@ -5,12 +5,14 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   RUNTIME_MODES,
-  isRuntimeModeImplemented,
+  isRuntimeModeSupportedInShell,
   languageHasRuntimeModes,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
+import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 
 /**
  * implementation — explicit per-tab JS/TS runtime mode selector.
@@ -19,8 +21,8 @@ import { cn } from '../../utils/cn';
  *   - Worker — implementation, enabled.
  *   - Node — implementation, enabled in desktop.
  *   - Browser preview — implementation, enabled.
- *   - Deno — implementation, enabled in desktop when the binary is on PATH.
- *   - Bun — implementation, enabled in desktop when the binary is on PATH.
+ *   - Deno / Bun — available in Desktop; the runner checks their binaries
+ *     when execution starts.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
@@ -40,19 +42,11 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
   bun: 'runtimeMode.mode.bun',
 };
 
-const MODE_HINT_KEY: Record<RuntimeMode, string> = {
+const MODE_HINT_KEY: Record<'worker' | 'browser-preview', string> = {
   worker: 'runtimeMode.hint.worker',
-  // implementation — node mode is shipping. Detector-failure path
-  // (missing binary on PATH) surfaces a different copy via the
-  // detection notice handled at the click site.
-  node: 'runtimeMode.hint.node.ready',
   // implementation — browser-preview is implemented now; use the
   // shipping copy instead of the implementation disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
-  // implementation — Deno / Bun shipping; the binary-detection gate handles the
-  // "not installed on PATH" path at the click site, same as node.
-  deno: 'runtimeMode.hint.deno.ready',
-  bun: 'runtimeMode.hint.bun.ready',
 };
 
 const MODE_ICON: Record<RuntimeMode, typeof Cpu> = {
@@ -70,6 +64,8 @@ export function RuntimeModeSelector() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const activeTab = useActiveTab();
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability, recoverMissing } = useNativeJsRuntimeAvailability(open && !isWebBuild);
 
   useEffect(() => {
     if (!open) return;
@@ -130,10 +126,14 @@ export function RuntimeModeSelector() {
         >
           {RUNTIME_MODES.map((mode) => {
             const Icon = MODE_ICON[mode];
-            const enabled = isRuntimeModeImplemented(mode);
+            const enabled = isRuntimeModeSupportedInShell(mode, isWebBuild);
             const selected = mode === currentMode;
             const labelKey = MODE_LABEL_KEY[mode];
-            const hintKey = MODE_HINT_KEY[mode];
+            const hintKey = enabled
+              ? isNativeJsRuntimeMode(mode)
+                ? nativeJsRuntimeHintKey(mode, availability[mode])
+                : MODE_HINT_KEY[mode]
+              : 'runtimeMode.hint.desktopOnly';
             return (
               <button
                 key={mode}
@@ -141,6 +141,11 @@ export function RuntimeModeSelector() {
                 type="button"
                 onClick={() => {
                   if (!enabled) return;
+                  if (isNativeJsRuntimeMode(mode) && availability[mode] === 'missing') {
+                    recoverMissing(mode);
+                    setOpen(false);
+                    return;
+                  }
                   setTabRuntimeMode(activeTab.id, mode);
                   setOpen(false);
                 }}

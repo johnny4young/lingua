@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toFullOutput } from '@/utils/executionPresentation';
 import { WorkerRunnerShell, type WorkerRunSpec } from '@/runners/workerRunnerShell';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 
@@ -86,7 +87,6 @@ function spec(overrides: Partial<WorkerRunSpec> = {}): WorkerRunSpec {
     debug: false,
     breakpoints: [],
     watches: [],
-    sourceLineMap: undefined,
     sourceMappingEnabled: true,
     magicKindByLine: {},
     magicDirectiveByLine: {},
@@ -140,6 +140,20 @@ describe('the execution request', () => {
 });
 
 describe('the message pump', () => {
+  it.each(['javascript', 'typescript'] as const)('classifies captured %s errors without aborting later results', async language => {
+    const { promise, worker } = startRun({ language, magicKindByLine: { 1: 'autoLog', 2: 'autoLog' } });
+    worker.emitForRun({ type: 'magic-comment', line: 1, value: 'Error: captured', isError: true });
+    worker.emitForRun({ type: 'magic-comment', line: 2, value: '42' });
+    worker.emitForRun({ type: 'done', executionTime: 2 });
+    const result = await promise;
+    expect(result.kind).toBe('error');
+    expect(result.error).toBeUndefined();
+    expect(result.magicResults).toEqual([
+      { line: 1, value: 'Error: captured', kind: 'autoLog', isError: true },
+      { line: 2, value: '42', kind: 'autoLog' },
+    ]);
+  });
+
   it('assembles console, result and timings onto the finished run', async () => {
     const { promise, worker } = startRun();
 
@@ -179,6 +193,15 @@ describe('the message pump', () => {
     expect(result.stderr).toHaveLength(1);
     expect(result.stdout[0]?.args).toEqual(['out']);
     expect(result.stderr[0]?.args).toEqual(['err']);
+  });
+
+  it('retains message capture order when rebuilding separated streams', async () => {
+    const { promise, worker } = startRun();
+    worker.emitForRun({ type: 'console', method: 'error', args: ['first'] });
+    worker.emitForRun({ type: 'console', method: 'log', args: ['middle'] });
+    worker.emitForRun({ type: 'console', method: 'error', args: ['last'] });
+    worker.emitForRun({ type: 'done', executionTime: 1 });
+    expect(toFullOutput(await promise)).toBe('first\nmiddle\nlast');
   });
 
   it('coerces a malformed stdin summary to bounded integers', async () => {

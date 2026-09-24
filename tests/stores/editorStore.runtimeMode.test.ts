@@ -24,6 +24,8 @@ vi.mock('@/utils/telemetry', () => ({
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useLicenseStore } from '@/stores/licenseStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { runtimeModeForRestoredTab } from '@/stores/editorModeHelpers';
 
 function setActiveProLicense(): void {
   useLicenseStore.setState({
@@ -143,6 +145,52 @@ describe('editorStore — runtimeMode ', () => {
       mode: 'node',
       language: 'javascript',
     });
+  });
+
+  it('rejects a web switch to a desktop runtime without changing the tab', () => {
+    const originalLingua = window.lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      const { addTab, setTabRuntimeMode } = useEditorStore.getState();
+      const js = createDefaultTab('javascript');
+      addTab(js);
+      setTabRuntimeMode(js.id, 'node');
+
+      expect(useEditorStore.getState().tabs.find(tab => tab.id === js.id)?.runtimeMode).toBe('worker');
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('runtimeMode.notice.desktopOnly');
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
+  it('starts new web tabs in Worker without rewriting a restored desktop choice', () => {
+    const originalLingua = window.lingua;
+    const previousDefault = useSettingsStore.getState().defaultRuntimeMode;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      value: { platform: 'web' },
+    });
+    try {
+      useSettingsStore.setState({ defaultRuntimeMode: 'node' });
+      expect(createDefaultTab('javascript').runtimeMode).toBe('worker');
+      expect(runtimeModeForRestoredTab('javascript', 'node')).toBe('node');
+
+      useSettingsStore.getState().setDefaultRuntimeMode('bun');
+      expect(useSettingsStore.getState().defaultRuntimeMode).toBe('node');
+    } finally {
+      useSettingsStore.setState({ defaultRuntimeMode: previousDefault });
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        value: originalLingua,
+      });
+    }
   });
 
   it('setTabRuntimeMode clears the variable inspector flag when switching to node', () => {

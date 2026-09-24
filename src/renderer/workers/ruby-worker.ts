@@ -258,12 +258,14 @@ ctx.addEventListener('message', async (event) => {
           if (line.length === 0) continue;
           const payload: {
             type: 'console';
+            isExecutionError: true;
             runId: string;
             method: 'error';
             args: string[];
             line?: number;
           } = {
             type: 'console',
+            isExecutionError: true,
             runId,
             method: 'error',
             args: [line],

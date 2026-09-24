@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
+import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAvailability';
+import { useNativeLanguageToolchainAvailability } from '../../hooks/useNativeLanguageToolchainAvailability';
 import { useStatusNotice } from '../../hooks/useStatusNotice';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
@@ -49,6 +51,7 @@ import { requestPlainPaste } from '../../hooks/useSmartPaste';
 import { focusStatusBar } from '../StatusBar/statusBarAccess';
 import { copyBootTimingsToClipboard } from '../../utils/bootTimings';
 import { executionModeForLanguage } from '../../utils/languageMeta';
+import { copyEditorSelectionWithNotice, hasExplicitSelection } from '../../utils/selectionTransfer';
 import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export function useCommandPaletteCommands({
@@ -91,9 +94,14 @@ export function useCommandPaletteCommands({
   const updateContent = useEditorStore(state => state.updateContent);
   const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTab = useActiveTab();
+  const editorSelectionAvailable = activeTab !== null && hasExplicitSelection(getActiveEditor());
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
+  const isWebBuild = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const { availability: nativeRuntimeAvailability, recoverMissing: onMissingNativeRuntime } =
+    useNativeJsRuntimeAvailability(activeRuntimeMode !== null && !isWebBuild);
+  const nativeLanguageToolchainAvailability = useNativeLanguageToolchainAvailability(!isWebBuild);
   const activeWorkflowMode = activeTab
     ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : null;
@@ -321,6 +329,13 @@ export function useCommandPaletteCommands({
               openExplainCodeForEditor(editor, activeTab.language, activeTab.name);
             }
           : undefined,
+      editorSelectionAvailable,
+      onCopyReference: activeTab
+        ? () => { void copyEditorSelectionWithNotice(getActiveEditor(), activeTab, 'reference'); }
+        : undefined,
+      onCopyWithContext: activeTab
+        ? () => { void copyEditorSelectionWithNotice(getActiveEditor(), activeTab, 'context'); }
+        : undefined,
       // implementation — install detected Go/Rust/Ruby packages via the desktop
       // toolchain. Wired only for a saved native-language tab with
       // detected third-party deps and the desktop install bridge present.
@@ -378,6 +393,10 @@ export function useCommandPaletteCommands({
         activeRuntimeMode !== null && activeTabId
           ? mode => setTabRuntimeMode(activeTabId, mode)
           : undefined,
+      isWebBuild,
+      nativeRuntimeAvailability,
+      nativeLanguageToolchainAvailability,
+      onMissingNativeRuntime,
       activeRuntimeMode,
       // implementation note — read the editor's current line text,
       // delegate to the pure `appendWatchAtLine` helper, write the
@@ -689,7 +708,12 @@ export function useCommandPaletteCommands({
     vimMode,
     showStatusBar,
     activeTabId,
+    editorSelectionAvailable,
     activeRuntimeMode,
+    isWebBuild,
+    nativeRuntimeAvailability,
+    nativeLanguageToolchainAvailability,
+    onMissingNativeRuntime,
     activeTimeoutLanguage,
     setTabRuntimeMode,
     addTab,

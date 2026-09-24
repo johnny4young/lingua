@@ -1,3 +1,7 @@
+import {
+  PYTHON_EXECUTION_BOUNDARY_SOURCE,
+  buildPythonBoundedExecutionSource,
+} from './python-worker-boundary';
 import { syncUserEnvInPyodide } from './python-worker-env';
 import { createStdinLineReader } from './python-worker-stdin';
 import { finalizeScopeSnapshot } from '../../shared/scopeSnapshot';
@@ -129,7 +133,9 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         const bootstrapSource = msg.autoLog
           ? `${buildPythonExecutionBootstrapSource(msg)}\n${PYTHON_AUTO_LOG_HELPERS_SOURCE}`
           : buildPythonExecutionBootstrapSource(msg);
-        await py.runPythonAsync(bootstrapSource);
+        await py.runPythonAsync(`${bootstrapSource}\n${PYTHON_EXECUTION_BOUNDARY_SOURCE}`, {
+          filename: '<lingua-bootstrap>',
+        });
 
         if (captureScope === true) {
           await primePythonBootGlobalsIfNeeded(py);
@@ -140,9 +146,9 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         let errorText: string | null = null;
 
         try {
-          const executionSource = msg.autoLog
-            ? buildPythonAutoLogExecutionSource(code)
-            : code;
+          const executionSource = buildPythonBoundedExecutionSource(
+            msg.autoLog ? buildPythonAutoLogExecutionSource(code) : code
+          );
           if (typeof scopeId === 'string' && scopeId.length > 0) {
             // implementation — run user code against the notebook's persistent scope
             // dict. Seed it with the framework helpers (refreshed each run),
@@ -170,13 +176,16 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             // explicitly instead so the call never sees an undefined globals.
             result =
               ns !== undefined
-                ? await py.runPythonAsync(executionSource, { globals: ns })
-                : await py.runPythonAsync(executionSource);
+                ? await py.runPythonAsync(executionSource, {
+                    globals: ns, filename: '<lingua-execution>',
+                  })
+                : await py.runPythonAsync(executionSource, { filename: '<lingua-execution>' });
           } else {
-            result = await py.runPythonAsync(executionSource);
+            result = await py.runPythonAsync(executionSource, { filename: '<lingua-execution>' });
           }
         } catch (err) {
-          errorText = err instanceof Error ? err.message : String(err);
+          errorText =
+            (err instanceof Error ? err.message : String(err)) || String(err) || 'Python execution failed';
         }
 
         const streamState = await py.runPythonAsync(PYTHON_STREAM_STATE_SOURCE);
@@ -208,8 +217,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           postPythonPrintEntries(runId, printEntries);
         } else {
           postPythonBufferedOutput(runId, 'log', streams.stdout);
+          postPythonBufferedOutput(runId, 'error', streams.stderr);
         }
-        postPythonBufferedOutput(runId, 'error', streams.stderr);
 
         // Send magic comment results
         if (streams.magic) {
@@ -254,9 +263,9 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           }
         }
 
-        if (errorText) {
-          const parsed = parsePythonWorkerError(streams.stderr || errorText);
-          const tracebackText = streams.stderr || errorText;
+        if (errorText !== null) {
+          const parsed = parsePythonWorkerError(errorText);
+          const tracebackText = errorText;
           // implementation — structured stack frames for the
           // renderer's clickable-stack surface. Best-effort parse;
           // unparseable lines stay as text-only frames so they render
@@ -281,7 +290,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         // wants the toggle to light up after the next run. The first
         // capture primes `pythonBootGlobals` so subsequent runs can
         // subtract the boot-time set.
-        if (captureScope === true && !errorText) {
+        if (captureScope === true && errorText === null) {
           try {
             const snapshot = await capturePythonScope(py, scopeDepth);
             ctx.postMessage({ type: 'scope-snapshot', runId, snapshot });
@@ -312,7 +321,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           executionTime: performance.now() - startTime,
         });
       } catch (err) {
-        const errorText = err instanceof Error ? err.message : String(err);
+        const errorText =
+          (err instanceof Error ? err.message : String(err)) || String(err) || 'Python execution failed';
         const parsed = parsePythonWorkerError(errorText);
         // implementation — implementation parity. The inner-streams
         // error path (above) already parses Pyodide's stderr traceback;

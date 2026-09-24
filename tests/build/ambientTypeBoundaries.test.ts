@@ -73,6 +73,7 @@ import type {
   RubyRunResult as CanonicalRubyRunResult,
   RustDetectResult as CanonicalRustDetectResult,
   RustRunResult as CanonicalRustRunResult,
+  NativeRunnerMessages as CanonicalNativeRunnerMessages,
 } from '../../src/shared/nativeRuntimeTypes';
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -96,6 +97,7 @@ const compatibilityProbe: [
   Assert<Equal<GoCompileResult, CanonicalGoCompileResult>>,
   Assert<Equal<RustDetectResult, CanonicalRustDetectResult>>,
   Assert<Equal<RustRunResult, CanonicalRustRunResult>>,
+  Assert<Equal<NativeRunnerMessages, CanonicalNativeRunnerMessages>>,
   Assert<Equal<NodeDetectResult, CanonicalNodeDetectResult>>,
   Assert<Equal<NodeRunKind, CanonicalNodeRunKind>>,
   Assert<Equal<NodeRunResult, CanonicalNodeRunResult>>,
@@ -135,13 +137,14 @@ const compatibilityProbe: [
   Assert<Equal<GitFileDiff, CanonicalGitFileDiff>>,
   Assert<Equal<GitHeadChangePayload, CanonicalGitHeadChangePayload>>,
   Assert<Equal<GitHeadWatcherFailurePayload, CanonicalGitHeadWatcherDiagnostic>>,
-] = Array.from({ length: 43 }, () => true) as never;
+] = Array.from({ length: 44 }, () => true) as never;
 
 const CANONICAL_ALIAS_NAMES = [
   'GoDetectResult',
   'GoCompileResult',
   'RustDetectResult',
   'RustRunResult',
+  'NativeRunnerMessages',
   'NodeDetectResult',
   'NodeRunKind',
   'NodeRunResult',
@@ -185,7 +188,7 @@ const CANONICAL_ALIAS_NAMES = [
 
 describe('ambient desktop bridge type boundaries', () => {
   it('keeps every ambient alias exactly compatible with its canonical contract', () => {
-    expect(compatibilityProbe).toHaveLength(43);
+    expect(compatibilityProbe).toHaveLength(44);
   });
 
   it('keeps canonical bridge names as aliases instead of structural copies', () => {

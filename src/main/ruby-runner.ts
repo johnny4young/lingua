@@ -1,5 +1,5 @@
 /**
- * implementation — desktop Ruby child-spawn backend.
+ * Desktop Ruby child-spawn backend.
  *
  * The renderer-side `DesktopRubySubprocessRunner` (folded into
  * `src/renderer/runners/ruby.ts`) calls
@@ -17,39 +17,39 @@
  *     userEnv)`. internal allowlist + internal user-tier env.
  *     Lingua's full host env is NOT forwarded.
  *   - Cwd: `path.dirname(filePath)` for saved tabs, `app.getPath('temp')`
- *     for Scratchpad. implementation note walks up looking for a `.ruby-version` file
+ *     for Scratchpad. The runner walks up looking for a `.ruby-version` file
  *     and threads the discovered version through `RBENV_VERSION` /
  *     PATH so per-project pins are honored on the desktop without
  *     needing rbenv shell-init.
  *   - Timeout: parent-owned. The renderer sets a per-call timeout; we
  *     send SIGTERM and escalate to SIGKILL after `KILL_ESCALATION_DELAY_MS`
- *     if the child has not exited (implementation note).
+ *     if the child has not exited.
  *   - Output caps: stdout / stderr each capped at
  *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
  *     `truncateBytes` helper.
  *
- * implementation note here:
+ * Behavioral notes:
  *
- *   - implementation note — `parseRubyVersion()` shape parser returned alongside
+ *   - `parseRubyVersion()` shape parser returned alongside
  *     `RubyDetectResult` so the Settings row can display "Ruby 3.3.6"
  *     instead of the full `ruby --version` line.
- *   - implementation note — per-project `.ruby-version` discovery. Walks up to 8
+ *   - per-project `.ruby-version` discovery. Walks up to 8
  *     directories from the tab's `filePath`, reads the version pin,
  *     and threads it as `RBENV_VERSION` on the spawned process. If
  *     rbenv isn't installed, the version still influences the version
  *     the user sees in the status notice.
- *   - implementation note — SIGTERM → SIGKILL escalation with a 1.5 s grace
+ *   - SIGTERM → SIGKILL escalation with a 1.5 s grace
  *     window (longer than node-runner's 200 ms because Ruby's
  *     `at_exit` hooks tend to run a beat slower).
  */
 
 import { app } from 'electron';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import * as childProc from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_NATIVE_STDERR_BYTES,
   MAX_STDIN_WRITE_BYTES,
@@ -58,6 +58,7 @@ import {
   spawnNativeRun,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import {
   RUBY_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -72,10 +73,8 @@ export type {
   RubyDetectResult,
 } from '../shared/nativeRuntimeTypes';
 
-const execFileAsync = promisify(childProc.execFile);
-
 /**
- * implementation note — SIGTERM → SIGKILL escalation window. Ruby's `at_exit` and
+ * SIGTERM → SIGKILL escalation window. Ruby's `at_exit` and
  * `ensure` blocks often need more than node-runner's 200 ms to drain
  * (especially when the user's code holds open file handles), so we
  * give 1500 ms before pulling the rug. The window is still short
@@ -112,14 +111,14 @@ interface RubyRunOptions {
   /** Stdin buffer. Empty / undefined closes stdin immediately. */
   stdin?: string;
   /**
-   * implementation — interactive stdin. When `true` (and a `runId` is present) the
+   * Interactive stdin. When `true` (and a `runId` is present) the
    * child's stdin stays open after the initial buffer so the renderer can
    * stream input via `ruby:stdin-write` and close it with
    * `ruby:stdin-close`. Default closes stdin immediately.
    */
   interactive?: boolean;
   /**
-   * implementation — main-internal live-output sink. Set by the IPC handler (never
+   * Main-internal live-output sink. Set by the IPC handler (never
    * from the serialized IPC payload) to stream stdout/stderr chunks to the
    * renderer as they arrive during an interactive run. Only invoked when
    * `interactive` is true.
@@ -131,11 +130,11 @@ interface RubyRunOptions {
 
 let cachedDetect: RubyDetectResult | null = null;
 const activeRubyRuns = new Map<string, () => void>();
-/** implementation — open stdin streams for in-flight interactive Ruby runs. */
+/** Open stdin streams for in-flight interactive Ruby runs. */
 const activeRubyStdins = new Map<string, NodeJS.WritableStream>();
 
 /**
- * implementation note — parse a `ruby --version` line into structured fields.
+ * Parse a `ruby --version` line into structured fields.
  *
  * Examples we accept:
  *   - `ruby 3.3.6 (2024-11-05 revision 75015a4f5e) [arm64-darwin23]`
@@ -162,20 +161,20 @@ export function parseRubyVersion(line: string): { semver?: string; platform?: st
  */
 export async function detectRuby(
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<RubyDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
   let result: RubyDetectResult;
-  try {
-    const { stdout } = await execFileAsync('ruby', ['--version'], {
-      env: resolveRubyRunEnv(userEnv),
-      // A hung PATH shim (rbenv proxy, corporate wrapper) must not wedge
-      // the detect IPC promise forever. Matches the LSP launchers' 5s
-      // probe convention.
-      timeout: 5_000,
-    });
-    const version = stdout.trim();
+  const probe = await detectNativeRuntimeVersion({
+    command: 'ruby',
+    env: resolveRubyRunEnv(userEnv),
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (probe.version !== null) {
+    const { version } = probe;
     const { semver, platform } = parseRubyVersion(version);
     result = {
       installed: true,
@@ -183,13 +182,18 @@ export async function detectRuby(
       ...(semver ? { semver } : {}),
       ...(platform ? { platform } : {}),
     };
-  } catch {
+  } else {
     result = {
       installed: false,
-      error: 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
+      reason: probe.reason,
+      error: probe.reason === 'check-failed'
+        ? 'Could not check Ruby. Review the local runtime and retry detection.'
+        : 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
     };
   }
-  if (cacheable) cachedDetect = result;
+  if (cacheable && !signal?.aborted) {
+    cachedDetect = result.reason === 'check-failed' ? null : result;
+  }
   return result;
 }
 
@@ -263,7 +267,7 @@ function invalidRubyRunResult(message: string): RubyRunResult {
 }
 
 /**
- * implementation note — discover a per-project `.ruby-version` pin. Walks up to 8
+ * Discover a per-project `.ruby-version` pin. Walks up to 8
  * directories from `startDir` looking for the dotfile. Returns the
  * trimmed first line when found (rbenv / asdf both write the version
  * on the first line). Returns `null` for Scratchpad tabs (no
@@ -306,15 +310,16 @@ function resolveRubyCwd(filePath?: string): string {
   return app.getPath('temp');
 }
 
-async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyRunResult> {
+async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortSignal): Promise<RubyRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = resolveRubyCwd(options.filePath);
 
-  // implementation note — thread the discovered .ruby-version through RBENV_VERSION
+  // Thread the discovered .ruby-version through RBENV_VERSION
   // so rbenv shims pick the right interpreter. Without rbenv installed,
   // RBENV_VERSION is silently ignored by the spawned `ruby` and we just
   // fall back to whichever binary `PATH` resolved.
   const rubyVersionPin = await findRubyVersionFile(options.filePath);
+  if (signal.aborted) return stoppedRubyRunResult(options);
   const env = resolveRubyRunEnv(
     options.userEnv,
     rubyVersionPin ? { RBENV_VERSION: rubyVersionPin, ASDF_RUBY_VERSION: rubyVersionPin } : {}
@@ -329,30 +334,28 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
   // on every path.
   let tempDir: string;
   try {
-    tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-ruby-'));
+    tempDir = stageNativeRunTempDir('lingua-ruby-');
   } catch (err) {
+    if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp dir: ${message}`);
+  }
+  if (signal.aborted) {
+    await cleanupNativeRunTempDir(tempDir);
+    return stoppedRubyRunResult(options);
   }
   const tempFile = path.join(tempDir, 'script.rb');
   try {
     await writeFile(tempFile, source, 'utf-8');
   } catch (err) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupNativeRunTempDir(tempDir);
+    if (signal.aborted) return stoppedRubyRunResult(options);
     const message = err instanceof Error ? err.message : String(err);
     return invalidRubyRunResult(`Failed to stage the run's temp script: ${message}`);
   }
   const args = [tempFile];
 
-  // Parent-owned Stop: an AbortController lets `ruby:stop` terminate the
-  // exact child. The shared spawn helper owns the SIGTERM→SIGKILL
-  // escalation once the signal aborts.
-  const controller = new AbortController();
-  if (options.runId) {
-    activeRubyRuns.set(options.runId, () => controller.abort());
-  }
-
-  // implementation — interactive mode keeps stdin open so the renderer can stream further
+  // Interactive mode keeps stdin open so the renderer can stream further
   // input via `ruby:stdin-write`. Requires a runId to key the stream registry;
   // without one there is no way to route later writes, so it falls back to the
   // request/response close-immediately posture.
@@ -369,8 +372,8 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // Forward the pre-set stdin buffer . Empty / undefined closes
-      // immediately so `gets` hits EOF on first read. implementation interactive runs keep
+      // Forward the pre-set stdin buffer. Empty or undefined closes
+      // immediately so `gets` hits EOF on first read. Interactive runs keep
       // stdin open and register the stream for a later `ruby:stdin-write`.
       stdin: {
         data: options.stdin,
@@ -380,7 +383,7 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
             ? (stdin) => activeRubyStdins.set(options.runId!, stdin)
             : undefined,
       },
-      // implementation — stream live output to the renderer before buffering/truncation.
+      // Stream live output to the renderer before buffering/truncation.
       onStdout:
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stdout', chunk)
@@ -389,21 +392,15 @@ async function spawnRuby(source: string, options: RubyRunOptions): Promise<RubyR
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stderr', chunk)
           : undefined,
-      signal: controller.signal,
+      signal,
     });
 
-    const result = mapRubyRunResult(run, timeoutMs);
-    // Resolve the IPC promise before async tempdir cleanup so a fast
-    // follow-up run cannot be delayed behind filesystem teardown. Cleanup
-    // failures are non-fatal because the temp directory is disposable.
-    void rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    return result;
+    return mapRubyRunResult(run, timeoutMs);
   } finally {
-    if (options.runId) {
-      activeRubyRuns.delete(options.runId);
-      // implementation — drop the interactive stdin registration once the run ends.
-      activeRubyStdins.delete(options.runId);
-    }
+    // A completed run replies before filesystem teardown; the staging registry
+    // still owns the directory, so shutdown removes it if this has not finished.
+    const cleanup = cleanupNativeRunTempDir(tempDir);
+    if (signal.aborted) await cleanup;
   }
 }
 
@@ -468,23 +465,48 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.floor(timeoutMs);
 }
 
+function stoppedRubyRunResult(options: RubyRunOptions): RubyRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
+}
+
 async function runRubyCode(
   source: string,
-  options: RubyRunOptions
+  options: RubyRunOptions,
+  owner?: WebContents
 ): Promise<RubyRunResult> {
-  const detect = await detectRuby(options.userEnv);
-  if (!detect.installed) {
-    return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? 'Ruby is not installed.',
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
-      timeoutMs: clampTimeout(options.timeoutMs),
-    };
+  if (options.runId && activeRubyRuns.has(options.runId)) {
+    return invalidRubyRunResult('A Ruby run with this identity is already active.');
   }
-  return spawnRuby(source, options);
+  // Own detection, version selection and staging, not just the spawned child.
+  const { controller, release } = createNativeRunLifecycle(owner);
+  const stop = () => controller.abort();
+  if (options.runId) activeRubyRuns.set(options.runId, stop);
+  try {
+    if (controller.signal.aborted) return stoppedRubyRunResult(options);
+    const detect = await detectRuby(options.userEnv, false, controller.signal);
+    if (controller.signal.aborted) return stoppedRubyRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? 'Ruby is not installed.',
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnRuby(source, options, controller.signal);
+  } finally {
+    release();
+    if (options.runId && activeRubyRuns.get(options.runId) === stop) {
+      activeRubyRuns.delete(options.runId);
+      activeRubyStdins.delete(options.runId);
+    }
+  }
 }
 
 function stopRubyRun(runId: unknown): { stopped: boolean } {
@@ -496,7 +518,7 @@ function stopRubyRun(runId: unknown): { stopped: boolean } {
   return { stopped: true };
 }
 
-/** implementation — write a chunk to an interactive Ruby run's stdin. */
+/** Write a chunk to an interactive Ruby run's stdin. */
 function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
@@ -513,7 +535,7 @@ function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
   }
 }
 
-/** implementation — close an interactive Ruby run's stdin (EOF). */
+/** Close an interactive Ruby run's stdin (EOF). */
 function closeRubyStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
@@ -542,7 +564,7 @@ export function registerRubyHandlers(): void {
         return invalidRubyRunResult('Ruby runner received invalid source.');
       }
       const normalized = normalizeRubyRunOptions(options);
-      // implementation — stream live output to the renderer for interactive runs.
+      // Stream live output to the renderer for interactive runs.
       if (normalized.interactive && normalized.runId) {
         const runId = normalized.runId;
         const sender = event.sender;
@@ -555,13 +577,12 @@ export function registerRubyHandlers(): void {
           }
         };
       }
-      return runRubyCode(source, normalized);
+      return runRubyCode(source, normalized, event.sender);
     }
   );
   typedHandle('ruby:stop', async (_event, runId?: unknown) =>
     stopRubyRun(runId)
   );
-  // implementation — interactive stdin channels.
   typedHandle('ruby:stdin-write', async (_event, runId: string, data: string) =>
     writeRubyStdin(runId, data)
   );

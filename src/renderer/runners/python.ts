@@ -1,3 +1,4 @@
+import { executionKind } from '../utils/executionOutcome';
 import i18next from 'i18next';
 import { useBootstrapProgressStore } from '../stores/bootstrapProgressStore';
 import type {
@@ -376,6 +377,7 @@ export class PythonRunner implements LanguageRunner {
             const output: ConsoleOutput = msg.payload
               ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: originalLine };
+            if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
             // implementation note — adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg
@@ -523,7 +525,7 @@ export class PythonRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
-              kind: error ? 'error' : 'success',
+              kind: executionKind({ error, magicResults }),
               timeoutPreset,
               timeoutMs: timeout,
               scopeSnapshot,

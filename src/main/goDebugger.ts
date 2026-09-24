@@ -1,8 +1,7 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import type { GoDebuggerPauseFrame, GoDebuggerStepCommand } from '../shared/goDebugger';
 import { DapClient } from './debugger/dapClient';
 import {
@@ -10,8 +9,8 @@ import {
   type NativeDapTransition,
 } from './debugger/nativeDapSession';
 import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun } from './runners/spawnNativeRun';
 
-const execFileAsync = promisify(execFile);
 const DELVE_START_TIMEOUT_MS = 5_000;
 const DELVE_LAUNCH_TIMEOUT_MS = 45_000;
 const DELVE_COMMAND_TIMEOUT_MS = 15_000;
@@ -41,7 +40,8 @@ function firstLine(value: string): string | null {
 
 export async function resolveDelveBinary(
   env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  signal?: AbortSignal
 ): Promise<{ command: string; version: string } | null> {
   const name = platform === 'win32' ? 'dlv.exe' : 'dlv';
   const candidates = [name];
@@ -55,23 +55,35 @@ export async function resolveDelveBinary(
   for (const candidate of [...new Set(candidates)]) {
     try {
       if (path.isAbsolute(candidate)) await access(candidate);
-      const { stdout, stderr } = await execFileAsync(candidate, ['version'], {
+      signal?.throwIfAborted();
+      const probe = await spawnNativeRun({
+        command: candidate,
+        args: ['version'],
         env,
-        timeout: DELVE_START_TIMEOUT_MS,
+        signal,
+        timeoutMs: DELVE_START_TIMEOUT_MS,
+        killEscalationMs: 200,
+        maxOutputBytes: MAX_DELVE_STARTUP_BYTES,
+        stdoutTruncationMarker: '\n[Delve output truncated]',
+        stderrTruncationMarker: '\n[Delve output truncated]',
       });
-      const version = firstLine(`${stdout}\n${stderr}`) ?? 'Delve';
+      signal?.throwIfAborted();
+      if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) continue;
+      const version = firstLine(`${probe.stdout}\n${probe.stderr}`) ?? 'Delve';
       return { command: candidate, version };
     } catch {
+      signal?.throwIfAborted();
       continue;
     }
   }
   return null;
 }
 
-async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
+async function launchDelveAdapter(options: GoDebugSessionOptions, signal: AbortSignal): Promise<{
   child: ChildProcessWithoutNullStreams;
   client: DapClient;
 }> {
+  signal.throwIfAborted();
   const child = spawn(options.dlvPath, ['dap', '--listen=127.0.0.1:0'], {
     cwd: options.programDir,
     env: options.env,
@@ -81,42 +93,50 @@ async function launchDelveAdapter(options: GoDebugSessionOptions): Promise<{
   child.stdout.setEncoding('utf8');
   child.stderr.setEncoding('utf8');
   child.stdin.on('error', () => undefined);
-  const address = await new Promise<{ host: string; port: number }>((resolve, reject) => {
-    let startup = '';
-    const settle = (callback: () => void): void => {
-      clearTimeout(timer);
-      child.stdout.off('data', onData);
-      child.stderr.off('data', onData);
-      child.off('error', onError);
-      child.off('exit', onExit);
-      callback();
-    };
-    const timer = setTimeout(() => {
-      settle(() => {
-        killProcessTree(child, 'SIGTERM');
-        reject(new Error(`Delve DAP startup timed out: ${startup.trim()}`));
-      });
-    }, DELVE_START_TIMEOUT_MS);
-    const onData = (chunk: string): void => {
-      startup = `${startup}${chunk}`.slice(-MAX_DELVE_STARTUP_BYTES);
-      const match = /DAP server listening at:\s*127\.0\.0\.1:(\d+)/u.exec(startup);
-      if (!match) return;
-      const port = Number(match[1]);
-      if (!Number.isInteger(port) || port <= 0 || port > 65_535) return;
-      settle(() => resolve({ host: '127.0.0.1', port }));
-    };
-    const onError = (error: Error): void => settle(() => reject(error));
-    const onExit = (code: number | null): void =>
-      settle(() => reject(new Error(`Delve exited before startup (${code ?? 'signal'}): ${startup}`)));
-    child.stdout.on('data', onData);
-    child.stderr.on('data', onData);
-    child.once('error', onError);
-    child.once('exit', onExit);
-  });
   try {
-    return { child, client: await DapClient.connect(address.host, address.port) };
+    const address = await new Promise<{ host: string; port: number }>((resolve, reject) => {
+      let startup = '';
+      const settle = (callback: () => void): void => {
+        clearTimeout(timer);
+        child.stdout.off('data', onData);
+        child.stderr.off('data', onData);
+        child.off('error', onError);
+        child.off('exit', onExit);
+        signal.removeEventListener('abort', onAbort);
+        callback();
+      };
+      const timer = setTimeout(() => {
+        settle(() => {
+          reject(new Error(`Delve DAP startup timed out: ${startup.trim()}`));
+        });
+      }, DELVE_START_TIMEOUT_MS);
+      const onData = (chunk: string): void => {
+        startup = `${startup}${chunk}`.slice(-MAX_DELVE_STARTUP_BYTES);
+        const match = /DAP server listening at:\s*127\.0\.0\.1:(\d+)/u.exec(startup);
+        if (!match) return;
+        const port = Number(match[1]);
+        if (!Number.isInteger(port) || port <= 0 || port > 65_535) return;
+        settle(() => resolve({ host: '127.0.0.1', port }));
+      };
+      const onError = (error: Error): void => settle(() => reject(error));
+      const onExit = (code: number | null): void =>
+        settle(() => reject(new Error(`Delve exited before startup (${code ?? 'signal'}): ${startup}`)));
+      const onAbort = (): void => settle(() => {
+        killProcessTree(child, 'SIGKILL');
+        reject(new Error('Go debugger stopped'));
+      });
+      child.stdout.on('data', onData);
+      child.stderr.on('data', onData);
+      child.once('error', onError);
+      child.once('exit', onExit);
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+    });
+    return { child, client: await DapClient.connect(address.host, address.port, DELVE_START_TIMEOUT_MS, signal) };
   } catch (error) {
-    killProcessTree(child, 'SIGTERM');
+    // No session owns a failed adapter startup. Reap the complete tree now,
+    // including descendants of an adapter that already exited.
+    killProcessTree(child, 'SIGKILL');
     throw error;
   }
 }
@@ -145,7 +165,7 @@ export class GoDebugSession {
         hideSystemGoroutines: true,
         stackTraceDepth: 50,
       },
-      startAdapter: () => launchDelveAdapter(options),
+      startAdapter: signal => launchDelveAdapter(options, signal),
       closeRequest: { command: 'terminate', arguments: { restart: false } },
       singleThreadCommands: true,
       launchTimeoutMs: DELVE_LAUNCH_TIMEOUT_MS,
@@ -178,7 +198,7 @@ export class GoDebugSession {
     return this.session.drainOutput();
   }
 
-  terminate(): void {
-    this.session.terminate();
+  terminate(force = false): void {
+    this.session.terminate(force);
   }
 }

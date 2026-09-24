@@ -17,6 +17,8 @@ export type GoDebuggerStepCommand = NativeDebuggerStepCommand;
 export type GoDebuggerPauseFrame = NativeDebuggerPauseFrame;
 
 export interface GoDebuggerStartRequest {
+  /** Ephemeral identity allocated before any desktop preparation begins. */
+  readonly sessionId?: string;
   readonly tabId: string;
   readonly source: string;
   readonly fileName: string;

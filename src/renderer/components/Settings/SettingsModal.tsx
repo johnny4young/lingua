@@ -116,8 +116,8 @@ function SettingsTopBar({
   const { t } = useTranslation();
   const activeLabel = RAIL_ITEMS.find(it => it.id === active)?.labelKey;
   return (
-    <div className="flex h-12 flex-none items-center gap-3 border-b border-border/80 bg-bg-panel px-4">
-      <div className="flex items-center gap-2 text-body-sm">
+    <div className="settings-modal-topbar flex h-12 flex-none items-center gap-3 border-b border-border/80 bg-bg-panel px-4">
+      <div className="settings-modal-breadcrumb items-center gap-2 text-body-sm">
         <SettingsIcon size={14} className="text-fg-subtle" aria-hidden />
         <span className="text-fg-muted">{t('settings.title')}</span>
         <span className="text-fg-subtle">›</span>
@@ -131,7 +131,9 @@ function SettingsTopBar({
         onSelect={onSearchSelect}
       />
       <div className="flex items-center gap-2">
-        <Kbd>Esc</Kbd>
+        <span className="settings-modal-esc-key">
+          <Kbd>Esc</Kbd>
+        </span>
         <IconButton onClick={onClose} tooltip={t('settings.close')}>
           <X size={ICON_GLYPH.md} />
         </IconButton>
@@ -291,13 +293,13 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
         {t('settings.footer.trail', { section: t(`settings.tabs.${active}`) })}
       </span>
       <span className="flex-1" />
-      <span className="flex items-center gap-1.5">
+      <span className="settings-status-shortcuts items-center gap-1.5">
         <Kbd>⌘1</Kbd>
         <Kbd>⌘0</Kbd>
         <span className="text-fg-muted">{t('settings.statusBar.section')}</span>
       </span>
-      <span className="text-fg-subtle">·</span>
-      <span className="flex items-center gap-1.5">
+      <span className="settings-status-shortcuts text-fg-subtle">·</span>
+      <span className="settings-status-shortcuts items-center gap-1.5">
         <Kbd>Esc</Kbd>
         <span className="text-fg-muted">{t('settings.statusBar.escape')}</span>
       </span>
@@ -610,7 +612,7 @@ export function SettingsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative grid w-[min(96vw,1240px)] max-w-none grid-cols-[220px_1fr] grid-rows-[auto_1fr_auto] overflow-hidden"
+        className="settings-modal-shell relative w-[min(96vw,1240px)] max-w-none overflow-hidden"
         style={{ height: 'min(86vh, 820px)' }}
       >
         <h2 id="settings-modal-title" className="sr-only">
@@ -618,7 +620,7 @@ export function SettingsModal({
         </h2>
 
         {/* Rail spans all rows on the left */}
-        <div className="row-span-3">
+        <div className="settings-modal-rail-slot">
           <SettingsRail
             active={activeTab}
             filter={filter}
@@ -641,7 +643,7 @@ export function SettingsModal({
         {/* Tab content */}
         <div
           id={`settings-panel-${activeTab}`}
-          className="min-h-0 overflow-y-auto bg-bg-base px-6 py-5"
+          className="settings-modal-panel min-h-0 min-w-0 overflow-y-auto bg-bg-base"
           role="tabpanel"
           aria-labelledby={`settings-rail-${activeTab}`}
           key={activeTab}

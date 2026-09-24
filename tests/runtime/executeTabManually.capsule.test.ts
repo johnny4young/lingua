@@ -27,7 +27,7 @@ const {
   mockSetRunTermination,
   mockSetRunDeadlineAt,
   mockToExecutionPresentation,
-  mockToExecutionDiagnostics,
+  mockToResultDiagnostics,
 } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn().mockResolvedValue(undefined),
   mockRunnerManagerPrepare: vi.fn(),
@@ -35,7 +35,7 @@ const {
   mockSetRunTermination: vi.fn(),
   mockSetRunDeadlineAt: vi.fn(),
   mockToExecutionPresentation: vi.fn(),
-  mockToExecutionDiagnostics: vi.fn(),
+  mockToResultDiagnostics: vi.fn(),
 }));
 
 vi.mock('../../src/renderer/utils/telemetry', () => ({
@@ -55,27 +55,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
   return { useConsoleStore: { getState: () => state } };
 });
 
-vi.mock('../../src/renderer/stores/resultStore', () => {
-  const state = {
-    clear: vi.fn(),
-    clearVisibleResults: vi.fn(),
-    setError: vi.fn(),
-    setExecutionTime: vi.fn(),
-    setExecutionSource: vi.fn(),
-    setFullOutput: vi.fn(),
-    setIsAutoRunning: vi.fn(),
-    setIsManualRunning: vi.fn(),
-    setLineResults: vi.fn(),
-    setLineTimings: vi.fn(),
-    setStdinConsumed: vi.fn(),
-    setDiagnostics: vi.fn(),
-    setRunTermination: mockSetRunTermination,
-    setRunDeadlineAt: mockSetRunDeadlineAt,
-    captureSuccessfulSnapshot: vi.fn(),
-    setScopeSnapshot: vi.fn(),
-  };
-  return { useResultStore: { getState: () => state } };
-});
+
 
 vi.mock('../../src/renderer/validation', () => ({
   validateDocument: vi.fn(() => []),
@@ -95,9 +75,10 @@ vi.mock('../../src/renderer/utils/executionPresentation', () => ({
 }));
 
 vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
-  toExecutionDiagnostics: mockToExecutionDiagnostics,
+  toResultDiagnostics: mockToResultDiagnostics,
 }));
 
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
 import {
   CAPSULE_LRU_CAP,
@@ -107,7 +88,9 @@ import { useGitStore } from '../../src/renderer/stores/gitStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 describe('executeTabManually — capsule attach ', () => {
+  const initialResultState = useResultStore.getState();
   beforeEach(() => {
+    useResultStore.setState(initialResultState, true);
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
@@ -118,14 +101,15 @@ describe('executeTabManually — capsule attach ', () => {
       lineResults: [],
       fullOutput: '',
     });
-    mockToExecutionDiagnostics.mockReset();
-    mockToExecutionDiagnostics.mockReturnValue([]);
+    mockToResultDiagnostics.mockReset();
+    mockToResultDiagnostics.mockReturnValue([]);
     useExecutionHistoryStore.setState({ entries: [] });
     useGitStore.getState().clear();
     useSettingsStore.setState({ outputSourceMappingEnabled: true });
   });
 
   afterEach(() => {
+    useResultStore.setState(initialResultState, true);
     vi.restoreAllMocks();
   });
 
@@ -140,7 +124,7 @@ describe('executeTabManually — capsule attach ', () => {
       lineResults,
       fullOutput: '',
     });
-    mockToExecutionDiagnostics.mockReturnValue(diagnostics);
+    mockToResultDiagnostics.mockReturnValue(diagnostics);
     mockRunnerManagerPrepare.mockResolvedValue({
       runner: {
         execute: mockRunnerExecute.mockResolvedValue({
@@ -184,7 +168,7 @@ describe('executeTabManually — capsule attach ', () => {
     expect(entry.lastCapsule?.tab.language).toBe('javascript');
     expect(entry.lastCapsule?.source.content).toBe('console.log("hi")');
     expect(entry.lastCapsule?.result.status).toBe('success');
-    expect(entry.lastCapsule?.result.stdout).toBe('hi');
+    expect(entry.lastCapsule?.result.stdout).toBe('hi\n');
     expect(entry.lastCapsule?.result.lineResults).toEqual(lineResults);
     expect(entry.lastCapsule?.result.richOutputs).toEqual([
       consolePayload,

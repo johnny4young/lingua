@@ -399,25 +399,15 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
-  it('tracks import-preview clipboard consent with the closed three-state enum', () => {
-    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
-      'unset'
-    );
-    useSettingsStore.getState().setImportPreviewClipboardOnFocusConsent('granted');
-    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
-      'granted'
-    );
-    useSettingsStore.getState().setImportPreviewClipboardOnFocusConsent('declined');
-    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
-      'declined'
-    );
-  });
-
-  it('sanitizes tampered import-preview clipboard consent on rehydrate', async () => {
+  it('drops retired settings on rehydrate without losing other preferences', async () => {
     localStorage.setItem(
       'lingua-settings',
       JSON.stringify({
-        state: { importPreviewClipboardOnFocusConsent: 'always-read' },
+        state: {
+          importPreviewClipboardOnFocusConsent: 'granted',
+          showVariableInspectorByDefault: true,
+          theme: 'light',
+        },
         version: 0,
       })
     );
@@ -428,9 +418,14 @@ describe('settingsStore', () => {
       }
     ).persist.rehydrate();
 
-    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
-      'unset'
-    );
+    const state = useSettingsStore.getState();
+    expect(state).not.toHaveProperty('importPreviewClipboardOnFocusConsent');
+    expect(state).not.toHaveProperty('showVariableInspectorByDefault');
+    expect(state.theme).toBe('light');
+    state.setTheme('dark');
+    const persisted = JSON.parse(localStorage.getItem('lingua-settings')!);
+    expect(persisted.state).not.toHaveProperty('importPreviewClipboardOnFocusConsent');
+    expect(persisted.state).not.toHaveProperty('showVariableInspectorByDefault');
   });
 
   it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (implementation OPFS)', async () => {

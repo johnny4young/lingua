@@ -17,6 +17,8 @@ export type RustDebuggerStepCommand = NativeDebuggerStepCommand;
 export type RustDebuggerPauseFrame = NativeDebuggerPauseFrame;
 
 export interface RustDebuggerStartRequest {
+  /** Ephemeral identity allocated before any desktop preparation begins. */
+  readonly sessionId?: string;
   readonly tabId: string;
   readonly source: string;
   readonly fileName: string;

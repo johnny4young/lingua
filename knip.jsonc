@@ -1,70 +1,97 @@
 {
   // Dead-code / unused-dependency gate (see `check:deadcode` script).
   //
-  // The gate runs Knip's complete report: files, dependencies, unresolved
-  // imports, exports, exported types, duplicates, and binaries must all stay at
-  // zero after the narrow host-command allowlist below. Entry-point exports
-  // remain outside the unused-export report, preserving intentionally public
-  // CLI and runtime surfaces.
+  // Each key below is a separately locked package boundary. The gate runs
+  // Knip's complete report across all four: files, dependencies, unresolved
+  // imports, exports, exported types, duplicates, and binaries must stay at
+  // zero after the narrow runtime/host allowlists documented in place.
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    // Electron process entries (scripts/lib/desktopViteConfig.mjs). The
-    // renderer/web entries are picked up by knip's Vite plugin; the
-    // production configs are also explicit entries below.
-    "src/main/index.ts",
-    "src/preload/index.ts",
-    // Web-only module wired via the `@/plugins/catalog` alias in
-    // vite.web.config.mts — invisible to import scanning.
-    "src/web/plugin-catalog.ts",
-    // CLI bundle entry (scripts/build-cli.mjs esbuild entryPoints).
-    "src/cli/**/*.{ts,mts,mjs}",
-    // Web Workers and plugin runtimes are spawned via `new Worker(new
-    // URL(...))` / dynamic registration, not static imports.
-    "src/renderer/workers/*.ts",
-    // Loaded by URL through the virtual:lingua-node-typing-url module (see
-    // src/renderer/nodeTypeDefinitionsLoader.ts), so no source import ever
-    // names it; knip would otherwise report its two exports as unused.
-    "src/renderer/monacoNodeTypes.ts",
-    "src/renderer/plugins/*.ts",
-    // Operational scripts are invoked directly by package.json / CI.
-    "scripts/**/*.mjs",
-    "vite.main.config.mts",
-    "vite.preload.config.mts",
-    "vite.renderer.config.mts",
-    "playwright.license-web.config.mts",
-    "tests/**/*.{ts,tsx}",
-  ],
-  "project": ["src/**/*.{ts,tsx,d.ts}", "scripts/**/*.mjs"],
-  // Mirror the aliases from vitest.config.mts / vite.renderer.config.mts.
-  "paths": {
-    "@/*": ["src/renderer/*"],
-    "#src/*": ["src/*"],
-  },
-  // license-server and update-server are independent pnpm projects with
-  // their own lockfiles and test suites. The project globs above never
-  // reach either, so neither needs an ignore entry (knip flags one as a
-  // redundant hint).
-  "ignoreBinaries": [
-    // Operating-system tools intentionally spawned by packaging, process-tree,
-    // completion, release-readiness, and benchmark checks. They are host capabilities, not npm
-    // dependencies that belong in package.json.
-    "ditto",
-    "file",
-    "fish",
-    "ruby",
-  ],
-  "ignoreDependencies": [
-    // Loaded by the Monaco Node typings through an import.meta.glob path
-    // string (src/renderer/monacoNodeTypes.ts), which static analysis
-    // cannot follow.
-    "undici-types",
-    // Loaded from node_modules by the Vite build plugins as static
-    // runtime assets (copied into <outDir>/pyodide and served for the
-    // Ruby wasm payload) — no static import for knip to see.
-    "pyodide",
-    "@ruby/3.4-wasm-wasi",
-    // Consumed via `@import 'tailwindcss'` in src/renderer/index.css
-    // through @tailwindcss/postcss; CSS imports are outside knip's model.
-    "tailwindcss",
-  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        // Electron process entries (scripts/lib/desktopViteConfig.mjs). The
+        // renderer/web entries are picked up by Knip's Vite plugin.
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        // Web-only alias target invisible to static import scanning.
+        "src/web/plugin-catalog.ts",
+        // CLI bundle entries and URL/dynamic runtime entries.
+        "src/cli/**/*.{ts,mts,mjs}",
+        "src/renderer/workers/*.ts",
+        "src/renderer/monacoNodeTypes.ts",
+        "src/renderer/plugins/*.ts",
+        // Operational scripts are invoked directly by package.json / CI.
+        "scripts/**/*.mjs",
+        "vite.main.config.mts",
+        "vite.preload.config.mts",
+        "vite.renderer.config.mts",
+        "playwright.license-web.config.mts",
+        "tests/**/*.{ts,tsx}"
+      ],
+      "project": ["src/**/*.{ts,tsx,d.ts,css}", "scripts/**/*.mjs"],
+      // Mirror Vitest/Vite aliases plus browser-root dynamic imports used by
+      // the real Electron smoke scripts.
+      "paths": {
+        "@/*": ["src/renderer/*"],
+        "#src/*": ["src/*"],
+        "/src/*": ["src/*"]
+      },
+      "ignoreBinaries": [
+        // Host capabilities intentionally spawned by packaging, process-tree,
+        // completion, release-readiness, and benchmark checks.
+        "ditto",
+        "file",
+        "fish",
+        "ruby"
+      ],
+      "ignoreDependencies": [
+        // Monaco loads these declarations through an import.meta.glob string.
+        "undici-types",
+        // The Vite runtime-asset plugin copies this package into the renderer
+        // output; no source import names the package itself.
+        "@ruby/3.4-wasm-wasi"
+      ]
+    },
+    "website": {
+      // Astro discovers its config/content entries. Pages are framework
+      // entries; public scripts are loaded by generated HTML; maintenance
+      // scripts and node:test files are executable package entrypoints.
+      "entry": [
+        "src/pages/**/*.astro",
+        "public/scripts/*.js",
+        "scripts/**/*.{mjs,mts}",
+        "tests/**/*.mts"
+      ],
+      "project": [
+        "src/**/*.{astro,ts,css}",
+        "public/scripts/*.js",
+        "scripts/**/*.{mjs,mts}",
+        "tests/**/*.mts",
+        "*.mjs"
+      ],
+      "paths": {
+        "~/*": ["src/*"]
+      },
+      "ignoreDependencies": [
+        // astro-icon resolves the selected icon collection by the `lucide:`
+        // name at build time rather than through a source import.
+        "@iconify-json/lucide",
+        // The image regression intentionally resolves Astro's installed
+        // transitive copies. Separate direct copies would qualify the wrong
+        // graph instead of the code Astro actually executes.
+        "svgo",
+        "sharp"
+      ]
+    },
+    "license-server": {
+      // Wrangler discovers src/index.ts and Vitest discovers its config.
+      "entry": ["scripts/**/*.mjs", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.mjs", "test/**/*.ts"]
+    },
+    "update-server": {
+      // Wrangler discovers src/index.ts and Vitest discovers its config.
+      "entry": ["test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    }
+  }
 }

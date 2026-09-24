@@ -149,24 +149,48 @@ interface UnpackBundleErr {
 
 export type UnpackBundleResult = UnpackBundleOk | UnpackBundleErr;
 
+export interface BundlePathOptions {
+  /** Extraction writes to a Windows filesystem. */
+  windowsTarget?: boolean;
+}
+
+/** Git metadata has filesystem aliases on case-insensitive NTFS/HFS volumes. */
+function containsRepositoryMetadata(rawPath: string): boolean {
+  return rawPath.split(/[\\/]/u).some(segment => {
+    const name = segment
+      .replace(/[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]/gu, '')
+      .split(':')[0]!
+      .replace(/[ .]+$/u, '')
+      .toLowerCase();
+    return name === '.git' || /^git~[0-9]+$/u.test(name);
+  });
+}
+
 /**
  * Validate + normalize a single archive entry path. Returns the cleaned
  * POSIX relative path, or `null` when the path is unsafe. This is the
  * sole zip-slip chokepoint — both pack and unpack route through it.
  *
  * Rejects: empty, absolute (`/foo`, `C:\foo`, `\\unc`), any `..`
- * segment, backslashes (Windows separators that a POSIX `split('/')`
- * would miss), and `.`-only / trailing-slash directory markers.
+ * segment, backslashes, repository metadata aliases, paths without a file
+ * component and, for a Windows destination, alternate data streams.
  */
-export function validateBundleEntryPath(rawPath: string): string | null {
+export function validateBundleEntryPath(
+  rawPath: string,
+  { windowsTarget = false }: BundlePathOptions = {}
+): string | null {
   if (typeof rawPath !== 'string' || rawPath.length === 0) return null;
   // Reject backslashes outright rather than converting them: a path like
   // `a\..\..\b` is a Windows traversal that a POSIX-only normalizer would
   // wave through. Bundles we write only ever use `/`.
   if (rawPath.includes('\\')) return null;
   if (rawPath.includes('\0')) return null;
-  // Drive-letter / UNC absolute forms.
+  if (containsRepositoryMetadata(rawPath)) return null;
+  // Drive-letter absolute forms.
   if (/^[a-zA-Z]:/.test(rawPath)) return null;
+  // NTFS writes `name:stream` into an alternate data stream of `name`; the
+  // colon is an ordinary filename character on POSIX volumes.
+  if (windowsTarget && rawPath.includes(':')) return null;
   // Leading slash = absolute POSIX.
   if (rawPath.startsWith('/')) return null;
 
@@ -262,7 +286,7 @@ export function packBundle(
  */
 export function unpackBundle(
   zipBytes: Uint8Array,
-  opts: BundleCapOverrides = {}
+  opts: BundleCapOverrides & BundlePathOptions = {}
 ): UnpackBundleResult {
   const caps = resolveBundleCaps(opts);
 
@@ -301,6 +325,12 @@ export function unpackBundle(
       file.terminate();
       return;
     }
+    // Reject metadata before extraction, even a directory-only ZIP entry.
+    if (containsRepositoryMetadata(file.name)) {
+      fatalReason = 'path-traversal';
+      file.terminate();
+      return;
+    }
     if (file.name.endsWith('/')) {
       file.terminate();
       return;
@@ -318,7 +348,7 @@ export function unpackBundle(
 
     const safe = isManifest
       ? PROJECT_BUNDLE_MANIFEST_NAME
-      : validateBundleEntryPath(file.name);
+      : validateBundleEntryPath(file.name, opts);
     if (safe === null) {
       rejectEntry(file, file.name, 'path-traversal');
       return;

@@ -184,6 +184,7 @@ export function FloatingActionPill({
             setOpenMenu={setOpenMenu}
             runtimeChip={runtimeChip}
             activeRuntimeMode={activeRuntimeMode}
+            isWebBuild={isWebBuild}
             language={language}
             ensureTabForLanguage={ensureTabForLanguage}
             setTabRuntimeMode={setTabRuntimeMode}
@@ -255,15 +256,18 @@ export function FloatingActionPill({
         </div>
       </Tooltip>
 
-      {hasToolbarActions ? (
+      {hasToolbarActions || onOpenSettings ? (
         <FloatingActionPillCommandActions
           onOpenPalette={onOpenPalette}
           onOpenQuickOpen={onOpenQuickOpen}
           onOpenSnippets={onOpenSnippets}
           onOpenUtilities={onOpenUtilities}
           onOpenRecipes={onOpenRecipes}
+          onOpenSettings={onOpenSettings}
+          showBrowseCapsules={hasToolbarActions}
           utilitiesOpen={utilitiesOpen}
-          onCloseMenu={() => setOpenMenu(null)}
+          openMenu={openMenu}
+          setOpenMenu={setOpenMenu}
         />
       ) : null}
 
@@ -274,7 +278,7 @@ export function FloatingActionPill({
               the consumer wired `onOpenSettings`. */}
       {onOpenSettings ? (
         <>
-          <span className="action-pill-divider" />
+          <span className="action-pill-divider action-pill-direct-settings" />
           <Tooltip content={t('actionPill.settingsTooltip')}>
             <button
               type="button"
@@ -284,7 +288,7 @@ export function FloatingActionPill({
                 setOpenMenu(null);
                 onOpenSettings();
               }}
-              className="action-pill-segment ml-0.5 mr-0.5 px-2 text-fg-subtle hover:text-fg-base"
+              className="action-pill-segment action-pill-direct-settings ml-0.5 mr-0.5 px-2 text-fg-subtle hover:text-fg-base"
             >
               <SettingsIcon size={16} aria-hidden />
             </button>

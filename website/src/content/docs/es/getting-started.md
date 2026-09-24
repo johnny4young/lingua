@@ -1,11 +1,13 @@
 ---
 title: Primeros pasos
-description: Instala Lingua, ejecuta tu primer snippet en seis lenguajes y encuentra los atajos que hacen rápido el flujo.
+description: Instala Lingua, ejecuta un primer snippet y conoce qué lenguajes necesitan toolchains locales.
 order: 1
 section: guide
 ---
 
-Lingua es un runner de código multi-lenguaje pensado primero para desktop. Lo instalas una vez y tienes JavaScript, TypeScript, Python, Ruby, Go y Rust listos en una sola ventana con Monaco.
+Lingua es un runner de código multilenguaje pensado primero para escritorio.
+JavaScript, TypeScript, Python y Ruby vienen incluidos en una ventana con
+Monaco. Para ejecutar Go y Rust necesitas sus toolchains locales por separado.
 
 ## Descargar
 
@@ -26,14 +28,14 @@ shasum -a 256 -c SHA256SUMS.txt
 Abre Lingua. El editor inicia con una pestaña JavaScript nueva. Prueba esto:
 
 ```js
-const stars = await fetch('https://api.github.com/repos/johnny4young/lingua')
-  .then(res => res.json())
-  .then(repo => repo.stargazers_count);
-
-console.log({ stars });
+const x = 1 + 2; console.log(x);
 ```
 
 Presiona `Cmd/Ctrl+Enter`. El panel de resultados se actualiza inline.
+
+Si quieres provocar un error, recuperarte y entregar un archivo revisado,
+sigue el [recorrido de ejecución reproducible](/es/docs/reproducible-run).
+Este primer ejemplo no necesita solicitudes de red.
 
 ## Cambiar lenguaje
 
@@ -49,6 +51,8 @@ de desktop usan la toolchain instalada en tu máquina:
 - **Go:** instala la versión estable actual desde [go.dev/dl](https://go.dev/dl/) y confirma que `go version` funciona. Para el modo Debug, ejecuta también `go install github.com/go-delve/delve/cmd/dlv@latest` y confirma que `dlv version` funciona.
 - **Rust:** instala Rust desde [rustup.rs](https://rustup.rs/) y confirma que `rustc --version` funciona. Para el modo Debug, instala un paquete de LLVM que incluya `lldb-dap`; en macOS, Xcode o sus herramientas de línea de comandos deben permitir que `xcrun --find lldb-dap` funcione.
 - **Node.js:** instala una versión LTS activa desde [nodejs.org](https://nodejs.org/en/download) y confirma que `node --version` funciona.
+- **Deno:** instala desde la [guía oficial de Deno](https://docs.deno.com/runtime/getting_started/installation/) y confirma que `deno --version` funciona.
+- **Bun:** instala desde la [guía oficial de Bun](https://bun.sh/docs/installation) y confirma que `bun --version` funciona.
 - **Ruby:** instala una versión compatible desde [ruby-lang.org](https://www.ruby-lang.org/es/documentation/installation/) y confirma que `ruby --version` funciona. El modo automático de Ruby puede seguir usando el runtime WASM incluido cuando Ruby no está disponible en el sistema.
 
 Después de instalar una toolchain, selecciona **Volver a comprobar** en Lingua.
@@ -66,9 +70,16 @@ Unos pocos atajos para que Lingua desaparezca del camino:
 
 Vim mode es opt-in: actívalo en Settings → Editor.
 
-## Offline por defecto
+## Qué funciona sin conexión
 
-Lingua no necesita conexión para ejecutar código en el build desktop. Pyodide y Ruby WASM vienen dentro del binario, y Go/Rust usan tu toolchain local. La telemetría está desactivada por defecto; actívala desde Settings si quieres ayudar a mejorar la app.
+Después de instalarla, la app de escritorio puede ejecutar snippets locales
+con los runtimes incluidos de JavaScript, TypeScript, Python y Ruby sin hacer
+solicitudes de red. Go y Rust usan toolchains locales aparte; instalarlas o
+descargar dependencias del proyecto puede requerir conexión. En el navegador
+necesitas una primera carga en línea y los recursos necesarios en caché para
+trabajar luego sin conexión. Funciones como las solicitudes HTTP y la IA remota
+contactan servicios externos de forma intencional. La telemetría está
+desactivada por defecto; puedes activarla desde Configuración.
 
 ## Siguientes pasos
 

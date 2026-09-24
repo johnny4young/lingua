@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import i18next from 'i18next';
 
 // Mock window.lingua for IPC calls
 const mockDetect = vi.fn();
 const mockRun = vi.fn();
+const mockStop = vi.fn().mockResolvedValue({ stopped: true });
 
 Object.defineProperty(globalThis, 'window', {
   value: {
@@ -13,6 +15,7 @@ Object.defineProperty(globalThis, 'window', {
       rust: {
         detect: mockDetect,
         run: mockRun,
+        stop: mockStop,
       },
     },
   },
@@ -71,6 +74,55 @@ describe('RustRunner', () => {
       tone: 'warning',
       values: { toolchain: 'Rust' },
     });
+  });
+
+  it('does not offer installation after a failed Rust probe', async () => {
+    mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Rust check timed out' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Rust');
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
+  });
+
+  it('does not send unrelated user env during a passive retry', async () => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/rust/bin', API_TOKEN: 'private-project-secret' },
+    });
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'missing', error: 'Rust is not installed' })
+      .mockResolvedValueOnce({ installed: true, version: 'rustc 1.80.0' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Rust is not installed');
+    const retry = useUIStore.getState().statusNotice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retry?.onClick();
+    await vi.waitFor(() => expect(mockDetect).toHaveBeenCalledTimes(2));
+    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
+  });
+
+  it('detects again on the next run after a failed Rust check', async () => {
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Rust check timed out' })
+      .mockResolvedValueOnce({ installed: true, version: 'rustc 1.80.0' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Could not check Rust');
+    expect(runner.isReady()).toBe(false);
+    await runner.init();
+    expect(runner.isReady()).toBe(true);
+    expect(mockDetect).toHaveBeenCalledTimes(2);
+  });
+
+  it('explains a failed Rust check in Spanish without prescribing installation', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      mockDetect.mockResolvedValue({ installed: false, reason: 'check-failed', error: 'Rust check timed out' });
+      const runner = new RustRunner();
+      await expect(runner.init()).rejects.toThrow('No se pudo comprobar Rust');
+      const result = await runner.execute('fn main() {}');
+      expect(result.error?.message).toContain('No se pudo comprobar Rust');
+      expect(result.error?.message).not.toContain('Instala');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('should return error result when Rust is not installed and execute is called', async () => {
@@ -135,7 +187,40 @@ describe('RustRunner', () => {
     });
   });
 
-  it('should stop without error (no-op for native runner)', () => {
+  it('settles Stop immediately and ignores old replies without cancelling the next run', async () => {
+    mockDetect.mockResolvedValue({ installed: true });
+    let release!: (value: unknown) => void;
+    mockRun.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    const runner = new RustRunner();
+    await runner.init();
+    const old = runner.execute('old');
+    const oldId = mockRun.mock.calls[0]![3];
+    expect(oldId).toEqual(expect.any(String));
+    runner.stop();
+    await expect(old).resolves.toMatchObject({ kind: 'stopped', cancelled: true });
+    expect(mockStop).toHaveBeenCalledWith(oldId);
+    let finishCurrent!: (value: unknown) => void;
+    mockRun.mockReturnValueOnce(new Promise(resolve => { finishCurrent = resolve; }));
+    const current = runner.execute('current');
+    release({ success: true, stdout: 'STALE', stderr: '', executionTime: 1 });
+    await Promise.resolve();
+    runner.stop();
+    expect(mockStop).toHaveBeenLastCalledWith(mockRun.mock.calls[1]![3]);
+    expect(mockRun.mock.calls[1]![3]).not.toBe(oldId);
+    await expect(current).resolves.toMatchObject({ kind: 'stopped' });
+    finishCurrent({ success: true, stdout: '', stderr: '', executionTime: 1 });
+  });
+
+  it('preserves explicit compiler timeout and does not suggest runtime settings', async () => {
+    mockDetect.mockResolvedValue({ installed: true });
+    mockRun.mockResolvedValue({ success: false, kind: 'timeout', timeoutMs: 60000,
+      stdout: '', stderr: '', exitCode: -1, executionTime: 60000 });
+    const runner = new RustRunner();
+    await runner.init();
+    expect(await runner.execute('code')).toMatchObject({ kind: 'timeout', timeoutMs: 60000, timeoutPreset: 'override' });
+  });
+
+  it('allows Stop while idle', () => {
     const runner = new RustRunner();
     expect(() => runner.stop()).not.toThrow();
   });
@@ -197,7 +282,7 @@ describe('RustRunner', () => {
       })
     );
     expect(mockRun).toHaveBeenCalledTimes(1);
-    const [sourceCode, userEnv, messages] = mockRun.mock.calls[0] as [
+    const [sourceCode, userEnv, messages] = mockRun.mock.calls[0]! as [
       string,
       Record<string, string>,
       NativeRunnerMessages,
@@ -231,7 +316,7 @@ describe('RustRunner', () => {
     await runner.execute('fn main() {}');
 
     expect(mockDetect).toHaveBeenCalledWith({});
-    const [, userEnv, messages] = mockRun.mock.calls[0] as [
+    const [, userEnv, messages] = mockRun.mock.calls[0]! as [
       string,
       Record<string, string>,
       NativeRunnerMessages,

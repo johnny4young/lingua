@@ -136,6 +136,12 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   correlation, stepping, inspection, output, and teardown through
   `debugger/nativeDapSession.ts`; their transport, launch, tool discovery, and
   failure taxonomy remain runtime-specific.
+- **Preparation ownership (shipping)**: the renderer allocates an ephemeral
+  identity before starting Python, Go, or Rust Debug. Main reserves it before
+  authorization, staging, tool probes, and compilation, so Stop, replacement,
+  owner loss, and shutdown cannot resume cancelled work or publish into a later
+  session. Ownership transfers once to the runtime-specific session map and is
+  never persisted.
 
 ## Rollback
 

@@ -35,6 +35,28 @@ describe('applyAutoRunResult', () => {
     useConsoleStore.getState().clear();
   });
 
+  it('marks captured failures without losing later captures or replacing the last success', () => {
+    captureWatchSnapshot();
+    const snapshot = useResultStore.getState().lastSuccessfulSnapshot;
+    applyAutoRunResult({
+      autoLogEnabled: true, code: 'JSON.parse("invalid")\n42', language: 'javascript',
+      result: executionResult({ kind: 'success', magicResults: [
+        { line: 1, value: 'SyntaxError: bad JSON', kind: 'autoLog', isError: true },
+        { line: 2, value: '42', kind: 'autoLog' },
+      ] }),
+    });
+    expect(useResultStore.getState().diagnostics).toMatchObject([
+      { message: 'SyntaxError: bad JSON', line: 1, severity: 'error', source: 'javascript' },
+    ]);
+    expect(useResultStore.getState().lineResults).toEqual([
+      { line: 1, value: 'SyntaxError: bad JSON', type: 'error' },
+      { line: 2, value: '42', type: 'autoLog' },
+    ]);
+    expect(useResultStore.getState().lastSuccessfulSnapshot).toBe(snapshot);
+    expect(useResultStore.getState().error?.message).toBe('SyntaxError: bad JSON');
+    expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
+  });
+
   it('does not restore a watch row that no longer exists in the failed source', () => {
     captureWatchSnapshot();
 

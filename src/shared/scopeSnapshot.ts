@@ -212,6 +212,8 @@ export function bucketVariableCount(count: number): VariableCountBucket {
 // ---------------------------------------------------------------------------
 
 export interface SerializeScopeValueOptions {
+  /** Optional runtime-owned source mapping; never mutate the user Error. */
+  errorStack?: (error: Error) => import('./errorStack').ClickableStackFrame[];
   /**
    * Truncation marker used when a long string is shortened. Workers
    * pass the same marker their `serialize()` helper uses so the panel
@@ -310,7 +312,10 @@ export function serializeScopeValue(
       return { kind: 'function', name };
     }
     if (input instanceof Error) {
+      let stack: ScopeValueError['stack'];
+      try { stack = options.errorStack?.(input); } catch { /* Unreadable stacks keep the text fallback. */ }
       return {
+        ...(stack?.length ? { stack } : {}),
         kind: 'error',
         message: clampPrimitiveRepr(
           `${input.name}: ${input.message}`,

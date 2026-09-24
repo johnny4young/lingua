@@ -23,7 +23,7 @@ export interface Release {
 
 export type ReleaseChannel = 'stable' | 'draft';
 
-export function pickLatestRelease(
+function pickLatestRelease(
   releases: Release[],
   channel: ReleaseChannel = 'stable'
 ): Release | null {

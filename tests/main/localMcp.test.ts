@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -15,7 +15,8 @@ import {
   stopLocalMcpServer,
 } from '../../src/main/localMcp';
 import { clearRegistryForTests, mintRootCapability } from '../../src/main/ipc/projectCapabilities';
-import { isLocalMcpSensitivePath } from '../../src/main/localMcpTools';
+import { isLocalMcpSensitivePath, registerLocalMcpTools } from '../../src/main/localMcpTools';
+import type { McpServer } from '@modelcontextprotocol/server';
 import { LOCAL_MCP_TOOL_NAMES } from '../../src/shared/localMcp';
 
 let projectRoot: string;
@@ -217,5 +218,120 @@ describe('local MCP HTTP server', () => {
         headers: { authorization: `Bearer ${restarted.state.accessToken}` },
       })
     ).rejects.toThrow();
+  });
+});
+
+
+describe('MCP canonical path and UTF-8 boundaries', () => {
+  async function withClient(run: (client: Client) => Promise<void>, selectedRoot = projectRoot) {
+    const { rootId } = mintRootCapability(selectedRoot);
+    const started = await start(rootId);
+    if (!started.ok) throw new Error(started.reason);
+    const client = new Client({ name: 'boundary-test', version: '1' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(started.state.endpoint), {
+      authProvider: { token: async () => started.state.accessToken },
+    }));
+    try { await run(client); } finally { await client.close(); }
+  }
+
+  it('refuses file and directory aliases to excluded targets but allows ordinary aliases', async () => {
+    await mkdir(path.join(projectRoot, '.ssh'));
+    await writeFile(path.join(projectRoot, '.ssh', 'config'), 'SYNTHETIC_EXCLUDED_CONTENT');
+    await symlink(path.join(projectRoot, '.env'), path.join(projectRoot, 'notes.txt'));
+    await symlink(path.join(projectRoot, '.ssh'), path.join(projectRoot, 'docs'), 'junction');
+    await symlink(path.join(projectRoot, 'src'), path.join(projectRoot, 'source'), 'junction');
+    await withClient(async (client) => {
+      for (const [name, args] of [
+        ['lingua_read_file', { path: 'notes.txt' }],
+        ['lingua_read_file', { path: 'docs/config' }],
+        ['lingua_list_files', { path: 'docs' }],
+        ['lingua_search_project', { path: 'docs', query: 'SYNTHETIC' }],
+      ] as const) {
+        const result = await client.callTool({ name, arguments: args });
+        expect(result.isError).toBe(true);
+        expect(JSON.stringify(result)).not.toContain('must-not-leak');
+        expect(JSON.stringify(result)).not.toContain('SYNTHETIC_EXCLUDED_CONTENT');
+      }
+      const normal = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'source/index.ts' } });
+      expect(normal.isError).not.toBe(true);
+      expect(normal.structuredContent).toMatchObject({ content: 'export const greeting = "hello from Lingua";\n' });
+      const listed = await client.callTool({ name: 'lingua_list_files', arguments: { path: 'source' } });
+      expect(listed.structuredContent).toMatchObject({ entries: [{ path: 'source/index.ts', type: 'file' }] });
+      const searched = await client.callTool({ name: 'lingua_search_project', arguments: { path: 'source', query: 'greeting' } });
+      expect(searched.structuredContent).toMatchObject({ matches: [expect.objectContaining({ path: 'source/index.ts' })] });
+    });
+  });
+
+  it('resolves an approved symlink root without masking a secret destination', async () => {
+    const selectedRoot = path.join(projectRoot, 'project-alias');
+    await symlink(projectRoot, selectedRoot, 'junction');
+    await symlink(path.join(projectRoot, '.env'), path.join(projectRoot, 'notes.txt'));
+    await withClient(async (client) => {
+      const normal = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'src/index.ts' } });
+      expect(normal.isError).not.toBe(true);
+      const secret = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'notes.txt' } });
+      expect(secret.isError).toBe(true);
+    }, selectedRoot);
+  });
+
+  it('enforces canonical policy and revocation at the direct handler boundary', async () => {
+    await symlink(path.join(projectRoot, '.env'), path.join(projectRoot, 'notes.txt'));
+    const { rootId } = mintRootCapability(projectRoot);
+    type Handler = (args: Record<string, unknown>) => Promise<{ isError?: boolean }>;
+    const handlers = new Map<string, Handler>();
+    const registration = { registerTool: (name: string, _schema: unknown, handler: Handler) => handlers.set(name, handler) };
+    registerLocalMcpTools(registration as unknown as McpServer, {
+      rootId, projectName: 'fixture', appVersion: 'test', onToolCall: vi.fn(),
+    });
+    const read = handlers.get('lingua_read_file')!;
+    expect((await read({ path: 'notes.txt', offset: 0, maxBytes: 100 })).isError).toBe(true);
+    expect((await read({ path: 'src/index.ts', offset: 0, maxBytes: 100 })).isError).not.toBe(true);
+    clearRegistryForTests();
+    expect((await read({ path: 'src/index.ts', offset: 0, maxBytes: 100 })).isError).toBe(true);
+  });
+
+  it('rejects malformed and incomplete UTF-8 at EOF rather than truncating it away', async () => {
+    await writeFile(path.join(projectRoot, 'incomplete.txt'), Buffer.from([0x41, 0xc3]));
+    await writeFile(path.join(projectRoot, 'invalid.txt'), Buffer.from([0xc3, 0x28]));
+    await withClient(async (client) => {
+      for (const name of ['incomplete.txt', 'invalid.txt']) {
+        const result = await client.callTool({ name: 'lingua_read_file', arguments: { path: name, maxBytes: 4 } });
+        expect(result.isError).toBe(true);
+      }
+    });
+  });
+
+  it('returns a lossless sequence of byte-bounded UTF-8 chunks including a BOM', async () => {
+    const content = '\uFEFFAé🙂中Z';
+    await writeFile(path.join(projectRoot, 'unicode.txt'), content);
+    await withClient(async (client) => {
+      let offset: number | null = 0;
+      let collected = '';
+      for (let i = 0; offset !== null && i < 20; i++) {
+        const result = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'unicode.txt', offset, maxBytes: 5 } });
+        expect(result.isError).not.toBe(true);
+        const chunk = result.structuredContent as { content: string; bytesRead: number; nextOffset: number | null };
+        expect(chunk.bytesRead).toBe(Buffer.byteLength(chunk.content));
+        expect(chunk.bytesRead).toBeGreaterThan(0);
+        expect(chunk.bytesRead).toBeLessThanOrEqual(5);
+        if (chunk.nextOffset !== null) expect(chunk.nextOffset).toBe(offset + chunk.bytesRead);
+        collected += chunk.content;
+        offset = chunk.nextOffset;
+      }
+      expect(offset).toBeNull();
+      expect(collected).toBe(content);
+    });
+  });
+
+  it('rejects a mid-codepoint offset and an insufficient budget without a looping continuation', async () => {
+    await writeFile(path.join(projectRoot, 'unicode.txt'), '🙂');
+    await withClient(async (client) => {
+      for (const args of [{ offset: 1, maxBytes: 4 }, { offset: 0, maxBytes: 1 }]) {
+        const result = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'unicode.txt', ...args } });
+        expect(result.isError).toBe(true);
+      }
+      const end = await client.callTool({ name: 'lingua_read_file', arguments: { path: 'unicode.txt', offset: 4, maxBytes: 4 } });
+      expect(end.structuredContent).toMatchObject({ content: '', bytesRead: 0, nextOffset: null, truncated: false });
+    });
   });
 });

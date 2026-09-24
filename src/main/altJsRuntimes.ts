@@ -1,13 +1,14 @@
 /**
- * implementation — desktop Deno & Bun execution backends.
+ * Desktop Deno and Bun execution backends.
  *
  * Deno and Bun both run JavaScript AND TypeScript directly (no separate
  * transpile step), so a single generic runner drives both — parameterized
  * by the binary name and its argv builder. The security posture matches
  * node-runner.ts / ruby-runner.ts exactly:
  *
- *   - `spawn()` only, never a shell. Source is written to a temp file
- *     under `mkdtemp()` and passed by path — no command-line interpolation.
+ *   - The shared `spawnNativeRun` supervisor, never a shell. Source is
+ *     written to a staged temp file and passed by path — no command-line
+ *     interpolation.
  *   - Env filtered through the internal allowlist + internal user tier; the
  *     host env is never forwarded wholesale.
  *   - Parent-owned timeout with SIGTERM→SIGKILL escalation via
@@ -29,26 +30,21 @@
  * the toolchain degrade with actionable errors.
  */
 
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle } from './ipc/typedHandle';
-import {
-  execFile,
-  spawn,
-  type ChildProcessWithoutNullStreams,
-} from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { promisify } from 'node:util';
-import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
+import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
+import { BUN_TOOLCHAIN_KEYS, DENO_TOOLCHAIN_KEYS } from '../shared/nativeToolchainEnvKeys';
 import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
-import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
+import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNativeRun';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import type {
   AltJsDetectResult,
-  AltJsRunKind,
   AltJsRunResult,
 } from '../shared/nativeRuntimeTypes';
-
-const execFileAsync = promisify(execFile);
 
 const KILL_ESCALATION_DELAY_MS = 200;
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -88,7 +84,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
       entryFile,
     ],
     // DENO_DIR is the module/cache root; keep the rest of the host env out.
-    toolchainKeys: ['DENO_DIR'],
+    toolchainKeys: DENO_TOOLCHAIN_KEYS,
   },
   bun: {
     binary: 'bun',
@@ -96,7 +92,7 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
     ext: (language) => (language === 'typescript' ? 'ts' : 'js'),
     runArgs: (entryFile) => ['run', entryFile],
     // BUN_INSTALL anchors the per-user cache; nothing else leaks.
-    toolchainKeys: ['BUN_INSTALL'],
+    toolchainKeys: BUN_TOOLCHAIN_KEYS,
   },
 };
 
@@ -110,7 +106,8 @@ function resolveEnv(id: AltJsRuntimeId, userEnv?: Record<string, string>): NodeJ
 async function detectAltRuntime(
   id: AltJsRuntimeId,
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<AltJsDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force) {
@@ -118,16 +115,27 @@ async function detectAltRuntime(
     if (cached) return cached;
   }
   let result: AltJsDetectResult;
-  try {
-    const { stdout } = await execFileAsync(CONFIGS[id].binary, ['--version'], {
-      env: resolveEnv(id, userEnv),
-      timeout: 5_000,
-    });
-    result = { installed: true, version: stdout.trim().split('\n')[0] };
-  } catch {
-    result = { installed: false, error: CONFIGS[id].installHint };
+  const probe = await detectNativeRuntimeVersion({
+    command: CONFIGS[id].binary,
+    env: resolveEnv(id, userEnv),
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (probe.version !== null) {
+    result = { installed: true, version: probe.version.split('\n')[0] };
+  } else {
+    result = {
+      installed: false,
+      reason: probe.reason,
+      error: probe.reason === 'check-failed'
+        ? `Could not check ${id}. Review the local runtime and retry detection.`
+        : CONFIGS[id].installHint,
+    };
   }
-  if (cacheable) detectCache.set(id, result);
+  if (cacheable && !signal?.aborted) {
+    if (result.reason === 'check-failed') detectCache.delete(id);
+    else detectCache.set(id, result);
+  }
   return result;
 }
 
@@ -141,18 +149,25 @@ function clampTimeout(timeoutMs: number | undefined): number {
 async function spawnAltRuntime(
   id: AltJsRuntimeId,
   source: string,
-  options: AltJsRunOptions
+  options: AltJsRunOptions,
+  signal: AbortSignal
 ): Promise<AltJsRunResult> {
   const config = CONFIGS[id];
   const timeoutMs = clampTimeout(options.timeoutMs);
   const env = resolveEnv(id, options.userEnv);
-  const tempDir = await mkdtemp(path.join(tmpdir(), `lingua-${id}-`));
-  const entryFile = path.join(tempDir, `entry.${config.ext(options.language)}`);
-
+  let tempDir: string | undefined;
+  let entryFile: string;
   try {
+    tempDir = stageNativeRunTempDir(`lingua-${id}-`);
+    if (signal.aborted) {
+      await cleanupNativeRunTempDir(tempDir);
+      return stoppedAltRunResult(options);
+    }
+    entryFile = path.join(tempDir, `entry.${config.ext(options.language)}`);
     await writeFile(entryFile, source, 'utf-8');
   } catch (err) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
+    if (signal.aborted) return stoppedAltRunResult(options);
     return {
       kind: 'error',
       stdout: '',
@@ -164,140 +179,103 @@ async function spawnAltRuntime(
     };
   }
 
-  return await new Promise<AltJsRunResult>((resolve) => {
-    const start = Date.now();
-    let stdout = '';
-    let stderr = '';
-    let stdoutTruncated = false;
-    let stderrTruncated = false;
-    let resolved = false;
-    let kind: AltJsRunKind = 'success';
-    let killedByTimer = false;
-    let stoppedByUser = false;
-    let escalationTimer: NodeJS.Timeout | null = null;
+  try {
+    if (signal.aborted) return stoppedAltRunResult(options);
+    const run = await spawnNativeRun({
+      command: config.binary,
+      args: config.runArgs(entryFile, tempDir),
+      cwd: tempDir,
+      env,
+      timeoutMs,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: STDOUT_TRUNCATION_MARKER,
+      stderrTruncationMarker: STDERR_TRUNCATION_MARKER,
+      stdin: {},
+      signal,
+    });
+    return mapAltRunResult(run, config.binary, timeoutMs);
+  } finally {
+    await cleanupNativeRunTempDir(tempDir);
+  }
+}
 
-    let child: ChildProcessWithoutNullStreams;
-    try {
-      child = spawn(config.binary, config.runArgs(entryFile, tempDir), {
-        cwd: tempDir,
-        env,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        ...detachedSpawnOptions(),
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      void rm(tempDir, { recursive: true, force: true }).finally(() => {
-        resolve({
-          kind: 'error',
-          stdout,
-          stderr: message,
-          exitCode: -1,
-          executionTime: Date.now() - start,
-          error: message,
-          timeoutMs,
-        });
-      });
-      return;
-    }
-
-    const terminate = (next: 'timeout' | 'stopped') => {
-      if (resolved) return;
-      if (next === 'timeout') killedByTimer = true;
-      else stoppedByUser = true;
-      kind = next;
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), KILL_ESCALATION_DELAY_MS);
-      }
+function mapAltRunResult(
+  run: SpawnNativeRunResult,
+  binary: string,
+  timeoutMs: number
+): AltJsRunResult {
+  const base = {
+    stdout: run.stdout,
+    stderr: run.stderr,
+    exitCode: run.exitCode,
+    executionTime: run.executionTime,
+    timeoutMs,
+  };
+  if (run.spawnError) {
+    const message = run.spawnError.message || `Failed to spawn ${binary}`;
+    const missing = /ENOENT/.test(message) || /not found/i.test(message);
+    return {
+      ...base,
+      kind: missing ? 'missing-binary' : 'error',
+      stderr: run.stderr || message,
+      exitCode: -1,
+      error: message,
     };
+  }
+  if (run.killed) return { ...base, kind: 'stopped' };
+  if (run.timedOut) {
+    return { ...base, kind: 'timeout', error: `Run timed out after ${Math.round(timeoutMs / 1000)}s` };
+  }
+  if (run.exitCode !== 0) {
+    return { ...base, kind: 'error', error: run.stderr || `Process exited with code ${run.exitCode}` };
+  }
+  return { ...base, kind: 'success' };
+}
 
-    if (options.runId) activeRuns.set(options.runId, () => terminate('stopped'));
-
-    child.stdin.on('error', () => {
-      /* EPIPE — child exited before stdin flush. */
-    });
-    try {
-      child.stdin.end();
-    } catch {
-      /* already closed */
-    }
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutTruncated) return;
-      stdout += chunk.toString();
-      if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-        stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, STDOUT_TRUNCATION_MARKER);
-        stdoutTruncated = true;
-      }
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrTruncated) return;
-      stderr += chunk.toString();
-      if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-        stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, STDERR_TRUNCATION_MARKER);
-        stderrTruncated = true;
-      }
-    });
-
-    const killTimer = setTimeout(() => terminate('timeout'), timeoutMs);
-
-    const finish = async (result: AltJsRunResult) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(killTimer);
-      if (escalationTimer !== null) clearTimeout(escalationTimer);
-      if (options.runId) activeRuns.delete(options.runId);
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-      resolve(result);
-    };
-
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? -1;
-      if (!killedByTimer && !stoppedByUser && exitCode !== 0) kind = 'error';
-      const errorText =
-        kind === 'timeout'
-          ? `Run timed out after ${Math.round(timeoutMs / 1000)}s`
-          : kind === 'error'
-            ? stderr || `Process exited with code ${exitCode}`
-            : undefined;
-      void finish({ kind, stdout, stderr, exitCode, executionTime: Date.now() - start, error: errorText, timeoutMs });
-    });
-
-    child.on('error', (err: Error) => {
-      const message = err.message || `Failed to spawn ${config.binary}`;
-      const missing: AltJsRunKind =
-        /ENOENT/.test(message) || /not found/i.test(message) ? 'missing-binary' : 'error';
-      void finish({
-        kind: missing,
-        stdout,
-        stderr: stderr || message,
-        exitCode: -1,
-        executionTime: Date.now() - start,
-        error: message,
-        timeoutMs,
-      });
-    });
-  });
+function stoppedAltRunResult(options: AltJsRunOptions): AltJsRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
 }
 
 async function runAltRuntime(
   id: AltJsRuntimeId,
   source: string,
-  options: AltJsRunOptions
+  options: AltJsRunOptions,
+  owner?: WebContents
 ): Promise<AltJsRunResult> {
-  const detect = await detectAltRuntime(id, options.userEnv);
-  if (!detect.installed) {
+  if (options.runId && activeRuns.has(options.runId)) {
     return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? `${id} is not installed.`,
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
+      kind: 'error', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+      error: 'A native JavaScript run with this identity is already active.',
       timeoutMs: clampTimeout(options.timeoutMs),
     };
   }
-  return spawnAltRuntime(id, source, options);
+  const { controller, release } = createNativeRunLifecycle(owner);
+  const stop = () => controller.abort();
+  if (options.runId) activeRuns.set(options.runId, stop);
+  try {
+    if (controller.signal.aborted) return stoppedAltRunResult(options);
+    const detect = await detectAltRuntime(id, options.userEnv, false, controller.signal);
+    if (controller.signal.aborted) return stoppedAltRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? `${id} is not installed.`,
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnAltRuntime(id, source, options, controller.signal);
+  } finally {
+    release();
+    if (options.runId && activeRuns.get(options.runId) === stop) activeRuns.delete(options.runId);
+  }
 }
 
 export function stopAltRun(runId: unknown): { stopped: boolean } {
@@ -356,9 +334,9 @@ export function registerAltJsRuntimeHandlers(): void {
   typedHandle('deno:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
     detectAltRuntime('deno', userEnv, force === true)
   );
-  typedHandle('deno:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+  typedHandle('deno:run', async (event, source: string, options?: AltJsRunInvokeOptions) =>
     typeof source === 'string'
-      ? runAltRuntime('deno', source, normalizeAltRunOptions(options))
+      ? runAltRuntime('deno', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('deno')
   );
   typedHandle('deno:stop', async (_event, runId: string) => stopAltRun(runId));
@@ -366,9 +344,9 @@ export function registerAltJsRuntimeHandlers(): void {
   typedHandle('bun:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
     detectAltRuntime('bun', userEnv, force === true)
   );
-  typedHandle('bun:run', async (_event, source: string, options?: AltJsRunInvokeOptions) =>
+  typedHandle('bun:run', async (event, source: string, options?: AltJsRunInvokeOptions) =>
     typeof source === 'string'
-      ? runAltRuntime('bun', source, normalizeAltRunOptions(options))
+      ? runAltRuntime('bun', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('bun')
   );
   typedHandle('bun:stop', async (_event, runId: string) => stopAltRun(runId));

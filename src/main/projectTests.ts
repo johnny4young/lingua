@@ -8,16 +8,23 @@
  * with a persistent trust warning.
  */
 
+import {
+  appendProjectTestOutput,
+  type ProjectTestTranscript,
+  PROJECT_TEST_MAX_OUTPUT_BYTES,
+  PROJECT_TEST_OUTPUT_TRUNCATION_MARKER as OUTPUT_TRUNCATION_MARKER,
+} from '../shared/projectTestOutput';
 import { constants as fsConstants } from 'node:fs';
 import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { detectNode } from './node-runner';
 import type {
   ProjectTestCandidate,
   ProjectTestDetectionResult,
   ProjectTestFramework,
   ProjectTestRunResult,
 } from '../shared/projectTests';
-import { isProjectTestFramework } from '../shared/projectTests';
+import { isProjectTestFramework, isProjectTestRunId } from '../shared/projectTests';
 import { resolvePythonInterpreter } from '../shared/python/interpreter';
 import {
   NODE_TOOLCHAIN_KEYS,
@@ -34,10 +41,7 @@ import {
 
 const PROJECT_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const PROJECT_TEST_KILL_ESCALATION_MS = 300;
-const PROJECT_TEST_MAX_OUTPUT_BYTES = 256 * 1024;
 const CONFIG_READ_LIMIT_BYTES = 512 * 1024;
-const RUN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/u;
-const OUTPUT_TRUNCATION_MARKER = '\n[project test output truncated]';
 
 interface ProjectTestExecutionSpec {
   candidate: ProjectTestCandidate;
@@ -49,7 +53,6 @@ interface ProjectTestExecutionSpec {
 interface ProjectTestRuntimeOptions {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
-  electronExecutable?: string;
   spawnImpl?: (options: SpawnNativeRunOptions) => Promise<SpawnNativeRunResult>;
   onOutput?: (stream: 'stdout' | 'stderr', chunk: string) => void;
   signal?: AbortSignal;
@@ -221,9 +224,7 @@ async function pythonExecutable(
     if (candidate.source === 'path') {
       return resolveHostExecutable([candidate.command], env, platform);
     }
-    return (await fileExists(candidate.command, platform !== 'win32'))
-      ? candidate.command
-      : null;
+    return (await fileExists(candidate.command, platform !== 'win32')) ? candidate.command : null;
   });
 }
 
@@ -231,7 +232,8 @@ function candidate(
   framework: ProjectTestFramework,
   command: string,
   evidence: string[],
-  available: boolean
+  available: boolean,
+  unavailableReason?: ProjectTestCandidate['unavailableReason']
 ): ProjectTestCandidate {
   return {
     framework,
@@ -242,11 +244,54 @@ function candidate(
       ? {}
       : {
           unavailableReason:
-            framework === 'vitest' || framework === 'jest'
-              ? ('dependencies-not-installed' as const)
-              : ('toolchain-not-found' as const),
+            unavailableReason ??
+            (framework === 'vitest' || framework === 'jest'
+              ? 'dependencies-not-installed'
+              : 'toolchain-not-found'),
         }),
   };
+}
+
+function absoluteNodePath(env: NodeJS.ProcessEnv, node?: string | null): string {
+  return [node ? path.dirname(node) : '', ...(env.PATH ?? '').split(path.delimiter)]
+    .filter(directory => path.isAbsolute(directory))
+    .join(path.delimiter);
+}
+
+// Only resolved binaries are cached, so a newly installed Node is found on the
+// next detection without restarting.
+const projectNodeCache = new Map<string, string>();
+
+export function resetProjectNodeCacheForTests(): void {
+  projectNodeCache.clear();
+}
+
+/** Resolve before changing cwd: a bare node plus a relative PATH could execute
+ * a project-planted binary. Reuse native Node discovery for GUI-launch fallback
+ * locations, but keep both its probe and the eventual runner PATH absolute. */
+async function projectNodeExecutable(
+  hostEnv: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  signal?: AbortSignal
+): Promise<string | null> {
+  // detectNode treats its argument as explicit user overrides. Passing the
+  // whole host environment here would bypass its allowlist during --version.
+  const env = Object.fromEntries(
+    Object.entries(
+      buildNativeRunnerEnv(combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform), undefined, {}, hostEnv)
+    ).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  );
+  env.PATH = absoluteNodePath(hostEnv);
+  const cacheKey = JSON.stringify([platform, env]);
+  const cached = projectNodeCache.get(cacheKey);
+  if (cached && (await fileExists(cached, platform !== 'win32'))) return cached;
+  const detected = await detectNode(env, false, signal);
+  if (!detected.installed || !detected.binary) return null;
+  const binary = path.isAbsolute(detected.binary)
+    ? detected.binary
+    : await resolveHostExecutable([detected.binary], env, platform);
+  if (binary && !signal?.aborted) projectNodeCache.set(cacheKey, binary);
+  return binary;
 }
 
 async function executionSpecs(
@@ -257,6 +302,8 @@ async function executionSpecs(
   const hostEnv = options.env ?? process.env;
   const manifest = await packageManifest(rootPath);
   const specs: ProjectTestExecutionSpec[] = [];
+  let nodeProbe: Promise<string | null> | undefined;
+  const getNode = () => (nodeProbe ??= projectNodeExecutable(hostEnv, platform, options.signal));
 
   const vitestEvidence = await existingNames(rootPath, VITEST_CONFIGS);
   if (manifest && dependencyMentions(manifest, 'vitest'))
@@ -264,7 +311,9 @@ async function executionSpecs(
   if (manifest && scriptMentions(manifest, 'vitest')) vitestEvidence.push('package.json#scripts');
   if (vitestEvidence.length > 0) {
     const entry = path.join(rootPath, 'node_modules', 'vitest', 'vitest.mjs');
-    const available = await fileExists(entry);
+    const installed = await fileExists(entry);
+    const node = installed ? await getNode() : null;
+    const available = installed && node !== null;
     const env = buildNativeRunnerEnv(
       combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
       undefined,
@@ -272,14 +321,19 @@ async function executionSpecs(
         CI: '1',
         FORCE_COLOR: '0',
         NO_COLOR: '1',
-        ELECTRON_RUN_AS_NODE: '1',
         VITEST_SKIP_INSTALL_CHECKS: '1',
       },
-      hostEnv
+      { ...hostEnv, PATH: absoluteNodePath(hostEnv, node) }
     );
     specs.push({
-      candidate: candidate('vitest', 'vitest run --no-color', vitestEvidence, available),
-      command: options.electronExecutable ?? process.execPath,
+      candidate: candidate(
+        'vitest',
+        'vitest run --no-color',
+        vitestEvidence,
+        available,
+        installed ? 'node-not-found' : 'dependencies-not-installed'
+      ),
+      command: node ?? '',
       args: [entry, 'run', '--no-color'],
       env,
     });
@@ -292,7 +346,9 @@ async function executionSpecs(
   if (manifest && scriptMentions(manifest, 'jest')) jestEvidence.push('package.json#scripts');
   if (jestEvidence.length > 0) {
     const entry = path.join(rootPath, 'node_modules', 'jest', 'bin', 'jest.js');
-    const available = await fileExists(entry);
+    const installed = await fileExists(entry);
+    const node = installed ? await getNode() : null;
+    const available = installed && node !== null;
     const env = buildNativeRunnerEnv(
       combinedAllowlist(NODE_TOOLCHAIN_KEYS, platform),
       undefined,
@@ -300,13 +356,18 @@ async function executionSpecs(
         CI: '1',
         FORCE_COLOR: '0',
         NO_COLOR: '1',
-        ELECTRON_RUN_AS_NODE: '1',
       },
-      hostEnv
+      { ...hostEnv, PATH: absoluteNodePath(hostEnv, node) }
     );
     specs.push({
-      candidate: candidate('jest', 'jest --runInBand --colors=false', jestEvidence, available),
-      command: options.electronExecutable ?? process.execPath,
+      candidate: candidate(
+        'jest',
+        'jest --runInBand --colors=false',
+        jestEvidence,
+        available,
+        installed ? 'node-not-found' : 'dependencies-not-installed'
+      ),
+      command: node ?? '',
       args: [entry, '--runInBand', '--colors=false'],
       env,
     });
@@ -403,10 +464,10 @@ export async function detectProjectTests(
   return { kind: candidates.length > 0 ? 'ready' : 'none', candidates };
 }
 
-function emptyRunResult(
+export function emptyProjectTestRunResult(
   kind: ProjectTestRunResult['kind'],
   framework: ProjectTestFramework | null,
-  timeoutMs: number
+  timeoutMs: number = PROJECT_TEST_TIMEOUT_MS
 ): ProjectTestRunResult {
   return {
     kind,
@@ -428,43 +489,63 @@ export async function runProjectTests(
 ): Promise<ProjectTestRunResult> {
   if (
     !isProjectTestFramework(framework) ||
-    typeof runId !== 'string' ||
-    !RUN_ID_PATTERN.test(runId)
+    !isProjectTestRunId(runId)
   ) {
-    return emptyRunResult('invalid-request', null, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('invalid-request', null, PROJECT_TEST_TIMEOUT_MS);
   }
   if (activeRuns.has(runId)) {
-    return emptyRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('invalid-request', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
   const rootKey = normalizedRootKey(rootPath, options.platform);
   if ([...activeRuns.values()].some(active => active.rootKey === rootKey)) {
-    return emptyRunResult('busy', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('busy', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
-  const spec = (await executionSpecs(rootPath, options)).find(
-    entry => entry.candidate.framework === framework
-  );
-  if (!spec) return emptyRunResult('not-detected', framework, PROJECT_TEST_TIMEOUT_MS);
-  if (!spec.candidate.available) {
-    return {
-      ...emptyRunResult('unavailable', framework, PROJECT_TEST_TIMEOUT_MS),
-      command: spec.candidate.command,
-      unavailableReason: spec.candidate.unavailableReason,
-    };
-  }
-
-  // The renderer may disappear while runner detection is still awaiting the
-  // filesystem. Do not spawn after its lifecycle signal has already fired.
   if (options.signal?.aborted) {
-    return emptyRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
+    return emptyProjectTestRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
   }
 
+  // Reserve root and identity before discovery: Stop, owner disposal and
+  // concurrent requests must also see runs that are still preparing.
   const controller = new AbortController();
   const stopForOwnerLifecycle = () => controller.abort();
   options.signal?.addEventListener('abort', stopForOwnerLifecycle, { once: true });
   activeRuns.set(runId, { rootKey, controller });
   try {
+    const spec = (await executionSpecs(rootPath, { ...options, signal: controller.signal })).find(
+      entry => entry.candidate.framework === framework
+    );
+    if (controller.signal.aborted) {
+      return emptyProjectTestRunResult('stopped', framework, PROJECT_TEST_TIMEOUT_MS);
+    }
+    if (!spec) return emptyProjectTestRunResult('not-detected', framework, PROJECT_TEST_TIMEOUT_MS);
+    if (!spec.candidate.available) {
+      return {
+        ...emptyProjectTestRunResult('unavailable', framework, PROJECT_TEST_TIMEOUT_MS),
+        command: spec.candidate.command,
+        unavailableReason: spec.candidate.unavailableReason,
+      };
+    }
+
+    let transcript: ProjectTestTranscript | undefined;
+    const pipeSizes = { stdout: 0, stderr: 0 };
+    const clippedPipes = new Set<'stdout' | 'stderr'>();
+    const capture = (stream: 'stdout' | 'stderr', chunk: string) => {
+      if (clippedPipes.has(stream)) return;
+      const remaining = PROJECT_TEST_MAX_OUTPUT_BYTES - pipeSizes[stream];
+      let text = chunk;
+      if (chunk.length > remaining) {
+        let end = remaining;
+        const last = chunk.charCodeAt(end - 1);
+        if (last >= 0xd800 && last <= 0xdbff) end--;
+        text = chunk.slice(0, end) + OUTPUT_TRUNCATION_MARKER;
+        clippedPipes.add(stream);
+      }
+      pipeSizes[stream] += chunk.length;
+      transcript = appendProjectTestOutput(transcript, text);
+      options.onOutput?.(stream, text);
+    };
     const execute = options.spawnImpl ?? spawnNativeRun;
     const result = await execute({
       command: spec.command,
@@ -477,8 +558,8 @@ export async function runProjectTests(
       stdoutTruncationMarker: OUTPUT_TRUNCATION_MARKER,
       stderrTruncationMarker: OUTPUT_TRUNCATION_MARKER,
       signal: controller.signal,
-      onStdout: chunk => options.onOutput?.('stdout', chunk),
-      onStderr: chunk => options.onOutput?.('stderr', chunk),
+      onStdout: chunk => capture('stdout', chunk),
+      onStderr: chunk => capture('stderr', chunk),
     });
     const kind: ProjectTestRunResult['kind'] = result.killed
       ? 'stopped'
@@ -493,6 +574,7 @@ export async function runProjectTests(
       kind,
       framework,
       command: spec.candidate.command,
+      ...(transcript === undefined ? {} : { orderedOutput: transcript.text }),
       stdout: result.stdout,
       stderr: result.stderr || result.spawnError?.message || '',
       exitCode: result.exitCode,
@@ -502,14 +584,14 @@ export async function runProjectTests(
         ? {
             unavailableReason:
               framework === 'vitest' || framework === 'jest'
-                ? ('dependencies-not-installed' as const)
+                ? ('node-not-found' as const)
                 : ('toolchain-not-found' as const),
           }
         : {}),
     };
   } finally {
     options.signal?.removeEventListener('abort', stopForOwnerLifecycle);
-    activeRuns.delete(runId);
+    if (activeRuns.get(runId)?.controller === controller) activeRuns.delete(runId);
   }
 }
 

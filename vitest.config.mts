@@ -9,29 +9,63 @@ import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildM
 applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Vitest 5 does not forward the root CLI --exclude option into inline
+// projects. Exclude timing benches from instrumented runs in each project,
+// while keeping them in the ordinary uninstrumented suite.
+const coverageBenchExcludes = process.argv.includes('--coverage') ? ['**/*.bench.test.ts'] : [];
 
 export default defineConfig({
   plugins: [nodeTypingChunkPlugin()],
   define: getSharedBuildDefines(),
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    // These suites have been exercised without DOM globals or renderer setup.
+    // New tests in their directories must remain Node-compatible or move to a
+    // DOM suite; all other tests retain the historical jsdom environment.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node-operations',
+          environment: 'node',
+          setupFiles: [],
+          include: [
+            'tests/docs/**/*.test.ts',
+            'tests/scripts/**/*.test.ts',
+            'tests/main/**/*.test.ts',
+            'tests/cli/**/*.test.ts',
+            'tests/ipc/**/*.test.ts',
+            'tests/shared/**/*.test.ts',
+          ],
+          exclude: [...configDefaults.exclude, 'tests/website/**', ...coverageBenchExcludes],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'renderer-and-runtime',
+          environment: 'jsdom',
+          setupFiles: ['./tests/setup.ts'],
+          include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+          exclude: [
+            ...configDefaults.exclude,
+            'tests/website/**',
+            'tests/docs/**',
+            'tests/scripts/**',
+            'tests/main/**',
+            'tests/cli/**',
+            'tests/ipc/**',
+            'tests/shared/**',
+            ...coverageBenchExcludes,
+          ],
+        },
+      },
+    ],
     // The suite mixes jsdom module transforms with CPU microbenchmarks.
     // Letting Vitest mirror a high host core count creates enough contention
     // to delay lazy imports and distort full-suite performance guards; four
     // workers is faster and deterministic across local and hosted runners.
     maxWorkers: 4,
-    // The website is a deliberately isolated (--ignore-workspace) npm
-    // package; this root job installs only the app's pnpm deps. A test
-    // that imports website/src/*.ts forces esbuild to load
-    // website/tsconfig.json, which `extends astro/tsconfigs/strict` from
-    // website/node_modules — absent here, so the transform fails in CI
-    // (it only passes locally when the website happens to be installed).
-    // Website unit tests belong with the website toolchain; keep them out
-    // of the app's root run.
-    exclude: [...configDefaults.exclude, 'tests/website/**'],
     // Instrumented coverage runs only under `pnpm run test:coverage`; the
     // plain `pnpm test` stays uninstrumented. Thresholds are a ratchet set
     // Math.floor(measured percentage - 2) initially, then only raised.

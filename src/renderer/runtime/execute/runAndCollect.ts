@@ -5,6 +5,7 @@
  * terminated.
  */
 
+import { executionKind } from '../../utils/executionOutcome';
 import { toConsoleEntry } from '../../hooks/runnerOutput';
 import { createConsoleEntryBatcher, scheduleNextFrame } from '../../stores/consoleEntryBatcher';
 import { useConsoleStore } from '../../stores/consoleStore';
@@ -30,7 +31,7 @@ export interface CollectedRun {
   streamedConsoleCount: number;
 }
 
-export function createRunConsole(): RunConsole {
+export function createRunConsole(isCurrent: () => boolean = () => true): RunConsole {
   const { addEntries } = useConsoleStore.getState();
   let count = 0;
   // Console output is coalesced per frame: a worker posts one message per
@@ -38,11 +39,14 @@ export function createRunConsole(): RunConsole {
   // re-render per line. Every exit path flushes so nothing stays queued
   // when the summary is returned.
   const entries = createConsoleEntryBatcher({
-    addEntries,
+    addEntries: entries => {
+      if (isCurrent()) addEntries(entries);
+    },
     getClearVersion: () => useConsoleStore.getState().clearVersion,
   });
   return {
     add: entry => {
+      if (!isCurrent()) return;
       count += 1;
       entries.push(entry);
     },
@@ -55,7 +59,8 @@ export async function runAndCollect(
   runner: Pick<LanguageRunner, 'execute'>,
   activeTab: FileTab,
   execution: RunExecution,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  isCurrent: () => boolean = () => true
 ): Promise<CollectedRun> {
   const { language, content } = activeTab;
   const {
@@ -71,6 +76,7 @@ export async function runAndCollect(
   const streamedStdout: ConsoleOutput[] = [];
   const streamedStderr: ConsoleOutput[] = [];
   let streamedConsoleCount = 0;
+  const observedOrders = new WeakMap<ConsoleOutput, number>();
   let presentationPending = false;
   let settled = false;
   // A runner can stream one message per output line. Rebuild the result panel
@@ -78,7 +84,7 @@ export async function runAndCollect(
   // publishes the final presentation, which a late frame must not overwrite.
   const publishStreamedPresentation = () => {
     presentationPending = false;
-    if (settled) return;
+    if (settled || !isCurrent()) return;
     const presentation = toExecutionPresentation(language, content, {
       stdout: streamedStdout,
       stderr: streamedStderr,
@@ -91,7 +97,10 @@ export async function runAndCollect(
     setError(null);
     setExecutionTime(null);
   };
-  const streamConsoleOutput = (output: ConsoleOutput) => {
+  const streamConsoleOutput = (captured: ConsoleOutput) => {
+    if (settled || !isCurrent()) return;
+    const output = { ...captured, captureOrder: captured.captureOrder ?? streamedConsoleCount };
+    observedOrders.set(captured, output.captureOrder);
     streamedConsoleCount += 1;
     if (output.type === 'error') {
       streamedStderr.push(output);
@@ -121,14 +130,22 @@ export async function runAndCollect(
   } finally {
     settled = true;
   }
+  // Runners may return the same captures without owning ordering metadata.
+  // Reconcile by identity only; matching text could confuse repeated outputs.
+  const retainObservedOrder = (output: ConsoleOutput): ConsoleOutput => {
+    const captureOrder = output.captureOrder ?? observedOrders.get(output);
+    return captureOrder === undefined || output.captureOrder !== undefined
+      ? output : { ...output, captureOrder };
+  };
+  result = { ...result, stdout: result.stdout.map(retainObservedOrder), stderr: result.stderr.map(retainObservedOrder) };
+  if (!isCurrent()) return { result, streamedConsoleCount };
   // Tear down the in-flight deadline immediately; the pill flips to the
   // termination variant on the next render.
   setRunDeadlineAt(null);
   // implementation — propagate the termination summary so `<RunStatusPill>`
   // can render the right variant. Runners that don't set `kind` default to a
   // best-effort guess based on `error` / `cancelled`.
-  const terminationKind: 'success' | 'error' | 'timeout' | 'stopped' =
-    result.kind ?? (result.cancelled ? 'stopped' : result.error ? 'error' : 'success');
+  const terminationKind = executionKind(result);
   setRunTermination({
     kind: terminationKind,
     timeoutPreset: result.timeoutPreset,

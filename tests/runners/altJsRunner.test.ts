@@ -8,6 +8,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 import { AltJsRunner } from '../../src/renderer/runners/altJsRunner';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useEnvVarsStore } from '../../src/renderer/stores/envVarsStore';
 
 function installBridge(
   id: 'deno' | 'bun',
@@ -36,10 +37,12 @@ function installBridge(
 
 describe('AltJsRunner', () => {
   const initialSettings = useSettingsStore.getState();
+  const initialEnv = useEnvVarsStore.getState();
 
   beforeEach(() => {
     vi.clearAllMocks();
     useSettingsStore.setState(initialSettings, true);
+    useEnvVarsStore.setState(initialEnv, true);
     useUIStore.setState({ statusNotice: null });
   });
 
@@ -67,22 +70,47 @@ describe('AltJsRunner', () => {
     expect(bridge.run).toHaveBeenCalledTimes(1);
   });
 
-  it('maps missing-binary to a clear error', async () => {
-    installBridge('deno', {
+  it.each(['deno', 'bun'] as const)('recovers when %s is not installed', async (id) => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/js/bin', API_TOKEN: 'private-project-secret' },
+    });
+    const bridge = installBridge(id, {
       run: vi.fn().mockResolvedValue({
         kind: 'missing-binary',
         stdout: '',
         stderr: '',
         exitCode: -1,
         executionTime: 0,
-        error: 'Deno is not installed. Install it from https://deno.com',
+        error: `${id} is not installed`,
         timeoutMs: 30_000,
       }),
+      detect: vi.fn().mockResolvedValue({ installed: true, version: '1.0.0' }),
     });
-    const runner = new AltJsRunner('deno');
+    const runner = new AltJsRunner(id);
     await runner.init();
     const result = await runner.execute('console.log(1)');
     expect(result.kind).toBe('error');
     expect(result.error?.message).toContain('not installed');
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice).toMatchObject({
+      tone: 'warning',
+      priority: 'high',
+      messageKey: 'nativeToolchain.missing.message',
+      values: { toolchain: id === 'deno' ? 'Deno' : 'Bun' },
+      actions: [
+        { labelKey: 'nativeToolchain.action.install' },
+        { labelKey: 'nativeToolchain.action.retry' },
+      ],
+    });
+    const retry = notice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retry?.onClick();
+    await vi.waitFor(() => {
+      expect(bridge.detect).toHaveBeenCalledWith({}, true);
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'success',
+        messageKey: 'nativeToolchain.retry.detected',
+      });
+    });
   });
 });

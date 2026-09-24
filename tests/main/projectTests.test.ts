@@ -5,9 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   disposeProjectTestRuns,
   detectProjectTests,
+  resetProjectNodeCacheForTests,
   runProjectTests,
   stopProjectTests,
 } from '../../src/main/projectTests';
+import { detectNode } from '../../src/main/node-runner';
+
+vi.mock('../../src/main/node-runner', () => ({ detectNode: vi.fn() }));
+
 import type { SpawnNativeRunOptions } from '../../src/main/runners/spawnNativeRun';
 
 const tmpPrefix = path.join(process.cwd(), '.tmp-lingua-project-tests-');
@@ -27,6 +32,12 @@ async function executable(name: string): Promise<void> {
 }
 
 beforeEach(async () => {
+  resetProjectNodeCacheForTests();
+  vi.mocked(detectNode).mockResolvedValue({
+    installed: true,
+    binary: process.execPath,
+    version: process.version,
+  });
   rootPath = await mkdtemp(tmpPrefix);
   binPath = path.join(rootPath, '.trusted-bin');
   await mkdir(binPath);
@@ -38,6 +49,25 @@ afterEach(async () => {
 });
 
 describe('project test discovery', () => {
+  it('reuses a resolved host Node across detections instead of re-probing', async () => {
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '^4' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    await detectProjectTests(rootPath);
+    await detectProjectTests(rootPath);
+    expect(detectNode).toHaveBeenCalledOnce();
+  });
+
+  it('probes again after a miss so a newly installed Node is found', async () => {
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '^4' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    vi.mocked(detectNode).mockResolvedValueOnce({ installed: false });
+    const missing = await detectProjectTests(rootPath);
+    expect(missing.candidates[0]).toMatchObject({ available: false, unavailableReason: 'node-not-found' });
+    const found = await detectProjectTests(rootPath);
+    expect(found.candidates[0]).toMatchObject({ available: true });
+    expect(detectNode).toHaveBeenCalledTimes(2);
+  });
+
   it('detects every supported root marker in deterministic order', async () => {
     await write(
       'package.json',
@@ -60,7 +90,6 @@ describe('project test discovery', () => {
     const result = await detectProjectTests(rootPath, {
       platform: 'linux',
       env: { PATH: binPath },
-      electronExecutable: '/trusted/electron',
     });
 
     expect(result.kind).toBe('ready');
@@ -120,6 +149,71 @@ describe('project test discovery', () => {
     ]);
   });
 
+  it('does not advertise JavaScript runners when host Node is missing', async () => {
+    vi.mocked(detectNode).mockResolvedValue({ installed: false });
+    await write('package.json', JSON.stringify({ devDependencies: { vitest: '*', jest: '*' } }));
+    await write('node_modules/vitest/vitest.mjs');
+    await write('node_modules/jest/bin/jest.js');
+    const spawnImpl = vi.fn();
+    const detection = await detectProjectTests(rootPath);
+    expect(detection.candidates).toHaveLength(2);
+    expect(
+      detection.candidates.every(
+        entry => !entry.available && entry.unavailableReason === 'node-not-found'
+      )
+    ).toBe(true);
+    expect(await runProjectTests(rootPath, 'vitest', 'missing-node', { spawnImpl })).toMatchObject({
+      kind: 'unavailable',
+      unavailableReason: 'node-not-found',
+    });
+    expect(spawnImpl).not.toHaveBeenCalled();
+  });
+
+  it('resolves a PATH-detected node absolutely and strips relative PATH entries', async () => {
+    vi.mocked(detectNode).mockResolvedValue({
+      installed: true,
+      binary: 'node',
+      version: process.version,
+    });
+    const nodeName = process.platform === 'win32' ? 'node.exe' : 'node';
+    await executable(nodeName);
+    await write('package.json', JSON.stringify({ devDependencies: { jest: '*' } }));
+    await write('node_modules/jest/bin/jest.js');
+    const spawnImpl = vi.fn(async (_options: SpawnNativeRunOptions) => ({
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      executionTime: 1,
+      timedOut: false,
+      killed: false,
+    }));
+    await runProjectTests(rootPath, 'jest', 'absolute-node', {
+      env: {
+        PATH: `.${path.delimiter}${binPath}${path.delimiter}relative`,
+        SYNTHETIC_SECRET: 'must-not-reach-detector',
+        NODE_OPTIONS: '--require injected.js',
+        ELECTRON_RUN_AS_NODE: '1',
+      },
+      spawnImpl,
+    });
+    expect(detectNode).toHaveBeenLastCalledWith(
+      { PATH: binPath },
+      false,
+      expect.any(AbortSignal)
+    );
+    expect(spawnImpl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: path.join(binPath, nodeName),
+        args: [
+          path.join(rootPath, 'node_modules/jest/bin/jest.js'),
+          '--runInBand',
+          '--colors=false',
+        ],
+      })
+    );
+    expect(spawnImpl.mock.calls[0]?.[0].env).not.toHaveProperty('ELECTRON_RUN_AS_NODE');
+  });
+
   it('returns none when no supported project marker exists', async () => {
     expect(await detectProjectTests(rootPath, { env: { PATH: '' } })).toEqual({
       kind: 'none',
@@ -152,13 +246,122 @@ describe('project test execution', () => {
     await write('node_modules/vitest/vitest.mjs');
   });
 
+  it('owns Stop during framework detection and never spawns cancelled tests', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnImpl = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const pending = runProjectTests(rootPath, 'vitest', 'preparing', { spawnImpl });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    const stopped = stopProjectTests(rootPath, 'preparing');
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    const result = await pending;
+    expect(stopped).toBe(true);
+    expect(result.kind).toBe('stopped');
+    expect(spawnImpl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['same-id', 'invalid-request'], ['another-id', 'busy'],
+  ])('reserves preparation against concurrent %s requests', async (secondId, expectedKind) => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnImpl = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const first = runProjectTests(rootPath, 'vitest', 'same-id', { spawnImpl });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    const second = await runProjectTests(rootPath, 'vitest', secondId, { spawnImpl });
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    await first;
+    expect(second.kind).toBe(expectedKind);
+    expect(spawnImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not release a new owner when disposed preparation settles late', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof detectNode>>) => void;
+    vi.mocked(detectNode).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    const spawnOld = vi.fn(async () => ({
+      stdout: '', stderr: '', exitCode: 0, executionTime: 0, timedOut: false, killed: false,
+    }));
+    const old = runProjectTests(rootPath, 'vitest', 'reused', { spawnImpl: spawnOld });
+    await vi.waitFor(() => expect(complete).toBeTypeOf('function'));
+    disposeProjectTestRuns();
+    let started!: SpawnNativeRunOptions;
+    let finish!: () => void;
+    const current = runProjectTests(rootPath, 'vitest', 'reused', {
+      spawnImpl: options => new Promise(resolve => {
+        started = options;
+        finish = () => resolve({
+          stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+          timedOut: false, killed: options.signal?.aborted ?? false,
+        });
+      }),
+    });
+    await vi.waitFor(() => expect(started).toBeDefined());
+    complete({ installed: true, binary: process.execPath, version: process.version });
+    const oldResult = await old;
+    const stopped = stopProjectTests(rootPath, 'reused');
+    finish();
+    const currentResult = await current;
+    expect(oldResult.kind).toBe('stopped');
+    expect(spawnOld).not.toHaveBeenCalled();
+    expect(stopped).toBe(true);
+    expect(currentResult.kind).toBe('stopped');
+  });
+
+  it('marks per-pipe clipping in the observed transcript and bounds live publication', async () => {
+    const chunks: string[] = [];
+    const result = await runProjectTests(rootPath, 'vitest', 'run-clipped-order', {
+      onOutput: (_stream, chunk) => chunks.push(chunk),
+      spawnImpl: async options => {
+        options.onStdout?.('a'.repeat(256 * 1024 + 100));
+        options.onStdout?.('MUST_NOT_APPEAR');
+        options.onStderr?.('warning');
+        return {
+          stdout: '',
+          stderr: 'warning',
+          exitCode: 0,
+          executionTime: 3,
+          timedOut: false,
+          killed: false,
+        };
+      },
+    });
+    expect(chunks.join('')).toContain('[project test output truncated]');
+    expect(chunks.join('')).not.toContain('MUST_NOT_APPEAR');
+    expect(chunks.join('').length).toBeLessThan(256 * 1024 + 100);
+    expect(result).toMatchObject({ orderedOutput: chunks.join('') });
+  });
+
+  it('retains the observed stdout/stderr order in the final project-test result', async () => {
+    const observed: string[] = [];
+    const result = await runProjectTests(rootPath, 'vitest', 'run-observed-order', {
+      onOutput: (_stream, chunk) => observed.push(chunk),
+      spawnImpl: async options => {
+        options.onStdout?.('first\n');
+        options.onStderr?.('warning\n');
+        options.onStdout?.('last\n');
+        return {
+          stdout: 'first\nlast\n',
+          stderr: 'warning\n',
+          exitCode: 0,
+          executionTime: 3,
+          timedOut: false,
+          killed: false,
+        };
+      },
+    });
+    expect(observed).toEqual(['first\n', 'warning\n', 'last\n']);
+    expect(result).toMatchObject({ orderedOutput: observed.join('') });
+  });
+
   it('spawns a fixed argv in the approved project cwd without a shell', async () => {
     // Assigned inside the spawn callback; the cast stops TypeScript narrowing it to null.
     let captured = null as SpawnNativeRunOptions | null;
     const result = await runProjectTests(rootPath, 'vitest', 'run-1', {
-      platform: 'linux',
       env: { PATH: binPath },
-      electronExecutable: '/trusted/electron',
       spawnImpl: async options => {
         captured = options;
         return {
@@ -174,7 +377,7 @@ describe('project test execution', () => {
 
     expect(captured).toEqual(
       expect.objectContaining({
-        command: '/trusted/electron',
+        command: process.execPath,
         args: [path.join(rootPath, 'node_modules/vitest/vitest.mjs'), 'run', '--no-color'],
         cwd: rootPath,
       })
@@ -182,10 +385,10 @@ describe('project test execution', () => {
     expect(captured?.env).toEqual(
       expect.objectContaining({
         CI: '1',
-        ELECTRON_RUN_AS_NODE: '1',
         NO_COLOR: '1',
       })
     );
+    expect(captured?.env).not.toHaveProperty('ELECTRON_RUN_AS_NODE');
     expect(result).toEqual(
       expect.objectContaining({
         kind: 'success',
@@ -201,17 +404,15 @@ describe('project test execution', () => {
     const installedVitestEntry = path.resolve('node_modules/vitest/vitest.mjs');
     await write(
       'node_modules/vitest/vitest.mjs',
-      `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`,
+      `import ${JSON.stringify(pathToFileURL(installedVitestEntry).href)};\n`
     );
     await write('vitest.config.mjs', 'export default { test: { globals: true } };\n');
     await write(
       'test/example.test.js',
-      "test('project runner fixture', () => { expect(2 + 2).toBe(4); });\n",
+      "test('project runner fixture', () => { expect(2 + 2).toBe(4); });\n"
     );
 
-    const result = await runProjectTests(rootPath, 'vitest', 'run-real-vitest', {
-      electronExecutable: process.execPath,
-    });
+    const result = await runProjectTests(rootPath, 'vitest', 'run-real-vitest');
 
     expect(result.kind).toBe('success');
     expect(result.exitCode).toBe(0);
@@ -236,8 +437,6 @@ describe('project test execution', () => {
       started = resolve;
     });
     const run = runProjectTests(rootPath, 'vitest', 'run-stop', {
-      platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -270,8 +469,6 @@ describe('project test execution', () => {
     const spawnImpl = vi.fn();
 
     const result = await runProjectTests(rootPath, 'vitest', 'run-owner-gone', {
-      platform: 'linux',
-      electronExecutable: '/trusted/electron',
       signal: ownerLifecycle.signal,
       spawnImpl,
     });
@@ -286,8 +483,6 @@ describe('project test execution', () => {
       started = resolve;
     });
     const firstRun = runProjectTests(rootPath, 'vitest', 'run-first', {
-      platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: options =>
         new Promise(resolve => {
           started();
@@ -308,21 +503,16 @@ describe('project test execution', () => {
     });
     await didStart;
 
-    await expect(
-      runProjectTests(rootPath, 'vitest', 'run-second', {
-        platform: 'linux',
-        electronExecutable: '/trusted/electron',
-      })
-    ).resolves.toEqual(expect.objectContaining({ kind: 'busy' }));
+    await expect(runProjectTests(rootPath, 'vitest', 'run-second')).resolves.toEqual(
+      expect.objectContaining({ kind: 'busy' })
+    );
 
     expect(stopProjectTests(rootPath, 'run-first')).toBe(true);
     await expect(firstRun).resolves.toEqual(expect.objectContaining({ kind: 'stopped' }));
   });
 
-  it('reports JavaScript runner spawn failures as missing local dependencies', async () => {
+  it('reports a vanished Node executable as a runtime recovery error', async () => {
     const result = await runProjectTests(rootPath, 'vitest', 'run-spawn-error', {
-      platform: 'linux',
-      electronExecutable: '/trusted/electron',
       spawnImpl: async () => ({
         stdout: '',
         stderr: '',
@@ -330,14 +520,14 @@ describe('project test execution', () => {
         executionTime: 2,
         timedOut: false,
         killed: false,
-        spawnError: new Error('entry disappeared'),
+        spawnError: new Error('node disappeared'),
       }),
     });
 
     expect(result).toEqual(
       expect.objectContaining({
         kind: 'unavailable',
-        unavailableReason: 'dependencies-not-installed',
+        unavailableReason: 'node-not-found',
       })
     );
   });
@@ -345,8 +535,6 @@ describe('project test execution', () => {
   it('forwards live stdout and stderr chunks from the bounded native runner', async () => {
     const output: string[] = [];
     const result = await runProjectTests(rootPath, 'vitest', 'run-stream', {
-      platform: 'linux',
-      electronExecutable: '/trusted/electron',
       onOutput: (stream, chunk) => output.push(`${stream}:${chunk}`),
       spawnImpl: async options => {
         options.onStdout?.('collecting tests\n');
@@ -372,14 +560,13 @@ describe('project test execution', () => {
       [
         "if (process.argv.slice(2).join(' ') !== 'run --no-color') process.exit(2);",
         "console.log('fixture suite passed');",
-      ].join('\n'),
+      ].join('\n')
     );
     const streamed: string[] = [];
 
     const result = await runProjectTests(rootPath, 'vitest', 'run-real-process', {
       platform: process.platform,
       env: process.env,
-      electronExecutable: process.execPath,
       onOutput: (_stream, chunk) => streamed.push(chunk),
     });
 
@@ -388,7 +575,7 @@ describe('project test execution', () => {
         kind: 'success',
         exitCode: 0,
         stdout: expect.stringContaining('fixture suite passed'),
-      }),
+      })
     );
     expect(streamed.join('')).toContain('fixture suite passed');
   });

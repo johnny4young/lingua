@@ -3,6 +3,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useEnvVarsStore } from '../stores/envVarsStore';
 import { useProjectStore } from '../stores/projectStore';
 import { trackEvent } from '../utils/telemetry';
+import { filterNativeProbeEnv, type NativeProbeRuntime } from '../utils/nativeProbeEnv';
 
 // internal close-out — fire `env.project_scope_used` at most once per renderer
 // session, the first time a native runner resolves env while a project is open.
@@ -13,7 +14,7 @@ let projectScopeTelemetryEmitted = false;
  * The host env allowlist stays in main; this only sends explicit
  * user/project/tab variables across the preload boundary.
  */
-export function resolveUserEnvForRunner(): Record<string, string> {
+function resolveUserEnv(emitProjectScopeUsage: boolean): Record<string, string> {
   // internal contract: user-defined env vars are a desktop-only feature.
   // The web build keeps the Settings surface honest for tier editing and
   // trace preview, but runnable paths must not leak those vars into the
@@ -30,13 +31,26 @@ export function resolveUserEnvForRunner(): Record<string, string> {
   // internal close-out — once-per-session adoption signal for project-scoped env.
   // Only when a project is open; `hasProjectVars` says whether that project
   // carries any project-tier overrides. No keys/values/paths leave the renderer.
-  if (!projectScopeTelemetryEmitted && projectId) {
+  if (emitProjectScopeUsage && !projectScopeTelemetryEmitted && projectId) {
     projectScopeTelemetryEmitted = true;
     const hasProjectVars = Object.keys(envState.project[projectId] ?? {}).length > 0;
     void trackEvent('env.project_scope_used', { hasProjectVars });
   }
 
   return { ...envState.resolveEffectiveEnv({}, projectId, activeTabId) };
+}
+
+/** Full explicit-run environment; records the first project-scoped use. */
+export function resolveUserEnvForRunner(): Record<string, string> {
+  return resolveUserEnv(true);
+}
+
+/** Passive menu/palette checks neither consume project secrets nor count as Run usage. */
+export function resolveUserEnvForNativeProbe(
+  runtime: NativeProbeRuntime,
+  platform: string | undefined
+): Record<string, string> {
+  return filterNativeProbeEnv(runtime, resolveUserEnv(false), platform);
 }
 
 export function resolveNativeRunnerMessages(): NativeRunnerMessages {

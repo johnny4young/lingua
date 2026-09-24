@@ -8,6 +8,30 @@ keywords: [capsule, validate, replay, RunCapsuleV1, hash, comparison, workspace,
 
 Run Capsules preserve one source buffer, input, arguments, environment metadata, and recorded output. The CLI can validate that contract or replay its single source through a local runtime.
 
+## From the app to the CLI
+
+Run code in Lingua, then open **Settings → Account → Run capsules** and choose
+**Save JSON for CLI**. Desktop uses a local Save dialog; Browser downloads the
+same sanitized `RunCapsuleV1` JSON. The suggested filename is
+`lingua-run.capsule.json`. You can also import the JSON in Lingua to preview it
+without running it.
+
+In a terminal opened in the saved file's folder, validate first:
+
+```bash
+lingua capsule validate "lingua-run.capsule.json" --json
+```
+
+Inspect the JSON source and use the separate replay command only if you trust
+it. Replay executes code with your operating-system permissions:
+
+```bash
+lingua capsule replay "lingua-run.capsule.json" --json
+```
+
+The app offers separate Copy buttons for these commands; copying does not run
+either one. Change the quoted path if you chose another filename or folder.
+
 ## Validate without executing
 
 ```bash

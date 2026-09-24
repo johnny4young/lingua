@@ -3,6 +3,8 @@
  * the opt-in code snapshot, and the run-start git posture the capsule carries.
  */
 
+import { orderedConsoleOutputs } from '../../utils/capturedOutput';
+import { primaryExecutionError } from '../../utils/executionOutcome';
 import { getBundledAppInfo } from '../../../shared/appInfo';
 import { isEntitled } from '../../../shared/entitlements';
 import { buildRunCapsule, type RunCapsuleV1 } from '../../../shared/runCapsule';
@@ -65,8 +67,7 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
     }
   };
 
-  collectFromConsole(result.stdout);
-  collectFromConsole(result.stderr);
+  collectFromConsole(orderedConsoleOutputs(result));
   for (const magicResult of result.magicResults ?? []) {
     if (magicResult.payload !== undefined) {
       richOutputs.push(magicResult.payload);
@@ -220,8 +221,13 @@ export function snapshotGitPosture(): GitSnapshot | undefined {
   }
 }
 
-function joinConsoleEntries(entries: ConsoleOutput[]): string {
-  return entries.map((entry) => entry.args.join(' ')).join('\n');
+function joinConsoleEntries(entries: ConsoleOutput[], lineTerminated: boolean): string {
+  const text = entries.map(entry => entry.args.join(' ')).join('\n');
+  // JS/TS worker console calls are captured as logical lines, without their
+  // terminal delimiter. Node's console methods emit one; retain that delimiter
+  // in the capsule so CLI replay compares actual output rather than a display
+  // serialization artifact. Native/other runners keep their existing bytes.
+  return lineTerminated ? `${text}\n` : text;
 }
 
 /** Capsule fields every record shares, read from the tab that ran. */
@@ -257,21 +263,32 @@ export async function recordCompletedRun(args: {
   lineResults: unknown[];
   diagnostics: unknown[];
   gitSnapshot: GitSnapshot | undefined;
+  isCurrent?: () => boolean;
 }): Promise<void> {
   const { activeTab, result, runStatus, lineResults, diagnostics, gitSnapshot } = args;
   const { language, content } = activeTab;
+  const lineTerminatedConsole =
+    (language === 'javascript' || language === 'typescript') &&
+    (activeTab.runtimeMode ?? 'worker') === 'worker';
   const capsule = await tryBuildCapsule({
     ...capsuleTabFields(activeTab, gitSnapshot),
     status: runStatus === 'ok' ? 'success' : runStatus,
     durationMs: result.executionTime ?? 0,
-    stdout: result.stdout.length > 0 ? joinConsoleEntries(result.stdout) : undefined,
-    stderr: result.stderr.length > 0 ? joinConsoleEntries(result.stderr) : undefined,
+    stdout:
+      result.stdout.length > 0
+        ? joinConsoleEntries(result.stdout, lineTerminatedConsole)
+        : undefined,
+    stderr:
+      result.stderr.length > 0
+        ? joinConsoleEntries(result.stderr, lineTerminatedConsole)
+        : undefined,
     lineResults: lineResults.length > 0 ? lineResults : undefined,
     richOutputs: collectRichOutputs(result),
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
-    errorMessage: result.error?.message,
+    errorMessage: primaryExecutionError(result)?.message,
   });
 
+  if (args.isCurrent && !args.isCurrent()) return;
   useExecutionHistoryStore.getState().record({
     language,
     status: runStatus === 'ok' ? 'ok' : 'error',
@@ -297,7 +314,8 @@ export async function recordCompletedRun(args: {
 export async function recordFailedRun(
   activeTab: FileTab,
   message: string,
-  gitSnapshot: GitSnapshot | undefined
+  gitSnapshot: GitSnapshot | undefined,
+  isCurrent: () => boolean = () => true
 ): Promise<void> {
   const { language, content } = activeTab;
   const capsule = await tryBuildCapsule({
@@ -306,6 +324,7 @@ export async function recordFailedRun(
     durationMs: 0,
     errorMessage: message,
   });
+  if (!isCurrent()) return;
   useExecutionHistoryStore.getState().record({
     language,
     status: 'error',

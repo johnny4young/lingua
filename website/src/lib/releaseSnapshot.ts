@@ -7,7 +7,7 @@ export interface ReleaseVersionPolicy {
   requireCurrentVersion?: boolean;
 }
 
-export interface TrustedReleaseAsset {
+interface TrustedReleaseAsset {
   name: string;
   downloadUrl: string;
   sizeBytes: number;

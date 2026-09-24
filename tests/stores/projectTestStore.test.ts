@@ -43,6 +43,48 @@ beforeEach(() => {
 });
 
 describe('projectTestStore', () => {
+  it('keeps live chunks in observed order and ignores foreign or settled run messages', async () => {
+    let emit!: (event: import('../../src/shared/projectTests').ProjectTestOutputEvent) => void;
+    let finish!: (result: import('../../src/shared/projectTests').ProjectTestRunResult) => void;
+    const unsubscribe = vi.fn();
+    installBridge({
+      onOutput: handler => {
+        emit = handler;
+        return unsubscribe;
+      },
+      run: () =>
+        new Promise(resolve => {
+          finish = resolve;
+        }),
+    });
+    useProjectTestStore.setState({ rootId: rootA, status: 'ready', selectedFramework: 'vitest' });
+    const pending = useProjectTestStore.getState().run({ rootId: rootA, projectName: 'Alpha' });
+    const runId = useProjectTestStore.getState().activeRunId!;
+    emit({ runId, stream: 'stdout', chunk: 'first\n' });
+    emit({ runId: 'foreign', stream: 'stderr', chunk: 'IGNORE' });
+    emit({ runId, stream: 'stderr', chunk: 'warning\n' });
+    emit({ runId, stream: 'stdout', chunk: 'last\n' });
+    expect(useProjectTestStore.getState().liveOutput.transcript?.text).toBe(
+      'first\nwarning\nlast\n'
+    );
+    finish({
+      kind: 'success',
+      framework: 'vitest',
+      command: 'vitest',
+      stdout: 'first\nlast\n',
+      stderr: 'warning\n',
+      orderedOutput: 'first\nwarning\nlast\n',
+      exitCode: 0,
+      executionTime: 3,
+      timeoutMs: 300000,
+    });
+    await pending;
+    emit({ runId, stream: 'stderr', chunk: 'LATE' });
+    expect(useProjectTestStore.getState().liveOutput.transcript?.text).toBe(
+      'first\nwarning\nlast\n'
+    );
+    expect(unsubscribe).toHaveBeenCalledOnce();
+  });
   it('selects the first available detected runner', async () => {
     vi.mocked(window.lingua!.projectTests!.detect).mockResolvedValue({
       kind: 'ready',
@@ -115,12 +157,14 @@ describe('projectTestStore', () => {
   });
 
   it('runs the selected framework and forwards the active run id when stopping', async () => {
-    let resolveRun!: (value: Awaited<ReturnType<NonNullable<LinguaAPI['projectTests']>['run']>>) => void;
-    const runResult = new Promise<Awaited<ReturnType<NonNullable<LinguaAPI['projectTests']>['run']>>>(
-      resolve => {
-        resolveRun = resolve;
-      },
-    );
+    let resolveRun!: (
+      value: Awaited<ReturnType<NonNullable<LinguaAPI['projectTests']>['run']>>
+    ) => void;
+    const runResult = new Promise<
+      Awaited<ReturnType<NonNullable<LinguaAPI['projectTests']>['run']>>
+    >(resolve => {
+      resolveRun = resolve;
+    });
     const run = vi.fn().mockReturnValue(runResult);
     const stop = vi.fn().mockResolvedValue({ stopped: true });
     installBridge({ run, stop });

@@ -15,11 +15,13 @@
  */
 
 import { typedHandle } from './ipc/typedHandle';
-import { execFile } from 'node:child_process';
-import { writeFile, readFile, mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
+import { isNativeRunId, isStringRecord } from './runners/nativeRunRequest';
+import { spawnNativeRun } from './runners/spawnNativeRun';
+import { writeFile, readFile, stat } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
   MAX_GO_WASM_BYTES,
@@ -32,7 +34,6 @@ import {
 } from './runners/nativeEnv';
 import type { GoCompileResult, GoDetectResult } from '../shared/nativeRuntimeTypes';
 
-const execFileAsync = promisify(execFile);
 const WASM_EXEC_RELATIVE_PATHS = [
   ['lib', 'wasm', 'wasm_exec.js'],
   ['misc', 'wasm', 'wasm_exec.js'],
@@ -51,15 +52,17 @@ export function getWasmExecCandidatePaths(goRoot: string): string[] {
 }
 
 export async function readWasmExecJs(
-  goRoot: string
+  goRoot: string, signal?: AbortSignal
 ): Promise<{ path: string; source: string }> {
   const checkedPaths: string[] = [];
 
   for (const candidatePath of getWasmExecCandidatePaths(goRoot)) {
+    signal?.throwIfAborted();
     checkedPaths.push(candidatePath);
 
     try {
       const source = await readFile(candidatePath, 'utf-8');
+      signal?.throwIfAborted();
       return { path: candidatePath, source };
     } catch (error) {
       const errorCode = (error as NodeJS.ErrnoException).code;
@@ -95,39 +98,40 @@ function resolveGoToolchainEnv(
  */
 let cachedGoDetect: GoDetectResult | null = null;
 
-/** Detect if Go is installed and return version info */
-async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResult> {
+/** Detect with the same process ownership as compilation. */
+async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<
+  GoDetectResult & { timedOut?: boolean }
+> {
   const cacheable = userEnv === undefined;
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedGoDetect) return cachedGoDetect;
-  try {
-    const env = resolveGoToolchainEnv(userEnv);
-    // 5s probe timeout: a hung PATH shim must not wedge the detect IPC
-    // promise forever. Matches the LSP launchers' convention.
-    const { stdout } = await execFileAsync('go', ['version'], {
-      env,
-      timeout: 5_000,
+  const env = resolveGoToolchainEnv(userEnv);
+  const outputs: string[] = [];
+  for (const args of [['version'], ['env', 'GOROOT']]) {
+    if (signal?.aborted) return { installed: false, reason: 'check-failed' };
+    const probe = await spawnNativeRun({
+      command: 'go', args, env, signal, timeoutMs: 5_000, killEscalationMs: 200,
+      maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
+      stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
+      stderrTruncationMarker: COMPILE_TRUNCATION_MARKER,
     });
-    const version = stdout.trim();
-
-    // Get GOROOT for wasm_exec.js
-    const { stdout: goRoot } = await execFileAsync('go', ['env', 'GOROOT'], {
-      env,
-      timeout: 5_000,
-    });
-
-    const result: GoDetectResult = {
-      installed: true,
-      version,
-      goRoot: goRoot.trim(),
-    };
-    if (cacheable) cachedGoDetect = result;
-    return result;
-  } catch {
-    return {
-      installed: false,
-      error: 'Go is not installed. Install it from https://go.dev/dl/',
-    };
+    if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+    if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
+      const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
+      return {
+        installed: false,
+        reason: missing ? 'missing' : 'check-failed',
+        timedOut: probe.timedOut,
+        error: missing
+          ? 'Go is not installed. Install it from https://go.dev/dl/'
+          : 'Go toolchain check failed. Retry detection or inspect your local Go installation.',
+      };
+    }
+    outputs.push(probe.stdout.trim());
   }
+  const result: GoDetectResult = { installed: true, version: outputs[0], goRoot: outputs[1] };
+  if (cacheable) cachedGoDetect = result;
+  return result;
 }
 
 /**
@@ -150,115 +154,92 @@ export function resolveGoCompileEnv(
   );
 }
 
+const activeCompiles = new Map<string, { owner?: WebContents; controller: AbortController }>();
+const stopped = (): GoCompileResult => ({ success: false, kind: 'stopped' });
+const failed = (error: string): GoCompileResult => ({ success: false, kind: 'error', error });
+
 async function compileGoToWasm(
-  sourceCode: string,
-  userEnv?: Record<string, string>,
-  messages?: NativeRunnerMessages
+  sourceCode: string, userEnv: Record<string, string> | undefined,
+  messages: NativeRunnerMessages | undefined, runId: string | undefined,
+  owner?: WebContents
 ): Promise<GoCompileResult> {
-  const goInfo = await detectGo(userEnv);
-  if (!goInfo.installed || !goInfo.goRoot) {
-    return {
-      success: false,
-      error: goInfo.error ?? 'Go is not installed.',
-    };
-  }
-
-  // internal — `mkdtemp` returns a unique directory with 6 random suffix
-  // chars, eliminating the collision window a `Date.now()` filename
-  // would leave open for two concurrent runs.
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-go-'));
-  const sourceFile = path.join(tempDir, 'main.go');
-  const wasmFile = path.join(tempDir, 'main.wasm');
-
+  if (runId && activeCompiles.has(runId)) return failed('A Go compile with this ID is already active.');
+  const lifecycle = createNativeRunLifecycle(owner);
+  const { controller } = lifecycle;
+  const { signal } = controller;
+  const active = { owner, controller };
+  if (runId) activeCompiles.set(runId, active);
+  let tempDir: string | undefined;
+  let goVersion: string | undefined;
   try {
-    // Write source code
-    await writeFile(sourceFile, sourceCode, 'utf-8');
-
-    // Initialize a temp go module
-    await writeFile(
-      path.join(tempDir, 'go.mod'),
-      'module lingua_temp\n\ngo 1.21\n',
-      'utf-8'
-    );
-
-    // Compile to WASM
-    await execFileAsync('go', ['build', '-o', wasmFile, '.'], {
-      cwd: tempDir,
-      env: resolveGoCompileEnv(userEnv),
-      timeout: 30_000,
+    const goInfo = await detectGo(userEnv, signal);
+    if (signal.aborted) return stopped();
+    if (goInfo.timedOut) return { success: false, kind: 'timeout', timeoutMs: 5_000 };
+    if (!goInfo.installed || !goInfo.goRoot) return failed(goInfo.error ?? 'Go is not installed.');
+    goVersion = goInfo.version;
+    tempDir = stageNativeRunTempDir('lingua-go-');
+    if (signal.aborted) return stopped();
+    const wasmFile = path.join(tempDir, 'main.wasm');
+    await writeFile(path.join(tempDir, 'main.go'), sourceCode, 'utf-8');
+    if (signal.aborted) return stopped();
+    await writeFile(path.join(tempDir, 'go.mod'), 'module lingua_temp\n\ngo 1.21\n', 'utf-8');
+    if (signal.aborted) return stopped();
+    const compiled = await spawnNativeRun({
+      command: 'go', args: ['build', '-o', wasmFile, '.'], cwd: tempDir,
+      env: resolveGoCompileEnv(userEnv), signal, timeoutMs: 30_000, killEscalationMs: 200,
+      maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
+      stdoutTruncationMarker: compileTruncationMarker(messages),
+      stderrTruncationMarker: compileTruncationMarker(messages),
     });
-
-    const wasmStat = await stat(wasmFile);
-    if (wasmStat.size > MAX_GO_WASM_BYTES) {
-      return {
-        success: false,
-        error: `Compiled Go WASM exceeded ${MAX_GO_WASM_BYTES} byte limit.`,
-        goVersion: goInfo.version,
-      };
+    if (signal.aborted || compiled.killed) return stopped();
+    if (compiled.timedOut) return { success: false, kind: 'timeout', timeoutMs: 30_000, goVersion };
+    if (compiled.spawnError || compiled.exitCode !== 0) {
+      return { ...failed(compiled.spawnError?.message || compiled.stderr || `Go compiler exited with code ${compiled.exitCode}`), goVersion };
     }
-
-    // Read the compiled WASM. Keep it a typed array end to end: Electron's
-    // structured clone ships Uint8Array natively, whereas the previous
-    // Array.from(...) expanded a 10 MiB wasm into a ~10M-element number[]
-    // (~8x memory amplification serialized twice — IPC + worker postMessage).
+    const wasmStat = await stat(wasmFile);
+    if (signal.aborted) return stopped();
+    if (wasmStat.size > MAX_GO_WASM_BYTES) {
+      return { ...failed(`Compiled Go WASM exceeded ${MAX_GO_WASM_BYTES} byte limit.`), goVersion };
+    }
     const wasmBuffer = await readFile(wasmFile);
-    const wasmBytes = new Uint8Array(
-      wasmBuffer.buffer,
-      wasmBuffer.byteOffset,
-      wasmBuffer.byteLength
-    );
-
-    const { source: wasmExecJs } = await readWasmExecJs(goInfo.goRoot);
-
-    return {
-      success: true,
-      wasmBytes,
-      wasmExecJs,
-      goVersion: goInfo.version,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-
-    // Try to extract Go compiler error
-    const stderr = (err as { stderr?: string })?.stderr;
-    const errorMsg = truncateBytes(
-      stderr ?? message,
-      MAX_COMPILE_OUTPUT_BYTES,
-      compileTruncationMarker(messages)
-    );
-
-    return {
-      success: false,
-      error: errorMsg,
-      goVersion: goInfo.version,
-    };
+    if (signal.aborted) return stopped();
+    // Preserve the typed-array IPC/worker transfer, not an expanded number[].
+    const wasmBytes = new Uint8Array(wasmBuffer.buffer, wasmBuffer.byteOffset, wasmBuffer.byteLength);
+    const { source: wasmExecJs } = await readWasmExecJs(goInfo.goRoot, signal);
+    if (signal.aborted) return stopped();
+    return { success: true, kind: 'success', wasmBytes, wasmExecJs, goVersion };
+  } catch (error) {
+    if (signal.aborted) return stopped();
+    const message = error instanceof Error ? error.message : String(error);
+    return { ...failed(truncateBytes(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
   } finally {
-    // Clean up temp directory
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
+    if (runId && activeCompiles.get(runId) === active) activeCompiles.delete(runId);
+    lifecycle.release();
   }
 }
 
-/** Register all Go-related IPC handlers */
-export function registerGoHandlers(): void {
-  typedHandle('go:detect', async (_event, userEnv?: Record<string, string>) => {
-    return detectGo(userEnv);
-  });
 
-  typedHandle(
-    'go:compile',
-    async (
-      _event,
-      sourceCode: unknown,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ): Promise<GoCompileResult> => {
-      if (typeof sourceCode !== 'string') {
-        return {
-          success: false,
-          error: 'Go compiler received invalid source.',
-        };
-      }
-      return compileGoToWasm(sourceCode, userEnv, messages);
-    }
-  );
+/** Validate wire values before probing, allocating files or spawning. */
+export function registerGoHandlers(): void {
+  typedHandle('go:detect', async (event, userEnv?: unknown) => {
+    if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Go environment.' };
+    const lifecycle = createNativeRunLifecycle(event.sender);
+    try { return await detectGo(userEnv, lifecycle.controller.signal); }
+    finally { lifecycle.release(); }
+  });
+  typedHandle('go:compile', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
+    if (typeof source !== 'string') return failed('Go compiler received invalid source.');
+    if ((userEnv !== undefined && !isStringRecord(userEnv))
+      || (messages !== undefined && !isStringRecord(messages))
+      || (runId !== undefined && !isNativeRunId(runId))) return failed('Invalid Go compile request.');
+    return compileGoToWasm(source, userEnv, messages, runId, event.sender);
+  });
+  typedHandle('go:stop', async (event, runId: unknown) => {
+    if (!isNativeRunId(runId)) return { stopped: false };
+    const active = activeCompiles.get(runId);
+    if (!active || active.owner !== event.sender) return { stopped: false };
+    active.controller.abort();
+    return { stopped: true };
+  });
 }

@@ -32,6 +32,11 @@ import { RuntimeModeSelector } from './RuntimeModeSelector';
 import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
+import { useNativeLanguageToolchainAvailability } from '../../hooks/useNativeLanguageToolchainAvailability';
+import {
+  isNativeLanguageToolchain,
+  nativeLanguageToolchainHintKey,
+} from '../../utils/nativeLanguageToolchainStatus';
 import {
   executionDisabledTooltipKey,
   resolveExecutionControlPolicy,
@@ -85,8 +90,10 @@ export function Toolbar() {
   const activeLanguage = activeTab?.language ?? 'javascript';
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const nativeLanguageToolchains = useNativeLanguageToolchainAvailability(isNewFileMenuOpen && !isWebBuild);
   const executionPolicy = resolveExecutionControlPolicy({
     language: activeLanguage,
+    runtimeMode: activeTab?.runtimeMode,
     effectiveTier,
     isWebBuild,
     isNotebookTab: activeTab?.kind === 'notebook',
@@ -107,11 +114,12 @@ export function Toolbar() {
       : executionMode === 'view'
         ? t('toolbar.viewOnly.label')
         : loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'));
-  const actionTooltip = proLanguageGate
-    ? t('toolbar.run.proOnlyTooltip')
-    : desktopOnlyGate
-      ? t('toolbar.run.desktopOnlyTooltip')
-      : executionMode === 'validate'
+  const disabledRunTooltipKey = executionDisabledTooltipKey(
+    'run', executionPolicy.actions.run.reason,
+  );
+  const actionTooltip = disabledRunTooltipKey
+    ? t(disabledRunTooltipKey)
+    : executionMode === 'validate'
         ? t('toolbar.validate.title')
         : executionMode === 'view'
           ? t('toolbar.viewOnly.title')
@@ -145,9 +153,14 @@ export function Toolbar() {
   );
   const handleNewFile = (language: Language) => {
     if (!isLanguageAllowed(effectiveTier, language)) {
+      const needsDesktop = isWebBuild && languageCapabilityBadgeKey(language) !== null;
       pushUpsellNotice({
-        messageKey: 'upsell.freeCeilingReached',
-        featureLabel: t('upsell.feature.languagePack'),
+        messageKey: needsDesktop
+          ? 'upsell.desktopLanguageOnWeb'
+          : 'upsell.freeCeilingReached',
+        featureLabel: needsDesktop
+          ? languageLabel(language)
+          : t('upsell.feature.languagePack'),
       });
       void trackEvent('feature.blocked', {
         entitlement: 'language-pack-extended',
@@ -415,6 +428,12 @@ export function Toolbar() {
             >
               {languages.map((language) => {
                 const capabilityKey = languageCapabilityBadgeKey(language.id);
+                const isPro = !isLanguageAllowed(effectiveTier, language.id);
+                const toolchainHint = !isWebBuild && isNativeLanguageToolchain(language.id)
+                  ? t(nativeLanguageToolchainHintKey(nativeLanguageToolchains[language.id]), {
+                      toolchain: language.label,
+                    })
+                  : null;
                 return (
                   <button
                     key={language.id}
@@ -426,23 +445,26 @@ export function Toolbar() {
                         : 'text-foreground hover:bg-surface-strong/78'
                     }`}
                   >
-                    <span>{language.label}</span>
+                    <span className="flex flex-col">
+                      <span>{language.label}</span>
+                      {toolchainHint ? <span className="text-caption font-normal text-muted">{toolchainHint}</span> : null}
+                    </span>
                     <span className="flex items-center gap-2">
-                      {!isLanguageAllowed(effectiveTier, language.id) ? (
+                      {isPro || capabilityKey ? (
                         <span
-                          className="status-pill border-primary/25 bg-transparent px-2 text-caption text-primary"
+                          className={cn(
+                            'status-pill bg-transparent px-2 text-caption',
+                            isPro
+                              ? 'border-primary/25 text-primary'
+                              : 'border-border/60 text-muted',
+                          )}
                           data-testid={`toolbar-new-file-capability-${language.id}`}
                         >
-                          {t('language.capability.proOnly')}
+                          {isPro ? t('language.capability.proOnly') : null}
+                          {isPro && capabilityKey ? ' · ' : null}
+                          {capabilityKey ? t(capabilityKey) : null}
                         </span>
-                      ) : capabilityKey && (
-                        <span
-                          className="status-pill border-border/60 bg-transparent px-2 text-caption text-muted"
-                          data-testid={`toolbar-new-file-capability-${language.id}`}
-                        >
-                          {t(capabilityKey)}
-                        </span>
-                      )}
+                      ) : null}
                       {language.id === defaultNewFileLanguage && (
                         <span className="status-pill border-primary/20 bg-transparent px-0 text-primary">
                           {t('toolbar.newFile.current')}

@@ -14,7 +14,8 @@ import {
   type WatcherDiagnostic,
 } from '../../../shared/fs/watcherDiagnostic';
 import type { RootId } from '../projectCapabilities';
-import { typedHandle } from '../typedHandle';
+import { validatedHandle } from '../typedHandle';
+import { fsArgs } from './fsArgs';
 import { joinRelative, resolveOrThrow } from './fsShared';
 
 /**
@@ -185,9 +186,14 @@ export function registerWatcherHandlers(): void {
   ensureBeforeQuitCleanup();
   // --------------------------------------------------------------- watch
 
-  typedHandle(
+  validatedHandle(
     'fs:watch-start',
-    async (event, rootId: RootId, relativePath: RelativePath = asRelativePath('')) => {
+    (args) => fsArgs.rootRelative('fs:watch-start', args),
+    async (
+      event,
+      rootId: RootId,
+      relativePath: RelativePath = asRelativePath('')
+    ) => {
       const { absolutePath } = await resolveOrThrow(
         rootId,
         relativePath,
@@ -304,12 +310,12 @@ export function registerWatcherHandlers(): void {
     }
   );
 
-  typedHandle('fs:watch-stop', (_event, watchId: string) => {
-    // Boundary cast: the renderer hands back the opaque token main
-    // returned from `fs:watch-start`. Branding the raw IPC string here is
-    // the sanctioned mint point; `stopWatcherById` is a no-op for any
-    // token not present in the registry.
-    stopWatcherById(asWatchId(watchId));
-    return true;
-  });
+  validatedHandle(
+    'fs:watch-stop',
+    fsArgs.watchStop,
+    (_event, watchId: WatchId) => {
+      stopWatcherById(watchId);
+      return true;
+    }
+  );
 }

@@ -6,6 +6,46 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-09-21
+
+This version is being prepared; no release artifacts have been published.
+
+### Changed
+- **Dead-code checks now cover every independently locked package.** CI analyzes the root app, website, license Worker and update Worker with explicit package boundaries, proves each boundary with a temporary negative fixture, and runs for stacked pull requests as well as pull requests targeting `main`.
+- **Desktop filesystem IPC now validates wire payloads before side effects.** File operations, project search and replace, bundle import/export, capability lifecycle and watchers reject malformed types, tuples and oversized text at a shared runtime boundary while preserving the typed preload and web API.
+- **Import Preview no longer reads the clipboard when it opens.** Paste, file selection and drag-and-drop remain explicit; obsolete Import Preview consent and an unused inspector-default setting are ignored on rehydrate without resetting other preferences.
+
+### Security
+- **Production web and desktop shells block arbitrary inline scripts.** Only the exact prepaint bootstrap is hash-authorized; Browser preview and rich HTML retain script support in separately governed opaque sandboxes with cancelable, source-checked document loading.
+- **The desktop window navigates only to its own renderer document.** Other local files, same-origin server documents and query variants are rejected, including redirects; normal reload and fragments remain supported.
+- **Git inspection no longer runs configured filesystem-monitor hooks, filter drivers or external diff helpers.** Repository status and comparisons use isolated Git configuration and environment settings, keeping only your trusted `safe.directory`, line-ending and global ignore settings. Normal repositories, submodules and linked worktrees remain supported; Git 2.36 or later is required.
+- **Project bundles cannot import repository metadata.** Archives containing `.git` entries or filesystem aliases are rejected before a destination is selected or files are written.
+- **Local MCP secret exclusions apply through symlink aliases.** File reads, directory listings and search check both requested and canonical paths while preserving permitted in-project symlinks. MCP remains read-only.
+
+### Fixed
+- **Stop now cancels Node, Ruby, Deno and Bun version checks at their source.** Hung runtime shims and their descendants are terminated during preparation, output is bounded, and a cancelled check cannot execute code or poison the next run.
+- **Python, Go and Rust Debug can now be stopped before a debugger session exists.** Stop, window closure and app shutdown cancel authorization, source staging, tool discovery and Rust compilation; cancelled probes and compilers clean up their process trees, and late work cannot replace a newer debug run.
+- **Native debugger Stop cancels adapter startup and connection.** Late adapters cannot launch after cancellation, failed handshakes clean up their resources, and closed transports no longer deliver stale events. Missing LLDB executables surface as errors rather than uncaught child-process failures.
+- **Stopping Python or native DAP debugging reaps remaining descendants after the adapter exits.** Failed Delve startup also cleans its tree on timeout, early exit or connection failure.
+- **Stop and timeout clean up native descendants even when their parent exits first.** A descendant with independent pipes that ignores graceful termination no longer escapes cleanup when the parent closes.
+- **Go Stop also cancels toolchain discovery and compilation.** Late compiler responses and old worker messages cannot start or stop a newer execution; compilation timeouts are distinct from WASM execution timeouts.
+- **Rust Stop cancels runtime detection, compilation and the native binary.** Closing the owning window cancels the same pipeline; late replies cannot replace a newer run, and timeouts have a distinct status.
+- **Closing a desktop window cancels its Node, Ruby, Deno and Bun runs, including preparation.** App shutdown force-stops remaining native children instead of relying on timers after exit; other windows and later runs remain independent.
+- **Project tests honor Stop and window closure while authorizing the folder or detecting the framework.** Preparing runs cannot bypass the one-suite-per-project limit, and late cleanup or output cannot affect another run.
+- **Ruby, Deno and Bun also honor Stop during runtime discovery and source staging.** Late preparation cannot execute cancelled source or replace another run's Stop owner, and temporary files are cleaned before completion.
+- **Stop also takes effect while the desktop Node backend discovers its runtime or prepares files.** Cancelled work cannot create a child later, and duplicate live run identities cannot replace another run's Stop owner.
+- **Stop during native Node TypeScript preparation cannot launch cancelled code later.** A late compiler result or rejection cannot steal cancellation from the next run.
+- **Project tests preserve captured output order while running and after completion.** Standard output and errors share one observed-order transcript, without duplicating messages or implying causal order between separate pipes.
+- **Desktop startup failures now close safely with a concise English or Spanish recovery message.** Missing renderer files and stalled loads cannot leave a blank app running; a refused second instance stops before registering handlers or opening a window.
+- **Captured console output retains its observed order across standard output and errors.** Independent stderr is no longer hidden by a later failure, and streamed runtime diagnostics are not repeated at completion.
+- **Python exceptions are no longer mistaken for successful runs after output redirection.** Tracebacks appear once, nested failures point to the innermost user line, and later runs recover normally.
+- **JavaScript and TypeScript stacks prioritize user code and fold runtime details.** Logged errors retain mapped stacks, including nested values; internal frames no longer offer broken editor links.
+- **JavaScript and TypeScript diagnostics point back to the original source after instrumentation.** Error and console locations compose timing, capture, loop and compiler maps; explicit arrow/watch captures retain their error classification.
+- **Captured expression errors are visible in the console and diagnostics without stopping later captures.** Failed runs no longer replace successful snapshots or appear as successful history. Console summaries distinguish completion, failure, Stop and timeout in English and Spanish.
+- **Stop takes effect during runner preparation and keeps cancelled runs from changing later results.** Late output, history records and finalizers are ignored; closing the running tab cancels its execution.
+- **MCP text continuation preserves multibyte UTF-8 characters.** Byte offsets no longer skip characters when a read ends inside a code point, and leading byte-order marks are preserved.
+- **Packaged project tests use the installed Node.js runtime.** Vitest and Jest run through their local project entrypoints without enabling Electron's disabled RunAsNode fuse. Missing Node and missing framework dependencies have separate recovery instructions.
+
 ## [1.5.0] — 2026-09-17
 
 ### Security

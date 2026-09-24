@@ -60,6 +60,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: ^1.32.0
         version: 1.32.0
+      '@electron/fuses':
+        specifier: 1.8.0
+        version: 1.8.0
       '@electron/windows-sign':
         specifier: 2.1.0
         version: 2.1.0
@@ -201,6 +204,9 @@ importers:
       oxlint:
         specifier: 1.82.0
         version: 1.82.0
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
       postject:
         specifier: 1.0.0-alpha.6
         version: 1.0.0-alpha.6

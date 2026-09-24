@@ -23,6 +23,7 @@ import {
 import {
   resolveNativeRunnerMessages,
   resolveUserEnvForRunner,
+  resolveUserEnvForNativeProbe,
 } from './env';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
@@ -49,29 +50,36 @@ export class GoRunner implements LanguageRunner {
   language = 'go' as const;
   extensions = ['.go'];
 
-  private worker: Worker | null = null;
   private ready = false;
   private goInstalled = false;
-  private currentRunId: string | null = null;
+  private detectFailure = false;
   private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
     // Check if Go is installed via IPC
     const result = await window.lingua.go.detect(resolveUserEnvForRunner());
     this.goInstalled = result.installed;
-    this.ready = true;
+    this.detectFailure = result.reason === 'check-failed';
+    // A failed check is not an answer: the next run detects again.
+    this.ready = !this.detectFailure;
 
     if (!result.installed) {
-      this.pushMissingToolchainNotice();
-      throw new Error(result.error ?? 'Go is not installed.');
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
+      throw new Error(t(
+        this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+        { toolchain: 'Go' }
+      ));
     }
   }
 
   private pushMissingToolchainNotice(): void {
     pushMissingNativeToolchainNotice('go', async () => {
-      const result = await window.lingua.go.detect(resolveUserEnvForRunner());
+      const result = await window.lingua.go.detect(
+        resolveUserEnvForNativeProbe('go', window.lingua?.platform)
+      );
       this.goInstalled = result.installed;
-      return result.installed;
+      this.detectFailure = result.reason === 'check-failed';
+      return result.reason === 'check-failed' ? 'check-failed' : result.installed;
     });
   }
 
@@ -80,6 +88,7 @@ export class GoRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
+    this.stop();
     // implementation — resolve deadline from the per-language preset.
     const settingsSnapshot = useSettingsStore.getState();
     const callerOverrode = typeof context?.timeout === 'number';
@@ -93,192 +102,132 @@ export class GoRunner implements LanguageRunner {
       : presetForLanguage ?? 'normal';
 
     if (!this.goInstalled) {
-      this.pushMissingToolchainNotice();
+      if (!this.detectFailure) this.pushMissingToolchainNotice();
       return {
         stdout: [],
         stderr: [],
         result: undefined,
         executionTime: 0,
         error: {
-          message: 'Go is not installed on this system.',
+          message: t(
+            this.detectFailure ? 'nativeToolchain.error.checkFailed' : 'nativeToolchain.error.missing',
+            { toolchain: 'Go' }
+          ),
         },
         // implementation — host-not-installed counts as `'error'`.
         kind: 'error',
       };
     }
 
-    // Step 1: Compile Go to WASM via IPC (main process).
-    // implementation — resolve the user-space env (global + project +
-    // tab) and hand it to main so `go build` sees it. processEnv stays
-    // `{}` on the renderer side: the internal host allowlist merge happens
-    // in main so host secrets never cross the preload boundary.
-    const userEnv = resolveUserEnvForRunner();
-    const compileResult = await window.lingua.go.compile(
-      code,
-      userEnv,
-      resolveNativeRunnerMessages()
-    );
-
-    if (!compileResult.success || !compileResult.wasmBytes || !compileResult.wasmExecJs) {
-      return {
-        stdout: [],
-        stderr: [],
-        result: undefined,
-        executionTime: 0,
-        error:
-          parseGoExecutionError(compileResult.error) ?? {
-            message: 'Go compilation failed.',
-          },
-        // implementation — compile failures count as `'error'`.
-        kind: 'error',
-      };
-    }
-
-    // Step 2: Execute the WASM in a Web Worker. Capture the payload in
-    // locals after the guard above — TS narrowing does not survive into
-    // the Promise executor closure below.
-    const wasmBytes = compileResult.wasmBytes;
-    const wasmExecJs = compileResult.wasmExecJs;
+    const runId = crypto.randomUUID();
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     let error: ExecutionError | undefined;
     let droppedStdout = 0;
     let droppedStderr = 0;
     let stderrByteTruncated = false;
 
-    this.stop();
-    const runId = crypto.randomUUID();
-    this.currentRunId = runId;
-
-    return new Promise<ExecutionResult>((resolve) => {
-      this.worker = new Worker(
-        new URL('../workers/go-worker.ts', import.meta.url),
-        { type: 'classic' }
-      );
-      const worker = this.worker;
+    return new Promise<ExecutionResult>(resolve => {
+      let worker: Worker | null = null;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let resolved = false;
-
       const finish = (value: ExecutionResult) => {
         if (resolved) return;
         resolved = true;
-        if (timeoutHandle !== null) {
-          clearTimeout(timeoutHandle);
-          timeoutHandle = null;
-        }
-        if (this.currentRunId === runId) {
-          this.currentRunId = null;
-        }
-        if (this.cancelInFlight === cancelInFlight) {
-          this.cancelInFlight = null;
-        }
+        if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+        worker?.terminate();
+        if (this.cancelInFlight === cancel) this.cancelInFlight = null;
         resolve(value);
       };
-
-      const cancelInFlight = () => {
+      const cancel = () => {
+        void window.lingua.go.stop(runId).catch(() => {});
         finish(runnerStoppedResult(t, { stdout, stderr }));
       };
-      this.cancelInFlight = cancelInFlight;
-
-      this.worker.addEventListener('message', (event: MessageEvent<GoWorkerResponse>) => {
-        const msg = event.data;
-        if (msg.runId !== runId) return;
-        if (this.currentRunId !== runId) return;
-
-        switch (msg.type) {
-          case 'console': {
-            // implementation — enrich the line field from a Go
-            // panic-style `file.go:N` reference in the args text when
-            // the worker didn't already provide a line.
-            const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);
-            const output: ConsoleOutput = { type: msg.method, args: msg.args, line: enrichedLine };
-            if (msg.method === 'error') {
-              if (!stderrByteTruncated) {
-                droppedStderr = appendCappedConsole(
-                  stderr,
-                  output,
-                  droppedStderr,
-                  t
-                );
-                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-              }
-            } else {
-              droppedStdout = appendCappedConsole(
-                stdout,
-                output,
-                droppedStdout,
-                t
-              );
-            }
-            break;
+      // Claim before compile IPC. Only this closure can finalize its resources.
+      this.cancelInFlight = cancel;
+      void window.lingua.go.compile(code, resolveUserEnvForRunner(), resolveNativeRunnerMessages(), runId)
+        .then(compiled => {
+          if (resolved) return;
+          if (compiled.kind === 'stopped') {
+            finish(runnerStoppedResult(t, { stdout, stderr }));
+            return;
           }
-          case 'error':
-            error = msg.error;
-            break;
-          case 'done':
-            finish({
-              stdout,
-              stderr,
-              result: undefined,
-              executionTime: msg.executionTime,
-              error,
-              kind: error ? 'error' : 'success',
-              timeoutPreset,
-              timeoutMs: timeout,
-            });
-            worker.terminate();
-            if (this.worker === worker) this.worker = null;
-            break;
-        }
-      });
+          if (compiled.kind === 'timeout') {
+            finish(runnerTimeoutResult(compiled.timeoutMs ?? 30_000, t, { stdout, stderr }, 'override'));
+            return;
+          }
+          if (!compiled.success || !compiled.wasmBytes || !compiled.wasmExecJs) {
+            finish({ stdout, stderr, result: undefined, executionTime: 0, kind: 'error',
+              error: parseGoExecutionError(compiled.error) ?? { message: 'Go compilation failed.' } });
+            return;
+          }
+          worker = new Worker(new URL('../workers/go-worker.ts', import.meta.url), { type: 'classic' });
+          worker.addEventListener('message', (event: MessageEvent<GoWorkerResponse>) => {
+            const msg = event.data;
+            if (resolved || msg.runId !== runId) return;
+            switch (msg.type) {
+              case 'console': {
+                // implementation — enrich the line field from a Go
+                // panic-style `file.go:N` reference in the args text when
+                // the worker didn't already provide a line.
+                const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);
+                const output: ConsoleOutput = { type: msg.method, args: msg.args, line: enrichedLine };
+                output.captureOrder = nextCaptureOrder++;
+                if (msg.method === 'error') {
+                  if (!stderrByteTruncated) {
+                    droppedStderr = appendCappedConsole(
+                      stderr,
+                      output,
+                      droppedStderr,
+                      t
+                    );
+                    stderrByteTruncated = capStderrIfOverflowing(stderr, t);
+                  }
+                } else {
+                  droppedStdout = appendCappedConsole(
+                    stdout,
+                    output,
+                    droppedStdout,
+                    t
+                  );
+                }
+                break;
+              }
+              case 'error':
+                error = msg.error;
+                break;
+              case 'done':
+                finish({
+                  stdout,
+                  stderr,
+                  result: undefined,
+                  executionTime: msg.executionTime,
+                  error,
+                  kind: error ? 'error' : 'success',
+                  timeoutPreset,
+                  timeoutMs: timeout,
+                });
+                break;
+            }
+          });
 
-      this.worker.addEventListener('error', (event) => {
-        finish({
-          stdout,
-          stderr,
-          result: undefined,
-          executionTime: 0,
-          error: { message: event.message || 'Go worker error' },
-          kind: 'error',
-          timeoutPreset,
-          timeoutMs: timeout,
-        });
-        worker.terminate();
-        if (this.worker === worker) this.worker = null;
-      });
-
-      timeoutHandle = setTimeout(() => {
-        worker.terminate();
-        if (this.worker === worker) this.worker = null;
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
-      }, timeout);
-
-      // Transfer the WASM buffer instead of structured-cloning it — the
-      // worker takes ownership (zero-copy) and the renderer-side copy is
-      // per-run scratch that is never read again after this call.
-      this.worker.postMessage(
-        {
-          type: 'execute',
-          runId,
-          wasmBytes,
-          wasmExecJs,
-          timeout,
-        },
-        [wasmBytes.buffer]
-      );
+          worker.addEventListener('error', event => {
+            finish({ stdout, stderr, result: undefined, executionTime: 0,
+              error: { message: event.message || 'Go worker error' }, kind: 'error',
+              timeoutPreset, timeoutMs: timeout });
+          });
+          timeoutHandle = setTimeout(() => {
+            finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
+          }, timeout);
+          // The worker owns the typed buffer after this zero-copy transfer.
+          worker.postMessage({ type: 'execute', runId, wasmBytes: compiled.wasmBytes,
+            wasmExecJs: compiled.wasmExecJs, timeout }, [compiled.wasmBytes.buffer]);
+        })
+        .catch(error => finish({ stdout, stderr, result: undefined, executionTime: 0,
+          kind: 'error', error: { message: error instanceof Error ? error.message : String(error) } }));
     });
   }
 
-  stop(): void {
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
-    }
-    this.currentRunId = null;
-    if (this.cancelInFlight) {
-      const cancel = this.cancelInFlight;
-      this.cancelInFlight = null;
-      cancel();
-    }
-  }
+  stop(): void { this.cancelInFlight?.(); }
 }

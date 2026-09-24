@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import * as fsPromises from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,8 +16,31 @@ const mocks = vi.hoisted(() => {
     execFile,
     execFileAsync,
     spawn: vi.fn(),
+    writeFile: vi.fn(),
     getPath: vi.fn(() => '/tmp/lingua-ruby-test'),
+    probeSignals: [] as AbortSignal[],
   };
+});
+
+vi.mock('../../src/main/runners/spawnNativeRun', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/main/runners/spawnNativeRun')>();
+  const { mockNativeVersionProbe } = await import('../utils/mockNativeVersionProbe');
+  return {
+    ...actual,
+    spawnNativeRun: mockNativeVersionProbe(
+      actual.spawnNativeRun,
+      (command, args, options) => mocks.execFileAsync(command, args, options),
+      signal => {
+        if (signal) mocks.probeSignals.push(signal);
+      }
+    ),
+  };
+});
+
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  const mocked = { ...actual, writeFile: (...args: Parameters<typeof actual.writeFile>) => mocks.writeFile(...args) };
+  return { ...mocked, default: mocked };
 });
 
 vi.mock('electron', () => ({
@@ -89,12 +113,15 @@ describe('main ruby runner', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.handlers.clear();
+    const actualFs = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    mocks.writeFile.mockReset().mockImplementation(actualFs.writeFile);
     mocks.execFile.mockReset();
     mocks.execFileAsync.mockReset();
     mocks.execFileAsync.mockResolvedValue({
       stdout: 'ruby 3.3.6 (2024-11-05 revision 75015a4f5e) [arm64-darwin23]\n',
       stderr: '',
     });
+    mocks.probeSignals.length = 0;
     mocks.spawn.mockReset();
     mocks.getPath.mockReturnValue('/tmp/lingua-ruby-test');
     tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-ruby-runner-'));
@@ -102,6 +129,91 @@ describe('main ruby runner', () => {
 
   afterEach(async () => {
     await rm(tempRoot, { recursive: true, force: true });
+  });
+
+  it('owns Stop before runtime detection completes and never spawns cancelled source', async () => {
+    mocks.spawn.mockImplementation(() => { throw new Error('Unexpected child spawn'); });
+    let completeDetection!: (value: { stdout: string; stderr: string }) => void;
+    mocks.execFileAsync.mockImplementationOnce(() => new Promise(resolve => {
+      completeDetection = resolve;
+    }));
+    const { registerRubyHandlers } = await import('../../src/main/ruby-runner');
+    registerRubyHandlers();
+    const run = handlerFor<RubyRunHandler>('ruby:run');
+    const stop = handlerFor<RubyStopHandler>('ruby:stop');
+    const pending = run({}, 'console.log("cancelled")', { runId: 'preparing' });
+    await vi.waitFor(() => expect(completeDetection).toBeTypeOf('function'));
+    const stopped = await stop({}, 'preparing');
+    expect(mocks.probeSignals).toHaveLength(1);
+    expect(mocks.probeSignals[0]?.aborted).toBe(true);
+    completeDetection({ stdout: 'ruby 3.3.6\n', stderr: '' });
+    const result = await pending;
+    expect(stopped).toEqual({ stopped: true });
+    expect(result.kind).toBe('stopped');
+    expect(mocks.spawn).not.toHaveBeenCalled();
+    await expect(stop({}, 'preparing')).resolves.toEqual({ stopped: false });
+  });
+
+  it.each([false, true])('cleans cancelled staging and preserves the next Stop owner (write fails: %s)', async (fails) => {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const { writeFile: realWrite } = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    let stagedPath: string | undefined;
+    const write = mocks.writeFile.mockImplementationOnce(async (...args: Parameters<typeof realWrite>) => {
+      stagedPath = String(args[0]);
+      await held;
+      if (fails) throw new Error('staging failed');
+      await realWrite(...args);
+    });
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+    try {
+      const { registerRubyHandlers } = await import('../../src/main/ruby-runner');
+      registerRubyHandlers();
+      const run = handlerFor<RubyRunHandler>('ruby:run');
+      const stop = handlerFor<RubyStopHandler>('ruby:stop');
+      const old = run({}, `/*${'x'.repeat(5000)}*/`, { runId: 'staging' });
+      await vi.waitFor(() => expect(stagedPath).toBeTypeOf('string'));
+      await expect(stop({}, 'staging')).resolves.toEqual({ stopped: true });
+      const current = run({}, 'setInterval(() => {}, 1000)', { runId: 'current' });
+      await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+      release();
+      await expect(old).resolves.toMatchObject({ kind: 'stopped' });
+      expect(mocks.spawn).toHaveBeenCalledTimes(1);
+      await expect(fsPromises.access(path.dirname(stagedPath!))).rejects.toMatchObject({ code: 'ENOENT' });
+      await expect(stop({}, 'current')).resolves.toEqual({ stopped: true });
+      child.emit('close', null);
+      await expect(current).resolves.toMatchObject({ kind: 'stopped' });
+    } finally {
+      release();
+      child.emit('close', null);
+      write.mockImplementation(realWrite);
+    }
+  });
+
+  it('rejects reuse of an in-flight identity without replacing its Stop owner', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+    const { registerRubyHandlers } = await import('../../src/main/ruby-runner');
+    registerRubyHandlers();
+    const run = handlerFor<RubyRunHandler>('ruby:run');
+    const stop = handlerFor<RubyStopHandler>('ruby:stop');
+    const first = run({}, 'setInterval(() => {}, 1000)', { runId: 'owned' });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    // Settle an accidental duplicate spawn as well, so the failing regression
+    // does not leave a timeout/child listener behind.
+    mocks.spawn.mockImplementation(() => {
+      queueMicrotask(() => child.emit('close', 0));
+      return child;
+    });
+    const duplicate = await run({}, 'console.log("duplicate")', { runId: 'owned' });
+    const stopped = await stop({}, 'owned');
+    child.emit('close', null);
+    const result = await first;
+    expect(duplicate.kind).toBe('error');
+    expect(stopped).toEqual({ stopped: true });
+    expect(result.kind).toBe('stopped');
+    expect(mocks.spawn).toHaveBeenCalledTimes(1);
   });
 
   // ----------------------------------------------------------------
@@ -161,7 +273,7 @@ describe('main ruby runner', () => {
     it('returns installed=false with an actionable error when ruby is missing', async () => {
       const { detectRuby, __resetRubyDetectCache } = await import('../../src/main/ruby-runner');
       __resetRubyDetectCache();
-      mocks.execFileAsync.mockRejectedValueOnce(new Error('ENOENT'));
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const result = await detectRuby();
       expect(result.installed).toBe(false);
       expect(result.error).toMatch(/Ruby is not installed/);
@@ -246,7 +358,7 @@ describe('main ruby runner', () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);
-      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const promise = handler({ sender }, 'STDIN.gets', {
         runId: 'ruby-stream',
@@ -274,7 +386,7 @@ describe('main ruby runner', () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);
-      const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
+      const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const promise = handler({ sender }, 'puts 1', {
         runId: 'ruby-batch',
@@ -319,11 +431,21 @@ describe('main ruby runner', () => {
 
     it('returns missing-binary when ruby is not installed', async () => {
       await loadRunner();
-      mocks.execFileAsync.mockRejectedValueOnce(new Error('ENOENT'));
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const result = await handler({}, 'puts 1', { timeoutMs: 1000 });
       expect(result.kind).toBe('missing-binary');
       expect(result.error).toMatch(/Ruby is not installed/);
+    });
+
+    it('does not turn a failed Ruby version check into install guidance', async () => {
+      await loadRunner();
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+      const handler = handlerFor<RubyRunHandler>('ruby:run');
+      const result = await handler({}, 'puts 1', { timeoutMs: 1000 });
+      expect(result.kind).toBe('error');
+      expect(result.error).not.toMatch(/not installed/i);
+      expect(mocks.spawn).not.toHaveBeenCalled();
     });
 
     it('ruby:stop terminates the registered run by runId', async () => {

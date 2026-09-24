@@ -16,25 +16,24 @@
  */
 
 import { typedHandle } from './ipc/typedHandle';
-import { execFile } from 'node:child_process';
-import { writeFile, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
+import { isNativeRunId, isStringRecord } from './runners/nativeRunRequest';
+import { writeFile } from 'node:fs/promises';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
   MAX_NATIVE_STDERR_BYTES,
-  truncateBytes,
 } from '../shared/runnerLimits';
 import {
   RUST_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
   combinedAllowlist,
 } from './runners/nativeEnv';
-import { spawnNativeRun } from './runners/spawnNativeRun';
+import { spawnNativeRun, type SpawnNativeRunResult } from './runners/spawnNativeRun';
 import type { RustDetectResult, RustRunResult } from '../shared/nativeRuntimeTypes';
 
-const execFileAsync = promisify(execFile);
 
 /**
  * Rust edition passed to BOTH rustc (compile) and rustfmt (format-on-save,
@@ -98,149 +97,126 @@ export function resolveRustRunEnv(
  */
 let cachedRustDetect: RustDetectResult | null = null;
 
-/** Detect if Rust (rustc) is installed and return version info */
-async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectResult> {
+const activeRuns = new Map<string, { owner?: WebContents; controller: AbortController }>();
+const emptyRun = { stdout: '', stderr: '', exitCode: -1, executionTime: 0 };
+const stopped = (): RustRunResult => ({ ...emptyRun, success: false, kind: 'stopped' });
+const failed = (error: string): RustRunResult => ({ ...emptyRun, success: false, kind: 'error', error, stderr: error });
+
+async function detectRust(userEnv?: Record<string, string>, signal?: AbortSignal): Promise<
+  RustDetectResult & { timedOut?: boolean }
+> {
   const cacheable = userEnv === undefined;
+  if (signal?.aborted) return { installed: false, reason: 'check-failed' };
   if (cacheable && cachedRustDetect) return cachedRustDetect;
-  try {
-    const { stdout } = await execFileAsync('rustc', ['--version'], {
-      env: resolveRustRunEnv(userEnv),
-      // A hung rustup shim must not wedge the detect IPC promise forever.
-      // Matches the LSP launchers' 5s probe convention.
-      timeout: 5_000,
-    });
-    const result: RustDetectResult = { installed: true, version: stdout.trim() };
-    if (cacheable) cachedRustDetect = result;
-    return result;
-  } catch {
+  const probe = await spawnNativeRun({
+    command: 'rustc', args: ['--version'], env: resolveRustRunEnv(userEnv),
+    timeoutMs: 5_000, killEscalationMs: KILL_ESCALATION_DELAY_MS,
+    maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
+    stdoutTruncationMarker: COMPILE_TRUNCATION_MARKER,
+    stderrTruncationMarker: COMPILE_TRUNCATION_MARKER, signal,
+  });
+  if (signal?.aborted || probe.killed) return { installed: false, reason: 'check-failed' };
+  if (probe.spawnError || probe.timedOut || probe.exitCode !== 0) {
+    const missing = (probe.spawnError as NodeJS.ErrnoException | undefined)?.code === 'ENOENT';
     return {
       installed: false,
-      error: 'Rust is not installed. Install it from https://rustup.rs',
+      reason: missing ? 'missing' : 'check-failed',
+      timedOut: probe.timedOut,
+      error: missing
+        ? 'Rust is not installed. Install it from https://rustup.rs'
+        : 'Rust toolchain check failed. Retry detection or inspect your local Rust installation.',
     };
   }
+  const result = { installed: true, version: probe.stdout.trim() };
+  if (cacheable) cachedRustDetect = result;
+  return result;
 }
 
-/** Compile and run Rust source code natively */
+function processResult(run: SpawnNativeRunResult, timeoutMs: number): RustRunResult {
+  const kind = run.killed ? 'stopped' : run.timedOut ? 'timeout'
+    : run.spawnError || run.exitCode !== 0 ? 'error' : 'success';
+  return {
+    success: kind === 'success', kind, stdout: run.stdout, stderr: run.stderr,
+    exitCode: run.exitCode, executionTime: run.executionTime,
+    ...(kind === 'timeout' ? { timeoutMs } : {}),
+    error: kind === 'error'
+      ? run.spawnError?.message || run.stderr || `Process exited with code ${run.exitCode}`
+      : undefined,
+  };
+}
+
+/** One controller owns detection, staging, compilation and execution. */
 async function runRustCode(
-  sourceCode: string,
-  userEnv?: Record<string, string>,
-  messages?: NativeRunnerMessages
+  sourceCode: string, userEnv: Record<string, string> | undefined,
+  messages: NativeRunnerMessages | undefined, runId: string | undefined,
+  owner?: WebContents
 ): Promise<RustRunResult> {
-  const rustInfo = await detectRust(userEnv);
-  if (!rustInfo.installed) {
-    return {
-      success: false,
-      stdout: '',
-      stderr: rustInfo.error ?? 'Rust is not installed.',
-      exitCode: -1,
-      executionTime: 0,
-      error: rustInfo.error,
-    };
-  }
-
-  // internal — `mkdtemp` returns a unique directory under the OS temp
-  // root with 6 random suffix chars, eliminating the collision window
-  // a `Date.now()` filename would leave open for two concurrent runs.
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-rust-'));
-  const sourceFile = path.join(tempDir, 'main.rs');
-  const binaryFile = path.join(
-    tempDir,
-    process.platform === 'win32' ? 'main.exe' : 'main'
-  );
-
+  if (runId && activeRuns.has(runId)) return failed('A Rust run with this ID is already active.');
+  const lifecycle = createNativeRunLifecycle(owner);
+  const { controller } = lifecycle;
+  const { signal } = controller;
+  const active = { owner, controller };
+  if (runId) activeRuns.set(runId, active);
+  let tempDir: string | undefined;
   try {
+    const rustInfo = await detectRust(userEnv, signal);
+    if (signal.aborted) return stopped();
+    if (rustInfo.timedOut) return { ...emptyRun, success: false, kind: 'timeout', timeoutMs: 5_000 };
+    if (!rustInfo.installed) return failed(rustInfo.error ?? 'Rust is not installed.');
+
+    tempDir = stageNativeRunTempDir('lingua-rust-');
+    if (signal.aborted) return stopped();
+    const sourceFile = path.join(tempDir, 'main.rs');
+    const binaryFile = path.join(tempDir, process.platform === 'win32' ? 'main.exe' : 'main');
     await writeFile(sourceFile, sourceCode, 'utf-8');
-
-    const mergedEnv = resolveRustRunEnv(userEnv);
+    if (signal.aborted) return stopped();
+    const env = resolveRustRunEnv(userEnv);
     const markers = truncationMarkers(messages);
-
-    // --- Compile ---
-    const compileStart = Date.now();
-    try {
-      await execFileAsync(
-        'rustc',
-        ['--edition', RUST_EDITION, sourceFile, '-o', binaryFile],
-        {
-          env: mergedEnv,
-          timeout: 60_000, // compilation can be slow on first run
-        }
-      );
-    } catch (compileErr) {
-      const stderrRaw =
-        (compileErr as { stderr?: string })?.stderr ?? String(compileErr);
-      const stderr = truncateBytes(
-        stderrRaw,
-        MAX_COMPILE_OUTPUT_BYTES,
-        markers.compile
-      );
-      return {
-        success: false,
-        stdout: '',
-        stderr,
-        exitCode: 1,
-        executionTime: Date.now() - compileStart,
-        error: stderr,
-      };
-    }
-
-    // --- Execute ---
-    // Process-group leader on POSIX so the timeout can fell the whole
-    // tree (user binaries that fork/spawn), with SIGTERM → SIGKILL
-    // escalation — spawn's built-in `timeout` option only ever sent a
-    // single SIGTERM, which a signal-ignoring binary survives forever.
-    // No stdin management here: a freshly-compiled binary is not fed
-    // input, so we leave the child's stdin untouched.
-    const run = await spawnNativeRun({
-      command: binaryFile,
-      args: [],
-      env: mergedEnv,
-      timeoutMs: RUST_RUN_TIMEOUT_MS,
-      killEscalationMs: KILL_ESCALATION_DELAY_MS,
-      maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
-      stdoutTruncationMarker: markers.stdout,
-      stderrTruncationMarker: markers.stderr,
+    const compiled = await spawnNativeRun({
+      command: 'rustc', args: ['--edition', RUST_EDITION, sourceFile, '-o', binaryFile],
+      env, signal, timeoutMs: 60_000, killEscalationMs: KILL_ESCALATION_DELAY_MS,
+      maxOutputBytes: MAX_COMPILE_OUTPUT_BYTES,
+      stdoutTruncationMarker: markers.compile, stderrTruncationMarker: markers.compile,
     });
-
-    if (run.spawnError) {
-      return {
-        success: false,
-        stdout: run.stdout,
-        stderr: run.spawnError.message,
-        exitCode: -1,
-        executionTime: run.executionTime,
-        error: run.spawnError.message,
-      };
+    if (signal.aborted) return stopped();
+    if (compiled.exitCode !== 0 || compiled.spawnError || compiled.timedOut || compiled.killed) {
+      return processResult(compiled, 60_000);
     }
-
-    return {
-      success: run.exitCode === 0,
-      stdout: run.stdout,
-      stderr: run.stderr,
-      exitCode: run.exitCode,
-      executionTime: run.executionTime,
-      error:
-        run.exitCode !== 0
-          ? run.stderr || `Process exited with code ${run.exitCode}`
-          : undefined,
-    };
+    const run = await spawnNativeRun({
+      command: binaryFile, args: [], env, signal, timeoutMs: RUST_RUN_TIMEOUT_MS,
+      killEscalationMs: KILL_ESCALATION_DELAY_MS, maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
+      stdoutTruncationMarker: markers.stdout, stderrTruncationMarker: markers.stderr,
+    });
+    return signal.aborted ? stopped() : processResult(run, RUST_RUN_TIMEOUT_MS);
+  } catch (error) {
+    return signal.aborted ? stopped() : failed(error instanceof Error ? error.message : String(error));
   } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await cleanupNativeRunTempDir(tempDir);
+    if (runId && activeRuns.get(runId) === active) activeRuns.delete(runId);
+    lifecycle.release();
   }
 }
 
-/** Register all Rust-related IPC handlers */
-export function registerRustHandlers(): void {
-  typedHandle('rust:detect', async (_event, userEnv?: Record<string, string>) =>
-    detectRust(userEnv)
-  );
 
-  typedHandle(
-    'rust:run',
-    async (
-      _event,
-      sourceCode: string,
-      userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ) => runRustCode(sourceCode, userEnv, messages),
-  );
+/** Validate wire values before probing, allocating files or spawning. */
+export function registerRustHandlers(): void {
+  typedHandle('rust:detect', async (event, userEnv?: unknown) => {
+    if (userEnv !== undefined && !isStringRecord(userEnv)) return { installed: false, reason: 'check-failed', error: 'Invalid Rust environment.' };
+    const lifecycle = createNativeRunLifecycle(event.sender);
+    try { return await detectRust(userEnv, lifecycle.controller.signal); }
+    finally { lifecycle.release(); }
+  });
+  typedHandle('rust:run', async (event, source: unknown, userEnv?: unknown, messages?: unknown, runId?: unknown) => {
+    if (typeof source !== 'string' || (userEnv !== undefined && !isStringRecord(userEnv))
+      || (messages !== undefined && !isStringRecord(messages))
+      || (runId !== undefined && !isNativeRunId(runId))) return failed('Invalid Rust run request.');
+    return runRustCode(source, userEnv, messages, runId, event.sender);
+  });
+  typedHandle('rust:stop', async (event, runId: unknown) => {
+    if (!isNativeRunId(runId)) return { stopped: false };
+    const active = activeRuns.get(runId);
+    if (!active || active.owner !== event.sender) return { stopped: false };
+    active.controller.abort();
+    return { stopped: true };
+  });
 }

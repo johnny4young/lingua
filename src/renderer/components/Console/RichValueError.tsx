@@ -175,18 +175,11 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
     );
   }
 
-  return (
-    <div
-      ref={containerRef}
-      className="flex flex-col gap-0.5 font-mono text-caption"
-      data-testid="console-rich-error"
-    >
-      <span className="text-fg-danger">{payload.message}</span>
-      <span className="text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
-        {t('console.rich.errorStackHeader')}
-      </span>
+  const indexedFrames = frames.map((frame, index) => ({ frame, index }));
+  const runtimeFrames = indexedFrames.filter(({ frame }) => frame.provenance === 'runtime');
+  const renderFrames = (entries: typeof indexedFrames) => (
       <ul className="flex flex-col gap-0.5 pl-2">
-        {frames.map((frame, index) => {
+        {entries.map(({ frame, index }) => {
           const clickable = isClickable(frame);
           const label =
             clickable && frame.file
@@ -250,6 +243,30 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           );
         })}
       </ul>
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex flex-col gap-0.5 font-mono text-caption"
+      data-testid="console-rich-error"
+    >
+      <span className="text-fg-danger">{payload.message}</span>
+      <span className="text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
+        {t('console.rich.errorStackHeader')}
+      </span>
+      {renderFrames(indexedFrames.filter(({ frame }) => frame.provenance !== 'runtime'))}
+      {runtimeFrames.length > 0 && (
+        <details
+          data-testid="console-rich-error-runtime"
+          onToggle={event => { if (!event.currentTarget.open) closeMenu(); }}
+        >
+          <summary className="cursor-pointer rounded-sm text-fg-subtle focus-visible:outline focus-visible:outline-1 focus-visible:outline-fg-info">
+            {t('console.rich.errorRuntimeFrames')}
+          </summary>
+          {renderFrames(runtimeFrames)}
+        </details>
+      )}
       {menu !== null && frames[menu.index] !== undefined && (
         <div
           ref={menuRef}

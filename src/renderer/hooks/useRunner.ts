@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
+import { beginManualRun } from '../runtime/manualRunSession';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { loadManualRunController } from './manualRunControllerLoader';
@@ -18,65 +20,34 @@ export function useRunner() {
 
   const run = useCallback(
     async (options: RunOptions = {}) => {
-      let controller: Awaited<ReturnType<typeof loadManualRunController>>;
+      const session = beginManualRun(
+        getActiveTab(useEditorStore.getState()) ?? undefined,
+        options.debug
+      );
+      if (!session) return;
       try {
-        controller = await loadManualRunController();
-      } catch {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'error',
-          messageKey: 'runtime.manualRun.loadFailed',
-        });
-        return;
+        let controller: Awaited<ReturnType<typeof loadManualRunController>>;
+        try {
+          controller = await loadManualRunController();
+        } catch {
+          if (session.isCurrent()) {
+            useUIStore.getState().pushStatusNotice({
+              tone: 'error',
+              messageKey: 'runtime.manualRun.loadFailed',
+            });
+          }
+          return;
+        }
+        if (session.isCurrent()) await controller.runActiveTab(track, options, session);
+      } finally {
+        session.finish();
       }
-      await controller.runActiveTab(track, options);
     },
     [track]
   );
 
   const stop = useCallback(() => {
-    const resultState = useResultStore.getState();
-    const target = resultState.manualExecutionTarget;
-    if (target) {
-      if (target.language === 'python' && resultState.manualRunMode === 'debug') {
-        void import('../runtime/pythonDebuggerBridge')
-          .then(({ stopActivePythonDebugger }) => {
-            stopActivePythonDebugger();
-          })
-          .catch(() => {
-            // The pending start path observes the lifecycle state below.
-          });
-      }
-      if (target.language === 'go' && resultState.manualRunMode === 'debug') {
-        void import('../runtime/goDebuggerBridge')
-          .then(({ stopActiveGoDebugger }) => {
-            stopActiveGoDebugger();
-          })
-          .catch(() => {
-            // The pending start path observes the lifecycle state below.
-          });
-      }
-      if (target.language === 'rust' && resultState.manualRunMode === 'debug') {
-        void import('../runtime/rustDebuggerBridge')
-          .then(({ stopActiveRustDebugger }) => {
-            stopActiveRustDebugger();
-          })
-          .catch(() => {
-            // The pending start path observes the lifecycle state below.
-          });
-      }
-      void import('../runners')
-        .then(({ runnerManager }) => {
-          runnerManager.stop(target.language, target.runtimeMode);
-        })
-        .catch(() => {
-          // Best-effort while the execution chunk itself is still loading.
-          // The local lifecycle is cleared below even if loading failed.
-        });
-    }
-    resultState.setIsManualRunning(false);
-    resultState.setIsManualInitializing(false);
-    resultState.setManualLoadingMessage(null);
-    resultState.setManualRunMode(null);
+    useResultStore.getState().manualRunSession?.cancel();
   }, []);
 
   return { run, stop, isRunning, isInitializing, loadingMessage, runMode };

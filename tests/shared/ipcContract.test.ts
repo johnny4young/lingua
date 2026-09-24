@@ -3,8 +3,8 @@
  *
  * The contract only eliminates preload↔main drift if it stays in lockstep
  * with the handlers actually registered in main. This test scans the
- * main-process source for every `ipcMain.handle(...)` / `typedHandle(...)`
- * literal channel and asserts:
+ * main-process source for every `ipcMain.handle(...)`, `typedHandle(...)`, or
+ * `validatedHandle(...)` literal channel and asserts:
  *   1. every registered channel is a contract key (no orphan handler), and
  *   2. every contract channel is registered somewhere (no dead contract
  *      entry), accounting for the LSP handlers that register under
@@ -61,7 +61,7 @@ function collectRegisteredChannels(): Set<string> {
   // `handle(`); the helper's own definition file is skipped so its generic
   // signature is not mistaken for a registration.
   const pattern =
-    /(?:ipcMain\.handle|typedHandle)\(\s*['"]([^'"]+)['"]/g;
+    /(?:ipcMain\.handle|typedHandle|validatedHandle)\(\s*['"]([^'"]+)['"]/g;
   for (const file of walkTsFiles(MAIN_DIR)) {
     if (file.endsWith(join('ipc', 'typedHandle.ts'))) continue;
     const text = readFileSync(file, 'utf-8');

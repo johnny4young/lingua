@@ -185,14 +185,9 @@ describe('js-worker module', () => {
       | undefined;
     expect(errorMessage?.error?.message).toBe('bridge-boom');
     expect(errorMessage?.error?.frames?.length).toBeGreaterThan(0);
-    expect(errorMessage?.error?.frames?.some((frame) => {
-      return Boolean(
-        frame &&
-          typeof frame === 'object' &&
-          'file' in frame &&
-          'line' in frame
-      );
-    })).toBe(true);
+    expect(errorMessage?.error?.frames).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fnName: 'boom', line: 3, column: 15, provenance: 'user' }),
+    ]));
   });
 
   it('keeps structured-result serializable siblings beside function and bigint leaves', async () => {

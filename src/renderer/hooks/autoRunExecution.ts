@@ -1,3 +1,5 @@
+import { executionKind } from '../utils/executionOutcome';
+import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { isLikelyComplete } from '../../shared/autoRunGating';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
@@ -7,10 +9,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { FileTab } from '../types/editor';
-import {
-  executionModeForLanguage,
-  languageCapabilityBadgeKey,
-} from '../utils/languageMeta';
+import { executionModeForLanguage } from '../utils/languageMeta';
 import { extractTimeoutMagicComment } from '../utils/magicComments';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { trackEvent } from '../utils/telemetry';
@@ -69,10 +68,7 @@ export async function executeAutoRun({
     executionMode === 'run' &&
     !isLanguageAllowed(currentEffectiveTier(), language);
   const desktopOnlyGate =
-    isWebBuild &&
-    executionMode === 'run' &&
-    languageCapabilityBadgeKey(language) ===
-      'language.capability.desktopOnly';
+    executionMode === 'run' && webExecutionBoundary(language, runtimeMode, isWebBuild) !== null;
 
   if (executionMode === 'view' || desktopOnlyGate || proLanguageGate) {
     clear();
@@ -207,13 +203,7 @@ export async function executeAutoRun({
     // preserve that ordering while the visible result remains protected.
     setRunDeadlineAt(null);
     setRunTermination({
-      kind:
-        result.kind ??
-        (result.cancelled
-          ? 'stopped'
-          : result.error
-            ? 'error'
-            : 'success'),
+      kind: executionKind(result),
       timeoutPreset: result.timeoutPreset,
       timeoutMs: result.timeoutMs,
     });

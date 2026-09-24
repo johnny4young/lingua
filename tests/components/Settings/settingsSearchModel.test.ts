@@ -40,4 +40,11 @@ describe('searchSettings', () => {
       []
     );
   });
+
+  it('finds Account pricing guidance in English and Spanish', async () => {
+    await i18next.changeLanguage('en');
+    expect(searchSettings('pricing', i18next.t.bind(i18next))[0]?.id).toBe('license');
+    await i18next.changeLanguage('es');
+    expect(searchSettings('precios', i18next.t.bind(i18next))[0]?.id).toBe('license');
+  });
 });

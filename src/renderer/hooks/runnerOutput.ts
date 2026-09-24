@@ -1,3 +1,6 @@
+import { orderedConsoleOutputs, isPrimaryErrorOutput } from '../utils/capturedOutput';
+import i18next from 'i18next';
+import { capturedExecutionErrors, executionKind } from '../utils/executionOutcome';
 import type { ConsoleEntry } from '../types/console';
 import type { Language } from '../types/language';
 import type { ConsoleOutput, ExecutionResult } from '../types/execution';
@@ -13,6 +16,12 @@ const INITIALIZATION_MESSAGES: Partial<Record<Language, string>> = {
 export function formatExecTime(ms: number): string {
   if (ms < 1000) return `${ms.toFixed(1)} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
+}
+
+export function formatExecutionSummary(result: ExecutionResult): string {
+  return i18next.t(`runner.summary.${executionKind(result)}`, {
+    duration: formatExecTime(result.executionTime),
+  });
 }
 
 export function getInitializationMessage(language: Language): string {
@@ -97,16 +106,16 @@ export function toConsoleEntry(output: ConsoleOutput, language?: Language): Cons
 
 export function toConsoleEntries(
   result: ExecutionResult,
-  language?: Language
+  language?: Language,
+  { streamed = false }: { streamed?: boolean } = {}
 ): ConsoleEntryInput[] {
   const entries: ConsoleEntryInput[] = [];
 
-  for (const output of result.stdout) {
-    entries.push(toConsoleEntry(output, language));
-  }
-
-  for (const output of result.stderr) {
-    entries.push(toConsoleEntry(output, language));
+  const outputs = orderedConsoleOutputs(result);
+  if (!streamed) {
+    for (const output of outputs) {
+      if (!isPrimaryErrorOutput(result, output)) entries.push(toConsoleEntry(output, language));
+    }
   }
 
   if (result.result !== undefined) {
@@ -116,14 +125,28 @@ export function toConsoleEntries(
     });
   }
 
+  for (const error of capturedExecutionErrors(result)) {
+    entries.push({
+      type: 'error',
+      content: error.message,
+      line: error.line,
+      ...(language ? { language } : {}),
+      ...(error.frames?.length ? {
+        payload: [{ kind: 'error' as const, message: error.message, stack: error.frames }],
+      } : {}),
+    });
+  }
+
   const executionError = formatExecutionError(result);
-  if (executionError) {
+  const primaryAlreadyStreamed = streamed && outputs.some(output =>
+    output.isExecutionError && isPrimaryErrorOutput(result, output));
+  if (executionError && !primaryAlreadyStreamed) {
     entries.push(executionError);
   }
 
   entries.push({
     type: 'info',
-    content: `Completed in ${formatExecTime(result.executionTime)}`,
+    content: formatExecutionSummary(result),
     executionTime: result.executionTime,
   });
 

@@ -1,3 +1,4 @@
+import type { SerializeScopeValueOptions } from '../../shared/scopeSnapshot';
 import { truncateSerialized } from '../runners/limits';
 import {
   DEFAULT_SCOPE_DEPTH,
@@ -226,10 +227,11 @@ export function safeJsWorkerStructuredResult(value: unknown): unknown {
  * the canonical fallback; payloads are *additive* on `ConsoleOutput`,
  * never replacing the strings the renderer already paints today.
  */
-function serializePayloads(args: unknown[], marker: string): RichOutputPayload[] {
+function serializePayloads(args: unknown[], marker: string, errorStack?: SerializeScopeValueOptions['errorStack']): RichOutputPayload[] {
   return args.map(arg =>
     serializeRichValue(arg, {
       truncate: input => truncateJsWorkerValue(input, marker),
+      errorStack,
     })
   );
 }
@@ -246,13 +248,13 @@ function serializePayloads(args: unknown[], marker: string): RichOutputPayload[]
  * `forceTablePayload(rows)` when the user passed no column subset, or
  * the requested columns aren't a non-empty subset.
  */
-function buildConsoleTablePayload(args: unknown[]): RichOutputTable {
+function buildConsoleTablePayload(args: unknown[], errorStack?: SerializeScopeValueOptions['errorStack']): RichOutputTable {
   const [rows, columns] = args;
   const subset =
     Array.isArray(columns) && columns.every(c => typeof c === 'string')
       ? (columns as string[])
       : null;
-  const base = forceTablePayload(rows);
+  const base = forceTablePayload(rows, { errorStack });
   if (!subset || subset.length === 0) return base;
   const indices: number[] = [];
   for (const col of subset) {
@@ -273,42 +275,18 @@ function buildConsoleTablePayload(args: unknown[]): RichOutputTable {
   return { kind: 'table', columns: filteredColumns, rows: filteredRows };
 }
 
-function sourceLineFor(
-  generatedLine: number | undefined,
-  sourceLineMap: Record<number, number> | undefined
-): number | undefined {
-  if (generatedLine === undefined) return undefined;
-  const mapped = sourceLineMap?.[generatedLine];
-  return typeof mapped === 'number' && mapped > 0 ? mapped : generatedLine;
-}
-
-function extractCallingLine(sourceLineMap: Record<number, number> | undefined): number | undefined {
-  try {
-    const stack = new Error().stack ?? '';
-    const match = stack.match(/<anonymous>:(\d+):(\d+)/);
-    if (match?.[1]) {
-      const rawLine = parseInt(match[1], 10);
-      // Subtract the 2-line offset from the async function wrapper
-      const generatedLine = rawLine > 2 ? rawLine - 2 : rawLine;
-      return sourceLineFor(generatedLine, sourceLineMap);
-    }
-  } catch {
-    // ignore
-  }
-  return undefined;
-}
-
 export function installJsWorkerConsoleProxy(
   runId: string,
   marker: string,
-  sourceLineMap: Record<number, number> | undefined,
-  sourceMappingEnabled: boolean
+  callingLine: () => number | undefined,
+  sourceMappingEnabled: boolean,
+  errorStack?: SerializeScopeValueOptions['errorStack']
 ) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
-      const line = sourceMappingEnabled ? extractCallingLine(sourceLineMap) : undefined;
-      const payload = serializePayloads(args, marker);
+      const line = sourceMappingEnabled ? callingLine() : undefined;
+      const payload = serializePayloads(args, marker, errorStack);
       // implementation — stamp the captured source line onto each
       // payload as `origin.line` so the renderer-side
       // `<OutputLineBadge>` can render a chip without re-deriving the
@@ -347,7 +325,7 @@ export function installJsWorkerConsoleProxy(
   //   - `console.table()` with no arguments emits a single empty-table
   //     entry rather than `Table(1×1)` over an undefined cell.
   (console as { table?: (...a: unknown[]) => void }).table = (...args: unknown[]) => {
-    const line = sourceMappingEnabled ? extractCallingLine(sourceLineMap) : undefined;
+    const line = sourceMappingEnabled ? callingLine() : undefined;
     // implementation — mirror the per-method `origin.line`
     // stamp from `createConsoleProxy` (lines 282-292) so the
     // `console.table` shim's table payload also carries an origin.
@@ -384,7 +362,7 @@ export function installJsWorkerConsoleProxy(
       });
       return;
     }
-    const tablePayload = buildConsoleTablePayload(args);
+    const tablePayload = buildConsoleTablePayload(args, errorStack);
     const rowCount = tablePayload.rows.length + (tablePayload.truncatedRowCount ?? 0);
     // The optional `columns` subset argument is consumed by
     // `buildConsoleTablePayload`; do not echo it into the fallback

@@ -11,6 +11,7 @@ import {
   type WorkflowMode,
 } from '../../shared/workflowMode';
 import { coerceWorkflowModeInShell } from '../utils/workflowModeSupport';
+import { supportsRuntimeModeHere } from '../utils/runtimeModeSupport';
 
 /**
  * internal — runtime/workflow mode resolution helpers, extracted verbatim from
@@ -26,13 +27,9 @@ export function runtimeModeForNewTab(
   explicit?: RuntimeMode
 ): RuntimeMode | undefined {
   if (!languageHasRuntimeModes(language)) return undefined;
-  if (explicit !== undefined) return coerceRuntimeMode(explicit, language) ?? undefined;
-  const settingsDefault = useSettingsStore.getState().defaultRuntimeMode;
-  return (
-    coerceRuntimeMode(settingsDefault, language) ??
-    defaultRuntimeModeFor(language) ??
-    undefined
-  );
+  const requested = explicit ?? useSettingsStore.getState().defaultRuntimeMode;
+  const mode = coerceRuntimeMode(requested, language) ?? defaultRuntimeModeFor(language);
+  return mode && supportsRuntimeModeHere(mode) ? mode : 'worker';
 }
 
 export function runtimeModeForRestoredTab(

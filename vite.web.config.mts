@@ -1,3 +1,4 @@
+import { shellCspPlugin } from './build/shellCsp.mts';
 import { nodeTypingChunkPlugin } from './build/nodeTypingChunkPlugin.mts';
 /**
  * Vite config for the standalone web build.
@@ -86,6 +87,7 @@ export default defineConfig(({ command }) => {
   return {
     base,
     plugins: [
+      shellCspPlugin(),
       nodeTypingChunkPlugin(),
       react(),
       copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] }),

@@ -95,8 +95,17 @@ export interface UseNotebookRunResult {
 
 export function useNotebookRun(): UseNotebookRunResult {
   const [isAnyCellRunning, setIsAnyCellRunning] = useState(false);
+  const busyCountRef = useRef(0);
   const stopRequestedRef = useRef(false);
   const announce = useAnnounce();
+  const beginBusy = useCallback(() => {
+    busyCountRef.current += 1;
+    setIsAnyCellRunning(true);
+  }, []);
+  const endBusy = useCallback(() => {
+    busyCountRef.current = Math.max(0, busyCountRef.current - 1);
+    setIsAnyCellRunning(busyCountRef.current > 0);
+  }, []);
 
   const runCellInternal = useCallback(
     async (
@@ -118,7 +127,7 @@ export function useNotebookRun(): UseNotebookRunResult {
 
       const store = useNotebookStore.getState();
       store.setCellRunStatus(tabId, cellId, 'running');
-      if (manageBusyState) setIsAnyCellRunning(true);
+      if (manageBusyState) beginBusy();
 
       // implementation Slice F (implementation note) — the first Python cell run boots Pyodide
       // (web) / the native runtime, which can take a few seconds. Surface
@@ -153,6 +162,10 @@ export function useNotebookRun(): UseNotebookRunResult {
         const durationMs = e2eFixedDurationMs(performance.now() - startedAt);
 
         if (!result.ok) {
+          // Disposal can race an in-flight cell. The old run no longer owns
+          // this tab id: a same-id notebook may already be restored, so even
+          // resetting its status to idle would mutate the new notebook.
+          if (result.reason === 'session-disposed') return null;
           if (result.reason === 'concurrent-run') {
             useUIStore.getState().pushStatusNotice({
               tone: 'warning',
@@ -162,11 +175,6 @@ export function useNotebookRun(): UseNotebookRunResult {
             useUIStore.getState().pushStatusNotice({
               tone: 'info',
               messageKey: 'notebook.notice.languageNotSupported',
-            });
-          } else if (result.reason === 'session-disposed') {
-            useUIStore.getState().pushStatusNotice({
-              tone: 'warning',
-              messageKey: 'notebook.notice.sessionDisposed',
             });
           }
           store.setCellRunStatus(tabId, cellId, 'idle');
@@ -240,10 +248,10 @@ export function useNotebookRun(): UseNotebookRunResult {
           producedKeys: [],
         };
       } finally {
-        if (manageBusyState) setIsAnyCellRunning(false);
+        if (manageBusyState) endBusy();
       }
     },
-    []
+    [beginBusy, endBusy]
   );
 
   const runCell = useCallback(
@@ -299,7 +307,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       let skippedUnsupportedCodeCell = false;
       let runCount = 0;
       let terminalStatus: NotebookCellRunOutcome['status'] | null = null;
-      setIsAnyCellRunning(true);
+      beginBusy();
       try {
         for (let i = startIdx; i <= stopIdx; i += 1) {
           if (stopRequestedRef.current) break;
@@ -334,10 +342,10 @@ export function useNotebookRun(): UseNotebookRunResult {
           );
         }
       } finally {
-        setIsAnyCellRunning(false);
+        endBusy();
       }
     },
-    [runCellInternal, announce]
+    [runCellInternal, announce, beginBusy, endBusy]
   );
 
   const runAll = useCallback(
@@ -401,7 +409,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       disposeNotebookSession(tabId);
       let runCount = 0;
       let terminalStatus: NotebookCellRunOutcome['status'] | null = null;
-      setIsAnyCellRunning(true);
+      beginBusy();
       try {
         for (const cell of replay) {
           if (stopRequestedRef.current) break;
@@ -429,10 +437,10 @@ export function useNotebookRun(): UseNotebookRunResult {
           );
         }
       } finally {
-        setIsAnyCellRunning(false);
+        endBusy();
       }
     },
-    [announce, runCellInternal]
+    [announce, runCellInternal, beginBusy, endBusy]
   );
 
   const stop = useCallback(() => {

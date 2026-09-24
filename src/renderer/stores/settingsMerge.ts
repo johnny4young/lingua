@@ -50,8 +50,14 @@ export function settingsMerge(
 ): SettingsState {
   const persisted =
     persistedState && typeof persistedState === 'object'
-      ? (persistedState as Partial<SettingsState>)
+      ? { ...(persistedState as Partial<SettingsState> & Record<string, unknown>) }
       : undefined;
+  // Retired keys must not be revived by old localStorage snapshots. Keep the
+  // rest of that snapshot intact; the next partialized write drops these keys.
+  if (persisted) {
+    delete persisted.importPreviewClipboardOnFocusConsent;
+    delete persisted.showVariableInspectorByDefault;
+  }
   const merged = {
     ...currentState,
     ...persisted,
@@ -235,15 +241,6 @@ export function settingsMerge(
     merged.capsuleImportClipboardOnFocusConsent === 'unset'
       ? merged.capsuleImportClipboardOnFocusConsent
       : 'unset';
-  // implementation note — same three-state sanitize as the
-  // capsule-import + utilities consents. Anything else falls
-  // back to `'unset'` so the user is prompted again in implementation.
-  const importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined' =
-    merged.importPreviewClipboardOnFocusConsent === 'granted' ||
-    merged.importPreviewClipboardOnFocusConsent === 'declined' ||
-    merged.importPreviewClipboardOnFocusConsent === 'unset'
-      ? merged.importPreviewClipboardOnFocusConsent
-      : 'unset';
   // internal — guard the session-restore mode after migration or tampering.
   // Unknown values use the privacy-conscious `ask` default.
   const restoreSessionMode: SettingsState['restoreSessionMode'] =
@@ -292,6 +289,5 @@ export function settingsMerge(
     runLedgerEnabled: merged.runLedgerEnabled === true, // internal: coerce to boolean on rehydrate
     notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // internal SC: only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
-    importPreviewClipboardOnFocusConsent,
   };
 }

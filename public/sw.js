@@ -133,6 +133,15 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Handshake tokens force a new sandbox document, not a new asset version.
+  // Keep one offline entry per content hash instead of one per execution.
+  if (url.origin === self.location.origin &&
+      /^\/assets\/lingua-sandbox-[\w-]+\.htm$/.test(url.pathname.slice(BASE_PATH.length - 1))) {
+    url.search = '';
+    event.respondWith(networkFirst(request, url.href));
+    return;
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request));
     return;
@@ -169,16 +178,16 @@ async function cacheFirst(request) {
   }
 }
 
-async function networkFirst(request) {
+async function networkFirst(request, cacheKey = request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+      cache.put(cacheKey, response.clone());
     }
     return response;
   } catch {
-    const cached = await caches.match(request);
+    const cached = await caches.match(cacheKey);
     if (cached) return cached;
     return new Response('Offline — Lingua could not load this resource.', {
       status: 503,

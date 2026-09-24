@@ -15,3 +15,10 @@
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Only the fingerprinted opaque sandbox document may be framed by this app.
+# Detach rather than override: Pages combines duplicate header values.
+# https://developers.cloudflare.com/pages/configuration/headers/#detach-a-header
+/assets/lingua-sandbox-*
+  ! X-Frame-Options
+  Content-Security-Policy: frame-ancestors 'self'

@@ -555,6 +555,145 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(terminateCount).toBe(1);
   });
 
+  it('reboots a fresh worker after a parent timeout and runs the next request', async () => {
+    const workers: TimeoutWorker[] = [];
+    class TimeoutWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+      terminated = false;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.emit({ type: 'ready' });
+        } else if (message.type === 'execute' && workers.length === 2) {
+          this.emit({ type: 'done', runId: message.runId, executionTime: 1 });
+        }
+      }
+
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+
+      terminate(): void {
+        this.terminated = true;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: TimeoutWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    vi.useFakeTimers();
+    try {
+      const timedOut = runner.execute('while True: pass', { timeout: 25 });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(25);
+      const timeoutResult = await timedOut;
+      expect(timeoutResult.kind).toBe('timeout');
+      expect(timeoutResult.timeoutMs).toBe(25);
+      expect(workers[0]?.terminated).toBe(true);
+      expect(runner.isPyodideBooted()).toBe(false);
+
+      const recovered = await runner.execute('print("recovered")', { timeout: 25 });
+      expect(recovered.kind).toBe('success');
+      expect(workers).toHaveLength(2);
+      expect(workers[1]?.terminated).toBe(false);
+      expect(runner.isPyodideBooted()).toBe(true);
+    } finally {
+      runner.stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores foreign run IDs, including stale output and done from a prior run', async () => {
+    const workers: ManualWorker[] = [];
+    class ManualWorker {
+      private listeners = new Set<(event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.add(handler);
+      }
+
+      removeEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.listeners.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') this.emit({ type: 'ready' });
+      }
+
+      emit(data: Record<string, unknown>): void {
+        for (const listener of [...this.listeners]) listener({ data } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: ManualWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    try {
+      const first = runner.execute('print("first")', { timeout: 1_000 });
+      await vi.waitFor(() => {
+        expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(1);
+      });
+      const oldId = postedMessages.find(message => message.type === 'execute')?.runId;
+      const worker = workers[0]!;
+      worker.emit({ type: 'done', runId: oldId, executionTime: 1 });
+      expect((await first).kind).toBe('success');
+
+      const second = runner.execute('print("fresh")', { timeout: 1_000 });
+      await vi.waitFor(() => {
+        expect(postedMessages.filter(message => message.type === 'execute')).toHaveLength(2);
+      });
+      const newId = postedMessages.filter(message => message.type === 'execute')[1]?.runId;
+      expect(newId).not.toBe(oldId);
+      let settled = false;
+      void second.then(() => {
+        settled = true;
+      });
+      worker.emit({ type: 'console', runId: oldId, method: 'log', args: ['stale'] });
+      worker.emit({ type: 'done', runId: oldId, executionTime: 1 });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      worker.emit({ type: 'console', runId: newId, method: 'log', args: ['fresh'] });
+      worker.emit({ type: 'done', runId: newId, executionTime: 2 });
+      const result = await second;
+      expect(result.kind).toBe('success');
+      expect(result.stdout.map(output => output.args)).toEqual([['fresh']]);
+    } finally {
+      runner.stop();
+    }
+  });
+
   it('lets only the newest execute reach the worker when calls overlap the Pyodide boot', async () => {
     // A new Python tab auto-runs its seeded code, which starts the boot, and
     // an edit made before the boot finishes schedules a second run. Both calls
@@ -624,6 +763,38 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
   });
 
   // implementation — Python paridad rich-media.
+
+  it('keeps captured Python failures and later results while classifying the run as an error', async () => {
+    class CapturedErrorWorker {
+      private handler?: (event: MessageEvent) => void;
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.handler = handler;
+      }
+      removeEventListener(): void {}
+      terminate(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.handler?.({ data: { type: 'ready' } } as MessageEvent);
+        } else if (message.type === 'execute') {
+          for (const entry of [
+            { type: 'magic-comment', line: 1, value: 'ValueError: bad input', kind: 'autoLog', isError: true },
+            { type: 'magic-comment', line: 2, value: '42', kind: 'autoLog' },
+            { type: 'done', executionTime: 1 },
+          ]) this.handler?.({ data: { ...entry, runId: message.runId } } as MessageEvent);
+        }
+      }
+    }
+    Object.defineProperty(globalThis, 'Worker', { value: CapturedErrorWorker, writable: true, configurable: true });
+    const runner = new PythonRunner();
+    const result = await runner.execute('int("invalid")\n42', { autoLog: true });
+    expect(result.kind).toBe('error');
+    expect(result.error).toBeUndefined();
+    expect(result.magicResults).toEqual([
+      { line: 1, value: 'ValueError: bad input', kind: 'autoLog', isError: true },
+      { line: 2, value: '42', kind: 'autoLog' },
+    ]);
+    runner.stop();
+  });
 
   it('upgrades a magic-comment chart directive to a typed payload', async () => {
     class ChartDirectiveWorker {

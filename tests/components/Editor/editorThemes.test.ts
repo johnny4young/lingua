@@ -70,7 +70,6 @@ function toHex(value: string): string {
 }
 
 const WCAG_AA_NORMAL_TEXT = 4.5;
-const WCAG_AA_LARGE_TEXT = 3.0;
 
 /** Tokens we require every Lingua-owned theme to declare. */
 const REQUIRED_TOKENS = [
@@ -155,17 +154,10 @@ describe('defineCustomThemes', () => {
       const failures: string[] = [];
       for (const rule of theme.rules) {
         if (!rule.foreground) continue;
-        // Comments are italic and intentionally subtler than body code
-        // — the DS spec, like every major editor theme (VS Code Dark+,
-        // GitHub, Solarized), drops below 4.5:1 on comments so they
-        // recede in the visual hierarchy. Hold them to the AA Large
-        // threshold (3.0:1) instead of the body-text 4.5:1.
-        const minRatio =
-          rule.token === 'comment' ? WCAG_AA_LARGE_TEXT : WCAG_AA_NORMAL_TEXT;
         const ratio = contrastRatio(toHex(bg!), toHex(rule.foreground));
-        if (ratio < minRatio) {
+        if (ratio < WCAG_AA_NORMAL_TEXT) {
           failures.push(
-            `${rule.token}=#${rule.foreground} on ${bg} → ${ratio.toFixed(2)}:1 (needs ≥ ${minRatio})`
+            `${rule.token}=#${rule.foreground} on ${bg} → ${ratio.toFixed(2)}:1 (needs ≥ ${WCAG_AA_NORMAL_TEXT})`
           );
         }
       }
@@ -185,6 +177,18 @@ describe('defineCustomThemes', () => {
 
       const ratio = contrastRatio(bg!, fg!);
       expect(ratio).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
+    });
+
+    it('keeps inactive line numbers readable against the editor background', () => {
+      const { monaco, calls } = createMonacoMock();
+      defineCustomThemes(monaco);
+
+      const theme = findTheme(calls(), themeName);
+      const background = theme.colors['editor.background'];
+      const lineNumber = theme.colors['editorLineNumber.foreground'];
+      expect(background).toBeDefined();
+      expect(lineNumber).toBeDefined();
+      expect(contrastRatio(background!, lineNumber!)).toBeGreaterThanOrEqual(WCAG_AA_NORMAL_TEXT);
     });
   });
 

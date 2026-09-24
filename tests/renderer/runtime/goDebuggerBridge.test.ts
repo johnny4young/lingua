@@ -5,6 +5,7 @@ import {
   executeGoDebugSession,
   isGoDebuggerActive,
   syncGoDebuggerWatches,
+  stopActiveGoDebugger,
 } from '@/runtime/goDebuggerBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import type { FileTab } from '@/types/editor';
@@ -163,6 +164,57 @@ describe('goDebuggerBridge', () => {
     resolveCommand?.({ kind: 'finished', sessionId: 'go-session', output: 'result 2\n' });
     await expect(execution).resolves.toMatchObject({ kind: 'success' });
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('stops a pending start through its preallocated session identity', async () => {
+    let resolveStart!: (response: Awaited<ReturnType<GoDebuggerBridge['start']>>) => void;
+    const nativeBridge = bridge({
+      start: vi.fn(() => new Promise(resolve => { resolveStart = resolve; })),
+    });
+    window.lingua = { platform: 'darwin', goDebugger: nativeBridge } as unknown as LinguaAPI;
+
+    const execution = executeGoDebugSession(tab);
+    await vi.waitFor(() => expect(nativeBridge.start).toHaveBeenCalledTimes(1));
+    const request = vi.mocked(nativeBridge.start).mock.calls[0]![0];
+    const stopped = stopActiveGoDebugger();
+    resolveStart({ kind: 'stopped', sessionId: request.sessionId ?? 'missing-session' });
+    const result = await execution;
+
+    expect(request.sessionId).toEqual(expect.any(String));
+    expect(stopped).toBe(true);
+    expect(nativeBridge.stop).toHaveBeenCalledWith(request.sessionId);
+    expect(result).toMatchObject({ kind: 'stopped', cancelled: true });
+  });
+
+  it('does not start a replacement after Stop wins while the previous start is cancelling', async () => {
+    let resolveFirstStart!: (response: Awaited<ReturnType<GoDebuggerBridge['start']>>) => void;
+    let resolveFirstStop!: (response: Awaited<ReturnType<GoDebuggerBridge['stop']>>) => void;
+    const nativeBridge = bridge({
+      start: vi.fn(() => new Promise(resolve => { resolveFirstStart = resolve; })),
+      stop: vi.fn(sessionId => {
+        if (vi.mocked(nativeBridge.start).mock.calls[0]?.[0].sessionId === sessionId) {
+          return new Promise(resolve => { resolveFirstStop = resolve; });
+        }
+        return Promise.resolve({ kind: 'stopped', sessionId });
+      }),
+    });
+    window.lingua = { platform: 'darwin', goDebugger: nativeBridge } as unknown as LinguaAPI;
+
+    const first = executeGoDebugSession(tab);
+    await vi.waitFor(() => expect(nativeBridge.start).toHaveBeenCalledTimes(1));
+    const firstSessionId = vi.mocked(nativeBridge.start).mock.calls[0]![0].sessionId!;
+    const replacement = executeGoDebugSession({ ...tab, id: 'replacement-tab' });
+    await vi.waitFor(() => expect(nativeBridge.stop).toHaveBeenCalledWith(firstSessionId));
+
+    expect(stopActiveGoDebugger()).toBe(true);
+    const replacementSessionId = vi.mocked(nativeBridge.stop).mock.calls[1]![0];
+    expect(replacementSessionId).not.toBe(firstSessionId);
+    resolveFirstStop({ kind: 'stopped', sessionId: firstSessionId });
+    resolveFirstStart({ kind: 'stopped', sessionId: firstSessionId });
+
+    await expect(first).resolves.toMatchObject({ kind: 'stopped', cancelled: true });
+    await expect(replacement).resolves.toMatchObject({ kind: 'stopped', cancelled: true });
+    expect(nativeBridge.start).toHaveBeenCalledTimes(1);
   });
 
   it('returns an honest desktop-only failure without a preload bridge', async () => {

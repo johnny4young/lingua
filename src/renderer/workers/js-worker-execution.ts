@@ -23,7 +23,8 @@ import {
   serializeJsWorkerValues,
   truncateJsWorkerValue,
 } from './js-worker-serialization';
-import { buildLinguaWorkerBridge, parseJsWorkerError } from './js-worker-runtime';
+import { buildLinguaWorkerBridge } from './js-worker-runtime';
+import { createJsWorkerSourceMapper } from './js-worker-source';
 import { createJsWorkerStdinReader } from './js-worker-stdin';
 
 function evaluateWatchExpressions(
@@ -118,12 +119,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           : JS_WORKER_FALLBACK_RESULT_TRUNCATION_MARKER;
       const startTime = performance.now();
 
-      installJsWorkerConsoleProxy(
-        runId,
-        marker,
-        exec.sourceLineMap,
-        exec.sourceMappingEnabled !== false
-      );
+      const source = await createJsWorkerSourceMapper(exec.sourceMaps, exec.sourceLineCount);
+      installJsWorkerConsoleProxy(runId, marker, source.callingLine, exec.sourceMappingEnabled !== false, source.errorFrames);
 
       const session = createJsWorkerDebuggerSession(runId);
       applyJsWorkerExecutePayload(session, exec);
@@ -186,7 +183,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
               runId,
               line,
               value: serialized,
-              ...(value instanceof Error ? { isError: true } : {}),
+              ...(value instanceof Error ? { isError: true, error: source.parseError(value) } : {}),
             });
           };
 
@@ -300,7 +297,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             '__lingua_dbg_pop',
             '__lingua_capture_scope',
             'lingua',
-            code
+            source.body(code)
           );
           return await fn(
             __mc,
@@ -393,7 +390,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         // measurements and the failing statement reports the time it ran
         // before throwing — often the most interesting number of the run.
         flushLineTimings();
-        const parsed = parseJsWorkerError(err);
+        const parsed = source.parseError(err, code);
 
         ctx.postMessage({
           type: 'error',

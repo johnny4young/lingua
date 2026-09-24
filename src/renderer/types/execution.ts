@@ -87,7 +87,7 @@ export interface ExecutionContext {
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * implementation — BrowserPreviewRunner keeps the last successful srcdoc
+   * implementation — BrowserPreviewRunner keeps the last successful document
    * visible when a silent live refresh errors, times out, or is superseded.
    * Manual runs omit this flag and keep their explicit stop semantics.
    */
@@ -182,6 +182,8 @@ export interface MagicCommentResult {
    * keeping it as a sticky auto-log value.
    */
   isError?: boolean;
+  /** Mapped error details when a captured expression threw in the JS worker. */
+  error?: ExecutionError;
   /**
    * implementation — optional structured payload the runner
    * attached after detecting a rich-output directive (`//=> table`)
@@ -275,6 +277,10 @@ export interface ExecutionResult {
 }
 
 export interface ConsoleOutput {
+  /** Run-local observed capture order; absent for independently buffered pipes. */
+  captureOrder?: number;
+  /** A runtime error event, not a user console.error call. */
+  isExecutionError?: boolean;
   type: 'log' | 'warn' | 'error' | 'info';
   args: string[];
   line?: number;
@@ -326,15 +332,6 @@ export interface LanguageRunner {
   isReady(): boolean;
 }
 
-// internal — the stale `WorkerRequest` union that used to live here is
-// gone: nothing imported it, its shape had drifted from what the runner
-// actually posts (no `stop` message exists — runners `terminate()`), and
-// it silently omitted the debugger-control variants. The REAL inbound
-// contract lives at the receiving end: `WorkerInboundMessage` in
-// `workers/js-worker-protocol.ts` (= `JsWorkerExecuteMessage` + the shared
-// `DebuggerControlMessage` from `runtime/debuggerWorkerBridge`), enforced
-// there by an exhaustiveness `never` guard.
-
 /**
  * Messages sent from the worker to the main thread.
  *
@@ -349,6 +346,8 @@ export interface LanguageRunner {
 export type WorkerResponse =
   | {
       type: 'console';
+      captureOrder?: number;
+      isExecutionError?: boolean;
       runId: string;
       method: ConsoleOutput['type'];
       args: string[];
@@ -412,6 +411,7 @@ export type WorkerResponse =
       kind?: 'arrow' | 'watch' | 'autoLog';
       /** True when the captured value represents an execution error. */
       isError?: boolean;
+      error?: ExecutionError;
       /**
        * implementation note — when the source carried a `#=> table`
        * directive, the Python worker computes a forced-table payload

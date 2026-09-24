@@ -104,8 +104,10 @@ contextBridge.exposeInMainWorld('lingua', {
     compile: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ) => typedInvoke('go:compile', sourceCode, userEnv, messages),
+      messages?: NativeRunnerMessages,
+      runId?: string
+    ) => typedInvoke('go:compile', sourceCode, userEnv, messages, runId),
+    stop: (runId: string) => typedInvoke('go:stop', runId),
   },
 
   // Rust runner IPC
@@ -118,8 +120,10 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
-    ) => typedInvoke('rust:run', sourceCode, userEnv, messages),
+      messages?: NativeRunnerMessages,
+      runId?: string
+    ) => typedInvoke('rust:run', sourceCode, userEnv, messages, runId),
+    stop: (runId: string) => typedInvoke('rust:stop', runId),
   },
 
   // implementation — desktop Ruby child-spawn IPC. Distinct from the
@@ -277,21 +281,21 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('fs:reopen-file', absolutePath),
     classifyBlockedPath: (absolutePath: string) =>
       typedInvoke('fs:classify-blocked-path', absolutePath),
-    revokeRoot: (rootId: string) => typedInvoke('fs:revoke-root', rootId),
-    readdir: (rootId: string, relativePath: string) =>
+    revokeRoot: (rootId: RootId) => typedInvoke('fs:revoke-root', rootId),
+    readdir: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:readdir', rootId, relativePath),
-    listAllFiles: (rootId: string, relativePath?: string) =>
+    listAllFiles: (rootId: RootId, relativePath?: RelativePath) =>
       typedInvoke('fs:listAllFiles', rootId, relativePath),
     searchInFiles: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       options?: FsSearchOptions
     ) => typedInvoke('fs:searchInFiles', rootId, relativePath, query, options),
     // implementation — preview + apply replace-in-files.
     replaceInFiles: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions
@@ -305,8 +309,8 @@ contextBridge.exposeInMainWorld('lingua', {
         options
       ),
     applyReplaceInFile: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions
@@ -319,43 +323,43 @@ contextBridge.exposeInMainWorld('lingua', {
         replacement,
         options
       ),
-    stat: (rootId: string, relativePath: string) =>
+    stat: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:stat', rootId, relativePath),
-    read: (rootId: string, relativePath: string) =>
+    read: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:read', rootId, relativePath),
-    readBytes: (rootId: string, relativePath: string) =>
+    readBytes: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:read-bytes', rootId, relativePath),
-    write: (rootId: string, relativePath: string, content: string) =>
+    write: (rootId: RootId, relativePath: RelativePath, content: string) =>
       typedInvoke('fs:write', rootId, relativePath, content),
     delete: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       isDirectory?: boolean,
       language?: string
     ) => typedInvoke('fs:delete', rootId, relativePath, isDirectory, language),
-    rename: (rootId: string, relativeOldPath: string, newName: string) =>
+    rename: (rootId: RootId, relativeOldPath: RelativePath, newName: string) =>
       typedInvoke('fs:rename', rootId, relativeOldPath, newName),
-    mkdir: (rootId: string, relativePath: string) =>
+    mkdir: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:mkdir', rootId, relativePath),
-    touch: (rootId: string, relativePath: string) =>
+    touch: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:touch', rootId, relativePath),
     // implementation note — surface the entry in the OS file
     // manager (Finder / Explorer / Nautilus). Web build no-ops via
     // the FSA adapter (no underlying absolute path).
-    revealInFinder: (rootId: string, relativePath: string) =>
+    revealInFinder: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:reveal-in-finder', rootId, relativePath),
     // implementation — project zip bundles. Export packs the root into
     // a `.zip` via a save dialog; import extracts renderer-supplied
     // bytes into a chosen folder after authoritative re-validation.
     exportBundle: (
-      rootId: string,
+      rootId: RootId,
       opts?: { entryFile?: string; languageHint?: string }
     ) => typedInvoke('fs:exportBundle', rootId, opts),
     importBundle: (zipBytes: Uint8Array) =>
       typedInvoke('fs:importBundle', zipBytes),
-    watchStart: (rootId: string, relativePath?: string) =>
+    watchStart: (rootId: RootId, relativePath?: RelativePath) =>
       typedInvoke('fs:watch-start', rootId, relativePath),
-    watchStop: (watchId: string) => typedInvoke('fs:watch-stop', watchId),
+    watchStop: (watchId: WatchId) => typedInvoke('fs:watch-stop', watchId),
     onChanged: (
       callback: (event: {
         rootId: string;

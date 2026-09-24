@@ -368,7 +368,7 @@ const SIDECAR_FORMATS: Format[] = [
   'nupkg',
 ];
 
-export function isSidecarAsset(asset: ReleaseAsset): boolean {
+function isSidecarAsset(asset: ReleaseAsset): boolean {
   return SIDECAR_FORMATS.includes(asset.format);
 }
 

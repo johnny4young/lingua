@@ -1,6 +1,6 @@
 import net, { type Server, type Socket } from 'node:net';
 import { PassThrough } from 'node:stream';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DapClient } from '../../src/main/debugger/dapClient';
 
 function frame(message: unknown): Buffer {
@@ -29,6 +29,82 @@ afterEach(async () => {
 });
 
 describe('DapClient', () => {
+  it('does not open a socket for an already cancelled connection', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const socket = new net.Socket();
+    const connect = vi.spyOn(net, 'createConnection').mockReturnValue(socket);
+    const pending = DapClient.connect('127.0.0.1', 12345, 5000, controller.signal);
+    const outcome = pending.catch(error => error);
+    try {
+      expect(connect).not.toHaveBeenCalled();
+      expect(await outcome).toMatchObject({ name: 'AbortError' });
+    } finally {
+      if (socket.listenerCount('error')) socket.emit('error', new Error('fixture cleanup'));
+      socket.destroy();
+      await outcome;
+      connect.mockRestore();
+    }
+  });
+
+  it('cancels a pending connection and detaches its startup listeners', async () => {
+    const controller = new AbortController();
+    const socket = new net.Socket();
+    const connect = vi.spyOn(net, 'createConnection').mockReturnValue(socket);
+    let settled = false;
+    const outcome = DapClient.connect('127.0.0.1', 12345, 5000, controller.signal)
+      .then(value => { settled = true; return value; }, error => { settled = true; return error; });
+    try {
+      controller.abort();
+      await vi.waitFor(() => expect(settled).toBe(true));
+      expect(await outcome).toMatchObject({ name: 'AbortError' });
+      expect(socket.destroyed).toBe(true);
+      expect(socket.listenerCount('connect')).toBe(0);
+      expect(socket.listenerCount('error')).toBe(0);
+    } finally {
+      if (socket.listenerCount('error')) socket.emit('error', new Error('fixture cleanup'));
+      socket.destroy();
+      await outcome;
+      connect.mockRestore();
+    }
+  });
+
+  it('closes a failed transport and ignores any buffered events after failure', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const close = vi.fn(() => { input.destroy(); });
+    const client = DapClient.fromStreams(input, output, { close });
+    const listener = vi.fn();
+    client.onEvent(listener);
+    const pending = client.request('initialize').catch(error => error);
+    try {
+      output.emit('error', new Error('adapter transport failed'));
+      const failure = await pending;
+      expect(failure).toBeInstanceOf(Error);
+      if (!(failure instanceof Error)) throw new Error('Expected transport failure');
+      expect(failure.message).toContain('adapter transport failed');
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(input.destroyed).toBe(true);
+      output.write(frame({ seq: 1, type: 'event', event: 'output', body: { output: 'late' } }));
+      expect(listener).not.toHaveBeenCalled();
+      client.close();
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally { client.close(); input.destroy(); output.destroy(); }
+  });
+
+  it('does not deliver protocol events after explicit close', () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const client = DapClient.fromStreams(input, output);
+    const listener = vi.fn();
+    client.onEvent(listener);
+    try {
+      client.close();
+      output.write(frame({ seq: 1, type: 'event', event: 'stopped', body: { threadId: 1 } }));
+      expect(listener).not.toHaveBeenCalled();
+    } finally { input.destroy(); output.destroy(); }
+  });
+
   it('parses split frames, correlates responses, and buffers early events', async () => {
     const { server, port } = await listen(socket => {
       let request = Buffer.alloc(0);

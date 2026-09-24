@@ -4,6 +4,9 @@
  * `__mc_tick(<line>);` marker without changing the buffer's line count.
  */
 
+import MagicString from 'magic-string';
+import { finishSourceTransform, type RecordSourceMap } from '../sourceTransform';
+
 import {
   endsWithTrailingContinuation,
   stripTrailingSemicolons,
@@ -110,24 +113,19 @@ export function detectJSStatementStartLines(code: string): number[] {
  */
 export function transformJSLineTiming(
   code: string,
-  statementLines: ReadonlyArray<number>
+  statementLines: ReadonlyArray<number>,
+  recordMap?: RecordSourceMap
 ): string {
   if (statementLines.length === 0) return code;
-  const targets = new Set<number>(statementLines);
-  const lines = code.split('\n');
-  const out: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const original = lines[i]!;
-    const lineNumber = i + 1;
-    if (!targets.has(lineNumber)) {
-      out.push(original);
-      continue;
+  const source = new MagicString(code);
+  const targets = new Set(statementLines);
+  let offset = 0;
+  for (const [index, line] of code.split('\n').entries()) {
+    if (targets.has(index + 1)) {
+      const indent = line.length - line.trimStart().length;
+      source.appendLeft(offset + indent, `__mc_tick(${index + 1}); `);
     }
-    const indentMatch = original.match(/^(\s*)/u);
-    const indent = indentMatch?.[1] ?? '';
-    out.push(`${indent}__mc_tick(${lineNumber}); ${original.slice(indent.length)}`);
+    offset += line.length + 1;
   }
-
-  return out.join('\n');
+  return finishSourceTransform(source, recordMap);
 }

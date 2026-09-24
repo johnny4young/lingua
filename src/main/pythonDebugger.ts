@@ -1,5 +1,5 @@
 /**
- * implementation — main-process Python debugger bridge (engine).
+ * Main-process Python debugger bridge (engine).
  *
  * Lingua *runs* Python in Pyodide (WASM, in the renderer worker), but a
  * source-level debugger needs a real interpreter with `pdb`. This module is
@@ -256,8 +256,10 @@ export class PythonDebugSession {
       const shouldEmit = !this.exited;
       this.exited = true;
       this.exitCode = code;
-      // A natural exit means the SIGKILL escalation is moot — drop the timer.
+      // A stopped parent may exit before its independent-pipe descendants.
+      // Complete the pending tree cleanup before discarding escalation.
       if (this.killEscalationTimer) {
+        killProcessTree(child, 'SIGKILL');
         clearTimeout(this.killEscalationTimer);
         this.killEscalationTimer = null;
       }
@@ -388,10 +390,15 @@ export class PythonDebugSession {
    * `defaultSpawn`. Idempotent — the escalation timer is armed at most once and
    * cleared by the 'exit' handler.
    */
-  private killDebuggerProcess(): void {
+  private killDebuggerProcess(force = false): void {
     const child = this.child;
     if (!child) return;
-    killProcessTree(child, 'SIGTERM');
+    killProcessTree(child, force ? 'SIGKILL' : 'SIGTERM');
+    if (force) {
+      if (this.killEscalationTimer) clearTimeout(this.killEscalationTimer);
+      this.killEscalationTimer = null;
+      return;
+    }
     if (this.killEscalationTimer === null) {
       this.killEscalationTimer = setTimeout(() => {
         killProcessTree(child, 'SIGKILL');
@@ -481,21 +488,24 @@ export class PythonDebugSession {
   }
 
   /** Quit pdb and kill the subprocess (and anything it spawned). Idempotent. */
-  terminate(): void {
+  terminate(force = false): void {
     const child = this.child;
-    if (!child || this.exited) return;
+    if (!child) return;
+    if (!force && this.exited) return;
     // Flip `exited` synchronously so a command issued right after terminate()
     // rejects with "not running" instead of racing the async 'exit' event.
     this.exited = true;
     const pending = this.pendingPrompt;
     this.pendingPrompt = null;
-    pending?.();
-    try {
-      child.stdin.write('q\n');
-    } catch {
-      /* stdin already closed */
+    pending?.(new Error('Python debugger stopped'));
+    if (!force) {
+      try {
+        child.stdin.write('q\n');
+      } catch {
+        /* stdin already closed */
+      }
     }
-    this.killDebuggerProcess();
+    this.killDebuggerProcess(force);
     this.listeners.clear();
   }
 }

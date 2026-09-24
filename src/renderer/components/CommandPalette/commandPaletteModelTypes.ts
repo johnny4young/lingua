@@ -14,6 +14,11 @@ import type { FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { LayoutPreset } from '../../types/settings';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
+import type {
+  NativeJsRuntimeAvailability,
+  NativeJsRuntimeMode,
+} from '../../utils/nativeJsRuntimeStatus';
+import type { NativeLanguageToolchainAvailability } from '../../utils/nativeLanguageToolchainStatus';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -24,6 +29,8 @@ export interface CommandEntry {
   description: string;
   language?: Language;
   keywords: string[];
+  /** Still searchable, but cannot be activated until its prerequisite exists. */
+  disabled?: boolean;
   action: () => void;
 }
 
@@ -93,6 +100,10 @@ export interface BuildCommandPaletteModelArgs {
    * Optional; surfaced only when wired (i.e. an editor is active).
    */
   onPastePlainText?: () => void;
+  /** Explicit editor selection is required; neither action falls back to the buffer. */
+  editorSelectionAvailable?: boolean;
+  onCopyReference?: () => void;
+  onCopyWithContext?: () => void;
   /**
    * implementation — fires the "Toggle status bar" action, flipping the
    * `showStatusBar` setting. Optional; when omitted the command is hidden.
@@ -175,6 +186,14 @@ export interface BuildCommandPaletteModelArgs {
    * `runtime.mode_changed` telemetry.
    */
   onSetRuntimeMode?: (mode: RuntimeMode) => void;
+  /** Desktop-only detection state while the palette is open. */
+  nativeRuntimeAvailability?: NativeJsRuntimeAvailability;
+  /** Desktop Go/Rust detection state while the palette is open. */
+  nativeLanguageToolchainAvailability?: NativeLanguageToolchainAvailability;
+  /** Do not switch into a known-missing mode; surface its install/retry path. */
+  onMissingNativeRuntime?: (mode: NativeJsRuntimeMode) => void;
+  /** Show an explicit Desktop-only explanation instead of a runnable promise. */
+  isWebBuild?: boolean;
   /**
    * Active tab's current runtime mode; used to highlight the
    * "currently selected" entry. `null` for non-JS/TS tabs, which

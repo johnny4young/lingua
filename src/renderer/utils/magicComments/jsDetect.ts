@@ -4,6 +4,9 @@
  * value)` capture.
  */
 
+import MagicString from 'magic-string';
+import { finishSourceTransform, wrapSourceExpression, type RecordSourceMap } from '../sourceTransform';
+
 import { parseDirective } from './directives';
 import type { MagicCommentLine } from './types';
 
@@ -75,34 +78,28 @@ export function detectJSMagicComments(code: string): MagicCommentLine[] {
  *     value)` so the original statement still runs alongside the
  *     watch capture.
  */
-export function transformJSMagicComments(code: string): string {
-  const lines = code.split('\n');
-  const transformed: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+export function transformJSMagicComments(code: string, recordMap?: RecordSourceMap): string {
+  const source = new MagicString(code);
+  let offset = 0;
+  for (const [index, line] of code.split('\n').entries()) {
     const detected = detectJSLine(line);
-    if (!detected) {
-      transformed.push(line);
-      continue;
-    }
-    const lineNumber = i + 1;
-    // Strip trailing semicolon from the expression so the function
-    // body doesn't read as a statement.
-    const cleanExpr = detected.expression.replace(/;$/, '');
-    const mcCall = `__mc(${lineNumber}, (() => { try { return (${cleanExpr}); } catch(e) { return e instanceof Error ? e.message : String(e); } })())`;
-    if (detected.kind === 'arrow') {
-      transformed.push(`void (${mcCall});`);
-    } else {
-      // Watch — preserve the original line's prefix so declarations
-      // (`const x = 5; // @watch x`) keep running. The trailing
-      // semicolon makes the two halves syntactically independent.
+    if (detected) {
+      const cleanExpr = detected.expression.replace(/;$/, '');
+      const expressionStart = detected.kind === 'arrow'
+        ? line.indexOf(detected.expression)
+        : line.lastIndexOf(detected.expression);
       const prefix = detected.preserve;
-      const needsSeparator = prefix.length > 0 && !/[;{}]\s*$/.test(prefix);
-      const separator = needsSeparator ? ';' : '';
-      transformed.push(`${prefix}${separator} void (${mcCall});`);
+      const separator = prefix.length > 0 && !/[;{}]\s*$/.test(prefix) ? ';' : '';
+      wrapSourceExpression(source, {
+        start: offset + (detected.kind === 'watch' ? prefix.length : 0),
+        end: offset + line.length,
+        expressionStart: offset + expressionStart,
+        expressionEnd: offset + expressionStart + cleanExpr.length,
+        prefix: `${detected.kind === 'watch' ? separator + ' ' : ''}void (__mc(${index + 1}, (() => { try { return (`,
+        suffix: '); } catch(e) { return e instanceof Error ? e : new Error(String(e)); } })()));',
+      });
     }
+    offset += line.length + 1;
   }
-
-  return transformed.join('\n');
+  return finishSourceTransform(source, recordMap);
 }

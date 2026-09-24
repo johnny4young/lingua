@@ -251,9 +251,9 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     id: 'license',
     tab: 'account',
     labelKey: 'license.title',
-    descriptionKey: 'license.description',
+    descriptionKey: 'license.benefits.search',
     targetId: 'section-license',
-    keywords: ['license', 'token', 'pro', 'trial', 'activation', 'licencia', 'activar'],
+    keywords: ['license', 'token', 'pro', 'trial', 'activation', 'pricing', 'licencia', 'activar', 'precios'],
   },
   {
     id: 'ai',

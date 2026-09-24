@@ -34,12 +34,25 @@ import {
 
 const mocks = vi.hoisted(() => {
   const inner = vi.fn();
+  // `git config` reads (forwarded user settings, filter drivers) get their own
+  // mock so the query sequences below stay about status/diff/rev-parse.
+  const noConfigMatch = (
+    _binary: string,
+    _args: string[],
+    _options?: unknown
+  ): Promise<{ stdout: string; stderr: string }> =>
+    Promise.reject(Object.assign(new Error('no match'), { code: 1 }));
+  const config = vi.fn(noConfigMatch);
+  const route = (binary: string, args: string[], options: unknown) =>
+    args.includes('config') ? config(binary, args, options) : inner(binary, args, options);
   const outer = Object.assign(vi.fn(), {
-    [Symbol.for('nodejs.util.promisify.custom')]: inner,
+    [Symbol.for('nodejs.util.promisify.custom')]: route,
   });
   return {
     outer,
     inner,
+    config,
+    noConfigMatch,
     openPath: vi.fn().mockResolvedValue(''),
   };
 });
@@ -63,6 +76,7 @@ describe('detectGit', () => {
   beforeEach(async () => {
     workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-test-'));
     mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
     vi.resetModules();
     const mod = await import('../../src/main/git');
     mod.resetGitProbeCacheForTests();
@@ -79,6 +93,19 @@ describe('detectGit', () => {
     expect(result.installed).toBe(false);
     expect(result.error).toMatch(/git is not installed/i);
   });
+
+  it.each(['git version 2.35.1', 'unknown version'])(
+    'refuses repository queries for %s',
+    async version => {
+      mocks.inner.mockResolvedValueOnce({ stdout: `${version}\n`, stderr: '' });
+      const { detectGit } = await import('../../src/main/git');
+      expect(await detectGit(workdir)).toMatchObject({
+        installed: false,
+        error: expect.stringContaining('2.36'),
+      });
+      expect(mocks.inner).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('returns the version line when git resolves on PATH', async () => {
     mocks.inner.mockResolvedValueOnce({
@@ -141,6 +168,7 @@ describe('getFileStatus', () => {
   beforeEach(async () => {
     workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-status-'));
     mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
     vi.resetModules();
     const mod = await import('../../src/main/git');
     mod.resetGitProbeCacheForTests();
@@ -230,6 +258,67 @@ describe('getFileStatus', () => {
     const result = await getFileStatus(workdir, filePath);
     expect(result.status).toBe('unknown');
   });
+
+  it('neutralizes every repository filter driver for status and numstat', async () => {
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: ' M foo.js\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: '1\t1\tfoo.js\n', stderr: '' });
+    mocks.config.mockImplementation(async (_binary: string, args: string[]) => {
+      if (args.includes('--global') || args.includes('--system')) throw Object.assign(new Error(), { code: 1 });
+      return { stdout: 'filter.a=b.clean\0filter.a=b.process\0', stderr: '' };
+    });
+    const filePath = path.join(workdir, 'foo.js');
+    writeFileSync(filePath, '');
+    const { getFileStatus } = await import('../../src/main/git');
+    expect(await getFileStatus(workdir, filePath)).toMatchObject({ status: 'modified' });
+    for (const [, , options] of mocks.inner.mock.calls.slice(1)) {
+      expect((options as { env: NodeJS.ProcessEnv }).env).toMatchObject({
+        GIT_CONFIG_COUNT: '4',
+        GIT_CONFIG_KEY_0: 'filter.a=b.clean',
+        GIT_CONFIG_VALUE_0: '',
+        GIT_CONFIG_KEY_2: 'filter.a=b.process',
+        GIT_CONFIG_KEY_3: 'filter.a=b.required',
+        GIT_CONFIG_VALUE_3: 'false',
+      });
+    }
+  });
+
+  it('refuses the status query when filter drivers cannot be enumerated', async () => {
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.config.mockImplementation(async (_binary: string, args: string[]) => {
+      if (args.includes('--global') || args.includes('--system')) throw Object.assign(new Error(), { code: 1 });
+      throw Object.assign(new Error('bad config'), { code: 128 });
+    });
+    const filePath = path.join(workdir, 'foo.js');
+    writeFileSync(filePath, '');
+    const { getFileStatus } = await import('../../src/main/git');
+    expect(await getFileStatus(workdir, filePath)).toEqual({ status: 'unknown' });
+    expect(mocks.inner).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards only allowlisted global settings', async () => {
+    mocks.inner.mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' });
+    mocks.inner.mockResolvedValueOnce({ stdout: '', stderr: '' });
+    mocks.config.mockImplementation(async (_binary: string, args: string[]) => {
+      if (args.includes('--global')) {
+        return { stdout: 'safe.directory\n/Volumes/shared/repo\0core.autocrlf\ntrue\0core.pager\nevil\0', stderr: '' };
+      }
+      throw Object.assign(new Error(), { code: 1 });
+    });
+    const filePath = path.join(workdir, 'foo.js');
+    writeFileSync(filePath, '');
+    const { getFileStatus } = await import('../../src/main/git');
+    await getFileStatus(workdir, filePath);
+    const env = (mocks.inner.mock.calls[1]![2] as { env: NodeJS.ProcessEnv }).env;
+    expect(env).toMatchObject({
+      GIT_CONFIG_COUNT: '2',
+      GIT_CONFIG_KEY_0: 'safe.directory',
+      GIT_CONFIG_VALUE_0: '/Volumes/shared/repo',
+      GIT_CONFIG_KEY_1: 'core.autocrlf',
+      GIT_CONFIG_VALUE_1: 'true',
+      GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
+    });
+  });
 });
 
 describe('getFileDiff', () => {
@@ -238,6 +327,7 @@ describe('getFileDiff', () => {
   beforeEach(async () => {
     workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-diff-'));
     mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
     vi.resetModules();
     const mod = await import('../../src/main/git');
     mod.resetGitProbeCacheForTests();
@@ -380,6 +470,7 @@ describe('resolveRepoHeadPath ', () => {
   beforeEach(() => {
     workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-head-'));
     mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
     vi.resetModules();
   });
 
@@ -437,6 +528,7 @@ describe('watchRepoHead ', () => {
   beforeEach(() => {
     workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-watch-'));
     mocks.inner.mockReset();
+    mocks.config.mockReset().mockImplementation(mocks.noConfigMatch);
     vi.resetModules();
   });
 

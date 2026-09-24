@@ -4,7 +4,7 @@
  *
  * The panel owns the iframe element (it lives in the React tree).
  * The runner is a singleton that needs to write into that iframe
- * (`srcdoc` assignment) when an execute call lands. To keep the
+ * (isolated document loading) when an execute call lands. To keep the
  * runner free of React internals, the panel registers its iframe
  * via `setActiveBrowserPreviewIframe(ref)` on mount, and the
  * runner consumes the registered ref via

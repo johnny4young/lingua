@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { resolveUserEnvForRunner } from '../../runners/env';
+import { resolveUserEnvForNativeProbe } from '../../runners/env';
 import { SpecRow } from '../ui/SpecRow';
 import { Select } from './shared';
 
@@ -19,7 +19,8 @@ type DetectState =
   | { kind: 'unavailable' }
   | { kind: 'loading' }
   | { kind: 'detected'; version: string; semver?: string }
-  | { kind: 'missing' };
+  | { kind: 'missing' }
+  | { kind: 'check-failed' };
 
 interface DesktopBridge {
   detect: (
@@ -61,7 +62,7 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
     if (!bridge) return;
     let cancelled = false;
     bridge
-      .detect(resolveUserEnvForRunner())
+      .detect(resolveUserEnvForNativeProbe('ruby', window.lingua?.platform))
       .then((result) => {
         if (cancelled) return;
         if (result.installed) {
@@ -71,12 +72,12 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
             ...(result.semver ? { semver: result.semver } : {}),
           });
         } else {
-          setDetect({ kind: 'missing' });
+          setDetect({ kind: result.reason === 'check-failed' ? 'check-failed' : 'missing' });
         }
       })
       .catch(() => {
         if (cancelled) return;
-        setDetect({ kind: 'missing' });
+        setDetect({ kind: 'check-failed' });
       });
     return () => {
       cancelled = true;
@@ -92,7 +93,9 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
           ? t('settings.editor.rubyRuntime.statusDetected', {
               version: detect.semver ?? detect.version,
             })
-          : t('settings.editor.rubyRuntime.statusMissing');
+          : detect.kind === 'check-failed'
+            ? t('settings.editor.rubyRuntime.statusCheckFailed')
+            : t('settings.editor.rubyRuntime.statusMissing');
 
   const isWebBuild = detect.kind === 'unavailable';
 

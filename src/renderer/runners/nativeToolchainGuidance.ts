@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { useUIStore } from '../stores/uiStore';
 
-export type NativeToolchain = 'go' | 'rust' | 'node' | 'ruby';
+export type NativeToolchain = 'go' | 'rust' | 'node' | 'ruby' | 'deno' | 'bun';
 
 interface NativeToolchainSpec {
   label: string;
@@ -13,6 +13,8 @@ const TOOLCHAIN_SPECS: Record<NativeToolchain, NativeToolchainSpec> = {
   rust: { label: 'Rust', docsPath: '/docs/getting-started' },
   node: { label: 'Node.js', docsPath: '/docs/getting-started' },
   ruby: { label: 'Ruby', docsPath: '/docs/getting-started' },
+  deno: { label: 'Deno', docsPath: '/docs/getting-started' },
+  bun: { label: 'Bun', docsPath: '/docs/getting-started' },
 };
 
 function desktopShell(): LinguaAPI | null {
@@ -37,18 +39,22 @@ function pushRetrySuccess(toolchain: string): void {
 
 type RecoveryMessageKey =
   | 'nativeToolchain.missing.message'
-  | 'nativeToolchain.retry.stillMissing';
+  | 'nativeToolchain.retry.stillMissing'
+  | 'nativeToolchain.retry.checkFailed';
+
+type RetryDetection = () => Promise<boolean | 'check-failed'>;
 
 function pushRecoveryNotice(
   spec: NativeToolchainSpec,
   shell: LinguaAPI,
-  retryDetection: () => Promise<boolean>,
+  retryDetection: RetryDetection,
   messageKey: RecoveryMessageKey
 ): void {
   const currentNotice = useUIStore.getState().statusNotice;
   if (
     (currentNotice?.messageKey === 'nativeToolchain.missing.message' ||
-      currentNotice?.messageKey === 'nativeToolchain.retry.stillMissing') &&
+      currentNotice?.messageKey === 'nativeToolchain.retry.stillMissing' ||
+      currentNotice?.messageKey === 'nativeToolchain.retry.checkFailed') &&
     currentNotice.values?.toolchain === spec.label
   ) {
     return;
@@ -88,8 +94,8 @@ function pushRecoveryNotice(
         labelKey: 'nativeToolchain.action.retry',
         onClick: () => {
           void retryDetection()
-            .then((installed) => {
-              if (installed) {
+            .then((result) => {
+              if (result === true) {
                 pushRetrySuccess(spec.label);
                 return;
               }
@@ -97,7 +103,9 @@ function pushRecoveryNotice(
                 spec,
                 shell,
                 retryDetection,
-                'nativeToolchain.retry.stillMissing'
+                result === 'check-failed'
+                  ? 'nativeToolchain.retry.checkFailed'
+                  : 'nativeToolchain.retry.stillMissing'
               );
             })
             .catch(() => {
@@ -105,7 +113,7 @@ function pushRecoveryNotice(
                 spec,
                 shell,
                 retryDetection,
-                'nativeToolchain.retry.stillMissing'
+                'nativeToolchain.retry.checkFailed'
               );
             });
         },
@@ -121,7 +129,7 @@ function pushRecoveryNotice(
  */
 export function pushMissingNativeToolchainNotice(
   toolchain: NativeToolchain,
-  retryDetection: () => Promise<boolean>
+  retryDetection: RetryDetection
 ): void {
   const shell = desktopShell();
   if (!shell) return;

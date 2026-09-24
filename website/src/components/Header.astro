@@ -185,7 +185,9 @@ function isActive(href: string): boolean {
   .mobile-language {
     padding: 0.25rem 0.75rem;
   }
-  @media (min-width: 1024px) {
+  /* Six localized links plus four actions no longer fit at 1024px. Keep the
+     compact navigation until the full header has measured breathing room. */
+  @media (min-width: 1280px) {
     .primary-nav {
       display: flex;
     }
@@ -196,7 +198,7 @@ function isActive(href: string): boolean {
       display: none !important;
     }
   }
-  @media (max-width: 1023px) {
+  @media (max-width: 1279px) {
     .site-header {
       top: 0.35rem;
       padding-top: 0.35rem;

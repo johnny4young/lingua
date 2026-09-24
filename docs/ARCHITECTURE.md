@@ -104,6 +104,86 @@ settle only when its kill timer fired, terminating the worker under whichever
 run was using it and forcing the next run to boot Ruby again.
 `tests/runners/ruby.test.ts` covers the boot overlap.
 
+### Manual run ownership and cancellation
+
+All manual controls claim an in-memory session before loading the execution
+controller. That session, not a shared running boolean, owns runner preparation,
+stream delivery, history/capsule publication and teardown. Stop revokes publication
+synchronously, marks the run stopped and invokes only cancellation callbacks
+registered by that session. Closing its editor tab cancels the same session.
+A late result, rejected preparation or finalizer cannot mutate the next run.
+
+Runtime initialization can be shared and may finish after cancellation; a cancelled
+waiter must never execute when that initialization resolves. Physical stop is
+registered only after a regular runner is ready. Native debugger adapters register
+their already-loaded stop operation before starting the debugger and retain their
+own start-generation fence. Stop never loads a global stop function asynchronously.
+
+Console frame callbacks and capsule construction recheck ownership before writes.
+Only a current session publishes a completed snapshot or history entry. Run identity
+is not persisted in tabs, settings, history or `RunCapsuleV1`, so existing saved
+sessions remain compatible. Regression coverage exercises Stop → Run → late result,
+cancelled preparation, closed tabs and cancellation during capsule construction.
+
+### Execution outcomes and captured errors
+
+A top-level `ExecutionResult.error` describes an aborting failure. A magic-comment
+or auto-log `isError` capture does not abort later independent expressions, but it
+still makes the run an error rather than a successful restoration target.
+`executionOutcome.ts` centralizes that distinction for manual and automatic runs,
+console summaries, diagnostics and history/capsules. Explicit stopped and timeout
+outcomes take precedence over errors captured before termination. The original
+capture remains the inline error; it is not copied into a synthetic top-level
+runner error. Only clean successes replace the last successful snapshot.
+
+### Captured output order and Python failures
+
+Console captures may carry a transient, run-local `captureOrder`. Presentation
+reconstructs that observed order across stdout/stderr only when every entry has
+a valid, distinct sequence. Legacy independently buffered pipes retain their
+per-stream order; no causal order between operating-system pipes is claimed.
+Manual streaming reconciles returned captures by object identity, never by text.
+Final publication does not replay already streamed output. A runtime diagnostic
+copy is distinct from independent user stderr, even when their text is identical.
+No persisted session or RunCapsuleV1 schema changes are required.
+
+The Python worker executes original source through the public `eval_code_async`
+evaluator, with the same explicit namespace, final-expression and top-level-await
+semantics. A small boundary restores original stdout/stderr before rejection
+crosses into JavaScript. Pyodide formats exceptions through its original stderr
+file descriptor; leaving a redirected StringIO installed would turn the traceback
+into user output and leave the rejected error's message empty. Rejection is never
+classified by message truthiness. Ordered print entries are emitted once, not
+replayed again from the stderr buffer. Python's innermost user frame owns the
+primary coordinate; synthetic worker frames are not filesystem links. Real local
+Pyodide tests cover failure, recovery, notebook namespaces and stream restoration.
+
+### Source coordinates through instrumentation
+
+JS/TS transforms retain the original expression characters and emit high-resolution
+source maps only when requested by a runner. Maps are passed newest-first through
+the worker protocol: debugger instrumentation, TypeScript transpilation, timing,
+captures and loop guards. Both console origins and execution errors use the same
+map chain, including structured errors from non-fatal captures. TypeScript parse
+errors use esbuild's structured locations, not numbers extracted from its message.
+
+The worker labels the dynamic function with a synthetic source URL and measures
+the engine's prelude with an inert probe. It does not assume a universal two-line
+offset. If the engine rejects JavaScript syntax without a source frame, the
+existing Acorn parser supplies a diagnostic location; it never evaluates code or
+prevents engine-valid code from running. Unmapped generated helpers and malformed
+maps stay unknown rather than reporting a guessed original position. Synthetic
+source labels are not filesystem paths and do not advertise cross-file links.
+
+Mapped error frames carry explicit provenance. The worker identifies its own
+runtime files from the inert probe, while unknown dependency frames stay visible.
+The console shows user/unknown frames before collapsed, keyboard-accessible runtime
+details; runtime frames never advertise an editor link. Legacy stacks and Python
+cause chains retain their original order. The same mapper is passed into the
+bounded rich-value serializer for logged Errors, including object, Map, Set and
+table cells, without mutating user Error objects. Unreadable stacks retain the
+message fallback. No new persisted session format is required.
+
 ### Mirrored WASM integrity and failure recovery
 
 Production web builds pin Ruby and DuckDB mirror downloads to the SHA-256
@@ -123,6 +203,18 @@ return deterministic 4xx responses without retrying.
 Same-origin development and standard E2E builds do not enter these verified
 branches. Qualify the production-shaped branches separately with matching and
 mismatched assets; deployed mirror CORS remains an independent operational gate.
+
+### DuckDB engine lifecycle
+
+`src/renderer/runtime/duckdbClient.ts` retains SQL execution, persistence
+selection, and the production DuckDB factory. Its cached engine and teardown
+ordering belong to `duckdbEngineLifecycle.ts`. Reconnect and page teardown are
+transitions: the next engine cannot instantiate until the previous generation
+has terminated. Clearing persisted SQL data also waits for both OPFS artifacts
+to be removed before reopening the database. A late factory rejection can only
+evict its own generation, never a newer one. Failed best-effort checkpoints do
+not prevent termination; failed generations remain retryable without changing
+the public SQL client API or persisted workspace data.
 
 ### UTF-8 text budgets
 
@@ -215,6 +307,18 @@ transport behind the same bounded framing and request correlation. Native
 watches run in the real process and can have side effects, so all three
 adapters expose only standard pause breakpoints and retain the UI warning.
 
+The renderer allocates an ephemeral debugger session ID before the start IPC.
+Main reserves that ID in an owner-bound preparation registry before capability
+authorization, source staging, interpreter/tool discovery, or Rust compilation.
+Stop can therefore address a start before a protocol session exists; owner loss
+and app shutdown cancel the same preparation, and a duplicate ID is rejected
+before another authorization attempt. Python, Delve, rustc, and lldb-dap probes
+use the tracked native spawn boundary, so cancellation reaps their process trees.
+Once the protocol session is installed, ownership transfers to its runtime map.
+Map deletion is record-identity-safe, preventing an older finalizer from deleting
+a later session that reuses the same ID. The ID is not persisted and remains
+optional on the preload contract for compatible direct callers.
+
 ## Notebook lazy-reactivity boundary
 
 Notebook languages do not share one typed value graph. JavaScript and
@@ -231,6 +335,13 @@ document order instead:
 3. **Refresh stale** disposes the notebook-owned JavaScript/TypeScript sandbox
    and Python scope, then replays the executed prefix in document order through
    the requested stale cell. Replay stops on the first error or interruption.
+
+Disposal also revokes the in-flight cell's session identity. A delayed SQL,
+Python, JavaScript, or TypeScript completion returns `session-disposed` rather
+than publishing outputs or status into a closed or same-ID reopened notebook.
+The runner may still settle, but it no longer owns the new notebook lifetime.
+The notebook hook counts active top-level cell/range/replay operations so an
+older finalizer cannot hide the busy state of a newer operation.
 
 The persisted notebook state includes the document plus a validated map of
 cell IDs to execution stamps. This small ledger is necessary because a setup
@@ -662,11 +773,27 @@ both ends to that map:
   ([`src/preload/ipcTyped.ts`](../src/preload/ipcTyped.ts)) — no more
   `ipcRenderer.invoke('chan', …) as Promise<X>` casts; the channel name is a
   contract key and the result type is derived.
-- main handlers register through `typedHandle`
-  ([`src/main/ipc/typedHandle.ts`](../src/main/ipc/typedHandle.ts)), which
-  binds the handler's **return type** to the contract result. Handler
-  arguments stay `unknown` — they arrive from an untrusted renderer and each
-  handler validates them itself.
+- main handlers register through `typedHandle` or `validatedHandle`
+  ([`src/main/ipc/typedHandle.ts`](../src/main/ipc/typedHandle.ts)). Both bind
+  the handler's **return type** to the contract result. `typedHandle` leaves
+  wire arguments loose for handlers with an established local parser;
+  `validatedHandle` keeps them `unknown` until a channel-specific parser
+  returns the exact contract tuple.
+
+Filesystem channels use `validatedHandle` with the parsers in
+[`src/main/ipc/fs/fsArgs.ts`](../src/main/ipc/fs/fsArgs.ts). The parser checks
+arity, branded capability/watch tokens, path and text byte budgets, strict
+search/replace options, booleans and binary bundle input before opening a
+dialog, resolving a capability, aborting another search, creating a watcher or
+performing disk I/O. A malformed call raises a value-free
+`ERR_INVALID_IPC_ARGUMENTS`; ordinary in-contract failures keep their existing
+typed result shapes. The 16 MiB desktop text-write ceiling intentionally reuses
+the existing per-file project-bundle budget instead of adding an unrelated
+limit.
+
+The real main/preload regression is `pnpm run smoke:desktop:fs-ipc` after
+`pnpm run build:desktop-bundles`; it checks both rejection before effects and
+valid filesystem/watch recovery.
 
 The payoff: a renamed channel or a payload whose shape drifts between main
 and the renderer is now a **compile error**, and
@@ -767,7 +894,12 @@ The trust boundary is deliberately narrower than a generic task runner:
 - main resolves the root capability, re-detects the selected framework
   immediately before every spawn, and owns a fixed argument vector for each
   runner;
-- JavaScript runners use their project-local module entrypoint, Python prefers
+- JavaScript runners use their project-local module entrypoint with host Node.js
+  resolved by the native Node detector (including GUI-launch fallback locations),
+  never the Electron executable or `ELECTRON_RUN_AS_NODE`. The release
+  `runAsNode` fuse remains disabled. Missing Node and missing local packages have
+  separate recovery states; refresh detection after installing either.
+- Python prefers
   `.venv`/`venv`, and host toolchains are accepted only from absolute `PATH`
   entries so a relative entry cannot plant an executable in the project cwd;
 - every subprocess runs without a shell, inherits only an audited toolchain
@@ -1194,3 +1326,228 @@ The easiest way to reason about this architecture is:
 - the **disk** is the final source of truth
 
 If you keep that model, future extensions tend to stay coherent.
+
+
+## Read-only Git and project archive trust
+
+Project queries require Git 2.36 or newer because earlier versions can treat
+`core.fsmonitor=false` as a hook executable instead of disabling it. Queries
+share one no-shell invocation boundary with an allowlisted host environment,
+no inherited Git redirection/configuration, no global/system configuration
+except forwarded `safe.directory`, `core.autocrlf`, `core.eol` and
+`core.excludesFile` values, disabled fsmonitor/hooks, repository filter drivers
+(clean/smudge/process), external diff/text conversion and recursive submodule
+inspection, and no permitted transport for lazy object fetching. If filter
+drivers cannot be enumerated, the status query reports unknown instead of
+running. Missing local
+objects degrade the relevant query rather than fetching or invoking a helper.
+The host Git binary and its installation remain trusted.
+
+This does not turn native Run or the integrated terminal into a sandbox: those
+remain explicit execution of project code with the user's authority. Git query
+hardening preserves linked worktrees and submodule roots whose legitimate
+metadata lives outside their working tree; it does not require `.git` to be a
+directory inside the opened root. Ignoring submodule changes in a parent query
+does not prevent opening a submodule directly.
+
+Project bundles cannot carry `.git` files/directories at any depth, including
+case variants and NTFS/HFS aliases. Import rejects the entire archive before
+opening a destination dialog or writing files. The existing `path-traversal`
+rejection covers these filesystem-authority paths; `.gitignore`,
+`.gitattributes`, and `.github` remain ordinary source files. Neither export nor
+import changes the bundle schema or persisted user data.
+
+References: [Git configuration](https://git-scm.com/docs/git-config#Documentation/git-config.txt-corefsmonitor)
+and [Git environment](https://git-scm.com/docs/git#_environment_variables).
+
+
+### Desktop shell navigation boundary
+
+The main window may reload only its chosen renderer document. The navigation
+policy compares complete normalized URLs, ignoring fragments but preserving the
+path and query. A development server's origin does not authorize other files on
+that server; packaged file mode does not authorize arbitrary local files. The
+expected packaged URL is derived from the exact loadFile path with pathToFileURL,
+including escaped paths and Windows drive/UNC locations. The same policy handles
+page-initiated navigation and HTTP redirects. Resource loading and sandboxed
+preview documents remain separate from main-window navigation.
+
+Electron main-process loadURL/loadFile calls do not emit will-navigate; those
+calls must continue to use the chosen target, not an untrusted renderer payload.
+The permanent real-Electron navigation smoke exercises both built file mode and
+a loopback server, including an actual redirect, reload, fragments and EN/ES.
+See [Electron navigation events](https://www.electronjs.org/docs/latest/api/web-contents#navigation-events).
+
+### Terminal desktop startup failures
+
+`src/main/startup.ts` owns the terminal startup signal. Losing the single-instance
+lock returns before IPC registration or window creation. Synchronous registration,
+async initialization and renderer loading failures are observed by the same guard;
+a failure cancels later work, attempts cleanup, displays one native EN/ES recovery
+dialog, and exits with status 1 even if displaying the dialog itself fails. The
+user-facing diagnostic contains only a stage and an allowlisted code, never the
+thrown message, stack, filesystem path or token.
+
+Renderer loading has an aggregate deadline that includes a pending load: thirty
+seconds for the development server and two minutes for the packaged document,
+which can be slow on a cold first launch. Only the development server receives
+bounded retries; missing packaged HTML fails immediately. Window closure and final app quit cancel loading and retries,
+and late load settlements cannot reopen a window. A window is shown only after
+both successful loading and ready-to-show. Before-quit does not invalidate an
+already initialized app because unsaved-change confirmation can cancel quitting.
+
+The permanent startup smoke uses real Electron and built main code with isolated
+profiles, synthetic initialization faults, a genuinely missing HTML document,
+a pending load, and intentional quit. It captures native dialog arguments for
+unattended runs; an explicit interactive mode displays the actual native dialog.
+Neither mode validates signing or release-package fuses.
+
+### Project-test output chronology
+
+Project tests capture an optional `orderedOutput` transcript in main at the
+stdout/stderr callback boundary. The transient renderer transcript follows the
+same event order and ignores messages from other or completed runs. Live and final
+UI show this transcript once rather than regrouping it by pipe. Its order means
+*observed capture order*, never a causal ordering guarantee between OS pipes.
+
+The transcript is bounded by the sum of the two existing capture budgets (256 Ki
+UTF-16 units per pipe); truncation is explicit, irreversible for that run, and
+never splits a surrogate pair. Per-pipe clipping is also marked before live IPC
+publication, so a single noisy pipe cannot silently stop the transcript.
+Separate stdout/stderr remain in the IPC result
+for compatibility. Legacy or non-streamed replies without a transcript retain
+explicitly labeled separate buffers; the UI does not invent interleaving.
+
+### Native Node preparation cancellation
+
+Node's renderer adapter claims a transient identity before awaiting TypeScript
+transpilation. Stop revokes it immediately, even before a native child exists.
+After compilation settles, only the current identity may send code over IPC or
+install its child cancellation callback. A late compiler result or rejection from
+a stopped run becomes `stopped` and cannot replace the next child's Stop owner.
+This supplements the manual-session publication guards; suppressing output alone
+would still allow the cancelled code's filesystem/network side effects.
+
+The main Node, Ruby, Deno and Bun backends reserve run identities before runtime
+detection, version-file selection, cwd resolution or staging. A duplicate live identity is rejected rather than replacing
+its Stop/stdin owner. Cancellation during preparation returns `stopped`; the shared
+native spawn boundary refuses already-aborted signals before creating a child.
+Their version probes use that same boundary with the preparation signal, a five-second
+parent-owned timeout, bounded output and process-group termination. Stop, owner loss
+and app shutdown therefore cancel both a hung wrapper and its descendants rather
+than merely ignoring a late detector result. Standalone capability refreshes use
+the same bounded supervisor without acquiring execution authority.
+Settings availability checks and missing-toolchain Retry actions pass only
+toolchain-discovery environment keys to IPC; explicit Run alone forwards the
+full user/project/tab environment and records project-scope usage. A failed
+version check (timeout, permission error or nonzero result) is a retryable
+error, not evidence that the binary is absent or a reason to offer installation.
+Staged files and identity registrations are cleaned in `finally`, including cancelled
+runs. This complements the renderer fence after IPC has crossed into main.
+
+### Project test preparation ownership
+
+Project-test IPC reserves cancellation by sender, root capability and run identity
+before awaiting root authorization. Stop revokes only that sender's matching
+request immediately; root validation still runs, and execution never begins before
+a valid capability resolves. Sender destruction and completed requests invalidate
+output callbacks and remove lifecycle listeners.
+
+The execution backend reserves the canonical root and run identity before framework
+discovery. Preparing runs therefore participate in the existing single-suite-per-root
+rule. Disposal cancels preparation, and a late finalizer removes only its own
+controller, never a replacement run's registration.
+
+### Native run resource lifecycle
+
+Node, Ruby, Deno and Bun register preparation controllers with their originating
+WebContents before asynchronous discovery, including requests without a run ID.
+One destruction listener per owner cancels its requests and force-terminates only
+its tracked processes, including a child already waiting for graceful Stop.
+On POSIX, ordinary user Stop keeps the existing TERM-to-KILL grace period; disappearing
+owners cannot observe or resume a graceful exit and use immediate tree termination.
+If a stopped or timed-out parent closes before escalation, both native supervisors
+force-stop its remaining process group before releasing ownership. Descendants
+with independent pipes may outlive the parent and ignore TERM; parent close alone
+is not evidence of tree exit. Normal successful completion does not terminate
+background descendants. Deliberately detached descendants are outside the POSIX
+process-group boundary; this is lifecycle cleanup, not a process sandbox.
+Python and native DAP debug sessions likewise finish pending tree termination
+when their parent exits before escalation. A failed Delve startup (timeout, early
+exit or refused DAP connection) has no session owner and force-cleans its tree
+immediately, preserving the original startup diagnostic.
+A native DAP session reserves startup before awaiting its adapter. Stop aborts
+Delve address discovery and TCP connection, rejects late adapter resources before
+initialization, and prevents later handshake steps or events. LLDB observes child
+spawn failure before handing off its stdio transport. Terminal handshake failures
+close the transport and force-clean the child; closed transports discard buffered
+events and settle pending requests. Before that session exists, the shared debugger
+preparation registry owns the renderer-provided identity across authorization,
+staging, probes, and Rust compilation, and transfers it exactly once into the
+runtime session map.
+Debugger staging is likewise allocated synchronously and registered with the
+preparation owner before awaiting path canonicalization or writing private source.
+This closes the gap where shutdown could finish while an asynchronous allocation
+was still pending.
+
+The native process registry tracks the shared spawn boundary (also used by Rust and
+project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
+preparation and explicitly force-terminates remaining tracked trees because Electron
+may exit before an escalation timer fires. Settled runs release process entries and
+owner listeners. Shutdown cleanup runs on `will-quit`, after every window has
+closed, so a quit cancelled from the unsaved-changes prompt leaves active runs,
+debuggers, terminals and language servers untouched. This does not extend
+runtime permissions.
+Native Node, Ruby, Deno, Bun, Go and Rust staging directories are created and
+registered in one synchronous turn. Ordinary completion removes each directory
+asynchronously; `will-quit` synchronously removes any still registered source
+or compiled artifacts after terminating tracked children. Only paths created by
+the staging helper are eligible, so unrelated temporary files are untouched.
+Removal can still fail when the OS denies it or another process holds a file;
+that failure is best effort rather than a cross-restart cleanup guarantee.
+
+On Windows, either termination stage invokes `taskkill /T /F` before directly
+killing the parent. [Node emulates SIGTERM as unconditional termination](https://nodejs.org/download/release/v24.11.0/docs/api/process.html#signal-events);
+a parent-first kill can lose the ancestry needed to terminate descendants. A
+failed taskkill falls back to the direct child. Hosted Windows acceptance includes
+real Node parent/grandchild processes for owner loss, Stop-then-owner-loss and
+shutdown, in addition to the platform-seam contract tests.
+
+### Rust pipeline cancellation
+
+Rust keeps one transient run identity and owner-bound abort controller from
+before toolchain detection through directory allocation, source staging,
+compilation and native execution. The optional final `rust:run` argument keeps
+existing source/env/messages callers compatible; `rust:stop` only accepts the
+owning window's live identity. The browser bridge reports no native run to stop.
+Duplicate live identities are rejected, and every async preparation boundary
+checks cancellation before starting the next effect. The renderer resolves Stop
+immediately and ignores late replies, including errors and cleanup from older runs.
+
+Detection, compilation and execution reuse the native subprocess supervisor:
+5-second probe, 60-second compile, 30-second binary limit, POSIX process groups,
+and Windows tree-first termination. Window destruction and application shutdown
+also cancel the compiler, not just the final binary. Rust edition 2021, environment
+allowlisting and output limits are unchanged. Timeout metadata identifies the
+actual phase budget; Rust does not suggest changing unrelated runtime settings.
+Temporary-directory cleanup is awaited after subprocess completion during normal
+Stop. Shutdown retries tracked temporary-directory cleanup synchronously;
+filesystem failures remain best-effort, not a persistence guarantee.
+
+### Go compiler-to-worker cancellation
+
+Go remains a hybrid runtime: the host Go toolchain compiles to WASM, and a
+classic worker executes the transferred typed buffer. One transient renderer
+run identity owns both phases. Stop resolves immediately, asks main to cancel
+that identity and terminates only its own worker. A late compiler response,
+worker message or error cannot create a worker or finalize a newer run.
+
+Main owns the requesting window's compile before version/GOROOT detection and
+checks cancellation after directory allocation, source/module writes, compilation,
+artifact sizing and reads. All toolchain processes use the shared supervisor,
+including owner loss and shutdown. Existing 5-second probe and 30-second compile
+budgets remain; compile timeout is distinct from the worker's configurable
+execution deadline. The environment allowlist, runner-owned GOOS/GOARCH target,
+WASM size limit, Go runtime lookup order and zero-copy worker transfer remain.
+The optional final compile argument and additive result metadata preserve existing
+callers; the browser stop stub does not gain host execution authority.

@@ -301,3 +301,70 @@ describe('internal — BUNDLE_REJECT_REASONS', () => {
     ).toBe(true);
   });
 });
+
+describe('repository metadata boundary', () => {
+  const metadataPaths = [
+    '.git/config',
+    'nested/.git/config',
+    '.GIT/config',
+    '.git',
+    'nested/.git./config',
+    '.git /config',
+    'git~1/config',
+    '.g\u200cit/config',
+    '.git::$INDEX_ALLOCATION/config',
+  ];
+
+  it.each(metadataPaths)('rejects metadata path %s on every platform', entry => {
+    expect(validateBundleEntryPath(entry)).toBeNull();
+    expect(() => packBundle([file(entry)], { createdAt: CREATED_AT })).toThrow();
+  });
+
+  it.each([...metadataPaths, '.git/'])(
+    'rejects an entire imported archive containing %s',
+    entry => {
+      const zip = zipSync({ 'safe.js': strToU8('42'), [entry]: strToU8('untrusted metadata') });
+      expect(unpackBundle(zip)).toEqual({ ok: false, reason: 'path-traversal' });
+    }
+  );
+
+  it('preserves ordinary Git-related source files', () => {
+    const paths = ['.gitignore', '.gitattributes', '.github/workflows/test.yml', 'src/git.ts'];
+    const packed = packBundle(
+      paths.map(entry => file(entry)),
+      { createdAt: CREATED_AT }
+    );
+    const result = unpackBundle(packed);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.files.map(entry => entry.path)).toEqual(paths);
+  });
+});
+
+describe('colon paths', () => {
+  it('exports and imports POSIX names that contain a colon', () => {
+    const paths = ['logs/2024-01-01T10:30.txt', 'notes:draft.md'];
+    const packed = packBundle(
+      paths.map(entry => file(entry)),
+      { createdAt: CREATED_AT }
+    );
+    const result = unpackBundle(packed);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.files.map(entry => entry.path)).toEqual(paths);
+  });
+
+  it('rejects alternate data streams only for a Windows destination', () => {
+    expect(validateBundleEntryPath('notes:draft.md', { windowsTarget: true })).toBeNull();
+    const zip = zipSync({ 'safe.js': strToU8('42'), 'notes:stream': strToU8('hidden') });
+    const result = unpackBundle(zip, { windowsTarget: true });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.files.map(entry => entry.path)).toEqual(['safe.js']);
+      expect(result.rejects).toEqual([{ path: 'notes:stream', reason: 'path-traversal' }]);
+    }
+  });
+
+  it('still rejects drive-letter paths on every platform', () => {
+    expect(validateBundleEntryPath('C:/Windows/evil.txt')).toBeNull();
+    expect(validateBundleEntryPath('c:relative.txt')).toBeNull();
+  });
+});

@@ -14,7 +14,7 @@ import type { Locale } from '~/lib/i18n';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
-export interface CompareRow {
+interface CompareRow {
   feature: Record<Locale, string>;
   lingua: Verdict;
   linguaNote?: Record<Locale, string>;

@@ -187,11 +187,7 @@ interface LspNotification<P = unknown> {
 type LspRequestFailureReason = 'unsupported-method' | 'not-started' | 'request-failed';
 type LspRequestResult = Result<unknown, LspRequestFailureReason>;
 
-interface NativeRunnerMessages {
-  compileOutputTruncated?: string;
-  stdoutTruncated?: string;
-  stderrTruncated?: string;
-}
+type NativeRunnerMessages = import('./shared/nativeRuntimeTypes').NativeRunnerMessages;
 
 // ---------------------------------------------------------- Formatter types
 
@@ -577,8 +573,10 @@ interface LinguaAPI {
     compile: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
+      messages?: NativeRunnerMessages,
+      runId?: string
     ) => Promise<GoCompileResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
   rust: {
@@ -586,8 +584,10 @@ interface LinguaAPI {
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
-      messages?: NativeRunnerMessages
+      messages?: NativeRunnerMessages,
+      runId?: string
     ) => Promise<RustRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
   // implementation — desktop Node child-spawn IPC. Worker-mode JS

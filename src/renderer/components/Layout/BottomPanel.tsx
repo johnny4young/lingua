@@ -115,7 +115,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
 
   // implementation — register the activator so the
   // BrowserPreviewRunner can switch to the preview tab before it
-  // assigns `srcdoc`. Cleanup clears the registration when the
+  // loads the isolated document. Cleanup clears the registration when the
   // panel unmounts.
   useEffect(() => {
     registerBrowserPreviewActivator(openBottomPanel);
@@ -255,6 +255,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
           <button
             type="button"
             role="tab"
+            id="bottom-panel-console-tab"
             data-testid="bottom-panel-console-tab"
             aria-selected={effectiveTab === 'console'}
             onClick={() => selectTab('console')}

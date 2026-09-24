@@ -5,7 +5,8 @@
  * scripts cannot reach the parent window or navigate the top frame.
  *
  * Security:
- *   - Content is supplied via `srcDoc` (no URL navigation).
+ *   - Content is supplied to a fingerprinted, independently CSP-governed
+ *     document by a per-navigation, source-checked handshake.
  *   - The iframe runs in an opaque origin (no `allow-same-origin`)
  *     so direct parent DOM / storage access is blocked. `postMessage`
  *     can still deliver opaque-origin messages, so parent listeners
@@ -25,11 +26,12 @@
  * `runtime.rich_media_payload_rejected`.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputHtml } from '../../../shared/richOutput';
 import { clampHtmlHeight, validateHtmlPayload } from '../../../shared/richOutput';
 import { IFRAME_CONTENT_SECURITY_POLICY } from '../BrowserPreview/iframeBridge';
+import { setSandboxDocument } from '../../runtime/sandboxDocument';
 import { trackEvent } from '../../utils/telemetry';
 
 interface RichValueHtmlProps {
@@ -38,9 +40,10 @@ interface RichValueHtmlProps {
 
 export function RichValueHtml({ payload }: RichValueHtmlProps) {
   const { t } = useTranslation();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const validated = useMemo(() => validateHtmlPayload(payload.html), [payload.html]);
   const height = useMemo(() => clampHtmlHeight(payload.height), [payload.height]);
-  // Prepend the shared srcdoc CSP so this surface carries the same
+  // Prepend the shared document CSP so this surface carries the same
   // no-network policy as the browser-preview iframe. For the typical
   // fragment payload the leading <meta> lands in the implied <head>
   // and applies document-wide.
@@ -51,6 +54,11 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
         : `<meta http-equiv="Content-Security-Policy" content="${IFRAME_CONTENT_SECURITY_POLICY}">${validated}`,
     [validated]
   );
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (iframe && framed !== null) return setSandboxDocument(iframe, framed);
+  }, [framed]);
 
   useEffect(() => {
     if (validated === null) {
@@ -81,7 +89,7 @@ export function RichValueHtml({ payload }: RichValueHtmlProps) {
         {t('console.rich.htmlSandboxed')}
       </span>
       <iframe
-        srcDoc={framed ?? undefined}
+        ref={iframeRef}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         title={t('console.rich.htmlSandboxed')}

@@ -96,9 +96,8 @@ export interface InstrumentResult {
   /** Instrumented JS code, ready to send to the worker. */
   code: string;
   /**
-   * JSON-encoded source map for magic-string's JS→JS diff. implementation
-   * intentionally does not compose the caller-provided `inputMap`;
-   * TypeScript line round-trip lands in implementation.
+   * JSON-encoded map for this JS→JS pass. The runner includes it ahead of
+   * its transpile/transform maps in the worker's source-coordinate chain.
    */
   map: string;
   /**
@@ -107,13 +106,6 @@ export interface InstrumentResult {
    * about.
    */
   instrumentedLines: number[];
-  /**
-   * Best-effort map from generated/instrumented JS lines back to the
-   * user's source lines. The worker uses this for console output so
-   * logs emitted during a debug run stay aligned with Monaco instead
-   * of drifting after injected `await __lingua_dbg_yield(...)` calls.
-   */
-  sourceLineMap: Record<number, number>;
 }
 
 export interface InstrumentOptions {
@@ -739,35 +731,5 @@ export function instrumentForDebugger(
     // esbuild's upstream map without losing precision.
     map: mapText,
     instrumentedLines: [...recordedLines].sort((a, b) => a - b),
-    sourceLineMap: buildGeneratedLineMap(generatedCode, mapText, translateLine),
   };
-}
-
-function buildGeneratedLineMap(
-  generatedCode: string,
-  mapText: string,
-  translateLine: LineTranslator
-): Record<number, number> {
-  const out: Record<number, number> = {};
-  let tracer: TraceMap;
-  try {
-    tracer = new TraceMap(mapText);
-  } catch {
-    return out;
-  }
-
-  const lineCount = generatedCode.split('\n').length;
-  for (let line = 1; line <= lineCount; line += 1) {
-    try {
-      const original = originalPositionFor(tracer, { line, column: 0 });
-      if (typeof original.line !== 'number' || original.line <= 0) continue;
-      const userLine = translateLine(original.line);
-      if (Number.isInteger(userLine) && userLine > 0) {
-        out[line] = userLine;
-      }
-    } catch {
-      // Best effort only. Unmapped generated helper lines are ignored.
-    }
-  }
-  return out;
 }

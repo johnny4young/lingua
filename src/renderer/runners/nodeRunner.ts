@@ -49,31 +49,25 @@ import type {
   ExecutionResult,
   LanguageRunner,
 } from '../types/execution';
-import {
-  resolveTimeoutMs,
-  type RuntimeTimeoutPreset,
-} from '../../shared/runtimeTimeoutPresets';
+import { resolveTimeoutMs, type RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
-import {
-  runnerStoppedResult,
-  type TranslateFn,
-} from './limits';
+import { runnerStoppedResult, type TranslateFn } from './limits';
 import { loadEsbuild } from './esbuildLoader';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
-const t: TranslateFn = (key, options) =>
-  i18next.t(key, options ?? {}) as string;
+const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
 function executionLanguage(context?: ExecutionContext): 'javascript' | 'typescript' {
   return context?.language === 'typescript' ? 'typescript' : 'javascript';
 }
 
 function mintRunId(): string {
-  return globalThis.crypto?.randomUUID?.() ??
-    `node-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ?? `node-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 }
 
 export class NodeRunner implements LanguageRunner {
@@ -89,6 +83,7 @@ export class NodeRunner implements LanguageRunner {
   private ready = false;
   private cancelInFlight: (() => void) | null = null;
   private activeRunId: string | null = null;
+  private executionOwner: symbol | null = null;
 
   async init(): Promise<void> {
     // Lazy-loads + initializes esbuild-wasm exactly once across all
@@ -101,9 +96,9 @@ export class NodeRunner implements LanguageRunner {
     return this.ready;
   }
 
-  private async transpileTs(code: string): Promise<
-    { js: string; error?: undefined } | { js: ''; error: ExecutionError }
-  > {
+  private async transpileTs(
+    code: string
+  ): Promise<{ js: string; error?: undefined } | { js: ''; error: ExecutionError }> {
     try {
       const esbuild = await loadEsbuild();
       const result = await esbuild.transform(code, {
@@ -132,11 +127,10 @@ export class NodeRunner implements LanguageRunner {
     }
   }
 
-  async execute(
-    code: string,
-    context?: ExecutionContext
-  ): Promise<ExecutionResult> {
+  async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     this.stop();
+    const owner = Symbol('node-execution');
+    this.executionOwner = owner;
 
     // Resolve the per-run deadline from the per-language preset
     // . Caller override (one-shot extended timeout,
@@ -151,20 +145,29 @@ export class NodeRunner implements LanguageRunner {
       : resolveTimeoutMs(language, presetForLanguage);
     const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
       ? 'override'
-      : presetForLanguage ?? 'normal';
+      : (presetForLanguage ?? 'normal');
+
+    const stoppedResult = () => {
+      void trackEvent('runtime.node_runner_used', { language, status: 'stopped' });
+      return runnerStoppedResult(t, { stdout: [], stderr: [] });
+    };
 
     // TypeScript tabs always transpile before crossing IPC. The
     // content sniff remains as a compatibility fallback for older
     // callers that predate `ExecutionContext.language`.
     const looksLikeTs =
       language === 'typescript' ||
-      /(?:^|\s)(?:interface|type\s+\w+\s*=|enum\s|as\s+const)/m.test(
-        code
-      );
+      /(?:^|\s)(?:interface|type\s+\w+\s*=|enum\s|as\s+const)/m.test(code);
     let transpiled = code;
     if (looksLikeTs) {
       const transpileResult = await this.transpileTs(code);
+      // Stop or a replacement run may win while esbuild is preparing this code.
+      // Never let that continuation spawn a child or replace its cancellation owner.
+      if (this.executionOwner !== owner) {
+        return stoppedResult();
+      }
       if (transpileResult.error) {
+        this.executionOwner = null;
         return {
           stdout: [],
           stderr: [],
@@ -181,7 +184,7 @@ export class NodeRunner implements LanguageRunner {
     // variable inspector data (no `globalThis` hook in a fresh
     // subprocess). The toggle hides on the renderer side.
 
-    return new Promise<ExecutionResult>((resolve) => {
+    return new Promise<ExecutionResult>(resolve => {
       let resolved = false;
       const runId = mintRunId();
       this.activeRunId = runId;
@@ -189,22 +192,14 @@ export class NodeRunner implements LanguageRunner {
       const finish = (value: ExecutionResult) => {
         if (resolved) return;
         resolved = true;
+        if (this.executionOwner === owner) this.executionOwner = null;
         if (this.cancelInFlight === cancel) this.cancelInFlight = null;
         if (this.activeRunId === runId) this.activeRunId = null;
         resolve(value);
       };
       const cancel = () => {
         void nodeBridge.stop(runId).catch(() => {});
-        void trackEvent('runtime.node_runner_used', {
-          language,
-          status: 'stopped',
-        });
-        finish(
-          runnerStoppedResult(t, {
-            stdout: [],
-            stderr: [],
-          })
-        );
+        finish(stoppedResult());
       };
       this.cancelInFlight = cancel;
 
@@ -225,7 +220,7 @@ export class NodeRunner implements LanguageRunner {
           stdin: context?.stdin,
           messages: truncationMessages,
         })
-        .then((reply) => {
+        .then(reply => {
           if (resolved) return;
           // implementation note — adoption telemetry. `status` mirrors the
           // closed enum on the IPC reply.
@@ -238,10 +233,7 @@ export class NodeRunner implements LanguageRunner {
           // successful run per session; the settings flag persists
           // the dismissal across sessions when the user toggles it
           // off via Settings (deferred follow-up).
-          if (
-            reply.kind === 'success' &&
-            !settings.nodeRunnerFirstRunNoticeShown
-          ) {
+          if (reply.kind === 'success' && !settings.nodeRunnerFirstRunNoticeShown) {
             useUIStore.getState().pushStatusNotice({
               tone: 'info',
               messageKey: 'runtimeMode.notice.firstRunDangerous',
@@ -269,9 +261,7 @@ export class NodeRunner implements LanguageRunner {
               result: undefined,
               executionTime: reply.executionTime,
               error: {
-                message:
-                  reply.error ??
-                  'Node.js is not installed on this host.',
+                message: reply.error ?? 'Node.js is not installed on this host.',
               },
               kind: 'error',
               timeoutPreset,
@@ -285,17 +275,14 @@ export class NodeRunner implements LanguageRunner {
             stderr: stderrConsole,
             result: undefined,
             executionTime: reply.executionTime,
-            error: reply.error
-              ? { message: reply.error }
-              : undefined,
+            error: reply.error ? { message: reply.error } : undefined,
             kind: reply.kind,
             timeoutPreset,
             timeoutMs: reply.timeoutMs,
           });
         })
-        .catch((err) => {
-          const message =
-            err instanceof Error ? err.message : String(err);
+        .catch(err => {
+          const message = err instanceof Error ? err.message : String(err);
           finish({
             stdout: [],
             stderr: [],
@@ -311,6 +298,7 @@ export class NodeRunner implements LanguageRunner {
   }
 
   stop(): void {
+    this.executionOwner = null;
     if (this.cancelInFlight) {
       const cancel = this.cancelInFlight;
       this.cancelInFlight = null;

@@ -323,6 +323,7 @@ export function ConsolePanel() {
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
+  const lastPinned = useRef<{ top: number; height: number; viewport: number } | null>(null);
   const rowKeys = useMemo(() => visibleEntries.map(row => row.entry.id), [visibleEntries]);
   // implementation — window the (already collapsed + filtered) rows so only
   // the viewport band mounts. Off-window rows unmount, releasing their
@@ -347,9 +348,28 @@ export function ConsolePanel() {
   // hundred px short of the true bottom. Reading scrollHeight on each commit
   // and pinning is the robust fix for that measure-then-grow race.
   // scrollToBottom is a no-op once already at the bottom, so this converges
-  // and never loops.
+  // and never loops. A scroll event can arrive after a commit triggered by a
+  // new row. Compare live geometry with our last pin so a manual move away
+  // wins even before handleScroll has recorded it.
   useEffect(() => {
-    if (!userScrolled.current) scrollToBottom();
+    const element = scrollRef.current;
+    if (!element || userScrolled.current) return;
+    const previous = lastPinned.current;
+    if (
+      previous &&
+      element.scrollTop < previous.top - 2 &&
+      element.scrollHeight >= previous.height - 2 &&
+      Math.abs(element.clientHeight - previous.viewport) < 2
+    ) {
+      userScrolled.current = true;
+      return;
+    }
+    scrollToBottom();
+    lastPinned.current = {
+      top: element.scrollTop,
+      height: element.scrollHeight,
+      viewport: element.clientHeight,
+    };
   });
 
   const handleScroll = () => {
@@ -357,6 +377,13 @@ export function ConsolePanel() {
     if (!element) return;
     const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 32;
     userScrolled.current = !atBottom;
+    if (atBottom) {
+      lastPinned.current = {
+        top: element.scrollTop,
+        height: element.scrollHeight,
+        viewport: element.clientHeight,
+      };
+    }
   };
 
   const handleReplayHistoryEntry = useCallback(

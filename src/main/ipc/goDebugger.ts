@@ -1,8 +1,7 @@
-import { rmSync } from 'node:fs';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import {
   MAX_GO_DEBUG_ARGS,
@@ -29,6 +28,7 @@ import {
 } from '../runners/nativeEnv';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
+import { DebuggerPreparationRegistry } from './debuggerPreparation';
 
 const MAX_USER_ENV_VARS = 100;
 const MAX_USER_ENV_KEY_LENGTH = 128;
@@ -49,6 +49,7 @@ interface GoDebuggerRecord {
 }
 
 const sessions = new Map<string, GoDebuggerRecord>();
+const preparations = new DebuggerPreparationRegistry();
 const observedOwners = new WeakSet<WebContents>();
 
 function errorResponse(
@@ -129,26 +130,29 @@ function safeGoFileName(value: unknown): string {
 }
 
 async function approvedWorkingDirectory(
-  request: GoDebuggerStartRequest
+  request: GoDebuggerStartRequest,
+  signal: AbortSignal
 ): Promise<{ ok: true; cwd: string } | { ok: false }> {
+  signal.throwIfAborted();
   if (request.rootId === undefined && request.relativePath === undefined) {
     return { ok: true, cwd: '' };
   }
   if (request.rootId === undefined || request.relativePath === undefined) return { ok: false };
   const resolved = await resolveCapabilityPath(request.rootId, request.relativePath, 'read');
+  signal.throwIfAborted();
   if (!resolved.ok) return { ok: false };
   return { ok: true, cwd: path.dirname(resolved.absolutePath) };
 }
 
-async function removeRecord(record: GoDebuggerRecord): Promise<void> {
-  sessions.delete(record.id);
-  record.session.terminate();
+async function removeRecord(record: GoDebuggerRecord, force = false): Promise<void> {
+  if (sessions.get(record.id) === record) sessions.delete(record.id);
+  record.session.terminate(force);
   await rm(record.tempDir, { recursive: true, force: true }).catch(() => undefined);
 }
 
 function disposeForOwner(ownerId: number): void {
   for (const record of [...sessions.values()]) {
-    if (record.ownerId === ownerId) void removeRecord(record);
+    if (record.ownerId === ownerId) void removeRecord(record, true);
   }
 }
 
@@ -159,9 +163,10 @@ function observeOwner(sender: WebContents): void {
 }
 
 export function disposeGoDebuggerSessions(): void {
+  preparations.disposeAll();
   for (const record of [...sessions.values()]) {
     sessions.delete(record.id);
-    record.session.terminate();
+    record.session.terminate(true);
     try {
       rmSync(record.tempDir, { recursive: true, force: true });
     } catch {
@@ -229,7 +234,7 @@ export function classifyGoDebuggerStartFailure(
   return 'command-failed';
 }
 
-async function startSession(ownerId: number, rawRequest: unknown): Promise<GoDebuggerResponse> {
+async function startSession(owner: WebContents, rawRequest: unknown): Promise<GoDebuggerResponse> {
   if (!rawRequest || typeof rawRequest !== 'object' || Array.isArray(rawRequest)) {
     return errorResponse('invalid-request');
   }
@@ -246,70 +251,91 @@ async function startSession(ownerId: number, rawRequest: unknown): Promise<GoDeb
   }
   const breakpoints = normalizeBreakpoints(request.breakpoints);
   if (breakpoints.length === 0) return errorResponse('no-breakpoints');
-  const approved = await approvedWorkingDirectory(request);
-  if (!approved.ok) return errorResponse('unapproved-path');
 
-  disposeForOwner(ownerId);
+  const preparation = preparations.reserve(owner, request.sessionId, id => sessions.has(id));
+  if (!preparation) return errorResponse('invalid-request');
+  const { id, signal } = preparation;
   let tempDir: string | null = null;
-  let scriptPath: string;
+  let transferred = false;
   try {
-    tempDir = await realpath(await mkdtemp(path.join(tmpdir(), 'lingua-go-debug-')));
-    scriptPath = path.join(tempDir, safeGoFileName(request.fileName));
-    await writeFile(scriptPath, request.source, { encoding: 'utf8', mode: 0o600 });
+    const approved = await approvedWorkingDirectory(request, signal);
+    if (!approved.ok) return errorResponse('unapproved-path');
+    signal.throwIfAborted();
+    disposeForOwner(owner.id);
+
+    tempDir = mkdtempSync(path.join(tmpdir(), 'lingua-go-debug-'));
+    preparation.setCleanupPath(tempDir);
+    tempDir = await realpath(tempDir);
+    signal.throwIfAborted();
+    const scriptPath = path.join(tempDir, safeGoFileName(request.fileName));
+    await writeFile(scriptPath, request.source, { encoding: 'utf8', mode: 0o600, signal });
+    signal.throwIfAborted();
     await writeFile(path.join(tempDir, 'go.mod'), 'module lingua_debug\n\ngo 1.21\n', {
       encoding: 'utf8',
       mode: 0o600,
+      signal,
     });
+    signal.throwIfAborted();
+
+    const userEnv = normalizeStringMap(request.userEnv);
+    const env = buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
+    const delve = await resolveDelveBinary(env, process.platform, signal);
+    signal.throwIfAborted();
+    if (!delve) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+      return errorResponse('binary-missing');
+    }
+
+    const session = new GoDebugSession({
+      dlvPath: delve.command,
+      scriptPath,
+      programDir: tempDir,
+      cwd: approved.cwd || tempDir,
+      env,
+      programArgs: normalizeProgramArgs(request.programArgs),
+    });
+    const record: GoDebuggerRecord = {
+      id,
+      ownerId: owner.id,
+      tabId: request.tabId,
+      tempDir,
+      session,
+      breakpoints: new Set(breakpoints),
+      watches: normalizeWatches(request.watches),
+      paused: false,
+      pauseReason: 'user-breakpoint',
+      pauseGeneration: 0,
+      watchGeneration: 0,
+    };
+    sessions.set(id, record);
+    transferred = true;
+    preparation.finish();
+    try {
+      const transition = await session.start(breakpoints);
+      return responseForTransition(record, transition);
+    } catch (error) {
+      const output = session.drainOutput();
+      const stopped = signal.aborted || sessions.get(id) !== record;
+      await removeRecord(record, true);
+      return stopped
+        ? { kind: 'stopped', sessionId: id }
+        : errorResponse(
+            classifyGoDebuggerStartFailure(error),
+            error instanceof Error ? error.message : String(error),
+            output
+          );
+    }
   } catch (error) {
-    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    if (!transferred && tempDir) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+    if (signal.aborted) return { kind: 'stopped', sessionId: id };
     return errorResponse(
       'command-failed',
       error instanceof Error ? error.message : 'Could not prepare Go debugger source'
     );
-  }
-
-  const userEnv = normalizeStringMap(request.userEnv);
-  const env = buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
-  const delve = await resolveDelveBinary(env);
-  if (!delve) {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    return errorResponse('binary-missing');
-  }
-
-  const id = randomUUID();
-  const session = new GoDebugSession({
-    dlvPath: delve.command,
-    scriptPath,
-    programDir: tempDir,
-    cwd: approved.cwd || tempDir,
-    env,
-    programArgs: normalizeProgramArgs(request.programArgs),
-  });
-  const record: GoDebuggerRecord = {
-    id,
-    ownerId,
-    tabId: request.tabId,
-    tempDir,
-    session,
-    breakpoints: new Set(breakpoints),
-    watches: normalizeWatches(request.watches),
-    paused: false,
-    pauseReason: 'user-breakpoint',
-    pauseGeneration: 0,
-    watchGeneration: 0,
-  };
-  sessions.set(id, record);
-  try {
-    const transition = await session.start(breakpoints);
-    return responseForTransition(record, transition);
-  } catch (error) {
-    const output = session.drainOutput();
-    await removeRecord(record);
-    return errorResponse(
-      classifyGoDebuggerStartFailure(error),
-      error instanceof Error ? error.message : String(error),
-      output
-    );
+  } finally {
+    preparation.finish();
   }
 }
 
@@ -391,7 +417,7 @@ async function syncWatches(
 export function registerGoDebuggerHandlers(): void {
   typedHandle('debugger:go:start', async (event, request: unknown) => {
     observeOwner(event.sender);
-    return startSession(event.sender.id, request);
+    return startSession(event.sender, request);
   });
   typedHandle('debugger:go:command', async (event, sessionId: unknown, command: unknown) => {
     const record = ownedRecord(event.sender.id, sessionId);
@@ -411,6 +437,8 @@ export function registerGoDebuggerHandlers(): void {
     return syncWatches(record, value);
   });
   typedHandle('debugger:go:stop', async (event, sessionId: unknown) => {
+    const preparingId = preparations.stop(event.sender.id, sessionId);
+    if (preparingId) return { kind: 'stopped', sessionId: preparingId };
     const record = ownedRecord(event.sender.id, sessionId);
     if (!record) return errorResponse('session-not-found');
     await removeRecord(record);

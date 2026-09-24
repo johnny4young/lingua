@@ -1,3 +1,4 @@
+import type { ProjectTestOutputEvent, ProjectTestRunResult } from '../../shared/projectTests';
 import { useProjectStore } from '../stores/projectStore';
 import { useProjectTestStore } from '../stores/projectTestStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -70,13 +71,42 @@ export function prepareProjectTestsE2eFixture(): void {
     activeRunId: null,
   });
   useSettingsStore.setState({ nativeExecutionAcknowledged: true });
+  let onOutput: ((event: ProjectTestOutputEvent) => void) | undefined;
+  let attempts = 0;
   window.lingua = {
     ...window.lingua,
     projectTests: {
       detect: async () => useProjectTestStore.getState().detection!,
-      run: async () => useProjectTestStore.getState().result!,
+      run: async (_rootId, framework, runId) => {
+        const kind = ++attempts === 1 ? 'failed' : 'success';
+        const result: ProjectTestRunResult = {
+          kind,
+          framework,
+          command: 'vitest run --no-color',
+          stdout: 'first\nlast\n',
+          stderr: 'warning\n',
+          orderedOutput: 'first\nwarning\nlast\n',
+          exitCode: kind === 'failed' ? 1 : 0,
+          executionTime: 12,
+          timeoutMs: 300_000,
+        };
+        const pending = new Promise<ProjectTestRunResult>(resolve => {
+          window.addEventListener('e2e-project-tests-complete', () => resolve(result), {
+            once: true,
+          });
+        });
+        onOutput?.({ runId, stream: 'stdout', chunk: 'first\n' });
+        onOutput?.({ runId, stream: 'stderr', chunk: 'warning\n' });
+        onOutput?.({ runId, stream: 'stdout', chunk: 'last\n' });
+        return pending;
+      },
       stop: async () => ({ stopped: true }),
-      onOutput: () => () => undefined,
+      onOutput: handler => {
+        onOutput = handler;
+        return () => {
+          onOutput = undefined;
+        };
+      },
     },
   };
 }

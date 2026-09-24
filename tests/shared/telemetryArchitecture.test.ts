@@ -138,7 +138,11 @@ function lineCount(relativePath: string): number {
 }
 
 function telemetryInternalImports(sourceModule: string): string[] {
-  const parsed = parseSourceFile(path.join(repoRoot, sourceModule), sourceModule);
+  const sourcePath = path.join(repoRoot, sourceModule);
+  // Most production modules cannot import this private subtree. Avoid parsing
+  // every source file just to confirm that absence under full-suite load.
+  if (!readFileSync(sourcePath, 'utf8').includes('shared/telemetry/')) return [];
+  const parsed = parseSourceFile(sourcePath, sourceModule);
 
   return topLevelImports(parsed.program)
     .map(statement => statement.source.value)

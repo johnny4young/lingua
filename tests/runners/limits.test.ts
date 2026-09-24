@@ -45,6 +45,16 @@ function makeEntry(text: string): ConsoleOutput {
 }
 
 describe('appendCappedConsole', () => {
+  it('preserves the observation position of synthetic truncation notices', () => {
+    const entries = Array.from({ length: MAX_CONSOLE_ENTRIES }, (_, captureOrder) =>
+      ({ ...makeEntry('x'), captureOrder }));
+    appendCappedConsole(entries, { ...makeEntry('dropped'), captureOrder: MAX_CONSOLE_ENTRIES + 1 }, 0, t);
+    expect(entries.at(-1)).toMatchObject({ captureOrder: MAX_CONSOLE_ENTRIES + 1, args: ['runner.truncated.console'] });
+    const stderr: ConsoleOutput[] = [{ type: 'error', args: ['x'.repeat(MAX_STDERR_BYTES + 1)], captureOrder: 7 }];
+    expect(capStderrIfOverflowing(stderr, t)).toBe(true);
+    expect(stderr).toEqual([{ type: 'error', args: ['runner.truncated.stderr'], captureOrder: 7 }]);
+  });
+
   it('appends entries below the budget without altering them', () => {
     const entries: ConsoleOutput[] = [];
     let dropped = 0;

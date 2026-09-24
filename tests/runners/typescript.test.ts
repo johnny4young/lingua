@@ -1,3 +1,4 @@
+import { createSourcePositionMapper } from '../../src/shared/sourcePosition';
 import MagicString from 'magic-string';
 import type { TransformResult } from 'esbuild-wasm';
 import { describe, it, expect, vi } from 'vitest';
@@ -293,7 +294,7 @@ describe('TypeScriptRunner', () => {
 
       const result = await runner.execute('console.log("hello")');
 
-      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3 }]);
+      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3, captureOrder: 0 }]);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,
@@ -303,7 +304,20 @@ describe('TypeScriptRunner', () => {
     }
   });
 
-  it('passes a TS source line map to the worker for normal console output', async () => {
+  it('maps structured transpilation coordinates through injected timing code', async () => {
+    const esbuild = await import('esbuild-wasm');
+    vi.mocked(esbuild.transform).mockImplementation(async source => {
+      const secondLine = String(source).split('\n')[1]!;
+      throw Object.assign(new Error('Invalid initializer'), {
+        errors: [{ location: { line: 2, column: secondLine.indexOf(';', secondLine.indexOf('const broken')) } }],
+      });
+    });
+    const runner = new TypeScriptRunner();
+    const result = await runner.execute('const ok = 1;\nconst broken: number = ;', { lineTiming: true });
+    expect(result.error).toMatchObject({ line: 2, column: 24 });
+  });
+
+  it('passes a TS source map chain to the worker for normal console output', async () => {
     const esbuild = await import('esbuild-wasm');
     const source = 'console.log("hello")';
     const ms = new MagicString(source);
@@ -322,7 +336,7 @@ describe('TypeScriptRunner', () => {
     );
 
     const originalWorker = globalThis.Worker;
-    let postedLineMap: Record<number, number> | undefined;
+    let postedMaps: string[] | undefined;
 
     class MockWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
@@ -333,10 +347,10 @@ describe('TypeScriptRunner', () => {
         this.listeners.set(type, handler);
       }
 
-      postMessage(message: { runId?: string; sourceLineMap?: Record<number, number> }): void {
-        postedLineMap = message.sourceLineMap;
+      postMessage(message: { runId?: string; sourceMaps?: string[] }): void {
+        postedMaps = message.sourceMaps;
         const generatedLine = 2;
-        const mappedLine = message.sourceLineMap?.[generatedLine] ?? generatedLine;
+        const mappedLine = createSourcePositionMapper(message.sourceMaps ?? [])({ line: generatedLine, column: 1 })?.line;
         const handler = this.listeners.get('message');
         handler?.({
           data: {
@@ -367,8 +381,9 @@ describe('TypeScriptRunner', () => {
 
       const result = await runner.execute(source);
 
-      expect(postedLineMap?.[2]).toBe(1);
-      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 1 }]);
+      expect(postedMaps).toHaveLength(1);
+      expect(createSourcePositionMapper(postedMaps!)({ line: 2, column: 1 })).toEqual({ line: 1, column: 1 });
+      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 1, captureOrder: 0 }]);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,

@@ -1,5 +1,5 @@
 /**
- * implementation — shared native-run machinery for the desktop language runners.
+ * Shared native-run machinery for the desktop language runners.
  *
  * The Node, Ruby, and Rust runners each hand-rolled the same
  * `spawn(...)` + timeout + SIGTERM→SIGKILL escalation + output-cap +
@@ -18,7 +18,7 @@
  *     not just the direct child.
  *   - Parent-owned timeout: after `timeoutMs` we send SIGTERM and
  *     escalate to SIGKILL `killEscalationMs` later if the child has
- *     not exited.
+ *     not exited; if it exits first, force-stop remaining descendants.
  *   - Optional user-driven abort (Stop button) via an `AbortSignal`,
  *     using the same SIGTERM→SIGKILL escalation.
  *   - stdout / stderr each accumulated and capped at `maxOutputBytes`
@@ -35,6 +35,7 @@
  */
 
 import * as childProc from 'node:child_process';
+import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
 import { truncateBytes } from '../../shared/runnerLimits';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
 
@@ -63,7 +64,7 @@ export interface SpawnNativeRunOptions {
    * stream so the child hits EOF on first read. Omit it entirely to
    * leave the child's stdin untouched (Rust's posture).
    *
-   * implementation interactive mode: when `keepOpen` is true the helper writes `data`
+   * Interactive mode: when `keepOpen` is true the helper writes `data`
    * but does NOT close the stream, and hands the writable to `onStream` so
    * the caller can forward later input (and owns closing it). The default
    * (write-once-then-close) posture is unchanged when `keepOpen` is falsy.
@@ -121,6 +122,19 @@ export function spawnNativeRun(
     signal,
   } = options;
 
+  // A cancelled preparation must not briefly create a process: even a child
+  // immediately killed afterwards could already have performed user effects.
+  if (signal?.aborted) {
+    return Promise.resolve({
+      stdout: '',
+      stderr: '',
+      exitCode: -1,
+      executionTime: 0,
+      timedOut: false,
+      killed: true,
+    });
+  }
+
   return new Promise<SpawnNativeRunResult>((resolve) => {
     const start = Date.now();
     let stdout = '';
@@ -162,12 +176,18 @@ export function spawnNativeRun(
       return;
     }
 
+    const releaseChild = trackNativeRunProcess(child, signal);
     const terminate = (reason: 'timeout' | 'stopped') => {
       if (resolved) return;
       if (reason === 'timeout') {
         timedOut = true;
       } else {
         killed = true;
+      }
+      // An owner that no longer exists cannot resume or observe graceful exit.
+      if (reason === 'stopped' && signal?.reason === NATIVE_RUN_OWNER_GONE) {
+        killProcessTree(child, 'SIGKILL');
+        return;
       }
       killProcessTree(child, 'SIGTERM');
       if (escalationTimer === null) {
@@ -205,7 +225,7 @@ export function spawnNativeRun(
           child.stdin.write(stdin.data);
         }
         if (stdin.keepOpen) {
-          // implementation — leave stdin open for later interactive writes; hand the
+          // Leave stdin open for later interactive writes; hand the
           // stream to the caller, which owns closing it (e.g. a stdin-close
           // IPC or the run finishing).
           stdin.onStream?.(child.stdin);
@@ -263,6 +283,11 @@ export function spawnNativeRun(
     const finish = (result: SpawnNativeRunResult) => {
       if (resolved) return;
       resolved = true;
+      // Parent close does not imply tree exit: descendants may own independent
+      // pipes and ignore TERM. Finish cancellation before releasing ownership
+      // or clearing escalation; normal completion keeps its existing behavior.
+      if (killed || timedOut) killProcessTree(child, 'SIGKILL');
+      releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
       if (signal) signal.removeEventListener('abort', onAbort);

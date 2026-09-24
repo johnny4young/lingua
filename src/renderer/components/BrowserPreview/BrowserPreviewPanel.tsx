@@ -1,3 +1,4 @@
+import { clearSandboxDocument, getSandboxDocument } from '../../runtime/sandboxDocument';
 import { Eye, ExternalLink, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +9,7 @@ import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 import { isJavaScriptFamily } from '../../../shared/languageFamilies';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
 import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPreviewRefresh';
 
 /**
@@ -16,7 +18,7 @@ import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPre
  *
  *   - On mount, registers the iframe element with the
  *     `browserPreviewBridge` so the runner can write into its
- *     `srcdoc`. On unmount, clears the registration so a stale ref
+ *     isolated document. On unmount, clears the registration so a stale ref
  *     never points at a torn-down element.
  *   - The footer reflects running / idle / error / timeout states
  *     by consuming the existing result store (`isManualRunning`,
@@ -32,6 +34,7 @@ export function BrowserPreviewPanel() {
   const isManualRunning = useResultStore((state) => state.isManualRunning);
   const isAutoRunning = useResultStore((state) => state.isAutoRunning);
   const error = useResultStore((state) => state.error);
+  const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const activeTab = useActiveTab();
   const browserPreviewRefreshPreference = useSettingsStore(
     (state) => state.browserPreviewRefreshIntervalMs
@@ -46,6 +49,8 @@ export function BrowserPreviewPanel() {
       : 'browserPreview.empty';
   const isJsTsTab = isJavaScriptFamily(activeTab?.language);
   const isBrowserPreviewMode = activeTab?.runtimeMode === 'browser-preview';
+  const showRuntimeError =
+    isJsTsTab && isBrowserPreviewMode && error !== null && !isManualRunning && !isAutoRunning;
   const effectiveRefreshInterval =
     isJsTsTab && isBrowserPreviewMode
       ? resolveBrowserPreviewRefreshInterval(
@@ -64,10 +69,7 @@ export function BrowserPreviewPanel() {
     setActiveBrowserPreviewIframe(element);
     return () => {
       setActiveBrowserPreviewIframe(null);
-      // Reference `element` so the lint rule treats it as
-      // captured. The ref itself moves on remount; the cleanup
-      // intentionally clears the bridge regardless.
-      void element;
+      if (element) clearSandboxDocument(element);
     };
   }, []);
 
@@ -75,7 +77,8 @@ export function BrowserPreviewPanel() {
   const handleInspect = useCallback(() => {
     try {
       const iframe = iframeRef.current;
-      if (!iframe || !iframe.srcdoc) {
+      const html = iframe ? getSandboxDocument(iframe) : '';
+      if (!html) {
         setInspectFailed(true);
         return;
       }
@@ -84,7 +87,7 @@ export function BrowserPreviewPanel() {
       // give user preview code access to Lingua's localStorage in
       // the new window. A data URL gets an opaque origin and keeps
       // the inspect surface aligned with the sandboxed iframe.
-      const url = `data:text/html;charset=utf-8,${encodeURIComponent(iframe.srcdoc)}`;
+      const url = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
       const win = window.open(url, '_blank', 'noopener,noreferrer');
       if (!win) {
         setInspectFailed(true);
@@ -95,6 +98,13 @@ export function BrowserPreviewPanel() {
       setInspectFailed(true);
     }
   }, []);
+
+  const handleViewConsole = useCallback(() => {
+    openBottomPanel('console');
+    // The tab remains mounted while its panel changes. Move focus there
+    // before this error action unmounts so keyboard users do not land on body.
+    document.getElementById('bottom-panel-console-tab')?.focus();
+  }, [openBottomPanel]);
 
   return (
     <div className="flex h-full flex-col bg-background/65" data-testid="browser-preview-panel">
@@ -150,6 +160,23 @@ export function BrowserPreviewPanel() {
           >
             <Eye size={20} aria-hidden="true" />
             <p>{t('browserPreview.empty')}</p>
+          </div>
+        ) : null}
+        {showRuntimeError ? (
+          <div
+            role="alert"
+            className="absolute inset-x-3 top-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-error/40 bg-background/95 px-3 py-2 text-body-sm text-foreground shadow-lg"
+            data-testid="browser-preview-error-recovery"
+          >
+            <span>{t('browserPreview.errorRecovery')}</span>
+            <button
+              type="button"
+              onClick={handleViewConsole}
+              data-testid="browser-preview-view-console"
+              className="rounded-md border border-error/40 px-2 py-1 font-semibold text-error hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('browserPreview.viewConsole')}
+            </button>
           </div>
         ) : null}
       </div>

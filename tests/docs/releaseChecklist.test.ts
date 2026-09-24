@@ -57,6 +57,19 @@ describe('RELEASE.md release checklist', () => {
     expect(checklist).toContain('THIRD_PARTY_LICENSE_REPORT.md');
   });
 
+  it('requires the Linux artifact integrity gate rather than presence alone', () => {
+    expect(checklist).toContain('scripts/validate-linux-package.mjs');
+    expect(checklist).toContain('SHA-512');
+  });
+
+  it('records signing and candidate identity before human promotion', () => {
+    expect(checklist).toContain('## Promotion evidence record');
+    expect(checklist).toContain('source commit SHA');
+    expect(checklist).toContain('Authenticode');
+    expect(checklist).toContain('notarization');
+    expect(checklist).toContain('manual installation');
+  });
+
   it('requires post-publish platform update smoke before announcement', () => {
     expect(checklist).toMatch(/post-publish smoke/iu);
     expect(checklist).toMatch(/Announce only after/iu);

@@ -419,6 +419,23 @@ describe('fs:watch-start failure paths', () => {
   });
 });
 
+describe('watcher IPC runtime validation', () => {
+  it('rejects malformed stop tokens without touching active watchers', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const sender = makeSender();
+    const watchId = await invoke('fs:watch-start', sender, rootId, '');
+    const watcher = nth(fakeWatcherInstances, 0, 'a watcher');
+
+    await expect(
+      invoke('fs:watch-stop', sender, ['not-a-watch-id'])
+    ).rejects.toThrow(/Invalid IPC arguments/u);
+    expect(watcher.close).not.toHaveBeenCalled();
+
+    await expect(invoke('fs:watch-stop', sender, watchId)).resolves.toBe(true);
+    expect(watcher.close).toHaveBeenCalledTimes(1);
+  });
+});
+
 // -------------------------------------------------- before-quit cleanup
 
 describe('before-quit cleanup', () => {

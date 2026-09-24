@@ -1,3 +1,4 @@
+import { getSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
 /**
  * implementation — BrowserPreviewRunner + iframe bridge tests.
  *
@@ -103,7 +104,7 @@ describe('iframe bridge — buildBridgeScript', () => {
 });
 
 describe('iframe bridge — buildDoneScript', () => {
-  it('posts the done message via a microtask so sync console flushes first', () => {
+  it('posts a provisional done signal after synchronous script evaluation', () => {
     const script = buildDoneScript('abc');
     expect(script).toContain('Promise.resolve().then');
     expect(script).toContain("type: 'done'");
@@ -357,6 +358,7 @@ function postBridgeMessage(
   const event = new MessageEvent('message', {
     data: payload,
     origin: options.origin ?? 'null',
+    source: document.querySelector('iframe')?.contentWindow,
   });
   window.dispatchEvent(event);
 }
@@ -402,7 +404,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     // Wait one tick so the runner has assigned srcdoc + attached
     // the message listener.
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).toContain('console.log("hello");');
 
     // Extract the runId the runner is listening for. The bridge
@@ -436,6 +438,27 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it('excludes the post-done rejection grace window from execution time', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      const runner = new BrowserPreviewRunner();
+      await runner.init();
+      const iframe = createFakeIframe();
+      setActiveBrowserPreviewIframe(iframe);
+      const promise = runner.execute('// quick');
+      await Promise.resolve();
+      const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+      postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'ready' });
+      postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+      await vi.advanceTimersByTimeAsync(1_000);
+      const result = await promise;
+      expect(result.error).toBeUndefined();
+      expect(result.executionTime).toBeLessThan(10);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('drops messages with a foreign runId', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
@@ -444,7 +467,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop');
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     // Spoofed message — bypassed.
@@ -474,7 +497,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop');
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     const runId = srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     // Hostile origin — bypassed even with correct runId.
@@ -506,7 +529,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('throw new Error("boom");');
     await Promise.resolve();
-    const runId = iframe.srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
 
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -526,6 +549,60 @@ describe('BrowserPreviewRunner — execute()', () => {
     expect(result.stderr.length).toBeGreaterThan(0);
   });
 
+  it('keeps done provisional so an immediate rejected Promise is not lost', async () => {
+    vi.useFakeTimers();
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const promise = runner.execute('Promise.reject(new Error("rejected"));');
+    await Promise.resolve();
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId,
+      type: 'unhandledrejection',
+      message: 'Error: rejected',
+    });
+
+    await vi.advanceTimersByTimeAsync(100);
+    const result = await promise;
+    expect(result.kind).toBe('error');
+    expect(result.error?.message).toContain('rejected');
+    expect(result.stderr).toHaveLength(1);
+  });
+
+  it('does not let a superseded run settle after done and mutate the next run', async () => {
+    vi.useFakeTimers();
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('Promise.reject(new Error("old"));');
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+
+    const second = runner.execute('document.body.textContent = "new";');
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: firstRunId,
+      type: 'unhandledrejection',
+      message: 'Error: old',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect((await first).kind).toBe('stopped');
+    expect((await second).kind).toBe('success');
+    expect(getSandboxDocument(iframe)).toContain('textContent = "new"');
+  });
+
   it('keeps the last successful DOM when a silent refresh throws', async () => {
     const runner = new BrowserPreviewRunner();
     await runner.init();
@@ -534,10 +611,10 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const firstRun = runner.execute(
       'document.body.textContent = "stable";',
-      { preserveBrowserPreviewOnFailure: true }
+      { tabId: 'stable-tab', preserveBrowserPreviewOnFailure: true }
     );
     await Promise.resolve();
-    const stableDocument = iframe.srcdoc;
+    const stableDocument = getSandboxDocument(iframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -547,10 +624,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     await firstRun;
 
     const failedRefresh = runner.execute('throw new Error("new failure");', {
+      tabId: 'stable-tab',
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
-    const failedRunId = iframe.srcdoc.match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    const failedRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
       runId: failedRunId,
@@ -565,7 +643,67 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await failedRefresh;
     expect(result.error?.message).toBe('new failure');
-    expect(iframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(iframe)).toBe(stableDocument);
+  });
+
+  it('never restores another tab\'s successful document after a failed refresh', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('document.body.textContent = "tab A private";', {
+      tabId: 'tab-a',
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+    await first;
+
+    const second = runner.execute('throw new Error("tab B failed");', {
+      tabId: 'tab-b',
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: secondRunId,
+      type: 'error',
+      message: 'tab B failed',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+    expect((await second).kind).toBe('error');
+    expect(getSandboxDocument(iframe)).toBe('');
+  });
+
+  it('does not treat two anonymous runs as one trusted document owner', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+
+    const first = runner.execute('document.body.textContent = "anonymous private";');
+    await Promise.resolve();
+    const firstRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: firstRunId, type: 'done' });
+    await first;
+
+    const second = runner.execute('throw new Error("anonymous failure");', {
+      preserveBrowserPreviewOnFailure: true,
+    });
+    await Promise.resolve();
+    const secondRunId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({
+      __lingua: BRIDGE_DISCRIMINATOR,
+      runId: secondRunId,
+      type: 'error',
+      message: 'anonymous failure',
+    });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId: secondRunId, type: 'done' });
+    await second;
+    expect(getSandboxDocument(iframe)).toBe('');
   });
 
   it('restores the last successful DOM into a remounted preview iframe', async () => {
@@ -574,9 +712,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     const firstIframe = createFakeIframe();
     setActiveBrowserPreviewIframe(firstIframe);
 
-    const firstRun = runner.execute('document.body.textContent = "stable";');
+    const firstRun = runner.execute('document.body.textContent = "stable";', {
+      tabId: 'remounted-tab',
+    });
     await Promise.resolve();
-    const stableDocument = firstIframe.srcdoc;
+    const stableDocument = getSandboxDocument(firstIframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -589,10 +729,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     const remountedIframe = createFakeIframe();
     setActiveBrowserPreviewIframe(remountedIframe);
     const failedRefresh = runner.execute('throw new Error("remount failure");', {
+      tabId: 'remounted-tab',
       preserveBrowserPreviewOnFailure: true,
     });
     await Promise.resolve();
-    const failedRunId = remountedIframe.srcdoc.match(
+    const failedRunId = getSandboxDocument(remountedIframe).match(
       /var RUN_ID = "([^"]+)";/u
     )![1]!;
     postBridgeMessage({
@@ -609,7 +750,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await failedRefresh;
     expect(result.error?.message).toBe('remount failure');
-    expect(remountedIframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(remountedIframe)).toBe(stableDocument);
   });
 
   it('seeds the sibling css and html tabs of the tab named by context.tabId', async () => {
@@ -646,7 +787,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const promise = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).toContain('.seeded { color: teal; }');
     expect(srcdoc).toContain('<p id="seeded">hi</p>');
 
@@ -670,7 +811,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const first = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    expect(iframe.srcdoc).toContain('.first { color: red; }');
+    expect(getSandboxDocument(iframe)).toContain('.first { color: red; }');
     runner.stop();
     await first;
 
@@ -680,8 +821,8 @@ describe('BrowserPreviewRunner — execute()', () => {
     });
     const second = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    expect(iframe.srcdoc).toContain('.second { color: blue; }');
-    expect(iframe.srcdoc).not.toContain('.first { color: red; }');
+    expect(getSandboxDocument(iframe)).toContain('.second { color: blue; }');
+    expect(getSandboxDocument(iframe)).not.toContain('.first { color: red; }');
     runner.stop();
     await second;
   });
@@ -702,7 +843,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     // No tabId: the manager execute path (benchmarks) never names a tab.
     const anonymous = runner.execute('// noop');
     await Promise.resolve();
-    expect(iframe.srcdoc).not.toContain('.unseeded');
+    expect(getSandboxDocument(iframe)).not.toContain('.unseeded');
     runner.stop();
     await anonymous;
 
@@ -712,7 +853,7 @@ describe('BrowserPreviewRunner — execute()', () => {
     });
     const degraded = runner.execute('// noop', { tabId: 'active' });
     await Promise.resolve();
-    const srcdoc = iframe.srcdoc;
+    const srcdoc = getSandboxDocument(iframe);
     expect(srcdoc).not.toContain('.unseeded');
     getState.mockRestore();
 
@@ -736,11 +877,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     // Pump the microtask queue so srcdoc has been assigned and the
     // setTimeout is scheduled.
     await Promise.resolve();
-    expect(iframe.srcdoc.length).toBeGreaterThan(0);
+    expect(getSandboxDocument(iframe).length).toBeGreaterThan(0);
 
     vi.advanceTimersByTime(600);
     const result = await promise;
-    expect(iframe.srcdoc).toBe('');
+    expect(getSandboxDocument(iframe)).toBe('');
     expect(result.error?.message).toMatch(/timed out/i);
   });
 
@@ -750,9 +891,11 @@ describe('BrowserPreviewRunner — execute()', () => {
     const iframe = createFakeIframe();
     setActiveBrowserPreviewIframe(iframe);
 
-    const firstRun = runner.execute('document.body.textContent = "stable";');
+    const firstRun = runner.execute('document.body.textContent = "stable";', {
+      tabId: 'timeout-tab',
+    });
     await Promise.resolve();
-    const stableDocument = iframe.srcdoc;
+    const stableDocument = getSandboxDocument(iframe);
     const firstRunId = stableDocument.match(/var RUN_ID = "([^"]+)";/u)![1]!;
     postBridgeMessage({
       __lingua: BRIDGE_DISCRIMINATOR,
@@ -763,6 +906,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     vi.useFakeTimers();
     const timedOutRefresh = runner.execute('while (true) {}', {
+      tabId: 'timeout-tab',
       timeout: 500,
       preserveBrowserPreviewOnFailure: true,
     });
@@ -771,7 +915,7 @@ describe('BrowserPreviewRunner — execute()', () => {
 
     const result = await timedOutRefresh;
     expect(result.error?.message).toMatch(/timed out/i);
-    expect(iframe.srcdoc).toBe(stableDocument);
+    expect(getSandboxDocument(iframe)).toBe(stableDocument);
   });
 
   it('stop() during an in-flight run cancels the promise', async () => {
@@ -785,6 +929,6 @@ describe('BrowserPreviewRunner — execute()', () => {
     runner.stop();
     const result = await promise;
     expect(result.cancelled).toBe(true);
-    expect(iframe.srcdoc).toBe('');
+    expect(getSandboxDocument(iframe)).toBe('');
   });
 });

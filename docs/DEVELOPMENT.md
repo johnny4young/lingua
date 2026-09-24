@@ -37,7 +37,7 @@ Renderer architecture notes:
 Renderer + main-process build-time variables Lingua reads. Renderer keys are
 substituted into the bundle by Vite at build time; main-process keys are read
 by `vite.main.config.mts` through `loadEnv()` at config-load time so packaged
-Forge builds see repo-root `.env` / `.env.production` values. See
+desktop builds see repo-root `.env` / `.env.production` values. See
 `vite.web.config.mts`, `vite.renderer.config.mts`, and `vite.main.config.mts`
 for the wiring.
 
@@ -67,17 +67,20 @@ pnpm run lint
 pnpm run check:telemetry-call-sites
 pnpm run check:i18n
 pnpm run check:i18n:copy
+pnpm run report:i18n-usage
 pnpm run check:deadcode
+pnpm run check:deadcode:config
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run check:prod-audit
 pnpm run check:bundled-audit
 pnpm run build:web
 pnpm run smoke:desktop:stagewright
+pnpm run smoke:desktop:fs-ipc
 pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
+These are the main local verification commands. The independent-project CI job runs both dead-code commands after installing the root, website, and Worker lockfiles; the package-boundary probe creates and removes one temporary unused file in each package and fails if Knip misses any of them. `check:prod-audit` is the same blocking production-graph advisory gate CI runs on every PR — run it locally to catch a prod `high`/`critical` dependency before pushing. `check:bundled-audit` covers what that gate structurally cannot: `pnpm audit --prod` reads package.json `dependencies` only, while Vite inlines the main and preload graphs, so a devDependency imported by `src/main/**` (today `undici` and `ws`) ships inside the packaged bundle unseen. CI and release also audit the independently locked `license-server`, `update-server`, and `website` production graphs; the root dev-inclusive `pnpm audit` remains advisory. Release runs add exact release-tag changelog validation plus SBOM/license artifact generation.
 
 ## Package script reference
 
@@ -103,6 +106,7 @@ reference for what each command owns.
 | `preview:web`                | Serves the latest built web bundle locally.                                                                                                                                                                                          |
 | `smoke:project-templates`    | Materializes, installs, and executes every curated multi-file project template, then writes a diagnostic JSON artifact.                                                                                                              |
 | `smoke:desktop:stagewright`  | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke.                                                                                                                                                 |
+| `smoke:desktop:fs-ipc`      | Real main/preload filesystem boundary smoke for malformed payload rejection and valid file/watch recovery; build desktop bundles first.                                                                                                |
 | `smoke:desktop`              | Full desktop smoke flow against the dev server.                                                                                                                                                                                      |
 | `smoke:desktop:offline`      | Desktop smoke with non-loopback network requests blocked.                                                                                                                                                                            |
 | `smoke:desktop:packaged`     | Release-blocking packaged-app smoke against the host-native app under `out-builder`.                                                                                                                                                 |
@@ -124,7 +128,8 @@ reference for what each command owns.
 | `changelog:draft`            | Drafts changelog entries from conventional commits.                                                                                                                                                                                  |
 | `changelog:check`            | Blocks version/changelog drift before release.                                                                                                                                                                                       |
 | `test`                       | Runs the Vitest suite once.                                                                                                                                                                                                          |
-| `check:deadcode`             | Complete Knip gate (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, and unexpected binaries. Known host commands used by platform scripts, completion tests, and benchmarks are allowlisted explicitly. |
+| `check:deadcode`             | Complete Knip gate across the root app, standalone website, license Worker, and update Worker (config in `knip.jsonc`): unreferenced files, unused/unlisted dependencies, unresolved imports, dead exports/types, duplicates, unexpected binaries, and configuration hints. Narrow dynamic-runtime and host-command allowlists are documented in place. |
+| `check:deadcode:config`      | Negative configuration proof: creates one temporary unused source file inside each of the four package boundaries, requires Knip to report all four, and removes every probe in a `finally` block. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
 | `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |
@@ -134,6 +139,7 @@ reference for what each command owns.
 | `check:telemetry-call-sites` | Enforces the typed React telemetry entry point and ratchets the grandfathered lower-level direct-call baseline downward.                                                                                                             |
 | `check:i18n`                 | Validates locale shape and key parity.                                                                                                                                                                                               |
 | `check:i18n:copy`            | Flags obvious hardcoded renderer copy in touched files.                                                                                                                                                                              |
+| `report:i18n-usage`          | Advisory AST inventory of literal, dynamic-family, and plural key usage. Prints possible unused keys but never deletes them or blocks CI; inspect indirect callers before removing anything. |
 | `format`                     | Runs Prettier over source, JSON, Markdown, and CSS files.                                                                                                                                                                            |
 | `prepare:node-pty`           | Restores executable permissions on node-pty's Unix `spawn-helper`; desktop builds run it automatically before packaging.                                                                                                           |
 | `build:desktop-bundles`      | Builds the main/preload/renderer Vite output into `.vite/` for electron-builder to package.                                                                                                                                          |
@@ -165,6 +171,7 @@ What they enforce:
 
 - `check:i18n` fails on invalid locale JSON, missing translation keys, and orphaned keys relative to the English source locale.
 - `check:i18n:copy` inspects touched `src/renderer/**/*.ts(x)` files and flags obvious hardcoded JSX copy or literal UI attributes such as `title`, `aria-label`, and `placeholder`.
+- `node scripts/report-i18n-usage.mjs --json` prints machine-readable inventory without pnpm's lifecycle banner. The source scanner recognizes literal keys, direct `t`/`translate` template and concatenation families, and i18next plural suffixes. Keys assembled into variables, indirect references, and runtime payloads remain unresolved; a candidate is not proof that removal is safe. CI runs the report with `continue-on-error` rather than treating it as a deletion gate.
 
 ## UI smoke test (web)
 
@@ -405,6 +412,31 @@ pnpm run smoke:desktop:packaged
 
 The packaged variant runs against the actual `Lingua.app` produced by `pnpm run make:desktop` and is the gate the release workflow runs before publishing artifacts.
 
+### Packaged project tests (host Node)
+
+Project suites use **host Node.js**, not the Electron executable. Do not enable
+`RunAsNode` to make Vitest/Jest work. Install Node and the project's own test
+framework dependencies, then refresh detection in Project tests.
+
+On macOS, after `pnpm run package:desktop`, run this targeted smoke with an
+installed Jest entrypoint (the root already supplies Vitest):
+
+```sh
+node scripts/smoke-packaged-project-tests.mjs \
+  out-builder/mac-arm64/lingua.app /absolute/path/to/jest/bin/jest.js
+```
+
+Use `out-builder/mac/lingua.app` on Intel. A separate, disposable npm fixture
+can supply Jest; do not add it to application production dependencies or run
+untrusted install scripts. The smoke creates its own project and profile,
+executes actual Vitest and Jest suites through the packaged IPC bridge, checks
+that Node is not Electron, and proves Stop removes the child process. It reads
+and asserts the release fuse wire without modifying it. Chromium CDP is opened
+on a temporary loopback port for automation; Node CLI inspection remains fused
+off. Fixtures/profile are removed and the app is closed on exit. Evidence is
+written under `output/playwright/packaged-project-tests/`. This is local
+packaging evidence, not production signing or notarization validation.
+
 Smoke-only environment knobs:
 
 | Name                                   | Purpose                                                                                                                                                                             |
@@ -447,6 +479,11 @@ pnpm run preview:web
 ```
 
 The local web build defaults to `/` as its base path. The Cloudflare Pages deployment workflow builds `dist/web` for the subdomain root at `app.linguacode.dev`; `linguacode.dev` remains reserved for the dedicated marketing/download site.
+Before Pages promotion, the workflow uploads the versioned DuckDB and Ruby WASM
+objects and streams each public response through
+`scripts/verify-web-runtime-mirror.mjs` against its local source file. HTTP,
+CORS, MIME, redirects, and SHA-256 must all pass; see
+[`runbooks/r2-web-runtime-setup.md`](./runbooks/r2-web-runtime-setup.md).
 
 Production web builds keep Pyodide same-origin in `dist/web/pyodide/`, but
 route oversized DuckDB and Ruby WASM files through
@@ -483,3 +520,116 @@ and never emit those assets.
 - The active production release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 
 For the full release operator checklist and required secrets, see [`RELEASE.md`](../RELEASE.md). For the public-release security sign-off, see [`docs/RELEASE_SECURITY.md`](./RELEASE_SECURITY.md).
+
+
+### Shell navigation smoke
+
+After `pnpm run build:desktop-bundles`, run:
+
+```sh
+node scripts/smoke-shell-navigation.mjs [path-to-electron-executable]
+```
+
+This runs the real main/preload and built renderer in fresh profiles, first from
+file URLs and then from a temporary loopback server. It asserts document-only
+navigation and redirect rejection, permitted reload/fragments, preserved EN/ES
+rendering, and zero renderer console errors. Results and screenshots are written
+to `output/playwright/shell-navigation/`; the owned profiles and server are cleaned
+up. It does not use the installed application's profile or claim release-package
+fuse/signing coverage; packaged acceptance remains a separate gate.
+
+### Startup failure smoke
+
+After building desktop bundles:
+
+```sh
+node scripts/smoke-startup-failure.mjs [path-to-electron-executable]
+# Interactive native dialog verification; dismiss OK to finish each run:
+node scripts/smoke-startup-failure.mjs --show-dialog=en
+node scripts/smoke-startup-failure.mjs --show-dialog=es
+```
+
+The unattended pass asserts no IPC/window registration in a refused secondary
+instance, one safe EN/ES diagnostic and exit 1 on initialization or missing HTML,
+the real thirty-second hanging-load deadline (through the development-server
+path; packaged documents allow two minutes), and clean quit during loading.
+Fault injection lives only in disposable fixture bootstraps, not production flags.
+It writes `output/playwright/startup-failure/` evidence and removes its profiles.
+The expected failure diagnostic is intentional; unexpected errors still fail
+normal shell smoke. Interactive runs allow two minutes to inspect and dismiss the
+dialog. This does not replace normal rendering or release-package acceptance.
+
+### Project-test observed-output smoke
+
+After building desktop bundles, run
+`node scripts/smoke-project-test-output.mjs [path-to-electron-executable]`.
+It launches the real main/preload with a local Vite renderer, an isolated profile,
+and a disposable project whose host Node process emits interleaved stdout/stderr.
+It checks live and final order, failure then recovery, EN/light and ES/dark,
+1024/1280/1440 widths and native 100/125/200% zoom, with zero renderer errors.
+Screenshots and results are in `output/playwright/project-test-output-ui/`.
+The picker is stubbed to the explicit fixture; execution and IPC are not stubbed.
+This complements the packaged Vitest/Jest and release-fuse smoke, not replaces it.
+
+### Native preparation cancellation smoke
+
+After building desktop bundles, run
+`node scripts/smoke-node-preparation.mjs [path-to-electron-executable]`.
+The isolated Electron fixture runs actual esbuild, holds its continuation, stops
+that run, starts a real newer Node child, and then releases the old compiler.
+It verifies that the cancelled source never writes its sentinel and that Stop
+still kills the newer PID, with zero renderer console errors. Only the compiler
+continuation is controlled; native IPC/process execution is real. Evidence is
+written to `output/playwright/node-preparation/` and owned fixtures are removed.
+
+On POSIX, the same smoke also holds a real host-runtime version probe after IPC
+reaches main for Node, Ruby, Deno and Bun, then stops and releases it. All four
+runtimes must be installed for their subsequent real execution recovery checks. The cancelled source must never execute,
+and a later native run must succeed. The executable fixture is isolated and bounded;
+Windows exercises the platform-independent ownership checks in unit CI instead.
+
+The same preparation smoke also exercises project tests through a real picker-granted
+capability. It holds a real canonical-path result during authorization, then holds a
+real Node version probe during framework discovery. Both phases assert Stop prevents
+execution; duplicate identities are rejected, same-root concurrent discovery is
+busy, and a final project run recovers. The filesystem hook and PATH change are
+restricted to the isolated Electron process and restored in cleanup.
+
+`node scripts/smoke-native-lifecycle.mjs` runs the real Electron main/preload with
+installed Node, Ruby, Deno and Bun on POSIX. All four sources ignore TERM; Node
+also launches a grandchild. An observer around the real child spawn records PIDs
+without replacing execution. The smoke verifies Stop followed by window closure,
+app quit, complete process-tree disappearance and, on macOS, recovery in a new
+window of the same app. It uses an isolated profile, bounds waits, checks zero
+renderer errors and cleans only its own captured PIDs/fixtures. Windows exercises
+the same lifecycle regressions, the taskkill contract and real Node parent/grandchild
+termination in platform CI.
+
+#### Rust cancellation smoke
+
+`node scripts/smoke-rust-cancellation.mjs` exercises the installed Rust compiler
+through real Electron/main/preload and the Run/Stop UI. It uses a disposable
+profile and locally signed Pro license, with issuer URLs disabled in both build
+and runtime configuration. No entitlement or execution stub is installed.
+The POSIX wrapper cases stop real processes during toolchain probing and
+compilation, assert no cancelled source runs, and check private directory cleanup.
+The UI pass covers native binary Stop, compilation failure and successful recovery
+in EN/light and ES/dark, at three widths and 100/125/200 percent zoom, with console
+errors rejected. Evidence is written under `output/playwright/rust-cancellation/`.
+Windows process-tree behavior is covered by the separate Windows CI fixture.
+
+This smoke builds temporary-key desktop bundles. Run
+`node scripts/build-desktop-bundles.mjs` afterwards before using production
+packaging or bundle-audit evidence; it does not create or publish a package.
+
+#### Go compiler and WASM cancellation smoke
+
+`node scripts/smoke-go-cancellation.mjs` uses the installed Go toolchain and a
+real Electron classic WASM worker. Controlled executable wrappers hold the
+version probe, GOROOT probe and build separately; Stop must reap each process,
+return no executable artifact and remove the compile directory. The UI pass
+observes actual worker messages/termination, then verifies compilation failure
+and recovery in EN/light and ES/dark at the same width/zoom matrix as the Rust
+smoke. Results and captures live under `output/playwright/go-cancellation/`.
+Its signed license, issuer isolation, disposable-profile cleanup and subsequent
+production-bundle rebuild requirements are the same as the Rust smoke above.

@@ -5,7 +5,7 @@
  * The iframe is owned by `<BrowserPreviewPanel>` (the React surface
  * that mounts in the bottom panel); this runner consumes its
  * element ref via `getActiveBrowserPreviewIframe()` and writes the
- * full HTML payload into `srcdoc`.
+ * full HTML payload into an independently CSP-governed sandbox document.
  *
  * Privacy / security posture (see RUNTIME_MODES_ADR.md § Decision 5
  * + the CSP audit section):
@@ -15,7 +15,7 @@
  *     `document.cookie` is empty + ignored, `localStorage` /
  *     `sessionStorage` throw on access. Our app origin stays
  *     unreachable from user code.
- *   - Strict CSP inside the srcdoc forbids any network fetch.
+ *   - The sandbox document CSP forbids any network fetch.
  *   - `parent.postMessage` is the only escape hatch back, gated on
  *     the `__lingua` discriminator + the per-run UUID.
  *
@@ -28,18 +28,18 @@
  *      tab named by `context.tabId` from the editor store, builds the
  *      srcdoc with `buildPreviewDocument`,
  *      installs a `message` listener gated on (origin === 'null'
- *      OR origin === window.origin) + runId, then assigns
- *      `iframe.srcdoc`.
+ *      OR origin === window.origin) + runId, then loads the isolated document through a per-navigation handshake.
  *   3. The bridge IIFE fires a `ready` message, runs user code,
  *      then fires `done`. Console messages + uncaught errors +
  *      promise rejections stream in between.
- *   4. Parent-owned `setTimeout` clears `srcdoc` on timeout
+ *   4. Parent-owned `setTimeout` clears the document on timeout
  *      (effectively terminating user code).
  *   5. On `done` OR timeout OR stop(): resolve the promise with
  *      the canonical ExecutionResult shape and detach the listener.
  */
 
 import i18next from 'i18next';
+import { clearSandboxDocument, setSandboxDocument } from '../runtime/sandboxDocument';
 import type {
   ConsoleOutput,
   ExecutionContext,
@@ -80,6 +80,13 @@ import {
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
+// The iframe's done signal only means the inline script ended. Chromium can
+// deliver unhandledrejection in a later task, after done reaches the parent.
+// Keep the run owned and the message listener attached briefly so an
+// immediately rejected Promise is reported rather than published as success.
+// This does not attempt to await arbitrary asynchronous work from user code.
+const POST_DONE_REJECTION_GRACE_MS = 75;
+
 /**
  * Sibling `.css` / `.html` tabs of the running tab, read from the editor
  * store at execute time. A run without a `tabId`, an unknown tab, or a
@@ -108,7 +115,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   // Keep only the serializable document. Retaining the iframe would pin a
   // detached BrowserPreviewPanel for the renderer session and would prevent a
   // remounted panel from recovering the last successful preview.
-  private lastSuccessfulSrcdoc: string | null = null;
+  private lastSuccessfulDocument: { tabId: string; srcdoc: string } | null = null;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -135,6 +142,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
       : presetForLanguage ?? 'normal';
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    let nextCaptureOrder = 0;
     let droppedStdout = 0;
     let droppedStderr = 0;
     let stderrByteTruncated = false;
@@ -172,6 +180,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const documentTabId = context?.tabId || null;
     const siblingSources = siblingSourcesFor(context?.tabId);
     const doc = buildPreviewDocument({
       runId,
@@ -183,9 +192,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
     return new Promise<ExecutionResult>((resolve) => {
       let resolved = false;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let settleHandle: ReturnType<typeof setTimeout> | null = null;
       // Capture the wall-clock start so the `done` branch reports
       // actual elapsed time, not the timeout budget. The clock starts
-      // just before the listener attaches; the `srcdoc` assignment +
+      // just before the listener attaches; the document navigation +
       // bridge installation cost is what we want to measure.
       const startMs = Date.now();
 
@@ -193,6 +203,13 @@ export class BrowserPreviewRunner implements LanguageRunner {
         if (timeoutHandle !== null) {
           clearTimeout(timeoutHandle);
           timeoutHandle = null;
+        }
+      };
+
+      const clearSettlement = () => {
+        if (settleHandle !== null) {
+          clearTimeout(settleHandle);
+          settleHandle = null;
         }
       };
 
@@ -204,7 +221,12 @@ export class BrowserPreviewRunner implements LanguageRunner {
         const preserve = context?.preserveBrowserPreviewOnFailure === true;
         if (!preserve && !clearWhenDisabled) return;
         try {
-          iframe.srcdoc = preserve ? (this.lastSuccessfulSrcdoc ?? '') : '';
+          const previous =
+            preserve && documentTabId !== null && this.lastSuccessfulDocument?.tabId === documentTabId
+              ? this.lastSuccessfulDocument.srcdoc
+              : null;
+          if (previous) setSandboxDocument(iframe, previous);
+          else clearSandboxDocument(iframe);
         } catch {
           /* iframe may be detached; ignore */
         }
@@ -214,6 +236,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
         if (resolved) return;
         resolved = true;
         clearDeadline();
+        clearSettlement();
         detachListener();
         if (this.currentRunId === runId) this.currentRunId = null;
         if (this.cancelInFlight === cancel) this.cancelInFlight = null;
@@ -230,6 +253,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
       this.cancelInFlight = cancel;
 
       const handleMessage = (event: MessageEvent) => {
+        if (event.source !== iframe.contentWindow) return;
         // Origin guard: sandboxed iframe without `allow-same-origin`
         // posts as `null`. In test or future allow-origin contexts,
         // accept the parent origin too. Everything else is rejected.
@@ -251,6 +275,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
             break;
           case 'console': {
             const output: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
               type: message.method,
               args: message.args,
             };
@@ -267,6 +292,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
           }
           case 'error': {
             const error: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
+              isExecutionError: true,
               type: 'error',
               args: [message.stack ?? message.message],
             };
@@ -285,6 +312,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
           }
           case 'unhandledrejection': {
             const error: ConsoleOutput = {
+              captureOrder: nextCaptureOrder++,
+              isExecutionError: true,
               type: 'error',
               args: [message.message],
             };
@@ -297,21 +326,29 @@ export class BrowserPreviewRunner implements LanguageRunner {
             break;
           }
           case 'done': {
-            if (executionError) {
-              restoreLastSuccessfulDocument();
-            } else {
-              this.lastSuccessfulSrcdoc = doc;
-            }
-            finish({
-              stdout,
-              stderr,
-              result: undefined,
-              executionTime: Date.now() - startMs,
-              error: executionError,
-              kind: executionError ? 'error' : 'success',
-              timeoutPreset,
-              timeoutMs: timeout,
-            });
+            if (settleHandle !== null) break;
+            clearDeadline();
+            // The grace window is listening time, not user execution time.
+            const executionTime = Date.now() - startMs;
+            settleHandle = setTimeout(() => {
+              settleHandle = null;
+              if (executionError) {
+                restoreLastSuccessfulDocument();
+              } else {
+                this.lastSuccessfulDocument =
+                  documentTabId === null ? null : { tabId: documentTabId, srcdoc: doc };
+              }
+              finish({
+                stdout,
+                stderr,
+                result: undefined,
+                executionTime,
+                error: executionError,
+                kind: executionError ? 'error' : 'success',
+                timeoutPreset,
+                timeoutMs: timeout,
+              });
+            }, POST_DONE_REJECTION_GRACE_MS);
             break;
           }
         }
@@ -324,12 +361,10 @@ export class BrowserPreviewRunner implements LanguageRunner {
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
-      // Build the srcdoc and assign it. The iframe `load` event
-      // does NOT need to be awaited — the bridge IIFE will fire
-      // its `ready` message once it has installed listeners, and
-      // user code follows naturally.
+      // The transport waits for the isolated bootstrap, then the execution
+      // bridge streams ready/output/done. The deadline also covers loading.
       try {
-        iframe.srcdoc = doc;
+        setSandboxDocument(iframe, doc);
       } catch (assignError) {
         restoreLastSuccessfulDocument();
         finish({

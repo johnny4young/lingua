@@ -25,7 +25,7 @@ import {
   revokeRoot,
   type RootId,
 } from '../projectCapabilities';
-import { typedHandle } from '../typedHandle';
+import { typedHandle, validatedHandle } from '../typedHandle';
 import {
   hasApprovedFile,
   hasApprovedRoot,
@@ -33,6 +33,7 @@ import {
   rememberApprovedRoot,
 } from './fsApprovals';
 import { registerBundleHandlers } from './fsBundle';
+import { fsArgs } from './fsArgs';
 import { registerSearchReplaceHandlers } from './fsSearchReplace';
 import {
   CapabilityError,
@@ -57,7 +58,7 @@ export function registerFileOperationHandlers(): void {
 
   // ---------------------------------------------------------------- pickers
 
-  typedHandle('fs:select-directory', async () => {
+  validatedHandle('fs:select-directory', (args) => fsArgs.noArgs('fs:select-directory', args), async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
     });
@@ -74,7 +75,7 @@ export function registerFileOperationHandlers(): void {
     return { canceled: false, rootId, rootPath } as const;
   });
 
-  typedHandle('fs:select-file', async () => {
+  validatedHandle('fs:select-file', (args) => fsArgs.noArgs('fs:select-file', args), async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: OPEN_FILE_FILTERS.map((filter) => ({
@@ -117,8 +118,9 @@ export function registerFileOperationHandlers(): void {
     } as const;
   });
 
-  typedHandle(
+  validatedHandle(
     'fs:save-dialog',
+    fsArgs.saveDialog,
     async (_event, defaultName: string, defaultDir?: string) => {
       const result = await dialog.showSaveDialog({
         defaultPath: defaultDir
@@ -142,10 +144,7 @@ export function registerFileOperationHandlers(): void {
   // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
   // signal that names only the family, never the path) when a reopen or pick is
   // refused by the denylist. Mints no capability; performs no disk write.
-  typedHandle('fs:classify-blocked-path', (_event, absolutePath: string) => {
-    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
-      return { family: null } as const;
-    }
+  validatedHandle('fs:classify-blocked-path', (args) => fsArgs.absolutePath('fs:classify-blocked-path', args), (_event, absolutePath: string) => {
     return { family: blockedPathFamily(absolutePath) } as const;
   });
 
@@ -158,10 +157,7 @@ export function registerFileOperationHandlers(): void {
    * longer resolves on disk fails loudly instead of silently minting a
    * token that subsequent operations would reject anyway.
    */
-  typedHandle('fs:reopen-root', async (_event, absolutePath: string) => {
-    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
-      return { ok: false, error: 'not-found' } as const;
-    }
+  validatedHandle('fs:reopen-root', (args) => fsArgs.absolutePath('fs:reopen-root', args), async (_event, absolutePath: string) => {
     if (isPathBlocked(absolutePath, 'read')) {
       return { ok: false, error: 'blocked' } as const;
     }
@@ -198,10 +194,7 @@ export function registerFileOperationHandlers(): void {
    * previously approved project root. This keeps saved tabs/recent
    * files ergonomic without reopening a whole parent directory.
    */
-  typedHandle('fs:reopen-file', async (_event, absolutePath: string) => {
-    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
-      return { ok: false, error: 'not-found' } as const;
-    }
+  validatedHandle('fs:reopen-file', (args) => fsArgs.absolutePath('fs:reopen-file', args), async (_event, absolutePath: string) => {
     if (isPathBlocked(absolutePath, 'read')) {
       return { ok: false, error: 'blocked' } as const;
     }
@@ -231,7 +224,7 @@ export function registerFileOperationHandlers(): void {
     return { ok: true, rootId, rootPath, fileRelativePath } as const;
   });
 
-  typedHandle('fs:revoke-root', (_event, rootId: RootId) => {
+  validatedHandle('fs:revoke-root', (args) => fsArgs.rootOnly('fs:revoke-root', args), (_event, rootId: RootId) => {
     disposeProjectTerminalSessionsForRoot(rootId);
     void disposeLocalMcpServerForRoot(rootId);
     return revokeRoot(rootId);
@@ -283,8 +276,9 @@ export function registerFileOperationHandlers(): void {
 
   // --------------------------------------------------------------- readdir
 
-  typedHandle(
+  validatedHandle(
     'fs:readdir',
+    (args) => fsArgs.rootRelative('fs:readdir', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(
         rootId,
@@ -320,8 +314,9 @@ export function registerFileOperationHandlers(): void {
    * entries are skipped to avoid cycles. Total result size is capped so a
    * pathological project cannot starve the IPC channel.
    */
-  typedHandle(
+  validatedHandle(
     'fs:listAllFiles',
+    (args) => fsArgs.rootRelative('fs:listAllFiles', args),
     async (
       _event,
       rootId: RootId,
@@ -379,7 +374,7 @@ export function registerFileOperationHandlers(): void {
 
   // ------------------------------------------------------------------ stat
 
-  typedHandle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
+  validatedHandle('fs:stat', (args) => fsArgs.rootRelative('fs:stat', args), async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     const s = await statAsync(absolutePath);
     return {
@@ -393,13 +388,14 @@ export function registerFileOperationHandlers(): void {
 
   // ------------------------------------------------------------------ read
 
-  typedHandle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
+  validatedHandle('fs:read', (args) => fsArgs.rootRelative('fs:read', args), async (_event, rootId: RootId, relativePath: string) => {
     const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
     return readFile(absolutePath, 'utf-8');
   });
 
-  typedHandle(
+  validatedHandle(
     'fs:read-bytes',
+    (args) => fsArgs.rootRelative('fs:read-bytes', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
       return new Uint8Array(await readFile(absolutePath));
@@ -408,8 +404,9 @@ export function registerFileOperationHandlers(): void {
 
   // ----------------------------------------------------------------- write
 
-  typedHandle(
+  validatedHandle(
     'fs:write',
+    fsArgs.write,
     async (_event, rootId: RootId, relativePath: string, content: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
       await writeFile(absolutePath, content, 'utf-8');
@@ -419,8 +416,9 @@ export function registerFileOperationHandlers(): void {
 
   // ---------------------------------------------------------------- delete
 
-  typedHandle(
+  validatedHandle(
     'fs:delete',
+    fsArgs.delete,
     async (
       event,
       rootId: RootId,
@@ -473,8 +471,9 @@ export function registerFileOperationHandlers(): void {
 
   // ---------------------------------------------------------------- rename
 
-  typedHandle(
+  validatedHandle(
     'fs:rename',
+    fsArgs.rename,
     async (_event, rootId: RootId, relativeOldPath: string, newName: string) => {
       assertSafeEntryName(newName, 'name for rename');
       const { absolutePath: oldAbsolute } = await resolveOrThrow(
@@ -498,8 +497,9 @@ export function registerFileOperationHandlers(): void {
 
   // ----------------------------------------------------------------- mkdir
 
-  typedHandle(
+  validatedHandle(
     'fs:mkdir',
+    (args) => fsArgs.rootRelative('fs:mkdir', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
       await mkdirFs(absolutePath, { recursive: true });
@@ -509,8 +509,9 @@ export function registerFileOperationHandlers(): void {
 
   // ----------------------------------------------------------------- touch (create empty file)
 
-  typedHandle(
+  validatedHandle(
     'fs:touch',
+    (args) => fsArgs.rootRelative('fs:touch', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
       await writeFile(absolutePath, '', 'utf-8');
@@ -529,8 +530,9 @@ export function registerFileOperationHandlers(): void {
   // renderer can't be turned into an information-disclosure side
   // channel. We resolve with `'read'` permission because we are not
   // writing anything; the read denylist still applies.
-  typedHandle(
+  validatedHandle(
     'fs:reveal-in-finder',
+    (args) => fsArgs.rootRelative('fs:reveal-in-finder', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
       // implementation note — `shell.showItemInFolder` is a void

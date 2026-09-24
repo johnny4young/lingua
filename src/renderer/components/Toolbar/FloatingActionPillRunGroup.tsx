@@ -6,13 +6,14 @@
  */
 
 import type { ReactNode } from 'react';
+import { useResultStore } from '../../stores/resultStore';
 import {
   formatBootstrapProgress,
   useBootstrapProgressStore,
 } from '../../stores/bootstrapProgressStore';
 import { getInitializationMessage } from '../../hooks/runnerOutput';
 import { useTranslation } from 'react-i18next';
-import { Bug, ChevronDown, Loader2, Play, Sparkles } from 'lucide-react';
+import { Bug, ChevronDown, Loader2, Play, Sparkles, Square } from 'lucide-react';
 import type { EditorState, FileTab } from '../../types/editor';
 import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
@@ -64,6 +65,7 @@ export function FloatingActionPillRunGroup({
   setTabWorkflowMode,
 }: RunGroupProps) {
   const { t } = useTranslation();
+  const isAutoRunning = useResultStore(state => state.isAutoRunning);
   // internal — live runtime-bootstrap progress, path-agnostic: the
   // store is fed by the worker whether the boot started from a manual
   // run's initialization window OR the scratchpad auto-run, so the
@@ -71,7 +73,7 @@ export function FloatingActionPillRunGroup({
   const bootstrapProgress = useBootstrapProgressStore(state =>
     state.progress?.language === language ? state.progress : null
   );
-  const bootstrapLabel = bootstrapProgress
+  const bootstrapLabel = bootstrapProgress && (isRunning || isInitializing || isAutoRunning)
     ? formatBootstrapProgress(
         getInitializationMessage(bootstrapProgress.language),
         bootstrapProgress
@@ -94,23 +96,28 @@ export function FloatingActionPillRunGroup({
         data-workflow={currentWorkflow}
         data-tour-id="run-button"
         data-testid="action-pill-run"
-        aria-label={workflowChip.label}
+        aria-label={isRunning ? t('toolbar.run.stop') : workflowChip.label}
         title={runDisabledTooltip}
         className="action-pill-run action-pill-run-main rounded-l-none"
       >
-        {bootstrapLabel !== null || isInitializing || isRunning ? (
+        {isRunning ? (
+          <Square size={11} fill="currentColor" aria-hidden />
+        ) : bootstrapLabel !== null || isInitializing ? (
           <Loader2 size={11} className="animate-spin" aria-hidden />
         ) : (
           <span aria-hidden>{workflowChip.icon}</span>
         )}
         <span className="max-w-[260px] truncate">
-          {bootstrapLabel ??
-            (isInitializing && loadingMessage
-              ? loadingMessage
-              : isRunning
-                ? t('actionPill.running')
-                : workflowChip.label)}
+          {isRunning
+            ? t('toolbar.run.stop')
+            : (bootstrapLabel ??
+              (isInitializing && loadingMessage ? loadingMessage : workflowChip.label))}
         </span>
+        {isRunning && (bootstrapLabel ?? (isInitializing ? loadingMessage : null)) ? (
+          <span className="max-w-[180px] truncate text-caption opacity-80" aria-hidden>
+            {bootstrapLabel ?? loadingMessage}
+          </span>
+        ) : null}
         {!isRunning ? <Kbd>⌘⏎</Kbd> : null}
       </button>
       <button

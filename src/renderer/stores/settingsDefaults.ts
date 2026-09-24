@@ -131,11 +131,6 @@ export function createInitialSettingsState() {
     // implementation note — capsule-import clipboard auto-detect
     // opt-in. Sticky three-state mirror of the utilities consent.
     capsuleImportClipboardOnFocusConsent: 'unset',
-    // implementation note — import-preview clipboard auto-detect
-    // opt-in (cURL paste / drop, etc.). Sticky three-state. implementation
-    // lands the field on the store + sanitized rehydrate; implementation
-    // wires the actual auto-detect on overlay focus.
-    importPreviewClipboardOnFocusConsent: 'unset',
     // implementation — master toggle for dependency detection +
     // the bottom-panel Dependencies tab. The rehydrate merge
     // applies the implementation note tier-aware default when the persisted state
@@ -186,10 +181,6 @@ export function createInitialSettingsState() {
     // stays quiet by default.
     showTimeoutCountdown: false,
     showLineTiming: false,
-    // implementation note — Variables toggle is opt-in by
-    // default. Per-tab override (`variableInspectorEnabled`)
-    // always wins; this is just the seed for fresh tabs.
-    showVariableInspectorByDefault: false,
     // implementation note — base scope depth is 1. Settings →
     // Editor lets the user bump it (max enforced renderer-side by
     // `MAX_SCOPE_DEPTH`).

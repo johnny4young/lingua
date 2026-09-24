@@ -37,27 +37,20 @@ export function isAllowedNavigationTarget(
   targetUrl: string,
   trustedRendererUrl?: string | null
 ): boolean {
-  const parsedTarget = parseUrl(targetUrl);
-  if (!parsedTarget) {
+  const target = parseUrl(targetUrl);
+  const document = trustedRendererUrl ? parseUrl(trustedRendererUrl) : null;
+  if (!target || !document || target.username || target.password) return false;
+
+  // A packaged shell owns one document, not every file on the host. Dev
+  // servers likewise serve arbitrary files: same-origin is not sufficient.
+  if (
+    document.protocol !== 'file:' &&
+    (!isTrustedRendererUrl(document.href) || !isTrustedRendererUrl(target.href))
+  ) {
     return false;
   }
 
-  if (parsedTarget.protocol === 'file:') {
-    return !trustedRendererUrl;
-  }
-
-  if (!trustedRendererUrl) {
-    return false;
-  }
-
-  if (!isTrustedRendererUrl(targetUrl)) {
-    return false;
-  }
-
-  const parsedTrusted = parseUrl(trustedRendererUrl);
-  if (!parsedTrusted) {
-    return false;
-  }
-
-  return parsedTarget.origin === parsedTrusted.origin;
+  target.hash = '';
+  document.hash = '';
+  return target.href === document.href;
 }

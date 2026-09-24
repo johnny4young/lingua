@@ -8,16 +8,14 @@
 
 import data from '../data/roadmap.json';
 
-export type RoadmapStatus = 'Planned' | 'Partial' | 'Done' | 'Other';
-
-export interface RoadmapItem {
+interface RoadmapItem {
   title: string;
   scope: string;
   status: string;
   theme: string;
 }
 
-export interface ThemedGroup {
+interface ThemedGroup {
   theme: string;
   items: RoadmapItem[];
 }

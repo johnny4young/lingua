@@ -45,6 +45,7 @@ const MODULE_BUDGETS = {
   'commandPaletteRegistries/workspace.ts': 160,
   'commandPaletteRegistries/artifacts.ts': 500,
   'commandPaletteRegistries/editor.ts': 520,
+  'commandPaletteRegistries/selectionTransferCommands.ts': 100,
   'commandPaletteRegistries/application.ts': 220,
   'commandPaletteRegistries/utilities.ts': 130,
 } as const;
@@ -78,6 +79,8 @@ const HISTORICAL_STATIC_ACTION_ORDER = [
   'action-show-privacy-dashboard',
   'action-show-dependencies',
   'action-toggle-output-source-mapping',
+  'action-copy-reference',
+  'action-copy-with-context',
   'action-add-watch',
   'action-focus-stdin-panel',
   'action-toggle-auto-log',
@@ -138,7 +141,14 @@ function staticActionIds(domain: (typeof COMMAND_PALETTE_DOMAIN_ORDER)[number]):
     path.join(commandPaletteRoot, 'commandPaletteRegistries', `${domain}.ts`),
     'utf8'
   );
-  return [...source.matchAll(/buildActionCommand\(\s*'([^']+)'/gu)].map(match => match[1]!);
+  const editorPrefix = domain === 'editor'
+    ? readFileSync(
+        path.join(commandPaletteRoot, 'commandPaletteRegistries/selectionTransferCommands.ts'),
+        'utf8'
+      )
+    : '';
+  return [...`${editorPrefix}\n${source}`.matchAll(/buildActionCommand\(\s*'([^']+)'/gu)]
+    .map(match => match[1]!);
 }
 
 describe('Command Palette domain architecture', () => {

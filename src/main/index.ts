@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { createStartupGuard, loadStartupRenderer, startupFailureMessage } from './startup';
+import { app, BrowserWindow, ipcMain, session, dialog } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
   consumePendingDeepLink,
@@ -40,14 +42,10 @@ import {
   disposePythonDebuggerSessions,
   registerPythonDebuggerHandlers,
 } from './ipc/pythonDebugger';
-import {
-  disposeGoDebuggerSessions,
-  registerGoDebuggerHandlers,
-} from './ipc/goDebugger';
-import {
-  disposeRustDebuggerSessions,
-  registerRustDebuggerHandlers,
-} from './ipc/rustDebugger';
+import { disposeGoDebuggerSessions, registerGoDebuggerHandlers } from './ipc/goDebugger';
+import { disposeRustDebuggerSessions, registerRustDebuggerHandlers } from './ipc/rustDebugger';
+import { disposeNativeRuns } from './runners/nativeRunLifecycle';
+import { disposeNativeRunTempDirs } from './runners/nativeRunTempDirs';
 import { disposeProjectTestRuns } from './projectTests';
 import { disposeProjectTerminalSessions } from './projectTerminal';
 import { disposeLocalMcpServer } from './localMcp';
@@ -58,57 +56,14 @@ import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 
-// Desktop smoke / Stagewright launches must not contend with an already-open
-// installed Lingua.app for Electron's single-instance lock. The harnesses set
-// this to an artifact-local directory before `requestSingleInstanceLock()` so
-// validation can run alongside a user's real app without touching their data.
-const smokeUserDataDir = process.env.LINGUA_SMOKE_USER_DATA_DIR?.trim();
-if (smokeUserDataDir) {
-  app.setPath('userData', smokeUserDataDir);
-}
-
-// No Squirrel boot hook: electron-builder ships an NSIS installer on Windows
-// (not Squirrel.Windows), so the app is never invoked with `--squirrel-*`
-// args. Windows auto-update is handled by electron-updater (see ./updater).
-
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-if (!hasSingleInstanceLock) {
-  app.quit();
-}
-
-// Register IPC handlers
-registerGoHandlers();
-registerRustHandlers();
-registerRubyHandlers();
-registerNodeJSHandlers();
-registerAltJsRuntimeHandlers();
-registerFormatterHandlers();
-registerAppInfoHandlers();
-registerDesktopSmokeHandlers();
-registerEnvHandlers();
-registerFileSystemHandlers();
-registerLocaleHandlers();
-registerLspHandlers();
-registerPluginHandlers();
-registerProfileHandlers();
-registerRecoveryHandlers();
-registerDependencyHandlers();
-registerGitHandlers();
-registerProjectTestHandlers();
-registerProjectTerminalHandlers();
-registerLocalMcpHandlers(() => app.getVersion());
-registerHttpHandlers();
-registerPythonDebuggerHandlers();
-registerGoDebuggerHandlers();
-registerRustDebuggerHandlers();
-registerUpdater();
-
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
+let initialized = false;
+let mainWindowReady = false;
 const deepLinkState = createDeepLinkRuntimeState();
 
 function focusMainWindow() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindowReady) {
     return;
   }
 
@@ -147,29 +102,60 @@ function registerProtocolClient() {
   }
 
   if (process.defaultApp && process.argv[1]) {
-    app.setAsDefaultProtocolClient('lingua', process.execPath, [
-      path.resolve(process.argv[1]),
-    ]);
+    app.setAsDefaultProtocolClient('lingua', process.execPath, [path.resolve(process.argv[1])]);
     return;
   }
 
   app.setAsDefaultProtocolClient('lingua');
 }
 
-ipcMain.on('app:force-close', () => {
-  forceQuit = true;
-  app.quit();
-});
+function disposeMainResources() {
+  // A failed disposer must not strand the remaining children or prevent exit.
+  for (const dispose of [
+    disposeNativeRuns,
+    disposeNativeRunTempDirs,
+    disposeLspBridge,
+    disposeProjectTestRuns,
+    disposeProjectTerminalSessions,
+    disposeLocalMcpServer,
+    disposeHttpRuns,
+    disposePythonDebuggerSessions,
+    disposeGoDebuggerSessions,
+    disposeRustDebuggerSessions,
+  ]) {
+    try {
+      void Promise.resolve(dispose()).catch(() => console.warn('[lingua] shutdown cleanup failed'));
+    } catch {
+      console.warn('[lingua] shutdown cleanup failed');
+    }
+  }
+}
 
-typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
-ipcMain.on('app:deep-link-renderer-ready', () => {
-  markDeepLinkRendererReady(deepLinkState, true);
-});
+const startup = createStartupGuard(
+  failure => {
+    forceQuit = true;
+    markDeepLinkRendererReady(deepLinkState, false);
+    disposeMainResources();
+    console.error(`[lingua] startup failed: ${failure.stage}/${failure.code}`);
+    let languages: string[] = [];
+    try {
+      languages = app.getPreferredSystemLanguages();
+    } catch {
+      /* English fallback before readiness. */
+    }
+    const message = startupFailureMessage(failure, languages);
+    dialog.showErrorBox(message.title, message.content);
+  },
+  () => app.exit(1)
+);
 
-const createWindow = () => {
+const createWindow = async () => {
+  if (startup.signal.aborted) return;
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
+  const rendererFile = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+  const rendererDocumentUrl = rendererUrl ?? pathToFileURL(rendererFile).href;
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -192,11 +178,15 @@ const createWindow = () => {
     },
   });
   mainWindow = window;
+  mainWindowReady = false;
+  let loaded = false;
+  let painted = false;
+  const closed = new AbortController();
   markDeepLinkRendererReady(deepLinkState, false);
 
   // Dirty-close intercept: ask the renderer to check for unsaved tabs
-  window.on('close', (event) => {
-    if (forceQuit) return;
+  window.on('close', event => {
+    if (forceQuit || !loaded) return;
     event.preventDefault();
     window.webContents.send('app:before-close');
   });
@@ -218,20 +208,25 @@ const createWindow = () => {
 
   // Show window once the renderer is ready
   window.once('ready-to-show', () => {
-    window.show();
+    painted = true;
+    if (loaded && !startup.signal.aborted && !window.isDestroyed()) window.show();
   });
 
   window.on('closed', () => {
-    markDeepLinkRendererReady(deepLinkState, false);
-    mainWindow = null;
+    closed.abort();
+    if (mainWindow === window) {
+      markDeepLinkRendererReady(deepLinkState, false);
+      mainWindow = null;
+      mainWindowReady = false;
+    }
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-attach-webview', (event) => {
+  window.webContents.on('will-attach-webview', event => {
     event.preventDefault();
   });
   window.webContents.on('will-navigate', (event, targetUrl) => {
-    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+    if (!isAllowedNavigationTarget(targetUrl, rendererDocumentUrl)) {
       event.preventDefault();
     }
   });
@@ -239,133 +234,178 @@ const createWindow = () => {
   // does not cover — gate them with the identical allowlist so a redirect
   // cannot reach an origin a direct navigation would be denied.
   window.webContents.on('will-redirect', (event, targetUrl) => {
-    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+    if (!isAllowedNavigationTarget(targetUrl, rendererDocumentUrl)) {
       event.preventDefault();
     }
   });
 
-  if (rendererUrl) {
-    // Retry loading the dev server URL — Vite may not be ready yet
-    const loadWithRetry = (retries = 30, delay = 1000) => {
-      window.loadURL(rendererUrl).catch(() => {
-        if (retries > 0) {
-          setTimeout(() => loadWithRetry(retries - 1, delay), delay);
-        } else {
-          // Fallback: show the window even if loading failed
-          window.show();
-        }
-      });
-    };
-    loadWithRetry();
-  } else {
-    window.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+  try {
+    await loadStartupRenderer(
+      () => (rendererUrl ? window.loadURL(rendererUrl) : window.loadFile(rendererFile)),
+      AbortSignal.any([startup.signal, closed.signal]),
+      Boolean(rendererUrl)
     );
+    if (startup.signal.aborted || window.isDestroyed()) return;
+    loaded = true;
+    mainWindowReady = true;
+    if (painted) window.show();
+  } catch (error) {
+    // Closing a not-yet-loaded window is cancellation, not a startup failure.
+    if (!closed.signal.aborted) throw error;
   }
 
   // DevTools available via Cmd+Option+I but not opened automatically
 };
 
-const requestAppQuit = () => {
-  if (app.isReady()) {
+function registerPrimaryInstance() {
+  registerGoHandlers();
+  registerRustHandlers();
+  registerRubyHandlers();
+  registerNodeJSHandlers();
+  registerAltJsRuntimeHandlers();
+  registerFormatterHandlers();
+  registerAppInfoHandlers();
+  registerDesktopSmokeHandlers();
+  registerEnvHandlers();
+  registerFileSystemHandlers();
+  registerLocaleHandlers();
+  registerLspHandlers();
+  registerPluginHandlers();
+  registerProfileHandlers();
+  registerRecoveryHandlers();
+  registerDependencyHandlers();
+  registerGitHandlers();
+  registerProjectTestHandlers();
+  registerProjectTerminalHandlers();
+  registerLocalMcpHandlers(() => app.getVersion());
+  registerHttpHandlers();
+  registerPythonDebuggerHandlers();
+  registerGoDebuggerHandlers();
+  registerRustDebuggerHandlers();
+
+  ipcMain.on('app:force-close', () => {
+    forceQuit = true;
     app.quit();
-    return;
-  }
+  });
+
+  typedHandle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+  ipcMain.on('app:deep-link-renderer-ready', () => {
+    markDeepLinkRendererReady(deepLinkState, true);
+  });
+
+  const requestAppQuit = () => {
+    if (app.isReady()) {
+      app.quit();
+      return;
+    }
+
+    app.once('ready', () => {
+      app.quit();
+    });
+  };
+
+  process.once('SIGINT', requestAppQuit);
+  process.once('SIGTERM', requestAppQuit);
+
+  primeDeepLinkFromArgv(deepLinkState, process.argv);
+
+  app.on('second-instance', (_event, argv) => {
+    focusMainWindow();
+    const deepLinkUrl = extractLinguaDeepLinkUrl(argv);
+    if (deepLinkUrl) {
+      handleDeepLink(deepLinkUrl);
+    }
+  });
+
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLink(url);
+  });
 
   app.once('ready', () => {
-    app.quit();
-  });
-};
+    void startup.run('initialization', async signal => {
+      // implementation detail — deny-by-default permission posture. Install before any
+      // window loads so the very first renderer request is already gated. Only the
+      // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
+      // media / geolocation / notifications / subframe requests / etc. are refused.
+      installPermissionHandlers(session.defaultSession);
 
-process.once('SIGINT', requestAppQuit);
-process.once('SIGTERM', requestAppQuit);
+      // implementation — install the offline-smoke webRequest filter
+      // before any window loads, so the very first renderer request is
+      // already gated. Production sessions never set the env var.
+      if (isOfflineSmokeRequested()) {
+        installOfflineSmokeFilter(session.defaultSession);
+      }
 
-primeDeepLinkFromArgv(deepLinkState, process.argv);
+      const userDataDir = app.getPath('userData');
+      const mirrorPath = resolveConsentMirrorPath(userDataDir);
+      // Register the IPC writer first so the renderer's `setTelemetryConsent`
+      // always has a live handler by the time the window loads.
+      registerConsentHandlers(mirrorPath);
+      // Boot the crash reporter BEFORE `createWindow()` so the reporter is
+      // attached for the renderer process from its first tick — fixes the
+      // internal early-crash-coverage gap the staged-diff review flagged.
+      await bootCrashReporter({
+        appVersion: app.getVersion(),
+        readConsentAtBoot: () => readConsentMirror(mirrorPath),
+      });
 
-app.on('second-instance', (_event, argv) => {
-  focusMainWindow();
-  const deepLinkUrl = extractLinguaDeepLinkUrl(argv);
-  if (deepLinkUrl) {
-    handleDeepLink(deepLinkUrl);
-  }
-});
+      if (signal.aborted) return;
 
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  handleDeepLink(url);
-});
+      // internal — start the internal runtime before the window, but do not keep its
+      // disk read + token verification on the first-paint critical path. The IPC
+      // handlers register synchronously against the shared promise; a renderer
+      // getState call that wins the race waits for the verified snapshot instead
+      // of observing an unregistered channel or a free-tier sentinel.
+      const licenseRuntime = createLicenseRuntime({
+        userDataDir,
+        publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
+      });
+      registerLicenseHandlers(licenseRuntime);
 
-app.on('ready', async () => {
-  // implementation detail — deny-by-default permission posture. Install before any
-  // window loads so the very first renderer request is already gated. Only the
-  // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
-  // media / geolocation / notifications / subframe requests / etc. are refused.
-  installPermissionHandlers(session.defaultSession);
-
-  // implementation — install the offline-smoke webRequest filter
-  // before any window loads, so the very first renderer request is
-  // already gated. Production sessions never set the env var.
-  if (isOfflineSmokeRequested()) {
-    installOfflineSmokeFilter(session.defaultSession);
-  }
-
-  const userDataDir = app.getPath('userData');
-  const mirrorPath = resolveConsentMirrorPath(userDataDir);
-  // Register the IPC writer first so the renderer's `setTelemetryConsent`
-  // always has a live handler by the time the window loads.
-  registerConsentHandlers(mirrorPath);
-  // Boot the crash reporter BEFORE `createWindow()` so the reporter is
-  // attached for the renderer process from its first tick — fixes the
-  // internal early-crash-coverage gap the staged-diff review flagged.
-  await bootCrashReporter({
-    appVersion: app.getVersion(),
-    readConsentAtBoot: () => readConsentMirror(mirrorPath),
+      registerProtocolClient();
+      registerUpdater();
+      initialized = true;
+      await startup.run('renderer-load', createWindow);
+    });
   });
 
-  // internal — start the internal runtime before the window, but do not keep its
-  // disk read + token verification on the first-paint critical path. The IPC
-  // handlers register synchronously against the shared promise; a renderer
-  // getState call that wins the race waits for the verified snapshot instead
-  // of observing an unregistered channel or a free-tier sentinel.
-  const licenseRuntime = createLicenseRuntime({
-    userDataDir,
-    publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
-  });
-  registerLicenseHandlers(licenseRuntime);
-
-  registerProtocolClient();
-  createWindow();
-});
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-app.on('before-quit', () => {
-  // implementation — make sure desktop LSP children do not outlive
-  // Lingua's main process.
-  disposeLspBridge();
-  disposeProjectTestRuns();
-  disposeProjectTerminalSessions();
-  void disposeLocalMcpServer();
-  disposeHttpRuns();
-  disposePythonDebuggerSessions();
-  disposeGoDebuggerSessions();
-  disposeRustDebuggerSessions();
-});
-
-app.on('activate', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
-    mainWindow.focus();
+  });
+
+  app.on('before-quit', () => {
+    if (!initialized) startup.stop();
+  });
+  // Not before-quit: the dirty-tab prompt can still cancel the quit there.
+  app.on('will-quit', () => {
+    startup.stop();
+    disposeMainResources();
+  });
+
+  app.on('activate', () => {
+    if (!initialized || startup.signal.aborted) return;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      focusMainWindow();
+      return;
+    }
+
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void startup.run('renderer-load', createWindow);
+    }
+  });
+}
+
+void startup.run('initialization', () => {
+  // Test profiles do not contend with or mutate the installed application's data.
+  const smokeUserDataDir = process.env.LINGUA_SMOKE_USER_DATA_DIR?.trim();
+  if (smokeUserDataDir) app.setPath('userData', smokeUserDataDir);
+  if (!app.requestSingleInstanceLock()) {
+    startup.stop();
+    app.quit();
     return;
   }
-
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  registerPrimaryInstance();
 });

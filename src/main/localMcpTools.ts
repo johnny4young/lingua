@@ -86,10 +86,17 @@ async function resolveReadablePath(rootId: string, relativePath: string) {
   }
   const resolution = await resolveCapabilityPath(rootId, normalized, 'read');
   if (!resolution.ok) throw new Error('path-not-authorized');
+  // The approved root may itself be a symlink. Compare both canonical paths,
+  // not the display root against the resolved target (which hides aliases).
+  const root = await resolveCapabilityPath(rootId, '', 'read');
+  if (!root.ok) throw new Error('path-not-authorized');
+  const canonicalRelative = path.relative(root.absolutePath, resolution.absolutePath);
+  if (isLocalMcpSensitivePath(canonicalRelative)) throw new Error('sensitive-path');
   return { ...resolution, normalized };
 }
 
 async function collectTree(
+  rootId: string,
   absoluteRoot: string,
   relativeRoot: string,
   depth: number,
@@ -118,10 +125,19 @@ async function collectTree(
       if (shouldHide(child.name)) continue;
       const relativePath = [relativeDirectory, child.name].filter(Boolean).join('/');
       if (isLocalMcpSensitivePath(relativePath)) continue;
+      // Preserve omission of symlink entries, and recheck actual destinations
+      // for regular entries before exposing or descending into them.
+      if (!child.isDirectory() && !child.isFile()) continue;
+      let readable;
+      try {
+        readable = await resolveReadablePath(rootId, relativePath);
+      } catch {
+        continue;
+      }
       if (child.isDirectory()) {
         entries.push({ path: relativePath, type: 'directory' });
         if (level < depth) {
-          await walk(path.join(absoluteDirectory, child.name), relativePath, level + 1);
+          await walk(readable.absolutePath, relativePath, level + 1);
         }
       } else if (child.isFile()) {
         entries.push({ path: relativePath, type: 'file' });
@@ -184,6 +200,7 @@ export function registerLocalMcpTools(server: McpServer, context: LocalMcpToolCo
         if (!info.isDirectory())
           return errorResult('The requested project path is not a directory.');
         const result = await collectTree(
+          context.rootId,
           resolved.absolutePath,
           resolved.normalized,
           depth,
@@ -209,7 +226,7 @@ export function registerLocalMcpTools(server: McpServer, context: LocalMcpToolCo
     {
       title: 'Read a Lingua project file',
       description:
-        'Read a bounded UTF-8 text slice from a relative project file. Binary and known secret-bearing files are refused.',
+        'Read a byte-bounded UTF-8 slice. Offset and nextOffset are byte positions at code-point boundaries; maxBytes must fit at least one code point. Binary and known secret-bearing paths and symlink targets are refused.',
       inputSchema: z.object({
         path: z.string().min(1).max(MAX_RELATIVE_PATH_CHARS),
         offset: z.number().int().min(0).max(MAX_READ_OFFSET).default(0),
@@ -236,16 +253,25 @@ export function registerLocalMcpTools(server: McpServer, context: LocalMcpToolCo
 
         let content: string;
         try {
-          content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+          // Streaming mode retains only a trailing incomplete code point when
+          // more file bytes remain. At EOF, incomplete UTF-8 must still fail.
+          content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(
+            bytes,
+            { stream: offset + bytesRead < info.size }
+          );
         } catch {
-          return errorResult('Lingua refused to expose a non-UTF-8 file.');
+          return errorResult('The file is not valid UTF-8 at the requested byte offset. Start at a code-point boundary.');
         }
-        const nextOffset = offset + bytesRead;
+        const contentBytes = Buffer.byteLength(content, 'utf8');
+        if (bytesRead > 0 && contentBytes === 0) {
+          return errorResult('The byte budget cannot fit the next UTF-8 code point. Request at least 4 bytes.');
+        }
+        const nextOffset = offset + contentBytes;
         return textResult({
           path: resolved.normalized,
           content,
           offset,
-          bytesRead,
+          bytesRead: contentBytes,
           truncated: nextOffset < info.size,
           nextOffset: nextOffset < info.size ? nextOffset : null,
         });
@@ -292,8 +318,17 @@ export function registerLocalMcpTools(server: McpServer, context: LocalMcpToolCo
           maxFileSize: 512 * 1024,
           maxFilesScanned: 5_000,
         });
-        const safeResults = results
-          .filter(result => !isLocalMcpSensitivePath(result.relativePath))
+        const authorizedResults: typeof results = [];
+        for (const result of results) {
+          try {
+            await resolveReadablePath(context.rootId, result.relativePath);
+            authorizedResults.push(result);
+          } catch {
+            // A secret destination, revoked root or disappeared file must not
+            // expose an already-collected match in the outgoing response.
+          }
+        }
+        const safeResults = authorizedResults
           .flatMap(result =>
             result.matches.map(match => ({
               path: result.relativePath,

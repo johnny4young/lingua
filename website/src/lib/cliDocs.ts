@@ -2,7 +2,7 @@ import type { CollectionEntry } from 'astro:content';
 import type { Locale } from '~/lib/i18n';
 
 export const CLI_GROUPS = ['start', 'guides', 'automation', 'reference'] as const;
-export type CliGroup = (typeof CLI_GROUPS)[number];
+type CliGroup = (typeof CLI_GROUPS)[number];
 
 export interface CliSearchItem {
   href: string;

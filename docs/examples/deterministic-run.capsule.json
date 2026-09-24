@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "capsuleId": "00000000-0000-4000-8000-000000000001",
+  "createdAt": "2026-05-21T13:00:00.000Z",
+  "appVersion": "0.0.0-fixture",
+  "tab": {
+    "name": "scratchpad.js",
+    "language": "javascript",
+    "runtimeMode": "worker",
+    "workflowMode": "scratchpad"
+  },
+  "source": {
+    "content": "const x = 1 + 2; console.log(x);",
+    "contentHash": "8502d5f0da07a61c2fe53eb873e2230064f5ce475828d5493e97cb1a1969ae18"
+  },
+  "input": {},
+  "result": {
+    "status": "success",
+    "durationMs": 3,
+    "stdout": "3\n"
+  },
+  "environment": {
+    "platform": "web",
+    "runner": "javascript"
+  },
+  "privacy": {
+    "redactionVersion": "2026-05-21",
+    "omittedFields": []
+  }
+}

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
+import * as runCapsule from '../../src/shared/runCapsule';
 import { useRunner } from '@/hooks/useRunner';
 import { useAnnouncerStore } from '@/stores/announcerStore';
 import { useConsoleStore } from '@/stores/consoleStore';
@@ -11,19 +12,16 @@ import { useNativeExecutionGateStore } from '@/stores/nativeExecutionGateStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
-import type { ExecutionResult } from '@/types';
+import type { ExecutionContext, ExecutionResult } from '@/types';
 
-const {
-  mockPrepareRunner,
-  mockIsSupported,
-  mockNeedsInitialization,
-  mockStop,
-} = vi.hoisted(() => ({
-  mockPrepareRunner: vi.fn(),
-  mockIsSupported: vi.fn(),
-  mockNeedsInitialization: vi.fn(),
-  mockStop: vi.fn(),
-}));
+const { mockPrepareRunner, mockIsSupported, mockNeedsInitialization, mockStop } = vi.hoisted(
+  () => ({
+    mockPrepareRunner: vi.fn(),
+    mockIsSupported: vi.fn(),
+    mockNeedsInitialization: vi.fn(),
+    mockStop: vi.fn(),
+  })
+);
 
 vi.mock('@/runners', () => ({
   runnerManager: {
@@ -76,10 +74,7 @@ describe('useRunner', () => {
     // internal describe block resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });
-    useNativeExecutionGateStore.setState(
-      { pendingLanguage: null, pendingResume: null },
-      false
-    );
+    useNativeExecutionGateStore.setState({ pendingLanguage: null, pendingResume: null }, false);
     mockIsSupported.mockReturnValue(true);
     mockNeedsInitialization.mockReturnValue(false);
   });
@@ -145,6 +140,28 @@ describe('useRunner', () => {
     });
   });
 
+  it('records captured failures as errors, not successful restoration targets', async () => {
+    mockPrepareRunner.mockResolvedValue({ runner: { execute: vi.fn().mockResolvedValue({
+      stdout: [], stderr: [], executionTime: 2, kind: 'success', magicResults: [
+        { line: 1, value: 'SyntaxError: bad JSON', kind: 'autoLog', isError: true },
+        { line: 2, value: '42', kind: 'autoLog' },
+      ],
+    }) } });
+    useEditorStore.setState({ tabs: [{
+      id: 'captured-error', name: 'main.js', language: 'javascript',
+      content: 'JSON.parse("invalid")\n42', isDirty: false,
+    }], activeTabId: 'captured-error' });
+    const { result: hook } = renderHook(() => useRunner());
+    await act(async () => { await hook.current.run(); });
+    expect(useResultStore.getState().runTermination?.kind).toBe('error');
+    expect(useResultStore.getState().diagnostics).toMatchObject([{ line: 1, severity: 'error' }]);
+    expect(useResultStore.getState().snapshotRing).toHaveLength(0);
+    expect(useExecutionHistoryStore.getState().entries).toMatchObject([{ status: 'error' }]);
+    expect(useEditorStore.getState().tabs[0]?.executionState).toBe('error');
+    expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
+    expect(useResultStore.getState().lineResults).toContainEqual({ line: 2, value: '42', type: 'autoLog' });
+  });
+
   it('does not route notebook tabs through the file runner', async () => {
     useEditorStore.setState({
       tabs: [
@@ -171,6 +188,28 @@ describe('useRunner', () => {
       tone: 'info',
       messageKey: 'notebook.notice.useNotebookToolbar',
     });
+  });
+
+  it('rejects a restored desktop JS mode in the web shell before preparing a runner', async () => {
+    const originalLingua = window.lingua;
+    window.lingua = { ...(originalLingua ?? ({} as LinguaAPI)), platform: 'web' } as typeof window.lingua;
+    useEditorStore.setState({
+      tabs: [{
+        id: 'node-web', name: 'main.js', language: 'javascript',
+        content: 'console.log(1)', isDirty: false, runtimeMode: 'node',
+      }],
+      activeTabId: 'node-web',
+    });
+    try {
+      const { result: hook } = renderHook(() => useRunner());
+      await act(async () => { await hook.current.run(); });
+      expect(mockPrepareRunner).not.toHaveBeenCalled();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'runtimeMode.notice.desktopOnly',
+      });
+    } finally {
+      window.lingua = originalLingua;
+    }
   });
 
   it('syncs compiled manual runs into the result store', async () => {
@@ -205,10 +244,9 @@ describe('useRunner', () => {
     });
 
     expect(useResultStore.getState().lineResults).toEqual([]);
-    // stderr entries of type 'error' are excluded from fullOutput when
-    // result.error is set, so the error doesn't appear twice (once inline
-    // and once in the dedicated error display).
-    expect(useResultStore.getState().fullOutput).toBe('compiled ok');
+    // Keep independent compiler detail; a top-level error is not a reason
+    // to discard all stderr. Only an actual primary diagnostic copy is hidden.
+    expect(useResultStore.getState().fullOutput).toBe('compiled ok\nline 3 compile issue');
     expect(useResultStore.getState().error).toEqual({
       message: 'Compile failed',
       line: 3,
@@ -264,7 +302,7 @@ describe('useRunner', () => {
     let resolveExecution!: (result: ExecutionResult) => void;
     const execute = vi.fn(
       () =>
-        new Promise<ExecutionResult>((resolve) => {
+        new Promise<ExecutionResult>(resolve => {
           resolveExecution = resolve;
         })
     );
@@ -323,6 +361,183 @@ describe('useRunner', () => {
     });
   });
 
+  describe('manual execution ownership', () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>(done => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    }
+
+    const successfulResult = (value: string): ExecutionResult => ({
+      stdout: [{ type: 'log', args: [value], line: 1 }],
+      stderr: [],
+      executionTime: 7,
+    });
+
+    beforeEach(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'owned-tab',
+            name: 'owned.js',
+            language: 'javascript',
+            content: 'console.log("owned")',
+            isDirty: false,
+            runtimeMode: 'worker',
+          },
+        ],
+        activeTabId: 'owned-tab',
+      });
+    });
+
+    it('ignores late streams, success, history and finalizers after Stop then Run', async () => {
+      const first = deferred<ExecutionResult>();
+      const second = deferred<ExecutionResult>();
+      const contexts: ExecutionContext[] = [];
+      const execute = vi.fn((_code: string, context: ExecutionContext) => {
+        contexts.push(context);
+        return contexts.length === 1 ? first.promise : second.promise;
+      });
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+      const { result: hook } = renderHook(() => useRunner());
+      let runA!: Promise<void>;
+      let runB!: Promise<void>;
+      act(() => {
+        runA = hook.current.run();
+      });
+      await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+      act(() => {
+        hook.current.stop();
+      });
+      expect(useResultStore.getState().runTermination?.kind).toBe('stopped');
+      act(() => {
+        runB = hook.current.run();
+      });
+      await waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        contexts[0].onConsole?.({ type: 'error', args: ['late A'], line: 1 });
+        first.resolve(successfulResult('late A'));
+        await runA;
+      });
+      expect(hook.current.isRunning).toBe(true);
+      expect(useResultStore.getState().runTermination).toBeNull();
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+      expect(
+        useConsoleStore.getState().entries.some(entry => entry.content.includes('late A'))
+      ).toBe(false);
+      expect(
+        useResultStore.getState().lineResults.some(entry => entry.value.includes('late A'))
+      ).toBe(false);
+      expect(useEditorStore.getState().tabs[0].executionState).toBe('running');
+      await act(async () => {
+        second.resolve(successfulResult('current B'));
+        await runB;
+      });
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+      expect(useResultStore.getState().lineResults).toContainEqual({
+        line: 1,
+        type: 'log',
+        value: 'current B',
+      });
+      expect(hook.current.isRunning).toBe(false);
+      expect(mockStop).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not execute a cancelled preparation when a new run is already active', async () => {
+      const prepare = deferred<{ runner: { execute: ReturnType<typeof vi.fn> } }>();
+      const oldExecute = vi.fn().mockResolvedValue(successfulResult('obsolete'));
+      const second = deferred<ExecutionResult>();
+      const currentExecute = vi.fn(() => second.promise);
+      mockPrepareRunner
+        .mockReturnValueOnce(prepare.promise)
+        .mockResolvedValueOnce({ runner: { execute: currentExecute } });
+      const { result: hook } = renderHook(() => useRunner());
+      let runA!: Promise<void>;
+      let runB!: Promise<void>;
+      act(() => {
+        runA = hook.current.run();
+      });
+      await waitFor(() => expect(mockPrepareRunner).toHaveBeenCalledTimes(1));
+      act(() => {
+        hook.current.stop();
+      });
+      act(() => {
+        runB = hook.current.run();
+      });
+      await waitFor(() => expect(currentExecute).toHaveBeenCalledOnce());
+      await act(async () => {
+        prepare.resolve({ runner: { execute: oldExecute } });
+        await runA;
+      });
+      expect(oldExecute).not.toHaveBeenCalled();
+      expect(hook.current.isRunning).toBe(true);
+      expect(mockStop).not.toHaveBeenCalled();
+      await act(async () => {
+        second.resolve(successfulResult('current'));
+        await runB;
+      });
+    });
+
+    it('does not commit a capsule or snapshot after cancellation during history preparation', async () => {
+      const digest = deferred<void>();
+      const original = runCapsule.buildRunCapsule;
+      const builder = vi.spyOn(runCapsule, 'buildRunCapsule').mockImplementationOnce(async args => {
+        await digest.promise;
+        return original(args);
+      });
+      mockPrepareRunner.mockResolvedValue({
+        runner: { execute: vi.fn().mockResolvedValue(successfulResult('obsolete')) },
+      });
+      const { result: hook } = renderHook(() => useRunner());
+      let run!: Promise<void>;
+      act(() => {
+        run = hook.current.run();
+      });
+      await waitFor(() => expect(builder).toHaveBeenCalledOnce());
+      act(() => {
+        hook.current.stop();
+      });
+      await act(async () => {
+        digest.resolve();
+        await run;
+      });
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+      expect(useResultStore.getState().snapshotRing).toHaveLength(0);
+      expect(useResultStore.getState().runTermination?.kind).toBe('stopped');
+      expect(
+        useConsoleStore.getState().entries.some(entry => entry.content.includes('obsolete'))
+      ).toBe(false);
+      builder.mockRestore();
+    });
+
+    it('invalidates a run when its tab closes without erasing previous successful snapshots', async () => {
+      const execution = deferred<ExecutionResult>();
+      const execute = vi.fn(() => execution.promise);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+      useResultStore.getState().captureSuccessfulSnapshot('javascript', 'retained');
+      const snapshots = useResultStore.getState().snapshotRing;
+      const { result: hook } = renderHook(() => useRunner());
+      let run!: Promise<void>;
+      act(() => {
+        run = hook.current.run();
+      });
+      await waitFor(() => expect(execute).toHaveBeenCalledOnce());
+      act(() => {
+        useEditorStore.setState({ tabs: [], activeTabId: null });
+      });
+      expect(hook.current.isRunning).toBe(false);
+      await act(async () => {
+        execution.resolve(successfulResult('closed'));
+        await run;
+      });
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+      expect(useResultStore.getState().snapshotRing).toEqual(snapshots);
+      expect(mockStop).toHaveBeenCalledOnce();
+    });
+  });
+
   it('can execute a replay without recording another history entry', async () => {
     mockPrepareRunner.mockResolvedValue({
       runner: {
@@ -367,10 +582,7 @@ describe('useRunner', () => {
 
     beforeEach(() => {
       useNativeExecutionGateStore.setState(initialGateState, true);
-      useSettingsStore.setState(
-        { ...initialSettings, nativeExecutionAcknowledged: false },
-        true
-      );
+      useSettingsStore.setState({ ...initialSettings, nativeExecutionAcknowledged: false }, true);
     });
 
     afterEach(() => {
@@ -473,6 +685,14 @@ describe('useRunner', () => {
       });
       expect(execute).toHaveBeenCalledOnce();
 
+      // confirm() dispatches asynchronously. Wait for history and session
+      // teardown, not merely entry into execute(), before asking for a new run.
+      await waitFor(() => {
+        expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+        expect(useResultStore.getState().manualRunSession).toBeNull();
+        expect(useResultStore.getState().isManualRunning).toBe(false);
+      });
+
       // Reset the acknowledgement → next run opens the gate again.
       useSettingsStore.getState().setNativeExecutionAcknowledged(false);
       await act(async () => {
@@ -513,7 +733,7 @@ describe('useRunner', () => {
       expect(execute).toHaveBeenCalledOnce();
     });
 
-    it('does not show the native trust modal for Go in web builds', async () => {
+    it('does not run Go or show the native trust modal in web builds', async () => {
       const originalLingua = window.lingua;
       window.lingua = {
         ...(originalLingua ?? ({} as LinguaAPI)),
@@ -548,7 +768,39 @@ describe('useRunner', () => {
         });
 
         expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
-        expect(execute).toHaveBeenCalledOnce();
+        expect(execute).not.toHaveBeenCalled();
+        expect(mockPrepareRunner).not.toHaveBeenCalled();
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          messageKey: 'language.notice.desktopOnly',
+        });
+      } finally {
+        window.lingua = originalLingua;
+      }
+    });
+
+    it('explains both gates instead of upselling Go to a Free web user', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'web',
+      } as typeof window.lingua;
+      useLicenseStore.setState(initialLicenseState, true);
+      useEditorStore.setState({
+        tabs: [
+          { id: 'tab-go-free-web', name: 'main.go', language: 'go', content: 'package main', isDirty: false },
+        ],
+        activeTabId: 'tab-go-free-web',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+        await act(async () => {
+          await hook.current.run();
+        });
+        expect(mockPrepareRunner).not.toHaveBeenCalled();
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          messageKey: 'toolbar.run.desktopAndProTooltip',
+        });
       } finally {
         window.lingua = originalLingua;
       }
@@ -783,9 +1035,7 @@ describe('useRunner', () => {
         await hook.current.run();
       });
 
-      expect(useAnnouncerStore.getState().message).toBe(
-        i18next.t('console.run.announce.error')
-      );
+      expect(useAnnouncerStore.getState().message).toBe(i18next.t('console.run.announce.error'));
     });
 
     it('announces a stopped summary when execution is cancelled', async () => {
@@ -819,9 +1069,7 @@ describe('useRunner', () => {
         await hook.current.run();
       });
 
-      expect(useAnnouncerStore.getState().message).toBe(
-        i18next.t('console.run.announce.stopped')
-      );
+      expect(useAnnouncerStore.getState().message).toBe(i18next.t('console.run.announce.stopped'));
     });
   });
 });

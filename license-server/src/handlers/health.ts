@@ -24,10 +24,10 @@ import type { Env } from '../index';
 export const SERVER_NAME = 'lingua-license-server';
 export const SERVER_VERSION = '0.1.0';
 
-export type DependencyState = 'ok' | 'degraded' | 'unknown';
-export type DependencyName = 'd1' | 'kv' | 'lemonsqueezy' | 'resend';
+type DependencyState = 'ok' | 'degraded' | 'unknown';
+type DependencyName = 'd1' | 'kv' | 'lemonsqueezy' | 'resend';
 
-export interface ReadinessSnapshot {
+interface ReadinessSnapshot {
   ok: boolean;
   degraded: DependencyName[];
   dependencies: Record<DependencyName, DependencyState>;
@@ -165,10 +165,9 @@ async function probeResend(): Promise<DependencyState> {
 
 /**
  * Run all dependency probes and return the readiness snapshot. Each
- * probe result is cached for 30s in module storage. Exported so the
- * test suite can assert the contract directly.
+ * probe result is cached for 30s in module storage.
  */
-export async function evaluateReadiness(env: Env): Promise<ReadinessSnapshot> {
+async function evaluateReadiness(env: Env): Promise<ReadinessSnapshot> {
   const [d1, kv, lemonsqueezy, resend] = await Promise.all([
     readCached('d1', () => probeD1(env)),
     readCached('kv', () => probeKV(env)),

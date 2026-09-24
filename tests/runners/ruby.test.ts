@@ -238,7 +238,7 @@ describe('RubyRunner — error path', () => {
     const result = await runner.execute('raise "boom"');
 
     expect(result.stderr).toHaveLength(3);
-    expect(result.stderr[0]).toEqual({ type: 'warn', args: ['ruby-err'] });
+    expect(result.stderr[0]).toEqual({ type: 'warn', args: ['ruby-err'], captureOrder: 0 });
     expect(result.stderr[1]?.line).toBe(1);
     expect(result.stderr[2]?.args[0]).toContain('RuntimeError');
     expect(result.error?.message).toContain('boom');

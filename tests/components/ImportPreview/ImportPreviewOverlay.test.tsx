@@ -46,6 +46,16 @@ function seedProTier() {
 
 const originalLingua = window.lingua;
 
+function installLegacyImportClipboardGrant() {
+  // A stale persisted object can still contain the retired key even though
+  // the current SettingsState no longer declares it.
+  const legacyState = {
+    theme: useSettingsStore.getState().theme,
+    importPreviewClipboardOnFocusConsent: 'granted' as const,
+  };
+  useSettingsStore.setState(legacyState);
+}
+
 function installBrunoDirectoryFs(options?: { missingManifest?: boolean }) {
   const files = options?.missingManifest
     ? [{ name: 'request.bru', relativePath: 'request.bru' as RelativePath }]
@@ -98,7 +108,6 @@ beforeEach(() => {
   // a fresh single-tab import past the Free ceiling.
   useEditorStore.setState({ tabs: [], activeTabId: null });
   useUIStore.setState({ activeBottomPanel: 'console', statusNotice: null });
-  useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'unset' });
   seedProTier();
   // Reset to EN before each test so a previous ES test doesn't bleed in.
   void i18next.changeLanguage('en');
@@ -401,17 +410,17 @@ describe('ImportPreviewOverlay — ipynb arm ', () => {
     ).toMatch(/v4/i);
   });
 
-  it('ignores unrelated JSON on clipboard auto-detect instead of labeling it .ipynb', async () => {
+  it('does not read the clipboard on open even with a legacy grant', () => {
     const readText = vi.fn().mockResolvedValue('{"hello":"world"}');
     Object.defineProperty(navigator, 'clipboard', {
       value: { readText },
       configurable: true,
     });
-    useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'granted' });
+    installLegacyImportClipboardGrant();
 
     render(<ImportPreviewOverlay onClose={() => {}} />);
 
-    await waitFor(() => expect(readText).toHaveBeenCalledTimes(1));
+    expect(readText).not.toHaveBeenCalled();
     expect((screen.getByTestId('import-preview-paste') as HTMLTextAreaElement).value).toBe('');
     expect(screen.getByTestId('import-preview-empty')).toBeTruthy();
     expect(useUIStore.getState().statusNotice).toBeNull();
@@ -558,24 +567,19 @@ describe('ImportPreviewOverlay — collection arm ', () => {
     ).toMatch(/v2\.1/i);
   });
 
-  it('labels Postman clipboard auto-detect as Postman, not Jupyter', async () => {
+  it('does not auto-preview a Postman collection from a legacy clipboard grant', () => {
     const readText = vi.fn().mockResolvedValue(samplePostman);
     Object.defineProperty(navigator, 'clipboard', {
       value: { readText },
       configurable: true,
     });
-    useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'granted' });
+    installLegacyImportClipboardGrant();
 
     render(<ImportPreviewOverlay onClose={() => {}} />);
 
-    await waitFor(() => {
-      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-        'importPreview.notice.clipboardAutoDetected'
-      );
-    });
-    expect(useUIStore.getState().statusNotice?.values).toMatchObject({
-      format: 'Postman collection',
-    });
+    expect(readText).not.toHaveBeenCalled();
+    expect((screen.getByTestId('import-preview-paste') as HTMLTextAreaElement).value).toBe('');
+    expect(useUIStore.getState().statusNotice).toBeNull();
   });
 });
 

@@ -279,6 +279,27 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
+  it('does not auto-run a restored desktop JS mode on the web build', async () => {
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
+    useEditorStore.setState({
+      tabs: [{
+        id: 'restored-node-web', name: 'main.js', language: 'javascript',
+        content: 'console.log(1)', isDirty: false, runtimeMode: 'node',
+        workflowMode: 'scratchpad',
+      }],
+      activeTabId: 'restored-node-web',
+    });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+  });
+
   it('still auto-runs desktop-only languages on the desktop build', async () => {
     Object.defineProperty(window, 'lingua', {
       configurable: true,

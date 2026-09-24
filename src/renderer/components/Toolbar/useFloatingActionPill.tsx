@@ -37,6 +37,7 @@ import { useDraggable } from '../../hooks/useDraggable';
 import type { RunHistoryEntry } from '../ui/primitives';
 import type { Language } from '../../types/language';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { languageCapabilityBadgeKey, languageLabel } from '../../utils/languageMeta';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
@@ -47,7 +48,7 @@ import {
   resolveExecutionControlPolicy,
 } from './executionControlPolicy';
 
-export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run';
+export type ActionPillMenu = 'lang' | 'workflow' | 'runtime' | 'run' | 'actions';
 export type ActionPillMenuSetter = Dispatch<SetStateAction<ActionPillMenu | null>>;
 
 const FULL_PILL_WIDTH = 820;
@@ -122,6 +123,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const executionPolicy = resolveExecutionControlPolicy({
     language,
+    runtimeMode: activeTab?.runtimeMode,
     effectiveTier,
     isWebBuild,
     isNotebookTab,
@@ -146,10 +148,12 @@ export function useFloatingActionPill(t: (k: string) => string) {
     };
   }, [estimatedPillWidth]);
 
+  const pillRef = useRef<HTMLDivElement | null>(null);
   const { position, handleProps, isDragging } = useDraggable({
     storageKey: 'lingua-ui:action-pill-pos:v4',
     defaultPosition: actionPillPosition ?? defaultPos,
     size: { width: estimatedPillWidth, height: 42 },
+    elementRef: pillRef,
     viewportMargin: 8,
     resetSignal: floatingPositionsResetRevision,
   });
@@ -175,8 +179,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
     wasDraggingRef.current = false;
     setActionPillPosition(position);
   }, [isDragging, position, setActionPillPosition]);
-
-  const pillRef = useRef<HTMLDivElement | null>(null);
 
   // Close any open dropdown on outside click or Escape.
   useEffect(() => {
@@ -215,9 +217,14 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const handleLanguagePick = (lang: Language) => {
     setOpenMenu(null);
     if (!isLanguageAllowed(effectiveTier, lang)) {
+      const needsDesktop = isWebBuild && languageCapabilityBadgeKey(lang) !== null;
       pushUpsellNotice({
-        messageKey: 'upsell.freeCeilingReached',
-        featureLabel: t('upsell.feature.languagePack'),
+        messageKey: needsDesktop
+          ? 'upsell.desktopLanguageOnWeb'
+          : 'upsell.freeCeilingReached',
+        featureLabel: needsDesktop
+          ? languageLabel(lang)
+          : t('upsell.feature.languagePack'),
       });
       return;
     }

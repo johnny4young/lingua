@@ -1,5 +1,5 @@
 /**
- * implementation — desktop Node child-spawn backend.
+ * Desktop Node child-spawn backend.
  *
  * The renderer-side `NodeRunner` (`src/renderer/runners/nodeRunner.ts`)
  * calls `window.lingua.node.run(code, options)` and the preload
@@ -18,7 +18,7 @@
  *     + internal user-tier env. Lingua's full host env is NOT
  *     forwarded.
  *   - Cwd: `app.getPath('temp')` for unsaved tabs (Scratchpad);
- *     `path.dirname(filePath)` for saved tabs (implementation note — when a
+ *     `path.dirname(filePath)` for saved tabs (when a
  *     `node_modules/` neighbor exists, that dir wins so
  *     `require('lodash')` resolves).
  *   - Timeout: parent-owned. The renderer sets a per-call
@@ -28,27 +28,28 @@
  *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
  *     `truncateBytes` helper.
  *
- * implementation note here:
+ * Behavioral notes:
  *
- *   - implementation note — `runtime.node_runner_used` adoption telemetry is
+ *   - `runtime.node_runner_used` adoption telemetry is
  *     emitted on the renderer side (where i18n lives); main just
  *     returns the kind + outcome.
- *   - implementation note — module-resolution helper: `resolveNodeCwd()` walks
+ *   - module-resolution helper: `resolveNodeCwd()` walks
  *     up from the saved tab's `filePath` directory looking for
  *     `node_modules/`; if found, that dir is the cwd.
- *   - implementation note — module-mode selection: explicit ESM/CJS extensions,
+ *   - module-mode selection: explicit ESM/CJS extensions,
  *     source syntax (`import` / `export` / top-level `await` /
  *     `import.meta`), and the nearest `package.json#type` pick the
  *     `--input-type` mode used by inline snippets and temp files.
  */
 
 import { app } from 'electron';
+import type { WebContents } from 'electron';
+import { createNativeRunLifecycle } from './runners/nativeRunLifecycle';
 import { typedHandle, typedSendTo } from './ipc/typedHandle';
-import * as childProc from 'node:child_process';
-import { access, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { access, readdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { cleanupNativeRunTempDir, stageNativeRunTempDir } from './runners/nativeRunTempDirs';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import {
   MAX_NATIVE_STDERR_BYTES,
   MAX_STDIN_WRITE_BYTES,
@@ -66,6 +67,7 @@ import {
   spawnNativeRun,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
 import type {
   NodeDetectResult,
   NodeRunKind,
@@ -74,8 +76,6 @@ import type {
 export type {
   NodeDetectResult,
 } from '../shared/nativeRuntimeTypes';
-
-const execFileAsync = promisify(childProc.execFile);
 
 /**
  * Source-size threshold above which we write a temp file instead of
@@ -95,11 +95,10 @@ const KILL_ESCALATION_DELAY_MS = 200;
 
 /**
  * Default parent-owned timeout for a single Node run. The renderer
- * always passes an explicit `timeout` (implementation plumbing), but main
+ * normally passes an explicit `timeout`, but main
  * defends with a sensible default if the IPC was malformed.
  */
 const DEFAULT_NODE_TIMEOUT_MS = 30_000;
-const NODE_DETECT_TIMEOUT_MS = 5_000;
 
 /**
  * Packaged GUI launches can inherit a narrower PATH than the user's terminal:
@@ -150,10 +149,10 @@ interface NodeRunOptions {
   filePath?: string;
   /** Per-run user-env tier from internal */
   userEnv?: Record<string, string>;
-  /** Stdin buffer . Empty / undefined closes stdin. */
+  /** Stdin buffer. Empty or undefined closes stdin. */
   stdin?: string;
   /**
-   * implementation — interactive stdin. When `true` the child's stdin stays OPEN
+   * Interactive stdin. When `true` the child's stdin stays open
    * after the initial `stdin` buffer is written, so the renderer can
    * stream further lines via `node:stdin-write` (keyed by `runId`) and
    * close it with `node:stdin-close`. Requires a `runId`; ignored
@@ -162,7 +161,7 @@ interface NodeRunOptions {
    */
   interactive?: boolean;
   /**
-   * implementation — main-internal live-output sink. Set by the IPC handler (never
+   * Main-internal live-output sink. Set by the IPC handler (never
    * from the serialized IPC payload) to stream stdout/stderr chunks to the
    * renderer as they arrive during an interactive run. Only invoked when
    * `interactive` is true.
@@ -175,7 +174,7 @@ interface NodeRunOptions {
 let cachedDetect: NodeDetectResult | null = null;
 const activeNodeRuns = new Map<string, () => void>();
 /**
- * implementation — open stdin streams for in-flight interactive runs, keyed by
+ * Open stdin streams for in-flight interactive runs, keyed by
  * `runId`. Populated only when a run is started with `interactive: true`;
  * cleared when the child exits. `node:stdin-write` / `node:stdin-close`
  * look the stream up here.
@@ -398,8 +397,10 @@ async function windowsNodeBinaryCandidates(
 }
 
 async function nodeBinaryCandidates(
-  userEnv?: Record<string, string>
+  userEnv?: Record<string, string>,
+  signal?: AbortSignal
 ): Promise<string[]> {
+  if (signal?.aborted) return [];
   const candidates =
     process.platform === 'win32'
       ? await windowsNodeBinaryCandidates(userEnv)
@@ -412,29 +413,23 @@ async function nodeBinaryCandidates(
     return true;
   });
   const existing = await Promise.all(unique.map(pathExists));
+  if (signal?.aborted) return [];
   return unique.filter((_candidate, index) => existing[index] === true);
 }
 
 async function probeNodeBinary(
   binary: string,
-  env: NodeJS.ProcessEnv
-): Promise<NodeDetectResult | null> {
-  try {
-    const { stdout } = await execFileAsync(binary, ['--version'], {
-      env,
-      // A hung PATH shim (rustup-style proxy, corporate wrapper) must not
-      // wedge the detect IPC promise forever. Matches the LSP launchers'
-      // 5s probe convention.
-      timeout: NODE_DETECT_TIMEOUT_MS,
-    });
-    return {
-      installed: true,
-      binary,
-      version: stdout.trim(),
-    };
-  } catch {
-    return null;
-  }
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal
+): Promise<NodeDetectResult> {
+  const probe = await detectNativeRuntimeVersion({
+    command: binary,
+    env,
+    signal,
+    killEscalationMs: KILL_ESCALATION_DELAY_MS,
+  });
+  if (probe.version === null) return { installed: false, reason: probe.reason };
+  return { installed: true, binary, version: probe.version };
 }
 
 function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.ProcessEnv {
@@ -454,31 +449,45 @@ function envWithNodeBinary(env: NodeJS.ProcessEnv, binary: string): NodeJS.Proce
  * lifetime so each Run does not re-spawn the detector. Cache
  * invalidates when the renderer opens Settings → Native
  * Toolchains (the renderer calls `detect()` with a `force` flag —
- * see implementation note in `nodeRunner.ts`).
+ * see `nodeRunner.ts`).
  */
 export async function detectNode(
   userEnv?: Record<string, string>,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<NodeDetectResult> {
   const cacheable = userEnv === undefined;
   if (cacheable && !force && cachedDetect) return cachedDetect;
   const env = resolveNodeRunEnv(userEnv);
-  let result = await probeNodeBinary('node', env);
+  let result = await probeNodeBinary('node', env, signal);
+  let checkFailed = result.reason === 'check-failed';
 
-  if (!result) {
-    for (const candidate of await nodeBinaryCandidates(userEnv)) {
-      result = await probeNodeBinary(candidate, env);
-      if (result) break;
+  if (!result.installed && !signal?.aborted) {
+    for (const candidate of await nodeBinaryCandidates(userEnv, signal)) {
+      result = await probeNodeBinary(candidate, env, signal);
+      if (result.installed) break;
+      checkFailed ||= result.reason === 'check-failed';
+      if (signal?.aborted) break;
     }
   }
 
-  if (!result) {
-    result = {
-      installed: false,
-      error: 'Node.js is not installed. Install it from https://nodejs.org',
-    };
+  if (!result.installed) {
+    result = checkFailed || signal?.aborted
+      ? {
+          installed: false,
+          reason: 'check-failed',
+          error: 'Node.js check failed. Retry detection or inspect your local Node.js installation.',
+        }
+      : {
+          installed: false,
+          reason: 'missing',
+          error: 'Node.js is not installed. Install it from https://nodejs.org',
+        };
   }
-  if (cacheable) cachedDetect = result;
+  // A failed check is not an answer: drop any earlier one so the next call probes.
+  if (cacheable && !signal?.aborted) {
+    cachedDetect = result.reason === 'check-failed' ? null : result;
+  }
   return result;
 }
 
@@ -547,7 +556,7 @@ function invalidNodeRunResult(message: string): NodeRunResult {
 }
 
 /**
- * implementation note — pick the subprocess cwd. Walks from the
+ * Pick the subprocess cwd. Walks from the
  * saved tab's directory looking for a `node_modules` neighbor; if
  * found, that directory is the cwd so `require('lodash')` resolves
  * naturally. Falls back to `path.dirname(filePath)` for saved
@@ -569,7 +578,7 @@ export async function resolveNodeCwd(filePath?: string): Promise<string> {
 }
 
 /**
- * implementation note — pick the source input type (CommonJS vs
+ * Pick the source input type (CommonJS vs
  * ESM). Saved extension wins for the explicit Node suffixes
  * (`.mjs` / `.mts` / `.cjs` / `.cts`), then we sniff the inline
  * source for syntax that cannot run in CommonJS, then fall back to
@@ -625,11 +634,14 @@ async function pickInputType(
 async function spawnNode(
   source: string,
   options: NodeRunOptions,
+  signal: AbortSignal,
   nodeBinary = 'node'
 ): Promise<NodeRunResult> {
   const timeoutMs = clampTimeout(options.timeoutMs);
   const cwd = await resolveNodeCwd(options.filePath);
+  if (signal.aborted) return stoppedNodeRunResult(options);
   const inputType = await pickInputType(cwd, source, options.filePath);
+  if (signal.aborted) return stoppedNodeRunResult(options);
   const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
 
@@ -646,7 +658,11 @@ async function spawnNode(
     // the finally { rm } posture of the rust/go compilers.
     let tempDir: string | null = null;
     try {
-      tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-node-'));
+      tempDir = stageNativeRunTempDir('lingua-node-');
+      if (signal.aborted) {
+        await cleanupNativeRunTempDir(tempDir);
+        return stoppedNodeRunResult(options);
+      }
       const ext = inputType === 'module' ? 'mjs' : 'cjs';
       const tempFile = path.join(tempDir, `entry.${ext}`);
       await writeFile(tempFile, source, 'utf-8');
@@ -654,8 +670,9 @@ async function spawnNode(
       cleanupTempDir = tempDir;
     } catch (err) {
       if (tempDir) {
-        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        await cleanupNativeRunTempDir(tempDir);
       }
+      if (signal.aborted) return stoppedNodeRunResult(options);
       const message = err instanceof Error ? err.message : String(err);
       return invalidNodeRunResult(
         `Failed to stage the run's temp entry file: ${message}`
@@ -663,15 +680,7 @@ async function spawnNode(
     }
   }
 
-  // Parent-owned Stop: an AbortController lets `node:stop` terminate the
-  // exact child backing this run. The shared spawn helper owns the
-  // SIGTERM→SIGKILL escalation once the signal aborts.
-  const controller = new AbortController();
-  if (options.runId) {
-    activeNodeRuns.set(options.runId, () => controller.abort());
-  }
-
-  // implementation — interactive mode keeps stdin open so the renderer can stream further
+  // Interactive mode keeps stdin open so the renderer can stream further
   // input via `node:stdin-write`. Requires a runId to key the stream registry;
   // without one there is no way to route later writes, so it falls back to the
   // request/response close-immediately posture.
@@ -688,8 +697,8 @@ async function spawnNode(
       maxOutputBytes: MAX_NATIVE_STDERR_BYTES,
       stdoutTruncationMarker: markers.stdout,
       stderrTruncationMarker: markers.stderr,
-      // implementation stdin forwarding — write when non-empty, then close so
-      // `process.stdin` reads hit EOF. implementation interactive runs instead keep stdin
+      // Stdin forwarding — write when non-empty, then close so
+      // `process.stdin` reads hit EOF. Interactive runs instead keep stdin
       // open and register the stream so a later `node:stdin-write` can reach it.
       stdin: {
         data: options.stdin,
@@ -699,7 +708,7 @@ async function spawnNode(
             ? (stdin) => activeNodeStdins.set(options.runId!, stdin)
             : undefined,
       },
-      // implementation — stream live output to the renderer before buffering/truncation.
+      // Stream live output to the renderer before buffering/truncation.
       onStdout:
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stdout', chunk)
@@ -708,21 +717,14 @@ async function spawnNode(
         interactive && options.onOutput
           ? (chunk) => options.onOutput?.('stderr', chunk)
           : undefined,
-      signal: controller.signal,
+      signal,
     });
-
-    // Clean up the temp entry file (large-source fallback) before
-    // resolving so a fast follow-up run does not race the teardown.
-    if (cleanupTempDir) {
-      await rm(cleanupTempDir, { recursive: true, force: true }).catch(() => {});
-    }
 
     return mapNodeRunResult(run, timeoutMs);
   } finally {
-    if (options.runId) {
-      activeNodeRuns.delete(options.runId);
-      // implementation — drop the interactive stdin registration once the run ends.
-      activeNodeStdins.delete(options.runId);
+    // Also clean staging on early cancellation or an unexpected spawn error.
+    if (cleanupTempDir) {
+      await cleanupNativeRunTempDir(cleanupTempDir);
     }
   }
 }
@@ -793,23 +795,49 @@ function clampTimeout(timeoutMs: number | undefined): number {
   return Math.floor(timeoutMs);
 }
 
+function stoppedNodeRunResult(options: NodeRunOptions): NodeRunResult {
+  return {
+    kind: 'stopped', stdout: '', stderr: '', exitCode: -1, executionTime: 0,
+    timeoutMs: clampTimeout(options.timeoutMs),
+  };
+}
+
 async function runNodeCode(
   source: string,
-  options: NodeRunOptions
+  options: NodeRunOptions,
+  owner?: WebContents
 ): Promise<NodeRunResult> {
-  const detect = await detectNode(options.userEnv);
-  if (!detect.installed) {
-    return {
-      kind: 'missing-binary',
-      stdout: '',
-      stderr: detect.error ?? 'Node.js is not installed.',
-      exitCode: -1,
-      executionTime: 0,
-      error: detect.error,
-      timeoutMs: clampTimeout(options.timeoutMs),
-    };
+  // Reserve the identity synchronously, before detection, cwd lookup or staging.
+  // Reusing a live identity must never replace another child's Stop/stdin owner.
+  if (options.runId && activeNodeRuns.has(options.runId)) {
+    return invalidNodeRunResult('A Node run with this identity is already active.');
   }
-  return spawnNode(source, options, detect.binary ?? 'node');
+  const { controller, release } = createNativeRunLifecycle(owner);
+  const stop = () => controller.abort();
+  if (options.runId) activeNodeRuns.set(options.runId, stop);
+  try {
+    if (controller.signal.aborted) return stoppedNodeRunResult(options);
+    const detect = await detectNode(options.userEnv, false, controller.signal);
+    if (controller.signal.aborted) return stoppedNodeRunResult(options);
+    if (!detect.installed) {
+      return {
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
+        stdout: '',
+        stderr: detect.error ?? 'Node.js is not installed.',
+        exitCode: -1,
+        executionTime: 0,
+        error: detect.error,
+        timeoutMs: clampTimeout(options.timeoutMs),
+      };
+    }
+    return await spawnNode(source, options, controller.signal, detect.binary ?? 'node');
+  } finally {
+    release();
+    if (options.runId && activeNodeRuns.get(options.runId) === stop) {
+      activeNodeRuns.delete(options.runId);
+      activeNodeStdins.delete(options.runId);
+    }
+  }
 }
 
 function stopNodeRun(runId: unknown): { stopped: boolean } {
@@ -822,7 +850,7 @@ function stopNodeRun(runId: unknown): { stopped: boolean } {
 }
 
 /**
- * implementation — write a chunk to an interactive run's stdin. Returns
+ * Write a chunk to an interactive run's stdin. Returns
  * `{ written: false }` when the runId is unknown (run already finished,
  * or was not started interactively) so the renderer can drop the input
  * quietly instead of throwing.
@@ -844,7 +872,7 @@ export function writeNodeStdin(runId: unknown, data: unknown): { written: boolea
   }
 }
 
-/** implementation — close an interactive run's stdin (sends EOF to the child). */
+/** Close an interactive run's stdin (sends EOF to the child). */
 export function closeNodeStdin(runId: unknown): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
@@ -873,7 +901,7 @@ export function registerNodeJSHandlers(): void {
         return invalidNodeRunResult('Node runner received invalid source.');
       }
       const normalized = normalizeNodeRunOptions(options);
-      // implementation — stream live output to the renderer for interactive runs.
+      // Stream live output to the renderer for interactive runs.
       if (normalized.interactive && normalized.runId) {
         const runId = normalized.runId;
         const sender = event.sender;
@@ -886,7 +914,7 @@ export function registerNodeJSHandlers(): void {
           }
         };
       }
-      return runNodeCode(source, normalized);
+      return runNodeCode(source, normalized, event.sender);
     }
   );
   typedHandle(
@@ -894,7 +922,6 @@ export function registerNodeJSHandlers(): void {
     async (_event, runId?: unknown) =>
       stopNodeRun(runId)
   );
-  // implementation — interactive stdin channels.
   typedHandle(
     'node:stdin-write',
     async (_event, runId: string, data: string) =>

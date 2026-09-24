@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
@@ -10,12 +11,22 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import type { RunOptions } from '../hooks/useRunner';
 import type { TelemetryTrack } from '../hooks/useTelemetry';
+import type { Language } from '../types/language';
+import { webExecutionBoundary } from '../utils/runtimeModeSupport';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { pushUpsellNotice } from '../utils/upsellNotice';
+import { beginManualRun, type ManualRunSession } from './manualRunSession';
 import type { ManualExecutionSummary } from './executeTabManually';
 
-export async function runActiveTab(track: TelemetryTrack, options: RunOptions = {}): Promise<void> {
-  const activeTab = getActiveTab(useEditorStore.getState());
+export async function runActiveTab(
+  track: TelemetryTrack,
+  options: RunOptions = {},
+  session?: ManualRunSession
+): Promise<void> {
+  const activeTab = session
+    ? useEditorStore.getState().tabs.find(tab => tab.id === session.tabId)
+    : getActiveTab(useEditorStore.getState());
+  if (session && !session.isCurrent()) return;
 
   if (!activeTab) {
     useConsoleStore.getState().addEntry({
@@ -31,6 +42,8 @@ export async function runActiveTab(track: TelemetryTrack, options: RunOptions = 
   }
 
   const tier = currentEffectiveTier();
+  // The web boundary comes first: upgrading cannot supply a host toolchain.
+  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode, tier)) return;
   if (!isLanguageAllowed(tier, activeTab.language)) {
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
@@ -59,13 +72,14 @@ export async function runActiveTab(track: TelemetryTrack, options: RunOptions = 
     return;
   }
 
-  await executeTabById(activeTab.id, options, track);
+  await executeTabById(activeTab.id, options, track, session);
 }
 
 async function executeTabById(
   tabId: string,
   options: RunOptions,
-  track: TelemetryTrack
+  track: TelemetryTrack,
+  existingSession?: ManualRunSession
 ): Promise<void> {
   const { tabs } = useEditorStore.getState();
   const activeTab = tabs.find(tab => tab.id === tabId);
@@ -85,7 +99,7 @@ async function executeTabById(
 
   // Every shell control shares this store. Refuse a second dispatch while
   // another surface already owns the active manual execution.
-  if (useResultStore.getState().isManualRunning) {
+  if (existingSession ? !existingSession.isCurrent() : useResultStore.getState().isManualRunning) {
     return;
   }
 
@@ -102,17 +116,16 @@ async function executeTabById(
     return;
   }
 
+  if (rejectUnavailableExecution(activeTab.language, activeTab.runtimeMode)) return;
+
+  const session = existingSession ?? beginManualRun(activeTab, options.debug);
+  if (!session) return;
+
   // Flip the per-tab status before loading the execution implementation so
   // every shell control exposes Stop during runner preparation.
   const editor = useEditorStore.getState();
   const resultState = useResultStore.getState();
   editor.setTabExecutionState(activeTab.id, 'running');
-  resultState.setIsManualRunning(true);
-  resultState.setManualRunMode(options.debug ? 'debug' : 'run');
-  resultState.setManualExecutionTarget({
-    language: activeTab.language,
-    ...(activeTab.runtimeMode ? { runtimeMode: activeTab.runtimeMode } : {}),
-  });
   if (options.debug) {
     useUIStore.getState().openBottomPanel('debugger');
   }
@@ -121,28 +134,17 @@ async function executeTabById(
     const { executeTabManually } = await import('./executeTabManually');
     // Stop can be pressed while this on-demand chunk is still loading.
     // Honor that intent before runner preparation starts.
-    if (!useResultStore.getState().isManualRunning) {
-      editor.setTabExecutionState(activeTab.id, 'idle');
-      return;
-    }
+    if (!session.isCurrent()) return;
     const summary = await executeTabManually(activeTab, {
+      session,
       setIsRunning: resultState.setIsManualRunning,
       setIsInitializing: resultState.setIsManualInitializing,
       setLoadingMessage: resultState.setManualLoadingMessage,
-      setCurrentLanguage: language => {
-        resultState.setManualExecutionTarget(
-          language
-            ? {
-                language,
-                ...(activeTab.runtimeMode ? { runtimeMode: activeTab.runtimeMode } : {}),
-              }
-            : null
-        );
-      },
       recordHistory: options.recordHistory,
       debug: options.debug,
       track,
     });
+    if (!session.isCurrent()) return;
     if (summary.cancelled) {
       editor.setTabExecutionState(activeTab.id, 'idle');
     } else if (!summary.ok) {
@@ -152,17 +154,13 @@ async function executeTabById(
     }
     announceRunSummary(summary);
   } catch (error) {
+    if (!session.isCurrent()) return;
     const message = error instanceof Error ? error.message : String(error);
     editor.setTabExecutionState(activeTab.id, 'error', oneLineTooltip(message));
     announce(i18next.t('console.run.announce.error'));
     throw error;
   } finally {
-    const currentResultState = useResultStore.getState();
-    currentResultState.setIsManualRunning(false);
-    currentResultState.setManualRunMode(null);
-    currentResultState.setManualExecutionTarget(null);
-    currentResultState.setIsManualInitializing(false);
-    currentResultState.setManualLoadingMessage(null);
+    session.finish();
   }
 }
 
@@ -194,4 +192,23 @@ function pushNotebookRunNotice(): void {
     tone: 'info',
     messageKey: 'notebook.notice.useNotebookToolbar',
   });
+}
+
+function rejectUnavailableExecution(
+  language: Language,
+  mode: RuntimeMode | undefined,
+  tier = currentEffectiveTier()
+): boolean {
+  const boundary = webExecutionBoundary(language, mode);
+  if (!boundary) return false;
+  useUIStore.getState().pushStatusNotice({
+    tone: 'info',
+    messageKey:
+      boundary === 'runtime'
+        ? 'runtimeMode.notice.desktopOnly'
+        : isLanguageAllowed(tier, language)
+          ? 'language.notice.desktopOnly'
+          : 'toolbar.run.desktopAndProTooltip',
+  });
+  return true;
 }

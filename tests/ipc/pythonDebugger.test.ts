@@ -24,6 +24,7 @@ function sender(id: number) {
   return {
     id,
     once: vi.fn(),
+    removeListener: vi.fn(),
     isDestroyed: vi.fn(() => false),
   };
 }
