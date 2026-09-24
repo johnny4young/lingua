@@ -273,7 +273,7 @@ describe('main ruby runner', () => {
     it('returns installed=false with an actionable error when ruby is missing', async () => {
       const { detectRuby, __resetRubyDetectCache } = await import('../../src/main/ruby-runner');
       __resetRubyDetectCache();
-      mocks.execFileAsync.mockRejectedValueOnce(new Error('ENOENT'));
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const result = await detectRuby();
       expect(result.installed).toBe(false);
       expect(result.error).toMatch(/Ruby is not installed/);
@@ -431,11 +431,21 @@ describe('main ruby runner', () => {
 
     it('returns missing-binary when ruby is not installed', async () => {
       await loadRunner();
-      mocks.execFileAsync.mockRejectedValueOnce(new Error('ENOENT'));
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const handler = handlerFor<RubyRunHandler>('ruby:run');
       const result = await handler({}, 'puts 1', { timeoutMs: 1000 });
       expect(result.kind).toBe('missing-binary');
       expect(result.error).toMatch(/Ruby is not installed/);
+    });
+
+    it('does not turn a failed Ruby version check into install guidance', async () => {
+      await loadRunner();
+      mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+      const handler = handlerFor<RubyRunHandler>('ruby:run');
+      const result = await handler({}, 'puts 1', { timeoutMs: 1000 });
+      expect(result.kind).toBe('error');
+      expect(result.error).not.toMatch(/not installed/i);
+      expect(mocks.spawn).not.toHaveBeenCalled();
     });
 
     it('ruby:stop terminates the registered run by runId', async () => {

@@ -83,6 +83,22 @@ describe('RustRunner', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('nativeToolchain.missing.message');
   });
 
+  it('does not send unrelated user env during a passive retry', async () => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/rust/bin', API_TOKEN: 'private-project-secret' },
+    });
+    mockDetect
+      .mockResolvedValueOnce({ installed: false, reason: 'missing', error: 'Rust is not installed' })
+      .mockResolvedValueOnce({ installed: true, version: 'rustc 1.80.0' });
+    const runner = new RustRunner();
+    await expect(runner.init()).rejects.toThrow('Rust is not installed');
+    const retry = useUIStore.getState().statusNotice?.actions?.[1];
+    useUIStore.getState().dismissStatusNotice('cta');
+    retry?.onClick();
+    await vi.waitFor(() => expect(mockDetect).toHaveBeenCalledTimes(2));
+    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
+  });
+
   it('detects again on the next run after a failed Rust check', async () => {
     mockDetect
       .mockResolvedValueOnce({ installed: false, reason: 'check-failed', error: 'Rust check timed out' })

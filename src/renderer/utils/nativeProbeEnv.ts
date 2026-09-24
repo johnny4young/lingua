@@ -5,10 +5,11 @@ import {
   GO_TOOLCHAIN_KEYS,
   NODE_TOOLCHAIN_KEYS,
   RUST_TOOLCHAIN_KEYS,
+  RUBY_PROBE_KEYS,
   WINDOWS_TOOLCHAIN_KEYS,
 } from '../../shared/nativeToolchainEnvKeys';
 
-export type NativeProbeRuntime = 'go' | 'rust' | 'node' | 'deno' | 'bun';
+export type NativeProbeRuntime = 'go' | 'rust' | 'node' | 'deno' | 'bun' | 'ruby';
 
 const RUNTIME_KEYS: Record<NativeProbeRuntime, readonly string[]> = {
   go: GO_TOOLCHAIN_KEYS,
@@ -16,6 +17,7 @@ const RUNTIME_KEYS: Record<NativeProbeRuntime, readonly string[]> = {
   node: NODE_TOOLCHAIN_KEYS,
   deno: DENO_TOOLCHAIN_KEYS,
   bun: BUN_TOOLCHAIN_KEYS,
+  ruby: RUBY_PROBE_KEYS,
 };
 
 /** Keep explicit Run's full user env separate from passive binary probes. */

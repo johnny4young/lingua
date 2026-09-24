@@ -415,6 +415,18 @@ describe('main node runner', () => {
     await expect(detectNode()).resolves.toMatchObject({ installed: true, version: 'v24.11.1' });
   });
 
+  it('does not turn a failed Node version check into install guidance on Run', async () => {
+    process.env.HOME = tempRoot;
+    mocks.execFileAsync.mockRejectedValue(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const result = await run({}, 'console.log(1)');
+    expect(result.kind).toBe('error');
+    expect(result.error).toMatch(/check failed/i);
+    expect(mocks.spawn).not.toHaveBeenCalled();
+  });
+
   it('falls back to a user-level fnm Node binary when GUI PATH cannot find node', async () => {
     process.env.HOME = tempRoot;
     const fallbackNode = path.join(

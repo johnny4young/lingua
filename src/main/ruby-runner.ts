@@ -186,7 +186,9 @@ export async function detectRuby(
     result = {
       installed: false,
       reason: probe.reason,
-      error: 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
+      error: probe.reason === 'check-failed'
+        ? 'Could not check Ruby. Review the local runtime and retry detection.'
+        : 'Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/',
     };
   }
   if (cacheable && !signal?.aborted) {
@@ -488,7 +490,7 @@ async function runRubyCode(
     if (controller.signal.aborted) return stoppedRubyRunResult(options);
     if (!detect.installed) {
       return {
-        kind: 'missing-binary',
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
         stdout: '',
         stderr: detect.error ?? 'Ruby is not installed.',
         exitCode: -1,

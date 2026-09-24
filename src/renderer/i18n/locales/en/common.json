@@ -2567,6 +2567,7 @@
   "settings.editor.rubyRuntime.option.wasmDescription": "Always use the bundled @ruby/wasm-wasi worker.",
   "settings.editor.rubyRuntime.statusDetected": "System Ruby detected: {{version}}",
   "settings.editor.rubyRuntime.statusMissing": "System Ruby not detected on PATH.",
+  "settings.editor.rubyRuntime.statusCheckFailed": "Could not check system Ruby. Review the local runtime and try again.",
   "settings.editor.rubyRuntime.statusUnavailable": "Available on desktop only.",
   "settings.editor.rubyRuntime.docsLink": "Open Ruby documentation",
   "runtime.notice.rubySystemMissing": "Ruby is not on PATH — falling back to the bundled WebAssembly runtime.",

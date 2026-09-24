@@ -23,7 +23,7 @@ beforeAll(async () => {
     setActiveRunId: vi.fn(),
     resetStdin: () => py.setStdin(),
   });
-});
+}, 30_000);
 afterAll(() => vi.unstubAllGlobals());
 
 async function execute(

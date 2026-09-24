@@ -23,6 +23,7 @@ import {
 import {
   resolveNativeRunnerMessages,
   resolveUserEnvForRunner,
+  resolveUserEnvForNativeProbe,
 } from './env';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
@@ -73,7 +74,9 @@ export class GoRunner implements LanguageRunner {
 
   private pushMissingToolchainNotice(): void {
     pushMissingNativeToolchainNotice('go', async () => {
-      const result = await window.lingua.go.detect(resolveUserEnvForRunner());
+      const result = await window.lingua.go.detect(
+        resolveUserEnvForNativeProbe('go', window.lingua?.platform)
+      );
       this.goInstalled = result.installed;
       this.detectFailure = result.reason === 'check-failed';
       return result.reason === 'check-failed' ? 'check-failed' : result.installed;

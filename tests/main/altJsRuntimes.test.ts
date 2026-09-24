@@ -69,7 +69,7 @@ function createChild() {
   return child;
 }
 
-type RunHandler = (event: unknown, source: unknown, options?: unknown) => Promise<{ kind: string; stdout: string }>;
+type RunHandler = (event: unknown, source: unknown, options?: unknown) => Promise<AltJsRunResult>;
 type DetectHandler = (event: unknown, userEnv?: unknown, force?: unknown) => Promise<{ installed: boolean; version?: string }>;
 
 function handlerFor<T>(channel: string): T {
@@ -195,13 +195,24 @@ describe('implementation: Deno & Bun runtimes', () => {
   });
 
   it('reports missing-binary when detection throws', async () => {
-    mocks.execFileAsync.mockRejectedValue(new Error('spawn deno ENOENT'));
+    mocks.execFileAsync.mockRejectedValue(Object.assign(new Error('spawn deno ENOENT'), { code: 'ENOENT' }));
     const { registerAltJsRuntimeHandlers } = await import('../../src/main/altJsRuntimes');
     registerAltJsRuntimeHandlers();
     const run = handlerFor<RunHandler>('bun:run');
     await expect(run({}, 'console.log(1)', { timeoutMs: 5_000 })).resolves.toMatchObject({
       kind: 'missing-binary',
     });
+    expect(mocks.spawn).not.toHaveBeenCalled();
+  });
+
+  it.each(['deno', 'bun'])('reports a failed %s version check as an error, not a missing installation', async id => {
+    mocks.execFileAsync.mockRejectedValue(Object.assign(new Error('permission denied'), { code: 'EACCES' }));
+    const { registerAltJsRuntimeHandlers } = await import('../../src/main/altJsRuntimes');
+    registerAltJsRuntimeHandlers();
+    const run = handlerFor<RunHandler>(`${id}:run`);
+    const result = await run({}, 'console.log(1)', { timeoutMs: 5_000 });
+    expect(result.kind).toBe('error');
+    expect(result.stderr).not.toContain('not installed');
     expect(mocks.spawn).not.toHaveBeenCalled();
   });
 

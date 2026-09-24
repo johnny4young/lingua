@@ -286,7 +286,9 @@ auto-derived — do not edit by hand.
   preference (`auto` / `system` / `wasm`) and per-session detection.
   `.ruby-version` discovery threads `RBENV_VERSION` so rbenv shims pick
   the right interpreter. Native gems via `bundler` still belong to the
-  internal lane.
+  internal lane. The passive Settings version check uses only Ruby
+  version-manager discovery keys, never arbitrary project env or Run telemetry;
+  a failed check is shown separately from a confirmed missing binary.
 
 ### Local AI inference (internal spike)
 - **Decision deferred.** Write this back into the matrix once the internal

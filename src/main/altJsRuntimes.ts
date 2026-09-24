@@ -124,7 +124,13 @@ async function detectAltRuntime(
   if (probe.version !== null) {
     result = { installed: true, version: probe.version.split('\n')[0] };
   } else {
-    result = { installed: false, reason: probe.reason, error: CONFIGS[id].installHint };
+    result = {
+      installed: false,
+      reason: probe.reason,
+      error: probe.reason === 'check-failed'
+        ? `Could not check ${id}. Review the local runtime and retry detection.`
+        : CONFIGS[id].installHint,
+    };
   }
   if (cacheable && !signal?.aborted) {
     if (result.reason === 'check-failed') detectCache.delete(id);
@@ -256,7 +262,7 @@ async function runAltRuntime(
     if (controller.signal.aborted) return stoppedAltRunResult(options);
     if (!detect.installed) {
       return {
-        kind: 'missing-binary',
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
         stdout: '',
         stderr: detect.error ?? `${id} is not installed.`,
         exitCode: -1,

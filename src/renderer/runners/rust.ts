@@ -7,7 +7,7 @@ import type {
   ConsoleOutput,
 } from '../types/execution';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
-import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
+import { resolveNativeRunnerMessages, resolveUserEnvForNativeProbe, resolveUserEnvForRunner } from './env';
 import { enrichConsoleOutputLine } from './originSplitter';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
@@ -42,7 +42,9 @@ export class RustRunner implements LanguageRunner {
 
   private pushMissingToolchainNotice(): void {
     pushMissingNativeToolchainNotice('rust', async () => {
-      const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
+      const result = await window.lingua.rust.detect(
+        resolveUserEnvForNativeProbe('rust', window.lingua?.platform)
+      );
       this.rustInstalled = result.installed;
       this.detectFailure = result.reason === 'check-failed';
       return result.reason === 'check-failed' ? 'check-failed' : result.installed;

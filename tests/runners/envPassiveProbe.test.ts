@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     GOPATH: '/tmp/go-path',
     NODE_PATH: '/tmp/node-modules',
     DENO_DIR: '/tmp/deno-cache',
+    RBENV_VERSION: '3.3.6',
     API_TOKEN: 'private-project-secret',
     NODE_OPTIONS: '--require /tmp/loader.js',
   },
@@ -43,6 +44,9 @@ describe('passive native toolchain environment', () => {
     });
     expect(resolveUserEnvForNativeProbe('deno', 'darwin')).toEqual({
       PATH: '/opt/toolchains/bin', DENO_DIR: '/tmp/deno-cache',
+    });
+    expect(resolveUserEnvForNativeProbe('ruby', 'darwin')).toEqual({
+      PATH: '/opt/toolchains/bin', RBENV_VERSION: '3.3.6',
     });
     expect(mocks.trackEvent).not.toHaveBeenCalled();
     expect(resolveUserEnvForRunner()).toEqual(mocks.env);

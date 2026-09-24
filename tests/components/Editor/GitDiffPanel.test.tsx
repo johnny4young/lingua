@@ -63,6 +63,10 @@ function deferred<T>() {
 
 describe('GitDiffPanel', () => {
   beforeEach(() => {
+    activeTabRef.current = {
+      id: 'tab-1', name: 'main.ts', language: 'typescript',
+      content: 'const value = 2;', isDirty: true, filePath: FILE_PATH,
+    };
     transfer.register.mockClear();
     transfer.onMount = null;
     useGitStore.getState().clear();
@@ -155,5 +159,40 @@ describe('GitDiffPanel', () => {
     const dispose = transfer.register.mock.results[0]?.value;
     act(() => useGitStore.getState().clear());
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('unmounts the old diff and registers modified-side actions after switching files', async () => {
+    const diff = vi.fn()
+      .mockResolvedValueOnce({ originalContent: 'before a', modifiedContent: 'after a', truncated: false })
+      .mockResolvedValueOnce({ originalContent: 'before b', modifiedContent: 'after b', truncated: false });
+    (window as unknown as { lingua: unknown }).lingua = {
+      platform: 'desktop', git: { diff },
+    };
+    const { rerender } = render(<GitDiffPanel />);
+    await screen.findByText('after a');
+    act(() => transfer.onMount?.({
+      getOriginalEditor: () => transfer.original,
+      getModifiedEditor: () => transfer.modified,
+    }, {}));
+    expect(transfer.register).toHaveBeenCalledTimes(1);
+
+    const secondPath = '/tmp/repo/other.ts';
+    act(() => {
+      useGitStore.getState().setFileStatus(secondPath, { status: 'modified', updatedAt: 1 });
+      activeTabRef.current = {
+        ...activeTabRef.current, id: 'tab-2', name: 'other.ts', filePath: secondPath,
+      };
+      rerender(<GitDiffPanel />);
+    });
+    expect(screen.queryByTestId('mock-diff-editor')).toBeNull();
+    expect(screen.getByText('Loading diff…')).toBeTruthy();
+    await screen.findByText('after b');
+    act(() => transfer.onMount?.({
+      getOriginalEditor: () => transfer.original,
+      getModifiedEditor: () => transfer.modified,
+    }, {}));
+    expect(transfer.register).toHaveBeenCalledTimes(2);
+    expect(transfer.register.mock.results[0]?.value).toHaveBeenCalledOnce();
+    expect(diff).toHaveBeenLastCalledWith(REPO_ROOT, secondPath);
   });
 });

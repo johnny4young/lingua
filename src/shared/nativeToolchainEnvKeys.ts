@@ -34,3 +34,10 @@ export const NODE_TOOLCHAIN_KEYS = [
 /** Deno and Bun need only their explicit per-user installation/cache roots. */
 export const DENO_TOOLCHAIN_KEYS = ['DENO_DIR'] as const;
 export const BUN_TOOLCHAIN_KEYS = ['BUN_INSTALL'] as const;
+
+/** Version-manager selection for a passive Ruby version probe. Gem and
+ * Bundler configuration belongs to explicit execution, not Settings. */
+export const RUBY_PROBE_KEYS = [
+  'RBENV_VERSION', 'RBENV_ROOT', 'RBENV_DIR',
+  'ASDF_RUBY_VERSION', 'ASDF_DIR', 'ASDF_DATA_DIR',
+] as const;

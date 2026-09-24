@@ -821,7 +821,7 @@ async function runNodeCode(
     if (controller.signal.aborted) return stoppedNodeRunResult(options);
     if (!detect.installed) {
       return {
-        kind: 'missing-binary',
+        kind: detect.reason === 'check-failed' ? 'error' : 'missing-binary',
         stdout: '',
         stderr: detect.error ?? 'Node.js is not installed.',
         exitCode: -1,

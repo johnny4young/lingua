@@ -8,6 +8,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 import { AltJsRunner } from '../../src/renderer/runners/altJsRunner';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useEnvVarsStore } from '../../src/renderer/stores/envVarsStore';
 
 function installBridge(
   id: 'deno' | 'bun',
@@ -36,10 +37,12 @@ function installBridge(
 
 describe('AltJsRunner', () => {
   const initialSettings = useSettingsStore.getState();
+  const initialEnv = useEnvVarsStore.getState();
 
   beforeEach(() => {
     vi.clearAllMocks();
     useSettingsStore.setState(initialSettings, true);
+    useEnvVarsStore.setState(initialEnv, true);
     useUIStore.setState({ statusNotice: null });
   });
 
@@ -68,6 +71,9 @@ describe('AltJsRunner', () => {
   });
 
   it.each(['deno', 'bun'] as const)('recovers when %s is not installed', async (id) => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/js/bin', API_TOKEN: 'private-project-secret' },
+    });
     const bridge = installBridge(id, {
       run: vi.fn().mockResolvedValue({
         kind: 'missing-binary',

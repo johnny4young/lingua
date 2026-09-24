@@ -104,6 +104,9 @@ describe('GoRunner', () => {
   });
 
   it('retries detection and uses Go without restarting Lingua', async () => {
+    useEnvVarsStore.setState({
+      global: { PATH: '/opt/go/bin', API_TOKEN: 'private-project-secret' },
+    });
     mockDetect
       .mockResolvedValueOnce({ installed: false, error: 'Go is not installed' })
       .mockResolvedValueOnce({
@@ -123,6 +126,7 @@ describe('GoRunner', () => {
         'nativeToolchain.retry.detected'
       );
     });
+    expect(mockDetect.mock.calls[1]?.[0]).toEqual({});
 
     const result = await runner.execute('package main\nfunc main() {}');
     expect(mockCompile).toHaveBeenCalledOnce();
