@@ -4241,5 +4241,11 @@
   "rustDebugger.error.process-exited": "Rust exited before the debugger reached a pause.",
   "rustDebugger.error.session-not-found": "The Rust debug session is no longer active.",
   "rustDebugger.error.source-too-large": "This Rust file is too large for the debugger safety limit.",
-  "rustDebugger.error.unapproved-path": "Reopen the file or project before starting Rust debugging."
+  "rustDebugger.error.unapproved-path": "Reopen the file or project before starting Rust debugging.",
+  "notebook.document.invalid": "Invalid or oversized .linguanb document.",
+  "notebook.document.conflict": "Notebook changed on disk. Reload or Save As to keep both versions.",
+  "notebook.document.writeFailed": "Save failed. Edits retained; try Save As.",
+  "notebook.document.saved": "Notebook saved.",
+  "notebook.document.openFailed": "Open failed. Current notebook unchanged.",
+  "notebook.document.unavailable": "Project saving unavailable. Use Chromium or Lingua Desktop; export downloads a copy."
 }

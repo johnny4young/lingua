@@ -4,6 +4,7 @@ import { useProjectStore } from './projectStore';
 import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useRecipeStore } from './recipeStore';
 import { useNotebookStore } from './notebookStore';
+import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 import { currentEffectiveTier } from './licenseSelectors';
 import { isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -139,7 +140,7 @@ export function createTabActions(
           dropStdinIfUnsupported(
             dropAutoLogIfUnsupported({
               ...tab,
-              isDirty: false,
+              isDirty: tab.kind === 'notebook' && notebookDocumentSnapshot(tab.id) !== tab.content,
               // implementation — backfill missing runtime modes for JS/TS
               // tabs restored from a legacy session. Non-JS/TS tabs
               // never carry the field.

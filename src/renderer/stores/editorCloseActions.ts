@@ -1,3 +1,4 @@
+import { flushNotebookDocumentDrafts } from './notebookDocumentDrafts';
 import type { EditorState } from '../types/editor';
 import type { Language } from '../types/language';
 import { getActiveAppLanguage } from '../i18n';
@@ -45,6 +46,7 @@ export function createCloseActions(
 > {
   return {
     closeTab: async id => {
+      flushNotebookDocumentDrafts(id);
       const { tabs, removeTab, saveTabById } = get();
       const tab = tabs.find(t => t.id === id);
       if (!tab) return true;
@@ -58,7 +60,11 @@ export function createCloseActions(
       const response = await window.lingua.confirmCloseTab(tab.name, getActiveAppLanguage());
       if (response === 0) {
         const saved = await saveTabById(id);
-        if (!saved) return false;
+        if (
+          !saved ||
+          (tab.kind === 'notebook' && get().tabs.find(current => current.id === id)?.isDirty)
+        )
+          return false;
         removeTab(id);
         return true;
       } else if (response === 1) {
@@ -101,7 +107,7 @@ export function createCloseActions(
               ...tab,
               name,
               language: tab.language,
-              isDirty: false,
+              isDirty: tab.isDirty,
             };
           }),
         }));

@@ -13,11 +13,14 @@ export interface ReloadBatchState {
   timer: number | null;
 }
 
-interface ReloadCandidate {
+export interface ReloadCandidate {
   tabId: string;
   tabName: string;
   diskSnapshot: string;
   isDirty: boolean;
+  notebookSnapshot?: string | null;
+  rootId?: string;
+  relativePath?: string;
 }
 
 export function createReloadBatchState(): ReloadBatchState {
@@ -30,9 +33,8 @@ export function findReloadTargetId(
 ): string | null {
   if (event.eventType !== 'change' || event.filename === null) return null;
   return (
-    tabs.find(
-      tab => tab.rootId === event.rootId && tab.relativePath === event.relativePath
-    )?.id ?? null
+    tabs.find(tab => tab.rootId === event.rootId && tab.relativePath === event.relativePath)?.id ??
+    null
   );
 }
 
@@ -80,12 +82,19 @@ async function readReloadCandidate(tabId: string): Promise<ReloadCandidate | nul
   } catch {
     return null;
   }
+  const latestTab = useEditorStore.getState().tabs.find(candidate => candidate.id === tabId);
+  if (!latestTab || latestTab.rootId !== tab.rootId || latestTab.relativePath !== tab.relativePath)
+    return null;
   if (rawDiskContent === null || rawDiskContent === tab.content) return null;
+  if (tab.kind === 'notebook') {
+    const { readNotebookReloadCandidate } = await import('./notebookDocumentExternalReload');
+    return readNotebookReloadCandidate(tab, latestTab, rawDiskContent);
+  }
   return {
     tabId,
     tabName: tab.name,
     diskSnapshot: rawDiskContent,
-    isDirty: tab.isDirty,
+    isDirty: latestTab.isDirty,
   };
 }
 
@@ -95,21 +104,28 @@ function confirmDirtyReload(): boolean {
   );
 }
 
-function applyReloadCandidate(candidate: ReloadCandidate): void {
+async function applyReloadCandidate(candidate: ReloadCandidate): Promise<void> {
+  const tab = useEditorStore.getState().tabs.find(t => t.id === candidate.tabId);
+  if (!tab) return;
+  if (tab.kind === 'notebook') {
+    const { applyNotebookReloadCandidate } = await import('./notebookDocumentExternalReload');
+    await applyNotebookReloadCandidate(tab, candidate, confirmDirtyReload);
+    return;
+  }
   useEditorStore.getState().setTabContentFromDisk(candidate.tabId, candidate.diskSnapshot);
 }
 
 async function applyBatchedReload(tabIds: ReadonlyArray<string>): Promise<void> {
-  const candidates = (
-    await Promise.all(tabIds.map(tabId => readReloadCandidate(tabId)))
-  ).filter((candidate): candidate is ReloadCandidate => candidate !== null);
+  const candidates = (await Promise.all(tabIds.map(tabId => readReloadCandidate(tabId)))).filter(
+    (candidate): candidate is ReloadCandidate => candidate !== null
+  );
   if (candidates.length === 0) return;
   if (candidates.some(candidate => candidate.isDirty) && !confirmDirtyReload()) {
     trackGitExternalModificationReload('user-rejected');
     return;
   }
   for (const candidate of candidates) {
-    applyReloadCandidate(candidate);
+    await applyReloadCandidate(candidate);
     trackGitExternalModificationReload('user-accepted');
   }
 }
@@ -134,7 +150,7 @@ async function pushReloadNotice(tabId: string): Promise<void> {
             trackGitExternalModificationReload('user-rejected');
             return;
           }
-          applyReloadCandidate(candidate);
+          void applyReloadCandidate(candidate);
           trackGitExternalModificationReload('user-accepted');
         },
       },

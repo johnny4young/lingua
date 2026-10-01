@@ -1,7 +1,7 @@
 import { getActiveEditor } from '../runtime/editorAccess';
 
 export function desktopSmokeEnabled(): boolean {
-  return Boolean(window.lingua?.desktopSmoke);
+  return window.lingua?.desktopSmoke?.enabled === true;
 }
 
 export function desktopSmokeApi() {

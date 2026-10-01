@@ -58,8 +58,10 @@ describe('release candidate version contract', () => {
     expect(designSyncPackage.version).toBe(rootPackage.version);
     expect(firstReleaseVersion()).toBe(rootPackage.version);
     expect(generatedChangelog.entries[0]?.version).toBe(rootPackage.version);
+    // Feature PRs may record unreleased notes without pretending to cut a release.
+    // The first released version and generated/public version checks remain pinned.
     expect(changelog).toMatch(
-      /^## \[Unreleased\]\n\n## \[v?\d+\.\d+\.\d+\] [—-] \d{4}-\d{2}-\d{2}$/mu
+      /^## \[Unreleased\]\n(?:[\s\S]*?\n)?## \[v?\d+\.\d+\.\d+\] [—-] \d{4}-\d{2}-\d{2}$/mu
     );
   });
 

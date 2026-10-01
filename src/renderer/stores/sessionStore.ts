@@ -94,6 +94,7 @@ interface SessionTab {
    * persisted notebook entry. Only populated when `kind === 'notebook'`.
    */
   notebookTabId?: string;
+  notebookDocumentHash?: string | null;
   /**
    * Original tabId captured at save time for SQL / HTTP / Utilities
    * workspace tabs.
@@ -178,11 +179,11 @@ function sessionTabEqual(a: FileTab, b: FileTab): boolean {
   return (
     a.id === b.id &&
     a.name === b.name &&
+    (a.kind !== 'notebook' || a.notebookDocumentHash === b.notebookDocumentHash) &&
     a.language === b.language &&
-    // Mirrors saveSession's `tab.filePath ? '' : tab.content` — for
-    // disk-backed tabs the serialized content is '' either way, so
-    // buffer edits there cannot change the snapshot.
-    (a.filePath ? true : a.content === b.content) &&
+    // Notebook content is the last saved baseline, needed to recover dirty cells.
+    // Other disk-backed tabs still persist no buffer content.
+    (a.filePath && a.kind !== 'notebook' ? true : a.content === b.content) &&
     a.runtimeMode === b.runtimeMode &&
     a.stdinBuffer === b.stdinBuffer &&
     inputSetsEqual(a.inputSets, b.inputSets) &&
@@ -193,13 +194,19 @@ function sessionTabEqual(a: FileTab, b: FileTab): boolean {
   );
 }
 
-function stringArrayEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+function stringArrayEqual(
+  a: readonly string[] | undefined,
+  b: readonly string[] | undefined
+): boolean {
   if (a === b) return true;
   if (!a || !b || a.length !== b.length) return false;
   return a.every((value, index) => value === b[index]);
 }
 
-function inputSetsEqual(a: readonly InputSet[] | undefined, b: readonly InputSet[] | undefined): boolean {
+function inputSetsEqual(
+  a: readonly InputSet[] | undefined,
+  b: readonly InputSet[] | undefined
+): boolean {
   if (a === b) return true;
   if (!a || !b || a.length !== b.length) return false;
   return a.every((inputSet, index) => {
@@ -255,7 +262,8 @@ export const useSessionStore = create<SessionState>()(
           // a freshly minted capability so we never persist file content
           // we are about to re-fetch anyway. Untitled tabs persist their
           // content so the user does not lose unsaved work.
-          content: tab.filePath ? '' : tab.content,
+          content: tab.filePath && tab.kind !== 'notebook' ? '' : tab.content,
+          ...(tab.kind === 'notebook' ? { notebookDocumentHash: tab.notebookDocumentHash } : {}),
           filePath: tab.filePath,
           // implementation — persist the runtime mode alongside the
           // tab. Non-JS/TS tabs have `runtimeMode === undefined`, so
@@ -368,9 +376,12 @@ export const useSessionStore = create<SessionState>()(
             }
           }
 
-          const language = saved.filePath
-            ? resolveFileLanguageOrPlaintext(saved.filePath)
-            : saved.language;
+          const language =
+            saved.kind === 'notebook'
+              ? saved.language
+              : saved.filePath
+                ? resolveFileLanguageOrPlaintext(saved.filePath)
+                : saved.language;
 
           // implementation — restore the runtime mode for JS/TS
           // tabs, coercing missing / unknown / unimplemented values
@@ -391,7 +402,7 @@ export const useSessionStore = create<SessionState>()(
           const restoredActiveInputSetId =
             stdinSupported &&
             typeof saved.activeInputSetId === 'string' &&
-            restoredInputSets.some((inputSet) => inputSet.id === saved.activeInputSetId)
+            restoredInputSets.some(inputSet => inputSet.id === saved.activeInputSetId)
               ? saved.activeInputSetId
               : undefined;
           const restoredInputArgs =
@@ -501,6 +512,18 @@ export const useSessionStore = create<SessionState>()(
           }
 
           const restoredId = restoredAsNotebook ? saved.notebookTabId! : crypto.randomUUID();
+          let notebookDocumentHash = saved.notebookDocumentHash;
+          if (restoredAsNotebook) {
+            const { restoreNotebookDocument } = await import('./notebookDocumentRecovery');
+            const recovered = await restoreNotebookDocument(
+              restoredId,
+              saved,
+              Boolean(rootId),
+              content
+            );
+            content = recovered.content;
+            notebookDocumentHash = recovered.notebookDocumentHash;
+          }
 
           restored.push({
             id: restoredId,
@@ -520,7 +543,7 @@ export const useSessionStore = create<SessionState>()(
             ...(restoredRecipeBindingId !== undefined
               ? { recipeBindingId: restoredRecipeBindingId }
               : {}),
-            ...(restoredAsNotebook ? { kind: 'notebook' as const } : {}),
+            ...(restoredAsNotebook ? { kind: 'notebook' as const, notebookDocumentHash } : {}),
           });
           savedIndexToRestoredId.push(restoredId);
         }

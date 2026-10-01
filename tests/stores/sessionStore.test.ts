@@ -65,6 +65,108 @@ describe('sessionStore', () => {
     localStorage.clear();
   });
 
+  it.each([false, true])(
+    'recovers notebook edits without adopting a changed disk baseline (missing root: %s)',
+    async missing => {
+      const { useNotebookStore } = await import('@/stores/notebookStore');
+      const { serializeNotebookDocument } = await import('#src/shared/notebookDocument');
+      const { computeContentHash } = await import('#src/shared/runCapsule');
+      const notebook = {
+        version: 1 as const,
+        id: 'recovery',
+        title: 'Recovery',
+        cells: [
+          {
+            kind: 'code' as const,
+            id: 'cell',
+            language: 'javascript' as const,
+            source: '1',
+            outputs: [{ kind: 'text' as const, stream: 'stdout' as const, text: 'prior' }],
+          },
+        ],
+      };
+      const baseline = serializeNotebookDocument(notebook);
+      const hash = await computeContentHash(baseline);
+      useNotebookStore.getState().installImportedNotebook('recovery-tab', notebook);
+      useNotebookStore.getState().updateCellSource('recovery-tab', 'cell', '2');
+      useSessionStore.setState({
+        savedTabs: [
+          {
+            kind: 'notebook',
+            notebookTabId: 'recovery-tab',
+            name: 'recovery.linguanb',
+            language: 'javascript',
+            filePath: '/path/recovery.linguanb',
+            content: baseline,
+            notebookDocumentHash: hash,
+          },
+        ],
+        savedActiveIndex: 0,
+      });
+      window.lingua.fs.reopenFile = vi
+        .fn()
+        .mockResolvedValue(
+          missing
+            ? { ok: false, reason: 'missing' }
+            : {
+                ok: true,
+                rootId: 'root-restored',
+                rootPath: '/path',
+                fileRelativePath: 'recovery.linguanb',
+              }
+        );
+      window.lingua.fs.read = vi
+        .fn()
+        .mockResolvedValue(
+          serializeNotebookDocument({
+            ...notebook,
+            cells: [{ ...notebook.cells[0], source: 'disk changed' }],
+          })
+        );
+      await useSessionStore.getState().restoreSession();
+      const tab = useEditorStore.getState().tabs[0];
+      expect(tab.kind).toBe('notebook');
+      expect(tab.isDirty).toBe(true);
+      expect(tab.content).toBe(baseline);
+      expect(tab.notebookDocumentHash).toBe(hash);
+      expect(useNotebookStore.getState().notebooks['recovery-tab'].notebook.cells[0].source).toBe(
+        '2'
+      );
+      useNotebookStore.getState().disposeNotebookForTab('recovery-tab');
+    }
+  );
+
+  it('persists notebook baseline and hash changes even for disk-backed tabs', () => {
+    const tab = {
+      id: 'document-tab',
+      kind: 'notebook' as const,
+      name: 'document.linguanb',
+      language: 'javascript' as const,
+      filePath: '/path/document.linguanb',
+      content: 'baseline',
+      notebookDocumentHash: 'a'.repeat(64),
+      isDirty: false,
+    };
+    for (const override of [
+      { content: 'new baseline' },
+      { notebookDocumentHash: 'b'.repeat(64) },
+    ]) {
+      expect(
+        sessionSnapshotEqual(
+          { tabs: [tab], activeTabId: tab.id },
+          { tabs: [{ ...tab, ...override }], activeTabId: tab.id }
+        )
+      ).toBe(false);
+    }
+    useEditorStore.setState({ tabs: [tab], activeTabId: tab.id });
+    useSessionStore.getState().saveSession();
+    expect(useSessionStore.getState().savedTabs[0]).toMatchObject({
+      content: 'baseline',
+      notebookDocumentHash: 'a'.repeat(64),
+      notebookTabId: 'document-tab',
+    });
+  });
+
   it('should start with empty saved tabs', () => {
     const { savedTabs } = useSessionStore.getState();
     expect(savedTabs).toHaveLength(0);
@@ -208,7 +310,10 @@ describe('sessionStore', () => {
             { id: 'set-valid', name: 'Duplicate id', stdin: 'ignored' },
           ],
           activeInputSetId: 'missing-set',
-          inputArgs: [...Array.from({ length: 70 }, (_, index) => `arg-${index}`), 42] as unknown as string[],
+          inputArgs: [
+            ...Array.from({ length: 70 }, (_, index) => `arg-${index}`),
+            42,
+          ] as unknown as string[],
         },
       ],
       savedActiveIndex: 0,
@@ -642,10 +747,8 @@ describe('sessionStore', () => {
       ...overrides,
     });
 
-    const snapshot = (
-      tabs: ReturnType<typeof baseTab>[],
-      activeTabId: string | null = 'tab-1'
-    ) => ({ tabs, activeTabId }) as Parameters<typeof sessionSnapshotEqual>[0];
+    const snapshot = (tabs: ReturnType<typeof baseTab>[], activeTabId: string | null = 'tab-1') =>
+      ({ tabs, activeTabId }) as Parameters<typeof sessionSnapshotEqual>[0];
 
     it('treats transient-only mutations as equal (the §3.10 noise)', () => {
       const a = snapshot([baseTab()]);
@@ -709,9 +812,7 @@ describe('sessionStore', () => {
 
     it('states judged equal serialize byte-identically through saveSession', () => {
       const a = snapshot([baseTab()]);
-      const b = snapshot([
-        baseTab({ isDirty: true, executionState: 'success', parseError: null }),
-      ]);
+      const b = snapshot([baseTab({ isDirty: true, executionState: 'success', parseError: null })]);
       expect(sessionSnapshotEqual(a, b)).toBe(true);
 
       useEditorStore.setState({ tabs: a.tabs, activeTabId: a.activeTabId });

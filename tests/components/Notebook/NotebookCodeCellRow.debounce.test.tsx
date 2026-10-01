@@ -1,3 +1,4 @@
+import { flushNotebookDocumentDrafts } from '../../../src/renderer/stores/notebookDocumentDrafts';
 /**
  * implementation detail — notebook code-cell source auto-save debounce.
  *
@@ -93,6 +94,28 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
     vi.useRealTimers();
   });
 
+  it('flushes a mounted document draft synchronously before save or close and unregisters on unmount', () => {
+    const onSourceChange = vi.fn();
+    const { unmount } = render(
+      <NotebookCodeCellRow
+        {...rowProps(makeCell(), onSourceChange, { notebookTabId: 'document-tab' })}
+      />
+    );
+    enterEdit();
+    fireEvent.change(screen.getByTestId('notebook-code-cell-source'), {
+      target: { value: 'latest()' },
+    });
+    act(() => flushNotebookDocumentDrafts('other-tab'));
+    expect(onSourceChange).not.toHaveBeenCalled();
+    act(() => flushNotebookDocumentDrafts('document-tab'));
+    expect(onSourceChange).toHaveBeenCalledExactlyOnceWith('cell-a', 'latest()');
+    act(() => vi.advanceTimersByTime(DEBOUNCE_MS));
+    expect(onSourceChange).toHaveBeenCalledTimes(1);
+    unmount();
+    flushNotebookDocumentDrafts('document-tab');
+    expect(onSourceChange).toHaveBeenCalledTimes(1);
+  });
+
   it('does not persist on a keystroke and persists once after the debounce settles', () => {
     const onSourceChange = vi.fn();
     render(<NotebookCodeCellRow {...rowProps(makeCell({ source: '' }), onSourceChange)} />);
@@ -155,9 +178,7 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
     const onSourceChange = vi.fn();
     const onRunCell = vi.fn();
     render(
-      <NotebookCodeCellRow
-        {...rowProps(makeCell({ source: '' }), onSourceChange, { onRunCell })}
-      />
+      <NotebookCodeCellRow {...rowProps(makeCell({ source: '' }), onSourceChange, { onRunCell })} />
     );
     enterEdit();
 
@@ -175,9 +196,7 @@ describe('NotebookCodeCellRow — source auto-save debounce', () => {
   it('flushes a pending edit onto the cell it was typed into when the row rebinds to another cell', () => {
     const onSourceChange = vi.fn();
     const { rerender } = render(
-      <NotebookCodeCellRow
-        {...rowProps(makeCell({ id: 'cell-a', source: '' }), onSourceChange)}
-      />
+      <NotebookCodeCellRow {...rowProps(makeCell({ id: 'cell-a', source: '' }), onSourceChange)} />
     );
     enterEdit();
 

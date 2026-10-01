@@ -1,3 +1,4 @@
+import type { NotebookDocumentV1 } from './notebookDocument';
 /**
  * implementation — `NotebookV1` schema.
  *
@@ -62,12 +63,7 @@ type NotebookRejectReason = (typeof NOTEBOOK_REJECT_REASONS)[number];
  * notebook-only cell language: it is NOT a first-class editor file
  * language, so it does not appear in the main editor's language menu.
  */
-export const NOTEBOOK_CELL_LANGUAGES = [
-  'javascript',
-  'typescript',
-  'python',
-  'sql',
-] as const;
+export const NOTEBOOK_CELL_LANGUAGES = ['javascript', 'typescript', 'python', 'sql'] as const;
 export type NotebookCellLanguage = (typeof NOTEBOOK_CELL_LANGUAGES)[number];
 
 /**
@@ -380,14 +376,35 @@ export function createBlankNotebook(opts: {
  * cell), and `'sql'` (implementation, shared DuckDB engine, table output). See
  * `notebookSession.ts`.
  */
-export function isNotebookCodeCell(
-  cell: NotebookCellV1
-): cell is NotebookCodeCellV1 {
+export function isNotebookCodeCell(cell: NotebookCellV1): cell is NotebookCodeCellV1 {
   return cell.kind === 'code';
 }
 
-export function isNotebookMarkdownCell(
-  cell: NotebookCellV1
-): cell is NotebookMarkdownCellV1 {
+export function isNotebookMarkdownCell(cell: NotebookCellV1): cell is NotebookMarkdownCellV1 {
   return cell.kind === 'markdown';
+}
+
+/** Canonical v1 document envelope serializer; no execution evidence graph. */
+export const LINGUANB_DOCUMENT_VERSION = 1;
+export const LINGUANB_FILE_EXTENSION = '.linguanb';
+export const MAX_LINGUANB_BYTES = 512 * 1024;
+
+export function serializeNotebookDocument(
+  notebook: NotebookV1,
+  opts: { executionOrder?: Readonly<Record<string, number>> } = {}
+): string {
+  const cellIds = new Set(notebook.cells.map(cell => cell.id));
+  const order: Record<string, number> = {};
+  for (const [cellId, value] of Object.entries(opts.executionOrder ?? {})) {
+    if (cellIds.has(cellId) && Number.isInteger(value) && value > 0) {
+      order[cellId] = value;
+    }
+  }
+  const document: NotebookDocumentV1 = {
+    format: 'linguanb',
+    documentVersion: LINGUANB_DOCUMENT_VERSION,
+    notebook,
+    ...(Object.keys(order).length > 0 ? { executionOrder: order } : {}),
+  };
+  return `${JSON.stringify(document, null, 2)}\n`;
 }

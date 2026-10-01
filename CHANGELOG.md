@@ -6,6 +6,14 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
+
+### Fixed
+
+- Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
+- Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
+
 ## [1.5.1] — 2026-09-24
 
 ### Added

@@ -28,19 +28,11 @@
  *   - E: `notebook.cell_editor_mounted` telemetry on mount.
  */
 
-import MonacoEditor, {
-  type Monaco,
-  type OnMount,
-  useMonaco,
-} from '@monaco-editor/react';
+import MonacoEditor, { type Monaco, type OnMount, useMonaco } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NotebookCellLanguage } from '../../../shared/notebook';
-import {
-  configureMonaco,
-  applyTypeScriptDefaults,
-  registerLanguageOnce,
-} from '../../monaco';
+import { configureMonaco, applyTypeScriptDefaults, registerLanguageOnce } from '../../monaco';
 import { getActiveEditor, setActiveEditor } from '../../runtime/editorAccess';
 import { loadMonacoVim, type VimAdapter } from '../../runtime/monacoVim';
 import { useInlineLint } from '../../hooks/useInlineLint';
@@ -135,9 +127,9 @@ function NotebookCellStaticView({
   onRequestEdit,
 }: NotebookCellStaticViewProps) {
   const monaco = useMonaco();
-  const editorTheme = useSettingsStore((s) => s.editorTheme);
-  const fontFamily = useSettingsStore((s) => s.fontFamily);
-  const fontSize = useSettingsStore((s) => s.fontSize);
+  const editorTheme = useSettingsStore(s => s.editorTheme);
+  const fontFamily = useSettingsStore(s => s.fontFamily);
+  const fontSize = useSettingsStore(s => s.fontSize);
   const hostRef = useRef<HTMLPreElement | null>(null);
   const monacoLangId = monacoLanguageFor(language);
   const isEmpty = value.length === 0;
@@ -194,9 +186,7 @@ function NotebookCellStaticView({
       className="min-h-[44px] cursor-text rounded border border-border/60 bg-background p-2 outline-none hover:border-border-strong focus-visible:border-primary/70 focus-visible:ring-1 focus-visible:ring-primary/40"
       style={{ fontFamily, fontSize }}
     >
-      {isEmpty ? (
-        <span className="font-mono text-body-sm text-muted">{placeholder}</span>
-      ) : null}
+      {isEmpty ? <span className="font-mono text-body-sm text-muted">{placeholder}</span> : null}
       <pre
         ref={hostRef}
         aria-hidden={isEmpty ? 'true' : undefined}
@@ -224,18 +214,16 @@ function NotebookCellMonaco({
   onEscape,
 }: NotebookCellEditorProps) {
   const { t } = useTranslation();
-  const editorTheme = useSettingsStore((s) => s.editorTheme);
-  const fontSize = useSettingsStore((s) => s.fontSize);
-  const fontFamily = useSettingsStore((s) => s.fontFamily);
-  const vimMode = useSettingsStore((s) => s.vimMode);
+  const editorTheme = useSettingsStore(s => s.editorTheme);
+  const fontSize = useSettingsStore(s => s.fontSize);
+  const fontFamily = useSettingsStore(s => s.fontFamily);
+  const vimMode = useSettingsStore(s => s.vimMode);
   const monacoLangId = monacoLanguageFor(language);
 
   const editorRef = useRef<EditorInstance | null>(null);
   const vimStatusBarRef = useRef<HTMLDivElement | null>(null);
   const vimAdapterRef = useRef<VimAdapter | null>(null);
-  const [editorInstance, setEditorInstance] = useState<EditorInstance | null>(
-    null
-  );
+  const [editorInstance, setEditorInstance] = useState<EditorInstance | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const [height, setHeight] = useState<number>(MIN_CELL_EDITOR_HEIGHT);
 
@@ -355,17 +343,12 @@ function NotebookCellMonaco({
     const statusNode = vimStatusBarRef.current;
     if (!statusNode) return undefined;
     let cancelled = false;
-    void loadMonacoVim().then((mod) => {
+    void loadMonacoVim().then(mod => {
       if (cancelled || !mod) return;
-      const LocalizedStatusBar = createLocalizedStatusBarClass(
-        mod.StatusBar,
-        (key, options) => translateRef.current(key, options)
+      const LocalizedStatusBar = createLocalizedStatusBarClass(mod.StatusBar, (key, options) =>
+        translateRef.current(key, options)
       );
-      vimAdapterRef.current = mod.initVimMode(
-        editorInstance,
-        statusNode,
-        LocalizedStatusBar
-      );
+      vimAdapterRef.current = mod.initVimMode(editorInstance, statusNode, LocalizedStatusBar);
     });
     return () => {
       cancelled = true;
@@ -388,12 +371,17 @@ function NotebookCellMonaco({
           theme={editorTheme}
           beforeMount={handleBeforeMount}
           onMount={handleMount}
-          onChange={(next) => {
+          onChange={next => {
             if (next !== undefined) onChange(next);
           }}
           options={{
             ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }),
             readOnly: disabled,
+            // Blur destroys this ephemeral editor. Monaco's word highlighter
+            // can leave a rejected Delayer promise during rapid disposal, which
+            // activates safe boot and suppresses document recovery. Disable only
+            // that delayed contribution here; other editor services stay intact.
+            occurrencesHighlight: 'off',
             // Let wheel events bubble to the cell list when the editor is
             // not internally scrolled, so the notebook still scrolls past a
             // focused cell.

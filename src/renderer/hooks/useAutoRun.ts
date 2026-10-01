@@ -13,10 +13,7 @@ import {
   type AutoRunInput,
 } from './autoRunModel';
 
-export {
-  AUTO_RUN_DEBOUNCE_MS,
-  bucketAutoLogCount,
-} from './autoRunModel';
+export { AUTO_RUN_DEBOUNCE_MS, bucketAutoLogCount } from './autoRunModel';
 
 /** Auto-run the active Scratchpad after its runtime-specific typing pause. */
 export function useAutoRun() {
@@ -26,20 +23,17 @@ export function useAutoRun() {
   const runTokenRef = useRef(0);
   const lastRunInputRef = useRef<AutoRunInput | null>(null);
 
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const activeTab = useEditorStore((state) => getActiveTab(state));
-  const autoLogByLanguage = useSettingsStore(
-    (state) => state.scratchpadAutoLogByLanguage
-  );
+  const activeTabId = useEditorStore(state => state.activeTabId);
+  const activeTab = useEditorStore(state => getActiveTab(state));
+  const autoLogByLanguage = useSettingsStore(state => state.scratchpadAutoLogByLanguage);
   const browserPreviewRefreshPreference = useSettingsStore(
-    (state) => state.browserPreviewRefreshIntervalMs
+    state => state.browserPreviewRefreshIntervalMs
   );
 
   const code = activeTab?.content ?? '';
   const language = activeTab?.language ?? 'javascript';
   const runtimeMode = activeTab?.runtimeMode;
-  const workflowMode =
-    activeTab?.workflowMode ?? defaultWorkflowMode(language);
+  const workflowMode = activeTab?.workflowMode ?? defaultWorkflowMode(language);
   const autoLogEnabled = resolveAutoLogEnabled(
     language,
     workflowMode,
@@ -54,10 +48,14 @@ export function useAutoRun() {
   );
 
   useEffect(() => {
+    // Notebooks own their kernel; document JSON is never Scratchpad source.
     // Run and Debug are manual workflows. A restored desktop-only runtime on
     // web is also not schedulable. Keep the last visible result in both cases.
-    if (workflowMode !== 'scratchpad' ||
-      (runtimeMode !== undefined && !supportsRuntimeModeHere(runtimeMode))) {
+    if (
+      activeTab?.kind === 'notebook' ||
+      workflowMode !== 'scratchpad' ||
+      (runtimeMode !== undefined && !supportsRuntimeModeHere(runtimeMode))
+    ) {
       cancelTimer(timerRef);
       abortRef.current = true;
       runTokenRef.current += 1;
@@ -116,8 +114,7 @@ export function useAutoRun() {
       runtimeMode,
       workflowMode,
       autoLogEnabled,
-      browserPreviewRefreshIntervalMs:
-        autoRunSchedule.browserPreviewRefreshIntervalMs,
+      browserPreviewRefreshIntervalMs: autoRunSchedule.browserPreviewRefreshIntervalMs,
       stdinBuffer,
     };
     if (isSameAutoRunInput(lastRunInputRef.current, input)) return;
@@ -133,18 +130,14 @@ export function useAutoRun() {
         runToken !== runTokenRef.current ||
         useResultStore.getState().isManualRunning;
       const shouldDiscard = () =>
-        isRunStale() ||
-        useResultStore.getState().executionSource !== 'auto';
+        isRunStale() || useResultStore.getState().executionSource !== 'auto';
       const finish = () => {
         if (runToken === runTokenRef.current && !abortRef.current) {
           useResultStore.getState().setIsAutoRunning(false);
         }
       };
 
-      if (
-        runToken !== runTokenRef.current ||
-        useResultStore.getState().isManualRunning
-      ) {
+      if (runToken !== runTokenRef.current || useResultStore.getState().isManualRunning) {
         return;
       }
 
@@ -220,9 +213,7 @@ function stopRunner(
     });
 }
 
-function cancelTimer(
-  timerRef: { current: ReturnType<typeof setTimeout> | null }
-): void {
+function cancelTimer(timerRef: { current: ReturnType<typeof setTimeout> | null }): void {
   if (!timerRef.current) return;
   clearTimeout(timerRef.current);
   timerRef.current = null;

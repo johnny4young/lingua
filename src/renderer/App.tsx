@@ -1,3 +1,4 @@
+import { flushNotebookDocumentDrafts } from './stores/notebookDocumentDrafts';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from './components/Layout';
@@ -202,8 +203,7 @@ function AppChrome({
   }, [track]);
 
   useEffect(() => {
-    const firstRunConsentOpen =
-      window.lingua?.platform !== 'web' && telemetryConsent === 'unset';
+    const firstRunConsentOpen = window.lingua?.platform !== 'web' && telemetryConsent === 'unset';
 
     if (
       hasHandledAutoTourRef.current ||
@@ -259,6 +259,7 @@ function AppChrome({
     }
 
     return window.lingua.onBeforeClose(() => {
+      for (const tab of useEditorStore.getState().tabs) flushNotebookDocumentDrafts(tab.id);
       const { tabs } = useEditorStore.getState();
       const dirtyTabs = tabs.filter(tab => tab.isDirty);
 
@@ -281,6 +282,9 @@ function AppChrome({
             }
           }
 
+          // An edit during any awaited save must remain recoverable.
+          for (const tab of useEditorStore.getState().tabs) flushNotebookDocumentDrafts(tab.id);
+          if (useEditorStore.getState().tabs.some(tab => tab.isDirty)) return;
           window.lingua.forceClose();
         } else if (response === 1) {
           window.lingua.forceClose();

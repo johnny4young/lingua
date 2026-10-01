@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import type { NotebookCellLanguage, NotebookV1 } from '../../../shared/notebook';
 import { cn } from '../../utils/cn';
 import { Kbd } from '../ui/ModalShell';
+import { NotebookDocumentActions } from './NotebookDocumentActions';
 
 const NOTEBOOK_SHORTCUT_HINTS: ReadonlyArray<{
   readonly keys: ReadonlyArray<string>;
@@ -75,260 +76,286 @@ interface NotebookToolbarProps {
 export function NotebookToolbar(props: NotebookToolbarProps) {
   const { t } = useTranslation();
   const {
-    notebook, titleDraft, setTitleDraft, handleTitleCommit, codeCellsCount,
-    handleAddMarkdown, disabled, handleAddCode, preferredCodeLanguage,
-    activeCellId, runAbove, tabId, canRunThroughActiveCell, handleRunFromHere,
-    canRunFromActiveCell, handleRunAll, staleCount, handleRefreshStale,
-    lastCodeCellId, isAnyCellRunning,
-    stop, handleRestart, handleClearOutputs, hasOutputsToClear,
-    exportMenuAnchorRef, setExportMenuOpen, exportMenuOpen, handleExport,
-    handleExportIpynb, handleExportLinguanb, exportLanguageLabel,
-    shortcutsAnchorRef, setShortcutsOpen, shortcutsOpen,
+    notebook,
+    titleDraft,
+    setTitleDraft,
+    handleTitleCommit,
+    codeCellsCount,
+    handleAddMarkdown,
+    disabled,
+    handleAddCode,
+    preferredCodeLanguage,
+    activeCellId,
+    runAbove,
+    tabId,
+    canRunThroughActiveCell,
+    handleRunFromHere,
+    canRunFromActiveCell,
+    handleRunAll,
+    staleCount,
+    handleRefreshStale,
+    lastCodeCellId,
+    isAnyCellRunning,
+    stop,
+    handleRestart,
+    handleClearOutputs,
+    hasOutputsToClear,
+    exportMenuAnchorRef,
+    setExportMenuOpen,
+    exportMenuOpen,
+    handleExport,
+    handleExportIpynb,
+    handleExportLinguanb,
+    exportLanguageLabel,
+    shortcutsAnchorRef,
+    setShortcutsOpen,
+    shortcutsOpen,
   } = props;
   return (
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <input
-            type="text"
-            value={titleDraft ?? notebook.title}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onBlur={(event) => handleTitleCommit(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                handleTitleCommit(event.currentTarget.value);
-              } else if (event.key === 'Escape') {
-                setTitleDraft(null);
-              }
-            }}
-            data-testid="notebook-title"
-            spellCheck={false}
-            aria-label={t('notebook.titleLabel')}
-            className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
-          />
-          <span className="hidden text-eyebrow uppercase tracking-wider text-muted 2xl:inline">
-            {t('notebook.toolbar.summary', {
-              cells: notebook.cells.length,
-              codeCells: codeCellsCount,
-            })}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2">
+      <div className="flex min-w-0 basis-64 flex-1 items-center gap-2">
+        <NotebookDocumentActions tabId={tabId} />
+        <input
+          type="text"
+          value={titleDraft ?? notebook.title}
+          onChange={event => setTitleDraft(event.target.value)}
+          onBlur={event => handleTitleCommit(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              handleTitleCommit(event.currentTarget.value);
+            } else if (event.key === 'Escape') {
+              setTitleDraft(null);
+            }
+          }}
+          data-testid="notebook-title"
+          spellCheck={false}
+          aria-label={t('notebook.titleLabel')}
+          className="min-w-0 flex-1 truncate rounded border border-transparent bg-transparent px-2 py-1 font-display text-body font-semibold tracking-tight text-foreground hover:border-border/40 focus:border-border-strong focus:bg-bg-elevated focus:outline-none"
+        />
+        <span className="hidden text-eyebrow uppercase tracking-wider text-muted 2xl:inline">
+          {t('notebook.toolbar.summary', {
+            cells: notebook.cells.length,
+            codeCells: codeCellsCount,
+          })}
+        </span>
+      </div>
+      <div className="flex max-w-full flex-wrap items-center gap-1">
+        <button
+          type="button"
+          onClick={handleAddMarkdown}
+          disabled={disabled}
+          data-testid="notebook-toolbar-add-markdown"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <FileText size={11} aria-hidden="true" />
+          {t('notebook.toolbar.addMarkdown')}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleAddCode(preferredCodeLanguage)}
+          disabled={disabled}
+          data-testid="notebook-toolbar-add-code"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <CodeXml size={11} aria-hidden="true" />
+          {t('notebook.toolbar.addCode')}
+        </button>
+        <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={() => {
+            if (activeCellId) runAbove(tabId, activeCellId);
+          }}
+          disabled={disabled || !canRunThroughActiveCell}
+          data-testid="notebook-toolbar-run-above"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <Hammer size={11} aria-hidden="true" />
+          {t('notebook.toolbar.runAbove')}
+        </button>
+        <button
+          type="button"
+          onClick={handleRunFromHere}
+          disabled={disabled || !canRunFromActiveCell}
+          data-testid="notebook-toolbar-run-from-here"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <PlayCircle size={11} aria-hidden="true" />
+          {t('notebook.toolbar.runFromHere')}
+        </button>
+        <button
+          type="button"
+          onClick={handleRunAll}
+          disabled={disabled || lastCodeCellId === null}
+          data-testid="notebook-toolbar-run-all"
+          className={cn(
+            'focus-ring inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150',
+            disabled
+              ? 'border-border/40 bg-surface/40 text-muted'
+              : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
+            'disabled:cursor-not-allowed disabled:opacity-50'
+          )}
+        >
+          {isAnyCellRunning ? (
+            <>
+              <Loader2 size={11} aria-hidden="true" className="animate-spin" />
+              {t('notebook.toolbar.running')}
+            </>
+          ) : (
+            <>
+              <Play size={11} aria-hidden="true" />
+              {t('notebook.toolbar.runAll')}
+            </>
+          )}
+        </button>
+        {staleCount > 0 ? (
           <button
             type="button"
-            onClick={handleAddMarkdown}
+            onClick={handleRefreshStale}
             disabled={disabled}
-            data-testid="notebook-toolbar-add-markdown"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <FileText size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addMarkdown')}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleAddCode(preferredCodeLanguage)}
-            disabled={disabled}
-            data-testid="notebook-toolbar-add-code"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <CodeXml size={11} aria-hidden="true" />
-            {t('notebook.toolbar.addCode')}
-          </button>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={() => {
-              if (activeCellId) runAbove(tabId, activeCellId);
-            }}
-            disabled={disabled || !canRunThroughActiveCell}
-            data-testid="notebook-toolbar-run-above"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <Hammer size={11} aria-hidden="true" />
-            {t('notebook.toolbar.runAbove')}
-          </button>
-          <button
-            type="button"
-            onClick={handleRunFromHere}
-            disabled={disabled || !canRunFromActiveCell}
-            data-testid="notebook-toolbar-run-from-here"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <PlayCircle size={11} aria-hidden="true" />
-            {t('notebook.toolbar.runFromHere')}
-          </button>
-          <button
-            type="button"
-            onClick={handleRunAll}
-            disabled={disabled || lastCodeCellId === null}
-            data-testid="notebook-toolbar-run-all"
-            className={cn(
-              'focus-ring inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-caption font-medium transition-colors duration-150',
-              disabled
-                ? 'border-border/40 bg-surface/40 text-muted'
-                : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
-              'disabled:cursor-not-allowed disabled:opacity-50'
-            )}
-          >
-            {isAnyCellRunning ? (
-              <>
-                <Loader2 size={11} aria-hidden="true" className="animate-spin" />
-                {t('notebook.toolbar.running')}
-              </>
-            ) : (
-              <>
-                <Play size={11} aria-hidden="true" />
-                {t('notebook.toolbar.runAll')}
-              </>
-            )}
-          </button>
-          {staleCount > 0 ? (
-            <button
-              type="button"
-              onClick={handleRefreshStale}
-              disabled={disabled}
-              title={t('notebook.reactivity.refreshHint')}
-              data-testid="notebook-toolbar-refresh-stale"
-              className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw size={11} aria-hidden="true" />
-              {t('notebook.reactivity.refreshButton', { count: staleCount })}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={stop}
-            disabled={!isAnyCellRunning}
-            data-testid="notebook-toolbar-stop"
+            title={t('notebook.reactivity.refreshHint')}
+            data-testid="notebook-toolbar-refresh-stale"
             className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Square size={11} aria-hidden="true" />
-            {t('notebook.toolbar.stop')}
+            <RefreshCw size={11} aria-hidden="true" />
+            {t('notebook.reactivity.refreshButton', { count: staleCount })}
           </button>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={handleRestart}
-            disabled={disabled}
-            title={t('notebook.toolbar.restartHint')}
-            data-testid="notebook-toolbar-restart"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <RotateCcw size={11} aria-hidden="true" />
-            {t('notebook.toolbar.restart')}
-          </button>
-          <button
-            type="button"
-            onClick={handleClearOutputs}
-            disabled={disabled || !hasOutputsToClear}
-            data-testid="notebook-toolbar-clear-outputs"
-            className="button-ghost px-2.5 text-caption"
-          >
-            <Eraser size={11} aria-hidden="true" />
-            {t('notebook.toolbar.clearOutputs')}
-          </button>
-          {/* implementation — export-format menu (Script | Jupyter .ipynb),
+        ) : null}
+        <button
+          type="button"
+          onClick={stop}
+          disabled={!isAnyCellRunning}
+          data-testid="notebook-toolbar-stop"
+          className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Square size={11} aria-hidden="true" />
+          {t('notebook.toolbar.stop')}
+        </button>
+        <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={handleRestart}
+          disabled={disabled}
+          title={t('notebook.toolbar.restartHint')}
+          data-testid="notebook-toolbar-restart"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <RotateCcw size={11} aria-hidden="true" />
+          {t('notebook.toolbar.restart')}
+        </button>
+        <button
+          type="button"
+          onClick={handleClearOutputs}
+          disabled={disabled || !hasOutputsToClear}
+          data-testid="notebook-toolbar-clear-outputs"
+          className="button-ghost px-2.5 text-caption"
+        >
+          <Eraser size={11} aria-hidden="true" />
+          {t('notebook.toolbar.clearOutputs')}
+        </button>
+        {/* implementation — export-format menu (Script | Jupyter .ipynb),
               same popover mechanics as the shortcuts legend. */}
-          <div className="relative" ref={exportMenuAnchorRef}>
-            <button
-              type="button"
-              onClick={() => setExportMenuOpen((open) => !open)}
-              disabled={disabled || codeCellsCount === 0}
-              aria-expanded={exportMenuOpen}
-              aria-haspopup="menu"
-              data-testid="notebook-toolbar-export"
-              className="button-ghost px-2.5 text-caption"
+        <div className="relative" ref={exportMenuAnchorRef}>
+          <button
+            type="button"
+            onClick={() => setExportMenuOpen(open => !open)}
+            disabled={disabled || codeCellsCount === 0}
+            aria-expanded={exportMenuOpen}
+            aria-haspopup="menu"
+            data-testid="notebook-toolbar-export"
+            className="button-ghost px-2.5 text-caption"
+          >
+            <Sparkles size={11} aria-hidden="true" />
+            {t('notebook.toolbar.export')}
+          </button>
+          {exportMenuOpen ? (
+            <div
+              role="menu"
+              aria-label={t('notebook.toolbar.exportMenuLabel')}
+              data-testid="notebook-export-menu"
+              className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-lg"
             >
-              <Sparkles size={11} aria-hidden="true" />
-              {t('notebook.toolbar.export')}
-            </button>
-            {exportMenuOpen ? (
-              <div
-                role="menu"
-                aria-label={t('notebook.toolbar.exportMenuLabel')}
-                data-testid="notebook-export-menu"
-                className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-lg"
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleExport}
+                data-testid="notebook-export-script"
+                className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExport}
-                  data-testid="notebook-export-script"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportScript', {
-                    language: exportLanguageLabel,
-                  })}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExportIpynb}
-                  data-testid="notebook-export-ipynb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportAsIpynb')}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={handleExportLinguanb}
-                  data-testid="notebook-export-linguanb"
-                  className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
-                >
-                  {t('notebook.toolbar.exportAsLinguanb')}
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
-          <div className="relative" ref={shortcutsAnchorRef}>
-            <button
-              type="button"
-              onClick={() => setShortcutsOpen((open) => !open)}
-              aria-expanded={shortcutsOpen}
-              aria-haspopup="dialog"
-              aria-label={t('notebook.command.shortcutsTitle')}
-              title={t('notebook.command.shortcutsTitle')}
-              data-testid="notebook-toolbar-shortcuts"
-              className={cn(
-                'focus-ring inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150',
-                shortcutsOpen
-                  ? 'border-primary/60 bg-primary/10 text-foreground'
-                  : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'
-              )}
-            >
-              <Keyboard size={12} aria-hidden="true" />
-            </button>
-            {shortcutsOpen ? (
-              <div
-                role="dialog"
-                aria-label={t('notebook.command.shortcutsTitle')}
-                data-testid="notebook-shortcuts-legend"
-                className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
+                {t('notebook.toolbar.exportScript', {
+                  language: exportLanguageLabel,
+                })}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleExportIpynb}
+                data-testid="notebook-export-ipynb"
+                className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
               >
-                <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
-                  {t('notebook.command.shortcutsTitle')}
-                </p>
-                <ul className="grid gap-1.5">
-                  {NOTEBOOK_SHORTCUT_HINTS.map(({ keys, labelKey }) => (
-                    <li
-                      key={labelKey}
-                      className="flex items-center justify-between gap-2 text-caption text-foreground"
-                    >
-                      <span>{t(labelKey)}</span>
-                      <span className="flex shrink-0 items-center gap-1">
-                        {keys.map((cap) => (
-                          <Kbd key={cap}>{cap}</Kbd>
-                        ))}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
+                {t('notebook.toolbar.exportAsIpynb')}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleExportLinguanb}
+                data-testid="notebook-export-linguanb"
+                className="flex w-full items-center rounded px-2 py-1.5 text-left text-caption text-muted hover:bg-surface/60 hover:text-foreground"
+              >
+                {t('notebook.toolbar.exportAsLinguanb')}
+              </button>
+            </div>
+          ) : null}
         </div>
-      </header>
+        <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+        <div className="relative" ref={shortcutsAnchorRef}>
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(open => !open)}
+            aria-expanded={shortcutsOpen}
+            aria-haspopup="dialog"
+            aria-label={t('notebook.command.shortcutsTitle')}
+            title={t('notebook.command.shortcutsTitle')}
+            data-testid="notebook-toolbar-shortcuts"
+            className={cn(
+              'focus-ring inline-flex h-[28px] w-[28px] items-center justify-center rounded-lg border text-caption transition-colors duration-150',
+              shortcutsOpen
+                ? 'border-primary/60 bg-primary/10 text-foreground'
+                : 'border-transparent text-muted hover:bg-surface-strong/60 hover:text-foreground'
+            )}
+          >
+            <Keyboard size={12} aria-hidden="true" />
+          </button>
+          {shortcutsOpen ? (
+            <div
+              role="dialog"
+              aria-label={t('notebook.command.shortcutsTitle')}
+              data-testid="notebook-shortcuts-legend"
+              className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
+            >
+              <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
+                {t('notebook.command.shortcutsTitle')}
+              </p>
+              <ul className="grid gap-1.5">
+                {NOTEBOOK_SHORTCUT_HINTS.map(({ keys, labelKey }) => (
+                  <li
+                    key={labelKey}
+                    className="flex items-center justify-between gap-2 text-caption text-foreground"
+                  >
+                    <span>{t(labelKey)}</span>
+                    <span className="flex max-w-full flex-wrap items-center gap-1">
+                      {keys.map(cap => (
+                        <Kbd key={cap}>{cap}</Kbd>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </header>
   );
 }

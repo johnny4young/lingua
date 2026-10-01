@@ -1,10 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  useAutoRun,
-  AUTO_RUN_DEBOUNCE_MS,
-  bucketAutoLogCount,
-} from '@/hooks/useAutoRun';
+import { useAutoRun, AUTO_RUN_DEBOUNCE_MS, bucketAutoLogCount } from '@/hooks/useAutoRun';
 import { runnerManager } from '@/runners';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
@@ -114,6 +110,33 @@ describe('useAutoRun', () => {
     });
   });
 
+  it('never auto-runs a persisted notebook document or interferes with its kernel', async () => {
+    const execute = mockSuccessfulRunner();
+    const tab = {
+      id: 'saved-notebook',
+      name: 'saved.linguanb',
+      kind: 'notebook' as const,
+      language: 'typescript' as const,
+      content: 'const persisted = 42;',
+      isDirty: false,
+      workflowMode: 'scratchpad' as const,
+    };
+    useEditorStore.setState({ tabs: [tab], activeTabId: tab.id });
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(runnerManager.stop).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    await act(async () => {
+      useEditorStore.setState({ tabs: [{ ...tab, content: 'const persisted = 43;' }] });
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(runnerManager.stop).not.toHaveBeenCalled();
+  });
+
   it('implementation — buckets auto-log counts into the telemetry allowlist', () => {
     expect(bucketAutoLogCount(0)).toBe('1');
     expect(bucketAutoLogCount(1)).toBe('1');
@@ -155,10 +178,7 @@ describe('useAutoRun', () => {
     });
 
     expect(runnerManager.prepareRunner).toHaveBeenCalledTimes(1);
-    expect(runnerManager.prepareRunner).toHaveBeenCalledWith(
-      'javascript',
-      'browser-preview'
-    );
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith('javascript', 'browser-preview');
     expect(execute).toHaveBeenCalledTimes(1);
     expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
   });
@@ -197,9 +217,7 @@ describe('useAutoRun', () => {
 
   it('internal — a first-line 1000 override wins over the 300 ms setting', async () => {
     const execute = mockSuccessfulRunner();
-    seedBrowserPreviewTab(
-      '// @preview-refresh 1000\ndocument.body.textContent = "slow";'
-    );
+    seedBrowserPreviewTab('// @preview-refresh 1000\ndocument.body.textContent = "slow";');
 
     renderHook(() => useAutoRun());
     await act(async () => {
@@ -237,10 +255,7 @@ describe('useAutoRun', () => {
       await Promise.resolve();
     });
 
-    expect(runnerManager.stop).toHaveBeenCalledWith(
-      'javascript',
-      'browser-preview'
-    );
+    expect(runnerManager.stop).toHaveBeenCalledWith('javascript', 'browser-preview');
     expect(useResultStore.getState().isAutoRunning).toBe(false);
     expect(useResultStore.getState().executionSource).toBeNull();
   });
@@ -286,11 +301,17 @@ describe('useAutoRun', () => {
       value: { platform: 'web' },
     });
     useEditorStore.setState({
-      tabs: [{
-        id: 'restored-node-web', name: 'main.js', language: 'javascript',
-        content: 'console.log(1)', isDirty: false, runtimeMode: 'node',
-        workflowMode: 'scratchpad',
-      }],
+      tabs: [
+        {
+          id: 'restored-node-web',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log(1)',
+          isDirty: false,
+          runtimeMode: 'node',
+          workflowMode: 'scratchpad',
+        },
+      ],
       activeTabId: 'restored-node-web',
     });
     renderHook(() => useAutoRun());
@@ -383,7 +404,7 @@ describe('useAutoRun', () => {
           result: undefined;
           executionTime: number;
           error: null;
-        }>((resolve) => {
+        }>(resolve => {
           resolveExecute = resolve;
         })
     );
@@ -450,7 +471,7 @@ describe('useAutoRun', () => {
           result: undefined;
           executionTime: number;
           error: null;
-        }>((resolve) => {
+        }>(resolve => {
           resolvers.push(resolve);
         })
     );
@@ -508,9 +529,7 @@ describe('useAutoRun', () => {
       await Promise.resolve();
     });
 
-    expect(useResultStore.getState().lineResults).toMatchObject([
-      { value: 'second auto output' },
-    ]);
+    expect(useResultStore.getState().lineResults).toMatchObject([{ value: 'second auto output' }]);
 
     await act(async () => {
       resolvers[0]?.({
@@ -523,9 +542,7 @@ describe('useAutoRun', () => {
       await Promise.resolve();
     });
 
-    expect(useResultStore.getState().lineResults).toMatchObject([
-      { value: 'second auto output' },
-    ]);
+    expect(useResultStore.getState().lineResults).toMatchObject([{ value: 'second auto output' }]);
   });
 
   it('implementation — gates an incomplete JS buffer and never calls the runner', async () => {
@@ -767,7 +784,7 @@ describe('useAutoRun', () => {
           result: undefined;
           executionTime: number;
           error: null;
-        }>((resolve) => {
+        }>(resolve => {
           resolveExecute = resolve;
         })
     );
@@ -840,7 +857,7 @@ describe('useAutoRun', () => {
           result: undefined;
           executionTime: number;
           error: null;
-        }>((resolve) => {
+        }>(resolve => {
           resolveExecute = resolve;
         })
     );
@@ -931,10 +948,7 @@ describe('useAutoRun', () => {
       await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
     });
 
-    expect(runnerManager.prepareRunner).toHaveBeenCalledWith(
-      'javascript',
-      undefined
-    );
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith('javascript', undefined);
   });
 
   it('implementation — re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
