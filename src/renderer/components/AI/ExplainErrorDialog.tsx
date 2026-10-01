@@ -34,6 +34,7 @@ import {
   runChatCompletion,
   type AiChatResult,
 } from '../../runtime/aiClient';
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from './ExplainErrorAnswer';
@@ -174,7 +175,7 @@ export function ExplainErrorDialog({
       } else {
         // Keep the attempted messages so a mid-conversation retry can resend.
         setTranscript(messages);
-        setPhase({ kind: 'error', message: result.message });
+        setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       }
     } finally {
       if (activeControllerRef.current === controller) {
@@ -308,7 +309,7 @@ export function ExplainErrorDialog({
               ) : null}
               {phase.kind === 'error' ? (
                 <p data-testid="ai-explain-error" className="text-error">
-                  {t('ai.explain.failed', { message: phase.message })}
+                  {phase.message}
                 </p>
               ) : null}
             </div>

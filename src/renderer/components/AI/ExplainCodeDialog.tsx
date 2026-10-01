@@ -21,6 +21,7 @@ import {
 } from '../../../shared/ai/explainCode';
 import type { ChatMessage } from '../../../shared/ai/explainError';
 import { runChatCompletion, type AiChatResult } from '../../runtime/aiClient';
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from './ExplainErrorAnswer';
@@ -113,7 +114,7 @@ export function ExplainCodeDialog({
         setPhase({ kind: 'done' });
       } else {
         setTranscript(messages);
-        setPhase({ kind: 'error', message: result.message });
+        setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       }
     } finally {
       if (activeControllerRef.current === controller) {
@@ -217,7 +218,7 @@ export function ExplainCodeDialog({
               ) : null}
               {phase.kind === 'error' ? (
                 <p data-testid="ai-explain-code-error" className="text-error">
-                  {t('ai.explain.failed', { message: phase.message })}
+                  {phase.message}
                 </p>
               ) : null}
             </div>

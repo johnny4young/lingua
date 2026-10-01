@@ -20,6 +20,7 @@ import { phraseToCron } from '../../../utils/cronPhrase';
 import type { CronPhraseNote, CronPhraseResult } from '../../../utils/cronPhrase';
 import { parseCronExpression } from '../../../utils/cronParser';
 import { runChatCompletion } from '../../../runtime/aiClient';
+import { aiFailureMessage } from '../../../runtime/aiFailureMessage';
 import { isAiConfigured, useAiConfigStore } from '../../../stores/aiConfigStore';
 import { useEntitlement } from '../../../hooks/useEntitlement';
 import { emitCommand } from '../../../stores/commandBus';
@@ -144,7 +145,7 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (controller.signal.aborted) return;
       if (!answer.ok) {
-        setAiPhase({ kind: 'error', message: answer.message });
+        setAiPhase({ kind: 'error', message: aiFailureMessage(answer, t, 'utilities.tool.cron.phrase.ai.error') });
         return;
       }
       const candidate = answer.content.trim().replace(/^`+|`+$/g, '');
@@ -350,7 +351,7 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
               ) : null}
               {aiPhase.kind === 'error' ? (
                 <StatusMessage
-                  message={t('utilities.tool.cron.phrase.ai.error', { message: aiPhase.message })}
+                  message={aiPhase.message}
                   tone="error"
                 />
               ) : null}
