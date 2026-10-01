@@ -118,3 +118,16 @@ action and a preview of exactly what is sent.
   (blocking legitimate sends) and false confidence (heuristics miss secrets),
   whereas showing the user the exact payload is both honest and unbounded by
   heuristic coverage.
+
+## Response resource budgets
+
+Every JSON, SSE, and error body is read incrementally with a 2 MiB wire cap.
+SSE pending lines are capped at 256 KiB; generated text at 256 KiB UTF-8.
+The default inactivity deadline remains 60 seconds, with a separate five-minute
+absolute ceiling that keepalives cannot extend. `[DONE]`, cancellation, and
+budget failures close the reader; normal EOF remains compatible with local
+providers. Streaming updates are coalesced to 50 ms plus first/final text.
+
+A budget failure is a typed failure, not a successful truncated answer. The
+EN/ES consumers do not retain partial output as an assistant turn or SQL to
+insert. This does not change explicit consent, entitlement, or BYO transport.

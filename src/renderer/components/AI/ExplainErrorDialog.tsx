@@ -1,3 +1,4 @@
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 /**
  * implementation — "Explain this error" consent + result dialog.
  *
@@ -174,7 +175,7 @@ export function ExplainErrorDialog({
       } else {
         // Keep the attempted messages so a mid-conversation retry can resend.
         setTranscript(messages);
-        setPhase({ kind: 'error', message: result.message });
+        setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       }
     } finally {
       if (activeControllerRef.current === controller) {

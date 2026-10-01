@@ -1,3 +1,4 @@
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 /**
  * implementation follow-on — "Ask AI" for the SQL workspace: natural language → SQL
  * over the LIVE DuckDB schema.
@@ -112,7 +113,7 @@ export function AskSqlDialog({
       );
       if (controller.signal.aborted) return;
       if (result.ok) setPhase({ kind: 'done', content: result.content });
-      else setPhase({ kind: 'error', message: result.message });
+      else setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
     } finally {
       if (activeControllerRef.current === controller) {
         activeControllerRef.current = null;

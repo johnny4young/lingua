@@ -1,3 +1,4 @@
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 /**
  * implementation detail — "Explain this code" consent + result dialog.
  *
@@ -113,7 +114,7 @@ export function ExplainCodeDialog({
         setPhase({ kind: 'done' });
       } else {
         setTranscript(messages);
-        setPhase({ kind: 'error', message: result.message });
+        setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
       }
     } finally {
       if (activeControllerRef.current === controller) {
