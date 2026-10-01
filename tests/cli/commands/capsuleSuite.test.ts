@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtemp, writeFile, rm, symlink, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm, symlink, readFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { dispatch } from '../../../src/cli/lingua';
+import { runVerifyCapsuleCommand } from '../../../src/cli/commands/capsuleVerify';
 import { computeContentHash } from '../../../src/shared/runCapsule';
 import {
   parseCapsuleRegressionSuite,
@@ -67,7 +68,7 @@ describe('current-target regression cases', () => {
   it('forwards baseline argv and stdin without duplicate expectations', async () => {
     const b = baseline();
     const code =
-      'process.stdin.setEncoding("utf8"); let s=""; process.stdin.on("data", x => s+=x); process.stdin.on("end",()=>console.log(process.argv.slice(2).join("|")+":"+s));';
+      'process.stdin.setEncoding("utf8"); let s=""; process.stdin.on("data", x => s+=x); process.stdin.on("end",()=>console.log(process.argv.slice(1).join("|")+":"+s));';
     b.source = { content: code, contentHash: await computeContentHash(code) };
     b.input = { stdin: 'input', args: ['a b', 'ñ'] };
     b.result.stdout = 'a b|ñ:input\n';
@@ -198,4 +199,84 @@ describe('current-target regression cases', () => {
     expect(result.code).toBe(1);
     await expect(readFile(marker)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+  it('reports confirmed drift even when another case is inconclusive', async () => {
+    await writeFile(path.join(dir, 'hello.js'), 'console.log("changed")');
+    await writeFile(path.join(dir, 'other.py'), 'print(3)');
+    const divergent = baseline();
+    divergent.tab.language = 'python';
+    divergent.source = { content: 'print(3)', contentHash: await computeContentHash('print(3)') };
+    const result = await runSuite(
+      suite([
+        { id: 'drift', name: 'Drift', target: 'hello.js', baseline: baseline() },
+        { id: 'engine', name: 'Engine', target: 'other.py', baseline: divergent },
+      ])
+    );
+    expect(result.code).toBe(5);
+    expect(result.body).toMatchObject({
+      verdict: 'fail',
+      summary: { failed: 1, inconclusive: 1 },
+    });
+  });
+  it('executes target bytes in the baseline runtime mode', async () => {
+    const source = 'console.log(await Promise.resolve(3));';
+    const awaited = baseline();
+    awaited.source = { content: source, contentHash: await computeContentHash(source) };
+    awaited.result.stdout = '3\n';
+    await writeFile(path.join(dir, 'hello.js'), source);
+    const result = await runSuite(
+      suite([{ id: 'await', name: 'Await', target: 'hello.js', baseline: awaited }])
+    );
+    expect(result.body).toMatchObject({ verdict: 'pass' });
+    expect(result.code).toBe(0);
+  });
+  it('keeps the captured working directory rather than the target folder', async () => {
+    const source = 'console.log(process.cwd() === process.env.LINGUA_TARGET_DIR);';
+    const located = baseline();
+    located.source = { content: source, contentHash: await computeContentHash(source) };
+    located.result.stdout = 'false\n';
+    await mkdir(path.join(dir, 'nested'));
+    await writeFile(path.join(dir, 'nested', 'hello.js'), source);
+    const file = path.join(dir, 'suite.json');
+    await writeFile(
+      file,
+      JSON.stringify(
+        suite([{ id: 'cwd', name: 'Cwd', target: 'nested/hello.js', baseline: located }])
+      )
+    );
+    const result = await command([
+      'capsule',
+      'verify-suite',
+      file,
+      '--root',
+      dir,
+      '--env',
+      `LINGUA_TARGET_DIR=${await realpath(path.join(dir, 'nested'))}`,
+      '--json',
+    ]);
+    expect(result.body).toMatchObject({ verdict: 'pass' });
+  });
+  it.each(['notes.txt', 'folder.js'])(
+    'refuses an incompatible %s target as invalid input',
+    async target => {
+      await writeFile(path.join(dir, 'notes.txt'), 'text');
+      await mkdir(path.join(dir, 'folder.js'));
+      const file = path.join(dir, 'case.json');
+      await writeFile(file, JSON.stringify(baseline()));
+      let stdout = '';
+      const code = await runVerifyCapsuleCommand(
+        {
+          filePath: file,
+          targetPath: target,
+          rootDirectory: dir,
+          env: [],
+          json: true,
+          quiet: false,
+        },
+        { ...createDefaultIo(), writeStdout: text => void (stdout += text), writeStderr: () => {} }
+      );
+      const result = { code, body: JSON.parse(stdout) };
+      expect(result.code).toBe(1);
+      expect(result.body.reason).toBe('invalid-regression-target');
+    }
+  );
 });

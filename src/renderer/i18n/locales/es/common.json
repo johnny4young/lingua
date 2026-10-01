@@ -4255,6 +4255,8 @@
   "capsuleRegression.saved": "Suite de regresión exportada. No se ejecutó nada.",
   "capsuleRegression.invalid": "Artefacto inválido o error al exportar. No se ejecutó nada.",
   "capsuleRegression.incomplete": "Esta captura no contiene evidencia completa de una ejecución exitosa para verificar.",
+  "capsuleRegression.engineDivergent": "Esta grabación viene de un motor distinto al del CLI (Pyodide, Go WASM o Ruby WASM), así que la suite siempre la reportaría como inconclusa.",
+  "capsuleRegression.browserPreview": "Las grabaciones de vista previa del navegador necesitan un DOM que el CLI no tiene, así que no pueden ser casos de regresión.",
   "capsuleRegression.preview": "Vista previa del buffer actual del destino",
   "capsuleRegression.baseline": "Baseline capturado completo (código, entradas y expectativas)",
   "capsuleRegression.dirty": "El destino tiene cambios sin guardar. El CLI lee el archivo guardado, no este buffer.",

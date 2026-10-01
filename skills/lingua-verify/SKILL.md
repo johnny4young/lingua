@@ -79,12 +79,12 @@ it as a substitute for a repository's documented lint, typecheck, or test gates.
 Strict `lingua capsule verify <file> --json` requires a CLI that advertises that
 command in `lingua --help`. Without --target it checks captured source, not a modified project file. Feature-detect
 `verify-suite` and `--target` in help before using the unreleased/source-build commands.
-`lingua capsule verify <baseline> --target <relative-file> --json` executes the current
-saved file and keeps the baseline unchanged. `lingua capsule verify-suite <suite> --root
+`lingua capsule verify <baseline> --target <relative-file> --json` runs the current
+saved file's bytes like captured source and keeps the baseline unchanged. `lingua capsule verify-suite <suite> --root
 <workspace> --json` verifies suite v1 serially. Inputs, argv and expectations come only
 from each complete embedded baseline; never generate, normalize or overwrite an oracle.
 The suite is limited to 20 cases, 4 MiB and five minutes total. Treat missing, skipped,
-invalid, mismatched and inconclusive cases as non-passing. Require both process exit 0
+invalid, mismatched and inconclusive cases as non-passing; a suite with any drift is `fail`. Require both process exit 0
 and `ok: true`, `verdict: pass`, no skipped cases, and all case verdicts pass. Importing
 or previewing a suite is inert; executing it requires the same explicit local trust.
 Only `verdict: pass` with `ok: true` is matching evidence. This does not certify

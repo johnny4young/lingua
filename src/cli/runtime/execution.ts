@@ -14,7 +14,10 @@ import { execFile, spawn } from 'node:child_process';
 import type { ChildProcess, ChildProcessWithoutNullStreams } from 'node:child_process';
 import { rm } from 'node:fs/promises';
 
-import { MAX_NATIVE_STDERR_BYTES } from '../../shared/runnerLimits';
+import {
+  CLI_OUTPUT_PAYLOAD_BYTES,
+  CLI_OUTPUT_TRUNCATION_MARKER,
+} from '../../shared/capsuleVerification';
 import {
   buildMissingRuntimeRecovery,
   type CliRuntimeRecovery,
@@ -25,10 +28,6 @@ export const MIN_CLI_RUN_TIMEOUT_MS = 100;
 export const MAX_CLI_RUN_TIMEOUT_MS = 5 * 60_000;
 
 const KILL_ESCALATION_MS = 1_500;
-const OUTPUT_TRUNCATION_MARKER = '\n[output truncated by Lingua CLI]\n';
-/** Largest stream the CLI captures unclipped. */
-export const CLI_OUTPUT_PAYLOAD_BYTES =
-  MAX_NATIVE_STDERR_BYTES - Buffer.byteLength(OUTPUT_TRUNCATION_MARKER, 'utf8');
 
 export type CliRunStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -302,7 +301,7 @@ class CappedOutput {
 
     const remainingBytes = Math.max(0, payloadCap - currentBytes);
     const prefix = truncateUtf8(chunk, remainingBytes);
-    const accepted = `${prefix}${OUTPUT_TRUNCATION_MARKER}`;
+    const accepted = `${prefix}${CLI_OUTPUT_TRUNCATION_MARKER}`;
     this.value += accepted;
     this.truncated = true;
     return accepted;

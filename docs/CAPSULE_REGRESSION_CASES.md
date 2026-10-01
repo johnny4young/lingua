@@ -9,8 +9,9 @@ lingua capsule verify-suite regression.lingua-suite.json --root . --timeout 3000
 ```
 
 Without `--target`, verify still executes captured source. With it, the CLI validates
-and hashes the untouched baseline, then executes the current saved target file using
-its available CLI runtime, baseline stdin and argv. It compares status, stdout and
+and hashes the untouched baseline, then reads the current saved target file and runs
+its bytes exactly like captured source: the baseline runtime mode, working directory,
+stdin and argv. Only the source differs. It compares status, stdout and
 stderr exactly. No whitespace normalization or automatic expectation update occurs.
 Unsaved editor buffers are previews, not the bytes the CLI executes.
 
@@ -27,7 +28,7 @@ A suite is an independent JSON document, not a modified Capsule:
       "id": "hello-output",
       "name": "Hello output remains stable",
       "target": "src/hello.js",
-      "baseline": { "schemaVersion": 1, "...": "a complete valid RunCapsuleV1, not this placeholder" }
+      "baseline": { "version": 1, "...": "a complete valid RunCapsuleV1, not this placeholder" }
     }
   ]
 }
@@ -47,9 +48,11 @@ preflighted before any case executes; target authorization is rechecked per case
 
 JSON reports each case, comparison, recorded/actual runtime and a summary of passed,
 failed, inconclusive and skipped cases. Only exit 0 with `ok: true`, `verdict: pass`
-and every case passing is successful. Drift exits 5; incomplete or budget-skipped
-cases cannot pass and exit 6. Existing input/runtime/capability/internal errors retain
-codes 1–4. Timeouts remain runtime errors with an inconclusive verdict. Process-tree
+and every case passing is successful. Any drifted case makes the suite `fail` and
+exit 5, even when other cases are inconclusive; otherwise incomplete or budget-skipped
+cases exit 6. Existing input/runtime/capability/internal errors retain codes 1–4.
+Program timeouts remain runtime errors with an inconclusive verdict; a timeout the
+suite budget imposed reports `suite-budget-exhausted` and exits 6. Process-tree
 termination and cleanup use the existing bounded runner, including its kill grace.
 
 ## Prepare and inspect in the app

@@ -83,4 +83,4 @@ Command-specific success envelopes are documented in the task guides. Existing e
 
 `lingua capsule verify-suite <suite> --root <directory> --json`
 
-`--target <file>` selects current saved relative source instead of captured source; `--root <directory>` constrains suite targets and defaults to cwd. Suite v1 embeds complete unchanged baselines, runs at most 20 cases/4 MiB serially with a five-minute total budget, and reports per-case strict verdicts. Import/preview never executes. Feature-detect in help; public 1.5.1 does not include these commands.
+`--target <file>` runs the current saved relative file exactly like captured source (baseline runtime mode and working directory); `--root <directory>` constrains suite targets and defaults to cwd. Suite v1 embeds complete unchanged baselines, runs at most 20 cases/4 MiB serially with a five-minute total budget, and reports per-case strict verdicts. Import/preview never executes. Feature-detect in help; public 1.5.1 does not include these commands.

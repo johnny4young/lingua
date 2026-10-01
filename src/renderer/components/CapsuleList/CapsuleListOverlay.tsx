@@ -30,7 +30,17 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, ExternalLink, Eye, FileDown, Files, GitCompare, Package, Trash2 } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  Eye,
+  FileDown,
+  Files,
+  FlaskConical,
+  GitCompare,
+  Package,
+  Trash2,
+} from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
@@ -559,14 +569,6 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                         />
                         <button
                           type="button"
-                          className="rounded px-2 py-1 text-xs hover:bg-muted"
-                          onClick={() => setRegressionCapsule(capsule)}
-                          data-testid="capsule-prepare-regression"
-                        >
-                          {t('capsuleRegression.action')}
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => setSelectedId(entry.id)}
                           data-testid="capsule-list-row-select"
                           className="block min-w-0 flex-1 text-left"
@@ -613,6 +615,12 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                           label={t('capsuleList.row.createWorkspace')}
                           testid="capsule-list-row-create-workspace"
                           onClick={() => setWorkspaceCapsule(capsule)}
+                        />
+                        <RowAction
+                          icon={<FlaskConical size={12} aria-hidden="true" />}
+                          label={t('capsuleRegression.action')}
+                          testid="capsule-prepare-regression"
+                          onClick={() => setRegressionCapsule(capsule)}
                         />
                         <RowAction
                           icon={<ExternalLink size={12} aria-hidden="true" />}

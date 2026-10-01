@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { parseCapsuleRegressionSuite } from '../../src/shared/capsuleRegressionSuite';
 import {
@@ -54,6 +55,8 @@ for (const language of ['en', 'es'] as const) {
     await waitForRunCompleted(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
     await page.getByTestId('action-pill-browse-capsules').click();
+    mkdirSync('output/review/capsule-regression', { recursive: true });
+    await page.screenshot({ path: `output/review/capsule-regression/web-${language}-list.png` });
     await page.getByTestId('capsule-prepare-regression').first().click();
     const dialog = page.getByTestId('capsule-regression-dialog');
     const exportButton = dialog.getByRole('button', {
@@ -65,6 +68,7 @@ for (const language of ['en', 'es'] as const) {
     await expect(exportButton).toBeDisabled();
     await dialog.getByRole('checkbox').check();
     await expect(exportButton).toBeEnabled();
+    await page.screenshot({ path: `output/review/capsule-regression/web-${language}-dialog.png` });
     const downloadPromise = page.waitForEvent('download');
     await exportButton.click();
     const download = await downloadPromise;

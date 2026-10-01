@@ -2,17 +2,8 @@ import path from 'node:path';
 import { realpath, stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { isRegressionTarget } from '../../shared/capsuleRegressionSuite';
-import { ExecutionTargetError } from './targets';
+import { CLI_SOURCE_EXTENSIONS } from './targets';
 
-const extensions: Record<string, readonly string[]> = {
-  javascript: ['.js', '.mjs', '.cjs'],
-  typescript: ['.ts', '.mts', '.cts'],
-  python: ['.py'],
-  go: ['.go'],
-  rust: ['.rs'],
-  ruby: ['.rb'],
-  lua: ['.lua'],
-};
 export class RegressionTargetError extends Error {}
 export async function resolveRegressionTarget(
   root: string,
@@ -38,13 +29,27 @@ export async function resolveRegressionTarget(
     throw new RegressionTargetError('Target escapes the authorized suite root.');
   if (
     !(await stat(actual)).isFile() ||
-    !extensions[language]?.includes(path.extname(actual).toLowerCase())
+    !CLI_SOURCE_EXTENSIONS[language]?.includes(path.extname(actual).toLowerCase())
   )
-    throw new ExecutionTargetError(
-      'unsupported-file-type',
+    throw new RegressionTargetError(
       'Target must be a regular file compatible with the baseline language.'
     );
   return actual;
+}
+
+/** Contained target bytes, executed exactly like the baseline's captured source. */
+export async function readRegressionTarget(
+  root: string,
+  target: string,
+  language: string,
+  limit: number
+): Promise<string> {
+  const actual = await resolveRegressionTarget(root, target, language);
+  try {
+    return await readBoundedSuite(actual, limit);
+  } catch {
+    throw new RegressionTargetError('Target is too large or is not valid UTF-8 text.');
+  }
 }
 /** Enforce the byte limit while consuming, including files changed after stat. */
 export async function readBoundedSuite(file: string, limit: number): Promise<string> {

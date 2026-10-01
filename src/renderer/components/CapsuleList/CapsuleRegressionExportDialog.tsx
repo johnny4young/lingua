@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeContentHash, type RunCapsuleV1 } from '../../../shared/runCapsule';
-import { capsuleVerificationBlocker } from '../../../shared/capsuleVerification';
+import { capsuleStrictVerificationRefusal } from '../../../shared/capsuleVerification';
 import {
   parseCapsuleRegressionSuite,
   serializeCapsuleRegressionSuite,
@@ -10,7 +10,9 @@ import {
 } from '../../../shared/capsuleRegressionSuite';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { prepareRunCapsuleExport } from '../../utils/exportCapsule';
 import { saveOrDownloadTextFile } from '../../utils/saveTextFileToDisk';
+import { recordTrustEventBestEffort } from '../../stores/trustEventStore';
 import { ModalShell } from '../ui/ModalShell';
 
 /** Preparing, reading and exporting a suite are inert; only the explicit CLI executes it. */
@@ -34,7 +36,6 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
     () =>
       tabs.filter(
         tab =>
-          capsule &&
           tab.language === capsule.tab.language &&
           tab.rootId === rootId &&
           rootId &&
@@ -45,7 +46,7 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
     [tabs, rootId, capsule]
   );
   const [selected, setSelected] = useState('');
-  const [name, setName] = useState(capsule?.tab.name ?? '');
+  const [name, setName] = useState(capsule.tab.name);
   const [reviewedSnapshot, setReviewedSnapshot] = useState<string | null>(null);
   const importGeneration = useRef(0);
   const importInput = useRef<HTMLInputElement>(null);
@@ -53,12 +54,15 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
   const [message, setMessage] = useState('');
   const [imported, setImported] = useState('');
   const target = candidates.find(tab => tab.id === selected);
+  // The same sanitized baseline every other capsule export writes.
+  const prepared = useMemo(() => prepareRunCapsuleExport(capsule), [capsule]);
+  const baseline = prepared.sanitised;
   const snapshot = JSON.stringify([
     name,
     target?.id,
     target?.relativePath,
     target?.content,
-    capsule,
+    capsule.capsuleId,
   ]);
   const reviewed = reviewedSnapshot === snapshot;
   useEffect(
@@ -67,13 +71,13 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
     },
     []
   );
-  const blocker = capsule ? capsuleVerificationBlocker(capsule) : null;
+  const blocker = useMemo(() => capsuleStrictVerificationRefusal(baseline), [baseline]);
   const exportCase = async () => {
     if (!target?.relativePath || !name.trim() || !reviewed || blocker) return;
     setBusy(true);
     setMessage('');
     try {
-      if ((await computeContentHash(capsule.source.content)) !== capsule.source.contentHash)
+      if ((await computeContentHash(baseline.source.content)) !== baseline.source.contentHash)
         throw new Error('hash');
       const artifact: CapsuleRegressionSuiteV1 = {
         kind: 'lingua-regression-suite',
@@ -83,13 +87,21 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
             id: crypto.randomUUID(),
             name: name.trim(),
             target: target.relativePath,
-            baseline: capsule,
+            baseline,
           },
         ],
       };
       const json = serializeCapsuleRegressionSuite(artifact);
       await saveOrDownloadTextFile(json, 'regression.lingua-suite.json', 'application/json', {
-        onOk: () => setMessage(t('capsuleRegression.saved')),
+        onOk: () => {
+          recordTrustEventBestEffort({
+            feature: 'capsule-export',
+            action: 'exported',
+            sensitivity: 'medium',
+            summary: `${baseline.tab.language} capsule exported as a regression suite (${prepared.sizeBucket})`,
+          });
+          setMessage(t('capsuleRegression.saved'));
+        },
         onError: () => setMessage(t('capsuleRegression.invalid')),
       });
     } catch {
@@ -140,7 +152,15 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
           </select>
         </label>
         {!candidates.length && <p>{t('capsuleRegression.noTargets')}</p>}
-        {blocker && <p role="status">{t('capsuleRegression.incomplete')}</p>}
+        {blocker && (
+          <p role="status">
+            {blocker === 'engine-divergent-baseline'
+              ? t('capsuleRegression.engineDivergent')
+              : blocker === 'unsupported-runtime-mode'
+                ? t('capsuleRegression.browserPreview')
+                : t('capsuleRegression.incomplete')}
+          </p>
+        )}
         {target && (
           <>
             <h3>{t('capsuleRegression.preview')}</h3>
@@ -153,7 +173,7 @@ function RegressionDialog({ capsule, onClose }: { capsule: RunCapsuleV1; onClose
             </pre>
             <h3>{t('capsuleRegression.baseline')}</h3>
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-bg-panel-alt p-2">
-              {JSON.stringify(capsule, null, 2)}
+              {prepared.json}
             </pre>
           </>
         )}

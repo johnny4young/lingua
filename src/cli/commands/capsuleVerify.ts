@@ -1,16 +1,20 @@
 import { rm } from 'node:fs/promises';
 import {
-  capsuleEngineDivergence,
-  capsuleVerificationBlocker,
+  capsuleStrictVerificationRefusal,
   compareCapsuleStreams,
   type CapsuleVerdict,
 } from '../../shared/capsuleVerification';
+import { MAX_REGRESSION_SUITE_BYTES } from '../../shared/capsuleRegressionSuite';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
-import { CLI_OUTPUT_PAYLOAD_BYTES, executeCliPlan } from '../runtime/execution';
-import { RegressionTargetError, resolveRegressionTarget } from '../runtime/regressionTargets';
-import { resolveExecutionTarget } from '../runtime/targets';
+import {
+  DEFAULT_CLI_RUN_TIMEOUT_MS,
+  MIN_CLI_RUN_TIMEOUT_MS,
+  executeCliPlan,
+} from '../runtime/execution';
+import { RegressionTargetError, readRegressionTarget } from '../runtime/regressionTargets';
+import { resolveCapsuleSource } from '../runtime/targets';
 import { emitExecution, emitPreflightError } from './run';
 import {
   loadCapsule,
@@ -47,34 +51,28 @@ export async function runVerifyCapsuleCommand(
   return verifyCapsuleBaseline(loaded.value, args, io);
 }
 
-function verificationGate(
-  capsule: RunCapsuleV1,
-  args: VerifyCapsuleArgs
-): CapsulePreflightRefusal | null {
-  const blocker = capsuleVerificationBlocker(capsule, CLI_OUTPUT_PAYLOAD_BYTES);
-  if (blocker) {
-    return {
-      reason: blocker,
+const refusalDetails: Record<string, { detail: string; exitCode: CliExitCode }> = {
+  'engine-divergent-baseline': {
+    detail:
+      'The recording came from a different engine than the CLI runtime, so its output is not a comparable baseline.',
+    exitCode: CLI_EXIT_CODES.verificationInconclusive,
+  },
+  'unsupported-runtime-mode': {
+    detail: 'Browser-preview baselines require a DOM unavailable to the CLI.',
+    exitCode: CLI_EXIT_CODES.unsupportedCapability,
+  },
+};
+
+function verificationGate(capsule: RunCapsuleV1): CapsulePreflightRefusal | null {
+  const reason = capsuleStrictVerificationRefusal(capsule);
+  if (!reason) return null;
+  return {
+    reason,
+    ...(refusalDetails[reason] ?? {
       detail: 'The recording cannot supply a complete successful stdout/stderr baseline.',
       exitCode: CLI_EXIT_CODES.verificationInconclusive,
-    };
-  }
-  const divergence = capsuleEngineDivergence(capsule);
-  if (divergence) {
-    return {
-      reason: divergence,
-      detail: `The ${capsule.tab.language} recording came from a different engine than the CLI runtime, so its output is not a comparable baseline.`,
-      exitCode: CLI_EXIT_CODES.verificationInconclusive,
-    };
-  }
-  if (args.targetPath !== undefined && capsule.tab.runtimeMode === 'browser-preview') {
-    return {
-      reason: 'unsupported-runtime-mode',
-      detail: 'Browser-preview baselines require a DOM unavailable to the CLI.',
-      exitCode: CLI_EXIT_CODES.unsupportedCapability,
-    };
-  }
-  return null;
+    }),
+  };
 }
 
 export async function verifyCapsuleBaseline(
@@ -84,16 +82,22 @@ export async function verifyCapsuleBaseline(
 ): Promise<CliExitCode> {
   const { targetPath } = args;
   const prepared = await prepareLoadedCapsuleExecution(capsule, args, io, label, preflightFields, {
-    gate: recorded => verificationGate(recorded, args),
+    gate: verificationGate,
     ...(targetPath !== undefined
       ? {
           resolvePlan: async (recorded, env) =>
-            resolveExecutionTarget(
-              await resolveRegressionTarget(
-                args.rootDirectory ?? process.cwd(),
-                targetPath,
-                recorded.tab.language
-              ),
+            resolveCapsuleSource(
+              {
+                language: recorded.tab.language,
+                runtimeMode: recorded.tab.runtimeMode,
+                source: await readRegressionTarget(
+                  args.rootDirectory ?? process.cwd(),
+                  targetPath,
+                  recorded.tab.language,
+                  MAX_REGRESSION_SUITE_BYTES
+                ),
+                capsuleId: recorded.capsuleId,
+              },
               recorded.input.args ?? [],
               env
             ),
@@ -111,7 +115,9 @@ export async function verifyCapsuleBaseline(
   if (!prepared.ok) return prepared.exitCode;
   const { env, plan } = prepared;
   const remaining = args.deadline === undefined ? undefined : args.deadline - Date.now();
-  if (remaining !== undefined && remaining < 100) {
+  const requestedTimeout = args.timeoutMs ?? DEFAULT_CLI_RUN_TIMEOUT_MS;
+  const budgetCapped = remaining !== undefined && remaining < requestedTimeout;
+  if (remaining !== undefined && remaining < MIN_CLI_RUN_TIMEOUT_MS) {
     await Promise.all(
       (plan.cleanupPaths ?? []).map(file =>
         rm(file, { recursive: true, force: true }).catch(() => {})
@@ -131,11 +137,13 @@ export async function verifyCapsuleBaseline(
     env,
     ...(capsule.input.stdin !== undefined ? { stdin: capsule.input.stdin } : {}),
     ...(remaining !== undefined
-      ? { timeoutMs: Math.min(args.timeoutMs ?? 30_000, remaining) }
+      ? { timeoutMs: Math.min(requestedTimeout, remaining) }
       : args.timeoutMs !== undefined
         ? { timeoutMs: args.timeoutMs }
         : {}),
   });
+  // A deadline the suite imposed is missing evidence, not a timeout in the program.
+  const budgetExhausted = budgetCapped && run.status === 'timeout';
   const comparison = compareCapsuleStreams(capsule, run);
   const incomplete = Boolean(
     run.truncated?.stdout ||
@@ -161,13 +169,15 @@ export async function verifyCapsuleBaseline(
     comparison,
     recordedRuntime: capsule.environment.runner,
     actualRuntime: run.runtime,
-    ...(incomplete
-      ? { reason: run.reason ?? 'incomplete-execution' }
-      : run.reason
-        ? { reason: run.reason }
-        : verdict === 'fail'
-          ? { reason: 'output-drift' }
-          : {}),
+    ...(budgetExhausted
+      ? { reason: 'suite-budget-exhausted' }
+      : incomplete
+        ? { reason: run.reason ?? 'incomplete-execution' }
+        : run.reason
+          ? { reason: run.reason }
+          : verdict === 'fail'
+            ? { reason: 'output-drift' }
+            : {}),
     run,
   };
   if (args.json) io.writeStdout(`${JSON.stringify(result)}\n`);
@@ -183,6 +193,7 @@ export async function verifyCapsuleBaseline(
       );
     }
   }
+  if (budgetExhausted) return CLI_EXIT_CODES.verificationInconclusive;
   if (run.status !== 'success')
     return run.reason === 'missing-runtime'
       ? CLI_EXIT_CODES.unsupportedCapability

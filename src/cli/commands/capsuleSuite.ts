@@ -5,7 +5,7 @@ import {
 } from '../../shared/capsuleRegressionSuite';
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
 import type { CliIo } from '../io';
-import { readBoundedSuite, resolveRegressionTarget } from '../runtime/regressionTargets';
+import { readBoundedSuite, readRegressionTarget } from '../runtime/regressionTargets';
 import { verifyCapsuleBaseline, type VerifyCapsuleArgs } from './capsuleVerify';
 import { emitPreflightError } from './run';
 
@@ -45,10 +45,11 @@ export async function runVerifyCapsuleSuiteCommand(
     )
       return fail('content-hash-mismatch');
     try {
-      await resolveRegressionTarget(
+      await readRegressionTarget(
         args.rootDirectory ?? process.cwd(),
         testCase.target,
-        testCase.baseline.tab.language
+        testCase.baseline.tab.language,
+        MAX_REGRESSION_SUITE_BYTES
       );
     } catch {
       return fail('invalid-regression-target');
@@ -98,7 +99,7 @@ export async function runVerifyCapsuleSuiteCommand(
     inconclusive: cases.filter(c => c.verdict === 'inconclusive').length,
     skipped: cases.filter(c => c.skipped).length,
   };
-  const verdict = summary.inconclusive ? 'inconclusive' : summary.failed ? 'fail' : 'pass';
+  const verdict = summary.failed ? 'fail' : summary.inconclusive ? 'inconclusive' : 'pass';
   const result = {
     ok: verdict === 'pass',
     command: 'capsule-verify-suite',
@@ -114,10 +115,10 @@ export async function runVerifyCapsuleSuiteCommand(
     );
   return (
     exits.find(code => code > 0 && code < 5) ??
-    (verdict === 'inconclusive'
-      ? CLI_EXIT_CODES.verificationInconclusive
-      : verdict === 'fail'
-        ? CLI_EXIT_CODES.verificationFailed
+    (verdict === 'fail'
+      ? CLI_EXIT_CODES.verificationFailed
+      : verdict === 'inconclusive'
+        ? CLI_EXIT_CODES.verificationInconclusive
         : CLI_EXIT_CODES.ok)
   );
 }

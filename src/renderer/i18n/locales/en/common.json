@@ -4255,6 +4255,8 @@
   "capsuleRegression.saved": "Regression suite exported. Nothing executed.",
   "capsuleRegression.invalid": "Invalid artifact or export failed. Nothing executed.",
   "capsuleRegression.incomplete": "This recording cannot supply a complete successful verification baseline.",
+  "capsuleRegression.engineDivergent": "This recording came from a different engine than the CLI (Pyodide, Go WASM or Ruby WASM), so the suite would always report it as inconclusive.",
+  "capsuleRegression.browserPreview": "Browser preview recordings need a DOM that the CLI does not have, so they cannot become regression cases.",
   "capsuleRegression.preview": "Current target buffer preview",
   "capsuleRegression.baseline": "Complete captured baseline (source, input and expectations)",
   "capsuleRegression.dirty": "This target has unsaved edits. The CLI reads the saved file, not this buffer.",

@@ -68,3 +68,56 @@ it('caps each case by the remaining total budget and marks unexecuted cases inco
     await rm(dir, { recursive: true, force: true });
   }
 });
+it('reports a timeout caused by the suite budget as exhausted evidence, not a program timeout', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'lingua-budget-'));
+  let clock = 0;
+  vi.spyOn(Date, 'now').mockImplementation(() => clock);
+  vi.mocked(executeCliPlan).mockImplementation(async (plan, options) => {
+    clock += options.timeoutMs ?? 0;
+    return {
+      status: 'timeout',
+      target: plan.displayTarget,
+      runtime: plan.runtime,
+      durationMs: options.timeoutMs ?? 0,
+      exitCode: null,
+      signal: 'SIGTERM',
+      stdout: '',
+      stderr: '',
+      reason: 'timeout',
+    };
+  });
+  try {
+    await writeFile(path.join(dir, 'hello.js'), FIXTURE_MINIMAL_JS.source.content);
+    const file = path.join(dir, 'suite.json');
+    const testCase = (i: number) => ({
+      id: `case-${i}`,
+      name: 'case',
+      target: 'hello.js',
+      baseline: FIXTURE_MINIMAL_JS,
+    });
+    await writeFile(
+      file,
+      JSON.stringify({ kind: 'lingua-regression-suite', suiteVersion: 1, cases: [testCase(0)] })
+    );
+    const { io, state } = createFakeIo();
+    const exit = await runVerifyCapsuleSuiteCommand(
+      {
+        filePath: file,
+        rootDirectory: dir,
+        timeoutMs: 300_000 + 1,
+        env: [],
+        json: true,
+        quiet: false,
+      },
+      io
+    );
+    expect(exit).toBe(6);
+    expect(JSON.parse(state.stdout).cases[0]).toMatchObject({
+      verdict: 'inconclusive',
+      reason: 'suite-budget-exhausted',
+      exitCode: 6,
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

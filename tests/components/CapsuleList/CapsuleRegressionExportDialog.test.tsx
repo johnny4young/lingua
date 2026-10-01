@@ -85,6 +85,35 @@ describe('inert regression export', () => {
       (screen.getByRole('button', { name: 'Export case as suite' }) as HTMLButtonElement).disabled
     ).toBe(true);
   });
+  it('exports the sanitized baseline that every other capsule export writes', async () => {
+    const capsule = structuredClone(FIXTURE_MINIMAL_JS);
+    capsule.environment.dependencySummary = { apiToken: 'secret-value', nested: { a: 1 } };
+    render(<CapsuleRegressionExportDialog capsule={capsule} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'target' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Export case as suite' }));
+    await waitFor(() => expect(saveOrDownloadTextFile).toHaveBeenCalledTimes(1));
+    const [raw] = vi.mocked(saveOrDownloadTextFile).mock.calls[0]!;
+    expect(raw).not.toContain('secret-value');
+  });
+  it.each([
+    ['python', 'worker', /different engine than the CLI/],
+    ['javascript', 'browser-preview', /need a DOM/],
+  ])('refuses a %s %s baseline the CLI can never pass', (language, runtimeMode, notice) => {
+    useEditorStore.setState(state => ({
+      tabs: state.tabs.map(tab => ({ ...tab, language })),
+    }));
+    const capsule = structuredClone(FIXTURE_MINIMAL_JS);
+    capsule.tab.language = language;
+    capsule.tab.runtimeMode = runtimeMode;
+    render(<CapsuleRegressionExportDialog capsule={capsule} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'target' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByText(notice)).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Export case as suite' }) as HTMLButtonElement).disabled
+    ).toBe(true);
+  });
   it('previews a suite without invoking execution or export', async () => {
     show();
     const artifact = {
