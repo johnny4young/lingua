@@ -200,6 +200,17 @@ const PROJECT_ENTRY_CANDIDATES = [
   'src/index.ts',
 ] as const;
 
+/** File extensions the CLI plans by language. */
+export const CLI_SOURCE_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
+  javascript: ['.js', '.mjs', '.cjs'],
+  typescript: ['.ts', '.mts', '.cts'],
+  python: ['.py'],
+  go: ['.go'],
+  rust: ['.rs'],
+  ruby: ['.rb'],
+  lua: ['.lua'],
+};
+
 async function planFile(
   absolute: string,
   displayTarget: string,
@@ -208,41 +219,40 @@ async function planFile(
 ): Promise<CliExecutionPlan> {
   const cwd = path.dirname(absolute);
   const extension = path.extname(absolute).toLowerCase();
-  switch (extension) {
-    case '.js':
-    case '.mjs':
-    case '.cjs':
+  const language = Object.keys(CLI_SOURCE_EXTENSIONS).find(key =>
+    CLI_SOURCE_EXTENSIONS[key]!.includes(extension)
+  );
+  switch (language) {
+    case 'javascript':
       return singleStep(displayTarget, 'node', cwd, nodeRuntimeExecutable(), [
         absolute,
         ...programArgs,
       ]);
-    case '.ts':
-    case '.mts':
-    case '.cts':
+    case 'typescript':
       return singleStep(displayTarget, 'node-typescript', cwd, nodeRuntimeExecutable(), [
         '--experimental-strip-types',
         absolute,
         ...programArgs,
       ]);
-    case '.py':
+    case 'python':
       return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
         absolute,
         ...programArgs,
       ]);
-    case '.go':
+    case 'go':
       return singleStep(displayTarget, 'go', cwd, commandName('go'), [
         'run',
         absolute,
         ...programArgs,
       ]);
-    case '.rb':
+    case 'ruby':
       return singleStep(displayTarget, 'ruby', cwd, commandName('ruby'), [
         absolute,
         ...programArgs,
       ]);
-    case '.lua':
+    case 'lua':
       return singleStep(displayTarget, 'lua', cwd, commandName('lua'), [absolute, ...programArgs]);
-    case '.rs': {
+    case 'rust': {
       const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-cli-rust-'));
       const binary = path.join(
         temporaryRoot,

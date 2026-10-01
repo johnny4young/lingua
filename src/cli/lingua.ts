@@ -29,6 +29,7 @@
  * portable across install locations.
  */
 
+import { runVerifyCapsuleSuiteCommand } from './commands/capsuleSuite';
 import { runVerifyCapsuleCommand } from './commands/capsuleVerify';
 import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
 import { runCompletionInstallCommand } from './commands/completionInstall';
@@ -194,7 +195,11 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
     );
   }
 
-  if (parsed.command === 'capsule-replay' || parsed.command === 'capsule-verify') {
+  if (
+    parsed.command === 'capsule-replay' ||
+    parsed.command === 'capsule-verify' ||
+    parsed.command === 'capsule-verify-suite'
+  ) {
     const filePath = parsed.positionals[0];
     if (filePath === undefined) {
       emitCliFailure(io, parsed.flags, {
@@ -205,10 +210,16 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
       return CLI_EXIT_CODES.userInputError;
     }
     const command =
-      parsed.command === 'capsule-verify' ? runVerifyCapsuleCommand : runReplayCapsuleCommand;
+      parsed.command === 'capsule-verify-suite'
+        ? runVerifyCapsuleSuiteCommand
+        : parsed.command === 'capsule-verify'
+          ? runVerifyCapsuleCommand
+          : runReplayCapsuleCommand;
     return command(
       {
         filePath,
+        ...(parsed.flags.target !== undefined ? { targetPath: parsed.flags.target } : {}),
+        ...(parsed.flags.root !== undefined ? { rootDirectory: parsed.flags.root } : {}),
         ...(parsed.flags.timeoutMs !== undefined ? { timeoutMs: parsed.flags.timeoutMs } : {}),
         env: parsed.flags.env,
         json: parsed.flags.json,

@@ -77,7 +77,16 @@ it as a substitute for a repository's documented lint, typecheck, or test gates.
 | `6`  | Strict Capsule verification has incomplete evidence      | Report inconclusive; never claim a pass.                                |
 
 Strict `lingua capsule verify <file> --json` requires a CLI that advertises that
-command in `lingua --help`. It checks captured source, not a modified project file.
+command in `lingua --help`. Without --target it checks captured source, not a modified project file. Feature-detect
+`verify-suite` and `--target` in help before using the unreleased/source-build commands.
+`lingua capsule verify <baseline> --target <relative-file> --json` runs the current
+saved file's bytes like captured source and keeps the baseline unchanged. `lingua capsule verify-suite <suite> --root
+<workspace> --json` verifies suite v1 serially. Inputs, argv and expectations come only
+from each complete embedded baseline; never generate, normalize or overwrite an oracle.
+The suite is limited to 20 cases, 4 MiB and five minutes total. Treat missing, skipped,
+invalid, mismatched and inconclusive cases as non-passing; a suite with any drift is `fail`. Require both process exit 0
+and `ok: true`, `verdict: pass`, no skipped cases, and all case verdicts pass. Importing
+or previewing a suite is inert; executing it requires the same explicit local trust.
 Only `verdict: pass` with `ok: true` is matching evidence. This does not certify
 security, hermetic execution, or equivalence between runtime engines. Python, Go,
 and web Ruby recordings are always inconclusive because the app used a different engine.

@@ -3,7 +3,7 @@ import { runVerifyCapsuleCommand } from '../../../src/cli/commands/capsuleVerify
 import { computeContentHash, type RunCapsuleV1 } from '../../../src/shared/runCapsule';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 import { createFakeIo } from '../io-fake';
-import { CLI_OUTPUT_PAYLOAD_BYTES } from '../../../src/cli/runtime/execution';
+import { CLI_OUTPUT_PAYLOAD_BYTES } from '../../../src/shared/capsuleVerification';
 
 async function verify(capsule: RunCapsuleV1, timeoutMs = 2000) {
   const { io, state } = createFakeIo({ files: { '/tmp/baseline.json': JSON.stringify(capsule) } });

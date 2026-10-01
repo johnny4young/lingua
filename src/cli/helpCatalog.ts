@@ -46,7 +46,10 @@ export const CLI_HELP_CATALOG = {
         'Uses the same shared utility adapters as the desktop app without loading Electron or a renderer.',
       flags: ['input', 'option', 'json', 'quiet', 'color', 'help'],
       examples: [
-        { command: `echo '{"a":1}' | lingua utility json-format`, description: 'Format piped JSON.' },
+        {
+          command: `echo '{"a":1}' | lingua utility json-format`,
+          description: 'Format piped JSON.',
+        },
         {
           command: `echo 'cada 3 dias 8am' | lingua utility cron-phrase`,
           description: 'Turn a plain-words schedule (English or Spanish) into a cron expression.',
@@ -93,12 +96,37 @@ export const CLI_HELP_CATALOG = {
       ],
     },
     {
-      id: 'capsule-verify', topLevel: 'capsule',
-      invocation: 'lingua capsule verify <file> [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]',
-      summary: 'Strictly verify captured source against complete successful recorded streams.',
-      description: 'Returns pass, fail, or inconclusive. Stream drift exits 5, incomplete evidence exits 6, and failed or timed-out runs keep exits 2-3. Execution uses the local CLI runtime, not a hermetic sandbox.',
-      flags: ['timeout', 'env', 'json', 'quiet', 'color', 'help'],
-      examples: [{ command: 'lingua capsule verify ./run.capsule.json --json', description: 'Fail a CI gate when recorded stdout/stderr differs.' }],
+      id: 'capsule-verify',
+      topLevel: 'capsule',
+      invocation:
+        'lingua capsule verify <file> [--target <file>] [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]',
+      summary:
+        'Strictly verify captured source or an explicit current file against recorded streams.',
+      description:
+        'Returns pass, fail, or inconclusive. Stream drift exits 5, incomplete evidence exits 6, and failed or timed-out runs keep exits 2-3. Execution uses the local CLI runtime, not a hermetic sandbox.',
+      flags: ['target', 'timeout', 'env', 'json', 'quiet', 'color', 'help'],
+      examples: [
+        {
+          command: 'lingua capsule verify ./run.capsule.json --json',
+          description: 'Fail a CI gate when recorded stdout/stderr differs.',
+        },
+      ],
+    },
+    {
+      id: 'capsule-verify-suite',
+      topLevel: 'capsule',
+      invocation:
+        'lingua capsule verify-suite <suite> [--root <directory>] [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]',
+      summary: 'Serially verify current files against independent Capsule baselines.',
+      description:
+        'Suite v1 allows 20 cases and 4 MiB, relative in-root targets and a five-minute total execution budget. Opening or importing a suite never executes it.',
+      flags: ['root', 'timeout', 'env', 'json', 'quiet', 'color', 'help'],
+      examples: [
+        {
+          command: 'lingua capsule verify-suite ./regression.lingua-suite.json --root . --json',
+          description: 'Check current saved files, without updating expectations.',
+        },
+      ],
     },
     {
       id: 'run',
@@ -129,7 +157,10 @@ export const CLI_HELP_CATALOG = {
         'Prints the live utility registry so people and scripts do not need to guess adapter names or supported options.',
       flags: ['json', 'quiet', 'color', 'help'],
       examples: [
-        { command: 'lingua list utilities --json', description: 'Inspect the registry from a script.' },
+        {
+          command: 'lingua list utilities --json',
+          description: 'Inspect the registry from a script.',
+        },
       ],
     },
     {
@@ -153,28 +184,146 @@ export const CLI_HELP_CATALOG = {
     },
   ] satisfies ReadonlyArray<CliHelpCommand>,
   flags: [
-    { id: 'input', syntax: '--input <file>', summary: 'Read utility input from a file instead of stdin.', commands: ['utility'] },
-    { id: 'stdin', syntax: '--stdin <file>', summary: 'Forward a file as program stdin.', commands: ['run'] },
-    { id: 'timeout', syntax: '--timeout <ms>', summary: 'Stop run or replay after 100–300000 ms.', commands: ['run', 'capsule-replay', 'capsule-verify'] },
-    { id: 'env', syntax: '--env NAME=value', summary: 'Repeat to add an explicit child-process environment value.', commands: ['run', 'capsule-replay', 'capsule-verify'] },
-    { id: 'option', syntax: '--option key=value', summary: 'Repeat to pass an adapter option.', commands: ['utility'] },
-    { id: 'json', syntax: '--json', summary: 'Emit a stable structured JSON body instead of plain text.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'capsule-verify', 'run', 'list-utilities'] },
-    { id: 'quiet', syntax: '--quiet', summary: 'Suppress Lingua diagnostics while preserving command output.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'capsule-verify', 'run', 'list-utilities'] },
-    { id: 'yes', syntax: '--yes', summary: 'Approve detected shell-completion changes without prompting.', commands: ['completion'] },
-    { id: 'dry-run', syntax: '--dry-run', summary: 'Show detected shells and target files without writing.', commands: ['completion'] },
-    { id: 'color', syntax: '--color <auto|always|never>', summary: 'Control diagnostic color. The default is auto.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'capsule-verify', 'run', 'list-utilities', 'completion'] },
-    { id: 'separator', syntax: '--', summary: 'Forward every remaining token to the executed program unchanged.', commands: ['run'] },
-    { id: 'help', syntax: '--help, -h', summary: 'Show help.', commands: ['utility', 'capsule-validate', 'capsule-replay', 'capsule-verify', 'run', 'list-utilities', 'completion'] },
+    {
+      id: 'target',
+      syntax: '--target <file>',
+      summary: 'Execute an explicit current relative file instead of captured source.',
+      commands: ['capsule-verify'],
+    },
+    {
+      id: 'root',
+      syntax: '--root <directory>',
+      summary: 'Resolve suite targets inside this directory; defaults to cwd.',
+      commands: ['capsule-verify-suite'],
+    },
+    {
+      id: 'input',
+      syntax: '--input <file>',
+      summary: 'Read utility input from a file instead of stdin.',
+      commands: ['utility'],
+    },
+    {
+      id: 'stdin',
+      syntax: '--stdin <file>',
+      summary: 'Forward a file as program stdin.',
+      commands: ['run'],
+    },
+    {
+      id: 'timeout',
+      syntax: '--timeout <ms>',
+      summary: 'Stop run or replay after 100–300000 ms.',
+      commands: ['run', 'capsule-replay', 'capsule-verify', 'capsule-verify-suite'],
+    },
+    {
+      id: 'env',
+      syntax: '--env NAME=value',
+      summary: 'Repeat to add an explicit child-process environment value.',
+      commands: ['run', 'capsule-replay', 'capsule-verify', 'capsule-verify-suite'],
+    },
+    {
+      id: 'option',
+      syntax: '--option key=value',
+      summary: 'Repeat to pass an adapter option.',
+      commands: ['utility'],
+    },
+    {
+      id: 'json',
+      syntax: '--json',
+      summary: 'Emit a stable structured JSON body instead of plain text.',
+      commands: [
+        'utility',
+        'capsule-validate',
+        'capsule-replay',
+        'capsule-verify',
+        'capsule-verify-suite',
+        'run',
+        'list-utilities',
+      ],
+    },
+    {
+      id: 'quiet',
+      syntax: '--quiet',
+      summary: 'Suppress Lingua diagnostics while preserving command output.',
+      commands: [
+        'utility',
+        'capsule-validate',
+        'capsule-replay',
+        'capsule-verify',
+        'capsule-verify-suite',
+        'run',
+        'list-utilities',
+      ],
+    },
+    {
+      id: 'yes',
+      syntax: '--yes',
+      summary: 'Approve detected shell-completion changes without prompting.',
+      commands: ['completion'],
+    },
+    {
+      id: 'dry-run',
+      syntax: '--dry-run',
+      summary: 'Show detected shells and target files without writing.',
+      commands: ['completion'],
+    },
+    {
+      id: 'color',
+      syntax: '--color <auto|always|never>',
+      summary: 'Control diagnostic color. The default is auto.',
+      commands: [
+        'utility',
+        'capsule-validate',
+        'capsule-replay',
+        'capsule-verify',
+        'capsule-verify-suite',
+        'run',
+        'list-utilities',
+        'completion',
+      ],
+    },
+    {
+      id: 'separator',
+      syntax: '--',
+      summary: 'Forward every remaining token to the executed program unchanged.',
+      commands: ['run'],
+    },
+    {
+      id: 'help',
+      syntax: '--help, -h',
+      summary: 'Show help.',
+      commands: [
+        'utility',
+        'capsule-validate',
+        'capsule-replay',
+        'capsule-verify',
+        'capsule-verify-suite',
+        'run',
+        'list-utilities',
+        'completion',
+      ],
+    },
     { id: 'version', syntax: '--version, -v', summary: 'Print the CLI version.', commands: [] },
   ] satisfies ReadonlyArray<CliHelpFlag>,
   exitCodes: [
     { code: 0, name: 'ok', summary: 'Command completed successfully.' },
     { code: 1, name: 'userInputError', summary: 'Arguments, input, file, or shape are invalid.' },
-    { code: 2, name: 'runtimeError', summary: 'Execution failed, timed out, stopped, or exited non-zero.' },
-    { code: 3, name: 'unsupportedCapability', summary: 'Runtime, mode, toolchain, or output is unsupported.' },
+    {
+      code: 2,
+      name: 'runtimeError',
+      summary: 'Execution failed, timed out, stopped, or exited non-zero.',
+    },
+    {
+      code: 3,
+      name: 'unsupportedCapability',
+      summary: 'Runtime, mode, toolchain, or output is unsupported.',
+    },
     { code: 4, name: 'internal', summary: 'An unexpected exception reached the CLI boundary.' },
     { code: 5, name: 'verificationFailed', summary: 'Strict verification detected output drift.' },
-    { code: 6, name: 'verificationInconclusive', summary: 'Strict verification could not establish complete evidence.' },
+    {
+      code: 6,
+      name: 'verificationInconclusive',
+      summary: 'Strict verification could not establish complete evidence.',
+    },
   ] satisfies ReadonlyArray<CliHelpExitCode>,
 } as const;
 

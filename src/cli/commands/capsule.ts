@@ -106,10 +106,23 @@ export async function runReplayCapsuleCommand(
   return CLI_EXIT_CODES.runtimeError;
 }
 
-interface CapsulePreflightRefusal {
+export interface CapsulePreflightRefusal {
   reason: string;
   detail: string;
   exitCode: CliExitCode;
+}
+
+type CapsuleExecutionPlan = Awaited<ReturnType<typeof resolveCapsuleSource>>;
+
+type PreparedCapsuleExecution =
+  | { ok: true; capsule: RunCapsuleV1; env: NodeJS.ProcessEnv; plan: CapsuleExecutionPlan }
+  | { ok: false; exitCode: CliExitCode };
+
+export interface CapsulePreflightOptions {
+  gate?: (capsule: RunCapsuleV1) => CapsulePreflightRefusal | null;
+  /** Replaces captured-source resolution, e.g. with a current target file. */
+  resolvePlan?: (capsule: RunCapsuleV1, env: NodeJS.ProcessEnv) => Promise<CapsuleExecutionPlan>;
+  classifyResolveError?: (error: unknown) => CapsulePreflightRefusal | null;
 }
 
 /** Load, hash-check, gate, and resolve a capsule without executing it. */
@@ -118,16 +131,34 @@ export async function prepareCapsuleExecution(
   io: CliIo,
   label: string,
   extra: Record<string, unknown>,
-  gate?: (capsule: RunCapsuleV1) => CapsulePreflightRefusal | null
-): Promise<
-  | {
-      ok: true;
-      capsule: RunCapsuleV1;
-      env: NodeJS.ProcessEnv;
-      plan: Awaited<ReturnType<typeof resolveCapsuleSource>>;
-    }
-  | { ok: false; exitCode: CliExitCode }
-> {
+  options: CapsulePreflightOptions = {}
+): Promise<PreparedCapsuleExecution> {
+  const loaded = await loadCapsule(args.filePath, io);
+  if (!loaded.ok) {
+    return {
+      ok: false,
+      exitCode: emitPreflightError(
+        args,
+        io,
+        loaded.reason,
+        loaded.detail ?? 'Capsule validation failed.',
+        CLI_EXIT_CODES.userInputError,
+        extra,
+        label
+      ),
+    };
+  }
+  return prepareLoadedCapsuleExecution(loaded.value, args, io, label, extra, options);
+}
+
+export async function prepareLoadedCapsuleExecution(
+  capsule: RunCapsuleV1,
+  args: ReplayCapsuleArgs,
+  io: CliIo,
+  label: string,
+  extra: Record<string, unknown>,
+  { gate, resolvePlan, classifyResolveError }: CapsulePreflightOptions = {}
+): Promise<PreparedCapsuleExecution> {
   const refuse = (
     reason: string,
     detail: string,
@@ -137,15 +168,6 @@ export async function prepareCapsuleExecution(
     ok: false as const,
     exitCode: emitPreflightError(args, io, reason, detail, exitCode, fields, label),
   });
-  const loaded = await loadCapsule(args.filePath, io);
-  if (!loaded.ok) {
-    return refuse(
-      loaded.reason,
-      loaded.detail ?? 'Capsule validation failed.',
-      CLI_EXIT_CODES.userInputError
-    );
-  }
-  const capsule = loaded.value;
   const identified = { ...extra, capsuleId: capsule.capsuleId };
   if ((await computeContentHash(capsule.source.content)) !== capsule.source.contentHash) {
     return refuse(
@@ -171,18 +193,24 @@ export async function prepareCapsuleExecution(
   }
 
   try {
-    const plan = await resolveCapsuleSource(
-      {
-        language: capsule.tab.language,
-        runtimeMode: capsule.tab.runtimeMode,
-        source: capsule.source.content,
-        capsuleId: capsule.capsuleId,
-      },
-      capsule.input.args ?? [],
-      env
-    );
+    const plan = resolvePlan
+      ? await resolvePlan(capsule, env)
+      : await resolveCapsuleSource(
+          {
+            language: capsule.tab.language,
+            runtimeMode: capsule.tab.runtimeMode,
+            source: capsule.source.content,
+            capsuleId: capsule.capsuleId,
+          },
+          capsule.input.args ?? [],
+          env
+        );
     return { ok: true, capsule, env, plan };
   } catch (error) {
+    const classified = classifyResolveError?.(error);
+    if (classified) {
+      return refuse(classified.reason, classified.detail, classified.exitCode, identified);
+    }
     if (error instanceof ExecutionTargetError) {
       return refuse(error.reason, error.message, CLI_EXIT_CODES.unsupportedCapability, identified);
     }

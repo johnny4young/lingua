@@ -69,4 +69,20 @@ printf '%s\\n' "\${COMPREPLY[@]}"
     });
     expect(result.status, result.stderr).toBe(0);
   });
+  it.each(['verify', 'verify-suite', 'validate', 'replay'])(
+    'scopes current-target flags for %s in bash',
+    action => {
+      const script = `${renderCompletion('bash')}
+COMP_WORDS=(lingua capsule ${action} baseline.json --)
+COMP_CWORD=4
+_lingua
+printf '%s\\n' "\${COMPREPLY[@]}"
+`;
+      const result = spawnSync('bash', [], { input: script, encoding: 'utf8' });
+      expect(result.status).toBe(0);
+      const flags = result.stdout.trim().split('\n');
+      expect(flags.includes('--target')).toBe(action === 'verify');
+      expect(flags.includes('--root')).toBe(action === 'verify-suite');
+    }
+  );
 });

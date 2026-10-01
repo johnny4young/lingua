@@ -305,6 +305,48 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
     );
   }
 
+  // Qualify current-source cases on the actual Linux/Windows executable too.
+  capsule.result.stdout = '3\n';
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const currentTarget = 'current target.js';
+  writeFileSync(path.join(staging, currentTarget), capsuleSource);
+  const targetSmoke = run(
+    binaryPath,
+    ['capsule', 'verify', capsuleSmokePath, '--target', currentTarget, '--json'],
+    { cwd: staging, capture: true }
+  );
+  if (JSON.parse(targetSmoke.stdout)?.verdict !== 'pass')
+    throw new Error('Standalone current-target verification failed.');
+  const suitePath = path.join(staging, 'regression-suite.json');
+  writeFileSync(
+    suitePath,
+    JSON.stringify({
+      kind: 'lingua-regression-suite',
+      suiteVersion: 1,
+      cases: [{ id: 'current', name: 'Current output', target: currentTarget, baseline: capsule }],
+    })
+  );
+  const suiteSmoke = run(
+    binaryPath,
+    ['capsule', 'verify-suite', suitePath, '--root', staging, '--json'],
+    { capture: true }
+  );
+  const suiteEnvelope = JSON.parse(suiteSmoke.stdout);
+  if (
+    suiteEnvelope?.ok !== true ||
+    suiteEnvelope?.verdict !== 'pass' ||
+    suiteEnvelope?.summary?.passed !== 1
+  )
+    throw new Error('Standalone regression suite failed.');
+  writeFileSync(path.join(staging, currentTarget), 'console.log(4);');
+  const suiteDrift = spawnSync(
+    binaryPath,
+    ['capsule', 'verify-suite', suitePath, '--root', staging, '--json'],
+    { encoding: 'utf8' }
+  );
+  if (suiteDrift.status !== 5 || JSON.parse(suiteDrift.stdout)?.verdict !== 'fail')
+    throw new Error('Standalone current-file drift was not rejected.');
+
   await cp(
     path.join(repoRoot, 'packaging', 'cli', 'README.md'),
     path.join(releaseRoot, 'README.md')
