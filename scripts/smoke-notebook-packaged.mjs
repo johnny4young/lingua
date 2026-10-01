@@ -108,6 +108,8 @@ try {
     await page.reload();
     await expect(page.getByTestId('notebook-view')).toContainText('stale package evidence');
     await expect(page.getByTestId('notebook-document-dirty')).toBeVisible();
+    // Disk matches the saved baseline again, so recovery must not claim a conflict.
+    await expect(page.getByTestId('status-notice-banner').filter({ hasText: /changed on disk|cambió en disco/ })).toHaveCount(0);
     await page.getByTestId('notebook-code-cell-static').first().click();
     await expect(page.locator('.monaco-editor')).toContainText(/recover\s+local/);
     await page.getByTestId('notebook-document-save').click();

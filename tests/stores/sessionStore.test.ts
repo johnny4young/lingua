@@ -136,6 +136,98 @@ describe('sessionStore', () => {
     }
   );
 
+  it.each([
+    ['unchanged', 'none'],
+    ['invalid', 'invalid'],
+  ] as const)(
+    'keeps dirty recovered edits with one accurate notice when disk is %s',
+    async (disk, expectedNotice) => {
+      const { useNotebookStore } = await import('@/stores/notebookStore');
+      const { serializeNotebookDocument } = await import('#src/shared/notebookDocument');
+      const { computeContentHash } = await import('#src/shared/runCapsule');
+      const notebook = {
+        version: 1 as const,
+        id: 'unchanged',
+        title: 'Unchanged',
+        cells: [
+          {
+            kind: 'code' as const,
+            id: 'cell',
+            language: 'javascript' as const,
+            source: '1',
+            outputs: [],
+          },
+        ],
+      };
+      const baseline = serializeNotebookDocument(notebook);
+      useNotebookStore.getState().installImportedNotebook('unchanged-tab', notebook);
+      useNotebookStore.getState().updateCellSource('unchanged-tab', 'cell', '2');
+      useSessionStore.setState({
+        savedTabs: [
+          {
+            kind: 'notebook',
+            notebookTabId: 'unchanged-tab',
+            name: 'unchanged.linguanb',
+            language: 'javascript',
+            filePath: '/path/unchanged.linguanb',
+            content: baseline,
+            notebookDocumentHash: await computeContentHash(baseline),
+          },
+        ],
+        savedActiveIndex: 0,
+      });
+      window.lingua.fs.reopenFile = vi.fn().mockResolvedValue({
+        ok: true,
+        rootId: 'root-restored',
+        rootPath: '/path',
+        fileRelativePath: 'unchanged.linguanb',
+      });
+      window.lingua.fs.read = vi
+        .fn()
+        .mockResolvedValue(disk === 'unchanged' ? baseline : '{not a notebook');
+      const pushStatusNotice = useUIStore.getState().pushStatusNotice;
+      const notices = vi.fn();
+      useUIStore.setState({ pushStatusNotice: notices });
+      try {
+        await useSessionStore.getState().restoreSession();
+      } finally {
+        useUIStore.setState({ pushStatusNotice });
+      }
+      const tab = useEditorStore.getState().tabs[0];
+      expect(tab.isDirty).toBe(true);
+      expect(tab.content).toBe(baseline);
+      expect(useNotebookStore.getState().notebooks['unchanged-tab'].notebook.cells[0].source).toBe(
+        '2'
+      );
+      expect(notices.mock.calls.map(([notice]) => notice.messageKey)).toEqual(
+        expectedNotice === 'none' ? [] : [`notebook.document.${expectedNotice}`]
+      );
+      useNotebookStore.getState().disposeNotebookForTab('unchanged-tab');
+    }
+  );
+
+  it('restores a notebook saved before document baselines existed as clean', async () => {
+    const { useNotebookStore } = await import('@/stores/notebookStore');
+    useNotebookStore.getState().createNotebookForTab('legacy-tab', 'Legacy', 'javascript');
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          kind: 'notebook',
+          notebookTabId: 'legacy-tab',
+          name: 'Legacy.linguanb',
+          language: 'javascript',
+          content: '',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+    await useSessionStore.getState().restoreSession();
+    const tab = useEditorStore.getState().tabs[0];
+    expect(tab.isDirty).toBe(false);
+    expect(tab.content).not.toBe('');
+    useNotebookStore.getState().disposeNotebookForTab('legacy-tab');
+  });
+
   it('persists notebook baseline and hash changes even for disk-backed tabs', () => {
     const tab = {
       id: 'document-tab',

@@ -9,6 +9,7 @@ import {
   useNotebookStore,
 } from '../../src/renderer/stores/notebookStore';
 import { notebookDocumentSnapshot } from '../../src/renderer/stores/notebookDocumentPersistence';
+import { registerNotebookDocumentDraft } from '../../src/renderer/stores/notebookDocumentDrafts';
 import { serializeNotebookDocument } from '../../src/shared/notebookDocument';
 import { computeContentHash } from '../../src/shared/contentHash';
 import type { FileTab } from '../../src/renderer/types/editor';
@@ -96,6 +97,20 @@ describe('notebook external reload evidence', () => {
     expect(confirm).toHaveBeenCalledOnce();
     expect(read).not.toHaveBeenCalled();
     expect(notebookDocumentSnapshot('tab')).toContain('local edit');
+    expect(dispose).not.toHaveBeenCalled();
+  });
+  it('flushes pending cell drafts before deciding whether reload needs confirmation', async () => {
+    const unregister = registerNotebookDocumentDraft('tab', () =>
+      useNotebookStore.getState().updateCellSource('tab', 'cell', 'debounced edit')
+    );
+    const confirm = vi.fn(() => false);
+    try {
+      await applyNotebookReloadCandidate(tab, candidate, confirm);
+    } finally {
+      unregister();
+    }
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(notebookDocumentSnapshot('tab')).toContain('debounced edit');
     expect(dispose).not.toHaveBeenCalled();
   });
   it('refuses changed disk bytes after the notice', async () => {

@@ -64,8 +64,6 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/runtime/execute/publishRunResult.ts': 3,
   'src/renderer/stores/editorCloseActions.ts': 1,
   'src/renderer/stores/editorModeActions.ts': 3,
-  // The explicit open dispatcher now loads this store factory lazily. Its
-  // two existing tab-budget events moved verbatim; the total ceiling stays 2.
   'src/renderer/stores/editorDocumentOpen.ts': 2,
   'src/renderer/stores/editorTabActions.ts': 2,
   'src/renderer/stores/editorWorkspaceActions.ts': 1,

@@ -377,10 +377,8 @@ function NotebookCellMonaco({
           options={{
             ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }),
             readOnly: disabled,
-            // Blur destroys this ephemeral editor. Monaco's word highlighter
-            // can leave a rejected Delayer promise during rapid disposal, which
-            // activates safe boot and suppresses document recovery. Disable only
-            // that delayed contribution here; other editor services stay intact.
+            // Disposing on blur can leave the word highlighter's Delayer
+            // promise rejected, which trips safe boot.
             occurrencesHighlight: 'off',
             // Let wheel events bubble to the cell list when the editor is
             // not internally scrolled, so the notebook still scrolls past a

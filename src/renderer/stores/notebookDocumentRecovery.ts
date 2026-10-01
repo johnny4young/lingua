@@ -24,7 +24,8 @@ export async function restoreNotebookDocument(
       // Keep recovered edits and their original expected disk hash.
       // A changed/invalid disk file cannot become an implicit baseline.
       content = saved.content;
-      notebookDocumentNotice(disk ? 'conflict' : 'invalid');
+      // An invalid file was already reported by prepareNotebookDocument.
+      if (disk && disk.hash !== saved.notebookDocumentHash) notebookDocumentNotice('conflict');
     }
   } else {
     content = saved.content;
@@ -39,6 +40,8 @@ export async function restoreNotebookDocument(
             recovered.document.executionOrder
           );
     }
+    // Sessions saved before document baselines existed stored ''.
+    if (!content) content = notebookDocumentSnapshot(id) ?? '';
   }
   return { content, notebookDocumentHash };
 }

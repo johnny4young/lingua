@@ -1,4 +1,5 @@
 import { prepareNotebookDocument } from '../stores/notebookDocumentOpen';
+import { flushNotebookDocumentDrafts } from '../stores/notebookDocumentDrafts';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 import { computeContentHash } from '../../shared/contentHash';
 import type { FileTab } from '../types/editor';
@@ -33,6 +34,7 @@ export async function applyNotebookReloadCandidate(
   confirmDirtyReload: () => boolean
 ): Promise<void> {
   // The notice is a preview, not permission to discard edits made later.
+  flushNotebookDocumentDrafts(tab.id);
   const current = notebookDocumentSnapshot(tab.id);
   if (tab.rootId !== candidate.rootId || tab.relativePath !== candidate.relativePath) return;
   if (current !== candidate.notebookSnapshot && !confirmDirtyReload()) return;

@@ -33,7 +33,10 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
         title={t('shortcuts.item.save.label')}
         data-testid="notebook-document-save"
         onClick={() => {
-          void useEditorStore.getState().saveTabById(tabId);
+          void useEditorStore
+            .getState()
+            .saveTabById(tabId)
+            .catch(() => notebookDocumentNotice('writeFailed'));
         }}
       >
         <Save size={14} aria-hidden="true" />
@@ -45,7 +48,10 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
         title={t('commandPalette.action.saveAs.label')}
         data-testid="notebook-document-save-as"
         onClick={() => {
-          void useEditorStore.getState().saveTabById(tabId, true);
+          void useEditorStore
+            .getState()
+            .saveTabById(tabId, true)
+            .catch(() => notebookDocumentNotice('writeFailed'));
         }}
       >
         <Save size={14} aria-hidden="true" />
