@@ -1551,3 +1551,6 @@ execution deadline. The environment allowlist, runner-owned GOOS/GOARCH target,
 WASM size limit, Go runtime lookup order and zero-copy worker transfer remain.
 The optional final compile argument and additive result metadata preserve existing
 callers; the browser stop stub does not gain host execution authority.
+
+
+Desktop LSP startup may carry an optional RootId. Main resolves it through project capabilities and replaces the server context when the authorized project changes. Definition/reference destinations reuse the capability resolver and never authorize an arbitrary server URI. See [project navigation](LSP_PROJECT_NAVIGATION.md).

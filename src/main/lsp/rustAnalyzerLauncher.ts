@@ -1,13 +1,10 @@
+import { readLspNavigationCapabilities } from '../../shared/lspNavigation';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  buildNativeRunnerEnv,
-  combinedAllowlist,
-  RUST_TOOLCHAIN_KEYS,
-} from '../runners/nativeEnv';
+import { buildNativeRunnerEnv, combinedAllowlist, RUST_TOOLCHAIN_KEYS } from '../runners/nativeEnv';
 import { LspProcess } from './lspProcess';
 import type { JsonRpcNotification } from './lspProcess';
 import type { RustAnalyzerStatus } from '../../shared/lspLauncherTypes';
@@ -98,9 +95,7 @@ export async function resolveRustAnalyzerBinary(): Promise<{
   return null;
 }
 
-async function detectRustAnalyzerVersion(
-  command: string
-): Promise<string | null> {
+async function detectRustAnalyzerVersion(command: string): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync(command, ['--version'], {
       env: buildLauncherEnv(),
@@ -228,14 +223,11 @@ export class RustAnalyzerLauncher {
     }
   }
 
-  private async spawnAndInitialize(
-    command: string,
-    version: string
-  ): Promise<RustAnalyzerStatus> {
+  private async spawnAndInitialize(command: string, version: string): Promise<RustAnalyzerStatus> {
     const lsp = new LspProcess({
       command,
       env: buildLauncherEnv(),
-      onNotification: (notification) => this.options.onNotification?.(notification),
+      onNotification: notification => this.options.onNotification?.(notification),
       // Ignore exits from processes this launcher no longer owns. A
       // user-initiated restart() disposes the old child and immediately
       // spawns a new one; without this guard the OLD child's exit event
@@ -252,9 +244,13 @@ export class RustAnalyzerLauncher {
     lsp.start();
 
     try {
-      await lsp.sendRequest('initialize', this.buildInitializeParams());
+      const initialization = await lsp.sendRequest('initialize', this.buildInitializeParams());
       lsp.sendNotification('initialized', {});
-      const status: RustAnalyzerStatus = { kind: 'running', version };
+      const status: RustAnalyzerStatus = {
+        kind: 'running',
+        version,
+        navigation: readLspNavigationCapabilities(initialization),
+      };
       this.setStatus(status);
       return status;
     } catch (error) {
@@ -267,15 +263,15 @@ export class RustAnalyzerLauncher {
   }
 
   private buildInitializeParams(): Record<string, unknown> {
-    const rootUri = this.options.workspaceRoot
-      ? pathToFileUri(this.options.workspaceRoot)
-      : null;
+    const rootUri = this.options.workspaceRoot ? pathToFileUri(this.options.workspaceRoot) : null;
     return {
       processId: process.pid,
       clientInfo: { name: 'Lingua', version: '1.0.0' },
       rootUri,
       capabilities: {
         textDocument: {
+          definition: { linkSupport: true },
+          references: {},
           synchronization: { dynamicRegistration: false },
           publishDiagnostics: { relatedInformation: false },
           completion: {
@@ -292,10 +288,7 @@ export class RustAnalyzerLauncher {
     };
   }
 
-  private handleExit(
-    code: number | null,
-    signal: NodeJS.Signals | null
-  ): void {
+  private handleExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.disposed) return;
     if (this.currentStatus.kind === 'missing') return;
 

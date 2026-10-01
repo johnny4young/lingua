@@ -85,3 +85,6 @@ supersedes the old one instead of rewriting historical rationale.
 - Remove completed planning artifacts; preserve shipped traceability in the changelog, README, ADRs, tests, and operator docs.
 - Never add secrets, machine-local paths, customer data, or private planning identifiers.
 - Use ISO dates (`YYYY-MM-DD`) and keep commands executable from the repository root.
+
+
+[Go/Rust project navigation](LSP_PROJECT_NAVIGATION.md) documents capability boundaries, server requirements and degradation.

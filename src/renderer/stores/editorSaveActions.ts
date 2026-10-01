@@ -39,7 +39,8 @@ export function createSaveActions(
   'openFile' | 'openFileFromDisk' | 'saveActiveTab' | 'saveActiveTabAs' | 'saveTabById'
 > {
   return {
-    openFile: async (rootId, relativePath, name, language, displayPath) => {
+    openFile: async (rootId, relativePath, name, language, displayPath, stillCurrent) => {
+      if (stillCurrent && !stillCurrent()) return;
       const { tabs } = get();
 
       const existing = tabs.find(t => t.rootId === rootId && t.relativePath === relativePath);
@@ -63,6 +64,7 @@ export function createSaveActions(
       }
 
       const content = await window.lingua.fs.read(asRootId(rootId), asRelativePath(relativePath));
+      if (stillCurrent && !stillCurrent()) return;
       const filePath = displayPath ?? relativePath;
 
       // Re-check the dedup + budget AFTER the disk read: a double-click on

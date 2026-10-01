@@ -208,6 +208,8 @@ export interface FileTab {
  * When both are supplied, `tabId` wins since it's the tighter identity.
  */
 export interface EditorRevealRequest {
+  endLine?: number;
+  endColumn?: number;
   filePath?: string;
   tabId?: string;
   line: number;
@@ -375,7 +377,8 @@ export interface EditorState {
     relativePath: string,
     name: string,
     language: Language,
-    displayPath?: string
+    displayPath?: string,
+    stillCurrent?: () => boolean
   ) => Promise<void>;
   /** Open a native file picker and open the selected file in a new tab. */
   openFileFromDisk: () => Promise<void>;

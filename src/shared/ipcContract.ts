@@ -28,6 +28,7 @@
  * payload type.
  */
 
+import type { LspNotification, LspRequestResult } from './lspBridge';
 import type {
   ProjectTerminalDataEvent,
   ProjectTerminalExitEvent,
@@ -74,7 +75,12 @@ interface IpcInvokeContract {
     result: GoDetectResult;
   };
   'go:compile': {
-    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages, runId?: string];
+    args: [
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages,
+      runId?: string,
+    ];
     result: GoCompileResult;
   };
   'go:stop': { args: [runId: string]; result: { stopped: boolean } };
@@ -85,7 +91,12 @@ interface IpcInvokeContract {
     result: RustDetectResult;
   };
   'rust:run': {
-    args: [sourceCode: string, userEnv?: Record<string, string>, messages?: NativeRunnerMessages, runId?: string];
+    args: [
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages,
+      runId?: string,
+    ];
     result: RustRunResult;
   };
   'rust:stop': { args: [runId: string]; result: { stopped: boolean } };
@@ -264,7 +275,8 @@ interface IpcInvokeContract {
   'local-mcp:stop': { args: []; result: LocalMcpState };
 
   // -------------------------------------------------------------- lsp: rust
-  'lsp:rust:start': { args: []; result: RustAnalyzerStatus };
+  'lsp:resolve-target': { args: [rootId: RootId, uri: string]; result: RelativePath | null };
+  'lsp:rust:start': { args: [rootId?: RootId]; result: RustAnalyzerStatus };
   'lsp:rust:restart': { args: []; result: RustAnalyzerStatus };
   'lsp:rust:stop': { args: []; result: { kind: 'stopped' } };
   'lsp:rust:status': { args: []; result: RustAnalyzerStatus };
@@ -274,7 +286,7 @@ interface IpcInvokeContract {
   };
 
   // ---------------------------------------------------------------- lsp: go
-  'lsp:go:start': { args: []; result: GoplsStatus };
+  'lsp:go:start': { args: [rootId?: RootId]; result: GoplsStatus };
   'lsp:go:restart': { args: []; result: GoplsStatus };
   'lsp:go:stop': { args: []; result: { kind: 'stopped' } };
   'lsp:go:status': { args: []; result: GoplsStatus };
@@ -650,6 +662,7 @@ export const IPC_INVOKE_CHANNELS = [
   'local-mcp:get-state',
   'local-mcp:start',
   'local-mcp:stop',
+  'lsp:resolve-target',
   'lsp:rust:start',
   'lsp:rust:restart',
   'lsp:rust:stop',

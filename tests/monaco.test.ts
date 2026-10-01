@@ -8,6 +8,8 @@ const jsAddExtraLib = vi.fn();
 const registerCompletionItemProvider = vi.fn();
 const registerHoverProvider = vi.fn();
 const registerSignatureHelpProvider = vi.fn();
+const registerDefinitionProvider = vi.fn();
+const registerReferenceProvider = vi.fn();
 const tsSetCompilerOptions = vi.fn();
 const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
@@ -47,6 +49,8 @@ const monacoMock = {
     registerCompletionItemProvider,
     registerHoverProvider,
     registerSignatureHelpProvider,
+    registerDefinitionProvider,
+    registerReferenceProvider,
     typescript: {
       javascriptDefaults: {
         addExtraLib: jsAddExtraLib,
@@ -562,6 +566,8 @@ describe('registerLanguageOnce', () => {
     expect(registerCompletionItemProvider).toHaveBeenCalledWith('go', expect.any(Object));
     expect(registerHoverProvider).toHaveBeenCalledWith('go', expect.any(Object));
     expect(registerSignatureHelpProvider).toHaveBeenCalledWith('go', expect.any(Object));
+    expect(registerDefinitionProvider).toHaveBeenCalledWith('go', expect.any(Object));
+    expect(registerReferenceProvider).toHaveBeenCalledWith('go', expect.any(Object));
   });
 
   it('does not register any other language when one language is requested', async () => {

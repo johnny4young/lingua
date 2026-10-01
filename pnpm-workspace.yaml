@@ -94,7 +94,7 @@ overrides:
   # node-gyp in electron-builder's rebuild chain declares 6.x and resolves to
   # 6.28.1, the latest 6.x, with no advisory. undici-types is separate: it
   # follows @types/node, not the runtime.
-  "undici@7": "^7.29.0"
+  "undici@7": "^7.29.1"
   # electron-builder's @electron/rebuild maps Electron versions to Node ABIs
   # through node-abi, and the lockfile had it on 4.31.0, which predates
   # Electron 44: packaging failed with could not detect abi for 44.3.0. 4.35
@@ -119,3 +119,7 @@ minimumReleaseAgeExclude:
   # entries keep the age bypass narrow and reproducible; drop an entry once
   # the resolved version is older than the age window (ws left 8.21.0).
   - esbuild@0.28.1
+
+# Handle owned delayed-task cancellation when Monaco navigation widgets dispose.
+patchedDependencies:
+  monaco-editor@0.55.1: patches/monaco-editor@0.55.1.patch

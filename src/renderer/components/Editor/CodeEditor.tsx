@@ -1,3 +1,6 @@
+import { useProjectStore } from '../../stores/projectStore';
+import { joinAbsolute } from '../../utils/filePath';
+import { languageFromPath } from '../../utils/language';
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,13 +8,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
-import {
-  PRESENTER_EDITOR_FONT_LIFT,
-  usePresenterModeStore,
-} from '../../stores/presenterModeStore';
+import { PRESENTER_EDITOR_FONT_LIFT, usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
-import { rustLspModelPathForTab } from '../../utils/filePath';
+import { rustLspModelPathForTab, goLspModelPathForTab } from '../../utils/filePath';
 import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
@@ -153,10 +153,13 @@ export function CodeEditor() {
   // The selector implementation note expected model URIs into one string so this
   // effect only re-runs when the Rust tab set (id / name / filePath)
   // actually changes, never per keystroke.
+  const ownedLspModelPaths = useRef(new Set<string>());
   const expectedRustModelPaths = useEditorStore(state =>
     state.tabs
-      .filter(tab => tab.language === 'rust')
-      .map(tab => rustLspModelPathForTab(tab))
+      .filter(tab => tab.language === 'rust' || tab.language === 'go')
+      .map(tab =>
+        tab.language === 'rust' ? rustLspModelPathForTab(tab) : goLspModelPathForTab(tab)
+      )
       .join('\n')
   );
   useEffect(() => {
@@ -167,17 +170,79 @@ export function CodeEditor() {
         .filter(Boolean)
         .map(path => monacoInstance.Uri.parse(path).toString())
     );
+    for (const uri of expected) ownedLspModelPaths.current.add(uri);
     const mounted = editorRef.current?.getModel() ?? null;
     for (const model of monacoInstance.editor.getModels()) {
       if (model === mounted) continue;
-      if (model.getLanguageId() !== 'rust') continue;
+      if (model.getLanguageId() !== 'rust' && model.getLanguageId() !== 'go') continue;
       // Only sweep models we minted (per-tab `path`): exact-URI match
       // against the live Rust tab set. Anything else (diff panels,
       // detached buffers from other surfaces) is left alone.
-      if (expected.has(model.uri.toString())) continue;
+      const uri = model.uri.toString();
+      if (!ownedLspModelPaths.current.has(uri) || expected.has(uri)) continue;
       model.dispose();
+      ownedLspModelPaths.current.delete(uri);
     }
   }, [monacoInstance, expectedRustModelPaths]);
+  useEffect(() => {
+    if (!monacoInstance) return;
+    const disposable = monacoInstance.editor.registerEditorOpener({
+      async openCodeEditor(
+        source: import('monaco-editor').editor.ICodeEditor,
+        resource: import('monaco-editor').Uri,
+        selection?: import('monaco-editor').IRange | import('monaco-editor').IPosition
+      ) {
+        const active = getActiveTab(useEditorStore.getState());
+        const project = useProjectStore.getState().currentProject;
+        if (
+          !project ||
+          !active ||
+          (active.language !== 'go' && active.language !== 'rust') ||
+          active.rootId !== project.rootId
+        )
+          return false;
+        const model = source.getModel();
+        const version = model?.getVersionId();
+        const stillCurrent = () =>
+          useProjectStore.getState().currentProject?.rootId === project.rootId &&
+          useEditorStore.getState().activeTabId === active.id &&
+          source.getModel() === model &&
+          model?.getVersionId() === version;
+        const relativePath = await window.lingua.lsp.resolveTarget(
+          project.rootId,
+          resource.toString()
+        );
+        if (!relativePath || !stillCurrent()) return false;
+        const name = relativePath.split('/').pop() ?? relativePath;
+        await useEditorStore
+          .getState()
+          .openFile(
+            project.rootId,
+            relativePath,
+            name,
+            languageFromPath(name) ?? 'plaintext',
+            joinAbsolute(project.rootPath, relativePath),
+            stillCurrent
+          );
+        if (useProjectStore.getState().currentProject?.rootId !== project.rootId) return false;
+        const tab = useEditorStore
+          .getState()
+          .tabs.find(tab => tab.rootId === project.rootId && tab.relativePath === relativePath);
+        if (!tab) return false;
+        if (selection)
+          useEditorStore.getState().requestReveal({
+            tabId: tab.id,
+            line: 'startLineNumber' in selection ? selection.startLineNumber : selection.lineNumber,
+            column: 'startColumn' in selection ? selection.startColumn : selection.column,
+            ...('endLineNumber' in selection
+              ? { endLine: selection.endLineNumber, endColumn: selection.endColumn }
+              : {}),
+          });
+        return true;
+      },
+    });
+    return () => disposable.dispose();
+  }, [monacoInstance]);
   // Glyph-margin breakpoint markers + click-to-toggle. The hook self-gates on
   // debugger-capable JS/TS tabs and desktop Python so other languages stay
   // byte-identical in the DOM.
@@ -320,7 +385,7 @@ export function CodeEditor() {
       label: t('ai.explainCode.action'),
       contextMenuGroupId: '9_ai',
       contextMenuOrder: 1,
-      run: (ed) => {
+      run: ed => {
         const ctx = explainCtxRef.current;
         if (!ctx) return;
         openExplainCodeForEditor(ed, ctx.language, ctx.name);
@@ -398,6 +463,13 @@ export function CodeEditor() {
       lineNumber: pendingReveal.line,
       column: pendingReveal.column ?? 1,
     });
+    if (pendingReveal.endLine !== undefined)
+      editor.setSelection({
+        startLineNumber: pendingReveal.line,
+        startColumn: pendingReveal.column ?? 1,
+        endLineNumber: pendingReveal.endLine,
+        endColumn: pendingReveal.endColumn ?? 1,
+      });
     editor.focus();
     clearPendingReveal();
     // `activeTab` is the ref we branch on; eslint's exhaustive-deps rule
@@ -448,7 +520,12 @@ export function CodeEditor() {
     return <EditorEmptyState />;
   }
 
-  const editorPath = activeTab.language === 'rust' ? rustLspModelPathForTab(activeTab) : undefined;
+  const editorPath =
+    activeTab.language === 'rust'
+      ? rustLspModelPathForTab(activeTab)
+      : activeTab.language === 'go'
+        ? goLspModelPathForTab(activeTab)
+        : undefined;
 
   return (
     <div className="flex h-full min-h-0 flex-col">

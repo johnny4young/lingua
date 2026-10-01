@@ -70,6 +70,12 @@ export function createTabActions(
           tabId: target.tabId,
           line: safeLine,
           column: safeColumn,
+          ...(target.endLine !== undefined
+            ? {
+                endLine: Math.max(safeLine, Math.floor(target.endLine)),
+                endColumn: Math.max(1, Math.floor(target.endColumn ?? safeColumn ?? 1)),
+              }
+            : {}),
         },
       });
     },

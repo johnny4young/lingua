@@ -1,13 +1,10 @@
+import { readLspNavigationCapabilities } from '../../shared/lspNavigation';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  buildNativeRunnerEnv,
-  combinedAllowlist,
-  GO_TOOLCHAIN_KEYS,
-} from '../runners/nativeEnv';
+import { buildNativeRunnerEnv, combinedAllowlist, GO_TOOLCHAIN_KEYS } from '../runners/nativeEnv';
 import { LspProcess } from './lspProcess';
 import type { JsonRpcNotification } from './lspProcess';
 import { pathToFileUri } from './rustAnalyzerLauncher';
@@ -253,17 +250,14 @@ export class GoplsLauncher {
     }
   }
 
-  private async spawnAndInitialize(
-    command: string,
-    version: string
-  ): Promise<GoplsStatus> {
+  private async spawnAndInitialize(command: string, version: string): Promise<GoplsStatus> {
     const lsp = new LspProcess({
       command,
       // gopls expects to be run with `gopls` (no subcommand) for LSP
       // mode on stdio. That is the default when no args are passed.
       args: [],
       env: buildLauncherEnv(),
-      onNotification: (notification) => this.options.onNotification?.(notification),
+      onNotification: notification => this.options.onNotification?.(notification),
       // Ignore exits from processes this launcher no longer owns — a
       // restart() disposes the old child and spawns a new one, and the
       // old child's exit event must not trigger the crash-recovery path
@@ -278,9 +272,13 @@ export class GoplsLauncher {
     lsp.start();
 
     try {
-      await lsp.sendRequest('initialize', this.buildInitializeParams());
+      const initialization = await lsp.sendRequest('initialize', this.buildInitializeParams());
       lsp.sendNotification('initialized', {});
-      const status: GoplsStatus = { kind: 'running', version };
+      const status: GoplsStatus = {
+        kind: 'running',
+        version,
+        navigation: readLspNavigationCapabilities(initialization),
+      };
       this.setStatus(status);
       return status;
     } catch (error) {
@@ -293,15 +291,15 @@ export class GoplsLauncher {
   }
 
   private buildInitializeParams(): Record<string, unknown> {
-    const rootUri = this.options.workspaceRoot
-      ? pathToFileUri(this.options.workspaceRoot)
-      : null;
+    const rootUri = this.options.workspaceRoot ? pathToFileUri(this.options.workspaceRoot) : null;
     return {
       processId: process.pid,
       clientInfo: { name: 'Lingua', version: '1.0.0' },
       rootUri,
       capabilities: {
         textDocument: {
+          definition: { linkSupport: true },
+          references: {},
           synchronization: { dynamicRegistration: false },
           publishDiagnostics: { relatedInformation: false },
           completion: {
@@ -318,10 +316,7 @@ export class GoplsLauncher {
     };
   }
 
-  private handleExit(
-    code: number | null,
-    signal: NodeJS.Signals | null
-  ): void {
+  private handleExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.disposed) return;
     if (this.currentStatus.kind === 'missing') return;
 

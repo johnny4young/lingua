@@ -324,3 +324,6 @@ Missing all three, the desktop-native or browser-interpreter path stays.
 Git-backed project inspection requires Git 2.36 or newer. Queries disable
 repository-controlled hooks and external conversions; unsupported host Git
 versions report an upgrade requirement instead of inspecting the repository.
+
+
+Go/Rust definition and references are desktop-native project capabilities over existing servers; browser and unbound files do not promote to native navigation. They require a declared server capability and an authorized project destination. See [navigation](LSP_PROJECT_NAVIGATION.md).

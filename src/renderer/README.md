@@ -960,3 +960,8 @@ Keep tests close to the behavior they validate, even though the repository uses 
 
 - [README.md](../../README.md) for setup, build, validation, and release operations
 - [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow
+
+
+Project Go/Rust definition/reference providers synchronize dirty buffers and reject version, cancellation and root changes. CodeEditor owns stable Go/Rust model paths and capability-backed navigation opening; dirty tabs are reused, not overwritten.
+
+- [`hooks/useLspProjectDocuments.ts`](hooks/useLspProjectDocuments.ts) keeps authorized project buffers synchronized while tabs remain open, independent of editor focus; standalone LSP documents retain active-model ownership.

@@ -1,3 +1,6 @@
+import { useLspProjectDocuments } from './useLspProjectDocuments';
+import { useProjectStore } from '../stores/projectStore';
+import type { RootId } from '../../shared/fs/brandedIds';
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import type { LspLanguageStatus, LspLanguageStore } from '../stores/lspLanguageStoreFactory';
@@ -69,7 +72,7 @@ type BridgeStatus =
   | { kind: 'stopped' };
 
 interface LspBridge {
-  start: () => Promise<BridgeStatus>;
+  start: (rootId?: RootId) => Promise<BridgeStatus>;
   status: () => Promise<BridgeStatus>;
   onStatusChanged: (callback: (status: BridgeStatus) => void) => () => void;
 }
@@ -116,6 +119,8 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
   // every keystroke, because updateContent rebuilds the tabs array.
   const hasMatchingTab = useEditorStore(state => state.tabs.some(tab => tab.language === language));
 
+  const projectRoot = useProjectStore(state => state.currentProject?.rootId);
+  const startedContext = useRef<RootId | null | undefined>(null);
   // Effect 1 — boot trigger
   useEffect(() => {
     if (!isAvailable()) {
@@ -123,16 +128,41 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
       return;
     }
     if (!hasMatchingTab) return;
-    if (bootRequested) return;
+    if (bootRequested && startedContext.current === projectRoot) return;
+    startedContext.current = projectRoot;
     markBootRequested();
-    void getBridge().start();
-  }, [bootRequested, hasMatchingTab, markBootRequested, setStatus, isAvailable, getBridge]);
+    setStatus({ kind: 'unknown' });
+    void loadAdapter().then(adapter => adapter?.resetProjectContext?.());
+    let disposed = false;
+    void getBridge()
+      .start(projectRoot)
+      .then(next => {
+        if (!disposed) setStatus(mapBridgeStatus(next));
+      })
+      .catch(() => {
+        if (!disposed) setStatus({ kind: 'unavailable', reason: 'startup-failed' });
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [
+    bootRequested,
+    hasMatchingTab,
+    markBootRequested,
+    setStatus,
+    isAvailable,
+    getBridge,
+    projectRoot,
+    loadAdapter,
+  ]);
 
   // Effect 2 — status sync
   useEffect(() => {
     if (!isAvailable()) return;
     const bridge = getBridge();
     const unsubscribe = bridge.onStatusChanged(next => {
+      if (next.kind !== 'running')
+        void loadAdapter().then(adapter => adapter?.resetProjectContext?.());
       setStatus(mapBridgeStatus(next));
     });
     void bridge
@@ -142,7 +172,7 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
         // Ignore — `unknown` is a valid initial state.
       });
     return unsubscribe;
-  }, [setStatus, isAvailable, getBridge]);
+  }, [setStatus, isAvailable, getBridge, loadAdapter]);
 
   // Effect 3 — toast on first 'available'
   useEffect(() => {
@@ -248,11 +278,28 @@ export function useLspDocumentSync(
   const { language, store, getAdapter, loadAdapter } = config;
   const status = store(state => state.status);
   const openUriRef = useRef<string | null>(null);
+  const projectRoot = useProjectStore(state => state.currentProject?.rootId);
+  const projectTab = useEditorStore(state => state.tabs.find(tab => tab.id === activeTab?.id));
+  const projectOwned = Boolean(
+    projectRoot &&
+    projectTab?.rootId === projectRoot &&
+    projectTab?.relativePath &&
+    projectTab?.filePath
+  );
+  useLspProjectDocuments(
+    language,
+    status.kind === 'available',
+    getAdapter,
+    loadAdapter,
+    LSP_DOCUMENT_SYNC_DEBOUNCE_MS
+  );
 
   // Effect 1: track which uri is currently open and close it on tab change.
   useEffect(() => {
     const model =
-      status.kind === 'available' && activeTab?.language === language ? editor?.getModel() : null;
+      status.kind === 'available' && !projectOwned && activeTab?.language === language
+        ? editor?.getModel()
+        : null;
     const nextUri = model?.uri.toString() ?? null;
     const previousUri = openUriRef.current;
 
@@ -271,13 +318,13 @@ export function useLspDocumentSync(
         openUriRef.current = null;
       }
     };
-  }, [editor, activeTab?.id, activeTab?.language, status.kind, language, getAdapter]);
+  }, [editor, activeTab?.id, activeTab?.language, status.kind, language, getAdapter, projectOwned]);
 
   // Effect 2: open / didChange with a small debounce so rapid typing
   // doesn't flood the LSP.
   useEffect(() => {
     if (status.kind !== 'available') return;
-    if (activeTab?.language !== language) return;
+    if (projectOwned || activeTab?.language !== language) return;
     const model = editor?.getModel();
     if (!model) return;
 
@@ -306,6 +353,7 @@ export function useLspDocumentSync(
     status,
     language,
     loadAdapter,
+    projectOwned,
   ]);
 }
 

@@ -6,6 +6,17 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+
+- Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
+
+### Fixed
+
+- Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
+
+- Patch transitive bundled and independently locked Worker undici versions above current advisory floors.
+
+
 ## [1.5.1] — 2026-09-24
 
 ### Added

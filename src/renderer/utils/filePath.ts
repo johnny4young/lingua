@@ -87,8 +87,7 @@ export function smartTruncatePath(
     const normalisedPath = working.replace(/\\/g, '/');
     if (
       normalisedHome.length > 0 &&
-      (normalisedPath === normalisedHome ||
-        normalisedPath.startsWith(`${normalisedHome}/`))
+      (normalisedPath === normalisedHome || normalisedPath.startsWith(`${normalisedHome}/`))
     ) {
       working = `~${normalisedPath.slice(normalisedHome.length)}`;
     }
@@ -115,7 +114,11 @@ export function rustLspModelPathForTab(tab: {
   if (tab.filePath) return pathToFileUri(tab.filePath);
 
   const fileName = tab.name.endsWith('.rs') ? tab.name : `${tab.name}.rs`;
-  return `file:///__lingua_unsaved__/${encodeURIComponent(tab.id)}/${encodeURIComponent(
-    fileName
-  )}`;
+  return `file:///__lingua_unsaved__/${encodeURIComponent(tab.id)}/${encodeURIComponent(fileName)}`;
+}
+
+export function goLspModelPathForTab(tab: { id: string; name: string; filePath?: string }): string {
+  if (tab.filePath) return pathToFileUri(tab.filePath);
+  const name = tab.name.endsWith('.go') ? tab.name : `${tab.name}.go`;
+  return `file:///__lingua_unsaved__/${encodeURIComponent(tab.id)}/${encodeURIComponent(name)}`;
 }
