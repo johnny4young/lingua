@@ -29,6 +29,15 @@ export function capsuleVerificationBlocker(
     return 'incomplete-baseline';
   return null;
 }
+/** Recordings whose app engine differs from the CLI's host interpreter or compiler. */
+export function capsuleEngineDivergence(capsule: RunCapsuleV1): string | null {
+  const { language } = capsule.tab;
+  const divergent =
+    language === 'python' ||
+    language === 'go' ||
+    (language === 'ruby' && capsule.environment.platform === 'web');
+  return divergent ? 'engine-divergent-baseline' : null;
+}
 export function compareCapsuleStreams(
   capsule: RunCapsuleV1,
   actual: { status: string; stdout: string; stderr: string }

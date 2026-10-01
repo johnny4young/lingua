@@ -1,4 +1,5 @@
 import {
+  capsuleEngineDivergence,
   capsuleVerificationBlocker,
   compareCapsuleStreams,
   type CapsuleVerdict,
@@ -22,10 +23,18 @@ export async function runVerifyCapsuleCommand(
     { command: 'capsule-verify', verdict: 'inconclusive' },
     capsule => {
       const blocker = capsuleVerificationBlocker(capsule, CLI_OUTPUT_PAYLOAD_BYTES);
-      return blocker
+      if (blocker) {
+        return {
+          reason: blocker,
+          detail: 'The recording cannot supply a complete successful stdout/stderr baseline.',
+          exitCode: CLI_EXIT_CODES.verificationInconclusive,
+        };
+      }
+      const divergence = capsuleEngineDivergence(capsule);
+      return divergence
         ? {
-            reason: blocker,
-            detail: 'The recording cannot supply a complete successful stdout/stderr baseline.',
+            reason: divergence,
+            detail: `The ${capsule.tab.language} recording came from a different engine than the CLI runtime, so its output is not a comparable baseline.`,
             exitCode: CLI_EXIT_CODES.verificationInconclusive,
           }
         : null;

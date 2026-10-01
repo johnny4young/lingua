@@ -79,7 +79,8 @@ it as a substitute for a repository's documented lint, typecheck, or test gates.
 Strict `lingua capsule verify <file> --json` requires a CLI that advertises that
 command in `lingua --help`. It checks captured source, not a modified project file.
 Only `verdict: pass` with `ok: true` is matching evidence. This does not certify
-security, hermetic execution, or equivalence between runtime engines.
+security, hermetic execution, or equivalence between runtime engines. Python, Go,
+and web Ruby recordings are always inconclusive because the app used a different engine.
 
 A successful Capsule replay can still contain `comparison.matches: false`. Classify that as
 reproducible output drift, not as a matching verification.

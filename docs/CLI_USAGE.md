@@ -486,7 +486,9 @@ source hash is checked before execution. Comparison is exact for status,
 stdout, and stderr; no whitespace normalization is performed. A missing stream
 without an omission flag means an empty stream. Non-success baselines, omitted
 required evidence, rich outputs, and per-line results cannot supply this
-initial verifier's complete oracle.
+initial verifier's complete oracle. Python, Go, and web Ruby recordings come
+from a different engine than the CLI runtime (Pyodide, Go WASM, Ruby WASM), so
+they are refused as `inconclusive` before execution.
 
 The JSON `ok` field is true only for `verdict: "pass"`. Output drift is `fail`
 and exits 5. Incomplete baseline or clipped output is `inconclusive` and exits

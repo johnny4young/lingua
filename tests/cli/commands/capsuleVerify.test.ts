@@ -64,6 +64,31 @@ describe('strict Capsule verification', () => {
     expect(body).toMatchObject({ verdict: 'inconclusive', reason: 'incomplete-baseline' });
     expect(body.run).toBeUndefined();
   });
+  it.each([
+    ['python', 'web'],
+    ['python', 'desktop'],
+    ['go', 'desktop'],
+    ['ruby', 'web'],
+  ] as const)(
+    'refuses a %s %s recording from a divergent engine before spawning',
+    async (language, platform) => {
+      const capsule = await source('throw new Error("MUST NOT EXECUTE")');
+      capsule.tab.language = language;
+      capsule.environment.platform = platform;
+      const { exit, body } = await verify(capsule);
+      expect(exit).toBe(6);
+      expect(body).toMatchObject({ verdict: 'inconclusive', reason: 'engine-divergent-baseline' });
+      expect(body.capsuleId).toBe(capsule.capsuleId);
+      expect(body.run).toBeUndefined();
+    }
+  );
+  it('does not treat a desktop Ruby recording as engine-divergent', async () => {
+    const capsule = await source('puts 3');
+    capsule.tab.language = 'ruby';
+    capsule.environment.platform = 'desktop';
+    const { body } = await verify(capsule);
+    expect(body.reason).not.toBe('engine-divergent-baseline');
+  });
   it('passes a baseline exactly at the CLI capture limit', async () => {
     const capsule = await source(`process.stdout.write("x".repeat(${CLI_OUTPUT_PAYLOAD_BYTES}));`);
     capsule.result.stdout = 'x'.repeat(CLI_OUTPUT_PAYLOAD_BYTES);
