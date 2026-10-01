@@ -96,7 +96,7 @@ export const CLI_HELP_CATALOG = {
       id: 'capsule-verify', topLevel: 'capsule',
       invocation: 'lingua capsule verify <file> [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]',
       summary: 'Strictly verify captured source against complete successful recorded streams.',
-      description: 'Returns pass, fail, or inconclusive. Drift exits 5, incomplete evidence exits 6. Execution uses the local CLI runtime, not a hermetic sandbox.',
+      description: 'Returns pass, fail, or inconclusive. Stream drift exits 5, incomplete evidence exits 6, and failed or timed-out runs keep exits 2-3. Execution uses the local CLI runtime, not a hermetic sandbox.',
       flags: ['timeout', 'env', 'json', 'quiet', 'color', 'help'],
       examples: [{ command: 'lingua capsule verify ./run.capsule.json --json', description: 'Fail a CI gate when recorded stdout/stderr differs.' }],
     },

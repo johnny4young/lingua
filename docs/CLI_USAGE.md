@@ -447,7 +447,7 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 | 2    | `runtimeError`          | Adapter/runtime failure, non-zero program exit, timeout, or stopped execution.               |
 | 3    | `unsupportedCapability` | Unsupported source/runtime mode, binary utility output, or required host runtime missing.    |
 | 4    | `internal`              | Caught exception we did not classify.                                                        |
-| 5    | `verificationFailed`    | Strict verification found status or stream drift.                                            |
+| 5    | `verificationFailed`    | Strict verification found stream drift in a successful run.                                  |
 | 6    | `verificationInconclusive` | Strict verification could not establish complete evidence.                               |
 
 ## Out of scope

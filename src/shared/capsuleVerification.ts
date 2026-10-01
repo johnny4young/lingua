@@ -9,7 +9,10 @@ export interface CapsuleComparison {
   stdout: boolean;
   stderr: boolean;
 }
-export function capsuleVerificationBlocker(capsule: RunCapsuleV1): string | null {
+export function capsuleVerificationBlocker(
+  capsule: RunCapsuleV1,
+  maxStreamBytes = MAX_STREAM_BYTES
+): string | null {
   if (capsule.result.status !== 'success') return 'unsupported-baseline-status';
   if (
     capsule.privacy.omittedFields.some(field =>
@@ -20,8 +23,8 @@ export function capsuleVerificationBlocker(capsule: RunCapsuleV1): string | null
   if (capsule.result.lineResults?.length || capsule.result.richOutputs?.length)
     return 'unsupported-baseline-output';
   if (
-    utf8ByteLength(capsule.result.stdout ?? '') > MAX_STREAM_BYTES ||
-    utf8ByteLength(capsule.result.stderr ?? '') > MAX_STREAM_BYTES
+    utf8ByteLength(capsule.result.stdout ?? '') > maxStreamBytes ||
+    utf8ByteLength(capsule.result.stderr ?? '') > maxStreamBytes
   )
     return 'incomplete-baseline';
   return null;

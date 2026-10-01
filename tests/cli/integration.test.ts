@@ -11,35 +11,12 @@
  * CI.
  */
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
-
-const BUNDLE_PATH = path.resolve(process.cwd(), 'dist/cli/lingua.cjs');
-const BUNDLE_AVAILABLE = existsSync(BUNDLE_PATH);
-
-function runCli(
-  args: ReadonlyArray<string>,
-  stdin?: string,
-  environment: Readonly<Record<string, string | undefined>> = {}
-) {
-  const result = spawnSync(process.execPath, [BUNDLE_PATH, ...args], {
-    input: stdin,
-    encoding: 'utf8',
-    timeout: 10_000,
-    env: { ...process.env, ...environment },
-  });
-  return {
-    code: result.status,
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-  };
-}
-
-const describeIfBundle = BUNDLE_AVAILABLE ? describe : describe.skip;
+import { BUNDLE_AVAILABLE, BUNDLE_PATH, describeIfBundle, runCli } from './cliBundle';
 
 describeIfBundle('CLI integration (dist/cli/lingua.cjs)', () => {
   it('exits 0 on --help', () => {
