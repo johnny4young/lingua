@@ -965,3 +965,5 @@ Keep tests close to the behavior they validate, even though the repository uses 
 Project Go/Rust definition/reference providers synchronize dirty buffers and reject version, cancellation and root changes. CodeEditor owns stable Go/Rust model paths and capability-backed navigation opening; dirty tabs are reused, not overwritten.
 
 - [`hooks/useLspProjectDocuments.ts`](hooks/useLspProjectDocuments.ts) keeps authorized project buffers synchronized while tabs remain open, independent of editor focus; standalone LSP documents retain active-model ownership.
+
+`components/Editor/lspEditorOpener.ts` owns project-authorized navigation opens and only queues a range after the destination actually becomes active.

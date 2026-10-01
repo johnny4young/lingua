@@ -16,3 +16,6 @@ still reach Monaco's error handler; no global error or harness filtering is adde
 Occurrence decorations, references and the existing editor options stay enabled.
 
 Project documents remain open in the server while their tabs exist, including inactive dirty buffers. Switching focus does not close and reopen those documents; closing a tab, changing the root, or losing the server context drops ownership.
+
+Destination opening rechecks that the requested buffer actually became active. A
+refused or stale open never queues a selection for a later visit to that buffer.

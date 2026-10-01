@@ -12,6 +12,8 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 
+- Do not queue a Go/Rust destination selection when a stale file open was refused.
+
 - Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
 
 - Patch transitive bundled and independently locked Worker undici versions above current advisory floors.
