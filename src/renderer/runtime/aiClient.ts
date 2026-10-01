@@ -14,6 +14,8 @@
  */
 
 import type { ChatMessage } from '../../shared/ai/explainError';
+import { utf8ByteLength } from '../../shared/utf8';
+import { readAiResponseBody, AiResponseError, AI_RESPONSE_LIMITS } from './aiResponseBody';
 
 /** Default request timeout. */
 const DEFAULT_AI_TIMEOUT_MS = 60_000;
@@ -30,12 +32,7 @@ export interface AiProviderConfig {
 }
 
 type AiErrorKind =
-  | 'config'
-  | 'network'
-  | 'timeout'
-  | 'auth'
-  | 'http'
-  | 'parse';
+  'config' | 'network' | 'timeout' | 'auth' | 'http' | 'parse' | 'limit' | 'cancelled';
 
 export type AiChatResult =
   | { readonly ok: true; readonly content: string; readonly model?: string }
@@ -54,14 +51,16 @@ export interface AiChatRequest {
 export interface RunChatCompletionOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
+  /** Absolute wall-clock budget, independently of streaming activity. */
+  readonly absoluteTimeoutMs?: number;
   /**
    * Streaming: when provided the request asks for SSE (`stream: true`) and
    * this callback receives the ACCUMULATED text after every delta, so a UI
    * can render progressively. The resolved result still carries the full
    * content. Servers that ignore `stream` fall back to the single-JSON
    * parse transparently. With streaming, the timeout is a STALL deadline —
-   * it re-arms on every chunk — so a long answer that keeps flowing is
-   * never cut off mid-sentence.
+   * it re-arms on every chunk — subject to a separate five-minute absolute ceiling. Updates are coalesced
+   * to at most one per 50 ms, plus the first and final accepted text.
    */
   readonly onChunk?: (textSoFar: string) => void;
   /** Test seam: override global `fetch`. */
@@ -81,11 +80,7 @@ type NormalizedAiProviderConfig =
     };
 
 function isLoopbackHostname(hostname: string): boolean {
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '[::1]'
-  );
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
 
 /** Validate and normalize the endpoint/key/model before a network request. */
@@ -124,64 +119,6 @@ function extractContent(payload: unknown): string | null {
   return typeof content === 'string' ? content : null;
 }
 
-/** Extract the delta text from one OpenAI-compatible SSE chunk payload. */
-function extractDelta(payload: unknown): string | null {
-  if (payload === null || typeof payload !== 'object') return null;
-  const choices = (payload as { choices?: unknown }).choices;
-  if (!Array.isArray(choices) || choices.length === 0) return null;
-  const first = choices[0] as { delta?: { content?: unknown } };
-  const content = first?.delta?.content;
-  return typeof content === 'string' ? content : null;
-}
-
-/**
- * Consume an OpenAI-compatible `text/event-stream` body, invoking `onChunk`
- * with the accumulated text after each delta and re-arming the stall
- * deadline via `onProgress`. Malformed data lines are skipped (keep-alives,
- * vendor extras) — the stream fails only if it ends with no text at all.
- */
-async function readSseStream(
-  body: ReadableStream<Uint8Array>,
-  onChunk: (textSoFar: string) => void,
-  onProgress: () => void
-): Promise<string> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let text = '';
-
-  const processLine = (line: string): void => {
-    if (!line.startsWith('data:')) return;
-    const data = line.slice(5).trim();
-    if (data === '[DONE]') return;
-    try {
-      const delta = extractDelta(JSON.parse(data));
-      if (delta) {
-        text += delta;
-        onChunk(text);
-      }
-    } catch {
-      // Permissive by design: skip non-JSON keep-alive / vendor lines.
-    }
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    onProgress();
-    buffer += decoder.decode(value, { stream: true });
-    let newline: number;
-    while ((newline = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newline).replace(/\r$/, '');
-      buffer = buffer.slice(newline + 1);
-      processLine(line);
-    }
-  }
-  buffer += decoder.decode();
-  if (buffer.length > 0) processLine(buffer.replace(/\r$/, ''));
-  return text;
-}
-
 /**
  * POST an OpenAI-compatible chat completion. Always resolves to a typed
  * result; never throws. The key travels only in the `Authorization` header
@@ -204,13 +141,10 @@ export async function runChatCompletion(
 
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   const controller = new AbortController();
-  const timeoutMs = Math.min(
-    options.timeoutMs ?? DEFAULT_AI_TIMEOUT_MS,
-    MAX_AI_TIMEOUT_MS
-  );
-  // Streaming re-arms this on every chunk (stall deadline); the non-streaming
-  // path arms it once, preserving the original absolute-deadline behavior.
+  const timeoutMs = boundedTimeout(options.timeoutMs, DEFAULT_AI_TIMEOUT_MS);
+  const absoluteTimeoutMs = boundedTimeout(options.absoluteTimeoutMs, MAX_AI_TIMEOUT_MS);
   let timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
+  const absoluteTimer = setTimeout(() => controller.abort('timeout'), absoluteTimeoutMs);
   const rearmTimer = (): void => {
     clearTimeout(timer);
     timer = setTimeout(() => controller.abort('timeout'), timeoutMs);
@@ -222,6 +156,7 @@ export async function runChatCompletion(
   }
 
   try {
+    if (controller.signal.aborted) throw new AiResponseError('cancelled');
     const response = await fetchImpl(normalizedConfig.endpoint, {
       method: 'POST',
       headers: {
@@ -242,9 +177,10 @@ export async function runChatCompletion(
       // Surface a short server message when available, but never the key.
       let detail = '';
       try {
-        detail = (await response.text()).slice(0, 500);
-      } catch {
-        /* body already consumed / unreadable */
+        detail = await readAiResponseBody(response, controller.signal, keepDeadline);
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        // Oversized/unreadable errors keep the HTTP status, not a partial body.
       }
       // Defense in depth: a misconfigured proxy/server can echo the request
       // `Authorization` header back in its error body, which would reintroduce
@@ -252,7 +188,7 @@ export async function runChatCompletion(
       // before it is appended so the "key never leaks" guarantee holds even on
       // the endpoint-error path. split/join avoids regex-escaping the key.
       if (detail) {
-        detail = detail.split(normalizedConfig.apiKey).join('[redacted]');
+        detail = detail.split(normalizedConfig.apiKey).join('[redacted]').slice(0, 500);
       }
       return {
         ok: false,
@@ -269,15 +205,12 @@ export async function runChatCompletion(
     // it. A server that ignores `stream: true` answers plain JSON and falls
     // through to the single-parse below.
     const contentType = response.headers.get('content-type') ?? '';
-    if (
-      options.onChunk &&
-      contentType.includes('text/event-stream') &&
-      response.body
-    ) {
-      const text = await readSseStream(
-        response.body,
-        options.onChunk,
-        rearmTimer
+    if (options.onChunk && contentType.includes('text/event-stream') && response.body) {
+      const text = await readAiResponseBody(
+        response,
+        controller.signal,
+        rearmTimer,
+        options.onChunk
       );
       if (text.length === 0) {
         return {
@@ -291,8 +224,9 @@ export async function runChatCompletion(
 
     let payload: unknown;
     try {
-      payload = await response.json();
-    } catch {
+      payload = JSON.parse(await readAiResponseBody(response, controller.signal, keepDeadline));
+    } catch (error) {
+      if (error instanceof AiResponseError || controller.signal.aborted) throw error;
       return { ok: false, kind: 'parse', message: 'AI response was not valid JSON.' };
     }
     const content = extractContent(payload);
@@ -303,16 +237,33 @@ export async function runChatCompletion(
         message: 'AI response did not contain a completion.',
       };
     }
+    if (utf8ByteLength(content) > AI_RESPONSE_LIMITS.contentBytes)
+      throw new AiResponseError('limit');
     return { ok: true, content, model };
   } catch (err) {
     if (controller.signal.aborted && controller.signal.reason === 'timeout') {
       return { ok: false, kind: 'timeout', message: 'The AI request timed out.' };
     }
-    const message =
-      err instanceof Error ? err.message : String(err ?? 'network error');
+    if (controller.signal.aborted)
+      return { ok: false, kind: 'cancelled', message: 'The AI request was cancelled.' };
+    if (err instanceof AiResponseError) return { ok: false, kind: err.kind, message: err.message };
+    const message = (err instanceof Error ? err.message : String(err ?? 'network error'))
+      .split(normalizedConfig.apiKey)
+      .join('[redacted]');
     return { ok: false, kind: 'network', message };
   } finally {
     clearTimeout(timer);
+    clearTimeout(absoluteTimer);
+    controller.abort('finished');
     if (options.signal) options.signal.removeEventListener('abort', onAbort);
   }
+}
+
+// Only SSE re-arms; non-streaming bodies stay under the original absolute deadline.
+function keepDeadline(): void {}
+
+function boundedTimeout(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? Math.min(Math.floor(value) || 1, MAX_AI_TIMEOUT_MS)
+    : fallback;
 }

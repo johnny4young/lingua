@@ -6,6 +6,10 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
+- **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
+
 ## [1.5.1] — 2026-09-24
 
 ### Added

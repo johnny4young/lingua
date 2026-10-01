@@ -23,6 +23,7 @@ import {
   runChatCompletion,
   type AiChatResult,
 } from '../../runtime/aiClient';
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from '../AI/ExplainErrorAnswer';
@@ -112,7 +113,7 @@ export function AskSqlDialog({
       );
       if (controller.signal.aborted) return;
       if (result.ok) setPhase({ kind: 'done', content: result.content });
-      else setPhase({ kind: 'error', message: result.message });
+      else setPhase({ kind: 'error', message: aiFailureMessage(result, t) });
     } finally {
       if (activeControllerRef.current === controller) {
         activeControllerRef.current = null;
@@ -189,7 +190,7 @@ export function AskSqlDialog({
             <ExplainErrorAnswer content={phase.content} />
           ) : (
             <p data-testid="ask-sql-error" className="text-error">
-              {t('ai.explain.failed', { message: phase.message })}
+              {phase.message}
             </p>
           )}
         </div>
