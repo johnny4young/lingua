@@ -21,6 +21,8 @@ export const CLI_EXIT_CODES = {
   runtimeError: 2,
   unsupportedCapability: 3,
   internal: 4,
+  verificationFailed: 5,
+  verificationInconclusive: 6,
 } as const;
 
 export type CliExitCode = (typeof CLI_EXIT_CODES)[keyof typeof CLI_EXIT_CODES];

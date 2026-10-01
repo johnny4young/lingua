@@ -67,7 +67,7 @@ _lingua() {
       COMPREPLY=( $(compgen -W "${colorWords}" -- "$cur") )
       return
       ;;
-    --input|--stdin)
+    --input|--stdin|--target|--root)
       compopt -o filenames 2>/dev/null || true
       COMPREPLY=( $(compgen -f -- "$cur") )
       return
@@ -105,9 +105,14 @@ _lingua() {
     capsule)
       relative=$(( COMP_CWORD - command_index ))
       if (( relative == 1 )); then
-        COMPREPLY=( $(compgen -W "validate replay" -- "$cur") )
+        COMPREPLY=( $(compgen -W "validate replay verify verify-suite" -- "$cur") )
       elif [[ "$cur" == -* ]]; then
-        COMPREPLY=( $(compgen -W "--timeout --env --json --quiet --color --help" -- "$cur") )
+        local flags="--timeout --env --json --quiet --color --help"
+        case "\${COMP_WORDS[command_index+1]}" in
+          verify) flags="$flags --target" ;;
+          verify-suite) flags="$flags --root" ;;
+        esac
+        COMPREPLY=( $(compgen -W "$flags" -- "$cur") )
       else
         compopt -o filenames 2>/dev/null || true
         COMPREPLY=( $(compgen -f -- "$cur") )
@@ -141,7 +146,7 @@ function renderZshCompletion(): string {
 _lingua() {
   local context state state_descr line
   typeset -A opt_args
-  local -a commands utilities color_modes completion_targets
+  local -a commands utilities color_modes completion_targets capsule_flags
   local command_index index
   commands=(
     'utility:Run a shared utility adapter'
@@ -213,11 +218,17 @@ _lingua() {
           ;;
         capsule)
           if (( CURRENT == 2 )); then
-            _values 'capsule action' validate replay
+            _values 'capsule action' validate replay verify verify-suite
           else
+            capsule_flags=()
+            case "\${words[2]}" in
+              verify) capsule_flags=('--target=[Current relative source file]:file:_files') ;;
+              verify-suite) capsule_flags=('--root=[Suite target root]:directory:_files -/') ;;
+            esac
             _arguments \\
               '2:capsule file:_files' \\
-              '--timeout=[Set replay timeout in milliseconds]:milliseconds:' \\
+              "\${capsule_flags[@]}" \\
+              '--timeout=[Set per-case execution timeout in milliseconds]:milliseconds:' \\
               '*--env=[Add an explicit NAME=value environment entry]:environment:' \\
               '--json[Emit structured JSON]' \\
               '--quiet[Suppress Lingua diagnostics]' \\
@@ -285,6 +296,14 @@ function __fish_lingua_using_command
     test -n "$command_index"; and test "$tokens[$command_index]" = "$argv[1]"
 end
 
+function __fish_lingua_using_capsule_action
+    set -l tokens (commandline -opc)
+    set -l command_index (__fish_lingua_command_index)
+    test -n "$command_index"; or return 1
+    set -l action_index (math $command_index + 1)
+    test "$tokens[$command_index]" = capsule; and test "$tokens[$action_index]" = "$argv[1]"
+end
+
 function __fish_lingua_needs_first_argument
     set -l tokens (commandline -opc)
     set -l command_index (__fish_lingua_command_index)
@@ -330,8 +349,10 @@ complete -c lingua -n '__fish_lingua_using_command run' -l stdin -r -F -d 'Forwa
 complete -c lingua -n '__fish_lingua_using_command run' -l timeout -r -d 'Set wall-clock timeout in milliseconds'
 complete -c lingua -n '__fish_lingua_using_command run' -l env -r -d 'Add an explicit NAME=value environment entry'
 
-complete -c lingua -n '__fish_lingua_needs_first_argument capsule' -a 'validate replay'
-complete -c lingua -n '__fish_lingua_using_command capsule' -l timeout -r -d 'Set replay timeout in milliseconds'
+complete -c lingua -n '__fish_lingua_needs_first_argument capsule' -a 'validate replay verify verify-suite'
+complete -c lingua -n '__fish_lingua_using_capsule_action verify' -l target -r -d 'Current relative source file'
+complete -c lingua -n '__fish_lingua_using_capsule_action verify-suite' -l root -r -d 'Suite target root'
+complete -c lingua -n '__fish_lingua_using_command capsule' -l timeout -r -d 'Set per-case execution timeout in milliseconds'
 complete -c lingua -n '__fish_lingua_using_command capsule' -l env -r -d 'Add an explicit NAME=value environment entry'
 
 complete -c lingua -n '__fish_lingua_needs_first_argument list' -a 'utilities'

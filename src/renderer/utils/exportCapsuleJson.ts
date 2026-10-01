@@ -1,8 +1,4 @@
-import {
-  computeContentHash,
-  parseRunCapsule,
-  type RunCapsuleV1,
-} from '../../shared/runCapsule';
+import { computeContentHash, parseRunCapsule, type RunCapsuleV1 } from '../../shared/runCapsule';
 import { prepareRunCapsuleExport, trackCapsuleExport } from './exportCapsule';
 import { saveOrDownloadTextFile } from './saveTextFileToDisk';
 import { recordTrustEventBestEffort } from '../stores/trustEventStore';
@@ -19,6 +15,7 @@ export function capsuleCliCommands(fileName: string = CAPSULE_CLI_FILENAME) {
   return {
     fileName: name,
     validate: `lingua capsule validate "${name}" --json`,
+    verify: `lingua capsule verify "${name}" --json`,
     replay: `lingua capsule replay "${name}" --json`,
   };
 }
@@ -34,8 +31,9 @@ export async function exportCapsuleJsonToFile(
   const parsed = parseRunCapsule(json);
   let valid = false;
   try {
-    valid = parsed.ok &&
-      await computeContentHash(sanitised.source.content) === sanitised.source.contentHash;
+    valid =
+      parsed.ok &&
+      (await computeContentHash(sanitised.source.content)) === sanitised.source.contentHash;
   } catch {
     // An unavailable digest API is a failed export, not an unhandled click.
   }

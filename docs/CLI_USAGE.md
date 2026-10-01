@@ -447,6 +447,8 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 | 2    | `runtimeError`          | Adapter/runtime failure, non-zero program exit, timeout, or stopped execution.               |
 | 3    | `unsupportedCapability` | Unsupported source/runtime mode, binary utility output, or required host runtime missing.    |
 | 4    | `internal`              | Caught exception we did not classify.                                                        |
+| 5    | `verificationFailed`    | Strict verification found stream drift in a successful run.                                  |
+| 6    | `verificationInconclusive` | Strict verification could not establish complete evidence.                               |
 
 ## Out of scope
 
@@ -475,3 +477,33 @@ done
 lingua utility json-format --input expected.json --option indent=2 \
   > expected.formatted.json
 ```
+
+## Strict Capsule verification
+
+Use `lingua capsule verify ./run.capsule.json --json` to check a complete,
+successful recording against a new execution of its **captured** source. The
+source hash is checked before execution. Comparison is exact for status,
+stdout, and stderr; no whitespace normalization is performed. A missing stream
+without an omission flag means an empty stream. Non-success baselines, omitted
+required evidence, rich outputs, and per-line results cannot supply this
+initial verifier's complete oracle. Python, Go, and web Ruby recordings come
+from a different engine than the CLI runtime (Pyodide, Go WASM, Ruby WASM), so
+they are refused as `inconclusive` before execution.
+
+The JSON `ok` field is true only for `verdict: "pass"`. Output drift is `fail`
+and exits 5. Incomplete baseline or clipped output is `inconclusive` and exits
+6. Input errors (1), runtime failure/timeout (2), unavailable capabilities (3),
+and internal errors (4) retain their existing exit classification and never
+produce a pass. The result exposes recorded and actual runtime labels and
+explicit output-truncation flags when present.
+
+This executes local code with host permissions. It does not authenticate the
+author, provide a sandbox, recreate dependencies, or promise that CLI and
+browser engines are identical. It also does not verify later changes to a
+project file: this command uses the source inside the recording. `validate`
+remains non-executing; `replay` still exits according to execution success,
+even when its comparison reports drift.
+
+## Current-file regression suites (unreleased/source builds)
+
+`lingua capsule verify <file> --target <relative-file> --json` checks the current saved file, not the captured source. `lingua capsule verify-suite <suite> --root <directory> --json` consumes suite v1. See [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) for schema, bounds, trust and verdicts. Feature-detect these commands in help; they are not in public CLI 1.5.1.

@@ -76,6 +76,50 @@
       ]
     },
     {
+      "id": "capsule-verify",
+      "topLevel": "capsule",
+      "invocation": "lingua capsule verify <file> [--target <file>] [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]",
+      "summary": "Strictly verify captured source or an explicit current file against recorded streams.",
+      "description": "Returns pass, fail, or inconclusive. Stream drift exits 5, incomplete evidence exits 6, and failed or timed-out runs keep exits 2-3. Execution uses the local CLI runtime, not a hermetic sandbox.",
+      "flags": [
+        "target",
+        "timeout",
+        "env",
+        "json",
+        "quiet",
+        "color",
+        "help"
+      ],
+      "examples": [
+        {
+          "command": "lingua capsule verify ./run.capsule.json --json",
+          "description": "Fail a CI gate when recorded stdout/stderr differs."
+        }
+      ]
+    },
+    {
+      "id": "capsule-verify-suite",
+      "topLevel": "capsule",
+      "invocation": "lingua capsule verify-suite <suite> [--root <directory>] [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet]",
+      "summary": "Serially verify current files against independent Capsule baselines.",
+      "description": "Suite v1 allows 20 cases and 4 MiB, relative in-root targets and a five-minute total execution budget. Opening or importing a suite never executes it.",
+      "flags": [
+        "root",
+        "timeout",
+        "env",
+        "json",
+        "quiet",
+        "color",
+        "help"
+      ],
+      "examples": [
+        {
+          "command": "lingua capsule verify-suite ./regression.lingua-suite.json --root . --json",
+          "description": "Check current saved files, without updating expectations."
+        }
+      ]
+    },
+    {
       "id": "run",
       "topLevel": "run",
       "invocation": "lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>] [--env NAME=value ...] [--json] [--quiet] [-- args...]",
@@ -147,6 +191,22 @@
   ],
   "flags": [
     {
+      "id": "target",
+      "syntax": "--target <file>",
+      "summary": "Execute an explicit current relative file instead of captured source.",
+      "commands": [
+        "capsule-verify"
+      ]
+    },
+    {
+      "id": "root",
+      "syntax": "--root <directory>",
+      "summary": "Resolve suite targets inside this directory; defaults to cwd.",
+      "commands": [
+        "capsule-verify-suite"
+      ]
+    },
+    {
       "id": "input",
       "syntax": "--input <file>",
       "summary": "Read utility input from a file instead of stdin.",
@@ -168,7 +228,9 @@
       "summary": "Stop run or replay after 100–300000 ms.",
       "commands": [
         "run",
-        "capsule-replay"
+        "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite"
       ]
     },
     {
@@ -177,7 +239,9 @@
       "summary": "Repeat to add an explicit child-process environment value.",
       "commands": [
         "run",
-        "capsule-replay"
+        "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite"
       ]
     },
     {
@@ -196,6 +260,8 @@
         "utility",
         "capsule-validate",
         "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite",
         "run",
         "list-utilities"
       ]
@@ -208,6 +274,8 @@
         "utility",
         "capsule-validate",
         "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite",
         "run",
         "list-utilities"
       ]
@@ -236,6 +304,8 @@
         "utility",
         "capsule-validate",
         "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite",
         "run",
         "list-utilities",
         "completion"
@@ -257,6 +327,8 @@
         "utility",
         "capsule-validate",
         "capsule-replay",
+        "capsule-verify",
+        "capsule-verify-suite",
         "run",
         "list-utilities",
         "completion"
@@ -294,6 +366,16 @@
       "code": 4,
       "name": "internal",
       "summary": "An unexpected exception reached the CLI boundary."
+    },
+    {
+      "code": 5,
+      "name": "verificationFailed",
+      "summary": "Strict verification detected output drift."
+    },
+    {
+      "code": 6,
+      "name": "verificationInconclusive",
+      "summary": "Strict verification could not establish complete evidence."
     }
   ]
 }
