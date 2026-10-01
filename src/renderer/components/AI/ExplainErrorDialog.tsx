@@ -1,4 +1,3 @@
-import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 /**
  * implementation — "Explain this error" consent + result dialog.
  *
@@ -35,6 +34,7 @@ import {
   runChatCompletion,
   type AiChatResult,
 } from '../../runtime/aiClient';
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from './ExplainErrorAnswer';

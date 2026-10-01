@@ -177,6 +177,26 @@ describe('CronPhraseComposer', () => {
     await waitFor(() => expect(screen.getByText(/connection refused/)).toBeTruthy());
   });
 
+  it.each([
+    ['en', 'The AI response exceeded its size limit'],
+    ['es', 'La respuesta de IA superó el límite de tamaño'],
+  ])('localizes transport budget failures (%s)', async (language, notice) => {
+    await i18next.changeLanguage(language);
+    configureAi(true);
+    runChatCompletion.mockResolvedValueOnce({
+      ok: false,
+      kind: 'limit',
+      message: 'The AI response exceeded its resource budget.',
+    });
+    render(<CronPhraseComposer onExpression={vi.fn()} />);
+    generate('deploy the flux capacitor');
+
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-run'));
+    fireEvent.click(screen.getByTestId('cron-phrase-ai-send'));
+    await waitFor(() => expect(screen.getByText(new RegExp(notice))).toBeTruthy());
+    expect(screen.queryByText(/resource budget/)).toBeNull();
+  });
+
   it('cancels the preview without sending anything', () => {
     configureAi(true);
     render(<CronPhraseComposer onExpression={vi.fn()} />);

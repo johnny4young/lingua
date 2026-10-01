@@ -180,6 +180,32 @@ describe('AI response budgets', () => {
     expect(cancel).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('a trickling JSON body cannot re-arm the non-streaming deadline', async () => {
+    vi.useFakeTimers();
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream = controller;
+      },
+      cancel,
+    });
+    const pending = runChatCompletion(request, config, {
+      fetchImpl: fetchResponse(
+        new Response(body, { headers: { 'content-type': 'application/json' } })
+      ),
+      timeoutMs: 20,
+    });
+    let settled = false;
+    void pending.then(() => (settled = true));
+    await vi.advanceTimersByTimeAsync(15);
+    stream.enqueue(encoder.encode(' '));
+    await vi.advanceTimersByTimeAsync(6);
+    expect(settled).toBe(true);
+    expect(await pending).toMatchObject({ ok: false, kind: 'timeout' });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('external abort closes an outstanding read and discards pending updates', async () => {
     const controller = new AbortController();
     const body = response([event('partial')], true, false);

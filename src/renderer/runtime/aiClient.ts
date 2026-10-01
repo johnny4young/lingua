@@ -14,6 +14,7 @@
  */
 
 import type { ChatMessage } from '../../shared/ai/explainError';
+import { utf8ByteLength } from '../../shared/utf8';
 import { readAiResponseBody, AiResponseError, AI_RESPONSE_LIMITS } from './aiResponseBody';
 
 /** Default request timeout. */
@@ -176,7 +177,7 @@ export async function runChatCompletion(
       // Surface a short server message when available, but never the key.
       let detail = '';
       try {
-        detail = await readAiResponseBody(response, controller.signal, rearmTimer);
+        detail = await readAiResponseBody(response, controller.signal, keepDeadline);
       } catch (error) {
         if (controller.signal.aborted) throw error;
         // Oversized/unreadable errors keep the HTTP status, not a partial body.
@@ -223,7 +224,7 @@ export async function runChatCompletion(
 
     let payload: unknown;
     try {
-      payload = JSON.parse(await readAiResponseBody(response, controller.signal, rearmTimer));
+      payload = JSON.parse(await readAiResponseBody(response, controller.signal, keepDeadline));
     } catch (error) {
       if (error instanceof AiResponseError || controller.signal.aborted) throw error;
       return { ok: false, kind: 'parse', message: 'AI response was not valid JSON.' };
@@ -236,7 +237,7 @@ export async function runChatCompletion(
         message: 'AI response did not contain a completion.',
       };
     }
-    if (new TextEncoder().encode(content).byteLength > AI_RESPONSE_LIMITS.contentBytes)
+    if (utf8ByteLength(content) > AI_RESPONSE_LIMITS.contentBytes)
       throw new AiResponseError('limit');
     return { ok: true, content, model };
   } catch (err) {
@@ -257,6 +258,9 @@ export async function runChatCompletion(
     if (options.signal) options.signal.removeEventListener('abort', onAbort);
   }
 }
+
+// Only SSE re-arms; non-streaming bodies stay under the original absolute deadline.
+function keepDeadline(): void {}
 
 function boundedTimeout(value: number | undefined, fallback: number): number {
   return value !== undefined && Number.isFinite(value) && value > 0

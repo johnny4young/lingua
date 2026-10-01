@@ -1,7 +1,7 @@
 {
-  "ai.response.limit": "La respuesta de AI superó el límite de tamaño. No se guardó una respuesta incompleta. Prueba una solicitud más pequeña.",
-  "ai.response.cancelled": "La solicitud de AI se canceló.",
-  "ai.response.timeout": "La solicitud de AI agotó el tiempo. No se guardó una respuesta incompleta.",
+  "ai.response.limit": "La respuesta de IA superó el límite de tamaño. No se guardó una respuesta incompleta. Prueba una solicitud más pequeña.",
+  "ai.response.cancelled": "La solicitud de IA se canceló.",
+  "ai.response.timeout": "La solicitud de IA agotó el tiempo. No se guardó una respuesta incompleta.",
   "ai.explain.title": "Explica este error",
   "ai.explainCode.title": "Explica este código",
   "ai.explainCode.action": "Explicar con IA",

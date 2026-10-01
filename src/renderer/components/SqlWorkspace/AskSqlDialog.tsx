@@ -1,4 +1,3 @@
-import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 /**
  * implementation follow-on — "Ask AI" for the SQL workspace: natural language → SQL
  * over the LIVE DuckDB schema.
@@ -24,6 +23,7 @@ import {
   runChatCompletion,
   type AiChatResult,
 } from '../../runtime/aiClient';
+import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { ExplainErrorAnswer } from '../AI/ExplainErrorAnswer';

@@ -82,7 +82,9 @@ for (const language of ['en', 'es'] as const) {
     await page.getByTestId('ai-explain-code-followup-input').fill('More detail');
     await page.getByTestId('ai-explain-code-followup-send').click();
     await expect(page.getByTestId('ai-explain-code-error')).toContainText(
-      language === 'en' ? 'size limit' : 'límite de tamaño'
+      language === 'en'
+        ? 'response exceeded its size limit'
+        : 'respuesta de IA superó el límite de tamaño'
     );
     await expect(page.getByTestId('ai-explain-code-followup-input')).not.toBeVisible();
     expect(requests).toBe(2);
