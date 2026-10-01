@@ -73,6 +73,13 @@ it as a substitute for a repository's documented lint, typecheck, or test gates.
 | `2`  | Runtime failure, timeout, stop, or non-zero program exit | Report the failure as product evidence.                                  |
 | `3`  | Unsupported capability or missing runtime                | Report the missing boundary; do not substitute another runtime silently. |
 | `4`  | Unclassified internal failure                            | Preserve details and recommend a focused retry or issue report.          |
+| `5`  | Strict Capsule verification found output or status drift | Report drift; never claim a pass.                                       |
+| `6`  | Strict Capsule verification has incomplete evidence      | Report inconclusive; never claim a pass.                                |
+
+Strict `lingua capsule verify <file> --json` requires a CLI that advertises that
+command in `lingua --help`. It checks captured source, not a modified project file.
+Only `verdict: pass` with `ok: true` is matching evidence. This does not certify
+security, hermetic execution, or equivalence between runtime engines.
 
 A successful Capsule replay can still contain `comparison.matches: false`. Classify that as
 reproducible output drift, not as a matching verification.

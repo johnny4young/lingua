@@ -308,3 +308,30 @@ describe.skipIf(process.env.LINGUA_CHECK_FRESHNESS !== '1')(
     });
   }
 );
+
+// Current security floors: independent locks do not inherit root overrides.
+describe('undici advisory floors', () => {
+  it.each(['', 'license-server', 'update-server'])(
+    'keeps all %s undici resolutions patched',
+    project => {
+      const lock = load(readFileSync(resolve(ROOT, project, 'pnpm-lock.yaml'), 'utf8')) as {
+        packages: Record<string, unknown>;
+      };
+      const versions = Object.keys(lock.packages).filter(key => /^undici@\d+\.\d+\.\d+$/.test(key));
+      expect(versions.length).toBeGreaterThan(0);
+      for (const key of versions) {
+        const [major, minor, patch] = /^undici@(\d+)\.(\d+)\.(\d+)$/
+          .exec(key)!
+          .slice(1)
+          .map(Number);
+        const minimum =
+          major === 6 ? [28, 1] : major === 7 ? [29, 1] : major === 8 ? [10, 2] : null;
+        expect(minimum, `unreviewed undici major: ${key}`).not.toBeNull();
+        expect(
+          minor! > minimum![0]! || (minor === minimum![0] && patch! >= minimum![1]!),
+          `unpatched ${project}/${key}`
+        ).toBe(true);
+      }
+    }
+  );
+});

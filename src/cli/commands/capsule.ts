@@ -179,7 +179,7 @@ export async function runReplayCapsuleCommand(
   return CLI_EXIT_CODES.runtimeError;
 }
 
-async function loadCapsule(
+export async function loadCapsule(
   filePath: string,
   io: CliIo
 ): Promise<{ ok: true; value: RunCapsuleV1 } | { ok: false; reason: string; detail?: string }> {

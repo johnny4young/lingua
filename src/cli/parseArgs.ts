@@ -43,6 +43,7 @@ export type CliCommandName =
   | 'utility'
   | 'capsule-validate'
   | 'capsule-replay'
+  | 'capsule-verify'
   | 'run'
   | 'list-utilities'
   | 'completion'
@@ -307,19 +308,22 @@ function parseUtility(rest: ReadonlyArray<string>, color: CliColorMode): ParsedA
 function parseCapsule(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
-      'lingua capsule requires a subcommand. Available: validate <file>, replay <file>'
+      'lingua capsule requires a subcommand. Available: validate <file>, replay <file>, verify <file>'
     );
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('capsule-validate', [], { ...freshFlags(color), help: true });
   }
+  if (sub === 'verify') {
+    return parseCapsuleReplay(rest.slice(1), color, 'capsule-verify');
+  }
   if (sub === 'replay') {
     return parseCapsuleReplay(rest.slice(1), color);
   }
   if (sub !== 'validate') {
     throw new CliUsageError(
-      `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>`
+      `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>, verify <file>`
     );
   }
   const flags = freshFlags(color);
@@ -356,7 +360,7 @@ function parseCapsule(rest: ReadonlyArray<string>, color: CliColorMode): ParsedA
   return finalize('capsule-validate', positionals, flags);
 }
 
-function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode, command: 'capsule-replay' | 'capsule-verify' = 'capsule-replay'): ParsedArgs {
   const flags = freshFlags(color);
   const positionals: string[] = [];
   for (let index = 0; index < rest.length; index += 1) {
@@ -382,13 +386,13 @@ function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode): P
     }
     if (arg.startsWith('-')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua capsule replay". Allowed: --timeout, --env, --json, --quiet, --color, --help`
+        `Unknown flag "${arg}" for "lingua capsule ${command.slice(8)}". Allowed: --timeout, --env, --json, --quiet, --color, --help`
       );
     }
     positionals.push(arg);
   }
-  assertSingleTarget('lingua capsule replay', positionals, flags.help, '<file>');
-  return finalize('capsule-replay', positionals, flags);
+  assertSingleTarget(`lingua capsule ${command.slice(8)}`, positionals, flags.help, '<file>');
+  return finalize(command, positionals, flags);
 }
 
 function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {

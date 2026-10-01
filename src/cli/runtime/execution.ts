@@ -61,6 +61,8 @@ export interface CliExecutionResult {
     | 'spawn-failed';
   detail?: string;
   recovery?: CliRuntimeRecovery;
+  /** Present only when captured bytes were clipped; never infer this from text. */
+  truncated?: { stdout: boolean; stderr: boolean };
 }
 
 interface StepResult {
@@ -110,7 +112,7 @@ export async function executeCliPlan(
         const missingRuntime = missing
           ? buildMissingRuntimeRecovery(step.command, plan.runtime)
           : undefined;
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'error', {
+        return finish(plan, startedAt, result, stdout, stderr, 'error', {
           reason: missing ? 'missing-runtime' : 'spawn-failed',
           detail:
             missingRuntime?.detail ?? `Failed to start ${step.command}: ${result.spawnError.message}`,
@@ -118,19 +120,19 @@ export async function executeCliPlan(
         });
       }
       if (result.timedOut) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'timeout', {
+        return finish(plan, startedAt, result, stdout, stderr, 'timeout', {
           reason: 'timeout',
           detail: `Run timed out after ${timeoutMs}ms.`,
         });
       }
       if (result.stopped) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'stopped', {
+        return finish(plan, startedAt, result, stdout, stderr, 'stopped', {
           reason: 'stopped',
           detail: 'Run stopped by SIGINT or SIGTERM.',
         });
       }
       if (result.exitCode !== 0) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'error', {
+        return finish(plan, startedAt, result, stdout, stderr, 'error', {
           reason: step.kind === 'prepare' ? 'prepare-failed' : 'non-zero-exit',
           detail:
             step.kind === 'prepare'
@@ -150,6 +152,7 @@ export async function executeCliPlan(
       signal: null,
       stdout: stdout.value,
       stderr: stderr.value,
+      ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
       ...(last ? {} : { detail: 'Execution plan contained no steps.' }),
     };
   } finally {
@@ -165,8 +168,8 @@ function finish(
   plan: CliExecutionPlan,
   startedAt: number,
   result: StepResult,
-  stdout: string,
-  stderr: string,
+  stdout: CappedOutput,
+  stderr: CappedOutput,
   status: Exclude<CliRunStatus, 'success'>,
   diagnostic: Pick<CliExecutionResult, 'reason' | 'detail' | 'recovery'>
 ): CliExecutionResult {
@@ -177,8 +180,9 @@ function finish(
     durationMs: Date.now() - startedAt,
     exitCode: result.exitCode,
     signal: result.signal,
-    stdout,
-    stderr,
+    stdout: stdout.value,
+    stderr: stderr.value,
+    ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
     ...diagnostic,
   };
 }

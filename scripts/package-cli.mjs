@@ -86,13 +86,7 @@ export function cliArchiveName(version, target) {
   return `lingua-cli-v${version}-${target}.tar.gz`;
 }
 
-export function buildTarArchiveArgs({
-  archiveName,
-  outDir,
-  releaseRoot,
-  entries,
-  pathApi = path,
-}) {
+export function buildTarArchiveArgs({ archiveName, outDir, releaseRoot, entries, pathApi = path }) {
   const relativeReleaseRoot = pathApi.relative(outDir, releaseRoot);
   const escapesOutDir =
     relativeReleaseRoot === '..' || relativeReleaseRoot.startsWith(`..${pathApi.sep}`);
@@ -271,6 +265,45 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
     runtimeEnvelope?.run?.stdout !== 'lingua-standalone-runtime-ok\n'
   ) {
     throw new Error(`Standalone CLI runtime smoke failed: ${runtimeSmoke.stdout.trim()}`);
+  }
+
+  // Verify the new opt-in verdict on the actual SEA, including nonzero
+  // drift. Replay intentionally retains its historical execution-only exit.
+  const capsuleSource = 'console.log(3);';
+  const capsuleSmokePath = path.join(staging, 'standalone-verification.json');
+  const capsule = {
+    version: 1,
+    capsuleId: '00000000-0000-4000-8000-000000000001',
+    createdAt: new Date().toISOString(),
+    appVersion: rootPackage.version,
+    tab: { name: 'fixture.js', language: 'javascript', runtimeMode: 'worker', workflowMode: 'run' },
+    source: {
+      content: capsuleSource,
+      contentHash: createHash('sha256').update(capsuleSource).digest('hex'),
+    },
+    input: {},
+    result: { status: 'success', durationMs: 0, stdout: '3\n' },
+    environment: { platform: 'desktop', runner: 'node-worker' },
+    privacy: { redactionVersion: '2026-05-21', omittedFields: [] },
+  };
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const verificationSmoke = run(binaryPath, ['capsule', 'verify', capsuleSmokePath, '--json'], {
+    capture: true,
+  });
+  if (JSON.parse(verificationSmoke.stdout)?.verdict !== 'pass') {
+    throw new Error('Standalone Capsule verification failed.');
+  }
+  capsule.result.stdout = 'deliberately incorrect\n';
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const driftSmoke = spawnSync(binaryPath, ['capsule', 'verify', capsuleSmokePath, '--json'], {
+    encoding: 'utf8',
+  });
+  if (
+    driftSmoke.status !== 5 ||
+    JSON.parse(driftSmoke.stdout)?.ok !== false ||
+    JSON.parse(driftSmoke.stdout)?.verdict !== 'fail'
+  ) {
+    throw new Error('Standalone Capsule drift was not rejected.');
   }
 
   await cp(
