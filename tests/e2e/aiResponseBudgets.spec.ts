@@ -86,6 +86,9 @@ for (const language of ['en', 'es'] as const) {
         ? 'response exceeded its size limit'
         : 'respuesta de IA superó el límite de tamaño'
     );
+    await expect(page.getByTestId('ai-explain-code-error')).not.toContainText(
+      language === 'en' ? 'request failed' : 'falló'
+    );
     await expect(page.getByTestId('ai-explain-code-followup-input')).not.toBeVisible();
     expect(requests).toBe(2);
     mkdirSync('output/review/ai-response-budgets', { recursive: true });

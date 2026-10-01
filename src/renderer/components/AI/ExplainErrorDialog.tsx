@@ -309,7 +309,7 @@ export function ExplainErrorDialog({
               ) : null}
               {phase.kind === 'error' ? (
                 <p data-testid="ai-explain-error" className="text-error">
-                  {t('ai.explain.failed', { message: phase.message })}
+                  {phase.message}
                 </p>
               ) : null}
             </div>

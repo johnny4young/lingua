@@ -121,8 +121,9 @@ action and a preview of exactly what is sent.
 
 ## Response resource budgets
 
-Every JSON, SSE, and error body is read incrementally with a 2 MiB wire cap.
-SSE pending lines are capped at 256 KiB; generated text at 256 KiB UTF-8.
+Every JSON and error body is read incrementally with a 2 MiB wire cap; SSE gets
+16 MiB because each token carries a JSON envelope. SSE pending lines are capped
+at 256 KiB; generated text at 256 KiB UTF-8.
 The default inactivity deadline remains 60 seconds, with a separate five-minute
 absolute ceiling that keepalives cannot extend. `[DONE]`, cancellation, and
 budget failures close the reader; normal EOF remains compatible with local

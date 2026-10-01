@@ -3,6 +3,8 @@ import { utf8ByteLength } from '../../shared/utf8';
 
 export const AI_RESPONSE_LIMITS = {
   responseBytes: 2 * 1024 * 1024,
+  // SSE spends ~200 envelope bytes per token; frame and content caps bound retained memory.
+  streamBytes: 16 * 1024 * 1024,
   frameBytes: 256 * 1024,
   contentBytes: 256 * 1024,
 } as const;
@@ -31,6 +33,7 @@ export async function readAiResponseBody(
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let bytes = 0;
+  const wireBytes = onChunk ? AI_RESPONSE_LIMITS.streamBytes : AI_RESPONSE_LIMITS.responseBytes;
   let buffer = '';
   let bufferBytes = 0;
   let text = '';
@@ -125,7 +128,7 @@ export async function readAiResponseBody(
       checkActive();
       if (result.done) break;
       bytes += result.value.byteLength;
-      if (bytes > AI_RESPONSE_LIMITS.responseBytes) throw new AiResponseError('limit');
+      if (bytes > wireBytes) throw new AiResponseError('limit');
       onProgress();
       accept(decoder.decode(result.value, { stream: true }));
       checkActive();

@@ -190,7 +190,7 @@ export function AskSqlDialog({
             <ExplainErrorAnswer content={phase.content} />
           ) : (
             <p data-testid="ask-sql-error" className="text-error">
-              {t('ai.explain.failed', { message: phase.message })}
+              {phase.message}
             </p>
           )}
         </div>

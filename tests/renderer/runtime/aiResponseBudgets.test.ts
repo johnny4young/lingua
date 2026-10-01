@@ -86,10 +86,30 @@ describe('AI response budgets', () => {
   it('bounds all wire chunks, including keepalives', async () => {
     const line = ': ' + 'x'.repeat(65532) + '\n';
     const result = await runChatCompletion(request, config, {
-      fetchImpl: fetchResponse(response(Array(33).fill(line), true).value),
+      fetchImpl: fetchResponse(
+        response(Array(limits.streamBytes / 65536 + 1).fill(line), true).value
+      ),
       onChunk: () => {},
     });
     expect(result).toMatchObject({ ok: false, kind: 'limit' });
+  });
+  it('accepts a long stream whose per-token envelopes exceed the JSON wire cap', async () => {
+    const envelope = (content: string) =>
+      `data: ${JSON.stringify({
+        id: 'chatcmpl-fixture',
+        object: 'chat.completion.chunk',
+        created: 1_700_000_000,
+        model: 'fixture-model',
+        system_fingerprint: 'fp_fixture',
+        choices: [{ index: 0, delta: { content }, logprobs: null, finish_reason: null }],
+      })}\n\n`;
+    const events = Array.from({ length: 15_000 }, () => envelope(' tok'));
+    expect(encoder.encode(events.join('')).byteLength).toBeGreaterThan(limits.responseBytes);
+    const result = await runChatCompletion(request, config, {
+      fetchImpl: fetchResponse(response([...events, 'data: [DONE]\n\n'], true).value),
+      onChunk: () => {},
+    });
+    expect(result).toMatchObject({ ok: true, content: ' tok'.repeat(15_000) });
   });
   it('decodes Unicode split at every byte and flushes EOF without newline', async () => {
     const bytes = encoder.encode(event('漢😀').trimEnd());

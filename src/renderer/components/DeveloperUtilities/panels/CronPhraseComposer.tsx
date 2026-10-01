@@ -145,7 +145,7 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (controller.signal.aborted) return;
       if (!answer.ok) {
-        setAiPhase({ kind: 'error', message: aiFailureMessage(answer, t) });
+        setAiPhase({ kind: 'error', message: aiFailureMessage(answer, t, 'utilities.tool.cron.phrase.ai.error') });
         return;
       }
       const candidate = answer.content.trim().replace(/^`+|`+$/g, '');
@@ -351,7 +351,7 @@ export function CronPhraseComposer({ onExpression }: CronPhraseComposerProps) {
               ) : null}
               {aiPhase.kind === 'error' ? (
                 <StatusMessage
-                  message={t('utilities.tool.cron.phrase.ai.error', { message: aiPhase.message })}
+                  message={aiPhase.message}
                   tone="error"
                 />
               ) : null}
