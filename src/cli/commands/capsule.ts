@@ -15,6 +15,7 @@
  */
 
 import { CLI_EXIT_CODES, type CliExitCode } from '../exit-codes';
+import { compareCapsuleStreams } from '../../shared/capsuleVerification';
 import {
   computeContentHash,
   parseRunCapsule,
@@ -67,83 +68,9 @@ export async function runReplayCapsuleCommand(
   io: CliIo
 ): Promise<CliExitCode> {
   const label = 'lingua capsule replay';
-  const loaded = await loadCapsule(args.filePath, io);
-  if (!loaded.ok) {
-    return emitPreflightError(
-      args,
-      io,
-      loaded.reason,
-      loaded.detail ?? 'Capsule validation failed.',
-      CLI_EXIT_CODES.userInputError,
-      { command: 'capsule-replay' },
-      label
-    );
-  }
-  const capsule = loaded.value;
-  const actualHash = await computeContentHash(capsule.source.content);
-  if (actualHash !== capsule.source.contentHash) {
-    return emitPreflightError(
-      args,
-      io,
-      'content-hash-mismatch',
-      'Capsule source content does not match its recorded SHA-256 hash; refusing to execute it.',
-      CLI_EXIT_CODES.userInputError,
-      { command: 'capsule-replay', capsuleId: capsule.capsuleId },
-      label
-    );
-  }
-
-  let env: NodeJS.ProcessEnv;
-  try {
-    env = buildCliRuntimeEnvironment(args.env);
-  } catch (error) {
-    const reason =
-      error instanceof CliEnvironmentError ? error.reason : 'environment-resolution-failed';
-    return emitPreflightError(
-      args,
-      io,
-      reason,
-      errorMessage(error),
-      CLI_EXIT_CODES.userInputError,
-      { command: 'capsule-replay', capsuleId: capsule.capsuleId },
-      label
-    );
-  }
-
-  let plan;
-  try {
-    plan = await resolveCapsuleSource(
-      {
-        language: capsule.tab.language,
-        runtimeMode: capsule.tab.runtimeMode,
-        source: capsule.source.content,
-        capsuleId: capsule.capsuleId,
-      },
-      capsule.input.args ?? [],
-      env
-    );
-  } catch (error) {
-    if (error instanceof ExecutionTargetError) {
-      return emitPreflightError(
-        args,
-        io,
-        error.reason,
-        error.message,
-        CLI_EXIT_CODES.unsupportedCapability,
-        { command: 'capsule-replay', capsuleId: capsule.capsuleId },
-        label
-      );
-    }
-    return emitPreflightError(
-      args,
-      io,
-      'target-resolution-failed',
-      errorMessage(error),
-      CLI_EXIT_CODES.internal,
-      { command: 'capsule-replay', capsuleId: capsule.capsuleId },
-      label
-    );
-  }
+  const prepared = await prepareCapsuleExecution(args, io, label, { command: 'capsule-replay' });
+  if (!prepared.ok) return prepared.exitCode;
+  const { capsule, env, plan } = prepared;
 
   const result = await executeCliPlan(plan, {
     ...(capsule.input.stdin !== undefined ? { stdin: capsule.input.stdin } : {}),
@@ -151,7 +78,7 @@ export async function runReplayCapsuleCommand(
     env,
     ...(!args.json ? { onStdout: io.writeStdout, onStderr: io.writeStderr } : {}),
   });
-  const comparison = compareReplay(capsule, result);
+  const comparison = compareCapsuleStreams(capsule, result);
   emitExecution(
     args,
     io,
@@ -179,7 +106,96 @@ export async function runReplayCapsuleCommand(
   return CLI_EXIT_CODES.runtimeError;
 }
 
-async function loadCapsule(
+interface CapsulePreflightRefusal {
+  reason: string;
+  detail: string;
+  exitCode: CliExitCode;
+}
+
+/** Load, hash-check, gate, and resolve a capsule without executing it. */
+export async function prepareCapsuleExecution(
+  args: ReplayCapsuleArgs,
+  io: CliIo,
+  label: string,
+  extra: Record<string, unknown>,
+  gate?: (capsule: RunCapsuleV1) => CapsulePreflightRefusal | null
+): Promise<
+  | {
+      ok: true;
+      capsule: RunCapsuleV1;
+      env: NodeJS.ProcessEnv;
+      plan: Awaited<ReturnType<typeof resolveCapsuleSource>>;
+    }
+  | { ok: false; exitCode: CliExitCode }
+> {
+  const refuse = (
+    reason: string,
+    detail: string,
+    exitCode: CliExitCode,
+    fields: Record<string, unknown> = extra
+  ) => ({
+    ok: false as const,
+    exitCode: emitPreflightError(args, io, reason, detail, exitCode, fields, label),
+  });
+  const loaded = await loadCapsule(args.filePath, io);
+  if (!loaded.ok) {
+    return refuse(
+      loaded.reason,
+      loaded.detail ?? 'Capsule validation failed.',
+      CLI_EXIT_CODES.userInputError
+    );
+  }
+  const capsule = loaded.value;
+  const identified = { ...extra, capsuleId: capsule.capsuleId };
+  if ((await computeContentHash(capsule.source.content)) !== capsule.source.contentHash) {
+    return refuse(
+      'content-hash-mismatch',
+      'Capsule source content does not match its recorded SHA-256 hash; refusing to execute it.',
+      CLI_EXIT_CODES.userInputError,
+      identified
+    );
+  }
+  const refusal = gate?.(capsule);
+  if (refusal) return refuse(refusal.reason, refusal.detail, refusal.exitCode, identified);
+
+  let env: NodeJS.ProcessEnv;
+  try {
+    env = buildCliRuntimeEnvironment(args.env);
+  } catch (error) {
+    return refuse(
+      error instanceof CliEnvironmentError ? error.reason : 'environment-resolution-failed',
+      errorMessage(error),
+      CLI_EXIT_CODES.userInputError,
+      identified
+    );
+  }
+
+  try {
+    const plan = await resolveCapsuleSource(
+      {
+        language: capsule.tab.language,
+        runtimeMode: capsule.tab.runtimeMode,
+        source: capsule.source.content,
+        capsuleId: capsule.capsuleId,
+      },
+      capsule.input.args ?? [],
+      env
+    );
+    return { ok: true, capsule, env, plan };
+  } catch (error) {
+    if (error instanceof ExecutionTargetError) {
+      return refuse(error.reason, error.message, CLI_EXIT_CODES.unsupportedCapability, identified);
+    }
+    return refuse(
+      'target-resolution-failed',
+      errorMessage(error),
+      CLI_EXIT_CODES.internal,
+      identified
+    );
+  }
+}
+
+export async function loadCapsule(
   filePath: string,
   io: CliIo
 ): Promise<{ ok: true; value: RunCapsuleV1 } | { ok: false; reason: string; detail?: string }> {
@@ -198,16 +214,6 @@ async function loadCapsule(
     };
   }
   return parseRunCapsule(raw);
-}
-
-function compareReplay(
-  capsule: RunCapsuleV1,
-  result: Awaited<ReturnType<typeof executeCliPlan>>
-): { matches: boolean; status: boolean; stdout: boolean; stderr: boolean } {
-  const status = capsule.result.status === result.status;
-  const stdout = (capsule.result.stdout ?? '') === result.stdout;
-  const stderr = (capsule.result.stderr ?? '') === result.stderr;
-  return { matches: status && stdout && stderr, status, stdout, stderr };
 }
 
 function emit(

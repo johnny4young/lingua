@@ -124,6 +124,8 @@ jobs:
       # budgets in *.bench.test.ts gated.
       - name: Tests
         run: pnpm test
+      - name: Linux standalone CLI verification smoke
+        run: pnpm run package:cli -- --binary-only --expect-target linux-x64
       - name: Curated project template runtime smoke
         run: pnpm run smoke:project-templates
       - name: Upload project template smoke artifact
@@ -376,6 +378,8 @@ jobs:
           tests/shared/projectBundle.test.ts
           tests/main/dependencies.install.windows.test.ts
           tests/shared/python/interpreter.test.ts
+          tests/cli/commands/capsuleVerify.test.ts
+          tests/cli/capsuleVerifyBundle.test.ts
       # Build the real standalone archive on win32. Unit tests can prove path
       # normalization, but only GNU tar on the hosted Windows runner catches
       # drive-letter operands being mistaken for remote archive destinations.

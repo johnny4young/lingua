@@ -10,6 +10,9 @@ The format follows Keep a Changelog and groups changes by release.
 - Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
 - **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
 
+### Added
+- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
+
 ## [1.5.1] — 2026-09-24
 
 ### Added

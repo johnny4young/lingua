@@ -15,6 +15,7 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `lingua utility <utility-id>` | Run one shared developer-utility adapter. |
 | `lingua capsule validate <file>` | Validate a `RunCapsuleV1` without execution. |
 | `lingua capsule replay <file>` | Verify and replay a trusted single-source Capsule. |
+| `lingua capsule verify <file>` | Strict captured-source comparison; source-build / unreleased command. |
 | `lingua run <file-or-directory>` | Execute a source file or conventional project root. |
 | `lingua list utilities` | Print the live utility registry. |
 | `lingua completion [bash\|zsh\|fish\|install]` | Detect and install completions, or generate one shell script. |
@@ -28,8 +29,8 @@ This reference follows the same structured catalog used to generate `lingua --he
 | `--input <file>` | `utility` | Read utility input from a file instead of stdin. |
 | `--option key=value` | `utility` | Repeat to pass adapter-specific options. |
 | `--stdin <file>` | `run` | Forward file contents as program stdin. |
-| `--timeout <ms>` | `run`, `capsule replay` | Stop after 100–300000 ms. |
-| `--env NAME=value` | `run`, `capsule replay` | Repeat to add an explicit environment value. |
+| `--timeout <ms>` | `run`, `capsule replay`, `capsule verify` | Stop after 100–300000 ms. |
+| `--env NAME=value` | `run`, `capsule replay`, `capsule verify` | Repeat to add an explicit environment value. |
 | `--json` | data-producing commands | Emit one structured JSON document. |
 | `--quiet` | data-producing commands | Suppress Lingua diagnostics, not command output. |
 | `--yes` | `completion` | Approve detected completion changes without prompting. |
@@ -48,6 +49,8 @@ This reference follows the same structured catalog used to generate `lingua --he
 | 2 | `runtimeError` | Execution failed, timed out, stopped, or exited non-zero. |
 | 3 | `unsupportedCapability` | Runtime, mode, toolchain, or output is unsupported. |
 | 4 | `internal` | An unexpected exception reached the CLI boundary. |
+| 5 | `verificationFailed` | Strict verification detected drift. |
+| 6 | `verificationInconclusive` | Evidence cannot establish a strict pass. |
 
 ## Output contract
 
@@ -68,3 +71,7 @@ With `--json`, the same stable reason moves to stdout:
 ```
 
 Command-specific success envelopes are documented in the task guides. Existing exit codes are never renumbered.
+
+## Strict captured-source verification (unreleased)
+
+`lingua capsule verify <file> --timeout <ms> --env NAME=value --json` is available in builds from the new source, not the published 1.5.1 CLI. Check `lingua capsule verify --help` before use. It compares status, stdout and stderr exactly; it does not verify a modified target file, security, hermetic execution or equivalence between engines. Only complete successful text baselines are supported, and Python, Go and web Ruby recordings are inconclusive because the app engine differs from the CLI runtime. `ok` is true only for verdict `pass`; drift exits 5 and inconclusive evidence exits 6. Input, capability, runtime and internal errors retain codes 1–4. Replay keeps its existing execution-only exit semantics.

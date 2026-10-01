@@ -29,6 +29,7 @@
  * portable across install locations.
  */
 
+import { runVerifyCapsuleCommand } from './commands/capsuleVerify';
 import { runReplayCapsuleCommand, runValidateCapsuleCommand } from './commands/capsule';
 import { runCompletionInstallCommand } from './commands/completionInstall';
 import { runTargetCommand } from './commands/run';
@@ -193,17 +194,19 @@ export async function dispatch(argv: ReadonlyArray<string>, io: CliIo): Promise<
     );
   }
 
-  if (parsed.command === 'capsule-replay') {
+  if (parsed.command === 'capsule-replay' || parsed.command === 'capsule-verify') {
     const filePath = parsed.positionals[0];
     if (filePath === undefined) {
       emitCliFailure(io, parsed.flags, {
-        label: 'lingua capsule replay',
+        label: `lingua capsule ${parsed.command === 'capsule-verify' ? 'verify' : 'replay'}`,
         reason: 'missing-file',
         detail: 'Expected a <file> positional.',
       });
       return CLI_EXIT_CODES.userInputError;
     }
-    return runReplayCapsuleCommand(
+    const command =
+      parsed.command === 'capsule-verify' ? runVerifyCapsuleCommand : runReplayCapsuleCommand;
+    return command(
       {
         filePath,
         ...(parsed.flags.timeoutMs !== undefined ? { timeoutMs: parsed.flags.timeoutMs } : {}),

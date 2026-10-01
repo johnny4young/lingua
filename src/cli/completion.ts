@@ -105,7 +105,7 @@ _lingua() {
     capsule)
       relative=$(( COMP_CWORD - command_index ))
       if (( relative == 1 )); then
-        COMPREPLY=( $(compgen -W "validate replay" -- "$cur") )
+        COMPREPLY=( $(compgen -W "validate replay verify" -- "$cur") )
       elif [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "--timeout --env --json --quiet --color --help" -- "$cur") )
       else
@@ -213,7 +213,7 @@ _lingua() {
           ;;
         capsule)
           if (( CURRENT == 2 )); then
-            _values 'capsule action' validate replay
+            _values 'capsule action' validate replay verify
           else
             _arguments \\
               '2:capsule file:_files' \\
@@ -330,7 +330,7 @@ complete -c lingua -n '__fish_lingua_using_command run' -l stdin -r -F -d 'Forwa
 complete -c lingua -n '__fish_lingua_using_command run' -l timeout -r -d 'Set wall-clock timeout in milliseconds'
 complete -c lingua -n '__fish_lingua_using_command run' -l env -r -d 'Add an explicit NAME=value environment entry'
 
-complete -c lingua -n '__fish_lingua_needs_first_argument capsule' -a 'validate replay'
+complete -c lingua -n '__fish_lingua_needs_first_argument capsule' -a 'validate replay verify'
 complete -c lingua -n '__fish_lingua_using_command capsule' -l timeout -r -d 'Set replay timeout in milliseconds'
 complete -c lingua -n '__fish_lingua_using_command capsule' -l env -r -d 'Add an explicit NAME=value environment entry'
 

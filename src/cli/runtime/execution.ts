@@ -26,6 +26,9 @@ export const MAX_CLI_RUN_TIMEOUT_MS = 5 * 60_000;
 
 const KILL_ESCALATION_MS = 1_500;
 const OUTPUT_TRUNCATION_MARKER = '\n[output truncated by Lingua CLI]\n';
+/** Largest stream the CLI captures unclipped. */
+export const CLI_OUTPUT_PAYLOAD_BYTES =
+  MAX_NATIVE_STDERR_BYTES - Buffer.byteLength(OUTPUT_TRUNCATION_MARKER, 'utf8');
 
 export type CliRunStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -61,6 +64,8 @@ export interface CliExecutionResult {
     | 'spawn-failed';
   detail?: string;
   recovery?: CliRuntimeRecovery;
+  /** Present only when captured bytes were clipped; never infer this from text. */
+  truncated?: { stdout: boolean; stderr: boolean };
 }
 
 interface StepResult {
@@ -110,7 +115,7 @@ export async function executeCliPlan(
         const missingRuntime = missing
           ? buildMissingRuntimeRecovery(step.command, plan.runtime)
           : undefined;
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'error', {
+        return finish(plan, startedAt, result, stdout, stderr, 'error', {
           reason: missing ? 'missing-runtime' : 'spawn-failed',
           detail:
             missingRuntime?.detail ?? `Failed to start ${step.command}: ${result.spawnError.message}`,
@@ -118,19 +123,19 @@ export async function executeCliPlan(
         });
       }
       if (result.timedOut) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'timeout', {
+        return finish(plan, startedAt, result, stdout, stderr, 'timeout', {
           reason: 'timeout',
           detail: `Run timed out after ${timeoutMs}ms.`,
         });
       }
       if (result.stopped) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'stopped', {
+        return finish(plan, startedAt, result, stdout, stderr, 'stopped', {
           reason: 'stopped',
           detail: 'Run stopped by SIGINT or SIGTERM.',
         });
       }
       if (result.exitCode !== 0) {
-        return finish(plan, startedAt, result, stdout.value, stderr.value, 'error', {
+        return finish(plan, startedAt, result, stdout, stderr, 'error', {
           reason: step.kind === 'prepare' ? 'prepare-failed' : 'non-zero-exit',
           detail:
             step.kind === 'prepare'
@@ -150,6 +155,7 @@ export async function executeCliPlan(
       signal: null,
       stdout: stdout.value,
       stderr: stderr.value,
+      ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
       ...(last ? {} : { detail: 'Execution plan contained no steps.' }),
     };
   } finally {
@@ -165,8 +171,8 @@ function finish(
   plan: CliExecutionPlan,
   startedAt: number,
   result: StepResult,
-  stdout: string,
-  stderr: string,
+  stdout: CappedOutput,
+  stderr: CappedOutput,
   status: Exclude<CliRunStatus, 'success'>,
   diagnostic: Pick<CliExecutionResult, 'reason' | 'detail' | 'recovery'>
 ): CliExecutionResult {
@@ -177,8 +183,9 @@ function finish(
     durationMs: Date.now() - startedAt,
     exitCode: result.exitCode,
     signal: result.signal,
-    stdout,
-    stderr,
+    stdout: stdout.value,
+    stderr: stderr.value,
+    ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
     ...diagnostic,
   };
 }
@@ -287,8 +294,7 @@ class CappedOutput {
     if (this.truncated || !chunk) return '';
     const currentBytes = Buffer.byteLength(this.value, 'utf8');
     const chunkBytes = Buffer.byteLength(chunk, 'utf8');
-    const markerBytes = Buffer.byteLength(OUTPUT_TRUNCATION_MARKER, 'utf8');
-    const payloadCap = MAX_NATIVE_STDERR_BYTES - markerBytes;
+    const payloadCap = CLI_OUTPUT_PAYLOAD_BYTES;
     if (currentBytes + chunkBytes <= payloadCap) {
       this.value += chunk;
       return chunk;

@@ -15,6 +15,7 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `lingua utility <utility-id>` | Ejecuta un adaptador de utilidad compartido. |
 | `lingua capsule validate <file>` | Valida una `RunCapsuleV1` sin ejecutarla. |
 | `lingua capsule replay <file>` | Verifica y repite una Capsule confiable de una sola fuente. |
+| `lingua capsule verify <file>` | Comparación estricta del source capturado; comando de build desde source, aún no publicado. |
 | `lingua run <file-or-directory>` | Ejecuta un archivo o proyecto convencional. |
 | `lingua list utilities` | Imprime el registro actual de utilidades. |
 | `lingua completion [bash\|zsh\|fish\|install]` | Detecta e instala autocompletado o genera el script de un shell. |
@@ -28,8 +29,8 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | `--input <file>` | `utility` | Lee la entrada de la utilidad desde un archivo. |
 | `--option key=value` | `utility` | Repítela para pasar opciones del adaptador. |
 | `--stdin <file>` | `run` | Envía el contenido del archivo como stdin. |
-| `--timeout <ms>` | `run`, `capsule replay` | Detiene después de 100–300000 ms. |
-| `--env NAME=value` | `run`, `capsule replay` | Repítela para agregar una variable explícita. |
+| `--timeout <ms>` | `run`, `capsule replay`, `capsule verify` | Detiene después de 100–300000 ms. |
+| `--env NAME=value` | `run`, `capsule replay`, `capsule verify` | Repítela para agregar una variable explícita. |
 | `--json` | comandos con datos | Emite un documento JSON estructurado. |
 | `--quiet` | comandos con datos | Oculta diagnósticos de Lingua, no la salida del comando. |
 | `--yes` | `completion` | Aprueba los cambios detectados sin pedir confirmación. |
@@ -48,6 +49,8 @@ Esta referencia sigue el mismo catálogo estructurado que genera `lingua --help`
 | 2 | `runtimeError` | La ejecución falló, agotó el tiempo, se detuvo o devolvió un código no cero. |
 | 3 | `unsupportedCapability` | El runtime, modo, toolchain o salida no es compatible. |
 | 4 | `internal` | Una excepción inesperada llegó al límite del CLI. |
+| 5 | `verificationFailed` | La verificación estricta detectó diferencias. |
+| 6 | `verificationInconclusive` | La evidencia no permite establecer un pass estricto. |
 
 ## Contrato de salida
 
@@ -68,3 +71,7 @@ Con `--json`, el mismo motivo estable aparece en stdout:
 ```
 
 Las guías prácticas documentan los envelopes correctos específicos. Los códigos existentes nunca cambian de número.
+
+## Verificación estricta del source capturado (sin publicar)
+
+`lingua capsule verify <file> --timeout <ms> --env NAME=value --json` está disponible en builds desde el nuevo source, no en el CLI 1.5.1 publicado. Revisa `lingua capsule verify --help` antes de usarlo. Compara exactamente status, stdout y stderr; no verifica un archivo modificado, seguridad, ejecución hermética ni equivalencia entre motores. Solo acepta baselines exitosos de texto con evidencia completa, y las grabaciones de Python, Go y Ruby web son inconclusas porque el motor de la app es distinto del runtime del CLI. `ok` es verdadero únicamente para verdict `pass`; las diferencias terminan con código 5 y la evidencia inconclusa con 6. Los errores de entrada, capacidades, runtime e internos conservan los códigos 1–4. Replay conserva su contrato de salida basado únicamente en ejecución.
