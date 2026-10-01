@@ -1,4 +1,7 @@
 {
+  "ai.response.limit": "The AI response exceeded its size limit. No incomplete answer was saved. Try a smaller request.",
+  "ai.response.cancelled": "The AI request was cancelled.",
+  "ai.response.timeout": "The AI request timed out. No incomplete answer was saved.",
   "ai.explain.title": "Explain this error",
   "ai.explainCode.title": "Explain this code",
   "ai.explainCode.action": "Explain with AI",

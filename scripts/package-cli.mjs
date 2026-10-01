@@ -298,12 +298,11 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
   const driftSmoke = spawnSync(binaryPath, ['capsule', 'verify', capsuleSmokePath, '--json'], {
     encoding: 'utf8',
   });
-  if (
-    driftSmoke.status !== 5 ||
-    JSON.parse(driftSmoke.stdout)?.ok !== false ||
-    JSON.parse(driftSmoke.stdout)?.verdict !== 'fail'
-  ) {
-    throw new Error('Standalone Capsule drift was not rejected.');
+  const driftBody = driftSmoke.status === 5 ? JSON.parse(driftSmoke.stdout) : undefined;
+  if (driftBody?.ok !== false || driftBody?.verdict !== 'fail') {
+    throw new Error(
+      `Standalone Capsule drift was not rejected (exit ${driftSmoke.status}): ${driftSmoke.error?.message ?? driftSmoke.stderr.trim()}`
+    );
   }
 
   // Qualify current-source cases on the actual Linux/Windows executable too.

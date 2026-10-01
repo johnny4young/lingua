@@ -3,6 +3,7 @@ import { runVerifyCapsuleCommand } from '../../../src/cli/commands/capsuleVerify
 import { computeContentHash, type RunCapsuleV1 } from '../../../src/shared/runCapsule';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 import { createFakeIo } from '../io-fake';
+import { CLI_OUTPUT_PAYLOAD_BYTES } from '../../../src/cli/runtime/execution';
 
 async function verify(capsule: RunCapsuleV1, timeoutMs = 2000) {
   const { io, state } = createFakeIo({ files: { '/tmp/baseline.json': JSON.stringify(capsule) } });
@@ -52,7 +53,61 @@ describe('strict Capsule verification', () => {
     const { exit, body } = await verify(capsule);
     expect(exit).toBe(1);
     expect(body.reason).toBe('content-hash-mismatch');
+    expect(body.capsuleId).toBe(capsule.capsuleId);
     expect(body.run).toBeUndefined();
+  });
+  it('refuses a baseline the CLI would clip before spawning', async () => {
+    const capsule = await source('throw new Error("MUST NOT EXECUTE")');
+    capsule.result.stdout = 'x'.repeat(CLI_OUTPUT_PAYLOAD_BYTES + 1);
+    const { exit, body } = await verify(capsule);
+    expect(exit).toBe(6);
+    expect(body).toMatchObject({ verdict: 'inconclusive', reason: 'incomplete-baseline' });
+    expect(body.run).toBeUndefined();
+  });
+  it.each([
+    ['python', 'web'],
+    ['python', 'desktop'],
+    ['go', 'desktop'],
+    ['ruby', 'web'],
+  ] as const)(
+    'refuses a %s %s recording from a divergent engine before spawning',
+    async (language, platform) => {
+      const capsule = await source('throw new Error("MUST NOT EXECUTE")');
+      capsule.tab.language = language;
+      capsule.environment.platform = platform;
+      const { exit, body } = await verify(capsule);
+      expect(exit).toBe(6);
+      expect(body).toMatchObject({ verdict: 'inconclusive', reason: 'engine-divergent-baseline' });
+      expect(body.capsuleId).toBe(capsule.capsuleId);
+      expect(body.run).toBeUndefined();
+    }
+  );
+  it('does not treat a desktop Ruby recording as engine-divergent', async () => {
+    const capsule = await source('puts 3');
+    capsule.tab.language = 'ruby';
+    capsule.environment.platform = 'desktop';
+    const { body } = await verify(capsule);
+    expect(body.reason).not.toBe('engine-divergent-baseline');
+  });
+  it('passes a baseline exactly at the CLI capture limit', async () => {
+    const capsule = await source(`process.stdout.write("x".repeat(${CLI_OUTPUT_PAYLOAD_BYTES}));`);
+    capsule.result.stdout = 'x'.repeat(CLI_OUTPUT_PAYLOAD_BYTES);
+    const { exit, body } = await verify(capsule);
+    expect(exit).toBe(0);
+    expect(body.verdict).toBe('pass');
+  });
+  it('reports drift and the failing streams on stderr in human mode', async () => {
+    const capsule = structuredClone(FIXTURE_MINIMAL_JS);
+    capsule.result.stdout = 'different\n';
+    const { io, state } = createFakeIo({ files: { '/tmp/b.json': JSON.stringify(capsule) } });
+    const exit = await runVerifyCapsuleCommand(
+      { filePath: '/tmp/b.json', json: false, quiet: false, env: [] },
+      io
+    );
+    expect(exit).toBe(5);
+    expect(state.stdout).toBe('');
+    expect(state.stderr).toContain('fail (output-drift)');
+    expect(state.stderr).toContain('stdout=false');
   });
   it.each(['error', 'timeout', 'stopped'] as const)(
     'refuses %s baselines before spawning',
@@ -131,7 +186,10 @@ describe('strict Capsule verification', () => {
         io
       )
     ).toBe(1);
-    expect(JSON.parse(state.stdout).run).toBeUndefined();
+    const body = JSON.parse(state.stdout);
+    expect(body.run).toBeUndefined();
+    expect(body.capsuleId).toBe(FIXTURE_MINIMAL_JS.capsuleId);
+    expect(body.detail).toContain('NODE_OPTIONS');
   });
   it('keeps a genuinely unavailable toolchain inconclusive with exit 3', async () => {
     const previous = process.env.PATH;

@@ -9,7 +9,10 @@ export interface CapsuleComparison {
   stdout: boolean;
   stderr: boolean;
 }
-export function capsuleVerificationBlocker(capsule: RunCapsuleV1): string | null {
+export function capsuleVerificationBlocker(
+  capsule: RunCapsuleV1,
+  maxStreamBytes = MAX_STREAM_BYTES
+): string | null {
   if (capsule.result.status !== 'success') return 'unsupported-baseline-status';
   if (
     capsule.privacy.omittedFields.some(field =>
@@ -20,11 +23,20 @@ export function capsuleVerificationBlocker(capsule: RunCapsuleV1): string | null
   if (capsule.result.lineResults?.length || capsule.result.richOutputs?.length)
     return 'unsupported-baseline-output';
   if (
-    utf8ByteLength(capsule.result.stdout ?? '') > MAX_STREAM_BYTES ||
-    utf8ByteLength(capsule.result.stderr ?? '') > MAX_STREAM_BYTES
+    utf8ByteLength(capsule.result.stdout ?? '') > maxStreamBytes ||
+    utf8ByteLength(capsule.result.stderr ?? '') > maxStreamBytes
   )
     return 'incomplete-baseline';
   return null;
+}
+/** Recordings whose app engine differs from the CLI's host interpreter or compiler. */
+export function capsuleEngineDivergence(capsule: RunCapsuleV1): string | null {
+  const { language } = capsule.tab;
+  const divergent =
+    language === 'python' ||
+    language === 'go' ||
+    (language === 'ruby' && capsule.environment.platform === 'web');
+  return divergent ? 'engine-divergent-baseline' : null;
 }
 export function compareCapsuleStreams(
   capsule: RunCapsuleV1,

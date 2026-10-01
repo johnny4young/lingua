@@ -74,7 +74,7 @@ Command-specific success envelopes are documented in the task guides. Existing e
 
 ## Strict captured-source verification (unreleased)
 
-`lingua capsule verify <file> --timeout <ms> --env NAME=value --json` is available in builds from the new source, not the published 1.5.1 CLI. Check `lingua capsule verify --help` before use. It compares status, stdout and stderr exactly; it does not verify a modified target file, security, hermetic execution or equivalence between engines. Only complete successful text baselines are supported. `ok` is true only for verdict `pass`; drift exits 5 and inconclusive evidence exits 6. Input, capability, runtime and internal errors retain codes 1–4. Replay keeps its existing execution-only exit semantics.
+`lingua capsule verify <file> --timeout <ms> --env NAME=value --json` is available in builds from the new source, not the published 1.5.1 CLI. Check `lingua capsule verify --help` before use. It compares status, stdout and stderr exactly; it does not verify a modified target file, security, hermetic execution or equivalence between engines. Only complete successful text baselines are supported, and Python, Go and web Ruby recordings are inconclusive because the app engine differs from the CLI runtime. `ok` is true only for verdict `pass`; drift exits 5 and inconclusive evidence exits 6. Input, capability, runtime and internal errors retain codes 1–4. Replay keeps its existing execution-only exit semantics.
 
 
 ### Regression cases (unreleased/source builds)

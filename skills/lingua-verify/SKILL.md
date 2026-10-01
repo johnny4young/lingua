@@ -88,7 +88,8 @@ invalid, mismatched and inconclusive cases as non-passing. Require both process 
 and `ok: true`, `verdict: pass`, no skipped cases, and all case verdicts pass. Importing
 or previewing a suite is inert; executing it requires the same explicit local trust.
 Only `verdict: pass` with `ok: true` is matching evidence. This does not certify
-security, hermetic execution, or equivalence between runtime engines.
+security, hermetic execution, or equivalence between runtime engines. Python, Go,
+and web Ruby recordings are always inconclusive because the app used a different engine.
 
 A successful Capsule replay can still contain `comparison.matches: false`. Classify that as
 reproducible output drift, not as a matching verification.

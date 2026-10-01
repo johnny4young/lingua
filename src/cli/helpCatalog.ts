@@ -103,7 +103,7 @@ export const CLI_HELP_CATALOG = {
       summary:
         'Strictly verify captured source or an explicit current file against recorded streams.',
       description:
-        'Returns pass, fail, or inconclusive. Drift exits 5, incomplete evidence exits 6. Execution uses the local CLI runtime, not a hermetic sandbox.',
+        'Returns pass, fail, or inconclusive. Stream drift exits 5, incomplete evidence exits 6, and failed or timed-out runs keep exits 2-3. Execution uses the local CLI runtime, not a hermetic sandbox.',
       flags: ['target', 'timeout', 'env', 'json', 'quiet', 'color', 'help'],
       examples: [
         {

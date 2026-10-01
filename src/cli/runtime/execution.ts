@@ -26,6 +26,9 @@ export const MAX_CLI_RUN_TIMEOUT_MS = 5 * 60_000;
 
 const KILL_ESCALATION_MS = 1_500;
 const OUTPUT_TRUNCATION_MARKER = '\n[output truncated by Lingua CLI]\n';
+/** Largest stream the CLI captures unclipped. */
+export const CLI_OUTPUT_PAYLOAD_BYTES =
+  MAX_NATIVE_STDERR_BYTES - Buffer.byteLength(OUTPUT_TRUNCATION_MARKER, 'utf8');
 
 export type CliRunStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -291,8 +294,7 @@ class CappedOutput {
     if (this.truncated || !chunk) return '';
     const currentBytes = Buffer.byteLength(this.value, 'utf8');
     const chunkBytes = Buffer.byteLength(chunk, 'utf8');
-    const markerBytes = Buffer.byteLength(OUTPUT_TRUNCATION_MARKER, 'utf8');
-    const payloadCap = MAX_NATIVE_STDERR_BYTES - markerBytes;
+    const payloadCap = CLI_OUTPUT_PAYLOAD_BYTES;
     if (currentBytes + chunkBytes <= payloadCap) {
       this.value += chunk;
       return chunk;
