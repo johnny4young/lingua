@@ -10,6 +10,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
 
 ### Added
+- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
 - **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, while validate stays inert and replay keeps its original exit contract.
 
 ## [1.5.1] — 2026-09-24

@@ -75,3 +75,12 @@ Las guías prácticas documentan los envelopes correctos específicos. Los códi
 ## Verificación estricta del source capturado (sin publicar)
 
 `lingua capsule verify <file> --timeout <ms> --env NAME=value --json` está disponible en builds desde el nuevo source, no en el CLI 1.5.1 publicado. Revisa `lingua capsule verify --help` antes de usarlo. Compara exactamente status, stdout y stderr; no verifica un archivo modificado, seguridad, ejecución hermética ni equivalencia entre motores. Solo acepta baselines exitosos de texto con evidencia completa. `ok` es verdadero únicamente para verdict `pass`; las diferencias terminan con código 5 y la evidencia inconclusa con 6. Los errores de entrada, capacidades, runtime e internos conservan los códigos 1–4. Replay conserva su contrato de salida basado únicamente en ejecución.
+
+
+### Casos de regresión (sin publicar, compilaciones desde código)
+
+`lingua capsule verify <file> --target <file> --json`
+
+`lingua capsule verify-suite <suite> --root <directory> --json`
+
+`--target <file>` elige un archivo relativo guardado actual en vez del código capturado; `--root <directory>` limita los destinos de la suite y usa el directorio actual por defecto. La suite v1 contiene baselines completos sin cambios, ejecuta hasta 20 casos/4 MiB en serie con un presupuesto total de cinco minutos y devuelve verdict estricto por caso. Importar o mostrar una vista previa nunca ejecuta código. Revisa la ayuda para detectar soporte; la versión pública 1.5.1 no incluye estos comandos.

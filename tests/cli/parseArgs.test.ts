@@ -294,6 +294,49 @@ describe('parseArgs', () => {
 
 describe('strict verify parser', () => {
   it('supports the same explicit execution flags without changing replay', () => {
-    expect(parseArgs(['capsule', 'verify', 'baseline.json', '--json', '--timeout', '100', '--env', 'FIXTURE=1'])).toMatchObject({ command: 'capsule-verify', positionals: ['baseline.json'], flags: { json: true, timeoutMs: 100, env: [{ key: 'FIXTURE', value: '1' }] } });
+    expect(
+      parseArgs([
+        'capsule',
+        'verify',
+        'baseline.json',
+        '--json',
+        '--timeout',
+        '100',
+        '--env',
+        'FIXTURE=1',
+      ])
+    ).toMatchObject({
+      command: 'capsule-verify',
+      positionals: ['baseline.json'],
+      flags: { json: true, timeoutMs: 100, env: [{ key: 'FIXTURE', value: '1' }] },
+    });
+  });
+});
+
+describe('regression target and suite parser', () => {
+  it('preserves explicit target and root without adding flags to replay', () => {
+    expect(
+      parseArgs([
+        'capsule',
+        'verify',
+        'baseline.json',
+        '--target',
+        'src/árbol con espacio.js',
+        '--json',
+      ])
+    ).toMatchObject({
+      command: 'capsule-verify',
+      flags: { target: 'src/árbol con espacio.js', json: true },
+    });
+    expect(
+      parseArgs(['capsule', 'verify-suite', 'suite.json', '--root=.', '--timeout', '500'])
+    ).toMatchObject({ command: 'capsule-verify-suite', flags: { root: '.', timeoutMs: 500 } });
+    expect(() => parseArgs(['capsule', 'replay', 'baseline.json', '--target=x.js'])).toThrow(
+      CliUsageError
+    );
+    expect(() => parseArgs(['capsule', 'verify', 'b.json', '--root=.'])).toThrow(CliUsageError);
+    expect(() =>
+      parseArgs(['capsule', 'verify', 'b.json', '--target=a.js', '--target=b.js'])
+    ).toThrow(CliUsageError);
   });
 });

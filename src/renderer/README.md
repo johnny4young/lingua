@@ -960,3 +960,5 @@ Keep tests close to the behavior they validate, even though the repository uses 
 
 - [README.md](../../README.md) for setup, build, validation, and release operations
 - [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow
+
+[`components/CapsuleList/CapsuleRegressionExportDialog.tsx`](components/CapsuleList/CapsuleRegressionExportDialog.tsx) owns explicit project-target selection, content review and inert suite inspection/export. Shared capsuleRegressionSuite.ts is the v1 parser; CLI execution is a separate user action.

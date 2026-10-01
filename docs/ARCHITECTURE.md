@@ -1551,3 +1551,5 @@ execution deadline. The environment allowlist, runner-owned GOOS/GOARCH target,
 WASM size limit, Go runtime lookup order and zero-copy worker transfer remain.
 The optional final compile argument and additive result metadata preserve existing
 callers; the browser stop stub does not gain host execution authority.
+
+CLI regression suites are independent v1 artifacts with complete Capsule baselines. Current-file target resolution uses canonical in-root regular files; code execution itself is not sandboxed. Import/export/preview stay inert.

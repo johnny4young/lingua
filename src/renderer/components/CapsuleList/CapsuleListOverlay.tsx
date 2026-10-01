@@ -56,6 +56,7 @@ import { CapsuleImportPreview } from '../CapsuleImport';
 import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 import { CapsuleWorkspaceExportDialog } from './CapsuleWorkspaceExportDialog';
+import { CapsuleRegressionExportDialog } from './CapsuleRegressionExportDialog';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;
@@ -170,6 +171,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(
     null
   );
+  const [regressionCapsule, setRegressionCapsule] = useState<RunCapsuleV1 | null>(null);
   const [workspaceCapsule, setWorkspaceCapsule] = useState<RunCapsuleV1 | null>(null);
 
   // ─── Selection (drives the right-hand preview) ───────────────────
@@ -557,6 +559,14 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                         />
                         <button
                           type="button"
+                          className="rounded px-2 py-1 text-xs hover:bg-muted"
+                          onClick={() => setRegressionCapsule(capsule)}
+                          data-testid="capsule-prepare-regression"
+                        >
+                          {t('capsuleRegression.action')}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setSelectedId(entry.id)}
                           data-testid="capsule-list-row-select"
                           className="block min-w-0 flex-1 text-left"
@@ -665,6 +675,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     <CapsuleComparisonModal
       capsules={comparePair}
       onClose={() => setComparePair(null)}
+    />
+    <CapsuleRegressionExportDialog
+      capsule={regressionCapsule}
+      onClose={() => setRegressionCapsule(null)}
     />
     <CapsuleWorkspaceExportDialog
       capsule={workspaceCapsule}

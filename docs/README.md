@@ -85,3 +85,5 @@ supersedes the old one instead of rewriting historical rationale.
 - Remove completed planning artifacts; preserve shipped traceability in the changelog, README, ADRs, tests, and operator docs.
 - Never add secrets, machine-local paths, customer data, or private planning identifiers.
 - Use ISO dates (`YYYY-MM-DD`) and keep commands executable from the repository root.
+
+- [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) — current saved targets, independent suites, strict verdicts and inert preparation.

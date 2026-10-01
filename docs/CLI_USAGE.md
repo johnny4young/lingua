@@ -501,3 +501,7 @@ browser engines are identical. It also does not verify later changes to a
 project file: this command uses the source inside the recording. `validate`
 remains non-executing; `replay` still exits according to execution success,
 even when its comparison reports drift.
+
+## Current-file regression suites (unreleased/source builds)
+
+`lingua capsule verify <file> --target <relative-file> --json` checks the current saved file, not the captured source. `lingua capsule verify-suite <suite> --root <directory> --json` consumes suite v1. See [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) for schema, bounds, trust and verdicts. Feature-detect these commands in help; they are not in public CLI 1.5.1.

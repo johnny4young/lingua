@@ -1,3 +1,7 @@
+import { rm } from 'node:fs/promises';
+import type { RunCapsuleV1 } from '../../shared/runCapsule';
+import { RegressionTargetError, resolveRegressionTarget } from '../runtime/regressionTargets';
+import { resolveExecutionTarget } from '../runtime/targets';
 import { computeContentHash } from '../../shared/runCapsule';
 import {
   capsuleVerificationBlocker,
@@ -13,8 +17,13 @@ import { emitPreflightError } from './run';
 import { loadCapsule, type ReplayCapsuleArgs } from './capsule';
 import { renderCliNotice } from '../presentation';
 
+export interface VerifyCapsuleArgs extends ReplayCapsuleArgs {
+  targetPath?: string;
+  rootDirectory?: string;
+  deadline?: number;
+}
 export async function runVerifyCapsuleCommand(
-  args: ReplayCapsuleArgs,
+  args: VerifyCapsuleArgs,
   io: CliIo
 ): Promise<CliExitCode> {
   const label = 'lingua capsule verify';
@@ -35,7 +44,26 @@ export async function runVerifyCapsuleCommand(
       loaded.detail ?? 'Capsule validation failed.',
       CLI_EXIT_CODES.userInputError
     );
-  const capsule = loaded.value;
+  return verifyCapsuleBaseline(loaded.value, args, io);
+}
+
+export async function verifyCapsuleBaseline(
+  capsule: RunCapsuleV1,
+  args: VerifyCapsuleArgs,
+  io: CliIo
+): Promise<CliExitCode> {
+  const label = 'lingua capsule verify';
+  const fail = (reason: string, detail: string, code: CliExitCode) =>
+    emitPreflightError(
+      args,
+      io,
+      reason,
+      detail,
+      code,
+      { command: 'capsule-verify', verdict: 'inconclusive' },
+      label
+    );
+
   if ((await computeContentHash(capsule.source.content)) !== capsule.source.contentHash)
     return fail(
       'content-hash-mismatch',
@@ -59,31 +87,71 @@ export async function runVerifyCapsuleCommand(
       CLI_EXIT_CODES.userInputError
     );
   }
+  if (args.targetPath !== undefined && capsule.tab.runtimeMode === 'browser-preview')
+    return fail(
+      'unsupported-runtime-mode',
+      'Browser-preview baselines require a DOM unavailable to the CLI.',
+      CLI_EXIT_CODES.unsupportedCapability
+    );
   let plan;
   try {
-    plan = await resolveCapsuleSource(
-      {
-        language: capsule.tab.language,
-        runtimeMode: capsule.tab.runtimeMode,
-        source: capsule.source.content,
-        capsuleId: capsule.capsuleId,
-      },
-      capsule.input.args ?? [],
-      env
-    );
+    plan =
+      args.targetPath !== undefined
+        ? await resolveExecutionTarget(
+            await resolveRegressionTarget(
+              args.rootDirectory ?? process.cwd(),
+              args.targetPath,
+              capsule.tab.language
+            ),
+            capsule.input.args ?? [],
+            env
+          )
+        : await resolveCapsuleSource(
+            {
+              language: capsule.tab.language,
+              runtimeMode: capsule.tab.runtimeMode,
+              source: capsule.source.content,
+              capsuleId: capsule.capsuleId,
+            },
+            capsule.input.args ?? [],
+            env
+          );
   } catch (error) {
     return fail(
-      error instanceof ExecutionTargetError ? error.reason : 'target-resolution-failed',
+      error instanceof RegressionTargetError
+        ? 'invalid-regression-target'
+        : error instanceof ExecutionTargetError
+          ? error.reason
+          : 'target-resolution-failed',
       error instanceof Error ? error.message : 'Target resolution failed.',
-      error instanceof ExecutionTargetError
-        ? CLI_EXIT_CODES.unsupportedCapability
-        : CLI_EXIT_CODES.internal
+      error instanceof RegressionTargetError
+        ? CLI_EXIT_CODES.userInputError
+        : error instanceof ExecutionTargetError
+          ? CLI_EXIT_CODES.unsupportedCapability
+          : CLI_EXIT_CODES.internal
+    );
+  }
+  const remaining = args.deadline === undefined ? undefined : args.deadline - Date.now();
+  if (remaining !== undefined && remaining < 100) {
+    await Promise.all(
+      (plan.cleanupPaths ?? []).map(file =>
+        rm(file, { recursive: true, force: true }).catch(() => {})
+      )
+    );
+    return fail(
+      'suite-budget-exhausted',
+      'The total suite execution budget is exhausted.',
+      CLI_EXIT_CODES.verificationInconclusive
     );
   }
   const run = await executeCliPlan(plan, {
     env,
     ...(capsule.input.stdin !== undefined ? { stdin: capsule.input.stdin } : {}),
-    ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
+    ...(remaining !== undefined
+      ? { timeoutMs: Math.min(args.timeoutMs ?? 30_000, remaining) }
+      : args.timeoutMs !== undefined
+        ? { timeoutMs: args.timeoutMs }
+        : {}),
   });
   const comparison = compareCapsuleStreams(capsule, run);
   const incomplete = Boolean(
@@ -104,7 +172,8 @@ export async function runVerifyCapsuleCommand(
     ok: verdict === 'pass',
     command: 'capsule-verify',
     capsuleId: capsule.capsuleId,
-    sourceMode: 'captured',
+    sourceMode: args.targetPath === undefined ? 'captured' : 'current-target',
+    ...(args.targetPath !== undefined ? { target: args.targetPath } : {}),
     verdict,
     comparison,
     recordedRuntime: capsule.environment.runner,
