@@ -95,7 +95,7 @@ function trustActionLabel(action: string): string {
  *      the preview cannot drift from the real export.
  *   2. Local stores audit — table of the localStorage keys
  *      Lingua owns, with byte size estimates and per-row Clear
- *      action (gated by a confirmation modal — implementation note).
+ *      action (gated by a confirmation modal).
  *   3. Network activity summary — one-line status per feature that
  *      may send data off the device.
  *
@@ -162,7 +162,7 @@ export function PrivacyTrustSection() {
 
   const networkRows = useMemo(() => {
     // Derive the per-feature "last call" from the live
-    // trust log instead of the implementation hardcoded nulls.
+    // trust log instead of the hardcoded nulls.
     const lastAt = latestEventAtByFeature(trustEvents);
     return buildNetworkActivityRows({
       telemetryConsent,
@@ -176,7 +176,7 @@ export function PrivacyTrustSection() {
   }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents]);
 
   // newest-initial implementation of the trust log for the Recent
-  // activity feed, narrowed by the implementation note sensitivity filter.
+  // activity feed, narrowed by the sensitivity filter.
   const recentEvents = useMemo(() => {
     const filtered =
       sensitivityFilter === 'all'

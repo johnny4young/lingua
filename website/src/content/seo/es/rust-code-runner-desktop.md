@@ -2,7 +2,7 @@
 title: 'Rust Code Runner para escritorio — Lingua'
 description: 'Ejecuta y depura Rust localmente con rustc, lldb-dap, inteligencia rust-analyzer, rustfmt, markers de compilación, dependencias y pruebas Cargo.'
 canonical: 'https://linguacode.dev/es/rust-code-runner-desktop'
-ogImage: '/assets/og/rust-code-runner-desktop.png'
+ogImage: '/assets/og/es/rust-code-runner-desktop.png'
 language: rust
 ---
 

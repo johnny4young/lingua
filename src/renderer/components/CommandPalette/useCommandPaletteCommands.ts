@@ -174,7 +174,7 @@ export function useCommandPaletteCommands({
   // When the user picks a recent-run entry, try to
   // focus a tab that matches the run's language. If there isn't one
   // open today we just close the palette (the action is informational
-  // until implementation of internal wires an actual replay path).
+  // until a real replay path is wired).
   const focusLanguageTab = (language: Language) => {
     const { tabs, setActiveTab } = useEditorStore.getState();
     const match = tabs.find(tab => tab.language === language);
@@ -654,7 +654,7 @@ export function useCommandPaletteCommands({
           }
         : undefined,
       // Render + copy markdown to clipboard.
-      // implementation note: honor the scorecard's sticky platform filter so the
+      // Honor the scorecard's sticky platform filter so the
       // clipboard payload matches what the user sees (and the matching
       // per-platform section in docs/CAPABILITY_MATRIX.md). Default `all`
       // reproduces the original cross-platform table verbatim.

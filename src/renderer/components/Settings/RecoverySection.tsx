@@ -4,7 +4,7 @@
  * Five scoped reset actions plus an "Open recovery folder" affordance
  * for desktop. Every reset gates behind a native confirm modal via
  * `recovery:confirm-reset` (web stub: cancel → inline notice). The
- * destructive surface is intentionally separate from internal's profile
+ * destructive surface is intentionally separate from the profile
  * import so the copy reads correctly per scope.
  *
  * Per-scope preservation rules:

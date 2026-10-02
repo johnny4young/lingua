@@ -82,7 +82,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
       {notebook.cells.length === 0 ? (
         <div
           data-testid="notebook-cells-empty"
-          className="grid place-items-center rounded border border-dashed border-border/60 p-8 text-center text-body-sm text-muted"
+          className="grid place-items-center rounded border border-dashed border-border/60 p-16 text-center text-body-sm text-muted"
         >
           <div className="grid gap-2">
             <p>{t('notebook.empty.title')}</p>

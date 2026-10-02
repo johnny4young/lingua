@@ -307,7 +307,7 @@ describe('GoRunner', () => {
     mockCompile.mockResolvedValue({ success: false, error: 'mock' });
 
     // Seed the renderer stores with user-space env across three tiers
-    // so the runner must compose all of them through the implementation
+    // so the runner must compose all of them through the env
     // merger before firing the IPC.
     useEnvVarsStore.setState({
       global: { SHARED: 'from-global', GLOBAL_ONLY: 'g' },

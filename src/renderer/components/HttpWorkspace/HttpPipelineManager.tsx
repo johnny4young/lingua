@@ -136,7 +136,7 @@ export function HttpPipelineManager({
           </header>
 
           {!active ? (
-            <div className="grid flex-1 place-items-center p-8 text-center">
+            <div className="grid flex-1 place-items-center p-16 text-center">
               <div>
                 <GitBranch className="mx-auto mb-3 text-fg-subtle" aria-hidden="true" />
                 <p className="text-body text-fg-muted">{t('httpWorkspace.pipeline.empty')}</p>

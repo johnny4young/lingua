@@ -10,7 +10,7 @@
  * trips the gate.
  *
  * NOTE: the AC's < 16 ms paint budget for a 500-entry session is delivered by
- * the list windower (implementation, hand-rolled — see `useListWindow`). The
+ * the list windower (hand-rolled — see `useListWindow`). The
  * store-side collapse + hash bench below locks the de-render work the windower
  * builds on; the windowing bound itself (only a viewport-sized slice mounts,
  * not all 500 rows) is locked by the second bench here and unit-tested in
@@ -86,7 +86,7 @@ describe('console store batch append — 1,000-line flood', () => {
   });
 });
 
-describe('console windowing — bounded visible set for 500 rows (implementation detail implementation)', () => {
+describe('console windowing — bounded visible set for 500 rows', () => {
   it('windows a flooded 500-row console to a viewport-sized slice within budget', () => {
     const heights = Array.from({ length: 500 }, () => 28);
 

@@ -8,8 +8,7 @@ import { validateChartSpec, validateHtmlPayload, validateImageSrc } from '../../
  *
  *   1. Runs the matching `validate*` whitelist from `shared/richOutput`.
  *   2. On reject → posts a `console` message with a text fallback +
- *      a `richMediaRejected` flag. Runner-side telemetry forwarding
- *      landed in implementation — JS / TS / Python runners all
+ *      a `richMediaRejected` flag. The JS / TS / Python runners all
  *      forward the flag to `runtime.rich_media_payload_rejected`.
  *   3. On accept → posts a `console` log with `args: [<rawText>]`
  *      and `payload: [<typed payload>]` so the renderer dispatches to
@@ -50,14 +49,14 @@ export function buildLinguaWorkerBridge(
     });
   };
 
-  // implementation Prerequisite fix — informative rejection text.
+  // Informative rejection text.
   // The bridge previously emitted a generic `[chart spec rejected]` /
   // `[image rejected: invalid source]` / `[html payload rejected]`
   // with no actionable context. Users couldn't tell whether they hit
   // the spec-security whitelist (data.url/data.name), the size cap,
   // a missing required field, or just a typo. The reasons below map
   // 1:1 to the closed-enum `RICH_MEDIA_REJECTED_REASONS` shipped on
-  // implementation, so dashboards and humans see the same diagnosis.
+  // the wire, so dashboards and humans see the same diagnosis.
   const rejectChart = (): void => {
     const reasonText = '[chart rejected: remote/named data not allowed (use data.values inline)]';
     postRejection('chart', 'validation-failed', reasonText);

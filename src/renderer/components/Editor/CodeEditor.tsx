@@ -148,7 +148,7 @@ export function CodeEditor() {
   // @monaco-editor/react into keep-models-per-path mode — and nothing
   // disposed those models when their tab closed, leaking text +
   // tokenization state per closed Rust tab for the session lifetime.
-  // The selector implementation note expected model URIs into one string so this
+  // The selector folds the expected model URIs into one string so this
   // effect only re-runs when the Rust tab set (id / name / filePath)
   // actually changes, never per keystroke.
   const ownedLspModelPaths = useRef(new Set<string>());

@@ -50,7 +50,7 @@ function buildBuffer(minBytes: number): string {
   // unbalanced and the gate would correctly report `incomplete`,
   // confusing the test assertion.
   const sample = [
-    '// Generated benchmark fixture — implementation note.',
+    '// Generated benchmark fixture.',
     'const items = [1, 2, 3, 4, 5].map((n) => n * n);',
     'const greet = (name) => `hello ${name}, ${items.length} items`;',
     'function compute(a, b) {',

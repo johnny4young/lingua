@@ -209,37 +209,37 @@ export const es = {
       lede: 'Abajo no hay mockups — cada cuadro es la app tal como se distribuye, capturada a mitad de tarea sobre el build web de producción.',
       items: [
         {
-          image: '/screenshots/tour/workspace-python.png',
+          image: '/screenshots/tour/workspace-python-es.png',
           alt: 'Workspace de Lingua corriendo un script Python: valores inline junto a cada statement y stdout real en el panel de consola',
           title: 'Corre Python y mira los valores caer en cada línea',
           body: 'Pyodide arranca en un worker, el stdout fluye a la consola y cada statement de nivel superior muestra su valor inline junto al código. El tiempo de pared de cada run también cae en la consola — el timing es output, no una promesa.',
         },
         {
-          image: '/screenshots/tour/command-palette.png',
+          image: '/screenshots/tour/command-palette-es.png',
           alt: 'Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL',
           title: 'Una paleta para comandos, plantillas y utilidades',
           body: 'Cmd+Shift+P busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.',
         },
         {
-          image: '/screenshots/tour/utilities.png',
+          image: '/screenshots/tour/utilities-es.png',
           alt: 'Workspace de utilidades developer con el formateador JSON activo: panel de entrada, controles de formato y vista de árbol',
           title: 'Las 31 utilidades viven junto a tu código',
           body: 'Formateador JSON con vista de árbol, depurador JWT, datos de prueba, generadores de hash y UUID — más los Pipelines de utilidades que las encadenan en workflows de un click. Cada una corre local en la misma ventana, así las tareas rápidas dejan de costarte una pestaña del navegador.',
         },
         {
-          image: '/screenshots/tour/sql-workspace.png',
+          image: '/screenshots/tour/sql-workspace-es.png',
           alt: 'Workspace SQL con una tabla releases importada en el explorador de esquema, una query de agregación formateada y el panel de perfil de columnas de su resultado',
           title: 'Un workspace SQL completo sobre DuckDB',
           body: 'Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.',
         },
         {
-          image: '/screenshots/tour/http-workspace.png',
+          image: '/screenshots/tour/http-workspace-es.png',
           alt: 'Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada',
           title: 'Un cliente HTTP sin el impuesto de la pestaña del navegador',
           body: 'Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.',
         },
         {
-          image: '/screenshots/tour/settings-privacy.png',
+          image: '/screenshots/tour/settings-privacy-es.png',
           alt: 'Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción',
           title: 'La privacidad es una página de Settings, no una promesa',
           body: 'La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.',
@@ -251,7 +251,7 @@ export const es = {
       title: 'IA que nunca envía tu código sin permiso.',
       lede: 'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
       shot: {
-        image: '/screenshots/tour/ai-explain.png',
+        image: '/screenshots/tour/ai-explain-es.png',
         alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
         caption:
           'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',

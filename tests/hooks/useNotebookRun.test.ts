@@ -12,7 +12,7 @@ vi.mock('../../src/renderer/runners', () => ({
   runnerManager: {
     execute: vi.fn(),
     stop: vi.fn(),
-    // implementation Slice F (implementation note) — the hook checks this before a Python run
+    // implementation Slice F — the hook checks this before a Python run
     // to decide whether to surface the "starting Python" notice. Default
     // false so the bulk of the suite never trips the notice.
     needsInitialization: vi.fn(() => false),
@@ -368,7 +368,7 @@ describe('useNotebookRun', () => {
     });
   });
 
-  it('surfaces the "starting Python" notice on a cold Python run (Slice F implementation note)', async () => {
+  it('surfaces the "starting Python" notice on a cold Python run', async () => {
     seedSingleCodeCellNotebook('tab-cold', 'python');
     mockNeedsInit.mockReturnValueOnce(true);
     mockExecute.mockResolvedValue({

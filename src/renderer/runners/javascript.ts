@@ -62,7 +62,7 @@ export class JavaScriptRunner implements LanguageRunner {
     const sourceMaps: string[] = [];
     const recordMap = (map: string) => sourceMaps.unshift(map);
 
-    // internal debugger refinement — debug mode is now an explicit UI
+    // Debug mode is now an explicit UI
     // intent. Normal Run ignores breakpoints so gutter marks do not
     // silently change execution semantics; Debug instruments the source
     // and auto-disables loop protection only when an enabled breakpoint

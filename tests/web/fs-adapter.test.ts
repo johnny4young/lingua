@@ -1,5 +1,5 @@
 /**
- * Tests for web/fs-adapter.ts under the internal capability contract.
+ * Tests for web/fs-adapter.ts under the capability contract.
  *
  * The File System Access API is not available in jsdom, so we either
  * mock the relevant globals (showDirectoryPicker / showOpenFilePicker)

@@ -123,7 +123,7 @@ export const TELEMETRY_EVENTS = [
   // Adoption signal for the floating ↔ bottom
   // surface choice. Closed-enum payload `{ surface }` where `surface`
   // is `'floating'` or `'bottom'`. Mirrored on update-server (deferred
-  // to a follow-up — see the implementation Status Update).
+  // to a follow-up).
   'runtime.variable_inspector_surface_changed',
   // Rich console payload rendered. Fires at most once
   // per console entry first-render so adoption per payload kind is
@@ -227,7 +227,7 @@ export const TELEMETRY_EVENTS = [
   //
   // Note: property is named `surface` (not `sourceSurface`) because
   // `source` is in `DENY_SUBSTRINGS` — same precedent as
-  // `language_scorecard_viewed` from implementation
+  // `language_scorecard_viewed`.
   'capsule.imported',
   // Adoption signal for the Language Support
   // Scorecard. Closed-enum `{ surface }` where surface distinguishes
@@ -259,14 +259,14 @@ export const TELEMETRY_EVENTS = [
   // Onboarding choreography events. All three are
   // mirrored on update-server with parity test. Closed enums live
   // in `ONBOARDING_TOAST_STAGES` + `ONBOARDING_DISMISS_MODES`
-  // (implementation note) below. `language` is validated against the existing
+  // below. `language` is validated against the existing
   // `LANGUAGE_PACK_IDS` set so the redactor's DENY_SUBSTRINGS pass
   // does not strip the value — `language` is not in the deny list.
   'onboarding.first_run_completed',
   'onboarding.first_snippet_saved',
   'onboarding.toast_dismissed',
   // Production diagnostic for the toast
-  // clobber bug found in the implementation reviewer pass. Fires when an
+  // clobber bug found in the reviewer pass. Fires when an
   // incoming `'normal'`-priority notice push is refused because an
   // outstanding `'high'`-priority onboarding toast is still visible.
   // Closed-enum `{ outstandingStage }` so we can correlate clobber
@@ -316,7 +316,7 @@ export const TELEMETRY_EVENTS = [
   // DEPENDENCY_COUNT_BUCKETS bucketer (1 / 2-5 / 6-10 / >10). Counts
   // are bucketed at the renderer before the validator sees them, so
   // the redactor never accepts raw integers. NO package names, NO
-  // file paths, NO npm stderr. One event per click batch (implementation note
+  // file paths, NO npm stderr. One event per click batch (batch
   // coalescing means one event covers N specifiers).
   'dependency.install_started',
   // Install batch terminated. Closed-enum
@@ -336,7 +336,7 @@ export const TELEMETRY_EVENTS = [
   // console row. Closed-enum `{ language, surface }` where `surface` ∈
   // `OUTPUT_ORIGIN_SURFACES` (`'badge'` only today; the symmetric
   // hover direction does NOT emit a telemetry event because the
-  // discovery surface is the badge click). implementation note throttles the
+  // discovery surface is the badge click). The helper throttles the
   // emit to 1 per 1000ms per `(language, surface)` bucket so a user
   // clicking 20 chips in a debugging burst produces ~2 events rather
   // than 20. No file, no line, no column — the line integer would
@@ -372,7 +372,7 @@ export const TELEMETRY_EVENTS = [
   // the repo working tree in the OS file manager. Closed-enum
   // `{ target }` where `target ∈ REVEAL_IN_SC_TARGETS`. Today the
   // only valid target is `'repo-root'`; the closed enum stays
-  // future-proof for implementation extensions. Mirrored on update-server
+  // future-proof for extensions. Mirrored on update-server
   // with parity test.
   'git.reveal_in_source_control_clicked',
   // External-modification reload outcome.
@@ -415,11 +415,11 @@ export const TELEMETRY_EVENTS = [
   // Importer registry commit. Fires when the
   // user clicks Confirm on the global Import overlay (Mod+Alt+I).
   // Closed-enum `{ importerId, status, sizeBucket }` where
-  // `importerId` ∈ IMPORTER_IDS_SET (implementation: `'curl-http'` only,
-  // open for `'ipynb-notebook'` implementation + `'postman-collection'` /
-  // `'bruno-collection'` implementation), `status` ∈ IMPORT_STATUSES_SET
+  // `importerId` ∈ IMPORTER_IDS_SET (`'curl-http'`,
+  // `'ipynb-notebook'`, `'postman-collection'` /
+  // `'bruno-collection'`), `status` ∈ IMPORT_STATUSES_SET
   // (`'ok' / 'rejected' / 'cancelled'`), `sizeBucket` reuses
-  // CAPSULE_SIZE_BUCKETS from internal NO URL, NO header values, NO
+  // CAPSULE_SIZE_BUCKETS. NO URL, NO header values, NO
   // body content reaches the wire — only the bucketed source size
   // and the qualitative outcome. Mirrored on update-server with
   // parity test.
@@ -491,7 +491,7 @@ export const TELEMETRY_EVENTS = [
   // Recipes overlay discovery + Run + Test
   // commit. `recipe.opened { language }` fires when the user
   // confirms "Open" on the Recipes overlay (Mod+Alt+L). NO recipe id
-  // on the wire — per-recipe granularity stays off implementation (privacy
+  // on the wire — per-recipe granularity stays off (privacy
   // posture); future work can add behind a closed `RECIPE_IDS_SET`
   // parity test. `recipe.test_run { language, status }` fires once
   // per Run + Test settle. `status` ∈ RECIPE_RUN_STATUSES_SET from
@@ -504,7 +504,7 @@ export const TELEMETRY_EVENTS = [
   // Notebook cell execution. Fires once per
   // `Run cell` settle (and once per cell in `Run all` / `Run above`).
   // Closed-enum `{ language, status }` where `language` ∈
-  // `NOTEBOOK_CELL_LANGUAGES_SET` (implementation executes JavaScript +
+  // `NOTEBOOK_CELL_LANGUAGES_SET` (the notebook executes JavaScript +
   // TypeScript; Python remains schema-only until its runner lands)
   // and `status` ∈ `NOTEBOOK_CELL_STATUSES_SET` (`'ok' / 'error' /
   // 'stopped'`). NO
@@ -625,7 +625,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   'runtime.mode_changed': ['mode', 'language'],
   // `language` is the language-pack id (today only
   // `javascript` / `typescript`). `reason` is a closed enum locked
-  // to `'incomplete'` for implementation.
+  // to `'incomplete'` for now.
   'runtime.auto_run_gated': ['language', 'reason'],
   'runtime.browser_preview_auto_refresh': ['language', 'intervalMs'],
   // `language` is the language-pack id
@@ -659,7 +659,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   // the parity test asserts the status set stays aligned.
   'runtime.image_clipboard_pasted': ['status', 'sizeBucket'],
   // `language` is the language-pack id (JS / TS
-  // for the implementation surfaces; the validator stays generic so a
+  // for the current surfaces; the validator stays generic so a
   // future widening to Python does not require an allowlist
   // change). `enabled` is a boolean.
   'runtime.auto_log_enabled': ['language', 'enabled'],
@@ -670,7 +670,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   'runtime.auto_log_emitted': ['language', 'countBucket'],
   // language-only payload. Bucketed counts would
   // give the consumed-line distribution but also risk fingerprinting
-  // a small population by per-run shape; implementation stays at adoption
+  // a small population by per-run shape; this event stays at adoption
   // level only.
   'runtime.stdin_used': ['language'],
   // `language` is the language-pack id
@@ -774,7 +774,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   'project.bundle_imported': ['status', 'fileCountBucket'],
   'project.bundle_rejected': ['reason'],
   // `language` is the adapter id (any `isSafeToken`
-  // string; the set widens with implementation). `countBucket` is a
+  // string; the set widens). `countBucket` is a
   // closed-enum bucket from `DEPENDENCY_COUNT_BUCKETS_SET`.
   'dependency.detected_in_tab': ['language', 'countBucket'],
   // `language` only; once-per-session per
@@ -841,7 +841,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   ],
   // `importerId` ∈ IMPORTER_IDS_SET,
   // `status` ∈ IMPORT_STATUSES_SET, `sizeBucket` ∈
-  // CAPSULE_SIZE_BUCKETS (reused from internal). No URL, no header
+  // CAPSULE_SIZE_BUCKETS (reused). No URL, no header
   // values, no body content on the wire.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
   // `warningKindCount` ∈
@@ -881,7 +881,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   // ∈ RECIPE_RUN_STATUSES_SET.
   'recipe.test_run': ['language', 'status'],
   // `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET
-  // (implementation: JavaScript + TypeScript runnable; Python schema-only),
+  // (JavaScript + TypeScript runnable; Python schema-only),
   // `status` ∈ NOTEBOOK_CELL_STATUSES_SET
   // (`'ok' / 'error' / 'stopped'`).
   // `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET.

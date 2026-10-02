@@ -6,7 +6,7 @@
  * `LessonPackV1` so `tsc --noEmit` catches schema drift at build
  * time (no need to run `parseLessonPack` over the catalog at
  * runtime). The runtime parse path is reserved for future work when
- * user-authored recipes land via the internal importer registry.
+ * user-authored recipes land via the importer registry.
  *
  * Adding a recipe means:
  *   1. Author `./<id>.ts` with `export const recipe: LessonPackV1 = …`.
@@ -39,7 +39,7 @@ import { recipe as tsGroupByProperty } from './ts-group-by-property';
  * shows when the search box is empty — beginner-friendly recipes
  * first (count vowels, FizzBuzz), then the medium ones, then the
  * conceptually harder (deep clone, palindrome). The TypeScript and
- * Python implementation packs follow as language-specific practice groups.
+ * Python packs follow as language-specific practice groups.
  * A future implementation may promote/demote based on completion telemetry,
  * but the bundled catalog fixes the order in code.
  */

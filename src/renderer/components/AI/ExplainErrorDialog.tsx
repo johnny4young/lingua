@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next';
 import { OverlayBackdrop } from '../ui/chrome';
 import { Sparkles, X } from 'lucide-react';
 import {
+  answerLanguageFor,
   buildExplainErrorRequest,
   type ChatMessage,
 } from '../../../shared/ai/explainError';
@@ -106,7 +107,8 @@ export function ExplainErrorDialog({
   onClose,
   runChatCompletionImpl,
 }: ExplainErrorDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const answerLanguage = answerLanguageFor(i18n.resolvedLanguage);
   const entitled = useEntitlement('LOCAL_AI');
   const endpoint = useAiConfigStore((s) => s.endpoint);
   const apiKey = useAiConfigStore((s) => s.apiKey);
@@ -128,9 +130,10 @@ export function ExplainErrorDialog({
         language,
         ...(filename ? { filename } : {}),
         ...(runtimeNote ? { runtimeNote } : {}),
+        ...(answerLanguage ? { answerLanguage } : {}),
         ...(model ? { model } : {}),
       }),
-    [errorMessage, code, language, filename, runtimeNote, model]
+    [errorMessage, code, language, filename, runtimeNote, model, answerLanguage]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });

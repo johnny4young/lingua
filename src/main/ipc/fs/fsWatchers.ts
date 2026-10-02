@@ -35,7 +35,7 @@ interface WatcherEntry {
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
-// internal hardening  — tie each watcher to the webContents that
+// Hardening: tie each watcher to the webContents that
 // created it so a window close (macOS keeps the app alive with no
 // window) or a renderer reload does not leak the recursive project
 // watcher. Without this, `before-quit` was the ONLY cleanup for these

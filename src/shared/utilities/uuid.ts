@@ -1,8 +1,8 @@
 /**
  * UUID v4/v7 and ULID generation + decoding helpers.
  *
- * Originally implementation (renderer-side); moved into the shared
- * utility layer under implementation (implementation note) so the pipeline `uuid`
+ * Originally renderer-side; moved into the shared
+ * utility layer so the pipeline `uuid`
  * adapter and the renderer's UUID panel consume one implementation —
  * the renderer's `src/renderer/utils/uuid.ts` is now a re-export shim,
  * so the v7/ULID bit-packing can no longer drift between two copies.
@@ -189,7 +189,7 @@ export const UUID_ADAPTER_MAX_COUNT = 100;
  * Structured options for the `uuid` adapter. `count` is a string because
  * the schema-driven options form renders it as a `text` field (the field
  * vocabulary has no numeric type); `run` clamps it to
- * `[0, UUID_ADAPTER_MAX_COUNT]`. `hyphens` (implementation note) strips the dashes from
+ * `[0, UUID_ADAPTER_MAX_COUNT]`. `hyphens` strips the dashes from
  * v4 / v7 output for systems that reject them; it is a no-op for ULID,
  * which has none.
  */

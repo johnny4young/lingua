@@ -125,7 +125,7 @@ export function FileTreeNode({
 
   const indent = depth * 12;
 
-  // implementation fifth increment — surface the capability badge in
+  // Surface the capability badge in
   // the file tree when the user is on the web build and the file
   // belongs to a host-toolchain language (Go, Rust). Stays hidden on
   // desktop and for self-contained runtimes.

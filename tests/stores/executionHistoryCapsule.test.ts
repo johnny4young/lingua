@@ -2,8 +2,8 @@
  * Capsule browse store surface.
  *
  * Pins the `capsuleEntries()` selector (newest-first, capsule-only),
- * the `clearCapsule()` action (implementation note — drop the capsule, keep the
- * run row), and the tier-aware LRU cap (implementation note — Free keeps
+ * the `clearCapsule()` action (drop the capsule, keep the
+ * run row), and the tier-aware LRU cap (Free keeps
  * `CAPSULE_LRU_CAP`, paid tiers keep `CAPSULE_LRU_CAP_PRO`).
  *
  * `currentEffectiveTier` is mocked so the cap can be exercised on both
@@ -76,7 +76,7 @@ describe('executionHistoryStore — capsule browse surface ', () => {
     expect(entries.every((entry) => entry.lastCapsule !== undefined)).toBe(true);
   });
 
-  it('clearCapsule drops the capsule but keeps the run row (implementation note)', () => {
+  it('clearCapsule drops the capsule but keeps the run row', () => {
     const first = recordCapsule('javascript');
     recordCapsule('typescript');
 
@@ -153,7 +153,7 @@ describe('executionHistoryStore — capsule browse surface ', () => {
     ).toBeUndefined();
   });
 
-  it('Free tier retains only CAPSULE_LRU_CAP capsules (implementation note)', () => {
+  it('Free tier retains only CAPSULE_LRU_CAP capsules', () => {
     mockTier = 'free';
     for (let i = 0; i < CAPSULE_LRU_CAP + 3; i += 1) {
       recordCapsule('javascript');
@@ -163,7 +163,7 @@ describe('executionHistoryStore — capsule browse surface ', () => {
     ).toHaveLength(CAPSULE_LRU_CAP);
   });
 
-  it('paid tiers retain up to CAPSULE_LRU_CAP_PRO capsules (implementation note)', () => {
+  it('paid tiers retain up to CAPSULE_LRU_CAP_PRO capsules', () => {
     mockTier = 'pro';
     for (let i = 0; i < CAPSULE_LRU_CAP_PRO + 3; i += 1) {
       recordCapsule('javascript');

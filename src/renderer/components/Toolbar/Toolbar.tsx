@@ -100,6 +100,7 @@ export function Toolbar() {
     effectiveTier,
     isWebBuild,
     isNotebookTab: activeTab?.kind === 'notebook',
+    isWorkspaceTab: activeTab?.kind === 'sql' || activeTab?.kind === 'http' || activeTab?.kind === 'utilities',
     enabledBreakpointCount,
   });
   const {

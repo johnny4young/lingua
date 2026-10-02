@@ -333,7 +333,7 @@ function registerPrimaryInstance() {
       registerConsentHandlers(mirrorPath);
       // Boot the crash reporter BEFORE `createWindow()` so the reporter is
       // attached for the renderer process from its first tick — fixes the
-      // internal early-crash-coverage gap the staged-diff review flagged.
+      // early-crash-coverage gap the staged-diff review flagged.
       await bootCrashReporter({
         appVersion: app.getVersion(),
         readConsentAtBoot: () => readConsentMirror(mirrorPath),

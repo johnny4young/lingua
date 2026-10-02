@@ -105,7 +105,7 @@ function serializeRequestForCapsule(
   // The auth-injected header is redacted UNCONDITIONALLY: a custom
   // apiKey header name is not in the baseline sensitive list, so
   // `isHeaderSensitive` alone would let its value through into the
-  // shared capsule. implementation note into the per-header check by name.
+  // shared capsule. Fold it into the per-header check by name.
   const injectedAuthLc = authInjectedHeaderName(request.auth)?.toLowerCase();
   const sortedHeaders = composeRequestHeaders(request)
     .map((h) => ({

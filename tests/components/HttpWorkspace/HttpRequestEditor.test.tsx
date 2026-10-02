@@ -464,7 +464,7 @@ describe('HttpRequestEditor', () => {
     ).toContain('missing');
   });
 
-  it('does NOT print a resolved secret value anywhere in the preview (implementation note/C privacy)', () => {
+  it('does NOT print a resolved secret value anywhere in the preview (privacy)', () => {
     const request = {
       ...createBlankHttpRequest({ id: 'r1', now: '2026-05-25T00:00:00.000Z' }),
       method: 'GET' as const,
@@ -506,7 +506,7 @@ describe('HttpRequestEditor', () => {
     ).toContain('token');
   });
 
-  it('Copy as cURL masks env secrets but resolves non-secret vars (implementation note)', async () => {
+  it('Copy as cURL masks env secrets but resolves non-secret vars', async () => {
     vi.useRealTimers();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

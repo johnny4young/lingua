@@ -4,13 +4,13 @@
  * Covers:
  *   1. Renders a row per `LANGUAGE_SUPPORT_PROFILES` entry and a
  *      column per `LANGUAGE_CAPABILITIES` axis.
- *   2. Per-platform chip (implementation note) renders only when a profile has a
+ *   2. Per-platform chip renders only when a profile has a
  *      `perPlatform` override (Ruby is the canonical case).
- *   3. Legend popover (implementation note) is closed by default, opens on click,
+ *   3. Legend popover is closed by default, opens on click,
  *      and lists every `LanguageCapabilityStatus`.
- *   4. implementation note stayed dropped: no closed-source CTA, planning label, or
+ *   4. No closed-source CTA, planning label, or
  *      private repo URL leaks into the scorecard.
- *   5. Adoption telemetry (implementation note) fires `language_scorecard_viewed`
+ *   5. Adoption telemetry fires `language_scorecard_viewed`
  *      once per surface via the no-IntersectionObserver fallback path,
  *      and the module-level guard prevents double-fire on remount.
  *      `markLanguageScorecardSurfaceForNextMount('palette')` claims

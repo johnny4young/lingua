@@ -14,12 +14,12 @@
  *     has cells + per-cell outputs + per-cell run status that don't
  *     belong on the FileTab itself (would balloon the persisted blob
  *     + break per-language fields like `content`).
- *   - Keeping notebook state in its own store mirrors the internal
- *     capsule / internal HTTP / internal utility-pipeline pattern.
+ *   - Keeping notebook state in its own store mirrors the
+ *     capsule / HTTP / utility-pipeline pattern.
  *   - The tab discriminator + the notebook store stay in sync via
  *     `editorStore.removeTab` + `editorStore.renameTab` hooks that
  *     call `notebookStore.disposeNotebookForTab(tabId)` (mirror of
- *     the implementation recipeStore unbind pattern).
+ *     the recipeStore unbind pattern).
  *
  * Per-cell outputs and the small execution-order ledger persist alongside
  * the cells. A reload keeps the last-known output visible, marks previously
@@ -142,7 +142,7 @@ export interface NotebookState {
    * Install a fully-formed `NotebookV1` (parsed from a
    * `.linguanb` import) into a tab, preserving the document's own cell
    * ids / title / createdAt and restoring the per-cell `[N]` execution
-   * stamps (implementation note). Unlike the `addCell` walk the `.ipynb` import uses,
+   * stamps. Unlike the `addCell` walk the `.ipynb` import uses,
    * this keeps the import lossless. Overwrites any existing slice for the
    * tab; transient run state (status / durations / var-flow) starts clean
    * since the imported run did not happen in this session.

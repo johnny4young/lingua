@@ -576,10 +576,12 @@
      value from `--space-7`. The 8pt `--space-7: 48px` layout token stays
      intact for direct use; this only decouples the Tailwind utility step,
      which was the single step driving every oversized `h-7` button/control
-     across the app. Steps 5/6/8 stay coupled — they're load-bearing layout
-     spacing (gap-6/p-8/…), not component-height steps. */
+     across the app. Steps 5/6 stay coupled — they're load-bearing layout
+     spacing (gap-6/p-6/…), not component-height steps. */
   --spacing-7: 28px;
-  --spacing-8: var(--space-8);
+  /* Same decoupling for `8`: h-8/w-8 size controls at 32px. Layout spacing
+     that wants 64px uses the `-16` step (0.25rem × 16). */
+  --spacing-8: 32px;
 
   /* Tailwind expects `--radius-*` to be on the @theme block to generate the
      `rounded-*` utilities. The scale is now monotonic and gap-free: sm/md/lg/xl
@@ -1081,7 +1083,7 @@
     padding-left: 1rem;
   }
 
-  /* internal polish #1 — Monaco overlay widget that renders the rich
+  /* Monaco overlay widget that renders the rich
      inline result for each line that produced a value. The widget is
      placed in the editor's overlay layer (sibling to the lines, not
      a child), so we can pin it to the editor's right edge with
@@ -1317,7 +1319,7 @@
     box-shadow: inset 0 0 0 1.5px var(--app-warning, #d99a32);
   }
 
-  /* implementation UX polish — make the breakpoint gutter
+  /* Make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in
      it. We add:
@@ -1352,7 +1354,7 @@
   }
 
   /*
-    implementation — flash decoration applied to a Monaco line
+    Flash decoration applied to a Monaco line
     when the user hovers an `<OutputLineBadge>` chip on a console
     row. Lower specificity than the debugger paused-line above so
     the debugger highlight wins when both fire on the same line.
@@ -1372,7 +1374,7 @@
   }
 
   /*
-    implementation Sub-slice G implementation note — symmetric inverse: console-row pulse
+    Symmetric inverse: console-row pulse
     when the user's editor cursor settles on a line that produced
     output. Matches `lingua-highlight-flash-fade` timing so both
     directions feel like the same gesture.
@@ -1503,7 +1505,7 @@
   }
 
   /* ============================================================ */
-  /* internal Signal-Slate v2 — composite primitives                */
+  /* Signal-Slate v2 — composite primitives                */
   /* ============================================================ */
 
   /* Action pill — the floating hero element above the editor. The
@@ -2119,7 +2121,7 @@
 }
 
 /* ============================================================ */
-/* internal v2 keyframes — declared at the top level so Tailwind  */
+/* v2 keyframes — declared at the top level so Tailwind  */
 /* doesn't try to scope them inside @layer components.          */
 /* ============================================================ */
 

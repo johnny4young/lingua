@@ -126,7 +126,7 @@ describe('UtilityPipelinePanel', () => {
   it('shows the template gallery in the empty state ', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
-    // One card per catalog template (9 after implementation note added
+    // One card per catalog template (9, including
     // the inspect-hidden-chars starter).
     expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(9);
   });

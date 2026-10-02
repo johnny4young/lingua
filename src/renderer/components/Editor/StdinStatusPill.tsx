@@ -7,7 +7,7 @@
  * Self-gates on language (JS / TS / Python) AND non-empty buffer.
  * Hidden when:
  *   - The active tab is on an unsupported language.
- *   - The Settings master toggle is off (implementation note).
+ *   - The Settings master toggle is off.
  *   - The buffer is empty / undefined.
  *   - The runtime mode is `browser-preview` (sandbox iframe has no
  *     stdin surface).

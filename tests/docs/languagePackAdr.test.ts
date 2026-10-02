@@ -1,7 +1,7 @@
 /**
  * Language-pack design guard — the ADR locks the descriptor
  * shape, the migration history, and the no-marketplace
- * constraint so future implementation detail work proceeds against a written
+ * constraint so future language-pack work proceeds against a written
  * contract instead of reinventing a plugin story.
  */
 
@@ -23,7 +23,7 @@ describe('LANGUAGE_PACK_ADR.md', () => {
     expect(adr).toMatch(/declarative `LanguagePack` descriptor/i);
   });
 
-  it('declares the descriptor fields the internal scope enumerates', () => {
+  it('declares the descriptor fields the scope enumerates', () => {
     for (const field of [
       'labelKey',
       'extensions',

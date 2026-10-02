@@ -8,8 +8,8 @@
  * Runtime + workflow mode are deliberately NOT threaded from the
  * capsule — the new tab starts in `createDefaultTab` defaults so the
  * user has to explicitly Run / Cmd+Enter to re-execute. "No silent
- * execution" is the core internal promise; opening a capsule must never
- * run code on its own. internal restores the inert stdin/argv snapshot and
+ * execution" is the core promise; opening a capsule must never
+ * run code on its own. It restores the inert stdin/argv snapshot and
  * optional set name so an explicitly-triggered replay receives the same input.
  *
  * non-code capsules. `capsule.tab.language`

@@ -93,7 +93,7 @@ describe('editorStore — runtimeMode ', () => {
     expect(tab?.runtimeMode).toBe('worker');
   });
 
-  it('addTab preserves the runtimeMode value when the mode is implemented (implementation — node now shipping)', () => {
+  it('addTab preserves the runtimeMode value when the mode is implemented (node now shipping)', () => {
     const { addTab } = useEditorStore.getState();
     addTab({
       id: 'manual-node',
@@ -103,7 +103,7 @@ describe('editorStore — runtimeMode ', () => {
       runtimeMode: 'node',
     });
     const tab = useEditorStore.getState().tabs[0];
-    // After implementation (2026-05-14), `node` is implemented and
+    // Since 2026-05-14, `node` is implemented and
     // survives the addTab path instead of being coerced to worker.
     expect(tab?.runtimeMode).toBe('node');
   });
@@ -132,13 +132,13 @@ describe('editorStore — runtimeMode ', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  it('setTabRuntimeMode accepts node after implementation and fires telemetry', () => {
+  it('setTabRuntimeMode accepts node and fires telemetry', () => {
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const js = createDefaultTab('javascript');
     addTab(js);
     setTabRuntimeMode(js.id, 'node');
     const tab = useEditorStore.getState().tabs.find((t) => t.id === js.id);
-    // implementation (2026-05-14) — `node` is now implemented and
+    // `node` is now implemented and
     // the setter accepts it instead of rejecting with a notice.
     expect(tab?.runtimeMode).toBe('node');
     expect(mockTrackEvent).toHaveBeenCalledWith('runtime.mode_changed', {
@@ -207,9 +207,9 @@ describe('editorStore — runtimeMode ', () => {
     expect(tab?.variableInspectorEnabled).toBeUndefined();
   });
 
-  it('setTabRuntimeMode accepts browser-preview after implementation and fires telemetry', () => {
+  it('setTabRuntimeMode accepts browser-preview and fires telemetry', () => {
     // browser-preview is implemented now. The
-    // reject branch + notice only applies to `node` until implementation.
+    // reject branch + notice only applies to `node`.
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const ts = createDefaultTab('typescript');
     addTab(ts);

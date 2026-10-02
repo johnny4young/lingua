@@ -11,7 +11,7 @@ import type { LicenseRuntime } from '../license';
 import type { RemoveDeviceResult } from '../licenseServer';
 import { typedHandle } from './typedHandle';
 
-// internal / typed IPC contract: the `license:*` handlers bind to
+// Typed IPC contract: the `license:*` handlers bind to
 // `typedHandle`, so `tsc` checks each handler's return type against the
 // contract result. This became possible once the ambient
 // `LicensePayloadShape.tier` in `src/types.d.ts` was widened to the full

@@ -1,7 +1,7 @@
 /**
  * Argv parser.
  *
- * Tiny hand-rolled parser (no commander dep) covering the implementation
+ * Tiny hand-rolled parser (no commander dep) covering the v1 command
  * surface:
  *
  *   lingua utility <utility-id> [--input <file>] [--json] [--quiet]
@@ -10,9 +10,9 @@
  *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
- *   lingua list utilities [--json]            (implementation note)
+ *   lingua list utilities [--json]
  *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
- *   lingua --version                          (implementation note)
+ *   lingua --version
  *   lingua --help | lingua <cmd> --help
  *
  * Anything unrecognized throws a `CliUsageError` so the entry can

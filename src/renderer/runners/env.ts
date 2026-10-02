@@ -15,7 +15,7 @@ let projectScopeTelemetryEmitted = false;
  * user/project/tab variables across the preload boundary.
  */
 function resolveUserEnv(emitProjectScopeUsage: boolean): Record<string, string> {
-  // internal contract: user-defined env vars are a desktop-only feature.
+  // Contract: user-defined env vars are a desktop-only feature.
   // The web build keeps the Settings surface honest for tier editing and
   // trace preview, but runnable paths must not leak those vars into the
   // browser runtimes.

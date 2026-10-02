@@ -1,7 +1,7 @@
 /**
  * Persistent 24px bottom status bar.
  *
- * A fixed-height flex strip mounted at the bottom of the app shell. implementation note
+ * A fixed-height flex strip mounted at the bottom of the app shell. It hosts
  * the project Git branch chip (A), a display-only encoding segment (B), the
  * focus-from-palette affordance (C), click-to-next-problem on the lint segment
  * (D), the toggle telemetry (E, in the store setter), the compact run-status
@@ -64,7 +64,7 @@ function nextIndent(current: IndentConfig): IndentConfig {
       entry.insertSpaces === current.insertSpaces &&
       entry.tabSize === current.tabSize
   );
-  // Unknown current config (e.g. tabs-2) implementation note to the start of the cycle.
+  // Unknown current config (e.g. tabs-2) falls back to the start of the cycle.
   const nextIndex = index === -1 ? 0 : (index + 1) % INDENT_CYCLE.length;
   return INDENT_CYCLE[nextIndex] ?? INDENT_SPACES_2;
 }
@@ -262,7 +262,7 @@ function StatusBarContent() {
           : t('statusBar.cursor', { line: '—', column: '—' })}
       </InformativeStatus>
 
-      {/* 4 — Encoding (implementation note): display-only but still keyboard-focusable. */}
+      {/* 4 — Encoding: display-only but still keyboard-focusable. */}
       <button
         type="button"
         data-testid="status-bar-encoding"
@@ -276,7 +276,7 @@ function StatusBarContent() {
         {t('statusBar.encoding')}
       </InformativeStatus>
 
-      {/* 5 — Indent (implementation note): click cycles the active model's indentation. */}
+      {/* 5 — Indent: click cycles the active model's indentation. */}
       <button
         type="button"
         data-testid="status-bar-indent"
@@ -305,7 +305,7 @@ function StatusBarContent() {
           : null}
       </button>
 
-      {/* 6 — Git branch (implementation note): self-hides when no posture is available. */}
+      {/* 6 — Git branch: self-hides when no posture is available. */}
       {posture?.available ? (
         <>
           <button
@@ -345,7 +345,7 @@ function StatusBarContent() {
         </>
       ) : null}
 
-      {/* 7 — Run status (implementation note): compact icon-only pill, pushed right. */}
+      {/* 7 — Run status: compact icon-only pill, pushed right. */}
       <button
         type="button"
         data-testid="status-bar-run"

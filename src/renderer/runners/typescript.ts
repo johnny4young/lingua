@@ -113,7 +113,7 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // internal debugger refinement — debug mode resolution mirrors the JS
+    // Debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
     const sourceMappingEnabled = true;
     const sourceMaps: string[] = [];

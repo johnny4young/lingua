@@ -34,8 +34,8 @@ interface AwaitableDebugTargets {
  *   that contain newlines, and any line that spans multiple
  *   statements (`a = 1; b = 2`).
  * - **magic-string** mutates the source by character index and
- *   produces a JS→JS source map automatically. implementation returns that
- *   map as-is; implementation composes it with esbuild's TS→JS map so a
+ *   produces a JS→JS source map automatically. The instrumenter returns that
+ *   map as-is; for TS it is composed with esbuild's TS→JS map so a
  *   breakpoint set in `.ts` line N maps back to TS line N at pause
  *   time.
  * - esbuild's `transform` API does NOT expose AST — only string-level
@@ -57,7 +57,7 @@ interface AwaitableDebugTargets {
  *   that breaks `await` — must stay synchronous).
  * - Synchronous function bodies. Injecting `await` into them would
  *   turn valid code into a SyntaxError unless the whole call graph is
- *   rewritten to async, which is outside implementation.
+ *   rewritten to async, which is out of scope.
  * - Generator function bodies (yield-await mismatch is hairy; the
  *   user-facing impact is "set the breakpoint on the line that
  *   *calls* the generator instead").
@@ -89,7 +89,7 @@ interface AwaitableDebugTargets {
  *
  * # Reference
  *
- * implementation and `docs/DEBUGGER_ADR.md`.
+ * `docs/DEBUGGER_ADR.md`.
  */
 
 export interface InstrumentResult {

@@ -44,7 +44,7 @@ export function decodeIssuedTo(token: string): string | null {
  * valid (otherwise we'd see `'invalid-signature'`). The server's
  * `findCurrentLicenseForToken` walks the licenseId path and returns
  * the canonical `licenses.token` via `refreshedToken`, so a stale T1
- * resolves to the active implementation silently.
+ * resolves to the active token silently.
  *
  * Grace-window contract: this helper is only allowed to run after
  * local verification has proven the stale token is authentic but

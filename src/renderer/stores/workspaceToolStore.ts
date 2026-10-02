@@ -3,11 +3,11 @@
  *
  * Owns the list of user-created HTTP requests + their response
  * history. Isolated on its own localStorage key (`lingua-workspace-tool-state`)
- * per the internal convention so a Settings reset doesn't wipe the
+ * per the convention so a Settings reset doesn't wipe the
  * user's saved requests, and a workspace reset doesn't touch
  * `lingua-settings`.
  *
- * implementation (DuckDB-WASM SQL scratchpad) will extend this store with a
+ * The DuckDB-WASM SQL scratchpad will extend this store with a
  * parallel `queries` collection that shares the same shape — hence
  * the name `workspaceToolStore`, not `httpStore`.
  *
@@ -107,7 +107,7 @@ interface WorkspaceToolState {
   /**
    * Bulk-append requests to the top of the list, preserving their
    * order (first element ends up topmost) and selecting the first.
-   * Used by the implementation collection importer so a Postman /
+   * Used by the collection importer so a Postman /
    * Bruno import lands every request in one state write. A no-op for
    * an empty array. There is no request-count cap (the LRU is
    * per-request RESPONSE history only).
@@ -139,7 +139,7 @@ interface WorkspaceToolState {
   /** Returns the most-recent response for a request, or undefined. */
   getLatestResponse: (id: string) => HttpResponseV1 | undefined;
 
-  // -------- implementation — environment CRUD ----------------------------
+  // -------- Environment CRUD ----------------------------
 
   /** Append a new environment to the list. Does not auto-activate it. */
   createEnvironment: (env: HttpEnvironmentV1) => void;
@@ -404,7 +404,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
       getRequest: (id) => get().requests.find((r) => r.id === id),
       getLatestResponse: (id) => get().responsesByRequestId[id]?.[0],
 
-      // -------- implementation — environment CRUD ------------------------
+      // -------- Environment CRUD ------------------------
 
       createEnvironment: (env) =>
         set((state) => ({ environments: [...state.environments, env] })),

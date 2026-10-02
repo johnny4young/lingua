@@ -76,8 +76,8 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
 /**
  * Build the env passed to `rustc` and the compiled binary.
  *
- * internal: only allowlisted host keys flow through; the user-tier env
- * from internal layers on top. There are no runner-owned overrides for
+ * Only allowlisted host keys flow through; the user-tier env
+ * layers on top. There are no runner-owned overrides for
  * Rust — rustc respects the host toolchain on its own and the
  * spawned binary gets whatever the user explicitly configured.
  */

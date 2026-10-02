@@ -1,5 +1,5 @@
 /**
- * Main-side fetch wrappers for the internal license-server endpoints
+ * Main-side fetch wrappers for the license-server endpoints
  * .
  *
  * Mirror of `src/renderer/services/licenseServer.ts` for the desktop
@@ -22,7 +22,7 @@
  *   browser tab-close edge case the renderer worries about cannot
  *   happen here.
  *
- * implementation callers (`src/main/license.ts`):
+ * Callers (`src/main/license.ts`):
  *   - `applyToken` runs `serverActivate` after a successful local
  *     verify so the desktop bucket in D1 stays accurate.
  *   - `revalidate` runs `serverStatus` and re-issues `serverActivate`

@@ -159,7 +159,7 @@ export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
 //
 //   - `sourceSurface` distinguishes which affordance the user picked
 //     to load the capsule. `paste` covers both the textarea AND the
-//     clipboard auto-detect (implementation note); they're indistinguishable
+//     clipboard auto-detect; they're indistinguishable
 //     beyond a one-shot consent flow that lives in Settings.
 //   - `status` walks the funnel: `decoded` (valid capsule rendered in
 //     preview), `open-confirmed` (user clicked "Open as new tab"),
@@ -183,8 +183,8 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // duplicated here so the telemetry validator stays import-cycle-free.
 // Parity test in `update-server/test/telemetry.test.ts` cross-imports
 // the renderer source of truth to keep the two copies in sync.
-// implementation widens with `'ipynb-notebook'`; implementation widens with
-// `'postman-collection'` + `'bruno-collection'`; implementation widens
+// Widened with `'ipynb-notebook'`, then with
+// `'postman-collection'` + `'bruno-collection'`, then
 // with `'linguanb-notebook'`.
 export const IMPORTER_IDS_SET = new Set([
   'curl-http',
@@ -230,7 +230,7 @@ export const RECIPE_RUN_STATUSES_SET = new Set([
 export const NOTEBOOK_CELL_STATUSES_SET = new Set(['ok', 'error', 'stopped']);
 // Closed enum of code-cell languages. Source
 // of truth in `src/shared/notebook.ts` (`NOTEBOOK_CELL_LANGUAGES`).
-// implementation runs JavaScript + TypeScript; Python remains schema-only and
+// The notebook runs JavaScript + TypeScript; Python remains schema-only and
 // runner-rejected. The telemetry validator accepts all three so future
 // Python wiring doesn't have to revisit this Set.
 export const NOTEBOOK_CELL_LANGUAGES_SET = new Set(['javascript', 'typescript', 'python']);
@@ -308,7 +308,7 @@ export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
 export const GIT_LAYER_REPO_STATES = new Set(['git-repo', 'no-git', 'no-binary']);
 // Closed enum for the `target` property on
 // `git.reveal_in_source_control_clicked`. Single value today; the
-// closed set lets future implementation extensions (e.g. `'commit-hash'`
+// closed set lets future extensions (e.g. `'commit-hash'`
 // jumping to a specific commit in an external SC GUI) layer in
 // without rewriting the validator.
 export const REVEAL_IN_SC_TARGETS = new Set(['repo-root']);
@@ -545,7 +545,7 @@ const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set(['toolbar', 'language_change']);
 // Closed enum for the `surface` property on
 // `runtime.history_replay`. `tab_pill` is the per-tab RecentRunsPill
 // shipped this change; `palette` is the command-palette Replay
-// action shipped in implementation; `popover` is the
+// action; `popover` is the
 // ExecutionHistoryPopover Replay button. Mirrored on the worker.
 const HISTORY_REPLAY_SURFACES = new Set(['tab_pill', 'palette', 'popover']);
 // Closed enum for the `countBucket`
@@ -590,7 +590,7 @@ export const LINT_SEVERITIES = new Set(['error', 'warning', 'info']);
 
 // Closed enum for the `handler` property of the smart-paste events.
 // One token per paste-intent kind (mirrors `PasteIntentKind` in
-// src/renderer/clipboard/pasteHandlers.ts). internal utility suggestions
+// src/renderer/clipboard/pasteHandlers.ts). utility suggestions
 // report per-format as `utility-<utilityId>` so the dashboard can rank
 // which formats users actually hand to the Developer Utilities.
 export const SMART_PASTE_HANDLERS = new Set([

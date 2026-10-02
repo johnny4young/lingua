@@ -13,7 +13,7 @@ import { trackEvent } from '../utils/telemetry';
 
 type EditorInstance = Parameters<OnMount>[0];
 
-/** Languages implementation lints. */
+/** Languages the hook lints. */
 const LINTABLE = new Set(['javascript', 'typescript']);
 
 /**
@@ -56,7 +56,7 @@ interface ActiveLintTab {
  *
  * Adoption telemetry (`editor.lint_diagnostic_emitted`) fires at most once per
  * session per (language, severity, ruleId), separating Monaco's `ts-native`
- * diagnostics from the custom rules (implementation note). No code or positions are sent.
+ * diagnostics from the custom rules. No code or positions are sent.
  */
 export function useInlineLint(
   editor: EditorInstance | null,

@@ -13,7 +13,7 @@
  *   - `error`       → Soft "Couldn't load diff" — same shape as
  *                     console-side fallback for diff-fetch IPC error.
  *
- * Telemetry: `git.diff_panel_opened` (implementation note) fires once per panel
+ * Telemetry: `git.diff_panel_opened` fires once per panel
  * mount, gated by `panelIsActive` so a hidden mount (the panel exists
  * in the AppLayout sibling list but the user is on Console) does
  * not emit.
@@ -117,7 +117,7 @@ export function GitDiffPanel() {
 
   // Fire the panel-opened telemetry once per mount lifecycle when the
   // panel is actually visible. Using `panelIsActive` as the gate
-  // prevents a hidden mount (internal keeps siblings in the DOM for
+  // prevents a hidden mount (the bottom panel keeps siblings in the DOM for
   // animation purposes) from inflating the metric.
   const telemetryFiredRef = useRef(false);
   useEffect(() => {
@@ -278,7 +278,7 @@ export function GitDiffPanel() {
           options={{
             readOnly: true,
             renderSideBySide: true,
-            // implementation is read-only; future implementation might enable
+            // The panel is read-only; a future change might enable
             // inline edits with stage/unstage actions.
             originalEditable: false,
             scrollBeyondLastLine: false,

@@ -77,7 +77,7 @@ export const slugifyAdapter: UtilityAdapter<SlugifyOptions> = {
     let slug = input
       .normalize('NFKD')
       // Strip combining diacritical marks (U+0300..U+036F) left behind
-      // by NFKD so accented letters implementation note their ASCII base.
+      // by NFKD so accented letters fold to their ASCII base.
       .replace(/[̀-ͯ]/gu, '')
       .replace(/[^a-zA-Z0-9]+/gu, sep)
       .replace(/^[-_]+|[-_]+$/gu, '');

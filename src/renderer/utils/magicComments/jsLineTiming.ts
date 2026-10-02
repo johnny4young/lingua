@@ -26,7 +26,7 @@ const STATEMENT_START_BLOCKED_CHARS = '.?:)]},=+-*/%&|^<>!~`([@';
 /**
  * Leading keywords that continue a compound statement. `while` is here
  * for the rare split `do {…}\n while (…)` tail — excluding it costs a
- * standalone while-loop its own marker (its time implementation note the
+ * standalone while-loop its own marker (its time folds into the
  * previous statement) but can never produce invalid code, which is the
  * bias this detector wants.
  */

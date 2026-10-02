@@ -12,9 +12,9 @@
  *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
- *   lingua list utilities [--json] [--quiet]            (implementation note)
+ *   lingua list utilities [--json] [--quiet]
  *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
- *   lingua --version                                    (implementation note)
+ *   lingua --version
  *   lingua --help | <cmd> --help
  *
  * The bundled artifact is prefixed with `#!/usr/bin/env node`
@@ -266,7 +266,7 @@ function sniffOutputOptions(argv: ReadonlyArray<string>): CliOutputOptions {
 
 async function main(): Promise<void> {
   const io = createDefaultIo();
-  // `process.argv` is `[node-bin, script-path, ...userArgs]`. implementation
+  // `process.argv` is `[node-bin, script-path, ...userArgs]`. Slice
   // past the first two so command handlers see the user's tail.
   const code = await dispatch(process.argv.slice(2), io);
   // Use `process.exitCode` instead of `process.exit(code)` so any

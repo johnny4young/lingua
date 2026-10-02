@@ -153,7 +153,7 @@ describe('SettingsModal', () => {
 
     expect(await screen.findByText('MIT')).toBeTruthy();
 
-    // internal inserted Languages visually between Editor and Environment,
+    // Languages sits visually between Editor and Environment,
     // while preserving Environment on Cmd+4 and assigning Languages to Cmd+8.
     fireEvent.keyDown(window, { key: '8', metaKey: true });
     expect(screen.getByTestId('settings-tab-languages').getAttribute('aria-selected')).toBe(

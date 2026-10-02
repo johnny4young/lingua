@@ -23,8 +23,8 @@ import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 // `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
 // the list in sync with the registry: future runnable packs that ship
 // with starter templates land here automatically; Lua stays out until
-// it gains a starter (its `templateIds` is empty per the implementation
-// guard test).
+// it gains a starter (its `templateIds` is empty per the
+// language-pack guard test).
 const QUICK_START_PACKS = LANGUAGE_PACKS.filter(
   (pack) =>
     (pack.execution === 'run' || pack.execution === 'compile') &&
@@ -66,7 +66,7 @@ export function EditorEmptyState() {
   };
 
   return (
-    // internal polish #5 — Welcome screen migrated from the legacy
+    // Welcome screen migrated from the legacy
     // purple-gradient + `text-foreground` / `text-muted` palette to the
     // Signal-Slate tokens shipping with the v2 design (slate accent at
     // hue 210, semantic bg-/fg- variables). The gradient now reads as a
@@ -74,8 +74,8 @@ export function EditorEmptyState() {
     <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
 
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 sm:px-8 lg:gap-10">
-        <div className="flex flex-col justify-center gap-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-16 px-5 py-16 sm:px-16 lg:gap-10">
+        <div className="flex flex-col justify-center gap-16 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
         <section className="animate-rise-in space-y-7">
           <div className="inline-flex items-center gap-3">
             <div className="relative flex h-14 w-14 items-center justify-center rounded-3xl border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">

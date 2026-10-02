@@ -14,7 +14,7 @@ const ALL_TYPES: ConsoleEntryType[] = ['log', 'info', 'warn', 'error', 'result']
 /**
  * Non-cryptographic equality hash for adjacent console rows. Keeping this tiny
  * hash inline avoids a static `spark-md5` import in the initial renderer bundle,
- * preserving the Dev Utilities MD5 lazy chunk from internal
+ * preserving the Dev Utilities MD5 lazy chunk
  */
 function stableEqualityHash(value: string): string {
   let h1 = 0xdeadbeef ^ value.length;
@@ -55,7 +55,7 @@ function consoleEntryHash(
 }
 
 /**
- * implementation note flat entry list into the collapsed view, merging runs of
+ * Fold a flat entry list into the collapsed view, merging runs of
  * consecutive entries that share an `equalityHash` into one row with a
  * `repeatCount`. This is the authoritative derivation; `addEntry` keeps an
  * incremental fast-path for the hot push, but `restore` recomputes from the

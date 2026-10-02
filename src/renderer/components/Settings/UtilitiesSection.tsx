@@ -14,7 +14,7 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
  *
  * Houses two surfaces:
  *   1. Clipboard-on-focus consent toggle. The state machine matches
- *      internal telemetry: `unset` → `granted`/`declined`, never back.
+ *      telemetry consent: `unset` → `granted`/`declined`, never back.
  *      Default off; the user has to flip it on to opt in.
  *   2. "Clear all utility history" — bulk affordance for users who
  *      enabled per-tool persistence and want to wipe everything in a

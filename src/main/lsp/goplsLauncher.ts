@@ -19,8 +19,8 @@ export type { GoplsStatus } from '../../shared/lspLauncherTypes';
  * auto-restart on crash, env-filtered subprocess. The launcher is
  * intentionally a copy rather than a shared base class: with only two
  * desktop LSPs in the tree the abstraction would be speculative, and
- * implementation picked the copy path deliberately so the rust path can keep
- * stabilising without churn from implementation.
+ * the copy path is deliberate so the rust path can keep
+ * stabilising without churn.
  *
  * Go-specific concerns the launcher owns:
  *   - Detection: PATH first, then `$GOPATH/bin/gopls`, then

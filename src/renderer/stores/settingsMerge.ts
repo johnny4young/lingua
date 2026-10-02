@@ -252,7 +252,7 @@ export function settingsMerge(
   return {
     ...merged,
     restoreSessionMode,
-    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform), // internal S2
+    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform),
     hasCompletedOnboardingWelcome,
     hasCompletedOnboardingFirstRun,
     hasCompletedOnboardingFirstSnippet,
@@ -273,21 +273,21 @@ export function settingsMerge(
     ),
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
-    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // internal
+    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar,
     smartPasteDetectionEnabled: typeof merged.smartPasteDetectionEnabled === 'boolean' ? merged.smartPasteDetectionEnabled : currentState.smartPasteDetectionEnabled,
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
     showTimeoutCountdown,
-    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming, // internal
+    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming,
     rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
     httpAllowPrivateHosts: merged.httpAllowPrivateHosts === true,
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
-    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // internal S3 OPFS: coerce to boolean on rehydrate
-    runLedgerEnabled: merged.runLedgerEnabled === true, // internal: coerce to boolean on rehydrate
-    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // internal SC: only the runnable pair; anything else falls back to JS
+    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // OPFS: coerce to boolean on rehydrate
+    runLedgerEnabled: merged.runLedgerEnabled === true, // Coerce to boolean on rehydrate
+    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // Only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
   };
 }

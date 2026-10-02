@@ -1,11 +1,11 @@
 /**
  * cross-store coverage for schema versioning.
  *
- *  - implementation note: a forward-migration (v0 back-compat) fixture for every persisted
+ *  - A forward-migration (v0 back-compat) fixture for every persisted
  *    store, driven off the registry so adding a store automatically adds a case.
- *  - implementation note: a drift guard that fails if any `persist(...)` store ships without
+ *  - A drift guard that fails if any `persist(...)` store ships without
  *    a `version` + `createMigrate(...)` (or is missing from the registry).
- *  - implementation note: a dedicated guard that a pre-version license payload survives the
+ *  - A dedicated guard that a pre-version license payload survives the
  *    migrate path with its token + active status intact (security seam).
  *  - A real `persist.rehydrate()` round-trip proving an unversioned localStorage
  *    payload still loads.
@@ -27,7 +27,7 @@ describe('v0 back-compat per persisted store', () => {
   // The AC: rehydrating a v0 (unversioned) payload still works. Stores with an
   // identity migration map must return their persisted shape unchanged so no
   // returning user loses data on the version bump. Stores that have grown a
-  // real forward step (internal: lingua-settings 1->2) are exercised by their
+  // real forward step (lingua-settings 1->2) are exercised by their
   // own dedicated test below — the generic identity assertion does not apply.
   const IDENTITY_STORES = STORE_NAMES.filter(
     (name) => Object.keys(migrationRegistry[name]).length === 0
@@ -64,7 +64,7 @@ describe('lingua-settings v1->v2 — restoreSession boolean to restoreSessionMod
     expect(result.theme).toBe('dark');
   });
 
-  it('maps legacy restoreSession:false to ask (implementation note — better default for everyone)', () => {
+  it('maps legacy restoreSession:false to ask (better default for everyone)', () => {
     const result = migrate({ restoreSession: false }, 1) as Record<string, unknown>;
     expect(result.restoreSessionMode).toBe('ask');
     expect(result).not.toHaveProperty('restoreSession');

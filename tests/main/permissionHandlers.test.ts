@@ -3,9 +3,9 @@
  *
  * Asserts the allow/deny policy (only main-frame clipboard read/write
  * permissions granted), that both Electron handlers are installed and consult
- * that policy, that a denial is logged (implementation note), and a source drift guard that
+ * that policy, that a denial is logged, and a source drift guard that
  * `defaultSession` is the only session — so a future partitioned session can't
- * ship without its own deny-by-default handlers (implementation note).
+ * ship without its own deny-by-default handlers.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -172,7 +172,7 @@ describe('installPermissionHandlers', () => {
     expect(runCheck(m.check(), permission)).toBe(false);
   });
 
-  it('logs a denied permission (name + phase only) and stays silent on grants (implementation note)', () => {
+  it('logs a denied permission (name + phase only) and stays silent on grants', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const m = mockSession();
     installPermissionHandlers(m.session);
@@ -189,7 +189,7 @@ describe('installPermissionHandlers', () => {
   });
 });
 
-describe('single-session coverage (implementation note drift guard)', () => {
+describe('single-session coverage (drift guard)', () => {
   it('uses only session.defaultSession — a partitioned session would need its own handlers', () => {
     const mainDir = resolve(__dirname, '../../src/main');
     const offenders: string[] = [];

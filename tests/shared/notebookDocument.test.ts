@@ -2,7 +2,7 @@
  * `.linguanb` native notebook document round-trip +
  * reject coverage. Pins the lossless serialize/parse contract, the
  * closed-enum rejects, the detect probe, and the execution-order
- * (implementation note) sanitization.
+ * sanitization.
  */
 
 import { describe, expect, it } from 'vitest';

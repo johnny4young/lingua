@@ -1,9 +1,27 @@
 {
-  "generatedAt": "2026-10-02T15:00:00.487Z",
+  "generatedAt": "2026-10-02T20:28:50.447Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 30,
+  "totalSinceBase": 32,
   "commits": [
+    {
+      "hash": "a0aef99",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": null,
+      "message": "close live-smoke findings and refresh product screenshots",
+      "breaking": false
+    },
+    {
+      "hash": "7e1bf91",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": null,
+      "message": "resolve full app review findings across runtime, UI, desktop and docs",
+      "breaking": false
+    },
     {
       "hash": "0973bb1",
       "date": "2026-10-02",
@@ -92,24 +110,6 @@
       "typeLabel": "New",
       "scope": "capsules",
       "message": "verify current files and regression suites",
-      "breaking": false
-    },
-    {
-      "hash": "cc5fa71",
-      "date": "2026-10-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "editor",
-      "message": "add authorized Go and Rust project navigation",
-      "breaking": false
-    },
-    {
-      "hash": "74998f0",
-      "date": "2026-09-30",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "cli",
-      "message": "verify captured capsule output strictly",
       "breaking": false
     }
   ]

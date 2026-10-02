@@ -8,7 +8,7 @@
  * with the URL bar; the Auth tab injects an Authorization / API-key
  * header on send.
  *
- * implementation note here:
+ * Features here:
  *
  *   - **A**: Cmd/Ctrl+Enter while focus is inside any input fires
  *     the Send handler. Mirrors the run-shortcut muscle memory the
@@ -25,6 +25,7 @@ import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useCommandListener } from '../../hooks/useCommandListener';
 import { buildCurlCommand } from '../../../shared/httpWorkspaceCurl';
 import {
   paramsToUrl,
@@ -71,7 +72,7 @@ export interface HttpRequestEditorProps {
    * Patches land via this callback (auto-save). The target request id
    * is passed explicitly so a debounced flush always lands on the
    * entry the edit was typed into, even if the active request switched
-   * during the debounce quiet window (RQ-02).
+   * during the debounce quiet window.
    */
   onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
@@ -169,7 +170,7 @@ export function HttpRequestEditor({
   // rapid edit across URL + params + headers + body settles to a
   // single patch.
   //
-  // RQ-02 — the pending patch carries the id of the request it was
+  // The pending patch carries the id of the request it was
   // typed into (`pendingTargetIdRef`), captured at schedule time. A
   // flush always targets that captured id, never the (possibly
   // already-switched) active request, so an edit to request A can
@@ -204,7 +205,7 @@ export function HttpRequestEditor({
   // Sync local state when the active request switches (different id).
   // Flush the previous request's pending edit FIRST so it lands on the
   // entry it was typed into before we overwrite the draft with the
-  // newly-active request (RQ-02).
+  // newly-active request.
   const lastRequestIdRef = useRef<string>(request.id);
   useEffect(() => {
     if (lastRequestIdRef.current === request.id) return;
@@ -270,7 +271,7 @@ export function HttpRequestEditor({
       pendingPatchRef.current = fullPatch;
       // Capture the id of the request being edited NOW. The flush reads
       // this captured id, so a switch before the timer fires cannot
-      // redirect the patch onto the newly-active request (RQ-02).
+      // redirect the patch onto the newly-active request.
       pendingTargetIdRef.current = request.id;
       if (patchTimerRef.current !== null) {
         window.clearTimeout(patchTimerRef.current);
@@ -333,6 +334,7 @@ export function HttpRequestEditor({
     if (!draft) return;
     onSend(draft);
   }, [flushDraftBeforeSend, isExecuting, onSend]);
+  useCommandListener('workspace.run', ({ kind }) => { if (kind === 'http') sendCurrentDraft(); });
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy

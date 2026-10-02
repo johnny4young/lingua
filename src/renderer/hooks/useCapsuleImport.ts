@@ -10,13 +10,13 @@
  * telemetry enum):
  *
  *   - `paste` — `decodeFromText(json)` directly from the textarea AND
- *     the optional clipboard auto-detect on mount (implementation note, gated on
+ *     the optional clipboard auto-detect on mount (gated on
  *     `capsuleImportClipboardOnFocusConsent === 'granted'`).
  *   - `file-picker` — `decodeFromFile(file)` after the hidden
  *     `<input type="file">` resolves; web + desktop both go through
  *     the same `File.text()` so there's no IPC dependency.
  *   - `drag-drop` — `decodeFromFile(file)` from the overlay's drop
- *     zone (implementation note). Multi-file drag picks ONLY the first file.
+ *     zone. Multi-file drag picks ONLY the first file.
  *
  * All three converge on `tryDecodeCapsuleJson` (from
  * `src/renderer/utils/importCapsule.ts`) which delegates to the
@@ -24,7 +24,7 @@
  * smaller renderer-facing enum that drives the overlay's i18n keys
  * directly + telemetry status bucket.
  *
- * Telemetry (implementation note):
+ * Telemetry:
  *   - `decode` → `capsule.imported { surface, status, sizeBucket }`
  *     with `status ∈ {'decoded', 'rejected'}`.
  *   - `openInNewTab` → `status: 'open-confirmed'`.
@@ -62,7 +62,7 @@ interface CapsuleImportDecodedState {
   sizeBucket: CapsuleSizeBucket;
   byteLength: number;
   sourceSurface: CapsuleImportSourceSurface;
-  /** Raw JSON the user fed in. Held so the overlay can copy it back to clipboard (implementation note). */
+  /** Raw JSON the user fed in. Held so the overlay can copy it back to clipboard. */
   rawJson: string;
 }
 
@@ -144,8 +144,8 @@ export function useCapsuleImport(
       sizeBucket: CapsuleImportDecodedState['sizeBucket']
     ) => {
       // Property is named `surface` (not `sourceSurface`) on the wire
-      // because `source` is in DENY_SUBSTRINGS — see implementation
-      // implementation note telemetry comment in `src/shared/telemetry.ts`.
+      // because `source` is in DENY_SUBSTRINGS — see the
+      // capsule telemetry comment in `src/shared/telemetry.ts`.
       void trackEvent('capsule.imported', {
         surface,
         status,
@@ -250,7 +250,7 @@ export function useCapsuleImport(
   const openInNewTab = useCallback(() => {
     const decoded = decodedRef.current;
     if (!decoded) return;
-    // Reviewer fix (implementation final pass) — clear the decoded
+    // Reviewer fix (final pass) — clear the decoded
     // ref BEFORE side effects so a fast double-click on the confirm
     // button (the overlay closes async via React commit, the second
     // click can fire before unmount) cannot create two identical
@@ -262,7 +262,7 @@ export function useCapsuleImport(
     } else {
       // Default flow — push the capsule's source.content as a new
       // editor tab. Drops the result/stdin/environment on purpose:
-      // implementation promises "open the SOURCE in a new tab", NOT auto-
+      // The import promises "open the SOURCE in a new tab", NOT auto-
       // replay. The user has to click Run to re-execute.
       pushCapsuleAsTab(decoded.capsule);
     }

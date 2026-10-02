@@ -9,7 +9,7 @@
  *   - The shared `spawnNativeRun` supervisor, never a shell. Source is
  *     written to a staged temp file and passed by path — no command-line
  *     interpolation.
- *   - Env filtered through the internal allowlist + internal user tier; the
+ *   - Env filtered through the allowlist + user tier; the
  *     host env is never forwarded wholesale.
  *   - Parent-owned timeout with SIGTERM→SIGKILL escalation via
  *     `killProcessTree` (process-group leader on POSIX).
@@ -67,7 +67,7 @@ interface RuntimeConfig {
   ext: (language: string | undefined) => string;
   /** Build the run argv given the temp entry path and its dir. */
   runArgs: (entryFile: string, entryDir: string) => string[];
-  /** Toolchain env keys these runtimes honor (kept minimal, internal). */
+  /** Toolchain env keys these runtimes honor (kept minimal). */
   toolchainKeys: readonly string[];
 }
 

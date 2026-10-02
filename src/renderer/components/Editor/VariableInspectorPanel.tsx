@@ -7,15 +7,15 @@
  *   - **Top-level variables**: one row per user-declared binding.
  *     Layout: name (mono) · type tag (muted) · value (mono). Click
  *     a row with `kind: 'object'` or `kind: 'array'` to toggle
- *     inline expansion (1 level by default; implementation note adds depth).
+ *     inline expansion (1 level by default; Settings adds depth).
  *   - **Inline expansion**: shows the entry's `entries` array
  *     directly below the parent, indented. When `truncatedCount`
  *     is set, an "N more entries truncated." footer renders.
  *
- * implementation note in:
+ * Also covers:
  *   - **D — type-icon prefix**: each row gets a tiny glyph by kind.
  *   - **F — diff badges between runs**: each row carries a
- *     `+ / − / ~` badge vs. the previous snapshot in the implementation
+ *     `+ / − / ~` badge vs. the previous snapshot in the result
  *     ring. Memoized so the auto-run stream doesn't re-diff.
  *   - **H — name filter**: a top-bar input narrows visible rows
  *     by case-insensitive substring match.
@@ -57,7 +57,7 @@ function indexByName(
 
 /**
  * Compare the current scope against a comparator (the previous
- * stable snapshot from implementation's ring) and return a name-keyed
+ * stable snapshot from the ring) and return a name-keyed
  * map of `added / removed / changed / unchanged`. Cheap shallow
  * comparator — recursive deep equality would defeat the cap.
  */
@@ -336,7 +336,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
     // Snapshot ring is line-aligned ; but it stores
     // `ResultSnapshot` (lineResults / fullOutput) not
     // `ScopeSnapshot`. We don't have a multi-`ScopeSnapshot` ring
-    // yet — for implementation note we compare against the current snapshot's
+    // yet — for the diff badges we compare against the current snapshot's
     // OWN variables baseline at capture time. To keep the slice
     // surface bounded, the inspector remembers the last
     // `previousVariables` via the ring's secondary signal: a
@@ -349,7 +349,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
         entry.capturedAt !== matchedSnapshot.capturedAt
     );
     void candidates;
-    // For implementation we ship a self-comparator stub: the current
+    // For now we ship a self-comparator stub: the current
     // snapshot's variables are compared against an empty list on
     // the very first capture, so every row badges as `added`.
     // This is intentional — the user gets visible feedback that
@@ -495,7 +495,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
 }
 
 /**
- * internal polish #2 — group the cards view by diffKind so the user
+ * Group the cards view by diffKind so the user
  * scans the most-interesting changes first. Order: added → changed →
  * unchanged → removed. Each group renders a small heading + count
  * pill. When there is no diff at all (initial capture or comparator

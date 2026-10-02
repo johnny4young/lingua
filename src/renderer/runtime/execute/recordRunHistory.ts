@@ -304,11 +304,11 @@ export async function recordCompletedRun(args: {
 }
 
 /**
- * Record a run that threw before the runner produced a result. internal —
+ * Record a run that threw before the runner produced a result so
  * "Recent runs" still reflects the failure, with `durationMs: null` because
  * timing never ran, and the snapshot still attaches when opted in: a failure
- * is the case where the user most likely wants to replay. implementation —
- * the capsule carries status `'error'` and the thrown message (already
+ * is the case where the user most likely wants to replay. The
+ * capsule carries status `'error'` and the thrown message (already
  * redactable by sanitizeRunCapsule) so a failed run stays exportable.
  */
 export async function recordFailedRun(

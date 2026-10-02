@@ -640,7 +640,7 @@ describe('AppLayout responsive shell', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('shares one header row with the Utilities pills and implementation note console on a utilities tab', async () => {
+  it('shares one header row with the Utilities pills and folds the console on a utilities tab', async () => {
     editorTabs = [{ id: 'utilities-tab', kind: 'utilities', language: 'javascript' }];
     activeTabId = 'utilities-tab';
     useUIStore.getState().setConsoleVisible(true);
@@ -656,7 +656,7 @@ describe('AppLayout responsive shell', () => {
       expect(chipsRow.textContent).toMatch(/\d+ tools/u);
     });
 
-    // Utilities has no runtime output: activating the tab implementation note
+    // Utilities has no runtime output: activating the tab folds the
     // console down to the restore strip without destroying its state.
     await waitFor(() => {
       expect(useUIStore.getState().consoleVisible).toBe(false);

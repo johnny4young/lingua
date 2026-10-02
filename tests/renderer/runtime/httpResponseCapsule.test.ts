@@ -53,7 +53,7 @@ function makeRes(overrides: Partial<HttpResponseV1> = {}): HttpResponseV1 {
   };
 }
 
-describe('buildHttpResponseCapsule (implementation note bridge)', () => {
+describe('buildHttpResponseCapsule (HTTP capsule bridge)', () => {
   const ARGS = {
     appVersion: '0.4.0',
     requestName: 'My request',

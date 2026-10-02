@@ -219,7 +219,7 @@ describe('editorStore — workflowMode ', () => {
     });
   });
 
-  describe('renameTab — implementation note auto-correction', () => {
+  describe('renameTab — workflow-mode auto-correction', () => {
     it('emits language_change telemetry when the new language no longer supports the mode', () => {
       const { addTab, setTabWorkflowMode, renameTab } = useEditorStore.getState();
       addTab({

@@ -1,5 +1,5 @@
 /**
- * implementation first slice — guard the lesson scaffolds. Every lesson must
+ * Guard the lesson scaffolds. Every lesson must
  * carry the schema fields the future runner depends on, ship en + es
  * sections, and never claim a feature that hasn't shipped.
  */

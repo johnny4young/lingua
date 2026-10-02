@@ -57,7 +57,7 @@ export interface BuildCommandPaletteModelArgs {
   /**
    * Called when the user activates a Recent-runs entry. The caller
    * decides what focus means — today it's a no-op or a tab-focus;
-   * implementation of internal may wire it to a real replay action.
+   * A later change may wire it to a real replay action.
    */
   onFocusLanguageTab?: (language: Language) => void;
   /**
@@ -249,7 +249,7 @@ export interface BuildCommandPaletteModelArgs {
   /**
    * The language the palette will adjust.
    * Used as a closed-enum gate so the action is only visible on
-   * supported languages. implementation added Ruby to the enrolled
+   * supported languages. Ruby was added to the enrolled
    * set when the @ruby/wasm-wasi web runner shipped.
    */
   activeTimeoutLanguage?: 'javascript' | 'typescript' | 'python' | 'go' | 'ruby' | null;
@@ -308,7 +308,7 @@ export interface BuildCommandPaletteModelArgs {
    * inspect.
    */
   variableInspectorScopeAvailable?: boolean;
-  // implementation reviewer pass — `onToggleConsoleRichRendering` and
+  // Reviewer pass — `onToggleConsoleRichRendering` and
   // `consoleRichRenderingEnabled` removed. The
   // `consoleRichRenderingEnabled` Settings toggle was killed; rich
   // rendering is baseline. The palette no longer surfaces a way to
@@ -441,7 +441,7 @@ export interface BuildCommandPaletteModelArgs {
   /**
    * Encodes the active tab as a share-link
    * URL fragment and copies it to the clipboard (via the
-   * confirmation modal gate from implementation note, unless the user disabled
+   * confirmation modal gate, unless the user disabled
    * it). Optional; when omitted the palette entry is hidden so the
    * model stays honest about what surfaces are wired.
    */
@@ -459,8 +459,8 @@ export interface BuildCommandPaletteModelArgs {
   onReplayOnboardingFirstRun?: () => void;
   onReplayOnboardingFirstSnippet?: () => void;
   /**
-   * Opens Settings on the Privacy tab. Espejo
-   * del patrón `onShowLanguageSupport` from internal (closes the
+   * Opens Settings on the Privacy tab. Mirrors
+   * the `onShowLanguageSupport` pattern (closes the
    * palette first, then runs the callback so both overlays don't
    * compete for the same App state slot).
    */

@@ -8,7 +8,7 @@ import type { DeveloperUtilityId } from '../../data/developerUtilities';
  * Developer Utilities workspace no longer loads all 30 panels (and their single-use
  * deps like `qrcode` / `sql-formatter`) at once — each tool's chunk loads the
  * first time it is selected. `UtilityPanels.tsx` provides the `<Suspense>`
- * boundary; `prefetchUtilityPanel` (implementation note) warms a chunk on sidebar hover.
+ * boundary; `prefetchUtilityPanel` warms a chunk on sidebar hover.
  */
 type PanelLoader = () => Promise<{ default: ComponentType }>;
 

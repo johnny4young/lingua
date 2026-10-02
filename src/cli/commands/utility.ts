@@ -4,8 +4,8 @@
  * Runs a single utility adapter from the shared registry against an
  * input (stdin or `--input <file>`). The adapter shape comes from
  * `src/shared/utilities/types.ts` and the registry from
- * `src/shared/utilities/registry.ts` — both extracted by internal
- * implementation specifically so the CLI can consume them without React.
+ * `src/shared/utilities/registry.ts` — both extracted
+ * so the CLI can consume them without React.
  *
  * Exit contract:
  *
@@ -14,10 +14,10 @@
  *     `--option key=value`, options shape rejected by `parseOptions`.
  *   - `2` runtime error — adapter returned `{ ok: false, reason }`.
  *   - `3` unsupported capability — adapter `outputKind === 'binary'`
- *     (implementation ships only text adapters; this branch is reserved for
+ *     (only text adapters ship today; this branch is reserved for
  *     when future work adds binary ones).
  *
- * `--json` output shape (snapshot-stable per implementation note):
+ * `--json` output shape (snapshot-stable):
  *
  *   { ok: true, value: string }
  *   { ok: false, reason: string, detail?: string }
@@ -58,8 +58,8 @@ export async function runUtilityCommand(args: RunUtilityArgs, io: CliIo): Promis
     return CLI_EXIT_CODES.userInputError;
   }
 
-  // 2. implementation declines binary outputs cleanly; the engine has a
-  // `binary` enum branch reserved for implementation adapters that don't
+  // 2. The CLI declines binary outputs cleanly; the engine has a
+  // `binary` enum branch reserved for future adapters that don't
   // exist yet.
   if (adapter.outputKind === 'binary') {
     emitError(

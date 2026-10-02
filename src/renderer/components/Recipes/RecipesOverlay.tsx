@@ -13,7 +13,7 @@
  *              slot — matching the design prototype.
  *
  * Each list row carries the title, the first-line prompt preview
- * (implementation note), tag chips, and a progress badge (passed / attempted) via
+ *, tag chips, and a progress badge (passed / attempted) via
  * the shared `<StatusBadge>` primitive.
  *
  * Selection opens a NEW editor tab with the recipe's `starterCode`
@@ -30,7 +30,7 @@
  *   - Cancel button
  *
  * Telemetry: `recipe.opened { language }` on confirm. NO recipe id on
- * the wire (implementation note in the plan — privacy posture).
+ * the wire (privacy posture).
  */
 
 import {
@@ -302,7 +302,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
           {filtered.length === 0 ? (
             <div
               data-testid="recipes-empty"
-              className="grid place-items-center px-6 py-8 text-center text-body-sm text-fg-subtle"
+              className="grid place-items-center px-6 py-16 text-center text-body-sm text-fg-subtle"
             >
               {t('recipes.overlay.empty')}
             </div>

@@ -13,7 +13,7 @@ describe('SnippetsModal', () => {
     await act(async () => {
       await i18next.changeLanguage('en');
     });
-    // internal: these tests predate tier gating and open multiple tabs per
+    // These tests predate tier gating and open multiple tabs per
     // case. Seed a Pro license so the editor-store ceiling doesn't block
     // the flows under test.
     useLicenseStore.setState({
@@ -163,7 +163,7 @@ describe('SnippetsModal', () => {
     expect(screen.getByText('No snippets saved yet.')).toBeTruthy();
   });
 
-  it('delete offers an Undo that restores the snippet at its index (implementation note)', async () => {
+  it('delete offers an Undo that restores the snippet at its index', async () => {
     const user = userEvent.setup();
     useUIStore.setState({ statusNotice: null });
 

@@ -16,7 +16,7 @@
  * Snippet Free-tier ceiling is grandfathered on import: the existing
  * `addSnippet` gate would refuse the 26th snippet on a Free account,
  * which would silently drop user data. Instead we write the snippets
- * directly via `setState`, mirroring internal's grandfather rule for
+ * directly via `setState`, mirroring the snippets store's grandfather rule for
  * already-saved snippets above the cap.
  */
 

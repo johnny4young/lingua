@@ -20,11 +20,11 @@
  *   - Alt+Enter          → `onRunInsertBelow`
  *   - Esc (no widget open) → `onEscape` (parent drops to command mode)
  *
- * implementation note here:
- *   - B: internal inline lint + quick-fixes inside the active JS/TS cell.
- *   - C: internal status bar — the focused cell registers as the active
+ * Features here:
+ *   - B: inline lint + quick-fixes inside the active JS/TS cell.
+ *   - C: status bar — the focused cell registers as the active
  *        editor so the bar's cursor / lint segments come alive.
- *   - D: internal Vim mode parity on the active cell.
+ *   - D: Vim mode parity on the active cell.
  *   - E: `notebook.cell_editor_mounted` telemetry on mount.
  */
 
@@ -197,7 +197,7 @@ function NotebookCellStaticView({
 }
 
 // ---------------------------------------------------------------------------
-// Active view — live Monaco editor (implementation note / C / D / E)
+// Active view — live Monaco editor (features B / C / D / E)
 // ---------------------------------------------------------------------------
 
 function NotebookCellMonaco({
@@ -326,7 +326,7 @@ function NotebookCellMonaco({
         // user switches cells, the NEXT cell's onMount calls
         // setActiveEditor(next) BEFORE this (now-blurred) editor disposes, so
         // an unconditional clear would clobber the new active editor and blank
-        // the internal status-bar cursor/lint segments.
+        // the status-bar cursor/lint segments.
         if (getActiveEditor() === editor) setActiveEditor(null);
         editorRef.current = null;
       });

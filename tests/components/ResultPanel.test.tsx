@@ -172,7 +172,7 @@ describe('ResultPanel', () => {
    * into the displayed value) is covered by:
    *   - tests/runners/* — runner emits the right LineResult shape
    *   - tests/hooks/runnerOutput.test.ts — output reducer
-   *   - the manual web smoke pass per implementation verification
+   *   - the manual web smoke pass per the verification steps
    */
 
   describe('Node runtime exclusions', () => {

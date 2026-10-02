@@ -396,7 +396,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         </div>
       </div>
 
-      {/* Tree — internal: one windowed flat list. Only the rows whose band
+      {/* Tree: one windowed flat list. Only the rows whose band
           intersects the viewport (plus overscan) mount; two spacer divs
           preserve the scrollbar geometry. In jsdom (clientHeight 0) the
           windower degrades to the full list, so component tests see every
@@ -508,7 +508,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 
       {/* Synced Open-tabs foot, identical to the no-project
           empty state. Self-renders to null when no tabs are open.
-          internal — it owns its own narrowed `tabs` projection so a
+          It owns its own narrowed `tabs` projection so a
           keystroke in the editor does not re-render the explorer tree. */}
       <FileTreeOpenTabs onNavigate={onNavigate} />
 

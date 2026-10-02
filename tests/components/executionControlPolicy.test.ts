@@ -18,6 +18,12 @@ function resolve(
 }
 
 describe('executionControlPolicy', () => {
+  it.each(['sql', 'http'] as const)('keeps Run available on a free %s workspace tab', language => {
+    const policy = resolve({ language, effectiveTier: 'free', isWorkspaceTab: true });
+    expect(policy.actions.run).toEqual({ disabled: false, reason: null });
+    expect(policy.actions.debug.disabled).toBe(true);
+  });
+
   it('requires an enabled breakpoint for Debug without blocking Run or Scratchpad', () => {
     const policy = resolve();
 

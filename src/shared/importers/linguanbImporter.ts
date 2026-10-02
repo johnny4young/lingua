@@ -37,14 +37,14 @@ import type {
  * Preview shape returned by `adapter.preview(source)`. Carries the same
  * fields `<NotebookPreviewBand>` reads from the `.ipynb` preview so the
  * UI reuses one renderer; `kind: 'linguanb-notebook'` flips the band's
- * badge to "native / lossless" (implementation note). `executionOrder` (implementation note) is
+ * badge to "native / lossless". `executionOrder` is
  * restored into the store on confirm.
  */
 export interface LinguanbImporterPreview {
   readonly kind: 'linguanb-notebook';
   /** The lossless `NotebookV1` ready for `installImportedNotebook`. */
   readonly notebook: NotebookV1;
-  /** Per-cell `[N]` execution stamps to restore on confirm (implementation note). */
+  /** Per-cell `[N]` execution stamps to restore on confirm. */
   readonly executionOrder?: Readonly<Record<string, number>>;
   /** Snippets of the first up-to-3 cells for the preview band. */
   readonly cellSnippets: ReadonlyArray<IpynbCellSnippet>;

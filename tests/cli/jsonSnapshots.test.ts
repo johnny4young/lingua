@@ -18,7 +18,7 @@ import { emitExecution } from '../../src/cli/commands/run';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { createFakeIo } from './io-fake';
 
-describe('--json envelope snapshots (implementation note)', () => {
+describe('--json envelope snapshots', () => {
   it('utility json-format: success', async () => {
     const { io, state } = createFakeIo({ stdin: '{"a":1}' });
     await runUtilityCommand(

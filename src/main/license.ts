@@ -230,7 +230,7 @@ export interface CreateLicenseRuntimeOptions {
  * "build-server-01" — what the renderer shows in the Devices list
  * under Settings → License. `os` mirrors Node's `process.platform`
  * values (`darwin` / `win32` / `linux`) so the worker validator's
- * permissive shape check accepts it (current implementation the validator no
+ * permissive shape check accepts it (the validator no
  * longer pins to the desktop triple, but we stay in the canonical
  * vocabulary anyway).
  */
@@ -505,7 +505,7 @@ export async function createLicenseRuntime(
         lastVerifiedAt: verifiedAt,
       });
       // Local verify succeeded; consult the license-server for the
-      // per-surface bucket + device registration. implementation wires this;
+      // per-surface bucket + device registration. This path wires it;
       // pre-3.5 behaviour (no server) is preserved when
       // `isLicenseServerEnabled()` is false.
       return activateAfterVerify(trimmed, status, verifiedAt);

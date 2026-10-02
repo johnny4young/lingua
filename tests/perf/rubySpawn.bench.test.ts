@@ -10,7 +10,7 @@
  * budget — which would silently slow every Run.
  *
  * Budget: 1500 ms wall clock for a single spawn. Mirrors the
- * implementation detail bench style (single-iteration ceiling rather than
+ * sibling bench style (single-iteration ceiling rather than
  * 1000-iter avg because spawn cost is unbounded by per-iter work).
  *
  * Skip strategy: the bench only runs on hosts where `ruby` is

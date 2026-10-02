@@ -89,7 +89,7 @@ describe('CapsuleImportPreview', () => {
     expect(onOpen).toHaveBeenCalledWith(built.value.files[1]);
   });
 
-  it('surfaces the omitted-fields privacy banner when present (implementation note)', () => {
+  it('surfaces the omitted-fields privacy banner when present', () => {
     const withOmitted: RunCapsuleV1 = {
       ...FIXTURE_LARGE_STDOUT,
       privacy: {

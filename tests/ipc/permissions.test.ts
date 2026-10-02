@@ -80,7 +80,7 @@ describe('isPathBlocked', () => {
 // ...)` so the matrix runs on the CI OS without mocking: every static entry is
 // present on every platform (entries for other OSes simply never match a real
 // path), so a `home`-relative path matches its entry regardless of runner.
-describe('blocked-path families (internal coverage matrix)', () => {
+describe('blocked-path families (coverage matrix)', () => {
   const FAMILY_CASES = [
     {
       family: 'system' as const,

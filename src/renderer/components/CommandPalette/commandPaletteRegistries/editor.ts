@@ -206,7 +206,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation reviewer pass — the rich-console toggle was removed
+    // Reviewer pass — the rich-console toggle was removed
     // from the catalog: `consoleRichRenderingEnabled` is no longer a
     // Settings preference, rich rendering is baseline.
     // Toggle Vim mode. Hidden when the caller does

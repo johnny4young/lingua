@@ -24,14 +24,14 @@ import {
  *   1. Runs the capsule through `sanitizeRunCapsule` (truncates
  *      oversized streams + drops non-primitive `dependencySummary`
  *      shapes; records what was omitted in `privacy.omittedFields`).
- *   2. Serialises with `JSON.stringify`. implementation note exposes a pretty /
- *      minified toggle so users heading to internal share-links (URL
+ *   2. Serialises with `JSON.stringify`. The section exposes a pretty /
+ *      minified toggle so users heading to share links (URL
  *      fragment) can keep the payload tight.
  *   3. Writes to the clipboard via `navigator.clipboard.writeText`,
  *      falls back to a read-only textarea exposed inline when the
  *      clipboard API rejects (Safari private mode, iframe context).
  *   4. Fires the `capsule.exported { trigger, sizeBucket }` adoption
- *      telemetry (implementation note) — closed-enum, no payload content leaks.
+ *      telemetry — closed-enum, no payload content leaks.
  *
  * JSON file handoff reuses the existing one-file save capability on desktop
  * and browser download on web. Nothing is uploaded or executed automatically;
@@ -41,13 +41,13 @@ export function RunCapsulesSection() {
   const { t, i18n } = useTranslation();
   const platform = currentShortcutDisplayPlatform();
   const [savedFileName, setSavedFileName] = useState<string | undefined>();
-  // implementation reviewer fix — select the CALL RESULT of
+  // Reviewer fix — select the CALL RESULT of
   // `latestCapsule()`, not the function reference. The reference is
   // stable across store updates so subscribing to it would never
   // trigger a re-render when a new run lands; selecting the result
   // returns a new RunCapsuleV1 reference (or `null`) on each entries
   // change, so the component re-renders correctly. Mirrors the
-  // pattern used in `CommandPalette.tsx` (implementation note).
+  // pattern used in `CommandPalette.tsx`.
   const capsule = useExecutionHistoryStore(state => state.latestCapsule());
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
   const [prettyPrint, setPrettyPrint] = useState(true);

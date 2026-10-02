@@ -5,9 +5,9 @@
  *   - all-ok → capsule status 'success'; partial / all-failed /
  *     incompatible → 'error' (all 4 run-status mappings).
  *   - source.content is the RECIPE ONLY — the input data is never in it
- *     (implementation note) — and is order-stable / content-hash stable.
+ *     — and is order-stable / content-hash stable.
  *   - result.stdout is the FINAL output (last 'ok' step's output).
- *   - result.stderr is the compact failed-step summary (implementation note),
+ *   - result.stderr is the compact failed-step summary,
  *     omitted when no step failed.
  *   - result.durationMs mirrors the run total.
  *   - input passthrough rides input.stdin.
@@ -53,7 +53,7 @@ const ARGS = {
   platform: 'web' as const,
 };
 
-describe('buildPipelineCapsule (implementation note bridge)', () => {
+describe('buildPipelineCapsule (pipeline capsule bridge)', () => {
   it('maps all-ok run to capsule status "success"', async () => {
     const capsule = await buildPipelineCapsule({
       ...ARGS,
@@ -140,7 +140,7 @@ describe('buildPipelineCapsule (implementation note bridge)', () => {
     expect(capsule.tab.name).toBe('Utility pipeline');
   });
 
-  it('serializes the RECIPE ONLY — the input data is never in source.content (implementation note)', async () => {
+  it('serializes the RECIPE ONLY — the input data is never in source.content', async () => {
     const secretInput = 'SUPER-SECRET-INPUT-PAYLOAD-12345';
     const capsule = await buildPipelineCapsule({
       ...ARGS,
@@ -252,7 +252,7 @@ describe('buildPipelineCapsule (implementation note bridge)', () => {
     expect(capsule.result.stdout).toBeUndefined();
   });
 
-  it('summarizes failed steps onto stderr (implementation note)', async () => {
+  it('summarizes failed steps onto stderr', async () => {
     const capsule = await buildPipelineCapsule({
       ...ARGS,
       steps: [makeStep('base64-decode'), makeStep('json-format'), makeStep('base64-encode')],

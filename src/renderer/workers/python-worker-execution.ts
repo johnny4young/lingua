@@ -110,7 +110,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           });
         }
 
-        // implementation third increment — bridge user-space env into
+        // Bridge user-space env into
         // Pyodide's os.environ so user code can call os.getenv(...) just
         // like the Go and Rust subprocess paths. Because this worker is
         // persistent, we must also remove keys that disappeared between
@@ -141,7 +141,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           await primePythonBootGlobalsIfNeeded(py);
         }
 
-        // internal: deadline enforcement is parent-owned. We just run.
+        // Deadline enforcement is parent-owned. We just run.
         let result: unknown;
         let errorText: string | null = null;
 

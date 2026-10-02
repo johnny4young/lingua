@@ -33,9 +33,9 @@ import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
 
 function setActiveProLicense(): void {
-  // The existing editor-store suite predates internal and opens multiple
+  // The existing editor-store suite predates the tab budget and opens multiple
   // tabs per test. Seed a Pro license so those flows bypass the Free
-  // ceiling — each internal gate test below resets the tier back to free
+  // ceiling — each gate test below resets the tier back to free
   // inside its own body.
   useLicenseStore.setState({
     token: 'test.token',
@@ -1327,7 +1327,7 @@ describe('editorStore', () => {
     });
   });
 
-  describe('internal tab budget enforcement', () => {
+  describe('tab budget enforcement', () => {
     it('blocks notebook tabs on Free even when the tab budget is empty', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');

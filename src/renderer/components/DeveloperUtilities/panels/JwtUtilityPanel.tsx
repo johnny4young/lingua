@@ -100,7 +100,7 @@ function JwtDecodeSection({
 
   // Register the decoded payload (the user-meaningful
   // half of a decoded JWT) as the panel's output for Cmd+Shift+C.
-  // verify and sign sub-modes don't register in implementation; implementation will
+  // verify and sign sub-modes don't register yet; a later change will
   // unify all 3 modes once detect()-driven Apply lands.
   const registerOutput = useCallback(
     () => (analysis.payload ? JSON.stringify(analysis.payload, null, 2) : null),

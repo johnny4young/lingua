@@ -21,7 +21,9 @@ export async function resolveHostExecutable(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform
 ): Promise<string | null> {
-  const rawPath = typeof env.PATH === 'string' ? env.PATH : '';
+  // A copied Windows env keeps the native `Path` spelling, which loses
+  // process.env's case-insensitive lookup.
+  const rawPath = [env.PATH, env.Path, env.path].find(value => typeof value === 'string') ?? '';
   const windowsExtensions =
     platform === 'win32'
       ? (typeof env.PATHEXT === 'string' ? env.PATHEXT : '.EXE;.CMD;.BAT;.COM')

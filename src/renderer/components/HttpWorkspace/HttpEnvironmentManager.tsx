@@ -3,8 +3,8 @@
  *
  * CRUD over the store's environments: add / rename / duplicate / delete an
  * environment, per-environment add / edit / delete / secret-toggle /
- * DRAG-REORDER of its variable rows (implementation note), and environment
- * import / export as JSON (implementation note). Reuses the canonical
+ * DRAG-REORDER of its variable rows, and environment
+ * import / export as JSON. Reuses the canonical
  * `ModalShell` chrome so it matches the snippets / utilities / capsules
  * overlays.
  *
@@ -19,7 +19,7 @@
  *     NEVER carries a resolved secret. The manager only copies that
  *     already-safe JSON to the clipboard.
  *
- * Mutation discipline (implementation note): add / edit / delete / reorder of
+ * Mutation discipline: add / edit / delete / reorder of
  * variable rows route through the store's FUNCTIONAL
  * `onUpdateVariables(updater)` rather than a render-time
  * `onUpdate({ variables: [...prop] })`, so two adds dispatched in one tick
@@ -144,7 +144,7 @@ export function HttpEnvironmentManager({
     );
   };
 
-  // Secret-by-default (implementation note) — on a KEY edit, auto-suggest
+  // Secret-by-default — on a KEY edit, auto-suggest
   // `secret: true` exactly once when the NEW key looks secret, the OLD key
   // did not, and the row is not already secret. Never overrides a user who
   // explicitly unset secret (the guard `!variable.secret` plus the
@@ -480,7 +480,7 @@ interface HttpEnvironmentVariableRowProps {
 /**
  * One sortable variable row. Drag handle + key / value / secret-toggle /
  * delete. Sortable via @dnd-kit (keyed by the row's opaque
- * `variable.id` — implementation note); keyboard-reorderable per dnd-kit
+ * `variable.id`); keyboard-reorderable per dnd-kit
  * defaults (focus the handle, Space to lift, arrows to move).
  */
 function HttpEnvironmentVariableRow({

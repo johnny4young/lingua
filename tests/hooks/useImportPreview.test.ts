@@ -2,7 +2,7 @@
  * `useImportPreview` hook tests.
  *
  * Drives the detect → preview → import lifecycle in jsdom + asserts
- * the store / bottom-panel side effects on confirm (implementation note).
+ * the store / bottom-panel side effects on confirm.
  */
 
 import { act, renderHook } from '@testing-library/react';
@@ -113,7 +113,7 @@ describe('useImportPreview', () => {
     expect(result.current.state.preview?.original.method).toBe('POST');
   });
 
-  it('surfaces lossy warnings (implementation note)', () => {
+  it('surfaces lossy warnings', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -439,7 +439,7 @@ describe('useImportPreview — .linguanb arm ', () => {
     expect(result.current.state.preview?.kind).toBe('linguanb-notebook');
   });
 
-  it('confirm installs the notebook losslessly (preserves cell ids + restores [N]) — implementation note/F', async () => {
+  it('confirm installs the notebook losslessly (preserves cell ids + restores [N])', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(sampleLinguanb);
@@ -491,7 +491,7 @@ describe('import notebook warning telemetry helpers', () => {
     expect(bucketWarningKindCount(11)).toBe('>10');
   });
 
-  it('buckets Postman variable counts on the same dependency-count ladder (implementation note)', () => {
+  it('buckets Postman variable counts on the same dependency-count ladder', () => {
     expect(bucketImportVariableCount(0)).toBe('0');
     expect(bucketImportVariableCount(1)).toBe('1');
     expect(bucketImportVariableCount(4)).toBe('2-5');
@@ -538,7 +538,7 @@ describe('useImportPreview — Postman environment/globals sources ', () => {
       ok: true,
       count: 2,
     });
-    // The display URL redacts the sensitive apiKey value (implementation note).
+    // The display URL redacts the sensitive apiKey value.
     expect(preview.requests[0]?.displayUrl).toContain('<redacted>');
     expect(preview.requests[0]?.url).toContain('supersecret');
   });

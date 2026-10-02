@@ -73,7 +73,7 @@ export function detectJSMagicComments(code: string): MagicCommentLine[] {
  * For each line matched by `detectJSLine`:
  *
  *   - **Arrow** — replace the line with a `__mc(line, value)` call
- *     wrapping the prefix expression (same as before implementation).
+ *     wrapping the prefix expression (unchanged).
  *   - **Watch** — KEEP the prefix as-is and append `; __mc(line,
  *     value)` so the original statement still runs alongside the
  *     watch capture.

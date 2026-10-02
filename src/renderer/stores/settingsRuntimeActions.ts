@@ -192,7 +192,7 @@ export function createRuntimeActions(
     // unsupported languages + unknown preset tokens so the
     // closed-enum contract holds even against programmatic
     // callers (palette, scripted tests). Fires
-    // `runtime.timeout_preset_changed` (implementation note) on actual
+    // `runtime.timeout_preset_changed` on actual
     // change only — idempotent calls do not re-emit.
     setRuntimeTimeoutPreset: (
       language: string,

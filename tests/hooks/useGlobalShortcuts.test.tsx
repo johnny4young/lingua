@@ -141,9 +141,9 @@ describe('useGlobalShortcuts', () => {
   it('routes a rebound combo to the correct action and skips the old one', () => {
     // `Mod+Shift+U` is a free combo in the production catalog —
     // verified by `tests/data/keyboardShortcuts.test.ts`. The earlier
-    // choice was `Mod+Shift+J` but implementation bound that to
+    // choice was `Mod+Shift+J` but that went to
     // `view-show-dependencies`; the follow-up `Mod+Shift+Y` was taken
-    // by implementation (capsule import overlay). U remains free, so
+    // by the capsule import overlay. U remains free, so
     // first-match-wins iteration in `useGlobalShortcuts` still routes
     // the overridden combo to the right action.
     useSettingsStore
@@ -181,7 +181,7 @@ describe('useGlobalShortcuts', () => {
     expect(calls.toggleOverlay).toHaveBeenCalledWith('replace');
   });
 
-  // internal polish #8 — the new Stdin / floating-position shortcuts
+  // The new Stdin / floating-position shortcuts
   // ship with FloatingActionPill + StdinInputPanel; tests guard the
   // dispatch path so a future override change can't silently strip
   // the binding.
@@ -236,7 +236,7 @@ describe('useGlobalShortcuts', () => {
     // Mod+Alt+C is now the default capsule-browse
     // binding (`overlay-capsule-list`), so this fixture's "free combo"
     // moved to Mod+Alt+J to keep exercising a custom override without a
-    // catalog collision (same precedent as the implementation Mod+Shift+Y→U
+    // catalog collision (same precedent as the Mod+Shift+Y→U
     // move).
     useSettingsStore
       .getState()

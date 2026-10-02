@@ -93,7 +93,7 @@ describe('createLintQuickFixProvider', () => {
     expect(disabledActionsFor(model, cursor(1, 7))).toEqual([]);
   });
 
-  it('skips the scan when the request is scoped to a non-quickfix kind (internal reviewer)', () => {
+  it('skips the scan when the request is scoped to a non-quickfix kind', () => {
     const model = fakeModel(['if (a == b) {}']);
     // A `source.fixAll` pass (e.g. format-on-save) must not surface our
     // quickfix actions — Monaco filters by kind anyway, so short-circuit.

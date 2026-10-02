@@ -485,7 +485,7 @@ export async function getFileStatus(
     }
     // Anything else with a porcelain line means "tracked + changed
     // in some way (modified, deleted, renamed, added)". Bucket all
-    // of these as `modified` for implementation — implementation can split them.
+    // of these as `modified` for now — a later change can split them.
     const counts = await getNumstatForFile(binary, repoRoot, relative, filters);
     return { status: 'modified', ...counts };
   } catch {
@@ -949,7 +949,7 @@ export async function watchRepoHead(
       // non-idiomatic and untestable against the actual watch path.
       watcher = fsWatch(headDir, (_eventType, filename) => {
         // Some platforms drop the filename in the callback under
-        // load (internal §) — when absent, schedule the resolve
+        // load — when absent, schedule the resolve
         // unconditionally and let the diff vs `lastBranch` decide
         // whether to fire. When present, only fire for `HEAD` to
         // avoid double-firing on sibling-file noise (`ORIG_HEAD`,
@@ -1007,7 +1007,7 @@ export async function revealRepo(repoRoot: string): Promise<boolean> {
   } catch {
     return false;
   }
-  // Defense in depth — make sure the path still exists. implementation's
+  // Defense in depth — make sure the path still exists. The diff path's
   // `validateGitRepoRoot` re-runs `git rev-parse --show-toplevel` on
   // every diff call; reveal is a cheaper action so we settle for an
   // `fs.stat` existence probe.

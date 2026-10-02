@@ -6,7 +6,7 @@ import type { LicenseStatus } from './licenseTypes';
 
 /**
  * license-server verdict mappers, extracted verbatim from
- * `licenseStore.ts`. Pure functions that implementation note authoritative server status /
+ * `licenseStore.ts`. Pure functions that fold the authoritative server status /
  * failure reason onto the local `LicenseStatus`. Leaf: depends only on the
  * server-reason types + the license types, never on the store.
  */

@@ -15,8 +15,8 @@
  *     the delta exactly 1 (the dominant real-world cost is IPC round
  *     trips, so this readdir-count drop IS the perf win);
  *   - timing: the delta completes >5x faster than the full walk
- *     (internal acceptance criterion), min-of-iterations to dampen noise;
- *   - structural sharing (implementation note): untouched sibling branches keep their
+ *     (acceptance criterion), min-of-iterations to dampen noise;
+ *   - structural sharing: untouched sibling branches keep their
  *     object identity, so React re-renders O(branch) not O(N).
  *
  * CI gets a 1.5x leniency multiplier on the required speedup, mirroring
@@ -28,7 +28,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { buildNodeIndex, type FileTreeNode } from '@/stores/projectTree';
 
 const IS_CI = process.env.CI === 'true';
-// internal requires >5x; on the noisier CI box, require the same headline
+// The criterion requires >5x; on the noisier CI box, require the same headline
 // 5x but divided by the standard 1.5 leniency so transient scheduling
 // jitter does not flake the gate (the deterministic readdir-count lock
 // below stays exact regardless).
@@ -160,7 +160,7 @@ describe('useProjectWatchSync delta refresh — burst budget', () => {
     // Timing lock: the delta is at least REQUIRED_SPEEDUP times faster.
     expect(deltaMs * REQUIRED_SPEEDUP).toBeLessThan(fullMs);
 
-    // Structural sharing (implementation note): an untouched sibling branch keeps its
+    // Structural sharing: an untouched sibling branch keeps its
     // object identity across the delta.
     seed();
     const before = useProjectStore.getState().nodes;
@@ -174,7 +174,7 @@ describe('useProjectWatchSync delta refresh — burst budget', () => {
     );
   });
 
-  it('does zero readdir work for a pure file-content burst (implementation note)', async () => {
+  it('does zero readdir work for a pure file-content burst', async () => {
     const byDir = buildEntries();
     mockReaddir.mockImplementation(async (_rootId, rel) => byDir.get(rel) ?? []);
     const tree = buildTree(byDir);

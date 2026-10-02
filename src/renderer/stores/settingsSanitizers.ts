@@ -44,7 +44,7 @@ import {
 /**
  * Sanitize a persisted
  * `runtimeTimeoutPresetByLanguage` map: drop languages outside the
- * implementation supported set; drop non-enum preset tokens. Returns a
+ * supported set; drop non-enum preset tokens. Returns a
  * fresh object so callers can hand it to the store without
  * aliasing.
  */

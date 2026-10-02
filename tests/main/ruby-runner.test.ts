@@ -95,7 +95,7 @@ function createChildProcess() {
   };
   // `resume` mirrors the runtime contract: the shared spawn engine hands
   // a stream past the output cap to `resume()` so the pipe drains without
-  // accumulating (internal discard-after-truncation).
+  // accumulating (discard-after-truncation).
   child.stdout = Object.assign(new EventEmitter(), { resume: vi.fn() });
   child.stderr = Object.assign(new EventEmitter(), { resume: vi.fn() });
   child.stdin = {
@@ -220,7 +220,7 @@ describe('main ruby runner', () => {
   // parseRubyVersion shape parser
   // ----------------------------------------------------------------
 
-  describe('parseRubyVersion (implementation note)', () => {
+  describe('parseRubyVersion', () => {
     it('extracts semver + platform from the canonical macOS line', async () => {
       const { parseRubyVersion } = await import('../../src/main/ruby-runner');
       expect(
@@ -285,7 +285,7 @@ describe('main ruby runner', () => {
   // per-project .ruby-version honoring
   // ----------------------------------------------------------------
 
-  describe('findRubyVersionFile (implementation note)', () => {
+  describe('findRubyVersionFile', () => {
     it('walks up the tree to find the nearest .ruby-version', async () => {
       const project = path.join(tempRoot, 'project');
       const nested = path.join(project, 'lib', 'inner');
@@ -354,7 +354,7 @@ describe('main ruby runner', () => {
       expect(result.timeoutMs).toBe(5000);
     });
 
-    it('implementation: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
+    it('streams live stdout/stderr chunks to the sender during interactive runs', async () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);
@@ -382,7 +382,7 @@ describe('main ruby runner', () => {
       await expect(promise).resolves.toMatchObject({ kind: 'success' });
     });
 
-    it('implementation: does not stream chunks for non-interactive runs', async () => {
+    it('does not stream chunks for non-interactive runs', async () => {
       await loadRunner();
       const child = createChildProcess();
       mocks.spawn.mockReturnValue(child);

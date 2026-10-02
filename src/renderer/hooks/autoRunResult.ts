@@ -10,6 +10,7 @@ import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { bucketAutoLogCount } from './autoRunModel';
 import { preserveStickyLineResults } from './autoRunStickyResults';
 import { toConsoleEntries } from './runnerOutput';
+import { withE2eExecutionTime } from '../testing/e2eDurations';
 
 interface ApplyAutoRunResultOptions {
   autoLogEnabled?: boolean;
@@ -23,8 +24,9 @@ export function applyAutoRunResult({
   autoLogEnabled = false,
   code,
   language,
-  result,
+  result: measuredResult,
 }: ApplyAutoRunResultOptions): void {
+  const result = withE2eExecutionTime(measuredResult);
   const {
     setLineResults,
     setLineTimings,

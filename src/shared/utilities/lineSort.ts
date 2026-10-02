@@ -4,9 +4,9 @@
  * Sort the input's lines. Pure shared implementation. CRLF and legacy
  * CR line endings are normalized to LF; a single trailing newline is
  * preserved so a sorted file keeps its shape. Options: `direction`
- * (asc / desc), `caseInsensitive` (implementation note comparison key to lower
+ * (asc / desc), `caseInsensitive` (folds the comparison key to lower
  * case), `unique` (drop later duplicates by the comparison key), and
- * `numeric` (implementation note — natural order so `item2` precedes `item10`).
+ * `numeric` (natural order so `item2` precedes `item10`).
  *
  * Always settles `ok` — sorting text cannot fail. Plain comparison is
  * codepoint order (deterministic across environments); `numeric` mode

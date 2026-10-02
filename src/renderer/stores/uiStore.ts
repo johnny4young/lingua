@@ -24,7 +24,7 @@ type BottomPanelTab =
   // Conditional render in `AppLayout.tsx` gates on
   // `gitLayerAvailable(posture)` so users opening a folder that is
   // not a git repo never see the chrome. Mount fires the
-  // `git.diff_panel_opened` telemetry (implementation note).
+  // `git.diff_panel_opened` telemetry.
   | 'git-diff'
   | 'project-terminal'
   // The HTTP and SQL workspaces are no longer dock
@@ -46,14 +46,14 @@ export type VariablesViewMode = 'list' | 'cards';
  * notice. Lets the first-run / first-snippet onboarding toasts
  * surface a single-click action (Save as snippet / Open snippets)
  * without lifting custom toast components per surface. Designed
- * as an array (implementation note) so future variants (Save + Skip, Confirm
+ * as an array so future variants (Save + Skip, Confirm
  * + Settings) can grow without re-shaping the type.
  *
  * The banner renders the action label via i18n (`t(labelKey)`),
  * dismisses the original notice as `'cta'`, then invokes `onClick`
  * once. That order lets the CTA publish a replacement notice without
  * the banner clearing it afterwards; manual X dismisses report
- * `'manual'` and the timeout reports `'auto'` (implementation note).
+ * `'manual'` and the timeout reports `'auto'`.
  */
 export interface StatusNoticeAction {
   readonly labelKey: string;
@@ -65,7 +65,7 @@ export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
 /**
  * Priority tier for notice replacement.
  *
- * Surfaced during pre-commit review of implementation: the
+ * Surfaced during pre-commit review: the
  * onboarding first-run toast was being clobbered within ~600 ms by
  * an unrelated boot-time notice push, so fresh-install users never
  * saw the Save-as-snippet CTA. The 134 existing `pushStatusNotice`
@@ -137,7 +137,7 @@ const VARIABLES_BOTTOM_VIEW_MODE_KEY = 'lingua-ui:variables-bottom-view-mode';
  * missing or the JSON is malformed. Used to hydrate `actionPillPosition`
  * and `variablesCardPosition` on first render so the layout doesn't
  * jump after the persist middleware kicks in (we never adopted that
- * middleware for uiStore — see implementation notes).
+ * middleware for uiStore).
  */
 function readPersistedPosition(key: string): UIPosition | null {
   if (typeof window === 'undefined') return null;

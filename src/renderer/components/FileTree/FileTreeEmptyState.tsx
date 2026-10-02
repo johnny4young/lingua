@@ -12,7 +12,7 @@ interface FileTreeEmptyStateProps {
   /**
    * Fired after the open-tabs foot selects a tab so the caller can
    * close a mobile drawer. The tab selection itself is owned by
-   * `FileTreeOpenTabs` (internal — it self-subscribes to a narrowed
+   * `FileTreeOpenTabs` (it self-subscribes to a narrowed
    * tab projection so editor keystrokes don't re-render the explorer).
    */
   onSelectTab?: () => void;
@@ -33,7 +33,7 @@ export function FileTreeEmptyState({
         <OpenFolderIcon size={14} className="text-muted" />
         <span className="panel-title">{t('fileTree.emptyState.title')}</span>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-start gap-3 p-4 pt-8">
+      <div className="flex flex-1 flex-col items-center justify-start gap-3 p-4 pt-16">
         {/* Canonical EmptyState recipe: glyph tile + title +
             description-less centered copy + the two CTAs as the action
             row. The proto centers "No hay proyecto abierto" above the

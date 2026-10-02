@@ -14,7 +14,7 @@
  * immediately after — there is one Pyodide runtime per session. The
  * shared accessor is `runnerManager.getPythonRunner()?.getOrEnsurePyodideWorker()`.
  *
- * implementation note in this surface:
+ * Behaviors in this surface:
  *
  *   - C — `listLoadedPackages()` queries `pyodide.loadedPackages` so
  *     the renderer can mark Pyodide builtins (`numpy`, `pandas`,
@@ -28,9 +28,9 @@
  *
  *   - Hard cancel mid-install. Pyodide doesn't expose mid-microtask
  *     kill semantics; honest cancel needs a fresh worker which
- *     defeats the shared-runtime principle. Soft cancel UX (implementation note)
- *     was considered and rejected for implementation.
- *   - Coalescing rapid clicks (implementation note rejected). Each click on a
+ *     defeats the shared-runtime principle. Soft cancel UX
+ *     was considered and rejected.
+ *   - Coalescing rapid clicks (rejected). Each click on a
  *     Python row triggers its own install round-trip.
  */
 
@@ -230,7 +230,7 @@ async function getSharedWorker(): Promise<Worker | null> {
 }
 
 /**
- * implementation Slice C (implementation note) — query Pyodide for the set of currently-
+ * implementation Slice C — query Pyodide for the set of currently-
  * loaded packages so the renderer can mark them as `'installed'`
  * honestly. Returns an empty array if the worker isn't ready (the
  * hook falls back to `'detected'` for every name).
@@ -255,7 +255,7 @@ export async function listLoadedPackages(): Promise<readonly string[]> {
     pendingLoadedQueries.set(requestId, settle);
     // 5 s soft timeout — if Pyodide is slow to answer, the hook
     // treats the response as empty (every detected name becomes
-    // `'detected'`), which is the same UX we had before implementation
+    // `'detected'`), which is the same UX we had before the installer
     // shipped. The timer handle is captured + cleared on early
     // resolve so a worker reply that wins the race does not leak a
     // pending setTimeout.
@@ -275,7 +275,7 @@ export async function listLoadedPackages(): Promise<readonly string[]> {
  * Install one or more packages via `micropip` in
  * the shared Pyodide worker.
  *
- * implementation note applies — the renderer races the install promise against a
+ * The renderer races the install promise against a
  * 90 s timeout so a hung micropip frees the runId. The worker keeps
  * running in the background; we just stop tracking the result.
  */

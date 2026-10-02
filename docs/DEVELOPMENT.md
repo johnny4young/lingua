@@ -237,8 +237,8 @@ Determinism was then measured, not assumed: 15 consecutive identical digests on
 four of the six specs. The Monaco-bearing pair (notebook, HTTP) still flips a
 handful of antialiased edge pixels by one unit — Chromium-level rounding that
 survived pointer parking, focus blur, and frame settling — so `--check`
-compares those within a strict tolerance (at most 24 differing pixels, each off
-by at most 2 per channel). A stale gallery differs by thousands of pixels at
+compares those within a strict tolerance: a delta of 1 per channel is
+invisible and ignored, and at most 24 pixels may differ by 2 or 3. A stale gallery differs by thousands of pixels at
 full contrast; noise cannot hide drift, and drift cannot pass as noise. If you
 add an animation, a timestamp, or any measured value to a captured surface,
 re-prove determinism before trusting `--check`.
@@ -250,6 +250,22 @@ anything, run `pnpm --dir website run record:showcase-evidence`.
 
 Never hand-edit a digest to make the test pass; that turns the lock into a
 rubber stamp.
+
+### Refreshing the landing-page tour
+
+The tour frames follow the same pipeline through a second manifest,
+`website/src/data/tour-showcase.json`, captured in both locales by
+`tests/e2e/tourVisual.spec.ts`:
+
+```bash
+node scripts/run-playwright-web-validation.mjs tests/e2e/tourVisual.spec.ts
+pnpm --dir website run sync:tour-evidence
+```
+
+`website/tests/tourShowcase.test.mts` asserts the recorded digests and that each
+locale points at its own frames. The AI shot (`ai-explain*.png`) is the one
+exception: it shows a real answer from a local model, so it cannot be
+reproduced byte for byte and is captured by hand against Ollama.
 
 ## Curated project template runtime smoke
 

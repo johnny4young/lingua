@@ -236,7 +236,7 @@ describe('Toolbar', () => {
   });
 
   it('shows the Run button with "Run" accessible label when not running', () => {
-    // internal UI refinement — the Run button is icon-only; the label
+    // The Run button is icon-only; the label
     // moves to `aria-label` so screen readers still announce it.
     render(<Toolbar />);
     const runBtn = screen.getByTestId('toolbar-run-button');

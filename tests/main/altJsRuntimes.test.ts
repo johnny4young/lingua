@@ -78,7 +78,7 @@ function handlerFor<T>(channel: string): T {
   return handler as T;
 }
 
-describe('implementation: Deno & Bun runtimes', () => {
+describe('Deno & Bun runtimes', () => {
   beforeEach(async () => {
     vi.resetModules();
     mocks.handlers.clear();

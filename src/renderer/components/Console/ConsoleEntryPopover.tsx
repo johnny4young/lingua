@@ -33,14 +33,14 @@ interface ConsoleEntryPopoverProps {
  * Two tabs:
  *
  *   - **Preview** — a tree-style rendering that exposes the typed
- *     structure (Maps / Sets / Tables / arrays of objects). implementation
+ *     structure (Maps / Sets / Tables / arrays of objects). It
  *     keeps the preview deliberately compact — `MAX_SCOPE_DEPTH = 4`
  *     mirrors the `<VariableInspectorPanel>` cap.
  *   - **Raw JSON** — `JSON.stringify(payload)` with a CopyButton.
- *     Pro-gated via `EXECUTION_HISTORY` (implementation note); free tier sees an
+ *     Pro-gated via `EXECUTION_HISTORY`; free tier sees an
  *     inline upsell.
  *
- * Tooltip refinement (implementation note ask): the Raw JSON tab carries
+ * Tooltip refinement: the Raw JSON tab carries
  * the platform-aware `⌘⇧J` keybinding chip + a one-line description.
  * The Preview tab carries the parallel description tooltip without
  * a keybinding (it's the default focus).
@@ -56,7 +56,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
     combo: formatShortcutCombo({ tokens: ['Mod', 'Shift', 'J'] }, currentShortcutDisplayPlatform()),
   });
 
-  // Mod+Shift+J — switch to the Raw JSON tab (implementation note). Mod = ⌘ on
+  // Mod+Shift+J — switch to the Raw JSON tab. Mod = ⌘ on
   // macOS, Ctrl elsewhere; we accept either modifier so the shortcut
   // works without sniffing `platform`. Capture phase keeps the same combo
   // from also opening the global dependencies view.

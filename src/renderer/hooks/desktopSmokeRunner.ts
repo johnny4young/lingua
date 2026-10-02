@@ -12,7 +12,7 @@ import { SEEDED_SCRATCHPAD_VERSION } from '../onboarding/seedScratchpadMetadata'
 import { useLicenseStore } from '../stores/licenseStore';
 
 /**
- * internal timeout-shaped smoke cases set `expectFailure` so the
+ * Timeout-shaped smoke cases set `expectFailure` so the
  * harness inverts the verification logic: success == the runner
  * surfaced an error whose message matches `expectFailure` (the
  * localized timeout string in either EN or ES). `runnerTimeoutMs`

@@ -19,7 +19,7 @@
  *   - Action  : Run + Test button (disabled while running) + the
  *               last assertion summary.
  *   - Results : per-assertion rows with pass / fail / thrown / missing
- *               badges + collapsible `details` (implementation note).
+ *               badges + collapsible `details`.
  */
 
 import { useTranslation } from 'react-i18next';

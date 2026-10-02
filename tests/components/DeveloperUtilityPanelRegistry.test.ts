@@ -32,7 +32,7 @@ describe('DeveloperUtilityPanel registry', () => {
     expect(source).not.toContain('useMemo(');
   });
 
-  // implementation (implementation note) — every panel registers an output provider
+  // Every panel registers an output provider
   // so the global Cmd+Shift+C / Cmd+Alt+R shortcuts cover the full
   // catalog. The static-source check catches a regression where a new
   // panel forgot to wire either registration path without paying the

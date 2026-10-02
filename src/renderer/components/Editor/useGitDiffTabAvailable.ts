@@ -5,7 +5,7 @@
  * nothing to show for an unsaved Scratchpad), and the tab has not
  * opted out via `// @git-ignore-status`.
  *
- * Mirrors the shape of `useDependenciesPanelAvailable` from internal
+ * Mirrors the shape of `useDependenciesPanelAvailable`.
  * Same `useXxxAvailable` naming so AppLayout can swap in
  * the toggle without learning a new pattern.
  */

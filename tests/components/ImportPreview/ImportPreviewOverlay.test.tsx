@@ -204,7 +204,7 @@ describe('ImportPreviewOverlay', () => {
     });
   });
 
-  it('shows the warning band for lossy cURL flags (implementation note)', async () => {
+  it('shows the warning band for lossy cURL flags', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -215,7 +215,7 @@ describe('ImportPreviewOverlay', () => {
     });
   });
 
-  it('redacts sensitive headers in the preview (implementation note)', async () => {
+  it('redacts sensitive headers in the preview', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -275,8 +275,8 @@ describe('ImportPreviewOverlay', () => {
   it('renders Spanish copy when i18next is set to es (tuteo)', async () => {
     await i18next.changeLanguage('es');
     render(<ImportPreviewOverlay onClose={() => {}} />);
-    // Title in ES uses tuteo: "Importa datos" not "Importá datos".
-    expect(screen.getByText(/Importa datos/i)).toBeTruthy();
+    // Title in ES: "Importar datos", never voseo "Importá datos".
+    expect(screen.getByText(/Importar datos/i)).toBeTruthy();
     expect(screen.queryByText(/Importá datos/i)).toBeNull();
     // Cancel button copy.
     expect(screen.getByText(/^Cancelar$/i)).toBeTruthy();
@@ -384,7 +384,7 @@ describe('ImportPreviewOverlay — ipynb arm ', () => {
     );
   });
 
-  it('flips the confirm button label to the notebook variant (implementation note)', async () => {
+  it('flips the confirm button label to the notebook variant', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -443,7 +443,7 @@ describe('ImportPreviewOverlay — .linguanb arm ', () => {
     },
   });
 
-  it('renders the notebook band with the lossless badge on paste (implementation note)', async () => {
+  it('renders the notebook band with the lossless badge on paste', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -509,7 +509,7 @@ describe('ImportPreviewOverlay — collection arm ', () => {
     ).toBe(2);
   });
 
-  it('surfaces a resolved-variables chip when collection vars are substituted (implementation note)', async () => {
+  it('surfaces a resolved-variables chip when collection vars are substituted', async () => {
     const withVars = JSON.stringify({
       info: {
         name: 'Var API',
@@ -536,7 +536,7 @@ describe('ImportPreviewOverlay — collection arm ', () => {
     ).toMatch(/api\.example\.com/);
   });
 
-  it('flips the confirm label to the collection variant with the count (implementation note)', async () => {
+  it('flips the confirm label to the collection variant with the count', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
@@ -605,7 +605,7 @@ describe('ImportPreviewOverlay — Postman variables ', () => {
     ],
   });
 
-  it('renders the variables section for a Postman collection (implementation note)', async () => {
+  it('renders the variables section for a Postman collection', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     await user.click(screen.getByTestId('import-preview-paste'));
@@ -637,7 +637,7 @@ describe('ImportPreviewOverlay — Postman variables ', () => {
     expect(screen.queryByTestId('import-preview-variables')).toBeNull();
   });
 
-  it('resolves variables from a pasted environment, redacting secrets (implementation note)', async () => {
+  it('resolves variables from a pasted environment, redacting secrets', async () => {
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => {}} />);
     await user.click(screen.getByTestId('import-preview-paste'));

@@ -25,8 +25,8 @@ import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
  *   - Pro badge for rich-media capsules.** When the
  *     capsule carries `richOutputs` (chart / image / html / table),
  *     a small badge dot signals that the exported JSON contains
- *     payloads that downstream consumers (internal share-link
- *     preview, internal CLI render) treat as Pro-gated for full
+ *     payloads that downstream consumers (share-link
+ *     preview, CLI render) treat as Pro-gated for full
  *     reproducibility. Free tier can still export — the badge is
  *     informational, not a gate.
  *   - 1-second visual feedback on click.** Clipboard
@@ -35,8 +35,8 @@ import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
  *     `Check` for 1s then revert. Same pattern as the existing
  *     `<CopyButton>`.
  *   - clipboard-rejected fallback points to Settings.**
- *     The Settings surface has the inline textarea fallback (implementation
- *     1); here we push a status notice with `clipboardUnavailable`
+ *     The Settings surface has the inline textarea fallback;
+ *     here we push a status notice with `clipboardUnavailable`
  *     copy that points the user to Settings so the dead-end is
  *     closed.
  */

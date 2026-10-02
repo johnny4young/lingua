@@ -3,7 +3,7 @@
  *
  * Owns the user's pipeline library + per-pipeline last-run input.
  * Isolated on its own localStorage key (`lingua-utility-pipeline-state`)
- * per the internal convention — a Settings reset doesn't wipe saved
+ * per the convention — a Settings reset doesn't wipe saved
  * pipelines, and a pipeline reset doesn't touch `lingua-settings`.
  *
  * Shape parity with `workspaceToolStore` + `workspaceSqlStore`: same

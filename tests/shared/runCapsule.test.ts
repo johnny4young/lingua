@@ -173,7 +173,7 @@ describe('sanitizeRunCapsule — redaction proof', () => {
       FIXTURE_LICENSE_LEAK_PROBE.source.content
     );
     // The capsule design accepts source content verbatim (per
-    // Privacy + Trust Dashboard / internal contract). The honest
+    // the Privacy + Trust Dashboard contract). The honest
     // user-facing flow is: surface the source through the export
     // preview UI before publishing. The redactor's job is to keep
     // *out-of-band* metadata (tokens in env, paths in errorMessages)

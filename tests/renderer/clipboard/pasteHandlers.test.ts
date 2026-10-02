@@ -57,7 +57,7 @@ describe('detectPasteIntent — positive detection', () => {
   });
 });
 
-describe('detectPasteIntent — internal utility suggestions', () => {
+describe('detectPasteIntent — utility suggestions', () => {
   function expectUtility(text: string, utilityId: string) {
     const intent = detectPasteIntent(text);
     expect(intent?.kind).toBe('utility');
@@ -119,7 +119,7 @@ describe('detectPasteIntent — internal utility suggestions', () => {
   });
 });
 
-describe('detectPasteIntent — internal must NOT fire on code look-alikes', () => {
+describe('detectPasteIntent — utility suggestions must NOT fire on code look-alikes', () => {
   it('ignores JS duration arithmetic that matches the cron shape', () => {
     expect(detectPasteIntent('5 * 60 * 1000')).toBeNull();
     expect(detectPasteIntent('24 * 60 * 60 * 1000')).toBeNull();

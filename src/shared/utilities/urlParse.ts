@@ -10,7 +10,7 @@
 
 import type { UtilityAdapter } from './types';
 
-/** No options implementation. implementation could add `outputShape: 'flat' | 'tree'`. */
+/** No options yet. A later change could add `outputShape: 'flat' | 'tree'`. */
 export type UrlParseOptions = Record<string, never>;
 
 interface ParsedUrl {

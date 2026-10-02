@@ -142,7 +142,7 @@ export function createWebActions(
 
       // Terminal server rejection: revoked / exhausted / invalid-token /
       // invalid-input. Map to a discrete invalid status. Keep the token in
-      // state for `exhausted` so the implementation modal can remediate without
+      // state for `exhausted` so the modal can remediate without
       // forcing the user to re-paste; wipe it for everything else.
       const invalid =
         serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };

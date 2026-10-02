@@ -96,7 +96,7 @@ export function createTabActions(
         });
         return;
       }
-      // internal: block new-tab creation once the Free ceiling is hit. Users
+      // Block new-tab creation once the Free ceiling is hit. Users
       // already over the ceiling (grandfathered data from before gating
       // shipped) keep their tabs; only additions past the ceiling are
       // refused so nobody loses work in the upgrade. Workspace tabs

@@ -70,7 +70,7 @@ export function ConsoleEntryRenderer({
   // in a row come from the same `console.log(...)` call so they share
   // a source line; we don't render multiple chips for multi-arg logs.
   // Prefer payload.origin (worker-stamped), fall back to entryLine
-  // (legacy ConsoleEntry.line, e.g. Python pre-implementation worker).
+  // (legacy ConsoleEntry.line, e.g. the older Python worker).
   const rowOrigin =
     payloads.find((p) => p.origin)?.origin ??
     (typeof entryLine === 'number' && entryLine > 0
@@ -136,7 +136,7 @@ export function ConsoleEntryRenderer({
                   aria-label={t('console.rich.openDetails')}
                   title={labelTitle}
                   data-testid="console-rich-open-details"
-                  // implementation Prerequisite fix — the chip
+                  // Prerequisite fix — the chip
                   // used a tiny obscure Unicode glyph (`◰` / `⌗` / `▣`)
                   // that users couldn't decode; replaced with a
                   // recognizable Lucide `Maximize2` icon + visible

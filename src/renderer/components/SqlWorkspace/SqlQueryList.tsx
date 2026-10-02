@@ -2,7 +2,7 @@
  * Left column of the SQL workspace: list of saved
  * queries + create / activate / rename / delete affordances.
  *
- * Mirror of `<HttpRequestList>` from implementation — same row shape, same
+ * Mirror of `<HttpRequestList>` — same row shape, same
  * keyboard a11y, same native-confirm pattern on delete. The only
  * difference is that the left chip shows the first non-whitespace
  * word of the query as a hint instead of an HTTP method (so a

@@ -13,8 +13,8 @@ import type { ResultSnapshot } from '../../src/renderer/stores/resultStore';
 import type { ScopeSnapshot } from '../../src/shared/scopeSnapshot';
 
 /**
- * Selector unit tests (implementation note) + a render-count regression
- * (implementation note) that locks the core acceptance criterion: a component that
+ * Selector unit tests + a render-count regression
+ * that locks the core acceptance criterion: a component that
  * subscribes through the new primitive selectors re-renders only when
  * the derived value actually changes, NOT on every snapshotRing /
  * scopeSnapshot reference replacement.
@@ -119,7 +119,7 @@ describe('resultStore active-snapshot selectors', () => {
     });
   });
 
-  describe('render-count regression (implementation note)', () => {
+  describe('render-count regression', () => {
     const initialState = useResultStore.getState();
 
     beforeEach(() => {

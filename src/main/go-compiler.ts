@@ -137,9 +137,9 @@ async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal):
 /**
  * Build the env passed to `go build`.
  *
- * implementation detail contract:
+ * Contract:
  *  - Only allowlisted host keys flow through (`buildNativeRunnerEnv`).
- *  - User env from internal layers on top.
+ *  - User env layers on top.
  *  - `GOOS=js` / `GOARCH=wasm` are runner-owned overrides applied
  *    last; user env cannot shadow them — they would silently break
  *    the WASM pipeline.

@@ -39,9 +39,9 @@ export function createDesktopStore(bridge: LicenseBridge) {
   /**
    * Apply the full main-side snapshot to the
    * renderer state, including the new server-derived fields
-   * (`serverSync`, `devices`, `deviceLimit`). implementation only mirrored
+   * (`serverSync`, `devices`, `deviceLimit`). An earlier version only mirrored
    * the local-verify trio (token / status / lastVerifiedAt) because
-   * main was local-verify-only; implementation makes main the source of
+   * main was local-verify-only; now main is the source of
    * truth for the server bucket too.
    */
   function applySnapshot(snapshot: LicenseSnapshot): void {

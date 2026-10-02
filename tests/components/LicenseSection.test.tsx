@@ -1,5 +1,5 @@
 /**
- * internal license UI — cover the four states the status pill must
+ * License UI — cover the four states the status pill must
  * represent (free / active / grace / invalid) and the Apply / Clear
  * buttons' state-machine transitions. The verifier itself is tested
  * elsewhere; this suite stubs `setLicenseToken` so we can script each
@@ -330,7 +330,7 @@ describe('LicenseSection', () => {
       ['clock-skew', 'license.notice.invalid.clockSkew'],
       ['unsupported-tier', 'license.notice.invalid.unsupportedTier'],
       ['no-public-key', 'license.notice.invalid.notAccepted'],
-      // implementation follow-up: server-side request rejection
+      // Server-side request rejection
       // (validator drift between renderer + worker) gets its own copy
       // so users do not waste time re-pasting a perfectly good token.
       ['invalid-input', 'license.notice.invalid.requestRejected'],
@@ -509,7 +509,7 @@ describe('LicenseSection', () => {
     );
   });
 
-  // ----------- implementation — devices row + exhausted modal ------------
+  // ----------- devices row + exhausted modal ------------
 
   function activeStatusForDevices(): LicenseStatus {
     return {
@@ -796,7 +796,7 @@ describe('LicenseSection', () => {
     }
   });
 
-  // ----------------------------------------------- implementation — CTAs
+  // ----------------------------------------------- CTAs
 
   it('renders the Trial / Education / Recovery CTAs under the free state', () => {
     render(<LicenseSection />);

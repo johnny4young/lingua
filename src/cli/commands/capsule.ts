@@ -8,7 +8,7 @@
  * stderr (or the structured `--json` body on stdout when `--json`
  * is set).
  *
- * `--json` output shape (snapshot-stable per implementation note):
+ * `--json` output shape (snapshot-stable):
  *
  *   { ok: true, summary: string }
  *   { ok: false, reason: ParseRunCapsuleReason, detail?: string }

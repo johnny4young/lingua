@@ -1,17 +1,17 @@
 /**
  * bottom-panel "Dependencies" tab body.
  *
- * implementation shipped read-only detection with a disabled Install button.
- * implementation wires the Install path: a click on a `'detected'` row (or
- * the "Install all" header button — implementation note) calls into main via
+ * Detection first shipped read-only, with a disabled Install button.
+ * This panel wires the Install path: a click on a `'detected'` row (or
+ * the "Install all" header button) calls into main via
  * `window.lingua.dependencies.installJs`, transitions the row(s) to
  * `'installing'`, streams subprocess output into an inline log
  * surface, and updates the row(s) to `'installed'` / `'failed'` /
  * `'detected'` (on cancel) when the batch finishes.
  *
- * implementation note in this surface:
+ * Behaviors in this surface:
  *   - A — refuses click when the resolved cwd has no `package.json`
- *     (the renderer learns the flag from the implementation resolver).
+ *     (the renderer learns the flag from the resolver).
  *   - B — single-spawn batched install. Multiple clicks within
  *     `BATCH_WINDOW_MS` coalesce into one npm invocation.
  *   - C — pre-flight integrity check happens in main; the panel
@@ -89,7 +89,7 @@ interface PanelContext {
    */
   readonly enabledHintKey: string | null;
   /**
-   * implementation reviewer fix — tooltip key for rows whose
+   * Reviewer fix — tooltip key for rows whose
    * status is `'unsupported'`. Python web tabs surface a more
    * informative "Pyodide has no compatible wheel for this package"
    * instead of the generic `disabledTooltip`. `null` falls back to
@@ -250,7 +250,7 @@ export function DependenciesPanel() {
   const performInstall = useCallback(
     async (names: readonly string[]) => {
       if (!tabId || !language || names.length === 0) return;
-      // Desktop JS/TS keeps the implementation contract: needs a filePath
+      // Desktop JS/TS keeps the contract: needs a filePath
       // because main resolves cwd from it. Python web bypasses
       // filesystem entirely — `filePath` is permitted to be null.
       if (!isPythonWeb && !filePath) return;
@@ -276,7 +276,7 @@ export function DependenciesPanel() {
           });
           outcome = result.outcome;
           failureReason = result.failureReason;
-          // implementation reviewer fix — `micropip.install` accepts
+          // Reviewer fix — `micropip.install` accepts
           // a batch but reports one batch-level error. When the user
           // installs a single Python package and it comes back as
           // `'unsupported-wheel'`, we know that wheel is the
@@ -519,7 +519,7 @@ export function DependenciesPanel() {
         <InstallLogSurface
           isRunning={isInstalling}
           // Pyodide doesn't expose mid-microtask
-          // cancel semantics + implementation note was rejected, so Python web
+          // cancel semantics, so Python web
           // installs hide the Cancel button. The log still streams
           // and the install runs to completion (or 90 s soft
           // timeout via `pythonWebInstaller`).
@@ -552,7 +552,7 @@ function DependencyRow({
   readonly disabledReasonKey: string | null;
   readonly enabledHintKey: string | null;
   /**
-   * implementation reviewer fix — tooltip key for `'unsupported'`
+   * Reviewer fix — tooltip key for `'unsupported'`
    * rows. Python web tabs surface a more informative
    * "Pyodide has no compatible wheel for this package" instead of
    * the generic `disabledTooltip`. `null` falls back to the

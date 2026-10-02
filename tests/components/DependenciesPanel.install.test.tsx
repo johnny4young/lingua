@@ -4,9 +4,9 @@
  * Pins the enable matrix for the Install button (web vs unsaved tab
  * vs missing package.json vs healthy desktop), the optimistic
  * `'installing'` transition after click, the post-resolution
- * `'installed'` / `'failed'` flips, implementation note coalescing across rapid
+ * `'installed'` / `'failed'` flips, batch coalescing across rapid
  * clicks, the cancel button, the streaming log surface, the "Install
- * all" header button (implementation note), and the ES locale render.
+ * all" header button, and the ES locale render.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -224,7 +224,7 @@ describe('Install flow', () => {
     render(<DependenciesPanel />);
 
     fireEvent.click(screen.getByTestId('dependency-install-lodash'));
-    // implementation note coalescing window — let the debounce fire.
+    // Coalescing window — let the debounce fire.
     await new Promise((r) => setTimeout(r, 600));
 
     expect(bridge.installJs).toHaveBeenCalledTimes(1);
@@ -300,7 +300,7 @@ describe('Install flow', () => {
     });
   });
 
-  it('coalesces multiple rapid clicks into a single batched install (implementation note)', async () => {
+  it('coalesces multiple rapid clicks into a single batched install', async () => {
     const bridge = installMockBridge({
       installJs: vi.fn(async () => ({
         statuses: { lodash: 'installed', 'date-fns': 'installed' },

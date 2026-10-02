@@ -17,7 +17,7 @@
  * / fallback notices.
  *
  * `pretty` defaults to `true` for human-readable clipboard payloads;
- * `internal` share-links can pass `pretty: false` later when the URL
+ * Share links can pass `pretty: false` later when the URL
  * fragment encoder needs the minified form.
  *
  * Returns a discriminated result so the caller can render a

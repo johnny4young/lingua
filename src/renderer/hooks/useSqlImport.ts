@@ -4,13 +4,13 @@
  *
  * Owns the whole flow so the panel + the preview modal stay thin:
  *
- *   1. `startImport(file, source)` — validate type (implementation note accept) + size
- *      (implementation note cap) BEFORE reading bytes, read the bytes, run
+ *   1. `startImport(file, source)` — validate type (accept list) + size
+ *      (capped) BEFORE reading bytes, read the bytes, run
  *      `previewImportFile`, and open the preview modal with the sample +
- *      a sanitized, de-collided (implementation note) suggested table name.
+ *      a sanitized, de-collided suggested table name.
  *   2. The modal lets the user edit the name (validated live) and either
  *      Confirm → `confirmImport` (runs `importFileAsTable`, refreshes the
- *      schema browser, fires telemetry implementation note, pushes a success notice) or
+ *      schema browser, fires telemetry, pushes a success notice) or
  *      Cancel → `cancelImport` (drops the in-flight preview; no table).
  *
  * Every failure path pushes a SPECIFIC translated notice via the

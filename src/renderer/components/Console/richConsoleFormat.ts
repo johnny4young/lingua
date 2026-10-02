@@ -10,7 +10,7 @@
  *   - `richKindBucket` → the closed-enum bucket the telemetry emit
  *     uses (mirrored on `update-server/src/telemetry.ts`).
  *
- * implementation's `formatPayloadInlineSummary` is reused for the
+ * The existing `formatPayloadInlineSummary` is reused for the
  * minimal "Table(N×M)" / "Map(N)" inline header text — the popover
  * adds deeper rendering on top of that.
  */
@@ -22,7 +22,7 @@ import type { ConsolePayloadKindBucket } from '../../types/console';
 /**
  * Closed-enum bucket the `runtime.console_rich_rendered` telemetry
  * event accepts. Maps every payload kind to a small fixed set so we
- * never transmit unbounded discriminator names (implementation's chart /
+ * never transmit unbounded discriminator names (the chart /
  * image variants are pre-listed in `richOutput.ts`).
  */
 export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBucket {

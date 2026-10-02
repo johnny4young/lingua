@@ -11,6 +11,7 @@
  */
 
 import {
+  answerLanguageLine,
   MAX_EXPLAIN_CODE_CHARS,
   redactSecretsFromCode,
   type ChatMessage,
@@ -36,6 +37,8 @@ export interface ExplainCodeInput {
    * explain what the code does; when present it answers that instead.
    */
   readonly question?: string;
+  /** Human language the answer should be written in (from `answerLanguageFor`). */
+  readonly answerLanguage?: string;
   /** Redact obvious secrets before building the request. Defaults to true. */
   readonly redact?: boolean;
   /** Optional model id to request (provider-specific). */
@@ -81,6 +84,7 @@ export function buildExplainCodeRequest(
 
   const userContent =
     `Language: ${input.language}${fileLabel}\n` +
+    answerLanguageLine(input.answerLanguage) +
     askLine +
     `\nCode:\n\`\`\`${input.language}\n${code}\n\`\`\``;
 

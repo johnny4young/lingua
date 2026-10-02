@@ -258,7 +258,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
   it('omits payload when the worker emits the legacy text-only console shape', async () => {
     // Drive a REAL console message that lacks the `payload` field to
     // exercise the runner's `msg.payload ? … : …` branch. This is the
-    // path triggered when implementation note is OFF or when sys.stdout.write
+    // path triggered when the rich console is OFF or when sys.stdout.write
     // bypasses the print override.
     class TextOnlyWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
@@ -1012,7 +1012,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(magic?.payload).toBeUndefined();
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation note telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (telemetry fires fire-and-forget)', async () => {
     class RejectingWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
       addEventListener(type: string, handler: (event: MessageEvent) => void): void {

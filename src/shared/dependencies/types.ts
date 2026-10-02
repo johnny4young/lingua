@@ -2,9 +2,9 @@
  * Shared types + closed enums for dependency
  * detection.
  *
- * Detection + classification + read-only UI. implementation
- * (JS/TS desktop install via `child_process.spawn`) and implementation
- * (Python `micropip`) will land transitions for `installing` /
+ * Detection + classification + read-only UI. Installs
+ * (JS/TS desktop install via `child_process.spawn`, and
+ * Python `micropip`) land transitions for `installing` /
  * `failed` over this same enum without churning the schema.
  *
  * The adapter contract is intentionally tiny: a `detect(source)` pure
@@ -16,7 +16,7 @@
 
 /**
  * Closed enum mirroring the classification states described in the
- * internal scope. Adapters return one of these per detected
+ * original scope. Adapters return one of these per detected
  * specifier. The renderer's panel renders a status pill per row.
  */
 export type DependencyStatus =
@@ -37,9 +37,9 @@ export interface DependencyResolveResult {
 }
 
 /**
- * Closed enum of language ids the registry targets in implementation. Other
+ * Closed enum of language ids the registry targets. Other
  * languages are intentionally `Planned` — adding them is a separate
- * adapter implementation each (see the internal dependency-manager ADR).
+ * adapter each (see the dependency-manager ADR).
  */
 export type DependencyAdapterLanguage = 'javascript' | 'typescript' | 'python';
 
@@ -48,7 +48,7 @@ export type DependencyAdapterLanguage = 'javascript' | 'typescript' | 'python';
  * top-level package as a user would `npm install` / `pip install`.
  * `submodule` is the path under the package when the import had one
  * (`pkg/sub` → `name: 'pkg', submodule: 'sub'`); kept for future
- * "Install with submodule" install-path UX in implementation and so
+ * "Install with submodule" install-path UX and so
  * dashboards can see how often deep imports appear.
  */
 export interface DetectedDependency {
@@ -116,7 +116,7 @@ export interface DependencyAdapter {
 /**
  * Closed enum for the install batch outcome. One
  * outcome per batch (a click can install N specifiers at once with
- * implementation note B coalescing). Mirrored on `update-server/src/telemetry.ts`;
+ * batch coalescing). Mirrored on `update-server/src/telemetry.ts`;
  * the parity test enforces lockstep.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for type and cross-service parity

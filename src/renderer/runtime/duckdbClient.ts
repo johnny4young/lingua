@@ -24,7 +24,7 @@
  * Privacy posture:
  *
  *   - WASM blob is bundled with the app — no CDN fetch, no
- *     third-party origin. Matches the implementation precedent of
+ *     third-party origin. Matches the precedent of
  *     same-origin copied runtime assets.
  *   - Result cells are user content and never leave the renderer
  *     unless the user explicitly exports a capsule.
@@ -138,7 +138,7 @@ function createEngineLifecycle(): DuckDbEngineLifecycle<DuckDbEngineHandle> {
 // reads it once and resolves the actual backing into
 // `resolvedStorageMode`. Changing the toggle therefore takes effect on
 // the next reload — or immediately after `flushAndReleaseDuckDbEngine`
-// drops the singleton (the Settings "Reconnect now" action, implementation note).
+// drops the singleton (the Settings "Reconnect now" action).
 // ---------------------------------------------------------------------------
 
 /** The user's requested persistence preference, applied on next instantiate. */
@@ -264,7 +264,7 @@ function resetResolvedStorageMode(): void {
  * "Reconnect now" action). Checkpoints first when persistent so the WAL
  * lands in the OPFS file, then terminates so the handle releases
  * cleanly and the next session/tab re-opens without a stale-lock
- * fallback. Durability does not depend on this completing — implementation note
+ * fallback. Durability does not depend on this completing: the client
  * already checkpoints after every write.
  */
 export async function flushAndReleaseDuckDbEngine(): Promise<void> {
@@ -353,7 +353,7 @@ export function __setDuckDbEngineFactoryForTests(
 
 /**
  * Test seam — force the resolved storage mode so the CHECKPOINT-on-write
- * path (implementation note) can be exercised without a real OPFS-backed engine.
+ * path can be exercised without a real OPFS-backed engine.
  */
 export function __setResolvedSqlStorageModeForTests(
   mode: SqlStorageMode,
@@ -1003,7 +1003,7 @@ function readerExpression(format: SqlImportFormat, name: string): string {
  * a transferable, which DETACHES the original `Uint8Array` on the main
  * thread. The import flow registers the same file twice (preview then
  * import), so handing the worker a fresh copy each time keeps the caller's
- * buffer alive for the second registration. A 25 MiB cap (implementation note) bounds
+ * buffer alive for the second registration. A 25 MiB cap bounds
  * the copy cost.
  */
 async function registerFileCopy(
@@ -1106,7 +1106,7 @@ export async function previewImportFile(args: {
  * either way.
  *
  * When persistent (OPFS), a best-effort CHECKPOINT flushes the new table
- * to disk so it survives a reload — mirroring `executeQuery`'s implementation note
+ * to disk so it survives a reload — mirroring `executeQuery`'s
  * durability pass.
  */
 export async function importFileAsTable(args: {

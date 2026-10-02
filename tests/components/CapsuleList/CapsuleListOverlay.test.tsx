@@ -3,8 +3,8 @@
  *
  * Covers the Pro list (rows + count + preview + browse_opened
  * telemetry), the per-row actions (export → list-export telemetry,
- * delete → store mutation), the status filter (implementation note), the Free-tier
- * upsell variant (implementation note funnel still fires browse_opened), and ES
+ * delete → store mutation), the status filter, the Free-tier
+ * upsell variant (the funnel still fires browse_opened), and ES
  * tuteo copy.
  */
 
@@ -119,7 +119,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     }
   });
 
-  it('fires capsule.browse_opened with surface + tier on mount (implementation note)', () => {
+  it('fires capsule.browse_opened with surface + tier on mount', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', {
@@ -183,7 +183,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(screen.getByText('Exact source preview')).toBeTruthy();
   });
 
-  it('deletes a row capsule via clearCapsule (implementation note)', () => {
+  it('deletes a row capsule via clearCapsule', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(2);
@@ -195,7 +195,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
   });
 
-  it('delete offers an Undo that restores the capsule (implementation note)', () => {
+  it('delete offers an Undo that restores the capsule', () => {
     useUIStore.setState({ statusNotice: null });
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
@@ -234,7 +234,7 @@ describe('CapsuleListOverlay — Pro tier', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('filters rows by status (implementation note)', () => {
+  it('filters rows by status', () => {
     seedTwoCapsules();
     render(<CapsuleListOverlay onClose={vi.fn()} />);
     fireEvent.click(screen.getByTestId('capsule-list-filter-status-error'));
@@ -357,7 +357,7 @@ describe('CapsuleListOverlay — Free tier hides compare UI ', () => {
   });
 });
 
-describe('CapsuleListOverlay — Free tier upsell (implementation note)', () => {
+describe('CapsuleListOverlay — Free tier upsell', () => {
   beforeEach(() => {
     mockEntitled = false;
     mockTier = 'free';
@@ -397,6 +397,6 @@ describe('CapsuleListOverlay — ES tuteo', () => {
       screen.getAllByTestId('capsule-list-row-export')[0]!.getAttribute(
         'aria-label'
       )
-    ).toBe('Exporta');
+    ).toBe('Exportar');
   });
 });

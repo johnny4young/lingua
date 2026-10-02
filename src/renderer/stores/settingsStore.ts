@@ -56,8 +56,8 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'lingua-settings',
       // Schema version + central migration. The 0->1 step
       // is identity (no shape change yet); the existing onRehydrate/merge
-      // sanitizers still run after migrate. internal added the 1->2 step
-      // (restoreSession boolean -> restoreSessionMode enum) in
+      // sanitizers still run after migrate. The 1->2 step
+      // (restoreSession boolean -> restoreSessionMode enum) lives in
       // migrationRegistry; v3 enables live inline expressions for Scratchpad
       // JS/TS/Python by default. Bump here in lockstep.
       version: 3,
@@ -70,7 +70,7 @@ export const useSettingsStore = create<SettingsState>()(
         }
         // Seed/refresh the main-process mirror after every startup
         // rehydrate so pre-existing opt-ins survive the upgrade to the
-        // internal mirror path without forcing the user to toggle again.
+        // main-process mirror path without forcing the user to toggle again.
         syncConsentMirror(state.telemetryConsent);
       },
     }

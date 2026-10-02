@@ -87,7 +87,7 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // Dependency detection lives entirely
   // local for now (the panel reads imports from the active buffer
   // and asks main whether `node_modules/<name>` exists). Future
-  // implementation add `npm install` / `micropip` install paths that
+  // work adds `npm install` / `micropip` install paths that
   // DO hit a registry; when they ship the row flips its `status`
   // from `'enabled'` (local-only, always on) to a closed enum that
   // tracks the install network call separately.
@@ -102,7 +102,7 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // Git read-only layer (status pill + diff
   // panel). Local-only: `execFile('git', ['status', '--porcelain'])`
   // + `git show HEAD:<file>` against the resolved repo root. NO
-  // remote refs, NO `git fetch`, NO network. implementation removed the
+  // remote refs, NO `git fetch`, NO network. A later change removed the
   // Settings master toggle; the dashboard row is transparency for
   // the baseline local-only surface.
   'gitReadOnlyLayer',
@@ -189,7 +189,7 @@ export function buildNetworkActivityRows(args: {
     {
       feature: 'ai',
       // AI surfaces ship in a later work; mark unavailable until
-      // internal lands so the row honestly reads "nothing here yet".
+      // they land so the row honestly reads "nothing here yet".
       status: 'unavailable',
       lastCallAt: null,
     },
@@ -197,10 +197,10 @@ export function buildNetworkActivityRows(args: {
       feature: 'dependencies',
       // Detection + classification are fully local
       // (renderer scans the buffer; main does an `existsSync` on
-      // `node_modules`). implementation lights up the JS/TS desktop install
-      // path; `lastCallAt` now reflects the most recent `npm install`
+      // `node_modules`). With the JS/TS desktop install
+      // path live, `lastCallAt` now reflects the most recent `npm install`
       // start so the audit table honestly reports the most recent
-      // network call. implementation stays local-only; the install path
+      // network call. Detection stays local-only; the install path
       // only fires when the user clicks Install explicitly.
       status: 'enabled',
       lastCallAt: args.dependencyInstallLastAt ?? null,
@@ -212,7 +212,7 @@ export function buildNetworkActivityRows(args: {
       // worker reads its own `new Error().stack`, attaches a line
       // integer to each payload, and the renderer paints a chip. NO
       // file paths, NO content, NO network calls — the row appears in
-      // the audit table for transparency. implementation removed the master
+      // the audit table for transparency. There is no master
       // toggle, so this row is unconditionally 'enabled'; the per-tab
       // `// @origin off` directive remains as the user-controlled
       // opt-out.
@@ -224,7 +224,7 @@ export function buildNetworkActivityRows(args: {
       // Pure local invocation of `git
       // status --porcelain` / `git diff HEAD` / `git show HEAD:<f>`
       // against the resolved repo root. NO remote refs, NO fetch,
-      // NO push, NO writes of any kind in implementation. implementation
+      // NO push, NO writes of any kind. An earlier change
       // removed the Settings master toggle (git awareness is now
       // baseline); the per-file `// @git-ignore-status` directive
       // remains as the user-controlled opt-out. Row is `'enabled'`

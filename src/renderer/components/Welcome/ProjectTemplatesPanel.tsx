@@ -6,7 +6,7 @@
  * declared in `PROJECT_TEMPLATES` so dashboards + screenshots are
  * deterministic. Clicking a card invokes `useProjectTemplateScaffolder`;
  * the resulting outcome maps to either a transient success notice
- * with a Reveal-in-Finder CTA (implementation note) or a typed warning (non-empty
+ * with a Reveal-in-Finder CTA or a typed warning (non-empty
  * dir, error, web-unavailable). Cancellation is silent — the picker
  * dialog itself is the user feedback.
  *

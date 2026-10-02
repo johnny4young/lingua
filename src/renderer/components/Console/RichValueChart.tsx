@@ -9,7 +9,7 @@
  * `useSettingsStore` (the `useAppTheme()` hook is side-effect only
  * and does not return the theme).
  *
- * implementation note (Pro-gated export): right-aligned actions menu offers
+ * Pro-gated export: right-aligned actions menu offers
  * "Export as SVG" / "Export as PNG"; free-tier shows "Export (Pro)"
  * with `pushUpsellNotice` mirroring the `ConsoleEntryPopover`
  * Copy-as-JSON pattern.

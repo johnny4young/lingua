@@ -127,6 +127,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     effectiveTier,
     isWebBuild,
     isNotebookTab,
+    isWorkspaceTab: activeTab?.kind === 'sql' || activeTab?.kind === 'http' || activeTab?.kind === 'utilities',
     enabledBreakpointCount,
   });
   const estimatedPillWidth =

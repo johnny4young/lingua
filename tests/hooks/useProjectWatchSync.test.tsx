@@ -403,7 +403,7 @@ describe('useProjectWatchSync — delta readdir wiring', () => {
     expect(srcNode?.children?.map((c) => c.path)).toContain('src/new.ts');
   });
 
-  it('does not re-read anything for a pure file change event (implementation note)', async () => {
+  it('does not re-read anything for a pure file change event', async () => {
     render(<WatchSyncHarness />);
     emitChange?.({
       rootId: 'root-proj',

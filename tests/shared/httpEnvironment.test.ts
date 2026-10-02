@@ -33,7 +33,7 @@ import {
 
 /**
  * Build a variable row from `{key, value, secret}` with a deterministic
- * opaque id (implementation added `HttpEnvVariableV1.id`). Tests assert on
+ * opaque id (`HttpEnvVariableV1.id`). Tests assert on
  * key/value/secret semantics, not the opaque id, so a stable synthetic id
  * keeps the literals readable.
  */
@@ -594,7 +594,7 @@ describe('looksSecret ', () => {
   });
 });
 
-describe('toExportableEnvironment (implementation — privacy)', () => {
+describe('toExportableEnvironment (privacy)', () => {
   it('blanks secret values, keeps non-secret values, strips all ids', () => {
     const e = env(
       [

@@ -9,7 +9,7 @@ import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDraf
  *   - Outputs: stdout (foreground) + stderr (error tone) inline below
  *     the source.
  *
- * implementation promotes code cells to a mount-virtualized Monaco editor — the
+ * Code cells use a mount-virtualized Monaco editor — the
  * surface contract (source string, language, run handler) stays unchanged.
  */
 

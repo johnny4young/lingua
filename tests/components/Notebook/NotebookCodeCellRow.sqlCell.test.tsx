@@ -5,7 +5,7 @@
  * code cell renders in the real React tree with real i18n — the language
  * selector offers an enabled SQL option, the shared-engine hint renders
  * (no missing i18n key), and a SQL result set (emitted by the runner as a
- * JSON-array stdout entry) upgrades to the same `rich-table-grid` the implementation
+ * JSON-array stdout entry) upgrades to the same `rich-table-grid` the console
  * table path produces.
  */
 
@@ -95,7 +95,7 @@ describe('NotebookCodeCellRow — SQL cell ', () => {
     const headers = Array.from(grid.querySelectorAll('th')).map((h) => h.textContent);
     expect(headers).toEqual(['n', 'label']);
     const firstRow = grid.querySelector('tbody tr');
-    // The implementation grid renders numbers bare and strings quoted.
+    // The grid renders numbers bare and strings quoted.
     expect(
       Array.from(firstRow!.querySelectorAll('td')).map((c) => c.textContent)
     ).toEqual(['1', '"a"']);

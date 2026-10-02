@@ -3,8 +3,8 @@
  * Three-column layout (query list | editor | result).
  *
  * Mirror of `<HttpWorkspacePanel>`. Wires the workspaceSqlStore,
- * the DuckDB execution path, the capsule builder (implementation note — capsule
- * auto-attach on success), and the telemetry emit (implementation note).
+ * the DuckDB execution path, the capsule builder (capsule
+ * auto-attach on success), and the telemetry emit.
  *
  * Connection lifecycle: a single DuckDB engine instance is shared
  * per browser session via the `duckdbClient` module's cached
@@ -15,6 +15,7 @@
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { e2eFixedDurationMs } from '../../testing/e2eDurations';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -132,7 +133,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // The RESOLVED storage backing lives in
   // the store so the chip stays live when Settings "Reconnect now"
   // re-resolves the engine. The approximate origin-storage label
-  // (implementation note) is panel-local and recomputed when the mode flips.
+  // is panel-local and recomputed when the mode flips.
   const storageMode = useWorkspaceSqlStore((state) => state.storageMode);
   const storageRequestedMode = useWorkspaceSqlStore(
     (state) => state.storageRequestedMode
@@ -270,7 +271,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     setSelectedResponseIndex(index);
   }, []);
 
-  // RQ-02 — patch the query the editor names explicitly, never a
+  // Patch the query the editor names explicitly, never a
   // closed-over `activeQuery` that may have switched during the
   // editor's debounce quiet window. `updateQuery` no-ops on an unknown
   // id, so a flush for a just-deleted query is harmless.
@@ -296,7 +297,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           rows: outcome.rows,
           columns: outcome.columns,
           rowCount: outcome.rowCount,
-          durationMs: outcome.durationMs,
+          durationMs: e2eFixedDurationMs(outcome.durationMs),
           tooLarge: outcome.tooLarge,
           statementCount: outcome.statementCount,
           recordedAt: new Date().toISOString(),
@@ -380,7 +381,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [queryTimeoutMs]
   );
 
-  // implementation apply-&-re-run: write the AI-suggested SQL into the active query,
+  // Apply-&-re-run: write the AI-suggested SQL into the active query,
   // then run the FRESH store object (not a closed-over `activeQuery`, whose
   // `query` field predates the patch).
   const handleApplyFix = useCallback(
@@ -528,8 +529,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   }, [handleRefreshTables]);
 
   // Orchestration hook. Owns the validate → read →
-  // preview → confirm → import flow + every notice + the implementation note telemetry.
-  // `existingTableNames` feeds the implementation note collision de-duper; a successful
+  // preview → confirm → import flow + every notice + the import telemetry.
+  // `existingTableNames` feeds the name collision de-duper; a successful
   // import refreshes the schema browser so the new table shows up.
   const existingTableNames = useMemo(
     () => schemaTables.map((table) => table.name),
@@ -586,9 +587,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Capture the persistence preference
   // BEFORE the engine instantiates so the factory opens the `opfs://`
   // database when requested. After it resolves, reflect the actual
-  // backing in the chip, fire the storage-mode telemetry once (implementation note),
+  // backing in the chip, fire the storage-mode telemetry once,
   // surface a notice if persistence was requested but unavailable
-  // (implementation note), and compute the approximate storage label (implementation note).
+  //, and compute the approximate storage label.
   // `persistTables` is read once at mount; flipping the toggle takes
   // effect on the next reload or via Settings "Reconnect now".
   useEffect(() => {
@@ -646,7 +647,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Flush + release the engine on
   // page teardown so OPFS sync-access handles release cleanly and the
   // next session/tab re-opens without a stale-lock fallback. Durability
-  // does not depend on this (implementation note checkpoints every write); this is
+  // does not depend on this (every write checkpoints); this is
   // hygiene. `pagehide` fires on tab close + bfcache navigation.
   useEffect(() => {
     const handlePageHide = () => {

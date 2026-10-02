@@ -40,7 +40,7 @@ interface InlineWidget {
 
 /**
  * Hook variant that renders inline results as **Monaco overlay
- * widgets** (internal polish #1). Each line with a result gets a
+ * widgets**. Each line with a result gets a
  * widget that floats at the editor's right edge — independent of the
  * code's actual end-of-line column — so values line up vertically
  * the way Quokka / RunJS do. The DOM carries the design's chrome:

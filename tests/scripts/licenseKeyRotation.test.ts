@@ -23,7 +23,7 @@ import { computeLicenseJwkThumbprint } from '../../src/shared/license';
  * in Settings stops matching the registry the release gate enforces.
  */
 
-/** Production key committed in .env / .env.production since implementation */
+/** Production key committed in .env / .env.production. */
 const PROD_JWK = {
   kty: 'OKP',
   crv: 'Ed25519',

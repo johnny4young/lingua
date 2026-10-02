@@ -64,7 +64,7 @@ export function depthOf(relativePath: string): number {
  * header copy treats it as "discovered files" rather than "total
  * files on disk" by design; an accurate count would require eagerly
  * walking every subtree on every refresh and burn the 500 ms budget
- * the implementation perf bench locks.
+ * the perf bench locks.
  */
 export function countFiles(nodes: ReadonlyArray<FileTreeNode>): number {
   let total = 0;

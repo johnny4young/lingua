@@ -66,10 +66,10 @@ test.describe('Project bundle import overlay ', () => {
 
     await page.keyboard.press('ControlOrMeta+Shift+KeyP');
     await expect(paletteInput(page)).toBeVisible();
-    await paletteInput(page).fill('Importa un proyecto desde zip');
+    await paletteInput(page).fill('Importar un proyecto desde zip');
     await page
       .locator('[data-result-index]')
-      .filter({ hasText: /Importa un proyecto desde zip/i })
+      .filter({ hasText: /Importar un proyecto desde zip/i })
       .first()
       .click();
 

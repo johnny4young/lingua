@@ -901,7 +901,7 @@ describe('CommandPalette', () => {
     });
   });
 
-  // ─── internal — recent commands stack ───────────────────────────────
+  // ─── Recent commands stack ───────────────────────────────
 
   it('records executed actions into the per-session command history', () => {
     useCommandHistoryStore.getState()._clearForTesting();

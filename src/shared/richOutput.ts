@@ -32,11 +32,11 @@
  *   - **No React deps.** Stays under `src/shared/` so a future
  *     worker can `import { serializeRichValue }` without dragging
  *     in renderer code.
- *   - **Pre-stage implementation stubs** (implementation note): the `image` and `chart`
- *     variants are reserved here with a TODO so implementation doesn't
+ *   - **Pre-stage implementation stubs**: the `image` and `chart`
+ *     variants are reserved here with a TODO so a later change doesn't
  *     have to migrate the discriminator union again.
  *
- * Out of scope this change (deferred to implementation):
+ * Out of scope this change (deferred):
  *   - Migrating `ConsoleOutput.args: string[]` to
  *     `RichOutputPayload[]` (breaking — touches every fixture).
  *   - `ConsolePanel` renderer dispatch.
@@ -93,19 +93,19 @@ export interface RichOutputRawText {
 }
 
 /**
- * implementation stub (implementation note). Reserved so the discriminator union does
+ * implementation stub. Reserved so the discriminator union does
  * not need another migration when image rendering lands. No runner
  * emits this today.
  */
 export interface RichOutputImage {
   kind: 'image';
-  /** Resolved as `<img src=...>` after the implementation sandbox lands. */
+  /** Resolved as `<img src=...>` after the sandbox lands. */
   src: string;
   mime: string;
 }
 
 /**
- * implementation stub (implementation note). Chart-library choice (recharts vs
+ * implementation stub. Chart-library choice (recharts vs
  * vega-lite) and the typed spec are deferred. No runner emits this
  * today.
  */
@@ -214,7 +214,7 @@ export const MAX_CHART_SPEC_NODES = 20_000;
 // Five `ScopeValue` discriminants + the eight extended kinds = the
 // full RichOutputPayload union. Centralised here so the type-guard,
 // the refinement helpers, and any future dispatch switch stay in
-// lockstep when implementation widens the union.
+// lockstep when the union widens.
 const VALID_RICH_KINDS = new Set<string>([
   'primitive',
   'function',

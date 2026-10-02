@@ -1,6 +1,6 @@
 /**
  * Pipeline template catalog + instantiate tests,
- * including the implementation note registry/i18n completeness guard.
+ * including the registry/i18n completeness guard.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -108,7 +108,7 @@ describe('instantiatePipelineTemplate', () => {
 });
 
 // Every template id carries name + description in both locales.
-describe('template i18n completeness (implementation note)', () => {
+describe('template i18n completeness', () => {
   const en = enCommon as Record<string, string>;
   const es = esCommon as Record<string, string>;
 

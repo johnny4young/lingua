@@ -40,7 +40,7 @@ describe('inline result widget DOM', () => {
     expect(part?.querySelector('[data-type-pill="error"]')).not.toBeNull();
   });
 
-  // internal overflow Prerequisite fix (landed in the implementation
+  // Overflow prerequisite fix (landed in its own
   // commit). Long values used to paint past the editor right edge and
   // wrap onto a second line that overran the gutter; truncate to a
   // fixed cap and surface the full text via `title`.
@@ -63,7 +63,7 @@ describe('inline result widget DOM', () => {
       expect(value?.getAttribute('data-truncated')).toBe('true');
     });
 
-    it('leaves internal typed-payload summaries alone — they ship under the cap', () => {
+    it('leaves typed-payload summaries alone — they ship under the cap', () => {
       const node = renderInlineResultNode([
         {
           line: 1,

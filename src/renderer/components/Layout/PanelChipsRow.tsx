@@ -18,7 +18,7 @@ import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 
 /**
- * internal ownership split — the editor chips row moved out of
+ * Ownership split — the editor chips row moved out of
  * `AppLayout.tsx` (shell size budget) into its own feature file. Verbatim
  * extraction: descriptors, the memoized chip, and the row itself.
  */

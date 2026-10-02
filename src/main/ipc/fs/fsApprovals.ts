@@ -129,7 +129,7 @@ async function realPathStaysInside(filePath: string, root: string): Promise<bool
  * handlers) gate on this so a compromised renderer cannot point them at
  * arbitrary disk locations — closing the one IPC door that previously
  * accepted raw absolute paths with no approval check, and aligning git
- * with the internal defense-in-depth posture.
+ * with the defense-in-depth posture.
  */
 export async function pathIntersectsApprovedScope(
   absolutePath: string

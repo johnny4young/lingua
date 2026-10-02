@@ -4,7 +4,7 @@
  * Renders `kind: 'error'` payloads with a structured stack. Each
  * `ClickableStackFrame` with a `file` + `line` becomes a focusable
  * `<button>` that emits a typed `file.open` command the rest
- * of the app can wire to (internal multi-file lane). Frames without a
+ * of the app can wire to (multi-file lane). Frames without a
  * `file` render as a non-clickable `<span>`.
  *
  * Frame context menu (right-click): "Copy file:line",
@@ -42,7 +42,7 @@ interface FrameMenuState {
 /**
  * Typed command the rest of the renderer listens for. Wired up
  * incrementally: today the default consumer shows a notice
- * (implementation will wire the actual "open file at line" flow).
+ * (a later change will wire the actual "open file at line" flow).
  */
 function dispatchOpenSource(frame: ClickableStackFrame): void {
   const detail = {
@@ -51,7 +51,7 @@ function dispatchOpenSource(frame: ClickableStackFrame): void {
     column: frame.column,
     fnName: frame.fnName,
   };
-  // A future internal multi-file consumer can claim this command at a
+  // A future multi-file consumer can claim this command at a
   // higher priority to suppress the default fallback notice.
   emitCommand('file.open', detail);
 }

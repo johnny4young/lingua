@@ -280,7 +280,7 @@ export function spawnNativeRun(
     };
     child.stderr.on('data', onStderrData);
 
-    // Parent-owned timeout. Mirrors internal's pattern for the worker
+    // Parent-owned timeout. Mirrors the renderer's pattern for the worker
     // runners — main owns the kill timer; the subprocess never schedules
     // its own.
     const killTimer: NodeJS.Timeout = setTimeout(() => {

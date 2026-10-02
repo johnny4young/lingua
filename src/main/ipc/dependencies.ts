@@ -1,12 +1,12 @@
 /**
- * implementation - IPC handlers for JS / TS dependency
+ * IPC handlers for JS / TS dependency
  * resolution and installation.
  *
- * implementation channels:
+ * Channels:
  *   - `dependencies:js:resolve` — read-only batch resolver. Returns
  *     one status per name from the active tab's resolved cwd.
  *
- * implementation channels:
+ * Channels:
  *   - `dependencies:js:install` — `npm install` batch via
  *     `child_process.spawn` with `shell: false`. Streams log lines
  *     back to the renderer via `webContents.send('dependencies:js:install:log', …)`

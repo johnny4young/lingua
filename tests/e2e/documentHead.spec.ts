@@ -1,10 +1,10 @@
 /**
  * document-head contract for the web entry.
  *
- * Locks the boot hints added in internal: the color-scheme meta, the
+ * Locks the boot hints: the color-scheme meta, the
  * preconnect links to the two first-party hosts, the vendored
  * JetBrains Mono preloads + inline @font-face, and the theme
- * bootstrap ported from the desktop entry (implementation note). The static-HTML
+ * bootstrap ported from the desktop entry. The static-HTML
  * assertions read the served document text instead of the live DOM so
  * a regression in the entry HTML fails even if React later patches
  * the head at runtime.
@@ -34,7 +34,7 @@ function extractBootSkeletonStyle(html: string): string {
   return match[1].trim();
 }
 
-test.describe('Document head — internal boot hints', () => {
+test.describe('Document head — boot hints', () => {
   test('keeps desktop and web HTML entries aligned on critical boot hints', () => {
     const [desktopHtml, webHtml] = htmlEntryPaths.map(readHtmlEntry);
     for (const filePath of htmlEntryPaths) {
@@ -88,7 +88,7 @@ test.describe('Document head — internal boot hints', () => {
     }
 
     expect(html).toContain('@font-face');
-    // Theme bootstrap ported from the desktop entry — implementation note.
+    // Theme bootstrap ported from the desktop entry.
     expect(html).toContain('lingua-settings');
     expect(html).toMatch(/#0c1017/);
   });

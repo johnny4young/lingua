@@ -63,7 +63,7 @@ describe('keyboardShortcuts catalog', () => {
     }
   });
 
-  // Reviewer pass on implementation caught a silent
+  // A reviewer pass caught a silent
   // `run-copy-share-link` ↔ `overlay-command-palette` collision on
   // `Mod+Shift+P` (the share entry won because it was declared earlier
   // in the catalog and useGlobalShortcuts iterates first-match-wins).
@@ -204,7 +204,7 @@ describe('keyboardShortcuts catalog', () => {
     ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
 
-  it('declares a debugger group with the implementation control shortcuts and the implementation toggle', () => {
+  it('declares a debugger group with the control shortcuts and the toggle', () => {
     const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     expect(groupIds.has('debugger')).toBe(true);
 

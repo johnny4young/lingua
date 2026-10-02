@@ -13,7 +13,7 @@
  *     standard library and language built-ins.
  *   - `buildInstallCommand` turns detected specifiers into the exact
  *     `{ binary, args }` a desktop runner would spawn (no shell, argv only)
- *     — the shape the internal install lane consumes.
+ *     — the shape the install lane consumes.
  *
  * Running the install (spawning `go get` / `cargo add` / `bundle add`)
  * needs the host toolchain and network, so it belongs to a desktop slice;

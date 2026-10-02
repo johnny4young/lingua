@@ -7,8 +7,8 @@ import { emitCommand } from '../../stores/commandBus';
 /**
  * Clickable `L<n>` chip rendered on every
  * console row whose `RichOutputPayload` carries an `origin`. Click
- * emits the shared `file.open` command (reuses the implementation
- * F handler in `useDefaultOpenFileConsumer`); hover emits the
+ * emits the shared `file.open` command (reuses the file-open
+ * handler in `useDefaultOpenFileConsumer`); hover emits the
  * new `editor.highlightLine` command consumed by `useEditorHighlightSync`
  * which applies a Monaco decoration class.
  *
@@ -18,8 +18,8 @@ import { emitCommand } from '../../stores/commandBus';
  * `<ConsoleEntryRenderer>` suppresses the chip when the buffer
  * carries the directive).
  *
- * Telemetry: click emits `runtime.output_origin_clicked` (implementation note
- * burst-throttled at the helper level). Hover is intentionally
+ * Telemetry: click emits `runtime.output_origin_clicked`,
+ * burst-throttled at the helper level. Hover is intentionally
  * silent — see the comment on `OUTPUT_ORIGIN_SURFACES` in
  * `src/shared/telemetry.ts`.
  *

@@ -17,7 +17,7 @@ import { RecoveryCta } from './RecoveryCta';
 import { TrialCta } from './TrialCta';
 
 /**
- * License paste / clear surface for internal Intentionally minimal — the
+ * License paste / clear surface. Intentionally minimal — the
  * verifier + store already own the state machine; this component just
  * gives users a way to hand a token over and read the result back.
  *
@@ -92,7 +92,7 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.refunded';
     case 'unknown-license':
       return 'license.notice.invalid.unknownLicense';
-    // implementation follow-up. `invalid-input` means the renderer's
+    // `invalid-input` means the renderer's
     // request body was rejected by the worker validator — the token is
     // fine but the client and server disagree on the request shape
     // (e.g. an `os` value the worker enum did not accept). Distinct

@@ -104,7 +104,7 @@ export function createWorkspaceActions(
      * This path deliberately bypasses `addTab` because `addTab` runs
      * `isLanguageAllowed` against `'sql'` (not in the Free language
      * allowlist) and would wrongly upsell-block the workspace. Workspace
-     * tabs are exempt from the internal tab budget (see `budgetedTabCount`),
+     * tabs are exempt from the tab budget (see `budgetedTabCount`),
      * so a Free user always gets the SQL workspace.
      *
      * `opts` is accepted for signature compatibility with legacy callers

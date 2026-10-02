@@ -7,21 +7,21 @@ import {
 } from '../../shared/languagePacks';
 
 /**
- * Thin compatibility shim for implementation The single source of truth
+ * Thin compatibility shim. The single source of truth
  * for language metadata is now `src/shared/languagePacks.ts`. The legacy
  * function names below are preserved verbatim so existing call sites (the
  * Toolbar, language selectors, the runner manager, the editor opener, the
  * file tree, the snippets store, the templates module, the i18n loader)
  * keep compiling without per-call-site migration.
  *
- * implementation and C in `docs/LANGUAGE_PACK_ADR.md` migrate the consumers off
+ * Later steps in `docs/LANGUAGE_PACK_ADR.md` migrate the consumers off
  * these shims one folder at a time. Until then, every helper that used
  * to read `BUILT_IN_LANGUAGE_META[language]` now reads
  * `getLanguagePackById(language)` and falls back to the same plaintext
  * shape on an unknown language.
  *
  * The display labels (`languageLabel`, `languageShortLabel`) intentionally
- * resolve to a localized string only at the call site — implementation threads
+ * resolve to a localized string only at the call site — a later step threads
  * `i18next.t` through the consumers. This shim returns the **English**
  * label as a stable fallback so non-React callers (template metadata,
  * file-tree titles before the renderer mounts) keep producing readable
@@ -47,7 +47,7 @@ export type LanguageBadgeTone = {
 };
 
 // Stable English fallback labels, mirrored against the i18n keys the pack
-// declares. implementation will replace these reads with `i18next.t(pack.labelKey)`
+// declares. A later step will replace these reads with `i18next.t(pack.labelKey)`
 // at the React boundary.
 const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: string }> = {
   javascript: { label: 'JavaScript', shortLabel: 'JS' },
@@ -76,7 +76,7 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   shellscript: { label: 'Shell script', shortLabel: 'SH' },
 };
 
-// internal design-system chips from `Main v2.html`. Keep these token-like
+// Design-system chips from `Main v2.html`. Keep these token-like
 // oklch pairs here so the toolbar and tab overflow cannot drift.
 const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
   javascript: {
@@ -124,7 +124,7 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
   },
   // pipeline-run capsules carry `tab.language =
   // 'pipeline'`. Same DS accent token as the other workspace kinds so
-  // the capsule browse badge + internal comparator chip stay on-system.
+  // the capsule browse badge + comparator chip stay on-system.
   pipeline: {
     code: 'PIPE',
     background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
@@ -173,7 +173,7 @@ const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
   },
   // The `'pipeline'` capsule marker. Mirrors the
   // `'http'` entry so `languageLabel('pipeline')` (capsule browse badge,
-  // internal comparator summary) resolves to the friendly "Pipeline"
+  // comparator summary) resolves to the friendly "Pipeline"
   // instead of the misleading TXT / Text pack-less fallback. The recipe
   // body renders as plaintext, matching the capsule's source content.
   pipeline: {
@@ -203,7 +203,7 @@ function packToMeta(pack: LanguagePack): LanguageMeta {
     ...(pack.fileNames ? { fileNames: pack.fileNames } : {}),
     monacoLanguage: pack.monacoLanguage,
     defaultCode: pack.defaultCode,
-    // implementation keeps the legacy `executionMode` enum (run / validate /
+    // The shim keeps the legacy `executionMode` enum (run / validate /
     // view) — `compile` packs map to `run` so existing callers don't
     // start hiding the Run button on Go and Rust by accident.
     executionMode: pack.execution === 'compile' ? 'run' : pack.execution,
@@ -294,7 +294,7 @@ export function languageSupportsDebugger(language: Language | null | undefined):
 }
 
 /**
- * implementation capability-aware UI — returns a stable i18n key
+ * Capability-aware UI — returns a stable i18n key
  * describing the host-toolchain expectation for the given language,
  * or `null` when the pack carries none (self-contained runtime or
  * bundled interpreter). The renderer looks this key up through

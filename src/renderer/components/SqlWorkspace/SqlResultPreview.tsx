@@ -17,7 +17,7 @@
  *     active body tab.
  *   - Footer: Save-as-snippet nudge on a successful run.
  *
- * implementation note here:
+ * Features here:
  *
  *   - **D** — Copy as CSV / JSON / Markdown buttons in the header when
  *     a successful result is in view.
@@ -134,7 +134,7 @@ export interface SqlResultPreviewProps {
    */
   querySource?: string;
   /**
-   * implementation apply-&-re-run: replace the active query's SQL with the AI
+   * Apply-&-re-run: replace the active query's SQL with the AI
    * suggestion and run it. Offered only alongside `querySource` (newest
    * run), since applying over a historical view would be incoherent.
    */

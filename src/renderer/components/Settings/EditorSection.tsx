@@ -780,7 +780,7 @@ export function EditorSection() {
 
       <SqlWorkspaceSettingsSection />
 
-      {/* implementation (post-review refactor) — the Language Support
+      {/* The Language Support
           Scorecard + per-language preference rows (Rust / Go LSP, Ruby
           runtime) moved to their own Settings → Languages tab
           (`LanguagesSection.tsx`, Cmd+8). The Editor tab now stays

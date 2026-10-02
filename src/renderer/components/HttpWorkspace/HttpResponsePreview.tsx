@@ -16,7 +16,7 @@
  *   - `application/json` (+ variants) → JSON tree (pretty-printed
  *     via `JSON.parse` + `JSON.stringify(_, null, 2)`).
  *   - `text/*` → raw text.
- *   - `image/*` → `<img>` from a data URL (implementation only supports the
+ *   - `image/*` → `<img>` from a data URL (the viewer only supports the
  *     happy-path where the body decoded as UTF-8 is a valid image —
  *     base64 / binary streams are deferred).
  *   - Anything else → raw text fallback.

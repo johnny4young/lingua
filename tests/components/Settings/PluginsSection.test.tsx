@@ -160,7 +160,7 @@ describe('PluginsSection', () => {
       expect(screen.getByText('Plugin requires app version >= 99.0.0.')).toBeTruthy();
     });
 
-    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic (internal NEW)', () => {
+    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic', () => {
       setStore([
         fixture({
           status: 'unknown',

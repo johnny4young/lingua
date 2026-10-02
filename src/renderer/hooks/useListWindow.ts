@@ -9,7 +9,7 @@ import type { RefObject } from 'react';
  * divs so the scrollbar geometry matches the full list. Rows that scroll
  * out of the window unmount, which releases their per-row resources for
  * free (the console's `<RichValueChart>` finalize()s its Vega view on
- * unmount; a notebook code cell drops its Monaco editor — implementation).
+ * unmount; a notebook code cell drops its Monaco editor).
  *
  * We hand-roll instead of pulling `react-window` because rows are variable
  * height (one ANSI line vs. a rich table vs. a chart; a one-line markdown
@@ -17,7 +17,7 @@ import type { RefObject } from 'react';
  * parts — the offset math — are the pure {@link computeWindow} and
  * {@link offsetForIndex} functions, both fully unit-tested without a DOM.
  *
- * implementation promoted this hook out of `components/Console/` into the
+ * This hook moved out of `components/Console/` into the
  * shared `hooks/` folder so the notebook can window its cell rows too, and
  * added {@link UseListWindowResult.scrollToIndex} for programmatic
  * row-into-view scrolls (Jupyter command-mode navigation).
@@ -133,7 +133,7 @@ export function computeWindow({
  *
  * Clamps `index` into `[0, heights.length]`: a negative index yields 0, an
  * index past the end yields the total content height (the bottom edge of
- * the last row). implementation
+ * the last row).
  */
 export function offsetForIndex(
   heights: ReadonlyArray<number | undefined>,

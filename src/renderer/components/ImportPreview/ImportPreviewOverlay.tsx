@@ -5,18 +5,18 @@
  * mirroring `<CapsuleImportOverlay>` :
  *
  *   - TOP    : Load source (Paste textarea + Pick-a-file button +
- *              full-overlay drag-drop). implementation note = drag-drop with
- *              visible ring on `dragover`.
+ *              full-overlay drag-drop with a
+ *              visible ring on `dragover`).
  *   - MIDDLE : Read-only preview band (<ImportPreviewBody>) OR a
  *              reject band when the source doesn't parse.
- *              Warning band lists lossy cURL flags (implementation note codes).
+ *              Warning band lists lossy cURL flags (warning codes).
  *   - BOTTOM : Action bar — Cancel + Import (disabled until valid
- *              preview). implementation note (implementation) — confirm flips the
+ *              preview). Confirm
  *              opens or focuses the HTTP workspace editor tab for cURL;
  *              The hook creates notebook tabs with
  *              the detected dominant code-cell language.
  *
- * implementation folds:
+ * Features:
  *   A. Drag-drop accepts notebook files (file input `accept` widened).
  *   B. `detectImporter` content-sniff handles both adapters; file
  *      extension hint kicks in for drop events.
@@ -25,7 +25,7 @@
  *   E. Warning telemetry fires for ipynb imports with lossy bits.
  *   F. After-confirm language chip auto-flip.
  *
- * Escape closes. Click-outside closes. Telemetry (implementation note) is
+ * Escape closes. Click-outside closes. Telemetry is
  * owned by `useImportPreview`; the overlay just calls
  * `trackCancelled()` on dismiss.
  *
@@ -589,7 +589,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                   `.ipynb` `wrong-version` / `oversized` reject), the
                   detail IS the accurate message — promote it to the
                   bold header and skip the generic outer-reason copy,
-                  which is written for the implementation "importer not
+                  which is written for the original "importer not
                   wired" meaning and reads wrong for these cases. */}
               {rejectDetailKey ? (
                 <div

@@ -59,7 +59,7 @@ export function settingsPartialize(state: SettingsState) {
       state.capsuleImportClipboardOnFocusConsent,
     // Persist the dependency-detection toggle so
     // the user's choice survives reloads. Rehydrate-merge applies
-    // the implementation note tier-aware default when this key is absent.
+    // the tier-aware default when this key is absent.
     dependencyDetectionEnabled: state.dependencyDetectionEnabled,
     defaultRuntimeMode: state.defaultRuntimeMode,
     workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,

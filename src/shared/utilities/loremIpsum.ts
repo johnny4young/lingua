@@ -1,8 +1,8 @@
 /**
  * Lorem Ipsum generator.
  *
- * Originally internal (renderer-side); moved into the shared utility layer
- * under implementation (implementation note) so the pipeline `lorem-ipsum` adapter and
+ * Originally renderer-side; moved into the shared utility layer
+ * under implementation so the pipeline `lorem-ipsum` adapter and
  * the renderer's Lorem Ipsum panel share one corpus + assembler — the
  * renderer's `src/renderer/utils/loremIpsum.ts` is now a re-export shim,
  * so the Latin word list can no longer drift between two copies.

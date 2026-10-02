@@ -29,7 +29,7 @@ export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
  *   - `always`  — restore the snapshot silently on boot (the legacy
  *                 `restoreSession: true` behavior).
  *
- * The v1→v2 settings migration maps legacy `false → 'ask'` (implementation note —
+ * The v1→v2 settings migration maps legacy `false → 'ask'` (so
  * everyone gets the better default) and `true → 'always'`.
  */
 export type RestoreSessionMode = 'never' | 'ask' | 'always';
@@ -56,7 +56,7 @@ export interface SettingsState {
    */
   smartPasteDetectionEnabled: boolean;
   /**
-   * internal Vim mode flag. When `true`, the editor lazy-loads
+   * Vim mode flag. When `true`, the editor lazy-loads
    * `monaco-vim` and attaches Vim keybindings to the active Monaco
    * editor.
    */
@@ -107,7 +107,7 @@ export interface SettingsState {
   /**
    * Master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
-   * tier at first rehydrate (implementation note): Free → `false` so the
+   * tier at first rehydrate: Free → `false` so the
    * disabled Install button never reads as upsell pressure; Pro /
    * Team / Education / Trial → `true` so the panel discovers
    * itself on the next paste. Persisted, so once the user flips it
@@ -118,7 +118,7 @@ export interface SettingsState {
   /**
    * Default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
-   * stays the only implemented option until implementation lands. Settings
+   * stays the only implemented option until a later change lands. Settings
    * → Editor exposes the selector; the value is per-app, not
    * per-tab (each tab keeps its own choice).
    */
@@ -129,7 +129,7 @@ export interface SettingsState {
    * this map only governs new-tab seeding via `createDefaultTab`.
    * Missing keys fall through to the shared
    * `defaultWorkflowMode(language)` helper, so a sparse map is
-   * sufficient — implementation note migration seeds the three Scratchpad
+   * sufficient — a migration seeds the three Scratchpad
    * languages on upgrade so the Settings UI surfaces them visibly.
    */
   workflowModeDefaultsByLanguage: Record<string, WorkflowMode>;
@@ -139,7 +139,7 @@ export interface SettingsState {
    * two languages whose worker runner threads the auto-log
    * transform). Other keys are stripped on rehydrate; non-boolean
    * values are coerced to `false`. Per-tab overrides via
-   * `FileTab.autoLogEnabled` (implementation note) win over this default.
+   * `FileTab.autoLogEnabled` win over this default.
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
@@ -151,7 +151,7 @@ export interface SettingsState {
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
   /**
    * per-language inline-lint enablement. Keyed by language id;
-   * implementation ships `javascript`/`typescript` ON. When `false` for a language,
+   * The default ships `javascript`/`typescript` ON. When `false` for a language,
    * Monaco's built-in TS/JS squiggles are silenced (via
    * `setMonacoInlineLintEnabled`) and the custom `'lingua-lint'` markers are
    * cleared for that language. Unknown keys are stripped on rehydrate;
@@ -399,7 +399,7 @@ export interface SettingsState {
   /**
    * Three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
-   * (implementation note), and the palette commands (implementation note). Each flips the
+   *, and the palette commands. Each flips the
    * corresponding `hasCompletedOnboarding*` flag back to `false`.
    * `resetOnboardingWelcome` additionally resets
    * `onboardingWelcomeSeedVersion` so the latest seed is re-applied.
@@ -483,7 +483,7 @@ export interface SettingsState {
    * (no-op) for languages outside the supported set
    * (`javascript`, `typescript`, `python`, `go`) and for unknown
    * preset tokens. Fires `runtime.timeout_preset_changed` telemetry
-   * (implementation note) with closed-enum `{ language, preset }` payload.
+   * with closed-enum `{ language, preset }` payload.
    */
   setRuntimeTimeoutPreset: (language: string, preset: RuntimeTimeoutPreset) => void;
   /**

@@ -3,12 +3,12 @@
  *
  * Owns the list of user-created SQL queries + their response history.
  * Isolated on its own localStorage key (`lingua-workspace-sql-state`)
- * per the internal convention so a Settings reset doesn't wipe saved
+ * per the convention so a Settings reset doesn't wipe saved
  * queries.
  *
  * Shape parity with `workspaceToolStore`: identical CRUD names +
  * LRU=10 + active id + isExecuting flag + sanitize-on-rehydrate
- * boundary. internal Utility Pipelines (Slot 21) will iterate over
+ * boundary. Utility Pipelines will iterate over
  * both stores uniformly via this matching surface; never extend the
  * SQL store with shape that diverges from the HTTP store without
  * mirroring the change there too.

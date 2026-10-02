@@ -1,5 +1,5 @@
 /**
- * implementation - main-side JS / TS dependency resolver
+ * Main-side JS / TS dependency resolver
  * and installer.
  *
  * read-only existence check against the active tab's
@@ -17,14 +17,14 @@
  * absolute paths, no `node:` built-ins). Main re-validates so a
  * compromised renderer cannot probe arbitrary filesystem paths.
  *
- * Install policy (implementation note): we refuse to spawn when the resolved cwd
+ * Install policy: we refuse to spawn when the resolved cwd
  * has no `package.json`. Without this guard `npm install <name>`
  * silently creates a `package.json` next to a one-off scratchpad,
  * which violates the "no silent installs" line in
  * the internal dependency-manager ADR.
  *
  * pre-flight integrity check: before spawning we re-run
- * the implementation resolver against the batch and drop any specifier
+ * the resolver against the batch and drop any specifier
  * that already maps to `installed`. Common case ("install" clicked
  * twice in a row) avoids a no-op `npm install`.
  */
@@ -290,9 +290,9 @@ async function npmInstallSpawnCommand(
  *     so PATH and Windows COMSPEC/PATHEXT survive the secret-filtering boundary.
  *   - cwd via `resolveNodeCwd(filePath)` (saved tab only).
  *   - Refuse without spawning when the cwd has no `package.json`
- *     (implementation note: avoid silently turning a scratchpad into a project).
- *   - Pre-flight: re-run the implementation resolver and skip already-
- *     installed names without spawning (implementation note).
+ *     (avoid silently turning a scratchpad into a project).
+ *   - Pre-flight: re-run the resolver and skip already-
+ *     installed names without spawning.
  *   - No `-g` / `--global` / `--prefix` flags ever — project
  *     isolation is part of the contract.
  */
@@ -574,7 +574,7 @@ export async function installJsDependencyBatch(
       }
       // Reference the accumulated logs so eslint does not warn about
       // unused captures — they exist as a safety net for future
-      // ipc-level diagnostics even though implementation streams via onLog.
+      // ipc-level diagnostics even though output streams via onLog.
       void stdoutAcc;
       void stderrAcc;
     });

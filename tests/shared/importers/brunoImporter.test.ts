@@ -1,5 +1,5 @@
 /**
- * implementation (implementation note) — Bruno `.bru` importer adapter coverage.
+ * Bruno `.bru` importer adapter coverage.
  *
  * Pins detection, the block parser (method / headers / auth / body /
  * scripts / meta), the lossy-warning surface, and the reject paths.

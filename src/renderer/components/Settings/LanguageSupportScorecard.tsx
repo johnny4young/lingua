@@ -94,8 +94,8 @@ export function LanguageSupportScorecard({
   const { t } = useTranslation();
   const [legendOpen, setLegendOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // Sticky Web/Desktop filter (persisted in settings,
-  // implementation note). `all` is the default cross-platform view.
+  // Sticky Web/Desktop filter (persisted in settings).
+  // `all` is the default cross-platform view.
   const platform = useSettingsStore((s) => s.languageScorecardPlatform);
   const setPlatform = useSettingsStore((s) => s.setLanguageScorecardPlatform);
   const onPlatformChange = (next: ScorecardPlatform) => {
@@ -307,7 +307,7 @@ function ScorecardCell({ capability, profile, platform, t }: ScorecardCellProps)
 
   // per-platform view: collapse the cell to the resolved
   // status for the selected platform (single chip, no W/D pills — the
-  // column IS the platform). implementation note: the tooltip ALWAYS leads with the
+  // column IS the platform). The tooltip ALWAYS leads with the
   // resolved "{platform}: {status}" line so a desktop-only -> unsupported
   // flip reads clearly, then appends the axis note for context. (Leading
   // with `note ??` instead would hide the resolved status whenever a note

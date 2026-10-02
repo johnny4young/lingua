@@ -16,7 +16,7 @@
  * The header surfaces a small `<select>` to pick a
  * comparator from the snapshot ring. Default target is the newest
  * entry; the user can step back through up to 3 prior runs. The
- * pin button (implementation note) lives next to each entry so the user can
+ * pin button lives next to each entry so the user can
  * lock a known-good snapshot.
  *
  * The granularity selector lives at the top of the
@@ -132,7 +132,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
         granularity,
       };
 
-  // internal dep-sweep follow-up — Date.now() in render is a react-hooks/purity
+  // Date.now() in render is a react-hooks/purity
   // violation. Use the newest snapshot's capturedAt as the reference time so
   // the "X min ago" labels stay stable across renders.
   const now = ringOptions[0]?.capturedAt ?? targetEntry.capturedAt;
@@ -228,7 +228,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
           </span>
         </div>
       ) : diff.mode === 'dynamic' ? (
-        // internal polish #9 — dense, four-column comparison table.
+        // Dense, four-column comparison table.
         // Columns: line · before · after · Δ. The Δ column carries a
         // small chip indicating add/remove/change so the user gets a
         // glanceable signal even when before/after differ only by

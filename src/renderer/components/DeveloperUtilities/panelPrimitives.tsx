@@ -158,7 +158,7 @@ export function TimestampHoverValue({
  * registration keeps panel boilerplate to a single JSX line and stops
  * Tailwind drift across 27 panels.
  *
- * The toolbar reads its detector from the implementation registry by id,
+ * The toolbar reads its detector from the registry by id,
  * evaluates it against `primary` / `secondary`, and exposes `enabled` to
  * both the button and the global shortcut. The hook is always called
  * (React's rules-of-hooks forbids conditional invocation), but when a

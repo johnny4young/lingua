@@ -670,12 +670,12 @@ interface LinguaAPI {
 
   projectTerminal?: import('./shared/projectTerminal').ProjectTerminalBridge;
   localMcp?: import('./shared/localMcp').LocalMcpBridge;
-  // implementation (Rust) + implementation (Go) — desktop LSP bridges.
+  // Rust + Go desktop LSP bridges.
   lsp: import('./shared/lspBridge').LspBridge;
 
   fs: import('./shared/documentWrite').DocumentWriteBridge & {
     /**
-     * internal capability-based sandbox: pickers mint an opaque `rootId`
+     * Capability-based sandbox: pickers mint an opaque `rootId`
      * tied to the directory the user explicitly approved. Subsequent
      * filesystem operations supply `{ rootId, relativePath }` instead
      * of absolute paths so a compromised renderer cannot operate on a
@@ -976,7 +976,7 @@ interface LinguaAPI {
 
   /**
    * JS/TS dependency resolution and
-   * installation. implementation will extend this surface with
+   * installation. A later change will extend this surface with
    * `installPython` (Pyodide `micropip`) on web.
    */
   dependencies: {
@@ -1007,7 +1007,7 @@ interface LinguaAPI {
    *   - `detect` resolves binary + repo root + branch for a folder.
    *   - `status` returns the per-file porcelain status bucket.
    *   - `diff` returns paired strings for Monaco's diff editor.
-   * implementation will add `add`/`commit`/`branch` write surfaces behind
+   * A later change will add `add`/`commit`/`branch` write surfaces behind
    * an explicit gate.
    */
   git?: {

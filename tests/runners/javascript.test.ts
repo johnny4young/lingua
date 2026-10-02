@@ -354,7 +354,7 @@ describe('JavaScriptRunner', () => {
     }
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation-β-β-α implementation note telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (telemetry fires fire-and-forget)', async () => {
     const originalWorker = globalThis.Worker;
 
     class MockWorker {

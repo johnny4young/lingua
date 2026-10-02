@@ -58,7 +58,7 @@ import {
 } from './settingsSearchModel';
 
 /**
- * internal Signal-Slate v2 — Settings modal with a left rail.
+ * Signal-Slate v2 — Settings modal with a left rail.
  *
  * The v1 layout used top tabs. v2 moves navigation to a 220px rail
  * with two groups (Workspace + Advanced) so the modal feels closer to
@@ -194,7 +194,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
     'workflowModeDefaultsByLanguage',
     'showStdinPanel',
   ],
-  // implementation (post-review refactor) — Languages tab shows
+  // Languages tab shows
   // per-language LSP toggles + the capability scorecard; those don't
   // map to specific store keys (the LSP rows write into language-
   // specific stores like `rustLanguageStore`, and the scorecard is

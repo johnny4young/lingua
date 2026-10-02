@@ -55,7 +55,7 @@ export const UTILITY_ADAPTER_REGISTRY: Readonly<
   'url-parse': urlParseAdapter as UtilityAdapter<unknown>,
   'regex-replace': regexReplaceAdapter as UtilityAdapter<unknown>,
   'diff-text': diffTextAdapter as UtilityAdapter<unknown>,
-  // Vocabulary expansion (core 4 + implementation note/B/C/E).
+  // Vocabulary expansion (beyond the core 4).
   hash: hashAdapter as UtilityAdapter<unknown>,
   'jwt-decode': jwtDecodeAdapter as UtilityAdapter<unknown>,
   'url-encode': urlEncodeAdapter as UtilityAdapter<unknown>,

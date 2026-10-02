@@ -94,7 +94,7 @@ export function createLifecycleActions(
         const { [tabId]: _drop, ...rest } = state.notebooks;
         void _drop;
         // Drop the tab's remembered scroll offset in lockstep so it can't
-        // outlive the notebook (implementation Slice H implementation note).
+        // outlive the notebook.
         const { [tabId]: _dropScroll, ...restScroll } =
           state.notebookScrollTop;
         void _dropScroll;

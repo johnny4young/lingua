@@ -10,7 +10,7 @@ import { trackEvent } from '../utils/telemetry';
 
 /**
  * boot-time session restore, extracted from App.tsx (internal
- * hook-extraction pattern; keeps App.tsx under the internal size budget).
+ * hook-extraction pattern; keeps App.tsx under the size budget).
  *
  * Owns the one-time restore decision and returns `sessionRestoreReady`, which
  * gates the rest of the boot sequence. Three closed modes

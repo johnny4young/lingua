@@ -302,7 +302,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
         {model.contentIdentical ? (
           <p
             data-testid="capsule-compare-identical"
-            className="px-6 py-8 text-center text-body-sm text-muted"
+            className="px-6 py-16 text-center text-body-sm text-muted"
           >
             {t('capsule.compare.identical')}
           </p>
@@ -352,7 +352,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
             {active.empty ? (
               <p
                 data-testid="capsule-compare-section-empty"
-                className="px-6 py-8 text-center text-body-sm text-muted"
+                className="px-6 py-16 text-center text-body-sm text-muted"
               >
                 {t('capsule.compare.section.empty')}
               </p>

@@ -7,10 +7,10 @@ import { StatusBadge } from '../ui/StatusBadge';
 /**
  * Generic conditional Settings row for a desktop LSP.
  *
- * implementation inlined this for Rust; implementation lifted it into a config-
+ * Extracted into a config-
  * driven component so the Rust + Go (and any future LSP) rows stay
  * byte-identical. Mounts ONLY when the LSP is not in the happy
- * `'available'` state. implementation note of implementation collapsed into a
+ * `'available'` state. The LSP states collapse into a
  * single surface:
  *   - Happy path (`available` / `unknown`): row hides entirely — the
  *     toast already announced readiness.

@@ -2,7 +2,7 @@
  * Minimal Markdown subset renderer for recipe
  * prompts.
  *
- * implementation prompts are 1–3 paragraphs + an inline `code` block + a
+ * Recipe prompts are 1–3 paragraphs + an inline `code` block + a
  * `fenced` code block + the occasional bullet list. That's exactly
  * what this renderer handles — no HTML pass-through, no
  * `dangerouslySetInnerHTML`, no arbitrary tag whitelist. If a

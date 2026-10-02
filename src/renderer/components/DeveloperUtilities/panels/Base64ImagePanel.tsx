@@ -147,7 +147,7 @@ export function Base64ImagePanel() {
             {/* Migrated to <FileDropZone>. The previous version
                 had two separate surfaces (a dropzone div + a separate
                 native file input below) which were redundant — the new
-                component implementation note into a single <label> so click
+                component folds both into a single <label> so click
                 anywhere opens the picker AND drag-drop works on the same
                 target. The `dragOver` local state and its corresponding
                 handlers go away entirely; the hook owns the state machine. */}

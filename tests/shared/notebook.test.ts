@@ -43,7 +43,7 @@ function validNotebook(): NotebookV1 {
 }
 
 describe('shared/notebook closed enums', () => {
-  it('NOTEBOOK_REJECT_REASONS stays the closed set implementation ships', () => {
+  it('NOTEBOOK_REJECT_REASONS stays the closed set the schema ships', () => {
     expect([...NOTEBOOK_REJECT_REASONS].sort()).toEqual(
       [
         'malformed-json',

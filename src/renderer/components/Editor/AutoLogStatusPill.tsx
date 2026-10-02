@@ -7,7 +7,7 @@
  *
  * Mirrors the visual language of `<StdinStatusPill>` and
  * `<AutoRunGateNotice>` so the row stays scannable. Reads the per-tab
- * override (implementation note) layered on top of the per-language Settings
+ * override layered on top of the per-language Settings
  * default — the same resolution `useAutoRun.ts` uses.
  */
 

@@ -134,7 +134,7 @@ function cloneSessionTabs(tabs: readonly SessionTab[]): SessionTab[] {
 }
 
 /**
- * internal ask-mode boot prompt guard.
+ * Ask-mode boot prompt guard.
  *
  * The saved-session store keeps auto-saving in ask mode so future restarts have
  * a fresh snapshot. That means the visible "Restore last session" prompt cannot
@@ -555,7 +555,7 @@ export const useSessionStore = create<SessionState>()(
           savedIndexToRestoredId.push(restoredId);
         }
 
-        // Bypass the internal tier ceiling — restoring a prior session must
+        // Bypass the tier ceiling — restoring a prior session must
         // grandfather the user's workspace, not truncate it. Resolve the
         // active id through the saved-index → restored-id remap so a
         // collapsed legacy workspace duplicate still focuses the right

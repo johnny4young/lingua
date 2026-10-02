@@ -2,7 +2,7 @@
  * Notebook cell-run telemetry.
  *
  * Single closed-enum event `notebook.cell_executed { language, status }`.
- *   - `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET (implementation: `'javascript'`).
+ *   - `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET (today: `'javascript'`).
  *   - `status` ∈ NOTEBOOK_CELL_STATUSES_SET (`'ok' | 'error' | 'stopped'`).
  *
  * NO cell source, NO output bytes reach the wire. Mirrored on

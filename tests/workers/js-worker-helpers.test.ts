@@ -157,7 +157,7 @@ describe('js-worker module', () => {
     `);
 
     const consoleMessage = messages.find((message) => message.type === 'console');
-    // implementation prerequisite fix — the rejection text now
+    // The rejection text now
     // explains the cause (anti-feature §A-008: no silent network).
     // Match a substring so future copy refinements don't break this
     // contract test while the diagnostic clause stays meaningful.

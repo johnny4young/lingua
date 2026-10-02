@@ -1,5 +1,5 @@
 /**
- * internal emitter wiring — `trackEvent` must respect the consent + kill
+ * Emitter wiring — `trackEvent` must respect the consent + kill
  * switch gates and compose the base fields through `resolveTelemetryBase`
  * without leaking anything outside the allow-list.
  */
@@ -94,7 +94,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
  * vite import.meta.env value. Each test re-imports the module to
  * pick up a fresh endpoint resolution.
  */
-describe('readEndpoint URL validation (implementation note)', () => {
+describe('readEndpoint URL validation', () => {
   const initialSettings = useSettingsStore.getState();
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 

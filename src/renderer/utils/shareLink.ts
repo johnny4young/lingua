@@ -4,12 +4,12 @@
  * Three trigger surfaces share the same FileTab → SharePayloadV1 → encoded
  * fragment → clipboard + telemetry pipeline through the on-demand share flow:
  *
- *   - Result-panel header icon button (`<ShareLinkButton>`, implementation note)
- *   - Command palette `Copy share link` action (implementation note)
- *   - `Mod+Shift+P` keyboard shortcut (implementation note)
+ *   - Result-panel header icon button (`<ShareLinkButton>`)
+ *   - Command palette `Copy share link` action
+ *   - `Mod+Shift+P` keyboard shortcut
  *
  * The helper splits the work into two pure async stages so the
- * caller can interpose a confirmation modal (implementation note) between encode
+ * caller can interpose a confirmation modal between encode
  * and clipboard write without duplicating the encode logic:
  *
  *   1. `prepareShareLinkFromTab(tab)` — encodes and composes the URL.
@@ -20,7 +20,7 @@
  *      Returns a discriminated result with `no-clipboard` or
  *      `clipboard-rejected` failure shapes.
  *
- * Telemetry (implementation note) fires fire-and-forget through
+ * Telemetry fires fire-and-forget through
  * `trackShareCreated` — closed-enum `{ trigger, status, sizeBucket }`
  * mirrored on update-server with parity test.
  */
@@ -114,7 +114,7 @@ function getShareBaseUrl(): string {
  * Stage 1: encode + compose. Pure async, no side effects beyond the
  * gzip stream. The caller is responsible for whatever UX gating
  * happens between encode and clipboard write (e.g. confirmation
- * modal in implementation note).
+ * modal).
  */
 export async function prepareShareLinkFromTab(
   tab: Pick<
@@ -155,7 +155,7 @@ export async function prepareShareLinkFromTab(
 
 /**
  * Stage 2: clipboard-only. Defers all telemetry to the caller so a
- * `cancelled` status (user dismissed implementation note modal) doesn't get
+ * `cancelled` status (user dismissed the confirm modal) doesn't get
  * miscounted as a successful clipboard write.
  */
 export async function writeShareLinkToClipboard(

@@ -4,16 +4,16 @@
  * 10 representative capsule shapes that every downstream world-class
  * integration consumes as a shared smoke surface:
  *
- *   - internal share-link tests round-trip these through the URL
+ *   - Share-link tests round-trip these through the URL
  *     fragment encoder + decoder.
- *   - internal CLI tests pipe each through `lingua capsule validate`
+ *   - CLI tests pipe each through `lingua capsule validate`
  *     and assert the exit codes.
- *   - internal HTTP request tests embed `http` fixtures and the
+ *   - HTTP request tests embed `http` fixtures and the
  *     pipeline emits a capsule per response.
- *   - internal pipeline tests stamp one capsule per step.
- *   - internal importer tests assert cURL → capsule produces the
+ *   - Pipeline tests stamp one capsule per step.
+ *   - Importer tests assert cURL → capsule produces the
  *     `http-get-200` fixture shape.
- *   - implementation lesson tests reference `lesson-assertion` as the
+ *   - Lesson tests reference `lesson-assertion` as the
  *     expected-output baseline.
  *
  * The catalog is intentionally JSON-serialisable (no helper closures,
@@ -104,7 +104,7 @@ export const FIXTURE_FULL_TS: RunCapsuleV1 = baseCapsule({
   environment: { platform: 'web', runner: 'typescript' },
 });
 
-/** 3. Python with chart payload (internal cross-language parity). */
+/** 3. Python with chart payload (cross-language parity). */
 export const FIXTURE_PYTHON_CHART: RunCapsuleV1 = baseCapsule({
   capsuleId: '00000000-0000-4000-8000-000000000003',
   tab: {
@@ -235,7 +235,7 @@ export const FIXTURE_LARGE_STDOUT: RunCapsuleV1 = baseCapsule({
  * substring so a forgotten redactor regression is loud. The capsule
  * is intentionally honest about embedding the source — that's the
  * whole replay-artifact promise — so the consumer sees the token
- * in `source.content`. Downstream internal share-link emission MUST
+ * in `source.content`. Downstream share-link emission MUST
  * route any user-confirmation flow through this fixture so the UI
  * never silently publishes a token.
  */
@@ -297,7 +297,7 @@ export const FIXTURE_DESKTOP_DEP_SUMMARY: RunCapsuleV1 = baseCapsule({
 });
 
 /**
- * 10. Lesson-assertion baseline (implementation reference). Identical
+ * 10. Lesson-assertion baseline (reference). Identical
  * shape to FIXTURE_FULL_TS but with a stable timestamp + stripped
  * dependencySummary so two snapshots taken on different days produce
  * byte-identical capsule JSON when sanitised. Downstream lesson

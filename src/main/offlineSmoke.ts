@@ -6,7 +6,7 @@ import type { Session } from 'electron';
  * When `LINGUA_DESKTOP_SMOKE_OFFLINE=1` is set, the smoke harness wants
  * Python to boot, run, and produce stdout WITHOUT any HTTP/HTTPS
  * request leaking to a remote host. The renderer's CSP already blocks
- * remote scripts after implementation, but a future regression that adds a
+ * remote scripts, but a future regression that adds a
  * fetch outside the CSP allowlist (e.g. an analytics ping) would slip
  * through silently. The webRequest filter installed here cancels every
  * request whose host is not loopback, and records each blocked URL so

@@ -42,7 +42,7 @@ import type {
 /**
  * One variable binding in an environment.
  *
- *   - `id`     — implementation An opaque client-side row id used ONLY
+ *   - `id`     — an opaque client-side row id used ONLY
  *     as the React list key + the @dnd-kit drag-reorder handle. It is NOT
  *     user-visible, NOT part of the value identity (two rows with the same
  *     key/value/secret but different ids are equivalent bindings), and is
@@ -161,7 +161,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * `id` is kept when it is a non-empty string, otherwise
  * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
- * parser is intentionally non-pure: rows persisted before implementation (and
+ * parser is intentionally non-pure: rows persisted before ids existed (and
  * rows from an imported / hand-written JSON, whose ids are deliberately
  * stripped on export) have no id, and the React list + drag reorder need a
  * stable one. The backfill touches only this opaque id — it never
@@ -409,7 +409,7 @@ function interpolateAuth(
 
 /**
  * Apply a lookup across the interpolatable surfaces of a request (url,
- * every header value, body.content, AND the auth block — implementation)
+ * every header value, body.content, AND the auth block)
  * and return a NEW request. The `version`/`id` pins are preserved. Shared
  * by the outbound + masked paths — the only difference between them is
  * which lookup they pass.
@@ -493,8 +493,8 @@ function authScanFields(auth: HttpRequestAuth | undefined): string[] {
 
 /**
  * Collect every distinct `{{token}}` key that appears in the request's
- * url, ENABLED header values, body.content, or auth fields (implementation
- * 3b) but is NOT defined in the environment (when `env` is null, ALL
+ * url, ENABLED header values, body.content, or auth fields
+ * but is NOT defined in the environment (when `env` is null, ALL
  * referenced tokens count as unresolved). First-seen order, deduped.
  * Drives the pre-send block + the "unresolved" chips in the editor
  * preview.
@@ -537,9 +537,9 @@ export function findUnresolvedVariables(
 
 /**
  * Collect every distinct `{{token}}` key referenced in the request's
- * url, ENABLED header values, body.content, or auth fields (implementation
+ * url, ENABLED header values, body.content, or auth fields
  * 3b) that IS defined in the environment. First-seen order, deduped. Used
- * to bucket the resolved-variable count for telemetry (implementation note) and to
+ * to bucket the resolved-variable count for telemetry and to
  * drive the resolution-preview chips.
  */
 export function findResolvedVariables(

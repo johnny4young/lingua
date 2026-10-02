@@ -77,8 +77,8 @@ export function RecipeShowcase() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-base p-8 text-fg-base">
-      <header className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-bg-base p-16 text-fg-base">
+      <header className="mb-16 flex items-center justify-between">
         <div>
           <h1 className="text-h2 font-semibold text-fg-base">
             Signal-Slate · base recipes

@@ -97,8 +97,8 @@ function entryFilteredByPayloadKind(
   }
   return entry.payload.some(p => {
     const bucket = richKindBucket(p);
-    // The Errors chip historically meant warn/error rows. implementation
-    // added payload-level `kind: 'error'` for Python BaseException
+    // The Errors chip historically meant warn/error rows. Python
+    // now adds payload-level `kind: 'error'` for BaseException
     // values, so the same chip must hide those log rows too.
     return hidden.has(bucket) || (bucket === 'error' && hidden.has('errorish'));
   });
@@ -197,9 +197,9 @@ export function ConsolePanel() {
             payload: [{ kind: 'image', src: result.dataUri, mime: result.mime }],
           });
           // A resized paste gets its own toast + telemetry status
-          // (implementation note) so the user knows it was downscaled and adoption is
+          // so the user knows it was downscaled and adoption is
           // measurable; `byteLength` is already the POST-resize size, so the
-          // bucket reflects what actually landed (implementation note).
+          // bucket reflects what actually landed.
           useUIStore.getState().pushStatusNotice({
             tone: 'success',
             messageKey: result.resized ? 'console.imagePaste.resized' : 'console.imagePaste.pasted',
@@ -239,7 +239,7 @@ export function ConsolePanel() {
   // Entries are already collapsed store-side
   // (consecutive identical → one ×N row, computed once per push). Here we
   // only apply the legacy type filter AND the payload-kind chip filter
-  // (implementation note) to those rows. Collapsed groups are homogeneous, so filtering
+  // to those rows. Collapsed groups are homogeneous, so filtering
   // after the collapse yields the same visible set as the previous
   // filter-then-collapse. Memoised so a flooded console only re-pays the
   // filter cost when entries or filters change.
@@ -704,7 +704,7 @@ export function ConsolePanel() {
         }
       >
         {visibleEntries.length === 0 ? (
-          <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-8 text-center">
+          <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
             <p className="mb-1 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
               {t('console.title')}
             </p>

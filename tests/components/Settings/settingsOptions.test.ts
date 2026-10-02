@@ -5,7 +5,7 @@ import {
 } from '@/components/Settings/settingsOptions';
 
 describe('settingsOptions/fonts', () => {
-  it('ships the curated developer font list from internal', () => {
+  it('ships the curated developer font list', () => {
     const labels = FONT_FAMILIES.map((entry) => entry.label);
     for (const expected of [
       'JetBrains Mono',

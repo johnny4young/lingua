@@ -153,7 +153,7 @@ describe('useProjectTemplateScaffolder', () => {
 
     expect(scaffoldResult?.kind).toBe('success');
     // Telemetry MUST be the last side effect; that's the regression
-    // implementation note's once-per-success guarantee depends on.
+    // the once-per-success guarantee depends on.
     expect(calls[calls.length - 1]).toBe('telemetry');
     // openFile MUST happen after openProject so the freshly-minted
     // currentProject rootId is the one in flight.
@@ -263,7 +263,7 @@ describe('useProjectTemplateScaffolder', () => {
   });
 });
 
-// Reviewer-pass addition (lingua-review on implementation) — the
+// Reviewer-pass addition — the
 // caller asked for an explicit "walk every template through the
 // scaffold flow" assertion so we don't trust the structural
 // existence test alone. For each of the 5 templates we install a

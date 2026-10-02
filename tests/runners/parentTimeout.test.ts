@@ -99,7 +99,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('JavaScriptRunner — internal parent-owned timeout', () => {
+describe('JavaScriptRunner — parent-owned timeout', () => {
   it('mints a runId per execute() and posts it to the worker', async () => {
     const { JavaScriptRunner } = await import('@/runners/javascript');
     const runner = new JavaScriptRunner();
@@ -410,7 +410,7 @@ describe('JavaScriptRunner — internal parent-owned timeout', () => {
   });
 });
 
-describe('TypeScriptRunner — internal parent-owned timeout', () => {
+describe('TypeScriptRunner — parent-owned timeout', () => {
   // Stub esbuild-wasm so init() doesn't try to fetch the wasm bundle.
   beforeEach(() => {
     vi.doMock('esbuild-wasm', () => ({

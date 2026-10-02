@@ -1,7 +1,7 @@
 /**
  * Tests for the import overlay.
  * Exercises paste decoding, file picker, reject banner, consent prompt,
- * cancel + confirm, and the implementation note HTTP capsule bridge.
+ * cancel + confirm, and the HTTP capsule bridge.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -60,7 +60,7 @@ beforeEach(() => {
     activeRequestId: null,
     isExecutingActive: false,
   });
-  // Reviewer fix (implementation final pass) — clear any status notice
+  // Reviewer fix (final pass) — clear any status notice
   // a sibling test may have left in `useUIStore`. `setState({})` was a
   // no-op (zustand merges by default). The notice slot is the only
   // ui-store field the overlay touches, so resetting it is enough.
@@ -148,7 +148,7 @@ describe('CapsuleImportOverlay', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('shows clipboard consent prompt when consent is unset (implementation note)', () => {
+  it('shows clipboard consent prompt when consent is unset', () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     expect(
       screen.getByTestId('capsule-import-clipboard-consent')

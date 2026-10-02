@@ -306,7 +306,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
       : []),
     // Copies a share-link URL fragment that
     // recreates the active tab. The user callback may surface the
-    // confirmation modal (implementation note); we close the palette FIRST so
+    // confirmation modal; we close the palette FIRST so
     // both overlays don't compete for the same App state slot
     // (same overlay-survival pattern as `action-settings`).
     ...(onCopyShareLink

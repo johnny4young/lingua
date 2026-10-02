@@ -26,7 +26,7 @@ import {
 /**
  * web-flow `revalidate` action factory, extracted verbatim from
  * `licenseStore.ts`. Re-verifies the stored token locally, picks up a newer
- * subscription token when the server offers one, implementation note authoritative server
+ * subscription token when the server offers one, folds the authoritative server
  * status onto the local verdict, and re-activates this browser when the device
  * bucket is missing it (so a rehydrated exhausted token cannot bypass the
  * per-surface cap). Isolated in its own module because it is ~200 lines; same

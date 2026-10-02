@@ -33,7 +33,7 @@ export function TrialCta({
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   // UX-audit tail — reflect a rejected email on the input itself
-  // (aria-invalid + inline error), mirroring the implementation license-paste pattern,
+  // (aria-invalid + inline error), mirroring the license-paste pattern,
   // instead of only surfacing a transient toast.
   const [emailError, setEmailError] = useState(false);
   const emailErrorId = useId();

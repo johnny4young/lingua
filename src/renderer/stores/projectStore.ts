@@ -156,7 +156,7 @@ function basenameOf(absolutePath: string): string {
  * Debounce the `Folder nested too deep` notice so a
  * user who repeat-clicks a deep chevron only sees one toast per ~1.5s
  * burst. Mirrors `useDefaultOpenFileConsumer`'s timestamp-debounce
- * pattern from implementation so cross-feature behavior feels
+ * pattern so cross-feature behavior feels
  * consistent.
  */
 const DEPTH_LIMIT_NOTICE_DEBOUNCE_MS = 1500;

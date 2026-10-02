@@ -69,7 +69,7 @@ async function seedConsole(
   );
 }
 
-test.describe('console windowing (implementation detail implementation)', () => {
+test.describe('console windowing', () => {
   test('mounts only a viewport-sized slice for a 500-row session and pins to bottom', async ({
     page,
   }) => {

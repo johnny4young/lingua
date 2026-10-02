@@ -77,7 +77,7 @@ describe('pluginStore', () => {
     expect(pluginRegistry.get('ruby')).toBeUndefined();
   });
 
-  it('falls back to unavailable when main optimistically returns loaded for a runtime we can not load (internal defensive path)', async () => {
+  it('falls back to unavailable when main optimistically returns loaded for a runtime we can not load (defensive path)', async () => {
     // Defensive scenario — if a future build prunes the lua loader
     // but main still has `lua` in its allowlist (config drift), main
     // returns `loaded` and the renderer downgrades to `unavailable`.

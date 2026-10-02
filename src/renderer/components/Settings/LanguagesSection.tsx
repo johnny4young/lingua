@@ -6,7 +6,7 @@ import { RubyRuntimeRow } from './RubyRuntimeRow';
 import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
 
 /**
- * implementation (post-review refactor) — dedicated Settings tab for
+ * Dedicated Settings tab for
  * per-language configuration. Aggregates the at-a-glance capability
  * scorecard plus the existing per-language preference rows (Rust LSP
  * path, Go LSP path, Ruby runtime preference) that used to live
@@ -14,7 +14,7 @@ import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
  * Editor tab stay focused on editor-shell concerns (theme, font,
  * timeouts, vim mode) and gives the language matrix its own
  * discoverable surface — Cmd+8 in Settings, plus the palette
- * `Show language support` command (implementation note) which emits the
+ * `Show language support` command which emits the
  * `settings.navigate` command so this tab opens on demand.
  *
  * Rebuilt on the canonical Settings rhythm: the scorecard is

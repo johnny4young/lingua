@@ -33,7 +33,7 @@ function pickPortableSettings(): PortableSettings {
     editorTheme: state.editorTheme,
     fontSize: state.fontSize,
     fontFamily: state.fontFamily,
-    // implementation baseline values — kept in the export schema for
+    // Baseline values — kept in the export schema for
     // backward compatibility with older readers that still expect them.
     fontLigatures: true,
     showLineNumbers: true,

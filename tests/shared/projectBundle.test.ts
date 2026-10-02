@@ -217,7 +217,7 @@ describe('unpackBundle guards', () => {
     });
   });
 
-  it('rejects an oversize entry while keeping the rest (implementation note caps)', () => {
+  it('rejects an oversize entry while keeping the rest', () => {
     const zip = zipSync({
       'big.txt': strToU8('x'.repeat(64)),
       'small.txt': strToU8('ok'),
@@ -232,7 +232,7 @@ describe('unpackBundle guards', () => {
     });
   });
 
-  it('trips the zip-bomb guard when total uncompressed size crosses the cap (implementation note)', () => {
+  it('trips the zip-bomb guard when total uncompressed size crosses the cap', () => {
     const zip = zipSync({
       'a.txt': strToU8('x'.repeat(40)),
       'b.txt': strToU8('y'.repeat(40)),

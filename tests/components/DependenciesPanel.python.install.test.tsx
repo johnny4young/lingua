@@ -6,7 +6,7 @@
  *     package.json (the install path is Pyodide micropip, not npm).
  *   - Click → row transitions to `'installing'` then to `'installed'`.
  *   - unsupported-wheel failureReason maps the row to `'unsupported'`.
- *   - Cancel button is HIDDEN for Python web installs (implementation note rejected).
+ *   - Cancel button is HIDDEN for Python web installs.
  *   - ES locale renders the new tuteo strings.
  */
 
@@ -36,7 +36,7 @@ vi.mock('../../src/renderer/services/pythonWebInstaller', () => ({
 function setWebPlatform(): void {
   (window as unknown as { lingua: unknown }).lingua = {
     platform: 'web',
-    // implementation does not need a bridge for Python web — the service
+    // Python web does not need a bridge — the service
     // module handles micropip.
   };
 }
@@ -186,7 +186,7 @@ describe('DependenciesPanel — Python web install ', () => {
   });
 
   it('keeps multi-name unsupported-wheel batches as failed (reviewer fix)', async () => {
-    // implementation reviewer fix — `micropip.install` reports one
+    // Reviewer fix — `micropip.install` reports one
     // batch-level error. If the user clicks "Install all" on two
     // detected Python rows and Pyodide rejects the batch with
     // `unsupported-wheel`, we cannot disambiguate which name was the
@@ -235,7 +235,7 @@ describe('DependenciesPanel — Python web install ', () => {
     expect(btn.title).toMatch(/Pyodide has no compatible wheel/u);
   });
 
-  it('hides the cancel button for Python web installs (implementation note rejected)', async () => {
+  it('hides the cancel button for Python web installs', async () => {
     installPythonMock.mockImplementation(
       () => new Promise<never>(() => {})
     );

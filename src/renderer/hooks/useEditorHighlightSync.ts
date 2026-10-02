@@ -21,7 +21,7 @@ type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsC
  * Output-to-source linking is a baseline affordance: valid commands flash
  * the target and reveal it when it is outside the current viewport.
  *
- * Symmetric inverse direction (implementation note — `editor.sourceLineHovered`)
+ * Symmetric inverse direction (`editor.sourceLineHovered`)
  * is wired inline in `ConsolePanel.tsx` (the listener lives next to
  * the panel-local `pulseLine` useState) so the console pulse does not
  * depend on an editor instance and so it survives when CodeEditor is

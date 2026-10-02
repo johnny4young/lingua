@@ -4,7 +4,7 @@
  * Export:
  *   - Desktop: `fs:exportBundle(rootId, { entryFile, languageHint })`
  *     packs every visible file (main excludes `node_modules` / `.git` /
- *     `dist` / `build` via `shouldHide` — implementation note) and writes the `.zip`
+ *     `dist` / `build` via `shouldHide`) and writes the `.zip`
  *     through a save dialog.
  *   - Web: collect the loaded project files via the FSA adapter, pack
  *     with the shared `packBundle`, and trigger a Blob download

@@ -3,7 +3,7 @@ import { LanguageIntelligenceRow } from './LanguageIntelligenceRow';
 
 /**
  * Conditional Settings → Languages row for the Rust LSP.
- * implementation lifted the body into `LanguageIntelligenceRow`; this file
+ * The body now lives in `LanguageIntelligenceRow`; this file
  * stays as the rust-specific facade so the Settings layout import
  * keeps its name.
  */

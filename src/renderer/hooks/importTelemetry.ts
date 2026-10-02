@@ -4,10 +4,10 @@
  * Single closed-enum event: `import.applied { importerId, status, sizeBucket }`.
  *
  *   - `importerId` ∈ `IMPORTER_IDS_SET` from `src/shared/telemetry.ts`
- *     (implementation: `'curl-http'` only; open for implementation `'ipynb-notebook'`
- *     and implementation `'postman-collection'` / `'bruno-collection'`).
+ *     (`'curl-http'`, `'ipynb-notebook'`
+ *     and `'postman-collection'` / `'bruno-collection'`).
  *   - `status` ∈ `IMPORT_STATUSES_SET` (`'ok' | 'rejected' | 'cancelled'`).
- *   - `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS` reused from internal
+ *   - `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS` (reused).
  *
  * NO URL, NO header values, NO body content reach the wire — only
  * the bucketed source size + the closed importer + status enums.
@@ -133,7 +133,7 @@ export function trackPostmanVariablesResolved(
   });
 }
 
-/** Bucket a distinct variable count for the implementation note telemetry event. */
+/** Bucket a distinct variable count for the import telemetry event. */
 export function bucketImportVariableCount(count: number): DependencyCountBucket {
   return bucketDependencyCount(count);
 }

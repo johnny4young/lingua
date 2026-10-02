@@ -91,7 +91,7 @@ test.describe('Workflow mode action pill ', () => {
     });
 
     // Type an obviously-incomplete buffer; with auto-run off, the
-    // implementation gate never fires either — the result panel stays still.
+    // auto-run gate never fires either — the result panel stays still.
     await replaceEditorText(page, 'const y = ');
     await page.waitForTimeout(1_400);
     // No auto-run gate notice (no auto-run fires at all).

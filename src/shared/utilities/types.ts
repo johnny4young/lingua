@@ -11,9 +11,9 @@
  *
  * Design decisions worth surfacing inline:
  *
- *   1. **All implementation adapters are `text → text`.** Compatibility
+ *   1. **All adapters are `text → text`.** Compatibility
  *      checks between `inputKind` / `outputKind` are wired up in the
- *      engine for forward-compat (implementation will add binary + json
+ *      engine for forward-compat (a later change will add binary + json
  *      adapters like `hash-bytes`, `parse-json` that produce
  *      structured outputs). The closed `PIPELINE_STEP_STATUSES` enum
  *      keeps `'incompatible'` reserved for that future use.
@@ -30,7 +30,7 @@
  *      pipelines. Returns `null` on any mismatch so the engine drops
  *      orphaned step options gracefully.
  *
- *   5. **`optionsSchema`** (implementation note — schema-driven options form)
+ *   5. **`optionsSchema`** (schema-driven options form)
  *      declares the UI inputs the panel renders. Closed enum of
  *      field types (`text` / `textarea` / `select` / `boolean`)
  *      keeps the form renderer simple + lets adapters declare their
@@ -75,7 +75,7 @@ export const UTILITY_ADAPTER_IDS = [
   // are generators (they ignore the chained input and emit fresh data);
   // `string-inspect` is a transform. Their pure logic is shared with the
   // renderer panels via `src/shared/utilities/{uuid,loremIpsum,stringInspect}.ts`
-  // (the renderer utils now re-export — implementation note, no drift).
+  // (the renderer utils now re-export, so no drift).
   'uuid',
   'lorem-ipsum',
   'string-inspect',
@@ -86,8 +86,8 @@ export const UTILITY_ADAPTER_IDS = [
 export type UtilityAdapterId = (typeof UTILITY_ADAPTER_IDS)[number];
 
 /**
- * Kind of value an adapter consumes or produces. implementation is all
- * `'text'`; the enum stays open for implementation binary / structured
+ * Kind of value an adapter consumes or produces. Today it is all
+ * `'text'`; the enum stays open for future binary / structured
  * adapters.
  */
 type UtilityValueKind = 'text' | 'json' | 'binary';
@@ -97,7 +97,7 @@ type UtilityValueKind = 'text' | 'json' | 'binary';
  * engine maps these onto step status + the UI maps them onto i18n
  * keys (`utilityPipeline.result.error.*`).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the literal union
 const ADAPTER_RUN_REASONS = [
   'invalid-input',
   'invalid-options',
@@ -160,7 +160,7 @@ export type UtilityOptionField =
  * Implementations live one-per-file alongside this contract.
  *
  * `TOptions` is the structured options shape (typed per adapter).
- * `run()` takes the chained `input` (always a string in implementation) +
+ * `run()` takes the chained `input` (always a string) +
  * the parsed `options` (already through `parseOptions`).
  */
 export interface UtilityAdapter<TOptions = Record<string, unknown>> {
@@ -176,7 +176,7 @@ export interface UtilityAdapter<TOptions = Record<string, unknown>> {
    * Strict shape guard at the persisted-pipeline boundary. Returns
    * `null` on any mismatch; the engine drops the orphaned options
    * and uses `defaultOptions()` instead, marking the step with a
-   * non-blocking `removed-options` note (implementation surfacing).
+   * non-blocking `removed-options` note.
    */
   readonly parseOptions: (raw: unknown) => TOptions | null;
   /**

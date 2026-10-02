@@ -23,8 +23,8 @@
  * deliberately broad — false positives are cheap (we still ship the
  * event), false negatives can leak user data.
  *
- * History: originally lived in `telemetry.ts` for the internal worker;
- * extracted here in implementation so capsules consume the same
+ * History: originally lived in `telemetry.ts` for the worker;
+ * extracted here so capsules consume the same
  * list.
  */
 export const DENY_SUBSTRINGS = [

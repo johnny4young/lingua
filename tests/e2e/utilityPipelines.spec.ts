@@ -34,7 +34,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await expect(page.getByText(/no pipelines yet/i)).toBeVisible();
   });
 
-  test('surfaces a implementation adapter (line-sort) in the step dropdown and runs it (EN)', async ({
+  test('surfaces a newer adapter (line-sort) in the step dropdown and runs it (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
@@ -88,7 +88,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
 
     await page.getByTestId('utility-pipeline-list-create').click();
 
-    // Step 1 — a implementation generator: it ignores the chained input and
+    // Step 1 — a generator: it ignores the chained input and
     // emits placeholder text (source-step semantics).
     await page.getByTestId('utility-pipeline-editor-add-step').click();
     await page

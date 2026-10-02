@@ -27,7 +27,7 @@ import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 import { splitOutputLines } from './outputLines';
 
 /**
- * Ruby runtime dispatcher — implementation (WASM) + implementation (desktop).
+ * Ruby runtime dispatcher — WASM (web) + native (desktop).
  *
  * `RubyRunner` is now a thin façade. On every `execute()` call it
  * inspects the platform (`window.lingua.ruby?` for the desktop bridge)
@@ -49,7 +49,7 @@ import { splitOutputLines } from './outputLines';
  * Telemetry: every dispatch emits `runtime.ruby_runner_dispatched`
  * with `{ mode: 'system' | 'wasm' | 'missing', bucketedSpawnMs }` so
  * dashboards can isolate the two paths and detect spawn-latency
- * regressions (implementation note).
+ * regressions.
  */
 
 const RUBY_LOAD_TIMEOUT = 90_000;
@@ -80,7 +80,7 @@ function bucketRubySpawnMs(ms: number): '<100ms' | '<300ms' | '<1s' | '<3s' | '>
 }
 
 // ----------------------------------------------------------------------
-// WASM runtime (was the entire `RubyRunner` in implementation)
+// WASM runtime (was the entire `RubyRunner`)
 // ----------------------------------------------------------------------
 
 class WasmRubyRunner implements LanguageRunner {

@@ -89,7 +89,7 @@ describe('UtilitiesSection ', () => {
     expect(useSettingsStore.getState().utilitiesClipboardOnFocusConsent).toBe('declined');
 
     // Decline is sticky — clicking again moves back to granted, never
-    // unset. (Same internal pattern as telemetry consent.)
+    // unset. (Same pattern as telemetry consent.)
     fireEvent.click(toggle);
     expect(useSettingsStore.getState().utilitiesClipboardOnFocusConsent).toBe('granted');
   });

@@ -2,7 +2,7 @@
 title: 'Python REPL para escritorio — Lingua'
 description: 'Ejecuta Python offline con Pyodide, resultados inline, notebooks, salida enriquecida, paquetes micropip y formato desktop con ruff o black.'
 canonical: 'https://linguacode.dev/es/python-repl-desktop'
-ogImage: '/assets/og/python-repl-desktop.png'
+ogImage: '/assets/og/es/python-repl-desktop.png'
 language: python
 ---
 

@@ -3,11 +3,11 @@
  *
  * Runs on every project root change
  * (`useProjectStore.currentProject`). The `lastDetectAt` field in
- * `useGitStore` (implementation note) suppresses redundant re-detect calls within
+ * `useGitStore` suppresses redundant re-detect calls within
  * `GIT_DETECT_CACHE_TTL_MS` so React re-renders or transient store
  * rehydration don't burn an IPC trip per render.
  *
- * Emits `git.layer_attached { repoState }` (implementation note) once per posture
+ * Emits `git.layer_attached { repoState }` once per posture
  * transition. Three closed-enum values: `'git-repo'` when the folder
  * resolved to a working tree, `'no-git'` when git is installed but
  * the folder is not a repo, `'no-binary'` when the binary itself

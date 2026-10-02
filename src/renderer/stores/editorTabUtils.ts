@@ -218,7 +218,7 @@ export const UTILITIES_WORKSPACE_TAB_NAME = 'Utilities';
 
 /**
  * A SQL / HTTP / Utilities workspace tab is the container for a whole collection,
- * not a single document, so it is EXEMPT from the internal Free tab
+ * not a single document, so it is EXEMPT from the Free tab
  * budget — a Free user always gets the workspaces. Only
  * non-workspace tabs (code + notebook) count toward the ceiling.
  */

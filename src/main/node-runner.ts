@@ -14,8 +14,8 @@
  *     We never interpolate user input into a shell command line,
  *     so command injection is impossible at this layer.
  *   - Env: `buildNativeRunnerEnv(['PATH', 'HOME', 'LANG',
- *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. internal allowlist
- *     + internal user-tier env. Lingua's full host env is NOT
+ *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. Host allowlist
+ *     + user-tier env. Lingua's full host env is NOT
  *     forwarded.
  *   - Cwd: `app.getPath('temp')` for unsaved tabs (Scratchpad);
  *     `path.dirname(filePath)` for saved tabs (when a
@@ -148,7 +148,7 @@ interface NodeRunOptions {
   timeoutMs?: number;
   /** Source-file path of the active tab. `undefined` for Scratchpad. */
   filePath?: string;
-  /** Per-run user-env tier from internal */
+  /** Per-run user-env tier. */
   userEnv?: Record<string, string>;
   /** Stdin buffer. Empty or undefined closes stdin. */
   stdin?: string;

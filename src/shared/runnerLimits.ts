@@ -40,7 +40,7 @@ export const MAX_COMPILE_OUTPUT_BYTES = 1024 * 1024;
 export const MAX_GO_WASM_BYTES = 10 * 1024 * 1024;
 
 /**
- * implementation `value` to fit in `maxBytes` (UTF-16 code units, matching
+ * Truncate `value` to fit in `maxBytes` (UTF-16 code units, matching
  * `String.prototype.length`) and append `marker` so the user can tell
  * the output was clipped. Returns the input unchanged when it already
  * fits. Marker is always appended in full; if `maxBytes` would not

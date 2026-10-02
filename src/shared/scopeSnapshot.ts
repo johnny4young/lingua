@@ -9,7 +9,7 @@
  *   - Structural, not pre-stringified. The renderer can expand
  *     objects / arrays without re-running user code.
  *   - 1-level expansion is the base scope; recursive expansion
- *     (implementation note) walks deeper via the `entries[].value` recursion.
+ *     walks deeper via the `entries[].value` recursion.
  *     The walker is capped by `maxDepth` so a self-referential
  *     graph terminates.
  *   - Payload caps (`MAX_TOP_LEVEL_VARS`, `MAX_OBJECT_ENTRIES`,
@@ -125,7 +125,7 @@ export const MAX_ARRAY_ENTRIES = 100;
 
 /**
  * Maximum recursion depth for the worker's `serializeScopeValue`.
- * The default base-scope value is `1`; implementation note bumps to `4`. Deeper
+ * The default base-scope value is `1`; Settings can raise it to `4`. Deeper
  * than that and the panel becomes noise on a small screen — users
  * who want unbounded depth should reach for the debugger pause UI.
  */
@@ -222,7 +222,7 @@ export interface SerializeScopeValueOptions {
   truncate: (input: string) => string;
   /**
    * Maximum recursion depth. Defaults to `DEFAULT_SCOPE_DEPTH` (1)
-   * for the base scope; implementation note bumps to `MAX_SCOPE_DEPTH` (4).
+   * for the base scope; Settings can raise it to `MAX_SCOPE_DEPTH` (4).
    */
   maxDepth?: number;
   /**

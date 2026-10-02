@@ -6,8 +6,8 @@
  * when the bundle is missing (so `pnpm test` doesn't fail on a fresh
  * checkout that hasn't run `pnpm run build:cli` yet).
  *
- * The pre-stage Phase 2 build step (and the future `prepare` hook,
- * implementation note) ensures the bundle is fresh whenever these tests run in
+ * The pre-stage Phase 2 build step (and the future `prepare` hook)
+ * ensures the bundle is fresh whenever these tests run in
  * CI.
  */
 

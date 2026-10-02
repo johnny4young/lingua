@@ -21,12 +21,12 @@
  *     library-driven update, so there is no echo loop. We never call
  *     `editor.setValue` on every render — the library owns model sync.
  *
- *   - **Provider disposal.** The `sql` completion provider (implementation note) and
- *     the two keybinding commands (implementation note) are registered in
+ *   - **Provider disposal.** The `sql` completion provider and
+ *     the two keybinding commands are registered in
  *     `onMount` and disposed on unmount via the editor's
  *     `onDidDispose` hook — no leak across SQL-workspace mounts.
  *
- * implementation note here:
+ * Features here:
  *   - **A**: `sql` completion provider over the live table names, their
  *     column names (with the SQL type shown as the completion detail),
  *     and a small common-keyword set. The columns arrive from the panel's
@@ -120,15 +120,15 @@ export interface SqlMonacoEditorProps {
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
   /**
-   * Cmd/Ctrl+Enter (implementation note). `selectedText` is the current non-empty
+   * Cmd/Ctrl+Enter. `selectedText` is the current non-empty
    * selection text, or `null` when there is no selection — the parent
    * decides whether to run the selection or the full buffer.
    */
   onRunShortcut: (opts: { selectedText: string | null }) => void;
-  /** Shift+Alt+F (implementation note) — pretty-print the SQL. */
+  /** Shift+Alt+F — pretty-print the SQL. */
   onFormatShortcut: () => void;
   /**
-   * Live session tables (implementation note). Read through a ref inside the
+   * Live session tables. Read through a ref inside the
    * completion provider so newly-introspected tables appear without
    * re-registering the provider. Each table's optional `columns` (name +
    * SQL type) feed column-name completion items alongside the table names.

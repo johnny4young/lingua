@@ -262,7 +262,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().deleteRequest(id);
   }, []);
 
-  // RQ-02 — patch the request the editor names explicitly, never a
+  // Patch the request the editor names explicitly, never a
   // closed-over `activeRequest` that may have switched during the
   // editor's debounce quiet window. `updateRequest` no-ops on an
   // unknown id, so a flush for a just-deleted request is harmless.

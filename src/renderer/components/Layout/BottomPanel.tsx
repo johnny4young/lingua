@@ -81,7 +81,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   // The Input tab is offered for JS / TS / Python
   // tabs whose runtime mode is NOT `browser-preview` (the iframe
   // sandbox has no stdin surface). The user can also hide it
-  // globally via Settings → Editor (implementation note).
+  // globally via Settings → Editor.
   const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
   const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const variableInspectorSurface = useSettingsStore(

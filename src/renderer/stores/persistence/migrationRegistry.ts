@@ -72,7 +72,7 @@ export type PersistedStoreName =
  */
 export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrationMap>> = {
   // The legacy `restoreSession` boolean becomes the
-  // `restoreSessionMode` closed enum. implementation note: legacy `false` (the old
+  // `restoreSessionMode` closed enum. Legacy `false` (the old
   // default, no restore) maps to `'ask'` so every user gets the new
   // privacy-conscious prompt default, not silent never-restore; legacy
   // `true` (explicit auto-restore) maps to `'always'` to preserve that

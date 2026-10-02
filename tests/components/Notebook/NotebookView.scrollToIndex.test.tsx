@@ -128,7 +128,7 @@ describe('<NotebookView /> scrollToIndex on command-mode nav', () => {
     expect(scrollToIndex).toHaveBeenCalledWith(1);
   });
 
-  it('scrolls the first code cell into view on Run all (implementation note)', () => {
+  it('scrolls the first code cell into view on Run all', () => {
     seed([codeCell('c0'), codeCell('c1')], 'c0');
     render(<NotebookView tabId={TAB_ID} />);
     scrollToIndex.mockClear();

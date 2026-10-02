@@ -369,7 +369,7 @@ export async function decodeShareFragment(
 }
 
 // ---------------------------------------------------------------------------
-// Telemetry size bucket — implementation note. Closed enum mirrored on
+// Telemetry size bucket. Closed enum mirrored on
 // update-server with parity test.
 // ---------------------------------------------------------------------------
 

@@ -166,7 +166,7 @@ function EditorArea() {
   const utilitiesTabOpen = useEditorStore(s => s.tabs.some(tab => tab.kind === 'utilities'));
 
   // Utilities is a full-screen workspace with no runtime output, so
-  // activating it implementation note console away and leaving restores the user's
+  // activating it folds the console away and leaving restores the user's
   // previous choice. Mutating the store (instead of gating the render)
   // keeps the restore strip honest: explicitly reopening the console
   // while on Utilities works, and that explicit choice is respected.

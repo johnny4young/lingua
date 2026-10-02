@@ -8,7 +8,7 @@
  *     redaction badges, body kind preview. Sensitive headers visibly
  *     redacted (the actual originals stay in the preview's `original`
  *     slot and round-trip on confirm).
- *   - `'ipynb-notebook'` (implementation) — notebook title, implementation note summary
+ *   - `'ipynb-notebook'`  — notebook title, summary
  *     chip (cell count + dominant language), first-cells preview band.
  *
  * The summary chip shows `{total} cells · {code} code ·

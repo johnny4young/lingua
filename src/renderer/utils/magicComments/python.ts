@@ -67,8 +67,8 @@ export function detectPythonMagicComments(code: string): MagicCommentLine[] {
 /**
  * Transform Python code so that magic-comment expressions are captured.
  *
- * For arrow lines the line is replaced wholesale (same as before
- * implementation). For watch lines, the prefix statement is kept and the
+ * For arrow lines the line is replaced wholesale (unchanged).
+ * For watch lines, the prefix statement is kept and the
  * watch `__mc` call is appended after a `;` separator — Python allows
  * `a = 5; expr` on a single logical line so the declaration still
  * runs.

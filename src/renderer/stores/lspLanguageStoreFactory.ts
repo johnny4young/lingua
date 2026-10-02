@@ -3,8 +3,8 @@ import { create, type UseBoundStore, type StoreApi } from 'zustand';
 /**
  * Shared shape for desktop-LSP runtime state.
  *
- * implementation introduced the `useRustLanguageStore`; implementation mirrors the
- * same fields for `useGoLanguageStore`. Rather than duplicate the
+ * `useRustLanguageStore` came first; `useGoLanguageStore` mirrors the
+ * same fields. Rather than duplicate the
  * store body, both languages instantiate this factory. The static
  * language-pack descriptor in `src/shared/languagePacks.ts` records
  * the shape (`lsp: 'desktop'`); the runtime state lives here.

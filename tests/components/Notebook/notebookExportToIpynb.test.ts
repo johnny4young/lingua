@@ -1,7 +1,7 @@
 /**
  * `.ipynb` export serializer + round-trip against the
- * implementation importer (implementation note) with per-cell language preservation (implementation note)
- * and execution-count (implementation note).
+ * implementation importer with per-cell language preservation
+ * and execution-count.
  */
 
 import { describe, it, expect } from 'vitest';

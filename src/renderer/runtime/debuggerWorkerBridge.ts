@@ -11,7 +11,7 @@
  * adapter and future Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
- * Reference: implementation and docs/DEBUGGER_ADR.md.
+ * Reference: docs/DEBUGGER_ADR.md.
  */
 
 /**

@@ -28,7 +28,7 @@ import {
 import { isHeaderSensitive } from '../../src/shared/httpWorkspaceHeaders';
 
 describe('HTTP_METHODS / HTTP_STATUS_BUCKETS closed enums', () => {
-  it('exposes the seven implementation methods', () => {
+  it('exposes the seven methods', () => {
     expect([...HTTP_METHODS]).toEqual([
       'GET',
       'POST',

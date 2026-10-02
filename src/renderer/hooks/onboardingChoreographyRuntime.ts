@@ -21,7 +21,7 @@ import { formatShortcutLabel } from '../data/keyboardShortcuts';
 import type { TelemetryTrack } from './useTelemetry';
 
 /**
- * internal Onboarding Choreography implementation.
+ * Onboarding choreography.
  *
  * Three persisted one-shot flags drive a silent three-step welcome
  * sequence whose goal is "a fresh user reaches their first successful
@@ -30,16 +30,16 @@ import type { TelemetryTrack } from './useTelemetry';
  *   1. **Welcome seed** — when no tabs survived `restoreSession` and
  *      `hasCompletedOnboardingWelcome !== true` (or the persisted
  *      `onboardingWelcomeSeedVersion` is older than the current
- *      `SEEDED_SCRATCHPAD_VERSION` — implementation note), inject a pre-seeded
+ *      `SEEDED_SCRATCHPAD_VERSION`), inject a pre-seeded
  *      JavaScript scratchpad so the editor is never empty on first
  *      open.
  *
  *   2. **First successful run** — subscribe to the execution-history
  *      store; the first time an `ok` entry lands and the flag is
  *      still false, fire a success toast with a single "Save as
- *      snippet" CTA (implementation note's `StatusNotice.actions` field). The
+ *      snippet" CTA (the `StatusNotice.actions` field). The
  *      CTA calls `useSnippetsStore.addSnippet({label: activeTab.name,
- *      ...})` directly (implementation note — no naming modal) and the snippet's
+ *      ...})` directly (no naming modal) and the snippet's
  *      arrival drives stage 3.
  *
  *   3. **First snippet save** — subscribe to the snippets-store
@@ -209,7 +209,7 @@ function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void
     // `'high'` priority guarantees this
     // toast cannot be clobbered by any `'normal'` notice push
     // (the implicit default for 134 existing callers). Surfaced by
-    // the implementation reviewer pass after a boot-time notice was
+    // the reviewer pass after a boot-time notice was
     // observed displacing the first-run toast within ~600 ms.
     priority: 'high',
     // Production diagnostic when the

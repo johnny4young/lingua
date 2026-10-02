@@ -132,8 +132,8 @@ contextBridge.exposeInMainWorld('lingua', {
   go: {
     detect: (userEnv?: Record<string, string>) =>
       typedInvoke('go:detect', userEnv),
-    // implementation: userEnv flows through to the Go subprocess and is
-    // merged over the minimal internal host allowlist in main. The
+    // userEnv flows through to the Go subprocess and is
+    // merged over the minimal host allowlist in main. The
     // renderer-side env-vars store already validated + sanitized the
     // record before handing it off.
     compile: (
@@ -151,7 +151,7 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('rust:detect', userEnv),
     // userEnv flows through to rustc + spawn. The
     // renderer-side envVarsStore already sanitized the record; main
-    // only adds the internal host allowlist under it.
+    // only adds the host allowlist under it.
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
@@ -228,7 +228,7 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   // Consent mirror — renderer pushes the telemetry/crash opt-in value so
-  // main can read it before creating the window. implementation.
+  // main can read it before creating the window.
   consent: {
     set: (value: 'granted' | 'declined' | 'unset') =>
       typedInvoke('consent:set', value),
@@ -237,7 +237,7 @@ contextBridge.exposeInMainWorld('lingua', {
   // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration
   // lands so secrets never cross into the renderer. The API shape still
-  // exists now so implementation can wire against a stable contract later.
+  // exists now so a later change can wire against a stable contract later.
   env: {
     snapshot: () => typedInvoke('env:snapshot'),
   },
@@ -271,7 +271,7 @@ contextBridge.exposeInMainWorld('lingua', {
     typedOn('app:before-close', () => callback()),
   forceClose: () => typedSend('app:force-close'),
 
-  // File system IPC — internal capability sandbox. Preload is a narrow typed
+  // File system IPC — capability sandbox. Preload is a narrow typed
   // pass-through; main owns approval checks, capability resolution, and
   // containment validation for every rootId + relativePath pair.
   fs: {
@@ -443,7 +443,7 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   // JS / TS dependency resolution and
-  // installation. implementation's `resolveJs` is read-only; implementation adds
+  // installation. `resolveJs` is read-only; the install path adds
   // `installJs` (spawn via main with `shell: false`),
   // `cancelInstallJs` (SIGTERM → SIGKILL keyed by runId), and
   // `onInstallLogJs` (streams subprocess stdout / stderr lines back

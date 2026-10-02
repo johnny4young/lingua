@@ -36,7 +36,7 @@ export function createSessionActions(
     // flag back to `false` so the next welcome-seed, first-run, or
     // first-snippet event re-arms the toast. Settings → General
     // wires these to the reset toggles; the palette commands
-    // (implementation note) and the Mod+Shift+W shortcut (implementation note) reuse them.
+    // and the Mod+Shift+W shortcut reuse them.
     resetOnboardingWelcome: () =>
       set({
         hasCompletedOnboardingWelcome: false,

@@ -100,7 +100,7 @@ const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
 /**
  * Whether a source string parses at all, under the same rules the composed
  * cell body runs under: it is an `AsyncFunction` body, so top-level `await`
- * and `return` are legal there. Used by the implementation note round-trip
+ * and `return` are legal there. Used by the round-trip
  * guard to assert the rewriter introduces no new syntax error.
  *
  * The compiler-based version of this helper counted `parseDiagnostics`, a
@@ -172,7 +172,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).toContain('_sessionDelta.v = v');
   });
 
-  it('captures multi-line declarations (implementation — was skipped)', async () => {
+  it('captures multi-line declarations (previously skipped)', async () => {
     const src = 'const obj = {\n  a: 1,\n};';
     const out = await rewriteTopLevelDeclarationsForSession(src);
     expect(out).toContain('_sessionDelta.obj = obj');
@@ -180,7 +180,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).not.toContain('_sessionDelta.obj = obj;\n  a:');
   });
 
-  it('captures `class` declarations (implementation — was skipped)', async () => {
+  it('captures `class` declarations (previously skipped)', async () => {
     const out = await rewriteTopLevelDeclarationsForSession('class Greeter { hi() { return 1; } }');
     expect(out).toContain('_sessionDelta.Greeter = Greeter');
   });
@@ -209,7 +209,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
 
   it('leaves declarations nested inside a block local', async () => {
     // A real nested decl (inside an `if` block) is NOT a top-level
-    // statement, so it is never hoisted — unlike the implementation regex,
+    // statement, so it is never hoisted — unlike the regex,
     // which used a crude column-zero proxy.
     const out = await rewriteTopLevelDeclarationsForSession(
       'if (true) {\n  const nested = 1;\n}'
@@ -237,7 +237,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
   // introduces no NEW syntax error vs the input (re-parsed with the TS
   // parser). Guards against a future regression that splices a broken
   // assignment mid-expression.
-  it('introduces no new syntax errors for every shape (implementation note)', async () => {
+  it('introduces no new syntax errors for every shape', async () => {
     const inputs = [
       'const x = 1;',
       'const { a, b: c, ...rest } = obj;',
@@ -258,7 +258,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
   // A destructuring default with a side effect must run once.
   // The hoist reads the BOUND name (`a`), never re-invokes the default,
   // so the delta capture has no double-evaluation hazard.
-  it('hoists a destructuring default by binding name, not re-eval (implementation note)', async () => {
+  it('hoists a destructuring default by binding name, not re-eval', async () => {
     const out = await rewriteTopLevelDeclarationsForSession(
       'const { a = sideEffect() } = obj;'
     );
@@ -656,7 +656,7 @@ describe('runNotebookCell + session manager', () => {
   });
 
   it('does NOT merge from the display string when structuredResult is absent', async () => {
-    // Regression guard for the pre-internal bug: the worker only
+    // Regression guard for the earlier bug: the worker only
     // ever returned the delta inside the `result` DISPLAY STRING (which it
     // truncates at MAX_RESULT_BYTES), and the merge read it as if it were a
     // structured object — so nothing ever shared cross-cell in the real

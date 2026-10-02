@@ -11,7 +11,7 @@ import { getSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
  *     discriminator + the serializer + console / error /
  *     unhandledrejection / done forwarders).
  *   - `buildPreviewDocument` injects user code verbatim (with
- *     literal close-script-tag sequences escaped), splices implementation note
+ *     literal close-script-tag sequences escaped), splices in
  *     sibling sources, and carries the strict CSP meta tag.
  *   - `isBridgeMessage` accepts well-formed payloads and rejects
  *     spoofed shapes.

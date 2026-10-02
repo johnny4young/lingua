@@ -33,7 +33,7 @@ vi.mock('@/utils/telemetry', () => ({
   })),
 }));
 
-describe('updateStore — update.checked telemetry (implementation note)', () => {
+describe('updateStore — update.checked telemetry', () => {
   beforeEach(async () => {
     trackEventMock.mockClear();
     // Reset the store to the default unavailable state at the start
@@ -119,7 +119,7 @@ describe('updateStore — update.checked telemetry (implementation note)', () =>
     expect(trackEventMock).toHaveBeenCalledWith('update.checked', { status: 'available' });
   });
 
-  it('records a metadata-only updates trust event on a real check (implementation note)', async () => {
+  it('records a metadata-only updates trust event on a real check', async () => {
     const { useUpdateStore } = await import('@/stores/updateStore');
     const { useTrustEventStore } = await import('@/stores/trustEventStore');
     useTrustEventStore.getState().clear();

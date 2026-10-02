@@ -183,7 +183,7 @@ test.describe('Apply gesture smoke', () => {
       await expectTier(esPage, 'PRO');
       await openDeveloperUtilities(esPage);
 
-      await expect(esPage.getByRole('button', { name: /Aplica desde la entrada/i })).toBeVisible({
+      await expect(esPage.getByRole('button', { name: /Aplicar desde la entrada/i })).toBeVisible({
         timeout: 6000,
       });
       if (process.env.LINGUA_CAPTURE_REVIEW_SCREENSHOT === '1') {

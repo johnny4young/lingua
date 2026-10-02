@@ -1,5 +1,5 @@
 /**
- * Runtime-asset registry — implementation, extended by internal
+ * Runtime-asset registry.
  *
  * Single source of truth for any runtime asset that ships outside the
  * normal JS / CSS bundles. Consumed by:

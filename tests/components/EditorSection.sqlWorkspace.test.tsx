@@ -65,7 +65,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(useSettingsStore.getState().sqlWorkspaceQueryTimeoutMs).toBe(60_000);
   });
 
-  it('renders the persist-tables toggle and flips the setting on click (implementation OPFS)', () => {
+  it('renders the persist-tables toggle and flips the setting on click (OPFS)', () => {
     useSettingsStore.setState({ sqlWorkspacePersistTables: false });
     render(<EditorSection />);
 
@@ -77,7 +77,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
   });
 
-  it('renders the clear + reconnect actions (implementation OPFS)', () => {
+  it('renders the clear + reconnect actions (OPFS)', () => {
     render(<EditorSection />);
     // Present but not clicked here — both touch the live DuckDB engine
     // (reconnect re-instantiates; clear terminates), exercised in the

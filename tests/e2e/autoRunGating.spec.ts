@@ -8,7 +8,7 @@
  *     in the panel.
  *   - Completing the expression dismisses the notice and the run
  *     fires.
- *   - implementation note: under `runtimeMode === 'browser-preview'`, the notice
+ *   - Under `runtimeMode === 'browser-preview'`, the notice
  *     swaps to the "Preview paused" copy variant so a DOM-oriented
  *     user knows the iframe re-render is what is paused.
  *

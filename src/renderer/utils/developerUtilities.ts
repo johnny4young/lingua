@@ -22,7 +22,7 @@ export interface TransformResult {
 }
 
 // `JwtAnalysis` and `decodeJwt` moved to `./jwt` alongside the new
-// verify/sign surfaces for internal Re-exported here so existing import
+// verify/sign surfaces. Re-exported here so existing import
 // sites (developerUtilities.ts was the historical home) keep compiling.
 
 export interface TimestampAnalysis {
@@ -100,7 +100,7 @@ function base64ToBytes(value: string): Uint8Array {
 }
 
 // `normalizeBase64Url` and `parseJsonObject` moved to `./jwt` as private
-// helpers alongside the decode/verify/sign surfaces for internal No other
+// helpers alongside the decode/verify/sign surfaces. No other
 // consumer in this module needed them.
 
 export function analyzeJson(value: string): JsonAnalysis {
@@ -364,7 +364,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
- * Thin text-to-hex wrapper retained for historical parity with the pre-internal
+ * Thin text-to-hex wrapper retained for historical parity with the older
  * API. Routes through `computeHash` and throws on error to preserve the old
  * signature (pre-tagged-union callers).
  */
@@ -384,7 +384,7 @@ export function generateUuid(): string {
 }
 
 // `decodeJwt` moved to `src/renderer/utils/jwt.ts` together with the new
-// `verifyJwt` and `signJwt` surfaces for internal Re-exported here so the
+// `verifyJwt` and `signJwt` surfaces. Re-exported here so the
 // existing import sites (developerUtilities.ts was the historical home)
 // do not have to migrate in this commit.
 export { decodeJwt } from './jwt';

@@ -4,7 +4,7 @@
  * Pretty-prints (or minifies) a JSON document. Thin wrapper around
  * the existing `analyzeJson` helper in
  * `src/renderer/utils/developerUtilities.ts` — kept pure here so the
- * pipeline engine + CLI (future implementation) can import without
+ * pipeline engine + CLI can import without
  * dragging React or renderer-only deps.
  */
 

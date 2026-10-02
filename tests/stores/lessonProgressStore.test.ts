@@ -7,7 +7,7 @@
  *   - recordRun promotes to `'passed'` when all assertions pass.
  *   - Sticky `'passed'` survives a follow-up failed run (lastResult updates).
  *   - markSkipped sets status, no downgrade from `'passed'`.
- *   - resetAll wipes every entry (implementation note).
+ *   - resetAll wipes every entry.
  *   - LRU cap drops the oldest entry.
  *   - Sanitize-on-rehydrate drops tampered values silently.
  */
@@ -89,7 +89,7 @@ describe('useLessonProgressStore', () => {
     );
   });
 
-  it('resetAll wipes every entry (implementation note)', () => {
+  it('resetAll wipes every entry', () => {
     useLessonProgressStore.getState().recordOpened('js-a');
     useLessonProgressStore.getState().recordOpened('js-b');
     expect(useLessonProgressStore.getState().touchedCount()).toBe(2);

@@ -306,7 +306,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     },
     // Keyboard shortcut for the share-link
     // copy. Emits the same `share.trigger` command the command palette
-    // uses (implementation note) so the always-mounted
+    // uses so the always-mounted
     // `<ShareLinkController>` owns shortcut-triggered confirmation
     // even when the result panel is hidden. Telemetry tags
     // `trigger: 'shortcut'`.

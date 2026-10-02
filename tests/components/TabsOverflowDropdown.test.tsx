@@ -1,5 +1,5 @@
 /**
- * internal polish #7 — smoke tests for the +N tabs overflow dropdown
+ * Smoke tests for the +N tabs overflow dropdown
  * exposed by `EditorTabs.tsx` when the open-tab list grows past 5.
  *
  * The dropdown is internal to the EditorTabs component (no public

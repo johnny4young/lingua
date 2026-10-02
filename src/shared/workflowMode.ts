@@ -5,7 +5,7 @@
  * around the manual Run gesture:
  *
  *   - `scratchpad` — auto-run fires on debounced keystrokes (subject
- *     to the implementation completion gate). Default for languages
+ *     to the completion gate). Default for languages
  *     that have a Scratchpad-class runner (JS / TS / Python today).
  *   - `run` — auto-run is OFF. Mod+Enter still executes manually. Default
  *     for compiled / validate / view-only tabs.
@@ -115,7 +115,7 @@ export function supportsWorkflowMode(
  * so the live-results experience stays the discoverable default;
  * everything else defaults to `run` so a compiled-language buffer
  * does not look like a no-op (no auto-run = no surprise empty
- * panel until the user presses Mod+Enter, paired with implementation note's
+ * panel until the user presses Mod+Enter, paired with the
  * mode-aware empty-state copy).
  */
 export function defaultWorkflowMode(language: string | undefined): WorkflowMode {
@@ -154,7 +154,7 @@ export function coerceWorkflowMode(
  * through `WORKFLOW_MODES` in declaration order while skipping
  * unsupported segments for the given language.
  *
- * Used by the `Mod+Shift+M` keyboard cycle (implementation note). Behaviour:
+ * Used by the `Mod+Shift+M` keyboard cycle. Behaviour:
  *
  *   - Only one supported mode → returns `current` unchanged (cycle
  *     would be a no-op).

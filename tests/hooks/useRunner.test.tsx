@@ -71,7 +71,7 @@ describe('useRunner', () => {
     useUIStore.setState({ statusNotice: null });
     // pre-acknowledge native execution by default so the
     // existing Rust/Go test cases bypass the gate. The dedicated
-    // internal describe block resets this to `false` to exercise the
+    // native-execution describe block resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });
     useNativeExecutionGateStore.setState({ pendingLanguage: null, pendingResume: null }, false);
@@ -631,7 +631,7 @@ describe('useRunner', () => {
     });
   });
 
-  describe('internal native-execution gate', () => {
+  describe('native-execution gate', () => {
     const initialGateState = useNativeExecutionGateStore.getState();
     const initialSettings = useSettingsStore.getState();
 

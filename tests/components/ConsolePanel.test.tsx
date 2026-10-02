@@ -141,7 +141,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   }
   // ExecutionHistoryPopover reads
   // `useEditorStore((state) => state.activeTabId)` to surface the
-  // implementation note "This tab only" filter. The mock therefore needs to be
+  // "This tab only" filter. The mock therefore needs to be
   // callable as both a selector hook AND a `getState()` accessor so
   // pre-existing call sites keep working.
   const useEditorStore = ((selector?: (state: ReturnType<typeof editorStoreState>) => unknown) => {
@@ -808,7 +808,7 @@ describe('ConsolePanel', () => {
     });
   });
 
-  it('renders implementation html, image, and error previews inside the details popover', async () => {
+  it('renders html, image, and error previews inside the details popover', async () => {
     const user = userEvent.setup();
     resetState({
       entries: [
@@ -937,7 +937,7 @@ describe('ConsolePanel', () => {
     expect(mockPushStatusNotice).not.toHaveBeenCalled();
   });
 
-  it('clearing a non-empty console offers an Undo that restores it (implementation note)', async () => {
+  it('clearing a non-empty console offers an Undo that restores it', async () => {
     const user = userEvent.setup();
     resetState({
       entries: [

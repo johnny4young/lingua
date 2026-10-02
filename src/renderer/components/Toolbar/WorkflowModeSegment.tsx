@@ -25,7 +25,7 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
  * Layout:
  *
  *   - Mode segments are <button>s inside a `role="group"` container
- *     with arrow-key navigation. implementation note — arrow keys SKIP disabled
+ *     with arrow-key navigation. Arrow keys SKIP disabled
  *     segments instead of stopping on them so keyboard users never
  *     land on a no-op slot.
  *

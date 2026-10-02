@@ -37,6 +37,8 @@ interface ExecutionControlPolicyInput {
   effectiveTier: LicenseTier;
   isWebBuild: boolean;
   isNotebookTab: boolean;
+  /** SQL / HTTP / Utilities tabs run their own surface instead of a language runner. */
+  isWorkspaceTab?: boolean;
   enabledBreakpointCount: number;
 }
 
@@ -60,9 +62,23 @@ export function resolveExecutionControlPolicy({
   effectiveTier,
   isWebBuild,
   isNotebookTab,
+  isWorkspaceTab = false,
   enabledBreakpointCount,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
+  if (isWorkspaceTab) {
+    return {
+      executionMode: 'run',
+      desktopOnlyGate: false,
+      proLanguageGate: false,
+      supportsDebug: false,
+      actions: {
+        run: availability(null),
+        debug: availability('unsupported-workflow'),
+        scratchpad: availability('unsupported-workflow'),
+      },
+    };
+  }
   const proLanguageGate =
     executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
   const desktopOnlyGate =

@@ -1,5 +1,5 @@
 /**
- * internal Debugger MVP ADR guard — locks the decision, the runtime
+ * Debugger MVP ADR guard — locks the decision, the runtime
  * matrix, the feature budget, the rollback clause, the revisit
  * triggers, and the adjacent ADR cross-links.
  */

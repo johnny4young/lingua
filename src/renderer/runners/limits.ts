@@ -8,7 +8,7 @@
  * loop, so the timer never fires and the UI hangs until the user
  * clicks Stop.
  *
- * internal moves the kill timer to the parent renderer thread (the only
+ * The kill timer lives on the parent renderer thread (the only
  * thread still responsive when the worker is wedged) and adds these
  * caps so a non-infinite-but-busy run cannot flood the IPC channel,
  * the console panel, or the result panel.
@@ -21,7 +21,7 @@ import { truncateUtf8, utf8ByteLength } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
-// internal: re-export the main-side native subprocess caps so renderer
+// Re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
 // and subprocess heaps in lockstep. The renderer caps below are
 // intentionally tighter (worker heap shares with the UI thread); see

@@ -39,8 +39,8 @@ export interface LineResult {
    * Optional structured payload propagated from
    * `MagicCommentResult.payload`. Renderers consult `value` for the
    * canonical text fallback and upgrade to the typed payload only
-   * when present. implementation surfaces a `Table(N×M)` summary inline;
-   * implementation will plug in the console panel widget.
+   * when present. The inline view surfaces a `Table(N×M)` summary;
+   * the console panel widget plugs in later.
    */
   payload?: RichOutputPayload;
 }
@@ -84,7 +84,7 @@ export interface ResultSnapshot {
    * toggle in the result-panel header reads this to refuse rendering
    * a stale diff after a Save-As / rename that changed the language
    * (a JS scratchpad's snapshot must not surface as the comparator
-   * for a Python run). implementation captured snapshots without language
+   * for a Python run). Earlier builds captured snapshots without language
    * because the gate-restore use case stayed inside the same tab; the
    * language field is additive and the restore path defensively
    * ignores it.
@@ -100,7 +100,7 @@ export interface ResultSnapshot {
   pinned?: boolean;
   /**
    * A coarse epoch ms tag so the
-   * `<CompareTargetSelector>` (implementation note) can render
+   * `<CompareTargetSelector>` can render
    * "5m ago" / "an hour ago" relative timestamps without needing the
    * full Date. Stored as ms since epoch.
    */
@@ -171,8 +171,8 @@ interface ResultState {
    * across tabs.
    *
    * Also the comparator source for the `Compare`
-   * toggle. The implementation contract is preserved: it always points at
-   * the most recent clean run (or a pinned snapshot, per implementation note).
+   * toggle. The original contract is preserved: it always points at
+   * the most recent clean run (or a pinned snapshot).
    */
   lastSuccessfulSnapshot: ResultSnapshot | null;
   /**
@@ -291,7 +291,7 @@ interface ResultState {
    * Clear visible state (lineResults, output,
    * diagnostics, gate banner) but PRESERVE `lastSuccessfulSnapshot`
    * so a transient empty-buffer cycle (Cmd+A → Backspace → type)
-   * does not defeat the implementation snapshot-restore behavior. The
+   * does not defeat the snapshot-restore behavior. The
    * snapshot is only wiped on a real tab switch via `clear()`.
    * Preserves `snapshotRing` too so a fresh run can
    * compare against earlier stable output after it captures its own
@@ -457,7 +457,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     if (nextRing.length >= MAX_SNAPSHOT_RING) {
       // Find the oldest UNPINNED entry; if every slot is pinned,
       // the ring is full and we silently DROP the fresh snapshot to
-      // honor the user's pin intent. The implementation gate-restore path
+      // honor the user's pin intent. The gate-restore path
       // still works because `lastSuccessfulSnapshot` continues to
       // point at the previously-pinned newest entry until the user
       // unpins.
@@ -566,7 +566,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     }),
   clearVisibleResults: () =>
     // Same shape as `clear()` but DOES NOT touch
-    // `lastSuccessfulSnapshot` or the implementation `snapshotRing`. Useful
+    // `lastSuccessfulSnapshot` or the `snapshotRing`. Useful
     // when the active buffer transits through an empty state
     // (Cmd+A → Backspace) and when a new run is starting; the
     // accumulated snapshots should survive until the run either

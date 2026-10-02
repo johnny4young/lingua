@@ -5,7 +5,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 
 /**
  * Debounced session auto-save, extracted from
- * App.tsx (internal hook-extraction pattern).
+ * App.tsx (hook-extraction pattern).
  *
  * Subscribes to the editor store and schedules `saveSession()` 1 s
  * after the last SAVE-RELEVANT change. The `sessionSnapshotEqual`

@@ -5,9 +5,9 @@
  * Lingua practice problem: a problem statement, a starter code
  * scaffold, and a handful of assertions that decide whether the
  * user's edits solved the problem. The schema deliberately stays
- * language-generic — implementation shipped 10 JavaScript recipes and implementation
- * adds TypeScript / Python packs — and capsule-friendly so a future
- * "reference solution" implementation can embed a known-good
+ * language-generic — 10 JavaScript recipes shipped first, then
+ * TypeScript / Python packs — and capsule-friendly so a future
+ * "reference solution" feature can embed a known-good
  * `RunCapsuleV1.contentHash` next to each assertion.
  *
  * Downstream consumers (today or planned):
@@ -15,10 +15,10 @@
  *   - The Recipes overlay (`Mod+Alt+L`) renders the catalog list.
  *   - `<RecipeRunPanel>` mounts when a tab is bound to a recipe and
  *     wires the Run + Test button to `buildLessonRunSource`.
- *   - implementation (planned) ships `lingua lesson validate
- *     path/to/recipe.json` — depends on this schema staying
+ *   - A planned `lingua lesson validate
+ *     path/to/recipe.json` command depends on this schema staying
  *     `version: 1` literal.
- *   - implementation (planned) attaches an AI-generated hint to a
+ *   - A planned change attaches an AI-generated hint to a
  *     recipe via a fresh `aiHint` field (additive; won't break the
  *     `version: 1` invariant).
  *
@@ -28,7 +28,7 @@
  *     return on `{ok: false}`. The Recipes overlay maps each code
  *     to a localized hint via `recipes.reject.<reason>` keys.
  *   - `ASSERTION_EXIT_KINDS` — what kind of assertion contract the
- *     `code` field uses. implementation ships all three (`value` returns
+ *     `code` field uses. All three ship (`value` returns
  *     a truthy result, `throw` expects the snippet to throw,
  *     `console-contains` looks for a substring on stdout). The
  *     runner switches on this to interpret the assertion's result.
@@ -37,11 +37,11 @@
  *
  *   - Bundled recipes are public domain catalog content; the schema
  *     can also represent user-authored recipes (future work import via
- *     the internal registry). The `parseLessonPack` guard caps payload
+ *     the registry). The `parseLessonPack` guard caps payload
  *     size + asserts the closed-enum surface so a hand-crafted JSON
  *     cannot bring down the overlay.
- *   - Per-recipe telemetry stays language-bucketed implementation. No
- *     recipe id reaches the wire (implementation note in the plan).
+ *   - Per-recipe telemetry stays language-bucketed. No
+ *     recipe id reaches the wire.
  */
 
 import { LANGUAGE_PACKS, type LanguagePackId } from './languagePacks';
@@ -65,7 +65,7 @@ export const LESSON_REJECT_REASONS = [
 type LessonRejectReason = (typeof LESSON_REJECT_REASONS)[number];
 
 /**
- * Closed-enum assertion exit-kind discriminants. The implementation runner
+ * Closed-enum assertion exit-kind discriminants. The runner
  * (`src/shared/lessonRunner.ts`) switches on this to decide how to
  * interpret the snippet's effect.
  *
@@ -108,7 +108,7 @@ export interface AssertionV1 {
   readonly kind: AssertionExitKind;
   /**
    * Optional hint shown when the assertion fails — short, actionable
-   * (implementation note in the plan). Capped at ~200 chars in the renderer.
+   *. Capped at ~200 chars in the renderer.
    */
   readonly hint?: LessonProse;
 }
@@ -137,7 +137,7 @@ export interface LessonPackV1 {
 // ---------------------------------------------------------------------------
 
 /**
- * Recipes are bite-sized by design. implementation's largest bundled recipe
+ * Recipes are bite-sized by design. The largest bundled recipe
  * is ~3 KiB; the 32 KiB ceiling exists so a future user-authored
  * recipe (future work import) cannot smuggle a multi-MB blob into the
  * overlay.

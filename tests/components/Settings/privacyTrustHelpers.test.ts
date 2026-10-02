@@ -69,7 +69,7 @@ describe('latestEventAtByFeature ', () => {
   });
 });
 
-describe('buildNetworkActivityRows — license lastCall (implementation note)', () => {
+describe('buildNetworkActivityRows — license lastCall', () => {
   it('threads licenseVerifyLastAt onto the license row', () => {
     const rows = buildNetworkActivityRows({
       telemetryConsent: 'granted',

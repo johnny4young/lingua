@@ -15,7 +15,7 @@ vi.mock('../../../src/renderer/runners', () => ({
   runnerManager: {
     execute: vi.fn(),
     stop: vi.fn(),
-    // implementation Slice F (implementation note) — the run hook probes this before a cold
+    // implementation Slice F — the run hook probes this before a cold
     // Python run; default false keeps existing run tests on the warm path.
     needsInitialization: vi.fn(() => false),
   },
@@ -48,7 +48,7 @@ import {
 } from '../../__fixtures__/monacoEditorMock';
 
 /**
- * implementation (Monaco cells): a code cell is a static colorized view until
+ * Monaco cells: a code cell is a static colorized view until
  * edited. This enters edit mode on the last code cell (mounting the mocked
  * Monaco, which captures the run keybind commands) and fires one.
  */

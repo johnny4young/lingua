@@ -3,12 +3,12 @@
  *
  * Per-tab session that keeps a long-lived sandbox object so cell N
  * can read variables declared in cells 1..N-1 WITHOUT polluting
- * the worker's `globalThis`. The 2026-05-20 research triage for
- * internal explicitly rejected raw `globalThis.eval()`
+ * the worker's `globalThis`. The 2026-05-20 research triage
+ * explicitly rejected raw `globalThis.eval()`
  * because it would bypass the runner instrumentation, timeout,
  * debugger, console, and stop contracts that already exist.
  *
- * implementation architecture (JSON-serializable sandbox delta):
+ * Architecture (JSON-serializable sandbox delta):
  *
  *   1. The session manager allocates one `NotebookSessionState` per
  *      `tabId`. The state holds a JSON-serializable sandbox object
@@ -21,7 +21,7 @@
  *        reads of cell 1's declarations resolve naturally.
  *      - After the user's source, captures top-level
  *        `const`/`let`/`function` declarations into a
- *        `_sessionDelta` object (implementation note regex rewriter).
+ *        `_sessionDelta` object (regex rewriter).
  *      - Captures `console.log` / `.error` into stdout / stderr
  *        buffers.
  *      - Resolves to `{ stdout, stderr, sessionDelta }`.
@@ -31,7 +31,7 @@
  *      `{ stdout, stderr, sessionDelta }` object via the postMessage
  *      structured clone — NOT `result.result`, which is a display string
  *      the worker truncates at MAX_RESULT_BYTES (that truncation silently
- *      dropped the cross-cell delta before implementation). JSON-only
+ *      dropped the cross-cell delta). JSON-only
  *      round-trip is still the sandbox contract: primitives + plain
  *      objects + arrays survive; functions / class instances / Promises /
  *      Maps / Sets do NOT. A later work promotes to a per-tab worker
@@ -42,8 +42,8 @@
  *      tab id starts clean.
  *
  * The composed source runs through `runnerManager.execute` with the
- * existing JS / TS worker pipeline — so all implementation timeout
- * presets + implementation detail hardening apply unchanged.
+ * existing JS / TS worker pipeline — so all timeout
+ * presets + hardening apply unchanged.
  */
 
 // acorn parses the cell body for the cross-cell rewriter. Static import
@@ -93,8 +93,8 @@ export type NotebookSessionRejectReason =
   (typeof NOTEBOOK_SESSION_REJECT_REASONS)[number];
 
 /**
- * Code-cell run gate. JavaScript runs directly; TypeScript (internal
- * implementation) is type-stripped to JavaScript by esbuild — the same
+ * Code-cell run gate. JavaScript runs directly; TypeScript
+ * is type-stripped to JavaScript by esbuild — the same
  * transpiler the TypeScript runner uses — and then runs through the
  * identical `'javascript'` worker pipeline, so
  * cross-cell sharing, timeouts, and the structured-result channel all
@@ -215,7 +215,7 @@ function parseCellBody(source: string): AcornProgram | null {
 /**
  * Outcome of type-stripping a TypeScript cell. `js` is
  * the emitted JavaScript on success; `message` carries a human-readable
- * compiler diagnostic (with a `line:col` suffix — implementation note) when the cell
+ * compiler diagnostic (with a `line:col` suffix) when the cell
  * has a syntax error, so the cell surfaces a precise message instead of
  * a generic failure.
  */
@@ -247,7 +247,7 @@ export type NotebookTranspileResult =
  * transpilers were rejected for this path.
  *
  * esbuild does NOT type-check; the reported errors are parser-level
- * syntax errors only. We surface the first one (implementation note) and
+ * syntax errors only. We surface the first one and
  * leave a clean cell unchanged. The emitted JS then flows through the
  * existing rewriter + `composeNotebookCellSource` untouched, so a TS
  * cell shares declarations cross-cell exactly like a JS cell.
@@ -563,7 +563,7 @@ interface NotebookSessionState {
   /** JSON-serializable sandbox object. Keys are top-level declaration
    * names captured by the rewriter; values are JSON-round-trippable. */
   sandbox: Record<string, unknown>;
-  /** Per-cell in-flight flag — implementation blocks `'concurrent-run'`. */
+  /** Per-cell in-flight flag — blocks `'concurrent-run'`. */
   isRunning: boolean;
   /** Shared runner the in-flight cell holds; SQL cells hold none. */
   heldRunner: { readonly key: NotebookRunnerKey; readonly release: () => void } | null;
@@ -622,7 +622,7 @@ export interface NotebookCellRunRequest {
  * Execute one cell against the session sandbox. Always settles to a
  * discriminated outcome — never throws.
  *
- * Concurrency: implementation blocks `'concurrent-run'` for the SAME tab.
+ * Concurrency: the session blocks `'concurrent-run'` for the SAME tab.
  * Cells in different notebook tabs run in parallel only on different
  * runners; a runner another notebook holds rejects with `'runtime-busy'`.
  */
@@ -656,7 +656,7 @@ export async function runNotebookCell(
     // (`executeQuery`), INDEPENDENTLY of the JS composed-source + sandbox
     // channel (that channel round-trips JS values only). A successful
     // result set is emitted as a single stdout entry containing the rows
-    // as a JSON array, so the notebook's rich-output layer (internal / implementation)
+    // as a JSON array, so the notebook's rich-output layer
     // renders it as a table exactly like a homogeneous array output. DDL /
     // DML statements with no result set emit a short status line instead.
     // The DuckDB engine is a renderer-wide singleton, so tables created in
@@ -782,7 +782,7 @@ export async function runNotebookCell(
     // TypeScript cells are type-stripped to JavaScript
     // BEFORE the rewriter + compose, then run through the identical JS
     // pipeline. A transpile (syntax) error short-circuits to an `error`
-    // outcome carrying the precise compiler message (implementation note); JS cells
+    // outcome carrying the precise compiler message; JS cells
     // skip this hop entirely.
     let runnableSource = request.source;
     if (request.language === 'typescript') {
@@ -977,8 +977,8 @@ export function resetNotebookSessionsForTests(): void {
 }
 
 /**
- * Read the sandbox keys for a given session. Used by tests + implementation
- * B+ "Session inspector" affordance.
+ * Read the sandbox keys for a given session. Used by tests + a future
+ * "Session inspector" affordance.
  */
 export function getNotebookSessionKeys(tabId: string): string[] {
   const state = sessions.get(tabId);

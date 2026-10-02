@@ -870,7 +870,7 @@ describe('fs:searchInFiles', () => {
   });
 });
 
-// ----------------------------------------------- implementation: replace
+// ----------------------------------------------- Replace
 //
 // `fs:replaceInFiles` (preview) and `fs:applyReplaceInFile` (atomic
 // write). Same capability contract as `fs:searchInFiles`; the apply
@@ -1317,7 +1317,7 @@ describe('fs:delete confirmation dialog', () => {
   });
 });
 
-// ----------------------------------------------- implementation bundles
+// ----------------------------------------------- project bundles
 
 describe('fs:exportBundle', () => {
   it('packs visible files (excluding node_modules / dist) into a saved zip', async () => {
@@ -1329,7 +1329,7 @@ describe('fs:exportBundle', () => {
       path.join(tmpRoot, 'assets', 'pixel.bin'),
       new Uint8Array([0, 1, 2, 250, 255])
     );
-    // Excluded dir — must NOT appear in the bundle (implementation note via shouldHide).
+    // Excluded dir — must NOT appear in the bundle (via shouldHide).
     await mkdir(path.join(tmpRoot, 'node_modules', 'dep'), { recursive: true });
     await writeFile(
       path.join(tmpRoot, 'node_modules', 'dep', 'index.js'),
@@ -1511,7 +1511,7 @@ describe('fs:importBundle', () => {
   });
 });
 
-// internal hardening — the approved-scope intersection that gates the git
+// The approved-scope intersection that gates the git
 // read-only IPC layer (src/main/ipc/git.ts). Exercised against the REAL
 // approvals registry via the same picker flow production uses.
 describe('pathIntersectsApprovedScope', () => {

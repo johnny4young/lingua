@@ -6,7 +6,7 @@
  *
  *   - `SqlQueryV1` — user-editable query: name + text. Persisted in
  *     `workspaceSqlStore` (CRUD identical to `workspaceToolStore` so
- *     internal Utility Pipelines can iterate over both stores
+ *     Utility Pipelines can iterate over both stores
  *     uniformly).
  *   - `SqlResponseV1` — the result of a query execution. Wrapped
  *     into a `RunCapsuleV1` via `sqlResponseCapsule.ts` so share /
@@ -32,7 +32,7 @@
  */
 
 /**
- * Closed enum of SQL outcomes implementation surfaces. Aligned with the
+ * Closed enum of SQL outcomes the workspace surfaces. Aligned with the
  * `RunCapsuleStatus` slots so the capsule mapping is trivial.
  *
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`

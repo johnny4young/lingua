@@ -61,7 +61,7 @@ describe('linguanbImporterAdapter.preview', () => {
     expect(p.warnings).toEqual([]);
   });
 
-  it('threads the execution-order map (implementation note)', () => {
+  it('threads the execution-order map', () => {
     const p = preview(
       serializeNotebookDocument(notebook(CELLS), { executionOrder: { c1: 1, c2: 2 } })
     );

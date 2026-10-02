@@ -9,7 +9,7 @@
  *                    + `openHttpWorkspaceTab` (mirrors `useImportPreview`'s
  *                    `curl-http` confirm branch)
  *   - stack-trace -> emit the existing `file.open` command (reveals
- *                    within-tab today; opens cross-file once internal lands)
+ *                    within-tab today; opens cross-file once multi-file lands)
  *   - large-json  -> open a new `json` editor tab with the blob
  *
  * On a content import (everything except stack-trace navigation) the literal
@@ -168,7 +168,7 @@ async function applyCurl(source: string, ctx: ApplyPasteContext): Promise<boolea
 
 function applyStackTrace(intent: Extract<PasteIntent, { kind: 'stack-trace' }>): boolean {
   // Reuse the existing clickable-stack-frame command. The default consumer
-  // reveals within-tab; a higher-priority internal consumer will open cross-file
+  // reveals within-tab; a higher-priority consumer will open cross-file
   // once multi-file lands. Navigation, so the pasted trace is left in place.
   emitCommand('file.open', {
     file: intent.file ?? undefined,

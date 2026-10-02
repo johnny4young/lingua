@@ -246,7 +246,7 @@ describe('main node runner', () => {
     }
   });
 
-  it('implementation: keeps stdin open in interactive mode and streams writes by runId', async () => {
+  it('keeps stdin open in interactive mode and streams writes by runId', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
 
@@ -281,7 +281,7 @@ describe('main node runner', () => {
     await expect(promise).resolves.toMatchObject({ kind: 'success' });
   });
 
-  it('implementation: streams live stdout/stderr chunks to the sender during interactive runs', async () => {
+  it('streams live stdout/stderr chunks to the sender during interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
     const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
@@ -314,7 +314,7 @@ describe('main node runner', () => {
     await expect(promise).resolves.toMatchObject({ kind: 'success' });
   });
 
-  it('implementation: does not stream chunks for non-interactive runs', async () => {
+  it('does not stream chunks for non-interactive runs', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
     const sender = Object.assign(new EventEmitter(), { isDestroyed: vi.fn(() => false), send: vi.fn() });
@@ -335,7 +335,7 @@ describe('main node runner', () => {
     expect(sender.send).not.toHaveBeenCalled();
   });
 
-  it('implementation: non-interactive runs close stdin immediately and reject stream writes', async () => {
+  it('non-interactive runs close stdin immediately and reject stream writes', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
 

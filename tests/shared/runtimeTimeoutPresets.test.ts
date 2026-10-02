@@ -23,7 +23,7 @@ describe('runtimeTimeoutPresets', () => {
     expect(RUNTIME_TIMEOUT_PRESET_VALUES.size).toBe(4);
   });
 
-  it('exposes the closed supported-language enum (no Rust; Ruby joined in implementation)', () => {
+  it('exposes the closed supported-language enum (no Rust; Ruby joined)', () => {
     expect(RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES).toEqual([
       'javascript',
       'typescript',
@@ -45,7 +45,7 @@ describe('runtimeTimeoutPresets', () => {
     expect(isRuntimeTimeoutPreset(5)).toBe(false);
   });
 
-  it('isRuntimeTimeoutSupportedLanguage gates only the enrolled runners (implementation added Ruby)', () => {
+  it('isRuntimeTimeoutSupportedLanguage gates only the enrolled runners (Ruby included)', () => {
     expect(isRuntimeTimeoutSupportedLanguage('javascript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('typescript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('python')).toBe(true);

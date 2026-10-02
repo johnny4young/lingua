@@ -200,7 +200,7 @@ describe('RecipesOverlay', () => {
     // possible on a noun, but the action buttons live nearby.
     expect(screen.getByText(/^Recetas$/i)).toBeTruthy();
     expect(screen.getByTestId('recipes-cancel').textContent).toMatch(/cancelar/i);
-    expect(screen.getByTestId('recipes-open').textContent).toMatch(/abre la receta/i);
+    expect(screen.getByTestId('recipes-open').textContent).toMatch(/abrir la receta/i);
   });
 
   it('arrow-down moves the active selection', async () => {

@@ -36,7 +36,7 @@ export interface LayoutAvailability {
  * The AppLayout-root availability gate cluster, extracted
  * verbatim from `AppLayout`. Computes the seven MainContent gates from the editor
  * / UI / settings / result / debugger stores. Moved as-is (same derivations,
- * same internal primitive `hasScopeSnapshotFor` subscription) so the resolved gate
+ * same primitive `hasScopeSnapshotFor` subscription) so the resolved gate
  * values are identical to the inline original; only the store reads are now
  * fine-grained selectors rather than whole-store destructures, which can only
  * reduce re-renders, never change a gate's value.

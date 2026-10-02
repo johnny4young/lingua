@@ -16,7 +16,7 @@ import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
 test.describe.configure({ mode: 'parallel' });
 
 /**
- * implementation (Monaco cells): a code cell is a static colorized view until
+ * Monaco cells: a code cell is a static colorized view until
  * edited, and the editing surface is a real Monaco editor (no
  * `notebook-code-cell-source` textarea). This clicks the cell to mount its
  * Monaco editor, selects all, and inserts the code via `insertText` —
@@ -290,7 +290,7 @@ test.describe('Notebook — export ', () => {
 });
 
 test.describe('Notebook — Monaco cells + mount-virtualization ', () => {
-  test('mounts at most one Monaco editor across a multi-cell notebook (implementation note)', async ({
+  test('mounts at most one Monaco editor across a multi-cell notebook', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
@@ -384,7 +384,7 @@ test.describe('Notebook — row virtualization ', () => {
     // assertion is robust to viewport height without being a no-op.
     expect(renderedRows).toBeLessThan(40);
 
-    // implementation's invariant still holds: at most one Monaco editor is mounted
+    // The mount invariant still holds: at most one Monaco editor is mounted
     // across the whole (now windowed) notebook.
     await expect(page.locator('.monaco-editor')).toHaveCount(0);
     await page.getByTestId('notebook-code-cell-static').first().click();

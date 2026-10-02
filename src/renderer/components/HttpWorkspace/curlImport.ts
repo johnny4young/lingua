@@ -1,9 +1,9 @@
 /**
  * re-export shim.
  *
- * The cURL parser used to live here under implementation note
+ * The cURL parser used to live here
  * (HTTP workspace inline "paste cURL into URL field" auto-detect).
- * implementation moved the parser to `src/shared/importers/curlImporter.ts`
+ * It moved to `src/shared/importers/curlImporter.ts`
  * so the new global Import overlay (`Mod+Alt+I`) can reuse it.
  *
  * This file re-exports `tryParseCurl` + `ParsedCurl` from the shared

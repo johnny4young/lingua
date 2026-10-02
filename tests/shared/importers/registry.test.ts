@@ -1,7 +1,7 @@
 /**
  * Importer registry unit tests.
  *
- * Pins the closed enum + the basic registry contract (implementation
+ * Pins the closed enum + the basic registry contract (later
  * adapters extend the same shape; renaming the API here breaks
  * downstream importers).
  */

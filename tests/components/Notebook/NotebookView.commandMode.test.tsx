@@ -122,7 +122,7 @@ describe('<NotebookView /> command mode', () => {
     await waitFor(() =>
       expect(shell('c1').getAttribute('data-cell-mode')).toBe('edit')
     );
-    // Monaco's Esc command (implementation note) routes to the row's command-mode drop.
+    // Monaco's Esc command routes to the row's command-mode drop.
     act(() => {
       cellMockHarness.commands.get(ESCAPE_CHORD)?.();
     });

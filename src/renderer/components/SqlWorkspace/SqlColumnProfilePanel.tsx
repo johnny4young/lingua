@@ -85,7 +85,7 @@ export function SqlColumnProfilePanel({
         <div
           role="status"
           data-testid="sql-column-profile-loading"
-          className="grid flex-1 place-items-center px-5 py-8 text-center text-body-sm text-fg-subtle"
+          className="grid flex-1 place-items-center px-5 py-16 text-center text-body-sm text-fg-subtle"
         >
           <span className="inline-flex items-center gap-2">
             <Loader2 size={15} aria-hidden="true" className="animate-spin" />
@@ -93,7 +93,7 @@ export function SqlColumnProfilePanel({
           </span>
         </div>
       ) : failed ? (
-        <div className="grid flex-1 place-items-center px-5 py-8 text-center">
+        <div className="grid flex-1 place-items-center px-5 py-16 text-center">
           <div role="alert" data-testid="sql-column-profile-error" className="max-w-sm">
             <p className="text-body-sm font-medium text-error-fg">
               {t('sqlWorkspace.profile.error')}
@@ -117,7 +117,7 @@ export function SqlColumnProfilePanel({
       ) : profiles.length === 0 ? (
         <p
           data-testid="sql-column-profile-empty"
-          className="grid flex-1 place-items-center px-5 py-8 text-center text-body-sm text-fg-subtle"
+          className="grid flex-1 place-items-center px-5 py-16 text-center text-body-sm text-fg-subtle"
         >
           {t('sqlWorkspace.profile.empty')}
         </p>

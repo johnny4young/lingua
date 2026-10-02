@@ -10,7 +10,7 @@
  * an explicit `from` base strips a matching prefix and validates every
  * digit against the base. `_` separators are tolerated. A digit out of
  * range for the source base, or empty / non-integer input, settles as
- * `invalid-input`. implementation note: `prefixOutput` re-attaches the `0x`/`0o`/`0b`
+ * `invalid-input`. `prefixOutput` re-attaches the `0x`/`0o`/`0b`
  * marker to a non-decimal result.
  */
 

@@ -5,7 +5,7 @@ import type { Language } from '../types/language';
  * Built-in templates keep their UI-facing copy in translation catalogs so
  * labels and descriptions stay aligned with the active locale. Template
  * code bodies remain source-language content and are intentionally not
- * localized for the MVP (see implementation).
+ * localized for the MVP.
  */
 export interface Template {
   id: string;

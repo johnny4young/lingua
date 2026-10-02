@@ -98,8 +98,8 @@ const UTILITY_ACTION_KEY: Record<UtilitySuggestionId, string> = {
 };
 
 /**
- * Telemetry `handler` token: internal intents report their kind verbatim;
- * internal utility suggestions report per-format as `utility-<utilityId>`
+ * Telemetry `handler` token: intents report their kind verbatim;
+ * Utility suggestions report per-format as `utility-<utilityId>`
  * (each token allowlisted in `SMART_PASTE_HANDLERS`).
  */
 function handlerToken(intent: PasteIntent): string {
@@ -214,7 +214,7 @@ export function useSmartPaste(editor: EditorInstance | null, monaco: Monaco | nu
     });
 
     // Cmd+Shift+V — paste as plain text, bypassing detection for one paste.
-    // Shares `requestPlainPaste` with the command-palette action (implementation note).
+    // Shares `requestPlainPaste` with the command-palette action.
     if (!commandBoundRef.current) {
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyV, () => {
         requestPlainPaste(editor);

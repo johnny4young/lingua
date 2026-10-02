@@ -65,7 +65,7 @@ interface CurlIntent {
  * A pasted stack trace's first resolvable frame. `file` may be an absolute
  * path, a `node:` internal, or null when the frame had no file token; the
  * router forwards it to the existing `file.open` command, which reveals
- * within-tab today and opens cross-file once internal lands.
+ * within-tab today and opens cross-file once multi-file lands.
  */
 interface StackTraceIntent {
   kind: 'stack-trace';
@@ -323,7 +323,7 @@ function decodesToReadableText(value: string): boolean {
 
 /**
  * Map a paste to the Developer Utility that handles it, or null.
- * Runs LAST in the chain, so every internal code-like artifact (share-link,
+ * Runs LAST in the chain, so every code-like artifact (share-link,
  * capsule, cURL, stack trace, large JSON) wins first. Within the family,
  * JWT precedes Base64 (JWT segments are themselves base64url) and every
  * check is single-value strict so ordinary code never matches.
@@ -365,7 +365,7 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
 /**
  * Run every detector in priority order and return the first match, or null
  * when the paste is plain text. Order matters: share-link and capsule are the
- * most specific, large-JSON is the JSON catch-all, and the internal utility
+ * most specific, large-JSON is the JSON catch-all, and the utility
  * suggestions run last so they can never shadow an importer.
  */
 export function detectPasteIntent(text: string): PasteIntent | null {

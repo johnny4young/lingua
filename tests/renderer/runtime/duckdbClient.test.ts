@@ -581,7 +581,7 @@ describe('OPFS persistence ', () => {
     expect(getResolvedSqlStorageRequestMode()).toBe('opfs');
   });
 
-  it('issues CHECKPOINT after a successful query when persistent (implementation note)', async () => {
+  it('issues CHECKPOINT after a successful query when persistent', async () => {
     const queries: string[] = [];
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
@@ -823,7 +823,7 @@ describe('importFileAsTable', () => {
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
 
-  it('issues a CHECKPOINT after a persistent import (implementation note durability)', async () => {
+  it('issues a CHECKPOINT after a persistent import (durability)', async () => {
     const log = emptyLog();
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve(

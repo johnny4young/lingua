@@ -86,7 +86,7 @@ describe('<OutputLineBadge>', () => {
     }
   });
 
-  it('forwards repeated clicks to the throttled helper (implementation note handles burst dedup)', () => {
+  it('forwards repeated clicks to the throttled helper (the helper handles burst dedup)', () => {
     const { getByTestId } = render(<OutputLineBadge origin={{ line: 5 }} language="javascript" />);
     fireEvent.click(getByTestId('output-line-badge'));
     fireEvent.click(getByTestId('output-line-badge'));

@@ -6,7 +6,7 @@
  * (JS / TS / Python) and falls back to `.txt` for mixed-language
  * notebooks, which are not executable as a single script.
  *
- * implementation scope: pure helper. The component layer wraps the result
+ * Scope: pure helper. The component layer wraps the result
  * in a `Blob` + uses `URL.createObjectURL` to surface a download
  * link. No clipboard / no IPC / no rich-format conversion.
  */

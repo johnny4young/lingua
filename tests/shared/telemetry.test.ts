@@ -1,5 +1,5 @@
 /**
- * internal privacy guarantees locked as tests:
+ * Privacy guarantees locked as tests:
  *   - redactor drops any property not on the per-event allowlist
  *   - redactor defensively strips keys/values that look like user data
  *   - timestamps are rounded to the minute
@@ -52,7 +52,7 @@ describe('TELEMETRY_EVENTS', () => {
       // Closed-enum `{ surface, status, sizeBucket }`. Property is
       // named `surface` (not `sourceSurface`) because `source` is in
       // `DENY_SUBSTRINGS` — same precedent as
-      // `language_scorecard_viewed` from implementation
+      // `language_scorecard_viewed`.
       'capsule.imported',
       // Debugger session lifecycle. Closed-enum payload
       // per DEBUGGER_ADR §4; the redactor drops anything off the contract.
@@ -62,7 +62,7 @@ describe('TELEMETRY_EVENTS', () => {
       // Dependency detection signals.
       // `detected_in_tab` per-cycle (closed-enum
       // `{ language, countBucket }`); `banner_shown` once-per
-      // `(tab, language)` per session; `classifications_summary` (implementation note)
+      // `(tab, language)` per session; `classifications_summary`
       // rollup with four bucketed status counts. Sorts alphabetically
       // ahead of `feature.blocked` because `dep` < `fea`.
       // Install lifecycle: `install_started` per
@@ -159,7 +159,7 @@ describe('TELEMETRY_EVENTS', () => {
       // `overlay.opened`). Closed-enum payloads:
       // `{ language }` validated against the renderer's
       // `ONBOARDING_LANGUAGE_IDS` set, no payload, and
-      // `{ stage, dismissMode }` (implementation note).
+      // `{ stage, dismissMode }`.
       'onboarding.first_run_completed',
       'onboarding.first_snippet_saved',
       // Production diagnostic for the
@@ -578,7 +578,7 @@ describe('runtime.mode_changed value validator ', () => {
     }
   });
 
-  it('drops unknown modes (defensive — implementation would have to land the validator branch too)', () => {
+  it('drops unknown modes (defensive — a new mode would have to land the validator branch too)', () => {
     const { event } = redactForTelemetry(
       buildEvent({
         event: 'runtime.mode_changed',
@@ -635,7 +635,7 @@ describe('language_scorecard_platform_toggled value validator ', () => {
   });
 });
 
-describe('runtime.image_clipboard_pasted value validator (implementation detail)', () => {
+describe('runtime.image_clipboard_pasted value validator', () => {
   it('accepts the closed status enum + a CAPSULE_SIZE_BUCKETS value', () => {
     for (const status of [
       'pasted',
@@ -1004,7 +1004,7 @@ describe('runtime.auto_log_enabled value validator ', () => {
   });
 });
 
-describe('runtime.auto_log_emitted value validator (implementation note)', () => {
+describe('runtime.auto_log_emitted value validator', () => {
   it('accepts each closed-enum count bucket', () => {
     for (const countBucket of ['1', '2-5', '6-20', '20-plus'] as const) {
       const { event } = redactForTelemetry(
@@ -1241,7 +1241,7 @@ describe('runtime.variable_inspector_opened value validator ', () => {
   });
 });
 
-describe('capsule.exported value validator (implementation note)', () => {
+describe('capsule.exported value validator', () => {
   it('accepts every closed-enum trigger', () => {
     for (const trigger of [
       'settings-export',
@@ -1295,7 +1295,7 @@ describe('capsule.exported value validator (implementation note)', () => {
   });
 });
 
-describe('capsule.browse_opened value validator (implementation note)', () => {
+describe('capsule.browse_opened value validator', () => {
   it('accepts every closed-enum surface', () => {
     for (const surface of [
       'palette',
@@ -1526,7 +1526,7 @@ describe('dependency telemetry value validators ', () => {
   });
 });
 
-describe('runtime.python_rich_media_used value validator (implementation-β-β-α implementation note)', () => {
+describe('runtime.python_rich_media_used value validator', () => {
   it('accepts the closed-enum kind (chart / image / html)', () => {
     for (const kind of ['chart', 'image', 'html'] as const) {
       const { event } = redactForTelemetry(

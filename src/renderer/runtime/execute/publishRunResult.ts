@@ -27,6 +27,7 @@ import { recordCompletedRun, recordFailedRun, type GitSnapshot } from './recordR
 import type { RunPlan } from './resolveRunPlan';
 import type { CollectedRun, RunConsole } from './runAndCollect';
 import type { ManualExecutionSummary } from './types';
+import { withE2eExecutionTime } from '../../testing/e2eDurations';
 
 export function publishViewOnly(
   activeTab: FileTab,
@@ -230,12 +231,13 @@ export function publishCancelledRun(
 export async function publishCompletedRun(
   activeTab: FileTab,
   plan: RunPlan,
-  { result, streamedConsoleCount }: CollectedRun,
+  { result: measuredResult, streamedConsoleCount }: CollectedRun,
   gitSnapshot: GitSnapshot | undefined,
   runConsole: RunConsole,
   isCurrent: () => boolean = () => true,
   showsResults: () => boolean = isCurrent
 ): Promise<ManualExecutionSummary> {
+  const result = withE2eExecutionTime(measuredResult);
   const { language, content, name } = activeTab;
   const {
     setDiagnostics,

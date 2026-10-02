@@ -18,7 +18,7 @@
  *      (e.g. `-F file=@photo.jpg` in cURL). Returns a discriminated
  *      `{ ok: true, preview, warnings } | { ok: false, reason }`.
  *   3. `import(preview)` — commit. Builds the canonical domain
- *      object (in implementation: `HttpRequestV1`) that the caller writes
+ *      object (today: `HttpRequestV1`) that the caller writes
  *      into the appropriate Zustand store.
  *
  * Closed-enum reject reasons keep the surface honest: every reject
@@ -30,7 +30,7 @@
  *   - Importers run entirely in the renderer. NO IPC, NO network
  *     fetches.
  *   - Sensitive headers (`Authorization`, `Cookie`, etc. — the
- *     internal `BASELINE_SENSITIVE_HEADERS` set) are REDACTED in the
+ *     `BASELINE_SENSITIVE_HEADERS` set) are REDACTED in the
  *     preview shape so the user's screen never displays them, even
  *     mid-import. The actual `HttpRequestV1` written on confirm
  *     keeps the unredacted value — that's the whole point of
@@ -41,10 +41,10 @@
  */
 
 /**
- * Closed enum of importer ids. implementation shipped `'curl-http'`;
- * implementation (2026-05-27) added `'ipynb-notebook'`; implementation (2026-05-28)
- * adds `'postman-collection'` + `'bruno-collection'`. implementation
- * (2026-06-21) adds `'linguanb-notebook'` — the lossless native
+ * Closed enum of importer ids. `'curl-http'` came first;
+ * `'ipynb-notebook'` followed (2026-05-27), then (2026-05-28)
+ * `'postman-collection'` + `'bruno-collection'`, then
+ * (2026-06-21) `'linguanb-notebook'` — the lossless native
  * notebook document (counterpart to the lossy `.ipynb` import). Async URL
  * imports belong to `IMPORT_FLOW_IDS`, not this adapter registry enum.
  *
@@ -87,7 +87,7 @@ export type ImporterRejectReason = (typeof IMPORTER_REJECT_REASONS)[number];
  * declares which codes it can emit. The UI maps codes to localized
  * hint copy via `importPreview.warning.lossy.<code>` keys.
  *
- * implementation codes are cURL-specific; future adapters add their own
+ * The current codes are cURL-specific; future adapters add their own
  * (e.g. `'notebook-cell-output-stripped'` for `.ipynb`).
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the exported literal union
@@ -100,17 +100,17 @@ const IMPORTER_LOSSY_WARNINGS = [
   'curl-output-file',
   'curl-other-flag',
   // `.ipynb` adapter lossy codes. The `.ipynb`
-  // → `NotebookV1` mapping is intentionally lossy in implementation:
+  // → `NotebookV1` mapping is intentionally lossy:
   //   - `cell_type: 'raw'` cells are dropped (Lingua has no raw kind);
   //   - rich outputs (`image/png`, `text/html`, `application/json`,
   //     etc.) are dropped, only the `text/plain` MIME variant survives
   //     as a `NotebookCellOutputV1`;
   //   - cells whose kernelspec language is not in
-  //     `NOTEBOOK_CELL_LANGUAGES` (implementation: JS / TS / Python) fall
+  //     `NOTEBOOK_CELL_LANGUAGES` (JS / TS / Python) fall
   //     back to JS with `ipynb-unknown-language`;
   //   - cells with `execute_count` metadata lose it on import (only
   //     content + outputs survive).
-  // future work promotes via implementation rich outputs + implementation
+  // future work promotes via rich outputs +
   // round-trip export.
   'ipynb-raw-cell-dropped',
   'ipynb-rich-output-dropped',

@@ -5,7 +5,7 @@
  * windower, and jsdom cannot measure layout, so they are extracted as pure
  * functions and exhaustively tested here. The React hook (`useListWindow`)
  * is exercised end-to-end by `tests/e2e/consoleWindowing.spec.ts` (console)
- * and `tests/e2e/notebook.spec.ts` (notebook rows, implementation) in real
+ * and `tests/e2e/notebook.spec.ts` (notebook rows) in real
  * Chromium.
  */
 
@@ -114,7 +114,7 @@ describe('computeWindow ', () => {
     );
   });
 
-  it('keeps the windowed set small for a flooded 500-row console (implementation note)', () => {
+  it('keeps the windowed set small for a flooded 500-row console', () => {
     // Lock the windowing bound: a 500-row session must mount only a
     // viewport-sized slice, not all 500 rows.
     const heights = Array.from({ length: 500 }, () => 28);

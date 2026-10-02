@@ -45,7 +45,7 @@ export function buildTemplateCommand(
     language: template.language,
     // Keep the English `fileStem` in the keyword index so the command palette
     // stays bilingually searchable even when the active locale is not `en`
-    // (see implementation: discoverability aliases must survive localization).
+    // (discoverability aliases must survive localization).
     keywords: normalizeKeywords([label, fileStem, template.language, description]),
     action: () => {
       const tab = createDefaultTab(template.language);

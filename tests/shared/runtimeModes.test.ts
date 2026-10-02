@@ -1,9 +1,9 @@
 /**
- * implementation unit tests for the shared `runtimeModes` module.
+ * Unit tests for the shared `runtimeModes` module.
  *
  * Pins the closed enum, the per-language default helper, the
  * implementation guard, the rehydrate coercion, and the
- * cycle helper used by the `Mod+Alt+M` shortcut (implementation note).
+ * cycle helper used by the `Mod+Alt+M` shortcut.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -58,7 +58,7 @@ describe('defaultRuntimeModeFor', () => {
   });
 });
 
-describe('isRuntimeModeImplemented (after implementation)', () => {
+describe('isRuntimeModeImplemented', () => {
   it('worker  + node  + browser-preview  are all implemented', () => {
     expect(isRuntimeModeImplemented('worker')).toBe(true);
     expect(isRuntimeModeImplemented('browser-preview')).toBe(true);
@@ -83,7 +83,7 @@ describe('coerceRuntimeMode (rehydrate defensive)', () => {
     expect(coerceRuntimeMode('worker', 'typescript')).toBe('worker');
   });
 
-  it('preserves browser-preview and node now that implementation both shipped', () => {
+  it('preserves browser-preview and node now that both shipped', () => {
     // node is implemented; preserved.
     expect(coerceRuntimeMode('node', 'javascript')).toBe('node');
     // browser-preview is implemented; preserved.
@@ -135,10 +135,10 @@ describe('parity with telemetry RUNTIME_MODE_VALUES', () => {
   });
 });
 
-describe('cycleRuntimeMode (implementation note)', () => {
+describe('cycleRuntimeMode', () => {
   it('cycles through every implemented mode in order', () => {
     // All five modes are implemented (worker, node, browser-preview, and
-    // the implementation deno/bun desktop runtimes), so the cycle walks the full
+    // the deno/bun desktop runtimes), so the cycle walks the full
     // RUNTIME_MODES order and wraps back to worker.
     expect(cycleRuntimeMode('worker')).toBe('node');
     expect(cycleRuntimeMode('node')).toBe('browser-preview');

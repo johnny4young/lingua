@@ -14,7 +14,7 @@
  *   1. Transpile TS through esbuild-wasm (same path the TS worker
  *      runner uses) so the desktop Node subprocess receives pure JS.
  *      JS tabs skip this step.
- *   2. Resolve the per-call timeout from the implementation settings store
+ *   2. Resolve the per-call timeout from the settings store
  *      (`runtimeTimeoutPresetByLanguage`) unless the caller passed
  *      an explicit override (one-shot extended, magic-comment, etc.).
  *   3. Fire the IPC handle (`window.lingua.node.run`) with the
@@ -26,7 +26,7 @@
  *      timeoutPreset / timeoutMs). Renderer adoption telemetry
  *      (`runtime.node_runner_used`) fires per-run with the closed-
  *      enum status bucket.
- *   5. Surface the first-run trust notice (implementation note) once per session,
+ *   5. Surface the first-run trust notice once per session,
  *      gated on `useUIStore` and the
  *      `nodeRunnerFirstRunNoticeShown` settings flag.
  *
@@ -38,7 +38,7 @@
  *   - Variable inspector  is hidden for `runtimeMode === 'node'`
  *     tabs — no worker-side capture hook.
  *   - Debug breakpoints are not honored. A future work could wire
- *     `node --inspect`, but implementation does not.
+ *     `node --inspect`, but this runner does not.
  */
 
 import i18next from 'i18next';
@@ -175,7 +175,7 @@ export class NodeRunner implements LanguageRunner {
       transpiled = transpileResult.js;
     }
 
-    // implementation note mirror — node mode does not capture
+    // Node mode does not capture
     // variable inspector data (no `globalThis` hook in a fresh
     // subprocess). The toggle hides on the renderer side.
 

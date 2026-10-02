@@ -187,7 +187,7 @@ describe('applyPasteIntent', () => {
     expect(pushEditOperations).toHaveBeenCalledTimes(1);
   });
 
-  it('routes an internal utility suggestion: seed first, then open, then strip', async () => {
+  it('routes a utility suggestion: seed first, then open, then strip', async () => {
     const { ctx, pushEditOperations } = makeCtx();
     const ok = await applyPasteIntent(
       { kind: 'utility', utilityId: 'jwt', source: 'aaa.bbb.ccc' },

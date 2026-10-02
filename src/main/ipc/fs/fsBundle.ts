@@ -183,7 +183,7 @@ export function registerBundleHandlers(
    * path, and re-checks the resolved absolute path stays under the chosen
    * dir before writing — never trusting a renderer-side preview. Files
    * are written as REGULAR files only (never symlinks), so a symlink
-   * entry decodes to an inert regular file that cannot escape (implementation note).
+   * entry decodes to an inert regular file that cannot escape.
    * On success it `rememberApprovedRoot`s the target so the renderer's
    * existing `openProject(rootPath)` → `fs:reopen-root` path adopts it.
    */

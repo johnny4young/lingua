@@ -11,8 +11,8 @@ import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
 
 /**
- * Privacy section — owns the internal telemetry consent toggle and the
- * internal native-execution acknowledgement reset. Three-state telemetry
+ * Privacy section — owns the telemetry consent toggle and the
+ * native-execution acknowledgement reset. Three-state telemetry
  * consent: `unset` (default, treated as opt-out), `granted`, `declined`.
  * Flipping the toggle moves between `granted` and `declined`; we never
  * revert to `unset` from the UI so the future first-run prompt stays

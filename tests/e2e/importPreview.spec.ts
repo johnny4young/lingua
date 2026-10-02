@@ -86,7 +86,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     await expect(page.getByText(/importa datos/i)).toBeVisible();
   });
 
-  test('pasting a Jupyter `.ipynb` payload previews the notebook (implementation, EN)', async ({
+  test('pasting a Jupyter `.ipynb` payload previews the notebook (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -116,13 +116,13 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     await expect(
       page.getByTestId('import-preview-notebook-summary')
     ).toContainText(/2 cells/);
-    // Confirm button label flips to the notebook variant (implementation note).
+    // Confirm button label flips to the notebook variant.
     await expect(page.getByTestId('import-preview-confirm')).toContainText(
       /Import as notebook/i
     );
   });
 
-  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo, implementation)', async ({
+  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'es' });
@@ -140,7 +140,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     ).toContainText(/formato v4/i);
   });
 
-  test('pasting a Postman collection previews every request (implementation, EN)', async ({
+  test('pasting a Postman collection previews every request (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

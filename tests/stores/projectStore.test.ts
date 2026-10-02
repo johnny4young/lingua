@@ -266,7 +266,7 @@ describe('collectExpandedPaths', () => {
 });
 
 // ---------------------------------------------------------------------------
-// depthOf — implementation depth guard
+// depthOf — depth guard
 // ---------------------------------------------------------------------------
 
 describe('depthOf', () => {
@@ -292,7 +292,7 @@ describe('depthOf', () => {
 });
 
 // ---------------------------------------------------------------------------
-// countFiles + collapseAll — implementation note
+// countFiles + collapseAll
 // ---------------------------------------------------------------------------
 
 describe('countFiles', () => {
@@ -595,7 +595,7 @@ describe('projectStore refreshTree', () => {
 });
 
 // ---------------------------------------------------------------------------
-// applyWatchChanges — implementation detail delta refresh
+// applyWatchChanges — delta refresh
 // ---------------------------------------------------------------------------
 
 describe('projectStore applyWatchChanges', () => {
@@ -634,7 +634,7 @@ describe('projectStore applyWatchChanges', () => {
     ];
   }
 
-  it('skips pure file change events: no readdir, tree identity unchanged (implementation note)', async () => {
+  it('skips pure file change events: no readdir, tree identity unchanged', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
     seedTree(baseTree());
     const before = useProjectStore.getState().nodes;
@@ -648,7 +648,7 @@ describe('projectStore applyWatchChanges', () => {
     expect(useProjectStore.getState().nodes).toBe(before);
   });
 
-  it('re-reads only the changed directory on a rename, preserving sibling identity (implementation note)', async () => {
+  it('re-reads only the changed directory on a rename, preserving sibling identity', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
     mockReaddir.mockImplementation(async (_rootId, relativePath) => {
       if (relativePath === 'src') {

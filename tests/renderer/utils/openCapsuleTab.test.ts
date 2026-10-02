@@ -3,7 +3,7 @@
  * fallback.
  *
  * A capsule whose `tab.language` is a workspace-kind marker (`'http'`
- * from internal, `'pipeline'` from internal) is NOT a real editor language
+ * or `'pipeline'`) is NOT a real editor language
  * pack. The opener must not hand that token to the editor as a
  * language; it falls back to `createDefaultTab`'s default so the
  * recipe/text renders in a normal, runnable tab. A real pack language
@@ -35,7 +35,7 @@ function makeCapsule(language: string, name = 'My capsule'): RunCapsuleV1 {
   };
 }
 
-describe('openCapsuleSourceInNewTab — non-code language fallback (implementation note)', () => {
+describe('openCapsuleSourceInNewTab — non-code language fallback', () => {
   beforeEach(() => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
   });

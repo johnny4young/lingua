@@ -8,8 +8,8 @@
  *   - Cell list: scrollable column of `<NotebookMarkdownCellRow>` +
  *     `<NotebookCodeCellRow>` interspersed in user-defined order.
  *
- * implementation mount-virtualized the Monaco editor (only the active cell
- * hosts a live editor). implementation windows the ROW COUNT via the shared
+ * An earlier change mount-virtualized the Monaco editor (only the active cell
+ * hosts a live editor). The view now windows the ROW COUNT via the shared
  * `useListWindow` hook: only the rows whose vertical band intersects the
  * viewport (plus an overscan margin) mount, with two spacer `<li>`s
  * preserving the scrollbar geometry. In jsdom (`clientHeight === 0`) the
@@ -232,7 +232,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   );
 
   // Switch a cell's language via the header selector +
-  // emit the implementation note adoption signal. JS / TS / Python are all runnable
+  // emit the language adoption signal. JS / TS / Python are all runnable
   // now; the handler still guards programmatic events against a
   // hypothetical non-runnable code-cell language so the store + telemetry
   // never carry one.
@@ -306,7 +306,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [getLiveNotebookCells]
   );
 
-  // Jupyter-parity run keybinds. implementation (Monaco cells): a code cell
+  // Jupyter-parity run keybinds. With Monaco cells, a code cell
   // no longer has an always-mounted textarea to focus, so "advance into
   // edit mode" routes through the edit-request mechanism — select the cell
   // and bump its edit nonce, which mounts its Monaco editor (it focuses
@@ -338,7 +338,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
 
   // Focus a cell SHELL (command mode) after the next paint — used after
   // a structural edit so focus follows the active cell back into command
-  // mode rather than getting orphaned on a removed element. implementation: scroll
+  // mode rather than getting orphaned on a removed element. Scroll
   // the target into the window first (double rAF: one frame for the window-
   // recompute render to mount the row, one to query + focus it), since an
   // off-screen shell is unmounted and `querySelector` would miss it.

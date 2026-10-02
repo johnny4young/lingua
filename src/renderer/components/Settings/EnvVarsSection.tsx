@@ -181,9 +181,9 @@ function EffectiveEnvPanel({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  // processEnv intentionally stays empty: implementation put the host env
-  // boundary on main-process side, so the renderer trace never claims a
-  // host-tier value it couldn't actually observe. implementation will surface
+  // processEnv intentionally stays empty: the host env
+  // boundary is main-process side, so the renderer trace never claims a
+  // host-tier value it couldn't actually observe. A later change will surface
   // the main-side merge separately.
   const trace = useMemo(
     () =>
@@ -368,7 +368,7 @@ function ScopeEmpty({ testid, message }: { testid: string; message: string }) {
   const { t } = useTranslation();
   return (
     <div
-      className="rounded-lg border border-dashed border-border-default px-4 py-8"
+      className="rounded-lg border border-dashed border-border-default px-4 py-16"
       data-testid={testid}
     >
       <EmptyState

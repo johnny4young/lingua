@@ -94,7 +94,7 @@ describe('useAutoRun', () => {
     useExecutionHistoryStore.setState(initialHistory, true);
     resetNotebookRunnerLocksForTests();
     // pre-acknowledge native execution so the existing
-    // Go/Rust auto-run cases bypass the gate. The dedicated internal
+    // Go/Rust auto-run cases bypass the gate. The dedicated native-execution
     // test below explicitly resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });

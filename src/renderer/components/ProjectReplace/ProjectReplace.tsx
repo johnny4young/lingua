@@ -7,10 +7,10 @@
  * Replace-with input below the Find input, regex + case toggles, a
  * grouped-by-file preview with inline before/after diff, per-file
  * `Apply` buttons + a global `Apply to all` confirmation modal,
- * an `Apply queue` progress strip (implementation note), per-match diff hover
- * popover (implementation note), an `Excludes` chip strip in the header (implementation note).
+ * an `Apply queue` progress strip, per-match diff hover
+ * popover, an `Excludes` chip strip in the header.
  *
- * Apply dispatch (implementation note — surface open tab before apply): when a
+ * Apply dispatch (surface open tab before apply): when a
  * replace targets a file already open in `editorStore.tabs` with a
  * matching `filePath`, the overlay switches the active tab to that
  * file FIRST so the user can observe the change. The substitution
@@ -281,7 +281,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
         return;
       }
       const result = await applyToFileAction(relativePath);
-      // Reviewer-flagged HIGH (implementation note Monaco path was dead code).
+      // The previous Monaco-model path was dead code.
       // Refresh the in-memory tab from disk on success so the open
       // tab's buffer reflects the replacement.
       if (result.ok && matchingTab) {
@@ -289,7 +289,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
       }
       void trackEvent('editor.replace_in_files_applied', {
         scope: 'single-file',
-        // implementation reviewer pass — bucket the real replaced
+        // Reviewer pass — bucket the real replaced
         // count (0 included). The previous `|| 1` fallback mapped
         // every failed apply to bucket `'1'`, inflating the
         // "successful replace" telemetry with no-op events.

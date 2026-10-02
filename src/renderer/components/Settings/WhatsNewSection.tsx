@@ -162,7 +162,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 placeholder={t('whatsNew.search.placeholder')}
                 aria-label={t('whatsNew.search.ariaLabel')}
                 data-testid="changelog-search"
-                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-16 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
             </div>
             {/* accessibility pass — announce the filtered result count to screen

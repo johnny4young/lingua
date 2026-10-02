@@ -12,8 +12,8 @@
  *     so the renderer paints it as a non-clickable span. We never
  *     throw on malformed input.
  *   - **No source-map resolution.** Whatever the worker reports
- *     literally is what we keep. Source-map resolution is internal
- *     lane crossover; not in this change.
+ *     literally is what we keep. Source-map resolution is a
+ *     separate lane; not in this change.
  *   - **Pure shared module.** Used by JS worker + Python worker +
  *     renderer + tests. No imports from renderer-only code.
  */
@@ -70,7 +70,7 @@ const V8_WITHOUT_NAME = /^\s*at\s+(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 const SPIDERMONKEY = /^\s*(?<fn>.*?)@(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 
 /**
- * implementation Prerequisite fix — eval-internal heuristic.
+ * Eval-internal heuristic.
  *
  * In Lingua, user code runs inside an AsyncFunction inside the Web
  * Worker, so V8 produces frames like:

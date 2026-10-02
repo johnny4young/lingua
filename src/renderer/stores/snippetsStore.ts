@@ -57,7 +57,7 @@ export const useSnippetsStore = create<SnippetsState>()(
       pendingLinkedSnippetId: null,
 
       addSnippet: (snippet) => {
-        // internal: enforce the Free tier snippet ceiling. Grandfather any
+        // Enforce the Free tier snippet ceiling. Grandfather any
         // snippets already saved above the ceiling (users don't lose
         // data); only future additions are refused.
         const current = useSnippetsStore.getState().snippets.length;

@@ -1,5 +1,5 @@
 /**
- * internal Signal-Slate v2 — `useDraggable`.
+ * Signal-Slate v2 — `useDraggable`.
  *
  * Pointer-based drag hook that persists the resulting `{x,y}` to
  * `localStorage` under a caller-supplied key. The hook clamps to the

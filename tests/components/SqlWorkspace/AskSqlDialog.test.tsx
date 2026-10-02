@@ -34,7 +34,7 @@ const tables = [
   },
 ];
 
-describe('AskSqlDialog (implementation NL→SQL)', () => {
+describe('AskSqlDialog (NL→SQL)', () => {
   beforeAll(async () => {
     await initI18n('en');
     await i18next.changeLanguage('en');

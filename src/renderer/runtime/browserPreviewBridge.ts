@@ -13,7 +13,7 @@
  * Mirrors the pattern in `debuggerWorkerBridge.ts`
  * so a follow-up reviewer recognises the shape.
  *
- * Reference: implementation and
+ * Reference:
  * docs/RUNTIME_MODES_ADR.md § Decision 6.
  */
 

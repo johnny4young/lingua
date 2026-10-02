@@ -249,7 +249,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().showTimestamps).toBe(true);
   });
 
-  // --- implementation note — payload-kind filter tests ---
+  // --- payload-kind filter tests ---
 
   it('starts with an empty hiddenPayloadKinds set', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
@@ -271,7 +271,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
   });
 
-  // --- implementation — additive payload field on entries ---
+  // --- additive payload field on entries ---
 
   it('preserves the rich payload alongside content when present', () => {
     useConsoleStore.getState().addEntry({
@@ -291,7 +291,7 @@ describe('consoleStore', () => {
     expect(entry.payload).toBeUndefined();
   });
 
-  // --- implementation detail — store-side collapse + equality hash ---
+  // --- store-side collapse + equality hash ---
 
   it('stamps a stable equalityHash on each entry', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'same' });

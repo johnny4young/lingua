@@ -428,7 +428,7 @@ describe('settingsStore', () => {
     expect(persisted.state).not.toHaveProperty('showVariableInspectorByDefault');
   });
 
-  it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (implementation OPFS)', async () => {
+  it('coerces a tampered sqlWorkspacePersistTables to a strict boolean on rehydrate (OPFS)', async () => {
     localStorage.setItem(
       'lingua-settings',
       JSON.stringify({
@@ -446,7 +446,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
   });
 
-  it('setSqlWorkspacePersistTables coerces non-boolean input to false (implementation OPFS)', () => {
+  it('setSqlWorkspacePersistTables coerces non-boolean input to false (OPFS)', () => {
     useSettingsStore.getState().setSqlWorkspacePersistTables(true);
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(true);
     // @ts-expect-error — exercising the runtime guard with a bad value.
@@ -815,7 +815,7 @@ describe('settingsStore', () => {
   });
 
   describe('workflow mode defaults', () => {
-    it('seeds the three Scratchpad languages on a fresh store (implementation note)', () => {
+    it('seeds the three Scratchpad languages on a fresh store', () => {
       const defaults = useSettingsStore.getState().workflowModeDefaultsByLanguage;
       expect(defaults).toEqual({
         javascript: 'scratchpad',
@@ -862,7 +862,7 @@ describe('settingsStore', () => {
       ).toBeUndefined();
     });
 
-    it('rehydrates persisted overrides + reseeds blank slots (implementation note)', async () => {
+    it('rehydrates persisted overrides + reseeds blank slots', async () => {
       // Persist a single explicit override (Python → Run) and assert
       // that the seed fills the remaining JS / TS slots without
       // overwriting the user choice.
@@ -933,7 +933,7 @@ describe('settingsStore', () => {
       }
     });
 
-    it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter (implementation note)', () => {
+    it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter', () => {
       expect(
         useSettingsStore.getState().firstWorkflowModeSwitchAcknowledged
       ).toBe(false);
@@ -1013,7 +1013,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('showStdinPanel master toggle (implementation note)', () => {
+  describe('showStdinPanel master toggle', () => {
     it('defaults to true on a fresh store', () => {
       expect(useSettingsStore.getState().showStdinPanel).toBe(true);
     });
@@ -1160,7 +1160,7 @@ describe('settingsStore', () => {
       expect(stored.go).toBe('normal');
     });
 
-    it('toggleShowTimeoutCountdown flips the implementation note flag', () => {
+    it('toggleShowTimeoutCountdown flips the countdown flag', () => {
       expect(useSettingsStore.getState().showTimeoutCountdown).toBe(false);
       useSettingsStore.getState().toggleShowTimeoutCountdown();
       expect(useSettingsStore.getState().showTimeoutCountdown).toBe(true);

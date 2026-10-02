@@ -1,8 +1,8 @@
 /**
- * implementation visual smoke matrix.
+ * Rich console visual smoke matrix.
  *
  * These tests use the test-only console seeding hook to validate the
- * renderer surface that workers do not emit until implementation. Each case
+ * renderer surface that workers do not emit. Each case
  * captures a named screenshot under output/playwright/rich-console-gallery.
  */
 
@@ -64,7 +64,7 @@ const sampleChartSpec = {
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('rich console implementation visual matrix', () => {
+test.describe('rich console visual matrix', () => {
   test.beforeAll(() => {
     fs.rmSync(screenshotDir, { recursive: true, force: true });
     fs.mkdirSync(screenshotDir, { recursive: true });

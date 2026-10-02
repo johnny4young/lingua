@@ -374,7 +374,7 @@ export class PythonRunner implements LanguageRunner {
 
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
-        // internal runId guard. Drop buffered output from a previous,
+        // RunId guard. Drop buffered output from a previous,
         // killed run; the persistent Pyodide worker can otherwise
         // leak stale stdout / stderr into the next call.
         if (!('runId' in msg) || msg.runId !== runId) return;
@@ -394,7 +394,7 @@ export class PythonRunner implements LanguageRunner {
           case 'console': {
             // Forward the additive payload from the
             // Pyodide worker. Absent on text-only fallback paths
-            // (sys.stdout.write bypasses the print override, implementation note
+            // (sys.stdout.write bypasses the print override, or rich-console
             // disabled mode), so the renderer's text path stays the
             // canonical fallback.
             const originalLine = sourceLineFor(msg.line);
@@ -405,7 +405,7 @@ export class PythonRunner implements LanguageRunner {
             // Adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg
-            // `print(a, b, c)` ships three aligned payloads (implementation note)
+            // `print(a, b, c)` ships three aligned payloads
             // and emits three events. This gives the dashboard the
             // per-kind distribution directly without needing a JOIN
             // against the renderer-side `runtime.console_rich_rendered`
@@ -437,7 +437,7 @@ export class PythonRunner implements LanguageRunner {
             // runner-side forwarding of
             // the Python worker's rich-media rejection flag. Closes
             // the runner-side telemetry hook that was deferred since
-            // implementation (see `buildLinguaWorkerBridge` in js-worker.ts
+            // the JS bridge (see `buildLinguaWorkerBridge` in js-worker.ts
             // and `buildPythonRichMediaBridge` in python-worker.ts).
             if (msg.richMediaRejected) {
               const { kind, reason } = msg.richMediaRejected;
@@ -472,7 +472,7 @@ export class PythonRunner implements LanguageRunner {
             // text value (preferred), or we recover one client-side by
             // round-tripping the `value` string through
             // `tryParseJsonForPayload` + `forceTablePayload`. Mirrors
-            // the JS / TS runner pattern from implementation.
+            // the JS / TS runner pattern.
             //
             // Widened to `chart` / `image` /
             // `html` via the shared `payloadForRichMediaMagicDirective`
@@ -577,7 +577,7 @@ export class PythonRunner implements LanguageRunner {
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
-      // implementation third increment — pipe the resolved user env
+      // Pipe the resolved user env
       // into the Pyodide worker so user code's `os.environ` reflects
       // the global / project / tab tiers. Empty record keeps the
       // worker's fast path untouched.

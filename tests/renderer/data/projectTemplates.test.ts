@@ -6,11 +6,11 @@
  *
  * Per-template invariants:
  *
- *   - `parseProjectTemplate(template).ok === true` (implementation note-F payload
+ *   - `parseProjectTemplate(template).ok === true` (payload
  *     surfaces would silently break otherwise).
  *   - Every file content contains an SPDX-License-Identifier line OR
  *     (for `package.json`) the JSON declares `"license": "MIT"`.
- *   - A `.gitignore` is present per implementation note so the first commit is
+ *   - A `.gitignore` is present so the first commit is
  *     never a `node_modules/` / `.venv/` footgun.
  *   - The entry file is one of the declared files (defense in depth
  *     vs. parseProjectTemplate; structural guard reads more clearly
@@ -62,7 +62,7 @@ describe('PROJECT_TEMPLATES — structural invariants', () => {
   );
 
   it.each(PROJECT_TEMPLATES.map((t) => [t.id, t] as const))(
-    '%s ships a .gitignore (implementation note)',
+    '%s ships a .gitignore',
     (_id, template) => {
       const ignore = template.files.find((f) => f.relPath === '.gitignore');
       expect(ignore).toBeDefined();
@@ -71,7 +71,7 @@ describe('PROJECT_TEMPLATES — structural invariants', () => {
   );
 
   it.each(PROJECT_TEMPLATES.map((t) => [t.id, t] as const))(
-    '%s emits SPDX or license=MIT on every file (implementation note)',
+    '%s emits SPDX or license=MIT on every file',
     (_id, template) => {
       for (const file of template.files) {
         const hasSpdx = file.content.includes('SPDX-License-Identifier:');

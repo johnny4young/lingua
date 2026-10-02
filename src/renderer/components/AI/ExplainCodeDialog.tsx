@@ -26,7 +26,7 @@ import { Sparkles, X } from 'lucide-react';
 import {
   buildExplainCodeRequest,
 } from '../../../shared/ai/explainCode';
-import type { ChatMessage } from '../../../shared/ai/explainError';
+import { answerLanguageFor, type ChatMessage } from '../../../shared/ai/explainError';
 import { runChatCompletion, type AiChatResult } from '../../runtime/aiClient';
 import { aiFailureMessage } from '../../runtime/aiFailureMessage';
 import { useAiConfigStore, isAiConfigured } from '../../stores/aiConfigStore';
@@ -55,7 +55,8 @@ export function ExplainCodeDialog({
   onClose,
   runChatCompletionImpl,
 }: ExplainCodeDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const answerLanguage = answerLanguageFor(i18n.resolvedLanguage);
   const entitled = useEntitlement('LOCAL_AI');
   const endpoint = useAiConfigStore((s) => s.endpoint);
   const apiKey = useAiConfigStore((s) => s.apiKey);
@@ -71,9 +72,10 @@ export function ExplainCodeDialog({
         code,
         language,
         ...(filename ? { filename } : {}),
+        ...(answerLanguage ? { answerLanguage } : {}),
         ...(model ? { model } : {}),
       }),
-    [code, language, filename, model]
+    [code, language, filename, model, answerLanguage]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });

@@ -1,5 +1,5 @@
 /**
- * internal release security checklist guard — keeps the public-release
+ * Release security checklist guard — keeps the public-release
  * security sign-off tied to Lingua's highest-risk surfaces.
  */
 

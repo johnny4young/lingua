@@ -3,7 +3,7 @@
  *
  * The detector runs from the real Monaco buffer, then the shortcut
  * opens the bottom-panel tab. Web classifies JS/TS packages as
- * desktop-only in implementation, which is the honest state until install
+ * desktop-only, which is the honest state until install
  * support lands in later work.
  */
 
@@ -46,7 +46,7 @@ async function openDependenciesFromShortcut(page: Page): Promise<void> {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Dependencies panel — implementation', () => {
+test.describe('Dependencies panel', () => {
   test('detects a JS import and opens the panel in English', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await enableDependencyDetection(page);

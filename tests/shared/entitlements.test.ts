@@ -1,5 +1,5 @@
 /**
- * Guards the internal tier policy. Every Free-tier ceiling lives in one place
+ * Guards the tier policy. Every Free-tier ceiling lives in one place
  * and paid tiers collapse to the full entitlement set; this test locks that
  * invariant so an accidental refactor cannot silently grant paid features
  * to Free or vice versa.
@@ -20,7 +20,7 @@ import {
 import { LICENSE_TIERS } from '../../src/shared/license';
 
 describe('entitlements policy', () => {
-  it('ENTITLEMENTS enum covers the 11 entries named in the internal scope', () => {
+  it('ENTITLEMENTS enum covers the 11 entries named in the scope', () => {
     expect([...ENTITLEMENTS].sort()).toEqual(
       [
         'BENCHMARK',

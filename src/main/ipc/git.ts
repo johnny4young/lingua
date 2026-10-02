@@ -16,7 +16,7 @@
  * via `validateRepoRelativePath`); this module is a thin marshaling
  * layer that only normalizes the raw IPC tuple into typed arguments.
  *
- * implementation is read-only. There is no write surface; a future work
+ * The git layer is read-only. There is no write surface; a future work
  * with `git:add` / `git:commit` would register here too, behind an
  * explicit feature gate.
  */
@@ -43,7 +43,7 @@ import {
 import { isPathBlocked } from './permissions';
 
 /**
- * internal gate for the git read-only layer. The git handlers are
+ * Gate for the git read-only layer. The git handlers are
  * the one IPC surface that receives raw absolute paths (the repo toplevel
  * can sit ABOVE the approved project root, so a rootId capability cannot
  * express it). Before this gate they accepted ANY path — `git:diff` would

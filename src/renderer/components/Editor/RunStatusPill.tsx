@@ -55,7 +55,7 @@ export function RunStatusPill({ compact = false }: { compact?: boolean } = {}) {
     return () => clearInterval(handle);
   }, [showCountdown, runDeadlineAt]);
 
-  // In-flight countdown (implementation note). Wins over the post-termination
+  // In-flight countdown. Wins over the post-termination
   // variant so the user sees the live counter, not a stale "Error"
   // pill from a previous run. The countdown is informational (not an
   // alarm yet), so it adopts the quiet `neutral` StatusBadge tone.

@@ -14,7 +14,7 @@
  *     passed by path. We never interpolate user input into a shell
  *     command line, so command injection is impossible at this layer.
  *   - Env: `buildNativeRunnerEnv(combinedAllowlist(RUBY_TOOLCHAIN_KEYS),
- *     userEnv)`. internal allowlist + internal user-tier env.
+ *     userEnv)`. Host allowlist + user-tier env.
  *     Lingua's full host env is NOT forwarded.
  *   - Cwd: `path.dirname(filePath)` for saved tabs, `app.getPath('temp')`
  *     for Scratchpad. The runner walks up looking for a `.ruby-version` file
@@ -107,7 +107,7 @@ interface RubyRunOptions {
   timeoutMs?: number;
   /** Source-file path of the active tab. `undefined` for Scratchpad. */
   filePath?: string;
-  /** Per-run user-env tier from internal */
+  /** Per-run user-env tier. */
   userEnv?: Record<string, string>;
   /** Stdin buffer. Empty / undefined closes stdin immediately. */
   stdin?: string;

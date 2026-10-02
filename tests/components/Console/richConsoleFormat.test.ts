@@ -32,7 +32,7 @@ vi.mock('@/utils/upsellNotice', () => ({
   pushUpsellNotice: chartMocks.pushUpsellNotice,
 }));
 
-describe('richConsoleFormat — implementation helpers', () => {
+describe('richConsoleFormat — helpers', () => {
   it('richKindBucket maps every payload kind into the closed-enum bucket', () => {
     const cases: Array<[RichOutputPayload, string]> = [
       [{ kind: 'table', columns: [], rows: [] }, 'table'],
@@ -104,7 +104,7 @@ describe('richConsoleFormat — implementation helpers', () => {
       payloadHasRichSurface({ kind: 'primitive', type: 'string', repr: 'x' })
     ).toBe(false);
     expect(payloadHasRichSurface({ kind: 'function', name: 'f' })).toBe(false);
-    // implementation: stack-less errors stay on the text path; the
+    // Stack-less errors stay on the text path; the
     // dispatcher only opens the popover when a structured `stack`
     // is present.
     expect(payloadHasRichSurface({ kind: 'error', message: 'oh' })).toBe(false);
@@ -157,7 +157,7 @@ const chartPayload = {
   },
 };
 
-describe('RichValueChart — implementation', () => {
+describe('RichValueChart', () => {
   beforeEach(() => {
     chartMocks.canExportChart = false;
     chartMocks.finalize.mockReset();

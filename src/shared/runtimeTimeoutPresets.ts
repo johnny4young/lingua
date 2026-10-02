@@ -41,9 +41,9 @@ const PRESET_MS: Record<RuntimeTimeoutPreset, number> = {
 };
 
 /**
- * Languages whose run-time preset implementation wires through. Rust
+ * Languages whose run-time preset wires through. Rust
  * (desktop child-process kill in main) and the LSP-only entries are
- * intentionally out. implementation added Ruby once the @ruby/wasm-wasi
+ * intentionally out. Ruby joined once the @ruby/wasm-wasi
  * web runner shipped; the preset list drives the Settings UI rows so a
  * runnable web language must enroll or its row disappears.
  */

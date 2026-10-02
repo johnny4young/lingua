@@ -27,7 +27,7 @@ export type DiffGranularity = 'line' | 'word' | 'character';
 export const DIFF_MAX_INPUT_CHARS = 40_000;
 
 /**
- * implementation note tokenizers into a single entry point. `granularity` decides
+ * Fold the tokenizers into a single entry point. `granularity` decides
  * how both sides are tokenized; the output is always `DiffSegment[]` with
  * adjacent runs of the same kind merged.
  */

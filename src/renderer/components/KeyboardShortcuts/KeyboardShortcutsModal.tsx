@@ -480,7 +480,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 placeholder={t('shortcuts.searchPlaceholder')}
                 value={query}
                 onChange={event => setQuery(event.target.value)}
-                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-16 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
               {query.length > 0 ? (
                 <button

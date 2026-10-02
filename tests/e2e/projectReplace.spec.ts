@@ -1,7 +1,7 @@
 /**
  * Keyboard contract for project replace.
  *
- * implementation acceptance: Cmd+Shift+H opens the "Replace in files" overlay
+ * Acceptance: Cmd+Shift+H opens the "Replace in files" overlay
  * (the companion to Cmd+Shift+F find-in-files). We don't pick a real
  * project folder here because the web build's `showDirectoryPicker`
  * is a user-gesture-only API and can't be scripted in Playwright

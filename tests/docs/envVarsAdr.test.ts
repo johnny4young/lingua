@@ -22,7 +22,7 @@ describe('ENV_VARS_ADR.md', () => {
     expect(adr).toMatch(/Date\s*\|\s*2026-04-20/u);
   });
 
-  it('answers the three internal scoping questions', () => {
+  it('answers the three scoping questions', () => {
     expect(adr).toMatch(/## Decisions/u);
     // Q1: runtimes
     expect(adr).toMatch(/### 1\. Runtimes that receive env vars/iu);

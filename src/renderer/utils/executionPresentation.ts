@@ -72,7 +72,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
     for (const magicResult of result.magicResults) {
       // Runners tag each result with `kind` so the
       // panel can render the `@watch` pin distinct from the `=>`
-      // arrow. implementation — adds `'autoLog'` (bare-expression
+      // arrow and the `'autoLog'` (bare-expression
       // auto-capture). Default to `'magic'` for any runner that
       // emits a result without a kind (forward-compat with future
       // adapters).

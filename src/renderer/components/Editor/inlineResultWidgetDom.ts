@@ -93,7 +93,7 @@ export function renderInlineResultNode(
 
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';
-    // Prerequisite fix (internal overflow): cap the rendered string so
+    // Prerequisite fix (overflow): cap the rendered string so
     // the overlay widget never overruns the editor viewport. The
     // legacy `//=>` arrow on a large array used to paint past the
     // gutter; this keeps the pill inside the editor padding. Rich

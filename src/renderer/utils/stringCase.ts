@@ -49,7 +49,7 @@ export function toWords(input: string): string[] {
   for (const run of runs) {
     if (run.length === 0) continue;
     // Runs that have zero ASCII alphanumeric characters are kept whole —
-    // think CJK, emoji, Arabic, etc. We neither case-implementation note split them.
+    // think CJK, emoji, Arabic, etc. We neither case-convert nor split them.
     const hasAscii = Array.from(run).some((ch) => ASCII_ALNUM.test(ch));
     if (!hasAscii) {
       words.push(run);

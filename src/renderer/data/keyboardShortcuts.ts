@@ -46,8 +46,8 @@ export const KEYBOARD_SHORTCUTS = [
   },
   {
     // Cycle through the implemented JS/TS
-    // runtime modes on the active tab. implementation only has `worker`, so
-    // the cycle is a no-op; implementation and implementation light up the same
+    // runtime modes on the active tab. Originally only `worker` existed, so
+    // the cycle was a no-op; later modes light up the same
     // shortcut as `node` and `browser-preview` come online.
     id: 'run-cycle-runtime-mode',
     group: 'run',
@@ -57,7 +57,7 @@ export const KEYBOARD_SHORTCUTS = [
     // Cycle the active tab's workflow mode
     // (Run → Debug → Scratchpad → Run) while skipping unsupported
     // segments for the language. Mirrors the `Mod+Shift+B`
-    // breakpoint-toggle pattern from implementation
+    // breakpoint-toggle pattern.
     id: 'run-cycle-workflow-mode',
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'M'] }],
@@ -261,7 +261,7 @@ export const KEYBOARD_SHORTCUTS = [
     // Open the global Recipes overlay so the
     // user can browse curated practice problems and load one into a
     // new tab. Mod+Alt+L (L for Lessons / Library). Verified free vs
-    // the catalog — Mod+Shift+L is the internal share-link copy,
+    // the catalog — Mod+Shift+L is the share-link copy,
     // Mod+Alt+R is utility-replace-clipboard, Mod+Alt+I is the new
     // Import overlay, Mod+Alt+S is SQL workspace, Mod+Alt+H is the
     // recent-runs popover. Cmd+Alt+L is unused in Chrome and not a
@@ -274,7 +274,7 @@ export const KEYBOARD_SHORTCUTS = [
     // Create a fresh notebook tab from
     // anywhere via Mod+Alt+N (N for Notebook). Verified free vs the
     // catalog: Mod+Shift+N is browser "new window", Mod+Alt+L is
-    // internal Recipes, Mod+Alt+I is internal import, Mod+Alt+S is SQL,
+    // Recipes, Mod+Alt+I is import, Mod+Alt+S is SQL,
     // Mod+Alt+H is recent-runs. Browser/macOS: Cmd+Alt+N is unused
     // in Chrome; macOS lockscreen lives on Ctrl+Cmd+Q.
     id: 'action-new-notebook',

@@ -52,7 +52,7 @@ export interface FileTab {
    */
   filePath?: string;
   /**
-   * internal capability binding. The `rootId` is a process-lifetime token
+   * Capability binding. The `rootId` is a process-lifetime token
    * minted when the picker resolved this file (single-file open or
    * save-as) or when the file was opened from inside the active
    * project tree. `relativePath` is the file path inside that root.
@@ -75,8 +75,8 @@ export interface FileTab {
   /**
    * Explicit per-tab runtime mode for JS/TS tabs.
    * `'worker'` for all freshly created JS/TS tabs; `undefined` for
-   * every other language. implementation surfaced `'browser-preview'` for
-   * the iframe-isolated preview pane; implementation will surface `'node'`
+   * every other language. An earlier change surfaced `'browser-preview'` for
+   * the iframe-isolated preview pane; a later change will surface `'node'`
    * once the desktop child-process backend lands.
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
@@ -85,7 +85,7 @@ export interface FileTab {
    * Explicit per-tab workflow mode. Three values:
    *
    *   - `scratchpad` — auto-run fires on debounced keystrokes
-   *     (gated by the implementation completion heuristic). Default for
+   *     (gated by the completion heuristic). Default for
    *     Scratchpad-capable languages (JS / TS / Python today).
    *   - `run` — auto-run is OFF. Manual Mod+Enter still works. Default
    *     for compiled / validate / view-only tabs and the fall-back
@@ -229,7 +229,7 @@ export interface EditorState {
   addTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   /**
    * Grandfather an array of tabs into the store without consulting the
-   * internal tier ceiling. Only the session-restore path should use this
+   * tier ceiling. Only the session-restore path should use this
    * so users' prior workspaces are never truncated by a Free downgrade.
    */
   restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
@@ -266,7 +266,7 @@ export interface EditorState {
    * (and a status-notice toast) when:
    *   - the tab does not own a runtime-mode surface (non-JS/TS), or
    *   - the requested mode is not yet implemented (`'node'` until
-   *     implementation lands).
+   *     a later change lands).
    * Telemetry (`runtime.mode_changed`) fires on every successful
    * change.
    */

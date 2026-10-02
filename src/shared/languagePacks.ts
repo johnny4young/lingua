@@ -6,9 +6,9 @@
  * `languageCapabilities.ts` now proxy to this array so adding a new
  * built-in language only requires a new entry here plus an i18n key.
  *
- * implementation is intentionally **zero-behavior-change**: every consumer
- * still goes through the legacy helper names. implementation (runner
- * dispatch) and C (capability-aware UI) live in
+ * This module is intentionally **zero-behavior-change**: every consumer
+ * still goes through the legacy helper names. Runner
+ * dispatch and capability-aware UI live in
  * `docs/LANGUAGE_PACK_ADR.md` and ship in follow-up sessions.
  *
  * Constraint per the ADR: NO third-party arbitrary-code loading is
@@ -65,7 +65,7 @@ interface LanguagePackCapabilities {
    * `none` = keyword + snippet completions only.
    */
   lsp: LanguagePackLspSupport;
-  /** internal debugger MVP gate. */
+  /** Debugger MVP gate. */
   debugger: LanguagePackDebuggerSupport;
   /**
    * Things the runtime expects on the host. Empty for self-contained
@@ -230,7 +230,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
       '-- Lua example\nlocal function greet(name)\n  print("Hello, " .. name .. "!")\nend\n\ngreet("Lingua")\n',
     execution: 'run',
     // Lua's runner is plugin-sourced (see src/renderer/plugins/lua-runner.ts
-    // + plugins/catalog.ts). implementation keeps `runnerId` populated so the pack
+    // + plugins/catalog.ts). This keeps `runnerId` populated so the pack
     // array's invariant ("every runnable pack ships a runnerId") stays
     // intact, but `RunnerManager` intentionally has no factory for it —
     // resolution falls through to `pluginRegistry`. This proves the
@@ -250,7 +250,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     extensions: ['rb'],
     monacoLanguage: 'ruby',
     defaultCode: "# Ruby example\nputs 'Hello, Lingua'\n",
-    // implementation: Ruby runs through the bundled @ruby/wasm-wasi
+    // Ruby runs through the bundled @ruby/wasm-wasi
     // worker on web and can prefer the host `ruby` subprocess on desktop.
     // The desktop path is optional because the WASM worker remains a
     // runnable fallback when the system binary is absent.
@@ -275,7 +275,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     extensions: ['c', 'h'],
     monacoLanguage: 'c',
     defaultCode: "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello, Lingua\\n\");\n    return 0;\n}\n",
-    // implementation: C ships validate-only, same posture as Ruby.
+    // C ships validate-only, same posture as Ruby.
     // A native toolchain runner (gcc / clang) lands in a follow-up work
     // that deals with desktop-only subprocess wiring; the pack entry
     // today exists so file detection + Monaco highlighting work for any

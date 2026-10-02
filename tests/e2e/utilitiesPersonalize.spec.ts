@@ -12,7 +12,7 @@
  * Single-shot Developer Utilities are Free; this personalize suite
  * seeds Pro because it exercises the paid productivity layer
  * (persistent history + clipboard automation). The blocking smoke
- * gate the user elevated for implementation carries over — the slice does
+ * gate the user elevated earlier carries over — the slice does
  * not close until every assertion stays green.
  */
 
@@ -205,7 +205,7 @@ test.describe('personalize gesture smoke', () => {
 
       // Open history drawer — labels in Spanish.
       await page.getByTestId('utility-history-drawer').click();
-      await expect(page.getByText('Guarda entre recargas')).toBeVisible();
+      await expect(page.getByText('Guardar entre recargas')).toBeVisible();
       await closeDeveloperUtilities(page);
 
       // Settings — clipboard toggle status reads in Spanish.

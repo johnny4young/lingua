@@ -378,7 +378,7 @@ export function installJsWorkerConsoleProxy(
       args: textArgs,
       payload: payloads,
       line,
-      // implementation note adoption signal — surfaced as a separate
+      // `console.table` adoption signal — surfaced as a separate
       // `runtime.console_table_called` telemetry event by the runner
       // when it sees this flag (the worker is renderer-blind).
       consoleTableInvoked: true,

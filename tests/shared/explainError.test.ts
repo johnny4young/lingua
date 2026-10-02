@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  answerLanguageFor,
   buildExplainErrorRequest,
   redactSecretsFromCode,
   MAX_EXPLAIN_CODE_CHARS,
@@ -146,5 +147,23 @@ describe('buildExplainErrorRequest', () => {
       language: 'python',
     });
     expect(req.messages[1]!.content).not.toContain('Runtime:');
+  });
+});
+
+describe('answer language', () => {
+  it('asks for the UI language only when it is not English', () => {
+    expect(answerLanguageFor('es')).toBe('Spanish');
+    expect(answerLanguageFor('es-MX')).toBe('Spanish');
+    expect(answerLanguageFor('en')).toBeUndefined();
+    const spanish = buildExplainErrorRequest({
+      errorMessage: 'TypeError',
+      code: 'x.y',
+      language: 'javascript',
+      answerLanguage: 'Spanish',
+    });
+    expect(spanish.messages[1]!.content).toContain('Answer in: Spanish\n');
+    expect(spanish.preview).toContain('Answer in: Spanish');
+    const english = buildExplainErrorRequest({ errorMessage: 'TypeError', code: 'x.y', language: 'javascript' });
+    expect(english.messages[1]!.content).not.toContain('Answer in:');
   });
 });

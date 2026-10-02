@@ -126,7 +126,7 @@ function AppChrome({
   const { exportProjectBundle } = useProjectBundle();
   const hasHandledAutoTourRef = useRef(false);
   // boot-time session restore (extracted to a hook to keep App.tsx
-  // under the internal size budget). Owns the `always`/`ask`/`never` decision
+  // under the size budget). Owns the `always`/`ask`/`never` decision
   // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
   const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
   useBootCompletionMarkers(sessionRestoreReady);
@@ -161,7 +161,7 @@ function AppChrome({
   });
   // Default consumer for the
   // `file.open` command emitted by <RichValueError>
-  // when users click a stack frame. Until internal multi-file workspace
+  // when users click a stack frame. Until multi-file workspace
   // ships the real open-in-editor handler, this hook shows a
   // status-notice fallback so clicks get visible feedback.
   useDefaultOpenFileConsumer();
@@ -193,7 +193,7 @@ function AppChrome({
   useGitStatus();
 
   useEffect(() => {
-    // internal: fire the first telemetry event. `track` is a no-op
+    // Fire the first telemetry event. `track` is a no-op
     // unless the user has explicitly opted in, the endpoint is
     // configured, and the kill switch is not set. Safe to call
     // unconditionally here.

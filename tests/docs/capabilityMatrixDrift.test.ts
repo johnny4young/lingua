@@ -12,7 +12,7 @@
  * cross-platform table plus per-platform `:WEB` / `:DESKTOP` tables
  * resolved via `resolveCapabilityStatus`. The same
  * `renderLanguageScorecardMarkdown(profiles, platform)` helper is
- * consumed by the palette command (implementation note / implementation note), so a
+ * consumed by the palette command, so a
  * passing test means the clipboard payload matches the doc verbatim
  * for whichever platform the user has selected.
  */

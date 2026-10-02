@@ -9,7 +9,7 @@
  *   - `git.diff_panel_opened` — once per Git diff panel mount.
  *     Pure counter; no payload.
  *
- * Both go through the same internal telemetry pipeline (`recordEvent`)
+ * Both go through the same telemetry pipeline (`recordEvent`)
  * that gates on consent + closed-enum validation. The renderer
  * cannot bypass the gate — the redactor drops events whose
  * `repoState` doesn't pass `GIT_LAYER_REPO_STATES.has(value)`.
@@ -53,7 +53,7 @@ export function trackGitHeadChanged(
 
 /**
  * Reveal-in-Source-Control click telemetry.
- * Closed-enum `target ∈ {'repo-root'}` (extensible for implementation).
+ * Closed-enum `target ∈ {'repo-root'}` (extensible).
  * Mirrored on update-server with parity test.
  */
 export function trackGitRevealInSourceControlClicked(

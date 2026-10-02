@@ -8,7 +8,7 @@
  * `{idle | running | settled}` state machine.
  *
  * The runner is its own module (not just inlined in the hook) so
- * future internal CLI Companion can reuse it for `lingua pipeline run`
+ * future CLI companion can reuse it for `lingua pipeline run`
  * without dragging React in.
  */
 

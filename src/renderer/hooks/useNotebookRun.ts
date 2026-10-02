@@ -4,9 +4,9 @@
  * Per-tab orchestration for Run cell / Run all / Run above / Stop.
  * Bypasses `useRunner` so notebook execution does NOT pollute the
  * user's regular execution history or capsule snapshots (mirror of
- * the implementation `useRecipeRun` pattern).
+ * the `useRecipeRun` pattern).
  *
- * Concurrency: implementation blocks `'concurrent-run'` per tab. The
+ * Concurrency: the hook blocks `'concurrent-run'` per tab. The
  * `runAll` / `runAbove` loops invoke `runNotebookCell` sequentially
  * with an early-stop when a cell errors (mirrors Jupyter's default
  * "stop on first failure" behavior).
@@ -57,7 +57,7 @@ import { trackNotebookCellExecuted } from './notebookTelemetry';
  * token match, not static analysis: it over-reports an identifier
  * that only appears inside a string/comment, and under-reports
  * member access like `obj.foo` (we match `obj`, not `foo`). That is
- * an acceptable implementation approximation for a header hint — the
+ * an acceptable approximation for a header hint — the
  * authoritative cross-cell wiring still lives in the kernel's
  * pull-in step. Bounded to the first matches to keep the chip short.
  */
@@ -161,7 +161,7 @@ export function useNotebookRun(): UseNotebookRunResult {
       const running = runningTabIdsRef.current;
       running.set(tabId, (running.get(tabId) ?? 0) + 1);
 
-      // implementation Slice F (implementation note) — the first Python cell run boots Pyodide
+      // implementation Slice F — the first Python cell run boots Pyodide
       // (web) / the native runtime, which can take a few seconds. Surface
       // a one-shot info notice so a freshly-clicked Python cell doesn't
       // read as hung. `needsInitialization` is false on every subsequent

@@ -42,7 +42,7 @@ export interface ThemePresetInputs {
   fontSize: SettingsState['fontSize'];
   layoutPreset: SettingsState['layoutPreset'];
   // Preserved fields for backward compatibility with older
-  // exports. Always `true` on a implementation build; older builds keep their
+  // exports. Always `true` on current builds; older builds keep their
   // persisted value when round-tripping a preset.
   fontLigatures: boolean;
   syncShellWithEditorTheme: boolean;

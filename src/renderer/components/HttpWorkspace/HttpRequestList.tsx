@@ -4,7 +4,7 @@
  *
  * Each row renders the method + name. Click activates the request;
  * double-click on the name starts an inline rename. Trash icon
- * opens a native confirm before deleting (implementation pattern —
+ * opens a native confirm before deleting (a
  * native confirm matches the "no silent mutation" principle).
  */
 

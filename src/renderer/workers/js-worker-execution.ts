@@ -284,8 +284,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           // when the AsyncFunction returns. Each helper validates the
           // payload via the shared whitelist. Rejects include a
           // `richMediaRejected` flag; the JS / TS / Python runners
-          // forward that flag to `runtime.rich_media_payload_rejected`
-          // (implementation-β-β-α implementation note).
+          // forward that flag to `runtime.rich_media_payload_rejected`.
           const lingua = buildLinguaWorkerBridge(ctx, runId);
 
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;

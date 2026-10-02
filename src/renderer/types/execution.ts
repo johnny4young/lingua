@@ -169,7 +169,7 @@ export interface MagicCommentResult {
    * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
    * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
    * pinned watch; `'autoLog'` for a Scratchpad bare-expression
-   * auto-log surface added in implementation. Runners populate this from
+   * auto-log surface. Runners populate this from
    * `magicCommentKindsByLine(language, source, options)` before
    * dispatch. Optional so a future runner that emits magic results
    * without a transform pass (e.g. a future REPL adapter) doesn't
@@ -368,8 +368,8 @@ export type WorkerResponse =
       /**
        * rich-media helper rejection marker emitted
        * by the JS / Python worker bridges. Runner-side telemetry
-       * forwarding (`runtime.rich_media_payload_rejected`) landed in
-       * implementation-β-β-α implementation note; all three runners (JS / TS / Python)
+       * forwarding (`runtime.rich_media_payload_rejected`):
+       * all three runners (JS / TS / Python)
        * read this field and fire-and-forget the event.
        */
       richMediaRejected?: {

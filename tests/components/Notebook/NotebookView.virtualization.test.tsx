@@ -134,7 +134,7 @@ describe('<NotebookView /> row virtualization (degrade-to-full)', () => {
     );
   });
 
-  // Reviewer fix (implementation a11y): windowing drops off-screen rows
+  // Reviewer fix (a11y): windowing drops off-screen rows
   // from the DOM, so each mounted row must report the TRUE list size +
   // 1-based position via aria-setsize / aria-posinset, otherwise a screen
   // reader sees only the mounted slice.

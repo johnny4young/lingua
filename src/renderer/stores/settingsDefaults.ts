@@ -17,7 +17,7 @@ export const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Casca
 
 /**
  * Seeded defaults surfaced in Settings → Editor
- * the first time the user reaches a implementation build. Without this seed,
+ * the first time the user reaches a build with per-language defaults. Without this seed,
  * a fresh install (no persisted defaults) would resolve every new tab
  * via the shared `defaultWorkflowMode` helper and the Settings rows
  * would look unset — making the per-language defaults feature
@@ -133,17 +133,17 @@ export function createInitialSettingsState() {
     capsuleImportClipboardOnFocusConsent: 'unset',
     // Master toggle for dependency detection +
     // the bottom-panel Dependencies tab. The rehydrate merge
-    // applies the implementation note tier-aware default when the persisted state
+    // applies the tier-aware default when the persisted state
     // has no preference yet (Free → false, every other tier → true).
     // Once the user persists a choice via the setter, that choice
     // survives across reloads.
     dependencyDetectionEnabled: true,
     // Only `worker` is implemented today;
     // the setter rejects anything else, so this stays a constant
-    // initial value until implementation lands the desktop Node backend.
+    // initial value from before the desktop Node backend landed.
     defaultRuntimeMode: 'worker',
     // per-language workflow defaults. Initial
-    // value is the implementation note seed; the merge function preserves user
+    // value is the seed; the merge function preserves user
     // overrides on rehydrate and seeds missing keys.
     workflowModeDefaultsByLanguage: { ...WORKFLOW_MODE_DEFAULT_SEED },
     // per-language auto-log defaults for every
@@ -167,7 +167,7 @@ export function createInitialSettingsState() {
     showStatusBar: defaultShowStatusBar(),
     // Variable inspector surface preference. Default
     // 'floating' keeps backward-compatible behavior for users upgrading
-    // from earlier implementation builds where only the FloatingVariablesCard
+    // from earlier builds where only the FloatingVariablesCard
     // existed. Persisted so the choice survives reloads.
     variableInspectorSurface: 'floating',
     // per-language run-time preset. Seed honors
@@ -199,7 +199,7 @@ export function createInitialSettingsState() {
     // Three persisted one-shot flags driving the
     // onboarding choreography. All default `false` so a fresh
     // install sees the full sequence; `hasCompletedOnboardingWelcome`
-    // is also gated by `onboardingWelcomeSeedVersion` (implementation note) so a
+    // is also gated by `onboardingWelcomeSeedVersion` so a
     // version bump re-arms the seed even for existing users.
     hasCompletedOnboardingWelcome: false,
     hasCompletedOnboardingFirstRun: false,

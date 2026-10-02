@@ -271,7 +271,7 @@ describe('DeveloperUtilitiesModal', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    // Use the testid because implementation adds a sibling
+    // Use the testid because the panel adds a sibling
     // FavoriteToggleButton whose aria-label also contains "Base64
     // Encoder" (e.g. "Pin Base64 Encoder to favorites").
     await user.click(screen.getByTestId('utility-item-base64'));

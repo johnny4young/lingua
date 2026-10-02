@@ -11,7 +11,7 @@
  *     last porcelain status + numstat counts + a millisecond
  *     `updatedAt`. Hot path; flips on every watcher tick.
  *   - `lastDetectAt` — millisecond timestamp of the most recent
- *     `git:detect` resolution (implementation note). Used by
+ *     `git:detect` resolution. Used by
  *     `useGitDetectOnProjectChange` to skip re-detect calls within
  *     30s of the previous result; the project-root key still
  *     invalidates on user-driven folder change.
@@ -49,16 +49,16 @@ export interface GitRepoPosture {
   readonly repoRoot?: string;
   /**
    * Current branch name, e.g. `main`. Absent on detached HEAD.
-   * Threaded to the pill (implementation note — branch indicator inline) and
-   * — implementation — refreshed via `applyHeadChange` whenever
+   * Threaded to the pill (branch indicator inline) and
+   * refreshed via `applyHeadChange` whenever
    * the main-side HEAD watcher broadcasts a settled change.
    */
   readonly branch?: string;
   /**
    * Current commit (full hash from
    * `git rev-parse HEAD`). Absent on detached HEAD or watcher
-   * resolution error. Folded into capsule pre-run snapshot (implementation note)
-   * so internal capsules carry the actual commit the run was against.
+   * resolution error. Folded into capsule pre-run snapshot
+   * so capsules carry the actual commit the run was against.
    */
   readonly commit?: string;
   /**

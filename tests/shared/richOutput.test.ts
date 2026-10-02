@@ -315,9 +315,9 @@ describe('payload identity helpers', () => {
     expect(isRichOutputPayload({})).toBe(false);
     expect(isRichOutputPayload(null)).toBe(false);
     expect(isRichOutputPayload('string')).toBe(false);
-    // internal reviewer follow-up — unknown discriminants must NOT
+    // Reviewer follow-up — unknown discriminants must NOT
     // pass the type-guard so renderer dispatch switches can rely on
-    // exhaustiveness when implementation widen the union.
+    // exhaustiveness when later changes widen the union.
     expect(isRichOutputPayload({ kind: 'widget' })).toBe(false);
     expect(isRichOutputPayload({ kind: 'somethingElse' })).toBe(false);
   });

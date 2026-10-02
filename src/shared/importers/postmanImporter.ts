@@ -89,7 +89,7 @@ export interface CollectionImporterPreview {
   readonly title: string;
   /** Flattened request list, capped at `MAX_IMPORT_REQUESTS`. */
   readonly requests: ReadonlyArray<ParsedCollectionRequest>;
-  /** Summary counts for the implementation note/D chip. */
+  /** Summary counts for the preview chip. */
   readonly counts: {
     /** Requests that will be imported (== `requests.length`). */
     readonly total: number;
@@ -456,7 +456,7 @@ function isDynamicVariableToken(token: string): boolean {
 /**
  * Per-import variable-resolution state. Threaded through the item walk
  * so every substituted value contributes to the same DISTINCT key /
- * token sets — the preview chip + the implementation note telemetry buckets report
+ * token sets — the preview chip + the telemetry buckets report
  * distinct counts, not raw substitution counts.
  */
 interface VariableResolution {
@@ -474,7 +474,7 @@ interface VariableResolution {
    * Empty when no env/globals source was supplied.
    */
   readonly envKeys: ReadonlySet<string>;
-  /** Subset of {@link envKeys} whose name is secret-like (implementation note redaction). */
+  /** Subset of {@link envKeys} whose name is secret-like (preview redaction). */
   readonly sensitiveEnvKeys: ReadonlySet<string>;
   /**
    * Display-only flattened map where sensitive env/globals values are replaced
@@ -484,7 +484,7 @@ interface VariableResolution {
   readonly displayMap: ReadonlyMap<string, string>;
   /**
    * For each merged variable key, the env/globals keys that contribute to its
-   * flattened value. This keeps the implementation note count honest when a collection
+   * flattened value. This keeps the env-sourced count honest when a collection
    * variable references an environment value transitively.
    */
   readonly envDependencyMap: ReadonlyMap<string, ReadonlySet<string>>;
@@ -541,7 +541,7 @@ export type PostmanVariableExportOutcome =
   | { readonly ok: false; readonly reason: PostmanVariableExportReject };
 
 /**
- * Heuristic: does a variable KEY name denote a secret? Used by implementation note to
+ * Heuristic: does a variable KEY name denote a secret? Used to
  * redact env-sourced values substituted into a request URL in the preview.
  * Name-based (the value is never inspected), mirroring the header-name
  * redaction precedent from the cURL importer.
@@ -752,8 +752,8 @@ function resolveTextForDisplay(
  * Build the per-import variable resolution from the
  * collection's own `variable[]` plus optional environment / globals maps.
  * Precedence is Postman's: environment > globals > collection. `envKeys`
- * records which keys the env/globals layers supplied so implementation note can count
- * env-sourced resolutions and implementation note can target sensitive ones.
+ * records which keys the env/globals layers supplied so the preview can count
+ * env-sourced resolutions and target sensitive ones.
  */
 function buildVariableResolution(
   collectionRaw: unknown,
@@ -839,7 +839,7 @@ function walkItems(
     const itemAuth = item.auth !== undefined ? item.auth : inheritedAuth;
     if (Array.isArray(item.item)) {
       scanItemScripts(item.event, state.warnings);
-      // Folder — recurse with the name prefixed. implementation note: resolve
+      // Folder — recurse with the name prefixed. Resolve
       // `{{var}}` in the folder name so request labels read cleanly.
       state.folders += 1;
       const folderName = resolveVariables(name, state.variables);
@@ -979,8 +979,8 @@ function scanItemScripts(
 
 /**
  * Optional environment / globals variable maps merged into
- * the collection's own variables. When present, implementation note counts env-sourced
- * resolutions and implementation note redacts sensitive env values in the preview URL.
+ * the collection's own variables. When present, the preview counts env-sourced
+ * resolutions and redacts sensitive env values in the preview URL.
  */
 interface PostmanVariableOptions {
   readonly environment?: ReadonlyMap<string, string>;
@@ -1040,7 +1040,7 @@ function previewPostman(
 
   // Variable warnings fire only for what STAYED literal after
   // resolution: unresolved statics (env / globals files we don't read)
-  // and dynamic `{{$...}}` runtime placeholders (implementation note).
+  // and dynamic `{{$...}}` runtime placeholders.
   if (state.variables.unresolvedTokens.size > 0) {
     state.warnings.add('postman-variable');
   }

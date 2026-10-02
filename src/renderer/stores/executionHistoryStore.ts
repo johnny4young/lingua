@@ -5,7 +5,7 @@
  * render "Recent runs" surfaces (command palette entry, drawer, metrics
  * dashboard) without re-wiring the execution path. This store NEVER
  * persists across reloads — keeping history in memory is a deliberate
- * privacy choice, same spirit as the internal telemetry posture. No code
+ * privacy choice, same spirit as the telemetry posture. No code
  * body, no stdout / stderr, no file path is captured by default — only the
  * bucketed metadata the future UI actually needs.
  *
@@ -339,7 +339,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // Capsule LRU cap. Walk newest-first;
       // keep `lastCapsule` on the first `cap` entries that have one,
       // strip it from the rest. Idempotent across records. The cap is
-      // resolved per-record (implementation note) so a license tier
+      // resolved per-record so a license tier
       // change takes effect on the next run without a store reset.
       return { entries: pruneCapsulesToCap(trimmed) };
     });

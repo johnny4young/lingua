@@ -14,7 +14,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
  * is the faithful way to exercise it; we land on a non-verified kind first
  * to reset the module-scope de-dupe guard and keep the test order-stable.
  */
-describe('licenseStore — trust capture (implementation note)', () => {
+describe('licenseStore — trust capture', () => {
   beforeEach(() => {
     localStorage.clear();
   });

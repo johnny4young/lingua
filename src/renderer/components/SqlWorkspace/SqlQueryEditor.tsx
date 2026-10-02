@@ -1,23 +1,23 @@
 /**
  * Center column: edit the active SQL query
- * (Monaco editor on the `sql` language as of implementation, Run, format) with
+ * (Monaco editor on the `sql` language, Run, format) with
  * auto-save + Cmd+Enter run shortcut.
  *
- * implementation note here:
+ * Features here:
  *
- *   - **A** : Cmd/Ctrl+Enter fires the Run handler. As of
- *     implementation (implementation note below) it runs the SELECTION when non-empty, else
+ *   - **A** : Cmd/Ctrl+Enter fires the Run handler. It
+ *     runs the SELECTION when non-empty, else
  *     the full query. Mirrors the HTTP workspace `Cmd+Enter` muscle
  *     memory + the scratchpad run shortcut.
  *   - **B**: pretty-print SQL via `sql-formatter` (lazy-imported so
  *     the formatter ~30 KB chunk lands separately). Triggered by a
- *     toolbar button OR Shift+Alt+F inside the editor (implementation note).
+ *     toolbar button OR Shift+Alt+F inside the editor.
  *     Reformat on save would be too aggressive — explicit action only.
  *   - **D-mirror**: every keystroke debounced 500 ms auto-saves via
- *     `onPatch` — no explicit Save button. Mirrors HTTP implementation note.
+ *     `onPatch` — no explicit Save button. Mirrors the HTTP workspace.
  *
- * implementation swaps the implementation `<textarea>` for `<SqlMonacoEditor>` (folds
- * A/B/C/E live in that host). The auto-save debounce, RQ-02 id-pinning,
+ * `<SqlMonacoEditor>` replaced the original `<textarea>` (features
+ * A/B/C/E live in that host). The auto-save debounce, id-pinning,
  * byte-cap, and schema-browser insert (via the controlled `value`) are
  * preserved exactly — the editor's `text` state stays the source of
  * truth and the Monaco host is fully controlled by it.
@@ -33,6 +33,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useCommandListener } from '../../hooks/useCommandListener';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -50,7 +51,7 @@ export interface SqlQueryEditorProps {
    * Patches land via this callback (auto-save). The target query id is
    * passed explicitly so a debounced flush always lands on the query
    * the edit was typed into, even if the active query switched during
-   * the debounce quiet window (RQ-02).
+   * the debounce quiet window.
    */
   onPatch: (queryId: string, patch: Partial<SqlQueryV1>) => void;
   /** Run the current query. Caller disables during in-flight. */
@@ -92,7 +93,7 @@ export function SqlQueryEditor({
   const lastSavedRef = useRef<string>(query.query);
   const latestTextRef = useRef<string>(query.query);
   const latestOnPatchRef = useRef(onPatch);
-  // RQ-02 — the id of the query the pending draft was typed into,
+  // The id of the query the pending draft was typed into,
   // captured whenever the draft diverges from the saved text. The
   // flush reads THIS captured id, not the live `query.id` prop, so a
   // switch before the debounce settles cannot redirect the patch onto
@@ -145,7 +146,7 @@ export function SqlQueryEditor({
     if (insertSignal.nonce === lastInsertNonceRef.current) return;
     lastInsertNonceRef.current = insertSignal.nonce;
     if (insertSignal.text.length === 0) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and implementation note into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
     setText((current) => {
       const trimmed = current.replace(/\s+$/, '');
       return trimmed.length === 0
@@ -163,7 +164,7 @@ export function SqlQueryEditor({
   // Auto-save debounce. Stable timer ref means rapid edits collapse
   // to one onPatch call after the user pauses for 500 ms. The flush
   // targets the captured `query.id` at schedule time so a switch
-  // mid-debounce never lands the patch on the wrong query (RQ-02).
+  // mid-debounce never lands the patch on the wrong query.
   useEffect(() => {
     if (text === lastSavedRef.current) return;
     const targetId = query.id;
@@ -197,6 +198,9 @@ export function SqlQueryEditor({
     }
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
+  useCommandListener('workspace.run', ({ kind }) => {
+    if (kind === 'sql') handleRun();
+  });
 
   // Cmd/Ctrl+Enter inside the editor runs the SELECTION
   // when it is non-empty, else the full query. The auto-save always

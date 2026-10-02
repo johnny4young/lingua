@@ -25,7 +25,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('Language intelligence Settings rows (implementation + 4)', () => {
+test.describe('Language intelligence Settings rows', () => {
   test('web build surfaces both Rust and Go install hints in English', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {

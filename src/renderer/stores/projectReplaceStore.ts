@@ -8,9 +8,9 @@
  *     render a before/after diff inline (no client-side regex
  *     substitution; main provides both).
  *   - `applyToFile(relativePath)` + `applyToAll()` actions that
- *     dispatch through the IPC bridge. Apply queue progress (implementation note)
+ *     dispatch through the IPC bridge. Apply queue progress
  *     surfaces via `applyProgress: { done, total } | null`.
- *   - Regex + case-sensitive toggles. implementation note — cooperative cancel
+ *   - Regex + case-sensitive toggles. Cooperative cancel
  *     is enforced main-side via `perLineTimeoutMs`.
  *
  * Store actions are isolated so the overlay can subscribe to the
@@ -144,7 +144,7 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
     preview: async (rootId) => {
       const { query, replacement, regex, caseSensitive } = get();
       const searchText = query;
-      // implementation reviewer pass — every fast-path return must
+      // Reviewer pass — every fast-path return must
       // bump `requestId` too. Otherwise, an in-flight non-empty
       // query's late response would still match the current
       // `requestId` and overwrite this freshly-cleared idle state

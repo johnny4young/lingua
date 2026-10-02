@@ -9,7 +9,7 @@
  * Sizing rationale: 5 KB realistic JS buffer with a mix of regular
  * lines, `//=>` arrows, and `// @watch` watches × 10 000 iterations.
  * Budget: 400 ms CPU time (~40 µs / call). Same shape as
- * `autoRunGating.bench.test.ts` (implementation note), with extra
+ * `autoRunGating.bench.test.ts`, with extra
  * headroom because the magic-comment scanner also matches the
  * watch-shape regex which is materially slower per line.
  */
@@ -48,7 +48,7 @@ function buildBuffer(minBytes: number): string {
   // Realistic mix: variable declarations, arrow + watch markers,
   // multi-line comments, template literals.
   const sample = [
-    '// Generated benchmark fixture — implementation note.',
+    '// Generated benchmark fixture.',
     'const items = [1, 2, 3, 4, 5].map((n) => n * n);',
     'items.length //=> length',
     'const greet = (name) => `hello ${name}`;',
@@ -105,7 +105,7 @@ describe('auto-log detector bench', () => {
     // bodies, arrows, watches, multi-line objects. The detector
     // must walk the buffer once per call; transform only runs when
     // there are candidate lines, so we batch one transform per 100
-    // detector calls (same shape as the implementation bench above).
+    // detector calls (same shape as the bench above).
     const sample = [
       'const xs = [1, 2, 3, 4, 5];',
       'xs.length',
