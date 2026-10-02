@@ -9,7 +9,7 @@ import { useResultStore } from '../../stores/resultStore';
 import { PRESENTER_EDITOR_FONT_LIFT, usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
-import { rustLspModelPathForTab, goLspModelPathForTab } from '../../utils/filePath';
+import { lspModelPathForTab } from '../../utils/filePath';
 import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
@@ -154,10 +154,8 @@ export function CodeEditor() {
   const ownedLspModelPaths = useRef(new Set<string>());
   const expectedRustModelPaths = useEditorStore(state =>
     state.tabs
-      .filter(tab => tab.language === 'rust' || tab.language === 'go')
-      .map(tab =>
-        tab.language === 'rust' ? rustLspModelPathForTab(tab) : goLspModelPathForTab(tab)
-      )
+      .map(tab => lspModelPathForTab(tab))
+      .filter(Boolean)
       .join('\n')
   );
   useEffect(() => {
@@ -464,12 +462,7 @@ export function CodeEditor() {
     return <EditorEmptyState />;
   }
 
-  const editorPath =
-    activeTab.language === 'rust'
-      ? rustLspModelPathForTab(activeTab)
-      : activeTab.language === 'go'
-        ? goLspModelPathForTab(activeTab)
-        : undefined;
+  const editorPath = lspModelPathForTab(activeTab);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

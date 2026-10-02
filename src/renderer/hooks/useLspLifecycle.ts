@@ -121,6 +121,8 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
 
   const projectRoot = useProjectStore(state => state.currentProject?.rootId);
   const startedContext = useRef<RootId | null | undefined>(null);
+  // markBootRequested re-runs this effect, so a cleanup flag would drop the first result.
+  const startRequest = useRef(0);
   // Effect 1 — boot trigger
   useEffect(() => {
     if (!isAvailable()) {
@@ -133,18 +135,16 @@ export function useLspLifecycle(config: LspLifecycleConfig): void {
     markBootRequested();
     setStatus({ kind: 'unknown' });
     void loadAdapter().then(adapter => adapter?.resetProjectContext?.());
-    let disposed = false;
+    const request = ++startRequest.current;
     void getBridge()
       .start(projectRoot)
       .then(next => {
-        if (!disposed) setStatus(mapBridgeStatus(next));
+        if (request === startRequest.current) setStatus(mapBridgeStatus(next));
       })
       .catch(() => {
-        if (!disposed) setStatus({ kind: 'unavailable', reason: 'startup-failed' });
+        if (request === startRequest.current)
+          setStatus({ kind: 'unavailable', reason: 'startup-failed' });
       });
-    return () => {
-      disposed = true;
-    };
   }, [
     bootRequested,
     hasMatchingTab,

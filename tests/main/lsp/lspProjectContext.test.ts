@@ -50,6 +50,14 @@ describe.each(['go', 'rust'])('authorized %s project lifecycle', language => {
     const pending = invoke(language, 'start', 'a'); await invoke(language, 'stop'); finish(authorized('a'));
     expect(await pending).toMatchObject({ kind: 'startup-failed' }); expect(mocks.roots).toEqual([]);
   });
+  it('restarts the pending requested root rather than the previous one', async () => {
+    await invoke(language, 'start', 'a');
+    let finish!: (value: unknown) => void;
+    mocks.resolve.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const pending = invoke(language, 'start', 'b'); const restarted = invoke(language, 'restart'); finish(authorized('b'));
+    await pending; await restarted;
+    expect(mocks.roots).toEqual(['/project/a', '/project/b']);
+  });
   it('does not let an older pending root override a newer one', async () => {
     let finish!: (value: unknown) => void;
     mocks.resolve.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));

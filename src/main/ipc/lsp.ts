@@ -138,11 +138,14 @@ function stopLauncher(language: LspLanguage): void {
 }
 
 const startIntents: Record<LspLanguage, number> = { rust: 0, go: 0 };
+// Restart follows the latest requested project, even while its start awaits authorization.
+const requestedContexts: Partial<Record<LspLanguage, RootId>> = {};
 async function startContext<L extends LspLanguage>(
   language: L,
   rootId?: RootId
 ): Promise<StatusFor<L>> {
   const intent = ++startIntents[language];
+  requestedContexts[language] = rootId;
   const unauthorized = (error: string): StatusFor<L> => {
     if (intent === startIntents[language]) { stopLauncher(language); contexts[language] = undefined; }
     return { kind: 'startup-failed', error } as StatusFor<L>;
@@ -193,7 +196,7 @@ function registerLanguageHandlers<L extends LspLanguage>(config: LanguageHandler
     startContext(language, rootId)
   );
   ipcMain.handle(channel('restart'), async () => {
-    const rootId = contexts[language];
+    const rootId = requestedContexts[language];
     stopLauncher(language);
     return startContext(language, rootId);
   });

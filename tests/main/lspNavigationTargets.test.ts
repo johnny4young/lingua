@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -73,6 +73,36 @@ describe('LSP navigation data', () => {
         expect(await resolveLspNavigationTarget(grant.rootId, uri)).toBeNull();
       revokeRoot(grant.rootId);
       expect(await resolveLspNavigationTarget(grant.rootId, pathToFileURL(file).href)).toBeNull();
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+  it('accepts destinations a server reports through the realpath of a symlinked root', async () => {
+    const parent = await mkdtemp(
+      path.join(process.env.LINGUA_SMOKE_FIXTURE_DIR ?? process.cwd(), '.tmp-lsp-navigation-')
+    );
+    try {
+      const real = path.join(parent, 'real');
+      const linked = path.join(parent, 'linked');
+      await mkdir(path.join(real, 'pkg'), { recursive: true });
+      await writeFile(path.join(real, 'pkg', 'helper.go'), 'package pkg');
+      await writeFile(path.join(parent, 'outside.go'), 'package outside');
+      await symlink(real, linked);
+      const grant = mintRootCapability(linked);
+      const realRoot = await realpath(real);
+      expect(
+        await resolveLspNavigationTarget(
+          grant.rootId,
+          pathToFileURL(path.join(realRoot, 'pkg', 'helper.go')).href
+        )
+      ).toBe('pkg/helper.go');
+      expect(
+        await resolveLspNavigationTarget(
+          grant.rootId,
+          pathToFileURL(path.join(realRoot, '..', 'outside.go')).href
+        )
+      ).toBeNull();
+      revokeRoot(grant.rootId);
     } finally {
       await rm(parent, { recursive: true, force: true });
     }

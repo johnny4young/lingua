@@ -300,6 +300,8 @@ export class RustAnalyzerLauncher {
     }
 
     this.restartAttempted = true;
+    // Observers must drop document registrations before the replacement server runs.
+    this.setStatus({ kind: 'starting' });
     setTimeout(() => {
       if (this.disposed) return;
       // The recovery spawn resolves binaries and re-runs the initialize

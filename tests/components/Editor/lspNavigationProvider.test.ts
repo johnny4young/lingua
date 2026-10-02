@@ -5,6 +5,7 @@ import { createLspNavigationProviders } from '../../../src/renderer/components/E
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { useProjectStore } from '../../../src/renderer/stores/projectStore';
 import { asRootId, asRelativePath } from '../../../src/shared/fs/brandedIds';
+import { URI } from 'monaco-editor/esm/vs/base/common/uri.js';
 
 const range = { start: { line: 2, character: 3 }, end: { line: 2, character: 9 } };
 const original = window.lingua;
@@ -133,6 +134,26 @@ describe('authorized project LSP providers', () => {
       expect(await pending).toEqual([]);
     }
   );
+  it('identifies project buffers by the Monaco model URI for paths it percent-encodes', async () => {
+    const { service, providers } = setup();
+    const root = '/work/proj(1)@v+2';
+    useProjectStore.setState({
+      currentProject: { rootId, rootPath: root, name: 'project' },
+    } as Parameters<typeof useProjectStore.setState>[0]);
+    useEditorStore.setState({
+      tabs: useEditorStore
+        .getState()
+        .tabs.map(tab => ({ ...tab, filePath: `${root}/${tab.relativePath}` })),
+    });
+    const modelUri = URI.file(`${root}/main.go`).toString();
+    const encodedModel = { ...model, uri: { toString: () => modelUri } } as typeof model;
+    await providers.definition.provideDefinition(encodedModel, position, token);
+    expect(service.provideDefinition).toHaveBeenCalledWith(modelUri, 3, 7);
+    expect(service.openDocument).toHaveBeenCalledWith(
+      URI.file(`${root}/helper.go`).toString(),
+      'dirty helper'
+    );
+  });
   it('does not request navigation for an unbound file', async () => {
     const { service, providers } = setup();
     useEditorStore.setState({

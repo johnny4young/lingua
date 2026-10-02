@@ -8,7 +8,9 @@ if (process.argv.includes('version') || process.argv.includes('--version')) {
 }
 let pending = Buffer.alloc(0);
 let rootUri;
+// Real servers normalize URI encodings, so documents are keyed by decoded path.
 const documents = new Map();
+const key = uri => decodeURIComponent(new URL(uri).pathname);
 const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 6 } };
 function answer(id, result) {
   const body = JSON.stringify({ jsonrpc: '2.0', id, result });
@@ -22,18 +24,18 @@ function message(request) {
     });
   }
   if (request.method === 'textDocument/didOpen')
-    documents.set(request.params.textDocument.uri, request.params.textDocument.text);
+    documents.set(key(request.params.textDocument.uri), request.params.textDocument.text);
   if (request.method === 'textDocument/didChange')
-    documents.set(request.params.textDocument.uri, request.params.contentChanges[0].text);
-  if (request.method === 'textDocument/didClose') documents.delete(request.params.textDocument.uri);
+    documents.set(key(request.params.textDocument.uri), request.params.contentChanges[0].text);
+  if (request.method === 'textDocument/didClose') documents.delete(key(request.params.textDocument.uri));
   if (
     request.method === 'textDocument/definition' ||
     request.method === 'textDocument/references'
   ) {
-    if (!rootUri || !documents.has(request.params.textDocument.uri))
+    if (!rootUri || !documents.has(key(request.params.textDocument.uri)))
       return answer(request.id, null);
     const position = request.params.position;
-    const sourceLine = documents.get(request.params.textDocument.uri).split('\n')[position?.line];
+    const sourceLine = documents.get(key(request.params.textDocument.uri)).split('\n')[position?.line];
     if (!sourceLine || !/[A-Za-z_]/.test(sourceLine[position.character] ?? ''))
       return answer(request.id, null);
     const uri = new URL(
@@ -58,7 +60,7 @@ function message(request) {
         }
         return found;
       });
-    const declaration = occurrences(documents.get(uri) ?? '', uri)[0] ?? { uri, range };
+    const declaration = occurrences(documents.get(key(uri)) ?? '', uri)[0] ?? { uri, range };
     return answer(
       request.id,
       request.method.endsWith('definition')
@@ -72,7 +74,7 @@ function message(request) {
         : [
             declaration,
             ...occurrences(
-              documents.get(request.params.textDocument.uri),
+              documents.get(key(request.params.textDocument.uri)),
               request.params.textDocument.uri
             ),
           ]
