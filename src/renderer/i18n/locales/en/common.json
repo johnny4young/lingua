@@ -4264,5 +4264,11 @@
   "capsuleRegression.export": "Export case as suite",
   "capsuleRegression.inspect": "Inspect a suite without execution",
   "settings.account.runCapsules.cli.verify": "Verify captured source strictly",
-  "settings.account.runCapsules.cli.strictHint": "Strict verification needs a CLI whose help advertises verify. Replay can succeed while output differs; only a strict pass is matching evidence."
+  "settings.account.runCapsules.cli.strictHint": "Strict verification needs a CLI whose help advertises verify. Replay can succeed while output differs; only a strict pass is matching evidence.",
+  "notebook.document.invalid": "Invalid or oversized .linguanb document.",
+  "notebook.document.conflict": "Notebook changed on disk. Reload or Save As to keep both versions.",
+  "notebook.document.writeFailed": "Save failed. Edits retained; try Save As.",
+  "notebook.document.saved": "Notebook saved.",
+  "notebook.document.openFailed": "Open failed. Current notebook unchanged.",
+  "notebook.document.unavailable": "Project saving unavailable. Use Chromium or Lingua Desktop; export downloads a copy."
 }

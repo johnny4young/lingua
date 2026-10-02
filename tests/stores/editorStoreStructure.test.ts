@@ -106,6 +106,7 @@ const SPLIT_MODULES = [
   'editorModeActions.ts',
   'editorInputActions.ts',
   'editorSaveActions.ts',
+  'editorDocumentSave.ts',
   'editorCloseActions.ts',
 ];
 const MODULE_MAX_LINES = 300;
@@ -128,6 +129,7 @@ const ACTION_FACTORY_MODULES = [
   'editorModeActions.ts',
   'editorInputActions.ts',
   'editorSaveActions.ts',
+  'editorDocumentSave.ts',
   'editorCloseActions.ts',
 ];
 

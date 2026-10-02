@@ -4264,5 +4264,11 @@
   "capsuleRegression.export": "Exporta el caso como suite",
   "capsuleRegression.inspect": "Revisa una suite sin ejecutarla",
   "settings.account.runCapsules.cli.verify": "Verifica estrictamente el código capturado",
-  "settings.account.runCapsules.cli.strictHint": "La verificación estricta necesita un CLI que anuncie verify en su ayuda. Replay puede ser exitoso aunque la salida cambie; solo pass es evidencia coincidente."
+  "settings.account.runCapsules.cli.strictHint": "La verificación estricta necesita un CLI que anuncie verify en su ayuda. Replay puede ser exitoso aunque la salida cambie; solo pass es evidencia coincidente.",
+  "notebook.document.invalid": "Documento .linguanb inválido o demasiado grande.",
+  "notebook.document.conflict": "El notebook cambió en disco. Recarga o usa Guardar como para conservar ambas versiones.",
+  "notebook.document.writeFailed": "No se pudo guardar. Tus cambios se conservan; prueba Guardar como.",
+  "notebook.document.saved": "Notebook guardado.",
+  "notebook.document.openFailed": "No se pudo abrir. Tu notebook sigue intacto.",
+  "notebook.document.unavailable": "No puedes guardar proyectos aquí. Usa Chromium o Lingua Desktop; exportar descarga una copia."
 }

@@ -248,6 +248,7 @@ export function useCommandPaletteCommands({
       onBenchmarkActiveTab:
         canBenchmark &&
         activeTab &&
+        activeTab.kind !== 'notebook' &&
         isWorkerRunnerLanguage(activeTab.language) &&
         activeTab.content.trim().length > 0
           ? () => {
@@ -406,7 +407,10 @@ export function useCommandPaletteCommands({
       // localized notice via the status banner instead of mutating
       // the buffer silently.
       onAddWatchToCurrentLine:
-        activeTabId && activeTab && isAppendWatchSupported(activeTab.language)
+        activeTabId &&
+        activeTab &&
+        activeTab.kind !== 'notebook' &&
+        isAppendWatchSupported(activeTab.language)
           ? () => {
               const cursorLine = getActiveEditorCursorLine();
               const lineText = getActiveEditorLineText();

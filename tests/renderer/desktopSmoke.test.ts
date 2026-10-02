@@ -13,14 +13,19 @@ describe('desktop smoke renderer bridge', () => {
     setActiveEditor(null);
   });
 
-  it('enables the smoke hook when the desktop bridge exists', () => {
+  it('enables the smoke hook only when explicitly requested', () => {
     window.lingua = {
       desktopSmoke: {
-        enabled: false,
+        enabled: true,
       },
     } as typeof window.lingua;
 
     expect(desktopSmokeEnabled()).toBe(true);
+  });
+
+  it('does not disable session save or restore in an ordinary desktop window', () => {
+    window.lingua = { desktopSmoke: { enabled: false } } as typeof window.lingua;
+    expect(desktopSmokeEnabled()).toBe(false);
   });
 
   it('stays disabled on web where no desktop smoke bridge exists', () => {

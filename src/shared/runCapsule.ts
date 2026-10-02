@@ -28,6 +28,7 @@
  * `docs/CAPSULE_TEST_MATRIX.md` for the test matrix.
  */
 
+import { computeContentHash } from './contentHash';
 import { truncateUtf8, utf8ByteLength } from './utf8';
 import { REDACTION_VERSION, redactFlatRecord } from './redaction';
 
@@ -691,16 +692,4 @@ export function summarizeRunCapsule(capsule: RunCapsuleV1): string {
  * Implementation detail: keep the helper exported so the test suite
  * can verify determinism + cross-input distinctness directly.
  */
-export async function computeContentHash(content: string): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle || typeof subtle.digest !== 'function') {
-    throw new Error(
-      'computeContentHash: Web Crypto unavailable (no globalThis.crypto.subtle)'
-    );
-  }
-  const bytes = new TextEncoder().encode(content);
-  const digest = await subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+export { computeContentHash } from './contentHash';

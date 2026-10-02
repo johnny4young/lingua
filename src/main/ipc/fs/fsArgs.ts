@@ -254,6 +254,14 @@ export const fsArgs = {
     ];
   },
 
+  writeDocument(args: readonly unknown[]): IpcInvokeArgs<'fs:write-document'> {
+    const channel = 'fs:write-document';
+    assertCount(channel, args, 4);
+    const hash = args[3];
+    if (hash !== null && (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash))) invalid(channel, 'expectedHash');
+    return [rootId(channel, args[0]), relativePath(channel, args[1]), boundedString(channel, 'content', args[2], 512 * 1024, true), hash];
+  },
+
   delete(args: readonly unknown[]): IpcInvokeArgs<'fs:delete'> {
     const channel = 'fs:delete';
     assertCount(channel, args, 2, 4);

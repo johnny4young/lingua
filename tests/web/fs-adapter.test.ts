@@ -75,6 +75,7 @@ function buildFileHandle(file: SyntheticFile): FileSystemFileHandle {
         async close() {
           file.content = nextContent;
         },
+        async abort() { nextContent = ''; },
       };
     },
   } as unknown as FileSystemFileHandle;
@@ -663,5 +664,26 @@ describe('webFsAdapter — revokeRoot', async () => {
     await expect(webFsAdapter.readdir(picked.rootId, asRelativePath(''))).rejects.toThrow(
       'unknown-root'
     );
+  });
+});
+
+// Real Chromium FSA coverage is in notebookProjectPersistence.spec.ts; these
+// tests isolate the optimistic-commit contract from browser picker UI.
+describe('web document commits', () => {
+  it('returns saved/conflict and never commits through a revoked root', async () => {
+    const { webFsAdapter } = await import('../../src/web/fs-adapter');
+    const { computeContentHash } = await import('../../src/shared/runCapsule');
+    const file = { name: 'document.linguanb', content: 'before' };
+    pickerWindow.showDirectoryPicker = async () => buildDirHandle({ name: 'docs', files: [file] });
+    const picked = await webFsAdapter.selectDirectory();
+    expect(picked.canceled).toBe(false); if (picked.canceled) return;
+    const target = asRelativePath(file.name);
+    const initial = await computeContentHash('before');
+    expect(await webFsAdapter.writeDocument(picked.rootId, target, 'after', initial)).toEqual({ status: 'saved', hash: await computeContentHash('after') });
+    expect(file.content).toBe('after');
+    expect(await webFsAdapter.writeDocument(picked.rootId, target, 'stale', initial)).toEqual({ status: 'conflict', actualHash: await computeContentHash('after') });
+    await webFsAdapter.revokeRoot(picked.rootId);
+    await expect(webFsAdapter.writeDocument(picked.rootId, target, 'revoked', await computeContentHash('after'))).rejects.toThrow();
+    expect(file.content).toBe('after');
   });
 });

@@ -60,6 +60,13 @@ async function seedConsole(
     hooks.clearConsole();
     hooks.addConsoleEntries(seeded);
   }, entries);
+  // Zero charts can mean data has not rendered yet, not successful unmount.
+  // Wait for the seeded bottom window before making negative DOM assertions
+  // or scrolling; otherwise a later sticky-layout effect can undo the scroll.
+  await expect(page.locator('[data-window-range]')).toHaveAttribute(
+    'data-window-range',
+    new RegExp(`^\\d+:${entries.length - 1}$`)
+  );
 }
 
 test.describe('console windowing (implementation detail implementation)', () => {
@@ -86,10 +93,10 @@ test.describe('console windowing (implementation detail implementation)', () => 
     await expect(page.getByText('line 0', { exact: true })).toHaveCount(0);
 
     // The window range is bottom-anchored.
-    const range = await page
-      .locator('[data-window-range]')
-      .getAttribute('data-window-range');
-    expect(range).toMatch(/^\d+:499$/);
+    await expect(page.locator('[data-window-range]')).toHaveAttribute(
+      'data-window-range',
+      /^\d+:499$/
+    );
   });
 
   test('releases an off-window chart canvas and remounts it on scroll-back', async ({

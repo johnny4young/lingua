@@ -1,4 +1,5 @@
 const OPENABLE_FILE_EXTENSIONS = [
+  'linguanb',
   'js',
   'jsx',
   'mjs',

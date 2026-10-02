@@ -161,7 +161,8 @@ export function useDependencyDetection(): void {
 
   const tabId = activeTab?.id ?? null;
   const language = activeTab?.language ?? null;
-  const content = activeTab?.content ?? '';
+  // A notebook tab's content is its saved document envelope, not source.
+  const content = activeTab?.kind === 'notebook' ? '' : (activeTab?.content ?? '');
   const filePath = activeTab?.filePath ?? undefined;
   const adapterLanguage =
     language && isDependencyAdapterLanguage(language) ? language : null;

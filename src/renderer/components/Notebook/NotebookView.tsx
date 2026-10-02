@@ -18,14 +18,7 @@
  * the target row into the window before focusing it.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   isNotebookCodeCell,
@@ -33,19 +26,13 @@ import {
   type NotebookCellLanguage,
 } from '../../../shared/notebook';
 import { useEditorStore } from '../../stores/editorStore';
-import {
-  useNotebookStore,
-} from '../../stores/notebookStore';
+import { useNotebookStore } from '../../stores/notebookStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
 import { useListWindow } from '../../hooks/useListWindow';
-import {
-  trackNotebookCellLanguageChanged,
-} from '../../hooks/notebookTelemetry';
-import {
-  pickNotebookExportLanguage,
-} from './notebookExportToScript';
+import { trackNotebookCellLanguageChanged } from '../../hooks/notebookTelemetry';
+import { pickNotebookExportLanguage } from './notebookExportToScript';
 import { isNotebookRunnableLanguage } from '../../runtime/notebookSession';
 import { useNotebookCommandMode } from './useNotebookCommandMode';
 import { NotebookToolbar } from './NotebookToolbar';
@@ -61,57 +48,38 @@ export interface NotebookViewProps {
 }
 export function NotebookView({ tabId }: NotebookViewProps) {
   const { t } = useTranslation();
-  const notebook = useNotebookStore((s) => s.notebooks[tabId]?.notebook);
-  const cellRunStatusMap = useNotebookStore(
-    (s) => s.notebooks[tabId]?.cellRunStatus
-  );
+  const notebook = useNotebookStore(s => s.notebooks[tabId]?.notebook);
+  const cellRunStatusMap = useNotebookStore(s => s.notebooks[tabId]?.cellRunStatus);
   // FASE 4 — transient per-cell latency + variable-flow maps, threaded
   // into each code-cell row alongside `status`.
-  const cellDurationMsMap = useNotebookStore(
-    (s) => s.notebooks[tabId]?.cellDurationMs
-  );
-  const cellVarFlowMap = useNotebookStore(
-    (s) => s.notebooks[tabId]?.cellVarFlow
-  );
+  const cellDurationMsMap = useNotebookStore(s => s.notebooks[tabId]?.cellDurationMs);
+  const cellVarFlowMap = useNotebookStore(s => s.notebooks[tabId]?.cellVarFlow);
   // Signal-Slate — per-cell Jupyter [N] execution-order stamp map,
   // threaded into each code-cell row alongside status + latency.
-  const cellExecutionOrderMap = useNotebookStore(
-    (s) => s.notebooks[tabId]?.cellExecutionOrder
-  );
-  const createNotebookForTab = useNotebookStore((s) => s.createNotebookForTab);
-  const addCell = useNotebookStore((s) => s.addCell);
-  const removeCell = useNotebookStore((s) => s.removeCell);
-  const updateCellSource = useNotebookStore((s) => s.updateCellSource);
-  const setCellLanguage = useNotebookStore((s) => s.setCellLanguage);
-  const moveCell = useNotebookStore((s) => s.moveCell);
+  const cellExecutionOrderMap = useNotebookStore(s => s.notebooks[tabId]?.cellExecutionOrder);
+  const createNotebookForTab = useNotebookStore(s => s.createNotebookForTab);
+  const addCell = useNotebookStore(s => s.addCell);
+  const removeCell = useNotebookStore(s => s.removeCell);
+  const updateCellSource = useNotebookStore(s => s.updateCellSource);
+  const setCellLanguage = useNotebookStore(s => s.setCellLanguage);
+  const moveCell = useNotebookStore(s => s.moveCell);
   // Signal-Slate — new engine actions for the command-mode UX + toolbar.
-  const transformCell = useNotebookStore((s) => s.transformCell);
-  const undoDeleteCell = useNotebookStore((s) => s.undoDeleteCell);
-  const clearAllOutputs = useNotebookStore((s) => s.clearAllOutputs);
-  const restartNotebookSession = useNotebookStore(
-    (s) => s.restartNotebookSession
-  );
-  const backingTabName = useEditorStore((s) => {
-    const tab = s.tabs.find((item) => item.id === tabId);
+  const transformCell = useNotebookStore(s => s.transformCell);
+  const undoDeleteCell = useNotebookStore(s => s.undoDeleteCell);
+  const clearAllOutputs = useNotebookStore(s => s.clearAllOutputs);
+  const restartNotebookSession = useNotebookStore(s => s.restartNotebookSession);
+  const backingTabName = useEditorStore(s => {
+    const tab = s.tabs.find(item => item.id === tabId);
     return tab?.kind === 'notebook' ? tab.name : null;
   });
-  const backingTabLanguage = useEditorStore((s) => {
-    const tab = s.tabs.find((item) => item.id === tabId);
-    return tab?.kind === 'notebook'
-      ? coerceNotebookCellLanguage(tab.language)
-      : null;
+  const backingTabLanguage = useEditorStore(s => {
+    const tab = s.tabs.find(item => item.id === tabId);
+    return tab?.kind === 'notebook' ? coerceNotebookCellLanguage(tab.language) : null;
   });
-  const renameTab = useEditorStore((s) => s.renameTab);
-  const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
-  const {
-    isAnyCellRunning,
-    runCell,
-    runAll,
-    runAbove,
-    runFromHere,
-    refreshStale,
-    stop,
-  } = useNotebookRun();
+  const renameTab = useEditorStore(s => s.renameTab);
+  const pushStatusNotice = useUIStore(s => s.pushStatusNotice);
+  const { isAnyCellRunning, runCell, runAll, runAbove, runFromHere, refreshStale, stop } =
+    useNotebookRun();
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
   // Signal-Slate — keyboard-shortcut legend disclosure (the discoverable
   // command-mode cheat sheet). Token-only popover anchored to the "?"
@@ -131,17 +99,15 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     readonly nonce: number;
   } | null>(null);
   const requestEditMode = useCallback((cellId: string) => {
-    setEditRequest((prev) => ({
+    setEditRequest(prev => ({
       cellId,
       nonce: (prev?.cellId === cellId ? prev.nonce : 0) + 1,
     }));
   }, []);
-  const activeCellId = useNotebookStore(
-    (s) => s.notebooks[tabId]?.activeCellId ?? null
-  );
-  const setActiveCell = useNotebookStore((s) => s.setActiveCell);
+  const activeCellId = useNotebookStore(s => s.notebooks[tabId]?.activeCellId ?? null);
+  const setActiveCell = useNotebookStore(s => s.setActiveCell);
   // implementation Slice H implementation note — per-tab cell-list scroll persistence.
-  const setNotebookScrollTop = useNotebookStore((s) => s.setNotebookScrollTop);
+  const setNotebookScrollTop = useNotebookStore(s => s.setNotebookScrollTop);
 
   // implementation — window the cell ROW count. The scrolling <section>
   // is the viewport; `useListWindow` mounts only the rows whose vertical
@@ -150,10 +116,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // key list before the notebook is created — `computeWindow` returns an
   // empty window for a zero-length list, which is harmless.
   const cellsScrollRef = useRef<HTMLElement | null>(null);
-  const cellKeys = useMemo(
-    () => notebook?.cells.map((cell) => cell.id) ?? [],
-    [notebook]
-  );
+  const cellKeys = useMemo(() => notebook?.cells.map(cell => cell.id) ?? [], [notebook]);
   const { listWindow, measureRef, scrollToIndex } = useListWindow({
     scrollRef: cellsScrollRef,
     keys: cellKeys,
@@ -209,8 +172,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const staleCount = useMemo(
     () =>
       notebook?.cells.filter(
-        (cell) =>
-          isNotebookCodeCell(cell) && cellRunStatusMap?.[cell.id] === 'stale'
+        cell => isNotebookCodeCell(cell) && cellRunStatusMap?.[cell.id] === 'stale'
       ).length ?? 0,
     [cellRunStatusMap, notebook]
   );
@@ -218,9 +180,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // floor for new code cells, replacing the hardcoded `'javascript'`. The
   // contextual signals (backing tab language, an existing code cell) are
   // more specific and still win.
-  const notebookDefaultCellLanguage = useSettingsStore(
-    (s) => s.notebookDefaultCellLanguage
-  );
+  const notebookDefaultCellLanguage = useSettingsStore(s => s.notebookDefaultCellLanguage);
   const preferredCodeLanguage = useMemo<NotebookCellLanguage>(() => {
     if (backingTabLanguage) return backingTabLanguage;
     const firstCodeCell = notebook?.cells.find(isNotebookCodeCell);
@@ -236,16 +196,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     createNotebookForTab(tabId, notebookTitleFromTabName(backingTabName));
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
 
-  useDismissibleNotebookPopover(
-    shortcutsOpen,
-    shortcutsAnchorRef,
-    setShortcutsOpen
-  );
-  useDismissibleNotebookPopover(
-    exportMenuOpen,
-    exportMenuAnchorRef,
-    setExportMenuOpen
-  );
+  useDismissibleNotebookPopover(shortcutsOpen, shortcutsAnchorRef, setShortcutsOpen);
+  useDismissibleNotebookPopover(exportMenuOpen, exportMenuAnchorRef, setExportMenuOpen);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -302,7 +254,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     (cellId: string, direction: 'up' | 'down') => {
       const cells = getLiveNotebookCells();
       if (!cells) return;
-      const idx = cells.findIndex((c) => c.id === cellId);
+      const idx = cells.findIndex(c => c.id === cellId);
       if (idx === -1) return;
       const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
       if (targetIdx < 0 || targetIdx >= cells.length) return;
@@ -332,11 +284,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   );
   const runCellRespectingReactivity = useCallback(
     (cellId: string) => {
-      const status =
-        useNotebookStore.getState().notebooks[tabId]?.cellRunStatus[cellId];
-      return status === 'stale'
-        ? refreshStale(tabId, cellId)
-        : runCell(tabId, cellId);
+      const status = useNotebookStore.getState().notebooks[tabId]?.cellRunStatus[cellId];
+      return status === 'stale' ? refreshStale(tabId, cellId) : runCell(tabId, cellId);
     },
     [refreshStale, runCell, tabId]
   );
@@ -344,14 +293,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     (cellId: string) => void runCellRespectingReactivity(cellId),
     [runCellRespectingReactivity]
   );
-  const handleMoveUp = useCallback(
-    (cellId: string) => handleMove(cellId, 'up'),
-    [handleMove]
-  );
-  const handleMoveDown = useCallback(
-    (cellId: string) => handleMove(cellId, 'down'),
-    [handleMove]
-  );
+  const handleMoveUp = useCallback((cellId: string) => handleMove(cellId, 'up'), [handleMove]);
+  const handleMoveDown = useCallback((cellId: string) => handleMove(cellId, 'down'), [handleMove]);
 
   // implementation — read a cell's current index off the LIVE store rather
   // than closing over `notebook`, so the focus helpers below keep empty /
@@ -359,8 +302,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // memoized command-mode actions — on every keystroke). Returns -1 when
   // the cell is gone.
   const cellIndexOf = useCallback(
-    (cellId: string): number =>
-      getLiveNotebookCells()?.findIndex((c) => c.id === cellId) ?? -1,
+    (cellId: string): number => getLiveNotebookCells()?.findIndex(c => c.id === cellId) ?? -1,
     [getLiveNotebookCells]
   );
 
@@ -435,7 +377,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         });
         return;
       }
-      const idx = cells.findIndex((c) => c.id === anchorCellId);
+      const idx = cells.findIndex(c => c.id === anchorCellId);
       if (idx === -1) return;
       const newId = addCell(tabId, anchorCellId, {
         kind: 'code',
@@ -465,7 +407,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       void runCellRespectingReactivity(cellId);
       const cells = getLiveNotebookCells();
       if (!cells) return;
-      const idx = cells.findIndex((c) => c.id === cellId);
+      const idx = cells.findIndex(c => c.id === cellId);
       if (idx === -1) return;
       const nextCodeCell = cells.slice(idx + 1).find(isNotebookCodeCell);
       if (nextCodeCell) {
@@ -515,7 +457,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         });
         return;
       }
-      const currentCell = cells.find((cell) => cell.id === cellId);
+      const currentCell = cells.find(cell => cell.id === cellId);
       const language =
         currentCell && isNotebookCodeCell(currentCell)
           ? currentCell.language
@@ -537,12 +479,11 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     ]
   );
 
-  const { handleExport, handleExportIpynb, handleExportLinguanb } =
-    useNotebookExportActions({
-      notebook,
-      cellExecutionOrderMap,
-      closeMenu: () => setExportMenuOpen(false),
-    });
+  const { handleExport, handleExportIpynb, handleExportLinguanb } = useNotebookExportActions({
+    notebook,
+    cellExecutionOrderMap,
+    closeMenu: () => setExportMenuOpen(false),
+  });
 
   const handleTitleCommit = useCallback(
     (value: string) => {
@@ -575,8 +516,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // running cell instead of leaving the user staring at an off-screen row.
   const handleRunAll = useCallback(() => {
     void runAll(tabId);
-    const firstCodeIdx =
-      notebook?.cells.findIndex(isNotebookCodeCell) ?? -1;
+    const firstCodeIdx = notebook?.cells.findIndex(isNotebookCodeCell) ?? -1;
     if (firstCodeIdx >= 0) scrollToIndex(firstCodeIdx);
   }, [notebook, runAll, scrollToIndex, tabId]);
 
@@ -584,8 +524,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     void refreshStale(tabId);
     const firstStaleIndex =
       notebook?.cells.findIndex(
-        (cell) =>
-          isNotebookCodeCell(cell) && cellRunStatusMap?.[cell.id] === 'stale'
+        cell => isNotebookCodeCell(cell) && cellRunStatusMap?.[cell.id] === 'stale'
       ) ?? -1;
     if (firstStaleIndex >= 0) scrollToIndex(firstStaleIndex);
   }, [cellRunStatusMap, notebook, refreshStale, scrollToIndex, tabId]);
@@ -635,10 +574,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
         transformCell(tabId, cellId, 'code');
         focusShellSoon(cellId);
       },
-      moveCell: (cellId: string, direction: 'up' | 'down') =>
-        handleMove(cellId, direction),
-      runInPlace: (cellId: string) =>
-        void runCellRespectingReactivity(cellId),
+      moveCell: (cellId: string, direction: 'up' | 'down') => handleMove(cellId, direction),
+      runInPlace: (cellId: string) => void runCellRespectingReactivity(cellId),
       runAndAdvance: (cellId: string) => handleRunAndAdvance(cellId),
       runAndInsertBelow: (cellId: string) => handleRunAndInsertBelow(cellId),
       interrupt: () => stop(),
@@ -693,25 +630,18 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   }
 
   const lastCellId = notebook.cells[notebook.cells.length - 1]?.id ?? null;
-  const lastCodeCellId =
-    [...notebook.cells].reverse().find(isNotebookCodeCell)?.id ?? null;
+  const lastCodeCellId = [...notebook.cells].reverse().find(isNotebookCodeCell)?.id ?? null;
   const disabled = isAnyCellRunning;
   const activeCellIndex =
-    activeCellId === null
-      ? -1
-      : notebook.cells.findIndex((cell) => cell.id === activeCellId);
+    activeCellId === null ? -1 : notebook.cells.findIndex(cell => cell.id === activeCellId);
   const canRunThroughActiveCell =
-    activeCellIndex >= 0 &&
-    notebook.cells
-      .slice(0, activeCellIndex + 1)
-      .some(isNotebookCodeCell);
+    activeCellIndex >= 0 && notebook.cells.slice(0, activeCellIndex + 1).some(isNotebookCodeCell);
   // Run-from-here is enabled when the active cell (or any cell below it)
   // is runnable — mirrors `canRunThroughActiveCell` for the inverse range.
   const canRunFromActiveCell =
-    activeCellIndex >= 0 &&
-    notebook.cells.slice(activeCellIndex).some(isNotebookCodeCell);
+    activeCellIndex >= 0 && notebook.cells.slice(activeCellIndex).some(isNotebookCodeCell);
   const hasOutputsToClear = notebook.cells.some(
-    (cell) => isNotebookCodeCell(cell) && cell.outputs.length > 0
+    cell => isNotebookCodeCell(cell) && cell.outputs.length > 0
   );
   const exportLanguageLabel = exportLanguage
     ? languageLabel(exportLanguage)
@@ -763,6 +693,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       <NotebookReactivityBanner staleCount={staleCount} />
 
       <NotebookCellList
+        tabId={tabId}
         cellsScrollRef={cellsScrollRef}
         handleContainerKeyDown={handleContainerKeyDown}
         handleCellsScroll={handleCellsScroll}

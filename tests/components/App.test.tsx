@@ -446,6 +446,12 @@ describe('App', () => {
   });
 
   it('saves untitled dirty tabs before forcing close', async () => {
+    mockEditorState.saveTabById.mockImplementation(async (id: string) => {
+      mockEditorState.tabs = mockEditorState.tabs.map(tab =>
+        tab.id === id ? { ...tab, isDirty: false } : tab
+      );
+      return true;
+    });
     mockEditorState.tabs = [
       {
         id: 'tab-1',

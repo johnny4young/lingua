@@ -1553,3 +1553,40 @@ describe('pathIntersectsApprovedScope', () => {
     expect(await pathIntersectsApprovedScope(tmpRoot)).toBe(false);
   });
 });
+
+describe('optimistic document commits', () => {
+  const hash = async (content: string) => (await import('../../src/shared/runCapsule')).computeContentHash(content);
+  it('writes a real document through its capability and refuses stale hashes', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    expect(await invoke('fs:write-document', rootId, 'notebook.linguanb', 'initial', null)).toEqual({ status: 'saved', hash: await hash('initial') });
+    await writeFile(path.join(tmpRoot, 'notebook.linguanb'), 'external');
+    expect(await invoke('fs:write-document', rootId, 'notebook.linguanb', 'unsaved', await hash('initial'))).toEqual({ status: 'conflict', actualHash: await hash('external') });
+    expect(await readFile(path.join(tmpRoot, 'notebook.linguanb'), 'utf8')).toBe('external');
+  });
+  it('serializes same-file concurrent commits and leaves no temporary file', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'notebook.linguanb'), 'before');
+    const before = await hash('before');
+    const commits = await Promise.all(['first', 'second'].map(content => invoke('fs:write-document', rootId, 'notebook.linguanb', content, before)));
+    // Capability resolution precedes the file-keyed lock and may complete
+    // out of IPC arrival order. The commit invariant is one winner, not FIFO.
+    const winner = commits.findIndex(result => result.status === 'saved');
+    expect(winner === 0 || winner === 1).toBe(true);
+    const winningContent = ['first', 'second'][winner]!;
+    const winningHash = await hash(winningContent);
+    expect(commits).toEqual(winner === 0
+      ? [{ status: 'saved', hash: winningHash }, { status: 'conflict', actualHash: winningHash }]
+      : [{ status: 'conflict', actualHash: winningHash }, { status: 'saved', hash: winningHash }]);
+    expect(await readFile(path.join(tmpRoot, 'notebook.linguanb'), 'utf8')).toBe(winningContent);
+    const entries = await import('node:fs/promises').then(fs => fs.readdir(tmpRoot));
+    expect(entries.filter(name => name.startsWith('.lingua-document-'))).toEqual([]);
+  });
+  it('rejects malformed hashes, oversized documents, traversal and revoked roots', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await expect(invoke('fs:write-document', rootId, 'never.linguanb', '{}', 'not-a-hash')).rejects.toThrow(/Invalid IPC arguments/);
+    await expect(invoke('fs:write-document', rootId, 'never.linguanb', 'x'.repeat(512 * 1024 + 1), null)).rejects.toThrow(/Invalid IPC arguments/);
+    await expect(invoke('fs:write-document', rootId, '../outside.linguanb', '{}', null)).rejects.toThrow();
+    await invoke('fs:revoke-root', rootId);
+    await expect(invoke('fs:write-document', rootId, 'never.linguanb', '{}', null)).rejects.toThrow();
+  });
+});

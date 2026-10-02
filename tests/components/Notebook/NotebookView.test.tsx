@@ -145,7 +145,6 @@ describe('<NotebookView />', () => {
     }
   });
 
-
   it('gives the code-output collapse toggle the shared focus ring (accessibility pass)', () => {
     seedNotebookCells([
       {
@@ -203,7 +202,7 @@ describe('<NotebookView />', () => {
     const codeCells = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.filter((cell) => cell.kind === 'code');
+      .cells.filter(cell => cell.kind === 'code');
     expect(codeCells.at(-1)).toMatchObject({ language: 'python' });
     // The new empty cell is a static view showing the language-aware
     // placeholder copy until it is edited.
@@ -226,12 +225,12 @@ describe('<NotebookView />', () => {
     const idsBefore = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.map((c) => c.id);
+      .cells.map(c => c.id);
     await user.click(screen.getByTestId('notebook-markdown-cell-move-down'));
     const idsAfter = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.map((c) => c.id);
+      .cells.map(c => c.id);
     expect(idsAfter[0]).toBe(idsBefore[1]);
     expect(idsAfter[1]).toBe(idsBefore[0]);
   });
@@ -285,38 +284,31 @@ describe('<NotebookView />', () => {
     expect(screen.getByTestId('notebook-reactivity-banner').textContent).toMatch(
       /2 executed cells need a refresh/i
     );
-    expect(screen.getAllByTestId('notebook-code-cell-stale-hint')).toHaveLength(
-      2
-    );
+    expect(screen.getAllByTestId('notebook-code-cell-stale-hint')).toHaveLength(2);
     const refresh = screen.getByTestId('notebook-toolbar-refresh-stale');
     expect(refresh.textContent).toMatch(/refresh 2/i);
 
     await user.click(refresh);
 
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(screen.queryByTestId('notebook-reactivity-banner')).toBeNull()
-    );
+    await waitFor(() => expect(screen.queryByTestId('notebook-reactivity-banner')).toBeNull());
   });
 
   it('the cell language selector switches JS to TS and emits the adoption event', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     render(<NotebookView tabId={TAB_ID} />);
-    const select = screen.getByTestId(
-      'notebook-code-cell-language'
-    ) as HTMLSelectElement;
+    const select = screen.getByTestId('notebook-code-cell-language') as HTMLSelectElement;
     expect(select.value).toBe('javascript');
     fireEvent.change(select, { target: { value: 'typescript' } });
     const codeCell = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.find((c) => c.kind === 'code')!;
+      .cells.find(c => c.kind === 'code')!;
     expect(codeCell.kind).toBe('code');
     if (codeCell.kind === 'code') expect(codeCell.language).toBe('typescript');
-    expect(telemetry.trackEvent).toHaveBeenCalledWith(
-      'notebook.cell_language_changed',
-      { to: 'typescript' }
-    );
+    expect(telemetry.trackEvent).toHaveBeenCalledWith('notebook.cell_language_changed', {
+      to: 'typescript',
+    });
   });
 
   it('the cell language selector enables Python and switches to it ', async () => {
@@ -324,9 +316,7 @@ describe('<NotebookView />', () => {
     vi.mocked(telemetry.trackEvent).mockClear();
     render(<NotebookView tabId={TAB_ID} />);
     const select = screen.getByTestId('notebook-code-cell-language');
-    const python = select.querySelector(
-      'option[value="python"]'
-    ) as HTMLOptionElement | null;
+    const python = select.querySelector('option[value="python"]') as HTMLOptionElement | null;
     expect(python).not.toBeNull();
     // implementation — Python now runs, so the option is no longer disabled.
     expect(python?.disabled).toBe(false);
@@ -335,14 +325,13 @@ describe('<NotebookView />', () => {
     const codeCell = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.find((c) => c.kind === 'code')!;
+      .cells.find(c => c.kind === 'code')!;
     expect(codeCell.kind).toBe('code');
     if (codeCell.kind !== 'code') return;
     expect(codeCell.language).toBe('python');
-    expect(telemetry.trackEvent).toHaveBeenCalledWith(
-      'notebook.cell_language_changed',
-      { to: 'python' }
-    );
+    expect(telemetry.trackEvent).toHaveBeenCalledWith('notebook.cell_language_changed', {
+      to: 'python',
+    });
   });
 
   it('the export menu offers script + Jupyter .ipynb and the .ipynb action fires the export ', async () => {
@@ -350,10 +339,10 @@ describe('<NotebookView />', () => {
     vi.mocked(telemetry.trackEvent).mockClear();
     // jsdom has no URL.createObjectURL — stub it so the blob download path
     // succeeds and the export reaches the telemetry call.
-    (URL as unknown as { createObjectURL: () => string }).createObjectURL =
-      vi.fn(() => 'blob:mock');
-    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL =
-      vi.fn();
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = vi.fn(
+      () => 'blob:mock'
+    );
+    (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = vi.fn();
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
     // The seeded notebook has a code cell, so export is enabled.
@@ -364,9 +353,7 @@ describe('<NotebookView />', () => {
     expect(telemetry.trackEvent).toHaveBeenCalledWith('notebook.exported', {
       format: 'ipynb',
     });
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-      'notebook.notice.exportIpynbOk'
-    );
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('notebook.notice.exportIpynbOk');
     // The menu closes after an export action.
     expect(screen.queryByTestId('notebook-export-menu')).toBeNull();
   });
@@ -374,8 +361,9 @@ describe('<NotebookView />', () => {
   it('the export menu offers .linguanb and it fires the lossless export ', async () => {
     const telemetry = await import('../../../src/renderer/utils/telemetry');
     vi.mocked(telemetry.trackEvent).mockClear();
-    (URL as unknown as { createObjectURL: () => string }).createObjectURL =
-      vi.fn(() => 'blob:mock');
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = vi.fn(
+      () => 'blob:mock'
+    );
     (URL as unknown as { revokeObjectURL: () => void }).revokeObjectURL = vi.fn();
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
@@ -388,9 +376,7 @@ describe('<NotebookView />', () => {
         format: 'linguanb',
       });
     });
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-      'notebook.notice.exportLinguanbOk'
-    );
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('notebook.notice.exportLinguanbOk');
   });
 
   it('runs the focused code cell on Cmd+Enter without falling through to the global runner', async () => {
@@ -419,9 +405,7 @@ describe('<NotebookView />', () => {
     runLastCodeCellKeybind(RUN_ADVANCE_CHORD);
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
-        before + 1
-      )
+      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(before + 1)
     );
   });
 
@@ -437,9 +421,7 @@ describe('<NotebookView />', () => {
     runLastCodeCellKeybind(RUN_INSERT_CHORD);
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
-        before + 1
-      )
+      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(before + 1)
     );
   });
 
@@ -461,9 +443,7 @@ describe('<NotebookView />', () => {
     ]);
     render(<NotebookView tabId={TAB_ID} />);
 
-    fireEvent.mouseDown(
-      screen.getAllByTestId('notebook-code-cell-static').at(-1)!
-    );
+    fireEvent.mouseDown(screen.getAllByTestId('notebook-code-cell-static').at(-1)!);
     await act(async () => {
       cellMockHarness.commands.get(RUN_ADVANCE_CHORD)?.();
     });
@@ -480,13 +460,13 @@ describe('<NotebookView />', () => {
       const codeCells = useNotebookStore
         .getState()
         .getNotebookForTab(TAB_ID)!
-        .cells.filter((cell) => cell.kind === 'code');
+        .cells.filter(cell => cell.kind === 'code');
       expect(codeCells).toHaveLength(2);
     });
     const codeCells = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.filter((cell) => cell.kind === 'code');
+      .cells.filter(cell => cell.kind === 'code');
     expect(codeCells[1]).toMatchObject({ language: 'python' });
   });
 
@@ -524,9 +504,7 @@ describe('<NotebookView />', () => {
       useNotebookStore.getState().setActiveCell(TAB_ID, 'cell-one');
     });
     const user = userEvent.setup();
-    const runAboveButton = screen.getByTestId(
-      'notebook-toolbar-run-above'
-    ) as HTMLButtonElement;
+    const runAboveButton = screen.getByTestId('notebook-toolbar-run-above') as HTMLButtonElement;
     await waitFor(() => expect(runAboveButton.disabled).toBe(false));
     await user.click(runAboveButton);
 
@@ -543,11 +521,9 @@ describe('<NotebookView />', () => {
     expect(useEditorStore.getState().tabs[0]).toMatchObject({
       name: 'Analysis.linguanb',
       kind: 'notebook',
-      isDirty: false,
+      isDirty: true,
     });
-    expect(useNotebookStore.getState().getNotebookForTab(TAB_ID)?.title).toBe(
-      'Analysis'
-    );
+    expect(useNotebookStore.getState().getNotebookForTab(TAB_ID)?.title).toBe('Analysis');
   });
 
   it('toggles the markdown cell into edit mode and persists edits', async () => {
@@ -562,16 +538,14 @@ describe('<NotebookView />', () => {
     const stored = useNotebookStore
       .getState()
       .getNotebookForTab(TAB_ID)!
-      .cells.find((c) => c.kind === 'markdown');
+      .cells.find(c => c.kind === 'markdown');
     expect(stored?.source).toBe('# Updated');
   });
 
   it('renders ES locale copy when language is set to es', async () => {
     await i18next.changeLanguage('es');
     render(<NotebookView tabId={TAB_ID} />);
-    expect(screen.getByTestId('notebook-toolbar-add-code').textContent).toContain(
-      'Agregar código'
-    );
+    expect(screen.getByTestId('notebook-toolbar-add-code').textContent).toContain('Agregar código');
     expect(screen.getByTestId('notebook-toolbar-add-markdown').textContent).toContain(
       'Agregar markdown'
     );

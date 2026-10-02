@@ -6,13 +6,15 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
+- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
+- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
+
 ### Fixed
 - Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
 - **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
-
-### Added
-- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
-- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
+- Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
 
 ## [1.5.1] — 2026-09-24
 

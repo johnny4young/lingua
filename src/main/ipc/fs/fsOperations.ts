@@ -34,6 +34,7 @@ import {
 } from './fsApprovals';
 import { registerBundleHandlers } from './fsBundle';
 import { fsArgs } from './fsArgs';
+import { writeAtomicDocument } from './documentWrite';
 import { registerSearchReplaceHandlers } from './fsSearchReplace';
 import {
   CapabilityError,
@@ -413,6 +414,12 @@ export function registerFileOperationHandlers(): void {
       return true;
     }
   );
+
+  validatedHandle('fs:write-document', fsArgs.writeDocument, async (_event, rootId, relativePath, content, expectedHash) => {
+    const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
+    return writeAtomicDocument(absolutePath, content, expectedHash, async () =>
+      (await resolveOrThrow(rootId, relativePath, 'write')).absolutePath);
+  });
 
   // ---------------------------------------------------------------- delete
 

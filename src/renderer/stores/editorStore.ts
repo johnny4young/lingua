@@ -7,6 +7,8 @@ import { createModeActions } from './editorModeActions';
 import { createInputActions } from './editorInputActions';
 import { createSaveActions } from './editorSaveActions';
 import { createCloseActions } from './editorCloseActions';
+import { useNotebookStore } from './notebookStore';
+import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 
 /**
  * internal — editor store assembly point.
@@ -58,3 +60,29 @@ export {
 } from './editorTabUtils';
 export { getActiveTab, getActiveTabIndex } from './editorSelectors';
 export { languageFromPath } from '../utils/language';
+
+// Dirty is based only on persistible cells, outputs and execution-order stamps.
+// Kernel statuses, focus, scroll and timings cannot dirty a document.
+useNotebookStore.subscribe((state, previous) => {
+  for (const tab of useEditorStore.getState().tabs) {
+    if (tab.kind !== 'notebook') continue;
+    const slice = state.notebooks[tab.id],
+      old = previous.notebooks[tab.id];
+    if (
+      !slice ||
+      (slice.notebook === old?.notebook && slice.cellExecutionOrder === old?.cellExecutionOrder)
+    )
+      continue;
+    const snapshot = notebookDocumentSnapshot(tab.id)!;
+    const initial = !old && tab.content === '' && !tab.rootId;
+    const isDirty = !initial && snapshot !== tab.content;
+    if (initial || tab.isDirty !== isDirty)
+      useEditorStore.setState(current => ({
+        tabs: current.tabs.map(candidate =>
+          candidate.id === tab.id
+            ? { ...candidate, ...(initial ? { content: snapshot } : {}), isDirty }
+            : candidate
+        ),
+      }));
+  }
+});

@@ -711,7 +711,7 @@ interface LinguaAPI {
     };
   };
 
-  fs: {
+  fs: import('./shared/documentWrite').DocumentWriteBridge & {
     /**
      * internal capability-based sandbox: pickers mint an opaque `rootId`
      * tied to the directory the user explicitly approved. Subsequent

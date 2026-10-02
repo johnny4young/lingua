@@ -962,3 +962,23 @@ Keep tests close to the behavior they validate, even though the repository uses 
 - [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow
 
 [`components/CapsuleList/CapsuleRegressionExportDialog.tsx`](components/CapsuleList/CapsuleRegressionExportDialog.tsx) owns explicit project-target selection, content review and inert suite inspection/export. Shared capsuleRegressionSuite.ts is the v1 parser; CLI execution is a separate user action.
+
+### Notebook document actions
+
+`stores/editorDocumentSave.ts` adopts saved document metadata without dropping in-flight edits.
+`stores/notebookDocumentDrafts.ts` flushes mounted cell drafts before manual save and close.
+`stores/notebookDocumentPersistence.ts` computes canonical document snapshots for synchronous dirty tracking.
+`stores/notebookDocumentWrite.ts` owns capability-backed manual commits and conflict results.
+`stores/notebookDocumentRecovery.ts` reconciles recovered documents with current disk evidence. `NotebookDocumentActions` routes toolbar
+gestures through existing editor save actions and shortcuts. notebookStore remains
+the sole live cell/output owner; FileTab.content is its last saved canonical v1
+baseline, with notebookDocumentHash as the last disk hash. Session restore and
+projectWatchReload preserve dirty cells and install reopened output as stale,
+without restoring kernel memory or executing imported code. Export stays separate
+and never marks a document as project-saved. See ARCHITECTURE.md for commit semantics.
+
+`hooks/notebookDocumentExternalReload.ts` loads notebook-only hash and reload evidence on a real watch event, preserving the cold-load budget.
+
+`stores/notebookDocumentOpen.ts` prepares and installs selected notebook documents lazily, without execution.
+
+`stores/editorDocumentOpen.ts` owns capability-backed open gestures behind the explicit dispatcher; the existing deduplication and tab-budget checks remain intact.

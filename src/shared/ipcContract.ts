@@ -50,6 +50,8 @@ import type {
   RustDebuggerStepCommand,
 } from './rustDebugger';
 
+import type { DocumentWriteResult } from './documentWrite';
+
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
   'app:get-system-languages': { args: []; result: string[] };
@@ -387,6 +389,10 @@ interface IpcInvokeContract {
     args: [rootId: RootId, relativePath: RelativePath, content: string];
     result: boolean;
   };
+  'fs:write-document': {
+    args: [rootId: RootId, relativePath: RelativePath, content: string, expectedHash: string | null];
+    result: DocumentWriteResult;
+  };
   'fs:delete': {
     args: [rootId: RootId, relativePath: RelativePath, isDirectory?: boolean, language?: string];
     result: boolean;
@@ -676,6 +682,7 @@ export const IPC_INVOKE_CHANNELS = [
   'fs:read',
   'fs:read-bytes',
   'fs:write',
+  'fs:write-document',
   'fs:delete',
   'fs:rename',
   'fs:mkdir',

@@ -1553,3 +1553,32 @@ The optional final compile argument and additive result metadata preserve existi
 callers; the browser stop stub does not gain host execution authority.
 
 CLI regression suites are independent v1 artifacts with complete Capsule baselines. Current-file target resolution uses canonical in-root regular files; code execution itself is not sandboxed. Import/export/preview stay inert.
+
+## Manual notebook document persistence
+
+`.linguanb` v1 is the lossless document envelope, not a new schema. Selected-file
+and project-tree opens parse that envelope without executing cells. Save and
+Save As serialize notebookStore cells, outputs and execution order. FileTab.content
+holds the last saved canonical envelope; notebookDocumentHash holds the SHA-256 of
+actual last-read/committed disk bytes. Dirty compares the current persistible
+payload with the baseline, excluding focus, kernel status, durations and heap.
+Neither export downloads nor session recovery bind a new file implicitly.
+
+The renderer writes only rootId/relativePath via fs:write-document, never an
+absolute renderer path. Its expected hash is evidence, not authority. Desktop
+validates capabilities, stages a same-directory private temporary file, rechecks
+the grant and destination hash, then replaces by rename and removes leftover
+staging files. Web FSA rechecks its live grant/hash and commits via close (or
+aborts on conflict); it does not promise atomic rename. In-process saves serialize;
+external processes are not locked, so this is optimistic conflict detection,
+not a cross-process compare-and-swap or hermetic filesystem guarantee.
+
+Save adopts only binding/baseline metadata. Edits and outputs produced during
+an await survive and remain dirty. Errors, cancellation, revocation and conflicts
+retain the in-memory document. Dirty close guards still protect edits made during
+Save. External reload requires explicit acceptance when dirty, disposes the old
+kernel and installs stale output evidence. Session recovery retains dirty local
+cells and the original expected hash rather than adopting conflicting disk bytes.
+Browser handles are session-scoped: after reload a recovered document needs an
+explicit picker selection to bind again. No heap is restored and no code auto-runs.
+Only manual disk saving is provided; local session persistence remains independent.

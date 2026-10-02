@@ -62,6 +62,8 @@ export interface FileTab {
    */
   rootId?: string;
   relativePath?: string;
+  /** Last committed disk hash for optimistic notebook saves; not a capability. */
+  notebookDocumentHash?: string | null;
   /** Last execution outcome. Drives the status dot in EditorTabs. */
   executionState?: TabExecutionState;
   /**
@@ -375,7 +377,8 @@ export interface EditorState {
     relativePath: string,
     name: string,
     language: Language,
-    displayPath?: string
+    displayPath?: string,
+    stillCurrent?: () => boolean
   ) => Promise<void>;
   /** Open a native file picker and open the selected file in a new tab. */
   openFileFromDisk: () => Promise<void>;
