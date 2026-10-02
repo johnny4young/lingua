@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { isWorkspaceTab } from '../../stores/editorTabUtils';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
@@ -100,7 +101,7 @@ export function Toolbar() {
     effectiveTier,
     isWebBuild,
     isNotebookTab: activeTab?.kind === 'notebook',
-    isWorkspaceTab: activeTab?.kind === 'sql' || activeTab?.kind === 'http' || activeTab?.kind === 'utilities',
+    isWorkspaceTab: activeTab ? isWorkspaceTab(activeTab) : false,
     enabledBreakpointCount,
   });
   const {

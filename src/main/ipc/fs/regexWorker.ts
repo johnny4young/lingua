@@ -172,6 +172,11 @@ export function createRegexWorker(): RegexWorker {
       };
       const onExit = () => {
         cleanup();
+        // Forget the dead thread so the next call starts a fresh one.
+        if (worker === active) {
+          worker = null;
+          online = null;
+        }
         reject(new Error('Regex worker exited unexpectedly'));
       };
       active.on('message', onMessage);

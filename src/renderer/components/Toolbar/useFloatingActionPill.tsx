@@ -29,6 +29,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { isWorkspaceTab } from '../../stores/editorTabUtils';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -127,7 +128,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     effectiveTier,
     isWebBuild,
     isNotebookTab,
-    isWorkspaceTab: activeTab?.kind === 'sql' || activeTab?.kind === 'http' || activeTab?.kind === 'utilities',
+    isWorkspaceTab: activeTab ? isWorkspaceTab(activeTab) : false,
     enabledBreakpointCount,
   });
   const estimatedPillWidth =

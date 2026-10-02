@@ -35,7 +35,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
 
-In the HTTP workspace `Cmd/Ctrl+Enter` sends the request instead of running the active tab. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`…`0` jump between sections.
+On workspace tabs `Cmd/Ctrl+Enter` and the action pill's Run act on that workspace instead of a language runner: the HTTP workspace sends the active request, the SQL workspace runs the active query, and Developer Utilities applies the selected utility to its input. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`…`0` jump between sections.
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 

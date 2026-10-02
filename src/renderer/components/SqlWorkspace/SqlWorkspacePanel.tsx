@@ -155,11 +155,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Profiles must use the exact SQL that produced a response, not subsequent
   // editor drafts. This in-memory map deliberately does not survive reload:
   // persisted responses do not retain their SQL source and profiling a guessed
-  // source would misrepresent the visible result. The module-level copy
-  // keeps it across layout remounts (toggling the bottom panel).
-  const [profileSourcesByQueryId, setProfileSourcesByQueryId] = useState(
-    () => new Map(sessionProfileSources)
-  );
+  // source would misrepresent the visible result. It lives at module level so
+  // layout remounts (toggling the bottom panel) keep it; the tick re-renders.
+  const [, setProfileSourcesVersion] = useState(0);
   // Run-history selection — index into the active query's response LRU
   // (0 = newest). A fresh run / query switch resets to 0.
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
@@ -197,7 +195,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     activeQuery !== undefined &&
     activeResponse !== null &&
     safeResponseIndex === 0
-      ? profileSourcesByQueryId.get(activeQuery.id)
+      ? sessionProfileSources.get(activeQuery.id)
       : undefined;
 
   // SQL/HTTP MODEL rework — a new query is a row in the collection, NOT a
@@ -305,13 +303,15 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             ? { errorMessage: outcome.errorMessage }
             : {}),
         };
-        setProfileSourcesByQueryId((current) => {
-          const next = new Map(current);
-          const source = { recordedAt: response.recordedAt, query: queryToRun.query };
-          next.set(queryToRun.id, source);
-          sessionProfileSources.set(queryToRun.id, source);
-          return next;
+        const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
+        for (const id of sessionProfileSources.keys()) {
+          if (!liveIds.has(id)) sessionProfileSources.delete(id);
+        }
+        sessionProfileSources.set(queryToRun.id, {
+          recordedAt: response.recordedAt,
+          query: queryToRun.query,
         });
+        setProfileSourcesVersion((version) => version + 1);
         useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);
         // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);

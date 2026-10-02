@@ -224,6 +224,18 @@ describe('SqlWorkspacePanel', () => {
     });
   });
 
+  it('keeps the profile action for the last run across a panel remount', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-query-list-create'));
+    await user.type(screen.getByTestId('sql-query-editor-textarea'), 'SELECT 1');
+    await user.click(screen.getByTestId('sql-query-editor-run'));
+    await waitFor(() => expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy());
+    unmount();
+    render(<SqlWorkspacePanel />);
+    expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy();
+  });
+
   it('renders the error band on a SQL error', async () => {
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
