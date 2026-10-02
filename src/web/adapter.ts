@@ -29,7 +29,7 @@ export interface WebAdapterHooks {
 
 // Until the app connects, the stubs answer with the copy key itself.
 let hooks: WebAdapterHooks = {
-  translate: (key) => key,
+  translate: key => key,
   getSystemLanguages: () => [],
 };
 
@@ -165,6 +165,7 @@ const webLingua: LinguaAPI = {
   // hint and never tries to send JSON-RPC requests that have no
   // transport.
   lsp: {
+    resolveTarget: async () => null,
     rust: {
       start: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
       restart: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
@@ -225,17 +226,13 @@ const webLingua: LinguaAPI = {
   // an honest "not on web" failure if a caller ever reaches it
   // (the UI guards on `platform === 'web'` upstream).
   dependencies: {
-    resolveJs: async (specifiers) => ({
-      statuses: Object.fromEntries(
-        specifiers.map((name) => [name, 'detected' as const])
-      ),
+    resolveJs: async specifiers => ({
+      statuses: Object.fromEntries(specifiers.map(name => [name, 'detected' as const])),
       cwd: null,
       hasPackageJson: null,
     }),
     installJs: async (_runId, specifiers, _filePath) => ({
-      statuses: Object.fromEntries(
-        specifiers.map((name) => [name, 'failed' as const])
-      ),
+      statuses: Object.fromEntries(specifiers.map(name => [name, 'failed' as const])),
       outcome: 'failed' as const,
       failureReason: 'binary-missing' as const,
       cwd: null,

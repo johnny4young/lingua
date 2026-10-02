@@ -18,7 +18,18 @@ export const rustLanguageSupport = {
       import('../components/Editor/completionProviders/rustHoverProvider'),
       import('../components/Editor/completionProviders/rustSignatureProvider'),
     ]);
+    const [{ createLspNavigationProviders }, { getRustLspAdapter, isRustLspAvailable }] =
+      await Promise.all([
+        import('../components/Editor/completionProviders/lspNavigationProvider'),
+        import('../languageIntelligence/rustAdapterSingleton'),
+      ]);
     return {
+      createDefinitionProvider: monaco =>
+        createLspNavigationProviders(monaco, 'rust', isRustLspAvailable, getRustLspAdapter)
+          .definition,
+      createReferenceProvider: monaco =>
+        createLspNavigationProviders(monaco, 'rust', isRustLspAvailable, getRustLspAdapter)
+          .references,
       createCompletionProvider: createRustCompletionProvider,
       createHoverProvider: createRustHoverProvider,
       createSignatureHelpProvider: createRustSignatureProvider,

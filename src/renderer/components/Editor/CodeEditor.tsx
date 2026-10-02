@@ -1,3 +1,4 @@
+import { createLspEditorOpener } from './lspEditorOpener';
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,13 +6,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
-import {
-  PRESENTER_EDITOR_FONT_LIFT,
-  usePresenterModeStore,
-} from '../../stores/presenterModeStore';
+import { PRESENTER_EDITOR_FONT_LIFT, usePresenterModeStore } from '../../stores/presenterModeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
-import { rustLspModelPathForTab } from '../../utils/filePath';
+import { lspModelPathForTab } from '../../utils/filePath';
 import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
@@ -153,10 +151,11 @@ export function CodeEditor() {
   // The selector implementation note expected model URIs into one string so this
   // effect only re-runs when the Rust tab set (id / name / filePath)
   // actually changes, never per keystroke.
+  const ownedLspModelPaths = useRef(new Set<string>());
   const expectedRustModelPaths = useEditorStore(state =>
     state.tabs
-      .filter(tab => tab.language === 'rust')
-      .map(tab => rustLspModelPathForTab(tab))
+      .map(tab => lspModelPathForTab(tab))
+      .filter(Boolean)
       .join('\n')
   );
   useEffect(() => {
@@ -167,17 +166,25 @@ export function CodeEditor() {
         .filter(Boolean)
         .map(path => monacoInstance.Uri.parse(path).toString())
     );
+    for (const uri of expected) ownedLspModelPaths.current.add(uri);
     const mounted = editorRef.current?.getModel() ?? null;
     for (const model of monacoInstance.editor.getModels()) {
       if (model === mounted) continue;
-      if (model.getLanguageId() !== 'rust') continue;
+      if (model.getLanguageId() !== 'rust' && model.getLanguageId() !== 'go') continue;
       // Only sweep models we minted (per-tab `path`): exact-URI match
       // against the live Rust tab set. Anything else (diff panels,
       // detached buffers from other surfaces) is left alone.
-      if (expected.has(model.uri.toString())) continue;
+      const uri = model.uri.toString();
+      if (!ownedLspModelPaths.current.has(uri) || expected.has(uri)) continue;
       model.dispose();
+      ownedLspModelPaths.current.delete(uri);
     }
   }, [monacoInstance, expectedRustModelPaths]);
+  useEffect(() => {
+    if (!monacoInstance) return;
+    const disposable = monacoInstance.editor.registerEditorOpener(createLspEditorOpener());
+    return () => disposable.dispose();
+  }, [monacoInstance]);
   // Glyph-margin breakpoint markers + click-to-toggle. The hook self-gates on
   // debugger-capable JS/TS tabs and desktop Python so other languages stay
   // byte-identical in the DOM.
@@ -320,7 +327,7 @@ export function CodeEditor() {
       label: t('ai.explainCode.action'),
       contextMenuGroupId: '9_ai',
       contextMenuOrder: 1,
-      run: (ed) => {
+      run: ed => {
         const ctx = explainCtxRef.current;
         if (!ctx) return;
         openExplainCodeForEditor(ed, ctx.language, ctx.name);
@@ -398,6 +405,13 @@ export function CodeEditor() {
       lineNumber: pendingReveal.line,
       column: pendingReveal.column ?? 1,
     });
+    if (pendingReveal.endLine !== undefined)
+      editor.setSelection({
+        startLineNumber: pendingReveal.line,
+        startColumn: pendingReveal.column ?? 1,
+        endLineNumber: pendingReveal.endLine,
+        endColumn: pendingReveal.endColumn ?? 1,
+      });
     editor.focus();
     clearPendingReveal();
     // `activeTab` is the ref we branch on; eslint's exhaustive-deps rule
@@ -448,7 +462,7 @@ export function CodeEditor() {
     return <EditorEmptyState />;
   }
 
-  const editorPath = activeTab.language === 'rust' ? rustLspModelPathForTab(activeTab) : undefined;
+  const editorPath = lspModelPathForTab(activeTab);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

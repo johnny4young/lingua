@@ -173,6 +173,27 @@ describe('GoplsLauncher initialize params', () => {
 });
 
 describe('GoplsLauncher crash recovery', () => {
+  it('announces a non-running status before replacing a crashed server', async () => {
+    vi.useFakeTimers();
+    try {
+      const { GoplsLauncher } = await import('../../../src/main/lsp/goplsLauncher');
+      const statuses: Array<{ kind: string }> = [];
+      const launcher = new GoplsLauncher({
+        onStatus: status => statuses.push(status),
+      }) as unknown as {
+        handleExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+        spawnAndInitializeRecovery: (exitDetail: string) => Promise<void>;
+      };
+      const recovery = vi.fn().mockResolvedValue(undefined);
+      launcher.spawnAndInitializeRecovery = recovery;
+      launcher.handleExit(1, null);
+      expect(statuses).toEqual([{ kind: 'starting' }]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(recovery).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it.each([false, true])('contains recovery rejection when status delivery throws: %s', async (statusThrows) => {
     // The exit handler schedules one recovery attempt fire-and-forget. That
     // path resolves the binary and re-runs the initialize handshake, and

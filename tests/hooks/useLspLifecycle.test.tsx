@@ -8,6 +8,7 @@ import {
 import type { LspLanguageIntelligenceAdapter } from '@/languageIntelligence/types';
 import { createLspLanguageStore } from '@/stores/lspLanguageStoreFactory';
 import { useUIStore } from '@/stores/uiStore';
+import { useEditorStore } from '@/stores/editorStore';
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
   MarkerSeverity: {
@@ -102,6 +103,49 @@ describe('useLspLifecycle', () => {
       tone: 'error',
       messageKey: 'languageIntelligence.rust.toast.adapterLoadFailed',
     });
+  });
+
+  it('applies the first start result even though requesting boot re-runs the effect', async () => {
+    useEditorStore.setState({
+      tabs: [{ id: 'rs', name: 'main.rs', language: 'rust', content: '', isDirty: false }],
+      activeTabId: 'rs',
+    });
+    const noAdapter = async () => null;
+    // Authorization awaits in main, so start settles after the initial status read.
+    const failingBridge = () => ({
+      start: () =>
+        new Promise<{ kind: 'startup-failed'; error: string }>(resolve =>
+          setTimeout(() =>
+            resolve({ kind: 'startup-failed', error: 'Project root is not authorized.' })
+          )
+        ),
+      status: async () => ({ kind: 'unknown' as const }),
+      onStatusChanged: () => () => {},
+    });
+    function FailingHarness() {
+      useLspLifecycle({
+        language: 'rust',
+        diagnosticSource: 'rust-analyzer',
+        toastMessageKey: 'languageIntelligence.rust.toast.ready',
+        adapterLoadFailedMessageKey: 'languageIntelligence.rust.toast.adapterLoadFailed',
+        store: lifecycleStore,
+        isAvailable: isLspAvailable,
+        loadAdapter: noAdapter,
+        getBridge: failingBridge,
+      });
+      return null;
+    }
+    try {
+      render(<FailingHarness />);
+      await waitFor(() => {
+        expect(lifecycleStore.getState().status).toMatchObject({
+          kind: 'unavailable',
+          reason: 'startup-failed',
+        });
+      });
+    } finally {
+      useEditorStore.setState({ tabs: [], activeTabId: null });
+    }
   });
 
   it('does not open a stale document when the adapter resolves after unmount', async () => {

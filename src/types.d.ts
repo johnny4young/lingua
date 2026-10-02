@@ -178,14 +178,9 @@ type GoplsStatus = import('./shared/lspLauncherTypes').GoplsStatus;
 // Minimal JSON-RPC notification shape used by the LSP bridge. The
 // renderer self-filters by `method`; everything off the contract is
 // ignored.
-interface LspNotification<P = unknown> {
-  jsonrpc: '2.0';
-  method: string;
-  params?: P;
-}
-
-type LspRequestFailureReason = 'unsupported-method' | 'not-started' | 'request-failed';
-type LspRequestResult = Result<unknown, LspRequestFailureReason>;
+type LspNotification<P = unknown> = import('./shared/lspBridge').LspNotification<P>;
+type LspRequestFailureReason = Extract<import('./shared/lspBridge').LspRequestResult, { ok: false }>['reason'];
+type LspRequestResult = import('./shared/lspBridge').LspRequestResult;
 
 type NativeRunnerMessages = import('./shared/nativeRuntimeTypes').NativeRunnerMessages;
 
@@ -682,34 +677,7 @@ interface LinguaAPI {
   projectTerminal?: import('./shared/projectTerminal').ProjectTerminalBridge;
   localMcp?: import('./shared/localMcp').LocalMcpBridge;
   // implementation (Rust) + implementation (Go) — desktop LSP bridges.
-  lsp: {
-    rust: {
-      start: () => Promise<RustAnalyzerStatus>;
-      restart: () => Promise<RustAnalyzerStatus>;
-      stop: () => Promise<{ kind: 'stopped' }>;
-      status: () => Promise<RustAnalyzerStatus>;
-      request: (
-        method: string,
-        params: unknown
-      ) => Promise<LspRequestResult>;
-      notify: (method: string, params: unknown) => void;
-      onNotification: (callback: (notification: LspNotification) => void) => () => void;
-      onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) => () => void;
-    };
-    go: {
-      start: () => Promise<GoplsStatus>;
-      restart: () => Promise<GoplsStatus>;
-      stop: () => Promise<{ kind: 'stopped' }>;
-      status: () => Promise<GoplsStatus>;
-      request: (
-        method: string,
-        params: unknown
-      ) => Promise<LspRequestResult>;
-      notify: (method: string, params: unknown) => void;
-      onNotification: (callback: (notification: LspNotification) => void) => () => void;
-      onStatusChanged: (callback: (status: GoplsStatus) => void) => () => void;
-    };
-  };
+  lsp: import('./shared/lspBridge').LspBridge;
 
   fs: import('./shared/documentWrite').DocumentWriteBridge & {
     /**

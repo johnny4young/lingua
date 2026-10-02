@@ -87,4 +87,7 @@ supersedes the old one instead of rewriting historical rationale.
 - Never add secrets, machine-local paths, customer data, or private planning identifiers.
 - Use ISO dates (`YYYY-MM-DD`) and keep commands executable from the repository root.
 
+
+[Go/Rust project navigation](LSP_PROJECT_NAVIGATION.md) documents capability boundaries, server requirements and degradation.
+
 - [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) — current saved targets, independent suites, strict verdicts and inert preparation.

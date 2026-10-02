@@ -210,6 +210,8 @@ export interface FileTab {
  * When both are supplied, `tabId` wins since it's the tighter identity.
  */
 export interface EditorRevealRequest {
+  endLine?: number;
+  endColumn?: number;
   filePath?: string;
   tabId?: string;
   line: number;

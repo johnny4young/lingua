@@ -1,3 +1,5 @@
+import type { RootId } from '../shared/fs/brandedIds';
+import type { LspBridge, LspNotification } from '../shared/lspBridge';
 import { contextBridge } from 'electron';
 import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
 import type {
@@ -10,6 +12,39 @@ import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
 import type { GoDebuggerBridge } from '../shared/goDebugger';
 import type { RustDebuggerBridge } from '../shared/rustDebugger';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
+
+const lsp: LspBridge = {
+  resolveTarget: (rootId: RootId, uri: string) => typedInvoke('lsp:resolve-target', rootId, uri),
+  rust: {
+    start: (rootId?: RootId) => typedInvoke('lsp:rust:start', rootId),
+    restart: () => typedInvoke('lsp:rust:restart'),
+    stop: () => typedInvoke('lsp:rust:stop'),
+    status: () => typedInvoke('lsp:rust:status'),
+    request: (method: string, params: unknown) => typedInvoke('lsp:rust:request', method, params),
+    notify: (method: string, params: unknown) => {
+      typedSend('lsp:rust:notify', method, params);
+    },
+    onNotification: (callback: (notification: LspNotification) => void) =>
+      typedOn('lsp:rust:notification', callback),
+    onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) =>
+      typedOn('lsp:rust:status', callback),
+  },
+  go: {
+    start: (rootId?: RootId) => typedInvoke('lsp:go:start', rootId),
+    restart: () => typedInvoke('lsp:go:restart'),
+    stop: () => typedInvoke('lsp:go:stop'),
+    status: () => typedInvoke('lsp:go:status'),
+    request: (method: string, params: unknown) => typedInvoke('lsp:go:request', method, params),
+    notify: (method: string, params: unknown) => {
+      typedSend('lsp:go:notify', method, params);
+    },
+    onNotification: (callback: (notification: LspNotification) => void) =>
+      typedOn('lsp:go:notification', callback),
+    onStatusChanged: (callback: (status: GoplsStatus) => void) =>
+      typedOn('lsp:go:status', callback),
+  },
+};
+
 
 const desktopSmokeEnabled =
   process.env.LINGUA_DESKTOP_SMOKE === '1' ||
@@ -225,38 +260,7 @@ contextBridge.exposeInMainWorld('lingua', {
   // commands go through these handles and notifications stream back
   // via `onNotification` / `onStatusChanged`. Both launchers are
   // owned by main and disposed on `before-quit`.
-  lsp: {
-    rust: {
-      start: () => typedInvoke('lsp:rust:start'),
-      restart: () => typedInvoke('lsp:rust:restart'),
-      stop: () => typedInvoke('lsp:rust:stop'),
-      status: () => typedInvoke('lsp:rust:status'),
-      request: (method: string, params: unknown) =>
-        typedInvoke('lsp:rust:request', method, params),
-      notify: (method: string, params: unknown) => {
-        typedSend('lsp:rust:notify', method, params);
-      },
-      onNotification: (callback: (notification: LspNotification) => void) =>
-        typedOn('lsp:rust:notification', callback),
-      onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) =>
-        typedOn('lsp:rust:status', callback),
-    },
-    go: {
-      start: () => typedInvoke('lsp:go:start'),
-      restart: () => typedInvoke('lsp:go:restart'),
-      stop: () => typedInvoke('lsp:go:stop'),
-      status: () => typedInvoke('lsp:go:status'),
-      request: (method: string, params: unknown) =>
-        typedInvoke('lsp:go:request', method, params),
-      notify: (method: string, params: unknown) => {
-        typedSend('lsp:go:notify', method, params);
-      },
-      onNotification: (callback: (notification: LspNotification) => void) =>
-        typedOn('lsp:go:notification', callback),
-      onStatusChanged: (callback: (status: GoplsStatus) => void) =>
-        typedOn('lsp:go:status', callback),
-    },
-  },
+  lsp,
 
   // App lifecycle IPC
   confirmClose: (dirtyFileNames: string[], language?: string) =>

@@ -1,8 +1,10 @@
+import { stat } from 'node:fs/promises';
+import { resolveCapabilityPath } from './projectCapabilities';
+import { resolveLspNavigationTarget } from '../lsp/navigationTargets';
+import { typedHandle } from './typedHandle';
+import type { RootId } from '../../shared/fs/brandedIds';
 import { ipcMain, BrowserWindow } from 'electron';
-import {
-  RustAnalyzerLauncher,
-  type RustAnalyzerStatus,
-} from '../lsp/rustAnalyzerLauncher';
+import { RustAnalyzerLauncher, type RustAnalyzerStatus } from '../lsp/rustAnalyzerLauncher';
 import { GoplsLauncher, type GoplsStatus } from '../lsp/goplsLauncher';
 
 /**
@@ -46,13 +48,9 @@ import { GoplsLauncher, type GoplsStatus } from '../lsp/goplsLauncher';
 
 type LspLanguage = 'rust' | 'go';
 
-type LauncherFor<L extends LspLanguage> = L extends 'rust'
-  ? RustAnalyzerLauncher
-  : GoplsLauncher;
+type LauncherFor<L extends LspLanguage> = L extends 'rust' ? RustAnalyzerLauncher : GoplsLauncher;
 
-type StatusFor<L extends LspLanguage> = L extends 'rust'
-  ? RustAnalyzerStatus
-  : GoplsStatus;
+type StatusFor<L extends LspLanguage> = L extends 'rust' ? RustAnalyzerStatus : GoplsStatus;
 
 const launchers: { rust: RustAnalyzerLauncher | null; go: GoplsLauncher | null } = {
   rust: null,
@@ -67,6 +65,8 @@ const ALLOWED_LSP_REQUESTS = new Set([
   'textDocument/completion',
   'textDocument/hover',
   'textDocument/signatureHelp',
+  'textDocument/definition',
+  'textDocument/references',
 ]);
 
 const ALLOWED_LSP_NOTIFICATIONS = new Set([
@@ -91,14 +91,23 @@ function broadcastNotification(channel: string, payload: unknown): void {
   }
 }
 
-function ensureLauncher<L extends LspLanguage>(language: L): LauncherFor<L> {
+const contexts: Record<LspLanguage, RootId | undefined> = { rust: undefined, go: undefined };
+const epochs: Record<LspLanguage, number> = { rust: 0, go: 0 };
+function ensureLauncher<L extends LspLanguage>(
+  language: L,
+  workspaceRoot?: string
+): LauncherFor<L> {
+  const epoch = epochs[language];
   if (language === 'rust') {
     if (launchers.rust) return launchers.rust as LauncherFor<L>;
     launchers.rust = new RustAnalyzerLauncher({
-      onNotification: (notification) => {
+      workspaceRoot,
+      onNotification: notification => {
+        if (epoch !== epochs[language]) return;
         broadcastNotification('lsp:rust:notification', notification);
       },
-      onStatus: (status) => {
+      onStatus: status => {
+        if (epoch !== epochs[language]) return;
         broadcastNotification('lsp:rust:status', status);
       },
     });
@@ -107,10 +116,13 @@ function ensureLauncher<L extends LspLanguage>(language: L): LauncherFor<L> {
   // language === 'go'
   if (launchers.go) return launchers.go as LauncherFor<L>;
   launchers.go = new GoplsLauncher({
-    onNotification: (notification) => {
+    workspaceRoot,
+    onNotification: notification => {
+      if (epoch !== epochs[language]) return;
       broadcastNotification('lsp:go:notification', notification);
     },
-    onStatus: (status) => {
+    onStatus: status => {
+      if (epoch !== epochs[language]) return;
       broadcastNotification('lsp:go:status', status);
     },
   });
@@ -118,51 +130,58 @@ function ensureLauncher<L extends LspLanguage>(language: L): LauncherFor<L> {
 }
 
 function stopLauncher(language: LspLanguage): void {
+  epochs[language] += 1;
   const launcher = launchers[language];
   if (!launcher) return;
   launcher.dispose();
   launchers[language] = null;
 }
 
-async function startRustLsp(): Promise<RustAnalyzerStatus> {
-  return ensureLauncher('rust').start();
-}
-
-async function restartRustLsp(): Promise<RustAnalyzerStatus> {
-  return ensureLauncher('rust').restart();
-}
-
-function stopRustLsp(): void {
-  stopLauncher('rust');
-}
-
-async function startGoLsp(): Promise<GoplsStatus> {
-  return ensureLauncher('go').start();
-}
-
-async function restartGoLsp(): Promise<GoplsStatus> {
-  return ensureLauncher('go').restart();
-}
-
-function stopGoLsp(): void {
-  stopLauncher('go');
+const startIntents: Record<LspLanguage, number> = { rust: 0, go: 0 };
+// Restart follows the latest requested project, even while its start awaits authorization.
+const requestedContexts: Partial<Record<LspLanguage, RootId>> = {};
+async function startContext<L extends LspLanguage>(
+  language: L,
+  rootId?: RootId
+): Promise<StatusFor<L>> {
+  const intent = ++startIntents[language];
+  requestedContexts[language] = rootId;
+  const unauthorized = (error: string): StatusFor<L> => {
+    if (intent === startIntents[language]) { stopLauncher(language); contexts[language] = undefined; }
+    return { kind: 'startup-failed', error } as StatusFor<L>;
+  };
+  if (contexts[language] !== rootId) stopLauncher(language);
+  let workspaceRoot: string | undefined;
+  if (rootId !== undefined) {
+    const resolved =
+      typeof rootId === 'string' ? await resolveCapabilityPath(rootId, '', 'read') : null;
+    if (!resolved?.ok || !(await stat(resolved.absolutePath).catch(() => null))?.isDirectory())
+      return unauthorized('Project root is not authorized.');
+    const fresh = await resolveCapabilityPath(rootId, '', 'read');
+    if (!fresh.ok || fresh.absolutePath !== resolved.absolutePath)
+      return unauthorized('Project root was revoked.');
+    workspaceRoot = fresh.absolutePath;
+  }
+  if (intent !== startIntents[language])
+    return { kind: 'startup-failed', error: 'Project context changed.' } as StatusFor<L>;
+  if (contexts[language] !== rootId) stopLauncher(language);
+  contexts[language] = rootId;
+  return ensureLauncher(language, workspaceRoot).start() as Promise<StatusFor<L>>;
 }
 
 export function disposeLspBridge(): void {
-  stopRustLsp();
-  stopGoLsp();
+  startIntents.rust += 1;
+  startIntents.go += 1;
+  stopLauncher('rust');
+  stopLauncher('go');
 }
 
 interface LanguageHandlers<L extends LspLanguage> {
   language: L;
-  start: () => Promise<StatusFor<L>>;
-  restart: () => Promise<StatusFor<L>>;
 }
 
-function registerLanguageHandlers<L extends LspLanguage>(
-  config: LanguageHandlers<L>
-): void {
-  const { language, start, restart } = config;
+function registerLanguageHandlers<L extends LspLanguage>(config: LanguageHandlers<L>): void {
+  const { language } = config;
   // NOTE (typed IPC contract): this factory builds channel names
   // dynamically (`lsp:${language}:${suffix}`), so it registers via raw
   // `ipcMain.handle` — `typedHandle` requires a literal contract key and a
@@ -173,9 +192,16 @@ function registerLanguageHandlers<L extends LspLanguage>(
   const channel = (suffix: string) => `lsp:${language}:${suffix}`;
   const launcherLabel = language === 'rust' ? 'rust-analyzer' : 'gopls';
 
-  ipcMain.handle(channel('start'), async () => start());
-  ipcMain.handle(channel('restart'), async () => restart());
+  ipcMain.handle(channel('start'), async (_event, rootId?: RootId) =>
+    startContext(language, rootId)
+  );
+  ipcMain.handle(channel('restart'), async () => {
+    const rootId = requestedContexts[language];
+    stopLauncher(language);
+    return startContext(language, rootId);
+  });
   ipcMain.handle(channel('stop'), async () => {
+    startIntents[language] += 1;
     stopLauncher(language);
     return { kind: 'stopped' as const };
   });
@@ -201,8 +227,22 @@ function registerLanguageHandlers<L extends LspLanguage>(
           message: `${launcherLabel} launcher not started`,
         };
       }
+      const status = launcher.status();
+      if (
+        (method === 'textDocument/definition' || method === 'textDocument/references') &&
+        (status.kind !== 'running' ||
+          !status.navigation?.[method === 'textDocument/definition' ? 'definition' : 'references'])
+      )
+        return {
+          ok: false,
+          reason: 'unsupported-method',
+          message: 'Server does not declare this navigation capability.',
+        };
+      const epoch = epochs[language];
       try {
         const result = await launcher.sendRequest(method, params);
+        if (epoch !== epochs[language] || launchers[language] !== launcher)
+          return { ok: false, reason: 'request-failed', message: 'Project context changed.' };
         return { ok: true, data: result };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -219,14 +259,13 @@ function registerLanguageHandlers<L extends LspLanguage>(
 }
 
 export function registerLspHandlers(): void {
+  typedHandle('lsp:resolve-target', (_event, rootId, uri) =>
+    resolveLspNavigationTarget(rootId, uri)
+  );
   registerLanguageHandlers({
     language: 'rust',
-    start: startRustLsp,
-    restart: restartRustLsp,
   });
   registerLanguageHandlers({
     language: 'go',
-    start: startGoLsp,
-    restart: restartGoLsp,
   });
 }

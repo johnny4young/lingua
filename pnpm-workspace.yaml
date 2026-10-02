@@ -119,3 +119,7 @@ minimumReleaseAgeExclude:
   # entries keep the age bypass narrow and reproducible; drop an entry once
   # the resolved version is older than the age window (ws left 8.21.0).
   - esbuild@0.28.1
+
+# Handle owned delayed-task cancellation when Monaco navigation widgets dispose.
+patchedDependencies:
+  monaco-editor@0.55.1: patches/monaco-editor@0.55.1.patch

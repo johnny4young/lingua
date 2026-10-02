@@ -1,0 +1,48 @@
+--- a/esm/vs/base/browser/ui/tree/abstractTree.js
++++ b/esm/vs/base/browser/ui/tree/abstractTree.js
+@@ -25,6 +25,7 @@
+ import { isFilterResult, getVisibleState } from './indexTreeModel.js';
+ import { TreeMouseEventTarget } from './tree.js';
+ import { Delayer, disposableTimeout } from '../../../common/async.js';
++import { onUnexpectedError } from '../../../common/errors.js';
+ import { Codicon } from '../../../common/codicons.js';
+ import { ThemeIcon } from '../../../common/themables.js';
+ import { SetMap } from '../../../common/map.js';
+@@ -2008,7 +2009,7 @@
+                     set.add(node);
+                 }
+                 activeNodesEmitter.fire([...set.values()]);
+-            });
++            }).catch(onUnexpectedError);
+         }));
+         this.onDidChangeActiveNodesRelay.input = activeNodesEmitter.event;
+         this.onDidChangeModelRelay.input = Event.signal(model.onDidSpliceModel);
+--- a/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js
++++ b/esm/vs/editor/contrib/wordHighlighter/browser/wordHighlighter.js
+@@ -171,7 +171,7 @@
+                 // Leave some form of early exit check here if you wish to continue being a cursor position change listener ;)
+                 return;
+             }
+-            this.runDelayer.trigger(() => { this._onPositionChanged(e); });
++            this.runDelayer.trigger(() => { this._onPositionChanged(e); }).catch(onUnexpectedError);
+         }));
+         this.toUnhook.add(editor.onDidFocusEditorText((e) => {
+             if (this.occurrencesHighlightEnablement === 'off') {
+@@ -179,7 +179,7 @@
+                 return;
+             }
+             if (!this.workerRequest) {
+-                this.runDelayer.trigger(() => { this._run(); });
++                this.runDelayer.trigger(() => { this._run(); }).catch(onUnexpectedError);
+             }
+         }));
+         this.toUnhook.add(editor.onDidChangeModelContent((e) => {
+@@ -257,7 +257,7 @@
+             return;
+         }
+         this.runDelayer.cancel();
+-        this.runDelayer.trigger(() => { this._run(false, delay); });
++        this.runDelayer.trigger(() => { this._run(false, delay); }).catch(onUnexpectedError);
+     }
+     stop() {
+         if (this.occurrencesHighlightEnablement === 'off') {

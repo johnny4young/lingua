@@ -325,4 +325,7 @@ Git-backed project inspection requires Git 2.36 or newer. Queries disable
 repository-controlled hooks and external conversions; unsupported host Git
 versions report an upgrade requirement instead of inspecting the repository.
 
+
+Go/Rust definition and references are desktop-native project capabilities over existing servers; browser and unbound files do not promote to native navigation. They require a declared server capability and an authorized project destination. See [navigation](LSP_PROJECT_NAVIGATION.md).
+
 CLI strict verification can opt into current saved files and serial regression suites; baseline inputs/expectations remain unchanged. No browser/WASM promotion or new commercial gates. See CAPSULE_REGRESSION_CASES.md.

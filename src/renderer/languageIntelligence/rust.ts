@@ -1,3 +1,4 @@
+import { normalizeLspLocations, type LspNavigationLocation } from '../../shared/lspNavigation';
 import type {
   LanguageIntelligenceCompletion,
   LanguageIntelligenceCompletionKind,
@@ -93,7 +94,7 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
 
   constructor(transport: RustAdapterTransport) {
     this.transport = transport;
-    this.unsubscribeNotifications = transport.onNotification((notification) =>
+    this.unsubscribeNotifications = transport.onNotification(notification =>
       this.handleNotification(notification)
     );
   }
@@ -145,6 +146,45 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
     });
   }
 
+  resetProjectContext(): void {
+    // Context replacement invalidates every captured document identity.
+    this.documents.clear();
+  }
+  provideDefinition(
+    uri: string,
+    line: number,
+    column: number
+  ): Promise<readonly LspNavigationLocation[]> {
+    return this.navigate('textDocument/definition', uri, line, column);
+  }
+  provideReferences(
+    uri: string,
+    line: number,
+    column: number,
+    includeDeclaration: boolean
+  ): Promise<readonly LspNavigationLocation[]> {
+    return this.navigate('textDocument/references', uri, line, column, includeDeclaration);
+  }
+  private async navigate(
+    method: string,
+    uri: string,
+    line: number,
+    column: number,
+    includeDeclaration?: boolean
+  ): Promise<readonly LspNavigationLocation[]> {
+    const document = this.documents.get(uri);
+    if (!document) return [];
+    const version = document.version;
+    const result = await requestLspData(this.transport, method, {
+      textDocument: { uri },
+      position: { line: line - 1, character: column - 1 },
+      ...(includeDeclaration !== undefined ? { context: { includeDeclaration } } : {}),
+    });
+    return this.documents.get(uri) === document && document.version === version
+      ? normalizeLspLocations(result)
+      : [];
+  }
+
   subscribeDiagnostics(
     listener: (uri: string, diagnostics: readonly LanguageIntelligenceDiagnostic[]) => void
   ): () => void {
@@ -193,8 +233,7 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
   private handleNotification(notification: LspNotification): void {
     if (notification.method !== 'textDocument/publishDiagnostics') return;
     const params = notification.params as
-      | { uri?: string; diagnostics?: readonly LspDiagnostic[] }
-      | undefined;
+      { uri?: string; diagnostics?: readonly LspDiagnostic[] } | undefined;
     if (!params || typeof params.uri !== 'string') return;
     const diagnostics = parseDiagnostics(params.diagnostics ?? []);
     for (const listener of this.diagnosticsListeners) {
@@ -209,7 +248,10 @@ export class RustLanguageIntelligenceAdapter implements LspLanguageIntelligenceA
  * call site (rather than centralized) means a refactor of one
  * language's coordinate handling doesn't accidentally change another's.
  */
-function lspPositionFromOneBased(line: number, column: number): {
+function lspPositionFromOneBased(
+  line: number,
+  column: number
+): {
   line: number;
   character: number;
 } {
@@ -222,7 +264,7 @@ function parseCompletions(raw: unknown): readonly LanguageIntelligenceCompletion
   const items: LspCompletionItem[] = Array.isArray(raw)
     ? (raw as LspCompletionItem[])
     : Array.isArray((raw as { items?: LspCompletionItem[] }).items)
-      ? ((raw as { items: LspCompletionItem[] }).items)
+      ? (raw as { items: LspCompletionItem[] }).items
       : [];
 
   const out: LanguageIntelligenceCompletion[] = [];
@@ -231,11 +273,12 @@ function parseCompletions(raw: unknown): readonly LanguageIntelligenceCompletion
     out.push({
       label: item.label,
       detail: item.detail ?? '',
-      documentation: typeof item.documentation === 'string'
-        ? item.documentation
-        : typeof item.documentation?.value === 'string'
-          ? item.documentation.value
-          : undefined,
+      documentation:
+        typeof item.documentation === 'string'
+          ? item.documentation
+          : typeof item.documentation?.value === 'string'
+            ? item.documentation.value
+            : undefined,
       insertText: typeof item.insertText === 'string' ? item.insertText : undefined,
       kind: mapLspCompletionKind(item.kind),
     });
@@ -319,8 +362,8 @@ function parseHover(raw: unknown): LanguageIntelligenceHover | null {
   // block. Mirrors Python's hover contract.
   const lines = text
     .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !isCodeFenceLine(line));
+    .map(line => line.trim())
+    .filter(line => line.length > 0 && !isCodeFenceLine(line));
   if (lines.length === 0) return null;
   const headline = lines[0] ?? '';
   const secondary = lines.length > 1 ? lines[1] : undefined;
@@ -337,14 +380,12 @@ function isCodeFenceLine(line: string): boolean {
   return /^```/.test(line);
 }
 
-function extractHoverText(
-  contents: LspHover['contents']
-): string | null {
+function extractHoverText(contents: LspHover['contents']): string | null {
   if (!contents) return null;
   if (typeof contents === 'string') return contents;
   if (Array.isArray(contents)) {
     const parts = contents
-      .map((entry) => (typeof entry === 'string' ? entry : entry.value))
+      .map(entry => (typeof entry === 'string' ? entry : entry.value))
       .filter((entry): entry is string => typeof entry === 'string');
     return parts.join('\n');
   }
@@ -369,18 +410,23 @@ function parseSignatureHelp(raw: unknown): LanguageIntelligenceSignatureHelp | n
   const signature = help.signatures[activeSignatureIndex];
   if (!signature) return null;
   const parameters: LanguageIntelligenceSignatureParameter[] = (signature.parameters ?? [])
-    .map((parameter: { label: string | [number, number] } | undefined): LanguageIntelligenceSignatureParameter | null => {
-      if (!parameter || typeof parameter.label === 'undefined') return null;
-      if (typeof parameter.label === 'string') return { label: parameter.label };
-      if (Array.isArray(parameter.label) && typeof parameter.label[0] === 'number') {
-        const [startIdx, endIdx] = parameter.label;
-        return { label: signature.label.slice(startIdx, endIdx) };
+    .map(
+      (
+        parameter: { label: string | [number, number] } | undefined
+      ): LanguageIntelligenceSignatureParameter | null => {
+        if (!parameter || typeof parameter.label === 'undefined') return null;
+        if (typeof parameter.label === 'string') return { label: parameter.label };
+        if (Array.isArray(parameter.label) && typeof parameter.label[0] === 'number') {
+          const [startIdx, endIdx] = parameter.label;
+          return { label: signature.label.slice(startIdx, endIdx) };
+        }
+        return null;
       }
-      return null;
-    })
+    )
     .filter(
-      (entry: LanguageIntelligenceSignatureParameter | null): entry is LanguageIntelligenceSignatureParameter =>
-        entry !== null
+      (
+        entry: LanguageIntelligenceSignatureParameter | null
+      ): entry is LanguageIntelligenceSignatureParameter => entry !== null
     );
 
   const activeParameter = clampIndex(help.activeParameter, Math.max(parameters.length, 1));

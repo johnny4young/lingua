@@ -195,6 +195,13 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
       for (const createHoverProvider of providers.createHoverProviders ?? []) {
         m.languages.registerHoverProvider(descriptor.id, createHoverProvider());
       }
+      if (providers.createDefinitionProvider)
+        m.languages.registerDefinitionProvider(
+          descriptor.id,
+          providers.createDefinitionProvider(m)
+        );
+      if (providers.createReferenceProvider)
+        m.languages.registerReferenceProvider(descriptor.id, providers.createReferenceProvider(m));
       if (providers.createSignatureHelpProvider) {
         m.languages.registerSignatureHelpProvider(
           descriptor.id,
@@ -505,12 +512,8 @@ export function setMonacoInlineLintEnabled(
 // Keep the bridge narrow so this implementation does not invent a broader
 // Monaco API surface.
 interface MonacoTypeScriptContributionRuntime {
-  getTypeScriptWorker?: () => Promise<
-    (...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>
-  >;
-  getJavaScriptWorker?: () => Promise<
-    (...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>
-  >;
+  getTypeScriptWorker?: () => Promise<(...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>>;
+  getJavaScriptWorker?: () => Promise<(...uris: monaco.Uri[]) => Promise<TypeScriptWorkerClient>>;
 }
 
 interface TypeScriptWorkerClient {

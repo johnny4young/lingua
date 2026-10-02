@@ -11,12 +11,7 @@ export interface LanguageIntelligenceDiagnostic {
 }
 
 export type LanguageIntelligenceCompletionKind =
-  | 'keyword'
-  | 'snippet'
-  | 'function'
-  | 'class'
-  | 'module'
-  | 'variable';
+  'keyword' | 'snippet' | 'function' | 'class' | 'module' | 'variable';
 
 export interface LanguageIntelligenceCompletion {
   label: string;
@@ -112,6 +107,18 @@ export interface LspLanguageIntelligenceAdapter {
   subscribeDiagnostics(
     listener: (uri: string, diagnostics: readonly LanguageIntelligenceDiagnostic[]) => void
   ): () => void;
+  provideDefinition?(
+    uri: string,
+    line: number,
+    column: number
+  ): Promise<readonly import('../../shared/lspNavigation').LspNavigationLocation[]>;
+  provideReferences?(
+    uri: string,
+    line: number,
+    column: number,
+    includeDeclaration: boolean
+  ): Promise<readonly import('../../shared/lspNavigation').LspNavigationLocation[]>;
+  resetProjectContext?(): void;
   provideCompletions(
     uri: string,
     line: number,

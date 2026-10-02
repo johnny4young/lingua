@@ -49,10 +49,21 @@ export function joinAbsolute(rootPath: string, relative: string): string {
   return `${trimmedRoot}${sep}${trimmedRel}`;
 }
 
+/** Matches Monaco's `Uri.toString()` so LSP document identity equals the model URI. */
 export function pathToFileUri(absolutePath: string): string {
   const normalized = absolutePath.replace(/\\/g, '/');
-  const prefix = normalized.startsWith('/') ? 'file://' : 'file:///';
-  return prefix + encodeURI(normalized).replace(/#/g, '%23').replace(/\?/g, '%3F');
+  const path = (normalized.startsWith('/') ? normalized : `/${normalized}`).replace(
+    /^\/([A-Z]):/,
+    (_match, drive: string) => `/${drive.toLowerCase()}:`
+  );
+  return `file://${path.split('/').map(encodeUriSegment).join('/')}`;
+}
+
+function encodeUriSegment(segment: string): string {
+  return encodeURIComponent(segment).replace(
+    /[!'()*]/g,
+    char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+  );
 }
 
 /**
@@ -87,8 +98,7 @@ export function smartTruncatePath(
     const normalisedPath = working.replace(/\\/g, '/');
     if (
       normalisedHome.length > 0 &&
-      (normalisedPath === normalisedHome ||
-        normalisedPath.startsWith(`${normalisedHome}/`))
+      (normalisedPath === normalisedHome || normalisedPath.startsWith(`${normalisedHome}/`))
     ) {
       working = `~${normalisedPath.slice(normalisedHome.length)}`;
     }
@@ -107,15 +117,17 @@ export function smartTruncatePath(
   return `${headPart}${sep}…${sep}${tailA}${sep}${tailB}`;
 }
 
-export function rustLspModelPathForTab(tab: {
+const LSP_MODEL_EXTENSIONS: Record<string, string> = { rust: '.rs', go: '.go' };
+
+export function lspModelPathForTab(tab: {
   id: string;
   name: string;
+  language: string;
   filePath?: string;
-}): string {
+}): string | undefined {
+  const extension = LSP_MODEL_EXTENSIONS[tab.language];
+  if (!extension) return undefined;
   if (tab.filePath) return pathToFileUri(tab.filePath);
-
-  const fileName = tab.name.endsWith('.rs') ? tab.name : `${tab.name}.rs`;
-  return `file:///__lingua_unsaved__/${encodeURIComponent(tab.id)}/${encodeURIComponent(
-    fileName
-  )}`;
+  const name = tab.name.endsWith(extension) ? tab.name : `${tab.name}${extension}`;
+  return pathToFileUri(`/__lingua_unsaved__/${tab.id}/${name}`);
 }
