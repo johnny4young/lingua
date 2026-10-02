@@ -277,6 +277,7 @@ export function HttpEnvironmentManager({
           className="mb-3 flex flex-col gap-2 rounded-md border border-border-subtle bg-bg-inset p-2"
         >
           <textarea
+            spellCheck={false}
             ref={importTextareaRef}
             value={importValue}
             onChange={(event) => setImportValue(event.target.value)}

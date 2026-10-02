@@ -17,6 +17,7 @@ import {
 } from '../stores/uiStore';
 import type { Language } from '../types/language';
 import { emitCommand } from '../stores/commandBus';
+import { formatShortcutLabel } from '../data/keyboardShortcuts';
 import type { TelemetryTrack } from './useTelemetry';
 
 /**
@@ -239,8 +240,7 @@ function handleFirstSnippetSave(track: TelemetryTrack): void {
 
   track('onboarding.first_snippet_saved');
 
-  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/u.test(navigator.platform);
-  const shortcut = isMac ? 'Cmd+Shift+P' : 'Ctrl+Shift+P';
+  const shortcut = formatShortcutLabel('overlay-command-palette', settings.shortcutOverrides) ?? '';
 
   const openAction: StatusNoticeAction = {
     labelKey: 'onboarding.firstSnippet.cta',

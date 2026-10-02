@@ -32,6 +32,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -250,12 +251,7 @@ export function SqlQueryEditor({
     }
   }, [text, overCap]);
 
-  // Show the keyboard shortcut hint contextually per platform. Same
-  // helper signature as `<HttpRequestEditor>` for consistency.
-  const isMac =
-    typeof navigator !== 'undefined' &&
-    /Mac|iPhone|iPad/.test(navigator.platform ?? '');
-  const runShortcutHint = isMac ? '⌘ + ↵' : 'Ctrl + ↵';
+  const runShortcutHint = useShortcutLabel('run-toggle');
 
   return (
     <div

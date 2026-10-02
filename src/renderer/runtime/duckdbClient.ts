@@ -614,6 +614,14 @@ export function mapArrowTable(table: ArrowTableLike): {
     name: field.name,
     type: stringifyArrowType(field.type),
   }));
+  const temporal = columns.flatMap(column => {
+    const format = temporalFormatter(column.type);
+    return format ? [[column.name, format] as const] : [];
+  });
+  const decimals = columns.flatMap(column => {
+    const scale = decimalScale(column.type);
+    return scale === null ? [] : [[column.name, scale] as const];
+  });
   const allRows = table.toArray();
   const rowCount = allRows.length;
   const rows: Array<Record<string, unknown>> = [];
@@ -624,6 +632,14 @@ export function mapArrowTable(table: ArrowTableLike): {
     const raw = allRows[i];
     if (raw === undefined || raw === null) continue;
     const safeRow = sanitiseRowForJson(raw);
+    for (const [name, scale] of decimals) {
+      const text = formatArrowDecimal(raw[name], scale);
+      if (text !== null) safeRow[name] = text;
+    }
+    for (const [name, format] of temporal) {
+      const cell = safeRow[name];
+      if (typeof cell === 'number') safeRow[name] = format(cell);
+    }
     const serialised = JSON.stringify(safeRow);
     const rowBytes = utf8ByteLength(serialised);
     if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
@@ -687,6 +703,59 @@ function sanitiseValueForJson(value: unknown): unknown {
       out[key] = sanitiseValueForJson(obj[key]);
     }
     return out;
+  }
+  return null;
+}
+
+/** Scale of an Arrow `Decimal[precision e±scale]` type, or null for other types. */
+function decimalScale(type: string): number | null {
+  const match = /^Decimal\[\d+e\+?(-?\d+)\]/u.exec(type);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Arrow Decimal cells (DuckDB SUM over integers, HUGEINT, DECIMAL) arrive as
+ * little-endian 32-bit words of a two's-complement integer; render them as
+ * exact decimal text instead of a word array.
+ */
+function formatArrowDecimal(value: unknown, scale: number): string | null {
+  if (value === null || value === undefined || typeof value !== 'object') return null;
+  const words = Array.from(value as ArrayLike<number>);
+  if (words.length === 0 || words.some(word => typeof word !== 'number')) return null;
+  let unscaled = 0n;
+  for (let index = words.length - 1; index >= 0; index -= 1) {
+    unscaled = (unscaled << 32n) | BigInt(words[index]! >>> 0);
+  }
+  const bits = BigInt(words.length * 32);
+  if (unscaled >> (bits - 1n)) unscaled -= 1n << bits;
+  const negative = unscaled < 0n;
+  let digits = (negative ? -unscaled : unscaled).toString();
+  if (scale > 0) {
+    digits = digits.padStart(scale + 1, '0');
+    digits = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+  }
+  return negative ? `-${digits}` : digits;
+}
+
+/**
+ * Arrow hands DATE and TIMESTAMP cells back as epoch milliseconds; render
+ * them as ISO text so the grid and import preview show calendar values.
+ */
+function temporalFormatter(type: string): ((epochMs: number) => string | number) | null {
+  const iso = (epochMs: number) => {
+    const date = new Date(epochMs);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+  if (/^Date(32)?<DAY>/u.test(type)) return epochMs => iso(epochMs)?.slice(0, 10) ?? epochMs;
+  if (/^Date(64)?</u.test(type)) return epochMs => iso(epochMs) ?? epochMs;
+  if (/^Timestamp</u.test(type)) {
+    // Without a zone the value is a wall-clock time, so drop the UTC marker.
+    const zoned = type.includes(',');
+    return epochMs => {
+      const text = iso(epochMs);
+      if (!text) return epochMs;
+      return zoned ? text : text.replace('Z', '');
+    };
   }
   return null;
 }

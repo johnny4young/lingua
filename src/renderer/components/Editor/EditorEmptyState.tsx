@@ -15,6 +15,7 @@ import {
   languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
 // The quick-start row used to be a hardcoded
@@ -36,6 +37,9 @@ const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
 export function EditorEmptyState() {
   const addTab = useEditorStore((state) => state.addTab);
   const { t } = useTranslation();
+  const paletteCombo = useShortcutLabel('overlay-command-palette');
+  const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
+  const runCombo = useShortcutLabel('run-toggle');
   // Mirror the platform-gate idiom used elsewhere (Toolbar, FileTree).
   // The "Desktop only" pill only makes sense on the web build —
   // packaged Electron actually runs Go / Rust, so a pill there would
@@ -132,13 +136,13 @@ export function EditorEmptyState() {
 
           <div className="flex flex-wrap items-center gap-4 text-caption text-fg-muted">
             <span>
-              <Kbd>Cmd+Shift+P</Kbd> {t('emptyState.shortcut.commands')}
+              <Kbd>{paletteCombo}</Kbd> {t('emptyState.shortcut.commands')}
             </span>
             <span>
-              <Kbd>Cmd+B</Kbd> {t('emptyState.shortcut.sidebar')}
+              <Kbd>{sidebarCombo}</Kbd> {t('emptyState.shortcut.sidebar')}
             </span>
             <span>
-              <Kbd>Cmd+Enter</Kbd> {t('emptyState.shortcut.run')}
+              <Kbd>{runCombo}</Kbd> {t('emptyState.shortcut.run')}
             </span>
           </div>
         </section>

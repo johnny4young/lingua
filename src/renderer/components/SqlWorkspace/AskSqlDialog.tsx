@@ -141,7 +141,7 @@ export function AskSqlDialog({
   };
 
   return (
-    <OverlayBackdrop onKeyDown={handleEscape}>
+    <OverlayBackdrop portal onKeyDown={handleEscape}>
       <div
         role="dialog"
         aria-modal="true"

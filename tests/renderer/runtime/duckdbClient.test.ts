@@ -182,6 +182,42 @@ describe('mapArrowTable', () => {
     expect(out.tooLarge).toBe(false);
   });
 
+  it('renders Arrow date and timestamp cells as ISO text', () => {
+    const day = Date.UTC(2026, 8, 29);
+    const out = mapArrowTable(
+      arrowTableFrom(
+        [
+          { name: 'd', type: 'Date32<DAY>' },
+          { name: 'ts', type: 'Timestamp<MICROSECOND>' },
+          { name: 'tz', type: 'Timestamp<MICROSECOND, UTC>' },
+          { name: 'n', type: 'Int64' },
+        ],
+        [{ d: day, ts: day + 3_600_000, tz: day, n: 5 }]
+      )
+    );
+    expect(out.rows[0]).toEqual({
+      d: '2026-09-29',
+      ts: '2026-09-29T01:00:00.000',
+      tz: '2026-09-29T00:00:00.000Z',
+      n: 5,
+    });
+  });
+
+  it('renders Arrow decimal word arrays as exact decimal text', () => {
+    const negativeOne = Uint32Array.from([0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]);
+    const out = mapArrowTable(
+      arrowTableFrom(
+        [
+          { name: 'total', type: 'Decimal[38e0]' },
+          { name: 'price', type: 'Decimal[18e+2]' },
+          { name: 'debt', type: 'Decimal[38e0]' },
+        ],
+        [{ total: Uint32Array.from([58, 0, 0, 0]), price: Uint32Array.from([12345, 0, 0, 0]), debt: negativeOne }]
+      )
+    );
+    expect(out.rows[0]).toEqual({ total: '58', price: '123.45', debt: '-1' });
+  });
+
   it('flags tooLarge when row count exceeds MAX_RESULT_ROWS', () => {
     const oversized = Array.from({ length: MAX_RESULT_ROWS + 1 }, (_, i) => ({ i }));
     const table = arrowTableFrom([{ name: 'i', type: 'INTEGER' }], oversized);

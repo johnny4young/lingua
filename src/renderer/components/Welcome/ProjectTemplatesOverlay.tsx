@@ -39,6 +39,7 @@ export function ProjectTemplatesOverlay({
 
   return (
     <OverlayBackdrop
+      portal
       align="top"
       className="overflow-y-auto pb-6"
       onClose={onClose}

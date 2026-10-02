@@ -41,11 +41,12 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function UtilityTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`um-control ${props.className ?? ''}`} />;
+  // Utility input is code or data; browser spellcheck only adds noise.
+  return <textarea spellCheck={false} {...props} className={`um-control ${props.className ?? ''}`} />;
 }
 
 export function UtilityInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`um-control ${props.className ?? ''}`} />;
+  return <input spellCheck={false} {...props} className={`um-control ${props.className ?? ''}`} />;
 }
 
 export function StatusMessage({

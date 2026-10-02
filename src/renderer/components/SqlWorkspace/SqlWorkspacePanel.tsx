@@ -86,6 +86,8 @@ export interface SqlWorkspacePanelProps {
   tabId?: string;
 }
 
+const sessionProfileSources = new Map<string, { recordedAt: string; query: string }>();
+
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
   const announce = useAnnounce();
@@ -152,9 +154,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Profiles must use the exact SQL that produced a response, not subsequent
   // editor drafts. This in-memory map deliberately does not survive reload:
   // persisted responses do not retain their SQL source and profiling a guessed
-  // source would misrepresent the visible result.
+  // source would misrepresent the visible result. The module-level copy
+  // keeps it across layout remounts (toggling the bottom panel).
   const [profileSourcesByQueryId, setProfileSourcesByQueryId] = useState(
-    () => new Map<string, { recordedAt: string; query: string }>()
+    () => new Map(sessionProfileSources)
   );
   // Run-history selection — index into the active query's response LRU
   // (0 = newest). A fresh run / query switch resets to 0.
@@ -303,10 +306,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         };
         setProfileSourcesByQueryId((current) => {
           const next = new Map(current);
-          next.set(queryToRun.id, {
-            recordedAt: response.recordedAt,
-            query: queryToRun.query,
-          });
+          const source = { recordedAt: response.recordedAt, query: queryToRun.query };
+          next.set(queryToRun.id, source);
+          sessionProfileSources.set(queryToRun.id, source);
           return next;
         });
         useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);

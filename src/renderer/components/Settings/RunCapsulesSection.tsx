@@ -213,6 +213,7 @@ export function RunCapsulesSection() {
             })}
             control={
               <textarea
+                spellCheck={false}
                 readOnly
                 value={inlineFallback}
                 rows={6}

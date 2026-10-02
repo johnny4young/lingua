@@ -135,7 +135,8 @@ describe('CLI subprocess execution', () => {
     const pid = new Promise<number>(resolve => {
       reportPid = resolve;
     });
-    const execution = executeCliPlan(nodePlan(`console.log(process.pid); ${source}`), {
+    // Report the pid only after the source installed its signal handlers.
+    const execution = executeCliPlan(nodePlan(`${source}; console.log(process.pid);`), {
       timeoutMs: 20_000,
       env: { PATH: process.env.PATH },
       onStdout: chunk => reportPid?.(Number.parseInt(chunk, 10)),

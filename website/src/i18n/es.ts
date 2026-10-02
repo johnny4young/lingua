@@ -228,7 +228,7 @@ export const es = {
         },
         {
           image: '/screenshots/tour/sql-workspace.png',
-          alt: 'Workspace SQL con una tabla releases importada, una query de agregación formateada, grid de resultados y el panel de perfil de columnas',
+          alt: 'Workspace SQL con una tabla releases importada en el explorador de esquema, una query de agregación formateada y el panel de perfil de columnas de su resultado',
           title: 'Un workspace SQL completo sobre DuckDB',
           body: 'Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.',
         },
@@ -252,7 +252,7 @@ export const es = {
       lede: 'Opt-in, con tu propia clave y local-first. Apúntala a un modelo local (Ollama, LM Studio) y tu código nunca sale de la máquina — o usa cualquier endpoint compatible con OpenAI. Lingua no incluye ninguna clave por defecto ni hace llamadas en segundo plano; cada solicitud te muestra antes el contenido exacto.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
-        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la propiedad undefined, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
+        alt: 'Diálogo de explicar este error sobre un run de JavaScript fallido: el modelo explica la lectura de una propiedad sobre null, propone un fix con guard en un bloque de código y ofrece las acciones Preguntar y Aplicar y re-ejecutar',
         caption:
           'Una respuesta real de un modelo local — qwen3-coder en Ollama, sin viaje a la nube. El diálogo muestra el payload exacto antes de enviar nada, y Aplicar y re-ejecutar parchea el fix detrás de un diff que tú apruebas.',
       },

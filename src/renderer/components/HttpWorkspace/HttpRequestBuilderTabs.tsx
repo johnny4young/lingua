@@ -276,6 +276,7 @@ export function HttpRequestBuilderTabs({
             </header>
             {bodyKind !== 'none' ? (
               <textarea
+                spellCheck={false}
                 value={body?.content ?? ''}
                 onChange={event => onBodyContentChange(event.target.value)}
                 placeholder={t('httpWorkspace.editor.body.placeholder')}

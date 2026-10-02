@@ -64,7 +64,7 @@ describe('buildGlobalShortcutActions', () => {
     expect(running.run).not.toHaveBeenCalled();
   });
 
-  it('leaves Mod+Enter to the active workspace tab', () => {
+  it('runs the active workspace tab when focus is outside its editor', () => {
     const previous = useEditorStore.getState();
     useEditorStore.setState({
       tabs: [{ id: 'http', name: 'HTTP', language: 'http', content: '', kind: 'http' }],
@@ -73,8 +73,7 @@ describe('buildGlobalShortcutActions', () => {
     try {
       const idle = options(false);
       buildGlobalShortcutActions(idle)['run-toggle']?.(new KeyboardEvent('keydown'));
-      expect(idle.run).not.toHaveBeenCalled();
-      expect(idle.stop).not.toHaveBeenCalled();
+      expect(idle.run).toHaveBeenCalledTimes(1);
     } finally {
       useEditorStore.setState({ tabs: previous.tabs, activeTabId: previous.activeTabId });
     }

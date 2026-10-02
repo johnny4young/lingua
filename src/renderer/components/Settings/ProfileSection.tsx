@@ -208,6 +208,7 @@ export function ProfileSection() {
       {showPaste ? (
         <div id={pasteToggleId} className="grid gap-2">
           <textarea
+            spellCheck={false}
             value={pasted}
             onChange={(event) => setPasted(event.target.value)}
             placeholder={t('profile.import.placeholder')}

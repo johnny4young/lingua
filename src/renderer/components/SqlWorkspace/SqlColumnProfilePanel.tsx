@@ -32,6 +32,13 @@ const PROFILE_METRICS: ReadonlyArray<{
  * keeps profile data local and ephemeral so a profile cannot be confused with
  * a saved SQL run or a replayable history item.
  */
+/** Long float aggregates (average, std. deviation) read better at 4 decimals. */
+function formatProfileValue(value: unknown): string {
+  const text = String(value);
+  if (!/^-?\d+\.\d{5,}$/u.test(text)) return text;
+  return String(Number(Number(text).toFixed(4)));
+}
+
 export function SqlColumnProfilePanel({
   outcome,
   isLoading,
@@ -142,13 +149,16 @@ export function SqlColumnProfilePanel({
                       <dt className="text-eyebrow uppercase tracking-wide text-fg-subtle">
                         {t(metric.labelKey)}
                       </dt>
-                      <dd className="truncate font-mono text-caption text-fg-base">
+                      <dd
+                        className="truncate font-mono text-caption text-fg-base"
+                        title={profile[metric.key] === null ? undefined : String(profile[metric.key])}
+                      >
                         {profile[metric.key] === null
                           ? t('sqlWorkspace.profile.notAvailable')
                           : metric.key === 'nullPercentage'
                             ? // SUMMARIZE's null_percentage is a percent value.
                               `${profile[metric.key]}%`
-                            : profile[metric.key]}
+                            : formatProfileValue(profile[metric.key])}
                       </dd>
                     </div>
                   ))}

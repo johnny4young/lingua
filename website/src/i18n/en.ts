@@ -228,7 +228,7 @@ export const en = {
         },
         {
           image: '/screenshots/tour/sql-workspace.png',
-          alt: 'SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel',
+          alt: 'SQL workspace with an imported releases table in the schema browser, a formatted aggregate query, and the column profile panel for its result',
           title: 'A full SQL workspace on DuckDB',
           body: 'Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.',
         },
@@ -252,7 +252,7 @@ export const en = {
       lede: 'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
-        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains the undefined property, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
+        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains reading a property of null, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
         caption:
           'A real answer from a local model — qwen3-coder on Ollama, no cloud round trip. The dialog previews the exact payload before anything is sent, and Apply & re-run patches the fix behind a diff you approve.',
       },

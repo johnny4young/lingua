@@ -43,6 +43,14 @@ describe('ExplainErrorAnswer', () => {
     expect(result.querySelectorAll('ol li').length).toBe(2);
   });
 
+  it('continues numbering when a code block splits an ordered list', () => {
+    render(
+      <ExplainErrorAnswer content={'1. Guard it:\n```js\na?.b\n```\n2. Default it:\n```js\na ?? b\n```'} />
+    );
+    const lists = screen.getByTestId('ai-explain-result').querySelectorAll('ol');
+    expect(Array.from(lists, list => list.getAttribute('start'))).toEqual(['1', '2']);
+  });
+
   it('renders markdown headings as bold text without leaking the hashes', () => {
     render(<ExplainErrorAnswer content={'## Suggested Fixes\nDo this.'} />);
     const result = screen.getByTestId('ai-explain-result');

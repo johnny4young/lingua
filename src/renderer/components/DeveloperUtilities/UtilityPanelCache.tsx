@@ -54,7 +54,9 @@ export const DeveloperUtilityPanelCache = memo(function DeveloperUtilityPanelCac
           <div
             key={mountedToolId}
             hidden={!panelActive}
-            aria-hidden={!panelActive}
+            // `inert` also drops focus, so leaving the tab never strands it
+            // inside a subtree hidden from assistive technology.
+            inert={!panelActive}
             data-testid={`utility-panel-cache-${mountedToolId}`}
           >
             <UtilityPanelActiveContext.Provider value={panelActive}>
