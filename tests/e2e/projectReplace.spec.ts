@@ -45,7 +45,7 @@ test.describe('Project replace — Cmd+Shift+H binding', () => {
     await page.keyboard.press('ControlOrMeta+Shift+H');
 
     const dialog = page.getByRole('dialog', {
-      name: /reemplaza en archivos/i,
+      name: /reemplazar en archivos/i,
     });
     await expect(dialog).toBeVisible();
     await expect(

@@ -83,7 +83,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     await page.keyboard.press('ControlOrMeta+Alt+I');
 
     await expect(page.getByTestId('import-preview-overlay')).toBeVisible();
-    await expect(page.getByText(/importa datos/i)).toBeVisible();
+    await expect(page.getByText(/importar datos/i)).toBeVisible();
   });
 
   test('pasting a Jupyter `.ipynb` payload previews the notebook (EN)', async ({

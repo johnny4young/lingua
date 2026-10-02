@@ -33,7 +33,7 @@ test.describe('Capsule import — Mod+Shift+Y binding', () => {
     await page.keyboard.press('ControlOrMeta+Shift+Y');
 
     const dialog = page.getByRole('dialog', {
-      name: /importa una cápsula/i,
+      name: /importar una cápsula/i,
     });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/Sin cápsula cargada todavía/i)).toBeVisible();

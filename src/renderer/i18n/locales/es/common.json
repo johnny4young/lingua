@@ -3401,7 +3401,7 @@
   "dependencies.install.log.title": "Salida del instalador",
   "dependencies.install.log.empty": "Sin salida aún — npm install la transmitirá aquí cuando arranque.",
   "dependencies.install.log.dismiss": "Ocultar el log",
-  "projectReplace.overlay.title": "Reemplaza en archivos",
+  "projectReplace.overlay.title": "Reemplazar en archivos",
   "projectReplace.find.placeholder": "Busca…",
   "projectReplace.find.clear": "Limpiar búsqueda",
   "projectReplace.replace.placeholder": "Reemplaza con…",
