@@ -33,7 +33,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { useCommandListener } from '../../hooks/useCommandListener';
+import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -198,9 +198,7 @@ export function SqlQueryEditor({
     }
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
-  useCommandListener('workspace.run', ({ kind }) => {
-    if (kind === 'sql') handleRun();
-  });
+  useWorkspaceRunTarget('sql', handleRun);
 
   // Cmd/Ctrl+Enter inside the editor runs the SELECTION
   // when it is non-empty, else the full query. The auto-save always

@@ -1351,6 +1351,8 @@
   "toolbar.sidebar.toggle": "Alternar barra lateral ({{combo}})",
   "toolbar.run.title": "Ejecutar ({{combo}})",
   "toolbar.run.desktopOnlyTooltip": "Abre este archivo en Lingua Desktop para ejecutarlo con tu cadena de herramientas local.",
+  "toolbar.run.sqlWorkspaceEmptyTooltip": "Crea o selecciona una consulta para ejecutarla.",
+  "toolbar.run.httpWorkspaceEmptyTooltip": "Crea o selecciona un request para enviarlo.",
   "toolbar.run.desktopAndProTooltip": "Este lenguaje requiere Lingua Desktop y Pro. Mejorar tu plan no permite ejecutarlo en la aplicación web.",
   "toolbar.run.label": "Ejecutar",
   "toolbar.run.running": "Ejecutando...",

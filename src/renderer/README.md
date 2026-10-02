@@ -657,6 +657,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseSelectors.ts](stores/licenseSelectors.ts) | non-React tier selectors (`currentEffectiveTier`/`tierFromStatus`); lives with the stores so store modules never import from the hooks layer (re-exported by `hooks/useEntitlement`) |
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
+| [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, schema/result state       |
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |

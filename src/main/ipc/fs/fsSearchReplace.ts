@@ -224,6 +224,9 @@ export function registerSearchReplaceHandlers(): void {
 
       // Escaped literals cannot backtrack catastrophically; user patterns can.
       const regexWorker = regexMode ? createRegexWorker() : null;
+      // Each hard timeout costs up to 2 s, so a pattern that keeps stalling ends the scan.
+      const MAX_REGEX_TIMEOUTS = 3;
+      let regexTimeouts = 0;
       await walkProject(
         absolutePath,
         relativePath,
@@ -276,13 +279,13 @@ export function registerSearchReplaceHandlers(): void {
               fileTimedOut = outcome.timedOut;
             } catch (error) {
               if (!(error instanceof RegexTimeoutError)) throw error;
-              // The same pattern would stall on the remaining files too.
               results.push({
                 relativePath: asRelativePath(fileRelativePath),
                 matches: [],
                 regexTimedOut: true,
               });
-              return false;
+              regexTimeouts += 1;
+              return regexTimeouts < MAX_REGEX_TIMEOUTS;
             }
           } else {
             rawMatches = [];

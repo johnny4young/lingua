@@ -25,7 +25,7 @@ import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { useCommandListener } from '../../hooks/useCommandListener';
+import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { buildCurlCommand } from '../../../shared/httpWorkspaceCurl';
 import {
   paramsToUrl,
@@ -334,7 +334,7 @@ export function HttpRequestEditor({
     if (!draft) return;
     onSend(draft);
   }, [flushDraftBeforeSend, isExecuting, onSend]);
-  useCommandListener('workspace.run', ({ kind }) => { if (kind === 'http') sendCurrentDraft(); });
+  useWorkspaceRunTarget('http', sendCurrentDraft);
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy

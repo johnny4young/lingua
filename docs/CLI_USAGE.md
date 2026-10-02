@@ -383,8 +383,9 @@ Execution flags:
 - `--stdin <file>` — forward the file as program stdin. Without it, piped stdin
   is forwarded; an interactive TTY sends EOF instead of hanging.
 - `--timeout <ms>` — parent-owned wall-clock limit from 100 to 300000 ms;
-  defaults to 30000 ms. The clock starts at invocation, so waiting for piped
-  stdin to close counts against it and a pipe that never closes reports
+  defaults to 30000 ms. Waiting for piped stdin to close gets its own window
+  of the same length, and the program's clock starts once stdin closes, so a
+  slow producer does not eat into the run; a pipe that never closes reports
   `timeout`. Timeout, Ctrl+C, SIGTERM and SIGHUP terminate the subprocess
   tree; a second signal kills it immediately instead of orphaning it.
 - `--env NAME=value` — repeatable explicit environment value. Arbitrary parent

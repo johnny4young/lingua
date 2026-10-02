@@ -21,8 +21,7 @@ export interface RunTargetArgs {
 }
 
 export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<CliExitCode> {
-  // --timeout is wall-clock from invocation, so a pipe that never closes cannot outlive it.
-  const startedAt = Date.now();
+  // Waiting for piped stdin gets its own --timeout window; the program's clock starts after it.
   const timeoutMs = clampCliRunTimeout(args.timeoutMs);
   let stdin: string | undefined;
   if (args.stdinPath) {
@@ -100,7 +99,6 @@ export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<
   const result = await executeCliPlan(plan, {
     ...(stdin !== undefined ? { stdin } : {}),
     timeoutMs,
-    startedAt,
     env,
     ...(!args.json ? { onStdout: io.writeStdout, onStderr: io.writeStderr } : {}),
   });

@@ -1351,6 +1351,8 @@
   "toolbar.sidebar.toggle": "Toggle sidebar ({{combo}})",
   "toolbar.run.title": "Run ({{combo}})",
   "toolbar.run.desktopOnlyTooltip": "Open this file in Lingua Desktop to run it with your local toolchain.",
+  "toolbar.run.sqlWorkspaceEmptyTooltip": "Create or select a query to run it.",
+  "toolbar.run.httpWorkspaceEmptyTooltip": "Create or select a request to send it.",
   "toolbar.run.desktopAndProTooltip": "This language needs both Lingua Desktop and Pro. Upgrading does not enable it in the web app.",
   "toolbar.run.label": "Run",
   "toolbar.run.running": "Running...",

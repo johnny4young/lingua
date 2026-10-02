@@ -1669,7 +1669,7 @@
     color: var(--color-debug-fg);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 20%, transparent);
   }
-  .action-pill-run[data-workflow='debug']:hover {
+  .action-pill-run[data-workflow='debug']:not(:disabled):hover {
     background: var(--color-debug-fill-hover);
   }
 
@@ -1678,7 +1678,7 @@
     color: var(--color-slate-900);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-300) 30%, transparent);
   }
-  .action-pill-run[data-workflow='scratchpad']:hover {
+  .action-pill-run[data-workflow='scratchpad']:not(:disabled):hover {
     background: var(--color-slate-400);
   }
 
@@ -1738,7 +1738,7 @@
      fill + near-black label), matching how RuntimeSelector's run
      segment flips. */
 
-  .action-pill-run:hover {
+  .action-pill-run:not(:disabled):hover {
     /* Darken the fill on hover by mixing toward the deeper success
        border token — stays on the single success ramp in both
        themes instead of a one-off green. */
@@ -1747,6 +1747,11 @@
 
   .action-pill-run[data-running='true'] {
     animation: run-pulse 1.4s ease-in-out infinite;
+  }
+
+  .action-pill-run:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   .action-pill-run-spinner {

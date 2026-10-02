@@ -1657,6 +1657,33 @@ describe('regex replace runs off the main thread', () => {
     expect(result).toEqual([{ relativePath: 'slow.txt', matches: [], regexTimedOut: true }]);
   });
 
+  it('keeps scanning past a timed-out file', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a-slow.txt'), victim, 'utf-8');
+    await writeFile(path.join(tmpRoot, 'b-fast.txt'), 'aa\n', 'utf-8');
+    const result = (await invoke('fs:replaceInFiles', rootId, '', pathological, 'x', {
+      regex: true,
+    })) as Array<{ relativePath: string; matches: unknown[]; regexTimedOut?: boolean }>;
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { relativePath: 'a-slow.txt', matches: [], regexTimedOut: true },
+        expect.objectContaining({ relativePath: 'b-fast.txt', matches: [expect.anything()] }),
+      ])
+    );
+  });
+
+  it('stops the scan after three timed-out files', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    for (const name of ['s1.txt', 's2.txt', 's3.txt', 's4.txt']) {
+      await writeFile(path.join(tmpRoot, name), victim, 'utf-8');
+    }
+    const result = (await invoke('fs:replaceInFiles', rootId, '', pathological, 'x', {
+      regex: true,
+    })) as Array<{ regexTimedOut?: boolean }>;
+    expect(result).toHaveLength(3);
+    expect(result.every(entry => entry.regexTimedOut)).toBe(true);
+  });
+
   it('keeps the event loop responsive while the worker is busy', async () => {
     const { rootId } = mintFor(tmpRoot);
     await writeFile(path.join(tmpRoot, 'slow.txt'), victim, 'utf-8');

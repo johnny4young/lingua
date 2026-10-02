@@ -16,7 +16,9 @@ export type ExecutionControlDisabledReason =
   | 'notebook'
   | 'pro-only'
   | 'unsupported-workflow'
-  | 'view-only';
+  | 'view-only'
+  | 'workspace-sql-empty'
+  | 'workspace-http-empty';
 
 interface ExecutionActionAvailability {
   disabled: boolean;
@@ -39,6 +41,8 @@ interface ExecutionControlPolicyInput {
   isNotebookTab: boolean;
   /** SQL / HTTP / Utilities tabs run their own surface instead of a language runner. */
   isWorkspaceTab?: boolean;
+  /** Set on a SQL / HTTP tab with no open query or request to run. */
+  emptyWorkspace?: 'sql' | 'http' | null;
   enabledBreakpointCount: number;
 }
 
@@ -63,6 +67,7 @@ export function resolveExecutionControlPolicy({
   isWebBuild,
   isNotebookTab,
   isWorkspaceTab = false,
+  emptyWorkspace = null,
   enabledBreakpointCount,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
@@ -73,7 +78,7 @@ export function resolveExecutionControlPolicy({
       proLanguageGate: false,
       supportsDebug: false,
       actions: {
-        run: availability(null),
+        run: availability(emptyWorkspace ? `workspace-${emptyWorkspace}-empty` : null),
         debug: availability('unsupported-workflow'),
         scratchpad: availability('unsupported-workflow'),
       },
@@ -135,5 +140,7 @@ export function executionDisabledTooltipKey(
   if (reason === 'view-only') return 'toolbar.viewOnly.title';
   if (reason === 'notebook') return 'notebook.notice.useNotebookToolbar';
   if (reason === 'no-enabled-breakpoint') return 'toolbar.debug.noBreakpoint';
+  if (reason === 'workspace-sql-empty') return 'toolbar.run.sqlWorkspaceEmptyTooltip';
+  if (reason === 'workspace-http-empty') return 'toolbar.run.httpWorkspaceEmptyTooltip';
   return `workflowMode.unsupportedReason.${workflow}`;
 }
