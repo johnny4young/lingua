@@ -23,6 +23,12 @@ import { useUtilityWorkspaceStore } from '@/stores/utilityWorkspaceStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
+import {
+  serializeNotebookDocument,
+  parseNotebookDocument,
+} from '../../src/shared/notebookDocument';
+import { computeContentHash } from '../../src/shared/runCapsule';
+import { createBlankNotebook, type NotebookV1 } from '../../src/shared/notebook';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
 
@@ -53,6 +59,8 @@ function setActiveProLicense(): void {
   });
 }
 
+const browserStorage = window.localStorage;
+
 describe('editorStore', () => {
   const initialState = useEditorStore.getState();
   const initialUIState = useUIStore.getState();
@@ -80,10 +88,12 @@ describe('editorStore', () => {
 
     Object.defineProperty(globalThis, 'window', {
       value: {
+        localStorage: browserStorage,
         lingua: {
           fs: {
             read: vi.fn().mockResolvedValue('file content'),
             write: vi.fn().mockResolvedValue(true),
+            writeDocument: vi.fn().mockResolvedValue({ status: 'saved', hash: 'a'.repeat(64) }),
             selectFile: vi.fn().mockResolvedValue({ canceled: true }),
             saveDialog: vi.fn().mockResolvedValue({ canceled: true }),
             reopenRoot: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
@@ -217,6 +227,61 @@ describe('editorStore', () => {
     expect(tab.content).toContain('Lua example');
   });
 
+  describe('queued project open context', () => {
+    it('does not refocus an existing buffer after context changes during a lazy load', async () => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'existing',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'dirty buffer',
+            isDirty: true,
+            rootId: 'root-a',
+            relativePath: 'main.js',
+          },
+          {
+            id: 'current',
+            name: 'current.js',
+            language: 'javascript',
+            content: '',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'current',
+      });
+      let live = true;
+      const opening = useEditorStore
+        .getState()
+        .openFile('root-a', 'main.js', 'main.js', 'javascript', undefined, () => live);
+      live = false;
+      await opening;
+      expect(useEditorStore.getState().activeTabId).toBe('current');
+      expect(window.lingua.fs.read).not.toHaveBeenCalled();
+      expect(useEditorStore.getState().tabs[0].content).toBe('dirty buffer');
+    });
+    it('discards a read whose document or project context changed while pending', async () => {
+      let resolveRead: (source: string) => void = () => {
+        throw new Error('Read not started');
+      };
+      vi.mocked(window.lingua.fs.read).mockReturnValue(
+        new Promise(resolve => {
+          resolveRead = resolve;
+        })
+      );
+      let live = true;
+      const opening = useEditorStore
+        .getState()
+        .openFile('root-a', 'late.js', 'late.js', 'javascript', undefined, () => live);
+      await vi.waitFor(() => expect(window.lingua.fs.read).toHaveBeenCalledOnce());
+      live = false;
+      resolveRead('late source');
+      await opening;
+      expect(useEditorStore.getState().tabs).toEqual([]);
+      expect(useEditorStore.getState().activeTabId).toBeNull();
+    });
+  });
+
   describe('openFileFromDisk', () => {
     it('should do nothing if user cancels the file picker', async () => {
       (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -313,6 +378,136 @@ describe('editorStore', () => {
     });
   });
 
+  describe('project notebook documents', () => {
+    async function openNotebook() {
+      const original = { outputs: [] };
+      const notebook: NotebookV1 = {
+        ...createBlankNotebook({ id: 'document-fixture', title: 'Fixture' }),
+        cells: [
+          {
+            ...original,
+            id: 'js',
+            kind: 'code',
+            language: 'javascript',
+            source: 'console.log(1)',
+            outputs: [{ kind: 'text', text: '1', stream: 'stdout' }],
+          },
+          {
+            ...original,
+            id: 'ts',
+            kind: 'code',
+            language: 'typescript',
+            source: 'const n: number = 2;',
+          },
+          { ...original, id: 'py', kind: 'code', language: 'python', source: 'print(3)' },
+          { ...original, id: 'sql', kind: 'code', language: 'sql', source: 'select 4;' },
+          { id: 'md', kind: 'markdown', source: '# Evidence' },
+        ],
+      };
+      const raw = serializeNotebookDocument(notebook, { executionOrder: { js: 1, py: 2 } });
+      vi.mocked(window.lingua.fs.read).mockResolvedValue(raw);
+      await useEditorStore
+        .getState()
+        .openFile(
+          'project-root',
+          'folder/fixture.linguanb',
+          'fixture.linguanb',
+          'plaintext',
+          '/project/folder/fixture.linguanb'
+        );
+      return { id: useEditorStore.getState().activeTabId!, raw, notebook };
+    }
+    it('opens v1 losslessly and restores outputs as stale without executing', async () => {
+      const { id, raw, notebook } = await openNotebook();
+      expect(useNotebookStore.getState().notebooks[id]).toMatchObject({
+        notebook,
+        cellExecutionOrder: { js: 1, py: 2 },
+        cellRunStatus: { js: 'stale', py: 'stale' },
+      });
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        kind: 'notebook',
+        isDirty: false,
+        notebookDocumentHash: await computeContentHash(raw),
+      });
+      expect(window.lingua.fs.writeDocument).not.toHaveBeenCalled();
+    });
+    it('tracks the persistible snapshot, not kernel statuses or durations', async () => {
+      const { id } = await openNotebook();
+      const store = useNotebookStore.getState();
+      store.setCellRunStatus(id, 'js', 'running');
+      store.setCellDurationMs(id, 'js', 32);
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(false);
+      store.updateCellSource(id, 'js', 'changed');
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(true);
+      store.updateCellSource(id, 'js', 'console.log(1)');
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(false);
+      store.setCellExecutionOrder(id, 'ts');
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(true);
+    });
+    it('uses only capabilities and preserves newer edits during a save and tab switch', async () => {
+      const { id } = await openNotebook();
+      useNotebookStore.getState().updateCellSource(id, 'js', 'before-save');
+      let finish!: (result: { status: 'saved'; hash: string }) => void;
+      vi.mocked(window.lingua.fs.writeDocument).mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finish = resolve;
+          })
+      );
+      const saving = useEditorStore.getState().saveTabById(id);
+      await vi.waitFor(() => expect(window.lingua.fs.writeDocument).toHaveBeenCalledOnce());
+      const written = vi.mocked(window.lingua.fs.writeDocument).mock.calls[0];
+      expect(written.slice(0, 2)).toEqual(['project-root', 'folder/fixture.linguanb']);
+      expect(parseNotebookDocument(written[2]).ok).toBe(true);
+      useNotebookStore.getState().updateCellSource(id, 'js', 'while-saving');
+      const other = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(other);
+      finish({ status: 'saved', hash: await computeContentHash(written[2]) });
+      expect(await saving).toBe(true);
+      expect(useEditorStore.getState().activeTabId).toBe(other.id);
+      expect(useEditorStore.getState().tabs.find(t => t.id === id)?.isDirty).toBe(true);
+      expect(useNotebookStore.getState().getNotebookForTab(id)?.cells[0]?.source).toBe(
+        'while-saving'
+      );
+    });
+    it.each(['conflict', 'error'])('keeps the dirty document after %s', async mode => {
+      const { id } = await openNotebook();
+      useNotebookStore.getState().updateCellSource(id, 'js', 'unsaved');
+      if (mode === 'conflict')
+        vi.mocked(window.lingua.fs.writeDocument).mockResolvedValue({
+          status: 'conflict',
+          actualHash: 'b'.repeat(64),
+        });
+      else vi.mocked(window.lingua.fs.writeDocument).mockRejectedValue(new Error('revoked'));
+      expect(await useEditorStore.getState().saveTabById(id)).toBe(false);
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(true);
+      expect(useNotebookStore.getState().getNotebookForTab(id)?.cells[0]?.source).toBe('unsaved');
+    });
+    it('does not discard a cell edited during the close-save operation', async () => {
+      const { id } = await openNotebook();
+      useNotebookStore.getState().updateCellSource(id, 'js', 'before');
+      vi.mocked(window.lingua.confirmCloseTab).mockResolvedValue(0);
+      vi.mocked(window.lingua.fs.writeDocument).mockImplementation(async () => {
+        useNotebookStore.getState().updateCellSource(id, 'js', 'after');
+        return { status: 'saved', hash: 'a'.repeat(64) };
+      });
+      expect(await useEditorStore.getState().closeTab(id)).toBe(false);
+      expect(useEditorStore.getState().tabs.some(t => t.id === id && t.isDirty)).toBe(true);
+    });
+    it('rejects malformed documents and Free notebook opens without creating tabs', async () => {
+      vi.mocked(window.lingua.fs.read).mockResolvedValue('not a document');
+      await useEditorStore.getState().openFile('root', 'bad.linguanb', 'bad.linguanb', 'plaintext');
+      expect(useEditorStore.getState().tabs).toEqual([]);
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      vi.mocked(window.lingua.fs.read).mockClear();
+      await useEditorStore
+        .getState()
+        .openFile('root', 'good.linguanb', 'good.linguanb', 'plaintext');
+      expect(window.lingua.fs.read).not.toHaveBeenCalled();
+      expect(useEditorStore.getState().tabs).toEqual([]);
+    });
+  });
+
   describe('saveActiveTabAs', () => {
     it('should do nothing if user cancels the save dialog', async () => {
       const tab = createDefaultTab('javascript');
@@ -357,36 +552,33 @@ describe('editorStore', () => {
     it('uses the notebook default language when creating a new notebook tab', () => {
       useSettingsStore.setState({ notebookDefaultCellLanguage: 'typescript' });
 
-      const tabId = useEditorStore
-        .getState()
-        .addNotebookTab({ title: 'Notebook draft' });
+      const tabId = useEditorStore.getState().addNotebookTab({ title: 'Notebook draft' });
 
       expect(tabId).toBeTruthy();
-      expect(useEditorStore.getState().tabs.find((tab) => tab.id === tabId)).toMatchObject({
+      expect(useEditorStore.getState().tabs.find(tab => tab.id === tabId)).toMatchObject({
         language: 'typescript',
         kind: 'notebook',
       });
       const codeCell = useNotebookStore
         .getState()
         .getNotebookForTab(tabId!)!
-        .cells.find((cell) => cell.kind === 'code')!;
+        .cells.find(cell => cell.kind === 'code')!;
       expect(codeCell.kind).toBe('code');
       if (codeCell.kind !== 'code') return;
       expect(codeCell.language).toBe('typescript');
     });
 
-    it('does not write notebook tabs as empty files before disk persistence ships', async () => {
+    it('keeps a notebook in memory when Save As is cancelled', async () => {
       const tabId = useEditorStore.getState().addNotebookTab({ title: 'Notebook draft' });
       expect(tabId).toBeTruthy();
 
       await useEditorStore.getState().saveActiveTabAs();
 
-      expect(window.lingua.fs.saveDialog).not.toHaveBeenCalled();
+      expect(window.lingua.fs.saveDialog).toHaveBeenCalledOnce();
+      expect(window.lingua.fs.writeDocument).not.toHaveBeenCalled();
       expect(window.lingua.fs.write).not.toHaveBeenCalled();
-      expect(useUIStore.getState().statusNotice).toMatchObject({
-        tone: 'info',
-        messageKey: 'notebook.notice.diskPersistencePending',
-      });
+      expect(useNotebookStore.getState().getNotebookForTab(tabId!)).not.toBeNull();
+      expect(useUIStore.getState().statusNotice).toBeNull();
     });
 
     it('keeps only the file name when Save As returns a Windows root path', async () => {
@@ -752,7 +944,7 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().tabs[0].name).toBe(tab.name);
     });
 
-    it('renames notebook tabs by syncing the notebook title without marking the tab dirty', () => {
+    it('renames notebook titles as persistible document edits', () => {
       const tabId = useEditorStore
         .getState()
         .addNotebookTab({ title: 'Notebook draft', language: 'python' });
@@ -765,7 +957,7 @@ describe('editorStore', () => {
         name: 'Analysis.linguanb',
         language: 'python',
         kind: 'notebook',
-        isDirty: false,
+        isDirty: true,
       });
       expect(useNotebookStore.getState().getNotebookForTab(tabId!)?.title).toBe('Analysis');
     });

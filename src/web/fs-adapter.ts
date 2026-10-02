@@ -1,3 +1,8 @@
+import { withDocumentWriteLock } from '../shared/documentWrite';
+import { computeContentHash } from '../shared/contentHash';
+import type { DocumentWriteBridge } from '../shared/documentWrite';
+import { MAX_LINGUANB_BYTES } from '../shared/notebookDocumentFormat';
+import { utf8ByteLength } from '../shared/utf8';
 /**
  * Web File System Adapter
  *
@@ -335,7 +340,7 @@ function pushDirectoryUnsupportedNoticeDebounced(): void {
   }
 }
 
-export const webFsAdapter: LinguaAPI['fs'] = {
+export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
   selectDirectory: async () => {
     const picker = window as unknown as FileSystemPickerWindow;
     // implementation — probe before invoking. The pre-internal
@@ -707,6 +712,39 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     } catch {
       return false;
     }
+  },
+
+  writeDocument: async (rootId, relativePath, content, expectedHash) => {
+    if (utf8ByteLength(content) > MAX_LINGUANB_BYTES) throw new Error('Document exceeds its size limit.');
+    if (expectedHash !== null && !/^[a-f0-9]{64}$/.test(expectedHash)) throw new Error('Invalid document hash.');
+    return withDocumentWriteLock('web-document-commit', async () => {
+      const { handle } = await resolveHandle(rootId, relativePath);
+      if (!handle || handle.kind !== 'file') throw new Error('Document capability unavailable.');
+      const fileHandle = handle as FileSystemFileHandle;
+      const committed = await fileHandle.getFile();
+      if (committed.size > MAX_LINGUANB_BYTES) throw new Error('Existing document exceeds its size limit.');
+      const actualHash = await computeContentHash(await committed.text());
+      // A newly selected FSA file already exists as an empty file, unlike a
+      // desktop destination. The renderer reads that file before its first save.
+      if (actualHash !== expectedHash) return { status: 'conflict' as const, actualHash };
+      const writable = await fileHandle.createWritable();
+      try {
+        await writable.write(content);
+        // FSA stages bytes until close. Check the still-committed file and grant
+        // again before committing; abort discards our staged write on conflict.
+        const again = await resolveHandle(rootId, relativePath);
+        if (!again.handle || again.handle.kind !== 'file') throw new Error('Document capability unavailable.');
+        const latest = await fileHandle.getFile();
+        if (latest.size > MAX_LINGUANB_BYTES) throw new Error('Existing document exceeds its size limit.');
+        const beforeCommit = await computeContentHash(await latest.text());
+        if (beforeCommit !== expectedHash) {
+          await writable.abort();
+          return { status: 'conflict' as const, actualHash: beforeCommit };
+        }
+        await writable.close();
+        return { status: 'saved' as const, hash: await computeContentHash(content) };
+      } catch (error) { await writable.abort().catch(() => {}); throw error; }
+    });
   },
 
   delete: async (

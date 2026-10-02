@@ -1,36 +1,10 @@
-import type { EditorState, FileTab } from '../types/editor';
-import { resolveFileLanguageOrPlaintext } from '../utils/language';
-import { joinAbsolute } from '../utils/filePath';
-import { useProjectStore } from './projectStore';
-import { useRecentFilesStore } from './recentFilesStore';
-import { useDependencyDetectionStore } from './dependencyDetectionStore';
-import { useRecipeStore } from './recipeStore';
-import { useResultStore } from './resultStore';
-import { useUIStore } from './uiStore';
-import { currentEffectiveTier } from './licenseSelectors';
-import { withinTabBudget } from '../../shared/entitlements';
-import { pushUpsellNotice } from '../utils/upsellNotice';
-import { trackEvent } from '../utils/telemetry';
-import i18next from 'i18next';
+import { flushNotebookDocumentDrafts } from './notebookDocumentDrafts';
+import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
+import { withDocumentWriteLock } from '../../shared/documentWrite';
+import type { EditorState } from '../types/editor';
 import type { EditorGet, EditorSet } from './editorStoreContext';
-import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
-import { budgetedTabCount, isWorkspaceTab } from './editorTabUtils';
-import { persistTab } from './editorPersistence';
-import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
-import { notifyBlockedFamily } from '../utils/blockedPath';
 
-/**
- * implementation — file-open + save action factory for the editor store.
- *
- * Bundles `openFile` / `openFileFromDisk` (capability-backed disk opens with
- * the Free tab-budget gate) and the Save family (`saveActiveTab`,
- * `saveActiveTabAs`, `saveTabById` — the latter routing through `persistTab`
- * with the snapshot-ring / dependency-cache / recipe-unbind / rootId-revoke
- * cascade). The close + rename actions live in `editorCloseActions`. Extracted
- * verbatim from `editorStore.ts`; the async actions re-read `get()` after each
- * `await`, so the mid-save tab-switch guards behave identically to the
- * pre-split inline definitions.
- */
+/** Dispatch explicit file gestures without loading document actions during cold start. */
 export function createSaveActions(
   set: EditorSet,
   get: EditorGet
@@ -38,134 +12,17 @@ export function createSaveActions(
   EditorState,
   'openFile' | 'openFileFromDisk' | 'saveActiveTab' | 'saveActiveTabAs' | 'saveTabById'
 > {
+  const saveTab = async (id: string, forceSaveAs = false, snapshot?: string | null) => {
+    const { createDocumentSaveAction } = await import('./editorDocumentSave');
+    return createDocumentSaveAction(set, get)(id, forceSaveAs, snapshot);
+  };
+  const openActions = async () => {
+    const { createDocumentOpenActions } = await import('./editorDocumentOpen');
+    return createDocumentOpenActions(set, get);
+  };
   return {
-    openFile: async (rootId, relativePath, name, language, displayPath, stillCurrent) => {
-      if (stillCurrent && !stillCurrent()) return;
-      const { tabs } = get();
-
-      const existing = tabs.find(t => t.rootId === rootId && t.relativePath === relativePath);
-      if (existing) {
-        set({ activeTabId: existing.id });
-        return;
-      }
-
-      if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
-        pushUpsellNotice({
-          messageKey: 'upsell.freeCeilingReached',
-          featureLabel: i18next.t('upsell.feature.extraTabs'),
-        });
-        // internal — same emit on the openFile gate so both rejection
-        // paths surface a feature.blocked event.
-        void trackEvent('feature.blocked', {
-          entitlement: 'tabs',
-          tier: currentEffectiveTier(),
-        });
-        return;
-      }
-
-      const content = await window.lingua.fs.read(asRootId(rootId), asRelativePath(relativePath));
-      if (stillCurrent && !stillCurrent()) return;
-      const filePath = displayPath ?? relativePath;
-
-      // Re-check the dedup + budget AFTER the disk read: a double-click on
-      // the file tree fires two openFile calls that both pass the checks
-      // above while neither tab exists yet, opening the same file twice
-      // (and double-charging the Free tab budget).
-      const tabsAfterRead = get().tabs;
-      const existingAfterRead = tabsAfterRead.find(
-        t => t.rootId === rootId && t.relativePath === relativePath
-      );
-      if (existingAfterRead) {
-        set({ activeTabId: existingAfterRead.id });
-        return;
-      }
-      if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabsAfterRead) + 1)) {
-        return;
-      }
-
-      const newTab: FileTab = {
-        id: crypto.randomUUID(),
-        name,
-        language,
-        content,
-        isDirty: false,
-        rootId,
-        relativePath,
-        filePath,
-        // implementation — disk-backed JS/TS opens adopt the per-app
-        // default runtime mode; non-JS/TS files leave the field unset.
-        runtimeMode: runtimeModeForNewTab(language),
-        // implementation — disk-backed opens also adopt the per-app
-        // default workflow mode so the toolbar segment has a value to
-        // reflect on first render.
-        workflowMode: workflowModeForNewTab(language),
-      };
-
-      set(state => ({
-        tabs: [...state.tabs, newTab],
-        activeTabId: newTab.id,
-      }));
-
-      useRecentFilesStore.getState().addRecentFile({ filePath, name, language });
-    },
-
-    openFileFromDisk: async () => {
-      const result = await window.lingua.fs.selectFile();
-      if (result.canceled) {
-        notifyBlockedFamily(result.blockedFamily);
-        return;
-      }
-      const language = resolveFileLanguageOrPlaintext(result.fileName);
-      const { tabs } = get();
-      const filePath = joinAbsolute(result.rootPath, result.fileRelativePath);
-
-      const existing = tabs.find(
-        t =>
-          (t.rootId === result.rootId && t.relativePath === result.fileRelativePath) ||
-          t.filePath === filePath
-      );
-      if (existing) {
-        await window.lingua.fs.revokeRoot(result.rootId).catch(() => {});
-        set({ activeTabId: existing.id });
-        return;
-      }
-
-      if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
-        await window.lingua.fs.revokeRoot(result.rootId).catch(() => {});
-        pushUpsellNotice({
-          messageKey: 'upsell.freeCeilingReached',
-          featureLabel: i18next.t('upsell.feature.extraTabs'),
-        });
-        void trackEvent('feature.blocked', {
-          entitlement: 'tabs',
-          tier: currentEffectiveTier(),
-        });
-        return;
-      }
-
-      const newTab: FileTab = {
-        id: crypto.randomUUID(),
-        name: result.fileName,
-        language,
-        content: result.content,
-        isDirty: false,
-        rootId: result.rootId,
-        relativePath: result.fileRelativePath,
-        filePath,
-        // implementation — same JS/TS default mode as openFile().
-        runtimeMode: runtimeModeForNewTab(language),
-        // implementation — same per-language workflow-mode default.
-        workflowMode: workflowModeForNewTab(language),
-      };
-
-      set(state => ({
-        tabs: [...state.tabs, newTab],
-        activeTabId: newTab.id,
-      }));
-
-      useRecentFilesStore.getState().addRecentFile({ filePath, name: result.fileName, language });
-    },
-
+    openFile: async (...args) => (await openActions()).openFile(...args),
+    openFileFromDisk: async () => (await openActions()).openFileFromDisk(),
     saveActiveTab: async () => {
       const { activeTabId, saveTabById } = get();
       if (!activeTabId) return;
@@ -178,84 +35,12 @@ export function createSaveActions(
       await saveTabById(activeTabId, true);
     },
 
-    saveTabById: async (id, forceSaveAs = false) => {
-      const { tabs } = get();
-      const tab = tabs.find(t => t.id === id);
-      if (!tab) return false;
-      // Workspace tabs have no disk representation; their current
-      // query/request/tool state is auto-persisted to the owning workspace
-      // store. A Save / Save-As gesture (Cmd+S, palette) would
-      // otherwise open a file dialog and write the empty `content` to
-      // disk. There is nothing pending here (unlike notebooks), so we
-      // no-op silently rather than surfacing a notice.
-      if (isWorkspaceTab(tab)) {
-        return false;
-      }
-      if (tab.kind === 'notebook') {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'notebook.notice.diskPersistencePending',
-        });
-        return false;
-      }
-
-      const previousPath = tab.filePath;
-      const previousRootId = tab.rootId;
-      const previousLanguage = tab.language;
-      const savedTab = await persistTab(tab, forceSaveAs);
-      if (!savedTab) return false;
-
-      set(state => ({
-        tabs: state.tabs.map(t => {
-          if (t.id !== id) return t;
-          // Keystrokes that landed while the save (format + disk write)
-          // was in flight must survive: committing the pre-save snapshot
-          // verbatim would revert the text AND clear isDirty, so closing
-          // the tab afterwards silently drops that work. Adopt the saved
-          // metadata (path, rootId, language) but keep the newer content
-          // marked dirty so the close-guard still fires.
-          if (t.content !== tab.content) {
-            return { ...savedTab, content: t.content, isDirty: true };
-          }
-          return savedTab;
-        }),
-      }));
-
-      // implementation — Save-As that changed the language invalidates
-      // the result-store snapshot ring for the saved tab. Re-read
-      // `activeTabId` at this point (not the value captured before the
-      // async `persistTab` hop) so that if the user switched tabs
-      // mid-save we do NOT drop the new active tab's snapshot ring.
-      // `useAutoRun` already clears the ring on tab switch; if the
-      // user navigated away during the file picker, the ring belongs
-      // to a different tab and we must leave it alone.
-      if (savedTab.language !== previousLanguage && get().activeTabId === id) {
-        useResultStore.getState().clearLastSuccessfulSnapshot();
-      }
-      if (savedTab.language !== previousLanguage) {
-        useDependencyDetectionStore.getState().evictTab(id);
-      }
-      if (tab.recipeBindingId !== undefined && savedTab.recipeBindingId === undefined) {
-        useRecipeStore.getState().unbindRecipe(id);
-      }
-
-      if (previousRootId && previousRootId !== savedTab.rootId) {
-        const rootStillUsed = tabs.some(t => t.id !== id && t.rootId === previousRootId);
-        const projectRootId = useProjectStore.getState().currentProject?.rootId;
-        if (!rootStillUsed && previousRootId !== projectRootId) {
-          await window.lingua.fs.revokeRoot(asRootId(previousRootId)).catch(() => {});
-        }
-      }
-
-      if (forceSaveAs || previousPath !== savedTab.filePath) {
-        useRecentFilesStore.getState().addRecentFile({
-          filePath: savedTab.filePath,
-          name: savedTab.name,
-          language: savedTab.language,
-        });
-      }
-
-      return true;
+    saveTabById: (id, forceSaveAs = false) => {
+      if (get().tabs.find(t => t.id === id)?.kind !== 'notebook') return saveTab(id, forceSaveAs);
+      // Freeze the user's request before lock queueing or any lazy module load.
+      flushNotebookDocumentDrafts(id);
+      const snapshot = notebookDocumentSnapshot(id);
+      return withDocumentWriteLock(`notebook-tab:${id}`, () => saveTab(id, forceSaveAs, snapshot));
     },
   };
 }

@@ -47,6 +47,7 @@ type SeedOptions = {
    * settings spec so duplicating the apply click here just burns seconds.
    */
   primeProLicense?: boolean;
+  restoreSessionMode?: 'always' | 'ask' | 'never';
 };
 
 type SeededSnippet = {
@@ -244,6 +245,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
     primeProLicense = false,
     showStatusBar,
     workflowModeDefaultsByLanguage,
+    restoreSessionMode,
   } = options;
 
   await page.addInitScript(
@@ -259,6 +261,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       shouldSuppressWhatsNew,
       seededLastSeenVersion,
       seededLicenseToken,
+      seededRestoreMode,
     }) => {
       // Guard: only prime storage when it's empty. Init scripts run on
       // every navigation (including reloads), so re-seeding each time
@@ -284,12 +287,14 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             hasCompletedOnboardingFirstRun: true,
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
+            ...(seededRestoreMode === undefined ? {} : { restoreSessionMode: seededRestoreMode }),
             ...(seededShowStatusBar === undefined ? {} : { showStatusBar: seededShowStatusBar }),
             ...(seededWorkflowModeDefaults === undefined
               ? {}
               : { workflowModeDefaultsByLanguage: seededWorkflowModeDefaults }),
           },
-          version: 0,
+          // Current schema preserves restoreSessionMode; legacy v0 migrates its boolean.
+          version: seededRestoreMode === undefined ? 0 : 3,
         })
       );
 
@@ -321,6 +326,7 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
       seededLanguage: language,
       seededSnippets: buildSeededSnippets(snippetCount),
       seededShowStatusBar: showStatusBar,
+      seededRestoreMode: restoreSessionMode,
       seededWorkflowModeDefaults: workflowModeDefaultsByLanguage,
       shouldSuppressWhatsNew: suppressWhatsNew,
       seededLastSeenVersion: lastSeenVersion,
@@ -675,9 +681,7 @@ export async function createJavaScriptTab(page: Page): Promise<void> {
   // App hydration can restore welcome.js just after gotoApp resolves. Wait for
   // one stable creation state instead of sampling too early and then waiting
   // forever for an empty state that will never render.
-  await expect(
-    existingJsTab.or(explicitNewButton).or(emptyStateQuickStart).first()
-  ).toBeVisible();
+  await expect(existingJsTab.or(explicitNewButton).or(emptyStateQuickStart).first()).toBeVisible();
   if (
     await existingJsTab
       .first()

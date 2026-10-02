@@ -1,3 +1,4 @@
+import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDrafts';
 /**
  * implementation — Single code-cell row.
  *
@@ -14,14 +15,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Play,
-  Trash2,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Play, Trash2 } from 'lucide-react';
 import {
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
@@ -41,6 +35,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { useEntitlement } from '../../hooks/useEntitlement';
 
 export interface NotebookCodeCellRowProps {
+  readonly notebookTabId?: string;
   readonly cell: NotebookCodeCellV1;
   readonly cellIndex: number;
   readonly status: NotebookCellRunStatus;
@@ -191,6 +186,7 @@ function tableFromOutputText(text: string): RichOutputTable | null {
 }
 
 function NotebookCodeCellRowImpl({
+  notebookTabId,
   cell,
   cellIndex,
   status,
@@ -277,6 +273,12 @@ function NotebookCodeCellRowImpl({
   // rehydrate can) changes `cell.source` out from under us. Flush the
   // previous cell's pending draft FIRST so it lands on the cell it was
   // typed into before we adopt the new value.
+  useEffect(
+    () =>
+      notebookTabId ? registerNotebookDocumentDraft(notebookTabId, flushPendingSource) : undefined,
+    [notebookTabId, flushPendingSource]
+  );
+
   const lastCellIdRef = useRef<string>(cell.id);
   useEffect(() => {
     if (lastCellIdRef.current !== cell.id) {
@@ -394,9 +396,7 @@ function NotebookCodeCellRowImpl({
       onFocus={() => onActivate(cell.id)}
       className={cn(
         'relative grid gap-2 rounded-md border bg-background-elevated/60 p-3 pl-4 transition-colors outline-none',
-        isActive
-          ? 'border-primary/60 ring-1 ring-primary/25'
-          : 'border-border/60',
+        isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/60',
         // Edit mode tints the accent bar a touch stronger so the two
         // modes read at a glance (Jupyter's green/blue gutter).
         'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
@@ -429,25 +429,18 @@ function NotebookCodeCellRowImpl({
             aria-label={t('notebook.cell.languageSelectLabel')}
             value={cell.language}
             disabled={disabled}
-            onChange={(event) =>
-              onLanguageChange(
-                cell.id,
-                event.target.value as NotebookCellLanguage
-              )
+            onChange={event =>
+              onLanguageChange(cell.id, event.target.value as NotebookCellLanguage)
             }
           >
-            {NOTEBOOK_CELL_LANGUAGES.map((lang) => (
+            {NOTEBOOK_CELL_LANGUAGES.map(lang => (
               // Disable any schema language the runner can't execute yet,
               // so the selector stays consistent with handleLanguageChange
               // (view) + setCellLanguage (store). Today all four (JS / TS /
               // Python / SQL) run, so this is a no-op guard that
               // future-proofs the next language added to the schema before
               // it is wired to a runner.
-              <option
-                key={lang}
-                value={lang}
-                disabled={!isNotebookRunnableLanguage(lang)}
-              >
+              <option key={lang} value={lang} disabled={!isNotebookRunnableLanguage(lang)}>
                 {languageBadgeTone(lang).code}
               </option>
             ))}
@@ -474,9 +467,7 @@ function NotebookCodeCellRowImpl({
           <span data-testid="notebook-code-cell-status" data-status={status}>
             <StatusBadge tone={STATUS_BADGE_TONE[status]} dot>
               {t(`notebook.status.${statusKey(status)}`)}
-              {latencyLabel
-                ? t('notebook.cell.latencySuffix', { ms: latencyLabel })
-                : ''}
+              {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
             </StatusBadge>
           </span>
           {/* FASE 4 — inter-cell variable flow. `uses` is an
@@ -536,16 +527,10 @@ function NotebookCodeCellRowImpl({
               data-mode={mode}
               className={cn(
                 'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
-                mode === 'edit'
-                  ? 'bg-primary/15 text-primary'
-                  : 'bg-bg-panel-alt text-fg-subtle'
+                mode === 'edit' ? 'bg-primary/15 text-primary' : 'bg-bg-panel-alt text-fg-subtle'
               )}
             >
-              {t(
-                mode === 'edit'
-                  ? 'notebook.command.modeEdit'
-                  : 'notebook.command.modeCommand'
-              )}
+              {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
             </span>
           ) : null}
           <button
@@ -556,11 +541,7 @@ function NotebookCodeCellRowImpl({
             className="focus-ring inline-flex h-6 items-center gap-1 rounded border border-success-border bg-success-bg px-2 text-eyebrow font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play size={9} aria-hidden="true" />
-            {t(
-              status === 'stale'
-                ? 'notebook.reactivity.refreshCell'
-                : 'notebook.cell.runCell'
-            )}
+            {t(status === 'stale' ? 'notebook.reactivity.refreshCell' : 'notebook.cell.runCell')}
           </button>
           <button
             type="button"
@@ -667,7 +648,7 @@ function NotebookCodeCellRowImpl({
               trailing={
                 <button
                   type="button"
-                  onClick={() => setOutputsCollapsed((prev) => !prev)}
+                  onClick={() => setOutputsCollapsed(prev => !prev)}
                   aria-expanded={!outputsCollapsed}
                   aria-controls={outputsRegionId}
                   aria-label={
@@ -699,10 +680,7 @@ function NotebookCodeCellRowImpl({
                 // objects renders as a table (mirroring the console's
                 // auto-table), instead of raw JSON text. stderr always
                 // stays plain error-toned text.
-                const table =
-                  output.stream === 'stdout'
-                    ? tableFromOutputText(output.text)
-                    : null;
+                const table = output.stream === 'stdout' ? tableFromOutputText(output.text) : null;
                 if (table) {
                   return (
                     <li
@@ -720,9 +698,7 @@ function NotebookCodeCellRowImpl({
                     data-stream={output.stream}
                     className={cn(
                       'whitespace-pre-wrap break-all font-mono text-caption',
-                      output.stream === 'stderr'
-                        ? 'text-error-fg'
-                        : 'text-foreground'
+                      output.stream === 'stderr' ? 'text-error-fg' : 'text-foreground'
                     )}
                   >
                     {output.text}
@@ -735,12 +711,12 @@ function NotebookCodeCellRowImpl({
             <div className="px-2 pb-2">
               <ExplainErrorButton
                 errorMessage={cell.outputs
-                  .filter((output) => output.stream === 'stderr')
-                  .map((output) => output.text)
+                  .filter(output => output.stream === 'stderr')
+                  .map(output => output.text)
                   .join('\n')}
                 code={cell.source}
                 language={cell.language}
-                onApplyFix={(newCode) => {
+                onApplyFix={newCode => {
                   // Apply & re-run: write the suggestion through the SAME
                   // local-draft plumbing as typing (local state + refs), then
                   // persist immediately — bypassing the autosave debounce so

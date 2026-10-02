@@ -30,7 +30,17 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, ExternalLink, Eye, FileDown, Files, GitCompare, Package, Trash2 } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  Eye,
+  FileDown,
+  Files,
+  FlaskConical,
+  GitCompare,
+  Package,
+  Trash2,
+} from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
@@ -56,6 +66,7 @@ import { CapsuleImportPreview } from '../CapsuleImport';
 import { CapsuleComparisonModal } from './CapsuleComparisonModal';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 import { CapsuleWorkspaceExportDialog } from './CapsuleWorkspaceExportDialog';
+import { CapsuleRegressionExportDialog } from './CapsuleRegressionExportDialog';
 
 export interface CapsuleListOverlayProps {
   onClose: () => void;
@@ -170,6 +181,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const [comparePair, setComparePair] = useState<[RunCapsuleV1, RunCapsuleV1] | null>(
     null
   );
+  const [regressionCapsule, setRegressionCapsule] = useState<RunCapsuleV1 | null>(null);
   const [workspaceCapsule, setWorkspaceCapsule] = useState<RunCapsuleV1 | null>(null);
 
   // ─── Selection (drives the right-hand preview) ───────────────────
@@ -605,6 +617,12 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                           onClick={() => setWorkspaceCapsule(capsule)}
                         />
                         <RowAction
+                          icon={<FlaskConical size={12} aria-hidden="true" />}
+                          label={t('capsuleRegression.action')}
+                          testid="capsule-prepare-regression"
+                          onClick={() => setRegressionCapsule(capsule)}
+                        />
+                        <RowAction
                           icon={<ExternalLink size={12} aria-hidden="true" />}
                           label={t('capsuleList.row.openInTab')}
                           testid="capsule-list-row-open"
@@ -665,6 +683,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     <CapsuleComparisonModal
       capsules={comparePair}
       onClose={() => setComparePair(null)}
+    />
+    <CapsuleRegressionExportDialog
+      capsule={regressionCapsule}
+      onClose={() => setRegressionCapsule(null)}
     />
     <CapsuleWorkspaceExportDialog
       capsule={workspaceCapsule}

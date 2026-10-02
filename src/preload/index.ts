@@ -335,6 +335,7 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('fs:read-bytes', rootId, relativePath),
     write: (rootId: RootId, relativePath: RelativePath, content: string) =>
       typedInvoke('fs:write', rootId, relativePath, content),
+    writeDocument: (rootId: RootId, relativePath: RelativePath, content: string, expectedHash: string | null) => typedInvoke('fs:write-document', rootId, relativePath, content, expectedHash),
     delete: (
       rootId: RootId,
       relativePath: RelativePath,

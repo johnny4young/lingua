@@ -101,6 +101,31 @@ describe('useDependencyDetection', () => {
     });
   });
 
+  it('never scans a notebook document envelope as source', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'active-tab',
+          name: 'notes.linguanb',
+          language: 'javascript',
+          kind: 'notebook',
+          content: JSON.stringify({ cells: [{ source: "import x from 'lodash';" }] }),
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'active-tab',
+    });
+
+    renderHook(() => useDependencyDetection());
+
+    await waitFor(() => {
+      expect(useDependencyDetectionStore.getState().byTab.get('active-tab')?.dependencies).toEqual(
+        []
+      );
+    });
+    expect(loadDependencyAdapter).not.toHaveBeenCalled();
+  });
+
   it('records an empty result without loading a detector for ordinary source', async () => {
     useEditorStore.setState({
       tabs: [

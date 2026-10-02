@@ -14,6 +14,7 @@ import {
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useCommandHistoryStore } from '../../src/renderer/stores/commandHistoryStore';
 
+const { grantedEntitlements } = vi.hoisted(() => ({ grantedEntitlements: new Set<string>() }));
 const { dependencyDetectionState, editorState, resultState, settingsState, trackEventMock } =
   vi.hoisted(() => ({
     dependencyDetectionState: {
@@ -35,6 +36,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
         id: string;
         language: string;
         content: string;
+        kind?: 'notebook';
         runtimeMode?: 'worker' | 'node' | 'browser-preview';
         compareWithSnapshotEnabled?: boolean;
         variableInspectorEnabled?: boolean;
@@ -132,6 +134,17 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   };
 });
 
+vi.mock('../../src/renderer/hooks/useEntitlement', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../src/renderer/hooks/useEntitlement')>();
+  return {
+    ...actual,
+    useEntitlement: (entitlement: Parameters<typeof actual.useEntitlement>[0]) => {
+      const granted = actual.useEntitlement(entitlement);
+      return granted || grantedEntitlements.has(entitlement);
+    },
+  };
+});
+
 vi.mock('../../src/renderer/stores/resultStore', () => {
   const useResultStore = (selector?: (state: typeof resultState) => unknown) =>
     typeof selector === 'function' ? selector(resultState) : resultState;
@@ -206,6 +219,7 @@ vi.mock('lucide-react', () => ({
 describe('CommandPalette', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    grantedEntitlements.clear();
     editorState.tabs = [];
     editorState.activeTabId = null;
     resultState.lastSuccessfulSnapshot = null;
@@ -623,6 +637,34 @@ describe('CommandPalette', () => {
   // implementation — the "Toggle rich console output" palette action was
   // removed; rich rendering is baseline (charts/tables/images render
   // unconditionally when the worker emits a payload).
+
+  it.each([
+    ['source', undefined, true],
+    ['notebook', 'notebook' as const, false],
+  ])('offers buffer-editing actions only for source tabs (%s)', (_label, kind, offered) => {
+    grantedEntitlements.add('BENCHMARK');
+    editorState.tabs = [
+      { id: 'tab-1', language: 'javascript', content: '{"format":"linguanb"}', kind },
+    ];
+    editorState.activeTabId = 'tab-1';
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    for (const [query, name] of [
+      ['pin watch', /Pin watch on current line/i],
+      ['benchmark', /Benchmark/i],
+    ] as const) {
+      fireEvent.change(input, { target: { value: query } });
+      expect(screen.queryByRole('option', { name }) !== null).toBe(offered);
+    }
+  });
 
   it('hides the share-link action when no tab is active', () => {
     render(

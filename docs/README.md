@@ -36,6 +36,7 @@ planning is intentionally excluded from the published repository.
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) — declarative language packs.
 - [`LOCAL_AI_ADR.md`](./LOCAL_AI_ADR.md) — consent-first, bring-your-own-endpoint AI.
 - [`PROJECT_TEST_RUNNER_ADR.md`](./PROJECT_TEST_RUNNER_ADR.md) — capability-scoped test discovery and fixed-command desktop execution.
+- [`NOTEBOOK_DOCUMENTS.md`](./NOTEBOOK_DOCUMENTS.md) — manual project-file notebook Open/Save/Save As, conflicts and recovery.
 - [`PYTHON_NOTEBOOK_KERNEL_ADR.md`](./PYTHON_NOTEBOOK_KERNEL_ADR.md) — per-notebook Python state and isolation.
 - [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) — vendored runtime integrity and remote oversized assets.
 - [`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) — worker, desktop Node, and browser-preview execution.
@@ -88,3 +89,5 @@ supersedes the old one instead of rewriting historical rationale.
 
 
 [Go/Rust project navigation](LSP_PROJECT_NAVIGATION.md) documents capability boundaries, server requirements and degradation.
+
+- [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) — current saved targets, independent suites, strict verdicts and inert preparation.

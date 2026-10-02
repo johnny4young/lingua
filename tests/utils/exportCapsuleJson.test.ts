@@ -95,6 +95,7 @@ describe('capsule CLI commands', () => {
     expect(capsuleCliCommands('lingua-run.capsule (1).json')).toEqual({
       fileName: 'lingua-run.capsule (1).json',
       validate: 'lingua capsule validate "lingua-run.capsule (1).json" --json',
+      verify: 'lingua capsule verify "lingua-run.capsule (1).json" --json',
       replay: 'lingua capsule replay "lingua-run.capsule (1).json" --json',
     });
   });

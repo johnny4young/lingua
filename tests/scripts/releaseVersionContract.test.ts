@@ -52,16 +52,26 @@ function compareStableVersions(left: string, right: string): number {
   return 0;
 }
 
+// Feature PRs may record unreleased notes without pretending to cut a release,
+// but no other release header may sit between Unreleased and the first dated one.
+const UNRELEASED_THEN_DATED_RELEASE =
+  /^## \[Unreleased\]\n(?:(?!## \[)[^\n]*\n)*## \[v?\d+\.\d+\.\d+\] [—-] \d{4}-\d{2}-\d{2}$/mu;
+
 describe('release candidate version contract', () => {
   it('keeps package, changelog, and generated website candidate data aligned', () => {
     expect(rootPackage.version).toMatch(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
     expect(designSyncPackage.version).toBe(rootPackage.version);
     expect(firstReleaseVersion()).toBe(rootPackage.version);
     expect(generatedChangelog.entries[0]?.version).toBe(rootPackage.version);
-    // Feature PRs may record unreleased notes without pretending to cut a release.
-    // The first released version and generated/public version checks remain pinned.
-    expect(changelog).toMatch(
-      /^## \[Unreleased\]\n(?:[\s\S]*?\n)?## \[v?\d+\.\d+\.\d+\] [—-] \d{4}-\d{2}-\d{2}$/mu
+    expect(changelog).toMatch(UNRELEASED_THEN_DATED_RELEASE);
+  });
+
+  it('rejects an undated release header hidden inside the unreleased notes', () => {
+    expect('## [Unreleased]\n\n### Fixed\n- note\n\n## [1.5.1] — 2026-09-24').toMatch(
+      UNRELEASED_THEN_DATED_RELEASE
+    );
+    expect('## [Unreleased]\n\n## [1.6.0]\n- note\n\n## [1.5.1] — 2026-09-24').not.toMatch(
+      UNRELEASED_THEN_DATED_RELEASE
     );
   });
 

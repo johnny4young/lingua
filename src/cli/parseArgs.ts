@@ -43,6 +43,8 @@ export type CliCommandName =
   | 'utility'
   | 'capsule-validate'
   | 'capsule-replay'
+  | 'capsule-verify'
+  | 'capsule-verify-suite'
   | 'run'
   | 'list-utilities'
   | 'completion'
@@ -69,6 +71,8 @@ export interface ParsedArgs {
     stdin?: string;
     /** Parent-owned execution timeout in milliseconds. */
     timeoutMs?: number;
+    target?: string;
+    root?: string;
     /** Explicit environment entries passed to an executed program. */
     env: ReadonlyArray<{ key: string; value: string }>;
     /** Arguments after `--`, forwarded byte-for-byte to `run` targets. */
@@ -91,6 +95,8 @@ interface InProgressFlags {
   input?: string;
   stdin?: string;
   timeoutMs?: number;
+  target?: string;
+  root?: string;
   env: Array<{ key: string; value: string }>;
   programArgs: string[];
   options: Array<{ key: string; value: string }>;
@@ -176,6 +182,8 @@ function finalize(
       ...(flags.input !== undefined ? { input: flags.input } : {}),
       ...(flags.stdin !== undefined ? { stdin: flags.stdin } : {}),
       ...(flags.timeoutMs !== undefined ? { timeoutMs: flags.timeoutMs } : {}),
+      ...(flags.target !== undefined ? { target: flags.target } : {}),
+      ...(flags.root !== undefined ? { root: flags.root } : {}),
       options: flags.options,
       env: flags.env,
       programArgs: flags.programArgs,
@@ -307,19 +315,24 @@ function parseUtility(rest: ReadonlyArray<string>, color: CliColorMode): ParsedA
 function parseCapsule(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
     throw new CliUsageError(
-      'lingua capsule requires a subcommand. Available: validate <file>, replay <file>'
+      'lingua capsule requires a subcommand. Available: validate <file>, replay <file>, verify <file>, verify-suite <suite>'
     );
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('capsule-validate', [], { ...freshFlags(color), help: true });
   }
+  if (sub === 'verify-suite')
+    return parseCapsuleReplay(rest.slice(1), color, 'capsule-verify-suite');
+  if (sub === 'verify') {
+    return parseCapsuleReplay(rest.slice(1), color, 'capsule-verify');
+  }
   if (sub === 'replay') {
     return parseCapsuleReplay(rest.slice(1), color);
   }
   if (sub !== 'validate') {
     throw new CliUsageError(
-      `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>`
+      `Unknown capsule subcommand "${sub}". Available: validate <file>, replay <file>, verify <file>, verify-suite <suite>`
     );
   }
   const flags = freshFlags(color);
@@ -356,12 +369,32 @@ function parseCapsule(rest: ReadonlyArray<string>, color: CliColorMode): ParsedA
   return finalize('capsule-validate', positionals, flags);
 }
 
-function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
+function parseCapsuleReplay(
+  rest: ReadonlyArray<string>,
+  color: CliColorMode,
+  command: 'capsule-replay' | 'capsule-verify' | 'capsule-verify-suite' = 'capsule-replay'
+): ParsedArgs {
   const flags = freshFlags(color);
   const positionals: string[] = [];
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index]!;
     if (parseGlobalFlag(arg, flags)) continue;
+    if ((arg === '--target' || arg.startsWith('--target=')) && command === 'capsule-verify') {
+      if (flags.target !== undefined) throw new CliUsageError('--target may be supplied once.');
+      flags.target =
+        arg === '--target'
+          ? requireFlagValue(rest, index++, '--target')
+          : nonEmptyInlineValue(arg, '--target');
+      continue;
+    }
+    if ((arg === '--root' || arg.startsWith('--root=')) && command === 'capsule-verify-suite') {
+      if (flags.root !== undefined) throw new CliUsageError('--root may be supplied once.');
+      flags.root =
+        arg === '--root'
+          ? requireFlagValue(rest, index++, '--root')
+          : nonEmptyInlineValue(arg, '--root');
+      continue;
+    }
     if (arg === '--timeout') {
       flags.timeoutMs = parseTimeout(requireFlagValue(rest, index, '--timeout'));
       index += 1;
@@ -382,13 +415,13 @@ function parseCapsuleReplay(rest: ReadonlyArray<string>, color: CliColorMode): P
     }
     if (arg.startsWith('-')) {
       throw new CliUsageError(
-        `Unknown flag "${arg}" for "lingua capsule replay". Allowed: --timeout, --env, --json, --quiet, --color, --help`
+        `Unknown flag "${arg}" for "lingua capsule ${command.slice(8)}". Allowed: ${command === 'capsule-verify' ? '--target, ' : command === 'capsule-verify-suite' ? '--root, ' : ''}--timeout, --env, --json, --quiet, --color, --help`
       );
     }
     positionals.push(arg);
   }
-  assertSingleTarget('lingua capsule replay', positionals, flags.help, '<file>');
-  return finalize('capsule-replay', positionals, flags);
+  assertSingleTarget(`lingua capsule ${command.slice(8)}`, positionals, flags.help, '<file>');
+  return finalize(command, positionals, flags);
 }
 
 function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {

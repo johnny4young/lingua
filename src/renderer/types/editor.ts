@@ -62,6 +62,8 @@ export interface FileTab {
    */
   rootId?: string;
   relativePath?: string;
+  /** Last committed disk hash for optimistic notebook saves; not a capability. */
+  notebookDocumentHash?: string | null;
   /** Last execution outcome. Drives the status dot in EditorTabs. */
   executionState?: TabExecutionState;
   /**

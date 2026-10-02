@@ -86,13 +86,7 @@ export function cliArchiveName(version, target) {
   return `lingua-cli-v${version}-${target}.tar.gz`;
 }
 
-export function buildTarArchiveArgs({
-  archiveName,
-  outDir,
-  releaseRoot,
-  entries,
-  pathApi = path,
-}) {
+export function buildTarArchiveArgs({ archiveName, outDir, releaseRoot, entries, pathApi = path }) {
   const relativeReleaseRoot = pathApi.relative(outDir, releaseRoot);
   const escapesOutDir =
     relativeReleaseRoot === '..' || relativeReleaseRoot.startsWith(`..${pathApi.sep}`);
@@ -272,6 +266,86 @@ async function packageStandalone({ bundle, outDir, rootPackage, expectTarget, si
   ) {
     throw new Error(`Standalone CLI runtime smoke failed: ${runtimeSmoke.stdout.trim()}`);
   }
+
+  // Verify the new opt-in verdict on the actual SEA, including nonzero
+  // drift. Replay intentionally retains its historical execution-only exit.
+  const capsuleSource = 'console.log(3);';
+  const capsuleSmokePath = path.join(staging, 'standalone-verification.json');
+  const capsule = {
+    version: 1,
+    capsuleId: '00000000-0000-4000-8000-000000000001',
+    createdAt: new Date().toISOString(),
+    appVersion: rootPackage.version,
+    tab: { name: 'fixture.js', language: 'javascript', runtimeMode: 'worker', workflowMode: 'run' },
+    source: {
+      content: capsuleSource,
+      contentHash: createHash('sha256').update(capsuleSource).digest('hex'),
+    },
+    input: {},
+    result: { status: 'success', durationMs: 0, stdout: '3\n' },
+    environment: { platform: 'desktop', runner: 'node-worker' },
+    privacy: { redactionVersion: '2026-05-21', omittedFields: [] },
+  };
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const verificationSmoke = run(binaryPath, ['capsule', 'verify', capsuleSmokePath, '--json'], {
+    capture: true,
+  });
+  if (JSON.parse(verificationSmoke.stdout)?.verdict !== 'pass') {
+    throw new Error('Standalone Capsule verification failed.');
+  }
+  capsule.result.stdout = 'deliberately incorrect\n';
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const driftSmoke = spawnSync(binaryPath, ['capsule', 'verify', capsuleSmokePath, '--json'], {
+    encoding: 'utf8',
+  });
+  const driftBody = driftSmoke.status === 5 ? JSON.parse(driftSmoke.stdout) : undefined;
+  if (driftBody?.ok !== false || driftBody?.verdict !== 'fail') {
+    throw new Error(
+      `Standalone Capsule drift was not rejected (exit ${driftSmoke.status}): ${driftSmoke.error?.message ?? driftSmoke.stderr.trim()}`
+    );
+  }
+
+  // Qualify current-source cases on the actual Linux/Windows executable too.
+  capsule.result.stdout = '3\n';
+  writeFileSync(capsuleSmokePath, JSON.stringify(capsule));
+  const currentTarget = 'current target.js';
+  writeFileSync(path.join(staging, currentTarget), capsuleSource);
+  const targetSmoke = run(
+    binaryPath,
+    ['capsule', 'verify', capsuleSmokePath, '--target', currentTarget, '--json'],
+    { cwd: staging, capture: true }
+  );
+  if (JSON.parse(targetSmoke.stdout)?.verdict !== 'pass')
+    throw new Error('Standalone current-target verification failed.');
+  const suitePath = path.join(staging, 'regression-suite.json');
+  writeFileSync(
+    suitePath,
+    JSON.stringify({
+      kind: 'lingua-regression-suite',
+      suiteVersion: 1,
+      cases: [{ id: 'current', name: 'Current output', target: currentTarget, baseline: capsule }],
+    })
+  );
+  const suiteSmoke = run(
+    binaryPath,
+    ['capsule', 'verify-suite', suitePath, '--root', staging, '--json'],
+    { capture: true }
+  );
+  const suiteEnvelope = JSON.parse(suiteSmoke.stdout);
+  if (
+    suiteEnvelope?.ok !== true ||
+    suiteEnvelope?.verdict !== 'pass' ||
+    suiteEnvelope?.summary?.passed !== 1
+  )
+    throw new Error('Standalone regression suite failed.');
+  writeFileSync(path.join(staging, currentTarget), 'console.log(4);');
+  const suiteDrift = spawnSync(
+    binaryPath,
+    ['capsule', 'verify-suite', suitePath, '--root', staging, '--json'],
+    { encoding: 'utf8' }
+  );
+  if (suiteDrift.status !== 5 || JSON.parse(suiteDrift.stdout)?.verdict !== 'fail')
+    throw new Error('Standalone current-file drift was not rejected.');
 
   await cp(
     path.join(repoRoot, 'packaging', 'cli', 'README.md'),

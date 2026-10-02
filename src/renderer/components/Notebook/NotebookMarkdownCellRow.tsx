@@ -1,3 +1,4 @@
+import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDrafts';
 /**
  * implementation — Single markdown-cell row.
  *
@@ -23,6 +24,7 @@ import { cn } from '../../utils/cn';
 import { getNotebookCellAutoSaveDebounceMs } from './notebookCellEditorTiming';
 
 export interface NotebookMarkdownCellRowProps {
+  readonly notebookTabId?: string;
   readonly cell: NotebookMarkdownCellV1;
   readonly cellIndex: number;
   /**
@@ -49,6 +51,7 @@ export interface NotebookMarkdownCellRowProps {
 }
 
 function NotebookMarkdownCellRowImpl({
+  notebookTabId,
   cell,
   cellIndex,
   isActive,
@@ -114,6 +117,11 @@ function NotebookMarkdownCellRowImpl({
   // Adopt an external change to `cell.source` (reorder / rehydrate / a
   // different cell rebinding to this row), flushing the pending draft to
   // the previous cell first so it lands where it was typed.
+  useEffect(
+    () => (notebookTabId ? registerNotebookDocumentDraft(notebookTabId, flushDraft) : undefined),
+    [notebookTabId, flushDraft]
+  );
+
   const lastCellIdRef = useRef<string>(cell.id);
   useEffect(() => {
     if (lastCellIdRef.current !== cell.id) {
@@ -170,9 +178,7 @@ function NotebookMarkdownCellRowImpl({
       onFocus={() => onActivate(cell.id)}
       className={cn(
         'relative grid gap-2 rounded-md border bg-surface/30 p-3 pl-4 outline-none transition-colors',
-        isActive
-          ? 'border-primary/60 ring-1 ring-primary/25'
-          : 'border-border/40'
+        isActive ? 'border-primary/60 ring-1 ring-primary/25' : 'border-border/40'
       )}
     >
       {isActive ? (
@@ -208,21 +214,15 @@ function NotebookMarkdownCellRowImpl({
               data-mode={mode}
               className={cn(
                 'mr-1 hidden rounded px-1.5 text-micro font-semibold uppercase tracking-wider sm:inline',
-                mode === 'edit'
-                  ? 'bg-primary/15 text-primary'
-                  : 'bg-bg-panel-alt text-fg-subtle'
+                mode === 'edit' ? 'bg-primary/15 text-primary' : 'bg-bg-panel-alt text-fg-subtle'
               )}
             >
-              {t(
-                mode === 'edit'
-                  ? 'notebook.command.modeEdit'
-                  : 'notebook.command.modeCommand'
-              )}
+              {t(mode === 'edit' ? 'notebook.command.modeEdit' : 'notebook.command.modeCommand')}
             </span>
           ) : null}
           <button
             type="button"
-            onClick={() => setEditing((current) => !current)}
+            onClick={() => setEditing(current => !current)}
             disabled={disabled}
             aria-label={t(editing ? 'notebook.cell.previewMarkdown' : 'notebook.cell.editMarkdown')}
             data-testid="notebook-markdown-cell-toggle-edit"
@@ -267,8 +267,8 @@ function NotebookMarkdownCellRowImpl({
         <textarea
           ref={textareaRef}
           value={draft}
-          onChange={(event) => handleDraftChange(event.target.value)}
-          onKeyDown={(event) => {
+          onChange={event => handleDraftChange(event.target.value)}
+          onKeyDown={event => {
             // Esc renders the markdown back to preview + drops into
             // command mode (focus the shell), matching the code cell's
             // Esc → command behavior and Jupyter's render-on-Esc.

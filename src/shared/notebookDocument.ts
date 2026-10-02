@@ -25,17 +25,13 @@
  * save (desktop, implementation note); the importer adapter parses it back.
  */
 
-import {
-  parseNotebook,
-  utf8ByteLength,
-  type NotebookV1,
-} from './notebook';
+import { parseNotebook, utf8ByteLength, type NotebookV1 } from './notebook';
 
 /** Current `.linguanb` envelope schema version. */
-const LINGUANB_DOCUMENT_VERSION = 1;
+import { LINGUANB_DOCUMENT_VERSION, MAX_LINGUANB_BYTES } from './notebookDocumentFormat';
 
 /** File extension + the recommended MIME hint for downloads. */
-export const LINGUANB_FILE_EXTENSION = '.linguanb';
+export { LINGUANB_FILE_EXTENSION } from './notebookDocumentFormat';
 
 /**
  * Defensive byte cap on the raw `.linguanb` source before `JSON.parse`.
@@ -49,7 +45,7 @@ export const LINGUANB_FILE_EXTENSION = '.linguanb';
  * still guarding against a pathological multi-megabyte paste stalling
  * the parser.
  */
-export const MAX_LINGUANB_BYTES = 512 * 1024;
+export { MAX_LINGUANB_BYTES } from './notebookDocumentFormat';
 
 /**
  * Closed-enum reject reasons returned by `parseNotebookDocument`.
@@ -81,7 +77,7 @@ export type LinguanbRejectReason = (typeof LINGUANB_REJECT_REASONS)[number];
  * export time, restored on import so a round-trip is faithful down to
  * the execution counters. Cells absent from the map were never run.
  */
-interface NotebookDocumentV1 {
+export interface NotebookDocumentV1 {
   readonly format: 'linguanb';
   readonly documentVersion: typeof LINGUANB_DOCUMENT_VERSION;
   readonly notebook: NotebookV1;
@@ -116,25 +112,7 @@ export function detectLinguanbDocument(source: string): boolean {
  * to the document's own cell ids (a stale stamp for a deleted cell is
  * dropped) and to positive integers.
  */
-export function serializeNotebookDocument(
-  notebook: NotebookV1,
-  opts: { executionOrder?: Readonly<Record<string, number>> } = {}
-): string {
-  const cellIds = new Set(notebook.cells.map((cell) => cell.id));
-  const order: Record<string, number> = {};
-  for (const [cellId, value] of Object.entries(opts.executionOrder ?? {})) {
-    if (cellIds.has(cellId) && Number.isInteger(value) && value > 0) {
-      order[cellId] = value;
-    }
-  }
-  const document: NotebookDocumentV1 = {
-    format: 'linguanb',
-    documentVersion: LINGUANB_DOCUMENT_VERSION,
-    notebook,
-    ...(Object.keys(order).length > 0 ? { executionOrder: order } : {}),
-  };
-  return `${JSON.stringify(document, null, 2)}\n`;
-}
+export { serializeNotebookDocument } from './notebookDocumentFormat';
 
 /**
  * Parse a raw `.linguanb` JSON string into a typed
@@ -145,9 +123,7 @@ export function serializeNotebookDocument(
  * notebook is surfaced as the envelope's `wrong-version`, anything
  * else as `invalid-shape`.
  */
-export function parseNotebookDocument(
-  source: string
-): NotebookDocumentParseOutcome {
+export function parseNotebookDocument(source: string): NotebookDocumentParseOutcome {
   if (typeof source !== 'string') {
     return { ok: false, reason: 'invalid-shape' };
   }
@@ -211,7 +187,7 @@ function parseExecutionOrder(
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     return undefined;
   }
-  const cellIds = new Set(notebook.cells.map((cell) => cell.id));
+  const cellIds = new Set(notebook.cells.map(cell => cell.id));
   const order: Record<string, number> = {};
   for (const [cellId, value] of Object.entries(raw as Record<string, unknown>)) {
     if (cellIds.has(cellId) && typeof value === 'number' && Number.isInteger(value) && value > 0) {

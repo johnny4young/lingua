@@ -14,15 +14,18 @@ interface CapsuleCliCommandsProps {
 export function CapsuleCliCommands({ available, savedFileName }: CapsuleCliCommandsProps) {
   const { t } = useTranslation();
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
-  const copyCommand = useCallback(async (command: string) => {
-    const copied = await writeToClipboard(command);
-    pushStatusNotice({
-      tone: copied ? 'success' : 'warning',
-      messageKey: copied
-        ? 'settings.account.runCapsules.cli.commandCopied'
-        : 'settings.account.runCapsules.cli.clipboardUnavailable',
-    });
-  }, [pushStatusNotice]);
+  const copyCommand = useCallback(
+    async (command: string) => {
+      const copied = await writeToClipboard(command);
+      pushStatusNotice({
+        tone: copied ? 'success' : 'warning',
+        messageKey: copied
+          ? 'settings.account.runCapsules.cli.commandCopied'
+          : 'settings.account.runCapsules.cli.clipboardUnavailable',
+      });
+    },
+    [pushStatusNotice]
+  );
 
   const cli = capsuleCliCommands(savedFileName);
   const commands = [
@@ -36,6 +39,7 @@ export function CapsuleCliCommands({ available, savedFileName }: CapsuleCliComma
       label: t('settings.account.runCapsules.cli.replay'),
       command: cli.replay,
     },
+    { id: 'verify', label: t('settings.account.runCapsules.cli.verify'), command: cli.verify },
   ] as const;
 
   return (
@@ -48,6 +52,9 @@ export function CapsuleCliCommands({ available, savedFileName }: CapsuleCliComma
       </summary>
       <p className="mt-2 text-caption leading-relaxed text-fg-subtle">
         {t('settings.account.runCapsules.cli.intro', { filename: cli.fileName })}
+      </p>
+      <p className="mt-2 text-caption text-fg-subtle">
+        {t('settings.account.runCapsules.cli.strictHint')}
       </p>
       <div className="mt-3 grid gap-3">
         {commands.map(({ id, label, command }) => (
@@ -65,7 +72,10 @@ export function CapsuleCliCommands({ available, savedFileName }: CapsuleCliComma
                 {t('settings.account.runCapsules.cli.copy')}
               </button>
             </div>
-            <code className="mt-1 block break-all font-mono text-caption text-fg-subtle" data-testid={`capsule-cli-command-${id}`}>
+            <code
+              className="mt-1 block break-all font-mono text-caption text-fg-subtle"
+              data-testid={`capsule-cli-command-${id}`}
+            >
               {command}
             </code>
           </div>
