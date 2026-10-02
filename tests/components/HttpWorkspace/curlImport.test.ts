@@ -1,5 +1,5 @@
 /**
- * implementation note — cURL paste parser.
+ * cURL paste parser.
  *
  * Pinned coverage: the 80% case (browser + Postman copy-as-curl
  * shapes). Failure modes are documented in `curlImport.ts`.

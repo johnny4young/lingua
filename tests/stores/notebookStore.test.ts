@@ -1,5 +1,5 @@
 /**
- * implementation — `useNotebookStore` CRUD + rehydrate coverage.
+ * `useNotebookStore` CRUD + rehydrate coverage.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

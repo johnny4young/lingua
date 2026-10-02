@@ -1,5 +1,5 @@
 /**
- * implementation — shared redaction primitives.
+ * Shared redaction primitives.
  *
  * Extracted from `src/shared/telemetry.ts` so that telemetry +
  * `runCapsule.ts` + any future surface that leaves the renderer can

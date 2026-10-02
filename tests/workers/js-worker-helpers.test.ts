@@ -244,7 +244,7 @@ describe('js-worker module', () => {
     expect(messages.some((message) => message.type === 'error')).toBe(false);
   });
 
-  // internal — lock the AsyncFunction trust boundary. The
+  // Lock the AsyncFunction trust boundary. The
   // worker is NOT a sandbox for hostile input, but the Web Worker
   // global contract still guarantees the Node-only `process` /
   // `require` symbols are absent from the worker global scope, so

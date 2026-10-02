@@ -1,5 +1,5 @@
 /**
- * implementation detail implementation — console list windower (web e2e).
+ * Console list windower (web e2e).
  *
  * Validates in real Chromium what jsdom cannot: that a flooded 500-row
  * console mounts only a viewport-sized slice of rows, that sticky

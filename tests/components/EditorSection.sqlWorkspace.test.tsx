@@ -1,5 +1,5 @@
 /**
- * implementation note — Settings → Editor → SQL workspace subsection.
+ * Settings → Editor → SQL workspace subsection.
  *
  * Verifies the row-display-limit + query-timeout selects render, reflect
  * the persisted settings, and route changes to the (clamped) store
@@ -94,7 +94,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(
       screen.getByText('Tiempo de espera de la consulta')
     ).toBeTruthy();
-    // implementation — tuteo imperative for the persistence toggle.
+    // Tuteo imperative for the persistence toggle.
     expect(
       screen.getByText('Conserva las tablas entre sesiones')
     ).toBeTruthy();

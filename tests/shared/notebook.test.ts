@@ -1,5 +1,5 @@
 /**
- * implementation — schema + parser + serializer coverage.
+ * Schema + parser + serializer coverage.
  *
  * Validates every closed-enum reject reason and the happy-path
  * round-trip so `.linguanb` documents that pass the parser today can

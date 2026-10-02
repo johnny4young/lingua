@@ -54,7 +54,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'lingua-settings',
-      // implementation detail — schema version + central migration. The 0->1 step
+      // Schema version + central migration. The 0->1 step
       // is identity (no shape change yet); the existing onRehydrate/merge
       // sanitizers still run after migrate. internal added the 1->2 step
       // (restoreSession boolean -> restoreSessionMode enum) in

@@ -1,5 +1,5 @@
 /**
- * implementation note — auto-run gating performance defense.
+ * auto-run gating performance defense.
  *
  * The gate runs on every debounced auto-run keystroke. A regression
  * to "let's just call the TS worker / Monaco diagnostics" would push

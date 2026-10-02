@@ -1,5 +1,5 @@
 /**
- * internal — Rust compile + run env merge under the minimal allowlist.
+ * Rust compile + run env merge under the minimal allowlist.
  *
  * Same shape as go-compiler.test.ts, minus the runner-owned keys:
  * Rust does not claim any env variables for itself, so the user env

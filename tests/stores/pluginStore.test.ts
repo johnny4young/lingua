@@ -53,7 +53,7 @@ describe('pluginStore', () => {
   });
 
   it('passes through the unknown status that main emits for non-bundled ids', async () => {
-    // internal — main now classifies `pluginId: 'ruby'` as `unknown`
+    // Main now classifies `pluginId: 'ruby'` as `unknown`
     // directly via the shared validator's allowlist check. The
     // store no longer downgrades; it just preserves the status.
     mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');

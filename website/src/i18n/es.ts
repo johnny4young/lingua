@@ -218,7 +218,7 @@ export const es = {
           image: '/screenshots/tour/command-palette.png',
           alt: 'Paleta de comandos filtrada con la consulta sql, mostrando el workspace SQL, la herramienta de escape y el formateador SQL',
           title: 'Una paleta para comandos, plantillas y utilidades',
-          body: 'Cmd+K busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.',
+          body: 'Cmd+Shift+P busca todo a la vez — comandos, snippets, plantillas y cada utilidad developer. Escribe tres letras, presiona Enter y sigue codeando.',
         },
         {
           image: '/screenshots/tour/utilities.png',
@@ -382,7 +382,7 @@ export const es = {
         'La URL de checkout no está configurada — define PUBLIC_LS_CHECKOUT_* en Cloudflare Pages',
       educationTitle: 'Educación',
       education:
-        'Pro gratis durante un año, renovable. Abre Lingua → Settings → License → Licencia educativa, ingresa tu email académico (cualquier dominio .edu más .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br y .ac.in) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
+        'Pro gratis durante un año, renovable. Abre Lingua → Configuración → Cuenta → Licencia → Licencia educativa, ingresa tu email académico (cualquier dominio .edu más .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br y .ac.in) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
       tiers: [
         {
           id: 'free',
@@ -458,15 +458,15 @@ export const es = {
       },
       {
         q: '¿Puedo probar Pro antes de pagar?',
-        a: 'Sí: 14 días, sin tarjeta de crédito. Abre Lingua, ve a <em>Settings → License → Prueba Lingua Pro gratis 14 días</em>, ingresa tu email y haz clic en <em>Start Trial</em>. El token se activa automáticamente, sin pegado manual. Un trial por email y por dispositivo.',
+        a: 'Sí: 14 días, sin tarjeta de crédito. Abre Lingua, ve a <em>Configuración → Cuenta → Licencia → Prueba Lingua Pro gratis 14 días</em>, ingresa tu email y haz clic en <em>Iniciar prueba gratis</em>. El token se activa automáticamente, sin pegado manual. Un trial por email y por dispositivo.',
       },
       {
         q: '¿Cómo funciona el programa educativo?',
-        a: 'Estudiantes y docentes verificados reciben Pro gratis durante un año, renovable. Abre Lingua → <em>Settings → License → Licencia educativa</em>, ingresa tu email académico (cualquier dominio <code>.edu</code> más <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>, <code>.edu.br</code> y <code>.ac.in</code>) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
+        a: 'Estudiantes y docentes verificados reciben Pro gratis durante un año, renovable. Abre Lingua → <em>Configuración → Cuenta → Licencia → Licencia educativa</em>, ingresa tu email académico (cualquier dominio <code>.edu</code> más <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>, <code>.edu.br</code> y <code>.ac.in</code>) y confirma con el magic link que te enviamos. El token llega por email y se pega solo en la app.',
       },
       {
         q: '¿Puedo mover mi licencia entre máquinas?',
-        a: 'Sí. Una licencia Pro se vincula a un conjunto pequeño de dispositivos (actualmente tres). Cuando compres una máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato. Sin phone-home ni espera por servidor.',
+        a: 'Sí. Una licencia Pro se vincula a un conjunto pequeño de dispositivos (actualmente tres). Cuando compres una máquina nueva, desactiva la anterior desde Configuración → Cuenta → Licencia; el servidor de licencias libera el cupo de inmediato. La firma se verifica offline, así que el arranque nunca espera al servidor.',
       },
       {
         q: '¿Qué pasa cuando terminan las actualizaciones del pago único Pro?',
@@ -646,7 +646,7 @@ export const es = {
       },
       {
         title: 'Sobre Lingua — 150 palabras',
-        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Ruby, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Mensual, Pro de pago único y Team por asiento) se desbloquean con una licencia firmada y verificada offline, sin phone-home. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
+        body: 'Lingua es un runner desktop comercial y multi-lenguaje. JavaScript, TypeScript, Python, Ruby, Go y Rust son ciudadanos de primera clase, cada uno con su runner, templates y panel de resultados inline, dentro de la misma app offline-first con Monaco. Las utilidades developer (formateador JSON, tester regex, Base64, UUID, hash, conversor de timestamps, decodificador JWT, conversor de color y diff viewer) vienen integradas, así que reemplaza varias pestañas de navegador alrededor del runner. Snippets, indexación de proyecto, quick-open, búsqueda de proyecto y atajos personalizables mantienen el flujo rápido. Los tiers pagos (Mensual, Pro de pago único y Team por asiento) se desbloquean con una licencia firmada y verificada offline; el arranque nunca espera a un servidor. El acceso educativo es gratis para estudiantes y docentes verificados. El repositorio es source-available para evaluación y revisión bajo la Licencia Comercial de Lingua.',
       },
       {
         title: 'Bio del fundador — 40 palabras',
@@ -669,7 +669,7 @@ export const es = {
       intro: 'Puntos que conviene mencionar en publicaciones, por precisión con los lectores:',
       items: [
         'Lingua es source-available, no open source. No lo describas como MIT, Apache o GPL.',
-        'Las licencias se verifican offline: no hay phone-home ni chequeo de cuenta al iniciar.',
+        'La firma de la licencia se verifica offline. Con una licencia aplicada, la app de escritorio actualiza su estado con el servidor de licencias en segundo plano al iniciar; esa consulta nunca bloquea el arranque y, si el servidor no responde, se usa la licencia verificada localmente.',
         'Seis lenguajes se ejecutan hoy. Seis más están registrados pero todavía no se publican como ejecutables.',
         'La app desktop funciona completamente offline. La versión web necesita red para la primera carga.',
       ],

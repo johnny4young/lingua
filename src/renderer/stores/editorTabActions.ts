@@ -26,7 +26,7 @@ import { getActiveTab } from './editorSelectors';
 import { asRootId } from '../../shared/fs/brandedIds';
 
 /**
- * implementation — tab-lifecycle action factory for the editor store.
+ * tab-lifecycle action factory for the editor store.
  *
  * Bundles the create / restore / remove / focus / duplicate actions plus the
  * reveal plumbing, `setTabLanguage`, and `markSaved`. The SQL / HTTP / Utilities / notebook
@@ -108,7 +108,7 @@ export function createTabActions(
           messageKey: 'upsell.freeCeilingReached',
           featureLabel: i18next.t('upsell.feature.extraTabs'),
         });
-        // internal — emit feature.blocked so the consenting user's
+        // Emit feature.blocked so the consenting user's
         // telemetry reflects the friction. Allowlist already permits
         // this event with `entitlement` + `tier`.
         void trackEvent('feature.blocked', {
@@ -117,12 +117,12 @@ export function createTabActions(
         });
         return;
       }
-      // implementation — defensively assign a runtime mode if the
+      // Defensively assign a runtime mode if the
       // caller forgot. Most call sites go through `createDefaultTab`
       // which already sets it, but `addTab({ ...tab, content })`
       // callers might rebuild the object and lose the field.
       const runtimeMode = runtimeModeForNewTab(tab.language, tab.runtimeMode);
-      // implementation — same defensive backfill for the workflow
+      // Same defensive backfill for the workflow
       // mode. `duplicateActiveTab` for example forwards a tab through
       // `addTab` without going through `createDefaultTab`.
       const workflowMode = workflowModeForNewTab(tab.language, tab.workflowMode);
@@ -147,15 +147,16 @@ export function createTabActions(
             dropAutoLogIfUnsupported({
               ...tab,
               isDirty: tab.kind === 'notebook' && notebookDocumentSnapshot(tab.id) !== tab.content,
-              // implementation — backfill missing runtime modes for JS/TS
+              // Backfill missing runtime modes for JS/TS
               // tabs restored from a legacy session. Non-JS/TS tabs
               // never carry the field.
               runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
-              // implementation — backfill missing workflow modes for tabs
-              // restored from a legacy session. Every tab carries
-              // the field in implementation onwards; the coerce helper snaps a
-              // tampered persisted value back to the language default.
-              workflowMode: workflowModeForRestoredTab(tab.language, tab.workflowMode),
+              // Legacy sessions carry no mode: use the same per-language
+              // default a new tab gets. Persisted values are coerced.
+              workflowMode:
+                tab.workflowMode === undefined
+                  ? workflowModeForNewTab(tab.language)
+                  : workflowModeForRestoredTab(tab.language, tab.workflowMode),
             })
           )
         ),
@@ -168,7 +169,7 @@ export function createTabActions(
         const tabs = state.tabs.filter(t => t.id !== id);
         const activeTabId =
           state.activeTabId === id ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId;
-        // internal — revoke a tab-private capability when the last tab
+        // Revoke a tab-private capability when the last tab
         // using it goes away. Project-tree opens share the active
         // project's `rootId` (revoked centrally by `closeProject`), so
         // we leave that one alone; single-file picker / deep-link /
@@ -181,11 +182,11 @@ export function createTabActions(
             void window.lingua.fs.revokeRoot(asRootId(target.rootId)).catch(() => {});
           }
         }
-        // implementation — evict the per-tab detection cache so the
+        // Evict the per-tab detection cache so the
         // dependency panel cannot surface stale rows for a closed
         // tab id that is later reused by a fresh `addTab()`.
         useDependencyDetectionStore.getState().evictTab(id);
-        // implementation Slice B implementation note — unbind any recipe + drop in-flight
+        // Unbind any recipe + drop in-flight
         // run-result entries so the bottom-panel 'recipe' tab cannot
         // resurface for a recycled tab id, and so `passedCount()` on
         // the FloatingActionPill badge stays accurate. Mirrors the
@@ -193,7 +194,7 @@ export function createTabActions(
         // non-persisted but the entries would otherwise leak per
         // tab close until full page reload.
         useRecipeStore.getState().unbindRecipe(id);
-        // implementation — dispose the notebook session + drop the
+        // Dispose the notebook session + drop the
         // companion notebookStore entry so a recycled tab id can't
         // resurface the previous notebook. The session is per-tab
         // sandbox state held in memory; the notebookStore is persisted
@@ -222,7 +223,7 @@ export function createTabActions(
     setActiveTab: id => set({ activeTabId: id }),
 
     /**
-     * implementation note — switch a tab's language without
+     * Switch a tab's language without
      * re-creating it. Used by the `.ipynb` import flow to flip a
      * freshly-imported notebook tab's language chip to the dominant
      * cell language (e.g. Python) so the FloatingActionPill displays

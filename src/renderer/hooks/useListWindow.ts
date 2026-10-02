@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { RefObject } from 'react';
 
 /**
- * implementation detail implementation — hand-rolled variable-height list windower.
+ * hand-rolled variable-height list windower.
  *
  * The list renders only the rows whose vertical band intersects the
  * viewport (plus an overscan margin), padding the rest with two spacer
@@ -178,7 +178,7 @@ export interface UseListWindowResult {
   /** Imperatively pin the container to the bottom (sticky auto-scroll). */
   scrollToBottom: () => void;
   /**
-   * implementation — imperatively scroll row `index` into view. Computes
+   * Imperatively scroll row `index` into view. Computes
    * the row's top offset from the same measured-height cache the window
    * math uses (see {@link offsetForIndex}), scrolls the container there
    * instantly, and immediately seeds the internal `scrollTop` so the window
@@ -225,7 +225,7 @@ export function useListWindow({
 
   const count = keys.length;
 
-  // implementation note — prune cached heights and ref callbacks for keys that have left
+  // Prune cached heights and ref callbacks for keys that have left
   // the list (clear, filter toggle), so the caches cannot grow unbounded
   // across a long session.
   // Callers memoize `keys` on their row source, so this only re-joins
@@ -309,7 +309,7 @@ export function useListWindow({
         const element = entry.target as HTMLElement;
         const key = elementKeyRef.current.get(element);
         if (key === undefined) continue;
-        // implementation — measure the BORDER box, not the content box, so
+        // Measure the BORDER box, not the content box, so
         // per-row padding/border (notebook rows carry a `pb-3` gap) is
         // counted exactly and the offset math matches the initial
         // `getBoundingClientRect().height` (also a border box) read below.
@@ -375,7 +375,7 @@ export function useListWindow({
     if (element) element.scrollTop = element.scrollHeight;
   }, [scrollRef]);
 
-  // implementation — imperatively scroll a row into view. Uses the same
+  // Imperatively scroll a row into view. Uses the same
   // measured-height cache + `estimate` the window math reads, so the target
   // offset is consistent with the rendered geometry.
   const scrollToIndex = useCallback(

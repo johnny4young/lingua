@@ -1,5 +1,5 @@
 /**
- * implementation — `lingua utility <utility-id>` subcommand.
+ * `lingua utility <utility-id>` subcommand.
  *
  * Runs a single utility adapter from the shared registry against an
  * input (stdin or `--input <file>`). The adapter shape comes from
@@ -206,7 +206,7 @@ function emitError(io: CliIo, args: RunUtilityArgs, reason: string, detail: stri
 }
 
 /**
- * implementation note — `lingua list utilities` prints the registry. Pure
+ * `lingua list utilities` prints the registry. Pure
  * presentation: id, kinds, title (English fallback when an i18n
  * `titleKey` is declared but not resolvable in CLI land).
  */

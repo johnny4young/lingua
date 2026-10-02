@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Hook tests for `useProjectTemplateScaffolder`.
+ * Hook tests for `useProjectTemplateScaffolder`.
  *
  * The hook coordinates IPC, project-store hand-off, editor open,
  * and telemetry in a precise order. The tests lock the order so a

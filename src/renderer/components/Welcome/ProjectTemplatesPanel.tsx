@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Project templates panel on the Welcome screen.
+ * Project templates panel on the Welcome screen.
  *
  * Renders the 5 curated multi-file scaffolds in the order they're
  * declared in `PROJECT_TEMPLATES` so dashboards + screenshots are

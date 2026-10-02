@@ -1,5 +1,5 @@
 /**
- * implementation note — rich console output performance defense.
+ * Rich console output performance defense.
  *
  * Sizing rationale: a flooded scratchpad emits up to ~1 k console
  * entries before the user reads them. We bench `serializeRichValue`

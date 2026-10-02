@@ -1,6 +1,6 @@
 import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDrafts';
 /**
- * implementation — Single markdown-cell row.
+ * Single markdown-cell row.
  *
  * Two-mode UX:
  *   - Edit mode: `<textarea>` with the raw source.
@@ -193,7 +193,7 @@ function NotebookMarkdownCellRowImpl({
       ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {/* FASE 4 — the MD type badge reuses the canonical
+          {/* The MD type badge reuses the canonical
               StatusBadge (neutral tone) so the markdown + code cell
               headers share one chip primitive, matching the proto's
               MD/JS glyph treatment. Token-only. */}
@@ -314,7 +314,7 @@ function NotebookMarkdownCellRowImpl({
 }
 
 /**
- * implementation Slice H implementation note — memoized so the windowed cell list skips
+ * Memoized so the windowed cell list skips
  * re-rendering markdown rows whose props are unchanged when a sibling cell
  * edits. All handler props are stable `useCallback`s in the view, so the
  * default shallow comparison is enough.

@@ -1,5 +1,5 @@
 /**
- * internal — String Case Converter helper.
+ * String Case Converter helper.
  *
  * Pure, offline, renderer-side. Splits an arbitrary string into a canonical
  * word list and re-emits it in seven common programmer casings. Unicode-aware:

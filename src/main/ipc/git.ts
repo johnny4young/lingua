@@ -1,5 +1,5 @@
 /**
- * implementation — IPC handlers for the Git read-only layer.
+ * IPC handlers for the Git read-only layer.
  *
  * Three channels:
  *
@@ -85,7 +85,7 @@ async function isApprovedGitFile(
 }
 
 /**
- * implementation — per-sender head-watch registry.
+ * per-sender head-watch registry.
  *
  * Keyed by `webContents.id` × `repoRoot`. The map lets us reuse a
  * single underlying `fs.watch` per repo even if the renderer's hook
@@ -219,7 +219,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — `Reveal in Source Control` action. Returns a
+  // `Reveal in Source Control` action. Returns a
   // boolean so the renderer can push a localized error notice on
   // false. Input validation lives in `revealRepo` (existence probe
   // + path normalization).
@@ -236,7 +236,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — start a HEAD watcher for `repoRoot` and stream
+  // Start a HEAD watcher for `repoRoot` and stream
   // `git:on-head-changed` events to the renderer that called us.
   // Returns the resolved initial state so the renderer can warm its
   // store without waiting for the first watch event.
@@ -315,7 +315,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — stop a HEAD watcher. Idempotent on a missing
+  // Stop a HEAD watcher. Idempotent on a missing
   // key; the renderer hook calls this on every cleanup pass.
   typedHandle(
     'git:unwatch-head',

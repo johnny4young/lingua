@@ -1,5 +1,5 @@
 /**
- * implementation — DependenciesPanel install lifecycle tests.
+ * DependenciesPanel install lifecycle tests.
  *
  * Pins the enable matrix for the Install button (web vs unsaved tab
  * vs missing package.json vs healthy desktop), the optimistic

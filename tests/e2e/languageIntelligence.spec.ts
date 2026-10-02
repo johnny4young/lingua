@@ -1,5 +1,5 @@
 /**
- * implementation note — cross-language smoke for the Settings rows.
+ * cross-language smoke for the Settings rows.
  *
  * The unit tests cover each row in isolation. This spec verifies the
  * real assembled Settings → Editor panel renders BOTH Rust and Go

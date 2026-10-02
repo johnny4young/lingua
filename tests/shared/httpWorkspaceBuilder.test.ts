@@ -302,7 +302,7 @@ describe('buildCurlCommand — copy as cURL', () => {
     );
   });
 
-  // implementation note — secret-safe cURL. When an environment is
+  // secret-safe cURL. When an environment is
   // active, callers pre-mask via `maskSecretsForCapsule` so non-secret
   // vars resolve (runnable) and secret vars stay `{{key}}` (no leak).
   it('with a masked request, non-secret vars resolve and secret vars stay {{key}} (implementation note)', () => {

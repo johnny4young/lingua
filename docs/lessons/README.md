@@ -1,8 +1,8 @@
 # Guided lessons
 
 Content scaffolds for the first batch of guided lessons. The
-interactive lesson UI ships in a later work (depends on internal
-Snippet Lab + internal multi-file). Until then, these lessons are
+interactive lesson UI ships in later work (it depends on the snippet
+library and multi-file support). Until then, these lessons are
 read-only Markdown that the future runner will pick up directly —
 the schema in this README is the contract that future tooling
 relies on.
@@ -78,6 +78,6 @@ from the React app — these scaffolds own only the content.
 
 Add the next lesson when the existing two ship in the runner UI
 and customer feedback names the language they want next. Do not
-add lessons for languages whose runners are blocked on internal
-(JS/TS runtime modes) or internal (debugger MVP) — the lesson
+add lessons that need runtime features the runners do not ship yet —
+the lesson
 content will outrun the platform that runs it.

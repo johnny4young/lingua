@@ -1,5 +1,5 @@
 /**
- * implementation — workflow-mode pure module.
+ * workflow-mode pure module.
  *
  * Coverage:
  *

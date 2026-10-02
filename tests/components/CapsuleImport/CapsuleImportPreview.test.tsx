@@ -1,5 +1,5 @@
 /**
- * implementation — tests for the pure preview component.
+ * Tests for the pure preview component.
  * Asserts the metadata strip + tab switching + redacted banner.
  */
 

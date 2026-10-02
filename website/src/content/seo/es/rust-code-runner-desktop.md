@@ -1,6 +1,6 @@
 ---
 title: 'Rust Code Runner para escritorio — Lingua'
-description: 'Ejecuta Rust localmente con rustc, inteligencia rust-analyzer, rustfmt, markers de compilación, dependencias y pruebas Cargo.'
+description: 'Ejecuta y depura Rust localmente con rustc, lldb-dap, inteligencia rust-analyzer, rustfmt, markers de compilación, dependencias y pruebas Cargo.'
 canonical: 'https://linguacode.dev/es/rust-code-runner-desktop'
 ogImage: '/assets/og/rust-code-runner-desktop.png'
 language: rust
@@ -21,6 +21,9 @@ idea sin pretender reemplazar un workspace Cargo completo.
 - `rust-analyzer` aporta diagnósticos, completions, hover y signature
   help en desktop cuando está disponible.
 - `rustfmt` maneja format-on-save para archivos `.rs`.
+- El modo Debug compila el buffer actual con símbolos de depuración y usa
+  `lldb-dap` local para breakpoints de pausa, stepping, variables locales,
+  call stack y watches.
 - Los comentarios `//=>` funcionan como en los scratchpads JavaScript
   y TypeScript.
 - En un proyecto guardado con `Cargo.toml`, el panel de dependencias
@@ -34,7 +37,10 @@ idea sin pretender reemplazar un workspace Cargo completo.
 - La inteligencia de lenguaje requiere un binario local
   `rust-analyzer`. Settings ofrece detección, guía de instalación y
   controles de reinicio.
-- No hay depurador Rust paso a paso.
+- La depuración de Rust es solo para desktop y requiere `lldb-dap`. Lingua
+  encuentra el adaptador de Xcode con `xcrun` en macOS o usa el binario del
+  `PATH` en otros sistemas. Depura el buffer actual, no un workspace Cargo
+  completo.
 - El scratchpad compila un archivo con `rustc`; no ejecuta una
   aplicación Cargo completa. Usa las pruebas de proyecto o la terminal
   integrada para comandos de workspace.

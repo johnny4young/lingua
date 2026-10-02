@@ -1,5 +1,5 @@
 /**
- * implementation — capsule import orchestration hook.
+ * Capsule import orchestration hook.
  *
  * Owns the side-effect-free preview state that `<CapsuleImportOverlay>`
  * renders. The hook itself never calls `editorStore.addTab` until the
@@ -331,7 +331,7 @@ async function defaultReadClipboard(): Promise<string> {
  * capsule browse overlay  stay identical in how they
  * materialise a capsule's source.
  *
- * implementation note — when the capsule's `tab.language === 'http'`
+ * When the capsule's `tab.language === 'http'`
  * the consumer (overlay) should offer "Open in HTTP workspace" as a
  * secondary affordance. Here we ALWAYS fall back to a plain text/json
  * tab — the HTTP-specific bridge is rendered by the overlay and is

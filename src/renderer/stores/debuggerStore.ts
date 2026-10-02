@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
- * implementation — Debugger state machine store.
+ * Debugger state machine store.
  *
  * # Purpose
  *
@@ -137,7 +137,7 @@ export interface DebuggerState {
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
   /**
-   * implementation note — drawer collapse state. Persists across reloads
+   * Drawer collapse state. Persists across reloads
    * (folded users want it folded when they reopen) but defaults to
    * expanded so first-time users discover the panel.
    */
@@ -150,7 +150,7 @@ export interface DebuggerState {
   setBreakpointLogMessage: (tabId: string, line: number, message: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
   /**
-   * implementation note — batch-update `enabled` on every breakpoint.
+   * batch-update `enabled` on every breakpoint.
    * Used by the Debugger panel's Disable all / Enable all control: a
    * single mutator avoids tearing UI re-render across 100 individual calls.
    */
@@ -474,7 +474,7 @@ export const useDebuggerStore = create<DebuggerState>()(
       version: 2,
       migrate: createMigrate(DEBUGGER_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
-      // implementation — only persist breakpoints + watches. Session +
+      // Only persist breakpoints + watches. Session +
       // pausedFrame are transient (rebooting the renderer always
       // detaches; a stale paused frame would be incoherent).
       partialize: (state) => ({

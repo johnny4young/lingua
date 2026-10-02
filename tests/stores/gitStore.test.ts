@@ -1,5 +1,5 @@
 /**
- * implementation — gitStore.applyHeadChange contract.
+ * gitStore.applyHeadChange contract.
  *
  * Pinned coverage:
  *   - Returns `true` and updates posture when the new branch differs.

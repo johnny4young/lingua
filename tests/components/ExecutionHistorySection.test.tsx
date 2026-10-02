@@ -1,5 +1,5 @@
 /**
- * implementation — Settings row that exposes the execution history
+ * Settings row that exposes the execution history
  * count and a Clear affordance. The Clear button wires to the implementation
  * ring-buffer store; no other side effects are possible here.
  */

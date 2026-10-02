@@ -48,13 +48,11 @@ describe('ENV_VARS_ADR.md', () => {
     }
   });
 
-  it('cross-links the adjacent ADRs and RL items', () => {
+  it('cross-links the adjacent ADRs', () => {
     for (const pointer of [
       'BUILD_SYSTEM_ADR.md',
       'CAPABILITY_MATRIX.md',
       'LANGUAGE_PACK_ADR.md',
-      'internal',
-      'internal',
     ]) {
       expect(adr).toContain(pointer);
     }

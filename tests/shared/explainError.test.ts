@@ -1,5 +1,5 @@
 /**
- * implementation — "Explain this error" request builder + redaction.
+ * "Explain this error" request builder + redaction.
  *
  * The core is pure (no network); these tests pin the redaction posture and
  * the consent-preview construction that the AI feature's "no silent network

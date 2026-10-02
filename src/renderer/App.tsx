@@ -111,8 +111,8 @@ function AppChrome({
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
   const canUseUtilityWorkflows = useEntitlement('DEV_UTILITIES');
-  // implementation — rust-analyzer lifecycle.
-  // implementation — gopls lifecycle. Same hook shape via the shared
+  // rust-analyzer lifecycle.
+  // Gopls lifecycle. Same hook shape via the shared
   // `useLspLifecycle`; the two languages have independent stores so a
   // crash in one does not block the other.
   useRustLspLifecycle();
@@ -120,23 +120,23 @@ function AppChrome({
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });
-  // implementation — project zip bundle export/import choreography,
+  // Project zip bundle export/import choreography,
   // shared by the FileTree button, the Mod+Alt+E shortcut, and the
   // command-palette actions.
   const { exportProjectBundle } = useProjectBundle();
   const hasHandledAutoTourRef = useRef(false);
-  // internal — boot-time session restore (extracted to a hook to keep App.tsx
+  // boot-time session restore (extracted to a hook to keep App.tsx
   // under the internal size budget). Owns the `always`/`ask`/`never` decision
   // and the `ask`-mode restore prompt; returns the boot-gating ready flag.
   const sessionRestoreReady = useSessionRestoreBoot(smokeEnabled);
   useBootCompletionMarkers(sessionRestoreReady);
 
-  // internal — debounced session auto-save, narrowed to save-relevant
+  // Debounced session auto-save, narrowed to save-relevant
   // editor-store changes (see useSessionAutoSave for the contract).
   useSessionAutoSave(smokeEnabled);
 
   useEffect(() => {
-    // internal — safe mode skips plugin discovery so a broken plugin
+    // Safe mode skips plugin discovery so a broken plugin
     // manifest cannot keep the renderer in a crash loop. The user
     // can re-enable plugins by reloading without `?safe-mode=1`.
     if (isSafeMode()) return;
@@ -159,31 +159,31 @@ function AppChrome({
     openOverlay,
     suppressed: smokeEnabled,
   });
-  // implementation-β-α implementation note — default consumer for the
+  // Default consumer for the
   // `file.open` command emitted by <RichValueError>
   // when users click a stack frame. Until internal multi-file workspace
   // ships the real open-in-editor handler, this hook shows a
   // status-notice fallback so clicks get visible feedback.
   useDefaultOpenFileConsumer();
 
-  // implementation — hash-fragment share-link importer. Runs once
+  // hash-fragment share-link importer. Runs once
   // at mount + listens for `hashchange` so a user can paste a new
   // share link into the address bar without reloading. Skips in
   // safe mode so a poisoned link cannot trap a crash recovery cycle.
   useShareLinkBoot({ enabled: sessionRestoreReady });
-  // implementation — onboarding choreography. Seeds the welcome
+  // Onboarding choreography. Seeds the welcome
   // scratchpad on fresh installs + subscribes to execution-history
   // and snippets stores so the first successful run and first
   // snippet save fire single-CTA toasts. Gated on
   // `sessionRestoreReady` so a real restored session always wins
   // over the seed; safe mode short-circuits the hook entirely.
   useOnboardingChoreography({ enabled: sessionRestoreReady });
-  // internal — Run Ledger tap: forwards each NEW execution-history entry
+  // Run Ledger tap: forwards each NEW execution-history entry
   // (manual runs only — auto-runs never reach that store) into the
   // opt-in lingua_ledger DuckDB schema, fire-and-forget. The hook
   // subscribes unconditionally; recordRun itself is the opt-in gate.
   useRunLedgerTap();
-  // implementation — Git read-only layer. The detect hook resolves
+  // Git read-only layer. The detect hook resolves
   // posture on every project root change; the status hook drives
   // per-file pill updates via the existing fs watcher. Both
   // self-gate on the `window.lingua.git` bridge being present
@@ -275,17 +275,8 @@ function AppChrome({
         );
 
         if (response === 0) {
-          for (const tab of dirtyTabs) {
-            const saved = await useEditorStore.getState().saveTabById(tab.id);
-            if (!saved) {
-              return;
-            }
-          }
-
-          // An edit during any awaited save must remain recoverable.
-          for (const tab of useEditorStore.getState().tabs) flushNotebookDocumentDrafts(tab.id);
-          if (useEditorStore.getState().tabs.some(tab => tab.isDirty)) return;
-          window.lingua.forceClose();
+          const { saveTabsBeforeQuit } = await import('./stores/saveTabsBeforeQuit');
+          if (await saveTabsBeforeQuit(dirtyTabs.map(tab => tab.id))) window.lingua.forceClose();
         } else if (response === 1) {
           window.lingua.forceClose();
         }
@@ -310,7 +301,7 @@ function AppChrome({
     closeOverlay();
     // Preserve the pre-workspace adoption signal: the telemetry enum still
     // names the event `overlay.opened`, but the surface id remains stable
-    // so dashboards do not lose Utilities open counts during MOV.03.
+    // so dashboards do not lose Utilities open counts.
     track('overlay.opened', { overlayId: 'utilities' });
   };
 
@@ -333,7 +324,7 @@ function AppChrome({
     exportProjectBundle,
   });
 
-  // implementation detail — keep overlay ownership in App while shared
+  // Keep overlay ownership in App while shared
   // producers request the snippets surface through the typed bus.
   useCommandListener('overlay.openSnippets', () => openOverlay('snippets'));
   useCommandListener('overlay.openRecipes', () => openOverlay('recipes'));
@@ -341,11 +332,11 @@ function AppChrome({
 
   useLicenseSettingsNavigation(() => openOverlay('settings'));
 
-  // implementation detail — Settings and paste importers request the
+  // Settings and paste importers request the
   // capsule-import overlay without reaching into App state.
   useCommandListener('capsule.openImport', () => openOverlay('capsule-import'));
 
-  // implementation detail — claim the typed originating surface for
+  // Claim the typed originating surface for
   // capsule.browse_opened telemetry, then open the owned overlay.
   useCommandListener('capsule.openList', ({ surface }) => {
     claimCapsuleListSurface(surface);
@@ -357,7 +348,7 @@ function AppChrome({
     startTour();
   };
 
-  // implementation — surface the web-build update banner at the top
+  // Surface the web-build update banner at the top
   // of the chrome. Browser builds expose `window.lingua` through
   // src/web/adapter.ts, so gate on the explicit platform instead of
   // bridge presence.
@@ -416,7 +407,7 @@ export function App() {
 
   const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(nextOverlay);
-    // internal — fire overlay.opened so a consenting user's telemetry can
+    // Fire overlay.opened so a consenting user's telemetry can
     // reflect which panels got use. track is a no-op unless consent
     // is granted and the endpoint + kill-switch let it through; the
     // allowlist already includes overlay.opened with an overlayId string

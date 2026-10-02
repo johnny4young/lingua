@@ -1,5 +1,5 @@
 /**
- * implementation trailer — shared replay helper.
+ * Shared replay helper.
  *
  * Both the console-popover Replay button  and the command-palette
  * per-entry Replay action (this change) dispatch the same effect: open a new

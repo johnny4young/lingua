@@ -1,5 +1,5 @@
 /**
- * internal / implementation — logic hook backing {@link FloatingActionPill}.
+ * Logic hook backing {@link FloatingActionPill}.
  *
  * Holds every store subscription, derived value, and handler the
  * floating pill needs so the component file stays a thin presentational
@@ -55,7 +55,7 @@ const FULL_PILL_WIDTH = 820;
 const COMPACT_PILL_WIDTH = 560;
 const RIGHT_EDITOR_HEADER_RESERVE = 420;
 
-// internal — workflow and runtime are TWO orthogonal axes:
+// Workflow and runtime are TWO orthogonal axes:
 //   workflowMode: scratchpad | run | debug   — what kind of execution
 //   runtimeMode : worker | node | browser-preview — what engine
 //
@@ -93,7 +93,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const setTabRuntimeMode = useEditorStore((s) => s.setTabRuntimeMode);
   const setTabWorkflowMode = useEditorStore((s) => s.setTabWorkflowMode);
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
-  // internal — Lingua doesn't currently surface an "autosave" setting; the
+  // Lingua doesn't currently surface an "autosave" setting; the
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
   const autoSaveEnabled = true;
@@ -232,7 +232,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     addTab(tab);
   };
 
-  // implementation — the unified mode-aware action button fires the
+  // The unified mode-aware action button fires the
   // current workflow's primary action. `run` and `debug` mode both
   // call the runner (with the debug flag for the latter). In
   // `scratchpad` mode the runner is normally driven by edit-time
@@ -253,7 +253,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     void run();
   };
 
-  // internal follow-up — Run stays clickable even with no tab so the
+  // Run stays clickable even with no tab so the
   // primary surface keeps the workflow-menu reachable (the chevron
   // next to Run is how the user picks scratchpad / run / debug
   // upfront). The Lang / Runtime / Workflow chip handlers below

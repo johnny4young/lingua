@@ -1,4 +1,4 @@
-/** implementation — Recipe `py-word-frequency`. */
+/** Recipe `py-word-frequency`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

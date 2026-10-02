@@ -115,6 +115,15 @@ async function applyReloadCandidate(candidate: ReloadCandidate): Promise<void> {
   useEditorStore.getState().setTabContentFromDisk(candidate.tabId, candidate.diskSnapshot);
 }
 
+/** Replace `tabId` with its disk copy, confirming first when it has unsaved edits. */
+export async function reloadTabFromDisk(tabId: string): Promise<boolean> {
+  const candidate = await readReloadCandidate(tabId);
+  if (!candidate) return false;
+  if (candidate.isDirty && !confirmDirtyReload()) return false;
+  await applyReloadCandidate(candidate);
+  return true;
+}
+
 async function applyBatchedReload(tabIds: ReadonlyArray<string>): Promise<void> {
   const candidates = (await Promise.all(tabIds.map(tabId => readReloadCandidate(tabId)))).filter(
     (candidate): candidate is ReloadCandidate => candidate !== null

@@ -6,7 +6,7 @@ import type { PythonWorkerDependencyMessage, PythonWorkerPort } from './python-w
 import { classifyMicropipError, type PythonRuntimeAdapter } from './python-worker-runtime';
 import type { PyProxyLike } from './python-worker-serialization';
 
-// implementation — defensive PyPI-name regex. PyPI's accepted form is
+// Defensive PyPI-name regex. PyPI's accepted form is
 // case-insensitive: starts with a letter or digit, allows interior
 // `[A-Za-z0-9._-]`, and ends in a letter or digit. Trailing `.` or
 // `-` would resolve to surprising packages once PyPI's normaliser

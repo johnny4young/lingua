@@ -15,24 +15,24 @@ type BottomPanelTab =
   | 'browser-preview'
   | 'stdin'
   | 'variables'
-  // implementation — bottom-panel sibling for the Dependencies tab.
+  // bottom-panel sibling for the Dependencies tab.
   // Conditional render in `AppLayout.tsx` keeps the button hidden
   // until the active tab has ≥1 detected dependency, so users who
   // never paste an import never see the chrome.
   | 'dependencies'
-  // implementation — bottom-panel sibling for the Git diff view.
+  // bottom-panel sibling for the Git diff view.
   // Conditional render in `AppLayout.tsx` gates on
   // `gitLayerAvailable(posture)` so users opening a folder that is
   // not a git repo never see the chrome. Mount fires the
   // `git.diff_panel_opened` telemetry (implementation note).
   | 'git-diff'
   | 'project-terminal'
-  // MOV.02 (FASE 3) — the HTTP and SQL workspaces are no longer dock
+  // The HTTP and SQL workspaces are no longer dock
   // panels. They ascended to full-screen `FileTab`s owned by
   // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`
   // were removed from this union; the dock keeps only the ephemeral
   // streams (Console, Input) + the contextual panels below.
-  // implementation — bottom-panel sibling for the Recipes Run + Test
+  // bottom-panel sibling for the Recipes Run + Test
   // surface. Conditional render in `AppLayout.tsx` gates on the
   // active tab having a `recipeBindingId` (set by the overlay's
   // open-recipe flow), so tabs that are not bound to a recipe never
@@ -42,7 +42,7 @@ type BottomPanelTab =
 export type VariablesViewMode = 'list' | 'cards';
 
 /**
- * implementation note — optional interactive CTA on a status
+ * Optional interactive CTA on a status
  * notice. Lets the first-run / first-snippet onboarding toasts
  * surface a single-click action (Save as snippet / Open snippets)
  * without lifting custom toast components per surface. Designed
@@ -63,7 +63,7 @@ export interface StatusNoticeAction {
 export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
 
 /**
- * implementation note — priority tier for notice replacement.
+ * Priority tier for notice replacement.
  *
  * Surfaced during pre-commit review of implementation: the
  * onboarding first-run toast was being clobbered within ~600 ms by
@@ -74,8 +74,8 @@ export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
  * `'high'`; `pushStatusNotice` refuses to overwrite an outstanding
  * `'high'` notice with a `'normal'` one and instead drops the
  * incoming notice silently (it still emits its own `onDismiss('auto')`
- * for telemetry attribution). Errors and explicit dismiss paths
- * always win regardless of priority.
+ * for telemetry attribution). Errors, warnings and explicit dismiss
+ * paths always win regardless of priority.
  *
  * `'low'` is reserved for future ambient surfaces (telemetry
  * heartbeats, idle background hints) so they can never displace
@@ -92,10 +92,10 @@ export interface StatusNotice {
   values?: Record<string, string | number>;
   /** Optional longer detail appended after the translated message. */
   detail?: string;
-  /** implementation — optional interactive CTAs rendered as buttons. */
+  /** Optional interactive CTAs rendered as buttons. */
   actions?: ReadonlyArray<StatusNoticeAction>;
   /**
-   * implementation — optional callback invoked exactly once whenever
+   * Optional callback invoked exactly once whenever
    * the notice goes away, with the route that closed it. Lets the
    * pusher attribute dismiss telemetry across CTA / manual X / auto
    * timeout without coupling the notice schema to telemetry itself.
@@ -103,15 +103,15 @@ export interface StatusNotice {
    */
   onDismiss?: (mode: StatusNoticeDismissMode) => void;
   /**
-   * implementation note — replacement priority. Default
+   * Replacement priority. Default
    * `'normal'` preserves the legacy "last writer wins" behaviour
    * for the 134 existing callers. `'high'` is for onboarding /
    * choreographed toasts that must survive any same-tone push.
-   * Incoming errors always bypass the priority check.
+   * Incoming errors and warnings always bypass the priority check.
    */
   priority?: StatusNoticePriority;
   /**
-   * implementation note — optional callback fired when this
+   * Optional callback fired when this
    * notice REFUSES a lower-priority replacement attempt. Lets the
    * pusher (e.g. `useOnboardingChoreography`) emit
    * `onboarding.toast_clobbered` telemetry so we can see in
@@ -222,7 +222,7 @@ interface UIState {
   /** When true the Variables floating card shrinks to a pill chip. */
   variablesCardCollapsed: boolean;
   /**
-   * implementation note — persisted List ↔ Cards mode for the bottom
+   * Persisted List ↔ Cards mode for the bottom
    * panel Variables tab. Floating card has its own dedicated render so
    * this only applies when `variableInspectorSurface === 'bottom'`.
    */
@@ -237,7 +237,7 @@ interface UIState {
   setConsoleVisible: (v: boolean) => void;
   pushStatusNotice: (notice: Omit<StatusNotice, 'id'>) => void;
   /**
-   * implementation — `mode` records how the dismiss happened so the
+   * `mode` records how the dismiss happened so the
    * pusher's `onDismiss` callback can attribute telemetry. Defaults
    * to `'manual'` because the banner X-button is the most common
    * caller; the auto-dismiss timeout and CTA handlers pass their own
@@ -256,7 +256,7 @@ interface UIState {
 let statusNoticeCounter = 0;
 
 /**
- * implementation note — priority comparator helper. `'high'` >
+ * Priority comparator helper. `'high'` >
  * `'normal'` > `'low'`. Pure function for testability.
  */
 function priorityRank(priority: StatusNoticePriority): number {
@@ -290,20 +290,20 @@ export const useUIStore = create<UIState>((set) => ({
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {
-    // implementation note — priority-respecting replacement.
+    // priority-respecting replacement.
     // A `'normal'` (the implicit default for the 134 legacy callers)
     // notice CANNOT overwrite an outstanding `'high'` notice. The
     // incoming notice is dropped and its own `onDismiss('auto')`
-    // fires so the pusher's telemetry stays honest. Errors override
-    // priority — a real error always reaches the user.
+    // fires so the pusher's telemetry stays honest. Errors and warnings
+    // override priority — a real problem always reaches the user.
     const previous = useUIStore.getState().statusNotice;
     const incomingPriority: StatusNoticePriority = notice.priority ?? 'normal';
     const outstandingPriority: StatusNoticePriority =
       previous?.priority ?? 'normal';
-    const incomingIsError = notice.tone === 'error';
+    const incomingBypassesPriority = notice.tone === 'error' || notice.tone === 'warning';
     if (
       previous &&
-      !incomingIsError &&
+      !incomingBypassesPriority &&
       priorityRank(incomingPriority) < priorityRank(outstandingPriority)
     ) {
       // Outstanding notice has strictly higher priority and the
@@ -330,7 +330,7 @@ export const useUIStore = create<UIState>((set) => ({
       }
       return;
     }
-    // implementation — if a previous notice is still up when a new one
+    // If a previous notice is still up when a new one
     // arrives (race between toast 1 + toast 2), close the outgoing
     // notice as `'auto'` so the pusher's telemetry doesn't lose the
     // signal. Mirrors the spec edge-case "toast 2 reemplaza toast 1

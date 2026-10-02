@@ -6,11 +6,11 @@ import { hasScopeSnapshotFor, useResultStore } from '../stores/resultStore';
 import { languageHasRuntimeModes } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { languageSupportsDebugger } from '../utils/languageMeta';
-import { getRecipeById } from '../data/recipes';
+import { isBundledRecipeId } from '../data/recipes/recipeIds';
 import { useProjectStore } from '../stores/projectStore';
 
 /**
- * internal — the bottom-panel availability gates the shell needs to
+ * The bottom-panel availability gates the shell needs to
  * decide whether the console drawer (and which body inside it) should mount.
  * Each flag is `true` only when the active tab + settings + run-snapshot state
  * make that surface relevant; `editor-only` layout forces them all off.
@@ -33,7 +33,7 @@ export interface LayoutAvailability {
 }
 
 /**
- * internal — the AppLayout-root availability gate cluster, extracted
+ * The AppLayout-root availability gate cluster, extracted
  * verbatim from `AppLayout`. Computes the seven MainContent gates from the editor
  * / UI / settings / result / debugger stores. Moved as-is (same derivations,
  * same internal primitive `hasScopeSnapshotFor` subscription) so the resolved gate
@@ -66,7 +66,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     layoutPreset !== 'editor-only' &&
     languageHasRuntimeModes(activeLanguage) &&
     activeRuntimeMode === 'browser-preview';
-  // implementation — when the user focuses the stdin tab from the
+  // When the user focuses the stdin tab from the
   // command palette while the console drawer is collapsed,
   // `openBottomPanel('stdin')` flips `activeBottomPanel` but does
   // NOT set `consoleVisible: true` reliably across navigation. We
@@ -81,7 +81,7 @@ export function useLayoutAvailability(): LayoutAvailability {
   const activeVariableInspectorEnabled = useEditorStore(
     (s) => getActiveTab(s)?.variableInspectorEnabled === true,
   );
-  // internal — the bottom Variables drawer only needs the availability
+  // The bottom Variables drawer only needs the availability
   // boolean, not the raw scope object; subscribe to the primitive so a
   // scope replacement that does not change availability is a no-op here.
   const hasScopeForActiveLayout = useResultStore((state) =>
@@ -93,7 +93,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     activeBottomPanelForLayout === 'stdin' &&
     activeRuntimeMode !== 'browser-preview' &&
     isWorkerRunnerLanguage(activeLanguage);
-  // implementation — mirror BottomPanel.variablesAvailable so the
+  // Mirror BottomPanel.variablesAvailable so the
   // MainContent gate keeps the drawer mounted when Variables is the
   // sole reason to show it (no console, no debugger, no stdin).
   const showVariablesTabBody =
@@ -111,7 +111,7 @@ export function useLayoutAvailability(): LayoutAvailability {
     layoutPreset !== 'editor-only' &&
     activeBottomPanelForLayout === 'recipe' &&
     activeRecipeBindingIdForLayout !== null &&
-    getRecipeById(activeRecipeBindingIdForLayout) !== undefined;
+    isBundledRecipeId(activeRecipeBindingIdForLayout);
   const hasActiveProject = useProjectStore(state => state.currentProject !== null);
   const showProjectTerminalTabBody =
     layoutPreset !== 'editor-only' &&

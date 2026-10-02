@@ -10,9 +10,9 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { EmptyState } from '../ui/EmptyState';
 
 /**
- * implementation — Settings UI for the env-var tiers.
+ * Settings UI for the env-var tiers.
  *
- * FASE 2a (MOV.04) restructures the presentation onto the Signal-Slate
+ * The Settings rhythm restructures the presentation onto the Signal-Slate
  * Settings rhythm: one `SettingsSection` (eyebrow + description) wraps
  * the three scope blocks at the `space-7` rhythm, each with its own
  * `ScopeHeading` + add-form + var rows; the genuinely-empty project/tab
@@ -161,7 +161,7 @@ const TIER_TONE: Record<string, StatusBadgeTone> = {
 };
 
 /**
- * Highlighted effective-environment tile. FASE 2a promotes the trace
+ * Highlighted effective-environment tile. It promotes the trace
  * out of a quiet collapsed panel into an ACCENT-toned tile (primary-soft
  * surface, accent border) so it reads as the payoff of the three tiers.
  * The summary always shows the precedence chain

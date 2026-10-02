@@ -1,4 +1,6 @@
 import type { LanguageSupportDescriptor } from './types';
+// Already in the startup graph through the LSP lifecycle hook.
+import { getGoLspAdapter, isGoLspAvailable } from '../languageIntelligence/goAdapterSingleton';
 
 export const goLanguageSupport = {
   id: 'go',
@@ -18,11 +20,9 @@ export const goLanguageSupport = {
       import('../components/Editor/completionProviders/goHoverProvider'),
       import('../components/Editor/completionProviders/goSignatureProvider'),
     ]);
-    const [{ createLspNavigationProviders }, { getGoLspAdapter, isGoLspAvailable }] =
-      await Promise.all([
-        import('../components/Editor/completionProviders/lspNavigationProvider'),
-        import('../languageIntelligence/goAdapterSingleton'),
-      ]);
+    const { createLspNavigationProviders } = await import(
+      '../components/Editor/completionProviders/lspNavigationProvider'
+    );
     return {
       createDefinitionProvider: monaco =>
         createLspNavigationProviders(monaco, 'go', isGoLspAvailable, getGoLspAdapter).definition,

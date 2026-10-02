@@ -14,7 +14,7 @@ interface AwaitableDebugTargets {
 }
 
 /**
- * implementation — Source instrumentation for the JS/TS debugger.
+ * Source instrumentation for the JS/TS debugger.
  *
  * # What this does
  *
@@ -66,7 +66,7 @@ interface AwaitableDebugTargets {
  *
  * # Source map merge
  *
- * implementation note — when the caller passes `inputMap` (esbuild's
+ * When the caller passes `inputMap` (esbuild's
  * TS→JS map from the TypeScript runner), we wrap it in a
  * `@jridgewell/trace-mapping` `TraceMap` and translate every line we
  * see in the AST from the post-transpile JS coordinate space back to
@@ -120,7 +120,7 @@ export interface InstrumentOptions {
    */
   yieldHelperName?: string;
   /**
-   * implementation note — when supplied, this is the upstream esbuild
+   * When supplied, this is the upstream esbuild
    * TS→JS source map. We wrap it in `@jridgewell/trace-mapping` and
    * translate every JS line the AST yields to the original TS line
    * before injecting the yield call. The yield helper therefore fires
@@ -138,7 +138,7 @@ export interface InstrumentOptions {
 const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
 
 /**
- * implementation note — line translator. JS line in, user-source line
+ * Line translator. JS line in, user-source line
  * out. Passes through when no input map was provided (pure-JS path).
  * A failed lookup (e.g. line outside any segment in the map) falls
  * back to returning the JS line, which is strictly less surprising
@@ -574,7 +574,7 @@ function injectYieldBefore(
   const jsLine = stmt.loc?.start.line ?? 0;
   if (jsLine === 0) return;
 
-  // implementation note — translate JS line back to user source line so
+  // Translate JS line back to user source line so
   // the yield helper fires with the breakpoint-matching coordinate.
   const userLine = translateLine(jsLine);
   if (!Number.isInteger(userLine) || userLine <= 0) return;
@@ -633,7 +633,7 @@ function wrapAsyncFunctionBody(
 
   const functionName = functionDisplayName(node);
   const jsLine = node.loc?.start.line ?? 0;
-  // implementation note — frame headers also report user source lines so
+  // Frame headers also report user source lines so
   // the call-stack panel matches the TS line the user sees in Monaco.
   const userLine = translateLine(jsLine);
   ms.appendLeft(

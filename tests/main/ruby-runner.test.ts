@@ -217,7 +217,7 @@ describe('main ruby runner', () => {
   });
 
   // ----------------------------------------------------------------
-  // implementation note — parseRubyVersion shape parser
+  // parseRubyVersion shape parser
   // ----------------------------------------------------------------
 
   describe('parseRubyVersion (implementation note)', () => {
@@ -282,7 +282,7 @@ describe('main ruby runner', () => {
   });
 
   // ----------------------------------------------------------------
-  // implementation note — per-project .ruby-version honoring
+  // per-project .ruby-version honoring
   // ----------------------------------------------------------------
 
   describe('findRubyVersionFile (implementation note)', () => {
@@ -429,6 +429,36 @@ describe('main ruby runner', () => {
       expect(result.stdout).toContain('[stdout truncated]');
     });
 
+    it('spawns ruby.exe from an absolute PATH entry on Windows, never the project cwd', async () => {
+      const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+      const toolDir = path.join(tempRoot, 'ruby-bin');
+      await mkdir(toolDir, { recursive: true });
+      await writeFile(path.join(toolDir, 'ruby.exe'), '');
+      vi.stubEnv('PATH', toolDir);
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      try {
+        await loadRunner();
+        const child = createChildProcess();
+        mocks.spawn.mockReturnValue(child);
+        const handler = handlerFor<RubyRunHandler>('ruby:run');
+        const promise = handler({}, 'puts 1', { timeoutMs: 5000 });
+        await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+        expect(mocks.spawn.mock.calls[0]![0]).toBe(path.join(toolDir, 'ruby.exe'));
+        child.emit('close', 0);
+        await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+        vi.stubEnv('PATH', tempRoot);
+        mocks.spawn.mockClear();
+        await expect(handler({}, 'puts 1', { timeoutMs: 5000 })).resolves.toMatchObject({
+          kind: 'missing-binary',
+        });
+        expect(mocks.spawn).not.toHaveBeenCalled();
+      } finally {
+        Object.defineProperty(process, 'platform', platform);
+        vi.unstubAllEnvs();
+      }
+    });
+
     it('returns missing-binary when ruby is not installed', async () => {
       await loadRunner();
       mocks.execFileAsync.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
@@ -446,6 +476,32 @@ describe('main ruby runner', () => {
       expect(result.kind).toBe('error');
       expect(result.error).not.toMatch(/not installed/i);
       expect(mocks.spawn).not.toHaveBeenCalled();
+    });
+
+    it('ignores Stop and stdin from a window that does not own the run', async () => {
+      await loadRunner();
+      const child = createChildProcess();
+      mocks.spawn.mockReturnValue(child);
+      const owner = { id: 1, isDestroyed: () => false, once: vi.fn(), removeListener: vi.fn(), send: vi.fn() };
+      const other = { id: 2 };
+      const runPromise = handlerFor<RubyRunHandler>('ruby:run')({ sender: owner }, 'sleep 10', {
+        runId: 'run-owned',
+        interactive: true,
+        timeoutMs: 30_000,
+      });
+      await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+      const stop = handlerFor<RubyStopHandler>('ruby:stop');
+      const write = handlerFor<(event: unknown, runId: string, data: string) => Promise<unknown>>('ruby:stdin-write');
+      const close = handlerFor<(event: unknown, runId: string) => Promise<unknown>>('ruby:stdin-close');
+
+      await expect(stop({ sender: other }, 'run-owned')).resolves.toEqual({ stopped: false });
+      await expect(write({ sender: other }, 'run-owned', 'x')).resolves.toEqual({ written: false });
+      await expect(close({ sender: other }, 'run-owned')).resolves.toEqual({ closed: false });
+      expect(child.kill).not.toHaveBeenCalled();
+
+      await expect(stop({ sender: owner }, 'run-owned')).resolves.toEqual({ stopped: true });
+      child.emit('close', null);
+      await expect(runPromise).resolves.toMatchObject({ kind: 'stopped' });
     });
 
     it('ruby:stop terminates the registered run by runId', async () => {

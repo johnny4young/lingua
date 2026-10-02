@@ -1,5 +1,5 @@
 /**
- * implementation — SqlWorkspacePanel tests.
+ * SqlWorkspacePanel tests.
  *
  * Mirror of `tests/components/HttpWorkspace/HttpWorkspacePanel.test.tsx`.
  * The DuckDB engine is injected via the `__setDuckDbEngineFactoryForTests`
@@ -78,7 +78,7 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// implementation — the SQL editor renders Monaco, which cannot mount in jsdom
+// The SQL editor renders Monaco, which cannot mount in jsdom
 // (it touches `CSS.escape` + a real theme service). Stand in a controlled
 // `<textarea>` that keeps the `sql-query-editor-textarea` testid the panel
 // tests query, and routes a real Cmd/Ctrl+Enter keypress to the run command
@@ -565,7 +565,7 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — keyboard-only import flow + preview modal a11y.
+// keyboard-only import flow + preview modal a11y.
 // ---------------------------------------------------------------------------
 
 /**
@@ -594,7 +594,7 @@ function importEngine(
             arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 3n }])
           );
         }
-        // internal — the browser now lists schema-qualified tables from
+        // The browser now lists schema-qualified tables from
         // information_schema.tables (SHOW TABLES only saw `main`).
         if (/FROM information_schema\.tables/i.test(sql)) {
           return mapArrowTable(

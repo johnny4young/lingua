@@ -1,5 +1,5 @@
 /**
- * implementation closeout — SnippetsModal language picker.
+ * SnippetsModal language picker.
  *
  * The picker now walks `LANGUAGE_PACKS` (runnable + compile execution
  * modes) instead of a hardcoded `['javascript', 'typescript', 'go',

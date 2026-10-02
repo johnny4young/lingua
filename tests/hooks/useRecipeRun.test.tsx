@@ -1,5 +1,5 @@
 /**
- * implementation — language-aware Run + Test orchestration.
+ * language-aware Run + Test orchestration.
  *
  * The worker implementations have their own suites and real web E2E. These
  * cases pin the renderer seam: recipe language selects the runner/composer,
@@ -10,6 +10,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRecipeRun } from '../../src/renderer/hooks/useRecipeRun';
+import { useRunner } from '../../src/renderer/hooks/useRunner';
 import { getRecipeById } from '../../src/renderer/data/recipes';
 import {
   createDefaultTab,
@@ -29,11 +30,12 @@ import { ASSERTION_RESULT_SENTINEL } from '../../src/shared/lessonRunner';
 
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
+  stop: vi.fn(),
   trackRecipeTestRun: vi.fn(),
 }));
 
 vi.mock('../../src/renderer/runners', () => ({
-  runnerManager: { execute: mocks.execute },
+  runnerManager: { execute: mocks.execute, stop: mocks.stop },
 }));
 
 vi.mock('../../src/renderer/hooks/recipeTelemetry', () => ({
@@ -89,7 +91,7 @@ beforeEach(() => {
   resetRecipeStoreForTests();
   resetLessonProgressStoreForTests();
   useEditorStore.setState({ tabs: [], activeTabId: null });
-  useResultStore.setState({ isManualRunning: false, isAutoRunning: false });
+  useResultStore.setState({ isManualRunning: false, isAutoRunning: false, manualRunSession: null });
   useUIStore.setState({ statusNotice: null });
 });
 
@@ -198,6 +200,43 @@ describe('useRecipeRun', () => {
     });
 
     expect(useResultStore.getState().isManualRunning).toBe(false);
+  });
+
+  it('stops the recipe worker from the toolbar Stop without recording progress', async () => {
+    const { recipe } = bindRecipeTab('ts-generic-key-by');
+    let resolveRun!: (result: unknown) => void;
+    mocks.execute.mockReturnValue(new Promise(resolve => (resolveRun = resolve)));
+    mocks.stop.mockImplementation(() =>
+      resolveRun({
+        stdout: [],
+        stderr: [],
+        executionTime: 0,
+        cancelled: true,
+        kind: 'stopped',
+        error: { message: 'Execution stopped' },
+      })
+    );
+    const { result: recipeRun } = renderHook(() => useRecipeRun());
+    const { result: runner } = renderHook(() => useRunner());
+
+    let pending!: ReturnType<typeof recipeRun.current.runActiveTab>;
+    act(() => {
+      pending = recipeRun.current.runActiveTab();
+    });
+    expect(runner.current.isRunning).toBe(true);
+    let outcome: Awaited<typeof pending> = null;
+    await act(async () => {
+      runner.current.stop();
+      outcome = await pending;
+    });
+
+    expect(mocks.stop).toHaveBeenCalledWith('typescript');
+    expect(outcome).toBeNull();
+    expect(runner.current.isRunning).toBe(false);
+    expect(useResultStore.getState().manualRunSession).toBeNull();
+    expect(useRecipeStore.getState().isRunning.size).toBe(0);
+    expect(useLessonProgressStore.getState().getEntry(recipe.id)).toBeUndefined();
+    expect(mocks.trackRecipeTestRun).not.toHaveBeenCalled();
   });
 
   it('does not interrupt an existing manual execution', async () => {

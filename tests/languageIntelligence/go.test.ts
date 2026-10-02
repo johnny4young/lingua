@@ -1,5 +1,5 @@
 /**
- * implementation — `GoLanguageIntelligenceAdapter` contract tests.
+ * `GoLanguageIntelligenceAdapter` contract tests.
  *
  * Mirrors the rust adapter test suite. The adapter is the renderer-
  * side glue between the Monaco providers and the main-process LSP

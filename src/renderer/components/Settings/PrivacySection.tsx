@@ -100,7 +100,7 @@ export function PrivacySection() {
         <PrivateHostsRow />
         <SensitiveHeadersRow />
       </SpecCard>
-      {/* internal — the local Run Ledger card: opt-in, clear, export. */}
+      {/* The local Run Ledger card: opt-in, clear, export. */}
       <SpecCard>
         <RunLedgerRows />
       </SpecCard>
@@ -136,7 +136,7 @@ function PrivateHostsRow() {
 }
 
 /**
- * internal — Run Ledger controls. The ledger records MANUAL runs into the
+ * Run Ledger controls. The ledger records MANUAL runs into the
  * `lingua_ledger` schema of the SQL workspace's DuckDB database. It keeps
  * source hashes and a metadata-only capsule summary; code, stdin, output,
  * error text, tab names, and Git metadata never persist. Off by default;
@@ -281,7 +281,7 @@ function RunLedgerRows() {
 }
 
 /**
- * implementation — Sensitive HTTP headers editor. Chip list with an
+ * Sensitive HTTP headers editor. Chip list with an
  * add-by-typing-Enter input. Baseline chips render disabled (the
  * baseline list is immutable from the UI; the renderer always merges
  * them at redaction time). User-added chips have an X to remove.

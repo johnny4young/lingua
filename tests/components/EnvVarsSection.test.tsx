@@ -1,5 +1,5 @@
 /**
- * implementation — Settings panel covers the global env-var tier.
+ * Settings panel covers the global env-var tier.
  *
  * The implementation store already has full unit coverage; these component tests
  * pin the rendered affordances (empty state, add form, list + remove,

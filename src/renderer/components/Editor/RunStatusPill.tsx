@@ -1,5 +1,5 @@
 /**
- * implementation — ambient pill that surfaces the termination kind
+ * Ambient pill that surfaces the termination kind
  * of the most recent run (timeout / stopped / error). Hidden on
  * success, on the first paint, and while a run is in flight. Reads
  * `useResultStore.runTermination` set by `executeTabManually` and
@@ -11,13 +11,13 @@
  * button-styled. The icon swaps per kind so the row is scannable
  * without reading the label.
  *
- * implementation note — when the Settings toggle `showTimeoutCountdown` is on
+ * When the Settings toggle `showTimeoutCountdown` is on
  * AND a run is in flight (`runDeadlineAt` set), the pill renders a
  * `mm:ss` countdown variant instead of the post-termination one.
  * Default OFF so the panel stays quiet by default for users who
  * never asked for a live counter.
  *
- * implementation — when rendered inside the 24px persistent status bar
+ * When rendered inside the 24px persistent status bar
  * (`compact`), the post-termination badges drop their trailing text label so
  * the icon-only badge fits the bar height. The countdown keeps its `mm:ss`
  * label (it carries no icon-only equivalent). All gates (hidden on

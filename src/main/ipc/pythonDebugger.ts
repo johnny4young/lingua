@@ -26,6 +26,7 @@ import { resolvePythonInterpreter } from '../../shared/python/interpreter';
 import { buildNativeRunnerEnv, combinedAllowlist } from '../runners/nativeEnv';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
+import { onOwnerReset } from '../runners/ownerReset';
 import { DebuggerPreparationRegistry } from './debuggerPreparation';
 import { spawnNativeRun } from '../runners/spawnNativeRun';
 
@@ -270,7 +271,7 @@ async function removeRecord(record: PythonDebuggerRecord, force = false): Promis
 function observeOwner(sender: WebContents): void {
   if (observedOwners.has(sender)) return;
   observedOwners.add(sender);
-  sender.once('destroyed', () => {
+  onOwnerReset(sender, () => {
     disposePythonDebuggerSessionsForOwner(sender.id);
   });
 }
@@ -454,7 +455,7 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Py
       const reason = /Uncaught exception|Traceback \(most recent call last\)/u.test(firstStop.output)
         ? 'exception'
         : 'user-breakpoint';
-      return responseForResult(record, firstStop, reason);
+      return await responseForResult(record, firstStop, reason);
     } catch (error) {
       const stopped = sessions.get(id) !== record;
       await removeRecord(record, true);
@@ -509,7 +510,7 @@ async function runCommand(
       : command === 'continue'
         ? 'user-breakpoint'
         : 'step';
-    return responseForResult(record, result, reason);
+    return await responseForResult(record, result, reason);
   } catch (error) {
     await removeRecord(record);
     return errorResponse(

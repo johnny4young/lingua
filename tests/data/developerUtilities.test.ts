@@ -127,7 +127,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
       'random-string',
       'mock-data',
       'lorem-ipsum',
-      // implementation — Utility Pipelines panel takes its input
+      // Utility Pipelines panel takes its input
       // from the user-defined first step + the pipeline editor; the
       // overlay's ⚡ Apply button doesn't apply. Treated as a
       // generator from the catalog's POV.

@@ -23,7 +23,7 @@ import {
 } from './editorTabUtils';
 
 /**
- * implementation — workspace-opener action factory for the editor store.
+ * workspace-opener action factory for the editor store.
  *
  * Bundles `addNotebookTab` (entitlement-gated notebook tab + companion
  * notebookStore seed) and the SQL / HTTP / Utilities focus-or-create openers,
@@ -38,7 +38,7 @@ export function createWorkspaceActions(
 ): Pick<EditorState, 'addNotebookTab' | 'addSqlTab' | 'addHttpTab' | 'addUtilitiesTab'> {
   return {
     /**
-     * implementation — Create a fresh notebook tab. Wraps `addTab` with
+     * Create a fresh notebook tab. Wraps `addTab` with
      * `kind: 'notebook'` + a `.linguanb` extension on the tab name so
      * the existing language-detection in `addTab` doesn't try to set a
      * single-language `language` for the new tab. Seeds the companion
@@ -172,7 +172,7 @@ export function createWorkspaceActions(
     },
 
     /**
-     * MOV.03 — focus (or create) the SINGLE Developer Utilities
+     * Focus (or create) the SINGLE Developer Utilities
      * workspace tab. The tab is the full-screen shell; selected tool,
      * selection stays in `utilityWorkspaceStore`, while favorites and
      * history stay in activation-scoped `utilityHistoryStore`, so direct

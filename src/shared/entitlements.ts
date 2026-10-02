@@ -36,11 +36,11 @@ export type Entitlement = (typeof ENTITLEMENTS)[number];
  * entitlement flag above.
  */
 export const FREE_TIER_LIMITS = {
-  // internal — three tabs let Free users compare the core JS/TS/Python
+  // Three tabs let Free users compare the core JS/TS/Python
   // workflows before the unlimited-tabs upgrade becomes relevant.
   maxOpenTabs: 3,
   maxSnippets: 5,
-  // implementation — Ruby (@ruby/wasm-wasi) joins the Free set with
+  // Ruby (@ruby/wasm-wasi) joins the Free set with
   // the same posture as Python (Pyodide): pure browser WASM, no host
   // binary, no proprietary toolchain. Go / Rust stay Pro because they
   // need a desktop subprocess (or a research-tier WASM compile).
@@ -59,8 +59,8 @@ export function snippetCeilingForTier(tier: LicenseTier): number {
 /**
  * The Free tier entitlement matrix — everything enumerated here is
  * explicitly denied for `free` and granted for every paid tier. Keep this
- * aligned with the marketing tiers on `linguacode.dev` and the Polar.sh
- * metadata.
+ * aligned with the marketing tiers on `linguacode.dev` and the Lemon
+ * Squeezy product metadata.
  */
 const FREE_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set([
   // Free tier access to base product surfaces (for example single-shot

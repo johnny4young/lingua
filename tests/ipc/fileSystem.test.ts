@@ -1,5 +1,5 @@
 /**
- * internal — file system IPC handlers under the capability contract.
+ * File system IPC handlers under the capability contract.
  *
  * Every handler is exercised through a freshly minted capability for a
  * real tmpdir. We don't mock node:fs/promises because the registry's
@@ -12,6 +12,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  chmod,
   mkdtemp,
   mkdir,
   readFile,
@@ -59,7 +60,7 @@ vi.mock('electron', () => ({
     showItemInFolder,
   },
   BrowserWindow: { fromWebContents: vi.fn() },
-  // internal — fileSystem.ts now installs a `before-quit` listener via
+  // fileSystem.ts now installs a `before-quit` listener via
   // `app.on(...)` for watcher cleanup. The handler is idempotent, so
   // a noop spy here is sufficient for this suite.
   app: { on: vi.fn() },
@@ -74,6 +75,7 @@ import {
   clearRegistryForTests,
   mintRootCapability,
 } from '../../src/main/ipc/projectCapabilities';
+import { toWatchRelativeName } from '../../src/main/ipc/fs/fsWatchers';
 
 let tmpRoot: string;
 
@@ -1588,5 +1590,116 @@ describe('optimistic document commits', () => {
     await expect(invoke('fs:write-document', rootId, '../outside.linguanb', '{}', null)).rejects.toThrow();
     await invoke('fs:revoke-root', rootId);
     await expect(invoke('fs:write-document', rootId, 'never.linguanb', '{}', null)).rejects.toThrow();
+  });
+});
+
+describe('filesystem mutations never clobber existing entries', () => {
+  it('fs:touch reports an existing file instead of truncating it', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'index.ts'), 'important code', 'utf-8');
+    expect(await invoke('fs:touch', rootId, 'index.ts')).toBe(false);
+    expect(await readFile(path.join(tmpRoot, 'index.ts'), 'utf-8')).toBe('important code');
+    expect(await invoke('fs:touch', rootId, 'fresh.ts')).toBe(true);
+  });
+
+  it('fs:rename refuses to overwrite an existing sibling', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'A', 'utf-8');
+    await writeFile(path.join(tmpRoot, 'b.ts'), 'B', 'utf-8');
+    await expect(invoke('fs:rename', rootId, 'a.ts', 'b.ts')).rejects.toThrow('already exists');
+    expect(await readFile(path.join(tmpRoot, 'a.ts'), 'utf-8')).toBe('A');
+    expect(await readFile(path.join(tmpRoot, 'b.ts'), 'utf-8')).toBe('B');
+  });
+
+  it('fs:rename still allows a case-only rename', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'readme.md'), 'docs', 'utf-8');
+    expect(await invoke('fs:rename', rootId, 'readme.md', 'README.md')).toBe('README.md');
+    const entries = (await invoke('fs:readdir', rootId, '')) as Array<{ name: string }>;
+    expect(entries.map((entry) => entry.name)).toEqual(['README.md']);
+    expect(await readFile(path.join(tmpRoot, 'README.md'), 'utf-8')).toBe('docs');
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('fs:reopen-file symlink containment', () => {
+  it('refuses a file reached through a symlinked directory that leaves the project', async () => {
+    const project = path.join(tmpRoot, 'project');
+    const outside = path.join(tmpRoot, 'outside');
+    await mkdir(project);
+    await mkdir(outside);
+    await writeFile(path.join(outside, 'secret.txt'), 'TOP SECRET', 'utf-8');
+    await writeFile(path.join(project, 'inside.ts'), 'ok', 'utf-8');
+    await symlink(outside, path.join(project, 'docs'));
+    await approveRoot(project);
+
+    expect(await invoke('fs:reopen-file', path.join(project, 'docs', 'secret.txt'))).toEqual({
+      ok: false,
+      error: 'not-approved',
+    });
+    expect(await invoke('fs:reopen-file', path.join(project, 'inside.ts'))).toMatchObject({
+      ok: true,
+    });
+  });
+});
+
+describe('regex replace runs off the main thread', () => {
+  const pathological = '(a+)+$';
+  const victim = `${'a'.repeat(40)}b\n`;
+
+  it('fails a catastrophic preview with regexTimedOut instead of blocking', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'slow.txt'), victim, 'utf-8');
+    const started = Date.now();
+    const result = (await invoke('fs:replaceInFiles', rootId, '', pathological, 'x', {
+      regex: true,
+    })) as Array<{ relativePath: string; matches: unknown[]; regexTimedOut?: boolean }>;
+    expect(Date.now() - started).toBeLessThan(3_000);
+    expect(result).toEqual([{ relativePath: 'slow.txt', matches: [], regexTimedOut: true }]);
+  });
+
+  it('keeps the event loop responsive while the worker is busy', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'slow.txt'), victim, 'utf-8');
+    let ticks = 0;
+    const interval = setInterval(() => {
+      ticks += 1;
+    }, 10);
+    try {
+      await invoke('fs:replaceInFiles', rootId, '', pathological, 'x', { regex: true });
+    } finally {
+      clearInterval(interval);
+    }
+    expect(ticks).toBeGreaterThan(5);
+  });
+
+  it('returns regex-timeout from a catastrophic apply and leaves the file alone', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'slow.txt');
+    await writeFile(filePath, victim, 'utf-8');
+    expect(
+      await invoke('fs:applyReplaceInFile', rootId, 'slow.txt', pathological, 'x', { regex: true })
+    ).toEqual({ ok: false, replaced: 0, reason: 'regex-timeout' });
+    expect(await readFile(filePath, 'utf-8')).toBe(victim);
+  });
+
+  it.skipIf(process.platform === 'win32')('preserves the file mode across an applied replace', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'run.sh');
+    await writeFile(filePath, '#!/bin/sh\necho old\n', 'utf-8');
+    await chmod(filePath, 0o755);
+    expect(await invoke('fs:applyReplaceInFile', rootId, 'run.sh', 'old', 'new')).toEqual({
+      ok: true,
+      replaced: 1,
+    });
+    expect((await stat(filePath)).mode & 0o777).toBe(0o755);
+    expect(await readFile(filePath, 'utf-8')).toBe('#!/bin/sh\necho new\n');
+  });
+});
+
+describe('watcher event paths', () => {
+  it('normalizes native Windows separators to forward slashes', () => {
+    expect(toWatchRelativeName('src\\nested\\a.ts', '\\')).toBe('src/nested/a.ts');
+    // A POSIX filename may legally contain a backslash.
+    expect(toWatchRelativeName('odd\\name.ts', '/')).toBe('odd\\name.ts');
   });
 });

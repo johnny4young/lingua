@@ -1,5 +1,5 @@
 /**
- * implementation — pipeline template catalog + instantiate tests,
+ * Pipeline template catalog + instantiate tests,
  * including the implementation note registry/i18n completeness guard.
  */
 
@@ -107,7 +107,7 @@ describe('instantiatePipelineTemplate', () => {
   });
 });
 
-// implementation note — every template id carries name + description in both locales.
+// Every template id carries name + description in both locales.
 describe('template i18n completeness (implementation note)', () => {
   const en = enCommon as Record<string, string>;
   const es = esCommon as Record<string, string>;

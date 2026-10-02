@@ -1,5 +1,5 @@
 /**
- * implementation note — `--json` output snapshot tests.
+ * `--json` output snapshot tests.
  *
  * Pins the `--json` envelope shape across all 5 adapters. Adding
  * fields to the envelope is allowed (downstream consumers can

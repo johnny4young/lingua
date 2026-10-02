@@ -1,5 +1,5 @@
 /**
- * implementation — pin the WebUpdateBanner UX contract.
+ * Pin the WebUpdateBanner UX contract.
  *
  *   1. Renders nothing when the polling hook returns no remote version.
  *   2. Renders nothing when the remote version is the same as or older

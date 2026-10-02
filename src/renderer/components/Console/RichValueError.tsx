@@ -1,5 +1,5 @@
 /**
- * implementation — implementation clickable error stacks.
+ * Implementation clickable error stacks.
  *
  * Renders `kind: 'error'` payloads with a structured stack. Each
  * `ClickableStackFrame` with a `file` + `line` becomes a focusable
@@ -7,7 +7,7 @@
  * of the app can wire to (internal multi-file lane). Frames without a
  * `file` render as a non-clickable `<span>`.
  *
- * implementation note — frame context menu (right-click): "Copy file:line",
+ * Frame context menu (right-click): "Copy file:line",
  * "Open in tab", "Copy frame text". The menu is rendered inline below
  * the row when active; Escape / outside-click closes it.
  *
@@ -188,7 +188,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
                   line: frame.line,
                 })
               : t('console.rich.errorFrameUnclickable');
-          // implementation-β-β-α implementation note — PEP 3134 chain separator
+          // PEP 3134 chain separator
           // frames stay non-clickable. Rendered as a presentational
           // <li> (role=none) with a decorative border + italic /
           // low-contrast styling. ARIA forbids `role="separator"`

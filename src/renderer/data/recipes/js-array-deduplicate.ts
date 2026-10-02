@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-array-deduplicate`.
+ * Recipe `js-array-deduplicate`.
  *
  * Remove duplicate primitives from an array preserving first-seen
  * order. Exercises `Set` round-trip + iteration order.

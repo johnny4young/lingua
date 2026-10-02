@@ -1,5 +1,5 @@
 /**
- * implementation closeout — real-browser coverage for the language-pack
+ * real-browser coverage for the language-pack
  * UI consumers added after Toolbar / FileTree.
  */
 

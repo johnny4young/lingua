@@ -1,5 +1,5 @@
 /**
- * implementation — `.linguanb` native notebook document.
+ * `.linguanb` native notebook document.
  *
  * The lossless, Lingua-native counterpart to the lossy `.ipynb`
  * export/import (implementation, `notebookExportToIpynb.ts` +

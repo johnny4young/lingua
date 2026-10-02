@@ -1,5 +1,5 @@
 /**
- * internal — lazy `monaco-vim` loader, shared by the main code editor and
+ * Lazy `monaco-vim` loader, shared by the main code editor and
  * (implementation Slice Monaco-cells implementation note) the notebook cell editor.
  *
  * The chunk is fetched at most once per session — even rapid toggle on /

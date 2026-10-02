@@ -49,8 +49,9 @@ preflighted before any case executes; target authorization is rechecked per case
 JSON reports each case, comparison, recorded/actual runtime and a summary of passed,
 failed, inconclusive and skipped cases. Only exit 0 with `ok: true`, `verdict: pass`
 and every case passing is successful. Any drifted case makes the suite `fail` and
-exit 5, even when other cases are inconclusive; otherwise incomplete or budget-skipped
-cases exit 6. Existing input/runtime/capability/internal errors retain codes 1–4.
+exit 5, even when other cases are inconclusive or end in a runtime or capability
+error. Without drift, existing input/runtime/capability/internal errors retain codes
+1–4; otherwise incomplete or budget-skipped cases exit 6.
 Program timeouts remain runtime errors with an inconclusive verdict; a timeout the
 suite budget imposed reports `suite-budget-exhausted` and exits 6. Process-tree
 termination and cleanup use the existing bounded runner, including its kill grace.

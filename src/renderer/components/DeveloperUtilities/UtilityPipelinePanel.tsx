@@ -1,5 +1,5 @@
 /**
- * implementation — Utility Pipelines panel.
+ * Utility Pipelines panel.
  *
  * 3-section layout inside the Developer Utilities workspace. It started
  * life inside the utilities overlay, but the workspace shell now gives
@@ -175,7 +175,7 @@ function UtilityPipelinePanelUnlocked() {
     resetRun();
   }, [activePipelineId, resetRun]);
 
-  // implementation — instantiate a gallery template into a fresh
+  // Instantiate a gallery template into a fresh
   // pipeline, select it, seed the sample input (implementation note), and record the
   // adoption event (implementation note). Ids are minted here (the shared catalog
   // stays free of crypto), one per step.
@@ -317,7 +317,7 @@ function UtilityPipelinePanelUnlocked() {
     }
   }, [activePipeline, activeInput, run, t, announce]);
 
-  // implementation note — EXPLICIT "Save run as capsule". This is deliberately NOT
+  // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
   // execution-history ring (and thus the Pro browse overlay + internal
   // comparator) when the user asks for it. Keep a snapshot of the exact
@@ -404,7 +404,7 @@ function UtilityPipelinePanelUnlocked() {
               <div className="text-body font-medium">{t('utilityPipeline.empty.title')}</div>
               <div className="text-body-sm text-muted">{t('utilityPipeline.empty.body')}</div>
             </div>
-            {/* implementation — starter gallery so a blank pipeline panel
+            {/* Starter gallery so a blank pipeline panel
                 is discoverable now the engine ships 15 adapters. */}
             <PipelineTemplateGallery onUseTemplate={handleUseTemplate} />
           </div>

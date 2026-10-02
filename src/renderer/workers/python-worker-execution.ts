@@ -35,7 +35,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
 
   return async (msg: PythonWorkerExecutionMessage): Promise<void> => {
     if (msg.type === 'reset-scope') {
-      // implementation — Restart kernel / tab close: drop a notebook's persistent scope
+      // Restart kernel / tab close: drop a notebook's persistent scope
       // dict so the next run starts clean. Idempotent for an unknown scopeId.
       const { scopeId } = msg;
       if (typeof scopeId === 'string' && scopeId.length > 0) {
@@ -86,7 +86,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
       const startTime = performance.now();
       runtime.setActiveRunId(runId);
 
-      // implementation — line-by-line stdin reader (see
+      // line-by-line stdin reader (see
       // python-worker-stdin.ts for the EOF / empty-buffer contract).
       const stdinReader = createStdinLineReader(stdin);
       const stdinTotal = stdinReader.total;
@@ -94,7 +94,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
       try {
         const py = await runtime.loadPyodide();
 
-        // implementation — install the stdin handler for EVERY run, not
+        // Install the stdin handler for EVERY run, not
         // only when the panel has lines. With an empty buffer the reader
         // returns `null` on the first read, so a bare `input()` raises a
         // clean `EOFError` — the documented panel behavior. Falling back
@@ -118,7 +118,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         // the user clears or renames a var.
         appliedUserEnvKeys = await syncUserEnvInPyodide(py, userEnv, appliedUserEnvKeys);
 
-        // implementation — install the JS-backed rich-media
+        // Install the JS-backed rich-media
         // callbacks BEFORE the Python preamble runs so the `__lingua`
         // namespace can reference them. The bridge is captured per-run
         // (`runId`-bound) so a stale reply from a killed run cannot
@@ -150,7 +150,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
             msg.autoLog ? buildPythonAutoLogExecutionSource(code) : code
           );
           if (typeof scopeId === 'string' && scopeId.length > 0) {
-            // implementation — run user code against the notebook's persistent scope
+            // Run user code against the notebook's persistent scope
             // dict. Seed it with the framework helpers (refreshed each run),
             // then execute with `globals: ns` so assignments land in — and
             // reads resolve from — the per-notebook namespace.
@@ -206,7 +206,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
               })
             : { stdout: '', stderr: '' };
 
-        // implementation — when the Python preamble produced typed
+        // When the Python preamble produced typed
         // print entries (the common case once the override is in place),
         // post those instead of splitting the buffered stdout. The
         // buffered text path remains the fallback when print_entries is
@@ -223,7 +223,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         // Send magic comment results
         if (streams.magic) {
           for (const entry of streams.magic) {
-            // implementation note — `#=> table` directive surfaces a
+            // `#=> table` directive surfaces a
             // forced-table payload alongside the legacy `value` text.
             // Renderers that don't consume the payload still see the
             // text fallback unchanged.
@@ -266,7 +266,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         if (errorText !== null) {
           const parsed = parsePythonWorkerError(errorText);
           const tracebackText = errorText;
-          // implementation — structured stack frames for the
+          // Structured stack frames for the
           // renderer's clickable-stack surface. Best-effort parse;
           // unparseable lines stay as text-only frames so they render
           // as non-clickable spans.
@@ -283,7 +283,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           });
         }
 
-        // implementation — capture the post-execute globals BEFORE
+        // Capture the post-execute globals BEFORE
         // the stdin-consumed / done replies. Runs only when the runner
         // asked (`captureScope === true`); the runner asks when the
         // inspector toggle is on for the active tab OR when the user
@@ -304,7 +304,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           }
         }
 
-        // implementation note — emit consumption summary BEFORE
+        // Emit consumption summary BEFORE
         // `done` so the runner can stitch it onto `ExecutionResult`.
         if (stdinTotal > 0) {
           ctx.postMessage({
@@ -324,7 +324,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         const errorText =
           (err instanceof Error ? err.message : String(err)) || String(err) || 'Python execution failed';
         const parsed = parsePythonWorkerError(errorText);
-        // implementation — implementation parity. The inner-streams
+        // Implementation parity. The inner-streams
         // error path (above) already parses Pyodide's stderr traceback;
         // this outer-catch fires when Pyodide itself throws BEFORE the
         // user code's traceback reaches stderr (SyntaxError on compile,
@@ -361,7 +361,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         });
       } finally {
         runtime.setActiveRunId(null);
-        // implementation — restore Pyodide's stock stdin handler so
+        // Restore Pyodide's stock stdin handler so
         // the next run starts on a clean baseline (the worker is
         // persistent unlike js-worker.ts). Reset unconditionally: the
         // line reader above is now installed on every run.

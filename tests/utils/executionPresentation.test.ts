@@ -51,6 +51,19 @@ describe('executionPresentation helpers', () => {
     ]);
   });
 
+  it('keeps the table payload of a console.table row for the inline pill', () => {
+    const table = { kind: 'table' as const, columns: ['name'], rows: [[{ kind: 'primitive' as const, type: 'string' as const, value: 'a' }]] };
+    const rows = toLineResults({
+      stdout: [
+        { type: 'log', args: ['Table(1×1)'], payload: [table as never], line: 1 },
+        { type: 'log', args: ['plain'], payload: [{ kind: 'primitive', type: 'string', value: 'plain' } as never], line: 2 },
+      ],
+      stderr: [], executionTime: 1,
+    }, 'a\nb');
+    expect(rows[0]?.payload).toBe(table);
+    expect(rows[1]).not.toHaveProperty('payload');
+  });
+
   it('recognizes dynamic result languages', () => {
     expect(isDynamicResultLanguage('javascript')).toBe(true);
     expect(isDynamicResultLanguage('python')).toBe(true);

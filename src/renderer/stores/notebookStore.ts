@@ -1,5 +1,5 @@
 /**
- * implementation — Per-tab notebook store.
+ * Per-tab notebook store.
  *
  * Owns the cells + last-run outputs + per-cell run status keyed by
  * `tabId`. Persisted on an isolated `lingua-notebook-state`
@@ -63,7 +63,7 @@ export type { NotebookCellRunStatus } from './notebookStorePrimitives';
  * preserves old output while an explicit replay is required.
  */
 /**
- * FASE 4 — per-cell inter-cell variable flow surfaced in the cell
+ * per-cell inter-cell variable flow surfaced in the cell
  * header. `uses` is the identifiers the cell referenced that already
  * existed in the sandbox before the run (best-effort token scan);
  * `produces` is the top-level declarations the run added to the
@@ -91,12 +91,12 @@ interface NotebookTabState {
   /** Per-cell run status. Reload derives `stale` from execution evidence. */
   readonly cellRunStatus: Readonly<Record<string, NotebookCellRunStatus>>;
   /**
-   * FASE 4 — per-cell last-run latency in ms (fractional). TRANSIENT:
+   * per-cell last-run latency in ms (fractional). TRANSIENT:
    * mirrors `cellRunStatus`, so reload wipes it back to "no latency".
    */
   readonly cellDurationMs: Readonly<Record<string, number>>;
   /**
-   * FASE 4 — per-cell inter-cell variable flow. TRANSIENT, mirrors
+   * per-cell inter-cell variable flow. TRANSIENT, mirrors
    * `cellRunStatus`.
    */
   readonly cellVarFlow: Readonly<Record<string, NotebookCellVarFlow>>;
@@ -122,7 +122,7 @@ export interface NotebookState {
   /** Per-tabId notebook state. Persisted via `partialize`. */
   readonly notebooks: Readonly<Record<string, NotebookTabState>>;
   /**
-   * implementation Slice H implementation note — last-known scroll position (px from top) of
+   * last-known scroll position (px from top) of
    * each tab's cell list, keyed by `tabId`. TRANSIENT session UI state:
    * excluded from `partialize` so a reload starts at the top rather than
    * restoring a stale offset against a possibly-changed notebook. Lets the
@@ -139,7 +139,7 @@ export interface NotebookState {
     initialCodeCellLanguage?: NotebookCellLanguage
   ) => void;
   /**
-   * implementation — install a fully-formed `NotebookV1` (parsed from a
+   * Install a fully-formed `NotebookV1` (parsed from a
    * `.linguanb` import) into a tab, preserving the document's own cell
    * ids / title / createdAt and restoring the per-cell `[N]` execution
    * stamps (implementation note). Unlike the `addCell` walk the `.ipynb` import uses,
@@ -181,7 +181,7 @@ export interface NotebookState {
     cellId: string,
     newKind: NotebookCellKind
   ) => void;
-  /** implementation — change a code cell's language (JS↔TS). Clears the
+  /** Change a code cell's language (JS↔TS). Clears the
    * cell's outputs + transient run state (the prior run no longer
    * describes the new language). No-op on a markdown cell or when the
    * language is unchanged. */
@@ -204,9 +204,9 @@ export interface NotebookState {
     cellId: string,
     status: NotebookCellRunStatus
   ) => void;
-  /** FASE 4 — record the last-run latency (ms) for a cell. Transient. */
+  /** Record the last-run latency (ms) for a cell. Transient. */
   setCellDurationMs: (tabId: string, cellId: string, ms: number) => void;
-  /** FASE 4 — record the inter-cell variable flow for a cell. Transient. */
+  /** Record the inter-cell variable flow for a cell. Transient. */
   setCellVarFlow: (
     tabId: string,
     cellId: string,
@@ -230,7 +230,7 @@ export interface NotebookState {
   /** Set the active cell. */
   setActiveCell: (tabId: string, cellId: string | null) => void;
   /**
-   * implementation Slice H implementation note — record the cell list's scroll position for a
+   * Record the cell list's scroll position for a
    * tab so a later tab switch can restore it. No-op when the value is
    * unchanged. Transient (not persisted).
    */

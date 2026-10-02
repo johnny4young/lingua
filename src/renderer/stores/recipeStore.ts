@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe overlay + tab-binding store.
+ * Recipe overlay + tab-binding store.
  *
  * Owns transient recipe state — per-tab binding, last-run results
  * buffer, and per-tab in-flight flag. NOT

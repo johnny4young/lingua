@@ -47,7 +47,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       updateContent: vi.fn(),
       setTabNextRunTimeoutOverride: vi.fn(),
       setTabCompareEnabled: vi.fn(),
-      // implementation — variable inspector palette wiring depends on
+      // Variable inspector palette wiring depends on
       // the setter being present even when not exercised.
       setTabVariableInspectorEnabled: vi.fn(),
     },
@@ -68,7 +68,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
         language: string;
         capturedAt: number;
       }>,
-      // implementation — variable inspector snapshot for palette gate.
+      // Variable inspector snapshot for palette gate.
       scopeSnapshot: null as null | {
         language: string;
         capturedAt: number;
@@ -76,6 +76,7 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       },
     },
     settingsState: {
+      shortcutOverrides: {},
       setLayoutPreset: vi.fn(),
       vimMode: false,
       showStdinPanel: true,
@@ -537,7 +538,7 @@ describe('CommandPalette', () => {
     // The new hint nudges the user toward Cmd+P or clearing the
     // query — partial match keeps the assertion resilient to copy
     // tweaks.
-    expect(screen.getByText(/Try Cmd\+P to jump to a file/i)).toBeTruthy();
+    expect(screen.getByText(/Try (⌘P|Ctrl\+P) to jump to a file/i)).toBeTruthy();
     expect(screen.getByTestId('contextual-hint-palette')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: "Don't show tips" }));
     expect(settingsState.setContextualHintsEnabled).toHaveBeenCalledWith(false);
@@ -634,7 +635,7 @@ describe('CommandPalette', () => {
     });
   });
 
-  // implementation — the "Toggle rich console output" palette action was
+  // The "Toggle rich console output" palette action was
   // removed; rich rendering is baseline (charts/tables/images render
   // unconditionally when the worker emits a payload).
 

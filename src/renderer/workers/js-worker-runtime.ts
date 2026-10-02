@@ -2,7 +2,7 @@ import type { RichOutputPayload } from '../../shared/richOutput';
 import { validateChartSpec, validateHtmlPayload, validateImageSrc } from '../../shared/richOutput';
 
 /**
- * implementation — `lingua` worker bridge factory. Returns the
+ * `lingua` worker bridge factory. Returns the
  * `{ chart, image, html }` helpers user code calls inside the
  * AsyncFunction sandbox. Each helper:
  *

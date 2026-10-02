@@ -297,7 +297,9 @@ Replay is intentionally fail-closed:
 - Browser-preview Capsules are rejected because the headless CLI has no DOM.
 - JavaScript and TypeScript Capsules recorded in `worker` or `node` mode are
   replayable; `deno` and `bun` modes are rejected rather than silently
-  substituting Node.
+  substituting Node. TypeScript uses Node type stripping (Node 24), so
+  annotated source runs as recorded; Node picks CommonJS or ESM for
+  TypeScript `node` mode, and `worker` mode stays CommonJS.
 - A missing host runtime exits with code 3 instead of pretending the replay
   completed.
 - A successful replay may still report `comparison.matches: false`; output
@@ -309,6 +311,15 @@ console call in recorded stdout/stderr, so a plain `console.log(3)` compares
 with Node's `3\n` output. Replay still compares the recorded and fresh streams
 exactly; it does not normalize unrelated runtime differences. Older capsules
 that omitted the final console newline remain valid but may report output drift.
+
+Recorded argv reaches the program verbatim, including values that start with
+`-`. Captured JavaScript/TypeScript source runs through `node -e`, so
+`process.argv[1]` is the first recorded argument; Python sees `sys.argv[0]` as
+`-c`. Sources above 64 KiB (8 KiB on Windows) exceed what one command-line
+argument can carry, so they run from a private temporary file that is removed
+afterwards. Node keeps the same `process.argv`, but relative `require`/`import`
+then resolve against that temporary file, and Python's `sys.argv[0]`, Ruby's
+`$0` and Lua's `arg[0]` name it. Lua with recorded argv always uses such a file.
 
 RunCapsuleV1 stores one source buffer, stdin, and argv. It does not carry a
 project root or sibling files, so relative imports and project-only dependencies
@@ -350,6 +361,8 @@ lingua run ./my-project --env MODE=development
 Project-root detection is explicit and ordered:
 
 1. `package.json` with `scripts.start`, then `scripts.dev`, then a valid `main`.
+   On Windows the script runs through the absolute `COMSPEC` and the `npm.cmd`
+   found on an absolute `PATH` entry, with every argument escaped for cmd.exe.
 2. `go.mod` → `go run .`.
 3. `Cargo.toml` → `cargo run --quiet --`.
 4. A conventional entry such as `main.py`, `explore.py`, `index.js`, or
@@ -370,7 +383,10 @@ Execution flags:
 - `--stdin <file>` — forward the file as program stdin. Without it, piped stdin
   is forwarded; an interactive TTY sends EOF instead of hanging.
 - `--timeout <ms>` — parent-owned wall-clock limit from 100 to 300000 ms;
-  defaults to 30000 ms. Timeout and Ctrl+C terminate the subprocess tree.
+  defaults to 30000 ms. The clock starts at invocation, so waiting for piped
+  stdin to close counts against it and a pipe that never closes reports
+  `timeout`. Timeout, Ctrl+C, SIGTERM and SIGHUP terminate the subprocess
+  tree; a second signal kills it immediately instead of orphaning it.
 - `--env NAME=value` — repeatable explicit environment value. Arbitrary parent
   environment variables are not inherited; only audited toolchain/location
   keys are copied. Dynamic-loader injection keys and `NODE_OPTIONS` are blocked.
@@ -453,13 +469,12 @@ Adding new codes is allowed; renumbering existing ones is forbidden
 ## Out of scope
 
 - `lingua lesson validate` — lesson validation is not exposed through the CLI.
-- macOS standalone binary — npm remains the supported macOS CLI channel until
-  the raw executable has its own Developer ID notarization path.
-- npm registry promotion and a trusted Windows signature — the repository now
-  reports their public readiness deterministically, but the operations still
-  require namespace ownership and external signing credentials.
-- Localized CLI copy — the CLI currently ships English-only copy, consistent
-  with the repository's `electron-forge` and `electron-builder` tooling.
+- macOS standalone binary — the Homebrew `lingua-cli` formula is the primary
+  macOS CLI channel, with npm as an alternative, until the raw executable has
+  its own Developer ID notarization path.
+- A trusted Windows signature — the repository reports its public readiness
+  deterministically, but signing still requires external credentials.
+- Localized CLI copy — the CLI currently ships English-only copy.
 - Multi-file Capsule Workspace replay — the app can inspect the additive
   wrapper, but the CLI intentionally executes only stable single-source Run
   Capsules or real project directories.
@@ -478,8 +493,9 @@ lingua utility json-format --input expected.json --option indent=2 \
   > expected.formatted.json
 ```
 
-## Strict Capsule verification
+## Strict Capsule verification (unreleased/source builds)
 
+This command is not in public CLI 1.5.1; feature-detect it in help.
 Use `lingua capsule verify ./run.capsule.json --json` to check a complete,
 successful recording against a new execution of its **captured** source. The
 source hash is checked before execution. Comparison is exact for status,

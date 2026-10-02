@@ -140,7 +140,7 @@ describe('licenseStore', () => {
 });
 
 /**
- * implementation — server-aware web branch.
+ * server-aware web branch.
  *
  * The base test block above keeps `VITE_LINGUA_LICENSE_SERVER_URL`
  * unset so the store runs in local-verify-only mode (the
@@ -883,7 +883,7 @@ describe('licenseStore — server-aware web branch ', () => {
 });
 
 /**
- * implementation — desktop branch with the extended bridge contract.
+ * Desktop branch with the extended bridge contract.
  *
  * The desktop branch detects `window.lingua.license` at module-load
  * time and routes every action through it. implementation makes the bridge

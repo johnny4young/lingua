@@ -43,7 +43,7 @@ function armPlainPasteBypass(): void {
 }
 
 /**
- * implementation — request a detection-bypassing paste on the given editor: set
+ * Request a detection-bypassing paste on the given editor: set
  * the one-shot skip flag, then trigger Monaco's standard clipboard paste so the
  * resulting `onDidPaste` is left literal. Shared by the Cmd+Shift+V keybinding
  * and the command-palette action.
@@ -71,7 +71,7 @@ const IMPORT_LABEL_KEY: Record<Exclude<PasteIntentKind, 'utility'>, string> = {
   'large-json': 'paste.intent.action.importLargeJson',
 };
 
-/** internal — toast message per suggested utility. */
+/** Toast message per suggested utility. */
 const UTILITY_MESSAGE_KEY: Record<UtilitySuggestionId, string> = {
   jwt: 'paste.intent.utility.jwt.message',
   uuid: 'paste.intent.utility.uuid.message',
@@ -83,7 +83,7 @@ const UTILITY_MESSAGE_KEY: Record<UtilitySuggestionId, string> = {
 };
 
 /**
- * internal — primary action label per suggested utility. Reuses the
+ * Primary action label per suggested utility. Reuses the
  * catalog's own localized "Open <utility>" strings so the toast and the
  * command palette always name the tool identically.
  */
@@ -119,7 +119,7 @@ function actionLabelKeyFor(intent: PasteIntent): string {
 }
 
 /**
- * internal — smart paste detection. Registers a second `onDidPaste` listener
+ * Smart paste detection. Registers a second `onDidPaste` listener
  * (Monaco allows many) that reads the exact pasted text from the event range,
  * asks the pure detectors what it is, and — when the master toggle is on and
  * the paste was not a Cmd+Shift+V plain paste — surfaces a non-blocking status

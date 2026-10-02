@@ -3,6 +3,10 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputPayload } from '../../../shared/richOutput';
 import { OverlayBackdrop, Tooltip } from '../ui/chrome';
+import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+} from '../../data/keyboardShortcuts';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { writeToClipboard } from '../../utils/clipboard';
@@ -25,7 +29,7 @@ interface ConsoleEntryPopoverProps {
 }
 
 /**
- * implementation — detail surface for a single rich console entry.
+ * Detail surface for a single rich console entry.
  * Two tabs:
  *
  *   - **Preview** — a tree-style rendering that exposes the typed
@@ -48,19 +52,24 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('preview');
   const canCopyJson = useEntitlement('EXECUTION_HISTORY');
+  const rawJsonTooltip = t('console.rich.rawJsonShortcutTooltip', {
+    combo: formatShortcutCombo({ tokens: ['Mod', 'Shift', 'J'] }, currentShortcutDisplayPlatform()),
+  });
 
   // Mod+Shift+J — switch to the Raw JSON tab (implementation note). Mod = ⌘ on
   // macOS, Ctrl elsewhere; we accept either modifier so the shortcut
-  // works without sniffing `platform`.
+  // works without sniffing `platform`. Capture phase keeps the same combo
+  // from also opening the global dependencies view.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
       if (event.key.toLowerCase() !== 'j') return;
       event.preventDefault();
+      event.stopPropagation();
       setTab((current) => (current === 'rawJson' ? 'preview' : 'rawJson'));
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, []);
 
   const handleCopy = useCallback(async () => {
@@ -122,12 +131,12 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
               {t('console.rich.preview')}
             </button>
           </Tooltip>
-          <Tooltip content={t('console.rich.rawJsonShortcutTooltip')}>
+          <Tooltip content={rawJsonTooltip}>
             <button
               type="button"
               onClick={() => setTab('rawJson')}
               aria-pressed={tab === 'rawJson'}
-              aria-label={t('console.rich.rawJsonShortcutTooltip')}
+              aria-label={rawJsonTooltip}
               className={`rounded-md px-3 py-1 font-mono uppercase tracking-[0.14em] ${
                 tab === 'rawJson'
                   ? 'border border-border-strong/80 bg-bg-panel text-foreground'

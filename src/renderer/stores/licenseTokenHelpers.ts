@@ -9,7 +9,7 @@ import { runVerifyWeb } from './licenseWebVerify';
 import type { LicenseStatus } from './licenseTypes';
 
 /**
- * internal — license-token helpers, extracted verbatim from `licenseStore.ts`:
+ * license-token helpers, extracted verbatim from `licenseStore.ts`:
  * the `issuedAt` / `issuedTo` payload decoders + the stale-token auto-pickup.
  * Depends on `licenseWebVerify` (it re-verifies any server-provided replacement
  * locally) + the license server service; never on the store or action factories.
@@ -37,7 +37,7 @@ export function decodeIssuedTo(token: string): string | null {
 }
 
 /**
- * implementation — stale-token auto-pickup.
+ * stale-token auto-pickup.
  *
  * When local verify on a paste / rehydrate produces
  * `{ kind: 'invalid', reason: 'expired' }`, the signature was still

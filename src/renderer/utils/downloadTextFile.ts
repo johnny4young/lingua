@@ -1,5 +1,5 @@
 /**
- * implementation — shared text-file download helper.
+ * Shared text-file download helper.
  *
  * Extracted from `NotebookView` so the notebook toolbar AND the
  * command-palette "Export notebook as .linguanb" action (implementation note) share

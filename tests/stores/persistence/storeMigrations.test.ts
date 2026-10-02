@@ -1,5 +1,5 @@
 /**
- * implementation detail — cross-store coverage for schema versioning.
+ * cross-store coverage for schema versioning.
  *
  *  - implementation note: a forward-migration (v0 back-compat) fixture for every persisted
  *    store, driven off the registry so adding a store automatically adds a case.
@@ -23,7 +23,7 @@ import { useRecentFilesStore } from '../../../src/renderer/stores/recentFilesSto
 
 const STORE_NAMES = Object.keys(migrationRegistry) as PersistedStoreName[];
 
-describe('implementation note — v0 back-compat per persisted store', () => {
+describe('v0 back-compat per persisted store', () => {
   // The AC: rehydrating a v0 (unversioned) payload still works. Stores with an
   // identity migration map must return their persisted shape unchanged so no
   // returning user loses data on the version bump. Stores that have grown a
@@ -119,7 +119,7 @@ describe('lingua-utility-state v1->v2 — workspace state extraction', () => {
   });
 });
 
-describe('implementation note — drift guard: every persisted store is versioned + registered', () => {
+describe('drift guard: every persisted store is versioned + registered', () => {
   const storesDir = resolve(__dirname, '../../../src/renderer/stores');
 
   function stripComments(src: string): string {
@@ -185,7 +185,7 @@ describe('implementation note — drift guard: every persisted store is versione
   });
 });
 
-describe('implementation note — license store schema seam', () => {
+describe('license store schema seam', () => {
   it('preserves a pre-version license token + active status through migrate', () => {
     const migrate = createMigrate('lingua-license');
     const persisted = {

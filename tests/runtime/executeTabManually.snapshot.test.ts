@@ -1,5 +1,5 @@
 /**
- * implementation — executeTabManually snapshot gate.
+ * executeTabManually snapshot gate.
  *
  * The runtime path attaches an opt-in code snapshot to the
  * execution-history record only when both gates pass:
@@ -247,7 +247,7 @@ describe('executeTabManually — snapshot gate', () => {
     expect(entries[1]?.snapshot).toBeNull();
   });
 
-  it('implementation — records tabId on the success branch', async () => {
+  it('records tabId on the success branch', async () => {
     mockCurrentEffectiveTier.mockReturnValue('pro');
     runOk();
     await executeTabManually({
@@ -261,7 +261,7 @@ describe('executeTabManually — snapshot gate', () => {
     expect(entry?.tabId).toBe('tab-perf');
   });
 
-  it('implementation — records tabId on the error branch too', async () => {
+  it('records tabId on the error branch too', async () => {
     mockCurrentEffectiveTier.mockReturnValue('pro');
     runError();
     await executeTabManually({

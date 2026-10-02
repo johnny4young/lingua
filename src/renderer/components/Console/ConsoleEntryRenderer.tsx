@@ -26,7 +26,7 @@ interface ConsoleEntryRendererProps {
   /** Source language for the entry. Forwarded to clickable-stack telemetry. */
   language?: string;
   /**
-   * implementation — fallback source line used by
+   * Fallback source line used by
    * `<OutputLineBadge>` when no payload carries an `origin`. This is
    * the `ConsoleEntry.line` field the legacy non-interactive chip
    * used to render — the new chip claims that surface when the
@@ -35,7 +35,7 @@ interface ConsoleEntryRendererProps {
    */
   entryLine?: number;
   /**
-   * implementation Sub-slice G implementation note — whether the active tab buffer
+   * Whether the active tab buffer
    * currently carries the `// @origin off` / `# @origin off`
    * directive. Lifted to `ConsolePanel` so the regex runs once per
    * editor-store change instead of once per console row. Defaults
@@ -48,7 +48,7 @@ interface ConsoleEntryRendererProps {
 const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
 
 /**
- * implementation — dispatch wrapper that paints a row of rich
+ * Dispatch wrapper that paints a row of rich
  * payloads. Click on any payload-bearing chip opens
  * `<ConsoleEntryPopover>` with the Preview / Raw JSON tabs.
  *
@@ -66,7 +66,7 @@ export function ConsoleEntryRenderer({
   const { track } = useTelemetry();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
-  // implementation — derive a single origin per row. All payloads
+  // Derive a single origin per row. All payloads
   // in a row come from the same `console.log(...)` call so they share
   // a source line; we don't render multiple chips for multi-arg logs.
   // Prefer payload.origin (worker-stamped), fall back to entryLine
@@ -77,7 +77,7 @@ export function ConsoleEntryRenderer({
       ? { line: entryLine }
       : undefined);
 
-  // implementation note — `originSuppressed` is derived ONCE at `ConsolePanel` from
+  // `originSuppressed` is derived ONCE at `ConsolePanel` from
   // the active tab content and threaded through as a prop so the
   // regex does not run N times per editor-store change (one per
   // rendered row). When the prop is omitted (isolated component

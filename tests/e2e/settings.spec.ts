@@ -478,7 +478,7 @@ test.describe('Settings persistence', () => {
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
 
-  // implementation note — a returning user whose `lingua-settings` was
+  // A returning user whose `lingua-settings` was
   // written before schema versioning (an unversioned v0 payload) must still
   // load cleanly through the new migrate path, and the store must re-stamp the
   // envelope to the current version on the next write.

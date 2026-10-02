@@ -1,5 +1,5 @@
 /**
- * implementation — utilityPipeline schema + engine tests.
+ * utilityPipeline schema + engine tests.
  *
  * Exercises: parsers (happy + every shape rejection),
  * `tryImportPipelineJson` closed reject reasons, the `runPipeline`

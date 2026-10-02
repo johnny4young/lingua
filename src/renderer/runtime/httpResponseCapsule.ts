@@ -1,5 +1,5 @@
 /**
- * implementation — Build a `RunCapsuleV1` from an HTTP request +
+ * Build a `RunCapsuleV1` from an HTTP request +
  * response pair.
  *
  * The capsule wraps the HTTP exchange in the same wire format every
@@ -77,7 +77,7 @@ function mapResponseKindToCapsuleStatus(
  * Names round-trip; values for sensitive headers are replaced with
  * the literal `<redacted>` sentinel.
  *
- * implementation — headers are composed via `composeRequestHeaders`, so
+ * Headers are composed via `composeRequestHeaders`, so
  * the INJECTED Auth header (Authorization / API-key from the Auth sub-tab)
  * is reflected in the capsule exactly as it is on the wire — matching the
  * Copy-as-cURL builder. Defense in depth: when an environment is active

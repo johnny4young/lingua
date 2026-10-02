@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 /**
- * implementation — current utility panel output provider.
- * implementation — adds an `applyHandler` slot so the global
+ * Current utility panel output provider.
+ * Adds an `applyHandler` slot so the global
  * `Mod+Shift+A` shortcut can fire the focused panel's ⚡ Apply.
  *
  * The Developer Utilities workspace/modal mounts one panel at a time. That panel

@@ -1,5 +1,5 @@
 /**
- * implementation — HTTP environments + `{{variable}}` interpolation
+ * HTTP environments + `{{variable}}` interpolation
  * with secret-aware redaction.
  *
  * An HTTP environment is a named bag of `{{key}}` → value bindings the
@@ -70,7 +70,7 @@ export interface HttpEnvVariableV1 {
 }
 
 /**
- * implementation — case-insensitive heuristic for "this key looks like a
+ * case-insensitive heuristic for "this key looks like a
  * secret". Matches a `_TOKEN` / `_KEY` / `_SECRET` suffix, the whole-word
  * `PASSWORD` / `TOKEN` / `KEY` / `SECRET`, or a `PASSWORD` substring (so
  * `DB_PASSWORD`, `apiPassword`, `MY_API_TOKEN`, `STRIPE_SECRET_KEY`, a bare
@@ -159,7 +159,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * (forward-compat: an environment persisted before the secret flag
  * existed loads as all-non-secret).
  *
- * implementation — `id` is kept when it is a non-empty string, otherwise
+ * `id` is kept when it is a non-empty string, otherwise
  * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
  * parser is intentionally non-pure: rows persisted before implementation (and
  * rows from an imported / hand-written JSON, whose ids are deliberately
@@ -232,7 +232,7 @@ export function createBlankHttpEnvironment(options: {
 }
 
 /**
- * implementation — build a fresh variable row with a minted opaque id.
+ * Build a fresh variable row with a minted opaque id.
  * Centralises the `crypto.randomUUID()` mint so the manager's add, the
  * duplicate-env clone, and the import path all stamp a unique row id
  * without each re-stating the `id` field.
@@ -244,7 +244,7 @@ export function createEnvVariable(
 }
 
 /**
- * implementation — the shape `exportEnvironmentJson` serialises. It is a
+ * The shape `exportEnvironmentJson` serialises. It is a
  * SHARE-time projection of an environment, deliberately divergent from the
  * persisted `HttpEnvironmentV1`:
  *
@@ -366,7 +366,7 @@ function buildNonSecretLookup(
 }
 
 /**
- * implementation — interpolate every value-bearing field of an auth block
+ * Interpolate every value-bearing field of an auth block
  * (`token` / `username` / `password` / `apiKeyHeader` / `apiKeyValue`)
  * through `lookup`, preserving `kind` and any other fields. Returns the
  * SAME reference for absent / `kind: 'none'` auth (nothing to resolve), so
@@ -475,7 +475,7 @@ export function maskSecretsForCapsule(
 }
 
 /**
- * implementation — the value-bearing strings of an auth block that may
+ * The value-bearing strings of an auth block that may
  * carry `{{tokens}}`, in field order. Empty for absent / `kind: 'none'`
  * auth. Used by BOTH variable scanners so the Auth sub-tab participates in
  * the resolved / unresolved bucketing exactly like url / headers / body.

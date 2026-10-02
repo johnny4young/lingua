@@ -1,5 +1,5 @@
 /**
- * implementation — store plumbing tests. Pins the tier model, the
+ * Store plumbing tests. Pins the tier model, the
  * accept/reject contract on writes, the clear-scope semantics, the
  * `localStorage` rehydrate sanitization, and the `resolveEffectiveEnv`
  * helper's composition with the implementation merger.

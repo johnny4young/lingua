@@ -1,5 +1,5 @@
 /**
- * internal — render-count probe for the PanelChipsRow subscription
+ * render-count probe for the PanelChipsRow subscription
  * contract: the chips row reads only PRIMITIVE derivations of the active
  * tab (id / language / runtimeMode / stdin line count / per-tab toggle
  * flags), so an editor keystroke (`updateContent` mints a new `tabs`

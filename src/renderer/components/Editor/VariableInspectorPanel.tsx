@@ -1,5 +1,5 @@
 /**
- * implementation — Variable inspector body.
+ * Variable inspector body.
  *
  * Renders the current scope captured by the worker after the last
  * clean execute. Two layers:
@@ -137,7 +137,7 @@ function typeTag(value: ScopeValue, t: (key: string, opts?: Record<string, unkno
   }
 }
 
-/** implementation note — single-character glyph per kind. Pure visual cue. */
+/** single-character glyph per kind. Pure visual cue. */
 function typeIcon(value: ScopeValue): string {
   switch (value.kind) {
     case 'primitive':
@@ -315,7 +315,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
   const snapshotRing = useResultStore((state) => state.snapshotRing);
   const [filter, setFilter] = useState('');
-  // implementation note — list ↔ cards mode persists to uiStore so
+  // List ↔ cards mode persists to uiStore so
   // the choice survives unmounts (the bottom-panel mount in particular
   // remounts every time the user collapses the drawer).
   const viewMode = useUIStore((state) => state.variablesBottomViewMode);
@@ -327,7 +327,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
   const matchedSnapshot: ScopeSnapshot | null =
     scopeSnapshot && scopeSnapshot.language === language ? scopeSnapshot : null;
 
-  // implementation note — diff against the prior stable snapshot in the
+  // Diff against the prior stable snapshot in the
   // language-matched ring . We only diff against snapshots
   // that pre-date the current capture so the badges represent
   // change since the last stable run rather than self-diff.
@@ -393,7 +393,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
           <Eye size={12} className="text-accent-fg" aria-hidden />
           <EyebrowMono>{t('variableInspector.panel.title')}</EyebrowMono>
           <MonoBadge tone="accent">{matchedSnapshot.variables.length}</MonoBadge>
-          {/* implementation — segmented control between the dense
+          {/* Segmented control between the dense
               list view (default) and the richer cards view. */}
           <div
             role="group"
@@ -621,7 +621,7 @@ function CardsByDiff({
 }
 
 /**
- * implementation — single-variable card for the bottom-drawer cards
+ * single-variable card for the bottom-drawer cards
  * view. Each card surfaces:
  *
  *   - name (mono, accent color when the variable was added/changed)

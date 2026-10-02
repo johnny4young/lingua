@@ -42,7 +42,7 @@ export interface TabDetectionState {
    */
   readonly skippedReason?: 'buffer-too-large';
   /**
-   * implementation — whether the resolved cwd carries a
+   * Whether the resolved cwd carries a
    * `package.json`. Used by the Install button to switch between
    * the enabled state and the `noPackageJsonTooltip`. `null` when
    * no cwd was discoverable (web stub, unsaved tab).
@@ -93,7 +93,7 @@ interface DependencyDetectionStateShape {
   setDetection: (tabId: string, next: TabDetectionState) => void;
   evictTab: (tabId: string) => void;
   clear: () => void;
-  // implementation — install lifecycle actions.
+  // Install lifecycle actions.
   startInstall: (
     tabId: string,
     runId: string,

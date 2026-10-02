@@ -1,5 +1,5 @@
 /**
- * implementation note — `update.checked` telemetry callsite.
+ * `update.checked` telemetry callsite.
  *
  * The store subscribes at module-load and emits `update.checked`
  * once per transition out of the `checking` state. Closed-enum

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import {
   Archive,
   Braces,
@@ -68,6 +69,12 @@ export function FloatingActionPillCommandActions({
   setOpenMenu,
 }: CommandActionsProps) {
   const { t } = useTranslation();
+  const quickOpenCombo = useShortcutLabel('nav-quick-open');
+  const paletteCombo = useShortcutLabel('overlay-command-palette');
+  const utilitiesCombo = useShortcutLabel('overlay-developer-utilities');
+  const recipesCombo = useShortcutLabel('action-open-recipes');
+  const capsulesCombo = useShortcutLabel('overlay-capsule-list');
+  const settingsCombo = useShortcutLabel('overlay-settings');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const commands: PillCommand[] = [];
@@ -75,7 +82,7 @@ export function FloatingActionPillCommandActions({
     commands.push({
       id: 'quick-open',
       label: t('chrome.quickOpen.aria'),
-      tooltip: t('chrome.quickOpen.tooltip'),
+      tooltip: t('chrome.quickOpen.tooltip', { combo: quickOpenCombo }),
       icon: <FileSearch size={16} aria-hidden />,
       activate: onOpenQuickOpen,
     });
@@ -84,7 +91,7 @@ export function FloatingActionPillCommandActions({
     commands.push({
       id: 'search',
       label: t('chrome.search.aria'),
-      tooltip: t('chrome.search.tooltip'),
+      tooltip: t('chrome.search.tooltip', { combo: paletteCombo }),
       icon: <Command size={16} aria-hidden />,
       activate: onOpenPalette,
     });
@@ -102,7 +109,7 @@ export function FloatingActionPillCommandActions({
     commands.push({
       id: 'utilities',
       label: t('chrome.utilities.aria'),
-      tooltip: t('chrome.utilities.tooltip'),
+      tooltip: t('chrome.utilities.tooltip', { combo: utilitiesCombo }),
       icon: <Wrench size={16} aria-hidden />,
       activate: onOpenUtilities,
       pressed: utilitiesOpen,
@@ -112,7 +119,7 @@ export function FloatingActionPillCommandActions({
     commands.push({
       id: 'recipes',
       label: t('chrome.recipes.aria'),
-      tooltip: t('chrome.recipes.tooltip'),
+      tooltip: t('chrome.recipes.tooltip', { combo: recipesCombo }),
       icon: <GraduationCap size={16} aria-hidden />,
       activate: onOpenRecipes,
     });
@@ -121,7 +128,7 @@ export function FloatingActionPillCommandActions({
     commands.push({
       id: 'browse-capsules',
       label: t('chrome.browseCapsules.aria'),
-      tooltip: t('chrome.browseCapsules.tooltip'),
+      tooltip: t('chrome.browseCapsules.tooltip', { combo: capsulesCombo }),
       icon: <Archive size={16} aria-hidden />,
       activate: () => emitCommand('capsule.openList', { surface: 'action-pill' }),
     });
@@ -129,8 +136,8 @@ export function FloatingActionPillCommandActions({
   if (onOpenSettings) {
     commands.push({
       id: 'settings',
-      label: t('actionPill.settingsTooltip'),
-      tooltip: t('actionPill.settingsTooltip'),
+      label: t('actionPill.settingsTooltip', { combo: settingsCombo }),
+      tooltip: t('actionPill.settingsTooltip', { combo: settingsCombo }),
       icon: <SettingsIcon size={16} aria-hidden />,
       activate: onOpenSettings,
     });

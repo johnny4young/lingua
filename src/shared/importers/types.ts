@@ -1,5 +1,5 @@
 /**
- * implementation — Importer adapter contract.
+ * Importer adapter contract.
  *
  * Importers turn an external payload (cURL command, `.ipynb` JSON,
  * Postman collection, etc.) into a Lingua domain object the user can
@@ -99,7 +99,7 @@ const IMPORTER_LOSSY_WARNINGS = [
   'curl-cookie-write',
   'curl-output-file',
   'curl-other-flag',
-  // implementation — `.ipynb` adapter lossy codes. The `.ipynb`
+  // `.ipynb` adapter lossy codes. The `.ipynb`
   // → `NotebookV1` mapping is intentionally lossy in implementation:
   //   - `cell_type: 'raw'` cells are dropped (Lingua has no raw kind);
   //   - rich outputs (`image/png`, `text/html`, `application/json`,
@@ -116,7 +116,7 @@ const IMPORTER_LOSSY_WARNINGS = [
   'ipynb-rich-output-dropped',
   'ipynb-unknown-language',
   'ipynb-execute-result-stripped',
-  // implementation — Postman / Bruno collection lossy codes. A
+  // Postman / Bruno collection lossy codes. A
   // collection import is intentionally lossy: Postman's auth helpers,
   // pre-request / test scripts, environment variables, and non-text
   // body modes have no Lingua HTTP-workspace equivalent, so they are
@@ -156,7 +156,7 @@ const IMPORTER_LOSSY_WARNINGS = [
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
 
 /**
- * implementation — `.ipynb` adapter's internal reject taxonomy.
+ * `.ipynb` adapter's internal reject taxonomy.
  *
  * Surfaced via `ImporterPreviewOutcome.detail` (NOT a new closed
  * enum on the outer outcome) so the generic `IMPORTER_REJECT_REASONS`
@@ -180,7 +180,7 @@ const IPYNB_REJECT_REASONS = [
 export type IpynbRejectReason = (typeof IPYNB_REJECT_REASONS)[number];
 
 /**
- * implementation note — closed enum of `.ipynb` warning kinds
+ * Closed enum of `.ipynb` warning kinds
  * surfaced via the `import.notebook_warnings_surfaced` telemetry
  * event. The renderer derives `dominantKind` from the warnings
  * array on a successful import; if no warnings, the event does NOT
@@ -198,7 +198,7 @@ export const NOTEBOOK_WARNING_KINDS = [
 export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
 
 /**
- * implementation — Postman Collection adapter's internal reject
+ * Postman Collection adapter's internal reject
  * taxonomy. Surfaced via `ImporterPreviewOutcome.detail` (same
  * pattern as `IPYNB_REJECT_REASONS`) so the generic
  * `IMPORTER_REJECT_REASONS` shape stays uniform across importers.
@@ -219,7 +219,7 @@ const POSTMAN_REJECT_REASONS = [
 export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
 
 /**
- * implementation — Bruno request / directory adapter's internal reject taxonomy.
+ * Bruno request / directory adapter's internal reject taxonomy.
  * Surfaced via `ImporterPreviewOutcome.detail`. Outward mapping:
  *   - `'malformed'` / `'invalid-shape'` → `'malformed'`.
  *   - `'empty-input'` → `'empty-input'`.

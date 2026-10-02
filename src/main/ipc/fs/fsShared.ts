@@ -4,7 +4,7 @@ import {
 } from '../projectCapabilities';
 
 /**
- * internal — pure helpers shared by the filesystem IPC handler groups
+ * Pure helpers shared by the filesystem IPC handler groups
  * (`fsSearchReplace`, `fsBundle`, and the core `fileSystem` assembly).
  * Extracted VERBATIM from `fileSystem.ts` so the god-file could be split
  * along handler-group lines without changing any behavior. Nothing here
@@ -31,7 +31,7 @@ const HIDDEN_ENTRIES = new Set([
 ]);
 
 /**
- * implementation — OS metadata files the bundle-import empty-dir guard
+ * OS metadata files the bundle-import empty-dir guard
  * treats as non-blocking, mirroring `useProjectTemplateScaffolder`'s
  * `EMPTY_DIR_IGNORE`. Refusing to import into a folder that holds only
  * `.DS_Store` / `Thumbs.db` / a custom-icon marker would be a hostile

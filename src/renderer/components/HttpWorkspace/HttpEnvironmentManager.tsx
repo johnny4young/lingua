@@ -55,7 +55,7 @@ export interface HttpEnvironmentManagerProps {
   onCreate: (env: HttpEnvironmentV1) => void;
   onUpdate: (id: string, patch: Partial<HttpEnvironmentV1>) => void;
   /**
-   * implementation — functional variable update (collapse-safe). The
+   * Functional variable update (collapse-safe). The
    * manager passes an `updater` the store applies to the CURRENT variable
    * list. Routes every add / edit / delete / reorder so concurrent updates
    * compose.
@@ -65,15 +65,15 @@ export interface HttpEnvironmentManagerProps {
     updater: (variables: ReadonlyArray<HttpEnvVariableV1>) => HttpEnvVariableV1[]
   ) => void;
   onDelete: (id: string) => void;
-  /** implementation — clone an environment (no auto-activate). */
+  /** Clone an environment (no auto-activate). */
   onDuplicate: (id: string) => void;
   /**
-   * implementation — serialise the env to share-safe JSON (secrets
+   * Serialise the env to share-safe JSON (secrets
    * blanked, ids stripped). Null on failure.
    */
   onExport: (id: string) => string | null;
   /**
-   * implementation — import an exported environment JSON (mints a fresh
+   * Import an exported environment JSON (mints a fresh
    * id, appends). `{ ok: false }` on malformed input.
    */
   onImport: (json: string) => { ok: true; id: string } | { ok: false };

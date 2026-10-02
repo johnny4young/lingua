@@ -1,5 +1,5 @@
 /**
- * implementation — runnable project zip bundles.
+ * Runnable project zip bundles.
  *
  * Pure, isomorphic core for export/import of a multi-file project as a
  * single `.zip`. Runs in BOTH the renderer (web export + import preview)
@@ -353,12 +353,15 @@ export function unpackBundle(
       rejectEntry(file, file.name, 'path-traversal');
       return;
     }
-    if (seenPaths.has(safe)) {
+    // macOS and Windows volumes are case-insensitive, so `README.md` and
+    // `readme.md` would overwrite each other on extraction.
+    const collisionKey = safe.normalize('NFC').toLowerCase();
+    if (seenPaths.has(collisionKey)) {
       fatalReason = 'malformed-zip';
       file.terminate();
       return;
     }
-    seenPaths.add(safe);
+    seenPaths.add(collisionKey);
 
     if (
       typeof file.originalSize === 'number' &&

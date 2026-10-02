@@ -1,5 +1,5 @@
 /**
- * implementation — "Replace in files" overlay (companion to
+ * "Replace in files" overlay (companion to
  * Cmd+Shift+F find-in-files).
  *
  * Layout mirrors `ProjectSearch` chrome (`OverlayBackdrop` +
@@ -56,7 +56,7 @@ import { useUIStore } from '../../stores/uiStore';
 const PREVIEW_DEBOUNCE_MS = 220;
 
 /**
- * implementation note — defaults documented by the main IPC's
+ * Defaults documented by the main IPC's
  * `shouldHide` predicate. Surfacing them in the overlay header as
  * muted chips prevents the "why isn't my replace finding it?"
  * confusion when the match lives inside an excluded directory.
@@ -73,7 +73,7 @@ interface ProjectReplaceProps {
 }
 
 function MatchDiff({ match }: { readonly match: ProjectReplaceMatch }) {
-  // implementation note — diff hover popover. The hover surface
+  // Diff hover popover. The hover surface
   // renders a fuller context window (5 lines of left+right context
   // would require the IPC to return surrounding lines, deferred to
   // a follow-up; for MVP we render the full single-line preview /
@@ -263,7 +263,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
   const handleApplyToFile = useCallback(
     async (relativePath: string) => {
       if (!currentProject) return;
-      // implementation note — if the file is currently open in a
+      // If the file is currently open in a
       // tab, switch the active tab to that file BEFORE applying so
       // the user can see the change on the surface they already had.
       // After the IPC apply succeeds, re-read the file from disk and

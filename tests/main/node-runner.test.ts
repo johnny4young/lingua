@@ -215,6 +215,37 @@ describe('main node runner', () => {
     expect(child.stdin.end).toHaveBeenCalled();
   });
 
+  it('spawns node.exe from an absolute PATH entry on Windows, never the project cwd', async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    const toolDir = path.join(tempRoot, 'node-bin');
+    await mkdir(toolDir, { recursive: true });
+    await writeFile(path.join(toolDir, 'node.exe'), '');
+    vi.stubEnv('PATH', toolDir);
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    try {
+      const child = createChildProcess();
+      mocks.spawn.mockReturnValue(child);
+      const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+      registerNodeJSHandlers();
+      const run = handlerFor<NodeRunHandler>('node:run');
+      const promise = run({}, 'console.log(1)', { timeoutMs: 5_000 });
+      await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+      expect(mocks.spawn.mock.calls[0]![0]).toBe(path.join(toolDir, 'node.exe'));
+      child.emit('close', 0);
+      await expect(promise).resolves.toMatchObject({ kind: 'success' });
+
+      vi.stubEnv('PATH', tempRoot);
+      mocks.spawn.mockClear();
+      await expect(run({}, 'console.log(1)', { timeoutMs: 5_000 })).resolves.toMatchObject({
+        kind: 'missing-binary',
+      });
+      expect(mocks.spawn).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(process, 'platform', platform);
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('implementation: keeps stdin open in interactive mode and streams writes by runId', async () => {
     const child = createChildProcess();
     mocks.spawn.mockReturnValue(child);
@@ -655,5 +686,33 @@ describe('main node runner', () => {
       kind: 'stopped',
       exitCode: -1,
     });
+  });
+
+  it('ignores Stop and stdin from a window that does not own the run', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const owner = { id: 1, isDestroyed: () => false, once: vi.fn(), removeListener: vi.fn(), send: vi.fn() };
+    const other = { id: 2 };
+    const promise = handlerFor<NodeRunHandler>('node:run')({ sender: owner }, 'setInterval(() => {}, 1000)', {
+      runId: 'run-owned',
+      interactive: true,
+      timeoutMs: 30_000,
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+
+    const stop = handlerFor<NodeStopHandler>('node:stop');
+    const write = mocks.handlers.get('node:stdin-write') as (event: unknown, runId: string, data: string) => Promise<unknown>;
+    const close = mocks.handlers.get('node:stdin-close') as (event: unknown, runId: string) => Promise<unknown>;
+    await expect(stop({ sender: other }, 'run-owned')).resolves.toEqual({ stopped: false });
+    await expect(write({ sender: other }, 'run-owned', 'x')).resolves.toEqual({ written: false });
+    await expect(close({ sender: other }, 'run-owned')).resolves.toEqual({ closed: false });
+    expect(child.kill).not.toHaveBeenCalled();
+
+    await expect(write({ sender: owner }, 'run-owned', 'x')).resolves.toEqual({ written: true });
+    await expect(stop({ sender: owner }, 'run-owned')).resolves.toEqual({ stopped: true });
+    child.emit('close', null);
+    await expect(promise).resolves.toMatchObject({ kind: 'stopped' });
   });
 });

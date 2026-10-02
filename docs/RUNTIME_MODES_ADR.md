@@ -194,12 +194,12 @@ path stayed intact.
 | `src/renderer/components/Toolbar/RuntimeModeSelector.tsx` | JS/TS-only dropdown                              |
 | `src/renderer/components/Toolbar/Toolbar.tsx`         | Mount the selector behind a JS/TS guard              |
 | `src/renderer/components/Settings/EditorSection.tsx`  | Default mode select                                  |
-| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Runtime-mode palette entries (implementation note) |
+| `src/renderer/components/CommandPalette/commandPaletteModel.ts` | Runtime-mode palette entries |
 | `src/renderer/runners/manager.ts`                     | Runtime-mode override map layered on top of the language-keyed registry |
 | `src/renderer/data/keyboardShortcuts.ts`              | `Mod+Alt+M` shortcut entry                           |
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
-| `src/shared/telemetry/catalog.ts`, `src/shared/telemetry/valueCatalog.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event and closed values (implementation note) |
+| `src/shared/telemetry/catalog.ts`, `src/shared/telemetry/valueCatalog.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event and closed values |
 
 ## Deno and Bun extension ship notes — 2026-07-06
 
@@ -251,7 +251,7 @@ path stayed intact.
 - **No shell interpolation.** User source is never concatenated into a
   shell command; it is either an argv element or a temp-file payload.
 - **Filtered environment.** Main builds the subprocess env from
-  `combinedAllowlist(NODE_TOOLCHAIN_KEYS)` plus the explicit internal
+  `combinedAllowlist(NODE_TOOLCHAIN_KEYS)` plus the explicit
   user-env tiers. Host secrets such as API keys do not cross the IPC
   boundary by default.
 - **Project-aware cwd.** Saved tabs use the nearest ancestor that owns
@@ -337,7 +337,7 @@ Bridge message types:
   No `connect-src` → `fetch`/`XHR`/`WebSocket` blocked. No
   `frame-src` → nested iframes blocked. The `unsafe-inline` on
   script + style is intentional: user code IS the inline script,
-  and implementation note (multi-file seed) injects a sibling `.css` tab as
+  and the multi-file seed injects a sibling `.css` tab as
   `<style>` inside the doc.
 
 ### Shell and user-document separation
@@ -430,6 +430,8 @@ release security review consults.
 | `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
 | `node`  | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node permission flags remain follow-up hardening. |
 | `browser-preview`  | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the isolated document CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
+| `deno` | Desktop child process | Denied (`deno run` gets no `--allow-net`) | None | Read-only access to its own private temp dir via `--allow-read=<tempdir>`; everything else denied | Spawned via the shared native-run supervisor with `DENO_TOOLCHAIN_KEYS` plus user env; Stop and timeout both SIGTERM then SIGKILL | Lives in `src/main/altJsRuntimes.ts`. |
+| `bun` | Desktop child process | Inherits the desktop network stack | None | Full host filesystem with the user's OS permissions (Bun has no permission model) | Same supervisor as `deno` with `BUN_TOOLCHAIN_KEYS` plus user env | The filtered env allowlist is the only boundary. |
 
 The matrix is the reference for any future mode (for example, a
 hypothetical WebContainer mode). Every new mode adds
@@ -437,11 +439,10 @@ a row before it lands a backend.
 
 ## Cross-references
 
-- `CAPABILITY_MATRIX.md` — three new rows tracking per-mode
-  availability per execution class.
+- `CAPABILITY_MATRIX.md` — five rows (Worker, Node, Browser preview,
+  Deno, Bun) tracking per-mode availability per execution class.
 - `DEBUGGER_ADR.md` § Coupled invariants — the debugger surface
-  consumes `tab.runtimeMode` when a Node debugger
-  backend.
+  will consume `tab.runtimeMode` if a Node debugger backend lands.
 - `src/main/node-runner.ts` — child-process timeouts and resource limits.
 
 ## Reviewers

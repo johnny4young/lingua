@@ -1,5 +1,5 @@
 /**
- * implementation — Build a `RunCapsuleV1` from a utility-pipeline run.
+ * Build a `RunCapsuleV1` from a utility-pipeline run.
  *
  * Mirrors `httpResponseCapsule.ts`: a pipeline run is wrapped in the
  * same wire format every other Lingua run uses (script execution, HTTP

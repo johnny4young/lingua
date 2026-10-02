@@ -12,7 +12,7 @@ import {
   RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET,
 } from '../../src/shared/runtimeTimeoutPresets';
 
-describe('implementation — runtimeTimeoutPresets', () => {
+describe('runtimeTimeoutPresets', () => {
   it('exposes the closed preset enum', () => {
     expect(RUNTIME_TIMEOUT_PRESETS).toEqual([
       'quick',

@@ -59,6 +59,7 @@ import {
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
 import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
+import { resolveHostExecutable } from './runners/hostExecutable';
 import {
   RUBY_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -132,6 +133,12 @@ let cachedDetect: RubyDetectResult | null = null;
 const activeRubyRuns = new Map<string, () => void>();
 /** Open stdin streams for in-flight interactive Ruby runs. */
 const activeRubyStdins = new Map<string, NodeJS.WritableStream>();
+// Stop and stdin follow the run's owner: another window must not drive it.
+const rubyRunOwners = new Map<string, number | undefined>();
+
+function ownsRubyRun(runId: string, ownerId: number | undefined): boolean {
+  return rubyRunOwners.has(runId) && rubyRunOwners.get(runId) === ownerId;
+}
 
 /**
  * Parse a `ruby --version` line into structured fields.
@@ -325,6 +332,17 @@ async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortS
     rubyVersionPin ? { RBENV_VERSION: rubyVersionPin, ASDF_RUBY_VERSION: rubyVersionPin } : {}
   );
   const markers = truncationMarkers(options.messages);
+  // Windows searches the spawn cwd (the user's project) before PATH for a bare name.
+  const rubyCommand =
+    process.platform === 'win32' ? await resolveHostExecutable(['ruby.exe'], env, 'win32') : 'ruby';
+  if (signal.aborted) return stoppedRubyRunResult(options);
+  if (rubyCommand === null) {
+    return {
+      ...invalidRubyRunResult('Ruby is not installed. Install it from https://www.ruby-lang.org/en/downloads/'),
+      kind: 'missing-binary',
+      timeoutMs,
+    };
+  }
 
   // Always write source to a tempfile + pass by path. `-e` would mangle
   // multi-line heredocs and quoting edge cases; the tempfile path is
@@ -363,7 +381,7 @@ async function spawnRuby(source: string, options: RubyRunOptions, signal: AbortS
 
   try {
     const run = await spawnNativeRun({
-      command: 'ruby',
+      command: rubyCommand,
       args,
       cwd,
       env,
@@ -483,7 +501,10 @@ async function runRubyCode(
   // Own detection, version selection and staging, not just the spawned child.
   const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
-  if (options.runId) activeRubyRuns.set(options.runId, stop);
+  if (options.runId) {
+    activeRubyRuns.set(options.runId, stop);
+    rubyRunOwners.set(options.runId, owner?.id);
+  }
   try {
     if (controller.signal.aborted) return stoppedRubyRunResult(options);
     const detect = await detectRuby(options.userEnv, false, controller.signal);
@@ -505,28 +526,29 @@ async function runRubyCode(
     if (options.runId && activeRubyRuns.get(options.runId) === stop) {
       activeRubyRuns.delete(options.runId);
       activeRubyStdins.delete(options.runId);
+      rubyRunOwners.delete(options.runId);
     }
   }
 }
 
-function stopRubyRun(runId: unknown): { stopped: boolean } {
+function stopRubyRun(runId: unknown, ownerId?: number): { stopped: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { stopped: false };
   const stop = activeRubyRuns.get(normalizedRunId);
-  if (!stop) return { stopped: false };
+  if (!stop || !ownsRubyRun(normalizedRunId, ownerId)) return { stopped: false };
   stop();
   return { stopped: true };
 }
 
 /** Write a chunk to an interactive Ruby run's stdin. */
-function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
+function writeRubyStdin(runId: unknown, data: unknown, ownerId?: number): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
   // Bound a single write so a renderer bug cannot balloon the child's stdin
   // buffer in main-process memory if the child never reads it.
   if (data.length > MAX_STDIN_WRITE_BYTES) return { written: false };
   const stream = activeRubyStdins.get(normalizedRunId);
-  if (!stream) return { written: false };
+  if (!stream || !ownsRubyRun(normalizedRunId, ownerId)) return { written: false };
   try {
     stream.write(data);
     return { written: true };
@@ -536,11 +558,11 @@ function writeRubyStdin(runId: unknown, data: unknown): { written: boolean } {
 }
 
 /** Close an interactive Ruby run's stdin (EOF). */
-function closeRubyStdin(runId: unknown): { closed: boolean } {
+function closeRubyStdin(runId: unknown, ownerId?: number): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
   const stream = activeRubyStdins.get(normalizedRunId);
-  if (!stream) return { closed: false };
+  if (!stream || !ownsRubyRun(normalizedRunId, ownerId)) return { closed: false };
   try {
     stream.end();
   } catch {
@@ -580,14 +602,14 @@ export function registerRubyHandlers(): void {
       return runRubyCode(source, normalized, event.sender);
     }
   );
-  typedHandle('ruby:stop', async (_event, runId?: unknown) =>
-    stopRubyRun(runId)
+  typedHandle('ruby:stop', async (event, runId?: unknown) =>
+    stopRubyRun(runId, event.sender?.id)
   );
-  typedHandle('ruby:stdin-write', async (_event, runId: string, data: string) =>
-    writeRubyStdin(runId, data)
+  typedHandle('ruby:stdin-write', async (event, runId: string, data: string) =>
+    writeRubyStdin(runId, data, event.sender?.id)
   );
-  typedHandle('ruby:stdin-close', async (_event, runId: string) =>
-    closeRubyStdin(runId)
+  typedHandle('ruby:stdin-close', async (event, runId: string) =>
+    closeRubyStdin(runId, event.sender?.id)
   );
 }
 
@@ -598,4 +620,5 @@ export function registerRubyHandlers(): void {
 export function __resetRubyDetectCache(): void {
   cachedDetect = null;
   activeRubyRuns.clear();
+  rubyRunOwners.clear();
 }

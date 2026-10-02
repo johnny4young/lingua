@@ -1,5 +1,5 @@
 /**
- * implementation — Language Support Scorecard typed matrix.
+ * Language Support Scorecard typed matrix.
  *
  * "Language support" in Lingua is not a single bit. internal surfaced
  * nine distinct axes that vary per language across platforms (web vs
@@ -289,23 +289,24 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       syntax: 'available',
       autocomplete: 'available',
       lsp: 'unsupported',
-      webRuntime: 'available',
-      desktopRuntime: 'web-only',
+      webRuntime: 'unsupported',
+      desktopRuntime: 'partial',
       packages: 'unsupported',
       stdin: 'unsupported',
       richOutput: 'unsupported',
       debugger: 'unsupported',
     },
     notes: {
-      webRuntime: 'Fengari runs Lua in the browser worker.',
+      webRuntime:
+        'The web build has no plugin discovery, so Lua execution does not ship there.',
       desktopRuntime:
-        'Same Fengari worker on desktop; no native lua subprocess integration.',
+        'Desktop runs the bundled Fengari JS interpreter on the renderer thread once a local lua plugin manifest is discovered; no native lua subprocess.',
     },
   },
 ] as const;
 
 // ---------------------------------------------------------------------------
-// implementation — per-platform resolution (Web | Desktop toggle)
+// per-platform resolution (Web | Desktop toggle)
 // ---------------------------------------------------------------------------
 
 /**
@@ -334,7 +335,7 @@ export const RUNTIME_CAPABILITIES: ReadonlySet<LanguageCapability> = new Set<Lan
 );
 
 /**
- * implementation — resolve a capability's effective status for ONE
+ * Resolve a capability's effective status for ONE
  * platform. Precedence:
  *
  *   1. An explicit `perPlatform[capability][platform]` override wins
@@ -372,7 +373,7 @@ export function resolveCapabilityStatus(
 // ---------------------------------------------------------------------------
 
 /**
- * implementation — single source of truth for the scorecard
+ * Single source of truth for the scorecard
  * markdown representation. `tests/docs/capabilityMatrixDrift.test.ts`
  * regenerates the fenced section of `docs/CAPABILITY_MATRIX.md` from
  * this function and asserts byte equality; the palette command "Copy
@@ -394,7 +395,7 @@ export function renderLanguageScorecardMarkdown(
   const rows = profiles.map((profile) => [
     profile.displayName,
     ...LANGUAGE_CAPABILITIES.map((cap) => {
-      // implementation — `all` keeps the declared cross-platform status;
+      // `all` keeps the declared cross-platform status;
       // `web` / `desktop` collapse to the resolved per-platform status.
       const status =
         platform === 'all'

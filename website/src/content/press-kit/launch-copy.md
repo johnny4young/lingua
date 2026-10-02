@@ -44,7 +44,7 @@ Source-available (commercial license) on GitHub. Free tier is 3 tabs +
 and snippets, Go and Rust runners, notebooks, local-first AI, and saved
 execution history. Education
 access is free for verified students and teachers. 14-day Pro trial
-available without a credit card — Settings → License inside the app.
+available without a credit card — Settings → Account → License inside the app.
 
 Honest limitations today:
 

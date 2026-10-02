@@ -65,7 +65,7 @@ describe('richConsoleFormat — implementation helpers', () => {
         'text',
       ],
       [{ kind: 'function', name: 'foo' }, 'text'],
-      // implementation note — error kind now bucketed distinctly
+      // Error kind now bucketed distinctly
       // so Python exception payloads survive the telemetry redactor
       // (and dashboards can count error payloads separately).
       [{ kind: 'error', message: 'nope' }, 'error'],
@@ -117,14 +117,14 @@ describe('richConsoleFormat — implementation helpers', () => {
     expect(payloadHasRichSurface({ kind: 'date', iso: 'x' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'promise', state: 'pending' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'rawText', text: 'x' })).toBe(true);
-    // implementation — image / html have dedicated renderers.
+    // Image / html have dedicated renderers.
     expect(
       payloadHasRichSurface({ kind: 'image', src: 'data:image/png;base64,a', mime: 'png' })
     ).toBe(true);
     expect(payloadHasRichSurface({ kind: 'html', html: '<p/>' })).toBe(true);
-    // implementation — chart now opens the popover (vega-embed UI).
+    // Chart now opens the popover (vega-embed UI).
     expect(payloadHasRichSurface({ kind: 'chart', spec: {} })).toBe(true);
-    // implementation — error WITH stack opens the popover.
+    // Error WITH stack opens the popover.
     expect(
       payloadHasRichSurface({
         kind: 'error',

@@ -222,7 +222,7 @@ describe('DeveloperUtilitiesModal', () => {
       expect(document.activeElement).toBe(search);
     });
 
-    // internal — the no-query browse view is grouped by category, so the
+    // The no-query browse view is grouped by category, so the
     // second item is the next tool in the "Data" section (json →
     // number-base → yaml-json), not the old flat-catalog neighbour.
     await user.keyboard('{ArrowDown}');

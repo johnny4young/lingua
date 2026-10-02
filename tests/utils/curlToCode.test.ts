@@ -1,5 +1,5 @@
 /**
- * internal — Unit tests for the cURL → Code helper. The 10-invocation
+ * Unit tests for the cURL → Code helper. The 10-invocation
  * fixture required by the internal acceptance criteria lives below
  * (bare GET, GET with query, POST JSON, POST form, PUT, DELETE, basic
  * auth, custom header stack, line continuation, cookie). Each fixture

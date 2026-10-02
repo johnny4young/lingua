@@ -252,7 +252,7 @@ export function inspect(input: string): InspectionReport {
 }
 
 // ---------------------------------------------------------------------------
-// implementation — `string-inspect` pipeline adapter (transform).
+// `string-inspect` pipeline adapter (transform).
 // ---------------------------------------------------------------------------
 
 let segmenter: Intl.Segmenter | null = null;

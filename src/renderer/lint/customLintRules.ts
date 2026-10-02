@@ -1,5 +1,5 @@
 /**
- * implementation — custom JS/TS lint rules that Monaco's built-in TypeScript
+ * Custom JS/TS lint rules that Monaco's built-in TypeScript
  * worker does NOT provide (they are style/refactor concerns, not type errors).
  *
  * Monaco already ships live semantic + syntactic diagnostics and TS-native
@@ -259,7 +259,7 @@ function stripTrailingLineComment(lineText: string): string {
 }
 
 /**
- * implementation — count the custom `'lingua-lint'` issues in a buffer without
+ * Count the custom `'lingua-lint'` issues in a buffer without
  * needing a Monaco instance. Consumed today by the command palette to show the
  * active file's issue count on the "Toggle inline lint" command; a later
  * status-bar surface reads Monaco's own markers for the full

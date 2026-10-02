@@ -1,5 +1,5 @@
 /**
- * implementation detail — paste an image into the console renders it as a
+ * Paste an image into the console renders it as a
  * rich `image` entry. Exercises the real ConsolePanel document-level
  * paste listener with a synthetic `ClipboardEvent` carrying an image
  * `File` (chromium supports `DataTransfer.items.add`).

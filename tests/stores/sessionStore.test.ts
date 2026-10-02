@@ -228,6 +228,20 @@ describe('sessionStore', () => {
     useNotebookStore.getState().disposeNotebookForTab('legacy-tab');
   });
 
+  it('restores the saved workflow mode and coerces an unknown one', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        { name: 'a.py', language: 'python', content: 'x = 1', workflowMode: 'run' },
+        { name: 'b.py', language: 'python', content: 'y = 2', workflowMode: 'bogus' as never },
+      ],
+      savedActiveIndex: 0,
+    });
+    await useSessionStore.getState().restoreSession();
+    const [first, second] = useEditorStore.getState().tabs;
+    expect(first?.workflowMode).toBe('run');
+    expect(second?.workflowMode).toBe('scratchpad');
+  });
+
   it('persists notebook baseline and hash changes even for disk-backed tabs', () => {
     const tab = {
       id: 'document-tab',
@@ -868,6 +882,7 @@ describe('sessionStore', () => {
       ['content (untitled tab)', { content: 'const x = 2;' }],
       ['filePath', { filePath: '/p/a.ts' }],
       ['runtimeMode', { runtimeMode: 'node' }],
+      ['workflowMode', { workflowMode: 'debug' }],
       ['stdinBuffer', { stdinBuffer: 'line1\n' }],
       ['inputSets', { inputSets: [{ id: 'set-1', name: 'Happy', stdin: 'line1' }] }],
       ['activeInputSetId', { activeInputSetId: 'set-1' }],
@@ -888,7 +903,7 @@ describe('sessionStore', () => {
       expect(sessionSnapshotEqual(snapshot([tabA, tabB]), snapshot([tabB, tabA]))).toBe(false);
     });
 
-    // implementation note — serialization-identity lock. The helper's BINDING
+    // serialization-identity lock. The helper's BINDING
     // CONTRACT with saveSession() is enforced here: states the helper
     // calls equal must serialize byte-identically, and every persisted
     // field must both flip the equality and change the serialized
@@ -920,6 +935,7 @@ describe('sessionStore', () => {
       ['content (untitled tab)', { content: 'const x = 2;' }],
       ['filePath', { filePath: '/p/a.ts' }],
       ['runtimeMode', { runtimeMode: 'node' }],
+      ['workflowMode', { workflowMode: 'debug' }],
       ['stdinBuffer', { stdinBuffer: 'line1\n' }],
       ['inputSets', { inputSets: [{ id: 'set-1', name: 'Happy', stdin: 'line1' }] }],
       ['activeInputSetId', { activeInputSetId: 'set-1' }],

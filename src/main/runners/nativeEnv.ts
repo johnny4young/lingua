@@ -1,5 +1,5 @@
 /**
- * internal — Minimal env builder for native runner subprocesses.
+ * Minimal env builder for native runner subprocesses.
  *
  * Before this lived, the Go and Rust runners spread `process.env`
  * directly into `execFile`/`spawn`, which leaked every secret the
@@ -40,7 +40,7 @@ export {
 export const RUST_DEBUGGER_TOOLCHAIN_KEYS = ['LLDB_DAP', 'DEVELOPER_DIR'] as const;
 
 /**
- * implementation — Ruby-specific host-env keys. Covers:
+ * Ruby-specific host-env keys. Covers:
  *   - `GEM_HOME` / `GEM_PATH` / `BUNDLE_GEMFILE`: per-user gem caches
  *     + bundler context. Without these, system Ruby cannot see gems
  *     the user installed via `gem install --user`.

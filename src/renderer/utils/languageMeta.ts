@@ -122,7 +122,7 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
     foreground: 'var(--color-accent)',
   },
-  // implementation note — pipeline-run capsules carry `tab.language =
+  // pipeline-run capsules carry `tab.language =
   // 'pipeline'`. Same DS accent token as the other workspace kinds so
   // the capsule browse badge + internal comparator chip stay on-system.
   pipeline: {
@@ -171,7 +171,7 @@ const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
     extensions: ['http'],
     monacoLanguage: 'http',
   },
-  // implementation note — the `'pipeline'` capsule marker. Mirrors the
+  // The `'pipeline'` capsule marker. Mirrors the
   // `'http'` entry so `languageLabel('pipeline')` (capsule browse badge,
   // internal comparator summary) resolves to the friendly "Pipeline"
   // instead of the misleading TXT / Text pack-less fallback. The recipe

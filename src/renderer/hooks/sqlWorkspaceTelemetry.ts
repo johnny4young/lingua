@@ -1,5 +1,5 @@
 /**
- * implementation note — SQL workspace telemetry helper.
+ * SQL workspace telemetry helper.
  *
  * Single event: `sql.query_executed { status, rowCountBucket,
  * durationBucket }`. NO query text, NO schema names, NO column
@@ -23,7 +23,7 @@ import {
 import { trackEvent } from '../utils/telemetry';
 
 /**
- * implementation (SQL import) implementation note — where the import was initiated:
+ * Where the import was initiated:
  *
  *   - `'drop'`   — file dragged onto the schema-browser drop zone.
  *   - `'picker'` — the keyboard-accessible Import button → native dialog.
@@ -49,7 +49,7 @@ export function trackSqlQueryExecuted(response: SqlResponseV1): void {
 }
 
 /**
- * internal — count explicit Column Explorer opens without exposing any SQL or
+ * Count explicit Column Explorer opens without exposing any SQL or
  * data shape. The empty payload is deliberate and mirrored on update-server.
  */
 export function trackSqlProfileOpened(): void {
@@ -57,7 +57,7 @@ export function trackSqlProfileOpened(): void {
 }
 
 /**
- * implementation (SQL OPFS) implementation note — fires once per distinct resolved
+ * Fires once per distinct resolved
  * storage backing during a renderer session. `mode` is the
  * RESOLVED backing (`'opfs'` / `'memory'`); `requested` is what the
  * user asked for (toggle on → `'opfs'`, off → `'memory'`). The pair
@@ -81,7 +81,7 @@ export function __resetSqlStorageModeTelemetryForTests(): void {
 }
 
 /**
- * implementation (SQL import) implementation note — fires once per successful file import.
+ * Fires once per successful file import.
  * Carries ONLY the two closed-enum tokens: the detected file `format`
  * and the `source` that initiated the import. NO file name, NO column
  * names, NO row values reach the wire. Mirrored on update-server with

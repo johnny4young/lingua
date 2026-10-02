@@ -1,5 +1,5 @@
 /**
- * implementation — RunStatusPill render contract.
+ * RunStatusPill render contract.
  *
  * Covers:
  *   - Hidden on success and when runTermination is null.
@@ -47,7 +47,7 @@ function selectPill(): HTMLElement | null {
   );
 }
 
-describe('implementation — <RunStatusPill>', () => {
+describe('<RunStatusPill>', () => {
   beforeEach(() => {
     useResultStore.setState({
       runTermination: null,

@@ -1,5 +1,5 @@
 /**
- * implementation — tests for the capsule browse overlay.
+ * Tests for the capsule browse overlay.
  *
  * Covers the Pro list (rows + count + preview + browse_opened
  * telemetry), the per-row actions (export → list-export telemetry,
@@ -33,7 +33,7 @@ vi.mock('../../../src/renderer/utils/upsellNotice', () => ({
   pushUpsellNotice: (...args: unknown[]) => pushUpsellNotice(...args),
 }));
 
-// internal — HTML export orchestration is unit-covered in
+// HTML export orchestration is unit-covered in
 // `tests/utils/exportCapsuleHtml.test.ts`; the overlay only needs to
 // wire the row's capsule + list trigger into it.
 const exportCapsuleAsHtml = vi.fn();

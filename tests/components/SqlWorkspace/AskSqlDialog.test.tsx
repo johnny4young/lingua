@@ -1,5 +1,5 @@
 /**
- * implementation follow-on — "Ask AI" NL→SQL dialog. Verifies the consent gate (live
+ * "Ask AI" NL→SQL dialog. Verifies the consent gate (live
  * schema-only preview, nothing sent until Send), the generated-SQL insert
  * path, and the entitlement/config degradations.
  */

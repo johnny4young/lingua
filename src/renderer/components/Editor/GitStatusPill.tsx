@@ -1,5 +1,5 @@
 /**
- * implementation — per-tab Git status pill.
+ * per-tab Git status pill.
  *
  * Visual language:
  *
@@ -187,7 +187,7 @@ export function GitStatusPill({
     }
   }, [filePath, closeMenu]);
 
-  // implementation — Reveal in Source Control. Calls the new
+  // Reveal in Source Control. Calls the new
   // `git:reveal` IPC, telemetry-tags the click as `'repo-root'`
   // (closed-enum extension point for implementation targets), and
   // surfaces a localized notice when the OS refuses the open.
@@ -300,7 +300,7 @@ export function GitStatusPill({
               >
                 {t('editor.git.contextMenu.copyPath')}
               </button>
-              {/* implementation — Reveal action enabled. Falls back
+              {/* Reveal action enabled. Falls back
                   to disabled chrome only when the bridge OR repoRoot
                   is missing (defense in depth — `posture.available`
                   should already guard the parent surface, but a

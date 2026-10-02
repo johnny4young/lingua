@@ -27,7 +27,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
   } = args;
 
   const commands: CommandEntry[] = [
-    // implementation note — Export latest run as capsule. Surfaces
+    // Export latest run as capsule. Surfaces
     // only when the caller wires the handler AND the history store
     // confirms at least one entry still carries a `lastCapsule`. Hiding
     // the entry when no capsule exists keeps the palette honest about
@@ -46,7 +46,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation — Import capsule from JSON. Surfaces only when
+    // Import capsule from JSON. Surfaces only when
     // App.tsx wires the AppOverlay branch. Always available (no
     // history precondition) so the user can import even when their
     // own session has no runs yet — a fresh user pasting a capsule
@@ -75,7 +75,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation — Browse run capsules. Surfaces whenever App.tsx
+    // Browse run capsules. Surfaces whenever App.tsx
     // wires the AppOverlay branch, with no history precondition: a
     // Free user must be able to discover the surface and hit the
     // upsell, and a Pro user with an empty session sees the empty
@@ -104,7 +104,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation note — Compare two capsules. Gated on the SAME
+    // Compare two capsules. Gated on the SAME
     // `onBrowseCapsules` handler: the comparator selection lives inline
     // in the capsule browser (per-row checkboxes + a Compare button), so
     // this command just opens that overlay where the user picks the pair.
@@ -137,7 +137,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation — open the global Import overlay. Mirror of the
+    // Open the global Import overlay. Mirror of the
     // capsule-import wiring above. Surfaces only when App.tsx wires
     // the AppOverlay branch; the `Mod+Alt+I` shortcut hits the same
     // path via `useGlobalShortcuts.openImportOverlay`.
@@ -155,7 +155,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation — export the open project as a `.zip` bundle. Same
+    // Export the open project as a `.zip` bundle. Same
     // create path as the FileTree button + `Mod+Alt+E`. Direct action
     // (no overlay); `onClose` first so the palette dismisses before the
     // save dialog opens.
@@ -173,7 +173,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation — open the bundle import overlay. Mirror of the
+    // Open the bundle import overlay. Mirror of the
     // capsule-import wiring; App.tsx opens the `project-bundle-import`
     // AppOverlay branch.
     ...(onImportProjectBundle
@@ -190,7 +190,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Slice B implementation note — open the global Recipes overlay. Hits
+    // Open the global Recipes overlay. Hits
     // the same path as `Mod+Alt+L`. `onClose` first so the palette
     // dismisses before the recipes overlay opens (single-event-loop
     // batch order, mirror of the import overlay entry above).
@@ -218,7 +218,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Slice A implementation note — create a fresh notebook tab. Mirror of
+    // Create a fresh notebook tab. Mirror of
     // the recipes overlay wiring above; `onClose` runs before the
     // callback so the palette dismisses cleanly before the new tab
     // takes focus.
@@ -236,7 +236,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Slice E implementation note — export the active notebook as a native
+    // Export the active notebook as a native
     // lossless `.linguanb` document, the palette twin of the toolbar
     // export menu so it is reachable without the notebook toolbar.
     ...(onExportActiveNotebookLinguanb
@@ -253,7 +253,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation note — opens Settings on the Languages tab and
+    // Opens Settings on the Languages tab and
     // scrolls to the scorecard. `onClose()` MUST run before the user
     // callback: both helpers set the single `overlay` slot in App
     // state, and within one React event handler the last setState
@@ -274,7 +274,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation note — copies the markdown rendering of the
+    // Copies the markdown rendering of the
     // scorecard so users can paste into issues / PRs / docs.
     ...(onCopyLanguageScorecardMarkdown
       ? [
@@ -304,7 +304,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Phase A1 implementation note — copies a share-link URL fragment that
+    // Copies a share-link URL fragment that
     // recreates the active tab. The user callback may surface the
     // confirmation modal (implementation note); we close the palette FIRST so
     // both overlays don't compete for the same App state slot
@@ -323,7 +323,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation note — three palette entries, one per stage.
+    // Three palette entries, one per stage.
     // Each closes the palette FIRST, then runs the reset callback so
     // any follow-up status notice the renderer emits doesn't compete
     // with the palette overlay for the same App state slot.
@@ -369,7 +369,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation note — palette entry that opens Settings on
+    // Palette entry that opens Settings on
     // the Privacy tab. Closes the palette FIRST so the Settings
     // overlay isn't competing with it for the App state slot. Same
     // overlay-survival pattern as `action-settings` and
@@ -399,7 +399,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Slice A implementation note — opens the bottom-panel Dependencies
+    // Opens the bottom-panel Dependencies
     // tab for the active file. Mirrors the `action-show-*` overlay
     // ordering: close the palette FIRST so the tab activation does
     // not compete with the palette overlay for the App state slot.
@@ -426,7 +426,7 @@ export const buildArtifactCommands: CommandPaletteRegistry = ({ args, translate 
           ),
         ]
       : []),
-    // implementation Sub-slice G implementation note — flips the master toggle for the
+    // Flips the master toggle for the
     // output→source line affordance. Keyword set covers EN + ES so
     // the palette finds it under "line badge", "output", "mapeo",
     // "origen", "chip" without forcing memorisation.

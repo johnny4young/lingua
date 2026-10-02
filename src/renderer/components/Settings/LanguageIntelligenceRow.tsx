@@ -5,7 +5,7 @@ import { SpecRow } from '../ui/SpecRow';
 import { StatusBadge } from '../ui/StatusBadge';
 
 /**
- * implementation — generic conditional Settings row for a desktop LSP.
+ * Generic conditional Settings row for a desktop LSP.
  *
  * implementation inlined this for Rust; implementation lifted it into a config-
  * driven component so the Rust + Go (and any future LSP) rows stay
@@ -34,7 +34,7 @@ export interface LanguageIntelligenceRowConfig {
   /** Restart IPC entry point. */
   restartIpc: () => Promise<unknown> | undefined;
   /**
-   * FASE 2a — drops the SpecRow bottom hairline when this is the last
+   * Drops the SpecRow bottom hairline when this is the last
    * visible row in the shared per-language `SpecCard`. Defaults to
    * `false`; the parent decides ordering (Rust/Go are never last
    * because the always-rendered Ruby row follows them).

@@ -1,5 +1,5 @@
 /**
- * implementation — notebook cell-list row virtualization (degrade-to-full).
+ * Notebook cell-list row virtualization (degrade-to-full).
  *
  * Verifies the windowed cell list under jsdom (where `clientHeight === 0`
  * makes `useListWindow` degrade to the full list) against the REAL hook:

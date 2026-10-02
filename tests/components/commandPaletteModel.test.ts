@@ -521,7 +521,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onToggleInlineLint).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
 
-    // implementation — when the active buffer has custom-lint issues, the
+    // When the active buffer has custom-lint issues, the
     // description previews the count; with zero it stays the plain copy.
     const plain = buildCommandPaletteModel({ ...baseArgs, onToggleInlineLint }).find(
       (c) => c.id === 'action-toggle-inline-lint'
@@ -763,12 +763,12 @@ describe('buildCommandPaletteModel', () => {
     });
     const action = withShortcuts.find((c) => c.id === 'action-keyboard-shortcuts');
     expect(action).toBeDefined();
-    expect(action?.label).toBe('Open Keyboard Shortcuts');
+    expect(action?.label).toBe('Open keyboard shortcuts');
     action?.action();
     expect(onOpenKeyboardShortcuts).toHaveBeenCalledOnce();
   });
 
-  // implementation — `action-toggle-console-rich-rendering` was removed
+  // `action-toggle-console-rich-rendering` was removed
   // from the palette catalog; rich rendering is baseline and the
   // model no longer exposes the toggle.
 
@@ -1980,7 +1980,7 @@ describe('buildCommandPaletteModel — onShowDependencies (implementation Slice 
   });
 });
 
-// implementation — `action-toggle-output-source-mapping` was removed from
+// `action-toggle-output-source-mapping` was removed from
 // the palette catalog (output→source linking is baseline; per-file
 // `// @origin off` directive remains the user-controlled escape).
 

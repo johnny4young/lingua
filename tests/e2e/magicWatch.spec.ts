@@ -1,5 +1,5 @@
 /**
- * implementation — `@watch` magic-comment pin end-to-end smoke.
+ * `@watch` magic-comment pin end-to-end smoke.
  *
  * Locks the user-visible contract:
  *

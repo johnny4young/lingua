@@ -144,4 +144,14 @@ describe('FileTree keyboard navigation (accessibility pass)', () => {
     const input = screen.getByRole('textbox') as HTMLInputElement;
     expect(input.placeholder).toBe('a.ts');
   });
+
+  it('confirming the current name closes the rename without a filesystem call', async () => {
+    render(<FileTree />);
+    fireEvent.keyDown(row('a.ts'), { key: 'F2' });
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'a.ts' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(screen.queryByRole('textbox')).toBeNull());
+    expect(mockRenameEntry).not.toHaveBeenCalled();
+  });
 });

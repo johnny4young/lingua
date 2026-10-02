@@ -1,5 +1,5 @@
 /**
- * FASE 0 — Signal-Slate <EmptyState> render contract.
+ * Signal-Slate <EmptyState> render contract.
  *
  * Covers:
  *   - Title + description render from props.
@@ -13,7 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { EmptyState } from '../../src/renderer/components/ui/EmptyState';
 
-describe('FASE 0 — <EmptyState>', () => {
+describe('<EmptyState>', () => {
   it('renders the title and description from props', () => {
     render(
       <EmptyState

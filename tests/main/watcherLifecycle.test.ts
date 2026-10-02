@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * internal — watcher lifecycle, failure-path, and `before-quit` cleanup.
+ * Watcher lifecycle, failure-path, and `before-quit` cleanup.
  *
  * Runs under the `node` environment because the source module's
  * `node:fs` import cannot be intercepted via `vi.mock` from the

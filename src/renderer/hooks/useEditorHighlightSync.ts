@@ -7,7 +7,7 @@ type MonacoEditorInstance = Parameters<OnMount>[0];
 type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsCollection']>;
 
 /**
- * implementation — applies a Monaco line-flash decoration when an
+ * Applies a Monaco line-flash decoration when an
  * `<OutputLineBadge>` chip is hovered. The chip emits an
  * `editor.highlightLine` command; this hook listens for it and applies
  * the `lingua-highlight-flash` decoration to the
@@ -32,7 +32,7 @@ type DecorationsCollection = ReturnType<MonacoEditorInstance['createDecorationsC
 const DEFAULT_DURATION_MS = 1500;
 
 export function useEditorHighlightSync(editorRef: RefObject<MonacoEditorInstance | null>): void {
-  // implementation — the master + sub-gates are gone; output→source linking
+  // The master + sub-gates are gone; output→source linking
   // and smooth offscreen reveal are baseline.
   // Reviewer pass — single mutable ref so rapid hover bursts (e.g. a
   // user dragging across 5 console rows) clear the previous flash

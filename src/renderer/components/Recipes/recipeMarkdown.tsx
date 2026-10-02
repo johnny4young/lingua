@@ -1,5 +1,5 @@
 /**
- * implementation — Minimal Markdown subset renderer for recipe
+ * Minimal Markdown subset renderer for recipe
  * prompts.
  *
  * implementation prompts are 1–3 paragraphs + an inline `code` block + a

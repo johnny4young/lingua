@@ -1,5 +1,5 @@
 /**
- * implementation — pythonWebInstaller service unit tests.
+ * pythonWebInstaller service unit tests.
  *
  * Pins the postMessage protocol shape, the 90s soft timeout (implementation note),
  * the loaded-packages query, and the closed-enum mapping for the

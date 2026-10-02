@@ -1,5 +1,5 @@
 /**
- * internal — QR Code panel tests. The pure helper is covered in
+ * QR Code panel tests. The pure helper is covered in
  * tests/utils/qrCode.test.ts, so this suite only checks wiring:
  * the live preview image renders, the level selector re-triggers the
  * async regen, empty payload surfaces the placeholder, Spanish copy

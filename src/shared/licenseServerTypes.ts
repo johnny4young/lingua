@@ -163,7 +163,7 @@ export type RemoveDeviceResult =
 export type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
 
 // ====================================================================
-// implementation — Trial / Education / Recovery contracts
+// Trial / Education / Recovery contracts
 // ====================================================================
 //
 // All three flows share a similar shape: a POST /start that registers

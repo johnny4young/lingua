@@ -761,7 +761,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
-  describe('internal — nativeExecutionAcknowledged', () => {
+  describe('nativeExecutionAcknowledged', () => {
     it('defaults to false on a fresh store', () => {
       expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
     });
@@ -814,7 +814,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('implementation — workflow mode defaults', () => {
+  describe('workflow mode defaults', () => {
     it('seeds the three Scratchpad languages on a fresh store (implementation note)', () => {
       const defaults = useSettingsStore.getState().workflowModeDefaultsByLanguage;
       expect(defaults).toEqual({
@@ -944,7 +944,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('implementation — scratchpad auto-log defaults', () => {
+  describe('scratchpad auto-log defaults', () => {
     it('seeds JS + TS + Python to ON on a fresh store', () => {
       expect(
         useSettingsStore.getState().scratchpadAutoLogByLanguage
@@ -1013,7 +1013,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('implementation — showStdinPanel master toggle (implementation note)', () => {
+  describe('showStdinPanel master toggle (implementation note)', () => {
     it('defaults to true on a fresh store', () => {
       expect(useSettingsStore.getState().showStdinPanel).toBe(true);
     });
@@ -1040,7 +1040,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('implementation — Browser preview auto-refresh preference', () => {
+  describe('Browser preview auto-refresh preference', () => {
     it('defaults to the fast 300 ms interval and accepts every closed value', () => {
       expect(
         useSettingsStore.getState().browserPreviewRefreshIntervalMs
@@ -1093,7 +1093,7 @@ describe('settingsStore', () => {
     });
   });
 
-  describe('implementation — runtimeTimeoutPresetByLanguage', () => {
+  describe('runtimeTimeoutPresetByLanguage', () => {
     it('seeds defaults (Python=long, others=normal)', () => {
       expect(
         useSettingsStore.getState().runtimeTimeoutPresetByLanguage

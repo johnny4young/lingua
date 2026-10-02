@@ -1,5 +1,5 @@
 /**
- * implementation — tests for the import overlay.
+ * Tests for the import overlay.
  * Exercises paste decoding, file picker, reject banner, consent prompt,
  * cancel + confirm, and the implementation note HTTP capsule bridge.
  */
@@ -95,7 +95,7 @@ describe('CapsuleImportOverlay', () => {
     expect(screen.getByTestId('capsule-import-preview')).toBeTruthy();
   });
 
-  it('implementation — decodes a smart-paste seed on mount (pre-filled preview)', async () => {
+  it('decodes a smart-paste seed on mount (pre-filled preview)', async () => {
     setPendingCapsuleImportSource(MINIMAL_JSON);
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     // The preview + enabled confirm appear without any user interaction.
@@ -203,7 +203,7 @@ describe('CapsuleImportOverlay', () => {
     ).toBeNull();
   });
 
-  it('implementation note — HTTP capsule offers Open-in-HTTP-workspace + creates a request', async () => {
+  it('HTTP capsule offers Open-in-HTTP-workspace + creates a request', async () => {
     const onClose = vi.fn();
     const httpCapsule = buildHttpCapsule();
     render(<CapsuleImportOverlay onClose={onClose} />);
@@ -227,7 +227,7 @@ describe('CapsuleImportOverlay', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('implementation note — Copy source button is rendered when decoded', () => {
+  it('Copy source button is rendered when decoded', () => {
     render(<CapsuleImportOverlay onClose={() => undefined} />);
     fireEvent.change(screen.getByTestId('capsule-import-paste-textarea'), {
       target: { value: MINIMAL_JSON },

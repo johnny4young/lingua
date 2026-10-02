@@ -1,5 +1,5 @@
 /**
- * implementation — Compare body. Renders the diff between the
+ * Compare body. Renders the diff between the
  * latest stable run (`lastSuccessfulSnapshot`) and the current
  * result-store output. Mounted by `ResultPanel.tsx` in place of
  * `<LineAlignedResults>` when the active tab's
@@ -13,13 +13,13 @@
  *   - **compiled**: a single-column unified diff (reuses the
  *     `DiffUtilityPanel` row shape style with `+ / − / ` prefixes).
  *
- * implementation note — the header surfaces a small `<select>` to pick a
+ * The header surfaces a small `<select>` to pick a
  * comparator from the snapshot ring. Default target is the newest
  * entry; the user can step back through up to 3 prior runs. The
  * pin button (implementation note) lives next to each entry so the user can
  * lock a known-good snapshot.
  *
- * implementation note — the granularity selector lives at the top of the
+ * The granularity selector lives at the top of the
  * compiled mode (Line / Word / Character). Dynamic mode is always
  * line-keyed, so the selector is hidden there.
  */

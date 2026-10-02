@@ -1,5 +1,5 @@
 /**
- * implementation — `<GitStatusPill>` render contract.
+ * `<GitStatusPill>` render contract.
  *
  * Covers:
  *   - All 4 status buckets render with their distinct visual class
@@ -151,7 +151,7 @@ describe('GitStatusPill', () => {
   });
 
   // -------------------------------------------------------------------------
-  // implementation — Reveal in Source Control row enabled.
+  // Reveal in Source Control row enabled.
   // -------------------------------------------------------------------------
 
   describe('Reveal in Source Control action ', () => {

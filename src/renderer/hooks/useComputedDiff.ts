@@ -32,11 +32,16 @@ export function useComputedDiff(
   useEffect(() => {
     if (!shouldUseWorker) return;
     let active = true;
-    void computeDiffOffThread(left, right, granularity).then((segments) => {
-      if (active) setWorkerResult({ left, right, granularity, segments });
-    });
+    // Superseded inputs terminate their worker instead of letting it finish.
+    const controller = new AbortController();
+    void computeDiffOffThread(left, right, granularity, undefined, controller.signal).then(
+      (segments) => {
+        if (active) setWorkerResult({ left, right, granularity, segments });
+      }
+    );
     return () => {
       active = false;
+      controller.abort();
     };
   }, [shouldUseWorker, left, right, granularity]);
 

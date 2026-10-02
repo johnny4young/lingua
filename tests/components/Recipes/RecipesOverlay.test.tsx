@@ -1,5 +1,5 @@
 /**
- * implementation — `<RecipesOverlay>` tests.
+ * `<RecipesOverlay>` tests.
  *
  * Drives the overlay through the user-event surface:
  *   - Empty / unfiltered render shows every recipe.
@@ -171,6 +171,16 @@ describe('RecipesOverlay', () => {
     let closed = false;
     render(<RecipesOverlay onClose={() => (closed = true)} />);
     await user.click(screen.getByTestId('recipes-cancel'));
+    expect(closed).toBe(true);
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
+  });
+
+  it('Enter on Cancel cancels instead of opening the active recipe', async () => {
+    const user = userEvent.setup();
+    let closed = false;
+    render(<RecipesOverlay onClose={() => (closed = true)} />);
+    screen.getByTestId('recipes-cancel').focus();
+    await user.keyboard('{Enter}');
     expect(closed).toBe(true);
     expect(useEditorStore.getState().tabs).toHaveLength(0);
   });

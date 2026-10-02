@@ -8,7 +8,7 @@ import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { DeviceList } from './DeviceList';
 
 /**
- * implementation — exhausted-devices remediation modal.
+ * exhausted-devices remediation modal.
  *
  * Mounts when `setLicenseToken(...)` returned
  * `{ kind: 'invalid', reason: 'devices-exhausted' }`. The store keeps

@@ -1,5 +1,5 @@
 /**
- * internal — `buildNativeRunnerEnv` contract tests.
+ * `buildNativeRunnerEnv` contract tests.
  *
  * Pins the env-leak defense: only allowlisted host keys should reach
  * the spawned toolchain, user env from internal layers on top, and

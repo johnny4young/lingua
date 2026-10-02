@@ -18,6 +18,10 @@ import { languageLabel } from '../../utils/languageMeta';
 import { SqlWorkspaceSettingsSection } from './SqlWorkspaceSettingsSection';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+} from '../../data/keyboardShortcuts';
+import {
   RUNTIME_MODES,
   isRuntimeModeSupportedInShell,
   type RuntimeMode,
@@ -96,7 +100,7 @@ export function EditorSection() {
   const setBrowserPreviewRefreshInterval = useSettingsStore(
     (state) => state.setBrowserPreviewRefreshInterval
   );
-  // internal — inline lint is stored + surfaced per language, so adding a
+  // Inline lint is stored + surfaced per language, so adding a
   // language's lint in a later work lights up a new row without a re-layout.
   const inlineLintEnabledByLanguage = useSettingsStore(
     (state) => state.inlineLintEnabledByLanguage
@@ -104,7 +108,7 @@ export function EditorSection() {
   const setInlineLintEnabled = useSettingsStore((state) => state.setInlineLintEnabled);
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
-  // internal — master visibility toggle for the persistent bottom status bar.
+  // Master visibility toggle for the persistent bottom status bar.
   const showStatusBar = useSettingsStore((state) => state.showStatusBar);
   const setShowStatusBar = useSettingsStore((state) => state.setShowStatusBar);
   const variableInspectorSurface = useSettingsStore(
@@ -135,7 +139,7 @@ export function EditorSection() {
   const toggleExecutionHistorySnapshot = useSettingsStore(
     (state) => state.toggleExecutionHistorySnapshot
   );
-  // implementation — dependency detection master switch.
+  // Dependency detection master switch.
   const dependencyDetectionEnabled = useSettingsStore(
     (state) => state.dependencyDetectionEnabled
   );
@@ -143,7 +147,7 @@ export function EditorSection() {
     (state) => state.toggleDependencyDetectionEnabled
   );
   const { t, i18n } = useTranslation();
-  // implementation — ligatures auto-enable when the active font supports them.
+  // Ligatures auto-enable when the active font supports them.
   // Settings → Editor no longer surfaces a toggle.
   const ligaturesAvailable = true;
 
@@ -291,7 +295,7 @@ export function EditorSection() {
           }
         />
 
-        {/* internal — default JS/TS runtime mode for new tabs. Disabled
+        {/* Default JS/TS runtime mode for new tabs. Disabled
             options still render with explanatory tooltips, while
             shipped modes keep their operational hints in Settings. */}
         <SpecRow
@@ -341,7 +345,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation Slice C implementation note — default language for new notebook code
+        {/* Default language for new notebook code
             cells. Only the two runnable cell languages are offered. */}
         <SpecRow
           label={t('notebook.settings.defaultLanguage.title')}
@@ -366,7 +370,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation — variable inspector surface preference. */}
+        {/* Variable inspector surface preference. */}
         <SpecRow
           label={t('settings.editor.variableInspectorSurface.label')}
           description={t('settings.editor.variableInspectorSurface.hint')}
@@ -409,7 +413,7 @@ export function EditorSection() {
           control={<Toggle value={minimap} onChange={toggleMinimap} />}
         />
 
-        {/* internal — one row per lintable language. implementation = JS/TS; a third
+        {/* One row per lintable language. implementation = JS/TS; a third
             language's lint adds a row here automatically. */}
         {(['javascript', 'typescript'] as const).map((lang, index) => (
           <SpecRow
@@ -457,11 +461,16 @@ export function EditorSection() {
           control={<Toggle value={formatOnSave} onChange={toggleFormatOnSave} />}
         />
 
-        {/* internal — smart paste detection master toggle. */}
+        {/* Smart paste detection master toggle. */}
         <SpecRow
           searchTargetId="editor-smart-paste"
           label={t('editor.smartPaste.label')}
-          description={t('editor.smartPaste.hint')}
+          description={t('editor.smartPaste.hint', {
+            combo: formatShortcutCombo(
+              { tokens: ['Mod', 'Shift', 'V'] },
+              currentShortcutDisplayPlatform()
+            ),
+          })}
           control={
             <Toggle
               value={smartPasteDetectionEnabled}
@@ -511,7 +520,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation note — bottom-panel Input tab visibility.
+        {/* bottom-panel Input tab visibility.
             The buffer state per tab is preserved either way; hiding the
             tab keeps the leaner three-tab strip without losing data. */}
         <SpecRow
@@ -527,7 +536,7 @@ export function EditorSection() {
           }
         />
 
-        {/* internal — persistent bottom status bar visibility. Default ON
+        {/* Persistent bottom status bar visibility. Default ON
             desktop / OFF web; when OFF the bar fully unmounts. */}
         <SpecRow
           searchTargetId="editor-status-bar"
@@ -557,7 +566,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation note — countdown pill toggle. Default OFF
+        {/* Countdown pill toggle. Default OFF
             so the result panel header stays quiet by default. */}
         <SpecRow
           label={t('runtime.timeout.countdown.label')}
@@ -572,7 +581,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation — per-line timing toggle. Default OFF: the
+        {/* per-line timing toggle. Default OFF: the
             instrumentation adds a small overhead per statement, so it
             is a deliberate opt-in (or per-buffer via // @time). */}
         <SpecRow
@@ -594,7 +603,7 @@ export function EditorSection() {
           execution timeout) each keep their nested per-language grid as
           the spec-row control; the wide control fills a fixed column. */}
       <SpecCard>
-        {/* implementation — Browser preview reuses Scratchpad auto-run, but
+        {/* Browser preview reuses Scratchpad auto-run, but
             carries its own fast closed-enum debounce. The first-line magic
             comment can override this setting per tab. */}
         <SpecRow
@@ -627,7 +636,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation — per-language default workflow mode.
+        {/* per-language default workflow mode.
             Settings intentionally surfaces the lightweight in-process
             languages first (JS / TS / Python); Go / Rust keep the
             shared Scratchpad default until native-runner workflow
@@ -707,7 +716,7 @@ export function EditorSection() {
           }
         />
 
-        {/* implementation — per-language execution timeout preset.
+        {/* per-language execution timeout preset.
             Four supported languages (JS / TS / Python / Go). Rust is
             intentionally absent because its desktop kill path is in
             main and unchanged. */}
@@ -737,7 +746,7 @@ export function EditorSection() {
                     <Select
                       value={value}
                       data-testid={`settings-runtime-timeout-preset-${lang}`}
-                      // implementation — the localized preset labels carry
+                      // The localized preset labels carry
                       // a parenthetical duration (`Quick (5s)` /
                       // `Rápida (5s)`). Tablet widths truncate the
                       // default `Select` so the duration disappears.

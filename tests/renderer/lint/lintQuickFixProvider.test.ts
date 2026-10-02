@@ -6,7 +6,7 @@ import {
 } from '@/lint/lintQuickFixProvider';
 
 /**
- * internal — locks the CodeActionProvider's action assembly: which fixes it
+ * Locks the CodeActionProvider's action assembly: which fixes it
  * offers for a given range, and that each carries a valid Monaco workspace
  * edit. Uses a minimal fake model so the provider is tested without a real
  * Monaco instance (it re-derives fixes from the already-tested pure rules).

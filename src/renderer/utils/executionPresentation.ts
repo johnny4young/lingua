@@ -3,6 +3,7 @@ import type { LineResult } from '../stores/resultStore';
 import type { Language } from '../types/language';
 import type { ConsoleOutput, ExecutionResult } from '../types/execution';
 import { isInlineResultLanguage } from './languageCapabilities';
+import { formatPayloadInlineSummary } from '../../shared/richOutput';
 
 function getLastNonEmptyLine(code: string): number {
   const lines = code.split('\n');
@@ -47,11 +48,16 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
 
   for (const output of orderedConsoleOutputs(result)) {
     if (duplicatesExecutionError(result, output)) continue;
-    lineResults.push({
+    const entry: LineResult = {
       line: output.line ?? fallbackLine,
       value: output.args.join(' '),
       type: output.type,
-    });
+    };
+    // A single-argument call keeps its typed payload (console.table) so the
+    // inline pill shows the table summary kind instead of `string`.
+    const payload = output.args.length === 1 ? output.payload?.[0] : undefined;
+    if (payload && formatPayloadInlineSummary(payload)) entry.payload = payload;
+    lineResults.push(entry);
   }
 
   if (result.result !== undefined) {
@@ -64,7 +70,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
 
   if (result.magicResults) {
     for (const magicResult of result.magicResults) {
-      // implementation — runners tag each result with `kind` so the
+      // Runners tag each result with `kind` so the
       // panel can render the `@watch` pin distinct from the `=>`
       // arrow. implementation — adds `'autoLog'` (bare-expression
       // auto-capture). Default to `'magic'` for any runner that
@@ -78,7 +84,7 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
           : magicResult.kind === 'autoLog'
             ? 'autoLog'
             : 'magic';
-      // implementation — thread the typed payload through if the
+      // Thread the typed payload through if the
       // runner attached one. `LineResult.payload` is optional so
       // results without rich data stay identical to legacy
       // behaviour.

@@ -1,14 +1,19 @@
 import { stat } from 'node:fs/promises';
 import { resolveCapabilityPath } from './projectCapabilities';
-import { resolveLspNavigationTarget } from '../lsp/navigationTargets';
+import { isLspDocumentUriAllowed, resolveLspNavigationTarget } from '../lsp/navigationTargets';
 import { typedHandle } from './typedHandle';
 import type { RootId } from '../../shared/fs/brandedIds';
 import { ipcMain, BrowserWindow } from 'electron';
-import { RustAnalyzerLauncher, type RustAnalyzerStatus } from '../lsp/rustAnalyzerLauncher';
+import {
+  pathToFileUri,
+  RustAnalyzerLauncher,
+  type RustAnalyzerStatus,
+} from '../lsp/rustAnalyzerLauncher';
+import type { JsonRpcNotification } from '../lsp/lspProcess';
 import { GoplsLauncher, type GoplsStatus } from '../lsp/goplsLauncher';
 
 /**
- * implementation — main-process IPC bridge for desktop
+ * main-process IPC bridge for desktop
  * LSP servers (rust-analyzer, gopls).
  *
  * The renderer never talks to either server directly; instead it
@@ -83,6 +88,28 @@ function isAllowedLspNotification(method: unknown): method is string {
   return typeof method === 'string' && ALLOWED_LSP_NOTIFICATIONS.has(method);
 }
 
+function documentUriOf(params: unknown): unknown {
+  if (typeof params !== 'object' || params === null) return undefined;
+  const textDocument = (params as { textDocument?: unknown }).textDocument;
+  if (typeof textDocument !== 'object' || textDocument === null) return undefined;
+  return (textDocument as { uri?: unknown }).uri;
+}
+
+// Diagnostics reported through the realpath would not match the renderer's model URIs.
+function rewriteDiagnosticsUri(
+  notification: JsonRpcNotification,
+  roots: WorkspaceRoots | undefined
+): JsonRpcNotification {
+  if (!roots || roots.realPath === roots.rootPath) return notification;
+  if (notification.method !== 'textDocument/publishDiagnostics') return notification;
+  const params = notification.params as { uri?: unknown } | undefined;
+  if (typeof params?.uri !== 'string') return notification;
+  const realPrefix = `${pathToFileUri(roots.realPath)}/`;
+  if (!params.uri.startsWith(realPrefix)) return notification;
+  const uri = `${pathToFileUri(roots.rootPath)}/${params.uri.slice(realPrefix.length)}`;
+  return { ...notification, params: { ...params, uri } };
+}
+
 function broadcastNotification(channel: string, payload: unknown): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) {
@@ -91,7 +118,13 @@ function broadcastNotification(channel: string, payload: unknown): void {
   }
 }
 
+interface WorkspaceRoots {
+  rootPath: string;
+  realPath: string;
+}
+
 const contexts: Record<LspLanguage, RootId | undefined> = { rust: undefined, go: undefined };
+const workspaceRoots: Partial<Record<LspLanguage, WorkspaceRoots>> = {};
 const epochs: Record<LspLanguage, number> = { rust: 0, go: 0 };
 function ensureLauncher<L extends LspLanguage>(
   language: L,
@@ -104,7 +137,10 @@ function ensureLauncher<L extends LspLanguage>(
       workspaceRoot,
       onNotification: notification => {
         if (epoch !== epochs[language]) return;
-        broadcastNotification('lsp:rust:notification', notification);
+        broadcastNotification(
+          'lsp:rust:notification',
+          rewriteDiagnosticsUri(notification, workspaceRoots[language])
+        );
       },
       onStatus: status => {
         if (epoch !== epochs[language]) return;
@@ -119,7 +155,10 @@ function ensureLauncher<L extends LspLanguage>(
     workspaceRoot,
     onNotification: notification => {
       if (epoch !== epochs[language]) return;
-      broadcastNotification('lsp:go:notification', notification);
+      broadcastNotification(
+        'lsp:go:notification',
+        rewriteDiagnosticsUri(notification, workspaceRoots[language])
+      );
     },
     onStatus: status => {
       if (epoch !== epochs[language]) return;
@@ -135,6 +174,7 @@ function stopLauncher(language: LspLanguage): void {
   if (!launcher) return;
   launcher.dispose();
   launchers[language] = null;
+  delete workspaceRoots[language];
 }
 
 const startIntents: Record<LspLanguage, number> = { rust: 0, go: 0 };
@@ -151,7 +191,7 @@ async function startContext<L extends LspLanguage>(
     return { kind: 'startup-failed', error } as StatusFor<L>;
   };
   if (contexts[language] !== rootId) stopLauncher(language);
-  let workspaceRoot: string | undefined;
+  let roots: WorkspaceRoots | undefined;
   if (rootId !== undefined) {
     const resolved =
       typeof rootId === 'string' ? await resolveCapabilityPath(rootId, '', 'read') : null;
@@ -160,13 +200,17 @@ async function startContext<L extends LspLanguage>(
     const fresh = await resolveCapabilityPath(rootId, '', 'read');
     if (!fresh.ok || fresh.absolutePath !== resolved.absolutePath)
       return unauthorized('Project root was revoked.');
-    workspaceRoot = fresh.absolutePath;
+    // Documents are opened under the symlink-preserving root, so the server must be too.
+    roots = { rootPath: fresh.rootPath, realPath: fresh.absolutePath };
   }
   if (intent !== startIntents[language])
     return { kind: 'startup-failed', error: 'Project context changed.' } as StatusFor<L>;
   if (contexts[language] !== rootId) stopLauncher(language);
   contexts[language] = rootId;
-  return ensureLauncher(language, workspaceRoot).start() as Promise<StatusFor<L>>;
+  const launcher = ensureLauncher(language, roots?.rootPath);
+  if (roots) workspaceRoots[language] = roots;
+  else delete workspaceRoots[language];
+  return launcher.start() as Promise<StatusFor<L>>;
 }
 
 export function disposeLspBridge(): void {
@@ -178,6 +222,14 @@ export function disposeLspBridge(): void {
 
 interface LanguageHandlers<L extends LspLanguage> {
   language: L;
+}
+
+// Without a project context there is no grant to check against, so only the URI shape is enforced.
+function documentAllowed(language: LspLanguage, params: unknown): boolean {
+  const roots = workspaceRoots[language];
+  const bases =
+    contexts[language] === undefined ? null : roots ? [roots.rootPath, roots.realPath] : [];
+  return isLspDocumentUriAllowed(documentUriOf(params), bases);
 }
 
 function registerLanguageHandlers<L extends LspLanguage>(config: LanguageHandlers<L>): void {
@@ -238,6 +290,12 @@ function registerLanguageHandlers<L extends LspLanguage>(config: LanguageHandler
           reason: 'unsupported-method',
           message: 'Server does not declare this navigation capability.',
         };
+      if (!documentAllowed(language, params))
+        return {
+          ok: false,
+          reason: 'request-failed',
+          message: 'Document is outside the authorized project.',
+        };
       const epoch = epochs[language];
       try {
         const result = await launcher.sendRequest(method, params);
@@ -253,7 +311,7 @@ function registerLanguageHandlers<L extends LspLanguage>(config: LanguageHandler
   ipcMain.on(channel('notify'), (_event, method: unknown, params: unknown) => {
     if (!isAllowedLspNotification(method)) return;
     const launcher = launchers[language];
-    if (!launcher) return;
+    if (!launcher || !documentAllowed(language, params)) return;
     launcher.sendNotification(method, params);
   });
 }

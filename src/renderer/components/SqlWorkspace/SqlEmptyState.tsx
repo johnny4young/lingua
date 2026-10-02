@@ -5,7 +5,7 @@ import { SQL_IMPORT_FILE_ACCEPT } from '../../../shared/sqlWorkspace';
 import { EmptyState } from '../ui/EmptyState';
 
 /**
- * internal — actionable empty state for the SQL workspace.
+ * Actionable empty state for the SQL workspace.
  *
  * A brand-new SQL workspace has no queries AND no tables, so the old
  * "New query" CTA alone dropped the user onto a query with nothing to

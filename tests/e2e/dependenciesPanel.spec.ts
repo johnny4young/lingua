@@ -1,5 +1,5 @@
 /**
- * implementation — Dependencies bottom-panel smoke.
+ * Dependencies bottom-panel smoke.
  *
  * The detector runs from the real Monaco buffer, then the shortcut
  * opens the bottom-panel tab. Web classifies JS/TS packages as

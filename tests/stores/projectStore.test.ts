@@ -932,3 +932,74 @@ describe('updateChildrenAtPath', () => {
     expect(next.find((n) => n.path === 'lib')).toBe(sibling);
   });
 });
+
+describe('projectStore create actions only add nodes the filesystem created', () => {
+  const project = {
+    id: '/proj',
+    name: 'proj',
+    rootId: 'root-proj',
+    rootPath: '/proj',
+    openedAt: Date.now(),
+  };
+
+  function seed(nodes: FileTreeNode[]): void {
+    useProjectStore.setState({
+      currentProject: project,
+      nodes,
+      nodeIndex: buildNodeIndex(nodes),
+      watchId: null,
+      recentProjects: [],
+    });
+  }
+
+  function useFsMocks(touch: unknown, mkdir: unknown) {
+    const fs = window.lingua.fs as unknown as Record<string, unknown>;
+    fs.touch = vi.fn().mockResolvedValue(touch);
+    fs.mkdir = vi.fn().mockResolvedValue(mkdir);
+    return fs as { touch: ReturnType<typeof vi.fn>; mkdir: ReturnType<typeof vi.fn> };
+  }
+
+  it('refuses an existing sibling name without touching the disk', async () => {
+    seed([makeFile('index.ts', 'index.ts')]);
+    const fs = useFsMocks(true, true);
+
+    expect(await useProjectStore.getState().createFile('', 'index.ts')).toBeNull();
+
+    expect(fs.touch).not.toHaveBeenCalled();
+    expect(useProjectStore.getState().nodes).toHaveLength(1);
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      messageKey: 'fileTree.create.alreadyExists',
+      values: { name: 'index.ts' },
+    });
+  });
+
+  it('adds no node when touch reports the file was not created', async () => {
+    seed([]);
+    useFsMocks(false, true);
+
+    expect(await useProjectStore.getState().createFile('', 'Index.ts')).toBeNull();
+
+    expect(useProjectStore.getState().nodes).toEqual([]);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('fileTree.create.alreadyExists');
+  });
+
+  it('adds the node after a successful touch', async () => {
+    seed([]);
+    useFsMocks(true, true);
+
+    expect(await useProjectStore.getState().createFile('', 'new.ts')).toBe('new.ts');
+
+    expect(useProjectStore.getState().nodes.map((node) => node.path)).toEqual(['new.ts']);
+  });
+
+  it('adds no folder node when mkdir fails or the folder is already listed', async () => {
+    seed([makeDir('src', 'src')]);
+    const fs = useFsMocks(true, false);
+
+    await useProjectStore.getState().createDirectory('', 'lib');
+    await useProjectStore.getState().createDirectory('', 'src');
+
+    expect(fs.mkdir).toHaveBeenCalledTimes(1);
+    expect(useProjectStore.getState().nodes.map((node) => node.path)).toEqual(['src']);
+  });
+});

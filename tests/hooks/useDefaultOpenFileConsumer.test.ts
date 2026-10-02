@@ -44,7 +44,7 @@ describe('useDefaultOpenFileConsumer — implementation-β-α implementation not
     dispatch({ file: '', line: 0 });
     dispatch({ file: 'src/x.ts' });
     dispatch({ line: 5 });
-    // implementation — empty `file` + `line > 0` is the
+    // Empty `file` + `line > 0` is the
     // within-tab path; here it should be a no-op because no tab is
     // active in the editor store fixture by default. The push spy
     // stays at zero AND the editor reveal request stays null.

@@ -1,5 +1,5 @@
 /**
- * implementation — `pipelineCapsule.ts` mapping rules.
+ * `pipelineCapsule.ts` mapping rules.
  *
  * Pinned coverage:
  *   - all-ok → capsule status 'success'; partial / all-failed /

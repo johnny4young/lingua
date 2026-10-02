@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { Clock3, Eye, GitCompare, MessageSquare } from 'lucide-react';
+import { Eye, GitCompare, MessageSquare, Terminal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -14,6 +14,7 @@ import {
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
 
 /**
@@ -30,13 +31,13 @@ function countStdinLines(buffer: string | undefined): number {
 }
 
 /**
- * internal — descriptor for one context chip in {@link PanelChipsRow}. The
+ * Descriptor for one context chip in {@link PanelChipsRow}. The
  * row builds these in a memoized array; {@link PanelChip} renders one.
  * `onClick` carries the per-chip toggle behavior so the renderer stays a
  * pure presentation component.
  */
 interface PanelChipDescriptor {
-  readonly id: 'stdin' | 'history' | 'compare' | 'variables';
+  readonly id: 'stdin' | 'console' | 'compare' | 'variables';
   readonly icon: LucideIcon;
   readonly label: string;
   readonly badge: string | null;
@@ -47,7 +48,7 @@ interface PanelChipDescriptor {
 }
 
 /**
- * implementation — single context chip, extracted and `memo`-wrapped so a
+ * Single context chip, extracted and `memo`-wrapped so a
  * `PanelChipsRow` re-render does not re-render a chip whose descriptor is
  * referentially unchanged.
  */
@@ -75,7 +76,7 @@ const PanelChip = memo(function PanelChip({ chip }: { chip: PanelChipDescriptor 
 });
 
 /**
- * internal — the chips row subscribes to narrow PRIMITIVE derivations of
+ * The chips row subscribes to narrow PRIMITIVE derivations of
  * the active tab (id / language / runtimeMode / stdin line count / the two
  * per-tab toggle flags) instead of the whole `FileTab` through
  * `useActiveTab()`: `content` is a shallow field of the tab object, so a
@@ -110,7 +111,8 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
   const consoleVisible = useUIStore(state => state.consoleVisible);
   const openBottomPanel = useUIStore(state => state.openBottomPanel);
   const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
-  // internal — subscribe to identity-stable PRIMITIVE derivations instead
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
+  // Subscribe to identity-stable PRIMITIVE derivations instead
   // of the raw `snapshotRing` array + `scopeSnapshot` object, so this row
   // re-renders only when the comparator count or the captured variable
   // count for the active language actually changes — not on every run
@@ -122,13 +124,16 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
     scopeSnapshotVariableCountFor(state, activeTabLanguage ?? undefined)
   );
 
-  // internal — build the chip descriptors in a memo keyed on the real
+  // Build the chip descriptors in a memo keyed on the real
   // inputs (active tab, the two snapshot derivations, panel + settings
   // state, and the store actions). Returns [] when there is no active
   // tab so the hook order stays stable across the early return below.
   const chips = useMemo<PanelChipDescriptor[]>(() => {
     if (!activeTabId || !activeTabLanguage) return [];
     const executionMode = executionModeForLanguage(activeTabLanguage);
+    const combo = (id: Parameters<typeof formatShortcutLabel>[0]) => ({
+      combo: formatShortcutLabel(id, shortcutOverrides) ?? '',
+    });
     const stdinAvailable =
       showStdinPanel &&
       activeTabRuntimeMode !== 'browser-preview' &&
@@ -147,7 +152,9 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
         badge: stdinLineCount > 0 ? String(stdinLineCount) : null,
         active: activeBottomPanel === 'stdin' && consoleVisible,
         disabled: !stdinAvailable,
-        title: stdinAvailable ? t('panelChips.stdin.tooltip') : t('panelChips.stdin.disabled'),
+        title: stdinAvailable
+          ? t('panelChips.stdin.tooltip', combo('editor-toggle-stdin-panel'))
+          : t('panelChips.stdin.disabled'),
         onClick: () => {
           if (activeBottomPanel === 'stdin' && consoleVisible) {
             setConsoleVisible(false);
@@ -157,13 +164,13 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
         },
       },
       {
-        id: 'history',
-        icon: Clock3,
-        label: t('panelChips.history'),
+        id: 'console',
+        icon: Terminal,
+        label: t('panelChips.console'),
         badge: null,
         active: activeBottomPanel === 'console' && consoleVisible,
         disabled: false,
-        title: t('panelChips.history.tooltip'),
+        title: t('panelChips.console.tooltip', combo('view-toggle-console')),
         onClick: () => {
           if (activeBottomPanel === 'console' && consoleVisible) {
             setConsoleVisible(false);
@@ -180,7 +187,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
         active: compareEnabled,
         disabled: !compareAvailable,
         title: compareAvailable
-          ? t('panelChips.compare.tooltip')
+          ? t('panelChips.compare.tooltip', combo('run-toggle-compare-snapshot'))
           : t('compare.toggle.tooltipDisabled'),
         onClick: () => setTabCompareEnabled(activeTabId, !compareEnabled),
       },
@@ -189,7 +196,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
         icon: Eye,
         label: t('panelChips.variables'),
         badge: variableAvailable ? String(scopeVariableCount ?? 0) : null,
-        // implementation — when surface=bottom, active state mirrors the
+        // When surface=bottom, active state mirrors the
         // bottom-panel tab selection so clicking the chip when the
         // bottom Variables tab is showing toggles the drawer off.
         active:
@@ -198,10 +205,10 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
             : variableInspectorEnabled,
         disabled: !variableAvailable,
         title: variableAvailable
-          ? t('panelChips.variables.tooltip')
+          ? t('panelChips.variables.tooltip', combo('run-toggle-variable-inspector'))
           : t('variableInspector.toggle.tooltipDisabled'),
         onClick: () => {
-          // implementation — bottom mode treats the drawer selection as the
+          // Bottom mode treats the drawer selection as the
           // visible toggle. If the per-tab flag is already true but the drawer
           // is not showing Variables, clicking the inactive chip must open the
           // Variables tab rather than silently turning the feature off.
@@ -229,6 +236,7 @@ export function PanelChipsRow({ trailing }: { trailing?: ReactNode } = {}) {
     consoleVisible,
     openBottomPanel,
     setConsoleVisible,
+    shortcutOverrides,
     setTabCompareEnabled,
     setTabVariableInspectorEnabled,
   ]);

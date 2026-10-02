@@ -1,4 +1,4 @@
-/** implementation — Recipe `ts-generic-key-by`. */
+/** Recipe `ts-generic-key-by`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

@@ -6,7 +6,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 /**
- * implementation — Settings row that surfaces the in-memory
+ * Settings row that surfaces the in-memory
  * execution history counter and a Clear button.
  *
  * The store itself is intentionally never persisted across reloads

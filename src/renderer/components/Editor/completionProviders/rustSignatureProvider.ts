@@ -12,7 +12,7 @@ type SigModel = Parameters<ProvideSignatureHelp>[0];
 type SigPosition = Parameters<ProvideSignatureHelp>[1];
 
 /**
- * implementation — Monaco signature-help provider for Rust. Delegates
+ * Monaco signature-help provider for Rust. Delegates
  * to rust-analyzer via the adapter. `(`, `,` are the natural triggers;
  * Monaco re-asks the provider after each.
  */

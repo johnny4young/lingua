@@ -15,7 +15,7 @@ import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAv
 import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 
 /**
- * implementation — explicit per-tab JS/TS runtime mode selector.
+ * Explicit per-tab JS/TS runtime mode selector.
  *
  * Renders only when the active tab is a JS/TS buffer. Five options:
  *   - Worker — implementation, enabled.
@@ -37,14 +37,14 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.mode.worker',
   node: 'runtimeMode.mode.node',
   'browser-preview': 'runtimeMode.mode.browserPreview',
-  // implementation — Deno / Bun desktop runtimes.
+  // Deno / Bun desktop runtimes.
   deno: 'runtimeMode.mode.deno',
   bun: 'runtimeMode.mode.bun',
 };
 
 const MODE_HINT_KEY: Record<'worker' | 'browser-preview', string> = {
   worker: 'runtimeMode.hint.worker',
-  // implementation — browser-preview is implemented now; use the
+  // browser-preview is implemented now; use the
   // shipping copy instead of the implementation disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
 };

@@ -13,7 +13,7 @@ import type { ResultSnapshot } from '../../src/renderer/stores/resultStore';
 import type { ScopeSnapshot } from '../../src/shared/scopeSnapshot';
 
 /**
- * implementation — selector unit tests (implementation note) + a render-count regression
+ * Selector unit tests (implementation note) + a render-count regression
  * (implementation note) that locks the core acceptance criterion: a component that
  * subscribes through the new primitive selectors re-renders only when
  * the derived value actually changes, NOT on every snapshotRing /

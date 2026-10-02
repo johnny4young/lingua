@@ -6,7 +6,7 @@ import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
 
 /**
- * implementation — primary surface for "Export latest run as
+ * Primary surface for "Export latest run as
  * capsule". Icon-only button mounted in the result-panel header
  * next to `RecentRunsPill` + the `hideUndefined` toggle so the
  * action lives ONE click from the result the user is looking at,
@@ -22,19 +22,19 @@ import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
  *     hides the unavailable action and keeps this complete control outside
  *     fresh-workspace startup. The button therefore owns presentation and
  *     export feedback without a duplicate history-store subscription.
- *   - **implementation note — Pro badge for rich-media capsules.** When the
+ *   - Pro badge for rich-media capsules.** When the
  *     capsule carries `richOutputs` (chart / image / html / table),
  *     a small badge dot signals that the exported JSON contains
  *     payloads that downstream consumers (internal share-link
  *     preview, internal CLI render) treat as Pro-gated for full
  *     reproducibility. Free tier can still export — the badge is
  *     informational, not a gate.
- *   - **implementation note — 1-second visual feedback on click.** Clipboard
+ *   - 1-second visual feedback on click.** Clipboard
  *     write is fire-and-forget; without an immediate visual cue
  *     the user double-clicks. Swap the `Package` icon for a
  *     `Check` for 1s then revert. Same pattern as the existing
  *     `<CopyButton>`.
- *   - **implementation note — clipboard-rejected fallback points to Settings.**
+ *   - clipboard-rejected fallback points to Settings.**
  *     The Settings surface has the inline textarea fallback (implementation
  *     1); here we push a status notice with `clipboardUnavailable`
  *     copy that points the user to Settings so the dead-end is

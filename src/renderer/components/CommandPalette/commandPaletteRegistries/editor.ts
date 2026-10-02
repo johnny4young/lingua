@@ -1,5 +1,5 @@
 import { isWorkerRunnerLanguage } from '../../../../shared/languageFamilies';
-import { buildActionCommand } from '../commandPaletteModelHelpers';
+import { buildActionCommand, plainPasteComboValues } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 import { nativeJsRuntimeHintKey, type NativeJsRuntimeMode } from '../../../utils/nativeJsRuntimeStatus';
 import { buildSelectionTransferCommands } from './selectionTransferCommands';
@@ -61,7 +61,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
 
   const commands: CommandEntry[] = [
     ...buildSelectionTransferCommands(args, translate),
-    // implementation note — "Pin watch on current line". Only
+    // "Pin watch on current line". Only
     // surfaces when the caller wires `onAddWatchToCurrentLine`
     // AND the active tab's language supports `@watch` (JS / TS /
     // Python). For other languages the action is hidden entirely
@@ -80,7 +80,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation note — focus the Input bottom-panel tab from
+    // Focus the Input bottom-panel tab from
     // the command palette. Hidden when the master toggle is OFF or
     // when the active tab's language doesn't support stdin.
     ...(onFocusStdinPanel && stdinPanelAvailable
@@ -97,7 +97,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation note — toggle auto-log on the active tab.
+    // Toggle auto-log on the active tab.
     // Only surfaces for JS / TS / Python active tabs; other tabs hide
     // the entry entirely so the palette never advertises an action
     // it would refuse. Reuses the per-tab override path so the
@@ -120,7 +120,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation note — "Set execution timeout: Quick / Normal /
+    // "Set execution timeout: Quick / Normal /
     // Long / Extended" entries on the active language. Hidden when
     // the active language isn't in the supported set or when the
     // caller didn't wire `onSetActiveLanguageTimeoutPreset`. Active
@@ -142,7 +142,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           )
         )
       : []),
-    // implementation note — one-shot "Run with extended timeout".
+    // one-shot "Run with extended timeout".
     // Sets `nextRunTimeoutOverrideMs` on the active tab and
     // dispatches the run; the override is consumed once. Hidden when
     // the caller did not wire the handler or the active language is
@@ -161,7 +161,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation note — toggle the Compare panel on the
+    // Toggle the Compare panel on the
     // active tab. Hidden when there's no comparator snapshot for
     // the active language (matches the toggle-button gate). The
     // description flips between "Show" and "Hide" so the palette
@@ -184,7 +184,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation note — toggle the variable inspector on the
+    // Toggle the variable inspector on the
     // active tab. Hidden when there's no scope snapshot for the
     // active language (matches the toggle-button gate). Description
     // flips between Show / Hide.
@@ -209,7 +209,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     // implementation reviewer pass — the rich-console toggle was removed
     // from the catalog: `consoleRichRenderingEnabled` is no longer a
     // Settings preference, rich rendering is baseline.
-    // implementation — Toggle Vim mode. Hidden when the caller does
+    // Toggle Vim mode. Hidden when the caller does
     // not wire `onToggleVimMode`; description text flips based on
     // `vimModeEnabled` so the palette honestly previews the next state.
     ...(onToggleVimMode
@@ -230,7 +230,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — toggle inline lint for the active language. Surfaced
+    // Toggle inline lint for the active language. Surfaced
     // only when the caller wires it (i.e. the active tab is a lintable JS/TS
     // language).
     ...(onToggleInlineLint
@@ -238,7 +238,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-toggle-inline-lint',
             translate('commandPalette.action.toggleInlineLint.label'),
-            // implementation — when the active JS/TS buffer has custom-lint
+            // When the active JS/TS buffer has custom-lint
             // issues, preview the count so the palette surfaces "there are N
             // things to fix here" without opening the editor gutter.
             inlineLintActiveIssueCount > 0
@@ -254,7 +254,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — "Paste as plain text", the discoverable twin of the
+    // "Paste as plain text", the discoverable twin of the
     // editor's Cmd+Shift+V bypass. Surfaced only when the caller wires it
     // (an editor is active). Closes the palette first, then pastes.
     ...(onPastePlainText
@@ -262,7 +262,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           buildActionCommand(
             'action-paste-plain-text',
             translate('commandPalette.action.pastePlainText.label'),
-            translate('commandPalette.action.pastePlainText.description'),
+            translate('commandPalette.action.pastePlainText.description', plainPasteComboValues()),
             ['paste', 'plain', 'text', 'raw', 'literal', 'smart', 'bypass', 'pegar', 'texto'],
             () => {
               onClose();
@@ -271,7 +271,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — toggle the persistent status bar. Hidden when the
+    // Toggle the persistent status bar. Hidden when the
     // caller does not wire `onToggleStatusBar` so legacy callers keep working.
     ...(onToggleStatusBar
       ? [
@@ -287,7 +287,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — benchmark the active tab. Wired only when the tab is a
+    // Benchmark the active tab. Wired only when the tab is a
     // worker-runner language AND the tier holds `BENCHMARK`, so the entry
     // stays hidden otherwise.
     ...(onBenchmarkActiveTab
@@ -313,7 +313,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — install detected Go/Rust/Ruby packages for the active tab.
+    // Install detected Go/Rust/Ruby packages for the active tab.
     ...(onInstallNativeDependencies
       ? [
           buildActionCommand(
@@ -339,7 +339,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — explain the last run error. Wired only when there is an error
+    // Explain the last run error. Wired only when there is an error
     // to explain AND the tier holds LOCAL_AI.
     ...(onExplainLastError
       ? [
@@ -355,7 +355,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // internal  — explain the current selection / buffer with the
+    // Explain the current selection / buffer with the
     // local AI model. Wired only when LOCAL_AI is held and an editor is
     // active.
     ...(onExplainSelectedCode
@@ -382,7 +382,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
           ),
         ]
       : []),
-    // implementation — focus the status bar's first segment. Surfaced only
+    // Focus the status bar's first segment. Surfaced only
     // when wired AND the bar is visible (the caller gates on `showStatusBar`).
     ...(onFocusStatusBar
       ? [
@@ -452,7 +452,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
         onOpenSnippets();
       }
     ),
-    // implementation note — Switch runtime to {Worker | Node |
+    // Switch runtime to {Worker | Node |
     // Browser preview}. Only emitted when the caller wires
     // `onSetRuntimeMode` AND the active tab actually owns the
     // runtime-mode surface (JS/TS today, signalled by a non-null
@@ -487,7 +487,7 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
               onClose();
             }
           ),
-          // implementation — Deno / Bun desktop runtimes.
+          // Deno / Bun desktop runtimes.
           buildActionCommand(
             'action-runtime-mode-deno',
             translate('commandPalette.action.runtimeMode.deno.label'),

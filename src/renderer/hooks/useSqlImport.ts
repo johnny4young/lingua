@@ -1,5 +1,5 @@
 /**
- * internal (SQL import) — orchestration hook for importing a CSV / JSON /
+ * Orchestration hook for importing a CSV / JSON /
  * Parquet file as a DuckDB table.
  *
  * Owns the whole flow so the panel + the preview modal stay thin:
@@ -94,7 +94,7 @@ export function useSqlImport({
 
   const startImport = useCallback(
     async (file: File, source: SqlImportSource) => {
-      // implementation note — type detection from extension, then MIME fallback. An
+      // Type detection from extension, then MIME fallback. An
       // unsupported file never gets read.
       const format = detectImportFormat(file.name, file.type);
       if (format === null) {
@@ -102,7 +102,7 @@ export function useSqlImport({
         return;
       }
 
-      // implementation note — size cap BEFORE reading the bytes into memory.
+      // Size cap BEFORE reading the bytes into memory.
       if (file.size > MAX_IMPORT_BYTES) {
         pushErrorNotice('sqlWorkspace.import.errorTooLarge', {
           values: { limit: Math.floor(MAX_IMPORT_BYTES / (1024 * 1024)) },
@@ -133,7 +133,7 @@ export function useSqlImport({
           format,
           bytes,
         });
-        // implementation note — sanitize + de-collide against the live table set so the
+        // Sanitize + de-collide against the live table set so the
         // pre-filled name does not clobber an existing table.
         const suggested = dedupeTableName(sanitizeTableName(file.name), existingTableNames);
         setModal({
@@ -190,7 +190,7 @@ export function useSqlImport({
         bytes: current.bytes,
       });
       setModal(null);
-      // implementation note — telemetry: closed-enum format + source only.
+      // Telemetry: closed-enum format + source only.
       trackSqlTableImported(current.format, current.source);
       pushSuccessNotice('sqlWorkspace.import.success', {
         values: { name: result.table, count: result.rowCount },

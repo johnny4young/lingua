@@ -1,5 +1,5 @@
 /**
- * implementation note — `fs:searchInFiles` substring latency
+ * `fs:searchInFiles` substring latency
  * defense.
  *
  * The main-process handler in `src/main/ipc/fileSystem.ts:670` reads

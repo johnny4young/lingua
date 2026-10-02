@@ -1,5 +1,5 @@
 /**
- * implementation-β-β-α implementation note — sandboxed-iframe security e2e.
+ * sandboxed-iframe security e2e.
  *
  * Asserts that scripts running inside the `<RichValueHtml>` sandboxed
  * iframe cannot escape to mutate the parent renderer DOM. The

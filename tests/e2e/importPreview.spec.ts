@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the global Import overlay.
+ * E2e for the global Import overlay.
  *
  * Acceptance: Mod+Alt+I opens the Import overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full preview + confirm
@@ -173,7 +173,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     );
   });
 
-  test('confirming a collection lands every request in the stable HTTP workspace rail (implementation / MOV.02, EN)', async ({
+  test('confirming a collection lands every request in the stable HTTP workspace rail (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

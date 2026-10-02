@@ -26,7 +26,7 @@ vi.mock('@/services/recoveryServer', () => ({
   startRecovery: vi.fn(),
 }));
 
-// internal — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
+// The fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
 // value in vitest depends on whether the root .env was loaded into
 // import.meta.env. A getter-backed mock makes the row deterministic: tests
 // flip `fingerprintMockState.jwk` instead of guessing the ambient env.
@@ -244,6 +244,20 @@ describe('LicenseSection', () => {
     render(<LicenseSection />);
     const apply = screen.getByTestId('license-apply') as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
+  });
+
+  it('pre-fills a deep-linked token on mount and while mounted without applying it', async () => {
+    const { offerLicenseTokenPrefill } = await import('@/components/Settings/pendingLicenseToken');
+    const spy = vi.spyOn(useLicenseStore.getState(), 'setLicenseToken');
+    offerLicenseTokenPrefill('stashed.token');
+    render(<LicenseSection />);
+    const input = screen.getByTestId('license-input') as HTMLTextAreaElement;
+    expect(input.value).toBe('stashed.token');
+
+    act(() => offerLicenseTokenPrefill('live.token'));
+    expect(input.value).toBe('live.token');
+    expect((screen.getByTestId('license-apply') as HTMLButtonElement).disabled).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it('pushes a success notice and clears the draft when setLicenseToken returns active', async () => {

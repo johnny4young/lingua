@@ -30,13 +30,13 @@ Assets are grouped into:
 - `lazy` — other lazy JS/CSS chunks.
 - `other` — manifests, icons, fonts, and uncategorized files.
 
-Vendor code is split into named chunks by rolldown `advancedChunks`
+Vendor code is split into named chunks by rolldown `codeSplitting`
 groups in `vite.web.config.mts` and `vite.renderer.config.mts`
 (`react`, `zustand`, `lucide`, `i18next`, `vega-embed`, `duckdb-wasm`,
 `esbuild-wasm`, plus the `vite-preload` pin). The split does not shrink
 `initial`; it keeps framework bytes on a hash that survives app-only
 deploys, so returning visitors reuse them from cache. Rolldown ignores
-`manualChunks` when `advancedChunks`/`codeSplitting` is also configured;
+`manualChunks` when `codeSplitting` is also configured;
 the former mixed configuration therefore never emitted its named vendor
 groups. Keep new groups in the same policy instead of combining both APIs.
 The 4 KiB threshold applies to vendor groups, but `vite-preload` explicitly

@@ -111,7 +111,7 @@ export function useCommandPaletteCommands({
     activeTab !== null &&
     isWorkerRunnerLanguage(activeTab.language) &&
     activeWorkflowMode === 'scratchpad';
-  // implementation note — surface the active tab's language to the
+  // Surface the active tab's language to the
   // palette model so the "Pin watch on current line" action only
   // appears for JS / TS / Python.
   const activeWatchLanguage = activeTab?.language ?? null;
@@ -119,7 +119,7 @@ export function useCommandPaletteCommands({
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const canBenchmark = useEntitlement('BENCHMARK');
   const canExplainError = useEntitlement('LOCAL_AI');
-  // implementation — Go/Rust/Ruby install: detect the active saved tab's third-party
+  // Go/Rust/Ruby install: detect the active saved tab's third-party
   // deps so the palette can offer a one-shot toolchain install.
   const nativeDepLanguage: NativePackageLanguage | null =
     activeTab && ['go', 'rust', 'ruby'].includes(activeTab.language)
@@ -130,7 +130,7 @@ export function useCommandPaletteCommands({
       ? detectNativeDependencies(nativeDepLanguage, activeTab.content)
       : [];
   const executionHistory = useExecutionHistoryStore(state => state.entries);
-  // implementation note — read the latest capsule (newest-first walk
+  // Read the latest capsule (newest-first walk
   // inside the store). Recomputes when `entries` changes; the
   // selector is cheap (returns null when no entry carries one).
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
@@ -149,10 +149,11 @@ export function useCommandPaletteCommands({
   const setLayoutPreset = useSettingsStore(state => state.setLayoutPreset);
   const togglePresenterMode = usePresenterModeStore(state => state.toggle);
   const vimMode = useSettingsStore(state => state.vimMode);
-  // implementation — gate the "Focus status bar" palette command on the bar's
+  // Gate the "Focus status bar" palette command on the bar's
   // current visibility so it never offers to focus a hidden bar.
   const showStatusBar = useSettingsStore(state => state.showStatusBar);
-  // implementation — gates the "Restore last session" palette command. When
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
+  // Gates the "Restore last session" palette command. When
   // ask-mode boot pinned a previous-session snapshot, prefer that in-memory
   // count over the auto-save store's current value so the palette fallback stays
   // aligned with the boot prompt after the toast dismisses.
@@ -170,7 +171,7 @@ export function useCommandPaletteCommands({
   const { t, i18n } = useTranslation();
   const { info, success, warning } = useStatusNotice();
 
-  // implementation — when the user picks a recent-run entry, try to
+  // When the user picks a recent-run entry, try to
   // focus a tab that matches the run's language. If there isn't one
   // open today we just close the palette (the action is informational
   // until implementation of internal wires an actual replay path).
@@ -198,7 +199,7 @@ export function useCommandPaletteCommands({
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
       onNewProjectFromTemplate,
-      // implementation — restore the pending ask-mode boot snapshot when one
+      // Restore the pending ask-mode boot snapshot when one
       // exists; otherwise restore the currently persisted session on demand.
       // The model hides the command when no snapshot tab exists, so a fresh user
       // never sees a no-op entry.
@@ -206,7 +207,7 @@ export function useCommandPaletteCommands({
         void useSessionStore.getState().restoreSession();
       },
       savedSessionTabCount,
-      // implementation — toggle inline lint for the active language, surfaced
+      // Toggle inline lint for the active language, surfaced
       // only on a lintable JS/TS tab. Flips the per-language setting.
       onToggleInlineLint:
         activeTab && (activeTab.language === 'javascript' || activeTab.language === 'typescript')
@@ -219,13 +220,13 @@ export function useCommandPaletteCommands({
               );
             }
           : undefined,
-      // implementation — preview the active JS/TS buffer's custom-lint issue
+      // Preview the active JS/TS buffer's custom-lint issue
       // count on the toggle command. Pure scan (no Monaco), so it stays cheap
       // even though the model is rebuilt on every palette open.
       inlineLintActiveIssueCount: activeTab
         ? countCustomLintIssues(activeTab.content, activeTab.language)
         : 0,
-      // implementation — "Paste as plain text" surfaced only when an editor
+      // "Paste as plain text" surfaced only when an editor
       // tab is active. Drives the same bypass as Cmd+Shift+V via the active
       // editor handle (no-op if the editor went away between open and click).
       onPastePlainText: activeTab
@@ -234,14 +235,14 @@ export function useCommandPaletteCommands({
             if (editor) requestPlainPaste(editor);
           }
         : undefined,
-      // implementation — toggle the persistent status bar (always wired) and
+      // Toggle the persistent status bar (always wired) and
       // focus its first segment (only when the bar is visible, so the palette
       // never offers to focus a hidden bar).
       onToggleStatusBar: () => {
         const { showStatusBar, setShowStatusBar } = useSettingsStore.getState();
         setShowStatusBar(!showStatusBar);
       },
-      // implementation — benchmark the active tab. Gated on the BENCHMARK entitlement
+      // Benchmark the active tab. Gated on the BENCHMARK entitlement
       // AND a worker-runner language (JS/TS/Python/Ruby) with non-empty
       // source, so the command is hidden for Free users and unbenchmarkable
       // tabs. Results are reported to the console.
@@ -299,7 +300,7 @@ export function useCommandPaletteCommands({
               });
             }
           : undefined,
-      // implementation — explain the last run error via the offline explainer. Gated
+      // Explain the last run error via the offline explainer. Gated
       // on LOCAL_AI and on there actually being an error to explain.
       onExplainLastError:
         canExplainError && useResultStore.getState().error
@@ -318,7 +319,7 @@ export function useCommandPaletteCommands({
               });
             }
           : undefined,
-      // internal  — explain the current editor selection (or the whole
+      // Explain the current editor selection (or the whole
       // buffer) with the local AI model. Gated on LOCAL_AI AND an active
       // editor tab with a mounted editor; opens the shared consent-first
       // ExplainCodeDialog via AiExplainCodeHost.
@@ -337,7 +338,7 @@ export function useCommandPaletteCommands({
       onCopyWithContext: activeTab
         ? () => { void copyEditorSelectionWithNotice(getActiveEditor(), activeTab, 'context'); }
         : undefined,
-      // implementation — install detected Go/Rust/Ruby packages via the desktop
+      // Install detected Go/Rust/Ruby packages via the desktop
       // toolchain. Wired only for a saved native-language tab with
       // detected third-party deps and the desktop install bridge present.
       onInstallNativeDependencies:
@@ -385,7 +386,7 @@ export function useCommandPaletteCommands({
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
-      // implementation note — palette wiring. Gate on
+      // Palette wiring. Gate on
       // `activeRuntimeMode !== null` (the JS/TS marker), not just
       // `activeTabId`, so a Python / Go / Rust tab never wires the
       // callback. The model already short-circuits when the field
@@ -399,7 +400,7 @@ export function useCommandPaletteCommands({
       nativeLanguageToolchainAvailability,
       onMissingNativeRuntime,
       activeRuntimeMode,
-      // implementation note — read the editor's current line text,
+      // Read the editor's current line text,
       // delegate to the pure `appendWatchAtLine` helper, write the
       // updated buffer back via `updateContent`. The pure helper
       // returns `null` when the line has no expression (empty,
@@ -431,7 +432,7 @@ export function useCommandPaletteCommands({
             }
           : undefined,
       activeWatchLanguage,
-      // implementation note — toggle auto-log on the active JS / TS
+      // Toggle auto-log on the active JS / TS
       // tab. Resolution mirrors `useAutoRun`: per-tab override wins
       // over per-language Settings default. Callback flips the
       // RESOLVED state's opposite via `setTabAutoLogEnabled` so the
@@ -453,7 +454,7 @@ export function useCommandPaletteCommands({
             ? useSettingsStore.getState().scratchpadAutoLogByLanguage[activeTab.language] === true
             : activeTab.autoLogEnabled === true
           : false,
-      // implementation note — focus the Input bottom-panel tab.
+      // Focus the Input bottom-panel tab.
       // Hidden when the master Settings toggle is OFF or when the
       // active tab's language can't consume stdin (anything outside
       // JS / TS / Python, or runtime mode browser-preview).
@@ -469,7 +470,7 @@ export function useCommandPaletteCommands({
         useSettingsStore.getState().showStdinPanel &&
         isWorkerRunnerLanguage(activeTab.language) &&
         activeTab.runtimeMode !== 'browser-preview',
-      // implementation note — set the per-language timeout preset
+      // Set the per-language timeout preset
       // for the active language from the palette. Only surfaces on
       // the supported language set.
       activeTimeoutLanguage,
@@ -482,7 +483,7 @@ export function useCommandPaletteCommands({
             useSettingsStore.getState().setRuntimeTimeoutPreset(activeTimeoutLanguage, preset);
           }
         : undefined,
-      // implementation note — "Run with extended timeout"
+      // "Run with extended timeout"
       // one-shot. Sets the per-tab override + triggers the manual
       // run via the parent-provided runActiveTab callback. Hidden
       // when the active tab isn't runnable or the parent didn't
@@ -499,7 +500,7 @@ export function useCommandPaletteCommands({
               onRerunLast();
             }
           : undefined,
-      // implementation note — palette toggle for the Compare
+      // Palette toggle for the Compare
       // panel. Reuses `setTabCompareEnabled` so the source of
       // truth stays per-tab. The gate (`compareSnapshotAvailable`)
       // matches the toggle-button gate so the palette never
@@ -521,7 +522,7 @@ export function useCommandPaletteCommands({
           activeTab !== null && snapshotRing.some(entry => entry.language === activeTab.language)
         );
       })(),
-      // implementation note — variable inspector palette entry.
+      // Variable inspector palette entry.
       onToggleVariableInspector:
         activeTab && activeTabId
           ? () => {
@@ -543,7 +544,7 @@ export function useCommandPaletteCommands({
         const snapshot = useResultStore.getState().scopeSnapshot;
         return snapshot != null && snapshot.language === activeTab.language;
       })(),
-      // implementation note — pass the active tab id so the
+      // Pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the
       // group; existing behavior is unchanged.
@@ -552,7 +553,7 @@ export function useCommandPaletteCommands({
       createTab: addTab,
       createDefaultTab,
       setLayoutPreset,
-      // internal — presenter mode reads the session store directly; the
+      // Presenter mode reads the session store directly; the
       // palette only needs a stable callback.
       onTogglePresenterMode: togglePresenterMode,
       onClose,
@@ -572,7 +573,7 @@ export function useCommandPaletteCommands({
       openFileFromDisk,
       saveActiveTabAs,
       duplicateActiveTab,
-      // implementation note — export latest capsule via the palette.
+      // Export latest capsule via the palette.
       // Mirrors the Settings → Account → Run Capsules export flow:
       // sanitize, JSON.stringify (pretty), clipboard write, status
       // notice. Telemetry tagged `palette-export` so dashboards split
@@ -597,7 +598,7 @@ export function useCommandPaletteCommands({
       onOpenRecipes,
       onNewNotebook,
       onExportActiveNotebookLinguanb,
-      // implementation note — open Settings on the Languages tab and
+      // Open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`
       //      via the module-level helper so the IntersectionObserver
@@ -609,7 +610,7 @@ export function useCommandPaletteCommands({
         markLanguageScorecardSurfaceForNextMount('palette');
         requestSettingsTab('languages', onOpenSettings);
       },
-      // implementation Phase A1 implementation note — emit the share trigger command;
+      // Emit the share trigger command;
       // the always-mounted `<ShareLinkController>` picks it up and
       // runs the same flow as the header button, with `trigger:
       // 'palette'` so telemetry attributes correctly. Hide the
@@ -620,7 +621,7 @@ export function useCommandPaletteCommands({
             emitCommand('share.trigger', { trigger: 'palette' });
           }
         : undefined,
-      // implementation note — three palette entries that re-arm a
+      // Three palette entries that re-arm a
       // single stage each. Each callback reads the setter from the
       // settings store at click time so a fresh slice always lands
       // even if the user opened the palette before the store mounted.
@@ -634,14 +635,14 @@ export function useCommandPaletteCommands({
       onReplayOnboardingFirstSnippet: () => {
         useSettingsStore.getState().resetOnboardingFirstSnippet();
       },
-      // implementation note — open Settings on the Privacy tab.
+      // Open Settings on the Privacy tab.
       // Mirrors `onShowLanguageSupport`: claim the next telemetry surface,
       // then seed the lazy Settings mount without racing a frame timer.
       onShowPrivacyDashboard: () => {
         markPrivacyDashboardSurfaceForNextMount('palette');
         requestSettingsTab('privacy', onOpenSettings);
       },
-      // implementation Slice A implementation note — open the bottom-panel Dependencies
+      // Open the bottom-panel Dependencies
       // tab. Same overlay-survival pattern as the language /
       // privacy entries: the action body in the model already calls
       // `onClose()` first; here we simply ask the UI store to focus
@@ -652,7 +653,7 @@ export function useCommandPaletteCommands({
             useUIStore.getState().openBottomPanel('dependencies');
           }
         : undefined,
-      // implementation note — render + copy markdown to clipboard.
+      // Render + copy markdown to clipboard.
       // implementation note: honor the scorecard's sticky platform filter so the
       // clipboard payload matches what the user sees (and the matching
       // per-platform section in docs/CAPABILITY_MATRIX.md). Default `all`
@@ -690,6 +691,7 @@ export function useCommandPaletteCommands({
           });
       },
       t,
+      shortcutOverrides,
     });
     // Re-build when the active language changes so labels/descriptions
     // follow i18next. `t` itself has a stable identity in react-i18next,
@@ -746,6 +748,7 @@ export function useCommandPaletteCommands({
     latestCapsule,
     savedSessionTabCount,
     i18n.language,
+    shortcutOverrides,
     info,
     success,
     warning,

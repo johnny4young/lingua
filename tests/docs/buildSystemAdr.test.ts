@@ -54,9 +54,4 @@ describe('BUILD_SYSTEM_ADR.md', () => {
       expect(adr).toContain(marker);
     }
   });
-
-  it('cross-links internal and internal so adjacent items stay findable', () => {
-    expect(adr).toContain('internal');
-    expect(adr).toContain('internal');
-  });
 });

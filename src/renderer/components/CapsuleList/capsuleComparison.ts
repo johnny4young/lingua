@@ -1,5 +1,5 @@
 /**
- * implementation — pure capsule comparison model.
+ * Pure capsule comparison model.
  *
  * Mirrors the `ExecutionComparisonModal` precedent  but
  * over two `RunCapsuleV1` records instead of two execution-history

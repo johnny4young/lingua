@@ -232,7 +232,7 @@ describe('RustRunner', () => {
     expect(mockDetect).toHaveBeenCalledOnce();
   });
 
-  it('implementation — forwards the merged user env to rust:run', async () => {
+  it('forwards the merged user env to rust:run', async () => {
     mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
     mockRun.mockResolvedValue({
       success: true,
@@ -301,7 +301,7 @@ describe('RustRunner', () => {
     });
   });
 
-  it('implementation — forwards an empty env when no tiers have values', async () => {
+  it('forwards an empty env when no tiers have values', async () => {
     mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
     mockRun.mockResolvedValue({
       success: true,

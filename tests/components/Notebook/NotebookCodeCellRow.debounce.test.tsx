@@ -1,6 +1,6 @@
 import { flushNotebookDocumentDrafts } from '../../../src/renderer/stores/notebookDocumentDrafts';
 /**
- * implementation detail — notebook code-cell source auto-save debounce.
+ * Notebook code-cell source auto-save debounce.
  *
  * The code cell keeps its source in local React state and only writes
  * through the persisted `notebookStore` (`onSourceChange`) after a quiet

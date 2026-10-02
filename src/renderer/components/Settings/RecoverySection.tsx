@@ -1,5 +1,5 @@
 /**
- * internal — Recovery section under Settings → Account.
+ * Recovery section under Settings → Account.
  *
  * Five scoped reset actions plus an "Open recovery folder" affordance
  * for desktop. Every reset gates behind a native confirm modal via
@@ -144,7 +144,7 @@ export function RecoverySection() {
   const [revealSupported, setRevealSupported] = useState<boolean>(false);
   const [busyScope, setBusyScope] = useState<ResetScope | null>(null);
 
-  // implementation — hide the "Open recovery folder" button on web. The web
+  // Hide the "Open recovery folder" button on web. The web
   // stub returns { ok: false, reason: 'unsupported' } from the very
   // first call so we use a quick capability probe to gate the row.
   useEffect(() => {

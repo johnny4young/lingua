@@ -1,5 +1,5 @@
 /**
- * implementation note — end-to-end smoke for the onboarding
+ * end-to-end smoke for the onboarding
  * choreography that wasn't covered by implementation's unit tests. The
  * implementation reviewer pass surfaced the visual toast-clobber bug that
  * 188 unit tests missed because they couldn't observe runtime

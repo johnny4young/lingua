@@ -4,21 +4,38 @@ End-user reference for running Lingua: keyboard shortcuts, deep links, plugin fo
 
 ## Keyboard shortcuts
 
-The Keyboard Shortcuts overlay (Command Palette → `Open Keyboard Shortcuts`) supports search, inline rebinding, preset switching, and JSON export/import for override bundles. Import sanitizes unknown ids, malformed combos, and conflicting bindings before writing to settings.
+The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) supports search, inline rebinding, preset switching, and JSON export/import for override bundles. Import sanitizes unknown ids, malformed combos, and conflicting bindings before writing to settings.
 
 | Action                  | macOS         | Windows / Linux |
 | ----------------------- | ------------- | --------------- |
 | Run or stop active file | `Cmd+Enter`   | `Ctrl+Enter`    |
 | Save active tab         | `Cmd+S`       | `Ctrl+S`        |
+| Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
+| Open file               | `Cmd+O`       | `Ctrl+O`        |
 | Close active tab        | `Cmd+W`       | `Ctrl+W`        |
 | Toggle sidebar          | `Cmd+B`       | `Ctrl+B`        |
 | Toggle console          | `Cmd+\`       | `Ctrl+\`        |
-| Quick open              | `Cmd+P`       | `Ctrl+P`        |
+| Quick open (go to file) | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
+| Recent commands         | `Cmd+;`       | `Ctrl+;`        |
+| Developer Utilities     | `Cmd+K`       | `Ctrl+K`        |
 | Search in files         | `Cmd+Shift+F` | `Ctrl+Shift+F`  |
+| Replace in files        | `Cmd+Shift+H` | `Ctrl+Shift+H`  |
 | Go to symbol in file    | `Cmd+Shift+O` | `Ctrl+Shift+O`  |
+| HTTP workspace          | `Cmd+Shift+K` | `Ctrl+Shift+K`  |
+| SQL workspace           | `Cmd+Option+S` | `Ctrl+Alt+S`   |
+| New notebook            | `Cmd+Option+N` | `Ctrl+Alt+N`   |
+| Presenter mode          | `Cmd+Option+P` | `Ctrl+Alt+P`   |
 | Settings                | `Cmd+,`       | `Ctrl+,`        |
 | Close open overlay      | `Escape`      | `Escape`        |
+| Debugger: continue      | `F5`          | `F5`            |
+| Debugger: step over     | `F10`         | `F10`           |
+| Debugger: step into     | `F11`         | `F11`           |
+| Debugger: step out      | `Shift+F11`   | `Shift+F11`     |
+
+The overlay lists every other default binding (run history, capsules, utilities, and more).
+
+In the HTTP workspace `Cmd/Ctrl+Enter` sends the request instead of running the active tab. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`…`0` jump between sections.
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 
@@ -47,20 +64,22 @@ Packaged desktop builds register the `lingua://` protocol and handle these entry
 - `lingua://open?file=/absolute/path/to/file.ts`
 - `lingua://new?lang=python`
 - `lingua://snippet?id=snippet-123`
+- `lingua://license?token=<license token>`
 
 Notes:
 
 - `open` reuses an already-open tab when the target file is open, otherwise it opens the file from disk.
 - `new` creates a fresh tab using the same starter content as the toolbar language actions.
 - `snippet` opens the Snippet Library and focuses the matching saved snippet when that id exists locally.
+- `license` is the button in trial, education, and recovery emails. It opens Settings → Account with the token already in the paste field; nothing is applied until you click **Apply**. Links whose token is not a two-part base64url value are ignored.
 - Web builds expose the same bridge shape internally for consistency, but the OS-level protocol registration is desktop-only.
 
 ## Update behavior
 
-- Automatic updates are only active in packaged desktop builds on macOS and Windows.
-- Linux desktop builds report updates as unavailable.
+- Automatic updates are only active in packaged desktop builds: macOS (zip), Windows (NSIS installer), and Linux (AppImage).
+- Development builds report updates as unavailable.
 - Web builds poll `updates.linguacode.dev/web/version` and show a reload banner when the deployed web tag is strictly newer than the running bundle.
-- The renderer exposes update state in Settings and a manual "Check for Updates" command in the command palette, which opens Settings so the current state and message are visible immediately.
+- The renderer exposes update state in Settings and a manual "Check for updates" command in the command palette, which opens Settings so the current state and message are visible immediately.
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded.
 - When a desktop update is ready, Lingua also shows a success notice and an update-ready chip in the app chrome; either path points back to Settings → Updates for the restart action.
 - The updater currently targets the stable GitHub Release channel only.
@@ -117,7 +136,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## Native toolchains
 
-- JavaScript, TypeScript, and Python ship with Lingua. Go, Rust, desktop Node mode, and system Ruby use binaries installed on the host.
+- JavaScript, TypeScript, Python, and the WASM Ruby runtime ship with Lingua. Go, Rust, desktop Node, Deno, and Bun modes, and system Ruby use binaries installed on the host.
 - When a requested desktop toolchain is missing, Lingua shows an installation-guide action and a **Retry detection** action instead of requiring an app restart.
 - Retry updates the active runner as soon as the binary becomes available on the desktop app's `PATH`.
 - Ruby's `auto` preference quietly keeps using the bundled WASM runtime when system Ruby is absent. The guidance appears when `system` Ruby was explicitly selected.

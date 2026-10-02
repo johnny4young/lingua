@@ -1,5 +1,5 @@
 /**
- * implementation — CLI exit-code contract.
+ * CLI exit-code contract.
  *
  * Closed enum. CI scripts depend on these numbers being stable across
  * releases. Adding new codes is allowed; renumbering existing ones is

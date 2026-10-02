@@ -1,8 +1,8 @@
 /**
- * implementation — Mod+Alt+N opens a new notebook tab + notebook UI
+ * Mod+Alt+N opens a new notebook tab + notebook UI
  * responds to the toolbar. Cross-locale (EN + ES tuteo) regression.
  *
- * implementation — real cross-cell variable sharing through the actual
+ * Real cross-cell variable sharing through the actual
  * JS worker round-trip (no mocked runner). This is the coverage gap
  * that hid the pre-existing bug where the worker serialized the cell's
  * return value to a truncatable display string and the renderer never
@@ -250,7 +250,7 @@ test.describe('Notebook — Python cells ', () => {
     await firstRow
       .getByTestId('notebook-code-cell-language')
       .selectOption('python');
-    // implementation note — the independent-run hint is visible on Python cells.
+    // The independent-run hint is visible on Python cells.
     await expect(
       firstRow.getByTestId('notebook-code-cell-python-hint')
     ).toBeVisible();

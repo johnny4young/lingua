@@ -6,7 +6,7 @@ import type { CliIo } from '../io';
 import { emitCliFailure } from '../presentation';
 import type { CliColorMode } from '../commandModel';
 import { CliEnvironmentError, buildCliRuntimeEnvironment } from '../runtime/environment';
-import { executeCliPlan, type CliExecutionResult } from '../runtime/execution';
+import { clampCliRunTimeout, executeCliPlan, type CliExecutionResult } from '../runtime/execution';
 import { ExecutionTargetError, resolveExecutionTarget } from '../runtime/targets';
 
 export interface RunTargetArgs {
@@ -21,6 +21,9 @@ export interface RunTargetArgs {
 }
 
 export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<CliExitCode> {
+  // --timeout is wall-clock from invocation, so a pipe that never closes cannot outlive it.
+  const startedAt = Date.now();
+  const timeoutMs = clampCliRunTimeout(args.timeoutMs);
   let stdin: string | undefined;
   if (args.stdinPath) {
     try {
@@ -36,7 +39,17 @@ export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<
     }
   } else {
     try {
-      stdin = (await io.readStdin()) ?? undefined;
+      const piped = await readStdinWithin(io, timeoutMs);
+      if (piped === STDIN_TIMED_OUT) {
+        return emitPreflightError(
+          args,
+          io,
+          'timeout',
+          `Run timed out after ${timeoutMs}ms while waiting for piped stdin to close.`,
+          CLI_EXIT_CODES.runtimeError
+        );
+      }
+      stdin = piped ?? undefined;
     } catch (error) {
       return emitPreflightError(
         args,
@@ -86,7 +99,8 @@ export async function runTargetCommand(args: RunTargetArgs, io: CliIo): Promise<
 
   const result = await executeCliPlan(plan, {
     ...(stdin !== undefined ? { stdin } : {}),
-    ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
+    timeoutMs,
+    startedAt,
     env,
     ...(!args.json ? { onStdout: io.writeStdout, onStderr: io.writeStderr } : {}),
   });
@@ -141,6 +155,30 @@ export function emitPreflightError(
 ): CliExitCode {
   emitCliFailure(io, args, { label, reason, detail, extra });
   return exitCode;
+}
+
+const STDIN_TIMED_OUT = Symbol('stdin-timed-out');
+
+async function readStdinWithin(
+  io: CliIo,
+  timeoutMs: number
+): Promise<string | null | typeof STDIN_TIMED_OUT> {
+  const controller = new AbortController();
+  const reading = io.readStdin({ signal: controller.signal });
+  // The aborted read may still reject after the race settles.
+  reading.catch(() => {});
+  let timer: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<typeof STDIN_TIMED_OUT>(resolve => {
+    timer = setTimeout(() => {
+      resolve(STDIN_TIMED_OUT);
+      controller.abort();
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([reading, timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function errorMessage(error: unknown): string {

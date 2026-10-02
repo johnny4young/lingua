@@ -1,5 +1,5 @@
 /**
- * internal — Profile backup section. Lives under Settings → General.
+ * Profile backup section. Lives under Settings → General.
  *
  * Two stacked rows:
  *

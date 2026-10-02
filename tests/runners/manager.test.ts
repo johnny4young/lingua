@@ -150,7 +150,7 @@ describe('RunnerManager', () => {
     expect(manager.isSupported('go')).toBe(true);
     expect(manager.isSupported('python')).toBe(true);
     expect(manager.isSupported('rust')).toBe(true);
-    // implementation — Ruby joined the built-in factories.
+    // Ruby joined the built-in factories.
     expect(manager.isSupported('ruby')).toBe(true);
   });
 

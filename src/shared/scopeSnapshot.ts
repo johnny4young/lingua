@@ -1,5 +1,5 @@
 /**
- * implementation — shared variable-inspector primitives.
+ * Shared variable-inspector primitives.
  *
  * Both the JS worker, the Python worker, and the renderer talk to the
  * same `ScopeSnapshot` shape so a regression on one side surfaces
@@ -70,7 +70,7 @@ export interface ScopeValueError {
   kind: 'error';
   message: string;
   /**
-   * implementation — implementation. Optional structured stack frames
+   * implementation. Optional structured stack frames
    * for the renderer to paint as clickable rows. Parsed worker-side
    * by `parseJsErrorStack` / `parsePythonTraceback` from
    * `src/shared/errorStack.ts`. Absent on every call site that hasn't
@@ -145,7 +145,7 @@ const MAX_SNAPSHOT_PAYLOAD_BYTES = 256 * 1024;
 // ---------------------------------------------------------------------------
 
 /**
- * implementation — exact-match filter for JS worker globals that are
+ * exact-match filter for JS worker globals that are
  * always non-user (the worker's helpers, the runner's bridge
  * functions, debugger frame helpers, stdin helpers).
  *

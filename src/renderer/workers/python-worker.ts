@@ -4,7 +4,7 @@
  * Loads Pyodide on first use, caches in memory for subsequent runs,
  * captures stdout/stderr, and sends results to the main thread.
  *
- * implementation — desktop/dev resolve `pyodide.mjs` against the
+ * desktop/dev resolve `pyodide.mjs` against the
  * renderer build output (file:// in packaged Electron, the dev server
  * origin in `pnpm run dev:desktop`). The build pipeline copies
  * `node_modules/pyodide/*` to `<outDir>/pyodide/` via

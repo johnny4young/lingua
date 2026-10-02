@@ -1,5 +1,5 @@
 /**
- * implementation — export a Lingua notebook to a Jupyter `.ipynb`
+ * Export a Lingua notebook to a Jupyter `.ipynb`
  * (nbformat v4) document, the symmetric counterpart of the internal
  * `.ipynb` importer (`src/shared/importers/ipynbImporter.ts`).
  *

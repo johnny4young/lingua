@@ -13,7 +13,7 @@ import type { MagicCommentDirective } from './types';
 
 const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'table',
-  // implementation — chart / image / html become recognised
+  // Chart / image / html become recognised
   // directive words. implementation (JS / TS) + implementation (Python) wire
   // the runner-side payload upgrade so the directive contract is now
   // fully live cross-language.
@@ -22,7 +22,7 @@ const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'html',
 ]);
 
-// implementation-β-β-α implementation note — directive aliases. Maps user-facing
+// Directive aliases. Maps user-facing
 // shorthand to the canonical `MagicCommentDirective`. `figure` matches
 // the matplotlib convention (`plt.show()` → "figure"); the runner
 // receives the canonical name so the payload conversion stays single-
@@ -43,7 +43,7 @@ export function parseDirective(raw: string | undefined): MagicCommentDirective |
 }
 
 /**
- * implementation note — `// @timeout 60s` (JS / TS) and `# @timeout
+ * `// @timeout 60s` (JS / TS) and `# @timeout
  * 60s` (Python). The first matching directive wins; later directives
  * are ignored so a forgotten copy-paste doesn't keep extending the
  * deadline silently.
@@ -95,7 +95,7 @@ export function extractTimeoutMagicComment(
 }
 
 /**
- * implementation Sub-slice G implementation note — `// @origin off` (JS / TS) and
+ * `// @origin off` (JS / TS) and
  * `# @origin off` (Python) per-tab directive that suppresses the
  * `<OutputLineBadge>` chip for sensitive logs. Users pasting tokens
  * or stack traces they don't want leaked through capsule export

@@ -1,5 +1,5 @@
 /**
- * implementation — file tree first-paint defense.
+ * File tree first-paint defense.
  *
  * The implementation acceptance criterion is: opening a folder with ~50
  * files renders the tree within 500 ms. The cost we lock here is

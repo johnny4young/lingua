@@ -1,5 +1,5 @@
 /**
- * implementation Slice B implementation note — `useLessonProgressStore` tests.
+ * `useLessonProgressStore` tests.
  *
  * Covers:
  *   - Initial empty state.

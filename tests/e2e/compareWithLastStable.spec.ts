@@ -1,5 +1,5 @@
 /**
- * implementation — Compare-with-last-stable end-to-end smoke.
+ * Compare-with-last-stable end-to-end smoke.
  *
  * Locks the user-visible contract:
  *

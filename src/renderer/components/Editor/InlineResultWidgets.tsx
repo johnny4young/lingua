@@ -63,7 +63,7 @@ function useInlineResultWidgets(
   monaco: typeof monacoTypes | null,
   lineResults: readonly LineResult[],
   tabId: string | null,
-  // internal — per-statement timings from the last instrumented run.
+  // per-statement timings from the last instrumented run.
   // Rendered as a trailing chip on the line's widget (or a standalone
   // widget for lines with no value result). Empty = feature inactive.
   lineTimings: readonly LineTimingEntry[] = []
@@ -129,7 +129,7 @@ function useInlineResultWidgets(
       list.push(result);
       grouped.set(result.line, list);
     }
-    // internal — index the timings and find the run's hot spot. Lines
+    // Index the timings and find the run's hot spot. Lines
     // that only have a timing still get a widget (empty items array).
     const timingByLine = new Map<number, number>();
     let slowestLine = 0;

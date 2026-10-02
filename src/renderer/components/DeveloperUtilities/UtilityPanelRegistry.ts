@@ -2,7 +2,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 
 /**
- * implementation detail — per-tool lazy panel registry. Each panel is a named
+ * per-tool lazy panel registry. Each panel is a named
  * export, so the loader resolves through a `.then` that re-exposes it as the
  * `default` Vite/Rollup needs for code-splitting. The result: opening the
  * Developer Utilities workspace no longer loads all 30 panels (and their single-use
@@ -68,7 +68,7 @@ export const DEVELOPER_UTILITY_PANEL_COMPONENTS = Object.fromEntries(
 ) as Record<DeveloperUtilityId, LazyExoticComponent<ComponentType>>;
 
 /**
- * implementation — warm a tool's chunk ahead of selection (e.g. on sidebar
+ * Warm a tool's chunk ahead of selection (e.g. on sidebar
  * hover/focus) so its `<Suspense>` fallback rarely shows. Idempotent: the
  * dynamic import is cached by the bundler after the first call.
  */

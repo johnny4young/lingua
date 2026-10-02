@@ -134,7 +134,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-yellow-400',
     extensions: ['js', 'jsx', 'mjs', 'cjs'],
     monacoLanguage: 'javascript',
-    // implementation — the Scratchpad seed shows both magic-comment
+    // The Scratchpad seed shows both magic-comment
     // shapes side-by-side so new users discover `=>` (ad-hoc peek)
     // and `@watch` (pinned, sticky) without reading the docs.
     defaultCode:
@@ -154,7 +154,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-blue-400',
     extensions: ['ts', 'tsx'],
     monacoLanguage: 'typescript',
-    // implementation — Scratchpad seed showcases arrow + watch with
+    // Scratchpad seed showcases arrow + watch with
     // explicit TypeScript types so the demo doubles as a TS smoke.
     defaultCode:
       '// Welcome to Lingua\nconst counter: number = 5;\nconst doubled: number = counter * 2;\ndoubled //=> doubled\ncounter * 10 // @watch counter * 10\n',
@@ -190,7 +190,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     textColorClass: 'text-green-400',
     extensions: ['py'],
     monacoLanguage: 'python',
-    // implementation — same arrow + watch seed as JS / TS, adapted
+    // Same arrow + watch seed as JS / TS, adapted
     // to Python's `#=>` / `# @watch` syntax.
     defaultCode:
       '# Welcome to Lingua\ncounter = 5\ndoubled = counter * 2\ndoubled  #=> doubled\ncounter * 10  # @watch counter * 10\n',

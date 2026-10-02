@@ -1,5 +1,5 @@
 /**
- * implementation — `<OutputLineBadge>` render contract.
+ * `<OutputLineBadge>` render contract.
  *
  * Covers:
  *   - Renders as a button with the `L<n>` label and aria-label.
@@ -48,7 +48,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-describe('implementation — <OutputLineBadge>', () => {
+describe('<OutputLineBadge>', () => {
   beforeEach(() => {
     trackOutputOriginClickedMock.mockClear();
     vi.useFakeTimers();
@@ -115,7 +115,7 @@ describe('implementation — <OutputLineBadge>', () => {
     }
   });
 
-  // implementation — the master + hover sub-gate Settings toggles were
+  // The master + hover sub-gate Settings toggles were
   // removed; the badge always renders (subject to the per-tab
   // `// @origin off` directive which is exercised by the parent
   // `<ConsoleEntryRenderer>` suppression path, not here).

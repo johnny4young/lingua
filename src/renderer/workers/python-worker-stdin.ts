@@ -1,5 +1,5 @@
 /**
- * implementation — line-by-line stdin reader for the Pyodide worker,
+ * line-by-line stdin reader for the Pyodide worker,
  * extracted (python-worker-env.ts precedent) so the EOF semantics are
  * unit-testable without a Pyodide harness.
  *

@@ -108,7 +108,7 @@ export function ExecutionHistoryPopover({
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  // implementation note — "This tab only" filter toggle. Defaults
+  // "This tab only" filter toggle. Defaults
   // off so the historical popover behavior is preserved; the user
   // opts into per-tab filtering. State stays open-scoped — closing
   // and reopening the popover resets the filter (consistent with the

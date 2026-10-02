@@ -1,5 +1,5 @@
 /**
- * implementation — bundled CJS integration tests.
+ * Bundled CJS integration tests.
  *
  * Spawns `dist/cli/lingua.cjs` via `child_process.spawnSync` to
  * verify the artifact actually runs end-to-end. Skips automatically

@@ -84,9 +84,9 @@ describe('coerceRuntimeMode (rehydrate defensive)', () => {
   });
 
   it('preserves browser-preview and node now that implementation both shipped', () => {
-    // implementation — node is implemented; preserved.
+    // node is implemented; preserved.
     expect(coerceRuntimeMode('node', 'javascript')).toBe('node');
-    // implementation — browser-preview is implemented; preserved.
+    // browser-preview is implemented; preserved.
     expect(coerceRuntimeMode('browser-preview', 'typescript')).toBe('browser-preview');
   });
 

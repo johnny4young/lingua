@@ -1,5 +1,5 @@
 /**
- * implementation note — Git status parse regression guard.
+ * Git status parse regression guard.
  *
  * The main-side `getFileStatus` does an `execFileAsync('git', ...)`
  * + numstat parse + truncation guard for every per-file query. The

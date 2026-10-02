@@ -8,7 +8,7 @@ import { usePluginStore } from '../../../src/renderer/stores/pluginStore';
 import { pluginRegistry } from '../../../src/renderer/plugins';
 
 /**
- * internal — capa 3 cobertura UI.
+ * Capa 3 cobertura UI.
  *
  * Cada caso fija el estado de `usePluginStore` con un fixture y
  * verifica que el badge + diagnóstico se rendericen correctamente.

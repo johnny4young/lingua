@@ -1,5 +1,5 @@
 /**
- * internal — collect a portable user profile from the renderer stores
+ * Collect a portable user profile from the renderer stores
  * and trigger a download as JSON.
  *
  * Allowlist-driven: only fields the schema declares portable are

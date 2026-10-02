@@ -26,7 +26,7 @@ const { mockTrackEvent, mockTrackOutputOriginClicked } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn(),
   mockTrackOutputOriginClicked: vi.fn(),
 }));
-// internal — controllable `readPastedImageFile` so tests can drive the
+// Controllable `readPastedImageFile` so tests can drive the
 // resized / unreadable handler branches that jsdom cannot reach through a
 // real paste (no `createImageBitmap`; image bytes always yield a valid
 // `data:image/` URI). Defaults to the real reader so the existing paste
@@ -62,7 +62,7 @@ let mockState: Omit<
   showTimestamps: false,
 };
 
-// internal — the store now collapses consecutive identical entries at push
+// The store now collapses consecutive identical entries at push
 // time and exposes `collapsedEntries`; the panel reads those. Mirror that
 // collapse here so the mocked store hands the panel the same rows the real
 // store would (same type + line + content + payload equality).
@@ -139,7 +139,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
       setActiveTab: mockSetActiveTab,
     };
   }
-  // implementation — ExecutionHistoryPopover reads
+  // ExecutionHistoryPopover reads
   // `useEditorStore((state) => state.activeTabId)` to surface the
   // implementation note "This tab only" filter. The mock therefore needs to be
   // callable as both a selector hook AND a `getState()` accessor so
@@ -180,7 +180,7 @@ vi.mock('lucide-react', () => ({
   ListFilter: () => null,
   Trash2: () => null,
   History: () => null,
-  // implementation — `<ConsoleEntryRenderer>` now uses Maximize2
+  // `<ConsoleEntryRenderer>` now uses Maximize2
   // for the "Open details" chip in place of the old Unicode glyph.
   Maximize2: () => null,
   Lightbulb: () => null,
@@ -207,7 +207,7 @@ function resetState(partial: Partial<typeof mockState> = {}) {
   mockState = {
     entries: [],
     activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
-    // implementation note — payload-kind filter; empty Set means
+    // payload-kind filter; empty Set means
     // every kind is visible. Without this default the ConsolePanel
     // throws in the new chip-row + filter loops.
     hiddenPayloadKinds: new Set(),
@@ -380,7 +380,7 @@ describe('ConsolePanel', () => {
     );
   });
 
-  // implementation detail — image clipboard paste into the console.
+  // Image clipboard paste into the console.
   describe('image clipboard paste', () => {
     function dispatchImagePaste(opts: { mime?: string; bytes?: number; asText?: boolean }) {
       const event = new Event('paste', { bubbles: true });
@@ -608,11 +608,11 @@ describe('ConsolePanel', () => {
     expect(errLabels.length).toBeGreaterThanOrEqual(2);
   });
 
-  // implementation — `outputSourceMappingEnabled` was removed; the cursor
+  // `outputSourceMappingEnabled` was removed; the cursor
   // pulse listener is always installed. The "silence when OFF" and
   // "clear in-flight on flip" cases no longer apply.
 
-  // implementation Sub-slice G.1 implementation note — adoption telemetry fires once per
+  // Adoption telemetry fires once per
   // successful pulse with the active tab's language.
   it('emits runtime.cursor_pulse_emitted telemetry on a successful pulse', () => {
     vi.useFakeTimers();

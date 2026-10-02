@@ -1,5 +1,5 @@
 /**
- * implementation — keyboard contract for the capsule import overlay.
+ * Keyboard contract for the capsule import overlay.
  *
  * Acceptance: Mod+Shift+Y opens the import overlay; Escape closes it.
  * The full decode + open-tab flow is covered by the component test

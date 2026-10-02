@@ -34,7 +34,10 @@ import { ICON_GLYPH } from '../ui/iconScale';
 import { EyebrowMono } from '../ui/primitives';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import {
+  currentShortcutDisplayPlatform,
   formatShortcutCombo,
+  KEYBOARD_SHORTCUTS,
+  matchesCombo,
   resolveCombos,
   resolveShortcutDisplayPlatform,
 } from '../../data/keyboardShortcuts';
@@ -164,7 +167,7 @@ interface EffectiveConfigTileProps {
   tab: TabId;
 }
 
-// internal review — keys are listed per tab. Missing keys are silently
+// Keys are listed per tab. Missing keys are silently
 // skipped at runtime by the `pick` helper, so adding a new setting
 // just requires adding the key here.
 const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
@@ -199,7 +202,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   // renders an empty slice rather than misattributing editor state.
   languages: [],
   environment: ['envVars'],
-  // implementation — Privacy + Trust dashboard is a passive audit
+  // Privacy + Trust dashboard is a passive audit
   // surface. The Clear actions remove localStorage keys directly;
   // they don't mutate any settings store slice. Empty list keeps the
   // effective-config tile honest about what this tab can change.
@@ -217,7 +220,7 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
  * — only the keys this tab can mutate — so the user can verify "what
  * I changed here is what runtime X reads."
  *
- * internal review — the tile used to call `useSettingsStore()` without a
+ * The tile used to call `useSettingsStore()` without a
  * selector and re-render on every store change, blowing the
  * `JSON.stringify` budget each time. It now subscribes only to the
  * exact slice the active tab cares about via a per-tab selector.
@@ -243,7 +246,7 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
 
   if (Object.keys(slice).length === 0) return null;
 
-  // implementation — Prerequisite fix surfaced during validation.
+  // Prerequisite fix surfaced during validation.
   // The raw JSON dump dominated the bottom of every Settings tab and
   // was visually noisy for the typical user. Hide it behind a native
   // <details> so the surface stays clean by default; power users
@@ -282,6 +285,7 @@ interface SettingsStatusBarProps {
 
 function SettingsStatusBar({ active }: SettingsStatusBarProps) {
   const { t } = useTranslation();
+  const platform = currentShortcutDisplayPlatform();
   return (
     <div className="settings-status-bar">
       <span className="inline-flex items-center gap-1.5">
@@ -294,8 +298,8 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
       </span>
       <span className="flex-1" />
       <span className="settings-status-shortcuts items-center gap-1.5">
-        <Kbd>⌘1</Kbd>
-        <Kbd>⌘0</Kbd>
+        <Kbd>{formatShortcutCombo({ tokens: ['Mod', '1'] }, platform)}</Kbd>
+        <Kbd>{formatShortcutCombo({ tokens: ['Mod', '0'] }, platform)}</Kbd>
         <span className="text-fg-muted">{t('settings.statusBar.section')}</span>
       </span>
       <span className="settings-status-shortcuts text-fg-subtle">·</span>
@@ -391,7 +395,7 @@ export function SettingsModal({
   );
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
-  // implementation detail — siblings request a typed tab jump after opening
+  // Siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
   useCommandListener('settings.navigate', ({ tab, targetId }, context) => {
     if (RAIL_ITEMS.some(it => it.id === tab)) {
@@ -401,12 +405,18 @@ export function SettingsModal({
     }
   });
 
-  // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others.
+  // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others. Capture phase so the
+  // global Settings toggle never sees a combo handled here.
   useEffect(() => {
+    const settingsShortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'overlay-settings');
     const onKey = (event: KeyboardEvent) => {
-      // Filter focus: ⌘,
-      if ((event.metaKey || event.ctrlKey) && event.key === ',') {
+      const overrides = useSettingsStore.getState().shortcutOverrides;
+      if (
+        settingsShortcut &&
+        resolveCombos(settingsShortcut, overrides).some(combo => matchesCombo(event, combo))
+      ) {
         event.preventDefault();
+        event.stopPropagation();
         filterInputRef.current?.focus();
         return;
       }
@@ -417,6 +427,7 @@ export function SettingsModal({
         const match = RAIL_ITEMS.find(it => it.kbdToken === event.key);
         if (match) {
           event.preventDefault();
+          event.stopPropagation();
           setActiveTab(match.id);
           window.requestAnimationFrame(() => {
             document.getElementById(`settings-rail-${match.id}`)?.focus();
@@ -424,8 +435,8 @@ export function SettingsModal({
         }
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [filterInputRef]);
 
   const searchResults = useMemo(() => searchSettings(filter, t), [filter, t]);
@@ -475,11 +486,11 @@ export function SettingsModal({
             <SettingsSearchTarget id="section-updates">
               <UpdatesSection />
             </SettingsSearchTarget>
-            {/* implementation — Onboarding choreography reset toggles */}
+            {/* Onboarding choreography reset toggles */}
             <SettingsSearchTarget id="section-onboarding">
               <OnboardingSection />
             </SettingsSearchTarget>
-            {/* implementation Slice B implementation note — Reset recipe progress */}
+            {/* Reset recipe progress */}
             <SettingsSearchTarget id="section-recipe-progress">
               <RecipesProgressResetSection />
             </SettingsSearchTarget>

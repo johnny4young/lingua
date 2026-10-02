@@ -17,7 +17,7 @@ import {
 import { computeLicenseJwkThumbprint } from '../../src/shared/license';
 
 /**
- * internal — locks the rotation guard. The thumbprint twins (scripts lib ↔
+ * Locks the rotation guard. The thumbprint twins (scripts lib ↔
  * src/shared) must stay byte-equal, mirroring the darwinAsset.mjs ↔
  * update-server twin pin: if they drift, the fingerprint the operator reads
  * in Settings stops matching the registry the release gate enforces.

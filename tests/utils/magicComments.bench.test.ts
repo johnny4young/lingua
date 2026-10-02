@@ -1,5 +1,5 @@
 /**
- * implementation note — magic-comment parser performance defense.
+ * magic-comment parser performance defense.
  *
  * The detect/transform pass runs on every auto-run, debounced
  * keystroke. A regression to "let's compile the whole buffer to AST"
@@ -99,7 +99,7 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
   });
 });
 
-describe('implementation note — auto-log detector bench', () => {
+describe('auto-log detector bench', () => {
   it('detect + transform stay under 750 ms across 5 000 iterations on a 5 KB buffer', () => {
     // Realistic mix: declarations, bare expressions, function
     // bodies, arrows, watches, multi-line objects. The detector

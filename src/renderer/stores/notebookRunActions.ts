@@ -5,7 +5,7 @@ import { isNotebookCellRunStatus } from './notebookStorePrimitives';
 import { markExecutedNotebookCellsStale } from './notebookReactivity';
 
 /**
- * implementation — notebook run-state action factory.
+ * Notebook run-state action factory.
  *
  * Owns the outputs / run-status / duration / var-flow / execution-order writes
  * plus the clear + restart flows. Every action is a pure `set` update (plus

@@ -7,7 +7,7 @@ import {
 } from './notebookReactivity';
 
 /**
- * implementation — notebook lifecycle action factory.
+ * Notebook lifecycle action factory.
  *
  * Owns creating / installing / disposing / renaming a tab's notebook entry.
  * Every action is a pure `set` update, so the factory only needs zustand `set`.

@@ -1,5 +1,5 @@
 /**
- * internal — parent-owned execution timeout, runId guard, and console
+ * parent-owned execution timeout, runId guard, and console
  * cap behavior for the JavaScript / TypeScript runners.
  *
  * The existing MockWorker fixture only emitted `console` + `done` on
@@ -17,6 +17,7 @@ import {
   setActiveDebugWorker,
 } from '@/runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
+import type { ConsoleOutput } from '@/types';
 
 interface PostedRequest {
   type: string;
@@ -220,10 +221,19 @@ describe('JavaScriptRunner — internal parent-owned timeout', () => {
     const { JavaScriptRunner } = await import('@/runners/javascript');
     const runner = new JavaScriptRunner();
     await runner.init();
-    const result = await runner.execute('void 0', { timeout: 1_000 });
+    const streamed: ConsoleOutput[] = [];
+    const result = await runner.execute('void 0', {
+      timeout: 1_000,
+      onConsole: (output) => streamed.push(output),
+    });
     // Exactly MAX_CONSOLE_ENTRIES (1000), with the final slot as notice.
     expect(result.stdout).toHaveLength(1000);
     expect(result.stdout[999]?.type).toBe('warn');
+    // The live console gets every kept entry plus the notice once, never the
+    // dropped tail.
+    expect(streamed).toHaveLength(1001);
+    expect(streamed.filter((output) => output.type === 'warn')).toEqual([result.stdout[999]]);
+    expect(streamed.at(-1)).toBe(result.stdout[999]);
   });
 
   it('keeps stderr byte truncation sticky after the first oversized chunk', async () => {
@@ -234,10 +244,16 @@ describe('JavaScriptRunner — internal parent-owned timeout', () => {
     const { JavaScriptRunner } = await import('@/runners/javascript');
     const runner = new JavaScriptRunner();
     await runner.init();
-    const result = await runner.execute('void 0', { timeout: 1_000 });
+    const streamed: ConsoleOutput[] = [];
+    const result = await runner.execute('void 0', {
+      timeout: 1_000,
+      onConsole: (output) => streamed.push(output),
+    });
     expect(result.stderr).toEqual([
       { type: 'error', args: ['[stderr truncated]'], captureOrder: 0 },
     ]);
+    // The oversized chunk and everything after it stay off the live console.
+    expect(streamed).toEqual(result.stderr);
   });
 
   it('stop() resolves an in-flight execute() instead of leaving it pending', async () => {

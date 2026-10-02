@@ -1,5 +1,5 @@
 /**
- * implementation Slice A implementation note — language-aware notebook script export coverage.
+ * language-aware notebook script export coverage.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -1,5 +1,5 @@
 /**
- * implementation — `httpResponseCapsule.ts` mapping rules.
+ * `httpResponseCapsule.ts` mapping rules.
  *
  * Pinned coverage:
  *   - 2xx → capsule status 'success'.

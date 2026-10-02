@@ -8,7 +8,7 @@ import { isLikelyEmail } from '../../utils/email';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
- * implementation — Trial start CTA.
+ * Trial start CTA.
  *
  * Sits under `status.kind === 'free'` in LicenseSection. Posts the
  * email/device tuple to `POST /trials/start`; on success the worker

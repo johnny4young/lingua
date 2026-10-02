@@ -1,6 +1,6 @@
 import type { NotebookDocumentV1 } from './notebookDocument';
 /**
- * implementation — `NotebookV1` schema.
+ * `NotebookV1` schema.
  *
  * The versioned schema for `.linguanb` notebooks. implementation ships the
  * schema + parser + serializer + closed-enum reject reasons; later
@@ -407,4 +407,20 @@ export function serializeNotebookDocument(
     ...(Object.keys(order).length > 0 ? { executionOrder: order } : {}),
   };
   return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+export type NotebookDocumentExportOutcome =
+  | { ok: true; json: string }
+  | { ok: false; reason: 'oversized'; bytes: number; limit: number };
+
+/** Export path: refuse a document the reader would reject as `oversized`. */
+export function serializeNotebookDocumentWithinLimit(
+  notebook: NotebookV1,
+  opts: { executionOrder?: Readonly<Record<string, number>> } = {}
+): NotebookDocumentExportOutcome {
+  const json = serializeNotebookDocument(notebook, opts);
+  const bytes = utf8ByteLength(json);
+  return bytes > MAX_LINGUANB_BYTES
+    ? { ok: false, reason: 'oversized', bytes, limit: MAX_LINGUANB_BYTES }
+    : { ok: true, json };
 }

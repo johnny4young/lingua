@@ -34,7 +34,7 @@ export function createDocumentOpenActions(
           messageKey: 'upsell.freeCeilingReached',
           featureLabel: i18next.t('upsell.feature.extraTabs'),
         });
-        // internal — same emit on the openFile gate so both rejection
+        // Same emit on the openFile gate so both rejection
         // paths surface a feature.blocked event.
         void trackEvent('feature.blocked', {
           entitlement: 'tabs',
@@ -86,10 +86,10 @@ export function createDocumentOpenActions(
         rootId,
         relativePath,
         filePath,
-        // implementation — disk-backed JS/TS opens adopt the per-app
+        // disk-backed JS/TS opens adopt the per-app
         // default runtime mode; non-JS/TS files leave the field unset.
         runtimeMode: runtimeModeForNewTab(language),
-        // implementation — disk-backed opens also adopt the per-app
+        // disk-backed opens also adopt the per-app
         // default workflow mode so the toolbar segment has a value to
         // reflect on first render.
         workflowMode: workflowModeForNewTab(language),
@@ -160,9 +160,9 @@ export function createDocumentOpenActions(
         rootId: result.rootId,
         relativePath: result.fileRelativePath,
         filePath,
-        // implementation — same JS/TS default mode as openFile().
+        // Same JS/TS default mode as openFile().
         runtimeMode: runtimeModeForNewTab(language),
-        // implementation — same per-language workflow-mode default.
+        // Same per-language workflow-mode default.
         workflowMode: workflowModeForNewTab(language),
       };
 

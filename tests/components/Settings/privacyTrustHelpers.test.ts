@@ -18,7 +18,7 @@ function evt(overrides: Partial<TrustEvent> & Pick<TrustEvent, 'feature' | 'at'>
 }
 
 /**
- * implementation next slice implementation note — the console image clipboard paste surface
+ * The console image clipboard paste surface
  * is disclosed in the Privacy + Trust dashboard network table as a
  * local-only, in-memory feature.
  */

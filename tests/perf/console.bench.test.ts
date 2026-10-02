@@ -1,5 +1,5 @@
 /**
- * implementation detail — console de-render budget .
+ * Console de-render budget .
  *
  * Locks the store-side work the console used to pay on every render: the
  * consecutive-identical collapse plus the stable equality hash now run once

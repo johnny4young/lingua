@@ -7,7 +7,7 @@ interface RichValueTableProps {
 }
 
 /**
- * implementation — inline preview for `{ kind: 'table' }`. Shows a
+ * Inline preview for `{ kind: 'table' }`. Shows a
  * compact `Table(rows×cols) — col1, col2, …` chip; the popover
  * surfaces the full table.
  *

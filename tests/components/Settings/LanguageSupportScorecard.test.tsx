@@ -1,5 +1,5 @@
 /**
- * implementation — LanguageSupportScorecard component tests.
+ * LanguageSupportScorecard component tests.
  *
  * Covers:
  *   1. Renders a row per `LANGUAGE_SUPPORT_PROFILES` entry and a
@@ -57,7 +57,7 @@ describe('LanguageSupportScorecard', () => {
     await i18next.changeLanguage('en');
     _resetLanguageScorecardAdoptionGuardForTesting();
     trackEventMock.mockReset();
-    // implementation — reset the sticky platform filter so a toggle in one
+    // Reset the sticky platform filter so a toggle in one
     // test never leaks the resolved-cell view into the next.
     useSettingsStore.setState({ languageScorecardPlatform: 'all' });
     // Force the no-IntersectionObserver fallback so telemetry fires
@@ -217,7 +217,7 @@ describe('LanguageSupportScorecard', () => {
     expect(calls).toEqual([{ surface: 'settings' }, { surface: 'palette' }]);
   });
 
-  // implementation — Web | Desktop platform filter.
+  // Web | Desktop platform filter.
   const toggledCalls = () =>
     trackEventMock.mock.calls.filter(
       (args) => args[0] === 'language_scorecard_platform_toggled'

@@ -88,10 +88,10 @@ export default defineConfig({
         // whole editor and pins Monaco to the initial graph. The helper's id
         // is the virtual `\0vite/preload-helper.js`; keep its pin alongside
         // the vendor groups rather than in a second policy.
-        // Rolldown ignores manualChunks when advancedChunks/codeSplitting
+        // Rolldown ignores manualChunks when codeSplitting
         // is also supplied. The former mixed config therefore emitted no
         // named vendor chunks; keep all grouping in this one policy.
-        advancedChunks: {
+        codeSplitting: {
           // Per-group threshold, not a global merge: a vendor group that
           // captures under 4 KB is not worth its own request, so rolldown
           // drops the group and lets those modules fall back to automatic

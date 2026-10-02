@@ -198,7 +198,7 @@ export interface LicenseRuntime {
   clear(): Promise<void>;
   revalidate(): Promise<LicenseStatus>;
   /**
-   * implementation — remove a device from the active license via the
+   * Remove a device from the active license via the
    * server's `/licenses/devices/remove` endpoint and refresh the
    * cached bucket. Returns the wrapper's result so the IPC handler
    * can forward the success / failure shape unchanged. Returns
@@ -461,10 +461,23 @@ export async function createLicenseRuntime(
   // back into the runtime safely.
   const shouldBootRevalidate = cache.token !== null;
 
+  // Mutations interleave across awaits (boot revalidate vs a fresh Apply), so a
+  // stale branch could persist or wipe a token the user replaced. Run them one at a time.
+  let mutationQueue: Promise<unknown> = Promise.resolve();
+  function serialized<A extends unknown[], R>(
+    task: (...args: A) => Promise<R>
+  ): (...args: A) => Promise<R> {
+    return (...args) => {
+      const run = mutationQueue.then(() => task(...args));
+      mutationQueue = run.catch(() => undefined);
+      return run;
+    };
+  }
+
   const runtime: LicenseRuntime = {
     getSnapshot: () => cache,
 
-    applyToken: async (token: string) => {
+    applyToken: serialized(async (token: string) => {
       // Disk write happens BEFORE the cache mutation so a filesystem
       // failure (read-only userData, EACCES, EROFS) propagates as a thrown
       // error and the cache stays in sync with what's actually on disk.
@@ -496,9 +509,9 @@ export async function createLicenseRuntime(
       // pre-3.5 behaviour (no server) is preserved when
       // `isLicenseServerEnabled()` is false.
       return activateAfterVerify(trimmed, status, verifiedAt);
-    },
+    }),
 
-    clear: async () => {
+    clear: serialized(async () => {
       // Same disk-before-cache invariant as applyToken: if the unlink
       // fails the throw propagates so the IPC handler reports
       // `clear-failed` to the renderer instead of advertising free while
@@ -515,9 +528,9 @@ export async function createLicenseRuntime(
           // overwrite the row anyway.
         });
       }
-    },
+    }),
 
-    revalidate: async () => {
+    revalidate: serialized(async () => {
       const currentToken = cache.token;
       if (!currentToken) {
         cache = freeSnapshot(now());
@@ -652,9 +665,9 @@ export async function createLicenseRuntime(
         deviceLimit: result.deviceLimit,
       };
       return finalStatus;
-    },
+    }),
 
-    removeDevice: async (deviceIdToRemove: string) => {
+    removeDevice: serialized(async (deviceIdToRemove: string) => {
       const currentToken = cache.token;
       if (!currentToken) {
         return { ok: false, reason: 'invalid-input', message: 'No active license token.' };
@@ -698,7 +711,7 @@ export async function createLicenseRuntime(
         deviceLimit: result.deviceLimit,
       };
       return result;
-    },
+    }),
   };
 
   function freeSnapshotWithStatus(status: LicenseStatus, at: number): LicenseSnapshot {

@@ -18,7 +18,7 @@ import type { ConsoleOutput, ExecutionResult } from '../../types/execution';
 export type GitSnapshot = { branch?: string; commit?: string };
 
 /**
- * implementation — gate the optional code snapshot for the
+ * Gate the optional code snapshot for the
  * execution-history ring buffer. The snapshot only attaches when the
  * user opted in via Settings AND the active tier covers
  * `EXECUTION_HISTORY`. The Pro check is a defense-in-depth gate —
@@ -78,7 +78,7 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
 }
 
 /**
- * implementation — capsule construction wrapper. Returns the built
+ * Capsule construction wrapper. Returns the built
  * capsule on the happy path; returns `null` and swallows the error
  * on any failure (Web Crypto unavailable in a test env, etc.) so a
  * capsule failure never breaks the actual execution / history record.
@@ -107,7 +107,7 @@ async function tryBuildCapsule(args: {
   inputSetName?: string;
   inputArgs?: string[];
   /**
-   * implementation note — pre-run branch snapshot. Captured at
+   * pre-run branch snapshot. Captured at
    * run-START (not at this builder-call time) so a mid-run sibling
    * checkout does not pollute the capsule. The caller threads the
    * pre-run snapshot through; this builder simply forwards it onto
@@ -163,7 +163,7 @@ async function tryBuildCapsule(args: {
       environment: {
         platform,
         runner: args.runnerId,
-        // implementation note — branch snapshot from run START. Omitted (rather
+        // Branch snapshot from run START. Omitted (rather
         // than included as an empty object) when the snapshot carries
         // neither branch nor commit so a no-git run keeps the
         // existing capsule shape unchanged.
@@ -189,7 +189,7 @@ async function tryBuildCapsule(args: {
 }
 
 /**
- * implementation note — snapshot the current git posture for the
+ * Snapshot the current git posture for the
  * capsule. Reads `useGitStore.posture` synchronously at run START
  * so a mid-run `git checkout` from a sibling terminal does NOT
  * change the capture. Returns `undefined` when the posture is
@@ -244,14 +244,14 @@ function capsuleTabFields(activeTab: FileTab, gitSnapshot: GitSnapshot | undefin
       (inputSet) => inputSet.id === activeTab.activeInputSetId
     )?.name,
     inputArgs: activeTab.inputArgs,
-    // implementation note — pre-run branch snapshot.
+    // pre-run branch snapshot.
     ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
   };
 }
 
 /**
  * Record a run that finished, successfully or with a runner-reported error.
- * implementation — the capsule is built before `history.record` so the entry
+ * The capsule is built before `history.record` so the entry
  * carries it atomically and the LRU prune sees the latest entry-with-capsule
  * on the same set() tick. Metadata is always recorded; the code snapshot only
  * attaches when opted in and entitled.
@@ -294,10 +294,10 @@ export async function recordCompletedRun(args: {
     status: runStatus === 'ok' ? 'ok' : 'error',
     durationMs: result.executionTime ?? null,
     snapshot: snapshotPayloadFor(content, language),
-    // implementation — anchor the entry to the source tab so the per-tab
+    // Anchor the entry to the source tab so the per-tab
     // pill can filter via `byTabId`.
     tabId: activeTab.id,
-    // implementation — omit the capsule when construction failed so the
+    // Omit the capsule when construction failed so the
     // entry's wire shape stays clean.
     ...(capsule !== null ? { lastCapsule: capsule } : {}),
   });

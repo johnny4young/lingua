@@ -1,5 +1,5 @@
 /**
- * implementation — Runner-owned notebook session manager.
+ * Runner-owned notebook session manager.
  *
  * Per-tab session that keeps a long-lived sandbox object so cell N
  * can read variables declared in cells 1..N-1 WITHOUT polluting
@@ -57,6 +57,11 @@ import { loadEsbuild } from '../runners/esbuildLoader';
 import { runnerManager } from '../runners';
 import { executeQuery } from './duckdbClient';
 import {
+  claimNotebookRunner,
+  notebookCellRunnerKey,
+  type NotebookRunnerKey,
+} from '../stores/notebookRunnerLockStore';
+import {
   NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
 } from '../../shared/notebook';
@@ -82,6 +87,7 @@ export const NOTEBOOK_SESSION_REJECT_REASONS = [
   'language-not-supported',
   'session-disposed',
   'concurrent-run',
+  'runtime-busy',
 ] as const;
 export type NotebookSessionRejectReason =
   (typeof NOTEBOOK_SESSION_REJECT_REASONS)[number];
@@ -207,7 +213,7 @@ function parseCellBody(source: string): AcornProgram | null {
 }
 
 /**
- * implementation — outcome of type-stripping a TypeScript cell. `js` is
+ * Outcome of type-stripping a TypeScript cell. `js` is
  * the emitted JavaScript on success; `message` carries a human-readable
  * compiler diagnostic (with a `line:col` suffix — implementation note) when the cell
  * has a syntax error, so the cell surfaces a precise message instead of
@@ -227,7 +233,7 @@ export type NotebookTranspileResult =
   | { readonly ok: false; readonly message: string };
 
 /**
- * implementation — type-strip a TypeScript cell to JavaScript so it runs
+ * type-strip a TypeScript cell to JavaScript so it runs
  * through the JS worker pipeline. Uses the same esbuild the TypeScript
  * runner already loads, so the product carries ONE transpiler instead
  * of a second compiler for this path alone.
@@ -322,7 +328,7 @@ function collectBindingNames(pattern: AcornNode, out: string[]): void {
 }
 
 /**
- * implementation — rewrite top-level declarations to ALSO assign their
+ * Rewrite top-level declarations to ALSO assign their
  * bindings onto the local `_sessionDelta` object so the post-run capture
  * step shares them with later cells. ONLY top-level statements are
  * rewritten — declarations nested inside `if` / `for` / functions stay
@@ -559,6 +565,8 @@ interface NotebookSessionState {
   sandbox: Record<string, unknown>;
   /** Per-cell in-flight flag — implementation blocks `'concurrent-run'`. */
   isRunning: boolean;
+  /** Shared runner the in-flight cell holds; SQL cells hold none. */
+  heldRunner: { readonly key: NotebookRunnerKey; readonly release: () => void } | null;
 }
 
 const sessions = new Map<string, NotebookSessionState>();
@@ -572,7 +580,7 @@ const sessions = new Map<string, NotebookSessionState>();
 function getOrCreateSession(tabId: string): NotebookSessionState {
   let state = sessions.get(tabId);
   if (!state) {
-    state = { sandbox: {}, isRunning: false };
+    state = { sandbox: {}, isRunning: false, heldRunner: null };
     sessions.set(tabId, state);
   }
   return state;
@@ -589,7 +597,7 @@ export interface NotebookCellRunOutcome {
   /** Number of sandbox keys after merge (post-run). For tests + tooling. */
   readonly sandboxKeyCount: number;
   /**
-   * FASE 4 — the top-level declaration names this cell PRODUCED
+   * The top-level declaration names this cell PRODUCED
    * (`Object.keys(safeDelta)`), i.e. the new sandbox keys the merge
    * added on the ok path. Surfaced as the `→ name` variable-flow chip
    * in the cell header. Empty on stopped / error / non-producing runs.
@@ -615,8 +623,8 @@ export interface NotebookCellRunRequest {
  * discriminated outcome — never throws.
  *
  * Concurrency: implementation blocks `'concurrent-run'` for the SAME tab.
- * The renderer can still run cells in different notebook tabs in
- * parallel (each tab has its own session + sandbox).
+ * Cells in different notebook tabs run in parallel only on different
+ * runners; a runner another notebook holds rejects with `'runtime-busy'`.
  */
 export async function runNotebookCell(
   request: NotebookCellRunRequest
@@ -628,13 +636,23 @@ export async function runNotebookCell(
   if (session.isRunning) {
     return { ok: false, reason: 'concurrent-run' };
   }
+  // Claim synchronously, before any await: the shared runner would otherwise
+  // terminate whichever run another tab or notebook has in flight.
+  const runnerKey = notebookCellRunnerKey(request.language);
+  let heldRunner: NotebookSessionState['heldRunner'] = null;
+  if (runnerKey) {
+    const release = claimNotebookRunner(runnerKey, request.tabId);
+    if (!release) return { ok: false, reason: 'runtime-busy' };
+    heldRunner = { key: runnerKey, release };
+  }
+  session.heldRunner = heldRunner;
   session.isRunning = true;
   // Closing or restarting a tab removes its session. An older async cell may
   // still settle after a same-id tab has opened a new session; it must not
   // publish an outcome or continue dispatching work into that new lifetime.
   const isCurrentSession = () => sessions.get(request.tabId) === session;
   try {
-    // implementation — SQL cells run through the shared DuckDB-WASM engine
+    // SQL cells run through the shared DuckDB-WASM engine
     // (`executeQuery`), INDEPENDENTLY of the JS composed-source + sandbox
     // channel (that channel round-trips JS values only). A successful
     // result set is emitted as a single stdout entry containing the rows
@@ -703,7 +721,7 @@ export async function runNotebookCell(
         },
       };
     }
-    // implementation — Python cells run through the existing Python
+    // Python cells run through the existing Python
     // runner (Pyodide on web + desktop) with a per-notebook kernel scope
     // (`scopeId: tabId`): cells in this notebook share Python state
     // (imports, DataFrames, functions), isolated from the editor scratchpad
@@ -714,7 +732,7 @@ export async function runNotebookCell(
     if (request.language === 'python') {
       const result = await runnerManager.execute('python', request.source, {
         language: 'python',
-        // implementation — run this cell against the notebook's persistent Python
+        // Run this cell against the notebook's persistent Python
         // kernel scope (keyed by tabId) so cells in this notebook share
         // state, isolated from the editor scratchpad + other notebooks.
         scopeId: request.tabId,
@@ -761,7 +779,7 @@ export async function runNotebookCell(
         },
       };
     }
-    // implementation — TypeScript cells are type-stripped to JavaScript
+    // TypeScript cells are type-stripped to JavaScript
     // BEFORE the rewriter + compose, then run through the identical JS
     // pipeline. A transpile (syntax) error short-circuits to an `error`
     // outcome carrying the precise compiler message (implementation note); JS cells
@@ -792,7 +810,7 @@ export async function runNotebookCell(
     if (!isCurrentSession()) return { ok: false, reason: 'session-disposed' };
     const result = await runnerManager.execute('javascript', composed, {
       language: 'javascript',
-      // implementation — ask the worker to forward the cell's structured
+      // Ask the worker to forward the cell's structured
       // return value losslessly on `result.structuredResult`. The default
       // `result.result` is a display string the worker truncates at
       // MAX_RESULT_BYTES, which silently dropped the cross-cell delta.
@@ -864,7 +882,7 @@ export async function runNotebookCell(
     // Merge the new top-level declarations into the per-tab sandbox.
     // The filter pass drops any non-serializable values defensively.
     const safeDelta = extractSerializableDelta(sessionDelta);
-    // FASE 4 — capture the produced keys BEFORE the cap merge so the
+    // Capture the produced keys BEFORE the cap merge so the
     // variable-flow chip reflects exactly what this cell declared. The
     // cap merge below can only ever drop OLDER keys, never these.
     const producedKeys = Object.keys(safeDelta);
@@ -895,7 +913,15 @@ export async function runNotebookCell(
     };
   } finally {
     session.isRunning = false;
+    heldRunner?.release();
+    if (session.heldRunner === heldRunner) session.heldRunner = null;
   }
+}
+
+/** Stop the runner this notebook's in-flight cell holds, and nothing else. */
+export function stopNotebookRun(tabId: string): void {
+  const held = sessions.get(tabId)?.heldRunner;
+  if (held) runnerManager.stop(held.key);
 }
 
 function enforceSandboxCap(
@@ -915,20 +941,26 @@ function enforceSandboxCap(
 }
 
 /**
- * Dispose the per-tab session. Drops the sandbox + flips the run
- * flag back to clean. Idempotent — calling on an unknown tabId is a
- * no-op. Always invoked by `editorStore.removeTab` + on language
- * change.
+ * Dispose the per-tab session. Stops a cell still holding a shared
+ * runner, drops the sandbox + flips the run flag back to clean.
+ * Idempotent — calling on an unknown tabId is a no-op. Always invoked
+ * by `editorStore.removeTab` + on language change.
  */
 export function disposeNotebookSession(tabId: string): void {
-  // implementation — also drop this notebook's Python kernel scope in the worker so a
+  const state = sessions.get(tabId);
+  // A closed notebook's cell must not keep the shared runner from editor runs.
+  if (state?.heldRunner) {
+    runnerManager.stop(state.heldRunner.key);
+    state.heldRunner.release();
+    state.heldRunner = null;
+  }
+  // Also drop this notebook's Python kernel scope in the worker so a
   // closed notebook's namespace does not linger (memory + a reopened
   // same-id tab starting dirty). Safe when no Python cell ever ran — the
   // runner no-ops when its worker was never created. Optional-chained on
   // `getPythonRunner` itself so a partial `runnerManager` test double (some
   // suites mock only `execute`/`stop`) is a no-op rather than a crash.
   runnerManager.getPythonRunner?.()?.resetScope(tabId);
-  const state = sessions.get(tabId);
   if (!state) return;
   state.isRunning = false;
   sessions.delete(tabId);

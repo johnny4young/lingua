@@ -1,5 +1,5 @@
 /**
- * implementation — Utility pipeline schema + execution engine.
+ * Utility pipeline schema + execution engine.
  *
  * A pipeline is a versioned, named, ordered list of utility steps.
  * Each step references an adapter from `src/shared/utilities/registry.ts`

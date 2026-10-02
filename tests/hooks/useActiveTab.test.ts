@@ -1,5 +1,5 @@
 /**
- * internal — coverage for the centralized active-tab access seam:
+ * Coverage for the centralized active-tab access seam:
  * `getActiveTab` / `getActiveTabIndex` selectors on `editorStore` and
  * the `useActiveTab` / `useActiveTabId` React hooks.
  *

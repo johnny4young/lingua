@@ -64,7 +64,7 @@ describe('consoleStore', () => {
     expect(useConsoleStore.getState().entries).toHaveLength(0);
   });
 
-  // implementation note — `clear` also resets the payload-kind
+  // `clear` also resets the payload-kind
   // chip filter so a fresh run never displays "No entries match the
   // active filters" against stale filter state.
   it('clear also resets payload-kind chip filters', () => {

@@ -34,7 +34,7 @@ export function FileTreeEmptyState({
         <span className="panel-title">{t('fileTree.emptyState.title')}</span>
       </div>
       <div className="flex flex-1 flex-col items-center justify-start gap-3 p-4 pt-8">
-        {/* FASE 4 — canonical EmptyState recipe: glyph tile + title +
+        {/* Canonical EmptyState recipe: glyph tile + title +
             description-less centered copy + the two CTAs as the action
             row. The proto centers "No hay proyecto abierto" above the
             Create / Open buttons. */}

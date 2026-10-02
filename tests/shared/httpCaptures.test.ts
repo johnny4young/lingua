@@ -1,5 +1,5 @@
 /**
- * implementation — HTTP request chaining. Pure tests for the capture model:
+ * HTTP request chaining. Pure tests for the capture model:
  * extraction per source, the apply-rules reducer, and persistence
  * round-tripping through parseHttpRequest.
  */

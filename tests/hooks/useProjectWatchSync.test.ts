@@ -1,5 +1,5 @@
 /**
- * implementation — `useProjectWatchSync` reload-from-disk notice.
+ * `useProjectWatchSync` reload-from-disk notice.
  *
  * Pinned coverage:
  *   - A `change` event whose `relativePath` matches an open clean

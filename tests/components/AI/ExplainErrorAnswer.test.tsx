@@ -1,5 +1,5 @@
 /**
- * implementation — the AI answer renderer. Verifies the Markdown reply is rendered as
+ * The AI answer renderer. Verifies the Markdown reply is rendered as
  * structured UI (code blocks with a copy button, inline bold/code, lists)
  * rather than raw text, which is what makes the answer easy to read and apply.
  */

@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the Recipes overlay.
+ * E2e for the Recipes overlay.
  *
  * Acceptance: Mod+Alt+L opens the Recipes overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full open + Run + Test

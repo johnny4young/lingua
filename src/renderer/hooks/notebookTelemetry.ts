@@ -1,5 +1,5 @@
 /**
- * implementation Slice B implementation note — Notebook cell-run telemetry.
+ * Notebook cell-run telemetry.
  *
  * Single closed-enum event `notebook.cell_executed { language, status }`.
  *   - `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET (implementation: `'javascript'`).
@@ -30,7 +30,7 @@ export function trackNotebookCellExecuted(
 }
 
 /**
- * implementation Slice (Monaco cells) implementation note — fire when a cell's Monaco editor
+ * Fire when a cell's Monaco editor
  * mounts (the user entered edit mode). `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET;
  * an adoption + perf signal (do Monaco-backed cells slow large notebooks?).
  * NO cell source on the wire.
@@ -42,7 +42,7 @@ export function trackNotebookCellEditorMounted(
 }
 
 /**
- * implementation Slice C implementation note — fire when the user switches a cell's language
+ * Fire when the user switches a cell's language
  * via the per-cell selector. `to` ∈ NOTEBOOK_CELL_LANGUAGES_SET; an
  * adoption signal for TypeScript cells. NO cell source on the wire.
  */
@@ -53,7 +53,7 @@ export function trackNotebookCellLanguageChanged(
 }
 
 /**
- * implementation Slice D implementation note — closed enum of notebook export formats. `script`
+ * Closed enum of notebook export formats. `script`
  * is the language-aware `.js`/`.ts`/`.py`/`.txt` export; `ipynb` is the
  * Jupyter nbformat v4 export; `linguanb`  is the native
  * lossless `.linguanb` document export.
@@ -61,7 +61,7 @@ export function trackNotebookCellLanguageChanged(
 export type NotebookExportFormat = 'script' | 'ipynb' | 'linguanb';
 
 /**
- * implementation Slice D implementation note — fire when the user exports a notebook. `format`
+ * Fire when the user exports a notebook. `format`
  * ∈ NOTEBOOK_EXPORT_FORMATS_SET; an adoption signal for the Jupyter export.
  * NO cell source / title on the wire.
  */

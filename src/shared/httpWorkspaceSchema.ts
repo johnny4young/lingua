@@ -146,7 +146,7 @@ export interface HttpCaptureRule {
 }
 
 /**
- * internal — where a response assertion reads its actual value from. The
+ * Where a response assertion reads its actual value from. The
  * first three mirror `HttpCaptureSource` (and reuse the same extractor);
  * `response-time` checks the round-trip duration in milliseconds.
  */
@@ -276,7 +276,7 @@ export interface HttpRequestV1 {
    */
   captures?: HttpCaptureRule[];
   /**
-   * internal — optional post-response assertions (Postman-style tests).
+   * Optional post-response assertions (Postman-style tests).
    * Absent / empty means no assertions. Back-compat: requests persisted
    * before this field existed load with no assertions.
    */

@@ -38,6 +38,7 @@ import * as childProc from 'node:child_process';
 import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
 import { truncateBytes } from '../../shared/runnerLimits';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
+import { createUtf8ChunkDecoder } from './utf8Chunks';
 
 export interface SpawnNativeRunOptions {
   /** Executable to run. Absolute path or PATH-resolved name. */
@@ -144,7 +145,10 @@ export function spawnNativeRun(
     let resolved = false;
     let timedOut = false;
     let killed = false;
+    let exited = false;
+    let exitCode: number | null = null;
     let escalationTimer: NodeJS.Timeout | null = null;
+    let exitGraceTimer: NodeJS.Timeout | null = null;
 
     let child: childProc.ChildProcessWithoutNullStreams;
     try {
@@ -187,14 +191,15 @@ export function spawnNativeRun(
       // An owner that no longer exists cannot resume or observe graceful exit.
       if (reason === 'stopped' && signal?.reason === NATIVE_RUN_OWNER_GONE) {
         killProcessTree(child, 'SIGKILL');
-        return;
+      } else {
+        killProcessTree(child, 'SIGTERM');
+        if (escalationTimer === null) {
+          escalationTimer = setTimeout(() => {
+            killProcessTree(child, 'SIGKILL');
+          }, killEscalationMs);
+        }
       }
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => {
-          killProcessTree(child, 'SIGKILL');
-        }, killEscalationMs);
-      }
+      if (exited) scheduleFinishAfterExit();
     };
 
     const onAbort = () => terminate('stopped');
@@ -245,9 +250,11 @@ export function spawnNativeRun(
     // straight to the void. destroy() is deliberately avoided — closing
     // the pipe can EPIPE a still-writing child and change its behavior;
     // the run contract (child lives until exit/timeout) stays intact.
+    const decodeStdout = createUtf8ChunkDecoder();
+    const decodeStderr = createUtf8ChunkDecoder();
     const onStdoutData = (chunk: Buffer) => {
       if (stdoutTruncated) return;
-      const text = chunk.toString();
+      const text = decodeStdout(chunk);
       onStdout?.(text);
       stdout += text;
       if (stdout.length > maxOutputBytes) {
@@ -261,7 +268,7 @@ export function spawnNativeRun(
 
     const onStderrData = (chunk: Buffer) => {
       if (stderrTruncated) return;
-      const text = chunk.toString();
+      const text = decodeStderr(chunk);
       onStderr?.(text);
       stderr += text;
       if (stderr.length > maxOutputBytes) {
@@ -290,9 +297,35 @@ export function spawnNativeRun(
       releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
+      if (exitGraceTimer !== null) clearTimeout(exitGraceTimer);
       if (signal) signal.removeEventListener('abort', onAbort);
       resolve(result);
     };
+
+    // 'close' waits for every stdio holder, and a descendant that escaped the
+    // tree kill (setsid, or any survivor on Windows) can hold the pipes forever.
+    // A killed run therefore settles shortly after the direct child exits.
+    function scheduleFinishAfterExit(): void {
+      if (resolved || exitGraceTimer !== null) return;
+      exitGraceTimer = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish({
+          stdout,
+          stderr,
+          exitCode: exitCode ?? -1,
+          executionTime: Date.now() - start,
+          timedOut,
+          killed,
+        });
+      }, killEscalationMs);
+    }
+
+    child.on('exit', (code: number | null) => {
+      exited = true;
+      exitCode = code;
+      if (killed || timedOut) scheduleFinishAfterExit();
+    });
 
     child.on('close', (code: number | null) => {
       finish({

@@ -39,7 +39,7 @@ Este primer ejemplo no necesita solicitudes de red.
 
 ## Cambiar lenguaje
 
-Abre el menú de lenguaje en la tab strip (o `Cmd/Ctrl+L`) y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript, Python y Ruby funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
+Haz clic en el chip de lenguaje de la barra de acciones flotante y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript, Python y Ruby funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
 
 Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version` o `rustc --version` funciona en tu terminal, Lingua las detectará automáticamente.
 
@@ -63,10 +63,12 @@ binario esté disponible en el `PATH` que reciben las aplicaciones de desktop.
 
 Unos pocos atajos para que Lingua desaparezca del camino:
 
-- `Cmd/Ctrl+P` — quick-open de snippet.
+- `Cmd/Ctrl+P` — ir a un archivo (Quick Open).
 - `Cmd/Ctrl+Shift+P` — paleta de comandos.
 - `Cmd/Ctrl+Enter` — ejecutar pestaña actual.
-- `Cmd/Ctrl+\` — alternar el panel de utilidades developer.
+- `Cmd/Ctrl+,` — ajustes.
+- `Cmd/Ctrl+\` — mostrar u ocultar la consola.
+- `Cmd/Ctrl+K` — abrir las utilidades para desarrolladores.
 
 Vim mode es opt-in: actívalo en Settings → Editor.
 

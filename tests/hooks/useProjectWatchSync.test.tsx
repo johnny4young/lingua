@@ -302,7 +302,7 @@ describe('useProjectWatchSync', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation note — end-to-end delta readdir wiring. Uses the REAL
+// end-to-end delta readdir wiring. Uses the REAL
 // applyWatchChanges so a watch event drives a scoped readdir of only the
 // affected directory's branch (not a full tree walk).
 // ---------------------------------------------------------------------------

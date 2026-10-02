@@ -72,4 +72,20 @@ describe('deepLinkState', () => {
     });
     expect(consumePendingDeepLink(state)).toEqual(target);
   });
+  it('routes an emailed license link to the renderer as a token-only target', () => {
+    const state = createDeepLinkRuntimeState();
+    const dispatch = vi.fn(() => true);
+
+    expect(primeDeepLinkFromArgv(state, ['lingua', 'lingua://license?token=pay.sig'])).toEqual({
+      kind: 'license-token',
+      token: 'pay.sig',
+    });
+    expect(consumePendingDeepLink(state)).toEqual({ kind: 'license-token', token: 'pay.sig' });
+
+    markDeepLinkRendererReady(state, true);
+    handleIncomingDeepLink(state, 'lingua://license?token=pay.sig', dispatch);
+    expect(dispatch).toHaveBeenCalledWith({ kind: 'license-token', token: 'pay.sig' });
+    expect(handleIncomingDeepLink(state, 'lingua://license?token=not-a-token', dispatch)).toBeNull();
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
 });

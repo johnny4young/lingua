@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 /**
- * implementation note — right-click context menu for the file
+ * right-click context menu for the file
  * tree. Mirrors the `EditorTabContextMenu` portal pattern so the
  * menu is never clipped by the sidebar's `overflow-y-auto`.
  *

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 /**
- * implementation note — the licenseStore module-scope subscribe records a
+ * The licenseStore module-scope subscribe records a
  * `license` trust event whenever the status resolves into a verified kind
  * (active / grace), de-duped on the kind so a re-set does not double-record.
  *

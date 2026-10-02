@@ -1,5 +1,5 @@
 /**
- * internal — Markdown Preview helper.
+ * Markdown Preview helper.
  *
  * Pure, offline, renderer-side. Lazy-imports `marked` (MIT) for the
  * GFM-flavored render and `dompurify` (MPL-2.0 / Apache-2.0) for the

@@ -4,7 +4,7 @@ import { NON_SECRET_TEST_JWT } from '../../__fixtures__/jwt';
 import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 
 /**
- * internal — locks the pure paste-intent detectors. Each must fire on the real
+ * Locks the pure paste-intent detectors. Each must fire on the real
  * artifact (reusing the shipped parsers) and, critically, NEVER fire on the
  * look-alikes that show up in normal code (the conservative "must NOT fire"
  * suite is the whole point of shipping detection that mutates the buffer).

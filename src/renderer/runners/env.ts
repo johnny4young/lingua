@@ -5,7 +5,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { trackEvent } from '../utils/telemetry';
 import { filterNativeProbeEnv, type NativeProbeRuntime } from '../utils/nativeProbeEnv';
 
-// internal close-out — fire `env.project_scope_used` at most once per renderer
+// Fire `env.project_scope_used` at most once per renderer
 // session, the first time a native runner resolves env while a project is open.
 let projectScopeTelemetryEmitted = false;
 
@@ -28,7 +28,7 @@ function resolveUserEnv(emitProjectScopeUsage: boolean): Record<string, string> 
   const envState = useEnvVarsStore.getState();
   const projectId = currentProject?.id ?? null;
 
-  // internal close-out — once-per-session adoption signal for project-scoped env.
+  // once-per-session adoption signal for project-scoped env.
   // Only when a project is open; `hasProjectVars` says whether that project
   // carries any project-tier overrides. No keys/values/paths leave the renderer.
   if (emitProjectScopeUsage && !projectScopeTelemetryEmitted && projectId) {

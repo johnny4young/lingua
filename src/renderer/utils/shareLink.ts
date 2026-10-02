@@ -1,5 +1,5 @@
 /**
- * implementation — Renderer-side share-link helper.
+ * Renderer-side share-link helper.
  *
  * Three trigger surfaces share the same FileTab → SharePayloadV1 → encoded
  * fragment → clipboard + telemetry pipeline through the on-demand share flow:
@@ -182,7 +182,7 @@ export function trackShareCreated(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.created', args);
-  // implementation note — record the egress in the local trust log only
+  // Record the egress in the local trust log only
   // when a usable link was actually produced. Summary is METADATA ONLY
   // (trigger + size bucket); the share URL encodes the payload and must
   // NEVER reach the trust log.
@@ -205,7 +205,7 @@ export function trackShareOpened(args: {
   readonly sizeBucket: ShareSizeBucket;
 }): void {
   void trackEvent('share.opened', args);
-  // implementation note — the inbound (decode/import) side of sharing.
+  // The inbound (decode/import) side of sharing.
   // Recorded only on a successful decode so the trust log reflects data
   // that actually entered the workspace. Metadata only (size bucket).
   if (args.status === 'success') {

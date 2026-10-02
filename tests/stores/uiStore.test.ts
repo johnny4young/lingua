@@ -26,7 +26,7 @@ describe('uiStore', () => {
     expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
-  // MOV.02 (FASE 3) — the HTTP / SQL workspaces left the dock to
+  // The HTTP / SQL workspaces left the dock to
   // become full-screen tabs, so `openBottomPanel` no longer accepts
   // `'http'` / `'sql'` and the `*WorkspaceTabVisible` flags were
   // removed. `openBottomPanel` now just sets the active panel +
@@ -151,5 +151,22 @@ describe('uiStore', () => {
     expect(errorNotice?.messageKey).toBe('editor.formatOnSave.parseError');
     expect(highDismiss).toHaveBeenCalledOnce();
     expect(highDismiss).toHaveBeenCalledWith('auto');
+  });
+
+  it('lets a warning notice override a high-priority notice', () => {
+    useUIStore.setState({ statusNotice: null });
+    useUIStore.getState().pushStatusNotice({
+      tone: 'success',
+      messageKey: 'onboarding.firstRun.message',
+      priority: 'high',
+    });
+
+    useUIStore.getState().pushStatusNotice({
+      tone: 'warning',
+      messageKey: 'notebook.document.writeFailed',
+    });
+
+    expect(useUIStore.getState().statusNotice?.tone).toBe('warning');
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('notebook.document.writeFailed');
   });
 });

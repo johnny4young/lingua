@@ -1,5 +1,5 @@
 /**
- * implementation — NotebookView component coverage.
+ * NotebookView component coverage.
  *
  * Validates the empty-state, toolbar handlers, code-cell render,
  * markdown-cell render, ES locale, and that the toolbar's `Run all`
@@ -23,7 +23,7 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
-// implementation (Monaco cells) — cells now host Monaco; jsdom needs the mock.
+// Cells now host Monaco; jsdom needs the mock.
 vi.mock('@monaco-editor/react', async () => {
   const m = await import('../../__fixtures__/monacoEditorMock');
   return m.makeMonacoEditorMock();
@@ -245,7 +245,7 @@ describe('<NotebookView />', () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
     await user.click(screen.getByTestId('notebook-code-cell-run'));
-    // implementation — the run path now awaits a lazy `import('typescript')`
+    // The run path now awaits a lazy `import('typescript')`
     // before reaching the runner, so wait for the call (matching the other
     // run-cell assertions in this file).
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
@@ -318,7 +318,7 @@ describe('<NotebookView />', () => {
     const select = screen.getByTestId('notebook-code-cell-language');
     const python = select.querySelector('option[value="python"]') as HTMLOptionElement | null;
     expect(python).not.toBeNull();
-    // implementation — Python now runs, so the option is no longer disabled.
+    // Python now runs, so the option is no longer disabled.
     expect(python?.disabled).toBe(false);
 
     fireEvent.change(select, { target: { value: 'python' } });
@@ -448,7 +448,7 @@ describe('<NotebookView />', () => {
       cellMockHarness.commands.get(RUN_ADVANCE_CHORD)?.();
     });
 
-    // implementation — Python runs now, so Shift+Enter executes the cell
+    // Python runs now, so Shift+Enter executes the cell
     // through the python runner (it no longer no-ops on an unsupported
     // language) before appending the language-preserving cell below.
     expect(mockExecute).toHaveBeenCalledWith(

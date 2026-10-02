@@ -1,5 +1,5 @@
 /**
- * implementation detail — deny-by-default permission handlers.
+ * deny-by-default permission handlers.
  *
  * Asserts the allow/deny policy (only main-frame clipboard read/write
  * permissions granted), that both Electron handlers are installed and consult

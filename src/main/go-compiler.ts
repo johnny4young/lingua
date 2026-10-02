@@ -6,7 +6,7 @@
  * - Compiling Go source code to WASM using GOOS=js GOARCH=wasm
  * - Locating wasm_exec.js from the Go installation
  *
- * internal — the toolchain subprocess env is filtered through
+ * The toolchain subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` cannot reach the
  * spawned `go build`. `GOOS=js` and `GOARCH=wasm` are runner-owned
  * overrides that the user env tier cannot shadow. Temp dirs use

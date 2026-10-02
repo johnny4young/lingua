@@ -1,5 +1,5 @@
 /**
- * internal — generic "save a text document to disk" orchestration,
+ * Generic "save a text document to disk" orchestration,
  * extracted from the `.linguanb` exporter (implementation Slice E implementation note) so
  * the capsule HTML export shares the exact same native-dialog →
  * capability-write → blob-download fallback instead of copying it.

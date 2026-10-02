@@ -1,5 +1,5 @@
 /**
- * implementation — Functional smoke for the Developer Utilities
+ * Functional smoke for the Developer Utilities
  * personalization layer: pin/unpin favorites, drag-reorder via
  * @dnd-kit (mouse + keyboard), per-tool history accumulation across
  * Apply gestures, persist toggle survives reload, clipboard-on-focus
@@ -31,7 +31,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('implementation — personalize gesture smoke', () => {
+test.describe('personalize gesture smoke', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);

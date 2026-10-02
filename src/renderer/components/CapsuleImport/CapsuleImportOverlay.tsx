@@ -1,5 +1,5 @@
 /**
- * implementation — Capsule import overlay.
+ * Capsule import overlay.
  *
  * 3-section modal:
  *   - Top: Load source (Paste textarea + Open file button + Drop zone).
@@ -81,7 +81,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   );
   const [pasteValue, setPasteValue] = useState('');
   const autoDetectedRef = useRef(false);
-  // implementation — when the overlay was opened by a smart-paste capsule
+  // When the overlay was opened by a smart-paste capsule
   // import, decode the stashed JSON on mount so the preview opens pre-filled.
   // Takes precedence over the clipboard auto-detect below (seed wins) and is
   // one-shot (the holder clears itself).
@@ -223,7 +223,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     [pushStatusNotice]
   );
 
-  // implementation note — copy source to clipboard secondary action.
+  // Copy source to clipboard secondary action.
   const handleCopySource = useCallback(async () => {
     if (!decoded) return;
     try {
@@ -240,7 +240,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     }
   }, [decoded, pushStatusNotice, sourceJson]);
 
-  // implementation note — when the capsule originated from implementation's HTTP workspace,
+  // When the capsule originated from implementation's HTTP workspace,
   // offer to recreate the request in the workspace store instead of
   // dropping the source as a JSON tab.
   const handleOpenInHttpWorkspace = useCallback(() => {

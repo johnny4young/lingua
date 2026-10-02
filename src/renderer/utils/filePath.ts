@@ -67,7 +67,7 @@ function encodeUriSegment(segment: string): string {
 }
 
 /**
- * implementation note — smart-truncate a long project root path
+ * smart-truncate a long project root path
  * for tooltips and the FileTree header. Three rules, applied in
  * order:
  *

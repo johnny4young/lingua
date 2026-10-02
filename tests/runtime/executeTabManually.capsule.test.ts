@@ -1,5 +1,5 @@
 /**
- * implementation — executeTabManually capsule attach.
+ * executeTabManually capsule attach.
  *
  * Asserts that the runtime pipeline:
  *
@@ -224,7 +224,7 @@ describe('executeTabManually — capsule attach ', () => {
     });
   });
 
-  // implementation — `outputSourceMappingEnabled` was removed; origin
+  // `outputSourceMappingEnabled` was removed; origin
   // metadata is always passed through. The "OFF state strips origin"
   // case no longer applies; per-file `// @origin off` directive
   // remains the user-controlled escape hatch (covered by

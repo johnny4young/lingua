@@ -1,5 +1,5 @@
 /**
- * implementation — Utility pipeline persisted store.
+ * Utility pipeline persisted store.
  *
  * Owns the user's pipeline library + per-pipeline last-run input.
  * Isolated on its own localStorage key (`lingua-utility-pipeline-state`)

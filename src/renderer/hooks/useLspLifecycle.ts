@@ -9,7 +9,7 @@ import type { LspLanguageIntelligenceAdapter } from '../languageIntelligence/typ
 import { LINGUA_LANGUAGE_INTELLIGENCE_MARKER_OWNER } from './useLanguageIntelligenceDiagnostics';
 
 /**
- * implementation — generic lifecycle hook for a desktop LSP language.
+ * Generic lifecycle hook for a desktop LSP language.
  *
  * implementation introduced this shape inline for Rust; implementation lifts it
  * into a config-driven helper so the Rust + Go (and any future LSP)

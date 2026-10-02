@@ -1,5 +1,5 @@
 /**
- * internal — Assertions sub-tab (Postman-style tests, evaluated locally).
+ * Assertions sub-tab (Postman-style tests, evaluated locally).
  *
  * A table of post-response assertions. After a request settles, each
  * enabled row reads a value from the response (status, a header, a JSON

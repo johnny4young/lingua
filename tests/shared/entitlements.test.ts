@@ -59,7 +59,7 @@ describe('entitlements policy', () => {
     expect([...FREE_TIER_LIMITS.allowedLanguages].sort()).toEqual([
       'javascript',
       'python',
-      // implementation — Ruby joined Free with the @ruby/wasm-wasi
+      // Ruby joined Free with the @ruby/wasm-wasi
       // web worker (same posture as Python's Pyodide).
       'ruby',
       'typescript',
@@ -90,7 +90,7 @@ describe('entitlements policy', () => {
     expect(isLanguageAllowed('free', 'javascript')).toBe(true);
     expect(isLanguageAllowed('free', 'typescript')).toBe(true);
     expect(isLanguageAllowed('free', 'python')).toBe(true);
-    // implementation — Ruby (@ruby/wasm-wasi) joined Free.
+    // Ruby (@ruby/wasm-wasi) joined Free.
     expect(isLanguageAllowed('free', 'ruby')).toBe(true);
     expect(isLanguageAllowed('free', 'go')).toBe(false);
     expect(isLanguageAllowed('free', 'rust')).toBe(false);

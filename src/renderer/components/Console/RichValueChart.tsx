@@ -1,5 +1,5 @@
 /**
- * implementation — `chart` payload renderer.
+ * `chart` payload renderer.
  *
  * Lazy-imports `vega-embed` on first mount; the resolved chunk lives
  * in its own Vite bundle (`vega-embed`) so the main entry stays
@@ -83,7 +83,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
   // theme change because the selector subscriptions trigger render.
   const theme = useSettingsStore((s) => s.theme);
   const editorTheme = useSettingsStore((s) => s.editorTheme);
-  // implementation — shell polarity always follows the active editor theme.
+  // Shell polarity always follows the active editor theme.
   const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme, true);
 
   useEffect(() => {

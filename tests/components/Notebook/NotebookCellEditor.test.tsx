@@ -1,5 +1,5 @@
 /**
- * implementation (Monaco cells) — NotebookCellEditor coverage.
+ * NotebookCellEditor coverage.
  *
  * Pins the mount-virtualization contract (static colorized view until
  * edited; a live Monaco editor only on the editing cell, so a multi-cell

@@ -11,7 +11,7 @@ import { parseDirective } from './directives';
 import type { MagicCommentLine } from './types';
 
 const JS_WATCH_RE = /^(.*?)\/\/\s*@watch\s+(.+?)\s*$/;
-// implementation — capture EVERYTHING after `=>` as the tail so we
+// Capture EVERYTHING after `=>` as the tail so we
 // preserve the legacy `//=> free-form annotation` shape (the tail
 // becomes a description, not a directive). The tail is then parsed
 // by `parseDirective` which only returns a directive when the
@@ -20,7 +20,7 @@ const JS_WATCH_RE = /^(.*?)\/\/\s*@watch\s+(.+?)\s*$/;
 const JS_ARROW_RE = /^(.+?)\/\/\s*=>(.*)$/;
 
 function detectJSLine(line: string): MagicCommentLine | null {
-  // implementation — watch wins over arrow when both shapes match.
+  // Watch wins over arrow when both shapes match.
   // The arrow regex is non-greedy and would otherwise consume a
   // pathological `// @watch x //=> y` line as an arrow result.
   const watchMatch = line.match(JS_WATCH_RE);

@@ -69,7 +69,7 @@ describe('useRunner', () => {
     });
     useResultStore.setState(initialResultState, true);
     useUIStore.setState({ statusNotice: null });
-    // internal — pre-acknowledge native execution by default so the
+    // pre-acknowledge native execution by default so the
     // existing Rust/Go test cases bypass the gate. The dedicated
     // internal describe block resets this to `false` to exercise the
     // gate behaviour.
@@ -535,6 +535,61 @@ describe('useRunner', () => {
       expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
       expect(useResultStore.getState().snapshotRing).toEqual(snapshots);
       expect(mockStop).toHaveBeenCalledOnce();
+    });
+
+    it('does not publish inline results into a different active tab', async () => {
+      const execution = deferred<ExecutionResult>();
+      let context!: ExecutionContext;
+      const execute = vi.fn((_code: string, ctx: ExecutionContext) => {
+        context = ctx;
+        return execution.promise;
+      });
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+      useEditorStore.setState(state => ({
+        tabs: [
+          ...state.tabs,
+          {
+            id: 'other-tab',
+            name: 'other.js',
+            language: 'javascript',
+            content: '// other',
+            isDirty: false,
+            runtimeMode: 'worker',
+            workflowMode: 'run',
+          },
+        ],
+      }));
+      const { result: hook } = renderHook(() => useRunner());
+      let run!: Promise<void>;
+      act(() => {
+        run = hook.current.run();
+      });
+      await waitFor(() => expect(execute).toHaveBeenCalledOnce());
+      act(() => {
+        useEditorStore.setState({ activeTabId: 'other-tab' });
+        useResultStore.getState().clear();
+      });
+      await act(async () => {
+        context.onConsole?.({ type: 'log', args: ['streamed'], line: 1 });
+        await new Promise(resolve => setTimeout(resolve, 50));
+      });
+      expect(useResultStore.getState().lineResults).toEqual([]);
+      await act(async () => {
+        execution.resolve(successfulResult('owned'));
+        await run;
+      });
+
+      const results = useResultStore.getState();
+      expect(results.lineResults).toEqual([]);
+      expect(results.fullOutput).toBe('');
+      expect(results.snapshotRing).toEqual([]);
+      expect(results.runTermination).toBeNull();
+      expect(results.runDeadlineAt).toBeNull();
+      expect(results.isManualRunning).toBe(false);
+      expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+      const tabs = useEditorStore.getState().tabs;
+      expect(tabs.find(tab => tab.id === 'owned-tab')?.executionState).toBe('success');
+      expect(tabs.find(tab => tab.id === 'other-tab')?.executionState).toBeUndefined();
     });
   });
 

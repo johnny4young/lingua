@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Structural tests for the curated 5 project
+ * Structural tests for the curated 5 project
  * templates. The catalog is a closed enum and its shape is locked
  * here so future additions can't silently regress the contract.
  *

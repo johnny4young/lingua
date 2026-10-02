@@ -12,7 +12,7 @@ import type { GoplsStatus } from '../../shared/lspLauncherTypes';
 export type { GoplsStatus } from '../../shared/lspLauncherTypes';
 
 /**
- * implementation — gopls launcher.
+ * Gopls launcher.
  *
  * Mirrors the shape of `rustAnalyzerLauncher.ts` because the lifecycle
  * concerns are the same — detection, initialize handshake, single
@@ -66,6 +66,7 @@ function defaultFallbackPaths(): string[] {
 }
 
 const RESTART_BACKOFF_MS = 500;
+const DISPOSED_STATUS: GoplsStatus = { kind: 'startup-failed', error: 'Launcher disposed' };
 
 export async function resolveGoplsBinary(): Promise<{
   command: string;
@@ -145,7 +146,7 @@ function execFileOutputText(result: unknown): string {
 }
 
 function buildLauncherEnv(): NodeJS.ProcessEnv {
-  // implementation note — host secrets stay out of the subprocess.
+  // Host secrets stay out of the subprocess.
   // User env is intentionally NOT layered: an LSP server should not
   // inherit arbitrary user vars.
   return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), undefined);
@@ -168,9 +169,7 @@ export class GoplsLauncher {
   }
 
   start(): Promise<GoplsStatus> {
-    if (this.disposed) {
-      return Promise.resolve({ kind: 'startup-failed', error: 'Launcher disposed' });
-    }
+    if (this.disposed) return Promise.resolve(DISPOSED_STATUS);
     if (this.startPromise) return this.startPromise;
     const pending = this.runStart();
     this.startPromise = pending.finally(() => {
@@ -183,6 +182,7 @@ export class GoplsLauncher {
     this.setStatus({ kind: 'starting' });
 
     const binary = await resolveGoplsBinary();
+    if (this.disposed) return DISPOSED_STATUS;
     if (!binary) {
       const status: GoplsStatus = {
         kind: 'missing',
@@ -197,6 +197,7 @@ export class GoplsLauncher {
     // trip (each one carries a 5s timeout). Fallback paths only checked
     // existence via `access`, so they still need a real version probe.
     const version = binary.prefetchedVersion ?? (await detectGoplsVersion(binary.command));
+    if (this.disposed) return DISPOSED_STATUS;
     if (!version) {
       const status: GoplsStatus = {
         kind: 'startup-failed',
@@ -251,6 +252,8 @@ export class GoplsLauncher {
   }
 
   private async spawnAndInitialize(command: string, version: string): Promise<GoplsStatus> {
+    // Detection awaits can outlive dispose(); a child spawned now would be untracked.
+    if (this.disposed) return DISPOSED_STATUS;
     const lsp = new LspProcess({
       command,
       // gopls expects to be run with `gopls` (no subcommand) for LSP
@@ -349,6 +352,7 @@ export class GoplsLauncher {
 
   private async spawnAndInitializeRecovery(exitDetail: string): Promise<void> {
     const binary = await resolveGoplsBinary();
+    if (this.disposed) return;
     if (!binary) {
       this.setStatus({
         kind: 'degraded',
@@ -357,6 +361,7 @@ export class GoplsLauncher {
       return;
     }
     const version = await detectGoplsVersion(binary.command);
+    if (this.disposed) return;
     if (!version) {
       this.setStatus({
         kind: 'degraded',

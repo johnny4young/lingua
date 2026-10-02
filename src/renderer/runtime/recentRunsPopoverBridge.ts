@@ -1,5 +1,5 @@
 /**
- * implementation note — module-level handle so the global keyboard
+ * module-level handle so the global keyboard
  * shortcut (`Mod+Alt+H`, moved from `Mod+Shift+H` in implementation so
  * the VSCode-parity `Mod+Shift+H` binding can map to project-replace)
  * can toggle the result-panel pill's popover

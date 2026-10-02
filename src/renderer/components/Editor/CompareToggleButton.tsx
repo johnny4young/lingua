@@ -1,5 +1,5 @@
 /**
- * implementation — Compare toggle in the result-panel header.
+ * Compare toggle in the result-panel header.
  *
  * Three states:
  *   - **hidden**: when the active tab is `executionMode === 'view'`

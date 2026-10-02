@@ -1,11 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../../data/keyboardShortcuts';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { DEVELOPER_UTILITIES } from '../../data/developerUtilities';
 import { Kbd } from '../ui/ModalShell';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -24,27 +19,14 @@ const COPY_OUTPUT_SHORTCUT_HINT = {
   labelKey: 'utilities.shortcuts.copyOutput',
 } as const;
 
-function getShortcutDisplayPlatform() {
-  const runtimePlatform =
-    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
-  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
-  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
-}
-
 function useCopyOutputShortcutHint() {
   const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   return useMemo(() => {
     // The footer/header reflects user shortcut overrides and platform glyphs,
     // so resolve it from the same shortcut catalog used by the key handler.
-    const displayPlatform = getShortcutDisplayPlatform();
-    const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id);
-    if (!definition) return null;
-    const combo = resolveCombos(definition, shortcutOverrides)[0];
+    const combo = formatShortcutLabel(COPY_OUTPUT_SHORTCUT_HINT.id, shortcutOverrides);
     if (!combo) return null;
-    return {
-      labelKey: COPY_OUTPUT_SHORTCUT_HINT.labelKey,
-      combo: formatShortcutCombo(combo, displayPlatform),
-    };
+    return { labelKey: COPY_OUTPUT_SHORTCUT_HINT.labelKey, combo };
   }, [shortcutOverrides]);
 }
 

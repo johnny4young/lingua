@@ -1,5 +1,5 @@
 /**
- * implementation — Git diff bottom-panel sibling tab.
+ * Git diff bottom-panel sibling tab.
  *
  * Renders the Monaco diff editor with the HEAD version vs. the
  * working-tree version of the active tab's file. Auto-fetches on
@@ -66,7 +66,7 @@ export function GitDiffPanel() {
   const fileEntry = useGitStore((state) =>
     activeTab?.filePath ? state.byFile.get(activeTab.filePath) : undefined
   );
-  // implementation note — auto-refresh on HEAD change. Subscribing
+  // auto-refresh on HEAD change. Subscribing
   // to `posture.commit` separately (instead of relying on the broader
   // posture object identity) means a HEAD change resolves to the
   // new commit hash via `applyHeadChange`, which flips this primitive,
@@ -164,7 +164,7 @@ export function GitDiffPanel() {
     return () => {
       cancelled = true;
     };
-    // implementation note — `postureCommit` invalidates the
+    // `postureCommit` invalidates the
     // memo on HEAD-change so the diff re-fetches against the new
     // HEAD revision. Including it as a dep avoids the cost of a
     // tree-wide subscription on the whole posture object.

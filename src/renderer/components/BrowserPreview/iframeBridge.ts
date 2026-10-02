@@ -1,5 +1,5 @@
 /**
- * implementation — bridge protocol between the iframe-isolated
+ * Bridge protocol between the iframe-isolated
  * user-code context and the parent renderer.
  *
  * Two surfaces live here:
@@ -225,7 +225,7 @@ export interface PreviewDocumentInput {
   /** Active tab content; the JS / TS body to execute. */
   userCode: string;
   /**
-   * implementation note — optional companion text from sibling tabs. The
+   * Optional companion text from sibling tabs. The
    * runner forwards whatever was discovered (CSS for `<style>`,
    * an HTML fragment to seed `document.body`). Missing entries
    * surface as no-ops.

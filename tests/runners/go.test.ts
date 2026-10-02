@@ -298,7 +298,7 @@ describe('GoRunner', () => {
     expect(mockDetect).toHaveBeenCalledOnce();
   });
 
-  it('implementation — forwards the merged user env (global + project + tab) to go:compile', async () => {
+  it('forwards the merged user env (global + project + tab) to go:compile', async () => {
     mockDetect.mockResolvedValue({
       installed: true,
       version: 'go1.22.0',
@@ -369,7 +369,7 @@ describe('GoRunner', () => {
     });
   });
 
-  it('implementation — forwards an empty env when no tiers have values', async () => {
+  it('forwards an empty env when no tiers have values', async () => {
     mockDetect.mockResolvedValue({
       installed: true,
       version: 'go1.22.0',

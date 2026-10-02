@@ -113,7 +113,7 @@ describe('PrivacyTrustSection', () => {
     );
   });
 
-  // implementation — Recent activity feed + live Network last-call.
+  // Recent activity feed + live Network last-call.
   it('shows the empty state when no trust events are captured', () => {
     render(<PrivacyTrustSection />);
     expect(screen.getByTestId('privacy-recent-empty')).toBeTruthy();

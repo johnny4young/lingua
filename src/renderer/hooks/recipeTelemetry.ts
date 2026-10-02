@@ -1,5 +1,5 @@
 /**
- * implementation Slice B implementation note — Recipe telemetry helpers.
+ * Recipe telemetry helpers.
  *
  * Two closed-enum events:
  *

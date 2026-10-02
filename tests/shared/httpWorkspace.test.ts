@@ -1,5 +1,5 @@
 /**
- * implementation — Schema + validators for `HttpRequestV1` /
+ * Schema + validators for `HttpRequestV1` /
  * `HttpResponseV1` + header-sensitivity helper.
  *
  * Pinned coverage:

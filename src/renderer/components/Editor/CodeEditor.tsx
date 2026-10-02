@@ -88,7 +88,7 @@ export function CodeEditor() {
   const vimStatusBarRef = useRef<HTMLDivElement | null>(null);
   const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
   const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // implementation — track the mounted editor + monaco namespace in
+  // Track the mounted editor + monaco namespace in
   // state so effects can react to mount (refs alone don't re-render).
   // The refs remain the imperative bridge for diagnostics, reveal
   // commands, and editor-access cleanup.
@@ -120,7 +120,7 @@ export function CodeEditor() {
 
   const activeTab = useActiveTab();
 
-  // internal — "Explain with AI" over a selection (or the whole buffer) is
+  // "Explain with AI" over a selection (or the whole buffer) is
   // the first main-editor AI affordance. Registered as a Monaco context-menu
   // action, gated by LOCAL_AI (invisible on Free); it opens a consent-first
   // dialog rendered by AiExplainCodeHost (also reachable from the command
@@ -134,10 +134,10 @@ export function CodeEditor() {
       : null;
   }, [activeTab]);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
-  // internal — inline lint: per-language toggle over Monaco's native JS/TS
+  // Inline lint: per-language toggle over Monaco's native JS/TS
   // diagnostics + custom 'lingua-lint' markers + quick-fix provider.
   useInlineLint(editorInstance, monacoInstance, activeTab);
-  // internal — smart paste detection: share-link / capsule / cURL / stack-trace /
+  // Smart paste detection: share-link / capsule / cURL / stack-trace /
   // large-JSON paste intents surfaced as a non-blocking import toast.
   useSmartPaste(editorInstance, monacoInstance);
   useRustLspDocumentSync(editorInstance, activeTab);
@@ -193,13 +193,13 @@ export function CodeEditor() {
     language: activeTab?.language,
     toggleAriaLabel: line => t('debugger.gutter.toggle', { line }),
   });
-  // implementation detail — listen for editor.highlightLine commands
+  // Listen for editor.highlightLine commands
   // emitted by `<OutputLineBadge>` on hover, apply the
   // `lingua-highlight-flash` decoration to the hinted line, and
   // reveal offscreen lines via `editor.revealLineInCenter`.
   useEditorHighlightSync(editorRef);
 
-  // internal — lazy per-language Monaco registration. Pre-fetch the active
+  // Lazy per-language Monaco registration. Pre-fetch the active
   // language once on first mount (idle) so first paint colors fast, then
   // register on every language change once the editor's monaco instance exists.
   const activeLanguage = activeTab?.language;
@@ -255,7 +255,7 @@ export function CodeEditor() {
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     defineCustomThemes(monaco);
     applyTypeScriptDefaults(monaco);
-    // internal — pre-register the scratchpad happy-path languages so a blank
+    // pre-register the scratchpad happy-path languages so a blank
     // JS/TS tab colors within one frame; every other language is registered
     // lazily by the active-language effect above.
     void registerLanguageOnce(monaco, 'javascript');
@@ -268,30 +268,30 @@ export function CodeEditor() {
     monacoRef.current = monaco;
     setEditorInstance(editor);
     setMonacoInstance(monaco);
-    // implementation note — register the editor with the
+    // Register the editor with the
     // module-level ref the keyboard-shortcut bus consults to read
     // the cursor line. Cleared in the matching unmount effect below.
-    // internal — also hand over the `monaco` namespace so the persistent
+    // Also hand over the `monaco` namespace so the persistent
     // status bar can read marker severities + `getModelMarkers`.
     setActiveEditor(editor, monaco);
 
     editor.onDidScrollChange(e => {
       emitCommand('editor.scroll', { scrollTop: e.scrollTop });
     });
-    // implementation Slice A implementation note — let the dependency detection runner
+    // Let the dependency detection runner
     // see paste events so it can drop to the 60ms paste debounce
     // instead of the 300ms keystroke debounce on the very next
     // tick.
     editor.onDidPaste(() => {
       notifyDependencyDetectionPaste();
     });
-    // implementation Sub-slice G implementation note — symmetric inverse direction:
+    // Symmetric inverse direction:
     // cursor settled on line N → emit editor.sourceLineHovered so any
     // `<ConsolePanel>` row whose `origin.line === N` can pulse for
     // the next 1500ms. Debounced 200ms so a normal cursor-move
     // burst (arrow keys, click + drag) does not stream events.
     //
-    // implementation — keep one pending command so cursor bursts
+    // Keep one pending command so cursor bursts
     // collapse to the final settled line.
     editor.onDidChangeCursorPosition(event => {
       const line = event.position.lineNumber;
@@ -316,7 +316,7 @@ export function CodeEditor() {
     };
   }, []);
 
-  // internal — register/dispose the "Explain with AI" context-menu action.
+  // register/dispose the "Explain with AI" context-menu action.
   // Only mounted when entitled, so it stays invisible on Free (matching
   // the ExplainErrorButton/AskSqlButton convention).
   useEffect(() => {
@@ -425,7 +425,7 @@ export function CodeEditor() {
     };
   }, [clearMarkers]);
 
-  // internal — wire the Vim layer when the toggle flips on, dispose when
+  // Wire the Vim layer when the toggle flips on, dispose when
   // it flips off (or when the editor unmounts / active tab changes).
   // The localized status-bar subclass routes through `translateRef.current`
   // so locale switches reflect immediately on the next mode-change event

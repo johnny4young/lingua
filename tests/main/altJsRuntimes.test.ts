@@ -114,6 +114,21 @@ describe('implementation: Deno & Bun runtimes', () => {
     expect(stopAltRun('preparing')).toEqual({ stopped: false });
   });
 
+  it.each(['deno', 'bun'])('%s ignores a Stop from a window that does not own the run', async id => {
+    mocks.execFileAsync.mockResolvedValue({ stdout: '1.0.0', stderr: '' });
+    const child = createChild();
+    mocks.spawn.mockReturnValue(child);
+    const { registerAltJsRuntimeHandlers, stopAltRun } = await import('../../src/main/altJsRuntimes');
+    registerAltJsRuntimeHandlers();
+    const run = handlerFor<RunHandler>(`${id}:run`);
+    const pending = run({}, 'setInterval(() => {}, 1000)', { runId: 'foreign' });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    expect(stopAltRun('foreign', 99)).toEqual({ stopped: false });
+    expect(stopAltRun('foreign')).toEqual({ stopped: true });
+    child.emit('close', null);
+    expect((await pending).kind).toBe('stopped');
+  });
+
   it.each(['deno', 'bun'])('%s rejects a duplicate live identity without losing its Stop owner', async id => {
     mocks.execFileAsync.mockResolvedValue({ stdout: '1.0.0', stderr: '' });
     const child = createChild();

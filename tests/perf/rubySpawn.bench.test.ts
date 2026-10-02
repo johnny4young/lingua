@@ -1,5 +1,5 @@
 /**
- * implementation note — Ruby subprocess spawn latency defense.
+ * Ruby subprocess spawn latency defense.
  *
  * Sizing rationale: a successful `puts "Hello"` round-trip through
  * `ipcMain.handle('ruby:run', ...)` + `child_process.spawn('ruby')` +

@@ -1,5 +1,5 @@
 /**
- * implementation note — Import telemetry helper.
+ * Import telemetry helper.
  *
  * Single closed-enum event: `import.applied { importerId, status, sizeBucket }`.
  *
@@ -44,7 +44,7 @@ export function trackImportApplied(payload: ImportAppliedPayload): void {
 }
 
 /**
- * implementation note — closed-enum buckets for the notebook
+ * closed-enum buckets for the notebook
  * warning count. Mirrors `DEPENDENCY_COUNT_BUCKETS_SET` precedent
  * used by other count-bucketed events (e.g. `http.request_executed`
  * `redactedHeadersBucket`).
@@ -74,7 +74,7 @@ export function trackNotebookWarningsSurfaced(
 }
 
 /**
- * implementation note — derive `dominantKind` from the warning
+ * Derive `dominantKind` from the warning
  * codes array. Returns `null` when the array is empty (caller must
  * not fire the event in that case).
  */
@@ -110,7 +110,7 @@ export function countDistinctNotebookWarningKinds(
 }
 
 /**
- * implementation (Postman vars) implementation note — `import.postman_variables_resolved`.
+ * `import.postman_variables_resolved`.
  *
  * Buckets the distinct collection-variable resolution result of a
  * Postman import into the shared `DEPENDENCY_COUNT_BUCKETS` enum (the

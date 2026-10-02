@@ -1,5 +1,5 @@
 /**
- * implementation — `url-parse` adapter.
+ * `url-parse` adapter.
  *
  * Decodes a URL into its structured components (protocol, host,
  * port, pathname, search params, hash). Output is a JSON-stringified

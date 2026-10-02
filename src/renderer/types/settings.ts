@@ -17,7 +17,7 @@ import type { AppLanguage } from './language';
 export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
 
 /**
- * internal — boot-time session-restore policy. Replaces the legacy
+ * boot-time session-restore policy. Replaces the legacy
  * `restoreSession: boolean`. Three closed states:
  *
  *   - `never`   — ignore the persisted session snapshot; always boot fresh.
@@ -44,11 +44,11 @@ export interface SettingsState {
   layoutPreset: LayoutPreset;
   maxLoopIterations: number;
   restoreSessionMode: RestoreSessionMode;
-  /** implementation — sticky Web/Desktop filter on the Language Support Scorecard. */
+  /** Sticky Web/Desktop filter on the Language Support Scorecard. */
   languageScorecardPlatform: ScorecardPlatform;
   formatOnSave: boolean;
   /**
-   * internal — master toggle for smart paste detection. When `true` (default),
+   * Master toggle for smart paste detection. When `true` (default),
    * pasting a recognized artifact (share-link, capsule, cURL, stack frame,
    * large JSON) into the editor surfaces a non-blocking import toast. When
    * `false`, every paste is literal. Cmd+Shift+V bypasses detection for a
@@ -62,14 +62,14 @@ export interface SettingsState {
    */
   vimMode: boolean;
   /**
-   * internal — once-per-install acknowledgement for the trust-boundary
+   * once-per-install acknowledgement for the trust-boundary
    * modal that appears before the first Go/Rust native execution.
    * Persisted so the user only sees the warning until they accept;
    * resettable from Settings → Account → Privacy.
    */
   nativeExecutionAcknowledged: boolean;
   /**
-   * implementation — opt-in code snapshot for the execution-history
+   * opt-in code snapshot for the execution-history
    * ring buffer. When true (and the active tier covers
    * `EXECUTION_HISTORY`), each successful or failed run records the
    * source code at execution time so a follow-up work can offer
@@ -87,14 +87,14 @@ export interface SettingsState {
    */
   telemetryConsent: 'unset' | 'granted' | 'declined';
   /**
-   * implementation — clipboard-on-focus apply consent. Default `unset`,
+   * clipboard-on-focus apply consent. Default `unset`,
    * promoted to `granted` or `declined` by the explicit Settings toggle.
    * The same three-state pattern as `telemetryConsent` so a decline
    * sticks across reloads and the feature never reads without opt-in.
    */
   utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * implementation note — capsule-import clipboard auto-detect
+   * capsule-import clipboard auto-detect
    * consent. When the user opens the Capsule Import overlay (e.g.
    * Mod+Shift+Y), if this consent is `granted` and the system
    * clipboard contains a valid capsule JSON, the overlay pre-fills
@@ -105,7 +105,7 @@ export interface SettingsState {
    */
   capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * implementation — master toggle for the dependency detection
+   * Master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
    * tier at first rehydrate (implementation note): Free → `false` so the
    * disabled Install button never reads as upsell pressure; Pro /
@@ -116,7 +116,7 @@ export interface SettingsState {
    */
   dependencyDetectionEnabled: boolean;
   /**
-   * implementation note — default JS/TS runtime mode for newly
+   * Default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
    * stays the only implemented option until implementation lands. Settings
    * → Editor exposes the selector; the value is per-app, not
@@ -124,7 +124,7 @@ export interface SettingsState {
    */
   defaultRuntimeMode: RuntimeMode;
   /**
-   * implementation — per-language workflow-mode defaults applied to
+   * per-language workflow-mode defaults applied to
    * NEWLY CREATED tabs. Existing tabs keep their explicit choice;
    * this map only governs new-tab seeding via `createDefaultTab`.
    * Missing keys fall through to the shared
@@ -134,7 +134,7 @@ export interface SettingsState {
    */
   workflowModeDefaultsByLanguage: Record<string, WorkflowMode>;
   /**
-   * implementation — per-language opt-in for the bare-expression
+   * per-language opt-in for the bare-expression
    * auto-log mode. Keys are `'javascript'` and `'typescript'` (the
    * two languages whose worker runner threads the auto-log
    * transform). Other keys are stripped on rehydrate; non-boolean
@@ -143,14 +143,14 @@ export interface SettingsState {
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
-   * implementation — default debounce for Browser preview live refresh.
+   * Default debounce for Browser preview live refresh.
    * `0` disables automatic refresh; the two live values are 300 ms and
    * 1,000 ms. A first-line `// @preview-refresh ...` directive can override
    * this preference for one tab without mutating the persisted setting.
    */
   browserPreviewRefreshIntervalMs: BrowserPreviewRefreshInterval;
   /**
-   * internal — per-language inline-lint enablement. Keyed by language id;
+   * per-language inline-lint enablement. Keyed by language id;
    * implementation ships `javascript`/`typescript` ON. When `false` for a language,
    * Monaco's built-in TS/JS squiggles are silenced (via
    * `setMonacoInlineLintEnabled`) and the custom `'lingua-lint'` markers are
@@ -159,7 +159,7 @@ export interface SettingsState {
    */
   inlineLintEnabledByLanguage: Record<string, boolean>;
   /**
-   * implementation note — master visibility toggle for the
+   * Master visibility toggle for the
    * bottom-panel `stdin` tab. Default `true` (the tab is offered
    * for JS / TS / Python tabs). When `false`, the BottomPanel
    * strip skips the entry entirely, so users who never use stdin
@@ -167,7 +167,7 @@ export interface SettingsState {
    */
   showStdinPanel: boolean;
   /**
-   * internal — master visibility toggle for the persistent bottom status
+   * Master visibility toggle for the persistent bottom status
    * bar (language, problems, cursor position, encoding, indent, Git
    * branch, run status). Default ON desktop / OFF web. When `false` the
    * bar is fully unmounted (not just hidden), so it costs nothing for
@@ -175,7 +175,7 @@ export interface SettingsState {
    */
   showStatusBar: boolean;
   /**
-   * implementation — controls whether the variable inspector renders as
+   * Controls whether the variable inspector renders as
    * a draggable `<FloatingVariablesCard>` (default) or as a Variables
    * tab inside the bottom panel. Per-tab `variableInspectorEnabled`
    * still gates visibility on both surfaces; this picks where it
@@ -183,7 +183,7 @@ export interface SettingsState {
    */
   variableInspectorSurface: 'floating' | 'bottom';
   /**
-   * implementation — per-language execution timeout preset. Keys are
+   * per-language execution timeout preset. Keys are
    * the four languages whose runners read the preset
    * (`javascript`, `typescript`, `python`, `go`). Values are the
    * closed-enum `RuntimeTimeoutPreset` tokens. Unknown keys / values
@@ -192,14 +192,14 @@ export interface SettingsState {
    */
   runtimeTimeoutPresetByLanguage: Record<string, RuntimeTimeoutPreset>;
   /**
-   * implementation note — show a live `mm:ss` countdown in the
+   * Show a live `mm:ss` countdown in the
    * result-panel pill while a run is in flight. Default `false` so
    * the panel stays quiet by default; users who want the visual cue
    * during long runs opt in via Settings → Editor.
    */
   showTimeoutCountdown: boolean;
   /**
-   * implementation — per-line timing master toggle. When on, JS / TS
+   * per-line timing master toggle. When on, JS / TS
    * runs are instrumented with `__mc_tick` markers and every top-level
    * statement's wall-clock duration renders inline next to its line.
    * Default `false` (the instrumentation adds overhead); an in-buffer
@@ -208,7 +208,7 @@ export interface SettingsState {
    */
   showLineTiming: boolean;
   /**
-   * implementation note — recursion depth the workers walk when
+   * Recursion depth the workers walk when
    * serializing the scope. `1` is the base scope; `4` is the
    * shared module's cap. Default `1`. Bumping this trades worker
    * time for richer panel data — the user can change it from
@@ -216,7 +216,7 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
-   * implementation — Ruby runtime dispatcher preference. `auto` (the
+   * Ruby runtime dispatcher preference. `auto` (the
    * default) prefers the system `ruby` binary when detected and falls
    * back to the bundled `@ruby/wasm-wasi` worker otherwise. `system`
    * forces the desktop subprocess (still falls back to WASM with a
@@ -226,7 +226,7 @@ export interface SettingsState {
    */
   rubyRuntimePreference: 'auto' | 'system' | 'wasm';
   /**
-   * implementation note — one-shot dismissal flag for the
+   * one-shot dismissal flag for the
    * "Node mode runs your code with full filesystem and network
    * access" trust notice. Set the first time the user successfully
    * runs a Node-mode tab; the notice does not re-surface on
@@ -235,8 +235,8 @@ export interface SettingsState {
    */
   nodeRunnerFirstRunNoticeShown: boolean;
   /**
-   * implementation note — one-shot acknowledgement flag for the
-   * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
+   * one-shot acknowledgement flag for the
+   * "Scratchpad auto-runs as you type; Run waits for Mod+Enter"
    * onboarding toast. Set to `true` the first time the user switches
    * a tab away from Scratchpad; the toast never re-fires after that.
    * Resettable from Settings → Account → Privacy (next slice) so
@@ -244,7 +244,7 @@ export interface SettingsState {
    */
   firstWorkflowModeSwitchAcknowledged: boolean;
   /**
-   * implementation — onboarding choreography one-shot flags. Each
+   * Onboarding choreography one-shot flags. Each
    * flag flips to `true` the first time its stage fires; resettable
    * from Settings → General → Onboarding so users can replay any
    * stage. Default `false` so a fresh install sees the full
@@ -254,7 +254,7 @@ export interface SettingsState {
   hasCompletedOnboardingFirstRun: boolean;
   hasCompletedOnboardingFirstSnippet: boolean;
   /**
-   * implementation — seed-version tracker for the welcome scratchpad.
+   * seed-version tracker for the welcome scratchpad.
    * Bumping `SEEDED_SCRATCHPAD_VERSION` on a future demo improvement
    * re-arms the seed for users whose persisted value is older,
    * regardless of `hasCompletedOnboardingWelcome`.
@@ -312,7 +312,7 @@ export interface SettingsState {
    */
   themePack: string;
   /**
-   * implementation — Sensitive HTTP header allowlist. Names listed
+   * Sensitive HTTP header allowlist. Names listed
    * here are redacted in the HTTP workspace response history + on
    * exported capsules. The baseline list
    * (`BASELINE_SENSITIVE_HEADERS` in `src/shared/httpSensitiveHeaders.ts`)
@@ -328,7 +328,7 @@ export interface SettingsState {
    */
   httpAllowPrivateHosts: boolean;
   /**
-   * implementation — SQL workspace row preview cap. Sets the upper
+   * SQL workspace row preview cap. Sets the upper
    * bound on rows rendered in `<SqlResultPreview>`. The runtime
    * also caps at `MAX_RESULT_ROWS` (10 000) regardless; this knob
    * lets users dial the panel further down (100 / 500 / 1000 /
@@ -336,14 +336,14 @@ export interface SettingsState {
    */
   sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
   /**
-   * implementation — SQL query default timeout. DuckDB-WASM has no
+   * SQL query default timeout. DuckDB-WASM has no
    * native abort, so the runtime layer races a Promise against this
    * timeout. Default 30 s, capped at `MAX_QUERY_TIMEOUT_MS` (5 min)
    * by the runtime regardless of this value.
    */
   sqlWorkspaceQueryTimeoutMs: number;
   /**
-   * implementation (SQL OPFS) — opt into persisting the SQL workspace
+   * Opt into persisting the SQL workspace
    * DuckDB database to this browser's OPFS so tables + rows survive a
    * reload. Default `false` (the workspace is an in-memory scratchpad).
    * The runtime falls back to in-memory whenever OPFS is unavailable,
@@ -352,7 +352,7 @@ export interface SettingsState {
    */
   sqlWorkspacePersistTables: boolean;
   /**
-   * internal — opt into the local Run Ledger: manual runs recorded into
+   * Opt into the local Run Ledger: manual runs recorded into
    * the `lingua_ledger` schema of the SQL workspace's DuckDB database.
    * It stores source hashes plus metadata-only capsule summaries; source,
    * input, output, and diagnostics never persist. Default `false`;
@@ -361,7 +361,7 @@ export interface SettingsState {
    */
   runLedgerEnabled: boolean;
   /**
-   * implementation Slice C implementation note — language seeded into a new notebook code
+   * Language seeded into a new notebook code
    * cell by the "Add code" toolbar button. Only the two runnable cell
    * languages are offered; defaults to `'javascript'`.
    */
@@ -375,29 +375,29 @@ export interface SettingsState {
   setLayoutPreset: (preset: LayoutPreset) => void;
   setMaxLoopIterations: (max: number) => void;
   setRestoreSessionMode: (mode: RestoreSessionMode) => void;
-  /** implementation — set the scorecard's Web/Desktop platform filter. */
+  /** Set the scorecard's Web/Desktop platform filter. */
   setLanguageScorecardPlatform: (platform: ScorecardPlatform) => void;
   toggleFormatOnSave: () => void;
-  /** internal — flip the smart-paste detection master toggle. */
+  /** Flip the smart-paste detection master toggle. */
   toggleSmartPasteDetection: () => void;
   toggleVimMode: () => void;
-  /** internal — flip the native-execution acknowledgement flag. */
+  /** Flip the native-execution acknowledgement flag. */
   setNativeExecutionAcknowledged: (value: boolean) => void;
   toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
-  /** implementation — flip clipboard-on-focus consent (granted/declined). */
+  /** Flip clipboard-on-focus consent (granted/declined). */
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /**
-   * implementation note — flip capsule-import clipboard consent.
+   * Flip capsule-import clipboard consent.
    * Same `'granted' | 'declined'` discipline as the utilities consent
    * so a single Settings setter never widens the closed enum.
    */
   setCapsuleImportClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
-  /** implementation — flip the dependency detection master switch. */
+  /** Flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   setHttpAllowPrivateHosts: (enabled: boolean) => void;
   /**
-   * implementation — three reset setters wired to the Settings →
+   * Three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
    * (implementation note), and the palette commands (implementation note). Each flips the
    * corresponding `hasCompletedOnboarding*` flag back to `false`.
@@ -408,7 +408,7 @@ export interface SettingsState {
   resetOnboardingFirstRun: () => void;
   resetOnboardingFirstSnippet: () => void;
   /**
-   * implementation — stage-completion setters. Called by
+   * stage-completion setters. Called by
    * `useOnboardingChoreography` after each toast fires so the
    * stage never repeats. `markOnboardingWelcomeCompleted` also
    * stamps the seed-version tracker.
@@ -431,55 +431,55 @@ export interface SettingsState {
   }) => void;
   setLanguage: (language: AppLanguage) => void;
   /**
-   * implementation note — set the per-app default JS/TS runtime
+   * Set the per-app default JS/TS runtime
    * mode for newly created tabs. Existing tabs keep their own
    * runtime mode; only `createDefaultTab` reads this preference.
    * Rejects (no-op) for modes that are not yet implemented.
    */
   setDefaultRuntimeMode: (mode: RuntimeMode) => void;
   /**
-   * implementation Slice C implementation note — set the default language for new notebook
+   * Set the default language for new notebook
    * code cells. Rejects (no-op) anything outside the runnable pair.
    */
   setNotebookDefaultCellLanguage: (language: 'javascript' | 'typescript') => void;
   /**
-   * implementation — set the default workflow mode for a language.
+   * Set the default workflow mode for a language.
    * No-op when the language does not support the requested mode.
    * `null` clears the user override and falls back to the shared
    * `defaultWorkflowMode(language)` helper.
    */
   setWorkflowModeDefault: (language: string, mode: WorkflowMode | null) => void;
   /**
-   * implementation — set the per-language default for bare-expression
+   * Set the per-language default for bare-expression
    * auto-log mode. No-op for any language outside the JS / TS pair.
    * Emits `runtime.auto_log_enabled` telemetry with closed-enum
    * payload `{ language, enabled }`.
    */
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
-  /** implementation — set the closed Browser preview refresh interval. */
+  /** Set the closed Browser preview refresh interval. */
   setBrowserPreviewRefreshInterval: (intervalMs: BrowserPreviewRefreshInterval) => void;
   /**
-   * internal — flip inline lint for one language. No-op for languages outside
+   * Flip inline lint for one language. No-op for languages outside
    * the supported set ({@link SETTINGS_INLINE_LINT_LANGUAGE_SET}). Pure state
    * write; the diagnostic-adoption signal rides
    * `editor.lint_diagnostic_emitted`, not the toggle.
    */
   setInlineLintEnabled: (language: string, enabled: boolean) => void;
   /**
-   * implementation note — flip the master visibility toggle for
+   * Flip the master visibility toggle for
    * the bottom-panel `stdin` tab.
    */
   toggleShowStdinPanel: () => void;
   /**
-   * internal — set the master visibility toggle for the persistent bottom
+   * Set the master visibility toggle for the persistent bottom
    * status bar. Emits `editor.status_bar_toggled` ({ enabled }) telemetry
    * on real change only.
    */
   setShowStatusBar: (enabled: boolean) => void;
-  /** implementation — switch the variable inspector surface. */
+  /** Switch the variable inspector surface. */
   setVariableInspectorSurface: (surface: 'floating' | 'bottom') => void;
   /**
-   * implementation — set the per-language timeout preset. Rejects
+   * Set the per-language timeout preset. Rejects
    * (no-op) for languages outside the supported set
    * (`javascript`, `typescript`, `python`, `go`) and for unknown
    * preset tokens. Fires `runtime.timeout_preset_changed` telemetry
@@ -487,15 +487,15 @@ export interface SettingsState {
    */
   setRuntimeTimeoutPreset: (language: string, preset: RuntimeTimeoutPreset) => void;
   /**
-   * implementation note — flip the countdown-in-pill toggle.
+   * Flip the countdown-in-pill toggle.
    */
   toggleShowTimeoutCountdown: () => void;
-  /** implementation — flip the per-line timing toggle. */
+  /** Flip the per-line timing toggle. */
   toggleShowLineTiming: () => void;
-  /** implementation — set the Ruby runtime dispatcher preference. */
+  /** Set the Ruby runtime dispatcher preference. */
   setRubyRuntimePreference: (preference: 'auto' | 'system' | 'wasm') => void;
   /**
-   * implementation note — mark the workflow-mode onboarding toast
+   * Mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
    * dismisses or just sees the toast.
    */
@@ -509,38 +509,38 @@ export interface SettingsState {
   clearShortcutOverride: (id: string) => void;
   resetShortcutOverrides: () => void;
   /**
-   * implementation — Add a header name to the sensitive-headers
+   * Add a header name to the sensitive-headers
    * allowlist. Lowercases + trims before insert; dedupes against
    * the BASELINE list and the existing user list (no-op when
    * already present).
    */
   addSensitiveHttpHeader: (name: string) => void;
   /**
-   * implementation — Remove a USER-added header name from the
+   * Remove a USER-added header name from the
    * allowlist. The baseline list is immutable from this seam;
    * attempts to remove a baseline name no-op silently.
    */
   removeSensitiveHttpHeader: (name: string) => void;
   /**
-   * implementation — Update the SQL row display cap. Setter accepts
+   * Update the SQL row display cap. Setter accepts
    * any of the four canonical values; unknown values clamp to the
    * default 1000.
    */
   setSqlWorkspaceRowDisplayLimit: (value: 100 | 500 | 1000 | 5000) => void;
   /**
-   * implementation — Update the SQL query default timeout in
+   * Update the SQL query default timeout in
    * milliseconds. Setter clamps to `MAX_QUERY_TIMEOUT_MS` (5 min)
    * and floors at 1 s; non-finite values reset to the 30 s default.
    */
   setSqlWorkspaceQueryTimeoutMs: (value: number) => void;
   /**
-   * implementation (SQL OPFS) — toggle SQL workspace table persistence.
+   * Toggle SQL workspace table persistence.
    * Coerces non-boolean inputs to `false`. The change applies to the
    * next DuckDB instantiate (reload or "Reconnect now"); the live engine
    * is not migrated mid-session.
    */
   setSqlWorkspacePersistTables: (value: boolean) => void;
-  /** internal — toggle the local Run Ledger (see `runLedgerEnabled`). */
+  /** Toggle the local Run Ledger (see `runLedgerEnabled`). */
   setRunLedgerEnabled: (value: boolean) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the

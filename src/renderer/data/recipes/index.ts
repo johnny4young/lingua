@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe catalog barrel.
+ * Recipe catalog barrel.
  *
  * Lists every bundled recipe in the order they appear in the
  * overlay list. Each entry is a TypeScript const matching

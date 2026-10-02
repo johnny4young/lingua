@@ -1,5 +1,5 @@
 /**
- * implementation — explicit per-tab JS/TS runtime modes.
+ * Explicit per-tab JS/TS runtime modes.
  *
  * Contract:
  *   - `worker` — current default. Sandboxed Web Worker, no DOM, no

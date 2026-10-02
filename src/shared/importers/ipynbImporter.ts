@@ -1,5 +1,5 @@
 /**
- * implementation — Jupyter `.ipynb` → `NotebookV1` importer adapter.
+ * Jupyter `.ipynb` → `NotebookV1` importer adapter.
  *
  * Closes the bridge "bring your Jupyter notebook into Lingua". The
  * adapter walks nbformat v4 cells, maps each one to a
@@ -376,7 +376,7 @@ function mapMarkdownCell(
 }
 
 /**
- * implementation Slice D implementation note — read a Lingua-private per-cell language from
+ * Read a Lingua-private per-cell language from
  * `metadata.lingua.language` when present (and valid), so a notebook that
  * Lingua exported round-trips its real per-cell JS/TS even though
  * nbformat's single `kernelspec.language` can't express a mix. Standard
@@ -421,7 +421,7 @@ function mapCodeCell(
   return {
     kind: 'code',
     id: resolveCellId(raw.id, opts.index, opts.usedCellIds),
-    // implementation note — a Lingua-stamped per-cell language wins over the single
+    // A Lingua-stamped per-cell language wins over the single
     // kernel language so mixed JS/TS round-trips losslessly.
     language: cellLanguage ?? opts.notebookLanguage,
     source,
@@ -441,7 +441,7 @@ function clampCellSource(source: string): string {
 /**
  * Probe: does this look like a Jupyter notebook?
  *
- * implementation note — accepts BOTH `.ipynb`-style content sniff (a `{"cells":`
+ * Accepts BOTH `.ipynb`-style content sniff (a `{"cells":`
  * substring inside the import cap) AND a relaxed `"nbformat":`
  * match. File extension alone is not trusted; the payload still has
  * to look like notebook JSON before the adapter claims it.

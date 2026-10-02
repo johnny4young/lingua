@@ -1,5 +1,5 @@
 /**
- * implementation detail implementation — pure windowing math.
+ * Pure windowing math.
  *
  * `computeWindow` and `offsetForIndex` are the only non-trivial parts of the
  * windower, and jsdom cannot measure layout, so they are extracted as pure
@@ -115,7 +115,7 @@ describe('computeWindow ', () => {
   });
 
   it('keeps the windowed set small for a flooded 500-row console (implementation note)', () => {
-    // implementation note — lock the windowing bound: a 500-row session must mount only a
+    // Lock the windowing bound: a 500-row session must mount only a
     // viewport-sized slice, not all 500 rows.
     const heights = Array.from({ length: 500 }, () => 28);
     const result = computeWindow({

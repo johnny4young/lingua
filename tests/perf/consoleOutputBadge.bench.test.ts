@@ -1,5 +1,5 @@
 /**
- * implementation — `<OutputLineBadge>` render defense.
+ * `<OutputLineBadge>` render defense.
  *
  * Acceptance criteria locked here:
  *   1. 1 000 console rows with chips render under 200 ms (AC budget).

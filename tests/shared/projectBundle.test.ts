@@ -34,7 +34,7 @@ function patchDeclaredUncompressedSize(
   return output;
 }
 
-describe('internal — validateBundleEntryPath', () => {
+describe('validateBundleEntryPath', () => {
   it('accepts and normalizes plain + nested relative paths', () => {
     expect(validateBundleEntryPath('index.js')).toBe('index.js');
     expect(validateBundleEntryPath('src/utils/math.ts')).toBe('src/utils/math.ts');
@@ -58,7 +58,7 @@ describe('internal — validateBundleEntryPath', () => {
   });
 });
 
-describe('internal — packBundle', () => {
+describe('packBundle', () => {
   it('round-trips through unpackBundle with a manifest', () => {
     const zip = packBundle([file('index.js'), file('src/lib.ts')], {
       createdAt: CREATED_AT,
@@ -174,7 +174,7 @@ describe('internal — packBundle', () => {
   });
 });
 
-describe('internal — unpackBundle guards', () => {
+describe('unpackBundle guards', () => {
   it('rejects empty input', () => {
     expect(unpackBundle(new Uint8Array(0))).toEqual({
       ok: false,
@@ -191,6 +191,14 @@ describe('internal — unpackBundle guards', () => {
     const zip = packBundle([file('a.js')], { createdAt: CREATED_AT });
     const result = unpackBundle(zip, { maxBundleBytes: 4 });
     expect(result).toEqual({ ok: false, reason: 'too-large' });
+  });
+
+  it('rejects entries that collide on a case-insensitive filesystem', () => {
+    const zip = zipSync({
+      'src/README.md': strToU8('upper'),
+      'SRC/readme.md': strToU8('lower'),
+    });
+    expect(unpackBundle(zip)).toEqual({ ok: false, reason: 'malformed-zip' });
   });
 
   it('skips a traversal entry as a per-entry reject, never extracting it', () => {
@@ -286,7 +294,7 @@ describe('internal — unpackBundle guards', () => {
   });
 });
 
-describe('internal — BUNDLE_REJECT_REASONS', () => {
+describe('BUNDLE_REJECT_REASONS', () => {
   it('is sorted and free of duplicates (parity-test anchor)', () => {
     const arr = [...BUNDLE_REJECT_REASONS];
     expect(arr).toEqual([...arr].sort());

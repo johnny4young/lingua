@@ -1,5 +1,5 @@
 /**
- * implementation — `lingua capsule validate <file>` subcommand.
+ * `lingua capsule validate <file>` subcommand.
  *
  * Reads a capsule JSON blob and validates it against the SAME
  * `parseRunCapsule` validator the renderer uses (single source of

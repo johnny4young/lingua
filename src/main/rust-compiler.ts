@@ -6,7 +6,7 @@
  * - Compiling Rust source code to a native binary via `rustc`
  * - Running the compiled binary and capturing stdout/stderr
  *
- * internal — the subprocess env is filtered through
+ * The subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` (CI tokens,
  * OPENAI_API_KEY, etc.) cannot reach the spawned `rustc` or the
  * compiled user binary. Temp dirs use `mkdtemp` for collision

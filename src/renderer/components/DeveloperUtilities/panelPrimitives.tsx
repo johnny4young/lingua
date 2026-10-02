@@ -151,7 +151,7 @@ export function TimestampHoverValue({
 }
 
 /**
- * implementation — Shared toolbar that renders the ⚡ Apply-from-input
+ * Shared toolbar that renders the ⚡ Apply-from-input
  * button and self-registers the panel's apply descriptor with the
  * global Mod+Shift+A handler. Centralising the layout AND the
  * registration keeps panel boilerplate to a single JSX line and stops
@@ -183,7 +183,7 @@ export function UtilityToolbar({
   secondary?: string;
   run: () => void;
   /**
-   * implementation — when provided, the toolbar renders the
+   * When provided, the toolbar renders the
    * `<UtilityHistoryDrawer>` and routes drawer entry clicks back to
    * the panel via this setter. Pure-generator panels and panels with
    * exotic input shapes (Hash file, Random String options) can omit
@@ -217,7 +217,7 @@ export function UtilityToolbar({
   const handleApply = useCallback(() => {
     if (!detect || !enabled) return;
     run();
-    // implementation — implementation note apply event into the per-tool history
+    // Implementation note apply event into the per-tool history
     // ring. The output snapshot is read from the registered output
     // provider so we capture exactly what Cmd+Shift+C would copy at
     // this moment, with no extra plumbing per panel.
@@ -255,7 +255,7 @@ export function UtilityToolbar({
     [setPrimary]
   );
 
-  // implementation — when the user has granted clipboard-on-focus
+  // When the user has granted clipboard-on-focus
   // consent, fire the read once on panel mount. The hook short-
   // circuits when consent is unset/declined or when setPrimary is
   // missing (panels with exotic input shapes opt out by not passing

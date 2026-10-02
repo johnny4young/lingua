@@ -58,6 +58,5 @@ describe('VIM_MODE_ADR.md', () => {
     expect(adr).toContain('BUILD_SYSTEM_ADR.md');
     expect(adr).toContain('LANGUAGE_PACK_ADR.md');
     expect(adr).toContain('CAPABILITY_MATRIX.md');
-    expect(adr).toContain('internal');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * implementation — `.linguanb` → `NotebookV1` importer adapter.
+ * `.linguanb` → `NotebookV1` importer adapter.
  *
  * The lossless counterpart to the `.ipynb` importer (`ipynbImporter.ts`).
  * A `.linguanb` document is Lingua's own native notebook format

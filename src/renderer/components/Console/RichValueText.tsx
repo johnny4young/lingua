@@ -8,7 +8,7 @@ interface RichValueTextProps {
 }
 
 /**
- * implementation — catch-all renderer for payload kinds that don't
+ * catch-all renderer for payload kinds that don't
  * deserve their own widget today (primitives, functions, errors,
  * dates, promises, rawText, plus defensive media fallbacks).
  *

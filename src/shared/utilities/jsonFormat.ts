@@ -1,5 +1,5 @@
 /**
- * implementation — `json-format` adapter.
+ * `json-format` adapter.
  *
  * Pretty-prints (or minifies) a JSON document. Thin wrapper around
  * the existing `analyzeJson` helper in

@@ -9,9 +9,13 @@ import { exportCapsuleJsonToFile } from '../../utils/exportCapsuleJson';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { emitCommand } from '../../stores/commandBus';
 import { CapsuleCliCommands } from './CapsuleCliCommands';
+import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+} from '../../data/keyboardShortcuts';
 
 /**
- * implementation — Settings → Account → Run Capsules.
+ * Settings → Account → Run Capsules.
  *
  * Reads the latest captured `RunCapsuleV1` from the execution-history
  * store via the `latestCapsule()` selector, renders a one-line
@@ -35,6 +39,7 @@ import { CapsuleCliCommands } from './CapsuleCliCommands';
  */
 export function RunCapsulesSection() {
   const { t, i18n } = useTranslation();
+  const platform = currentShortcutDisplayPlatform();
   const [savedFileName, setSavedFileName] = useState<string | undefined>();
   // implementation reviewer fix — select the CALL RESULT of
   // `latestCapsule()`, not the function reference. The reference is
@@ -73,7 +78,7 @@ export function RunCapsulesSection() {
     });
   }, [capsule, prettyPrint, pushStatusNotice]);
 
-  // internal — one-file HTML export of the same latest capsule. Save /
+  // one-file HTML export of the same latest capsule. Save /
   // download orchestration (native dialog on desktop, blob on web)
   // lives in the helper; this surface only routes the outcome notices.
   const handleExportHtml = useCallback(async () => {
@@ -130,7 +135,7 @@ export function RunCapsulesSection() {
               </label>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {/*
-                 * implementation — Import button mirrors the Export
+                 * Import button mirrors the Export
                  * affordance so the surface advertises both directions of
                  * the capsule loop. Click emits a command the App-level
                  * overlay consumer handles; this keeps the
@@ -138,7 +143,7 @@ export function RunCapsulesSection() {
                  * slot (same pattern as the snippets surface).
                  */}
                 {/*
-                 * implementation — Browse opens the Pro-gated capsule
+                 * Browse opens the Pro-gated capsule
                  * browse overlay. Same typed-command decoupling as Import;
                  * the surface tag drives the overlay's
                  * `capsule.browse_opened` telemetry.
@@ -202,7 +207,10 @@ export function RunCapsulesSection() {
           <SpecRow
             last
             label={t('settings.account.runCapsules.fallbackLabel')}
-            description={t('settings.account.runCapsules.fallbackHint')}
+            description={t('settings.account.runCapsules.fallbackHint', {
+              selectAll: formatShortcutCombo({ tokens: ['Mod', 'A'] }, platform),
+              copy: formatShortcutCombo({ tokens: ['Mod', 'C'] }, platform),
+            })}
             control={
               <textarea
                 readOnly

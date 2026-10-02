@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe / `LessonPackV1` schema.
+ * Recipe / `LessonPackV1` schema.
  *
  * `LessonPackV1` is the JSON-serialisable record of one curated
  * Lingua practice problem: a problem statement, a starter code

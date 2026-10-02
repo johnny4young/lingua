@@ -1,5 +1,5 @@
 /**
- * implementation — renderer-side wrapper for the Pyodide worker's
+ * renderer-side wrapper for the Pyodide worker's
  * dependency-management protocol.
  *
  * Mirrors the shape `window.lingua.dependencies.installJs / cancel /
@@ -272,7 +272,7 @@ export async function listLoadedPackages(): Promise<readonly string[]> {
 }
 
 /**
- * implementation — install one or more packages via `micropip` in
+ * Install one or more packages via `micropip` in
  * the shared Pyodide worker.
  *
  * implementation note applies — the renderer races the install promise against a

@@ -41,7 +41,7 @@ export interface ThemePresetInputs {
   fontFamily: SettingsState['fontFamily'];
   fontSize: SettingsState['fontSize'];
   layoutPreset: SettingsState['layoutPreset'];
-  // implementation — preserved fields for backward compatibility with older
+  // Preserved fields for backward compatibility with older
   // exports. Always `true` on a implementation build; older builds keep their
   // persisted value when round-tripping a preset.
   fontLigatures: boolean;

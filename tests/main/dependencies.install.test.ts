@@ -1,5 +1,5 @@
 /**
- * implementation — main-side install spawn safety + outcome mapping.
+ * main-side install spawn safety + outcome mapping.
  *
  * Pins:
  *   - Platform-safe launcher: direct `npm` on POSIX and explicit

@@ -17,7 +17,7 @@ import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
  * `Show language support` command (implementation note) which emits the
  * `settings.navigate` command so this tab opens on demand.
  *
- * FASE 2a — rebuilt on the canonical Settings rhythm: the scorecard is
+ * Rebuilt on the canonical Settings rhythm: the scorecard is
  * its own `SettingsSection`, and the per-language preference rows are
  * grouped into ONE `SpecCard` of divided `SpecRow`s. Rust/Go mount
  * conditionally (only when their LSP is unavailable/degraded); Ruby

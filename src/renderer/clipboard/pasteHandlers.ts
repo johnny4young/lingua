@@ -1,5 +1,5 @@
 /**
- * implementation — pure paste-intent detectors.
+ * Pure paste-intent detectors.
  *
  * When the user pastes into the Monaco editor, `useSmartPaste` reads the
  * pasted text and asks this module "is this a known Lingua artifact?". Each
@@ -83,7 +83,7 @@ interface LargeJsonIntent {
 }
 
 /**
- * internal — Developer Utilities the paste router can suggest. Values are
+ * Developer Utilities the paste router can suggest. Values are
  * catalog ids from `data/developerUtilities.ts`, narrowed to the formats
  * with a conservative single-value detector.
  */
@@ -97,7 +97,7 @@ export type UtilitySuggestionId =
   | 'json';
 
 /**
- * internal — a pasted value a Developer Utility can handle better than the
+ * A pasted value a Developer Utility can handle better than the
  * code buffer (a JWT, a UUID, a color, an epoch, a cron expression,
  * Base64 text, or a small JSON snippet). `source` is the trimmed paste,
  * pre-loaded into the panel when the user accepts.
@@ -199,7 +199,7 @@ function detectLargeJson(text: string): LargeJsonIntent | null {
 }
 
 /**
- * internal — utility suggestions. Pastes longer than this never suggest a
+ * Utility suggestions. Pastes longer than this never suggest a
  * utility: the formats below are short values, and analyzing a huge paste
  * on the paste path is wasted work.
  */
@@ -322,7 +322,7 @@ function decodesToReadableText(value: string): boolean {
 }
 
 /**
- * internal — map a paste to the Developer Utility that handles it, or null.
+ * Map a paste to the Developer Utility that handles it, or null.
  * Runs LAST in the chain, so every internal code-like artifact (share-link,
  * capsule, cURL, stack trace, large JSON) wins first. Within the family,
  * JWT precedes Base64 (JWT segments are themselves base64url) and every

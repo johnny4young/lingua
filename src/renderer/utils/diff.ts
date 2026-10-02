@@ -1,5 +1,5 @@
 /**
- * internal — Diff viewer helper.
+ * Diff viewer helper.
  *
  * Pure, offline, renderer-side. Ships Myers O((N+M)·D) diff over three
  * tokenization strategies: lines, word-aware segments, and characters

@@ -1,5 +1,5 @@
 /**
- * implementation — Go / Rust / Ruby dependency detection + install-command planning.
+ * Go / Rust / Ruby dependency detection + install-command planning.
  *
  * The existing `DependencyAdapter` registry (`registry.ts`) is a closed
  * enum scoped to JS/TS/Python and coupled to telemetry parity. Go, Rust,

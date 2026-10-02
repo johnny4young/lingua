@@ -1,5 +1,5 @@
 /**
- * implementation — tests for the `useCapsuleImport` orchestration hook.
+ * Tests for the `useCapsuleImport` orchestration hook.
  *
  * Renders the hook through `@testing-library/react`'s `renderHook` so
  * the React state updates land correctly. Telemetry is asserted via a

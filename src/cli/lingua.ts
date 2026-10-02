@@ -1,5 +1,5 @@
 /**
- * implementation — Lingua CLI entry.
+ * Lingua CLI entry.
  *
  * Pure shared/main code. NO renderer imports — an ESLint rule
  * enforces this so the bundled CJS stays React-free + Electron-free.
@@ -17,7 +17,7 @@
  *   lingua --version                                    (implementation note)
  *   lingua --help | <cmd> --help
  *
- * implementation note — the bundled artifact is prefixed with `#!/usr/bin/env node`
+ * The bundled artifact is prefixed with `#!/usr/bin/env node`
  * at bundle time by `scripts/build-cli.mjs` (esbuild `banner.js`),
  * then chmod +x'd, so the binary is directly executable on Unix.
  * The shebang is NOT in this source file because it would interfere

@@ -7,7 +7,7 @@ import { isLikelyEmail } from '../../utils/email';
 import { SpecRow } from '../ui/SpecRow';
 
 /**
- * implementation — Education magic-link start CTA.
+ * Education magic-link start CTA.
  *
  * Two visual states:
  *

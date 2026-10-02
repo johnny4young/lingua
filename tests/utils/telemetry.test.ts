@@ -82,7 +82,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
 });
 
 /**
- * implementation note — endpoint URL validation. A typo like
+ * Endpoint URL validation. A typo like
  * `http:/telemetry` used to silently swallow every event because the
  * emitter accepted any non-empty string. The module-load probe now
  * runs the value through `new URL()` and an https-or-localhost
@@ -175,7 +175,7 @@ describe('readEndpoint URL validation (implementation note)', () => {
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
-  // implementation note — coalesced telemetry trust capture.
+  // Coalesced telemetry trust capture.
   it('records a coalesced telemetry trust event when telemetry actually sends', async () => {
     vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
     const {

@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the project bundle import overlay.
+ * E2e for the project bundle import overlay.
  *
  * Acceptance: the "Import project from zip" command-palette action
  * opens the bundle import overlay, in EN + ES (tuteo) locales. The

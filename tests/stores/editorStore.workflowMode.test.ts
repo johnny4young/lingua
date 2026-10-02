@@ -1,5 +1,5 @@
 /**
- * implementation — `workflowMode` extension to FileTab + editorStore.
+ * `workflowMode` extension to FileTab + editorStore.
  *
  * Covers:
  *   - `createDefaultTab` resolves workflow mode by language defaults.

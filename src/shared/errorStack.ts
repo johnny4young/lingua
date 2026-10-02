@@ -1,5 +1,5 @@
 /**
- * implementation — implementation clickable error stacks.
+ * Implementation clickable error stacks.
  *
  * Pure, no-DOM, no-React module that converts a runtime error's
  * `stack` string (Node / browser JS) or a Python traceback into a
@@ -35,7 +35,7 @@ export interface ClickableStackFrame {
    */
   fnName?: string;
   /**
-   * implementation-β-β-α implementation note — separator marker emitted between
+   * Separator marker emitted between
    * Python traceback segments linked by PEP 3134 `__cause__` /
    * `__context__` chains. The renderer styles these frames as
    * non-clickable separators (italic, low-contrast) so users can see
@@ -186,7 +186,7 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
 const PYTHON_FILE_LINE =
   /^\s*File\s+"(?<file>.+?)",\s+line\s+(?<line>\d+)(?:,\s+in\s+(?<fn>.+))?\s*$/;
 
-// implementation-β-β-α implementation note — PEP 3134 chain separators. Python
+// PEP 3134 chain separators. Python
 // formats these literal strings between linked traceback segments:
 //   - `raise … from …`               → `__cause__` chain.
 //   - implicit re-raise in handler   → `__context__` chain.

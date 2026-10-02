@@ -1,5 +1,5 @@
 /**
- * implementation detail — watcher delta-refresh budget.
+ * Watcher delta-refresh budget.
  *
  * Locks the win the delta refresh delivers over the legacy full walk: on
  * a watcher burst, `applyWatchChanges` re-reads only the directories that

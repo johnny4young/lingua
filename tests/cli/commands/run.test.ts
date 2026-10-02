@@ -45,6 +45,28 @@ describe('lingua run command', () => {
     expect(state.stderr).toBe('');
   });
 
+  it('starts the --timeout clock before waiting on piped stdin', async () => {
+    const script = await writeScript('console.log("never")');
+    const { io, state } = createFakeIo();
+    let released = false;
+    io.readStdin = options =>
+      new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          released = true;
+          reject(new Error('aborted'));
+        });
+      });
+    const startedAt = Date.now();
+    const code = await runTargetCommand(
+      { target: script, timeoutMs: 200, env: [], programArgs: [], json: true, quiet: false },
+      io
+    );
+    expect(code).toBe(CLI_EXIT_CODES.runtimeError);
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+    expect(released).toBe(true);
+    expect(JSON.parse(state.stdout)).toMatchObject({ ok: false, reason: 'timeout' });
+  });
+
   it('emits one machine-readable JSON body', async () => {
     const script = await writeScript('console.log("json-run")');
     const { io, state } = createFakeIo();

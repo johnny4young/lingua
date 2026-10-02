@@ -1,5 +1,5 @@
 /**
- * implementation Slice B implementation note — Persisted recipe progress store.
+ * Persisted recipe progress store.
  *
  * Tracks which recipes the user has opened / attempted / passed /
  * skipped, so the overlay can sort by recent activity and the
@@ -64,7 +64,7 @@ export interface LessonProgressState {
   markSkipped: (recipeId: string) => void;
   /** Reset a single recipe (drop the entry). */
   resetRecipe: (recipeId: string) => void;
-  /** implementation note — wipe the whole progress map. Used by Settings → Reset recipe progress. */
+  /** Wipe the whole progress map. Used by Settings → Reset recipe progress. */
   resetAll: () => void;
 
   // -------- selectors -----------------------------------------------------

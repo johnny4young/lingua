@@ -1,5 +1,5 @@
 /**
- * implementation — `line-sort` adapter.
+ * `line-sort` adapter.
  *
  * Sort the input's lines. Pure shared implementation. CRLF and legacy
  * CR line endings are normalized to LF; a single trailing newline is
@@ -26,7 +26,7 @@ export interface LineSortOptions {
   readonly caseInsensitive: boolean;
   /** Drop duplicate lines (by the comparison key), keeping the first. */
   readonly unique: boolean;
-  /** implementation note — natural/numeric ordering (`item2` before `item10`). */
+  /** natural/numeric ordering (`item2` before `item10`). */
   readonly numeric: boolean;
 }
 

@@ -239,7 +239,7 @@ export function generateLorem(options: LoremIpsumOptions): string {
 }
 
 // ---------------------------------------------------------------------------
-// implementation — `lorem-ipsum` pipeline adapter (generator).
+// `lorem-ipsum` pipeline adapter (generator).
 // ---------------------------------------------------------------------------
 
 const LOREM_UNITS: readonly LoremIpsumUnit[] = ['words', 'sentences', 'paragraphs'];

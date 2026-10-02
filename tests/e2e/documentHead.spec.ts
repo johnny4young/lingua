@@ -1,5 +1,5 @@
 /**
- * internal — document-head contract for the web entry.
+ * document-head contract for the web entry.
  *
  * Locks the boot hints added in internal: the color-scheme meta, the
  * preconnect links to the two first-party hosts, the vendored

@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useUIStore,
@@ -11,7 +11,7 @@ import { cn } from '../../utils/cn';
 const AUTO_DISMISS_MS = 6000;
 
 /**
- * internal implementation — Signal-Slate toast.
+ * Signal-Slate toast.
  *
  * Refresh of the bottom-right toast for transient notices (format-on-save
  * parse errors, missing formatter binaries, license activation outcomes,
@@ -19,9 +19,9 @@ const AUTO_DISMISS_MS = 6000;
  * (success, info, warning, error) — each with its own icon, ramp, and
  * auto-dismiss behaviour.
  *
- * Auto-dismiss is suppressed when the tone is `error` so the user does
- * not lose actionable copy by looking away. Other tones still expire
- * after AUTO_DISMISS_MS.
+ * Auto-dismiss is suppressed for `error` notices and for notices with
+ * actions so the user does not lose actionable copy by looking away.
+ * Other notices expire after AUTO_DISMISS_MS, paused while hovered or focused.
  *
  * Visual contract:
  *
@@ -35,18 +35,23 @@ export function StatusNoticeBanner() {
   const notice = useUIStore((state) => state.statusNotice);
   const dismissStatusNotice = useUIStore((state) => state.dismissStatusNotice);
 
-  // implementation — track whether the visible notice ever fires a
+  // Track whether the visible notice ever fires a
   // CTA so the auto-dismiss timeout doesn't mis-attribute a
   // user-triggered close as `'auto'`.
   const ctaFiredRef = useRef(false);
+  // Keyed by notice id so a replacement notice never inherits a stale pause.
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [focusedId, setFocusedId] = useState<number | null>(null);
+  const paused = notice !== null && (hoveredId === notice.id || focusedId === notice.id);
   useEffect(() => {
     ctaFiredRef.current = false;
   }, [notice?.id]);
 
   useEffect(() => {
     if (!notice) return;
-    // Errors stick — the user has to dismiss them.
-    if (notice.tone === 'error') return undefined;
+    // Errors and actionable notices stick — the user has to dismiss them.
+    if (notice.tone === 'error' || (notice.actions?.length ?? 0) > 0) return undefined;
+    if (paused) return undefined;
     const timeout = window.setTimeout(() => {
       // If the user clicked a CTA the dismiss already fired as
       // `'cta'`; this auto-timeout would otherwise also fire and
@@ -55,7 +60,7 @@ export function StatusNoticeBanner() {
       dismissStatusNotice('auto');
     }, AUTO_DISMISS_MS);
     return () => window.clearTimeout(timeout);
-  }, [notice, dismissStatusNotice]);
+  }, [notice, dismissStatusNotice, paused]);
 
   if (!notice) return null;
 
@@ -90,6 +95,12 @@ export function StatusNoticeBanner() {
       aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
       data-testid="status-notice-banner"
       data-tone={notice.tone}
+      onMouseEnter={() => setHoveredId(notice.id)}
+      onMouseLeave={() => setHoveredId(null)}
+      onFocus={() => setFocusedId(notice.id)}
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusedId(null);
+      }}
       className={cn(
         'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur',
         toneClasses(notice.tone)

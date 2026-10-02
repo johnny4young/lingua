@@ -30,6 +30,7 @@ import {
 } from '../runners/nativeEnv';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
+import { onOwnerReset } from '../runners/ownerReset';
 import { MAX_COMPILE_OUTPUT_BYTES, truncateBytes } from '../../shared/runnerLimits';
 import { DebuggerPreparationRegistry } from './debuggerPreparation';
 import { spawnNativeRun } from '../runners/spawnNativeRun';
@@ -167,7 +168,7 @@ function disposeForOwner(ownerId: number): void {
 function observeOwner(sender: WebContents): void {
   if (observedOwners.has(sender)) return;
   observedOwners.add(sender);
-  sender.once('destroyed', () => disposeForOwner(sender.id));
+  onOwnerReset(sender, () => disposeForOwner(sender.id));
 }
 
 export function disposeRustDebuggerSessions(): void {
@@ -366,7 +367,7 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Ru
     preparation.finish();
     try {
       const transition = await session.start(breakpoints);
-      return responseForTransition(record, transition);
+      return await responseForTransition(record, transition);
     } catch (error) {
       const output = session.drainOutput();
       const stopped = sessions.get(id) !== record;
@@ -406,7 +407,7 @@ async function runCommand(
   try {
     record.paused = false;
     record.pauseGeneration += 1;
-    return responseForTransition(record, await record.session.command(command), command);
+    return await responseForTransition(record, await record.session.command(command), command);
   } catch (error) {
     const output = record.session.drainOutput();
     await removeRecord(record);

@@ -1,5 +1,5 @@
 /**
- * implementation — pipeline template gallery catalog.
+ * Pipeline template gallery catalog.
  *
  * A curated, static set of starter pipelines so the (otherwise blank)
  * pipeline panel is discoverable now that the engine ships 15 adapters.
@@ -105,7 +105,7 @@ export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
     id: 'slugify',
     nameKey: 'utilityPipeline.template.slugify.name',
     descriptionKey: 'utilityPipeline.template.slugify.description',
-    // implementation — use the dedicated slugify adapter now that it
+    // Use the dedicated slugify adapter now that it
     // exists; the previous string-case/kebab stand-in did not strip
     // punctuation or implementation note, so it was not URL-slug safe.
     steps: [

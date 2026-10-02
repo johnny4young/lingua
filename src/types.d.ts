@@ -93,7 +93,7 @@ type RustDetectResult = import('./shared/nativeRuntimeTypes').RustDetectResult;
 type RustRunResult = import('./shared/nativeRuntimeTypes').RustRunResult;
 
 // -------------------------------------------------------------- Node types
-// implementation — desktop Node child-spawn IPC. Detection + run.
+// Desktop Node child-spawn IPC. Detection + run.
 
 type NodeDetectResult = import('./shared/nativeRuntimeTypes').NodeDetectResult;
 
@@ -105,7 +105,7 @@ interface NodeRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
-  /** implementation — keep stdin open for `node.writeStdin` streaming. */
+  /** Keep stdin open for `node.writeStdin` streaming. */
   interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
@@ -113,7 +113,7 @@ interface NodeRunInvokeOptions {
 type NodeRunResult = import('./shared/nativeRuntimeTypes').NodeRunResult;
 
 // -------------------------------------------------------------- Ruby types
-// implementation — desktop Ruby child-spawn IPC. Web build does not
+// Desktop Ruby child-spawn IPC. Web build does not
 // expose `window.lingua.ruby` (the renderer falls through to the
 // `@ruby/wasm-wasi` worker instead).
 
@@ -127,7 +127,7 @@ interface RubyRunInvokeOptions {
   filePath?: string;
   userEnv?: Record<string, string>;
   stdin?: string;
-  /** implementation — keep stdin open for `ruby.writeStdin` streaming. */
+  /** Keep stdin open for `ruby.writeStdin` streaming. */
   interactive?: boolean;
   messages?: NativeRunnerMessages;
 }
@@ -141,7 +141,7 @@ type ProjectTestDetectionResult = import('./shared/projectTests').ProjectTestDet
 type ProjectTestRunResult = import('./shared/projectTests').ProjectTestRunResult;
 type ProjectTestOutputEvent = import('./shared/projectTests').ProjectTestOutputEvent;
 
-// implementation — Deno / Bun desktop runtime IPC shapes. Both runtimes share one
+// Deno / Bun desktop runtime IPC shapes. Both runtimes share one
 // generic backend (src/main/altJsRuntimes.ts), so they share these types.
 type AltJsRunKind = import('./shared/nativeRuntimeTypes').AltJsRunKind;
 type AltJsDetectResult = import('./shared/nativeRuntimeTypes').AltJsDetectResult;
@@ -153,20 +153,20 @@ interface AltJsRunInvokeOptions {
 }
 type AltJsRunResult = import('./shared/nativeRuntimeTypes').AltJsRunResult;
 
-// implementation — Go / Rust / Ruby dependency-install aliases. import()
+// Go / Rust / Ruby dependency-install aliases. import()
 // keeps the bridge ambient while the shared module owns the wire contract.
 type NativePackageLanguage = import('./shared/dependencies/nativeDependencies').NativePackageLanguage;
 type NativeInstallStatus = import('./shared/dependencies/nativeDependencies').NativeInstallStatus;
 type NativeInstallResult = import('./shared/dependencies/nativeDependencies').NativeInstallResult;
 
-// implementation — a live output chunk from an interactive run (REPL streaming).
+// A live output chunk from an interactive run (REPL streaming).
 interface RuntimeOutputChunk {
   runId: string;
   stream: 'stdout' | 'stderr';
   chunk: string;
 }
 
-// implementation — desktop LSP launcher status surface.
+// Desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
 // language-specific aliases exist for readability at the IPC handles.
@@ -229,13 +229,13 @@ interface FsSearchResult {
   matches: FsSearchMatch[];
 }
 
-// implementation — replace-in-files preview + apply IPC contract.
+// replace-in-files preview + apply IPC contract.
 
 interface FsReplaceOptions extends FsSearchOptions {
   /** When true, treat `query` as a JavaScript regex (with `g` flag implicit). */
   regex?: boolean;
   /**
-   * implementation note — per-line cooperative cancel for regex
+   * per-line cooperative cancel for regex
    * preview. If the regex engine spends longer than this on a single
    * line, that file is aborted with `'regex-timeout'` and the panel
    * surfaces a localized notice. Defaults to 50 ms.
@@ -245,7 +245,7 @@ interface FsReplaceOptions extends FsSearchOptions {
 
 interface FsReplaceMatch extends FsSearchMatch {
   /**
-   * implementation — the preview text after the regex / literal
+   * The preview text after the regex / literal
    * substitution has been applied to the matched line. Includes the
    * same `matchStart` / `matchEnd` window as `preview`. Renderer-side
    * before/after rendering reads from `preview` (before) +
@@ -253,7 +253,7 @@ interface FsReplaceMatch extends FsSearchMatch {
    */
   replacedPreview: string;
   /**
-   * implementation — the substituted text for THIS match only (no
+   * The substituted text for THIS match only (no
    * surrounding context). Used by Monaco's `executeEdits` path when
    * applying through an open tab.
    */
@@ -264,7 +264,7 @@ interface FsReplaceResult {
   relativePath: RelativePath;
   matches: FsReplaceMatch[];
   /**
-   * implementation note — set when the file was skipped because the
+   * Set when the file was skipped because the
    * cooperative-cancel deadline fired on a line. Renderer surfaces a
    * localized "regex took too long" notice and skips this file in the
    * apply path.
@@ -278,13 +278,7 @@ type FsApplyReplaceReason =
   | 'write-error'
   | 'binary'
   | 'too-large'
-  // 'regex-timeout' is reserved for renderer-synthesized state: when
-  // the preview path flags a file with `regexTimedOut: true`, the
-  // renderer maps it to this reason in the apply summary so the UI
-  // can route both signals through the same toast. The IPC handler
-  // never returns this value — `fs:applyReplaceInFile` has no per-line
-  // deadline of its own; if you reach the apply step the regex has
-  // already been validated against the entire file by the preview pass.
+  // A regex-mode apply that exceeds the worker's hard deadline.
   | 'regex-timeout'
   | 'invalid-regex'
   | 'unsupported';
@@ -355,13 +349,13 @@ interface DesktopSmokeConfig {
    */
   launchedAtMs?: number;
   /**
-   * implementation — true when the smoke harness is running with
+   * True when the smoke harness is running with
    * `LINGUA_DESKTOP_SMOKE_OFFLINE=1`. The renderer adds a final
    * synthetic case that asserts no remote URL was attempted.
    */
   offline?: boolean;
   /**
-   * implementation — true when the smoke harness is running against
+   * True when the smoke harness is running against
    * a packaged release artifact (`Lingua.app`) instead of the Vite
    * dev server. The renderer narrows SMOKE_CASES to a 2-case subset
    * (javascript + python) so the release gate stays under ~2 minutes
@@ -406,7 +400,7 @@ type LicenseVerificationOk = Extract<import('./shared/license').LicenseVerificat
 
 type LicenseStatus = import('./shared/licenseSnapshot').LicenseStatus;
 
-// implementation — server-derived fields shipped from main to
+// server-derived fields shipped from main to
 // renderer via the IPC bridge so the desktop branch of `licenseStore`
 // can render the Devices section under the same gate the web build
 // already passes (`serverSync === 'synced'` + non-null `devices` +
@@ -448,7 +442,7 @@ type LicenseRemoveDeviceResult = Result<LicenseRemoveDeviceData> & { issues?: st
 
 // ------------------------------------------------------------- Plugin types
 //
-// internal — single source of truth lives in `src/shared/plugins/manifest.ts`
+// Single source of truth lives in `src/shared/plugins/manifest.ts`
 // alongside the validator + the bundled-runtime allowlist. The ambient
 // type aliases below keep existing call sites compiling without an
 // explicit import; new code is encouraged to import directly from the
@@ -460,7 +454,7 @@ type InstalledPluginRecord = import('./shared/plugins/manifest').InstalledPlugin
 
 // ---------------------------------------------------------- Watcher types
 //
-// internal — single source of truth lives in
+// Single source of truth lives in
 // `src/shared/fs/watcherDiagnostic.ts`. Ambient aliases keep existing
 // call sites compiling without explicit imports.
 
@@ -470,7 +464,7 @@ type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
 
 // --------------------------------------------------------- Branded fs ids
 //
-// implementation detail — branded `string` ids so a `WatchId` / `RelativePath`
+// Branded `string` ids so a `WatchId` / `RelativePath`
 // can never be swapped in where a `RootId` is expected at the IPC seam.
 // Single source of truth: `src/shared/fs/brandedIds.ts`. Aliasing them
 // here makes the renderer see branded types on `window.lingua.fs` without
@@ -483,7 +477,7 @@ type RelativePath = import('./shared/fs/brandedIds').RelativePath;
 
 // ----------------------------------------------------------- Profile types
 //
-// internal — single source of truth lives in `src/shared/profile/profile.ts`.
+// Single source of truth lives in `src/shared/profile/profile.ts`.
 // Ambient aliases keep call sites compiling without explicit imports.
 
 type LinguaProfile = import('./shared/profile/profile').LinguaProfile;
@@ -499,7 +493,7 @@ type ProfileConfirmReplaceResult = Result<number, 'confirm-failed'>;
 
 // ---------------------------------------------------------- Recovery types
 //
-// internal — error boundaries + recovery UX. The renderer-side helpers
+// Error boundaries + recovery UX. The renderer-side helpers
 // live in `src/renderer/utils/safeBoot.ts` and
 // `src/renderer/utils/redactedErrorReport.ts`. Ambient aliases keep
 // the IPC + web-stub call sites compiling without explicit imports.
@@ -508,13 +502,13 @@ type RecoveryResetScope = 'settings' | 'snippets' | 'envVars' | 'session' | 'fac
 type RecoveryConfirmResetResult = Result<number, 'confirm-failed'>;
 type RecoveryRevealFolderResult = Result<null, 'unsupported' | 'open-failed'>;
 
-// implementation — JS/TS dependency resolver IPC contract. Closed
+// JS/TS dependency resolver IPC contract. Closed
 // status set; the renderer maps these to its broader
 // `DependencyStatus` enum in `src/shared/dependencies/types.ts`.
 type DependencyResolveStatus = import('./shared/dependencies/types').DependencyResolveStatus;
 type DependencyResolveResult = import('./shared/dependencies/types').DependencyResolveResult;
 
-// implementation — install batch IPC aliases. Closed enums and result
+// Install batch IPC aliases. Closed enums and result
 // shapes live in the shared dependency module and feed the telemetry redactor.
 type DependencyInstallResultStatus = import('./shared/dependencies/types').DependencyInstallResultStatus;
 type DependencyInstallOutcome = import('./shared/dependencies/types').DependencyInstallOutcome;
@@ -527,7 +521,7 @@ interface DependencyInstallLogEvent {
   chunk: string;
 }
 
-// implementation — Git read-only layer IPC aliases. The renderer reads them
+// Git read-only layer IPC aliases. The renderer reads them
 // off `window.lingua.git.*` (Electron preload) or treats the bridge
 // as absent on web (graceful degradation — pill + panel are hidden).
 type GitDetectResult = import('./shared/gitTypes').GitDetectResult;
@@ -535,7 +529,7 @@ type GitFileStatusKind = import('./shared/gitTypes').GitFileStatusKind;
 type GitFileStatus = import('./shared/gitTypes').GitFileStatus;
 type GitFileDiff = import('./shared/gitTypes').GitFileDiff;
 
-// implementation — head-watch + reveal payload aliases. The renderer consumes them
+// head-watch + reveal payload aliases. The renderer consumes them
 // off `window.lingua.git.onHeadChanged` without an extra import.
 type GitHeadChangePayload = import('./shared/gitTypes').GitHeadChangePayload;
 type GitHeadWatcherFailurePayload = import('./shared/gitTypes').GitHeadWatcherFailurePayload;
@@ -585,7 +579,7 @@ interface LinguaAPI {
     stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
-  // implementation — desktop Node child-spawn IPC. Worker-mode JS
+  // Desktop Node child-spawn IPC. Worker-mode JS
   // does not use this bridge; only `runtimeMode === 'node'` tabs.
   // Optional because the web build's adapter (src/web/adapter.ts)
   // deliberately omits this surface — Node mode is desktop-only.
@@ -600,15 +594,15 @@ interface LinguaAPI {
       options?: NodeRunInvokeOptions
     ) => Promise<NodeRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
-    // implementation — interactive stdin.
+    // Interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
-    // implementation — live stdout/stderr chunks from an interactive run. Returns an
+    // Live stdout/stderr chunks from an interactive run. Returns an
     // unsubscribe fn. Consumers filter by `runId`.
     onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
 
-  // implementation — desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
+  // Desktop Deno / Bun child-spawn IPC. Optional; web adapter omits
   // them (desktop-only). Callers MUST check `window.lingua.deno` / `.bun`.
   deno?: {
     detect: (userEnv?: Record<string, string>, force?: boolean) => Promise<AltJsDetectResult>;
@@ -621,7 +615,7 @@ interface LinguaAPI {
     stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
-  // implementation — desktop Ruby child-spawn IPC. Optional because
+  // Desktop Ruby child-spawn IPC. Optional because
   // the web build's adapter (src/web/adapter.ts) deliberately omits
   // this surface — the renderer falls back to the @ruby/wasm-wasi
   // worker instead. Callers MUST check `window.lingua.ruby` before
@@ -636,10 +630,10 @@ interface LinguaAPI {
       options?: RubyRunInvokeOptions
     ) => Promise<RubyRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
-    // implementation — interactive stdin.
+    // Interactive stdin.
     writeStdin: (runId: string, data: string) => Promise<{ written: boolean }>;
     closeStdin: (runId: string) => Promise<{ closed: boolean }>;
-    // implementation — live stdout/stderr chunks from an interactive run. Returns an
+    // Live stdout/stderr chunks from an interactive run. Returns an
     // unsubscribe fn. Consumers filter by `runId`.
     onOutput: (handler: (event: RuntimeOutputChunk) => void) => () => void;
   };
@@ -744,7 +738,7 @@ interface LinguaAPI {
         }
     >;
     /**
-     * implementation detail — classify a path against the filesystem denylist so a
+     * Classify a path against the filesystem denylist so a
      * blocked reopen/pick can be surfaced with an actionable, localized notice.
      * `family` mirrors `BLOCKED_PATH_FAMILIES` in `src/main/ipc/permissions.ts`;
      * `null` means the path is allowed. The web build always returns `null`.
@@ -769,7 +763,7 @@ interface LinguaAPI {
       options?: FsSearchOptions
     ) => Promise<FsSearchResult[]>;
     /**
-     * implementation — preview replace-in-files. Walks the project
+     * Preview replace-in-files. Walks the project
      * the same way as `searchInFiles`, but each match also carries
      * a per-match `replacement` + `replacedPreview` so the renderer
      * can render before/after diffs without re-deriving regex
@@ -783,7 +777,7 @@ interface LinguaAPI {
       options?: FsReplaceOptions
     ) => Promise<FsReplaceResult[]>;
     /**
-     * implementation — atomically apply the substitution to a
+     * Atomically apply the substitution to a
      * single file. Writes to a tmpfile in the same directory then
      * renames over the original (Windows AV retry x3). Returns
      * `{ ok, replaced, reason? }` with a closed-enum reason for
@@ -822,13 +816,13 @@ interface LinguaAPI {
     mkdir: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     touch: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
-     * implementation note — open the OS file manager with the
+     * Open the OS file manager with the
      * entry selected. Desktop: `shell.showItemInFolder`. Web build:
      * no-op (no underlying absolute path).
      */
     revealInFinder: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
-     * implementation — pack every visible file under the capability
+     * Pack every visible file under the capability
      * root into a `.zip` bundle (with a `lingua-bundle.json` manifest)
      * and write it to a user-chosen path. Desktop-only; the web stub
      * resolves `{ ok: false, reason: 'write-failed' }` since the web
@@ -855,7 +849,7 @@ interface LinguaAPI {
         }
     >;
     /**
-     * implementation — extract a `.zip` bundle (raw bytes from the
+     * Extract a `.zip` bundle (raw bytes from the
      * renderer) into a user-chosen empty folder, after authoritative
      * zip-slip / zip-bomb / cap re-validation in main. Returns the new
      * root path so the renderer adopts it via `openProject(rootPath)`.
@@ -883,7 +877,7 @@ interface LinguaAPI {
         }
     >;
     /**
-     * internal — returns either the `watchId` string on success or a
+     * Returns either the `watchId` string on success or a
      * tagged-union `{ ok: false, diagnostic }` shape when fs.watch
      * registration fails (EACCES, EMFILE, ENOSPC, ENOENT). Callers
      * should branch on the response shape. The diagnostic is also
@@ -897,12 +891,12 @@ interface LinguaAPI {
     watchStop: (watchId: WatchId) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
     /**
-     * internal — push subscription for typed watcher failures. Main emits
+     * Push subscription for typed watcher failures. Main emits
      * one `WatcherDiagnostic` per failed `fs.watch()` registration.
      */
     onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) => () => void;
     /**
-     * internal — informational push when the watcher reports a sustained
+     * Informational push when the watcher reports a sustained
      * burst of null-filename events (Linux inotify overflow, etc.).
      * Renderer surfaces a warning-tone notice; not an error.
      */
@@ -942,7 +936,7 @@ interface LinguaAPI {
     writeJsonArtifact: (name: string, payload: unknown) => Promise<string | null>;
     finish: (success: boolean) => void;
     /**
-     * implementation — list of URLs the offline-mode webRequest
+     * List of URLs the offline-mode webRequest
      * filter cancelled during the smoke run. Empty when offline mode
      * is off or no requests were attempted.
      */
@@ -951,7 +945,7 @@ interface LinguaAPI {
   };
 
   /**
-   * internal — destructive `replace` policy of the profile-restore flow
+   * Destructive `replace` policy of the profile-restore flow
    * gates behind a native confirm modal. Result data is 0 to confirm or
    * 1 to cancel (matching `app:confirm-close`); operational dialog
    * failures use the Result error branch. The web stub resolves to a
@@ -966,7 +960,7 @@ interface LinguaAPI {
   };
 
   /**
-   * internal — recovery surface (Settings → Account → Recovery).
+   * Recovery surface (Settings → Account → Recovery).
    * `confirmReset` returns Result data 0 (Reset) or 1 (Cancel).
    * `revealFolder` opens the OS file browser at the userData path so a
    * user with a corrupted persisted state can wipe files manually. Web
@@ -981,7 +975,7 @@ interface LinguaAPI {
   };
 
   /**
-   * implementation — JS/TS dependency resolution and
+   * JS/TS dependency resolution and
    * installation. implementation will extend this surface with
    * `installPython` (Pyodide `micropip`) on web.
    */
@@ -999,7 +993,7 @@ interface LinguaAPI {
     onInstallLogJs: (
       handler: (event: DependencyInstallLogEvent) => void
     ) => () => void;
-    // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    // Go / Rust / Ruby install (go get / cargo add / bundle add).
     installNative: (
       language: NativePackageLanguage,
       specifiers: readonly string[],
@@ -1008,7 +1002,7 @@ interface LinguaAPI {
   };
 
   /**
-   * implementation — Git read-only layer. Desktop-only; on web the
+   * Git read-only layer. Desktop-only; on web the
    * `git` key is absent and the renderer hides the pill + panel.
    *   - `detect` resolves binary + repo root + branch for a folder.
    *   - `status` returns the per-file porcelain status bucket.
@@ -1020,10 +1014,10 @@ interface LinguaAPI {
     detect: (folderPath?: string) => Promise<GitDetectResult>;
     status: (repoRoot: string, filePath: string) => Promise<GitFileStatus>;
     diff: (repoRoot: string, filePath: string) => Promise<GitFileDiff>;
-    // implementation — Reveal repo root in OS file manager. Returns
+    // Reveal repo root in OS file manager. Returns
     // false when the OS refused the open or the path vanished.
     reveal: (repoRoot: string) => Promise<boolean>;
-    // implementation — start / stop a `.git/HEAD` watcher for the
+    // Start / stop a `.git/HEAD` watcher for the
     // given repoRoot. Main streams `git:on-head-changed` events to
     // the renderer; the renderer subscribes via `onHeadChanged`.
     watchHead: (repoRoot: string) => Promise<{ ok: boolean }>;

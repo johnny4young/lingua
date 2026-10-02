@@ -1,5 +1,5 @@
 /**
- * implementation — Language Support Scorecard type contracts.
+ * Language Support Scorecard type contracts.
  *
  * Asserts the coupled invariants that keep `LANGUAGE_SUPPORT_PROFILES`
  * honest:
@@ -185,12 +185,12 @@ describe('resolveCapabilityStatus — per-platform resolution ', () => {
   });
 
   it('never remaps the two runtime axes — they pass through their base status', () => {
-    // Lua desktopRuntime is `web-only`: it runs on desktop via the web
-    // engine, so it must NOT collapse to `unsupported` on desktop.
+    // Lua desktopRuntime is `partial` (plugin-gated Fengari) and must not
+    // collapse to `unsupported` on either platform toggle.
     const lua = profileById('lua');
-    expect(lua.capabilities.desktopRuntime).toBe('web-only');
-    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'desktop')).toBe('web-only');
-    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'web')).toBe('web-only');
+    expect(lua.capabilities.desktopRuntime).toBe('partial');
+    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'desktop')).toBe('partial');
+    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'web')).toBe('partial');
     // Go webRuntime `unsupported` stays unsupported on both platforms.
     const go = profileById('go');
     expect(resolveCapabilityStatus(go, 'webRuntime', 'web')).toBe('unsupported');

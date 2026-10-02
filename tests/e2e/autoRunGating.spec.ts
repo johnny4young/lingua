@@ -1,5 +1,5 @@
 /**
- * implementation — auto-run completion gate end-to-end smoke.
+ * auto-run completion gate end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -82,7 +82,7 @@ test.describe('Auto-run completion gate ', () => {
     await expect(page.getByTestId('auto-run-gate-notice')).toHaveCount(0);
   });
 
-  test('implementation note — under Browser preview, the notice uses the preview-paused copy variant', async ({
+  test('under Browser preview, the notice uses the preview-paused copy variant', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

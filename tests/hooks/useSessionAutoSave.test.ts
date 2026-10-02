@@ -1,5 +1,5 @@
 /**
- * internal — behavioral contract of the debounced session
+ * Behavioral contract of the debounced session
  * auto-save. The §3.10 regression this locks: transient editor-store
  * mutations (pendingReveal, isDirty churn, per-run execution-state
  * flips) must neither schedule a save nor POSTPONE one already

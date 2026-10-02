@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Project template scaffold hook.
+ * Project template scaffold hook.
  *
  * Owns the multi-file write choreography for a curated
  * `ProjectTemplateV1`. The flow is intentionally per-step so failures

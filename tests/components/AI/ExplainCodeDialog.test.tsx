@@ -1,5 +1,5 @@
 /**
- * internal — "Explain this code" dialog. Verifies the consent gate (nothing
+ * "Explain this code" dialog. Verifies the consent gate (nothing
  * sends on mount), the entitlement + configuration degradations, and the
  * send → streamed result path, all in a real React render with real i18n.
  */
@@ -121,5 +121,21 @@ describe('ExplainCodeDialog', () => {
       expect(screen.getByTestId('ai-explain-code-error')).toBeTruthy()
     );
     expect(screen.getByTestId('ai-explain-code-retry')).toBeTruthy();
+  });
+
+  it('moves focus inside and closes on Escape without reaching window listeners', async () => {
+    const onClose = vi.fn();
+    const outerEscape = vi.fn();
+    window.addEventListener('keydown', outerEscape);
+    try {
+      render(<ExplainCodeDialog {...baseProps} onClose={onClose} />);
+      const dialog = screen.getByTestId('ai-explain-code-dialog');
+      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(outerEscape).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', outerEscape);
+    }
   });
 });

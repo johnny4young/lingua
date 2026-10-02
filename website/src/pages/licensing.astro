@@ -46,7 +46,7 @@ import Legal from '~/layouts/Legal.astro';
 
   <h3 id="education">Education</h3>
   <p>
-    Free Pro for one year, renewable. Open Lingua, go to <em>Settings → License → Educational
+    Free Pro for one year, renewable. Open Lingua, go to <em>Settings → Account → License → Educational
     license</em>, and enter your school email. We accept any <code>.edu</code> domain plus
     <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>,
     <code>.edu.br</code>, and <code>.ac.in</code>. You'll get a confirmation email with a magic
@@ -65,9 +65,10 @@ import Legal from '~/layouts/Legal.astro';
   <h2>How license keys work</h2>
   <p>
     Paid tiers issue a signed token — Ed25519, verified offline against a public key embedded in
-    the desktop binary. Lingua does not phone home to validate. The token is bound to a small set
+    the desktop binary. Validation never waits on a server; the license server only tracks device
+    slots and refreshes status in the background. The token is bound to a small set
     of devices (currently three for Pro). When you buy a new machine, deactivate the old one from
-    Settings → License — the slot frees up immediately.
+    Settings → Account → License — the slot frees up immediately.
   </p>
 
   <h2>Source availability</h2>

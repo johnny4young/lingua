@@ -1,5 +1,5 @@
 /**
- * implementation — per-file git status driver.
+ * per-file git status driver.
  *
  * Subscribes to:
  *   1. `useGitStore.posture` — re-queries open tabs after a folder

@@ -1,5 +1,5 @@
 /**
- * implementation — project zip bundle export + import choreography.
+ * Project zip bundle export + import choreography.
  *
  * Export:
  *   - Desktop: `fs:exportBundle(rootId, { entryFile, languageHint })`

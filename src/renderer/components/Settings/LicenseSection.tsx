@@ -12,6 +12,7 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { DeviceList } from './DeviceList';
 import { EducationCta } from './EducationCta';
 import { ExhaustedDevicesModal } from './ExhaustedDevicesModal';
+import { peekPendingLicenseToken, subscribeLicenseTokenPrefill } from './pendingLicenseToken';
 import { RecoveryCta } from './RecoveryCta';
 import { TrialCta } from './TrialCta';
 
@@ -82,7 +83,7 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.unsupportedTier';
     case 'no-public-key':
       return 'license.notice.invalid.notAccepted';
-    // implementation — server-rejection reasons. implementation will surface
+    // server-rejection reasons. implementation will surface
     // the device-management modal that lets the user remediate the
     // `devices-exhausted` case without re-pasting the token.
     case 'devices-exhausted':
@@ -140,7 +141,7 @@ function formatLifetimeUpdateDate(timestamp: number, locale: string): string {
 
 export function LicenseSection() {
   const { t, i18n } = useTranslation();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => peekPendingLicenseToken() ?? '');
   // accessibility pass — reflect a rejected paste on the input itself (aria-invalid
   // + an inline message), not only via the transient toast.
   const [applyErrorKey, setApplyErrorKey] = useState<string | null>(null);
@@ -159,12 +160,21 @@ export function LicenseSection() {
   const [exhaustedModalOpen, setExhaustedModalOpen] = useState(false);
   const [dismissedExhaustedModal, setDismissedExhaustedModal] = useState(false);
 
-  // internal — RFC 7638 thumbprint of the build-embedded signing key, shown
+  // RFC 7638 thumbprint of the build-embedded signing key, shown
   // so the operator can verify the running build against the rotation
   // registry (docs/security/license-key-registry.json). Async because the
   // digest goes through WebCrypto; stays null (row hidden) on dev builds
   // that embed no key.
   const [keyThumbprint, setKeyThumbprint] = useState<string | null>(null);
+  useEffect(() => {
+    const prefill = (token: string) => {
+      setDraft(token);
+      setApplyErrorKey(null);
+    };
+    const { late, unsubscribe } = subscribeLicenseTokenPrefill(prefill);
+    if (late) prefill(late);
+    return unsubscribe;
+  }, []);
   useEffect(() => {
     if (!PUBLIC_KEY_JWK) return undefined;
     let cancelled = false;
@@ -193,7 +203,7 @@ export function LicenseSection() {
     ? 'https://linguacode.dev/es/pricing'
     : 'https://linguacode.dev/pricing';
 
-  // implementation — when a child CTA hits a duplicate-email branch with
+  // When a child CTA hits a duplicate-email branch with
   // `canRecover: true`, we capture the email here and pass it down to
   // RecoveryCta as a prefill so the user can recover with one click. The
   // renderer-driven recoverHint (stale-token branch) stays derived at render

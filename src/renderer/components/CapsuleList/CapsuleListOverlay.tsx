@@ -1,5 +1,5 @@
 /**
- * implementation — Capsule browse overlay.
+ * Capsule browse overlay.
  *
  * A Pro-gated master/detail surface over the in-memory run capsules
  * the execution-history store retains (`capsuleEntries()` — the newest
@@ -8,7 +8,7 @@
  * external one; this overlay finally lets them browse, preview and
  * export ANY retained capsule.
  *
- * Layout (FASE 1 MOV.01 — now rendered inside the shared `ModalShell`):
+ * Layout (rendered inside the shared `ModalShell`):
  *   - Header (title variant): title + subtitle, with the shell's `x`
  *     close button (`headerClose="button"`). The count moves to the
  *     footer `trailing` slot; the legend rail shows just `esc close`
@@ -76,7 +76,7 @@ export interface CapsuleListOverlayProps {
 type StatusFilter = 'all' | 'ok' | 'error';
 
 /**
- * implementation — sort two capsule entries oldest → newest so the
+ * Sort two capsule entries oldest → newest so the
  * comparison modal renders Older / Newer panes deterministically.
  * Mirror of `compareHistoryEntries` in `ExecutionHistoryPopover`:
  * timestamp first, then a stable `id` tie-break for entries captured in
@@ -296,7 +296,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     [pushStatusNotice]
   );
 
-  // internal — per-row self-contained HTML export (native save dialog on
+  // per-row self-contained HTML export (native save dialog on
   // desktop, blob download on web). Outcome notices mirror handleExport.
   const handleExportHtml = useCallback(
     async (entry: ExecutionHistoryEntry) => {
@@ -553,7 +553,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                       )}
                     >
                       <div className="flex items-start gap-2">
-                        {/* implementation note — compare multiselect. A real checkbox so
+                        {/* Compare multiselect. A real checkbox so
                             keyboard + screen-reader users can build the pair;
                             sits outside the row-select button (no nested
                             interactive controls). */}
@@ -676,7 +676,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
         </div>
       )}
     </CapsuleShell>
-    {/* implementation note — the comparator renders as a sibling so it layers above
+    {/* The comparator renders as a sibling so it layers above
         the list overlay. `comparePair` is null until the user presses
         Compare; closing it clears the pair but leaves the multiselect
         intact so they can adjust and re-compare. */}
@@ -700,7 +700,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
  * Thin wrapper over the shared `ModalShell` that fixes the capsule
  * overlay's invariant chrome: a TITLE-variant header (title + subtitle
  * with the shell's `x` close button), the `max-w-[720px]` clamp from the
- * MOV.01 prototype, and a footer whose legend is just `esc close`
+ * design prototype, and a footer whose legend is just `esc close`
  * (navigation here is click-driven, not ↑↓/↵) with the live count in the
  * trailing slot. Body padding stays at the shell default; the populated
  * grid manages its own internal scroll.

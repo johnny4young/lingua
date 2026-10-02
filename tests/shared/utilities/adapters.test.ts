@@ -1,5 +1,5 @@
 /**
- * implementation — utility adapter unit tests.
+ * Utility adapter unit tests.
  *
  * Covers the shared utility adapter registry — happy path + reject path
  * + parseOptions shape guard. Keeps the test surface single-file since
@@ -294,7 +294,7 @@ describe('diffTextAdapter', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — vocabulary expansion adapters.
+// Vocabulary expansion adapters.
 // ---------------------------------------------------------------------------
 
 describe('hashAdapter', () => {
@@ -529,7 +529,7 @@ describe('html entity adapters', () => {
   });
 });
 
-// implementation — vocabulary expansion round 2.
+// Vocabulary expansion round 2.
 describe('numberBaseAdapter ', () => {
   it('auto-detects a hex literal and converts to decimal', async () => {
     const r = await numberBaseAdapter.run('0xFF', {
@@ -887,7 +887,7 @@ describe('stringInspectAdapter ', () => {
   });
 });
 
-// implementation note — registry + i18n completeness guard. Every closed-enum id must
+// Registry + i18n completeness guard. Every closed-enum id must
 // have a registry adapter AND title/description keys in BOTH locales.
 describe('adapter registry completeness (implementation note)', () => {
   const en = enCommon as Record<string, string>;

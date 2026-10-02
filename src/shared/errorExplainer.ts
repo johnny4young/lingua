@@ -1,5 +1,5 @@
 /**
- * implementation — offline, rule-based runtime-error explainer.
+ * Offline, rule-based runtime-error explainer.
  *
  * Turns a raw runner error message into a plain-language explanation plus
  * a few concrete fix hints, entirely locally — no network, no model, no

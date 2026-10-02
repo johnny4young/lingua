@@ -76,7 +76,7 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// internal — FloatingActionPill is mounted by AppLayout and transitively
+// FloatingActionPill is mounted by AppLayout and transitively
 // imports `useRunner` → `nodeRunner` → `esbuild-wasm`, which fails to
 // initialise under jsdom. Stub it out — its behaviour is covered by
 // its own component tests.
@@ -152,7 +152,7 @@ vi.mock('../../src/renderer/components/ProjectTerminal/ProjectTerminalPanel', ()
   ),
 }));
 
-// implementation — mock the Recipe Run panel to avoid pulling
+// Mock the Recipe Run panel to avoid pulling
 // `runnerManager` (and its esbuild-wasm transitive dep, which jsdom
 // rejects with the `TextEncoder().encode("") instanceof Uint8Array`
 // invariant) into the AppLayout test harness. The conditional render

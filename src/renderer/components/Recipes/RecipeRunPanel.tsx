@@ -1,10 +1,10 @@
 /**
- * implementation — `<RecipeRunPanel>`.
+ * `<RecipeRunPanel>`.
  *
  * Body of the bottom-panel `'recipe'` sibling tab. Only mounts when
  * the active tab has a persistent `recipeBindingId`.
  *
- * Signal-Slate FASE 3 (MOV.02 #4): restyled toward a light editor SIDE
+ * Signal-Slate: restyled toward a light editor SIDE
  * PANEL presentation — a left hairline + `bg-bg-panel` surface read as a
  * side rail attached to the editor rather than a dock tab body, all on DS
  * tokens (no legacy `--app-*` aliases, no hardcoded emerald/rose/amber).
@@ -132,7 +132,7 @@ export function RecipeRunPanel() {
   const allPassed = isAllPassed(results);
 
   return (
-    // Light editor side-panel presentation (MOV.02 #4). The left hairline
+    // Light editor side-panel presentation. The left hairline
     // + `bg-bg-panel` surface read as a side rail attached to the editor
     // rather than a dock tab body. The mount still lives in the dock today
     // (AppLayout owns the physical relocation — see follow-up note); this

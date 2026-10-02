@@ -1,5 +1,5 @@
 /**
- * internal — `<StatusBar>` render + interaction contract.
+ * `<StatusBar>` render + interaction contract.
  *
  * Covers:
  *   - Unmounts entirely when `showStatusBar` is false; mounts when true.

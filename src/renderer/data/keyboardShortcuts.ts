@@ -45,7 +45,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Enter'] }],
   },
   {
-    // implementation note — cycle through the implemented JS/TS
+    // Cycle through the implemented JS/TS
     // runtime modes on the active tab. implementation only has `worker`, so
     // the cycle is a no-op; implementation and implementation light up the same
     // shortcut as `node` and `browser-preview` come online.
@@ -54,7 +54,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'M'] }],
   },
   {
-    // implementation note — cycle the active tab's workflow mode
+    // Cycle the active tab's workflow mode
     // (Run → Debug → Scratchpad → Run) while skipping unsupported
     // segments for the language. Mirrors the `Mod+Shift+B`
     // breakpoint-toggle pattern from implementation
@@ -63,20 +63,20 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'M'] }],
   },
   {
-    // implementation note — toggle the per-tab Recent Runs popover.
+    // Toggle the per-tab Recent Runs popover.
     // No-op when no pill is mounted (Free tier, view-only tab, or
     // empty per-tab history). Dispatcher in `App.tsx` consults the
     // `recentRunsPopoverBridge` module.
     id: 'run-toggle-recent-runs',
     group: 'run',
-    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
+    // Moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity `Mod+Shift+H` binding can map to project-replace
     // (`nav-project-replace`). Alt+H still reads as "History" mnemonic
     // for power users.
     combos: [{ tokens: ['Mod', 'Alt', 'H'] }],
   },
   {
-    // implementation note — toggle the Compare panel on the active
+    // Toggle the Compare panel on the active
     // tab. No-op when there's no comparator snapshot (matches the
     // toggle-button gate). Dispatcher in `App.tsx` reads + writes
     // `compareWithSnapshotEnabled` via the editor store.
@@ -85,13 +85,13 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'D'] }],
   },
   {
-    // implementation note — toggle the Variables panel on the
+    // Toggle the Variables panel on the
     // active tab. No-op + notice when there's no scope snapshot.
     id: 'run-toggle-variable-inspector',
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'I'] }],
   },
-  // implementation — panel-chip shortcuts. Stdin chip mirrors the
+  // panel-chip shortcuts. Stdin chip mirrors the
   // Variables / Compare / History pattern with a single key combo
   // dedicated to the bottom-drawer chip.
   {
@@ -99,7 +99,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'E'] }],
   },
-  // implementation note — keyboard shortcut for the primary
+  // Keyboard shortcut for the primary
   // result-panel export surface. `Mod+Shift+X` (eXport mnemonic).
   // `Mod+Shift+E` is already taken by stdin toggle; X is the next
   // most semantic unused slot.
@@ -108,7 +108,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'X'] }],
   },
-  // implementation Phase A1 implementation note — keyboard shortcut for the share-link
+  // Keyboard shortcut for the share-link
   // copy flow. `Mod+Shift+L` (L for Link). Reviewer rebound from the
   // original `Mod+Shift+P` after discovering that combo was already
   // taken by `overlay-command-palette`; the first-match-wins iteration
@@ -121,7 +121,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'L'] }],
   },
-  // implementation note — replay-onboarding shortcut. `Mod+Shift+W`
+  // replay-onboarding shortcut. `Mod+Shift+W`
   // (W for Welcome). Verified free against the catalog by the
   // conflict-free regression test. Triggers all three reset setters
   // so the welcome scratchpad, first-run tip, and first-snippet tip
@@ -131,7 +131,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'view',
     combos: [{ tokens: ['Mod', 'Shift', 'W'] }],
   },
-  // implementation — recover from a floating-pill/variables-card that
+  // Recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
   // bad localStorage value). Clears both persisted positions back to
   // the synchronous defaults computed by the components.
@@ -140,7 +140,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'view',
     combos: [{ tokens: ['Mod', 'Shift', '0'] }],
   },
-  // implementation Slice A implementation note — open the bottom-panel Dependencies tab
+  // Open the bottom-panel Dependencies tab
   // for the active file. `Mod+Shift+J` (J for JavaScript / packaJes
   // mnemonic — the easy unused slot). Verified free against the
   // catalog by the conflict-free regression test in
@@ -153,13 +153,14 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'J'] }],
   },
   {
-    // implementation note — flip the variable inspector surface
+    // Flip the variable inspector surface
     // (floating ↔ bottom). Distinct from `Mod+Shift+I` which toggles
     // the per-tab `variableInspectorEnabled` flag. Power-user shortcut
     // for moving Variables between surfaces without opening Settings.
+    // Mod+Shift+V stays with the editor's paste-as-plain-text.
     id: 'view-toggle-variable-inspector-surface',
     group: 'view',
-    combos: [{ tokens: ['Mod', 'Shift', 'V'] }],
+    combos: [{ tokens: ['Mod', 'Alt', 'V'] }],
   },
   {
     id: 'file-save',
@@ -197,7 +198,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'F'] }],
   },
   {
-    // implementation — Replace in files. Cmd+Shift+H mirrors the
+    // Replace in files. Cmd+Shift+H mirrors the
     // VSCode binding so users with that muscle memory can find it
     // immediately.
     id: 'nav-project-replace',
@@ -205,7 +206,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'H'] }],
   },
   {
-    // implementation → MOV.02 — open or focus the full-screen HTTP
+    // Open or focus the full-screen HTTP
     // workspace tab. Mod+Shift+K is free in Lingua + not reserved by
     // browsers (Mod+Shift+R / +T / +N are all browser-reserved or
     // already taken). A second press focuses the tab; closing happens
@@ -215,7 +216,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'K'] }],
   },
   {
-    // implementation → MOV.02 — open or focus the full-screen SQL
+    // Open or focus the full-screen SQL
     // workspace tab. Mod+Alt+S (S for SQL) — verified free against the
     // catalog. Mod+Shift+Q rejected: macOS Cmd+Shift+Q is the OS-level
     // log-out shortcut and is intercepted by the system. Mod+Alt
@@ -227,7 +228,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'S'] }],
   },
   {
-    // implementation note — Open the Developer Utilities workspace
+    // Open the Developer Utilities workspace
     // with the Pipelines panel preselected. Mod+Shift+G (G for
     // Graph / pipeline; verified free vs the catalog — Mod+Shift+R
     // browser-reserved, +T/N browser-reserved, +Q macOS log-out).
@@ -236,7 +237,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'G'] }],
   },
   {
-    // implementation note — Open the global Import overlay so the
+    // Open the global Import overlay so the
     // user can paste a cURL command or drop a file from anywhere in
     // the app. Mod+Alt+I (I for Import). Verified free vs the
     // catalog — Mod+Shift+I is Variable Inspector ,
@@ -249,7 +250,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'I'] }],
   },
   {
-    // implementation — export the open project as a `.zip` bundle.
+    // Export the open project as a `.zip` bundle.
     // Mod+Alt+E (E for Export); pairs with Mod+Alt+I (Import). Verified
     // free vs the catalog (the conflict-free regression test guards it).
     id: 'action-export-project-bundle',
@@ -257,7 +258,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'E'] }],
   },
   {
-    // implementation Slice B implementation note — Open the global Recipes overlay so the
+    // Open the global Recipes overlay so the
     // user can browse curated practice problems and load one into a
     // new tab. Mod+Alt+L (L for Lessons / Library). Verified free vs
     // the catalog — Mod+Shift+L is the internal share-link copy,
@@ -270,7 +271,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'L'] }],
   },
   {
-    // implementation Slice A implementation note — Create a fresh notebook tab from
+    // Create a fresh notebook tab from
     // anywhere via Mod+Alt+N (N for Notebook). Verified free vs the
     // catalog: Mod+Shift+N is browser "new window", Mod+Alt+L is
     // internal Recipes, Mod+Alt+I is internal import, Mod+Alt+S is SQL,
@@ -281,7 +282,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'N'] }],
   },
   {
-    // implementation note — Open the Capsule Import overlay so the
+    // Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +
     // visually mirrors the `Mod+Shift+X` export shortcut). Verified
@@ -292,7 +293,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'Y'] }],
   },
   {
-    // implementation — open the Pro-gated capsule browse overlay.
+    // Open the Pro-gated capsule browse overlay.
     // `Mod+Alt+C` (C = capsules) verified free against the catalog by
     // the conflict-free regression test in `keyboardShortcuts.test.ts`
     // (Mod+Shift+C is an OS/browser binding; Mod+Alt+C is free).
@@ -306,7 +307,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Shift', 'P'] }],
   },
   {
-    // internal — per-session stack of the last executed palette actions.
+    // per-session stack of the last executed palette actions.
     id: 'overlay-recent-commands',
     group: 'overlays',
     combos: [{ tokens: ['Mod', 'Semicolon'] }],
@@ -317,7 +318,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Comma'] }],
   },
   {
-    // MOV.03 — id kept stable for shortcut-overrides compatibility;
+    // Id kept stable for shortcut-overrides compatibility;
     // the binding now opens/focuses a full-screen Utilities workspace
     // tab instead of mounting a modal overlay.
     id: 'overlay-developer-utilities',
@@ -335,7 +336,7 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'B'] }],
   },
   {
-    // internal — presenter / focus mode: hide the chrome, lift the fonts.
+    // Presenter / focus mode: hide the chrome, lift the fonts.
     id: 'view-toggle-presenter',
     group: 'view',
     combos: [{ tokens: ['Mod', 'Alt', 'P'] }],
@@ -345,7 +346,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'view',
     combos: [{ tokens: ['Mod', 'Backslash'] }],
   },
-  // implementation — Developer Utilities productivity layer.
+  // Developer Utilities productivity layer.
   // Both shortcuts no-op silently (toast `copyOutputEmpty`) when the
   // active utility panel has not registered an output provider yet.
   {
@@ -358,7 +359,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'utilities',
     combos: [{ tokens: ['Mod', 'Alt', 'R'] }],
   },
-  // implementation — fires the ⚡ Apply-from-input button on the
+  // Fires the ⚡ Apply-from-input button on the
   // focused utility panel. Default Mod+Shift+A keeps Mod+Enter free
   // for the editor's `run-toggle` shortcut.
   {
@@ -366,7 +367,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'utilities',
     combos: [{ tokens: ['Mod', 'Shift', 'A'] }],
   },
-  // implementation note — keyboard-accessible breakpoint toggle.
+  // keyboard-accessible breakpoint toggle.
   // Mod+B is already taken by `view-toggle-sidebar`; Mod+Shift+B is
   // free and reads close enough to VS Code's `F9` to feel familiar.
   // The handler is gated separately from the continue/step shortcuts
@@ -377,7 +378,7 @@ export const KEYBOARD_SHORTCUTS = [
     group: 'debugger',
     combos: [{ tokens: ['Mod', 'Shift', 'B'] }],
   },
-  // implementation — debugger continue / step shortcuts.
+  // Debugger continue / step shortcuts.
   {
     id: 'debugger-continue',
     group: 'debugger',
@@ -579,6 +580,26 @@ export function resolveCombos(
   const override = overrides[definition.id];
   if (override && override.length > 0) return override;
   return definition.combos;
+}
+
+/** Display platform of the running shell: the desktop runtime, else the browser. */
+export function currentShortcutDisplayPlatform(): ShortcutDisplayPlatform {
+  const runtimePlatform =
+    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
+  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
+  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
+}
+
+/** Primary combo for `id` after user overrides, formatted for `platform`. */
+export function formatShortcutLabel(
+  id: ShortcutId,
+  overrides: ShortcutOverrideMap,
+  platform: string = currentShortcutDisplayPlatform()
+): string | null {
+  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === id);
+  if (!definition) return null;
+  const combo = resolveCombos(definition, overrides)[0];
+  return combo ? formatShortcutCombo(combo, platform) : null;
 }
 
 /**

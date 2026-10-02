@@ -1,5 +1,5 @@
 /**
- * internal — RandomStringPanel tests. The pure helper is covered in
+ * RandomStringPanel tests. The pure helper is covered in
  * tests/utils/randomString.test.ts, so this suite focuses on wiring:
  * default toggle state, generate click produces N rows with per-row
  * CopyButton, empty-charset banner disables Generate, ES locale copy.

@@ -113,7 +113,7 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
     ignoreInteractiveChildren = false,
     resetSignal,
   } = opts;
-  // internal review — `size` is typically a fresh object literal passed
+  // `size` is typically a fresh object literal passed
   // by the caller every render (`{ width: 700, height: 42 }`). Pulling
   // its primitives into stable values lets the callbacks/effects below
   // depend on numbers instead of an unstable identity, so they don't
@@ -262,7 +262,7 @@ export function useDraggable(opts: UseDraggableOptions): UseDraggableResult {
     [persist],
   );
 
-  // internal review — don't spread `role` or `aria-label` here. Consumers
+  // Don't spread `role` or `aria-label` here. Consumers
   // already wrap the handle in a `<button aria-label="…">` with their
   // own translated label; injecting hardcoded English would override
   // it. The hook only contributes pointer handlers + touch/cursor css.

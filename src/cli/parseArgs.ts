@@ -1,5 +1,5 @@
 /**
- * implementation — argv parser.
+ * Argv parser.
  *
  * Tiny hand-rolled parser (no commander dep) covering the implementation
  * surface:
@@ -426,14 +426,14 @@ function parseCapsuleReplay(
 
 function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
-    throw new CliUsageError('lingua list requires a subcommand. implementation ships: utilities');
+    throw new CliUsageError('lingua list requires a subcommand. Available: utilities');
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('list-utilities', [], { ...freshFlags(color), help: true });
   }
   if (sub !== 'utilities') {
-    throw new CliUsageError(`Unknown list subcommand "${sub}". implementation ships: utilities`);
+    throw new CliUsageError(`Unknown list subcommand "${sub}". Available: utilities`);
   }
   const flags = freshFlags(color);
   for (let i = 1; i < rest.length; i += 1) {

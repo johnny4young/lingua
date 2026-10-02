@@ -42,7 +42,7 @@ interface ActiveLintTab {
 }
 
 /**
- * internal — wire inline lint over Monaco's existing JS/TS analysis. Three
+ * Wire inline lint over Monaco's existing JS/TS analysis. Three
  * concerns, all gated by the per-language `inlineLintEnabledByLanguage` setting:
  *
  *  1. Native toggle — flip Monaco's built-in TS/JS diagnostics on/off per

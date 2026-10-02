@@ -264,6 +264,7 @@ export function HttpRequestBuilderTabs({
               <select
                 value={bodyKind}
                 onChange={event => onBodyKindChange(event.target.value as HttpRequestBodyKind)}
+                aria-label={t('httpWorkspace.editor.body.label')}
                 data-testid="http-request-editor-body-kind"
                 className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-eyebrow font-semibold text-fg-base focus:border-border-strong focus:outline-none"
               >

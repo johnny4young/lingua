@@ -1,5 +1,5 @@
 /**
- * implementation — Stdin panel redesigned as an ordered queue.
+ * Stdin panel redesigned as an ordered queue.
  *
  * One line in the buffer = one response to `prompt()` / `input()`.
  * The panel layers rich feedback on top of the existing per-tab
@@ -157,7 +157,7 @@ export function StdinInputPanel() {
   const lines = useMemo(() => splitLines(buffer), [buffer]);
   // Append a single trailing blank slot so the next prompt is always
   // visible/editable without forcing the user to press Enter first.
-  // internal review — always allocate a fresh array so we never mutate
+  // Always allocate a fresh array so we never mutate
   // the `lines` memo by accident (the previous `tail = lines` branch
   // pushed empty strings into the cached `lines` reference and the
   // mutation leaked into `lines.filter(...)` downstream).

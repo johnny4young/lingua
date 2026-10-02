@@ -1,5 +1,5 @@
 /**
- * implementation — Monaco-backed SQL query editor host.
+ * Monaco-backed SQL query editor host.
  *
  * Replaces the SQL workspace's plain `<textarea>` with a controlled
  * `@monaco-editor/react` editor on the built-in `sql` language. This is
@@ -193,7 +193,7 @@ export function SqlMonacoEditor({
 
     const disposables: { dispose: () => void }[] = [];
 
-    // implementation note — Cmd/Ctrl+Enter runs the selection (when non-empty) or the
+    // Cmd/Ctrl+Enter runs the selection (when non-empty) or the
     // full buffer. addCommand returns a binding id string, not a
     // disposable, so the command is torn down with the editor itself.
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
@@ -205,7 +205,7 @@ export function SqlMonacoEditor({
       onRunShortcutRef.current({ selectedText });
     });
 
-    // implementation note — Shift+Alt+F formats.
+    // Shift+Alt+F formats.
     editor.addCommand(
       monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
       () => {
@@ -213,7 +213,7 @@ export function SqlMonacoEditor({
       }
     );
 
-    // implementation note — `sql` completion provider: live table names + common
+    // `sql` completion provider: live table names + common
     // keywords. Disposed on unmount via onDidDispose below. (Column-name
     // completion is out of scope — see file header.)
     const completionProvider: SqlCompletionProvider = {

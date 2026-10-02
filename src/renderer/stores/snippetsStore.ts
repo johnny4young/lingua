@@ -66,7 +66,7 @@ export const useSnippetsStore = create<SnippetsState>()(
             messageKey: 'upsell.freeCeilingReached',
             featureLabel: i18next.t('upsell.feature.extraSnippets'),
           });
-          // internal — emit feature.blocked so the consenting user's
+          // Emit feature.blocked so the consenting user's
           // telemetry reflects the snippet-ceiling friction.
           void trackEvent('feature.blocked', {
             entitlement: 'snippets',

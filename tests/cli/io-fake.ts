@@ -1,5 +1,5 @@
 /**
- * implementation — in-memory CLI IO seam for tests.
+ * in-memory CLI IO seam for tests.
  *
  * Replaces `createDefaultIo()` so we can drive the dispatcher and
  * command handlers without spawning a subprocess. The fake captures

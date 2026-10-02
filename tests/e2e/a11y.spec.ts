@@ -1,5 +1,5 @@
 /**
- * internal — Accessibility QA hardening.
+ * Accessibility QA hardening.
  *
  * Three acceptance gates, all enforced via Playwright + axe-core:
  *

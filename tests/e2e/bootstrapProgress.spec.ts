@@ -1,5 +1,5 @@
 /**
- * implementation — runtime bootstrap progress end-to-end.
+ * Runtime bootstrap progress end-to-end.
  *
  * Locks the pipeline on the production web build: the first Python run
  * boots Pyodide, and while its WASM downloads the run button's loading

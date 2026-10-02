@@ -1,5 +1,5 @@
 /**
- * implementation — Utility adapter contract.
+ * Utility adapter contract.
  *
  * Five pure-function utility adapters get extracted from
  * `src/renderer/utils/developerUtilities.ts` into `src/shared/utilities/`
@@ -50,7 +50,7 @@ export const UTILITY_ADAPTER_IDS = [
   'url-parse',
   'regex-replace',
   'diff-text',
-  // implementation — adapter-vocabulary expansion. Core 4 transforms
+  // adapter-vocabulary expansion. Core 4 transforms
   // plus the folded-in timestamp / color / string-case / html-entity
   // adapters. Each is a pure shared reimplementation (the shared layer
   // cannot import the renderer helpers; mirrors the base64 precedent).
@@ -63,7 +63,7 @@ export const UTILITY_ADAPTER_IDS = [
   'string-case',
   'html-entity-encode',
   'html-entity-decode',
-  // implementation — vocabulary expansion round 2. Pure text→text
+  // Vocabulary expansion round 2. Pure text→text
   // transforms (number radix, line sort, slugify, JSON minify, text
   // stats). Each is a self-contained shared reimplementation.
   'number-base',
@@ -71,7 +71,7 @@ export const UTILITY_ADAPTER_IDS = [
   'slugify',
   'json-minify',
   'text-stats',
-  // implementation — generator-style holdouts. `uuid` + `lorem-ipsum`
+  // generator-style holdouts. `uuid` + `lorem-ipsum`
   // are generators (they ignore the chained input and emit fresh data);
   // `string-inspect` is a transform. Their pure logic is shared with the
   // renderer panels via `src/shared/utilities/{uuid,loremIpsum,stringInspect}.ts`

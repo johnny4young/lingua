@@ -1,5 +1,5 @@
 /**
- * implementation — `.ipynb` importer adapter coverage.
+ * `.ipynb` importer adapter coverage.
  *
  * Pins the closed-enum outcomes, the cell-mapping table, language
  * inference, the lossy-warning surface, and the rejection paths.

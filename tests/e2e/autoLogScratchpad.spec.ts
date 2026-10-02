@@ -1,5 +1,5 @@
 /**
- * implementation — bare-expression auto-log end-to-end smoke.
+ * bare-expression auto-log end-to-end smoke.
  *
  * Locks the user-visible contract:
  *

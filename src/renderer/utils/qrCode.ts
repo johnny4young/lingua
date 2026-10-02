@@ -1,5 +1,5 @@
 /**
- * internal — QR Code generator + decoder helpers.
+ * QR Code generator + decoder helpers.
  *
  * Pure, offline, renderer-side. Wraps `qrcode` (MIT, ~10 KB gzipped,
  * no WASM, no runtime network) for generation and `jsqr` (Apache 2.0,
@@ -23,7 +23,7 @@
 import jsQR from 'jsqr';
 
 /**
- * implementation detail — `qrcode` is a single-use dependency only the QR generator
+ * `qrcode` is a single-use dependency only the QR generator
  * needs, so it loads on demand via a cached dynamic import instead of shipping
  * inside the Developer Utilities chunk eagerly. The generation helpers are
  * already async, so awaiting the loader adds no caller ripple. (`jsqr`, the

@@ -1,5 +1,5 @@
 /**
- * implementation — keyboard contract for project replace.
+ * Keyboard contract for project replace.
  *
  * implementation acceptance: Cmd+Shift+H opens the "Replace in files" overlay
  * (the companion to Cmd+Shift+F find-in-files). We don't pick a real

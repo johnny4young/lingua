@@ -402,7 +402,7 @@ fn main() {
   },
 
   // ── Ruby ─────────────────────────────────────────────────────────────────
-  // implementation — starter set matching the JS/TS/Python pattern so the
+  // Starter set matching the JS/TS/Python pattern so the
   // language pack's `templateIds` contract has something to resolve once
   // Ruby flipped from validate-only to runnable.
   {

@@ -56,7 +56,7 @@ function startsNewTopLevelStatement(trimmed: string): boolean {
 }
 
 /**
- * internal — 1-based line numbers where a NEW top-level statement begins.
+ * 1-based line numbers where a NEW top-level statement begins.
  *
  * Deliberately conservative: a missed line only merges its duration
  * into the previous statement's measurement, while a false positive
@@ -104,7 +104,7 @@ export function detectJSStatementStartLines(code: string): number[] {
 }
 
 /**
- * internal — prefix each detected statement-start line with a
+ * Prefix each detected statement-start line with a
  * `__mc_tick(<line>);` marker. Same-line prefixing keeps the buffer's
  * line count intact, so every later mapping (error stacks, other
  * transforms) stays valid. There is NO closing marker in the source:

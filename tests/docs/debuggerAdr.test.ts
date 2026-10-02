@@ -73,8 +73,5 @@ describe('DEBUGGER_ADR.md', () => {
     expect(adr).toContain('LANGUAGE_PACK_ADR.md');
     expect(adr).toContain('CAPABILITY_MATRIX.md');
     expect(adr).toContain('ENV_VARS_ADR.md');
-    expect(adr).toContain('internal');
-    expect(adr).toContain('internal');
-    expect(adr).toContain('internal');
   });
 });

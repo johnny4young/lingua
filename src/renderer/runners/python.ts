@@ -38,7 +38,7 @@ import {
   type TranslateFn,
 } from './limits';
 
-// implementation — the literal run-time DEFAULT_TIMEOUT is gone;
+// The literal run-time DEFAULT_TIMEOUT is gone;
 // the runner resolves the deadline from the per-language Settings
 // preset (`long` by default for Python = 120 s) on every call. The
 // PYODIDE_LOAD_TIMEOUT below is independent — it bounds the
@@ -50,11 +50,11 @@ const PYODIDE_LOAD_CANCELLED = '__LINGUA_PYODIDE_LOAD_CANCELLED__';
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
-function workerLoadErrorMessage(event: Event): string {
+function workerLoadErrorMessage(event: Event, fallback = 'Python worker failed to load'): string {
   const maybeMessage = (event as { message?: unknown }).message;
   return typeof maybeMessage === 'string' && maybeMessage.length > 0
     ? maybeMessage
-    : 'Python worker failed to load';
+    : fallback;
 }
 
 export class PythonRunner implements LanguageRunner {
@@ -69,14 +69,14 @@ export class PythonRunner implements LanguageRunner {
   private loadingPromise: Promise<void> | null = null;
   private loadingCancel: (() => void) | null = null;
   /**
-   * internal — opaque token of the currently-running execute() call.
+   * Opaque token of the currently-running execute() call.
    * Parent message handler drops worker replies whose `runId` does
    * not match. The Pyodide worker is persistent across runs, so the
    * runId guard is the only way to disambiguate buffered output
    * from a previous run that was killed by the parent timer.
    */
   private currentRunId: string | null = null;
-  /** internal — see JavaScriptRunner.cancelInFlight. */
+  /** See JavaScriptRunner.cancelInFlight. */
   private cancelInFlight: (() => void) | null = null;
   /**
    * Sequence number of the newest execute() call. A call still waiting for
@@ -111,7 +111,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   /**
-   * implementation — public accessor over the private `ensurePyodide`
+   * Public accessor over the private `ensurePyodide`
    * boot ceremony. `pythonWebInstaller` calls into this so the
    * installer and the runner share the same Pyodide worker (one
    * runtime → one set of loaded packages → user code sees what they
@@ -180,7 +180,7 @@ export class PythonRunner implements LanguageRunner {
         const handler = (event: MessageEvent) => {
           const msg = event.data;
           if (msg.type === 'bootstrap-progress') {
-            // internal — the Pyodide download streams progress DURING the
+            // The Pyodide download streams progress DURING the
             // init handshake (no run in flight yet, so no runId guard
             // here); the action pill reads this store live.
             useBootstrapProgressStore.getState().report({
@@ -234,7 +234,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // implementation — resolve the per-run deadline from the
+    // Resolve the per-run deadline from the
     // language preset unless the caller passed an explicit override.
     // The Pyodide bootstrap deadline is independent (see
     // PYODIDE_LOAD_TIMEOUT above) — only the post-bootstrap run is
@@ -254,10 +254,10 @@ export class PythonRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
-    // implementation note — Pyodide worker's stdin consumption
+    // Pyodide worker's stdin consumption
     // summary; mirror of the JS runner shape.
     let stdinConsumed: { count: number; total: number } | undefined;
-    // implementation — scope snapshot relay (same shape as JS/TS).
+    // Scope snapshot relay (same shape as JS/TS).
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
@@ -284,7 +284,7 @@ export class PythonRunner implements LanguageRunner {
         error: {
           message: `Failed to load Python runtime: ${err instanceof Error ? err.message : String(err)}`,
         },
-        // implementation — bootstrap failures count as `'error'`.
+        // Bootstrap failures count as `'error'`.
         kind: 'error',
       };
     }
@@ -297,7 +297,7 @@ export class PythonRunner implements LanguageRunner {
       return runnerStoppedResult(t, { stdout, stderr });
     }
 
-    // implementation — loop protection is baseline.
+    // Loop protection is baseline.
     const { maxLoopIterations } = useSettingsStore.getState();
     const loopProtected = injectPythonLoopProtectionWithLineMap(
       code,
@@ -334,6 +334,7 @@ export class PythonRunner implements LanguageRunner {
           timeoutHandle = null;
         }
         worker.removeEventListener('message', handler);
+        worker.removeEventListener('error', crashHandler);
         if (this.currentRunId === runId) {
           this.currentRunId = null;
         }
@@ -348,6 +349,29 @@ export class PythonRunner implements LanguageRunner {
       };
       this.cancelInFlight = cancelInFlight;
 
+      // A crashed worker never posts done; without this the run would wait
+      // for the kill timer and report a timeout.
+      const crashHandler = (event: Event) => {
+        if (this.currentRunId !== runId) return;
+        useBootstrapProgressStore.getState().clear('python');
+        worker.terminate();
+        if (this.worker === worker) {
+          this.worker = null;
+          this.pyodideLoaded = false;
+          this.loadingPromise = null;
+        }
+        finish({
+          stdout,
+          stderr,
+          result: undefined,
+          executionTime: 0,
+          error: { message: workerLoadErrorMessage(event, 'Python worker error') },
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
+        });
+      };
+
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
         // internal runId guard. Drop buffered output from a previous,
@@ -358,7 +382,7 @@ export class PythonRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'bootstrap-progress':
-            // internal — live runtime download progress; the
+            // Live runtime download progress; the
             // initialization window in executeTabManually composes it
             // into the loading message.
             useBootstrapProgressStore.getState().report({
@@ -368,7 +392,7 @@ export class PythonRunner implements LanguageRunner {
             });
             break;
           case 'console': {
-            // implementation — forward the additive payload from the
+            // Forward the additive payload from the
             // Pyodide worker. Absent on text-only fallback paths
             // (sys.stdout.write bypasses the print override, implementation note
             // disabled mode), so the renderer's text path stays the
@@ -378,7 +402,7 @@ export class PythonRunner implements LanguageRunner {
               ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
               : { type: msg.method, args: msg.args, line: originalLine };
             if (msg.captureOrder !== undefined) output.captureOrder = msg.captureOrder;
-            // implementation note — adoption signal per produced
+            // Adoption signal per produced
             // payload kind. Intentionally fires once per payload
             // ELEMENT, not once per console entry: a multi-arg
             // `print(a, b, c)` ships three aligned payloads (implementation note)
@@ -393,7 +417,7 @@ export class PythonRunner implements LanguageRunner {
                 void trackEvent('runtime.python_console_payload_emitted', {
                   kind: richKindBucket(payload),
                 });
-                // implementation-β-β-α implementation note — security-relevant
+                // security-relevant
                 // adoption signal: count `__lingua.chart/image/html`
                 // acceptances separately from the generic Python
                 // payload stream so the security dashboard can split
@@ -410,7 +434,7 @@ export class PythonRunner implements LanguageRunner {
                 }
               }
             }
-            // implementation-β-β-α implementation note — runner-side forwarding of
+            // runner-side forwarding of
             // the Python worker's rich-media rejection flag. Closes
             // the runner-side telemetry hook that was deferred since
             // implementation (see `buildLinguaWorkerBridge` in js-worker.ts
@@ -443,14 +467,14 @@ export class PythonRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment': {
-            // implementation note — `#=> table` directive: the
+            // `#=> table` directive: the
             // worker either ships a forced-table payload alongside the
             // text value (preferred), or we recover one client-side by
             // round-tripping the `value` string through
             // `tryParseJsonForPayload` + `forceTablePayload`. Mirrors
             // the JS / TS runner pattern from implementation.
             //
-            // implementation — widened to `chart` / `image` /
+            // Widened to `chart` / `image` /
             // `html` via the shared `payloadForRichMediaMagicDirective`
             // helper. JS / TS / Python now share the same client-side
             // recovery path so cross-language rich-media payloads
@@ -493,7 +517,7 @@ export class PythonRunner implements LanguageRunner {
             break;
           }
           case 'scope-snapshot': {
-            // implementation — relay scope capture; same defensive
+            // Relay scope capture; same defensive
             // coercion as the JS/TS runners.
             const incoming = msg as unknown as {
               snapshot?: { language?: unknown; variables?: unknown };
@@ -514,7 +538,7 @@ export class PythonRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            // internal — boot finished (or was already warm); drop the
+            // Boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
             useBootstrapProgressStore.getState().clear('python');
             finish({
@@ -535,8 +559,9 @@ export class PythonRunner implements LanguageRunner {
       };
 
       worker.addEventListener('message', handler);
+      worker.addEventListener('error', crashHandler);
 
-      // internal — parent-owned kill timer. Pyodide can't yield a
+      // parent-owned kill timer. Pyodide can't yield a
       // CPU-bound `while True: pass` from inside the worker, so the
       // only deterministic recovery is to terminate the worker and
       // recreate it on the next execute(). We clear `pyodideLoaded`
@@ -564,23 +589,23 @@ export class PythonRunner implements LanguageRunner {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         userEnv,
-        // implementation — pre-set stdin buffer forwarded into Pyodide
+        // pre-set stdin buffer forwarded into Pyodide
         // via `pyodide.setStdin`. Empty / undefined installs the same
         // line reader with zero lines so bare `input()` raises a clean
         // EOFError (the worker never falls back to Pyodide's stock
         // `prompt()` handler, which is unavailable in a Worker and
         // leaks ReferenceError noise to the renderer console).
         stdin: context?.stdin,
-        // implementation — variable inspector capture. The Python
+        // Variable inspector capture. The Python
         // worker handles capture/error gracefully; passing `false`
         // keeps the hot path identical to pre-slice behavior.
         captureScope: context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
-        // implementation — per-notebook kernel scope. When set, the worker runs the
+        // per-notebook kernel scope. When set, the worker runs the
         // cell against a persistent namespace dedicated to this scope
         // (cross-cell state), isolated from the editor scratchpad's globals.
         scopeId: context?.scopeId,
-        // implementation — rich console + source mapping are baseline. The
+        // Rich console + source mapping are baseline. The
         // worker preamble unconditionally serializes payloads and
         // walks frames for origin.
         richConsoleEnabled: true,
@@ -612,7 +637,7 @@ export class PythonRunner implements LanguageRunner {
   }
 
   /**
-   * implementation — Restart kernel / notebook-close. Drops a notebook's persistent
+   * Restart kernel / notebook-close. Drops a notebook's persistent
    * Python namespace in the worker so the next run in that scope starts
    * clean. No-op when the worker has not been created yet (nothing to
    * reset) — Pyodide is never booted just to clear an empty scope.

@@ -1,5 +1,5 @@
 /**
- * implementation — per-tab workflow-mode segmented control e2e smoke.
+ * per-tab workflow-mode segmented control e2e smoke.
  *
  * Locks the user-visible contract:
  *

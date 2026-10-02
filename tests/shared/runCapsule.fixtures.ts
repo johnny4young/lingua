@@ -1,5 +1,5 @@
 /**
- * implementation note — RunCapsuleV1 fixture catalog.
+ * RunCapsuleV1 fixture catalog.
  *
  * 10 representative capsule shapes that every downstream world-class
  * integration consumes as a shared smoke surface:

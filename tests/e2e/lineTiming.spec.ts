@@ -1,5 +1,5 @@
 /**
- * implementation — inline per-line timing end-to-end.
+ * Inline per-line timing end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - a buffer with `// @time` renders a timing chip per top-level

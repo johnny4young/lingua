@@ -1,5 +1,5 @@
 /**
- * internal — React subscription hooks for the active tab.
+ * React subscription hooks for the active tab.
  *
  * `useActiveTab()` is the single supported way for a renderer component
  * to read the currently-focused `FileTab`. It selects through
@@ -23,7 +23,7 @@ export function useActiveTab(): FileTab | null {
 }
 
 /**
- * implementation — subscribe to just the active tab's id. Use this in
+ * Subscribe to just the active tab's id. Use this in
  * components that only need to compare identity (tab-strip highlight,
  * "is this row the active tab?") so they do not re-render when the
  * active tab's CONTENT changes — only when the selection itself moves.

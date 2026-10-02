@@ -1,5 +1,5 @@
 /**
- * implementation note — `openCapsuleSourceInNewTab` safe-language
+ * `openCapsuleSourceInNewTab` safe-language
  * fallback.
  *
  * A capsule whose `tab.language` is a workspace-kind marker (`'http'`

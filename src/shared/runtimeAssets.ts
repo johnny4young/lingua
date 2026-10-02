@@ -85,7 +85,7 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
       'package.json',
     ],
   },
-  // implementation — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // Ruby web runtime via `@ruby/wasm-wasi`. The
   // bytecode lives in the version-specific `@ruby/3.4-wasm-wasi`
   // package; the renderer worker resolves the URL via
   // `new URL('../ruby/ruby+stdlib.wasm', import.meta.url)`, which the

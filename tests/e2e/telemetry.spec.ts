@@ -1,5 +1,5 @@
 /**
- * implementation note — telemetry POST emission gate.
+ * Telemetry POST emission gate.
  *
  * Locks the consent + endpoint contract behind CI rather than
  * manual web smoke:
@@ -111,7 +111,7 @@ test.describe('Telemetry consent gate', () => {
       (entry) => entry.event === 'overlay.opened'
     );
     expect(overlayOpened, `expected overlay.opened POST; captured: ${JSON.stringify(captured)}`).toBeDefined();
-    // internal — the React hook must be wire-transparent. The palette call site
+    // The React hook must be wire-transparent. The palette call site
     // still emits the exact pre-migration event and property object after the
     // shared runtime redactor runs.
     expect(overlayOpened?.properties).toEqual({ overlayId: 'palette' });

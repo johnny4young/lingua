@@ -17,7 +17,7 @@ import {
 import { Kbd } from '../ui/chrome';
 import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
-// implementation closeout — the quick-start row used to be a hardcoded
+// The quick-start row used to be a hardcoded
 // `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
 // `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
 // the list in sync with the registry: future runnable packs that ship
@@ -116,7 +116,7 @@ export function EditorEmptyState() {
                   {showDesktopOnlyBadge ? (
                     <span
                       data-testid={`empty-state-desktop-only-${language}`}
-                      // internal — bumped from `text-muted` to `text-foreground` so the
+                      // Bumped from `text-muted` to `text-foreground` so the
                       // 10px badge passes WCAG 2.1 AA contrast (>=4.5:1) on top of the
                       // language button's tinted background. axe-core flagged the
                       // previous combo at 4.35:1.

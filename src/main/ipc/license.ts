@@ -20,7 +20,7 @@ import { typedHandle } from './typedHandle';
 export function registerLicenseHandlers(
   runtimeSource: LicenseRuntime | PromiseLike<LicenseRuntime>
 ): void {
-  // internal — register the channels before the window loads, while allowing
+  // Register the channels before the window loads, while allowing
   // main to construct the runtime in parallel with the renderer's first
   // paint. Every channel shares the same promise, so concurrent bootstrap
   // calls wait for one runtime instead of starting duplicate verification.
@@ -85,7 +85,7 @@ export function registerLicenseHandlers(
     }
   });
 
-  // implementation — desktop's parallel of `/licenses/devices/remove`.
+  // Desktop's parallel of `/licenses/devices/remove`.
   // Renderer's `licenseStore` desktop branch delegates here through
   // `window.lingua.license.removeDevice(deviceIdToRemove)`. The
   // wrapper-side tagged union (`RemoveDeviceResult`) is normalized to

@@ -1,5 +1,5 @@
 /**
- * implementation — `slugify` adapter.
+ * `slugify` adapter.
  *
  * Turn arbitrary text into a URL-safe slug. Pure shared
  * implementation. NFKD-normalizes then strips combining diacritics

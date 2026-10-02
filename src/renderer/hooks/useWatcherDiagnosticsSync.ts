@@ -20,7 +20,7 @@ function watcherFailureMessageKey(diagnostic: unknown): string {
 }
 
 /**
- * internal — surface watcher reliability problems to the user.
+ * Surface watcher reliability problems to the user.
  *
  * Subscribes to two main-process IPC channels:
  *

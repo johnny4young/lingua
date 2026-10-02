@@ -1,5 +1,5 @@
 /**
- * implementation — Run Capsules.
+ * Run Capsules.
  *
  * `RunCapsuleV1` is the versioned, sanitised, JSON-serialisable record
  * of one Lingua execution: "I ran this code with this input, in this
@@ -86,7 +86,7 @@ interface RunCapsuleEnvironment {
   /** Optional dependency summary opaque to the schema. */
   dependencySummary?: unknown;
   /**
-   * implementation note — pre-run branch snapshot. Captured when
+   * pre-run branch snapshot. Captured when
    * `executeTabManually` starts a run so a mid-run sibling-terminal
    * `git checkout` does NOT pollute the capsule with the post-checkout
    * branch. Absent on web builds (no git layer), in detached-HEAD
@@ -110,9 +110,9 @@ interface RunCapsulePrivacy {
 interface RunCapsuleInput {
   /** Optional pre-set stdin buffer . May be empty. */
   stdin?: string;
-  /** internal — optional name of the saved input set used for this run. */
+  /** Optional name of the saved input set used for this run. */
   setName?: string;
-  /** internal — optional argv snapshot, one array item per argument. */
+  /** Optional argv snapshot, one array item per argument. */
   args?: string[];
 }
 
@@ -260,7 +260,7 @@ export function sanitizeRunCapsule(capsule: RunCapsuleV1): RunCapsuleV1 {
     omittedFields.push('result.stderr');
   }
 
-  // implementation — dependencySummary is opaque-to-the-schema but
+  // dependencySummary is opaque-to-the-schema but
   // when it is a flat object we delegate to `redactFlatRecord` so
   // any future rule change in `shared/redaction.ts` propagates here
   // automatically (the reviewer-driven extraction guards against
@@ -511,6 +511,18 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
       };
     }
   }
+  // Renderers and the HTML export interpolate these directly.
+  if (
+    typeof candidate.capsuleId !== 'string' ||
+    typeof candidate.createdAt !== 'string' ||
+    typeof candidate.appVersion !== 'string'
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid-field-type',
+      detail: 'capsuleId / createdAt / appVersion',
+    };
+  }
   // Minimal type-shape validation on the load-bearing nested fields.
   if (!isRecord(candidate.tab)) {
     return {
@@ -590,9 +602,14 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
     };
   }
   const environment = candidate.environment;
+  const git = environment.git;
   if (
     (environment.platform !== 'web' && environment.platform !== 'desktop') ||
-    typeof environment.runner !== 'string'
+    typeof environment.runner !== 'string' ||
+    (git !== undefined &&
+      (!isRecord(git) ||
+        (git.branch !== undefined && typeof git.branch !== 'string') ||
+        (git.commit !== undefined && typeof git.commit !== 'string')))
   ) {
     return {
       ok: false,
@@ -637,7 +654,8 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
   const privacy = candidate.privacy;
   if (
     typeof privacy.redactionVersion !== 'string' ||
-    !Array.isArray(privacy.omittedFields)
+    !Array.isArray(privacy.omittedFields) ||
+    privacy.omittedFields.some((field) => typeof field !== 'string')
   ) {
     return {
       ok: false,

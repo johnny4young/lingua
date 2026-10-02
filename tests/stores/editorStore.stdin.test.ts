@@ -1,5 +1,5 @@
 /**
- * implementation — `setTabStdinBuffer` + language-change cleanup.
+ * `setTabStdinBuffer` + language-change cleanup.
  *
  * Covers:
  *   - Setter writes the buffer for supported languages.

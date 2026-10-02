@@ -3,7 +3,7 @@ import {
   type HslColor,
   type RgbColor,
 } from './developerUtilityDetection';
-// implementation note — URL component encode/decode live in the
+// URL component encode/decode live in the
 // shared utilities layer (the `url-encode` / `url-decode` pipeline
 // adapters) so the single-shot URL panel and the pipeline share one
 // implementation of the actual encode/decode call.
@@ -175,7 +175,7 @@ export function decodeUrlComponentValue(value: string): TransformResult {
 }
 
 /**
- * internal — Hash Generator. Supports five plain digests (MD5, SHA-1/256/384/512)
+ * Hash Generator. Supports five plain digests (MD5, SHA-1/256/384/512)
  * and HMAC variants for every SHA family member.
  *
  * - SHA digests route through `crypto.subtle.digest`, which is native in every

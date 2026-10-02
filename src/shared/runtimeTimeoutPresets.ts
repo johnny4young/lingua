@@ -1,5 +1,5 @@
 /**
- * implementation — shared timeout-preset enum + resolver.
+ * Shared timeout-preset enum + resolver.
  *
  * Lives in `src/shared/` so the renderer Settings UI, every runner,
  * the telemetry validators (renderer + update-server mirror), and
@@ -79,7 +79,7 @@ const RUNTIME_TIMEOUT_DEFAULT_PRESET: Record<
   typescript: 'normal',
   python: 'long',
   go: 'normal',
-  // implementation — Ruby's @ruby/wasm-wasi boot is comparable to
+  // Ruby's @ruby/wasm-wasi boot is comparable to
   // Pyodide's first run (~1-2s WASM compile), but per-run user code
   // is closer to Go's interpreted shape than to Python's numerical
   // workloads. `normal` (30s) matches what other web-WASM runtimes

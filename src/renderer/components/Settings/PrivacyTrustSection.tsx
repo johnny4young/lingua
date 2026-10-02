@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { applyRedactionPreview, type RedactionPreviewResult } from '../../utils/redactionPreview';
@@ -33,13 +33,13 @@ import type { TrustEvent, TrustFeature, TrustSensitivity } from '../../stores/tr
 import { emitCommand } from '../../stores/commandBus';
 import type { TabId } from './settingsRailModel';
 
-/** implementation — newest N trust events shown in the Recent activity feed. */
+/** Newest N trust events shown in the Recent activity feed. */
 const RECENT_ACTIVITY_LIMIT = 8;
 
-/** implementation note — sensitivity filter options (render order). */
+/** Sensitivity filter options (render order). */
 const SENSITIVITY_FILTER_OPTIONS = ['all', 'low', 'medium', 'high'] as const;
 
-/** implementation — sensitivity → StatusBadge tone for the feed chips. */
+/** Sensitivity → StatusBadge tone for the feed chips. */
 const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
   low: 'neutral',
   medium: 'warning',
@@ -47,7 +47,7 @@ const SENSITIVITY_TONE: Record<TrustSensitivity, StatusBadgeTone> = {
 };
 
 /**
- * implementation note — Network rows deep-link to the Settings tab that
+ * Network rows deep-link to the Settings tab that
  * owns the matching control. Only features with a real destination appear
  * here; the rest render as plain text. Tab ids mirror `RAIL_ITEMS` in
  * `SettingsModal` (telemetry consent + license live under Account; the
@@ -84,7 +84,7 @@ function trustActionLabel(action: string): string {
 }
 
 /**
- * implementation — Privacy + Trust Dashboard root component.
+ * Privacy + Trust Dashboard root component.
  *
  * Mounted as the `'privacy'` tab in `<SettingsModal>`. Three
  * stacked sub-sections:
@@ -110,11 +110,11 @@ export function PrivacyTrustSection() {
   const licenseToken = useLicenseStore(s => s.token);
   const clearLicense = useLicenseStore(s => s.clearLicense);
   const pushStatusNotice = useUIStore(s => s.pushStatusNotice);
-  // implementation — reach into the dependency install state to
+  // Reach into the dependency install state to
   // surface the most recent install timestamp in the network
   // activity table. We take the max across every tab so the row
   // reflects "any install in this session", not just the active tab.
-  // implementation note — count of run capsules retained in memory.
+  // Count of run capsules retained in memory.
   // Derive a primitive (not the `capsuleEntries()` array) so the
   // subscription stays stable and never trips zustand v5's update loop.
   const capsulesRetained = useExecutionHistoryStore(
@@ -132,10 +132,10 @@ export function PrivacyTrustSection() {
     return latest;
   });
 
-  // implementation — the live trust-event log drives both the Network
+  // The live trust-event log drives both the Network
   // table's real "last call" timestamps and the Recent activity feed.
   const trustEvents = useTrustEventStore(s => s.events);
-  // implementation note — Recent-activity sensitivity filter. `all`
+  // Recent-activity sensitivity filter. `all`
   // shows every captured event; the others narrow to one severity.
   const [sensitivityFilter, setSensitivityFilter] = useState<'all' | TrustSensitivity>('all');
 
@@ -161,7 +161,7 @@ export function PrivacyTrustSection() {
   const localRows = getLocalStoreRows();
 
   const networkRows = useMemo(() => {
-    // implementation — derive the per-feature "last call" from the live
+    // Derive the per-feature "last call" from the live
     // trust log instead of the implementation hardcoded nulls.
     const lastAt = latestEventAtByFeature(trustEvents);
     return buildNetworkActivityRows({
@@ -175,7 +175,7 @@ export function PrivacyTrustSection() {
     });
   }, [telemetryConsent, licenseToken, dependencyInstallLastAt, trustEvents]);
 
-  // implementation — newest-initial implementation of the trust log for the Recent
+  // newest-initial implementation of the trust log for the Recent
   // activity feed, narrowed by the implementation note sensitivity filter.
   const recentEvents = useMemo(() => {
     const filtered =
@@ -276,7 +276,7 @@ export function PrivacyTrustSection() {
           </table>
         </div>
         {/*
-         * implementation note — run capsules live in the in-memory
+         * Run capsules live in the in-memory
          * execution-history ring, NOT in localStorage, so they are
          * called out separately from the audit table above. The count
          * makes the Pro-gated capsule browse retention transparent;
@@ -348,7 +348,7 @@ export function PrivacyTrustSection() {
         eyebrow={t('settings.privacy.recent.title')}
         description={t('settings.privacy.recent.hint')}
       >
-        {/* implementation note — narrow the feed by captured sensitivity. */}
+        {/* Narrow the feed by captured sensitivity. */}
         <div
           role="group"
           aria-label={t('settings.privacy.recent.filterLabel')}
@@ -457,7 +457,7 @@ function RedactionPreviewBlock({
 }
 
 /**
- * implementation — a single Recent-activity feed row. Renders the feature
+ * A single Recent-activity feed row. Renders the feature
  * label + localized action + sensitivity-toned badge + relative time, with
  * the (metadata-only) summary on its own line. The summary is rendered as a
  * dynamic value — it never carries code, field values, or a share URL by
@@ -516,19 +516,17 @@ function ClearConfirmationModal({
   readonly onCancel: () => void;
 }) {
   const { t } = useTranslation();
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  // Nested inside another overlay: handle Escape on the dialog and stop it
+  // there so the parent surface's global Escape does not close too.
+  const handleEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onCancel();
+  };
 
   return (
-    <OverlayBackdrop onClose={onCancel}>
+    <OverlayBackdrop onClose={onCancel} onKeyDown={handleEscape}>
       <OverlayCard
         role="dialog"
         aria-modal="true"

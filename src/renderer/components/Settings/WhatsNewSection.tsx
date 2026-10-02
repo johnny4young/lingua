@@ -10,7 +10,7 @@ import { Eyebrow, Pill } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 
 /**
- * internal implementation — Changelog overlay rebuilt as a version timeline.
+ * Changelog overlay rebuilt as a version timeline.
  *
  * The previous overlay stacked a "current" featured card and a
  * collapsed `<details>` block for older versions. The Signal-Slate
@@ -276,7 +276,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
             </IconButton>
           </div>
 
-          {/* internal — keyboard users without a focusable descendant cannot
+          {/* Keyboard users without a focusable descendant cannot
               scroll this region. Adding tabindex=0 + region role + aria-label
               keeps it keyboard-reachable and announces context to screen
               readers (axe rule: scrollable-region-focusable). */}

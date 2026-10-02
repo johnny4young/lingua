@@ -1,5 +1,5 @@
 /**
- * implementation note — `html-entity-encode` + `html-entity-decode`
+ * `html-entity-encode` + `html-entity-decode`
  * adapters.
  *
  * Encode escapes the five HTML/XML special characters to named

@@ -167,7 +167,7 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('toggles Recent Runs from Mod+Alt+H', () => {
-    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
+    // Moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity Mod+Shift+H binding can map to project-replace.
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, altKey: true });
@@ -175,7 +175,7 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('opens Project Replace from Mod+Shift+H', () => {
-    // implementation — VSCode-parity binding for replace-in-files.
+    // VSCode-parity binding for replace-in-files.
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, shiftKey: true });
     expect(calls.toggleOverlay).toHaveBeenCalledWith('replace');
@@ -203,9 +203,9 @@ describe('useGlobalShortcuts', () => {
     expect(calls.resetFloatingPositions).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles the variable inspector surface from Mod+Shift+V', () => {
+  it('toggles the variable inspector surface from Mod+Alt+V', () => {
     const calls = renderShortcuts();
-    dispatchKeyDown({ key: 'v', ctrlKey: true, shiftKey: true });
+    dispatchKeyDown({ key: 'v', ctrlKey: true, altKey: true });
     expect(calls.toggleVariableInspectorSurface).toHaveBeenCalledTimes(1);
   });
 
@@ -233,7 +233,7 @@ describe('useGlobalShortcuts', () => {
       configurable: true,
       value: { writeText },
     });
-    // implementation — Mod+Alt+C is now the default capsule-browse
+    // Mod+Alt+C is now the default capsule-browse
     // binding (`overlay-capsule-list`), so this fixture's "free combo"
     // moved to Mod+Alt+J to keep exercising a custom override without a
     // catalog collision (same precedent as the implementation Mod+Shift+Y→U

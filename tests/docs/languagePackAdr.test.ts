@@ -52,15 +52,11 @@ describe('LANGUAGE_PACK_ADR.md', () => {
     expect(adr).toMatch(/i18n parity/i);
   });
 
-  it('cross-links adjacent ADRs and RL items so migrations stay traceable', () => {
+  it('cross-links adjacent ADRs so migrations stay traceable', () => {
     for (const pointer of [
       'CAPABILITY_MATRIX.md',
       'BUILD_SYSTEM_ADR.md',
       'TAURI_SPIKE_ADR.md',
-      'internal',
-      'internal',
-      'internal',
-      'internal',
     ]) {
       expect(adr).toContain(pointer);
     }

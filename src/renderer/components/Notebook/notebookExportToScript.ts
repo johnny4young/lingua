@@ -1,5 +1,5 @@
 /**
- * implementation Slice A implementation note — Minimal language-aware script export helper.
+ * Minimal language-aware script export helper.
  *
  * Joins code cells with comment separators and markdown cells as line
  * comments. The file extension follows the single code-cell language

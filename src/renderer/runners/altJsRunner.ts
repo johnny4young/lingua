@@ -1,5 +1,5 @@
 /**
- * implementation — renderer-side `LanguageRunner` for the Deno and Bun runtime modes.
+ * renderer-side `LanguageRunner` for the Deno and Bun runtime modes.
  *
  * Registered as the runtime-mode override for `'deno'` / `'bun'` in the
  * `RunnerManager` registry. JS / TS tabs whose `runtimeMode` selects one of

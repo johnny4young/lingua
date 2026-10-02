@@ -1,5 +1,5 @@
 /**
- * implementation — DependenciesPanel Python web install lifecycle tests.
+ * DependenciesPanel Python web install lifecycle tests.
  *
  * Pins:
  *   - Web Python tab enables the Install button without a filePath or

@@ -175,7 +175,7 @@ function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void
   const saveAction: StatusNoticeAction = {
     labelKey: 'onboarding.firstRun.cta',
     onClick: () => {
-      // implementation note — save the active tab with its current name, no
+      // Save the active tab with its current name, no
       // modal prompt. Falls back to a generic name if the tab is
       // somehow unnamed (defensive — the seeded scratchpad is
       // always named).
@@ -205,13 +205,13 @@ function handleFirstSuccessfulRun(track: TelemetryTrack, language: string): void
     tone: 'success',
     messageKey: 'onboarding.firstRun.message',
     actions: [saveAction],
-    // implementation note — `'high'` priority guarantees this
+    // `'high'` priority guarantees this
     // toast cannot be clobbered by any `'normal'` notice push
     // (the implicit default for 134 existing callers). Surfaced by
     // the implementation reviewer pass after a boot-time notice was
     // observed displacing the first-run toast within ~600 ms.
     priority: 'high',
-    // implementation note — production diagnostic when the
+    // Production diagnostic when the
     // priority saves the toast. Tells us how often the new field
     // does real work in the wild.
     onSurvived: () => {
@@ -254,12 +254,12 @@ function handleFirstSnippetSave(track: TelemetryTrack): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: 'onboarding.firstSnippet.message',
-    // implementation note — same priority rationale as the
+    // Same priority rationale as the
     // first-run toast above; the library-tip toast must survive any
     // normal-tier notice push for the ~6 s the user needs to read
     // it.
     priority: 'high',
-    // implementation note — clobber-attempt telemetry.
+    // clobber-attempt telemetry.
     onSurvived: () => {
       track('onboarding.toast_clobbered', {
         outstandingStage: 'first_snippet',

@@ -1,5 +1,5 @@
 /**
- * implementation — `SharePayloadV1` round-trip + reject path matrix.
+ * `SharePayloadV1` round-trip + reject path matrix.
  *
  * Pinning the wire format end-to-end (build → encode → decode →
  * matches), every reject path, the URL-safe alphabet contract, the

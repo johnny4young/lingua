@@ -1,5 +1,5 @@
 /**
- * implementation — keyboard contract for the Utility Pipelines panel.
+ * Keyboard contract for the Utility Pipelines panel.
  *
  * Acceptance: Mod+Shift+G opens the Developer Utilities workspace with
  * the Pipelines panel preselected. EN + ES locales verify the
@@ -47,7 +47,7 @@ test.describe('Utility Pipelines — Mod+Shift+G binding', () => {
     await page.getByTestId('utility-pipeline-list-create').click();
     await page.getByTestId('utility-pipeline-editor-add-step').click();
 
-    // implementation note — the new line-sort adapter is selectable from the step
+    // The new line-sort adapter is selectable from the step
     // dropdown (the vocabulary expansion reached the UI), then runs.
     await page
       .getByTestId('utility-pipeline-step-utility')

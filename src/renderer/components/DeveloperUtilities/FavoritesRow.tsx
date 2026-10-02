@@ -25,7 +25,7 @@ import {
 import { cn } from '../../utils/cn';
 
 /**
- * implementation — pinned favorites row, rendered above the full
+ * Pinned favorites row, rendered above the full
  * sidebar list. Hidden when the user has no favorites; otherwise the
  * row is sortable via @dnd-kit (mouse + keyboard accessible per
  * internal's a11y gate).

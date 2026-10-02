@@ -113,12 +113,10 @@ export async function runVerifyCapsuleSuiteCommand(
     io.writeStdout(
       `lingua capsule verify-suite: ${verdict} (${summary.passed}/${summary.total} passed, ${summary.failed} drift, ${summary.inconclusive} inconclusive)\n`
     );
+  // Confirmed drift outranks any other case outcome so CI cannot mistake it for a skip.
+  if (verdict === 'fail') return CLI_EXIT_CODES.verificationFailed;
   return (
     exits.find(code => code > 0 && code < 5) ??
-    (verdict === 'fail'
-      ? CLI_EXIT_CODES.verificationFailed
-      : verdict === 'inconclusive'
-        ? CLI_EXIT_CODES.verificationInconclusive
-        : CLI_EXIT_CODES.ok)
+    (verdict === 'inconclusive' ? CLI_EXIT_CODES.verificationInconclusive : CLI_EXIT_CODES.ok)
   );
 }

@@ -1,5 +1,5 @@
 /**
- * implementation — Cross-panel coverage of the ⚡ Apply button +
+ * Cross-panel coverage of the ⚡ Apply button +
  * Mod+Shift+A descriptor wiring through `UtilityToolbar`. We pick one
  * panel per shape (live transform, mode-flip, generator carve-out,
  * dual-input) so a regression in any of these axes shows up.

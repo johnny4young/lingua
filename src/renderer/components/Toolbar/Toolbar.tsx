@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
@@ -74,6 +75,8 @@ export function Toolbar() {
     useState<'run' | 'debug'>('run');
   const runMenuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
+  const runCombo = useShortcutLabel('run-toggle');
+  const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
 
   const hasTabs = tabCount > 0;
   const languages = [
@@ -120,10 +123,10 @@ export function Toolbar() {
   const actionTooltip = disabledRunTooltipKey
     ? t(disabledRunTooltipKey)
     : executionMode === 'validate'
-        ? t('toolbar.validate.title')
+        ? t('toolbar.validate.title', { combo: runCombo })
         : executionMode === 'view'
           ? t('toolbar.viewOnly.title')
-          : t('toolbar.run.title');
+          : t('toolbar.run.title', { combo: runCombo });
   const debugActionDisabled =
     !hasTabs || isRunning || executionPolicy.actions.debug.disabled;
   const debugLabel =
@@ -146,7 +149,7 @@ export function Toolbar() {
     primaryActionIsDebug
       ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none'
       : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none bg-success-fg text-fg-on-accent hover:opacity-90',
-    // internal v2 — visible pulse around the run button while a task is
+    // Visible pulse around the run button while a task is
     // executing. The animation is declared in index.css under
     // @keyframes run-pulse and only applies when data-running="true".
     'data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]'
@@ -243,7 +246,7 @@ export function Toolbar() {
         <IconButton
           onClick={toggleSidebar}
           active={sidebarVisible}
-          tooltip={t('toolbar.sidebar.toggle')}
+          tooltip={t('toolbar.sidebar.toggle', { combo: sidebarCombo })}
           aria-controls="project-explorer"
           aria-expanded={sidebarVisible}
         >
@@ -479,7 +482,7 @@ export function Toolbar() {
         </div>
       </div>
 
-      {/* implementation — the right-side icon cluster (license badge,
+      {/* The right-side icon cluster (license badge,
           search, palette, snippets, utilities, console toggle, settings)
           moved into <AppChrome>. The relocated actions remain reachable
           via the command palette + keyboard shortcuts; the chrome

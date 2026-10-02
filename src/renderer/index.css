@@ -1,7 +1,7 @@
 @import 'tailwindcss' source(none);
 
 /*
- * internal — explicit Tailwind v4 content sources. Without
+ * Explicit Tailwind v4 content sources. Without
  * these, v4 auto-detection scans every non-gitignored file in the
  * repo (tests/, scripts/, docs/, e2e specs), so class-shaped strings
  * that only appear in test assertions or docs generate utilities the
@@ -1091,7 +1091,7 @@
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */
   .lingua-inline-result {
-    /* MOV.05 — quiet inline markers. Match the `InlineMarker` React
+    /* Quiet inline markers. Match the `InlineMarker` React
        reference: an inset tint instead of an opaque panel, a hairline
        (border-subtle) instead of a boxed-and-shadowed pill, and the
        type label separated from the value by a LEFT hairline only.
@@ -1119,9 +1119,9 @@
     /* The Monaco line height is 19px in the default theme — stretching
        the pill keeps it vertically centred on the line it annotates. */
     transform: translateY(3px);
-    /* implementation follow-up — cap the overlay width so long
+    /* Cap the overlay width so long
        Python tracebacks or 3+ stacked results never paint past the
-       editor padding. After MOV.05 the marker rides a quiet inset
+       editor padding. The marker rides a quiet inset
        tint (not an opaque panel), so the cap is what keeps a long
        value from overrunning the gutter rather than a masking fill. */
     max-width: 50%;
@@ -1187,7 +1187,7 @@
   }
 
   .lingua-inline-result-timing {
-    /* internal — per-statement wall-clock chip (`▸ 320 ms`). Quiet
+    /* per-statement wall-clock chip (`▸ 320 ms`). Quiet
        italic gray so measurements never compete with values; only the
        run's slowest statement gets the hot-spot tint below. */
     display: inline-flex;
@@ -1279,7 +1279,7 @@
     color: var(--color-inline-pill-object);
   }
 
-  /* implementation — Monaco glyph-margin breakpoint dot. The class
+  /* Monaco glyph-margin breakpoint dot. The class
      is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
      from `useBreakpointGutter`. Disabled breakpoints render as an
      outline ring so the user can still see them but execution does
@@ -1631,7 +1631,7 @@
     }
   }
 
-  /* implementation — unified mode-aware action button.
+  /* Unified mode-aware action button.
      The button colours itself by the active workflow:
        · run        → green (was the only colour previously)
        · debug      → red-soft

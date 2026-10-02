@@ -1,5 +1,5 @@
 /**
- * implementation detail — pure clipboard-image extraction for the
+ * Pure clipboard-image extraction for the
  * ConsolePanel paste path.
  *
  * The rich-media OUTPUT renderer (`<RichValueImage>`) shipped in implementation

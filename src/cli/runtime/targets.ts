@@ -2,7 +2,7 @@
 /** Resolve source files, conventional project roots, and Capsule source into execution plans. */
 
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { isSea } from 'node:sea';
@@ -12,7 +12,7 @@ import {
   pythonCommandCandidates,
   resolvePythonInterpreter,
 } from '../../shared/python/interpreter';
-import type { CliExecutionPlan } from './execution';
+import type { CliExecutionPlan, CliExecutionStep } from './execution';
 
 export type ExecutionTargetReason =
   | 'target-not-found'
@@ -91,23 +91,27 @@ export async function resolveCapsuleSource(
       return planJavaScriptCapsule(displayTarget, cwd, input, programArgs, true);
     }
     case 'python':
-      return singleStep(displayTarget, 'python', cwd, await findPython(cwd, env), [
-        '-c',
+      return planScriptSource(
+        { displayTarget, runtime: 'python', cwd, command: await findPython(cwd, env) },
         input.source,
-        ...programArgs,
-      ]);
+        programArgs,
+        { inline: source => ['-c', source], filename: 'main.py' }
+      );
     case 'ruby':
-      return singleStep(displayTarget, 'ruby', cwd, commandName('ruby'), [
-        '-e',
+      return planScriptSource(
+        { displayTarget, runtime: 'ruby', cwd, command: commandName('ruby') },
         input.source,
-        ...programArgs,
-      ]);
+        programArgs,
+        { inline: source => ['-e', source, '--'], filename: 'main.rb' }
+      );
     case 'lua':
-      return singleStep(displayTarget, 'lua', cwd, commandName('lua'), [
-        '-e',
+      // `lua -e src arg` would load `arg` as a script, so argv needs a staged file.
+      return planScriptSource(
+        { displayTarget, runtime: 'lua', cwd, command: commandName('lua') },
         input.source,
-        ...programArgs,
-      ]);
+        programArgs,
+        { inline: programArgs.length === 0 ? source => ['-e', source] : null, filename: 'main.lua' }
+      );
     case 'go':
       return stageCompiledSource(displayTarget, 'go', 'main.go', input.source, programArgs);
     case 'rust':
@@ -141,12 +145,13 @@ async function planProject(
     const script =
       typeof scripts.start === 'string' ? 'start' : typeof scripts.dev === 'string' ? 'dev' : null;
     if (script) {
-      return singleStep(displayTarget, `npm:${script}`, root, commandName('npm'), [
-        'run',
-        script,
-        '--',
-        ...programArgs,
-      ]);
+      const npm = await npmScriptCommand(script, programArgs, env);
+      return {
+        displayTarget,
+        runtime: `npm:${script}`,
+        cwd: root,
+        steps: [{ ...npm, kind: 'execute' }],
+      };
     }
     if (isRecord(manifest) && typeof manifest.main === 'string') {
       const mainPath = path.resolve(root, manifest.main);
@@ -334,49 +339,116 @@ function singleStep(
   };
 }
 
+/**
+ * Larger sources run from a staged file: a single argv entry is capped at
+ * 128 KiB on Linux and a whole Windows command line at ~32K characters.
+ */
+export const INLINE_SOURCE_MAX_BYTES = process.platform === 'win32' ? 8 * 1024 : 64 * 1024;
+
+/** Drops the staged entry path so a staged run sees the same argv as `node -e`. */
+const NODE_ARGV_SHIM = 'process.argv.splice(1, 1);\n';
+
+interface ScriptStepTarget {
+  displayTarget: string;
+  runtime: string;
+  cwd: string;
+  command: string;
+}
+
+async function planScriptSource(
+  target: ScriptStepTarget,
+  source: string,
+  programArgs: ReadonlyArray<string>,
+  options: {
+    inline: ((source: string) => string[]) | null;
+    filename: string;
+    stagedArgs?: (entry: string, root: string) => string[];
+    extraFiles?: Readonly<Record<string, string>>;
+  }
+): Promise<CliExecutionPlan> {
+  const { displayTarget, runtime, cwd, command } = target;
+  if (options.inline && Buffer.byteLength(source, 'utf8') <= INLINE_SOURCE_MAX_BYTES) {
+    return singleStep(displayTarget, runtime, cwd, command, [
+      ...options.inline(source),
+      ...programArgs,
+    ]);
+  }
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-cli-source-'));
+  const entry = path.join(temporaryRoot, options.filename);
+  try {
+    await writeFile(entry, source, 'utf8');
+    for (const [name, content] of Object.entries(options.extraFiles ?? {})) {
+      await writeFile(path.join(temporaryRoot, name), content, 'utf8');
+    }
+  } catch (error) {
+    await rm(temporaryRoot, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+  return {
+    displayTarget,
+    runtime,
+    cwd,
+    cleanupPaths: [temporaryRoot],
+    steps: [
+      {
+        command,
+        args: [...(options.stagedArgs?.(entry, temporaryRoot) ?? [entry]), ...programArgs],
+        kind: 'execute',
+      },
+    ],
+  };
+}
+
 function planJavaScriptCapsule(
   displayTarget: string,
   cwd: string,
   input: { runtimeMode: string; source: string },
   programArgs: ReadonlyArray<string>,
   typescript: boolean
-): CliExecutionPlan {
-  if (input.runtimeMode === 'worker') {
-    const wrappedSource = [
-      '(async () => {',
-      input.source,
-      '})().catch(error => {',
-      '  console.error(error instanceof Error ? error.stack : String(error));',
-      '  process.exitCode = 1;',
-      '});',
-    ].join('\n');
-    return singleStep(
-      displayTarget,
-      typescript ? 'node-typescript-worker' : 'node-worker',
-      cwd,
-      nodeRuntimeExecutable(),
-      [
-        ...(typescript ? ['--experimental-strip-types'] : []),
-        '--input-type=commonjs',
-        '-e',
-        wrappedSource,
-        ...programArgs,
-      ]
-    );
-  }
-  if (input.runtimeMode === 'node') {
-    return singleStep(
-      displayTarget,
-      typescript ? 'node-typescript' : 'node',
-      cwd,
-      nodeRuntimeExecutable(),
-      [
-        ...(typescript ? ['--experimental-strip-types'] : []),
-        `--input-type=${sourceRequiresModuleInput(input.source) ? 'module' : 'commonjs'}`,
-        '-e',
-        input.source,
-        ...programArgs,
-      ]
+): Promise<CliExecutionPlan> {
+  const worker = input.runtimeMode === 'worker';
+  if (worker || input.runtimeMode === 'node') {
+    const source = worker
+      ? [
+          '(async () => {',
+          input.source,
+          '})().catch(error => {',
+          '  console.error(error instanceof Error ? error.stack : String(error));',
+          '  process.exitCode = 1;',
+          '});',
+        ].join('\n')
+      : input.source;
+    // Plain commonjs/module input types disable type stripping, and the JS
+    // parser cannot classify annotated source, so Node detects TS node mode.
+    const detectTypeScript = typescript && !worker;
+    const module = !worker && !typescript && sourceRequiresModuleInput(input.source);
+    const inputType = detectTypeScript
+      ? []
+      : [`--input-type=${module ? 'module' : 'commonjs'}${typescript ? '-typescript' : ''}`];
+    const extension = detectTypeScript
+      ? '.ts'
+      : `.${module ? 'm' : 'c'}${typescript ? 'ts' : 'js'}`;
+    const flags = typescript ? ['--experimental-strip-types'] : [];
+    return planScriptSource(
+      {
+        displayTarget,
+        runtime: `node${typescript ? '-typescript' : ''}${worker ? '-worker' : ''}`,
+        cwd,
+        command: nodeRuntimeExecutable(),
+      },
+      source,
+      programArgs,
+      {
+        inline: inlineSource => [...flags, ...inputType, '-e', inlineSource, '--'],
+        filename: `entry${extension}`,
+        stagedArgs: (entry, root) => [
+          ...flags,
+          '--require',
+          path.join(root, 'argv-shim.cjs'),
+          entry,
+        ],
+        extraFiles: { 'argv-shim.cjs': NODE_ARGV_SHIM },
+      }
     );
   }
   throw new ExecutionTargetError(
@@ -459,6 +531,61 @@ async function executableIsOnPath(
 
 function commandName(name: string): string {
   return process.platform === 'win32' && ['npm', 'npx'].includes(name) ? `${name}.cmd` : name;
+}
+
+// cmd.exe metacharacters, escaped the way cross-spawn does for `.cmd` shims.
+const CMD_META_CHARACTERS = /([()\][%!^"`<>&|;, *?])/gu;
+
+function escapeCmdArgument(argument: string): string {
+  const quoted = `"${argument.replace(/(\\*)"/gu, '$1$1\\"').replace(/(\\*)$/u, '$1$1')}"`;
+  // Twice: once for the cmd.exe /c line, once for the shim's own %* expansion.
+  return quoted.replace(CMD_META_CHARACTERS, '^$1').replace(CMD_META_CHARACTERS, '^$1');
+}
+
+/**
+ * Node refuses to spawn `.cmd` files without a shell (EINVAL), so Windows runs
+ * npm.cmd through an absolute COMSPEC with every argument escaped. A launcher
+ * that cannot be resolved stays `npm` so the spawn reports a missing runtime.
+ */
+export async function npmScriptCommand(
+  script: string,
+  programArgs: ReadonlyArray<string>,
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+  fileExists: (candidate: string) => Promise<boolean> = isFile
+): Promise<Pick<CliExecutionStep, 'command' | 'args' | 'windowsVerbatimArguments'>> {
+  const npmArgs = ['run', script, '--', ...programArgs];
+  if (platform !== 'win32') return { command: 'npm', args: npmArgs };
+  const comspec = env.COMSPEC ?? env.ComSpec;
+  const npmCmd = await resolveAbsoluteOnPath('npm.cmd', env, fileExists);
+  if (!comspec || !path.win32.isAbsolute(comspec) || !npmCmd) {
+    return { command: 'npm', args: npmArgs };
+  }
+  const commandLine = [
+    npmCmd.replace(CMD_META_CHARACTERS, '^$1'),
+    ...npmArgs.map(escapeCmdArgument),
+  ];
+  return {
+    command: comspec,
+    args: ['/d', '/s', '/c', `"${commandLine.join(' ')}"`],
+    windowsVerbatimArguments: true,
+  };
+}
+
+/** Only fully-qualified PATH entries, so a project cwd cannot supply the launcher. */
+async function resolveAbsoluteOnPath(
+  executable: string,
+  env: NodeJS.ProcessEnv,
+  fileExists: (candidate: string) => Promise<boolean>
+): Promise<string | null> {
+  const pathValue = env.PATH ?? env.Path ?? env.path ?? '';
+  for (const rawEntry of pathValue.split(';')) {
+    const entry = rawEntry.trim().replace(/^"|"$/gu, '');
+    if (!path.win32.isAbsolute(entry)) continue;
+    const candidate = path.win32.join(entry, executable);
+    if (await fileExists(candidate)) return candidate;
+  }
+  return null;
 }
 
 async function exists(filePath: string): Promise<boolean> {

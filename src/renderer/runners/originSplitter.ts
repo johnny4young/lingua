@@ -1,5 +1,5 @@
 /**
- * implementation — best-effort `file.ext:N` splitter for the
+ * best-effort `file.ext:N` splitter for the
  * Go and Rust desktop runners.
  *
  * Go and Rust subprocesses emit panic / debug output that includes

@@ -1,5 +1,5 @@
 /**
- * implementation — `useImportPreview` hook tests.
+ * `useImportPreview` hook tests.
  *
  * Drives the detect → preview → import lifecycle in jsdom + asserts
  * the store / bottom-panel side effects on confirm (implementation note).
@@ -33,7 +33,7 @@ vi.mock('../../src/renderer/utils/telemetry', () => ({
 }));
 
 function seedProTier() {
-  // implementation — `addNotebookTab` gates on the NOTEBOOK_MODE
+  // `addNotebookTab` gates on the NOTEBOOK_MODE
   // entitlement (Pro+). Seed a Pro license so the ipynb confirm flow
   // can mint a tab in the test environment. Mirrors the pattern in
   // `tests/stores/editorStore.test.ts`.
@@ -123,7 +123,7 @@ describe('useImportPreview', () => {
     expect(result.current.warnings).toContain('curl-basic-auth');
   });
 
-  it('confirm writes a request + opens a full-screen HTTP tab (implementation note, MOV.02)', async () => {
+  it('confirm writes a request + opens a full-screen HTTP tab', async () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -319,7 +319,7 @@ describe('useImportPreview — ipynb arm ', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('console');
   });
 
-  it('confirm writes every collection request + opens a full-screen HTTP tab (implementation, MOV.02)', async () => {
+  it('confirm writes every collection request + opens a full-screen HTTP tab', async () => {
     const postman = JSON.stringify({
       info: {
         name: 'Demo',
@@ -456,7 +456,7 @@ describe('useImportPreview — .linguanb arm ', () => {
     // Lossless — the document's own cell ids survive (no regeneration).
     expect(installed?.cells.map((c) => c.id)).toEqual(['m1', 'c1']);
     expect(installed?.title).toBe('Saved Notebook');
-    // implementation note — the [N] execution stamp is restored into the store.
+    // The [N] execution stamp is restored into the store.
     expect(useNotebookStore.getState().getCellExecutionOrder(tabId, 'c1')).toBe(3);
   });
 });

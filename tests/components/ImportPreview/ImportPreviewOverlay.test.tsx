@@ -1,5 +1,5 @@
 /**
- * implementation — `<ImportPreviewOverlay>` tests.
+ * `<ImportPreviewOverlay>` tests.
  *
  * Drives the overlay from the user-event perspective: empty state,
  * paste a valid cURL, confirm, see the new request in the workspace
@@ -102,7 +102,7 @@ beforeEach(() => {
     responsesByRequestId: {},
     isExecutingActive: false,
   });
-  // MOV.02 (FASE 3) — the cURL import now opens a full-screen HTTP
+  // The cURL import now opens a full-screen HTTP
   // tab via the editor store, which enforces the tab budget. Reset
   // the editor tab list so a leaked tab from a prior test can't push
   // a fresh single-tab import past the Free ceiling.
@@ -231,7 +231,7 @@ describe('ImportPreviewOverlay', () => {
     expect(headers.textContent).not.toContain('Bearer xyz');
   });
 
-  it('confirm writes the request + opens a full-screen HTTP tab + closes (implementation note, MOV.02)', async () => {
+  it('confirm writes the request + opens a full-screen HTTP tab + closes', async () => {
     let closed = false;
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
@@ -453,7 +453,7 @@ describe('ImportPreviewOverlay — .linguanb arm ', () => {
       const body = screen.getByTestId('import-preview-body');
       expect(body.getAttribute('data-preview-kind')).toBe('linguanb-notebook');
     });
-    // implementation note — the native lossless badge, not the Jupyter badge.
+    // The native lossless badge, not the Jupyter badge.
     expect(screen.getByTestId('import-preview-ipynb-badge').textContent).toMatch(/lossless/i);
     expect(screen.getByTestId('import-preview-notebook-summary').textContent).toMatch(/2 cells/);
   });

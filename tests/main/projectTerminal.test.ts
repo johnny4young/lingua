@@ -191,3 +191,22 @@ describe('project terminal lifecycle', () => {
     expect(ownerB.exits.at(-1)?.reason).toBe('app-quit');
   });
 });
+
+describe('project terminal start reservations', () => {
+  it('caps concurrent starts from one owner at the session limit', async () => {
+    const { start, spawn } = harness(11);
+    const results = await Promise.all(Array.from({ length: 10 }, () => start()));
+    expect(results.filter(result => result.ok)).toHaveLength(4);
+    expect(results.filter(result => !result.ok && result.reason === 'session-limit')).toHaveLength(6);
+    expect(spawn).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not spawn a start that was pending when its owner reset', async () => {
+    const { start, spawn } = harness(12);
+    const pending = start();
+    disposeProjectTerminalSessionsForOwner(12);
+    await expect(pending).resolves.toEqual({ ok: false, reason: 'spawn-failed' });
+    expect(spawn).not.toHaveBeenCalled();
+    await expect(start()).resolves.toMatchObject({ ok: true });
+  });
+});

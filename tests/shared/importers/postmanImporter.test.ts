@@ -1,5 +1,5 @@
 /**
- * implementation — Postman Collection importer adapter coverage.
+ * Postman Collection importer adapter coverage.
  *
  * Pins the closed-enum outcomes, folder flattening, url-object
  * reconstruction, body-mode mapping, auth flattening, the lossy-warning
@@ -680,7 +680,7 @@ describe('postmanImporterAdapter.import', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — environment / globals variable resolution
+// Environment / globals variable resolution
 // ---------------------------------------------------------------------------
 
 function variableExport(

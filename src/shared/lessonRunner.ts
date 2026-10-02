@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe assertion runner.
+ * Recipe assertion runner.
  *
  * Pure helpers used by the renderer-side `useRecipeRun` hook to:
  *

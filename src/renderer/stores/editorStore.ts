@@ -11,7 +11,7 @@ import { useNotebookStore } from './notebookStore';
 import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 
 /**
- * internal — editor store assembly point.
+ * Editor store assembly point.
  *
  * The 1600-line monolith was carved into focused modules with ZERO public API
  * change; this file is the thin assembly that wires them together:

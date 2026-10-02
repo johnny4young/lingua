@@ -1,5 +1,5 @@
 /**
- * implementation — `number-base` adapter.
+ * `number-base` adapter.
  *
  * Convert an integer between binary / octal / decimal / hex. Pure
  * shared implementation (the shared layer cannot import the renderer
@@ -30,7 +30,7 @@ export interface NumberBaseOptions {
   readonly from: NumberBaseFrom;
   /** Target base for the rendered output. */
   readonly to: NumberBaseTo;
-  /** implementation note — prefix a non-decimal result with `0x`/`0o`/`0b`. */
+  /** Prefix a non-decimal result with `0x`/`0o`/`0b`. */
   readonly prefixOutput: boolean;
 }
 

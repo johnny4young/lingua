@@ -1,5 +1,5 @@
 /**
- * implementation Slice E implementation note — desktop native "Save to disk" for a
+ * Desktop native "Save to disk" for a
  * `.linguanb` document, via the existing internal capability sandbox.
  *
  * internal moved the generic dialog → capability-write → blob-download

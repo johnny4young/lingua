@@ -1,5 +1,5 @@
 /**
- * implementation — `runtimeMode` extension to FileTab + editorStore.
+ * `runtimeMode` extension to FileTab + editorStore.
  *
  * Covers:
  *   - `createDefaultTab` defaults to `worker` for JS/TS, undefined
@@ -208,7 +208,7 @@ describe('editorStore — runtimeMode ', () => {
   });
 
   it('setTabRuntimeMode accepts browser-preview after implementation and fires telemetry', () => {
-    // implementation — browser-preview is implemented now. The
+    // browser-preview is implemented now. The
     // reject branch + notice only applies to `node` until implementation.
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const ts = createDefaultTab('typescript');

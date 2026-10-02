@@ -1,5 +1,5 @@
 /**
- * implementation — pack array integrity. Locks the descriptor shape so
+ * Pack array integrity. Locks the descriptor shape so
  * future additions can't drift on a required field, and verifies the
  * resolver helpers round-trip every built-in language id, extension, and
  * file name. implementation + C tests will pin runner dispatch and capability
@@ -250,7 +250,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
   });
 });
 
-describe('implementation — Scratchpad default templates demo arrow + watch', () => {
+describe('Scratchpad default templates demo arrow + watch', () => {
   it.each([['javascript'], ['typescript'], ['python']])(
     '%s default template contains both arrow and @watch markers',
     (langId) => {

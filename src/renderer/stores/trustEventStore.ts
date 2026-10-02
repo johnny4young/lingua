@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
- * implementation — Trust event log.
+ * Trust event log.
  *
  * Bounded local log (cap 200) of trust-relevant actions for the
  * Privacy + Trust Dashboard. The shape is deliberately MINIMAL:

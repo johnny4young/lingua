@@ -1,5 +1,5 @@
 /**
- * implementation detail — default `file.open` command consumer.
+ * Default `file.open` command consumer.
  *
  * When the user clicks a clickable stack frame in `<RichValueError>`
  * or an `<OutputLineBadge>` chip , the component

@@ -1,5 +1,5 @@
 /**
- * implementation — renderer-side pipeline runner.
+ * renderer-side pipeline runner.
  *
  * Thin wrapper around `runPipeline` (in `src/shared/utilityPipeline.ts`)
  * that surfaces per-step results as a React-friendly array via the

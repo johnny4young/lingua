@@ -1,5 +1,5 @@
 /**
- * implementation — No-backend share-link payload schema.
+ * No-backend share-link payload schema.
  *
  * `SharePayloadV1` is the wire format for the
  * `#share=v1.<gzip-base64url>` URL fragment. Phase A1 is single-tab,

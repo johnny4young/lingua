@@ -18,7 +18,7 @@ import {
 const ctx = self as unknown as Worker;
 
 /**
- * implementation — snapshot of the worker's globals BEFORE any user
+ * Snapshot of the worker's globals BEFORE any user
  * code runs. The variable inspector subtracts this set from the
  * post-execute `Object.getOwnPropertyNames(self)` so only user-
  * declared bindings survive. Anything injected after module load
@@ -34,7 +34,7 @@ const originalConsole = {
   warn: console.warn.bind(console),
   error: console.error.bind(console),
   info: console.info.bind(console),
-  // implementation — `console.table` becomes a first-class method via
+  // `console.table` becomes a first-class method via
   // the proxy shim. The native worker `console.table` is a no-op in
   // most environments; saving the bound original here keeps parity
   // with the other methods even though we never call it after
@@ -50,7 +50,7 @@ export function truncateJsWorkerValue(value: string, marker: string): string {
 }
 
 /**
- * implementation — variable-inspector scope capture.
+ * variable-inspector scope capture.
  *
  * Walks `globalThis` keys, filters against the boot-time snapshot
  * + the static internal-symbol list, and serializes each remaining
@@ -189,7 +189,7 @@ function toJsonStructuredValue(value: unknown, seen: WeakSet<object> = new WeakS
 }
 
 /**
- * implementation — resilient structured snapshot for the
+ * Resilient structured snapshot for the
  * `captureStructuredResult` channel. `structuredClone` is lossless (Map /
  * Set / Date survive) but ALL-OR-NOTHING: a single non-cloneable leaf (a
  * function / symbol / DOM node) throws `DataCloneError` and would drop the
@@ -222,7 +222,7 @@ export function safeJsWorkerStructuredResult(value: unknown): unknown {
 }
 
 /**
- * implementation — produce typed `RichOutputPayload` payloads aligned
+ * Produce typed `RichOutputPayload` payloads aligned
  * by index with the legacy `args: string[]` array. The text path stays
  * the canonical fallback; payloads are *additive* on `ConsoleOutput`,
  * never replacing the strings the renderer already paints today.
@@ -237,7 +237,7 @@ function serializePayloads(args: unknown[], marker: string, errorStack?: Seriali
 }
 
 /**
- * implementation note — `console.table(rows, columns?)` honors a
+ * `console.table(rows, columns?)` honors a
  * second-arg column-subset list, matching Chrome DevTools behavior.
  * The shim runs over the original `unknown[]`-shaped args, so it has
  * access to the runtime value (not just the stringified preview) and
@@ -287,7 +287,7 @@ export function installJsWorkerConsoleProxy(
     console[method] = (...args: unknown[]) => {
       const line = sourceMappingEnabled ? callingLine() : undefined;
       const payload = serializePayloads(args, marker, errorStack);
-      // implementation — stamp the captured source line onto each
+      // Stamp the captured source line onto each
       // payload as `origin.line` so the renderer-side
       // `<OutputLineBadge>` can render a chip without re-deriving the
       // line from the top-level `line` field. The main-thread runner
@@ -312,7 +312,7 @@ export function installJsWorkerConsoleProxy(
     };
   }
 
-  // implementation — `console.table(rows, columns?)` shim. Routes to
+  // `console.table(rows, columns?)` shim. Routes to
   // a `log` console entry (matches Chrome DevTools behavior) but
   // overrides the payload[0] with a forced `RichOutputTable`, honoring
   // the optional column-subset second argument.
@@ -326,7 +326,7 @@ export function installJsWorkerConsoleProxy(
   //     entry rather than `Table(1×1)` over an undefined cell.
   (console as { table?: (...a: unknown[]) => void }).table = (...args: unknown[]) => {
     const line = sourceMappingEnabled ? callingLine() : undefined;
-    // implementation — mirror the per-method `origin.line`
+    // Mirror the per-method `origin.line`
     // stamp from `createConsoleProxy` (lines 282-292) so the
     // `console.table` shim's table payload also carries an origin.
     // Without this, `console.table([...])` rows never render the

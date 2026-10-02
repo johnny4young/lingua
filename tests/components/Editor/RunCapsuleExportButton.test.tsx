@@ -1,5 +1,5 @@
 /**
- * implementation — Result-panel header Export button.
+ * Result-panel header Export button.
  *
  * Covers the load-bearing surfaces:
  *

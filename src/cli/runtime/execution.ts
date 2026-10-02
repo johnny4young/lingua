@@ -28,6 +28,7 @@ export const MIN_CLI_RUN_TIMEOUT_MS = 100;
 export const MAX_CLI_RUN_TIMEOUT_MS = 5 * 60_000;
 
 const KILL_ESCALATION_MS = 1_500;
+const FORWARDED_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
 
 export type CliRunStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -35,6 +36,8 @@ export interface CliExecutionStep {
   command: string;
   args: string[];
   kind: 'prepare' | 'execute';
+  /** Set only when `args` already carry cmd.exe quoting. */
+  windowsVerbatimArguments?: boolean;
 }
 
 export interface CliExecutionPlan {
@@ -86,12 +89,14 @@ export async function executeCliPlan(
   options: {
     stdin?: string;
     timeoutMs?: number;
+    /** When the wall-clock budget began, if earlier than this call. */
+    startedAt?: number;
     env: NodeJS.ProcessEnv;
     onStdout?: (chunk: string) => void;
     onStderr?: (chunk: string) => void;
   }
 ): Promise<CliExecutionResult> {
-  const startedAt = Date.now();
+  const startedAt = options.startedAt ?? Date.now();
   const timeoutMs = clampCliRunTimeout(options.timeoutMs);
   const stdout = new CappedOutput();
   const stderr = new CappedOutput();
@@ -130,7 +135,7 @@ export async function executeCliPlan(
       if (result.stopped) {
         return finish(plan, startedAt, result, stdout, stderr, 'stopped', {
           reason: 'stopped',
-          detail: 'Run stopped by SIGINT or SIGTERM.',
+          detail: 'Run stopped by SIGINT, SIGTERM, or SIGHUP.',
         });
       }
       if (result.exitCode !== 0) {
@@ -217,8 +222,7 @@ function runStep(
       settled = true;
       clearTimeout(timeoutTimer);
       if (escalationTimer) clearTimeout(escalationTimer);
-      process.off('SIGINT', onSigint);
-      process.off('SIGTERM', onSigterm);
+      for (const name of FORWARDED_SIGNALS) process.off(name, onSignal);
       resolve({
         exitCode,
         signal,
@@ -239,8 +243,14 @@ function runStep(
       }, KILL_ESCALATION_MS);
     };
 
-    const onSigint = () => terminate('stopped');
-    const onSigterm = () => terminate('stopped');
+    // A repeat signal must not fall through to Node's default exit: the
+    // detached child would outlive the CLI, so escalate immediately instead.
+    let signalCount = 0;
+    const onSignal = () => {
+      signalCount += 1;
+      if (signalCount === 1) terminate('stopped');
+      else killProcessTree(child, 'SIGKILL');
+    };
 
     try {
       child = spawn(step.command, step.args, {
@@ -249,6 +259,7 @@ function runStep(
         stdio: ['pipe', 'pipe', 'pipe'],
         detached: process.platform !== 'win32',
         windowsHide: true,
+        ...(step.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
       });
     } catch (error) {
       const spawnError = asErrno(error);
@@ -264,8 +275,7 @@ function runStep(
     }
 
     const timeoutTimer = setTimeout(() => terminate('timeout'), options.timeoutMs);
-    process.once('SIGINT', onSigint);
-    process.once('SIGTERM', onSigterm);
+    for (const name of FORWARDED_SIGNALS) process.on(name, onSignal);
 
     child.stdin.on('error', () => {});
     try {

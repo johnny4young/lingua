@@ -1,5 +1,5 @@
 /**
- * implementation — Center column: edit the active SQL query
+ * Center column: edit the active SQL query
  * (Monaco editor on the `sql` language as of implementation, Run, format) with
  * auto-save + Cmd+Enter run shortcut.
  *
@@ -64,13 +64,13 @@ export interface SqlQueryEditorProps {
    */
   insertSignal?: { text: string; nonce: number };
   /**
-   * implementation note — live session tables, threaded from the panel's
+   * Live session tables, threaded from the panel's
    * schema browser. Fed to the Monaco completion provider so table names
    * autocomplete. Empty until the user runs a `SHOW TABLES` refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
   /**
-   * implementation — optional extra header control (the Ask-AI trigger). A slot
+   * Optional extra header control (the Ask-AI trigger). A slot
    * rather than a baked-in button so the editor stays AI-agnostic.
    */
   headerExtra?: ReactNode;
@@ -197,7 +197,7 @@ export function SqlQueryEditor({
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
 
-  // implementation note — Cmd/Ctrl+Enter inside the editor runs the SELECTION
+  // Cmd/Ctrl+Enter inside the editor runs the SELECTION
   // when it is non-empty, else the full query. The auto-save always
   // flushes (and persists) the FULL `text` — never the selection — so a
   // partial run never truncates the saved query. The toolbar Run button
@@ -225,7 +225,7 @@ export function SqlQueryEditor({
     [isExecuting, overCap, text, query, onPatch, onRun]
   );
 
-  // implementation note — pretty-print via sql-formatter. Lazy-import keeps the
+  // pretty-print via sql-formatter. Lazy-import keeps the
   // formatter out of the main chunk. The dialect default `'duckdb'`
   // exists since sql-formatter 13; older versions fall back to
   // `'sql'` (no DuckDB-specific keywords but acceptable).

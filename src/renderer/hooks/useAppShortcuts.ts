@@ -19,7 +19,7 @@ import { type AppOverlay, useGlobalShortcuts } from './useGlobalShortcuts';
 import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader';
 
 /**
- * internal — the closure-bound dependencies `AppChrome` must hand to
+ * The closure-bound dependencies `AppChrome` must hand to
  * {@link useAppShortcuts}. Everything else the shortcut payload needs is reached
  * via `*.getState()` / module singletons inside the hook (unchanged from the
  * inline original), so this interface is intentionally just the values that
@@ -47,7 +47,7 @@ export interface AppShortcutDeps {
 }
 
 /**
- * internal — the global keyboard-shortcut handler payload, extracted
+ * The global keyboard-shortcut handler payload, extracted
  * verbatim from `AppChrome` in `App.tsx`. Builds the `useGlobalShortcuts`
  * options object and registers it. Handlers that already reached the stores via
  * `getState()` move in unchanged; the genuinely closure-bound values arrive
@@ -92,29 +92,29 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     toggleOverlay,
     openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
-    // implementation → MOV.02 (FASE 3) — Mod+Shift+K now opens or
+    // Mod+Shift+K now opens or
     // focuses a full-screen HTTP workspace tab (the dock panel was
     // removed). No toggle-off: a full-screen tab is closed via the
     // tab strip, not by re-pressing the shortcut.
     toggleHttpWorkspace: () => {
       openHttpWorkspaceTab();
     },
-    // implementation → MOV.02 (FASE 3) — Mod+Alt+S opens or focuses a
+    // Mod+Alt+S opens or focuses a
     // full-screen SQL workspace tab. Mirror of `toggleHttpWorkspace`.
     toggleSqlWorkspace: () => {
       openSqlWorkspaceTab();
     },
-    // implementation note — Mod+Shift+G opens the Developer
+    // Mod+Shift+G opens the Developer
     // Utilities workspace with the Pipelines panel preselected.
     openUtilityPipelines: () => {
       handleOpenDeveloperUtility('utility-pipelines');
     },
-    // implementation note — Mod+Alt+I opens the global Import
+    // Mod+Alt+I opens the global Import
     // overlay (cURL → HTTP request adapter implementation).
     openImportOverlay: () => {
       openOverlay('import-preview');
     },
-    // implementation — Mod+Alt+E exports the active project as a `.zip`
+    // Mod+Alt+E exports the active project as a `.zip`
     // bundle (same path as the FileTree button + palette action).
     exportProjectBundle: () => {
       void exportProjectBundle();
@@ -124,14 +124,14 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     openRecipesOverlay: () => {
       openOverlay('recipes');
     },
-    // implementation Slice A implementation note — Mod+Alt+N creates a fresh notebook tab
+    // Mod+Alt+N creates a fresh notebook tab
     // via `useEditorStore.addNotebookTab` which also seeds the
     // companion notebookStore entry.
     openNewNotebook: () => {
       useEditorStore.getState().addNotebookTab();
     },
     cycleRuntimeMode: () => {
-      // implementation note — cycle the active JS/TS tab through
+      // Cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
       const state = useEditorStore.getState();
       const tab = getActiveTab(state);
@@ -145,7 +145,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       state.setTabRuntimeMode(tab.id, next);
     },
     cycleWorkflowMode: () => {
-      // implementation note — cycle the active tab's workflow
+      // Cycle the active tab's workflow
       // mode through the supported subset. Skips disabled segments
       // so a Python tab cycles Run → Scratchpad → Run, never
       // landing on Debug. No-op when there is no active tab or
@@ -159,7 +159,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       state.setTabWorkflowMode(tab.id, next);
     },
     toggleRecentRunsPopover: () => {
-      // implementation note — toggle the per-tab Recent Runs
+      // Toggle the per-tab Recent Runs
       // popover. The bridge returns `false` when no pill is mounted
       // (Free tier, view-only tab, empty per-tab history); surface
       // a passive notice so the keystroke is never silent.
@@ -169,7 +169,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       }
     },
     toggleCompareWithSnapshot: () => {
-      // implementation note — toggle the Compare panel. Gates on
+      // Toggle the Compare panel. Gates on
       // the comparator snapshot's language matching the active
       // tab; mirrors the toggle-button gate so the shortcut never
       // surfaces a stale diff. No-op + localized notice when the
@@ -191,7 +191,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       });
     },
     toggleVariableInspector: () => {
-      // implementation note — toggle the Variables panel. Gates
+      // Toggle the Variables panel. Gates
       // on the scope snapshot's language matching the active tab;
       // mirrors the toggle-button gate so the shortcut never
       // surfaces a stale capture. No-op + notice when there's no
@@ -218,7 +218,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       });
     },
     toggleStdinPanel: () => {
-      // implementation — open or close the bottom Stdin drawer for the
+      // Open or close the bottom Stdin drawer for the
       // active tab. Gates on language (JS / TS / Python only), runtime
       // mode (no Browser preview), and the `showStdinPanel` user
       // setting. The state shape mirrors the panel chip click handler
@@ -243,14 +243,14 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       }
     },
     resetFloatingPositions: () => {
-      // implementation — clear both persisted floating positions back
+      // Clear both persisted floating positions back
       // to the synchronous defaults. Useful when a localStorage value
       // landed off-screen after a monitor / window-size change.
       useUIStore.getState().resetFloatingPositions();
       pushInfoNotice('actionPill.resetFloatingNotice');
     },
     toggleVariableInspectorSurface: () => {
-      // implementation note — flip floating ↔ bottom. Sticks via
+      // Flip floating ↔ bottom. Sticks via
       // settingsStore persist; user sees the chip + card reorder
       // immediately.
       const settings = useSettingsStore.getState();
@@ -277,7 +277,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
           : 'variableInspector.surface.notice.toBottom'
       );
     },
-    // implementation note — keyboard shortcut for the primary
+    // Keyboard shortcut for the primary
     // result-panel export surface. Reads the latest capsule before
     // loading the sanitizer/clipboard pipeline, so the no-capsule
     // guidance stays instant without charging fresh workspaces for
@@ -304,7 +304,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
           pushWarningNotice('results.actions.exportCapsule.loadFailed');
         });
     },
-    // implementation Phase A1 implementation note — keyboard shortcut for the share-link
+    // Keyboard shortcut for the share-link
     // copy. Emits the same `share.trigger` command the command palette
     // uses (implementation note) so the always-mounted
     // `<ShareLinkController>` owns shortcut-triggered confirmation
@@ -313,7 +313,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     copyShareLink: () => {
       emitCommand('share.trigger', { trigger: 'shortcut' });
     },
-    // implementation note — `Mod+Shift+W` resets all three onboarding
+    // `Mod+Shift+W` resets all three onboarding
     // stages so the welcome scratchpad re-seeds on next eligible mount
     // and both toasts re-arm. Surfaces an explicit notice so the user
     // knows the shortcut fired (otherwise the reset would be silent
@@ -325,7 +325,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       settings.resetOnboardingFirstSnippet();
       pushInfoNotice('onboarding.notice.welcomeReplay');
     },
-    // implementation Slice A implementation note — `Mod+Shift+J` focuses the Dependencies
+    // `Mod+Shift+J` focuses the Dependencies
     // bottom-panel tab when there are detected dependencies for the
     // active file. When the tab is hidden (count == 0 or master
     // toggle OFF) we surface a localized notice so the shortcut

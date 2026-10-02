@@ -79,7 +79,7 @@ describe('FileTreeEmptyState', () => {
 
   afterEach(() => {
     cleanup();
-    // internal — the open-tabs foot (`FileTreeOpenTabs`) now self-
+    // The open-tabs foot (`FileTreeOpenTabs`) now self-
     // subscribes to a narrowed `editorStore.tabs` projection, so each
     // test seeds the store and resets it afterward.
     useEditorStore.setState(initialEditorState, true);

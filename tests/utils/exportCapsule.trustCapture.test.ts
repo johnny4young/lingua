@@ -10,7 +10,7 @@ import {
 } from '../shared/runCapsule.fixtures';
 
 /**
- * implementation note — capsule export records a metadata-only trust
+ * Capsule export records a metadata-only trust
  * event in the local log so the Privacy dashboard can surface a real
  * "last call". `trackEvent` is a no-op in tests (no consent / endpoint),
  * so the only event recorded is the capsule-export one.

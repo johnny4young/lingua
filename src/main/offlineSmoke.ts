@@ -1,7 +1,7 @@
 import type { Session } from 'electron';
 
 /**
- * implementation — main-process offline-mode filter for desktop smoke.
+ * main-process offline-mode filter for desktop smoke.
  *
  * When `LINGUA_DESKTOP_SMOKE_OFFLINE=1` is set, the smoke harness wants
  * Python to boot, run, and produce stdout WITHOUT any HTTP/HTTPS

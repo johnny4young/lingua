@@ -1,5 +1,5 @@
 /**
- * implementation — pipeline template gallery.
+ * Pipeline template gallery.
  *
  * Presentational grid of curated starter pipelines shown in the
  * pipeline panel's empty state (and via the list-header button — fold
@@ -56,7 +56,7 @@ export function PipelineTemplateGallery({
               <div className="flex-1 text-body-sm leading-relaxed text-muted">
                 {t(template.descriptionKey)}
               </div>
-              {/* implementation note — adapter chain preview so the card is self-
+              {/* Adapter chain preview so the card is self-
                   explanatory before the user commits. */}
               <div
                 data-testid="pipeline-template-chain"

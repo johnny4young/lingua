@@ -1,5 +1,5 @@
 /**
- * implementation — renderer-side `LanguageRunner` for the Node
+ * renderer-side `LanguageRunner` for the Node
  * runtime mode.
  *
  * Registered as the runtime-mode override for `'node'` in the
@@ -55,8 +55,9 @@ import { useUIStore } from '../stores/uiStore';
 import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
 import { runnerStoppedResult, type TranslateFn } from './limits';
-import { loadEsbuild } from './esbuildLoader';
+import { esbuildErrorLocation, loadEsbuild } from './esbuildLoader';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
+import { splitOutputLines } from './outputLines';
 
 const t: TranslateFn = (key, options) => i18next.t(key, options ?? {}) as string;
 
@@ -113,16 +114,10 @@ export class NodeRunner implements LanguageRunner {
       return { js: result.code };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const lineMatch = message.match(/(\d+):(\d+)/);
-      const lineValue = lineMatch?.[1];
-      const columnValue = lineMatch?.[2];
+      const { line, column } = esbuildErrorLocation(err);
       return {
         js: '',
-        error: {
-          message: `TypeScript transpilation error: ${message}`,
-          line: lineValue ? parseInt(lineValue, 10) : undefined,
-          column: columnValue ? parseInt(columnValue, 10) : undefined,
-        },
+        error: { message: `TypeScript transpilation error: ${message}`, line, column },
       };
     }
   }
@@ -222,14 +217,14 @@ export class NodeRunner implements LanguageRunner {
         })
         .then(reply => {
           if (resolved) return;
-          // implementation note — adoption telemetry. `status` mirrors the
+          // Adoption telemetry. `status` mirrors the
           // closed enum on the IPC reply.
           void trackEvent('runtime.node_runner_used', {
             language,
             status: reply.kind,
           });
 
-          // implementation note — first-run trust notice. Surfaces on the first
+          // first-run trust notice. Surfaces on the first
           // successful run per session; the settings flag persists
           // the dismissal across sessions when the user toggles it
           // off via Settings (deferred follow-up).
@@ -243,12 +238,13 @@ export class NodeRunner implements LanguageRunner {
             });
           }
 
-          const stdoutConsole: ConsoleOutput[] = reply.stdout
-            ? [{ type: 'log', args: [reply.stdout] }]
-            : [];
-          const stderrConsole: ConsoleOutput[] = reply.stderr
-            ? [{ type: 'error', args: [reply.stderr] }]
-            : [];
+          // One row per line, like the other runners.
+          const stdoutConsole: ConsoleOutput[] = splitOutputLines(reply.stdout ?? '').map(
+            line => ({ type: 'log', args: [line] })
+          );
+          const stderrConsole: ConsoleOutput[] = splitOutputLines(reply.stderr ?? '').map(
+            line => ({ type: 'error', args: [line] })
+          );
 
           if (reply.kind === 'missing-binary') {
             pushMissingNativeToolchainNotice('node', async () => {

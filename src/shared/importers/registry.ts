@@ -1,5 +1,5 @@
 /**
- * implementation — Importer registry.
+ * Importer registry.
  *
  * Single source of truth for `id → adapter` lookup. Mirrors
  * `src/shared/utilities/registry.ts` (set as precedent by internal

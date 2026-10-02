@@ -1,5 +1,5 @@
 /**
- * implementation — programmatic scroll-into-view (the focus-after-scroll
+ * Programmatic scroll-into-view (the focus-after-scroll
  * seam). The active cell hosts the live editor, and a windowed off-screen
  * row is unmounted, so command-mode navigation MUST scroll the target into
  * the window before focus is attempted. jsdom never produces a non-degrade

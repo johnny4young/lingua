@@ -1,5 +1,5 @@
 /**
- * implementation — cURL → HTTP request importer adapter.
+ * cURL → HTTP request importer adapter.
  *
  * Wraps the shared successor to the implementation "paste in URL
  * field" auto-detect parser (`tryParseCurl` below) and adds three

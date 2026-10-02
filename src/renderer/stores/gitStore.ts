@@ -1,5 +1,5 @@
 /**
- * implementation — non-persisted git posture cache.
+ * non-persisted git posture cache.
  *
  * The store mirrors `useDependencyDetectionStore` in shape (zustand,
  * keyed maps, evict-on-change) but caches THREE distinct things:
@@ -55,7 +55,7 @@ export interface GitRepoPosture {
    */
   readonly branch?: string;
   /**
-   * implementation — current commit (full hash from
+   * Current commit (full hash from
    * `git rev-parse HEAD`). Absent on detached HEAD or watcher
    * resolution error. Folded into capsule pre-run snapshot (implementation note)
    * so internal capsules carry the actual commit the run was against.
@@ -100,7 +100,7 @@ interface GitStateShape {
   evictFile: (filePath: string) => void;
   markDetectAttempt: (timestamp: number, key: string) => void;
   /**
-   * implementation — apply a HEAD-change broadcast from the main
+   * Apply a HEAD-change broadcast from the main
    * watcher. Cheaply updates `branch` + `commit` on the existing
    * posture without re-running full detect, and bumps `lastDetectAt`
    * so the 30s TTL stays honest (a fresh head-change is functionally
@@ -223,7 +223,7 @@ export const useGitStore = create<GitStateShape>((set) => ({
 }));
 
 /**
- * implementation note — Detection cache TTL. Calls to `git:detect` within this
+ * Detection cache TTL. Calls to `git:detect` within this
  * window of the previous resolution are skipped (the renderer reuses
  * the cached posture). User-driven folder change explicitly bypasses
  * this via `clear()` followed by a fresh attempt — the TTL only

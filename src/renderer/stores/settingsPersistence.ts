@@ -1,7 +1,7 @@
 import type { SettingsState } from '../types/settings';
 
 /**
- * internal — settings persist-boundary helpers, extracted verbatim from
+ * Settings persist-boundary helpers, extracted verbatim from
  * `settingsStore.ts`: the `partialize` durable-field projection and the
  * consent-mirror side-effect. The rehydrate sanitizer (`merge`) lives in
  * `settingsMerge.ts`; `onRehydrateStorage` stays inline in the assembly (it is
@@ -53,11 +53,11 @@ export function settingsPartialize(state: SettingsState) {
     executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
     telemetryConsent: state.telemetryConsent,
     utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
-    // implementation note — persist consent so opted-in users
+    // Persist consent so opted-in users
     // don't have to re-grant every reload.
     capsuleImportClipboardOnFocusConsent:
       state.capsuleImportClipboardOnFocusConsent,
-    // implementation — persist the dependency-detection toggle so
+    // Persist the dependency-detection toggle so
     // the user's choice survives reloads. Rehydrate-merge applies
     // the implementation note tier-aware default when this key is absent.
     dependencyDetectionEnabled: state.dependencyDetectionEnabled,
@@ -67,7 +67,7 @@ export function settingsPartialize(state: SettingsState) {
     browserPreviewRefreshIntervalMs: state.browserPreviewRefreshIntervalMs,
     inlineLintEnabledByLanguage: state.inlineLintEnabledByLanguage,
     showStdinPanel: state.showStdinPanel,
-    // internal — persist the status-bar visibility so the user's choice
+    // Persist the status-bar visibility so the user's choice
     // survives reloads. Rehydrate-merge falls back to the platform default
     // when this key is absent.
     showStatusBar: state.showStatusBar,
@@ -84,7 +84,7 @@ export function settingsPartialize(state: SettingsState) {
     contextualHintsEnabled: state.contextualHintsEnabled,
     hasCompletedTour: state.hasCompletedTour,
     suppressTourAutoStart: state.suppressTourAutoStart,
-    // implementation — sticky onboarding choreography flags so a
+    // Sticky onboarding choreography flags so a
     // user who has seen the welcome seed / first-run / first-snippet
     // toasts never sees them again across reloads. Reset toggles
     // in Settings re-arm each stage.
@@ -96,19 +96,19 @@ export function settingsPartialize(state: SettingsState) {
     shortcutOverrides: state.shortcutOverrides,
     keymapPreset: state.keymapPreset,
     themePack: state.themePack,
-    // implementation — persist user-added sensitive header names.
+    // Persist user-added sensitive header names.
     // Baseline list is never persisted (it's a build-time
     // constant); only the delta the user added.
     sensitiveHttpHeaders: state.sensitiveHttpHeaders,
     httpAllowPrivateHosts: state.httpAllowPrivateHosts,
-    // implementation — persist SQL workspace preferences.
+    // Persist SQL workspace preferences.
     sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
-    // implementation (SQL OPFS) — persist the table-persistence toggle.
+    // Persist the table-persistence toggle.
     sqlWorkspacePersistTables: state.sqlWorkspacePersistTables,
-    // internal — persist the Run Ledger opt-in.
+    // Persist the Run Ledger opt-in.
     runLedgerEnabled: state.runLedgerEnabled,
-    // implementation Slice C implementation note — persist the user's default language for new
+    // Persist the user's default language for new
     // notebook code cells; merge sanitizes it back to JS/TS on rehydrate.
     notebookDefaultCellLanguage: state.notebookDefaultCellLanguage,
   };

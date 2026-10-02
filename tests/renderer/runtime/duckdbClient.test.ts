@@ -1,5 +1,5 @@
 /**
- * implementation — duckdbClient tests with an injected mock engine.
+ * duckdbClient tests with an injected mock engine.
  *
  * Exercises: happy path, sql-error classification, soft timeout via
  * Promise.race, too-large flag, engine-load-failed, multi-statement
@@ -590,7 +590,7 @@ describe('OPFS persistence ', () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — previewImportFile + importFileAsTable.
+// previewImportFile + importFileAsTable.
 // ---------------------------------------------------------------------------
 
 interface ImportEngineLog {

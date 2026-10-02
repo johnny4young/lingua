@@ -55,6 +55,7 @@ import { registerUpdater } from './updater';
 import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
+import { installDirtyCloseGuard } from './windowCloseGuard';
 
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
@@ -170,7 +171,7 @@ const createWindow = async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      // internal — pin the same-origin policy explicitly. This is the
+      // Pin the same-origin policy explicitly. This is the
       // Electron default, but pinning it ensures a future edit cannot
       // silently disable web security (which would let a compromised
       // renderer bypass CORS and read cross-origin resources).
@@ -184,22 +185,10 @@ const createWindow = async () => {
   const closed = new AbortController();
   markDeepLinkRendererReady(deepLinkState, false);
 
-  // Dirty-close intercept: ask the renderer to check for unsaved tabs
-  window.on('close', event => {
-    if (forceQuit || !loaded) return;
-    event.preventDefault();
-    window.webContents.send('app:before-close');
-  });
-
-  // The intercept above waits for the renderer's `app:force-close`
-  // answer. A crashed or killed renderer (OOM during a heavy WASM run,
-  // GPU wedge) can never answer, which would leave the window — and
-  // `app.quit()` / the updater's `quitAndInstall()` — blocked forever
-  // behind the preventDefault(). Once the renderer process is gone there
-  // are no unsaved-changes semantics left to protect; let close proceed.
-  window.webContents.on('render-process-gone', () => {
-    forceQuit = true;
-  });
+  // Dirty-close intercept: ask the renderer to check for unsaved tabs. A
+  // crashed renderer can never answer `app:force-close`, so the guard lets
+  // that window close instead of blocking `app.quit()` / `quitAndInstall()`.
+  installDirtyCloseGuard(window, () => forceQuit || !loaded);
   window.webContents.on('unresponsive', () => {
     // Unresponsive is recoverable (Electron pairs it with `responsive`),
     // so don't flip forceQuit here — but log it for diagnosis.
@@ -324,13 +313,13 @@ function registerPrimaryInstance() {
 
   app.once('ready', () => {
     void startup.run('initialization', async signal => {
-      // implementation detail — deny-by-default permission posture. Install before any
+      // deny-by-default permission posture. Install before any
       // window loads so the very first renderer request is already gated. Only the
       // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
       // media / geolocation / notifications / subframe requests / etc. are refused.
       installPermissionHandlers(session.defaultSession);
 
-      // implementation — install the offline-smoke webRequest filter
+      // Install the offline-smoke webRequest filter
       // before any window loads, so the very first renderer request is
       // already gated. Production sessions never set the env var.
       if (isOfflineSmokeRequested()) {
@@ -352,7 +341,7 @@ function registerPrimaryInstance() {
 
       if (signal.aborted) return;
 
-      // internal — start the internal runtime before the window, but do not keep its
+      // Start the internal runtime before the window, but do not keep its
       // disk read + token verification on the first-paint critical path. The IPC
       // handlers register synchronously against the shared promise; a renderer
       // getState call that wins the race waits for the verified snapshot instead

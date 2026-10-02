@@ -1,5 +1,5 @@
 /**
- * implementation — CapsuleComparisonModal.
+ * CapsuleComparisonModal.
  *
  * Pins: null off-state; summary strip (language match + mismatch, status
  * + duration deltas); implementation note section tabs (Code → Input → Output) with
@@ -25,8 +25,10 @@ vi.mock('@/components/ui/chrome', () => ({
   }: ButtonHTMLAttributes<HTMLButtonElement> & { tooltip?: string }) => (
     <button {...rest}>{children}</button>
   ),
-  OverlayBackdrop: ({ children }: { children: ReactNode }) => (
-    <div data-testid="overlay-backdrop">{children}</div>
+  OverlayBackdrop: ({ children, onKeyDown }: HTMLAttributes<HTMLDivElement>) => (
+    <div data-testid="overlay-backdrop" onKeyDown={onKeyDown}>
+      {children}
+    </div>
   ),
   OverlayCard: ({ children, ...rest }: HTMLAttributes<HTMLDivElement>) => (
     <div {...rest}>{children}</div>
@@ -291,9 +293,15 @@ describe('CapsuleComparisonModal', () => {
     expect(close.tagName).toBe('BUTTON');
     expect(close.getAttribute('aria-label')).toBe('Close comparison');
 
+    // The parent Capsules overlay must not see the Escape this modal handled.
+    const parentEscape = vi.fn();
+    window.addEventListener('keydown', parentEscape);
+    close.focus();
     const user = userEvent.setup();
     await user.keyboard('{Escape}');
+    window.removeEventListener('keydown', parentEscape);
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(parentEscape).not.toHaveBeenCalled();
   });
 
   it('renders the tuteo Spanish copy when the locale switches', async () => {

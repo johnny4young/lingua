@@ -1,5 +1,5 @@
 /**
- * implementation — SQL workspace persisted store.
+ * SQL workspace persisted store.
  *
  * Owns the list of user-created SQL queries + their response history.
  * Isolated on its own localStorage key (`lingua-workspace-sql-state`)
@@ -67,7 +67,7 @@ interface WorkspaceSqlState {
    */
   readonly isExecutingActive: boolean;
   /**
-   * implementation (SQL OPFS) — the RESOLVED storage backing of the live
+   * The RESOLVED storage backing of the live
    * DuckDB engine (`'opfs'` persistent / `'memory'` ephemeral). Held in
    * the store (not local panel state) so the SQL panel chip stays live
    * when Settings "Reconnect now" re-resolves the engine from another
@@ -75,7 +75,7 @@ interface WorkspaceSqlState {
    */
   readonly storageMode: SqlStorageMode;
   /**
-   * implementation (SQL OPFS) — the storage backing REQUESTED when the
+   * The storage backing REQUESTED when the
    * live DuckDB engine resolved. Kept separate from Settings because a
    * just-toggled preference is pending until reload/reconnect; without
    * this split the chip would mislabel "pending reconnect" as
@@ -109,7 +109,7 @@ interface WorkspaceSqlState {
   clearHistory: (queryId: string) => void;
   /** Flip the execution flag (called by the panel layer). */
   setIsExecutingActive: (value: boolean) => void;
-  /** implementation (SQL OPFS) — record resolved + requested storage backing. */
+  /** Record resolved + requested storage backing. */
   setStorageMode: (
     mode: SqlStorageMode,
     requestedMode?: SqlStorageMode

@@ -1,5 +1,5 @@
 /**
- * implementation follow-on — "Ask AI" for the SQL workspace: natural language → SQL
+ * "Ask AI" for the SQL workspace: natural language → SQL
  * over the LIVE DuckDB schema.
  *
  * Consent model (same contract as ExplainErrorDialog): the payload preview
@@ -10,8 +10,15 @@
  * themselves (generated SQL never auto-runs).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
+import { OverlayBackdrop } from '../ui/chrome';
 import { Sparkles, X } from 'lucide-react';
 import {
   buildNlToSqlRequest,
@@ -124,15 +131,24 @@ export function AskSqlDialog({
   const generatedSql =
     phase.kind === 'done' ? firstCodeBlock(phase.content) : null;
 
+  // The backdrop moves, traps and restores focus; Escape stops here so an
+  // overlay or workspace underneath keeps its own state.
+  const handleEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    handleClose();
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('ai.askSql.title')}
-      data-testid="ask-sql-dialog"
-    >
-      <div className="flex max-h-[80vh] w-full max-w-[640px] flex-col overflow-hidden rounded-lg border border-border bg-bg-panel shadow-xl">
+    <OverlayBackdrop onKeyDown={handleEscape}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('ai.askSql.title')}
+        data-testid="ask-sql-dialog"
+        className="flex max-h-[80vh] w-full max-w-[640px] flex-col overflow-hidden rounded-lg border border-border bg-bg-panel shadow-xl"
+      >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles size={16} className="text-accent" aria-hidden="true" />
@@ -259,6 +275,6 @@ export function AskSqlDialog({
           )}
         </div>
       </div>
-    </div>
+    </OverlayBackdrop>
   );
 }

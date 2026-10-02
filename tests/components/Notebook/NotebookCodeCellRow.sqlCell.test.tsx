@@ -1,5 +1,5 @@
 /**
- * implementation — SQL notebook cells (user-facing render surface).
+ * SQL notebook cells (user-facing render surface).
  *
  * Verifies the pieces the runner tests cannot: that a `language: 'sql'`
  * code cell renders in the real React tree with real i18n — the language

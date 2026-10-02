@@ -28,7 +28,7 @@ type SmokeCase = {
   expectText?: string;
   expectFailure?: RegExp;
   /**
-   * internal — substring whose presence in any captured console entry
+   * Substring whose presence in any captured console entry
    * fails the case. Used by the env-isolation smokes to assert that
    * a sentinel secret seeded into `process.env` did NOT leak through
    * the env builder into the spawned subprocess.
@@ -89,7 +89,7 @@ const SMOKE_CASES: SmokeCase[] = [
     content: 'fn main() {\n    println!("smoke-rust");\n}\n',
     expectText: 'smoke-rust',
   },
-  // internal — verify the parent kill timer terminates a CPU-bound
+  // Verify the parent kill timer terminates a CPU-bound
   // worker in JS and Python. Keep budgets tight so the smoke runner
   // does not balloon by 90 s.
   {
@@ -111,7 +111,7 @@ const SMOKE_CASES: SmokeCase[] = [
     timeoutMs: 20_000,
     maxLoopIterations: 1_000_000_000,
   },
-  // internal — verify the env-leak gate end-to-end with a real
+  // Verify the env-leak gate end-to-end with a real
   // subprocess. `scripts/run-desktop-smoke.mjs` seeds
   // `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned
   // Electron's env. The smoke case prints `LINGUA_SMOKE_SECRET`; the
@@ -328,7 +328,7 @@ export async function runDesktopSmoke(): Promise<void> {
       ? Math.max(0, Math.round(Date.now() - config.launchedAtMs))
       : null;
 
-  // implementation — packaged-subset gate: when the smoke runs
+  // packaged-subset gate: when the smoke runs
   // against a release `.app` (CI release pipeline), we narrow
   // SMOKE_CASES to javascript + python — the runtime-critical
   // pair that proves the binary boots, the renderer chunks load,
@@ -453,7 +453,7 @@ export async function runDesktopSmoke(): Promise<void> {
         const sawExpectedOutput = consoleEntries.some(entry =>
           smokeCase.expectText ? entry.content.includes(smokeCase.expectText) : false
         );
-        // internal — env-isolation gate: a sentinel secret must NOT
+        // env-isolation gate: a sentinel secret must NOT
         // appear anywhere in captured console output.
         const leakedForbidden =
           smokeCase.forbidText !== undefined &&
@@ -481,7 +481,7 @@ export async function runDesktopSmoke(): Promise<void> {
       memorySnapshots.push(await captureMemorySnapshot(`after-${smokeCase.caseId}`));
     }
 
-    // implementation — offline-mode synthetic case. When the
+    // offline-mode synthetic case. When the
     // smoke is launched with --offline, the main-process
     // webRequest filter cancels any non-loopback HTTP/HTTPS
     // request and records the URL. The Python case already had

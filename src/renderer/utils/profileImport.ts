@@ -1,5 +1,5 @@
 /**
- * internal — apply a parsed LinguaProfile to the live renderer stores
+ * Apply a parsed LinguaProfile to the live renderer stores
  * under one of three policies:
  *
  *   - `replace`: overwrite existing data wholesale.
@@ -59,7 +59,7 @@ function applySettings(
     next[key] = value;
     applied += 1;
   }
-  // internal — the persist-middleware merge would normally sanitize
+  // The persist-middleware merge would normally sanitize
   // shortcutOverrides on rehydrate. The import path goes around
   // persist (writes through setState directly), so a crafted profile
   // could otherwise install unknown shortcut ids or oversized token

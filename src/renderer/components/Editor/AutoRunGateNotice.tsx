@@ -3,7 +3,7 @@ import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 
 /**
- * implementation — ambient footer notice for the auto-run completion
+ * Ambient footer notice for the auto-run completion
  * gate.
  *
  * Renders inside the result panel header (next to the execution-time
@@ -11,7 +11,7 @@ import { useResultStore } from '../../stores/resultStore';
  * `text-caption text-muted`, no icon, no toast — intentionally quiet
  * so it doesn't fight the user's editing flow.
  *
- * implementation note — when the active tab is in `runtimeMode === 'browser-
+ * When the active tab is in `runtimeMode === 'browser-
  * preview'`, the copy swaps to the "Preview paused" variant so a DOM-
  * oriented user knows that what is paused is the iframe re-render,
  * not the console refresh.

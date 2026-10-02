@@ -1,5 +1,5 @@
 /**
- * internal — SQL Formatter helper.
+ * SQL Formatter helper.
  *
  * Pure, offline, renderer-side. Lazily imports `sql-formatter`
  * (MIT, ~30 KB gz) so the largest single-use Developer Utilities dep

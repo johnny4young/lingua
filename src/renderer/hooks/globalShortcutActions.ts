@@ -8,6 +8,7 @@ import {
 } from '../runtime/debuggerControlBridge';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
+import { isWorkspaceTab } from '../stores/editorTabUtils';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 import { runUtilityApplyFromInput, writeUtilityOutputToClipboard } from './globalShortcutUtilities';
 import type { ShortcutHandler, UseGlobalShortcutsOptions } from './globalShortcutTypes';
@@ -18,6 +19,9 @@ export function buildGlobalShortcutActions(
 ): Record<string, ShortcutHandler> {
   return {
     'run-toggle': () => {
+      // Workspace tabs own Mod+Enter (send request, run query) themselves.
+      const activeTab = getActiveTab(useEditorStore.getState());
+      if (activeTab && isWorkspaceTab(activeTab)) return;
       if (options.isRunning) options.stop();
       else void options.run();
     },

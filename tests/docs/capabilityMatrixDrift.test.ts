@@ -1,5 +1,5 @@
 /**
- * implementation — guard `docs/CAPABILITY_MATRIX.md` against drift.
+ * Guard `docs/CAPABILITY_MATRIX.md` against drift.
  *
  * The doc carries auto-derived fenced sections between
  * `AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES[:PLATFORM]` markers. This
@@ -8,7 +8,7 @@
  * equality. On failure the test output includes the expected block
  * so the human can copy-paste-fix.
  *
- * implementation note — the doc now carries THREE blocks: the default
+ * The doc now carries THREE blocks: the default
  * cross-platform table plus per-platform `:WEB` / `:DESKTOP` tables
  * resolved via `resolveCapabilityStatus`. The same
  * `renderLanguageScorecardMarkdown(profiles, platform)` helper is

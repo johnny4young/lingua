@@ -174,7 +174,7 @@ export function inspectIdentifier(raw: string): DecodedIdentifier | null {
 }
 
 // ---------------------------------------------------------------------------
-// implementation — `uuid` pipeline adapter (generator).
+// `uuid` pipeline adapter (generator).
 // ---------------------------------------------------------------------------
 
 /** Output formats surfaced as the `format` option. */

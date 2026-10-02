@@ -1,5 +1,5 @@
 /**
- * implementation — capsule browse store surface.
+ * Capsule browse store surface.
  *
  * Pins the `capsuleEntries()` selector (newest-first, capsule-only),
  * the `clearCapsule()` action (implementation note — drop the capsule, keep the

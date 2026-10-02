@@ -1,5 +1,5 @@
 /**
- * internal implementation — main-process HTTP proxy (SSRF-guarded).
+ * main-process HTTP proxy (SSRF-guarded).
  *
  * The renderer's `executeHttpRequest` (src/renderer/runtime/httpClient.ts)
  * runs inside the browser sandbox, so it is bound by the browser's CORS
@@ -371,72 +371,108 @@ async function readBodyWithCap(
       tooLarge: tooLarge || limited.tooLarge,
     };
   }
-  const chunks: Uint8Array[] = [];
+  // Plain bodies are buffered and decoded once; only SSE needs a running view.
+  if (!onProgress && maxMessages === undefined) {
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    let tooLarge = false;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      const kept = totalBytes > cap ? value.subarray(0, value.byteLength - (totalBytes - cap)) : value;
+      chunks.push(kept);
+      if (totalBytes > cap) {
+        tooLarge = true;
+        await cancelReader(reader);
+        break;
+      }
+    }
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(Buffer.concat(chunks));
+    return { text, size: totalBytes, tooLarge };
+  }
+
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const events = new SseEventCounter();
   let totalBytes = 0;
   let tooLarge = false;
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    if (value) {
-      totalBytes += value.byteLength;
-      if (totalBytes > cap) {
-        const overshoot = totalBytes - cap;
-        chunks.push(value.subarray(0, value.byteLength - overshoot));
-        tooLarge = true;
-      } else {
-        chunks.push(value);
-      }
-      const limited = limitSseMessages(
-        combineUtf8Chunks(chunks),
-        maxMessages
-      );
-      if (limited.tooLarge) {
-        chunks.splice(
-          0,
-          chunks.length,
-          new TextEncoder().encode(limited.text)
-        );
-        tooLarge = true;
-      }
-      if (onProgress) {
-        onProgress({
-          body: limited.text,
-          sizeBytes: Math.min(totalBytes, cap),
-          messageCount: limited.count,
-          opened: true,
-        });
-      }
-      if (tooLarge) {
-        try {
-          await reader.cancel();
-        } catch {
-          /* stream already finalised */
-        }
-        break;
-      }
+    if (!value) continue;
+    totalBytes += value.byteLength;
+    const overCap = totalBytes > cap;
+    const kept = overCap ? value.subarray(0, value.byteLength - (totalBytes - cap)) : value;
+    // A capped stream ends here, so flush any character split at the cut.
+    events.append(decoder.decode(kept, { stream: !overCap }));
+    if (overCap) tooLarge = true;
+    if (maxMessages !== undefined && events.count > maxMessages) {
+      events.truncate(limitSseMessages(events.text, maxMessages).text);
+      tooLarge = true;
+    }
+    onProgress?.({
+      body: events.text,
+      sizeBytes: Math.min(totalBytes, cap),
+      messageCount: events.count,
+      opened: true,
+    });
+    if (tooLarge) {
+      await cancelReader(reader);
+      break;
     }
   }
-  let combinedLength = 0;
-  for (const c of chunks) combinedLength += c.byteLength;
-  const combined = new Uint8Array(combinedLength);
-  let offset = 0;
-  for (const c of chunks) {
-    combined.set(c, offset);
-    offset += c.byteLength;
-  }
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(combined);
-  return { text, size: tooLarge ? totalBytes : combined.byteLength, tooLarge };
+  if (!tooLarge) events.append(decoder.decode());
+  return { text: events.text, size: totalBytes, tooLarge };
 }
 
-function combineUtf8Chunks(chunks: ReadonlyArray<Uint8Array>): string {
-  const size = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
-  const combined = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.byteLength;
+async function cancelReader(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+  try {
+    await reader.cancel();
+  } catch {
+    /* stream already finalised */
   }
-  return new TextDecoder('utf-8', { fatal: false }).decode(combined);
+}
+
+/**
+ * Counts SSE events as text arrives, matching `countSseEvents` on the whole
+ * body without rescanning it per chunk. A boundary is at most four chars, so
+ * only the tail of the previous text can complete one.
+ */
+class SseEventCounter {
+  text = '';
+  private segmentStart = 0;
+  private completed = 0;
+  private trailingContent = false;
+
+  get count(): number {
+    return this.completed + (this.trailingContent ? 1 : 0);
+  }
+
+  append(chunk: string): void {
+    if (chunk.length === 0) return;
+    const scanFrom = Math.max(this.segmentStart, this.text.length - 3);
+    this.text += chunk;
+    const boundary = /\r?\n\r?\n/gu;
+    boundary.lastIndex = scanFrom;
+    let found = false;
+    for (let match = boundary.exec(this.text); match; match = boundary.exec(this.text)) {
+      if (/\S/u.test(this.text.slice(this.segmentStart, match.index))) this.completed += 1;
+      this.segmentStart = match.index + match[0].length;
+      found = true;
+    }
+    this.trailingContent = found
+      ? /\S/u.test(this.text.slice(this.segmentStart))
+      : this.trailingContent || /\S/u.test(chunk);
+  }
+
+  truncate(text: string): void {
+    this.text = '';
+    this.segmentStart = 0;
+    this.completed = 0;
+    this.trailingContent = false;
+    this.append(text);
+  }
 }
 
 function countSseEvents(body: string): number {

@@ -1,9 +1,9 @@
 /**
- * FASE 0 — Signal-Slate recipe: ModalShell.
+ * Signal-Slate recipe: ModalShell.
  *
  * The canonical overlay shell the seven existing overlays
  * (CommandPalette, QuickOpen, Snippets, DeveloperUtilities, etc.) will
- * adopt in FASE 1. It owns the four invariant zones the proposal
+ * adopt. It owns the four invariant zones the proposal
  * standardizes on: a blurred scrim, a header row (icon + caller content
  * + an Esc hint), a scrollable body, and a footer kbd legend rail with
  * an optional trailing slot (e.g. a result count).
@@ -121,7 +121,7 @@ type ModalShellCloseProps =
   | {
       /**
        * Header close affordance. Defaults to `esc` (the trailing Esc
-       * keycap), so existing callers and the FASE 0 showcase render
+       * keycap), so existing callers and the dev showcase render
        * unchanged. `none` lets the caller own its close UI.
        */
       headerClose?: 'esc' | 'none';

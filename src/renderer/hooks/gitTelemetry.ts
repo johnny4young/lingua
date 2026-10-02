@@ -1,5 +1,5 @@
 /**
- * implementation note — Git layer telemetry helpers.
+ * Git layer telemetry helpers.
  *
  * Two events:
  *
@@ -37,7 +37,7 @@ export function trackGitDiffPanelOpened(): void {
 }
 
 /**
- * implementation — head-change telemetry. Closed-enum `repoState`
+ * head-change telemetry. Closed-enum `repoState`
  * reuses `GIT_LAYER_REPO_STATES` so the dashboard groups head
  * changes by posture. `branchChanged` is a boolean payload field;
  * callers only invoke this when the branch genuinely changed (the
@@ -52,7 +52,7 @@ export function trackGitHeadChanged(
 }
 
 /**
- * implementation — Reveal-in-Source-Control click telemetry.
+ * Reveal-in-Source-Control click telemetry.
  * Closed-enum `target ∈ {'repo-root'}` (extensible for implementation).
  * Mirrored on update-server with parity test.
  */
@@ -63,7 +63,7 @@ export function trackGitRevealInSourceControlClicked(
 }
 
 /**
- * implementation note — outcome telemetry for the
+ * Outcome telemetry for the
  * reload-from-disk notice. Closed-enum `mode` captures whether the
  * user accepted the reload, rejected it (dismissed the modal /
  * notice), or auto-applied (reserved for a future implementation

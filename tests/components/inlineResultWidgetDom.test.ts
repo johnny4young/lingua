@@ -86,7 +86,7 @@ describe('inline result widget DOM', () => {
   });
 });
 
-describe('internal — inline timing chip', () => {
+describe('inline timing chip', () => {
   it('renders the timing chip after the value parts', () => {
     const node = renderInlineResultNode([{ line: 1, value: '42', type: 'autoLog' }], {
       durationMs: 320.4,

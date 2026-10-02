@@ -88,7 +88,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('implementation — @watch JS/TS detection', () => {
+  describe('@watch JS/TS detection', () => {
     it('detects `// @watch <expr>` with the watch kind + empty preserve when alone', () => {
       const code = '// @watch counter';
       // The line is comment-only with no prefix code, so `preserve` is empty.
@@ -129,7 +129,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('implementation — @watch JS/TS transform', () => {
+  describe('@watch JS/TS transform', () => {
     it('preserves the prefix and appends __mc for the watched expression', () => {
       const code = 'const x = 5; // @watch x * 2';
       const transformed = transformJSMagicComments(code);
@@ -184,7 +184,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('implementation — JS/TS auto-log detector', () => {
+  describe('JS/TS auto-log detector', () => {
     it('flags a bare identifier expression', () => {
       expect(detectJSAutoLogLines('x')).toEqual([1]);
     });
@@ -437,7 +437,7 @@ describe('JS/TS magic comments', () => {
     });
   });
 
-  describe('implementation — JS/TS auto-log transform', () => {
+  describe('JS/TS auto-log transform', () => {
     it('replaces a bare expression line with a single `__mc(line, ...)` capture', () => {
       const out = transformJSAutoLog('x + 1', [1]);
       expect(out).toContain('__mc(1,');
@@ -540,7 +540,7 @@ describe('Python magic comments', () => {
     });
   });
 
-  describe('implementation — @watch Python detection + transform', () => {
+  describe('@watch Python detection + transform', () => {
     it('detects `# @watch <expr>` with watch kind', () => {
       const code = 'counter = 5  # @watch counter * 2';
       const results = detectPythonMagicComments(code);
@@ -600,7 +600,7 @@ describe('Python magic comments', () => {
   });
 });
 
-describe('implementation — //=> table directive', () => {
+describe('//=> table directive', () => {
   describe('JS arrow directive', () => {
     it('parses the table directive on an arrow comment', () => {
       const code = '[{a:1}] //=> table';
@@ -884,7 +884,7 @@ describe('gitWatchHeadSuppressedByMagicComment (implementation note)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — per-line timing
+// per-line timing
 // ---------------------------------------------------------------------------
 
 describe('lineTimingRequestedByMagicComment', () => {

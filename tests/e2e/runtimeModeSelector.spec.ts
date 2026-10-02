@@ -1,5 +1,5 @@
 /**
- * implementation — Playwright smoke for the JS/TS runtime-mode
+ * Playwright smoke for the JS/TS runtime-mode
  * selector.
  *
  * Locks the implementation contract surface:

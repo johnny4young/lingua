@@ -1,5 +1,5 @@
 /**
- * implementation — project replace store.
+ * Project replace store.
  *
  * Mirrors the shape of `useProjectSearchStore` but adds:
  *
@@ -40,7 +40,7 @@ export interface ProjectReplaceResult {
   readonly relativePath: string;
   readonly matches: readonly ProjectReplaceMatch[];
   /**
-   * implementation note — file was skipped during preview because
+   * File was skipped during preview because
    * the regex deadline fired. The overlay marks the row with a
    * "regex took too long" notice and excludes it from apply-to-all.
    */
@@ -48,7 +48,7 @@ export interface ProjectReplaceResult {
 }
 
 /**
- * implementation note — apply-to-all progress strip. `null` when
+ * apply-to-all progress strip. `null` when
  * idle; otherwise the overlay renders a thin progress bar with
  * `done / total files`. The strip persists for a brief moment after
  * completion so the user sees the final count.
@@ -289,7 +289,7 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
       if (eligible.length === 0) {
         return { ok: 0, failed: 0, replaced: 0 };
       }
-      // implementation note — apply queue progress.
+      // Apply queue progress.
       set({ applyProgress: { done: 0, total: eligible.length } });
 
       let okCount = 0;

@@ -1,5 +1,5 @@
 /**
- * implementation — formatter helpers shared across the RichValue
+ * Formatter helpers shared across the RichValue
  * components and the dispatch wrapper. Pure (no React, no i18n) so
  * the renderer-side `<ConsoleEntryRenderer>` and the popover surface
  * read the same shape from a single source.
@@ -47,7 +47,7 @@ export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBu
     case 'array':
       return 'array';
     case 'error':
-      // implementation note — Python `BaseException` payloads ship
+      // Python `BaseException` payloads ship
       // `kind: 'error'` from `__lingua_console_serialize`. The renderer
       // already paints these via the warn/error type colour scheme;
       // bucketing them as `'error'` (not folded into `'text'`) keeps
@@ -133,14 +133,14 @@ export function payloadHasRichSurface(payload: RichOutputPayload): boolean {
     case 'primitive':
     case 'function':
       return false;
-    // implementation — `error` now opens the popover when the worker
+    // `error` now opens the popover when the worker
     // attached a structured `stack`. The renderer's `<RichValueError>`
     // owns the chip; the popover surfaces the full traceback + raw
     // JSON tab.
     case 'error':
       return Array.isArray(payload.stack) && payload.stack.length > 0;
-    // implementation — image + html have dedicated components.
-    // implementation — chart now has a vega-embed renderer.
+    // Image + html have dedicated components.
+    // Chart now has a vega-embed renderer.
     case 'image':
     case 'html':
     case 'chart':

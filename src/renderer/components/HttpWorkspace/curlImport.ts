@@ -1,5 +1,5 @@
 /**
- * implementation — re-export shim.
+ * re-export shim.
  *
  * The cURL parser used to live here under implementation note
  * (HTTP workspace inline "paste cURL into URL field" auto-detect).

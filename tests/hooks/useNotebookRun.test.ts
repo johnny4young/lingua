@@ -1,5 +1,5 @@
 /**
- * implementation — `useNotebookRun` orchestration coverage.
+ * `useNotebookRun` orchestration coverage.
  */
 
 import { act, renderHook } from '@testing-library/react';
@@ -35,6 +35,14 @@ import {
   useNotebookStore,
 } from '../../src/renderer/stores/notebookStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
+import { useResultStore } from '../../src/renderer/stores/resultStore';
+import {
+  claimNotebookRunner,
+  notebookRunnerOwner,
+  resetNotebookRunnerLocksForTests,
+} from '../../src/renderer/stores/notebookRunnerLockStore';
+import type { ManualRunSession } from '../../src/renderer/runtime/manualRunSession';
 import type { NotebookCellLanguage } from '../../src/shared/notebook';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
@@ -86,8 +94,14 @@ function seedSingleCodeCellNotebook(
 }
 
 describe('useNotebookRun', () => {
+  const initialEditor = useEditorStore.getState();
+  const initialResult = useResultStore.getState();
+
   beforeEach(async () => {
     resetNotebookSessionsForTests();
+    resetNotebookRunnerLocksForTests();
+    useEditorStore.setState(initialEditor, true);
+    useResultStore.setState(initialResult, true);
     resetNotebookStoreForTests();
     mockExecute.mockReset();
     mockStop.mockReset();
@@ -100,6 +114,9 @@ describe('useNotebookRun', () => {
   });
   afterEach(() => {
     resetNotebookSessionsForTests();
+    resetNotebookRunnerLocksForTests();
+    useEditorStore.setState(initialEditor, true);
+    useResultStore.setState(initialResult, true);
     resetNotebookStoreForTests();
     localStorage.clear();
     useUIStore.setState({ statusNotice: null });
@@ -552,15 +569,108 @@ describe('useNotebookRun', () => {
     );
   });
 
-  it('stop signals both notebook-runnable runners (JS worker + Python)', () => {
+  function seedManualRunInEditorTab(language: 'javascript' | 'python'): ManualRunSession {
+    const cancel = vi.fn();
+    const session: ManualRunSession = {
+      tabId: 'editor-tab',
+      isCurrent: () => true,
+      onCancel: () => () => {},
+      cancel,
+      finish: () => {},
+    };
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'editor-tab',
+          name: language === 'python' ? 'main.py' : 'main.js',
+          language,
+          content: 'while (true) {}',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'editor-tab',
+    });
+    useResultStore.setState({
+      manualRunSession: session,
+      isManualRunning: true,
+      manualRunMode: 'run',
+    });
+    return session;
+  }
+
+  it('stop is a no-op on the runners when no cell is in flight', () => {
     const { result } = renderHook(() => useNotebookRun());
     act(() => {
       result.current.stop();
     });
-    // JS / TS share the 'javascript' worker; Python  runs on the
-    // 'python' runner. stop() hits both since the hook doesn't track the
-    // in-flight language.
-    expect(mockStop).toHaveBeenCalledWith('javascript');
+    expect(mockStop).not.toHaveBeenCalled();
+  });
+
+  it('stop reaches only the Python runner its cell holds, never a JS manual run in another tab', async () => {
+    const manual = seedManualRunInEditorTab('javascript');
+    seedSingleCodeCellNotebook('tab-py-stop', 'python');
+    let settle!: (value: unknown) => void;
+    mockExecute.mockImplementationOnce(
+      () => new Promise(resolve => {
+        settle = resolve;
+      })
+    );
+    const { result } = renderHook(() => useNotebookRun());
+    let run!: Promise<void>;
+    act(() => {
+      run = result.current.runCell('tab-py-stop', 'cell-1');
+    });
+    await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    expect(notebookRunnerOwner('python')).toBe('tab-py-stop');
+
+    act(() => {
+      result.current.stop();
+    });
+    expect(mockStop).toHaveBeenCalledTimes(1);
     expect(mockStop).toHaveBeenCalledWith('python');
+    expect(manual.cancel).not.toHaveBeenCalled();
+
+    await act(async () => {
+      settle({ kind: 'stopped', cancelled: true, stdout: [], stderr: [] });
+      await run;
+    });
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-py-stop', 'cell-1')
+    ).toBe('stopped');
+    expect(notebookRunnerOwner('python')).toBeNull();
+  });
+
+  it('refuses a JS cell while a manual editor run uses the JS worker', async () => {
+    seedManualRunInEditorTab('javascript');
+    seedSingleCodeCellNotebook('tab-js-busy', 'javascript');
+    const { result } = renderHook(() => useNotebookRun());
+    await act(async () => {
+      await result.current.runCell('tab-js-busy', 'cell-1');
+    });
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-js-busy', 'cell-1')
+    ).toBe('idle');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      messageKey: 'notebook.notice.runtimeBusy',
+    });
+  });
+
+  it('refuses a cell while another notebook holds its runner', async () => {
+    const release = claimNotebookRunner('python', 'other-notebook');
+    seedSingleCodeCellNotebook('tab-py-busy', 'python');
+    const { result } = renderHook(() => useNotebookRun());
+    await act(async () => {
+      await result.current.runCell('tab-py-busy', 'cell-1');
+    });
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-py-busy', 'cell-1')
+    ).toBe('idle');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      messageKey: 'notebook.notice.runtimeBusy',
+    });
+    expect(notebookRunnerOwner('python')).toBe('other-notebook');
+    release?.();
   });
 });
