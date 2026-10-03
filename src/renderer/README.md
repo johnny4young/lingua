@@ -37,7 +37,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
 | [`data/`](data)             | Static templates and catalog data                                         |
 | [`i18n/`](i18n)             | Async translation bootstrap: English is initial; Spanish loads on demand before mount/language change |
-| [`themes/`](themes)         | Monaco/editor theme definitions                                           |
+| [`components/Editor/editorThemes.ts`](components/Editor/editorThemes.ts) | Monaco/editor theme definitions                              |
 | [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
 | [`onboarding/`](onboarding) | First-run scratchpad seed and guided-start helpers                        |
 | [`testing/`](testing)       | Test-only renderer harness helpers                                        |
@@ -146,7 +146,7 @@ The renderer is intentionally split by feature instead of by component type.
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx`, `ResultPanel.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
-| [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
+| [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/ProjectTerminal/`](components/ProjectTerminal) | `ProjectTerminalPanel.tsx`                            | Desktop-only, lazily loaded xterm surface for the owner-bound project PTY; retains only a bounded session transcript |
 | [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
@@ -633,8 +633,9 @@ Use the closest store that already owns the product concept instead of adding cr
 | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [editorStore.ts](stores/editorStore.ts)     | tabs, active editor session, file/language metadata, pending reveal requests — thin assembly point that composes the focused editor\* modules below |
 | editor split — pure helpers: [editorStoreContext.ts](stores/editorStoreContext.ts) (shared `EditorSet`/`EditorGet` types), [editorModeHelpers.ts](stores/editorModeHelpers.ts) (runtime/workflow mode resolution), [editorTabUtils.ts](stores/editorTabUtils.ts) (tab helpers, capability droppers, workspace consts, `createDefaultTab`), [editorPersistence.ts](stores/editorPersistence.ts) (format-on-save + `persistTab`), [editorSelectors.ts](stores/editorSelectors.ts) (`getActiveTab`/`getActiveTabIndex`) | leaf helpers the assembly + consumers import; no store-cycle |
-| editor split — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorInputActions.ts](stores/editorInputActions.ts) (stdin/argv/named input sets), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
+| editor split — action factories: [editorTabActions.ts](stores/editorTabActions.ts) (create/restore/remove/focus/duplicate), [editorWorkspaceActions.ts](stores/editorWorkspaceActions.ts) (notebook + SQL/HTTP openers), [editorContentActions.ts](stores/editorContentActions.ts) (buffer/exec-state/timeout/recipe-clear), [editorModeActions.ts](stores/editorModeActions.ts) (runtime/workflow mode + capability toggles), [editorInputActions.ts](stores/editorInputActions.ts) (stdin/argv/named input sets), [editorSaveActions.ts](stores/editorSaveActions.ts) (open/save/save-as), [editorCloseActions.ts](stores/editorCloseActions.ts) (close + bulk + rename), [saveTabsBeforeQuit.ts](stores/saveTabsBeforeQuit.ts) (Save All on quit; reports tabs left dirty) | `(set, get) => Pick<EditorState, …>` slices spread into `useEditorStore` |
 | [resultStore.ts](stores/resultStore.ts)     | inline results, diagnostics, shared manual-run lifecycle, run timing, compare snapshots, variable scope |
+| [notebookRunnerLockStore.ts](stores/notebookRunnerLockStore.ts) | in-memory claim on the shared JS/Python runner a running notebook cell holds; auto-run, manual runs and notebook Stop respect it |
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
 | [consoleEntryBatcher.ts](stores/consoleEntryBatcher.ts) | per-frame coalescing of streamed console entries into one `addEntries` update |
 | [announcerStore.ts](stores/announcerStore.ts) | shared polite screen-reader announcer (drives `LiveAnnouncer`)   |
@@ -648,14 +649,15 @@ Use the closest store that already owns the product concept instead of adding cr
 | [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
 | [presenterModeStore.ts](stores/presenterModeStore.ts) | session-only presenter/focus mode flag read at render time by the chrome |
 | [bootstrapProgressStore.ts](stores/bootstrapProgressStore.ts) | live WASM runtime download progress feeding the action pill label |
-| [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (internal Cmd+; recent stack) |
+| [commandHistoryStore.ts](stores/commandHistoryStore.ts) | per-session ring of executed palette actions (Cmd+; recent stack) |
 | [debuggerStore.ts](stores/debuggerStore.ts) | runtime-agnostic persisted breakpoint modes/watch expressions plus session-only JS/TS/Python/Go/Rust paused frames and results; `runtime/debuggerControlBridge.ts` routes controls while `runtime/nativeDebuggerBridge.ts` owns the shared lazy desktop lifecycle and the Python/Go/Rust wrappers supply runtime-specific bridges |
 | [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata — thin factory+facade that picks web vs desktop and re-exports the public types |
 | license split — shared leaves: [licenseTypes.ts](stores/licenseTypes.ts) (`LicenseStatus`/`ServerSyncState`/`RecoverHint`/`LicenseState` + status consts + `LicenseSet`/`LicenseGet`), [licenseBridge.ts](stores/licenseBridge.ts) (`readLicenseBridge` + `LicenseBridge`, including the single IPC Result compatibility adapter), [licenseWebVerify.ts](stores/licenseWebVerify.ts) (embedded Ed25519 key + local verify), [licenseServerMappers.ts](stores/licenseServerMappers.ts) (server verdict → local status), [licenseTokenHelpers.ts](stores/licenseTokenHelpers.ts) (issuedAt/issuedTo decode + stale-token pickup) | imported by both flows; no facade cycle |
 | license split — web flow: [licenseWebActions.ts](stores/licenseWebActions.ts) (setLicenseToken/clearLicense/removeDevice/clearRecoverHint), [licenseWebRevalidate.ts](stores/licenseWebRevalidate.ts) (revalidate), [licenseWebStore.ts](stores/licenseWebStore.ts) (state creator + persist + cross-tab); desktop flow: [licenseDesktopStore.ts](stores/licenseDesktopStore.ts) (bridge-delegating, no persist) | the two stores never import each other |
 | [licenseSelectors.ts](stores/licenseSelectors.ts) | non-React tier selectors (`currentEffectiveTier`/`tierFromStatus`); lives with the stores so store modules never import from the hooks layer (re-exported by `hooks/useEntitlement`) |
-| [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | implementation note — records a `license` trust event on each verify (active/grace); wired by the facade so the seam stays thin |
+| [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
+| [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, schema/result state       |
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
@@ -676,8 +678,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [snippetsStore.ts](stores/snippetsStore.ts), [recipeStore.ts](stores/recipeStore.ts), [lessonProgressStore.ts](stores/lessonProgressStore.ts) | user-created snippets, built-in recipe state, guided lesson progress |
 | [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
 | [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
-| [aiConfigStore.ts](stores/aiConfigStore.ts) | implementation — BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
-| [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | internal — single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
+| [aiConfigStore.ts](stores/aiConfigStore.ts) | BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
+| [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
 ### Console batch delivery
 
@@ -975,6 +977,7 @@ Project Go/Rust definition/reference providers synchronize dirty buffers and rej
 `stores/notebookDocumentDrafts.ts` flushes mounted cell drafts before manual save and close.
 `stores/notebookDocumentPersistence.ts` computes canonical document snapshots for synchronous dirty tracking.
 `stores/notebookDocumentWrite.ts` owns capability-backed manual commits and conflict results.
+`stores/notebookConflictActions.ts` builds the Reload / Save As actions on a conflict notice, kept off the startup graph.
 `stores/notebookDocumentRecovery.ts` reconciles recovered documents with current disk evidence. `NotebookDocumentActions` routes toolbar
 gestures through existing editor save actions and shortcuts. notebookStore remains
 the sole live cell/output owner; FileTab.content is its last saved canonical v1

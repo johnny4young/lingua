@@ -55,7 +55,7 @@ Use the desktop flow for:
 
 - Go and Rust execution
 - local filesystem integration
-- project explorer against real implementation detail
+- project explorer against real folders
 - file watching
 - plugin discovery
 - updater state and actions
@@ -66,7 +66,7 @@ Use the desktop flow for:
 
 ### Baseline Gates
 
-Run these before treating a broad UI/runtime the implementations healthy:
+Run these before treating a broad UI/runtime change as healthy:
 
 ```bash
 pnpm test -- --run
@@ -322,10 +322,10 @@ Use this order when automating:
 | ✅ | `TC-058` | `ELEC` | `developer` | Expand/collapse directories | Directory state changes correctly |
 | ✅ | `TC-059` | `ELEC` | `developer` | Open file from explorer | Tab opens with correct content |
 | ✅ | `TC-060` | `ELEC` | `developer` | Create root file | File appears in tree |
-| ✅ | `TC-061` | `ELEC` | `developer` | Create root implementation detail | implementation detail appears in tree |
-| ✅ | `TC-062` | `ELEC` | `developer` | Create file inside implementation detail | File appears in correct directory |
-| ✅ | `TC-063` | `ELEC` | `developer` | Rename file/implementation detail | Tree updates with new name |
-| ✅ | `TC-064` | `ELEC` | `developer` | Delete file/implementation detail | Entry disappears |
+| ✅ | `TC-061` | `ELEC` | `developer` | Create root folder | Folder appears in tree |
+| ✅ | `TC-062` | `ELEC` | `developer` | Create file inside folder | File appears in correct directory |
+| ✅ | `TC-063` | `ELEC` | `developer` | Rename file/folder | Tree updates with new name |
+| ✅ | `TC-064` | `ELEC` | `developer` | Delete file/folder | Entry disappears |
 | ✅ | `TC-065` | `ELEC` | `developer` | Click refresh tree | Tree reloads and expansion remains coherent |
 | ✅ | `TC-066` | `ELEC` | `developer` | Modify filesystem outside app | Watch sync updates tree automatically |
 
@@ -416,25 +416,6 @@ Use this order when automating:
 
 - `TC-095` to `TC-100`
 
-## Suggested Future File Layout
-
-### Web
-
-- `tests/e2e/web/smoke.spec.ts`
-- `tests/e2e/web/shell.spec.ts`
-- `tests/e2e/web/settings.spec.ts`
-- `tests/e2e/web/snippets.spec.ts`
-- `tests/e2e/web/languages.spec.ts`
-- `tests/e2e/web/responsive.spec.ts`
-
-### Electron
-
-- `tests/e2e/electron/smoke.spec.ts`
-- `tests/e2e/electron/explorer.spec.ts`
-- `tests/e2e/electron/settings.spec.ts`
-- `tests/e2e/electron/languages.spec.ts`
-- `tests/e2e/electron/integrations.spec.ts`
-
 ## Standard Test Metadata Template
 
 Each automated test should record:
@@ -483,4 +464,4 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 | Monaco crash | Split `configureMonaco()` from `applyTypeScriptDefaults()` — TS config now in `beforeMount` callback |
 | Electron modal drag blocking | Added `-webkit-app-region: no-drag` to `.overlay-backdrop` in `index.css` |
 | Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
-| Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API (296 tests passing) |
+| Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API |

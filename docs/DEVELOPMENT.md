@@ -49,7 +49,6 @@ for the wiring.
 | `VITE_LINGUA_LICENSE_SERVER_URL`     | renderer + main build | License-server base URL for activation, status, recovery, education, and trial endpoints. Unset keeps web/desktop server sync disabled.                           |
 | `LINGUA_LICENSE_SERVER_URL`          | main build + runtime  | Desktop main-process override for the license-server base URL. Dev launchers can set it without rebuilding main.                                                  |
 | `VITE_LINGUA_UPDATE_SERVER_URL`      | web renderer build    | Update-server base URL for the web update banner. Defaults to `https://updates.linguacode.dev`.                                                                   |
-| `LINGUA_UPDATE_URL`                  | main build            | Desktop update-server base URL baked into the main bundle. Defaults to `https://updates.linguacode.dev`.                                                          |
 | `VITE_LINGUA_APP_VERSION`            | renderer build        | App version exposed to telemetry and web update checks. Seeded automatically from `package.json#version`; override only for release tests.                        |
 | `LINGUA_WEBSITE_URL`                 | shared build metadata | Optional website URL override for app metadata. Falls back to `package.json#homepage` when present.                                                               |
 | `VITE_LINGUA_WEB_RUNTIME_BASE`       | web production build  | Public runtime prefix for oversized DuckDB/Ruby WASM. Defaults to `https://downloads.linguacode.dev/web-runtime`; deploys set it from `R2_PUBLIC_BASE`.           |
@@ -182,14 +181,11 @@ pnpm run build:web
 pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
-Then drive the preview with the Playwright CLI wrapper:
-
-```bash
-export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
-"$PWCLI" --session lingua open http://127.0.0.1:4173/
-"$PWCLI" --session lingua snapshot
-"$PWCLI" --session lingua screenshot --full-page --filename output/playwright/lingua-web-validation.png
-```
+Then drive the preview with any Playwright client (the Playwright MCP, a
+Playwright CLI wrapper, or a short script): open `http://127.0.0.1:4173/`,
+take an accessibility snapshot, and save screenshots under the gitignored
+`output/playwright/` directory, for example
+`output/playwright/lingua-web-validation.png`.
 
 Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation — see the smoke section below.
 
@@ -241,8 +237,8 @@ Determinism was then measured, not assumed: 15 consecutive identical digests on
 four of the six specs. The Monaco-bearing pair (notebook, HTTP) still flips a
 handful of antialiased edge pixels by one unit — Chromium-level rounding that
 survived pointer parking, focus blur, and frame settling — so `--check`
-compares those within a strict tolerance (at most 24 differing pixels, each off
-by at most 2 per channel). A stale gallery differs by thousands of pixels at
+compares those within a strict tolerance: a delta of 1 per channel is
+invisible and ignored, and at most 24 pixels may differ by 2 or 3. A stale gallery differs by thousands of pixels at
 full contrast; noise cannot hide drift, and drift cannot pass as noise. If you
 add an animation, a timestamp, or any measured value to a captured surface,
 re-prove determinism before trusting `--check`.
@@ -254,6 +250,22 @@ anything, run `pnpm --dir website run record:showcase-evidence`.
 
 Never hand-edit a digest to make the test pass; that turns the lock into a
 rubber stamp.
+
+### Refreshing the landing-page tour
+
+The tour frames follow the same pipeline through a second manifest,
+`website/src/data/tour-showcase.json`, captured in both locales by
+`tests/e2e/tourVisual.spec.ts`:
+
+```bash
+node scripts/run-playwright-web-validation.mjs tests/e2e/tourVisual.spec.ts
+pnpm --dir website run sync:tour-evidence
+```
+
+`website/tests/tourShowcase.test.mts` asserts the recorded digests and that each
+locale points at its own frames. The AI shot (`ai-explain*.png`) is the one
+exception: it shows a real answer from a local model, so it cannot be
+reproduced byte for byte and is captured by hand against Ollama.
 
 ## Curated project template runtime smoke
 
@@ -289,7 +301,7 @@ needed to reproduce it.
 
 ## Desktop dev and validation
 
-Use the desktop launcher when you need the real Electron app without going through a full `electron-forge start` cycle:
+Use the desktop launcher when you need the real Electron app without building a packaged release:
 
 ```bash
 pnpm run dev:desktop
@@ -336,7 +348,7 @@ pnpm run dev:web:pro
 pnpm run dev:desktop:pro
 ```
 
-Both commands mint a throwaway dev public key + signed token, print the token to the terminal, and start the target surface with `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` already wired in. Copy the token into **Settings → License → Paste a license token** to unlock Pro locally.
+Both commands mint a throwaway dev public key + signed token, print the token to the terminal, and start the target surface with `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` already wired in. Copy the token into **Settings → Account → License → Paste a license token** to unlock Pro locally.
 
 `dev:web:pro` binds Vite to port 5174 with `--strictPort`. If that port is already in use, stop the old web server and run the command again; otherwise the printed token would belong to a fresh keypair while the browser might still be pointed at an older server.
 

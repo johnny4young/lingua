@@ -1,5 +1,5 @@
 /**
- * implementation — `url-parse` adapter.
+ * `url-parse` adapter.
  *
  * Decodes a URL into its structured components (protocol, host,
  * port, pathname, search params, hash). Output is a JSON-stringified
@@ -10,7 +10,7 @@
 
 import type { UtilityAdapter } from './types';
 
-/** No options implementation. implementation could add `outputShape: 'flat' | 'tree'`. */
+/** No options yet. A later change could add `outputShape: 'flat' | 'tree'`. */
 export type UrlParseOptions = Record<string, never>;
 
 interface ParsedUrl {

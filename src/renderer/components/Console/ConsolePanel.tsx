@@ -31,6 +31,7 @@ import { ConsoleEntryRow } from './ConsoleEntryRow';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useCommandListener } from '../../hooks/useCommandListener';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
 const TYPE_BADGE: Record<ConsoleEntryType, string> = {
   log: 'text-muted',
@@ -58,7 +59,7 @@ function sourceLineForEntry(entry: ConsoleEntry): number | null {
 }
 
 /**
- * implementation note — closed-enum list of payload-kind filter
+ * closed-enum list of payload-kind filter
  * chips. Mirrors the order of the rendered RichValue dispatch so the
  * chip row reads the same left-to-right as a typical row of payloads.
  */
@@ -71,7 +72,7 @@ const PAYLOAD_KIND_CHIPS: ConsolePayloadKindFilter[] = [
   'errorish',
 ];
 
-// implementation detail — consecutive-identical collapse moved to the console
+// consecutive-identical collapse moved to the console
 // store (computed once per push via a stable equality hash) instead of
 // re-running here on every render. The panel reads `collapsedEntries` and only
 // filters them; collapsed groups are homogeneous so filter-after-collapse
@@ -96,15 +97,15 @@ function entryFilteredByPayloadKind(
   }
   return entry.payload.some(p => {
     const bucket = richKindBucket(p);
-    // The Errors chip historically meant warn/error rows. implementation
-    // added payload-level `kind: 'error'` for Python BaseException
+    // The Errors chip historically meant warn/error rows. Python
+    // now adds payload-level `kind: 'error'` for BaseException
     // values, so the same chip must hide those log rows too.
     return hidden.has(bucket) || (bucket === 'error' && hidden.has('errorish'));
   });
 }
 
 /**
- * implementation detail — true when a paste should be left to its native
+ * True when a paste should be left to its native
  * target instead of being captured as a console image. Editors and
  * form fields own their own paste semantics (Monaco code paste, env-var
  * inputs, the share/import textareas), so an image paste while one of
@@ -122,6 +123,7 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 
 export function ConsolePanel() {
   const { t } = useTranslation();
+  const consoleCombo = useShortcutLabel('view-toggle-console');
   const { track } = useTelemetry();
   const { run, isRunning } = useRunner();
   const effectiveTier = useEffectiveTier();
@@ -155,7 +157,7 @@ export function ConsolePanel() {
   );
   const presenterActive = usePresenterModeStore(state => state.active);
   const activeTab = useEditorStore(state => getActiveTab(state));
-  // implementation — offer "Explain this error" when the active tab's run left an error
+  // Offer "Explain this error" when the active tab's run left an error
   // entry. The shared button self-gates on LOCAL_AI, so here we only assemble
   // the error text + the code context (the active tab's source). Use only the
   // MOST RECENT error entry: buildExplainErrorRequest clips from the start, so
@@ -167,7 +169,7 @@ export function ConsolePanel() {
   const originSuppressed = activeTab
     ? originSuppressedByMagicComment(activeTab.language ?? 'plaintext', activeTab.content)
     : false;
-  // implementation detail — paste an image into the console. The listener
+  // Paste an image into the console. The listener
   // lives on `document` (a read-only console row is not a focusable
   // paste target) but is scoped to the ConsolePanel lifetime via this
   // effect, and bails on editable targets so Monaco / inputs keep their
@@ -194,10 +196,10 @@ export function ConsolePanel() {
             content: `[image ${result.mime}]`,
             payload: [{ kind: 'image', src: result.dataUri, mime: result.mime }],
           });
-          // internal — a resized paste gets its own toast + telemetry status
-          // (implementation note) so the user knows it was downscaled and adoption is
+          // A resized paste gets its own toast + telemetry status
+          // so the user knows it was downscaled and adoption is
           // measurable; `byteLength` is already the POST-resize size, so the
-          // bucket reflects what actually landed (implementation note).
+          // bucket reflects what actually landed.
           useUIStore.getState().pushStatusNotice({
             tone: 'success',
             messageKey: result.resized ? 'console.imagePaste.resized' : 'console.imagePaste.pasted',
@@ -218,7 +220,7 @@ export function ConsolePanel() {
             sizeBucket: bucketCapsuleSize(result.byteLength),
           });
         } else if (result.reason === 'unreadable') {
-          // internal — surface the unreadable failure instead of dropping it
+          // Surface the unreadable failure instead of dropping it
           // silently (it previously emitted telemetry but no user notice).
           useUIStore.getState().pushStatusNotice({
             tone: 'warning',
@@ -234,10 +236,10 @@ export function ConsolePanel() {
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [addEntry, track]);
-  // implementation / internal — entries are already collapsed store-side
+  // Entries are already collapsed store-side
   // (consecutive identical → one ×N row, computed once per push). Here we
   // only apply the legacy type filter AND the payload-kind chip filter
-  // (implementation note) to those rows. Collapsed groups are homogeneous, so filtering
+  // to those rows. Collapsed groups are homogeneous, so filtering
   // after the collapse yields the same visible set as the previous
   // filter-then-collapse. Memoised so a flooded console only re-pays the
   // filter cost when entries or filters change.
@@ -263,14 +265,14 @@ export function ConsolePanel() {
   useEffect(() => {
     visibleSourceLinesRef.current = visibleSourceLines;
   }, [visibleSourceLines]);
-  // implementation Sub-slice G implementation note — symmetric inverse direction. Listens
+  // Symmetric inverse direction. Listens
   // for editor.sourceLineHovered commands emitted by CodeEditor
   // when the cursor settles on a line; pulses every console row
   // whose origin.line / entry.line matches. The state holds the
   // current pulse target line plus a generation so stale pulses from
   // a previous ON-state stay hidden after the master toggle flips OFF.
   //
-  // implementation — the master toggle is removed; the listener is always
+  // The master toggle is removed; the listener is always
   // installed. The `generation` field remains to invalidate stale
   // pulses across remounts but no longer reacts to a master flip.
   const [pulse, setPulse] = useState<{ line: number; generation: number } | null>(null);
@@ -291,7 +293,7 @@ export function ConsolePanel() {
       return;
     }
     setPulse({ line, generation: pulseGenerationRef.current });
-    // implementation Sub-slice G.1 implementation note — adoption signal for the
+    // Adoption signal for the
     // inverse direction. Once per pulse-settle (the upstream
     // CodeEditor debounce already collapses bursts), payload is
     // `{ language }` only. Read the active tab's language directly
@@ -325,7 +327,7 @@ export function ConsolePanel() {
   const userScrolled = useRef(false);
   const lastPinned = useRef<{ top: number; height: number; viewport: number } | null>(null);
   const rowKeys = useMemo(() => visibleEntries.map(row => row.entry.id), [visibleEntries]);
-  // implementation — window the (already collapsed + filtered) rows so only
+  // Window the (already collapsed + filtered) rows so only
   // the viewport band mounts. Off-window rows unmount, releasing their
   // RichValueChart Vega canvases for free.
   const { listWindow, measureRef, scrollToBottom } = useListWindow({
@@ -340,7 +342,7 @@ export function ConsolePanel() {
     result: t('console.filters.type.result'),
   };
 
-  // implementation — re-pin to the bottom after every commit while the user is
+  // re-pin to the bottom after every commit while the user is
   // parked there (no dependency array on purpose). This covers BOTH new
   // entries and late row measurement: the windower seeds each row at an
   // estimated height, then the ResizeObserver grows the content as real
@@ -634,11 +636,13 @@ export function ConsolePanel() {
               : null}
           </div>
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
-          <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
-            <span className="inline-flex items-center gap-1 text-eyebrow text-fg-subtle">
-              <Kbd>⌘\</Kbd>
-            </span>
-          </Tooltip>
+          {consoleCombo ? (
+            <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
+              <span className="inline-flex items-center gap-1 text-eyebrow text-fg-subtle">
+                <Kbd>{consoleCombo}</Kbd>
+              </span>
+            </Tooltip>
+          ) : null}
           <IconButton
             onClick={toggleTimestamps}
             active={showTimestamps}
@@ -689,7 +693,7 @@ export function ConsolePanel() {
         data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-body-sm leading-6"
         style={
-          // internal — derive the +2px lift from the design token rather
+          // Derive the +2px lift from the design token rather
           // than hard-coding its current value; text-body-sm can evolve
           // without changing presenter mode's promised delta.
           presenterActive
@@ -700,7 +704,7 @@ export function ConsolePanel() {
         }
       >
         {visibleEntries.length === 0 ? (
-          <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-8 text-center">
+          <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-16 text-center">
             <p className="mb-1 text-eyebrow font-semibold uppercase tracking-[0.16em] text-muted">
               {t('console.title')}
             </p>
@@ -718,7 +722,7 @@ export function ConsolePanel() {
           </div>
         ) : (
           <>
-            {/* implementation — top spacer reserves the height of the rows
+            {/* Top spacer reserves the height of the rows
                 above the window so the scrollbar matches the full list. */}
             <div aria-hidden style={{ height: listWindow.topSpacer }} />
             {visibleEntries

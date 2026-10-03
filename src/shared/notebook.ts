@@ -1,13 +1,13 @@
 import type { NotebookDocumentV1 } from './notebookDocument';
 /**
- * implementation — `NotebookV1` schema.
+ * `NotebookV1` schema.
  *
- * The versioned schema for `.linguanb` notebooks. implementation ships the
+ * The versioned schema for `.linguanb` notebooks. The first release shipped the
  * schema + parser + serializer + closed-enum reject reasons; later
- * implementations add disk persistence , reactive dataflow (implementation
- * C), and full export to script / markdown / HTML .
+ * implementations add disk persistence , reactive dataflow,
+ * and full export to script / markdown / HTML .
  *
- * Design notes (from the 2026-05-20 research triage for internal):
+ * Design notes (from the 2026-05-20 research triage):
  *
  *   - Notebooks live as a distinct tab kind in `editorStore`. They
  *     are NOT overloaded onto plain file tabs — the per-tab `kind`
@@ -17,12 +17,12 @@ import type { NotebookDocumentV1 } from './notebookDocument';
  *     `globalThis.eval()`. The runtime session lifetime is bound to
  *     the tab lifetime so `removeTab` always disposes the session.
  *   - Cell language is per-cell, not per-tab. The notebook is
- *     multi-language by design even though implementation's runner only
+ *     multi-language by design even though the runner originally only
  *     wires JavaScript + TypeScript.
  *
  * Privacy posture:
  *
- *   - Notebooks live ONLY on the device (implementation persists via
+ *   - Notebooks live ONLY on the device (the store persists via
  *     `notebookStore`'s isolated localStorage key; future work adds
  *     opt-in disk persistence to `.linguanb` files).
  *   - Telemetry (`notebook.cell_executed`) carries only closed-enum
@@ -80,9 +80,9 @@ export type NotebookCellKind = (typeof NOTEBOOK_CELL_KINDS)[number];
 // ---------------------------------------------------------------------------
 
 /**
- * Per-cell output. implementation stores text-only outputs from
+ * Per-cell output: text-only outputs from
  * `console.log` + the cell's terminal expression (if any). future work
- * extends with internal rich payloads via a discriminated union; the
+ * extends with rich payloads via a discriminated union; the
  * current shape is forward-compatible because `kind: 'text'` is the
  * default arm and unknown future kinds are rejected by the parser.
  */
@@ -92,7 +92,7 @@ export type NotebookCellOutputV1 = {
    * `MAX_CELL_SOURCE_LENGTH` chars to bound storage growth. */
   readonly text: string;
   /** `'stdout'` for regular `console.log`; `'stderr'` for `console.error`
-   * + thrown errors. Mirrors internal's bucketed source identity. */
+   * + thrown errors. Mirrors the run capsule's bucketed source identity. */
   readonly stream: 'stdout' | 'stderr';
 };
 
@@ -331,7 +331,7 @@ export function serializeNotebook(notebook: NotebookV1): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a fresh empty notebook scaffold. implementation seeds two cells —
+ * Build a fresh empty notebook scaffold. It seeds two cells —
  * one markdown welcome + one runnable code cell — so the user lands on
  * a canvas that matches their default notebook-cell language. future work
  * can promote this to a richer starter template once the notebook editor
@@ -372,8 +372,8 @@ export function createBlankNotebook(opts: {
 /**
  * Convenience guard for store callers + UI gating. The runner executes
  * all four code-cell languages — `'javascript' | 'typescript'` (JS
- * worker, cross-cell state), `'python'` (implementation, independent per
- * cell), and `'sql'` (implementation, shared DuckDB engine, table output). See
+ * worker, cross-cell state), `'python'` (independent per
+ * cell), and `'sql'` (shared DuckDB engine, table output). See
  * `notebookSession.ts`.
  */
 export function isNotebookCodeCell(cell: NotebookCellV1): cell is NotebookCodeCellV1 {
@@ -407,4 +407,20 @@ export function serializeNotebookDocument(
     ...(Object.keys(order).length > 0 ? { executionOrder: order } : {}),
   };
   return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+export type NotebookDocumentExportOutcome =
+  | { ok: true; json: string }
+  | { ok: false; reason: 'oversized'; bytes: number; limit: number };
+
+/** Export path: refuse a document the reader would reject as `oversized`. */
+export function serializeNotebookDocumentWithinLimit(
+  notebook: NotebookV1,
+  opts: { executionOrder?: Readonly<Record<string, number>> } = {}
+): NotebookDocumentExportOutcome {
+  const json = serializeNotebookDocument(notebook, opts);
+  const bytes = utf8ByteLength(json);
+  return bytes > MAX_LINGUANB_BYTES
+    ? { ok: false, reason: 'oversized', bytes, limit: MAX_LINGUANB_BYTES }
+    : { ok: true, json };
 }

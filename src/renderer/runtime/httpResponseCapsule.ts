@@ -1,5 +1,5 @@
 /**
- * implementation — Build a `RunCapsuleV1` from an HTTP request +
+ * Build a `RunCapsuleV1` from an HTTP request +
  * response pair.
  *
  * The capsule wraps the HTTP exchange in the same wire format every
@@ -77,7 +77,7 @@ function mapResponseKindToCapsuleStatus(
  * Names round-trip; values for sensitive headers are replaced with
  * the literal `<redacted>` sentinel.
  *
- * implementation — headers are composed via `composeRequestHeaders`, so
+ * Headers are composed via `composeRequestHeaders`, so
  * the INJECTED Auth header (Authorization / API-key from the Auth sub-tab)
  * is reflected in the capsule exactly as it is on the wire — matching the
  * Copy-as-cURL builder. Defense in depth: when an environment is active
@@ -105,7 +105,7 @@ function serializeRequestForCapsule(
   // The auth-injected header is redacted UNCONDITIONALLY: a custom
   // apiKey header name is not in the baseline sensitive list, so
   // `isHeaderSensitive` alone would let its value through into the
-  // shared capsule. implementation note into the per-header check by name.
+  // shared capsule. Fold it into the per-header check by name.
   const injectedAuthLc = authInjectedHeaderName(request.auth)?.toLowerCase();
   const sortedHeaders = composeRequestHeaders(request)
     .map((h) => ({

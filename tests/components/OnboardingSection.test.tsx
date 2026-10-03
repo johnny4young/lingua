@@ -85,7 +85,7 @@ describe('OnboardingSection', () => {
     );
   });
 
-  it('implementation note — the preview block toggles open and shows the seed source', () => {
+  it('the preview block toggles open and shows the seed source', () => {
     render(<OnboardingSection />);
     const previewToggle = screen.getByTestId(
       'onboarding-section-preview-toggle'

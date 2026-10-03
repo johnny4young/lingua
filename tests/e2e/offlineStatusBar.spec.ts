@@ -77,7 +77,7 @@ function consumeExpectedOfflineResourceErrors(consoleErrors: string[]): void {
   consoleErrors.length = 0;
 }
 
-test.describe('internal offline status bar', () => {
+test.describe('offline status bar', () => {
   test('celebrates offline operation in English and clears when online', async ({
     context,
     consoleErrors,

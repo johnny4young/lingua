@@ -1,5 +1,5 @@
 /**
- * internal Vim mode integration — Playwright E2E.
+ * Vim mode integration — Playwright E2E.
  *
  * Verifies the lazy-loaded `monaco-vim` chunk wires the Vim layer into
  * the active Monaco editor end-to-end:

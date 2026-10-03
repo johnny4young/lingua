@@ -7,6 +7,7 @@ import { useProjectStore } from './projectStore';
 import { joinAbsolute } from '../utils/filePath';
 import { notifyBlockedFamily } from '../utils/blockedPath';
 import { notebookDocumentNotice } from './notebookDocumentPersistence';
+import { notebookConflictActions } from './notebookConflictActions';
 
 /** Loaded only for explicit document saves, never for initial dirty tracking. */
 export async function persistNotebookDocument(
@@ -74,7 +75,12 @@ export async function persistNotebookDocument(
       destination.notebookDocumentHash ?? null
     );
     if (result.status === 'conflict') {
-      notebookDocumentNotice('conflict');
+      // A Save As destination is not the tab's file, so only retrying fits.
+      const ownFile = destination === tab;
+      notebookDocumentNotice(
+        ownFile ? 'conflict' : 'destinationConflict',
+        notebookConflictActions(tab.id, ownFile)
+      );
       return null;
     }
     // The caller adopts metadata only. New cell edits/outputs in notebookStore

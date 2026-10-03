@@ -1,5 +1,5 @@
 /**
- * implementation detail — central schema-version + migration registry for every
+ * Central schema-version + migration registry for every
  * persisted Zustand store.
  *
  * Each persisted store declares a zustand `version` (the schema version, stored
@@ -71,8 +71,8 @@ export type PersistedStoreName =
  * and bump `version: 2` in settingsStore's persist config.
  */
 export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrationMap>> = {
-  // internal v1->v2 — the legacy `restoreSession` boolean becomes the
-  // `restoreSessionMode` closed enum. implementation note: legacy `false` (the old
+  // The legacy `restoreSession` boolean becomes the
+  // `restoreSessionMode` closed enum. Legacy `false` (the old
   // default, no restore) maps to `'ask'` so every user gets the new
   // privacy-conscious prompt default, not silent never-restore; legacy
   // `true` (explicit auto-restore) maps to `'always'` to preserve that
@@ -108,7 +108,7 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
       },
     }),
   },
-  // internal v1->v2 — input-set fields are additive optional fields on each
+  // input-set fields are additive optional fields on each
   // saved tab. The identity step re-stamps the envelope without inventing
   // values for older sessions; restore sanitizes any future/tampered payload.
   'lingua-session': {
@@ -142,7 +142,7 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
   'lingua-utility-pipeline-state': {},
   'lingua-workspace-sql-state': {},
   'lingua-workspace-tool-state': {},
-  // implementation — BYO-key AI config (endpoint / apiKey / model). No shape change yet.
+  // BYO-key AI config (endpoint / apiKey / model). No shape change yet.
   'lingua-ai': {},
 };
 
@@ -187,7 +187,7 @@ export function migrateState(
   persistedState: unknown,
   fromVersion: number
 ): MigrateResult {
-  // implementation note — a non-record payload (garbage, null, array, bare string) can never
+  // A non-record payload (garbage, null, array, bare string) can never
   // be a valid partialized Zustand state; reset to defaults instead of letting
   // a migration step or the merge throw during boot.
   if (!isPersistedStateRecord(persistedState)) {
@@ -216,7 +216,7 @@ export function migrateState(
       if (step) state = step(state);
     }
   } catch {
-    // implementation note — a throwing migration must not crash boot; reset to defaults.
+    // A throwing migration must not crash boot; reset to defaults.
     return { state: undefined, migrated: false };
   }
 

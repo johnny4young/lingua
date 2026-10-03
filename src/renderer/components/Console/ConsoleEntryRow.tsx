@@ -123,11 +123,11 @@ interface ConsoleEntryRowProps {
   entry: ConsoleEntry;
   showTimestamps: boolean;
   typeLabel: Record<ConsoleEntryType, string>;
-  /** implementation note — number of collapsed duplicate entries. */
+  /** Number of collapsed duplicate entries. */
   repeatCount: number;
   /** Source line already resolved from the rich payload or legacy entry line. */
   sourceLine: number | null;
-  /** implementation — matching rows pulse while the editor cursor settles. */
+  /** Matching rows pulse while the editor cursor settles. */
   pulseTargetLine: number | null;
   /** Per-tab origin opt-out shared with the rich-render badge path. */
   originSuppressed: boolean;

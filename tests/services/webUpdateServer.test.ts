@@ -1,5 +1,5 @@
 /**
- * implementation — pin the `/web/version` fetch wrapper contract.
+ * Pin the `/web/version` fetch wrapper contract.
  *
  * Renderer never sees a real worker in tests. We mock `fetch` at the
  * global level and pin (a) the request URL, (b) the happy path

@@ -1,5 +1,5 @@
 /**
- * implementation — Variables toggle in the result-panel header.
+ * Variables toggle in the result-panel header.
  *
  * Mirrors `<CompareToggleButton>`  — button-secondary
  * shape, three states (hidden / disabled / enabled), pressed-state

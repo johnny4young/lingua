@@ -108,7 +108,7 @@ export function ExecutionHistoryPopover({
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  // implementation note — "This tab only" filter toggle. Defaults
+  // "This tab only" filter toggle. Defaults
   // off so the historical popover behavior is preserved; the user
   // opts into per-tab filtering. State stays open-scoped — closing
   // and reopening the popover resets the filter (consistent with the
@@ -120,7 +120,7 @@ export function ExecutionHistoryPopover({
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const popoverId = useId();
-  // Apply the implementation note filter at the source so every downstream
+  // Apply the "This tab only" filter at the source so every downstream
   // computation (compare candidates, list render, empty state)
   // honors it consistently.
   const visibleEntries = useMemo(() => {
@@ -276,7 +276,7 @@ export function ExecutionHistoryPopover({
   };
 
   const hasEntries = visibleEntries.length > 0;
-  // Show the implementation note toggle only when there's something on the source
+  // Show the "This tab only" toggle only when there's something on the source
   // tab to filter against; otherwise checking it would surface zero
   // entries and confuse the user. Mirror the same predicate as
   // `visibleEntries` (require an explicit non-undefined `tabId`

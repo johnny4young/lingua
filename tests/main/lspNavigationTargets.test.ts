@@ -2,8 +2,15 @@ import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { mintRootCapability, revokeRoot } from '../../src/main/ipc/projectCapabilities';
-import { resolveLspNavigationTarget } from '../../src/main/lsp/navigationTargets';
+import {
+  mintRootCapability,
+  resolveCapabilityPath,
+  revokeRoot,
+} from '../../src/main/ipc/projectCapabilities';
+import {
+  isLspDocumentUriAllowed,
+  resolveLspNavigationTarget,
+} from '../../src/main/lsp/navigationTargets';
 import {
   normalizeLspLocations,
   readLspNavigationCapabilities,
@@ -102,6 +109,42 @@ describe('LSP navigation data', () => {
           pathToFileURL(path.join(realRoot, '..', 'outside.go')).href
         )
       ).toBeNull();
+      revokeRoot(grant.rootId);
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+  it('keeps the symlinked root as the server root and admits documents through either path', async () => {
+    const parent = await mkdtemp(
+      path.join(process.env.LINGUA_SMOKE_FIXTURE_DIR ?? process.cwd(), '.tmp-lsp-navigation-')
+    );
+    try {
+      const real = path.join(parent, 'real');
+      const linked = path.join(parent, 'linked');
+      await mkdir(real);
+      await writeFile(path.join(real, 'main.go'), 'package main');
+      await symlink(real, linked);
+      const grant = mintRootCapability(linked);
+      const resolved = await resolveCapabilityPath(grant.rootId, '', 'read');
+      expect(resolved).toMatchObject({ ok: true, rootPath: linked, absolutePath: await realpath(real) });
+      if (!resolved.ok) throw new Error('unreachable');
+      const bases = [resolved.rootPath, resolved.absolutePath];
+      expect(
+        await resolveLspNavigationTarget(
+          grant.rootId,
+          pathToFileURL(path.join(linked, 'main.go')).href
+        )
+      ).toBe('main.go');
+      expect(isLspDocumentUriAllowed(pathToFileURL(path.join(linked, 'main.go')).href, bases)).toBe(true);
+      expect(
+        isLspDocumentUriAllowed(pathToFileURL(path.join(resolved.absolutePath, 'main.go')).href, bases)
+      ).toBe(true);
+      expect(isLspDocumentUriAllowed(pathToFileURL(path.join(parent, 'other.go')).href, bases)).toBe(
+        false
+      );
+      expect(isLspDocumentUriAllowed('file:///__lingua_unsaved__/tab/main.go', bases)).toBe(true);
+      expect(isLspDocumentUriAllowed(pathToFileURL(path.join(parent, 'x.go')).href, null)).toBe(true);
+      expect(isLspDocumentUriAllowed('file://host/x.go', null)).toBe(false);
       revokeRoot(grant.rootId);
     } finally {
       await rm(parent, { recursive: true, force: true });

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 /**
- * implementation Phase A1 implementation note — pre-share confirmation modal.
+ * pre-share confirmation modal.
  *
  * Shown before the share-link URL lands on the clipboard so the user
  * can preview the exact source + stdin content being serialised. Required by

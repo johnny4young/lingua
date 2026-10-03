@@ -65,7 +65,7 @@ Public tiers:
 - **Team** ($3/seat/month) — paid entitlements with seat management and invoicing.
 - **Education** — free, renewable, in-app verification for verified students and educators.
 
-A 14-day Pro trial is available without a credit card from Settings → License.
+A 14-day Pro trial is available without a credit card from Settings → Account → License.
 
 The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacode.dev/pricing) (canonical surface) and mirrors [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md) for in-repo reference.
 
@@ -98,7 +98,7 @@ These are deterministic captures from a released product build, not design mocku
 
 - Desktop app (Electron + Vite + React 19 + TypeScript, packaged with electron-builder and auto-updating from GitHub Releases) and a parallel web build for browser-based usage.
 - Monaco-powered editor with tabs, templates, inline execution results, magic-comment value surfacing (with `// @` completions and hover docs), inline per-line timing via `// @time` (each top-level statement shows its wall-clock duration, slowest line highlighted), command palette with a Cmd+; recent-commands stack, quick open, project-wide search, and snippet library.
-- **JavaScript and TypeScript debugger**: click-to-toggle pause, conditional, or logpoint markers in the Monaco gutter; step over/into/out, inspect locals and call stacks, and keep watch expressions refreshed at every pause. Conditions, watches, and `{expression}` log placeholders run through a bounded data-only interpreter rather than `eval` or `Function`.
+- **JavaScript and TypeScript debugger**: click-to-toggle pause, conditional, or logpoint markers in the Monaco gutter; step over/into/out, inspect locals and call stacks, and keep watch expressions refreshed at every pause. Conditions, watches, and `{expression}` log placeholders run through a bounded data-only interpreter rather than `eval` or `Function`. The desktop app also debugs Python (`pdb`), Go (Delve), and Rust (`lldb-dap`) through the same gutter, stepping, locals, call stack, and watches when the host debugger is installed.
 - **Smart paste**: pasting a share link, run capsule, cURL command, stack trace, or large JSON offers a one-click import to the right surface — and single values (JWT, UUID, color, Unix timestamp, cron expression, Base64, JSON snippets) offer to open pre-loaded in the matching developer utility.
 - **No-backend share links**: the result-panel share button encodes one bounded tab as a gzip-compressed, base64url URL fragment under `https://app.linguacode.dev/#share=v1.…`. The recipient previews and opens it locally; no database, upload, file path, environment value, license token, or execution result is included.
 - **Run Capsules**: portable, redacted JSON captures of a run (source, output, input, environment) with confirm-first import, a Pro capsule browser with compare, and one-click export to a self-contained syntax-highlighted HTML document. When a run needs a few related files, Capsule Workspaces package explicitly selected open text tabs behind an exact-source privacy review and reopen them inertly, with no backend or filesystem crawl.
@@ -107,7 +107,7 @@ These are deterministic captures from a released product build, not design mocku
 - **Notebook mode**: literate, multi-cell notebooks running TypeScript, Python (a persistent per-notebook kernel that shares imports and variables across cells), and SQL on the shared DuckDB engine; edits mark affected executed cells stale across languages, preserve old output, and refresh only on an explicit replay; homogeneous arrays render as tables; lossless export/import supports native `.linguanb` and Jupyter `.ipynb`.
 - **Confirm-first playground import**: paste a TypeScript Playground share link to decode it locally, or a Go Playground link to fetch only its official bounded plain-text source. Lingua shows the code before creating a tab, sends no URL or source through telemetry, rejects redirects and unsupported providers, and documents the exact network contract in the [import guide](./docs/IMPORTING.md).
 - **SQL workspace**: a DuckDB-WASM query workspace with a Monaco SQL editor, a column-aware schema browser and autocomplete, CSV/JSON/Parquet import as queryable tables, an on-demand Column Explorer that profiles a result's columns locally (type, null %, cardinality, min/max/avg/stddev) through DuckDB `SUMMARIZE`, opt-in OPFS persistence, and CSV/JSON/Markdown result export.
-- **Run Ledger**: an opt-in, local, queryable history of your manual runs, stored in the same DuckDB database the SQL workspace uses (schema `lingua_ledger`) so your history *is* a table you can query. Source code never touches the database — only a SHA-256 hash and redacted, length-capped stdout previews; Free keeps 7 days and paid tiers keep everything, with one-click Clear (drops the schema) and Export (every table as JSON). Off by default; enable it in Settings → Account.
+- **Run Ledger**: an opt-in, local, queryable history of your manual runs, stored in the same DuckDB database the SQL workspace uses (schema `lingua_ledger`) so your history *is* a table you can query. Source code never touches the database — only a SHA-256 hash and run metadata; stdin, stdout/stderr, error text, and tab names are never stored; Free keeps 7 days and paid tiers keep everything, with one-click Clear (drops the schema) and Export (every table as JSON). Off by default; enable it in Settings → Privacy.
 - **HTTP workspace**: compose HTTP requests, open bounded SSE/WebSocket sessions, and run named sequential request pipelines with reusable secret-aware `{{variable}}` environments. Response captures chain values into later steps, assertions can stop a pipeline, and cURL/Postman plus Bruno file/folder import stay local; see the [import guide](./docs/IMPORTING.md). Desktop networking uses an SSRF-guarded, DNS-pinned proxy with per-redirect checks and an explicit private-host opt-in. Copy-as-code supports cURL, `fetch`, `axios`, and Python `requests`.
 - Built-in runners for JavaScript, TypeScript, Python (Pyodide), Go (compiled locally to WASM), Rust (`rustc` native subprocess on desktop), and Ruby (hybrid: bundled `@ruby/wasm-wasi` worker everywhere, system `ruby` subprocess on desktop when preferred) — with a live download counter while a WASM runtime boots and actionable install-and-retry guidance when a native toolchain is missing.
 - **Desktop Node runtime**: switch any JavaScript or TypeScript tab to the local Node runtime for the full standard library (`fs`, `path`, `http`) and `require()` of every package already installed in the project's `node_modules` — the runner walks up from a saved tab's directory to find it. Node is spawned directly (never through a shell) with an allow-listed environment, a parent-owned timeout, and capped output; both ESM and CJS are detected from the file extension, the source syntax, and the nearest `package.json#type`.
@@ -124,11 +124,11 @@ These are deterministic captures from a released product build, not design mocku
 
 ## Runtime model
 
-- JavaScript and TypeScript run in renderer workers; Monaco diagnostics target the same ES2022 + Web Worker contract used by execution.
+- JavaScript and TypeScript run in renderer workers by default; Monaco diagnostics target the same ES2022 + Web Worker contract used by execution. Each JS/TS tab can switch runtime mode: Browser preview (sandboxed iframe with a DOM) everywhere, or the host Node, Deno, or Bun on desktop.
 - Python runs through Pyodide in both the desktop app and the web build.
 - Go is compiled to WebAssembly through the desktop IPC bridge and a local Go toolchain.
 - Rust is compiled and executed natively through the desktop IPC bridge and a local Rust toolchain.
-- Ruby is hybrid: a bundled `@ruby/wasm-wasi` worker runs everywhere, and the desktop app can dispatch to the system `ruby` instead (Settings → Editor → Ruby runtime: auto / system / wasm).
+- Ruby is hybrid: a bundled `@ruby/wasm-wasi` worker runs everywhere, and the desktop app can dispatch to the system `ruby` instead (Settings → Languages → Ruby runtime: auto / system / wasm).
 - Project test suites run only in the desktop app through capability-scoped main-process IPC; the web build does not expose a host-process bridge.
 - The integrated terminal runs only in desktop through an owner-bound pseudoterminal; it starts in the approved project root but remains the user's real unsandboxed shell.
 - SQL runs on DuckDB-WASM locally in both the desktop app and the web build (the web build fetches the oversized runtime from the download mirror); the same engine backs the SQL workspace and notebook SQL cells.
@@ -284,7 +284,7 @@ Public-release and security:
 Launch and product collateral:
 
 - [`docs/press-kit/`](./docs/press-kit/) — bilingual product descriptions, pricing reference, founder bio, and launch-channel drafts.
-- [`docs/seo-pages/`](./docs/seo-pages/) — SEO landing page scaffolds (five language-intent pages) consumed by `linguacode.dev`.
+- [`docs/seo-pages/`](./docs/seo-pages/) — SEO landing page scaffolds (seven language-intent pages) consumed by `linguacode.dev`.
 - [`docs/lessons/`](./docs/lessons/) — first-slice guided lesson scaffolds (en + es).
 
 ## Glossary
@@ -294,7 +294,7 @@ Project-specific acronyms used throughout this repository:
 - **ADR** — Architecture Decision Record. Markdown files under [`docs/`](./docs/) that capture the _why_ behind a design choice (e.g. [`docs/RUNTIME_MODES_ADR.md`](./docs/RUNTIME_MODES_ADR.md)).
 - **IPC** — Inter-Process Communication. Electron's main ↔ renderer message bridge that backs the filesystem, language toolchains, and license verification. See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 - **WASM** — WebAssembly. The bytecode format used to run Go through the desktop bridge and to host the Python (Pyodide) runtime in both desktop and web builds.
-- **JWT** — JSON Web Token. Wire shape of Lingua's offline-verifiable Ed25519-signed license tokens.
+- **JWT** — JSON Web Token. A token format several developer utilities decode. Lingua's own license tokens are not JWTs: they are a two-part `payload.signature` string (both base64url) signed with Ed25519 and verified offline.
 - **JWK** — JSON Web Key. Public-key encoding embedded at build time (`VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK`) and used by the renderer to verify those tokens.
 - **SEO** — Search Engine Optimization. Discoverability scaffolding for the language-intent landing pages under [`docs/seo-pages/`](./docs/seo-pages/), consumed by [linguacode.dev](https://linguacode.dev).
 

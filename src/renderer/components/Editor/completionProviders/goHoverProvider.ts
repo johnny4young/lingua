@@ -11,7 +11,7 @@ type HoverModel = Parameters<ProvideHover>[0];
 type HoverPosition = Parameters<ProvideHover>[1];
 
 /**
- * implementation — Monaco hover provider for Go. Delegates to gopls
+ * Monaco hover provider for Go. Delegates to gopls
  * via the adapter. Self-gates on `isGoLspAvailable()` so the web
  * build short-circuits without ever trying IPC.
  */

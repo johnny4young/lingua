@@ -1,6 +1,6 @@
 /**
  * Cross-platform path helpers used by renderer surfaces that need to
- * speak to the internal capability bridge.
+ * speak to the capability bridge.
  *
  * The renderer never sees Node's `path` module; both Windows (`\\`) and
  * POSIX (`/`) separators can show up in absolute paths arriving from
@@ -67,7 +67,7 @@ function encodeUriSegment(segment: string): string {
 }
 
 /**
- * implementation note — smart-truncate a long project root path
+ * smart-truncate a long project root path
  * for tooltips and the FileTree header. Three rules, applied in
  * order:
  *

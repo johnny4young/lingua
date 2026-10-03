@@ -1,5 +1,5 @@
 /**
- * implementation SEO scaffold guard — ensures every landing page the plan
+ * SEO scaffold guard — ensures every landing page the plan
  * enumerates exists, carries the required front-matter keys, links to
  * the canonical download, and includes an honest-limitations section.
  */

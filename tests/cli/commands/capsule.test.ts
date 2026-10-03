@@ -1,5 +1,5 @@
 /**
- * implementation — capsule validate command tests.
+ * Capsule validate command tests.
  */
 
 import { describe, expect, it } from 'vitest';

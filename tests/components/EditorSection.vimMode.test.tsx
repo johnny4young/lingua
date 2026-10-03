@@ -1,5 +1,5 @@
 /**
- * internal Vim mode toggle.
+ * Vim mode toggle.
  *
  * The settings toggle persists the `vimMode` flag and the editor surface
  * lazy-loads `monaco-vim` against it. These tests pin the toggle UI

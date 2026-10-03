@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the Recipes overlay.
+ * E2e for the Recipes overlay.
  *
  * Acceptance: Mod+Alt+L opens the Recipes overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full open + Run + Test
@@ -163,7 +163,7 @@ test.describe('Recipes overlay — Mod+Alt+L binding ', () => {
       })
     ).toBeVisible();
     await expect(page.getByTestId('recipe-run-panel-run')).toContainText(
-      /ejecuta \+ prueba/i
+      /ejecutar \+ prueba/i
     );
     await page.getByTestId('recipe-run-panel-run').click();
     await expect(page.getByTestId('recipe-run-panel-result-row')).toHaveCount(3);

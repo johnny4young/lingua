@@ -19,7 +19,7 @@ vi.mock('../../../src/renderer/runners', () => ({
 vi.mock('../../../src/renderer/utils/telemetry', () => ({
   trackEvent: vi.fn(),
 }));
-// implementation (Monaco cells) — cells host Monaco; jsdom needs the mock.
+// Cells host Monaco; jsdom needs the mock.
 vi.mock('@monaco-editor/react', async () => {
   const m = await import('../../__fixtures__/monacoEditorMock');
   return m.makeMonacoEditorMock();
@@ -122,7 +122,7 @@ describe('<NotebookView /> command mode', () => {
     await waitFor(() =>
       expect(shell('c1').getAttribute('data-cell-mode')).toBe('edit')
     );
-    // Monaco's Esc command (implementation note) routes to the row's command-mode drop.
+    // Monaco's Esc command routes to the row's command-mode drop.
     act(() => {
       cellMockHarness.commands.get(ESCAPE_CHORD)?.();
     });
@@ -269,15 +269,31 @@ describe('<NotebookView /> command mode', () => {
     ).toBe('code');
   });
 
-  it('Ctrl+C interrupts a running kernel', () => {
-    seed([codeCell('c1')], 'c1');
-    useNotebookStore.getState().setCellRunStatus(TAB_ID, 'c1', 'running');
+  it('Ctrl+C interrupts a running kernel', async () => {
+    let settle!: (value: unknown) => void;
+    mockExecute.mockImplementationOnce(
+      () => new Promise(resolve => {
+        settle = resolve;
+      })
+    );
+    seed([codeCell('c1', 'console.log(1)')], 'c1');
+    const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
+    await user.click(screen.getByTestId('notebook-toolbar-run-from-here'));
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
     fireEvent.keyDown(screen.getByTestId('notebook-cells'), {
       key: 'c',
       ctrlKey: true,
     });
+    // Only the runner the in-flight JS cell holds; Python may serve an editor run.
     expect(mockStop).toHaveBeenCalledWith('javascript');
+    expect(mockStop).not.toHaveBeenCalledWith('python');
+    await act(async () => {
+      settle({ kind: 'stopped', cancelled: true, stdout: [], stderr: [] });
+    });
+    await waitFor(() =>
+      expect(useNotebookStore.getState().getCellRunStatus(TAB_ID, 'c1')).toBe('stopped')
+    );
   });
 
   it('Ctrl+ArrowDown moves the active cell down', () => {

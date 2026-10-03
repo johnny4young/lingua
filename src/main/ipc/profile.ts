@@ -1,5 +1,5 @@
 /**
- * internal — confirm dialog for the destructive `replace` policy of the
+ * Confirm dialog for the destructive `replace` policy of the
  * profile-restore flow. Mirrors `app:confirm-close` in
  * `src/main/ipc/fileSystem.ts`. The renderer ProfileSection invokes
  * this only for `replace`; `merge` and `preserve` apply directly.
@@ -38,7 +38,7 @@ export function registerProfileHandlers(): void {
       rawCounts: unknown,
       language?: string
     ): Promise<Result<number, 'confirm-failed'>> => {
-      // internal — `counts` arrives over IPC; coerce to safe finite
+      // `counts` arrives over IPC; coerce to safe finite
       // integers so a renderer cannot make the dialog interpolate
       // `Infinity`, `NaN`, or string-shaped values that read as
       // garbage in the native message box.

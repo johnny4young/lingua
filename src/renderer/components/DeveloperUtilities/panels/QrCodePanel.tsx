@@ -112,7 +112,7 @@ export function QrCodePanel() {
   }, [mode, decodeResult, pngResult]);
   useRegisterUtilityOutput(registerOutput);
 
-  // implementation — Apply re-runs the live generation pipeline.
+  // Apply re-runs the live generation pipeline.
   // The output is already memoised via useEffect; the gesture exists
   // so a keyboard-only user can confirm "yes, encode this" and read
   // the success toast.

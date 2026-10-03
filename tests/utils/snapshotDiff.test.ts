@@ -18,7 +18,7 @@ function snapshot(
   };
 }
 
-describe('implementation — diffSnapshot', () => {
+describe('diffSnapshot', () => {
   describe('dynamic mode', () => {
     it('flags identical snapshots as identical', () => {
       const result = diffSnapshot({

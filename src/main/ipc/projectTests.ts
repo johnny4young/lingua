@@ -5,6 +5,7 @@ import { detectProjectTests, emptyProjectTestRunResult, runProjectTests } from '
 import { isProjectTestFramework, isProjectTestRunId } from '../../shared/projectTests';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
+import { onOwnerReset } from '../runners/ownerReset';
 
 interface OwnedRequest {
   rootId: string;
@@ -42,9 +43,9 @@ export function registerProjectTestHandlers(): void {
       const request = { rootId, controller: ownerLifecycle };
       owned.set(runId, request);
       requests.set(sender, owned);
-      const stopOnSenderDestroyed = () => ownerLifecycle.abort();
+      let stopObservingOwner = (): void => undefined;
       if (sender.isDestroyed()) ownerLifecycle.abort();
-      else sender.once('destroyed', stopOnSenderDestroyed);
+      else stopObservingOwner = onOwnerReset(sender, () => ownerLifecycle.abort());
       try {
         const rootPath = await authorizedProjectRoot(rootId);
         if (ownerLifecycle.signal.aborted) return emptyProjectTestRunResult('stopped', framework);
@@ -62,7 +63,7 @@ export function registerProjectTestHandlers(): void {
         });
       } finally {
         ownerLifecycle.abort();
-        sender.removeListener('destroyed', stopOnSenderDestroyed);
+        stopObservingOwner();
         if (owned.get(runId) === request) owned.delete(runId);
         if (owned.size === 0) requests.delete(sender);
       }

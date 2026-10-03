@@ -10,6 +10,7 @@ import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 import { bucketAutoLogCount } from './autoRunModel';
 import { preserveStickyLineResults } from './autoRunStickyResults';
 import { toConsoleEntries } from './runnerOutput';
+import { withE2eExecutionTime } from '../testing/e2eDurations';
 
 interface ApplyAutoRunResultOptions {
   autoLogEnabled?: boolean;
@@ -23,8 +24,9 @@ export function applyAutoRunResult({
   autoLogEnabled = false,
   code,
   language,
-  result,
+  result: measuredResult,
 }: ApplyAutoRunResultOptions): void {
+  const result = withE2eExecutionTime(measuredResult);
   const {
     setLineResults,
     setLineTimings,
@@ -53,7 +55,7 @@ export function applyAutoRunResult({
     : presentation.lineResults;
 
   setLineResults(nextLineResults);
-  // internal — publish per-statement timings alongside the line results.
+  // Publish per-statement timings alongside the line results.
   setLineTimings(result.lineTimings ?? []);
   setFullOutput(presentation.fullOutput);
 
@@ -68,7 +70,12 @@ export function applyAutoRunResult({
   setExecutionTime(result.executionTime);
 
   setError(primaryExecutionError(result));
-  if (executionKind(result) !== 'success') return;
+  if (executionKind(result) !== 'success') {
+    // A captured-expression failure still completes the program and emits a
+    // fresh scope; keep the previous one only when the run produced none.
+    if (result.scopeSnapshot !== undefined) setScopeSnapshot(result.scopeSnapshot);
+    return;
+  }
   captureSuccessfulSnapshot(language, code);
   setScopeSnapshot(result.scopeSnapshot ?? null);
   trackAutoRunAdoption(language, result);

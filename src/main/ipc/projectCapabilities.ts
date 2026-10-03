@@ -1,5 +1,5 @@
 /**
- * internal — Capability-based filesystem IPC sandbox.
+ * Capability-based filesystem IPC sandbox.
  *
  * The renderer used to hand main absolute filesystem paths and trust
  * that a denylist (`isPathBlocked`) caught the dangerous ones. A
@@ -44,7 +44,7 @@ import {
 } from '../../shared/fs/brandedIds';
 
 /**
- * implementation detail — the capability ids are branded `string` types so a
+ * The capability ids are branded `string` types so a
  * `WatchId` or a `RelativePath` can never be swapped in where a `RootId`
  * is expected (and vice versa). The brands are compile-time only and
  * erase to `string` over the IPC wire; the canonical definitions + cast

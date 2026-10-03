@@ -1,5 +1,5 @@
 /**
- * Renderer-side wrappers for the implementation Education flow.
+ * Renderer-side wrappers for the Education flow.
  *
  *   POST /education/start  — magic-link first step. Body returns
  *                            { ok: true, pending: true, message }

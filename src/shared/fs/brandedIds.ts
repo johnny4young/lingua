@@ -1,5 +1,5 @@
 /**
- * implementation detail — branded id types for the capability filesystem IPC
+ * Branded id types for the capability filesystem IPC
  * boundary.
  *
  * Pure module — no Electron, no React, no Node-only APIs — so it imports

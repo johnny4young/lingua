@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Component tests for the Welcome project
+ * Component tests for the Welcome project
  * templates panel. Locks the visible card count, the disabled-during-
  * scaffold guard, and the web-build short-circuit.
  */

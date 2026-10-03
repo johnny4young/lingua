@@ -135,7 +135,7 @@ async function installLicenseServerMock(page: Page): Promise<void> {
     });
   });
 
-  // implementation — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
+  // Every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
   // baked in (see playwright.license-web.config.mts). Tests that
   // grant consent (telemetry.spec.ts) install their own /telemetry
   // route to capture events; every other test seeds consent as

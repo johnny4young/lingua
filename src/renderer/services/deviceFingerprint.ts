@@ -1,5 +1,5 @@
 /**
- * Web-build device fingerprint helpers — implementation
+ * Web-build device fingerprint helpers.
  *
  * The desktop bridge owns the device id on disk
  * (`device-id.json` under `app.getPath('userData')`, see

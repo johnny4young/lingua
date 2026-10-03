@@ -1,5 +1,5 @@
 /**
- * FASE 0 — Signal-Slate <StatusBadge> render contract.
+ * Signal-Slate <StatusBadge> render contract.
  *
  * Covers:
  *   - Each tone maps to its expected DS token class triple.
@@ -34,7 +34,7 @@ const TONE_CLASSES: Record<StatusBadgeTone, string[]> = {
   neutral: ['bg-bg-panel-alt', 'text-fg-muted', 'border-border-subtle'],
 };
 
-describe('FASE 0 — <StatusBadge>', () => {
+describe('<StatusBadge>', () => {
   it('renders the tone label and reflects the tone on the data attribute', () => {
     const badge = renderBadge('pro');
     expect(badge).not.toBeNull();

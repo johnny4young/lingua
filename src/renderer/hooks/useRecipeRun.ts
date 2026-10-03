@@ -1,5 +1,5 @@
 /**
- * implementation — `useRecipeRun` hook.
+ * `useRecipeRun` hook.
  *
  * Orchestrates the Run + Test flow when a tab is bound to a recipe:
  *
@@ -16,10 +16,11 @@
  *          with the sentinel-prefixed lines.
  *        - License + native-execution gates do not apply (the bundled
  *          JS/TS/Python web runners are Free + local).
- *      The shared manual-running flag is still held while the worker is
- *      leased. That makes a pending auto-run stand down and lets the
+ *      The run still holds a manual-run session while the worker is
+ *      leased. That makes a pending auto-run stand down, lets the
  *      runner preempt an already-started auto-run without a later debounce
- *      cancelling the assertion execution.
+ *      cancelling the assertion execution, and gives the toolbar Stop a
+ *      cancel target.
  *   5. Parse `result.stdout` for sentinel-prefixed JSON lines via
  *      `parseAssertionResults`.
  *   6. Roll up to a closed-enum `RecipeRunStatus`, update the
@@ -49,6 +50,7 @@ import { useRecipeStore } from '../stores/recipeStore';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackRecipeTestRun } from './recipeTelemetry';
+import { beginManualRun } from '../runtime/manualRunSession';
 
 interface RecipeRunOutcome {
   readonly status: RecipeRunStatus;
@@ -91,16 +93,17 @@ export function useRecipeRun(): UseRecipeRunResult {
       return null;
     }
 
-    const resultStore = useResultStore.getState();
-    if (recipeStore.isTabRunning(tabId) || resultStore.isManualRunning) {
+    if (recipeStore.isTabRunning(tabId) || useResultStore.getState().isManualRunning) {
       return null;
     }
 
-    recipeStore.setRunning(tabId, true);
     // A recipe run is a user-triggered worker lease even though it does not
-    // publish to the Result panel. Reuse the established manual-run mutex so
-    // useAutoRun cannot start a competing execution after an editor change.
-    resultStore.setIsManualRunning(true);
+    // publish to the Result panel. Reuse the manual-run session so useAutoRun
+    // stands down and the toolbar Stop reaches this worker.
+    const session = beginManualRun(tab);
+    if (!session) return null;
+    const unregisterStop = session.onCancel(() => runnerManager.stop(recipe.language));
+    recipeStore.setRunning(tabId, true);
     try {
       const composed = buildLessonRunSource(
         recipe.language,
@@ -111,6 +114,7 @@ export function useRecipeRun(): UseRecipeRunResult {
         language: recipe.language,
         // No filePath, no env — recipes run as pure scratchpad code.
       });
+      if (!session.isCurrent()) return null;
       if (result.error) {
         throw new Error(result.error.message);
       }
@@ -135,6 +139,7 @@ export function useRecipeRun(): UseRecipeRunResult {
       trackRecipeTestRun({ language: recipe.language, status });
       return { status, results };
     } catch (err) {
+      if (!session.isCurrent()) return null;
       // Runner-level throw — surface one diagnostic row per assertion.
       const message = err instanceof Error ? err.message : String(err);
       const fallback: AssertionRunResult[] = recipe.assertions.map((a) => ({
@@ -153,7 +158,8 @@ export function useRecipeRun(): UseRecipeRunResult {
       });
       return { status: 'execution-error', results: fallback };
     } finally {
-      resultStore.setIsManualRunning(false);
+      unregisterStop();
+      session.finish();
       recipeStore.setRunning(tabId, false);
     }
   }, []);

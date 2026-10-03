@@ -1,5 +1,5 @@
 /**
- * implementation — extract code from an AI answer. Own module (not in
+ * Extract code from an AI answer. Own module (not in
  * ExplainErrorAnswer.tsx) so component files keep exporting only
  * components (react-refresh constraint).
  */

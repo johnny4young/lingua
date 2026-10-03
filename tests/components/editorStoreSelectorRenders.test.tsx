@@ -1,6 +1,6 @@
 /**
- * implementation (implementation, implementation note) — render-count probe for the audit's
- * literal AC: the App-level editorStore selectors (internal vintage,
+ * Render-count probe for the audit's
+ * literal AC: the App-level editorStore selectors (older vintage,
  * e.g. `s => s.activeTabId`) must not re-render their component on
  * unrelated store mutations such as `pendingReveal`. Asserted in both
  * directions so the test is a real contract, not a vacuous pass: an

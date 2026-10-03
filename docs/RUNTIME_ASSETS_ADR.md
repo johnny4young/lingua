@@ -1,8 +1,8 @@
 # Runtime Assets ADR
 
 > Scope: offline runtime assets and strict CSP.
-> Status: Closed 2026-05-04; hardened 2026-05-08. implementation vendored
-> Pyodide for desktop and tightened the desktop CSP. implementation originally
+> Status: Closed 2026-05-04; hardened 2026-05-08. The first change vendored
+> Pyodide for desktop and tightened the desktop CSP. The web build originally
 > used a cache-first CDN strategy for web; the hardening follow-up moved
 > web onto the same copied, same-origin Pyodide asset tree. The 2026-06-01
 > Cloudflare Pages hardening keeps Pyodide same-origin but serves oversized
@@ -145,7 +145,7 @@ Concretely:
 
 - **Custom protocol scheme (`lingua-asset://`)** — would let main
   serve Pyodide assets through `protocol.handle` with stricter
-  same-origin guarantees than `file://`. Rejected for implementation because
+  same-origin guarantees than `file://`. Rejected for the initial change because
   the plain copy-into-renderer-output approach already works under
   Electron's existing `loadFile` flow and adds no new IPC surface.
   The custom-protocol option remains open for a later work if we want

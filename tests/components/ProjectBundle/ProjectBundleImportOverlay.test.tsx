@@ -1,5 +1,5 @@
 /**
- * implementation — tests for the project bundle import overlay.
+ * Tests for the project bundle import overlay.
  * Exercises the empty state, file-pick → preview, the malformed reject
  * banner, the disabled-until-valid Import CTA, the confirm → hook call,
  * and an ES-locale render.
@@ -42,7 +42,7 @@ afterEach(async () => {
   await i18next.changeLanguage('en');
 });
 
-describe('internal — ProjectBundleImportOverlay', () => {
+describe('ProjectBundleImportOverlay', () => {
   it('renders the empty state with a disabled Import CTA', () => {
     render(<ProjectBundleImportOverlay onClose={vi.fn()} />);
     expect(screen.getByTestId('project-bundle-import-empty')).toBeTruthy();

@@ -7,7 +7,7 @@ interface RichValueMapSetProps {
 }
 
 /**
- * implementation — compact preview for `{ kind: 'map' | 'set' }`.
+ * Compact preview for `{ kind: 'map' | 'set' }`.
  * Echoes the `Map(N)` / `Set(N)` summary surface the inline pill
  * already emits (`formatPayloadInlineSummary`), with the type icon
  * promoted into the chrome.

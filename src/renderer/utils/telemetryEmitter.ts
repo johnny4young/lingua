@@ -27,7 +27,7 @@ import { isTelemetryEnabled, resolveTelemetryEndpoint } from './telemetryPolicy'
 var cachedSessionId: string | null = null;
 
 /**
- * implementation note — coalesce window for the `telemetry` trust event.
+ * Coalesce window for the `telemetry` trust event.
  * One record per minute is enough for the Privacy dashboard's "last call"
  * read while keeping the cap-200 trust log from filling with telemetry rows.
  */
@@ -69,7 +69,7 @@ async function emitTelemetryEvent(
   const endpoint = resolveTelemetryEndpoint();
   if (!isTelemetryEnabled() || !endpoint) return;
 
-  // implementation note — mirror the outbound telemetry into the local
+  // Mirror the outbound telemetry into the local
   // trust log so the Privacy dashboard's `telemetry` row shows a real last
   // call. Coalesced (<=1 / TELEMETRY_TRUST_THROTTLE_MS) because telemetry is
   // high-frequency and would otherwise churn the cap-200 trust log. `record`

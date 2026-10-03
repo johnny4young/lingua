@@ -27,7 +27,7 @@ import {
   collectTopLevelScopeNames,
 } from '../utils/scopeCapture';
 
-// implementation — the literal `DEFAULT_TIMEOUT` is gone; the
+// The literal `DEFAULT_TIMEOUT` is gone; the
 // runner reads the per-language preset from settings every time
 // `execute()` is called so a Settings change picks up on the very
 // next run without restarting the worker.
@@ -57,18 +57,18 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // implementation — origin capture is baseline; no runtime opt-out.
+    // Origin capture is baseline; no runtime opt-out.
     const sourceMappingEnabled = true;
     const sourceMaps: string[] = [];
     const recordMap = (map: string) => sourceMaps.unshift(map);
 
-    // internal debugger refinement — debug mode is now an explicit UI
+    // Debug mode is now an explicit UI
     // intent. Normal Run ignores breakpoints so gutter marks do not
     // silently change execution semantics; Debug instruments the source
     // and auto-disables loop protection only when an enabled breakpoint
     // exists in the active tab.
     const settings = useSettingsStore.getState();
-    // implementation — resolve the run-time deadline from the
+    // Resolve the run-time deadline from the
     // per-language preset whenever the caller did NOT pass an
     // explicit timeout. Caller overrides (one-shot extended,
     // magic-comment `// @timeout`) keep the original number and
@@ -83,7 +83,7 @@ export class JavaScriptRunner implements LanguageRunner {
     const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
       ? 'override'
       : presetForLanguage ?? 'normal';
-    // implementation — debugger is baseline; the Settings master toggle is gone.
+    // Debugger is baseline; the Settings master toggle is gone.
     const debuggerSettings = true;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
@@ -91,7 +91,7 @@ export class JavaScriptRunner implements LanguageRunner {
       : [];
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
-    // implementation — loop protection is baseline (the runtime kill switch
+    // Loop protection is baseline (the runtime kill switch
     // against `while(true)` cannot be user-tunable on a code editor).
     const { maxLoopIterations } = settings;
     const protectedCode = !debug
@@ -107,7 +107,7 @@ export class JavaScriptRunner implements LanguageRunner {
     // side-tables consulted at result-stitching time below.
     const { kindByLine: magicKindByLine, directiveByLine: magicDirectiveByLine } =
       buildMagicLineMaps(magicEntries);
-    // implementation — opt-in auto-log pass after the magic-comment
+    // opt-in auto-log pass after the magic-comment
     // transform. The detector excludes lines already claimed by an
     // arrow / watch (magic-comment precedence is preserved), and the
     // transform replaces each bare expression with a single
@@ -126,7 +126,7 @@ export class JavaScriptRunner implements LanguageRunner {
       }
     }
 
-    // implementation — per-statement timing markers, AFTER auto-log
+    // per-statement timing markers, AFTER auto-log
     // (the transformed capture lines are still single top-level
     // statements) and BEFORE scope capture so the appended capture code
     // is never attributed to a user statement. Enabled by the Settings

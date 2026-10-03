@@ -1,5 +1,5 @@
 /**
- * implementation — duckdbClient tests with an injected mock engine.
+ * duckdbClient tests with an injected mock engine.
  *
  * Exercises: happy path, sql-error classification, soft timeout via
  * Promise.race, too-large flag, engine-load-failed, multi-statement
@@ -180,6 +180,42 @@ describe('mapArrowTable', () => {
     expect(out.columns.map((c) => c.name)).toEqual(['id', 'name']);
     expect(out.rowCount).toBe(2);
     expect(out.tooLarge).toBe(false);
+  });
+
+  it('renders Arrow date and timestamp cells as ISO text', () => {
+    const day = Date.UTC(2026, 8, 29);
+    const out = mapArrowTable(
+      arrowTableFrom(
+        [
+          { name: 'd', type: 'Date32<DAY>' },
+          { name: 'ts', type: 'Timestamp<MICROSECOND>' },
+          { name: 'tz', type: 'Timestamp<MICROSECOND, UTC>' },
+          { name: 'n', type: 'Int64' },
+        ],
+        [{ d: day, ts: day + 3_600_000, tz: day, n: 5 }]
+      )
+    );
+    expect(out.rows[0]).toEqual({
+      d: '2026-09-29',
+      ts: '2026-09-29T01:00:00.000',
+      tz: '2026-09-29T00:00:00.000Z',
+      n: 5,
+    });
+  });
+
+  it('renders Arrow decimal word arrays as exact decimal text', () => {
+    const negativeOne = Uint32Array.from([0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff]);
+    const out = mapArrowTable(
+      arrowTableFrom(
+        [
+          { name: 'total', type: 'Decimal[38e0]' },
+          { name: 'price', type: 'Decimal[18e+2]' },
+          { name: 'debt', type: 'Decimal[38e0]' },
+        ],
+        [{ total: Uint32Array.from([58, 0, 0, 0]), price: Uint32Array.from([12345, 0, 0, 0]), debt: negativeOne }]
+      )
+    );
+    expect(out.rows[0]).toEqual({ total: '58', price: '123.45', debt: '-1' });
   });
 
   it('flags tooLarge when row count exceeds MAX_RESULT_ROWS', () => {
@@ -545,7 +581,7 @@ describe('OPFS persistence ', () => {
     expect(getResolvedSqlStorageRequestMode()).toBe('opfs');
   });
 
-  it('issues CHECKPOINT after a successful query when persistent (implementation note)', async () => {
+  it('issues CHECKPOINT after a successful query when persistent', async () => {
     const queries: string[] = [];
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
@@ -590,7 +626,7 @@ describe('OPFS persistence ', () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — previewImportFile + importFileAsTable.
+// previewImportFile + importFileAsTable.
 // ---------------------------------------------------------------------------
 
 interface ImportEngineLog {
@@ -787,7 +823,7 @@ describe('importFileAsTable', () => {
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
 
-  it('issues a CHECKPOINT after a persistent import (implementation note durability)', async () => {
+  it('issues a CHECKPOINT after a persistent import (durability)', async () => {
     const log = emptyLog();
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve(

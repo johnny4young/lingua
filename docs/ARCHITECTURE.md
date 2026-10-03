@@ -23,9 +23,12 @@ before notifying observers. Git reports a failed HEAD emission as `resolve-error
 and keeps the subscription disposable even if diagnostic delivery also fails.
 
 The desktop updater owns both its ten-second startup timeout and hourly poll.
-Both timers are unreferenced and cleared on `before-quit`, including an early
-quit before the initial check. This stops scheduled checks; it does not cancel
-an update request that has already started.
+Both timers are unreferenced and cleared on `will-quit`, including an early
+quit before the initial check, so a quit cancelled from the unsaved-changes
+prompt keeps the hourly poll. This stops scheduled checks; it does not cancel
+an update request that has already started. A failed later check keeps an
+already downloaded update in the `downloaded` state so Restart to update stays
+available.
 
 ## Telemetry responsibility boundaries
 
@@ -104,6 +107,22 @@ settle only when its kill timer fired, terminating the worker under whichever
 run was using it and forcing the next run to boot Ruby again.
 `tests/runners/ruby.test.ts` covers the boot overlap.
 
+Once a run is posted, the Python and WASM Ruby runners also listen for the
+worker's `error` event. A crash settles that run as an error at once and drops
+the worker so the next run boots fresh, rather than waiting for the kill timer
+to report a timeout. The boot keeps its own listener inside the init handshake,
+so a crash there still reports a load failure. The Ruby dispatcher counts
+`stop()` calls, so a Stop that lands while system Ruby detection is pending
+settles the run as stopped instead of spawning `ruby` afterwards; the system
+path runs against the run context's file path.
+
+The Browser preview runner needs the iframe its panel registers. A manual run
+brings the Browser preview tab to the front and waits up to 1.5 s for the panel
+to mount before reporting it missing; Stop ends that wait. A live refresh never
+switches bottom tabs: with no panel mounted it settles as stopped without an
+error. A panel that unmounts mid-run stops the run instead of leaving it to the
+deadline.
+
 ### Manual run ownership and cancellation
 
 All manual controls claim an in-memory session before loading the execution
@@ -125,6 +144,25 @@ is not persisted in tabs, settings, history or `RunCapsuleV1`, so existing saved
 sessions remain compatible. Regression coverage exercises Stop → Run → late result,
 cancelled preparation, closed tabs and cancellation during capsule construction.
 
+The result store mirrors the active tab only. A current session writes the result
+panel, countdown and termination pill only while its tab is active; switching tabs
+mid-run still lets it log to the console, record history and set that tab's
+execution badge. A Scratchpad tab whose auto-run was skipped because a manual run
+held the runner is scheduled once the session releases. Auto-run keys on its run
+inputs, not the tab object, so a save or panel toggle never aborts an in-flight
+auto-run, and a discarded auto-run never clears a newer run's countdown or pill.
+Recipe Run + Test claims the same session, so the toolbar Stop reaches its worker.
+
+Notebook JavaScript/TypeScript and Python cells run on the same language-keyed
+runners as Worker-mode JavaScript and Python editor tabs, and those runners
+terminate any run in flight when a new one starts. A running cell therefore
+claims its runner in memory before its first await. While the claim is held,
+Scratchpad auto-run on that runner waits and is scheduled on release, a manual
+run on it shows an info notice instead of starting, and another notebook's cell
+is refused. A cell refuses to start while a manual run uses its runner. An
+auto-run a cell preempts discards its result and runs again on release. Notebook
+Stop and notebook disposal stop only the runner their in-flight cell holds.
+
 ### Execution outcomes and captured errors
 
 A top-level `ExecutionResult.error` describes an aborting failure. A magic-comment
@@ -143,6 +181,9 @@ reconstructs that observed order across stdout/stderr only when every entry has
 a valid, distinct sequence. Legacy independently buffered pipes retain their
 per-stream order; no causal order between operating-system pipes is claimed.
 Manual streaming reconciles returned captures by object identity, never by text.
+Streaming obeys the per-run console caps: a runner streams an entry only when the
+cap kept it, the truncation marker once, and nothing after stderr's byte cap
+trips. Native Ruby and Node runs split each pipe into one row per line.
 Final publication does not replay already streamed output. A runtime diagnostic
 copy is distinct from independent user stderr, even when their text is identical.
 No persisted session or RunCapsuleV1 schema changes are required.
@@ -339,7 +380,8 @@ document order instead:
 Disposal also revokes the in-flight cell's session identity. A delayed SQL,
 Python, JavaScript, or TypeScript completion returns `session-disposed` rather
 than publishing outputs or status into a closed or same-ID reopened notebook.
-The runner may still settle, but it no longer owns the new notebook lifetime.
+Disposal also stops the runner the cell holds, so a closed notebook cannot keep
+it from editor runs; a late settle no longer owns the new notebook lifetime.
 The notebook hook counts active top-level cell/range/replay operations so an
 older finalizer cannot hide the busy state of a newer operation.
 
@@ -725,6 +767,12 @@ Why lazy expansion is used:
 - `createFile(parentPath, name)` calls `touch`, then appends a file node locally
 - `createDirectory(parentPath, name)` calls `mkdir`, then appends a directory node locally
 
+Both refuse a name already present in the loaded tree with a status notice.
+`touch` never truncates: it creates the file exclusively and returns `false`
+when an entry already exists, on desktop and web alike. The store appends a
+node only when `touch` or `mkdir` reports success, so a failed web write cannot
+leave a phantom entry.
+
 Why local mutation is used after successful IPC:
 
 - the user sees the new node immediately
@@ -734,6 +782,14 @@ Why local mutation is used after successful IPC:
 
 - `deleteEntry(...)` calls IPC delete, then removes the node if the deletion succeeded
 - `renameEntry(...)` calls IPC rename, then updates the node path/name locally
+
+Rename refuses to replace an existing sibling. Desktop allows the target only
+when it is the same inode as the source, which keeps case-only renames working
+on case-insensitive volumes. Web compares real sibling names case-insensitively,
+renames through `FileSystemHandle.move()` when the browser has it, and otherwise
+copies a file's bytes before deleting the original. Without `move()`, folder and
+case-only renames fail with an explicit error instead of losing data.
+Re-confirming the current name is a no-op in the tree.
 
 Why this is not purely watch-driven:
 
@@ -860,6 +916,19 @@ or from files under an approved project root, then mints a fresh process-local
 saved tabs ergonomic; the rootId capability remains the authority for every
 later read, write, watcher, search, or bundle operation.
 
+A file approved only because it sits under an approved root must also resolve
+there: `fs:reopen-file` compares the file's `realpath` with the root's
+`realpath` before minting. Single-file capabilities are rooted at the file's
+parent, so without that check a symlinked directory inside the project would
+move the grant outside it.
+
+Regex-mode replace (`fs:replaceInFiles` and `fs:applyReplaceInFile`) runs the
+user's pattern in a short-lived worker thread. Each file gets a hard deadline;
+on expiry main terminates the worker, reports that file as `regexTimedOut` and
+stops the scan, or fails the apply with `regex-timeout`. Literal mode escapes
+the query and stays on the main thread. Applied replacements keep the file's
+permission bits.
+
 #### Project text search
 
 Desktop Project Search keeps the capability boundary and path policy in main:
@@ -939,8 +1008,9 @@ The capability and lifecycle contract is:
   inherited API tokens or Node injection flags;
 - each session belongs to the initiating `WebContents`; input, resize, and stop
   requests must present that session id from the same owner;
-- main caps sessions per owner and request sizes, then stops sessions when the
-  root capability is revoked, the renderer is destroyed, or the app quits;
+- main caps sessions per owner (counting starts still in flight) and request
+  sizes, then stops sessions when the root capability is revoked, the renderer
+  is destroyed, reloaded or crashes, or the app quits;
 - the renderer retains a bounded transcript so output survives panel hiding and
   a natural shell exit without making terminal history persistent on disk.
 
@@ -978,7 +1048,8 @@ crossed. Silent omission is not allowed because it would turn a successful
 backup-looking artifact into data loss.
 
 Import validates the compressed-byte cap before decoding, rejects unsafe or
-duplicate paths, and streams input through `fflate` in bounded chunks. Honest
+duplicate paths (compared case-insensitively, because macOS and Windows volumes
+would merge them), and streams input through `fflate` in bounded chunks. Honest
 ZIP headers are rejected before their entry starts; actual inflated bytes are
 also counted per entry and across the archive so a forged `originalSize` cannot
 bypass the 16 MiB per-file or 200 MiB aggregate ceilings. Main repeats the same
@@ -1014,7 +1085,8 @@ and Capsules. Only the network transport varies by platform:
   mixed-content, forbidden-header, and private-network enforcement.
 - Desktop uses the optional `window.lingua.http` typed bridge. Main owns each
   run by renderer id plus opaque run id, aborts it when the renderer is
-  destroyed, and emits only bounded progress events.
+  destroyed, reloaded or crashes, and emits only bounded progress events,
+  coalesced to at most one every 100 ms with the latest body always delivered.
 - HTTP and SSE resolve and validate every redirect hop, remove authorization,
   cookie, proxy authorization, auth-injected, and user-sensitive headers when
   crossing origins, and pin undici's socket lookup to the addresses that passed
@@ -1083,7 +1155,7 @@ It exists to keep the explorer coherent when something changes on disk outside t
 Typical examples:
 
 - a file is edited by another tool
-- a implementation detail is created in Finder/Explorer
+- a folder is created in Finder/Explorer
 - a build process writes generated files
 
 ### Desktop watch flow
@@ -1093,7 +1165,8 @@ The desktop watch flow is:
 1. `openProject()` starts a watcher on the project root.
 2. The main process stores a stop function in a `Map`.
 3. Node's `fs.watch` emits coarse change events.
-4. The main process forwards them as `fs:changed`.
+4. The main process forwards them as `fs:changed`, rewriting Windows `\`
+   separators to `/` so event paths match the renderer's tree and tab keys.
 5. `useProjectWatchSync()` debounces the burst and collects the touched
    relative paths.
 6. Content `change` events that identify an open tab schedule a reload-from-disk notice.
@@ -1139,7 +1212,7 @@ granularity:
 - re-read the affected directories from disk (`applyWatchChanges()`)
   and patch the committed tree with what the `readdir` actually returned
 
-History: before internal the invalidation was root-granular — every burst
+History: before the incremental watcher path the invalidation was root-granular — every burst
 triggered a full `refreshTree()` walk. The incremental path replaced it
 as the hot path because full walks scaled poorly on large projects, but
 the DESIGN principle is unchanged: disk is the source of truth and the
@@ -1494,7 +1567,27 @@ The native process registry tracks the shared spawn boundary (also used by Rust 
 project tests) and the Deno/Bun launcher until close/error. Main shutdown cancels
 preparation and explicitly force-terminates remaining tracked trees because Electron
 may exit before an escalation timer fires. Settled runs release process entries and
-owner listeners. Shutdown cleanup runs on `will-quit`, after every window has
+owner listeners. JavaScript and native dependency installs register with the same
+registry, so shutdown also terminates their detached process groups. A Stop or
+timeout settles shortly after the direct child exits even when a descendant that
+escaped the tree kill still holds stdout or stderr; the pipes are destroyed rather
+than awaited. Output is decoded with a streaming UTF-8 decoder so a character split
+across chunks is not replaced.
+
+Per-window ownership ends with the document, not only the `WebContents`: a reload
+(the default View menu) or a renderer crash keeps the same `WebContents`, so native
+runs, project tests, debugger sessions, project terminals and HTTP streams also
+dispose on a committed main-frame navigation and on `render-process-gone`
+(`src/main/runners/ownerReset.ts`). Node and Ruby Stop and stdin requests are
+accepted only from the window that started the run.
+
+On Windows a bare command name is resolved against the spawn cwd before `PATH`,
+so the Node and Ruby runners and the Go, Cargo and Bundler installs spawn an
+absolute path found on an absolute `PATH` entry, and `.cmd`/`.bat` shims such as
+Bundler's run through the allow-listed `COMSPEC`. A tool that is not found reports
+a missing binary instead of falling back to the bare name.
+
+Shutdown cleanup runs on `will-quit`, after every window has
 closed, so a quit cancelled from the unsaved-changes prompt leaves active runs,
 debuggers, terminals and language servers untouched. This does not extend
 runtime permissions.
@@ -1552,7 +1645,7 @@ WASM size limit, Go runtime lookup order and zero-copy worker transfer remain.
 The optional final compile argument and additive result metadata preserve existing
 callers; the browser stop stub does not gain host execution authority.
 
-Desktop LSP startup may carry an optional RootId. Main resolves it through project capabilities and replaces the server context when the authorized project changes. Definition/reference destinations reuse the capability resolver and never authorize an arbitrary server URI. See [project navigation](LSP_PROJECT_NAVIGATION.md).
+Desktop LSP startup may carry an optional RootId. Main resolves it through project capabilities, starts the server at the authorized (symlink-preserving) root, and replaces the server context when the authorized project changes. Editor traffic for documents outside that root is dropped, every request carries a 30 second deadline, and a launcher disposed mid-startup never spawns its server. Definition/reference destinations reuse the capability resolver and never authorize an arbitrary server URI. See [project navigation](LSP_PROJECT_NAVIGATION.md).
 
 CLI regression suites are independent v1 artifacts with complete Capsule baselines. Current-file target resolution uses canonical in-root regular files; code execution itself is not sandboxed. Import/export/preview stay inert.
 

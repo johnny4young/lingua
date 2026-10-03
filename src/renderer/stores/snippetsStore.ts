@@ -57,7 +57,7 @@ export const useSnippetsStore = create<SnippetsState>()(
       pendingLinkedSnippetId: null,
 
       addSnippet: (snippet) => {
-        // internal: enforce the Free tier snippet ceiling. Grandfather any
+        // Enforce the Free tier snippet ceiling. Grandfather any
         // snippets already saved above the ceiling (users don't lose
         // data); only future additions are refused.
         const current = useSnippetsStore.getState().snippets.length;
@@ -66,7 +66,7 @@ export const useSnippetsStore = create<SnippetsState>()(
             messageKey: 'upsell.freeCeilingReached',
             featureLabel: i18next.t('upsell.feature.extraSnippets'),
           });
-          // internal — emit feature.blocked so the consenting user's
+          // Emit feature.blocked so the consenting user's
           // telemetry reflects the snippet-ceiling friction.
           void trackEvent('feature.blocked', {
             entitlement: 'snippets',

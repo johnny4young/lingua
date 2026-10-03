@@ -1,7 +1,7 @@
 /**
- * implementation — JS / TS dependency detector tests.
+ * JS / TS dependency detector tests.
  *
- * Covers the AC enumeration from the internal scope (comments,
+ * Covers the AC enumeration from the scope (comments,
  * strings, relative imports, Node built-ins, scoped packages) plus
  * the AST + regex-fallback split surfaced by the implementation.
  */

@@ -2,6 +2,7 @@ import type { EditorState } from '../types/editor';
 import i18next from 'i18next';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
+import { formatShortcutLabel } from '../data/keyboardShortcuts';
 import { trackEvent } from '../utils/telemetry';
 import {
   isRuntimeModeImplemented,
@@ -19,7 +20,7 @@ import {
 } from './editorTabUtils';
 
 /**
- * implementation — runtime/workflow mode + capability-toggle setter factory
+ * runtime/workflow mode + capability-toggle setter factory
  * for the editor store. Bundles `setTabRuntimeMode`, `setTabWorkflowMode`,
  * `setTabAutoLogEnabled`, `setTabStdinBuffer`, and the mutually-exclusive
  * `setTabCompareEnabled` / `setTabVariableInspectorEnabled`. Extracted verbatim
@@ -51,7 +52,7 @@ export function createModeActions(
         return;
       }
       if (!isRuntimeModeImplemented(mode)) {
-        // implementation note — surface a status notice when the
+        // Surface a status notice when the
         // user (via shortcut, palette, or programmatic call) tries to
         // switch into a mode that has not landed yet. Kept defensive
         // for future RuntimeMode enum additions.
@@ -88,7 +89,7 @@ export function createModeActions(
       useUIStore.getState().openBottomPanel(
         mode === 'browser-preview' ? 'browser-preview' : 'console'
       );
-      // implementation note — confirm the change with a soft
+      // Confirm the change with a soft
       // status-notice toast. The selector itself flips immediately;
       // this is the audit trail for users who change modes via the
       // keyboard cycle or the command palette.
@@ -97,7 +98,7 @@ export function createModeActions(
         messageKey: 'runtimeMode.changedNotice',
         values: { mode: i18next.t(`runtimeMode.mode.${mode === 'browser-preview' ? 'browserPreview' : mode}`) },
       });
-      // implementation note — funnel telemetry for runtime-mode
+      // Funnel telemetry for runtime-mode
       // adoption. Both `mode` and `language` are closed enums; the
       // shared allowlist + worker mirror enforce the contract.
       void trackEvent('runtime.mode_changed', {
@@ -110,7 +111,7 @@ export function createModeActions(
       const { tabs } = get();
       const target = tabs.find((t) => t.id === id);
       if (!target) return;
-      // implementation — refuse modes the language does not support.
+      // Refuse modes the language does not support.
       // The toolbar UI greys out unsupported segments so this branch
       // is only reachable via a programmatic / palette / shortcut
       // call. No status notice — the toolbar's tooltip already
@@ -131,6 +132,11 @@ export function createModeActions(
         useUIStore.getState().pushStatusNotice({
           tone: 'info',
           messageKey: 'workflowMode.firstSwitch.notice',
+          values: {
+            combo:
+              formatShortcutLabel('run-toggle', useSettingsStore.getState().shortcutOverrides) ??
+              '',
+          },
         });
         useSettingsStore.getState().acknowledgeFirstWorkflowModeSwitch();
       }
@@ -167,7 +173,7 @@ export function createModeActions(
           return { ...t, autoLogEnabled: enabled };
         }),
       }));
-      // implementation — the per-tab override path is the OTHER way to
+      // The per-tab override path is the OTHER way to
       // flip the auto-log gate (besides Settings → Editor). Emit the
       // adoption signal here too so the closed-enum metric in
       // `src/shared/telemetry.ts` counts BOTH surfaces consistently
@@ -185,7 +191,7 @@ export function createModeActions(
     },
 
     /**
-     * implementation — write the per-tab Compare toggle. `null`
+     * Write the per-tab Compare toggle. `null`
      * clears the field (the toggle returns to disabled). Compare and
      * Variables are mutually exclusive because both consume the result
      * panel's focused inspection surface; enforce that invariant here
@@ -202,7 +208,7 @@ export function createModeActions(
             void _drop;
             return rest;
           }
-          // implementation — mutual exclusion with Variables.
+          // Mutual exclusion with Variables.
           const { variableInspectorEnabled: _dropInspector, ...rest } = t;
           void _dropInspector;
           return { ...rest, compareWithSnapshotEnabled: true };
@@ -211,7 +217,7 @@ export function createModeActions(
     },
 
     /**
-     * implementation — write the per-tab Variables toggle. `null`
+     * Write the per-tab Variables toggle. `null`
      * clears the field. Mutually exclusive with `setTabCompareEnabled`:
      * enabling Variables forces Compare off. Unsupported runtimes no-op
      * before clearing Compare so the user cannot lose a valid Compare

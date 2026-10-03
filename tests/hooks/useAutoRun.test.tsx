@@ -5,9 +5,14 @@ import { runnerManager } from '@/runners';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useConsoleStore } from '@/stores/consoleStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 import { loadAutoRunExecution } from '@/hooks/autoRunExecutionLoader';
+import {
+  claimNotebookRunner,
+  resetNotebookRunnerLocksForTests,
+} from '@/stores/notebookRunnerLockStore';
 
 vi.mock('@/runners', () => ({
   runnerManager: {
@@ -87,8 +92,9 @@ describe('useAutoRun', () => {
     });
     useResultStore.setState(initialResult, true);
     useExecutionHistoryStore.setState(initialHistory, true);
-    // internal — pre-acknowledge native execution so the existing
-    // Go/Rust auto-run cases bypass the gate. The dedicated internal
+    resetNotebookRunnerLocksForTests();
+    // pre-acknowledge native execution so the existing
+    // Go/Rust auto-run cases bypass the gate. The dedicated native-execution
     // test below explicitly resets this to `false` to exercise the
     // gate behaviour.
     useSettingsStore.setState({ nativeExecutionAcknowledged: true });
@@ -137,7 +143,7 @@ describe('useAutoRun', () => {
     expect(runnerManager.stop).not.toHaveBeenCalled();
   });
 
-  it('implementation — buckets auto-log counts into the telemetry allowlist', () => {
+  it('buckets auto-log counts into the telemetry allowlist', () => {
     expect(bucketAutoLogCount(0)).toBe('1');
     expect(bucketAutoLogCount(1)).toBe('1');
     expect(bucketAutoLogCount(5)).toBe('2-5');
@@ -145,7 +151,7 @@ describe('useAutoRun', () => {
     expect(bucketAutoLogCount(21)).toBe('20-plus');
   });
 
-  it('internal — debounces rapid Browser preview edits into one 300 ms refresh without history', async () => {
+  it('debounces rapid Browser preview edits into one 300 ms refresh without history', async () => {
     const execute = mockSuccessfulRunner();
     seedBrowserPreviewTab();
     useExecutionHistoryStore.getState().record({
@@ -183,6 +189,25 @@ describe('useAutoRun', () => {
     expect(useExecutionHistoryStore.getState().entries).toEqual(historyBefore);
   });
 
+  it('keeps the console when a live preview refresh finds no mounted panel', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: [], stderr: [], executionTime: 0, error: null, cancelled: true, kind: 'stopped',
+    });
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({ runner: { execute }, initialized: false });
+    seedBrowserPreviewTab();
+    useConsoleStore.getState().clear();
+    useConsoleStore.getState().addEntries([{ type: 'log', args: ['kept'] } as never]);
+
+    renderHook(() => useAutoRun());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useConsoleStore.getState().entries).toHaveLength(1);
+    expect(useResultStore.getState().runTermination).toBeNull();
+  });
+
   it('names the running tab in the execution context', async () => {
     const execute = mockSuccessfulRunner();
     seedBrowserPreviewTab();
@@ -201,7 +226,7 @@ describe('useAutoRun', () => {
     );
   });
 
-  it('internal — Off leaves Browser preview manual-only', async () => {
+  it('Off leaves Browser preview manual-only', async () => {
     mockSuccessfulRunner();
     useSettingsStore.setState({ browserPreviewRefreshIntervalMs: 0 });
     seedBrowserPreviewTab();
@@ -215,7 +240,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('internal — a first-line 1000 override wins over the 300 ms setting', async () => {
+  it('a first-line 1000 override wins over the 300 ms setting', async () => {
     const execute = mockSuccessfulRunner();
     seedBrowserPreviewTab('// @preview-refresh 1000\ndocument.body.textContent = "slow";');
 
@@ -231,7 +256,7 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it('internal — switching runtime cancels an in-flight Browser preview refresh', async () => {
+  it('switching runtime cancels an in-flight Browser preview refresh', async () => {
     const execute = vi.fn(() => new Promise(() => {}));
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
       runner: { execute },
@@ -357,7 +382,7 @@ describe('useAutoRun', () => {
       await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
     });
 
-    // implementation — prepareRunner gained an optional
+    // prepareRunner gained an optional
     // runtimeMode arg. Non-JS/TS tabs leave runtimeMode undefined.
     expect(runnerManager.prepareRunner).toHaveBeenCalledWith('go', undefined);
     expect(useResultStore.getState().executionSource).toBe('auto');
@@ -545,7 +570,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().lineResults).toMatchObject([{ value: 'second auto output' }]);
   });
 
-  it('implementation — gates an incomplete JS buffer and never calls the runner', async () => {
+  it('gates an incomplete JS buffer and never calls the runner', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -570,7 +595,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('implementation — clears the gate reason when the buffer becomes complete', async () => {
+  it('clears the gate reason when the buffer becomes complete', async () => {
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
       runner: {
         execute: vi.fn().mockResolvedValue({
@@ -605,7 +630,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().autoRunGateReason).toBe('ok');
   });
 
-  it('implementation — restores the last successful snapshot on a gated keystroke', async () => {
+  it('restores the last successful snapshot on a gated keystroke', async () => {
     // Land a real run first so the snapshot captures naturally — the
     // tab-switch useEffect intentionally clears the snapshot on
     // mount, so we cannot just seed it via setState ahead of time.
@@ -677,7 +702,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('implementation — does NOT auto-run when workflow mode is `run`', async () => {
+  it('does NOT auto-run when workflow mode is `run`', async () => {
     // A complete JS buffer in Run mode must not auto-execute. The
     // user opted out of Scratchpad behavior on this tab; the only
     // way to produce output is the manual Run gesture.
@@ -706,7 +731,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().isAutoRunning).toBe(false);
   });
 
-  it('implementation — does NOT auto-run when workflow mode is `debug`', async () => {
+  it('does NOT auto-run when workflow mode is `debug`', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -731,7 +756,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('implementation — clears a visible Scratchpad gate when switching to Run mode', async () => {
+  it('clears a visible Scratchpad gate when switching to Run mode', async () => {
     useEditorStore.setState({
       tabs: [
         {
@@ -768,7 +793,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('implementation — cancels an in-flight Scratchpad auto-run when switching to Run mode', async () => {
+  it('cancels an in-flight Scratchpad auto-run when switching to Run mode', async () => {
     let resolveExecute!: (value: {
       stdout: Array<{ type: 'log'; args: string[] }>;
       stderr: [];
@@ -841,7 +866,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('implementation — cancels an in-flight Scratchpad auto-run when the buffer becomes empty', async () => {
+  it('cancels an in-flight Scratchpad auto-run when the buffer becomes empty', async () => {
     let resolveExecute!: (value: {
       stdout: Array<{ type: 'log'; args: string[] }>;
       stderr: [];
@@ -914,7 +939,7 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
-  it('implementation — still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
+  it('still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
     // Sanity check that the workflow-mode short-circuit doesn't
     // accidentally suppress Scratchpad-mode auto-run.
     vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
@@ -951,7 +976,7 @@ describe('useAutoRun', () => {
     expect(runnerManager.prepareRunner).toHaveBeenCalledWith('javascript', undefined);
   });
 
-  it('implementation — re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
+  it('re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
     const execute = vi.fn().mockResolvedValue({
       stdout: [],
       stderr: [],
@@ -989,7 +1014,7 @@ describe('useAutoRun', () => {
       autoLog: false,
       language: 'javascript',
       tabId: 'tab-js-auto-log-toggle',
-      // implementation — auto-run requests a scope capture for
+      // auto-run requests a scope capture for
       // inspector-supported languages so the toggle lights up on
       // the first clean run.
       captureScope: true,
@@ -1018,7 +1043,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('implementation — re-runs the same Scratchpad buffer when stdin changes', async () => {
+  it('re-runs the same Scratchpad buffer when stdin changes', async () => {
     const execute = vi.fn().mockResolvedValue({
       stdout: [],
       stderr: [],
@@ -1093,7 +1118,7 @@ describe('useAutoRun', () => {
     });
   });
 
-  it('internal — does NOT auto-run Go when native execution is unacknowledged', async () => {
+  it('does NOT auto-run Go when native execution is unacknowledged', async () => {
     // The trust-boundary modal lives behind manual Run; auto-run on a
     // Go tab the user never opted into would silently invoke the
     // host toolchain. The gate must short-circuit before
@@ -1125,5 +1150,182 @@ describe('useAutoRun', () => {
 
     expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
     expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  describe('in-flight run ownership', () => {
+    function deferredRunner() {
+      let resolveRun!: (result: unknown) => void;
+      const execute = vi.fn(
+        () => new Promise(resolve => {
+          resolveRun = resolve;
+        })
+      );
+      vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+        runner: { execute },
+        initialized: false,
+      } as never);
+      return { execute, resolve: (result: unknown) => resolveRun(result) };
+    }
+
+    const scratchpadTab = (id: string, content: string) => ({
+      id,
+      name: `${id}.js`,
+      language: 'javascript' as const,
+      content,
+      isDirty: true,
+      runtimeMode: 'worker' as const,
+      workflowMode: 'scratchpad' as const,
+    });
+
+    it('keeps the run when the tab is replaced with the same input', async () => {
+      const run = deferredRunner();
+      useEditorStore.setState({ tabs: [scratchpadTab('same', '1 + 1')], activeTabId: 'same' });
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(run.execute).toHaveBeenCalledOnce();
+
+      act(() => {
+        // A save commit and arming a one-shot timeout both replace the tab object.
+        useEditorStore.setState(state => ({
+          tabs: state.tabs.map(tab => ({ ...tab, isDirty: false })),
+        }));
+        useEditorStore.getState().setTabNextRunTimeoutOverride('same', 60_000);
+      });
+      await act(async () => {
+        run.resolve({ stdout: [{ type: 'log', args: ['2'], line: 1 }], stderr: [], executionTime: 1 });
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS * 2);
+      });
+
+      expect(run.execute).toHaveBeenCalledOnce();
+      expect(useResultStore.getState().lineResults).toEqual([{ line: 1, type: 'log', value: '2' }]);
+      expect(useResultStore.getState().isAutoRunning).toBe(false);
+    });
+
+    it('auto-runs a tab switched to during a manual run once that run releases', async () => {
+      const execute = mockSuccessfulRunner();
+      useEditorStore.setState({
+        tabs: [
+          { ...scratchpadTab('manual', 'console.log(1)'), workflowMode: 'run' as const },
+          scratchpadTab('scratch', '1 + 1'),
+        ],
+        activeTabId: 'manual',
+      });
+      useResultStore.setState({ isManualRunning: true });
+      renderHook(() => useAutoRun());
+      act(() => {
+        useEditorStore.setState({ activeTabId: 'scratch' });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(execute).not.toHaveBeenCalled();
+
+      act(() => {
+        useResultStore.setState({ isManualRunning: false });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(execute).toHaveBeenCalledWith('1 + 1', expect.objectContaining({ tabId: 'scratch' }));
+    });
+
+    it('waits for a notebook Python cell to release the runner, then auto-runs', async () => {
+      const execute = mockSuccessfulRunner();
+      useEditorStore.setState({
+        tabs: [{ ...scratchpadTab('py', 'print(1)'), name: 'py.py', language: 'python' as const }],
+        activeTabId: 'py',
+      });
+      const release = claimNotebookRunner('python', 'notebook-tab')!;
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS * 3);
+      });
+      expect(execute).not.toHaveBeenCalled();
+      expect(runnerManager.stop).not.toHaveBeenCalled();
+
+      act(() => {
+        release();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS * 3);
+      });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(execute).toHaveBeenCalledWith('print(1)', expect.objectContaining({ tabId: 'py' }));
+    });
+
+    it('ignores a notebook claim on a different runner', async () => {
+      const execute = mockSuccessfulRunner();
+      useEditorStore.setState({ tabs: [scratchpadTab('js', '1 + 1')], activeTabId: 'js' });
+      const release = claimNotebookRunner('python', 'notebook-tab')!;
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(execute).toHaveBeenCalledOnce();
+      release();
+    });
+
+    it('discards and reruns an auto-run a notebook cell preempted mid-flight', async () => {
+      const run = deferredRunner();
+      useEditorStore.setState({ tabs: [scratchpadTab('pre', '2 + 2')], activeTabId: 'pre' });
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(run.execute).toHaveBeenCalledOnce();
+
+      const release = claimNotebookRunner('javascript', 'notebook-tab')!;
+      await act(async () => {
+        run.resolve({ stdout: [], stderr: [], executionTime: 0, cancelled: true, kind: 'stopped' });
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS * 3);
+      });
+      expect(run.execute).toHaveBeenCalledOnce();
+      expect(useResultStore.getState().runTermination).toBeNull();
+      expect(useResultStore.getState().isAutoRunning).toBe(false);
+
+      act(() => {
+        release();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(run.execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves the countdown and pill of a manual run that preempted it', async () => {
+      const run = deferredRunner();
+      useEditorStore.setState({ tabs: [scratchpadTab('pill', 'while (x) {}')], activeTabId: 'pill' });
+      renderHook(() => useAutoRun());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+      });
+      expect(run.execute).toHaveBeenCalledOnce();
+
+      const manualDeadline = Date.now() + 30_000;
+      act(() => {
+        useResultStore.setState({
+          isManualRunning: true,
+          runDeadlineAt: manualDeadline,
+          runTermination: null,
+        });
+      });
+      await act(async () => {
+        run.resolve({
+          stdout: [],
+          stderr: [],
+          executionTime: 0,
+          cancelled: true,
+          kind: 'stopped',
+          error: { message: 'stopped' },
+        });
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(useResultStore.getState().runDeadlineAt).toBe(manualDeadline);
+      expect(useResultStore.getState().runTermination).toBeNull();
+    });
   });
 });

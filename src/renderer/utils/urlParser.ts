@@ -1,5 +1,5 @@
 /**
- * internal — URL Parser utility helper.
+ * URL Parser utility helper.
  *
  * Pure, offline, renderer-side. Uses the platform `URL` constructor for
  * parsing so behavior matches the browser address bar and the Electron

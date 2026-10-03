@@ -3,6 +3,10 @@
 import { type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Kbd } from '../ui/chrome';
+import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+} from '../../data/keyboardShortcuts';
 import { EyebrowMono } from '../ui/primitives';
 import { RAIL_ITEMS, type TabId } from './settingsRailModel';
 
@@ -90,7 +94,12 @@ export function SettingsRail({
                 <span className="truncate text-left">{t(item.labelKey)}</span>
                 {item.kbdToken ? (
                   <span className="settings-rail-shortcut ml-auto">
-                    <Kbd>⌘{item.kbdToken}</Kbd>
+                    <Kbd>
+                      {formatShortcutCombo(
+                        { tokens: ['Mod', item.kbdToken] },
+                        currentShortcutDisplayPlatform()
+                      )}
+                    </Kbd>
                   </span>
                 ) : null}
               </button>

@@ -1,5 +1,5 @@
 /**
- * implementation — main-side Git read-only handlers.
+ * main-side Git read-only handlers.
  *
  * Mocks the promisified `execFile` via the standard codebase pattern
  * (`vi.hoisted` + `nodejs.util.promisify.custom` symbol). Pinned
@@ -461,7 +461,7 @@ describe('getFileDiff', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — `.git/HEAD` watcher + `revealRepo` action.
+// `.git/HEAD` watcher + `revealRepo` action.
 // ---------------------------------------------------------------------------
 
 describe('resolveRepoHeadPath ', () => {

@@ -153,7 +153,7 @@ undocumented, drifted, duplicate, private, oversized, or invalid-status
 keyrings. It warns during the final `warnWindowDays` (14).
 
 **Where to read the fingerprint.** The guard prints the active thumbprint; the
-running app shows it under **Settings → License → Signing key fingerprint**.
+running app shows it under **Settings → Account → License → Signing key fingerprint**.
 `pnpm run dev:web:pro` / `dev:desktop:pro` print the session key fingerprint in
 their launch banner. The production app and guard must match the registry's
 `active` entry.
@@ -232,14 +232,13 @@ or website advisory.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
-stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
-findings are dev-only tooling paths: `tar@6` is held by Electron Forge's
-rebuild stack, while `sharp@0.34` is held by Wrangler/Miniflare. The patched
-`tar` line is a new major, and Miniflare currently pins `sharp` below its
-patched line exactly; neither should be forced across its parent toolchain
-without cross-platform validation. These paths do not ship in the packaged
-artifact. Re-check them on Electron Forge and Wrangler upgrades. Making the
-full audit blocking would
+stays advisory (`continue-on-error: true`): any `high`/`critical` finding it
+reports sits on a dev-only tooling path (for example Wrangler/Miniflare's
+`sharp`). Electron Forge and its legacy `tar` 6 graph were removed, so the root
+lockfile resolves only `tar` 7. A dev-only advisory should not be forced across
+its parent toolchain without cross-platform validation, because these paths do
+not ship in the packaged artifact. Re-check them on Wrangler upgrades. Making
+the full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
 

@@ -1,5 +1,5 @@
 /**
- * internal — single source of truth for the two language *membership*
+ * Single source of truth for the two language *membership*
  * sets that capability predicates across the app keep re-deriving
  * inline (`language === 'javascript' || language === 'typescript' ...`).
  *

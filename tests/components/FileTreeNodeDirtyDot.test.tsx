@@ -1,5 +1,5 @@
 /**
- * implementation — file tree dirty dot.
+ * File tree dirty dot.
  *
  * The dot appears next to a file's name iff there is an open tab that
  * is dirty AND whose `{ rootId, relativePath }` matches the tree

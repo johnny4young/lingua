@@ -1,5 +1,5 @@
 /**
- * implementation next slice implementation note — vega bundle bench guard.
+ * Vega bundle bench guard.
  *
  * `<RichValueChart>` lazy-imports `vega-embed` into a dedicated Vite
  * `vega-embed` manualChunk so charting never weighs on the initial

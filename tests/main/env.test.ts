@@ -1,7 +1,7 @@
 /**
- * implementation — main-process `env:snapshot` IPC handler.
+ * main-process `env:snapshot` IPC handler.
  *
- * The bridge exists so implementation can wire against a stable API shape, but
+ * The bridge exists so a later change can wire against a stable API shape, but
  * it must NOT leak the host environment into the renderer. The real
  * subprocess merge stays in main once runner integration lands.
  */

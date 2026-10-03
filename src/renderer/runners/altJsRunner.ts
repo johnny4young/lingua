@@ -1,5 +1,5 @@
 /**
- * implementation — renderer-side `LanguageRunner` for the Deno and Bun runtime modes.
+ * renderer-side `LanguageRunner` for the Deno and Bun runtime modes.
  *
  * Registered as the runtime-mode override for `'deno'` / `'bun'` in the
  * `RunnerManager` registry. JS / TS tabs whose `runtimeMode` selects one of
@@ -11,7 +11,7 @@
  * is NO esbuild transpile step — the raw source crosses IPC and the main
  * backend (`src/main/altJsRuntimes.ts`) writes it to a temp `.ts` / `.js`
  * file and spawns the binary. Everything else mirrors NodeRunner: per-run
- * timeout from the implementation presets, runId-anchored cancel, the canonical
+ * timeout from the presets, runId-anchored cancel, the canonical
  * `ExecutionResult` mapping, and a first-run trust notice (these runtimes
  * have full host access, same as node).
  *

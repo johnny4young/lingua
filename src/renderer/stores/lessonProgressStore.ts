@@ -1,12 +1,12 @@
 /**
- * implementation Slice B implementation note — Persisted recipe progress store.
+ * Persisted recipe progress store.
  *
  * Tracks which recipes the user has opened / attempted / passed /
  * skipped, so the overlay can sort by recent activity and the
- * sidebar badge (implementation note) can show a `passed / total` counter. Lives
+ * sidebar badge can show a `passed / total` counter. Lives
  * on its own isolated localStorage key (`lingua-lesson-progress`) so
  * a Settings reset doesn't wipe progress, and a "Reset recipe
- * progress" click (implementation note) doesn't touch `lingua-settings`.
+ * progress" click doesn't touch `lingua-settings`.
  *
  * Shape parity with `utilityPipelineStore` + `workspaceToolStore`:
  *
@@ -23,7 +23,7 @@
  *     details, NO output bytes.
  *   - The catalog recipeId is a public string; it never reaches the
  *     telemetry wire (`recipe.opened` / `recipe.test_run` carry
- *     `language` only, implementation note in the plan).
+ *     `language` only).
  */
 
 import { create } from 'zustand';
@@ -64,7 +64,7 @@ export interface LessonProgressState {
   markSkipped: (recipeId: string) => void;
   /** Reset a single recipe (drop the entry). */
   resetRecipe: (recipeId: string) => void;
-  /** implementation note — wipe the whole progress map. Used by Settings → Reset recipe progress. */
+  /** Wipe the whole progress map. Used by Settings → Reset recipe progress. */
   resetAll: () => void;
 
   // -------- selectors -----------------------------------------------------

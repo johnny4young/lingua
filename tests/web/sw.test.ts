@@ -7,8 +7,7 @@
  * The full end-to-end behaviour (API-origin requests are NOT in
  * `caches.keys()`) is covered by the browser smoke described in
  * AGENTS.md. These tests just keep a refactor from silently removing
- * the bypass and reintroducing the cache-poisoning bug from
- * internal
+ * the bypass and reintroducing the cache-poisoning bug.
  */
 
 import { readFile } from 'node:fs/promises';

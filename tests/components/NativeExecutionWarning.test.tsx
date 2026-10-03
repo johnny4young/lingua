@@ -1,5 +1,5 @@
 /**
- * internal — Trust-boundary modal renders + acknowledge / cancel
+ * Trust-boundary modal renders + acknowledge / cancel
  * paths + Escape semantics + persisted-flag flip.
  */
 
@@ -94,8 +94,12 @@ describe('NativeExecutionWarning', () => {
     const resume = vi.fn();
     useNativeExecutionGateStore.getState().request('go', resume);
 
+    const parentEscape = vi.fn();
+    window.addEventListener('keydown', parentEscape);
     render(<NativeExecutionWarning />);
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    window.removeEventListener('keydown', parentEscape);
+    expect(parentEscape).not.toHaveBeenCalled();
 
     expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
     expect(resume).not.toHaveBeenCalled();

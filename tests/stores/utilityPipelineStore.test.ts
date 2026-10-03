@@ -1,5 +1,5 @@
 /**
- * implementation — utilityPipelineStore tests.
+ * utilityPipelineStore tests.
  *
  * CRUD + LRU + import/export + sanitize-on-rehydrate (via reset).
  * Mirror coverage of `tests/stores/workspaceSqlStore.test.ts`.

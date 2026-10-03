@@ -1,6 +1,6 @@
 /**
- * internal ADR guard — the desktop build-system decision is a P1 doc that
- * blocks internal (Vite-major upgrade) and internal (Tauri spike) from
+ * Build-system ADR guard — the desktop build-system decision is a P1 doc that
+ * blocks the Vite-major upgrade and the Tauri spike from
  * drifting into undocumented migrations. This test fails CI if anyone
  * strips the decision, the scoring matrix, or the when-to-revisit
  * triggers.
@@ -20,7 +20,7 @@ describe('BUILD_SYSTEM_ADR.md', () => {
   const adr = existsSync(ADR_PATH) ? readFileSync(ADR_PATH, 'utf-8') : '';
 
   it('records the superseding migration to electron-builder', () => {
-    // internal originally accepted Electron Forge; superseded 2026-06-28 by the
+    // The ADR originally accepted Electron Forge; superseded 2026-06-28 by the
     // electron-builder + electron-updater + GitHub Releases migration.
     expect(adr).toMatch(/Status\s*\|\s*Superseded/i);
     expect(adr).toMatch(/electron-builder/i);
@@ -28,7 +28,7 @@ describe('BUILD_SYSTEM_ADR.md', () => {
     expect(adr).toMatch(/Stay on Electron Forge/i);
   });
 
-  it('scores the three options on every axis the internal scope names', () => {
+  it('scores the three options on every axis the scope names', () => {
     for (const axis of [
       'Vite-major agility',
       'Packaging + signing',
@@ -53,10 +53,5 @@ describe('BUILD_SYSTEM_ADR.md', () => {
     for (const marker of ['1.', '2.', '3.', '4.']) {
       expect(adr).toContain(marker);
     }
-  });
-
-  it('cross-links internal and internal so adjacent items stay findable', () => {
-    expect(adr).toContain('internal');
-    expect(adr).toContain('internal');
   });
 });

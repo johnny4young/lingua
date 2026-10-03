@@ -1,5 +1,5 @@
 /**
- * implementation — SqlWorkspacePanel tests.
+ * SqlWorkspacePanel tests.
  *
  * Mirror of `tests/components/HttpWorkspace/HttpWorkspacePanel.test.tsx`.
  * The DuckDB engine is injected via the `__setDuckDbEngineFactoryForTests`
@@ -78,7 +78,7 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// implementation — the SQL editor renders Monaco, which cannot mount in jsdom
+// The SQL editor renders Monaco, which cannot mount in jsdom
 // (it touches `CSS.escape` + a real theme service). Stand in a controlled
 // `<textarea>` that keeps the `sql-query-editor-textarea` testid the panel
 // tests query, and routes a real Cmd/Ctrl+Enter keypress to the run command
@@ -222,6 +222,18 @@ describe('SqlWorkspacePanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('sql-result-preview-table')).toBeTruthy();
     });
+  });
+
+  it('keeps the profile action for the last run across a panel remount', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-query-list-create'));
+    await user.type(screen.getByTestId('sql-query-editor-textarea'), 'SELECT 1');
+    await user.click(screen.getByTestId('sql-query-editor-run'));
+    await waitFor(() => expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy());
+    unmount();
+    render(<SqlWorkspacePanel />);
+    expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy();
   });
 
   it('renders the error band on a SQL error', async () => {
@@ -565,7 +577,7 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — keyboard-only import flow + preview modal a11y.
+// keyboard-only import flow + preview modal a11y.
 // ---------------------------------------------------------------------------
 
 /**
@@ -594,7 +606,7 @@ function importEngine(
             arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 3n }])
           );
         }
-        // internal — the browser now lists schema-qualified tables from
+        // The browser now lists schema-qualified tables from
         // information_schema.tables (SHOW TABLES only saw `main`).
         if (/FROM information_schema\.tables/i.test(sql)) {
           return mapArrowTable(

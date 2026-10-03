@@ -290,7 +290,7 @@ describe('DebuggerDrawer', () => {
     );
   });
 
-  it('chevron toggles drawerCollapsed and hides the body (implementation note)', () => {
+  it('chevron toggles drawerCollapsed and hides the body', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);

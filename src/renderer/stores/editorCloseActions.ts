@@ -25,7 +25,7 @@ import {
 } from './editorTabUtils';
 
 /**
- * implementation — close + rename action factory for the editor store.
+ * Close + rename action factory for the editor store.
  *
  * Bundles `closeTab` (dirty-confirm dialog, then `removeTab`) and its bulk
  * variants (`closeOtherTabs`, `closeTabsToRight`, `closeAllTabs` — each
@@ -60,11 +60,8 @@ export function createCloseActions(
       const response = await window.lingua.confirmCloseTab(tab.name, getActiveAppLanguage());
       if (response === 0) {
         const saved = await saveTabById(id);
-        if (
-          !saved ||
-          (tab.kind === 'notebook' && get().tabs.find(current => current.id === id)?.isDirty)
-        )
-          return false;
+        // Edits typed while the save was in flight keep any tab kind dirty.
+        if (!saved || get().tabs.find(current => current.id === id)?.isDirty) return false;
         removeTab(id);
         return true;
       } else if (response === 1) {
@@ -114,7 +111,7 @@ export function createCloseActions(
         useNotebookStore.getState().renameNotebookForTab(id, title);
         return;
       }
-      // implementation note — when a rename auto-corrects the
+      // When a rename auto-corrects the
       // workflow mode (e.g. JS Debug → Rust forces Run because Rust
       // has no debugger adapter), emit telemetry with
       // `trigger: 'language_change'` so the audit trail covers the
@@ -124,7 +121,7 @@ export function createCloseActions(
         from: WorkflowMode;
         to: WorkflowMode;
       }> = [];
-      // implementation — track whether the rename flipped the active
+      // Track whether the rename flipped the active
       // tab's language so we can drop the result-store comparator
       // snapshot below.
       let activeTabLanguageChanged = false;
@@ -151,7 +148,7 @@ export function createCloseActions(
           if (previousLanguage !== language) {
             tabLanguageChanged = true;
           }
-          // implementation note — when the new language is not
+          // When the new language is not
           // JS / TS, clear any persisted per-tab auto-log override so a
           // stale flag from before the rename does not influence the
           // resolved gate. The per-language Settings default is the
@@ -165,7 +162,7 @@ export function createCloseActions(
             isDirty: true,
           };
           if (languageSupportsAutoLog(language)) {
-            // implementation — the per-tab one-shot extended timeout
+            // The per-tab one-shot extended timeout
             // override is always scoped to the code the user was
             // looking at when they armed it. A rename to ANY new
             // language clears the override, even if the new language
@@ -200,7 +197,7 @@ export function createCloseActions(
         });
         return { tabs: next };
       });
-      // implementation — same-tab language change invalidates the
+      // same-tab language change invalidates the
       // result-store snapshot ring (it was captured for the previous
       // language and would surface as a stale comparator). Tab
       // switches handle their own cascade via `clear()`.

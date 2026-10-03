@@ -3,15 +3,15 @@
  *
  * Runs user code in an isolated context with console capture.
  * Communication via structured messages (JsWorkerInboundMessage in /
- * WorkerResponse out — see internal note above WorkerInboundMessage).
+ * WorkerResponse out — see the note above WorkerInboundMessage).
  *
- * internal: this worker no longer schedules its own deadline. The
+ * This worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
  * `worker.terminate()` if user code does not yield in time. The
  * `runId` from each `execute` request is echoed on every reply so
  * the parent can drop messages from a previous (terminated) run.
  *
- * implementation: when the renderer instrumented the source, the
+ * When the renderer instrumented the source, the
  * `execute` payload carries `{ debug: true, breakpoints, ... }`. The
  * worker injects two closure helpers — `__lingua_dbg_yield(line, getLocals)`
  * called before each statement, and `__lingua_dbg_frame(name, line)` /
@@ -20,9 +20,9 @@
  * contains the current line OR the current step mode dictates a stop;
  * otherwise the yield function fast-paths to `Promise.resolve()`.
  *
- * Reference: implementation and `docs/DEBUGGER_ADR.md`.
+ * Reference: `docs/DEBUGGER_ADR.md`.
  *
- * internal: trust boundary for the `new AsyncFunction(...)`
+ * Trust boundary for the `new AsyncFunction(...)`
  * eval in `js-worker-execution.ts`. The renderer/main thread is already
  * trusted and hands us the user's own source verbatim — no remote or adversarial input
  * reaches this surface, so this is NOT a sandbox for hostile code.

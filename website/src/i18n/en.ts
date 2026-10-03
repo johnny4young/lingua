@@ -218,7 +218,7 @@ export const en = {
           image: '/screenshots/tour/command-palette.png',
           alt: 'Command palette filtered by the query sql, showing the SQL workspace, escape tool, and SQL formatter',
           title: 'One palette for commands, templates, and utilities',
-          body: 'Cmd+K searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.',
+          body: 'Cmd+Shift+P searches everything at once — commands, snippets, templates, and every developer utility. Type three letters, hit Enter, keep coding.',
         },
         {
           image: '/screenshots/tour/utilities.png',
@@ -228,7 +228,7 @@ export const en = {
         },
         {
           image: '/screenshots/tour/sql-workspace.png',
-          alt: 'SQL workspace with an imported releases table, a formatted aggregate query, a results grid, and the column profile panel',
+          alt: 'SQL workspace with an imported releases table in the schema browser, a formatted aggregate query, and the column profile panel for its result',
           title: 'A full SQL workspace on DuckDB',
           body: 'Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.',
         },
@@ -252,7 +252,7 @@ export const en = {
       lede: 'Opt-in, bring-your-own-key, and local-first. Point it at a local model (Ollama, LM Studio) and your code never leaves the machine — or use any OpenAI-compatible endpoint. Lingua ships no default key and makes no background calls; every request shows you the exact payload first.',
       shot: {
         image: '/screenshots/tour/ai-explain.png',
-        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains the undefined property, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
+        alt: 'Explain-this-error dialog over a failed JavaScript run: the model explains reading a property of null, proposes a guarded fix in a code block, and offers Ask and Apply and re-run actions',
         caption:
           'A real answer from a local model — qwen3-coder on Ollama, no cloud round trip. The dialog previews the exact payload before anything is sent, and Apply & re-run patches the fix behind a diff you approve.',
       },
@@ -382,7 +382,7 @@ export const en = {
         'Checkout URL not configured yet — set PUBLIC_LS_CHECKOUT_* env vars in Cloudflare Pages',
       educationTitle: 'Education',
       education:
-        'Free Pro for one year, renewable. Open Lingua → Settings → License → Educational license, enter your school email (any .edu domain plus .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br, .ac.in), and confirm with the magic link we send. The token arrives by email and pastes itself into the app.',
+        'Free Pro for one year, renewable. Open Lingua → Settings → Account → License → Educational license, enter your school email (any .edu domain plus .ac.uk, .edu.mx, .edu.au, .edu.ca, .edu.br, .ac.in), and confirm with the magic link we send. The token arrives by email and pastes itself into the app.',
       tiers: [
         {
           id: 'free',
@@ -458,15 +458,15 @@ export const en = {
       },
       {
         q: 'Can I try Pro before paying?',
-        a: 'Yes — 14 days, no credit card. Open Lingua, go to <em>Settings → License → Try Lingua Pro free for 14 days</em>, enter your email, and click <em>Start Trial</em>. The token activates automatically (no manual paste). One trial per email and per device.',
+        a: 'Yes — 14 days, no credit card. Open Lingua, go to <em>Settings → Account → License → Try Lingua Pro free for 14 days</em>, enter your email, and click <em>Start free trial</em>. The token activates automatically (no manual paste). One trial per email and per device.',
       },
       {
         q: 'How does the education program work?',
-        a: 'Verified students and educators get free Pro for one year, renewable. Open Lingua → <em>Settings → License → Educational license</em>, enter your school email (any <code>.edu</code> domain plus <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>, <code>.edu.br</code>, and <code>.ac.in</code>), and confirm with the magic link we send you. The token arrives by email and pastes itself into the app.',
+        a: 'Verified students and educators get free Pro for one year, renewable. Open Lingua → <em>Settings → Account → License → Educational license</em>, enter your school email (any <code>.edu</code> domain plus <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>, <code>.edu.br</code>, and <code>.ac.in</code>), and confirm with the magic link we send you. The token arrives by email and pastes itself into the app.',
       },
       {
         q: 'Can I move my license between machines?',
-        a: 'Yes. A Pro license is bound to a small set of devices (currently three). When you buy a new machine, deactivate the old one from Settings → License — the slot frees up immediately. No phone-home, no waiting on a server.',
+        a: 'Yes. A Pro license is bound to a small set of devices (currently three). When you buy a new machine, deactivate the old one from Settings → Account → License — the license server frees the slot immediately. Signature checks stay offline, so a launch never waits on the server.',
       },
       {
         q: 'What happens after my one-time Pro updates end?',
@@ -644,7 +644,7 @@ export const en = {
       },
       {
         title: 'About Lingua — 150 words',
-        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Ruby, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — no phone-home required. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
+        body: 'Lingua is a commercial multi-language desktop code runner. JavaScript, TypeScript, Python, Ruby, Go, and Rust are first-class citizens — each with its own runner, templates, and inline result panel — and they live inside the same offline-first Monaco-powered app. Developer utilities (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter, JWT decoder, color converter, diff viewer) are built in, so the app replaces the half-dozen browser tabs that usually sit alongside a code runner. Snippets, project indexing, quick-open, project search, and customizable shortcuts keep the workflow fast. Paid tiers (Monthly, one-time Pro, Team per seat) unlock via a signed license key verified offline — startup never waits on a server. Education access is free for verified students and teachers. The repository is source-available for evaluation and contributor review under the Lingua Commercial License.',
       },
       {
         title: 'Founder bio — 40 words',
@@ -667,7 +667,7 @@ export const en = {
       intro: 'Things to flag in writeups, in fairness to readers:',
       items: [
         "Lingua is source-available, not open source. Please don't describe it as MIT, Apache, or GPL.",
-        'License keys are offline-verifiable — there is no phone-home or account check at launch time.',
+        'License signatures verify offline. With a license applied, the desktop app refreshes its status with the license server in the background at launch; that check never blocks startup, and an unreachable server falls back to the locally verified license.',
         'Six languages run today. Six more are tracked but not yet shipped.',
         'The desktop app runs fully offline. The web build needs network for the first page load.',
       ],

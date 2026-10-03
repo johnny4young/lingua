@@ -1,5 +1,5 @@
 /**
- * implementation — coverage for the Go / Rust stdout splitter
+ * Coverage for the Go / Rust stdout splitter
  * that enriches `ConsoleOutput.line` with `file.ext:N` references.
  */
 

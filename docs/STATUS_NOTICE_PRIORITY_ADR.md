@@ -1,7 +1,7 @@
 # Status Notice Priority — ADR
 
 > Decision record for the `priority` field added to
-> `StatusNotice` in implementation Lives under `docs/` next to
+> `StatusNotice`. Lives under `docs/` next to
 > the other ADRs so the reasoning stays close to the surface it
 > changed.
 
@@ -12,10 +12,10 @@ every call to `pushStatusNotice` overwrites whatever notice is
 currently visible, the displaced notice's `onDismiss('auto')` fires
 for telemetry attribution, and the new notice starts its 6 s TTL
 fresh. This "last writer wins" contract has been the renderer
-convention since internal and 134 call sites depend on it.
+convention since the status notice shipped, and 134 call sites depend on it.
 
-The contract broke for internal's onboarding choreography. The implementation
-reviewer pass observed the first-run toast (`onboarding.firstRun.
+The contract broke for the onboarding choreography. A review
+pass observed the first-run toast (`onboarding.firstRun.
 message` with the Save-as-snippet CTA) being clobbered within ~600 ms
 of being pushed, even though `hasCompletedOnboardingFirstRun`
 flipped to `true` (proving `pushStatusNotice` was invoked). A
@@ -24,7 +24,7 @@ onboarding toast before the user could read it. Fresh-install users
 never reached the CTA, so the viral path (open a share link → see
 seed → run → save snippet → browse library) was silently dead.
 
-Two options surfaced in the implementation plan:
+Two options surfaced during planning:
 
 1. **Pad-inicial.** Wrap the first-run toast push in
    `setTimeout(..., 800 ms)` so any boot notice ages out first.
@@ -34,7 +34,7 @@ Two options surfaced in the implementation plan:
    134 legacy callers (no behavior change), `'high'` for the two
    onboarding toasts. `pushStatusNotice` refuses to swap a `'high'`
    for a `'normal'` push. Trade-off: schema change to a primitive
-   that's been stable since internal
+   that has been stable since it shipped.
 
 ## Decision
 
@@ -52,9 +52,9 @@ Ship option 2 (priority field). Rationale:
 - **Errors override priority.** A real error (`tone: 'error'`)
   bypasses the priority check unconditionally. The user always
   reaches errors, even if an onboarding toast is up.
-- **Discoverable for the future.** implementation of internal ships the
-  intro video + per-language seed variants; those choreographed
-  surfaces will reuse the `'high'` tier without further plumbing.
+- **Discoverable for the future.** Later onboarding work (an
+  intro video + per-language seed variants) and other choreographed
+  surfaces can reuse the `'high'` tier without further plumbing.
 - **Telemetry-attributed.** `onboarding.toast_clobbered { outstandingStage }`
   fires every time `'high'` saves a toast from being replaced, so
   we can measure how often the priority actually does work in the
@@ -88,7 +88,7 @@ Ship option 2 (priority field). Rationale:
 ### Migration path
 
 Future surfaces that need to survive replacement should claim
-`'high'` priority explicitly. The implementation commit adds a single
+`'high'` priority explicitly. The initial change adds a single
 helper pattern (the two onboarding pushes) that future code can
 mirror.
 
@@ -116,4 +116,4 @@ The 134 legacy callers are unaffected by the removal.
 
 ## Status
 
-Accepted. Shipped in implementation (2026-05-22).
+Accepted. Shipped 2026-05-22.

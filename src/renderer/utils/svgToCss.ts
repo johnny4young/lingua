@@ -1,5 +1,5 @@
 /**
- * internal — SVG → CSS converter helper.
+ * SVG → CSS converter helper.
  *
  * Pure, offline, renderer-side. Takes SVG markup and a chosen encoding
  * strategy, returns a tagged-union result carrying a `data:image/svg+xml;…`

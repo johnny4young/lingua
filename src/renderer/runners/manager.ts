@@ -37,7 +37,7 @@ const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
   typescript: () => new TypeScriptRunner(),
   go: () => new GoRunner(),
   python: () => new PythonRunner(),
-  // implementation — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // Ruby web runtime via `@ruby/wasm-wasi`. The
   // pack's `runnerId` flipped from `null` to `'ruby'` in the same
   // slice; the factory must land alongside or the registry walk
   // skips the entry and Ruby tabs fall through to the
@@ -355,7 +355,7 @@ export class RunnerManager {
   }
 
   /**
-   * implementation — accessor for the PythonRunner so
+   * Accessor for the PythonRunner so
    * `pythonWebInstaller` can reach the same Pyodide worker the
    * runner already manages. Returns `null` if Python isn't a
    * registered language pack (defensive — `LANGUAGE_PACKS` always
@@ -372,7 +372,7 @@ export class RunnerManager {
     for (const runner of this.runners.values()) {
       runner.stop();
     }
-    // implementation — runtime-mode-keyed runners (BrowserPreview
+    // runtime-mode-keyed runners (BrowserPreview
     // today) also need stopping; otherwise an in-flight iframe run
     // would keep streaming console events after a teardown.
     for (const runner of this.runtimeModeRunners.values()) {

@@ -5,7 +5,7 @@ import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
 
 /**
- * internal — pure tab helpers extracted verbatim from `editorStore.ts`.
+ * Pure tab helpers extracted verbatim from `editorStore.ts`.
  *
  * This module owns the language-capability droppers (auto-log, stdin, compare,
  * variable inspector, recipe binding, one-shot timeout), notebook-title
@@ -45,7 +45,7 @@ export function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
 }
 
 /**
- * implementation — the worker-side stdin patch ships for the three
+ * The worker-side stdin patch ships for the three
  * languages whose runner goes through a worker today: JS / TS via
  * `js-worker.ts` and Python via `python-worker.ts`. Go / Rust runners
  * are WASM-based (Go) or compile-and-run on the host; threading
@@ -72,7 +72,7 @@ export function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {
   return rest as T;
 }
 
-/** internal — keep persisted input sets bounded and safe to render. */
+/** Keep persisted input sets bounded and safe to render. */
 export const MAX_INPUT_SETS_PER_TAB = 20;
 export const MAX_INPUT_SET_NAME_LENGTH = 60;
 export const MAX_INPUT_ARGS_PER_SET = 64;
@@ -108,7 +108,7 @@ export function sanitizeInputSets(value: unknown): InputSet[] {
 }
 
 /**
- * implementation note — drop the per-tab one-shot extended
+ * Drop the per-tab one-shot extended
  * timeout when the tab no longer points at the code the user was
  * inspecting. Rename to a different language is the canonical case:
  * the user pressed "Run with extended timeout" while looking at a
@@ -125,7 +125,7 @@ export function dropNextRunTimeoutOverride<T extends FileTab>(tab: T): T {
 }
 
 /**
- * implementation — drop the per-tab Compare flag whenever the
+ * Drop the per-tab Compare flag whenever the
  * language changes (rename / Save-As). The comparator snapshot is
  * tracked by the result store; the editor-store side just owns the
  * toggle bit. Symmetric to `dropAutoLogIfUnsupported` /
@@ -143,7 +143,7 @@ export function dropCompareIfLanguageChanged<T extends FileTab>(
 }
 
 /**
- * implementation — a recipe binding belongs to one exact language.
+ * A recipe binding belongs to one exact language.
  * Any rename / Save-As that changes that language drops the binding;
  * otherwise TypeScript syntax could reach a JavaScript recipe (or a
  * Python assertion pack) after a filename-only transition. Mirrors
@@ -162,7 +162,7 @@ export function dropRecipeBindingIfLanguageChanged<T extends FileTab>(
 }
 
 /**
- * implementation — set of languages the variable inspector
+ * Set of languages the variable inspector
  * captures for. Renames / Save-As to a language outside this set
  * drops the per-tab inspector flag.
  */
@@ -177,7 +177,7 @@ export function isVariableInspectorSupportedLanguage(language: Language): boolea
 }
 
 /**
- * implementation — drop the per-tab variable inspector flag when
+ * Drop the per-tab variable inspector flag when
  * the rename / Save-As lands on a language outside the supported
  * set. The scope snapshot itself is tracked by the result store;
  * this helper only owns the toggle bit.
@@ -218,7 +218,7 @@ export const UTILITIES_WORKSPACE_TAB_NAME = 'Utilities';
 
 /**
  * A SQL / HTTP / Utilities workspace tab is the container for a whole collection,
- * not a single document, so it is EXEMPT from the internal Free tab
+ * not a single document, so it is EXEMPT from the Free tab
  * budget — a Free user always gets the workspaces. Only
  * non-workspace tabs (code + notebook) count toward the ceiling.
  */
@@ -238,10 +238,10 @@ export function budgetedTabCount(tabs: ReadonlyArray<FileTab>): number {
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
-  // implementation — JS/TS tabs adopt the per-app default mode (fold
+  // JS/TS tabs adopt the per-app default mode (fold
   // B). Non-JS/TS tabs deliberately omit the field.
   const runtimeMode = runtimeModeForNewTab(language);
-  // implementation — every tab carries an explicit workflow mode so
+  // Every tab carries an explicit workflow mode so
   // the toolbar segmented control and `useAutoRun` short-circuit
   // both have a single source of truth. Language-specific defaults
   // come from `settingsStore.workflowModeDefaultsByLanguage` (when

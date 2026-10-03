@@ -1,5 +1,5 @@
 /**
- * implementation — Capture sub-tab (request chaining).
+ * Capture sub-tab (request chaining).
  *
  * A table of post-response capture rules. After a request succeeds, each
  * enabled rule reads a value from the response (a JSON body path, a

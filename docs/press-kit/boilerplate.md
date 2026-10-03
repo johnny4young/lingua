@@ -30,8 +30,8 @@ replaces the half-dozen browser tabs that usually sit alongside a code
 runner. Snippets, project indexing, quick-open, project search, and
 customizable shortcuts keep the workflow fast. Public tiers are Free,
 Monthly, Pro, Team, and Education, with paid access
-unlocked via a signed license key verified offline — no phone-home
-required. Education access is free for verified students and teachers.
+unlocked via a signed license key verified offline — startup never
+waits on a server. Education access is free for verified students and teachers.
 The repository is source-available for evaluation and contributor
 review under the Lingua Commercial License.
 
@@ -66,7 +66,7 @@ navegador que suelen acompañar a un ejecutor de código. Snippets,
 indexación de proyecto, apertura rápida, búsqueda de proyecto y atajos
 de teclado personalizables mantienen el flujo rápido. Los tiers públicos
 son Free, Mensual, Pro, Team y Educativa, con acceso de
-pago activado por una licencia firmada verificada offline — sin
-phone-home. El acceso educativo es gratuito para estudiantes y
+pago activado por una licencia firmada verificada offline — el arranque
+nunca espera a un servidor. El acceso educativo es gratuito para estudiantes y
 profesores verificados. El repositorio es source-available para
 evaluación y revisión bajo la Lingua Commercial License.

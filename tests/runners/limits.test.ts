@@ -1,5 +1,5 @@
 /**
- * internal — limits.ts unit tests.
+ * limits.ts unit tests.
  *
  * Pin the truncation contract for the runner output caps so the
  * renderer's console / result panels never ingest unbounded
@@ -24,7 +24,9 @@ import {
   MAX_RESULT_BYTES,
   MAX_STDERR_BYTES,
   appendCappedConsole,
+  appendCappedOutput,
   capStderrIfOverflowing,
+  createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
   truncateSerialized,
@@ -81,6 +83,33 @@ describe('appendCappedConsole', () => {
       'runner.truncated.console'
     );
     expect(dropped).toBe(5);
+  });
+});
+
+describe('appendCappedOutput', () => {
+  it('streams kept entries, the console notice once, and nothing after', () => {
+    const collected = { stdout: [] as ConsoleOutput[], stderr: [] as ConsoleOutput[] };
+    const caps = createConsoleCapState();
+    const live: ConsoleOutput[] = [];
+    for (let i = 0; i < MAX_CONSOLE_ENTRIES + 5; i += 1) {
+      const entry = appendCappedOutput(collected, caps, makeEntry(`line-${i}`), false, t);
+      if (entry) live.push(entry);
+    }
+    expect(live).toHaveLength(MAX_CONSOLE_ENTRIES + 1);
+    expect(live.at(-1)).toBe(collected.stdout[MAX_CONSOLE_ENTRIES - 1]);
+    expect(live.at(-1)?.args).toEqual(['runner.truncated.console']);
+  });
+
+  it('streams the stderr byte notice in place of the oversized entry, then stops', () => {
+    const collected = { stdout: [] as ConsoleOutput[], stderr: [] as ConsoleOutput[] };
+    const caps = createConsoleCapState();
+    const error = (text: string): ConsoleOutput => ({ type: 'error', args: [text] });
+    expect(appendCappedOutput(collected, caps, error('before'), true, t)?.args).toEqual(['before']);
+    const notice = appendCappedOutput(collected, caps, error('x'.repeat(MAX_STDERR_BYTES)), true, t);
+    expect(notice).toBe(collected.stderr[0]);
+    expect(notice?.args).toEqual(['runner.truncated.stderr']);
+    expect(appendCappedOutput(collected, caps, error('after'), true, t)).toBeNull();
+    expect(collected.stderr).toHaveLength(1);
   });
 });
 
@@ -165,7 +194,7 @@ describe('runnerTimeoutResult', () => {
   it('builds a deterministic timeout-shaped ExecutionResult with translated copy', () => {
     const stdout: ConsoleOutput[] = [{ type: 'log', args: ['before stall'] }];
     const stderr: ConsoleOutput[] = [];
-    // implementation note — the timeout result appends the
+    // The timeout result appends the
     // "open Settings" hint when the run used a Settings-driven
     // preset (not an explicit caller override). The 4th arg is
     // omitted here, which is treated like the preset path.
@@ -177,7 +206,7 @@ describe('runnerTimeoutResult', () => {
     expect(result.stdout).toBe(stdout);
     expect(result.stderr).toBe(stderr);
     expect(result.result).toBeUndefined();
-    // implementation — explicit kind + duration carried on the
+    // Explicit kind + duration carried on the
     // result so the renderer pill self-gates without regex.
     expect(result.kind).toBe('timeout');
     expect(result.timeoutMs).toBe(3_000);

@@ -1,5 +1,5 @@
 /**
- * implementation trailer — replayHistoryEntry helper.
+ * replayHistoryEntry helper.
  *
  * The helper backs both the console-popover Replay button  and
  * the command-palette per-entry Replay action (this change). Tests pin

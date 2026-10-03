@@ -1,5 +1,5 @@
 /**
- * implementation (Monaco cells) — code-cell edit-request handling.
+ * code-cell edit-request handling.
  *
  * Reviewer regression lock: a command-mode "enter edit" request
  * (`editRequestNonce`) must open the cell's Monaco editor even while

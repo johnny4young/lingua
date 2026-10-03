@@ -1,19 +1,19 @@
 /**
- * implementation — Result-panel header Export button.
+ * Result-panel header Export button.
  *
  * Covers the load-bearing surfaces:
  *
  *   1. Renders + clicks happy path → clipboard.writeText fires +
  *      `capsule.exported.trigger = 'result-panel-export'` telemetry
  *      fires + status notice pushed.
- *   2. implementation note — exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
+ *   2. Exact `sizeBucket` assertion for `FIXTURE_MINIMAL_JS`
  *      so the boundary conditions of the closed enum are pinned.
- *   3. implementation note — Pro badge surfaces ONLY when `richOutputs` is non-
+ *   3. Pro badge surfaces ONLY when `richOutputs` is non-
  *      empty (informational nudge, not a gate).
- *   4. implementation note — `data-just-copied="true"` flips on click and resets
+ *   4. `data-just-copied="true"` flips on click and resets
  *      after the feedback window so the visual click-confirmation
  *      isn't sticky.
- *   5. implementation note — clipboard-rejected path pushes the
+ *   5. Clipboard-rejected path pushes the
  *      `clipboardUnavailable` notice (points the user to Settings),
  *      NOT the Settings-specific fallback notice.
  */
@@ -79,7 +79,7 @@ describe('RunCapsuleExportButton', () => {
     );
   });
 
-  it('exports via clipboard happy path and fires telemetry with the exact sizeBucket (implementation note)', async () => {
+  it('exports via clipboard happy path and fires telemetry with the exact sizeBucket', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -109,7 +109,7 @@ describe('RunCapsuleExportButton', () => {
     );
   });
 
-  it('flips data-just-copied for the feedback window and resets after (implementation note)', async () => {
+  it('flips data-just-copied for the feedback window and resets after', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -132,7 +132,7 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-just-copied')).toBe('false');
   });
 
-  it('resets the feedback timer on a second click within the window (implementation note)', async () => {
+  it('resets the feedback timer on a second click within the window', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -178,21 +178,21 @@ describe('RunCapsuleExportButton', () => {
     expect(button.getAttribute('data-just-copied')).toBe('false');
   });
 
-  it('surfaces the Pro badge for capsules with richOutputs (implementation note)', () => {
+  it('surfaces the Pro badge for capsules with richOutputs', () => {
     render(<RunCapsuleExportButton capsule={FIXTURE_PYTHON_CHART} />);
     expect(screen.queryByTestId('result-panel-export-pro-badge')).not.toBeNull();
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('data-has-rich-outputs')).toBe('true');
   });
 
-  it('hides the Pro badge for capsules without richOutputs (implementation note)', () => {
+  it('hides the Pro badge for capsules without richOutputs', () => {
     render(<RunCapsuleExportButton capsule={FIXTURE_MINIMAL_JS} />);
     expect(screen.queryByTestId('result-panel-export-pro-badge')).toBeNull();
     const button = screen.getByTestId('result-panel-export-capsule');
     expect(button.getAttribute('data-has-rich-outputs')).toBe('false');
   });
 
-  it('pushes the clipboardUnavailable notice on rejection (implementation note)', async () => {
+  it('pushes the clipboardUnavailable notice on rejection', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('blocked'));
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,

@@ -1,5 +1,5 @@
 /**
- * internal — display-order contract for the virtualized explorer's flat row
+ * display-order contract for the virtualized explorer's flat row
  * model, plus the windowing guarantee that motivated the change: a
  * 5,000-row tree mounts a viewport-sized slice, never the whole list.
  */

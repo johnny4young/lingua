@@ -4,7 +4,7 @@ import {
   collectTopLevelScopeNames,
 } from '../../src/renderer/utils/scopeCapture';
 
-describe('implementation — JS scope-capture transform', () => {
+describe('JS scope-capture transform', () => {
   it('collects top-level lexical, function, class, and destructured bindings', () => {
     expect(
       collectTopLevelScopeNames(`

@@ -1,7 +1,7 @@
 @import 'tailwindcss' source(none);
 
 /*
- * internal — explicit Tailwind v4 content sources. Without
+ * Explicit Tailwind v4 content sources. Without
  * these, v4 auto-detection scans every non-gitignored file in the
  * repo (tests/, scripts/, docs/, e2e specs), so class-shaped strings
  * that only appear in test assertions or docs generate utilities the
@@ -576,10 +576,12 @@
      value from `--space-7`. The 8pt `--space-7: 48px` layout token stays
      intact for direct use; this only decouples the Tailwind utility step,
      which was the single step driving every oversized `h-7` button/control
-     across the app. Steps 5/6/8 stay coupled — they're load-bearing layout
-     spacing (gap-6/p-8/…), not component-height steps. */
+     across the app. Steps 5/6 stay coupled — they're load-bearing layout
+     spacing (gap-6/p-6/…), not component-height steps. */
   --spacing-7: 28px;
-  --spacing-8: var(--space-8);
+  /* Same decoupling for `8`: h-8/w-8 size controls at 32px. Layout spacing
+     that wants 64px uses the `-16` step (0.25rem × 16). */
+  --spacing-8: 32px;
 
   /* Tailwind expects `--radius-*` to be on the @theme block to generate the
      `rounded-*` utilities. The scale is now monotonic and gap-free: sm/md/lg/xl
@@ -1081,7 +1083,7 @@
     padding-left: 1rem;
   }
 
-  /* internal polish #1 — Monaco overlay widget that renders the rich
+  /* Monaco overlay widget that renders the rich
      inline result for each line that produced a value. The widget is
      placed in the editor's overlay layer (sibling to the lines, not
      a child), so we can pin it to the editor's right edge with
@@ -1091,7 +1093,7 @@
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */
   .lingua-inline-result {
-    /* MOV.05 — quiet inline markers. Match the `InlineMarker` React
+    /* Quiet inline markers. Match the `InlineMarker` React
        reference: an inset tint instead of an opaque panel, a hairline
        (border-subtle) instead of a boxed-and-shadowed pill, and the
        type label separated from the value by a LEFT hairline only.
@@ -1119,9 +1121,9 @@
     /* The Monaco line height is 19px in the default theme — stretching
        the pill keeps it vertically centred on the line it annotates. */
     transform: translateY(3px);
-    /* implementation follow-up — cap the overlay width so long
+    /* Cap the overlay width so long
        Python tracebacks or 3+ stacked results never paint past the
-       editor padding. After MOV.05 the marker rides a quiet inset
+       editor padding. The marker rides a quiet inset
        tint (not an opaque panel), so the cap is what keeps a long
        value from overrunning the gutter rather than a masking fill. */
     max-width: 50%;
@@ -1187,7 +1189,7 @@
   }
 
   .lingua-inline-result-timing {
-    /* internal — per-statement wall-clock chip (`▸ 320 ms`). Quiet
+    /* per-statement wall-clock chip (`▸ 320 ms`). Quiet
        italic gray so measurements never compete with values; only the
        run's slowest statement gets the hot-spot tint below. */
     display: inline-flex;
@@ -1279,7 +1281,7 @@
     color: var(--color-inline-pill-object);
   }
 
-  /* implementation — Monaco glyph-margin breakpoint dot. The class
+  /* Monaco glyph-margin breakpoint dot. The class
      is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
      from `useBreakpointGutter`. Disabled breakpoints render as an
      outline ring so the user can still see them but execution does
@@ -1317,7 +1319,7 @@
     box-shadow: inset 0 0 0 1.5px var(--app-warning, #d99a32);
   }
 
-  /* implementation UX polish — make the breakpoint gutter
+  /* Make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in
      it. We add:
@@ -1352,7 +1354,7 @@
   }
 
   /*
-    implementation — flash decoration applied to a Monaco line
+    Flash decoration applied to a Monaco line
     when the user hovers an `<OutputLineBadge>` chip on a console
     row. Lower specificity than the debugger paused-line above so
     the debugger highlight wins when both fire on the same line.
@@ -1372,7 +1374,7 @@
   }
 
   /*
-    implementation Sub-slice G implementation note — symmetric inverse: console-row pulse
+    Symmetric inverse: console-row pulse
     when the user's editor cursor settles on a line that produced
     output. Matches `lingua-highlight-flash-fade` timing so both
     directions feel like the same gesture.
@@ -1503,7 +1505,7 @@
   }
 
   /* ============================================================ */
-  /* internal Signal-Slate v2 — composite primitives                */
+  /* Signal-Slate v2 — composite primitives                */
   /* ============================================================ */
 
   /* Action pill — the floating hero element above the editor. The
@@ -1631,7 +1633,7 @@
     }
   }
 
-  /* implementation — unified mode-aware action button.
+  /* Unified mode-aware action button.
      The button colours itself by the active workflow:
        · run        → green (was the only colour previously)
        · debug      → red-soft
@@ -1667,7 +1669,7 @@
     color: var(--color-debug-fg);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-debug-fill) 20%, transparent);
   }
-  .action-pill-run[data-workflow='debug']:hover {
+  .action-pill-run[data-workflow='debug']:not(:disabled):hover {
     background: var(--color-debug-fill-hover);
   }
 
@@ -1676,7 +1678,7 @@
     color: var(--color-slate-900);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-300) 30%, transparent);
   }
-  .action-pill-run[data-workflow='scratchpad']:hover {
+  .action-pill-run[data-workflow='scratchpad']:not(:disabled):hover {
     background: var(--color-slate-400);
   }
 
@@ -1736,7 +1738,7 @@
      fill + near-black label), matching how RuntimeSelector's run
      segment flips. */
 
-  .action-pill-run:hover {
+  .action-pill-run:not(:disabled):hover {
     /* Darken the fill on hover by mixing toward the deeper success
        border token — stays on the single success ramp in both
        themes instead of a one-off green. */
@@ -1745,6 +1747,11 @@
 
   .action-pill-run[data-running='true'] {
     animation: run-pulse 1.4s ease-in-out infinite;
+  }
+
+  .action-pill-run:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   .action-pill-run-spinner {
@@ -2119,7 +2126,7 @@
 }
 
 /* ============================================================ */
-/* internal v2 keyframes — declared at the top level so Tailwind  */
+/* v2 keyframes — declared at the top level so Tailwind  */
 /* doesn't try to scope them inside @layer components.          */
 /* ============================================================ */
 

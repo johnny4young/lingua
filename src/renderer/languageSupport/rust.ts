@@ -1,4 +1,6 @@
 import type { LanguageSupportDescriptor } from './types';
+// Already in the startup graph through the LSP lifecycle hook.
+import { getRustLspAdapter, isRustLspAvailable } from '../languageIntelligence/rustAdapterSingleton';
 
 export const rustLanguageSupport = {
   id: 'rust',
@@ -18,11 +20,9 @@ export const rustLanguageSupport = {
       import('../components/Editor/completionProviders/rustHoverProvider'),
       import('../components/Editor/completionProviders/rustSignatureProvider'),
     ]);
-    const [{ createLspNavigationProviders }, { getRustLspAdapter, isRustLspAvailable }] =
-      await Promise.all([
-        import('../components/Editor/completionProviders/lspNavigationProvider'),
-        import('../languageIntelligence/rustAdapterSingleton'),
-      ]);
+    const { createLspNavigationProviders } = await import(
+      '../components/Editor/completionProviders/lspNavigationProvider'
+    );
     return {
       createDefinitionProvider: monaco =>
         createLspNavigationProviders(monaco, 'rust', isRustLspAvailable, getRustLspAdapter)

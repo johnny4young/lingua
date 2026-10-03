@@ -1,5 +1,5 @@
 /**
- * internal — JWT decode / verify / sign helper.
+ * JWT decode / verify / sign helper.
  *
  * Pure, offline, renderer-side. Wraps the Web Crypto API (available in
  * jsdom for tests, in Chromium for the web build, and in Electron's

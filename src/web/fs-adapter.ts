@@ -17,7 +17,8 @@ import { utf8ByteLength } from '../shared/utf8';
  * Limitations vs. the Electron version:
  *  - `watchStart` / `watchStop` are no-ops (no native FS watchers).
  *  - `onChanged` callback is never called.
- *  - `rename` is read+write+delete since FSA has no native rename.
+ *  - `rename` uses `FileSystemHandle.move()` when the browser has it and
+ *    otherwise copies a file's bytes then deletes the original.
  */
 
 import { OPEN_FILE_PICKER_TYPES } from '../shared/filePickerTypes';
@@ -56,6 +57,11 @@ interface IterableFileSystemDirectoryHandle extends FileSystemDirectoryHandle {
   entries(): FileSystemDirectoryHandleAsyncIterator<
     [string, FileSystemDirectoryHandle | FileSystemFileHandle]
   >;
+}
+
+// Chromium ships `move()` ahead of the DOM lib typings.
+interface MovableFileSystemHandle extends FileSystemHandle {
+  move?: (newName: string) => Promise<void>;
 }
 
 // ----------------------------------------------------- capability registry
@@ -238,7 +244,7 @@ function shouldHide(name: string): boolean {
 // ----------------------------------------------------- fs adapter
 
 /**
- * implementation — bucket the user agent into one of the
+ * Bucket the user agent into one of the
  * `FS_DIRECTORY_PICKER_UA_BUCKETS` closed-enum values for the
  * `runtime.fs_directory_picker_unsupported` telemetry. Order matters:
  * Safari and Edge both inject their tokens into UA strings that also
@@ -343,7 +349,7 @@ function pushDirectoryUnsupportedNoticeDebounced(): void {
 export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
   selectDirectory: async () => {
     const picker = window as unknown as FileSystemPickerWindow;
-    // implementation — probe before invoking. The pre-internal
+    // Probe before invoking. The pre-internal
     // implementation wrapped `showDirectoryPicker(...)` in a bare
     // try/catch which collapsed "user clicked cancel" and "the API
     // is not implemented" into the same `{ canceled: true }` result.
@@ -474,7 +480,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     return { ok: false, error: 'not-found' } as const;
   },
 
-  // implementation detail — the web FSA sandbox has no OS-path denylist (every
+  // The web FSA sandbox has no OS-path denylist (every
   // handle is user-granted through the picker), so nothing is ever classified
   // as blocked here.
   classifyBlockedPath: async (_absolutePath: string) => {
@@ -566,7 +572,11 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
       20_000
     );
 
-    const needle = caseSensitive ? searchText : searchText.toLowerCase();
+    // Lowercasing can change string length (for example U+0130), so columns
+    // come from a case-insensitive match against the original line instead.
+    const caseInsensitiveRegex = caseSensitive
+      ? null
+      : new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu');
     const files = await webFsAdapter.listAllFiles(rootId, relativePath);
     const results: FsSearchResult[] = [];
     let totalMatches = 0;
@@ -611,9 +621,12 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
         if (matches.length >= maxMatchesPerFile) break;
         if (totalMatches + matches.length >= maxTotalMatches) break;
         const rawLine = lines[lineIndex] ?? '';
-        const haystack = caseSensitive ? rawLine : rawLine.toLowerCase();
-        const column = haystack.indexOf(needle);
+        const caseInsensitiveMatch = caseInsensitiveRegex?.exec(rawLine);
+        const column = caseInsensitiveRegex
+          ? (caseInsensitiveMatch?.index ?? -1)
+          : rawLine.indexOf(searchText);
         if (column === -1) continue;
+        const matchLength = caseInsensitiveMatch?.[0].length ?? searchText.length;
 
         const PREVIEW_BUDGET = 240;
         const previewStart = Math.max(0, column - 80);
@@ -623,7 +636,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
           column: column + 1,
           preview: rawLine.slice(previewStart, previewEnd),
           matchStart: column - previewStart,
-          matchEnd: column - previewStart + searchText.length,
+          matchEnd: column - previewStart + matchLength,
         });
       }
 
@@ -636,7 +649,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     return results;
   },
 
-  // implementation — web does not expose a replace-in-files API (no
+  // Web does not expose a replace-in-files API (no
   // atomic-rename primitive over the File System Access API; the
   // safe-by-default posture is to disable the action entirely and
   // surface "Open Lingua Desktop" copy via the panel context). Both
@@ -772,16 +785,52 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     if (!isSafeEntryName(newName)) {
       throw new Error('unsafe-path');
     }
-    // FSA has no native rename; read + write under the new relative
-    // path + delete the old one. Stays inside the same capability so
-    // the renderer never juggles a fresh rootId.
-    const content = await webFsAdapter.read(rootId, relativeOldPath);
-    const lastSlash = relativeOldPath.lastIndexOf('/');
-    const dir = lastSlash >= 0 ? relativeOldPath.slice(0, lastSlash) : '';
+    const { entry, handle } = await resolveHandle(rootId, relativeOldPath);
+    if (!handle) {
+      throw new Error(`Cannot rename: ${relativeOldPath}`);
+    }
+    const normalizedOld = relativeOldPath.replace(/\\/g, '/');
+    const lastSlash = normalizedOld.lastIndexOf('/');
+    const dir = lastSlash >= 0 ? normalizedOld.slice(0, lastSlash) : '';
+    const oldName = normalizedOld.slice(lastSlash + 1);
     const newRelative = asRelativePath(joinRelative(dir, newName));
-    const wrote = await webFsAdapter.write(rootId, newRelative, content);
-    if (!wrote) {
-      throw new Error('write-failed');
+    if (newName === oldName) return newRelative;
+
+    const parent = await ensureParentDir(entry, newRelative, false);
+    if (!parent) {
+      throw new Error(`Cannot rename: ${relativeOldPath}`);
+    }
+    // Compare against real sibling names: a case-insensitive disk resolves
+    // `A.ts` to an existing `a.ts`, which must not be overwritten.
+    const caseOnly = newName.toLowerCase() === oldName.toLowerCase();
+    for await (const [siblingName] of (parent.dir as IterableFileSystemDirectoryHandle).entries()) {
+      if (siblingName === oldName) continue;
+      if (siblingName.toLowerCase() === newName.toLowerCase()) {
+        throw new Error(`Cannot rename: "${newName}" already exists`);
+      }
+    }
+
+    const movable = handle as MovableFileSystemHandle;
+    if (typeof movable.move === 'function') {
+      await movable.move(newName);
+      return newRelative;
+    }
+    if (handle.kind !== 'file') {
+      throw new Error('Renaming folders is not supported in this browser');
+    }
+    if (caseOnly) {
+      // Without move(), a copy onto a case variant may open the source itself.
+      throw new Error('Changing only letter case is not supported in this browser');
+    }
+    const bytes = await (await (handle as FileSystemFileHandle).getFile()).arrayBuffer();
+    const target = await parent.dir.getFileHandle(newName, { create: true });
+    const writable = await target.createWritable();
+    try {
+      await writable.write(bytes);
+      await writable.close();
+    } catch (error) {
+      await writable.abort().catch(() => {});
+      throw error;
     }
     const deleted = await webFsAdapter.delete(rootId, relativeOldPath);
     if (!deleted) {
@@ -811,7 +860,8 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     if (!entry) return false;
     try {
       const { handle } = await resolveHandle(rootId, relativePath);
-      if (handle) return true;
+      // An existing entry is left untouched and reported as not created.
+      if (handle) return false;
     } catch {
       // resolveHandle throws on traversal; fall through to write so the
       // user-facing failure is consistent (write returns false).
@@ -819,7 +869,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     return webFsAdapter.write(rootId, relativePath, '');
   },
 
-  // implementation note — the web build has no concept of an OS
+  // The web build has no concept of an OS
   // file manager, so "Reveal in Finder" is a no-op that resolves to
   // `false` (consistent with the rest of the adapter's "feature
   // unsupported here" convention). The renderer treats `false` as "do
@@ -831,7 +881,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     return false;
   },
 
-  // implementation — project zip bundles. The web build branches on
+  // Project zip bundles. The web build branches on
   // `platform === 'web'` BEFORE calling these (export does an in-renderer
   // Blob download via the shared `packBundle`; import surfaces
   // `projectBundle.web.unsupported`), so these stubs only exist to keep
@@ -896,7 +946,7 @@ export const webFsAdapter: LinguaAPI['fs'] & DocumentWriteBridge = {
     return () => {};
   },
 
-  // internal — web has no native watcher, so failure / degraded events
+  // Web has no native watcher, so failure / degraded events
   // never fire. The subscription methods exist to keep the renderer
   // contract uniform across platforms (web, desktop, future targets).
   onWatcherFailed: (

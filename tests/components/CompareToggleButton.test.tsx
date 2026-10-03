@@ -1,5 +1,5 @@
 /**
- * implementation — CompareToggleButton render contract.
+ * CompareToggleButton render contract.
  *
  * Covers:
  *   - Disabled state when no comparator snapshot for the language.
@@ -77,7 +77,7 @@ function setSnapshot(language: string): void {
   });
 }
 
-describe('implementation — <CompareToggleButton>', () => {
+describe('<CompareToggleButton>', () => {
   beforeEach(() => {
     trackEventMock.mockReset();
     setTabCompareEnabledMock.mockReset();

@@ -1,10 +1,18 @@
 import type { TabId } from './settingsRailModel';
+import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+  formatShortcutLabel,
+} from '../../data/keyboardShortcuts';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 interface SettingsSearchEntry {
   id: string;
   tab: TabId;
   labelKey: string;
   descriptionKey?: string;
+  /** Interpolation for descriptions that name a live shortcut. */
+  descriptionValues?: () => Record<string, string>;
   targetId: string;
   keywords: readonly string[];
 }
@@ -15,7 +23,7 @@ export interface SettingsSearchResult extends SettingsSearchEntry {
   tabLabel: string;
 }
 
-type Translate = (key: string) => string;
+type Translate = (key: string, options?: Record<string, string>) => string;
 
 const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
@@ -142,6 +150,12 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     tab: 'editor',
     labelKey: 'editor.smartPaste.label',
     descriptionKey: 'editor.smartPaste.hint',
+    descriptionValues: () => ({
+      combo: formatShortcutCombo(
+        { tokens: ['Mod', 'Shift', 'V'] },
+        currentShortcutDisplayPlatform()
+      ),
+    }),
     targetId: 'editor-smart-paste',
     keywords: ['paste', 'clipboard', 'detect', 'pegar', 'portapapeles', 'detectar'],
   },
@@ -182,6 +196,13 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     tab: 'editor',
     labelKey: 'utilities.settings.title',
     descriptionKey: 'utilities.settings.description',
+    descriptionValues: () => ({
+      combo:
+        formatShortcutLabel(
+          'overlay-developer-utilities',
+          useSettingsStore.getState().shortcutOverrides
+        ) ?? '',
+    }),
     targetId: 'section-utilities',
     keywords: ['utilities', 'tools', 'clipboard', 'utilidades', 'herramientas'],
   },
@@ -333,7 +354,9 @@ export function searchSettings(
 
   return SETTINGS_SEARCH_ENTRIES.flatMap((entry, index) => {
     const label = t(entry.labelKey);
-    const description = entry.descriptionKey ? t(entry.descriptionKey) : null;
+    const description = entry.descriptionKey
+      ? t(entry.descriptionKey, entry.descriptionValues?.())
+      : null;
     const tabLabel = t(`settings.tabs.${entry.tab}`);
     const normalizedLabel = normalizeSearchText(label);
     const normalizedKeywords = entry.keywords.map(normalizeSearchText);

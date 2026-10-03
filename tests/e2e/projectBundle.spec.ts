@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the project bundle import overlay.
+ * E2e for the project bundle import overlay.
  *
  * Acceptance: the "Import project from zip" command-palette action
  * opens the bundle import overlay, in EN + ES (tuteo) locales. The
@@ -66,10 +66,10 @@ test.describe('Project bundle import overlay ', () => {
 
     await page.keyboard.press('ControlOrMeta+Shift+KeyP');
     await expect(paletteInput(page)).toBeVisible();
-    await paletteInput(page).fill('Importa un proyecto desde zip');
+    await paletteInput(page).fill('Importar un proyecto desde zip');
     await page
       .locator('[data-result-index]')
-      .filter({ hasText: /Importa un proyecto desde zip/i })
+      .filter({ hasText: /Importar un proyecto desde zip/i })
       .first()
       .click();
 

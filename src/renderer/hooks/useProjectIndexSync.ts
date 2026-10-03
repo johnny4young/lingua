@@ -46,7 +46,7 @@ export function useProjectIndexSync(): void {
         return;
       }
 
-      // internal — drop events from ignored directories before the
+      // Drop events from ignored directories before the
       // debounce window even starts. A 100-file burst inside
       // `node_modules/.cache/` would otherwise schedule a costly
       // re-index. The shared module owns the prefix list so

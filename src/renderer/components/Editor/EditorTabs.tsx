@@ -166,14 +166,14 @@ export function EditorTabs() {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
-  // internal review — the handoff caps the strip at five tabs, but
+  // The handoff caps the strip at five tabs, but
   // showing only the first five hides the active tab whenever the
   // user activates anything past index 4 from the overflow dropdown
   // (or by keyboard). Without `data-active="true"` on any visible
   // tab, the strip then has no highlight and the user has to reopen
   // the dropdown to confirm which file is foreground.
   //
-  // MOV.02 (FASE 3) — workspace + notebook tabs are full-screen
+  // Workspace + notebook tabs are full-screen
   // surfaces the user juggles deliberately, so they must never be
   // buried in the overflow either. We compute a priority set
   // (every kind-bearing tab + the active tab), guarantee those are
@@ -221,7 +221,7 @@ export function EditorTabs() {
             onClose={handleCloseTab}
           />
         ))}
-        {/* implementation — the handoff keeps five tabs visible and
+        {/* The handoff keeps five tabs visible and
             collapses the rest into a compact +N file-list menu. */}
         {hiddenTabCount > 0 ? (
           <>

@@ -393,7 +393,7 @@ describe('TypeScriptRunner', () => {
     }
   });
 
-  // implementation — `outputSourceMappingEnabled` was removed; the worker
+  // `outputSourceMappingEnabled` was removed; the worker
   // always receives the source line map. The "skip line map when
   // disabled" case no longer applies.
 

@@ -1,17 +1,17 @@
 /**
- * implementation — bottom-panel "Dependencies" tab body.
+ * bottom-panel "Dependencies" tab body.
  *
- * implementation shipped read-only detection with a disabled Install button.
- * implementation wires the Install path: a click on a `'detected'` row (or
- * the "Install all" header button — implementation note) calls into main via
+ * Detection first shipped read-only, with a disabled Install button.
+ * This panel wires the Install path: a click on a `'detected'` row (or
+ * the "Install all" header button) calls into main via
  * `window.lingua.dependencies.installJs`, transitions the row(s) to
  * `'installing'`, streams subprocess output into an inline log
  * surface, and updates the row(s) to `'installed'` / `'failed'` /
  * `'detected'` (on cancel) when the batch finishes.
  *
- * implementation note in this surface:
+ * Behaviors in this surface:
  *   - A — refuses click when the resolved cwd has no `package.json`
- *     (the renderer learns the flag from the implementation resolver).
+ *     (the renderer learns the flag from the resolver).
  *   - B — single-spawn batched install. Multiple clicks within
  *     `BATCH_WINDOW_MS` coalesce into one npm invocation.
  *   - C — pre-flight integrity check happens in main; the panel
@@ -44,7 +44,7 @@ import { useTelemetry, type TelemetryTrack } from '../../hooks/useTelemetry';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
 /**
- * FASE 5 — map each `DependencyStatus` onto a shared `<StatusBadge>`
+ * Map each `DependencyStatus` onto a shared `<StatusBadge>`
  * tone so the dependency pill speaks the same status family as
  * license / run / scorecard signals (no bespoke chip styling):
  *   detected → warning   installed → success   installing → info
@@ -69,7 +69,7 @@ const STATUS_I18N_KEY: Record<DependencyStatus, string> = {
 };
 
 /**
- * implementation note — coalescing window. A user clicking through several rows
+ * Coalescing window. A user clicking through several rows
  * in quick succession after a paste collapses into a single `npm
  * install pkg1 pkg2 pkg3` invocation rather than N sequential
  * spawns. The window is small enough that single deliberate clicks
@@ -82,14 +82,14 @@ interface PanelContext {
   /** Tooltip key when the row's Install button is disabled. */
   readonly disabledReasonKey: string | null;
   /**
-   * implementation — tooltip key when the Install button is
+   * Tooltip key when the Install button is
    * ENABLED. Used to surface backend-specific hints (e.g. "Install
    * via Pyodide micropip" on the Python web path). `null` falls
    * back to the generic Install button label.
    */
   readonly enabledHintKey: string | null;
   /**
-   * implementation reviewer fix — tooltip key for rows whose
+   * Reviewer fix — tooltip key for rows whose
    * status is `'unsupported'`. Python web tabs surface a more
    * informative "Pyodide has no compatible wheel for this package"
    * instead of the generic `disabledTooltip`. `null` falls back to
@@ -97,7 +97,7 @@ interface PanelContext {
    */
   readonly unsupportedTooltipKey: string | null;
   /**
-   * implementation — when the panel is rendering a Python tab on
+   * When the panel is rendering a Python tab on
    * web, the install path is Pyodide micropip (not npm). Drives a
    * different click handler in `performInstall` so we don't try to
    * call `bridge.installJs` for Python rows.
@@ -111,7 +111,7 @@ function buildPanelContext(args: {
   readonly cwdHasPackageJson: boolean | null;
   readonly language: DependencyAdapterLanguage | null;
 }): PanelContext {
-  // implementation — Python web has its own install path via Pyodide
+  // Python web has its own install path via Pyodide
   // micropip. No filesystem involved → skip the unsaved-tab and
   // missing-package.json gates. `enabledHintKey` surfaces the
   // Pyodide nature in the tooltip so the user knows the install
@@ -121,7 +121,7 @@ function buildPanelContext(args: {
       canInstall: true,
       disabledReasonKey: null,
       enabledHintKey: 'dependencies.install.pythonWebReadyTooltip',
-      // implementation — a Python web row that ends up
+      // A Python web row that ends up
       // `'unsupported'` was rejected by Pyodide micropip for a
       // native wheel; the tooltip surfaces that root cause.
       unsupportedTooltipKey: 'dependencies.install.pythonUnsupportedTooltip',
@@ -241,7 +241,7 @@ export function DependenciesPanel() {
   const filePath = activeTab?.filePath ?? null;
   const tabId = activeTab?.id ?? null;
 
-  // implementation note — coalescing buffer for rapid clicks. We accumulate
+  // Coalescing buffer for rapid clicks. We accumulate
   // names in a ref and flush after `BATCH_WINDOW_MS` of inactivity.
   const pendingBatchRef = useRef<{ readonly names: Set<string> } | null>(null);
   const flushTimerRef = useRef<number | null>(null);
@@ -250,7 +250,7 @@ export function DependenciesPanel() {
   const performInstall = useCallback(
     async (names: readonly string[]) => {
       if (!tabId || !language || names.length === 0) return;
-      // Desktop JS/TS keeps the implementation contract: needs a filePath
+      // Desktop JS/TS keeps the contract: needs a filePath
       // because main resolves cwd from it. Python web bypasses
       // filesystem entirely — `filePath` is permitted to be null.
       if (!isPythonWeb && !filePath) return;
@@ -262,7 +262,7 @@ export function DependenciesPanel() {
         let failureReason: DependencyInstallFailureReason | null;
         const perNameStatus: Record<string, DependencyStatus> = {};
         if (isPythonWeb) {
-          // implementation — Pyodide micropip path. Service module
+          // Pyodide micropip path. Service module
           // shares the worker with PythonRunner so the install is
           // visible to the next Run.
           const { installPython } = await import(
@@ -276,7 +276,7 @@ export function DependenciesPanel() {
           });
           outcome = result.outcome;
           failureReason = result.failureReason;
-          // implementation reviewer fix — `micropip.install` accepts
+          // Reviewer fix — `micropip.install` accepts
           // a batch but reports one batch-level error. When the user
           // installs a single Python package and it comes back as
           // `'unsupported-wheel'`, we know that wheel is the
@@ -518,8 +518,8 @@ export function DependenciesPanel() {
       {logVisible ? (
         <InstallLogSurface
           isRunning={isInstalling}
-          // implementation — Pyodide doesn't expose mid-microtask
-          // cancel semantics + implementation note was rejected, so Python web
+          // Pyodide doesn't expose mid-microtask
+          // cancel semantics, so Python web
           // installs hide the Cancel button. The log still streams
           // and the install runs to completion (or 90 s soft
           // timeout via `pythonWebInstaller`).
@@ -552,7 +552,7 @@ function DependencyRow({
   readonly disabledReasonKey: string | null;
   readonly enabledHintKey: string | null;
   /**
-   * implementation reviewer fix — tooltip key for `'unsupported'`
+   * Reviewer fix — tooltip key for `'unsupported'`
    * rows. Python web tabs surface a more informative
    * "Pyodide has no compatible wheel for this package" instead of
    * the generic `disabledTooltip`. `null` falls back to the
@@ -563,7 +563,7 @@ function DependencyRow({
 }) {
   const { t } = useTranslation();
   const status = dep.status;
-  // implementation — `canInstall` is the panel-context's verdict
+  // `canInstall` is the panel-context's verdict
   // (Python web is installable even though `isWeb === true`). Drop
   // the blanket `isWeb` check from disabled-state and trust
   // `canInstall` so the Python web path can enable the button.
@@ -645,7 +645,7 @@ function InstallLogSurface({
 }: {
   readonly isRunning: boolean;
   /**
-   * implementation — when false, suppress the Cancel button even
+   * When false, suppress the Cancel button even
    * while the install is in flight. Python web installs are
    * uninterruptible; showing a Cancel that does nothing is
    * misleading UX.

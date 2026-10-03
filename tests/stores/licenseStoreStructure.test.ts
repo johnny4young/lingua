@@ -1,15 +1,15 @@
 /**
- * internal structure guard — locks the web/desktop seam split so a
- * future edit cannot silently regress it. Mirrors the implementation detail guards.
+ * Structure guard — locks the web/desktop seam split so a
+ * future edit cannot silently regress it. Mirrors the editor/settings store guards.
  *
- * - implementation note (public API barrel): the assembled store exposes EXACTLY the
+ * - Public API barrel: the assembled store exposes EXACTLY the
  *   `LicenseState` surface (7 state fields + 5 actions); `licenseStore.ts`
  *   exposes exactly the `useLicenseStore` runtime export; and the four public
  *   types still re-export from the facade (compile-time guard — `export type`
  *   re-exports are erased at runtime, so they cannot be asserted via Object.keys).
- * - implementation note (size budget): the facade stays thin and no extracted module grows
+ * - Size budget: the facade stays thin and no extracted module grows
  *   back toward a monolith.
- * - implementation note (import acyclicity): no module imports the facade; the type/mapper/
+ * - Import acyclicity: no module imports the facade; the type/mapper/
  *   verify/token leaves never import an action factory or a store; and the web
  *   and desktop stores never import each other (the seam stays clean).
  */
@@ -97,7 +97,7 @@ function importsModule(source: string, moduleFile: string): boolean {
   return new RegExp(`from\\s+['"]\\./${moduleName}['"]`).test(source);
 }
 
-describe('implementation licenseStore split — public API barrel (implementation note)', () => {
+describe('licenseStore split — public API barrel', () => {
   it('the assembled store exposes exactly the LicenseState surface', () => {
     const keys = Object.keys(useLicenseStore.getState()).sort();
     expect(keys).toEqual(EXPECTED_STORE_KEYS);
@@ -123,7 +123,7 @@ describe('implementation licenseStore split — public API barrel (implementatio
   });
 });
 
-describe('implementation licenseStore split — size budget (implementation note)', () => {
+describe('licenseStore split — size budget', () => {
   it('the facade stays thin', () => {
     expect(lineCount(ASSEMBLY_FILE)).toBeLessThanOrEqual(ASSEMBLY_MAX_LINES);
   });
@@ -133,7 +133,7 @@ describe('implementation licenseStore split — size budget (implementation note
   });
 });
 
-describe('implementation licenseStore split — import acyclicity (implementation note)', () => {
+describe('licenseStore split — import acyclicity', () => {
   it.each([...SPLIT_MODULES])('%s does not import the facade', (file) => {
     expect(read(file)).not.toMatch(/from\s+['"]\.\/licenseStore['"]/);
   });

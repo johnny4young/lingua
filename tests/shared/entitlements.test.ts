@@ -1,5 +1,5 @@
 /**
- * Guards the internal tier policy. Every Free-tier ceiling lives in one place
+ * Guards the tier policy. Every Free-tier ceiling lives in one place
  * and paid tiers collapse to the full entitlement set; this test locks that
  * invariant so an accidental refactor cannot silently grant paid features
  * to Free or vice versa.
@@ -20,7 +20,7 @@ import {
 import { LICENSE_TIERS } from '../../src/shared/license';
 
 describe('entitlements policy', () => {
-  it('ENTITLEMENTS enum covers the 11 entries named in the internal scope', () => {
+  it('ENTITLEMENTS enum covers the 11 entries named in the scope', () => {
     expect([...ENTITLEMENTS].sort()).toEqual(
       [
         'BENCHMARK',
@@ -59,7 +59,7 @@ describe('entitlements policy', () => {
     expect([...FREE_TIER_LIMITS.allowedLanguages].sort()).toEqual([
       'javascript',
       'python',
-      // implementation — Ruby joined Free with the @ruby/wasm-wasi
+      // Ruby joined Free with the @ruby/wasm-wasi
       // web worker (same posture as Python's Pyodide).
       'ruby',
       'typescript',
@@ -90,7 +90,7 @@ describe('entitlements policy', () => {
     expect(isLanguageAllowed('free', 'javascript')).toBe(true);
     expect(isLanguageAllowed('free', 'typescript')).toBe(true);
     expect(isLanguageAllowed('free', 'python')).toBe(true);
-    // implementation — Ruby (@ruby/wasm-wasi) joined Free.
+    // Ruby (@ruby/wasm-wasi) joined Free.
     expect(isLanguageAllowed('free', 'ruby')).toBe(true);
     expect(isLanguageAllowed('free', 'go')).toBe(false);
     expect(isLanguageAllowed('free', 'rust')).toBe(false);

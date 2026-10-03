@@ -29,14 +29,14 @@ interface FileTreeNodeProps {
   node: ProjectFileTreeNode;
   depth: number;
   /**
-   * internal — height-measure callback ref from the tree's `useListWindow`
+   * height-measure callback ref from the tree's `useListWindow`
    * (`measureRef(key)`), attached to the row's outer element so the
    * windower learns real row heights. Optional so direct-render tests
    * and future non-windowed callers stay valid.
    */
   rowRef?: (element: HTMLElement | null) => void;
   /**
-   * implementation — set of `rootId::relativePath` keys for tabs
+   * Set of `rootId::relativePath` keys for tabs
    * with unsaved edits. Lifted to the tree root in `FileTree` so
    * recursive children share a single Zustand subscription instead
    * of mounting one per node. Default to an empty set for callers
@@ -44,7 +44,7 @@ interface FileTreeNodeProps {
    */
   dirtyTabPaths?: ReadonlySet<string>;
   /**
-   * FASE 4 — `rootId::relativePath` key of the file backing the active
+   * `rootId::relativePath` key of the file backing the active
    * editor tab, or null when the active tab is not a project file.
    * Lifted to the tree root (like `dirtyTabPaths`) so the active-row
    * accent lights up the matching node without a per-node subscription
@@ -88,7 +88,7 @@ export function FileTreeNode({
   const [contextMenu, setContextMenu] = useState<
     { top: number; left: number } | null
   >(null);
-  // internal — select each action individually. The previous
+  // Select each action individually. The previous
   // store-wide `useProjectStore()` destructure subscribed every node to
   // the whole project store, so any `nodes` mutation (expand / collapse
   // / create / delete) re-rendered the entire recursive tree. Zustand
@@ -99,12 +99,12 @@ export function FileTreeNode({
   const collapseDirectory = useProjectStore((state) => state.collapseDirectory);
   const renameEntry = useProjectStore((state) => state.renameEntry);
   const currentProject = useProjectStore((state) => state.currentProject);
-  // implementation note — only surface the "Reveal in Finder"
+  // Only surface the "Reveal in Finder"
   // menu item on the desktop build. The web FSA wrapper resolves
   // revealInFinder to `false`, so the menu would be empty there.
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
-  // implementation — light up a dot next to the file name whenever a
+  // Light up a dot next to the file name whenever a
   // matching tab is dirty. Keyed by capability id + relative path so
   // the match is exact across platforms; only files inside the
   // currently-open project root can carry the dot.
@@ -113,7 +113,7 @@ export function FileTreeNode({
     currentProject !== null &&
     dirtyTabPaths.has(dirtyTabKey(currentProject.rootId, node.path));
 
-  // FASE 4 — proto active-row accent. A file row lights up
+  // Proto active-row accent. A file row lights up
   // (accent-soft bg + 2px accent left border) when it backs the active
   // editor tab, matched by the same `rootId::relativePath` key used for
   // the dirty dot. Directories never carry the active accent.
@@ -125,7 +125,7 @@ export function FileTreeNode({
 
   const indent = depth * 12;
 
-  // implementation fifth increment — surface the capability badge in
+  // Surface the capability badge in
   // the file tree when the user is on the web build and the file
   // belongs to a host-toolchain language (Go, Rust). Stays hidden on
   // desktop and for self-contained runtimes.
@@ -150,11 +150,14 @@ export function FileTreeNode({
   };
 
   const handleRename = async (newName: string) => {
-    await renameEntry(node.path, newName);
+    // Re-confirming the current name is a no-op, not a filesystem rename.
+    if (newName !== node.name) {
+      await renameEntry(node.path, newName);
+    }
     setRenaming(false);
   };
 
-  // implementation note — assemble the context-menu items. Today
+  // Assemble the context-menu items. Today
   // we surface a single action on desktop builds; the web FSA wrapper
   // has no underlying absolute path, so the menu collapses to empty
   // and we skip showing it altogether (no point in a blank popover).
@@ -375,7 +378,7 @@ export function FileTreeNode({
         )}
       </div>
 
-      {/* internal — children, the inline-creation input, and the
+      {/* Children, the inline-creation input, and the
           empty-directory hint are no longer rendered here: the tree is
           one windowed flat list owned by `FileTree` (see
           `fileTreeRows.ts`), so this component renders exactly ONE row. */}
@@ -393,7 +396,7 @@ export function FileTreeNode({
 }
 
 /**
- * FASE 4 — colored filled mono glyph badge for a file row (proto lines
+ * Colored filled mono glyph badge for a file row (proto lines
  * 59-60), replacing the former monochrome `FileCode` icon. Renders the
  * `languageBadgeTone` triple via inline `style` — the same token-backed
  * tone object `EditorTabs`, `FloatingActionPill`, and the open-tabs

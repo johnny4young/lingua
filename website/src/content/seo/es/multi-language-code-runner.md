@@ -2,7 +2,7 @@
 title: 'Runner multi-lenguaje — Lingua'
 description: 'Ejecuta JavaScript, TypeScript, Python, Ruby, Go y Rust en una app desktop offline-first con notebooks, workspaces HTTP/SQL y herramientas de proyecto.'
 canonical: 'https://linguacode.dev/es/multi-language-code-runner'
-ogImage: '/assets/og/multi-language-code-runner.png'
+ogImage: '/assets/og/es/multi-language-code-runner.png'
 language: multi
 ---
 

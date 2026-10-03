@@ -1,5 +1,5 @@
 /**
- * implementation — presenter / focus mode.
+ * Presenter / focus mode.
  *
  * One session-only boolean that the chrome reads at RENDER time:
  * sidebar, toolbar, and status bar gate themselves on it, the editor

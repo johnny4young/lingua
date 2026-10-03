@@ -1,5 +1,5 @@
 /**
- * implementation — `GoplsLauncher` detection + init contract.
+ * `GoplsLauncher` detection + init contract.
  *
  * Mirrors the rust-analyzer launcher tests. Most of the LSP framing
  * is covered by `lspProcess.test.ts`; here we pin the Go-specific
@@ -16,10 +16,12 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 const execFileMock = vi.fn();
 const accessMock = vi.fn();
+const spawnMock = vi.fn();
 
 vi.mock('node:child_process', async () => ({
   execFile: execFileMock,
-  default: { execFile: execFileMock },
+  spawn: spawnMock,
+  default: { execFile: execFileMock, spawn: spawnMock },
 }));
 
 vi.mock('node:fs/promises', async () => ({
@@ -30,6 +32,7 @@ vi.mock('node:fs/promises', async () => ({
 beforeEach(() => {
   execFileMock.mockReset();
   accessMock.mockReset();
+  spawnMock.mockReset();
   // Detection looks at process.env.GOPATH; reset between cases so a
   // stray runner env does not bleed into the precedence test.
   delete process.env.GOPATH;
@@ -233,5 +236,57 @@ describe('GoplsLauncher crash recovery', () => {
       process.off('unhandledRejection', onRejection);
       vi.useRealTimers();
     }
+  });
+});
+
+describe('GoplsLauncher dispose during startup', () => {
+  // Detection calls park until released, so dispose() can land between startup awaits.
+  function parkExecFile(failFast: () => boolean) {
+    const parked: Array<() => void> = [];
+    execFileMock.mockImplementation(
+      (
+        _cmd: string,
+        _args: readonly string[],
+        _opts: unknown,
+        cb: (err: Error | null, stdout: string) => void
+      ) => {
+        if (failFast()) cb(new Error('ENOENT'), '');
+        else parked.push(() => cb(null, 'golang.org/x/tools/gopls v0.16.2\n'));
+      }
+    );
+    return async () => {
+      parked.shift()?.();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    };
+  }
+
+  async function expectNoSpawnAfterDispose(release: () => Promise<void>, stepsBeforeDispose: number) {
+    const { GoplsLauncher } = await import('../../../src/main/lsp/goplsLauncher');
+    const statuses: Array<{ kind: string }> = [];
+    const launcher = new GoplsLauncher({
+      workspaceRoot: '/tmp/project',
+      onStatus: status => statuses.push(status),
+    });
+    const started = launcher.start();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    for (let i = 0; i < stepsBeforeDispose; i += 1) await release();
+    launcher.dispose();
+    await release();
+
+    await expect(started).resolves.toEqual({ kind: 'startup-failed', error: 'Launcher disposed' });
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(statuses).toEqual([{ kind: 'starting' }]);
+  }
+
+  it('does not spawn when disposed during binary resolution', async () => {
+    await expectNoSpawnAfterDispose(parkExecFile(() => false), 0);
+  });
+
+  it('does not spawn when disposed during the fallback version probe', async () => {
+    let call = 0;
+    const release = parkExecFile(() => call++ === 0);
+    accessMock.mockResolvedValue(undefined);
+    await expectNoSpawnAfterDispose(release, 0);
+    expect(execFileMock).toHaveBeenCalledTimes(2);
   });
 });

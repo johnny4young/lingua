@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "id": "workspace-python",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/workspace-python-en.png",
+        "es": "output/playwright/tour/workspace-python-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/workspace-python.png",
+        "es": "/screenshots/tour/workspace-python-es.png"
+      }
+    },
+    {
+      "id": "command-palette",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/command-palette-en.png",
+        "es": "output/playwright/tour/command-palette-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/command-palette.png",
+        "es": "/screenshots/tour/command-palette-es.png"
+      }
+    },
+    {
+      "id": "utilities",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/utilities-en.png",
+        "es": "output/playwright/tour/utilities-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/utilities.png",
+        "es": "/screenshots/tour/utilities-es.png"
+      }
+    },
+    {
+      "id": "sql-workspace",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/sql-workspace-en.png",
+        "es": "output/playwright/tour/sql-workspace-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/sql-workspace.png",
+        "es": "/screenshots/tour/sql-workspace-es.png"
+      }
+    },
+    {
+      "id": "http-workspace",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/http-workspace-en.png",
+        "es": "output/playwright/tour/http-workspace-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/http-workspace.png",
+        "es": "/screenshots/tour/http-workspace-es.png"
+      }
+    },
+    {
+      "id": "settings-privacy",
+      "spec": "tests/e2e/tourVisual.spec.ts",
+      "sources": {
+        "en": "output/playwright/tour/settings-privacy-en.png",
+        "es": "output/playwright/tour/settings-privacy-es.png"
+      },
+      "images": {
+        "en": "/screenshots/tour/settings-privacy.png",
+        "es": "/screenshots/tour/settings-privacy-es.png"
+      }
+    }
+  ]
+}

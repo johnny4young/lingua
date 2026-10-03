@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe assertion runner.
+ * Recipe assertion runner.
  *
  * Pure helpers used by the renderer-side `useRecipeRun` hook to:
  *
@@ -26,7 +26,7 @@
  *     surface a row for every declared assertion (vs silently
  *     dropping the missing ones).
  *   - `RECIPE_RUN_STATUSES` — run-level rollup used by the
- *     `recipe.test_run` telemetry event (implementation note). Mirrored on
+ *     `recipe.test_run` telemetry event. Mirrored on
  *     update-server with parity test.
  *
  * Privacy posture:
@@ -34,7 +34,7 @@
  *   - The composed source NEVER reads from the user's filesystem,
  *     network, or clipboard.
  *   - Assertion `code` strings come from the bundled catalog —
- *     implementation have zero user-authored recipes. A later import future work will
+ *     there are zero user-authored recipes. A later import will
  *     route through `parseLessonPack` which caps `code` length.
  */
 
@@ -49,7 +49,7 @@ import type { RecipeRunnableLanguage } from './recipeLanguages';
 
 /**
  * Prefix every assertion-result line carries. The double-bracket
- * shape mirrors the internal / Pyodide payload conventions so a future
+ * shape mirrors the JS worker / Pyodide payload conventions so a future
  * rich-output integration can reuse the existing line-classifier.
  *
  * Collision probability with user code is negligible — even if a
@@ -88,7 +88,7 @@ export type RecipeRunStatus = (typeof RECIPE_RUN_STATUSES)[number];
 export interface AssertionRunResult {
   readonly assertionId: string;
   readonly status: AssertionResultStatus;
-  /** Optional short detail string (implementation note) — failed/thrown assertions surface why. Cap ~200 chars. */
+  /** Optional short detail string — failed/thrown assertions surface why. Cap ~200 chars. */
   readonly details?: string;
 }
 
@@ -138,17 +138,17 @@ const MAX_ASSERTION_DETAIL_LENGTH = 200;
  * defeat the point — the user's code is already running unsandboxed
  * via the same JS worker pipeline that ships every Lingua run).
  * The security posture is inherited from the JS worker:
- *   1. implementation assertions come exclusively from the bundled,
+ *   1. Assertions come exclusively from the bundled,
  *      type-checked catalog under `src/renderer/data/recipes/*.ts`
- *      — zero user-authored recipes implementation.
+ *      — zero user-authored recipes today.
  *   2. `parseLessonPack` (used by future work import + the upcoming
  *      `lingua lesson validate` CLI) caps `code` length at
  *      `MAX_ASSERTION_CODE_LENGTH = 2 000 chars` and asserts the
  *      `kind` discriminant before any source ever reaches this
  *      function.
  *   3. The composed source runs inside the existing JS worker which
- *      already enforces implementation timeout presets + internal /
- *      internal hardening (no access to renderer DOM, IPC bridge, or
+ *      already enforces timeout presets + worker
+ *      hardening (no access to renderer DOM, IPC bridge, or
  *      `window.lingua.*`).
  * Replacing `eval` with `new Function(code)` would carry identical
  * risk surface while losing access to the IIFE-scoped user
@@ -427,7 +427,7 @@ export function parseAssertionResults(
 
 /**
  * Roll the per-assertion results up to a single closed-enum status
- * suitable for the `recipe.test_run` telemetry event (implementation note). The
+ * suitable for the `recipe.test_run` telemetry event. The
  * priority order is: any thrown assertion → `'execution-error'`, all
  * missing → `'sentinel-missing'`, all pass → `'all-passed'`, no pass
  * → `'all-failed'`, otherwise → `'some-failed'`.

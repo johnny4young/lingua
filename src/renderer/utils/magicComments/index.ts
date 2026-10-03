@@ -8,7 +8,7 @@
  *     replaced with a `__mc(line, value)` call.
  *
  *   - **`// @watch <expr>` (JS / TS) and `# @watch <expr>` (Python)** —
- *     implementation A *pinned* watch on an explicit expression. The
+ *     A *pinned* watch on an explicit expression. The
  *     line's prefix code is PRESERVED so the original statement still
  *     runs; the transform appends a `__mc(line, value)` call on the
  *     watched expression. Renderer tags the resulting `LineResult`

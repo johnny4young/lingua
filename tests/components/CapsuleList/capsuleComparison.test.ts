@@ -1,5 +1,5 @@
 /**
- * implementation — pure capsule comparison model.
+ * Pure capsule comparison model.
  *
  * Covers: identical capsules collapse to `contentIdentical`; differing
  * code / input / output produce the right add/remove counts; cross-language

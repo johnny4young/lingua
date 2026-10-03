@@ -8,7 +8,7 @@
 
 ## Context
 
-internal sat at `Planned` with no decision on which debugger
+The debugger sat at `Planned` with no decision on which debugger
 primitives Lingua ships, which runtimes get them, and in what order.
 The acceptance line asks for a debugger MVP without prescribing the
 shape. This ADR picks a shape that:
@@ -61,17 +61,17 @@ to allocate vertical space. Keyboard shortcuts mirror VS Code defaults
 (`F5` continue, `F10` step over, `F11` step into, `Shift+F11` step
 out). The shortcuts bus already lives in
 `src/renderer/data/keyboardShortcuts.ts` so they plug in via the
-existing internal editable shortcut mapper.
+existing editable shortcut mapper.
 
 ### 4. Cross-cutting concerns
 
 - **Source maps** — esbuild-wasm already ships source maps in the
   TS runner; the JS runner must emit source maps too for the
   breakpoint positions to map correctly.
-- **Env vars** — the implementation env merger already hands user
+- **Env vars** — the env-var scope merger already hands user
   env to Go / Rust / Python subprocesses. The debugger slices
   reuse that plumbing; nothing new.
-- **Loop protection** — the existing internal loop protection must
+- **Loop protection** — the existing loop protection must
   be disabled while the debugger is attached (it would kill any
   paused execution). Gate via a store flag the debugger sets on
   attach.
@@ -81,7 +81,7 @@ existing internal editable shortcut mapper.
   `reasonBucket` (`attach` for attached; `user-breakpoint` / `step` /
   `exception` for paused; `user-detach` / `run-complete` / `crash` /
   `stop` for detached). No source, no code, no expression content. The
-  third event (`debugger.detached`) was added in implementation note so
+  third event (`debugger.detached`) was added later so
   dashboards can compute median session length from the attach→detach
   pair.
 
@@ -179,17 +179,15 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   Debugger tab per language.
 - `CAPABILITY_MATRIX.md` — codifies Python, Go, and Rust debugging as shipping
   desktop-only capabilities.
-- `ENV_VARS_ADR.md` — implementation env merger is the plumbing the
+- `ENV_VARS_ADR.md` — the env-var scope merger is the plumbing the
   debugger subprocess slices inherit for free.
 
 ## Cross-links
 
-- internal in the implementation notes — this ADR flips it from `Planned` to
-  `Partial` with the note "MVP design accepted; initial implementation still
-  to ship".
-- implementation and implementation are hard dependencies for the
-  Go / Rust / Python slices.
-- `DEBUGGER.md` — operator runbook for implementation + 1.5
+- The env-var scope merger (`ENV_VARS_ADR.md`) and the shared language-pack
+  runner dispatch (`LANGUAGE_PACK_ADR.md`) are hard dependencies for the
+  Go / Rust / Python debuggers.
+- `DEBUGGER.md` — operator runbook for the JS/TS debugger internals
   (gutter UX, Debugger tab mount, Settings rows, telemetry events,
   TS source-map composition).
 

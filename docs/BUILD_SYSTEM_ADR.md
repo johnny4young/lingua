@@ -57,9 +57,9 @@ no Worker deployment or change to production application behavior is implied.
 ## Context
 
 Lingua builds desktop artifacts with Electron Forge + the Vite plugin, and
-web artifacts with Vite directly. internal asks the team to pick between
+web artifacts with Vite directly. This ADR picks between
 three paths so future Vite-major upgrades and any eventual
-migration (Tauri spike internal) land against a written baseline instead of
+migration (see `TAURI_SPIKE_ADR.md`) land against a written baseline instead of
 an implicit status quo. This ADR is that baseline.
 
 ## Options considered
@@ -108,7 +108,7 @@ every OS we target, and the migration effort for Options B and C is
 unjustified while none of the listed axes is actively blocking the
 product. The most likely pressure is Vite-major agility (the Forge Vite
 plugin has lagged a release in the past), and that is a single-dep
-migration under internal rather than a reason to rebuild the whole
+migration rather than a reason to rebuild the whole
 packaging stack.
 
 Keep `electron-builder` bookmarked for the day we need to ship a
@@ -120,7 +120,7 @@ Forge's Vite plugin stalls through a Vite major.
 
 Open a new ADR and re-score when **any** of these becomes true:
 
-1. internal (Vite-major upgrade) spends more than a focused afternoon on
+1. A Vite-major upgrade spends more than a focused afternoon on
    Forge-specific breakage and the fix does not land upstream.
 2. A maker we rely on is deprecated upstream and no drop-in replacement
    lands within the Forge ecosystem.
@@ -134,13 +134,13 @@ Until one of those triggers, this ADR stays accepted.
 
 ## Impact on adjacent items
 
-- **internal** (Vite-major upgrade) proceeds against Forge's Vite plugin as
+- **Vite-major upgrades** proceed against Forge's Vite plugin as
   the primary integration surface. No blockers identified today.
-- **internal** (Tauri 2 feasibility spike) is an independent exercise — a
+- **The Tauri 2 feasibility spike** (`TAURI_SPIKE_ADR.md`) is an independent exercise — a
   Tauri migration would replace the entire shell, not just the build
   system. This ADR has no bearing on that spike.
-- `packagerConfig.appCategoryType` and `packagerConfig.protocols` from
-  internal remain in force; stay-on-Forge means those settings keep
+- `packagerConfig.appCategoryType` and `packagerConfig.protocols` (deep-link
+  registration) remain in force; stay-on-Forge means those settings keep
   landing in packaged builds.
 
 ## Reviewers

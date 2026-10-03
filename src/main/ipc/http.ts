@@ -8,8 +8,10 @@ import type {
 import { executeHttpProxyRequest } from '../httpProxy';
 import { executeWebSocketProxyRequest } from '../httpWebSocket';
 import { typedHandle } from './typedHandle';
+import { onOwnerReset } from '../runners/ownerReset';
 
 const activeRuns = new Map<string, AbortController>();
+const PROGRESS_INTERVAL_MS = 100;
 
 function runKey(senderId: number, runId: string): string {
   return `${senderId}:${runId}`;
@@ -58,18 +60,40 @@ export function registerHttpHandlers(): void {
       const controller = new AbortController();
       activeRuns.set(key, controller);
       const sender = event.sender;
-      const stopOnDestroyed = (): void => controller.abort('renderer-destroyed');
-      sender.once('destroyed', stopOnDestroyed);
+      const stopObservingOwner = onOwnerReset(sender, () => controller.abort('renderer-destroyed'));
+      // Each update carries the whole body so far; coalescing bounds the IPC
+      // volume of a fast stream while the final response stays authoritative.
+      let pending: HttpStreamProgress | null = null;
+      let throttle: NodeJS.Timeout | null = null;
+      const flushProgress = (): void => {
+        const next = pending;
+        pending = null;
+        if (!next || sender.isDestroyed()) return;
+        try {
+          sender.send('http:stream-progress', next);
+        } catch {
+          // A frame can disappear before WebContents emits destroyed.
+        }
+      };
       const onProgress = (
         progress: Omit<HttpStreamProgress, 'runId' | 'requestId' | 'transport'>
       ): void => {
-        if (sender.isDestroyed()) return;
-        sender.send('http:stream-progress', {
+        pending = {
           ...progress,
           runId,
           requestId: request.id,
           transport: request.transport === 'websocket' ? 'websocket' : 'sse',
-        } satisfies HttpStreamProgress);
+        } satisfies HttpStreamProgress;
+        if (throttle !== null) return;
+        flushProgress();
+        throttle = setInterval(() => {
+          if (pending) {
+            flushProgress();
+            return;
+          }
+          if (throttle !== null) clearInterval(throttle);
+          throttle = null;
+        }, PROGRESS_INTERVAL_MS);
       };
       try {
         if (request.transport === 'websocket') {
@@ -86,8 +110,10 @@ export function registerHttpHandlers(): void {
           ...(request.transport === 'sse' ? { onProgress } : {}),
         });
       } finally {
+        if (throttle !== null) clearInterval(throttle);
+        flushProgress();
         if (activeRuns.get(key) === controller) activeRuns.delete(key);
-        sender.removeListener('destroyed', stopOnDestroyed);
+        stopObservingOwner();
       }
     }
   );

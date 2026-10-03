@@ -329,7 +329,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      // internal — revoke the picker-minted capability after the one-shot
+      // Revoke the picker-minted capability after the one-shot
       // write so transient tokens for shortcut exports don't accumulate.
       if (mintedRootId && revokeRoot) {
         await revokeRoot(mintedRootId).catch(() => {});
@@ -480,7 +480,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 placeholder={t('shortcuts.searchPlaceholder')}
                 value={query}
                 onChange={event => setQuery(event.target.value)}
-                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-16 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
               {query.length > 0 ? (
                 <button
@@ -513,7 +513,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                   <section key={group.id}>
                     <Eyebrow>
                       {t(group.labelKey)}
-                      {/* internal — was `text-muted/70` at 4.26:1 contrast.
+                      {/* Was `text-muted/70` at 4.26:1 contrast.
                           Bumped to `text-muted` (full token) so the group
                           count meets the WCAG 2.1 AA threshold (>=4.5:1). */}
                       <span className="ml-2 text-muted normal-case tracking-normal">

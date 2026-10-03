@@ -46,7 +46,7 @@ import Legal from '~/layouts/Legal.astro';
 
   <h3 id="education">Education</h3>
   <p>
-    Pro gratis durante un año, renovable. Abre Lingua, ve a <em>Settings → License → Licencia
+    Pro gratis durante un año, renovable. Abre Lingua, ve a <em>Configuración → Cuenta → Licencia → Licencia
     educativa</em> e ingresa tu email académico. Aceptamos cualquier dominio <code>.edu</code>
     más <code>.ac.uk</code>, <code>.edu.mx</code>, <code>.edu.au</code>, <code>.edu.ca</code>,
     <code>.edu.br</code> y <code>.ac.in</code>. Te llega un email de confirmación con un magic
@@ -65,9 +65,10 @@ import Legal from '~/layouts/Legal.astro';
   <h2>Cómo funcionan las licencias</h2>
   <p>
     Los tiers pagos emiten un token firmado con Ed25519 y verificado offline contra una llave
-    pública incluida en el binario desktop. Lingua no hace phone-home para validar. El token se
+    pública incluida en el binario desktop. La validación nunca espera a un servidor; el servidor de
+    licencias solo lleva los cupos de dispositivos y actualiza el estado en segundo plano. El token se
     vincula a un conjunto pequeño de dispositivos (actualmente tres para Pro). Cuando compres una
-    máquina nueva, desactiva la anterior desde Settings → License; el cupo se libera de inmediato.
+    máquina nueva, desactiva la anterior desde Configuración → Cuenta → Licencia; el cupo se libera de inmediato.
   </p>
 
   <h2>Disponibilidad del código fuente</h2>

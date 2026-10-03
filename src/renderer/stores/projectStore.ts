@@ -8,7 +8,7 @@
  * - Recent projects list (persisted)
  * - Watch mode to detect external file changes
  *
- * internal — every filesystem operation goes through the active project's
+ * Every filesystem operation goes through the active project's
  * `rootId` (capability token minted by main on `selectDirectory()` or
  * re-minted on `reopenRoot(absolutePath)` for a recent project). The
  * persisted RecentProject row stores `rootPath` only; `rootId` is
@@ -51,7 +51,7 @@ import { useUIStore } from './uiStore';
 import { notifyBlockedFamily, notifyBlockedPath } from '../utils/blockedPath';
 
 /**
- * internal — narrow the new tagged-union return shape from watchStart.
+ * Narrow the new tagged-union return shape from watchStart.
  * Returns the watchId on success, or null when registration failed
  * (and the typed diagnostic was already pushed via `onWatcherFailed`,
  * so callers do not need to push it again).
@@ -85,7 +85,7 @@ interface ActiveProject extends RecentProject {
 }
 
 /**
- * implementation detail — a single coalesced filesystem-watch event handed
+ * A single coalesced filesystem-watch event handed
  * to `applyWatchChanges`. Shaped as a subset of the ambient
  * `FsChangedEvent` so the watcher hook can forward events directly.
  *
@@ -109,7 +109,7 @@ interface ProjectState {
   recentProjects: RecentProject[];
   nodes: FileTreeNode[];
   /**
-   * implementation detail — flat `path -> node` index over `nodes`, rebuilt
+   * Flat `path -> node` index over `nodes`, rebuilt
    * on every node commit (a pure derivation, so it never drifts). Gives
    * the watcher delta refresh O(1) loaded-directory lookups instead of
    * walking the whole tree per event. Never persisted (see `partialize`)
@@ -125,7 +125,7 @@ interface ProjectState {
   closeProject: () => void;
   refreshTree: () => Promise<void>;
   /**
-   * implementation detail — delta refresh for a coalesced burst of watch
+   * Delta refresh for a coalesced burst of watch
    * events. Re-reads from disk ONLY the loaded directories that actually
    * changed (skipping pure file-content `'change'` events, whose content
    * is handled by the reload-from-disk notice), preserving each branch's
@@ -138,7 +138,7 @@ interface ProjectState {
   // Tree navigation
   expandDirectory: (relativePath: string) => Promise<void>;
   collapseDirectory: (relativePath: string) => void;
-  /** implementation note — collapse every expanded directory at once. */
+  /** Collapse every expanded directory at once. */
   collapseAllDirectories: () => void;
 
   // File operations
@@ -153,10 +153,10 @@ function basenameOf(absolutePath: string): string {
 }
 
 /**
- * implementation — debounce the `Folder nested too deep` notice so a
+ * Debounce the `Folder nested too deep` notice so a
  * user who repeat-clicks a deep chevron only sees one toast per ~1.5s
  * burst. Mirrors `useDefaultOpenFileConsumer`'s timestamp-debounce
- * pattern from implementation so cross-feature behavior feels
+ * pattern so cross-feature behavior feels
  * consistent.
  */
 const DEPTH_LIMIT_NOTICE_DEBOUNCE_MS = 1500;
@@ -175,8 +175,16 @@ function pushDepthLimitNoticeOnce(): void {
   });
 }
 
+function pushEntryExistsNotice(name: string): void {
+  useUIStore.getState().pushStatusNotice({
+    tone: 'warning',
+    messageKey: 'fileTree.create.alreadyExists',
+    values: { name },
+  });
+}
+
 /**
- * implementation detail — commit a new node tree together with its
+ * Commit a new node tree together with its
  * freshly-derived path index. The index is a pure derivation of `nodes`
  * (rebuilt on every commit, so it can never drift) that gives the
  * watcher delta refresh O(1) loaded-directory lookups. Spread the result
@@ -282,7 +290,7 @@ export const useProjectStore = create<ProjectState>()(
           // a fresh root capability before the renderer can read that tree.
           const reopen = await window.lingua.fs.reopenRoot(rootPath);
           if (!reopen.ok) {
-            // internal — a previously-approved root that now falls inside the
+            // A previously-approved root that now falls inside the
             // denylist (e.g. under a newly-blocked app-data root) surfaces an
             // actionable notice instead of silently failing to restore.
             if (reopen.error === 'blocked') void notifyBlockedPath(rootPath);
@@ -452,7 +460,7 @@ export const useProjectStore = create<ProjectState>()(
       expandDirectory: async (relativePath: string) => {
         const { currentProject } = get();
         if (!currentProject) return;
-        // implementation — depth cap. Refusing the expand here (rather
+        // Depth cap. Refusing the expand here (rather
         // than letting `readdir` recurse) keeps a pathological tree
         // (symlink loop, vendored deps) from freezing the renderer.
         // The child we're about to render would sit at depth+1, so the
@@ -484,10 +492,19 @@ export const useProjectStore = create<ProjectState>()(
         const { currentProject } = get();
         if (!currentProject) return null;
         const fileRelativePath = joinPath(parentRelativePath, name);
-        await window.lingua.fs.touch(
+        if (get().nodeIndex.has(asRelativePath(fileRelativePath))) {
+          pushEntryExistsNotice(name);
+          return null;
+        }
+        // `false` means the entry already exists on disk (or the web write failed).
+        const created = await window.lingua.fs.touch(
           currentProject.rootId,
           asRelativePath(fileRelativePath)
         );
+        if (!created) {
+          pushEntryExistsNotice(name);
+          return null;
+        }
 
         const node: FileTreeNode = {
           name,
@@ -505,10 +522,15 @@ export const useProjectStore = create<ProjectState>()(
         const { currentProject } = get();
         if (!currentProject) return;
         const dirRelativePath = joinPath(parentRelativePath, name);
-        await window.lingua.fs.mkdir(
+        if (get().nodeIndex.has(asRelativePath(dirRelativePath))) {
+          pushEntryExistsNotice(name);
+          return;
+        }
+        const created = await window.lingua.fs.mkdir(
           currentProject.rootId,
           asRelativePath(dirRelativePath)
         );
+        if (!created) return;
 
         const node: FileTreeNode = {
           name,

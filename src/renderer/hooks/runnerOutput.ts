@@ -65,7 +65,7 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
     content: `${result.error.message}${location}`,
   };
 
-  // implementation — implementation end-to-end completion. When the
+  // Implementation end-to-end completion. When the
   // worker reports structured frames, attach a `kind: 'error'`
   // payload so the renderer paints the clickable-stack surface.
   // Absent frames falls through to the legacy text path (no chip).
@@ -83,7 +83,7 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
 }
 
 /**
- * One runner console output as a console entry. implementation — forward the
+ * One runner console output as a console entry. Forwards the
  * optional rich payload alongside the legacy text content so the console
  * renderer can dispatch on every path: streamed, cancelled and completed runs.
  */

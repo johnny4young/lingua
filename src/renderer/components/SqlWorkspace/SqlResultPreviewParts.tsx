@@ -131,12 +131,15 @@ export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
                   data-column={col.name}
                   data-sort={isSorted ? sort.direction : 'none'}
                   title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
-                  className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+                  className="flex w-full items-center gap-1.5 overflow-hidden px-3 py-2 text-left transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
                 >
-                  <span className="text-eyebrow uppercase tracking-[0.08em] text-fg-muted">
+                  <span className="shrink-0 text-eyebrow uppercase tracking-[0.08em] text-fg-muted">
                     {col.name}
                   </span>
-                  <span className="text-micro tracking-[0.04em] text-accent">
+                  <span
+                    className="min-w-0 truncate text-micro tracking-[0.04em] text-accent"
+                    title={col.type}
+                  >
                     {col.type}
                   </span>
                   {isSorted ? (

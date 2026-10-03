@@ -63,6 +63,31 @@ describe('utility compute worker client', () => {
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
+  it('terminates a superseded diff worker when its signal aborts', async () => {
+    const worker = new FakeWorker();
+    const controller = new AbortController();
+    const promise = computeDiffOffThread(
+      'before',
+      'after',
+      'line',
+      () => worker as unknown as Worker,
+      controller.signal
+    );
+    controller.abort();
+    await expect(promise).resolves.toEqual([]);
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
+  it('never starts a worker for an already-aborted diff', async () => {
+    const factory = vi.fn(() => new FakeWorker() as unknown as Worker);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      computeDiffOffThread('before', 'after', 'line', factory, controller.signal)
+    ).resolves.toEqual([]);
+    expect(factory).not.toHaveBeenCalled();
+  });
+
   it('streams pipeline steps before resolving the aggregate outcome', async () => {
     const worker = new FakeWorker();
     const onStepSettled = vi.fn();

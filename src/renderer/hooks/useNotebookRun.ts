@@ -1,22 +1,22 @@
 /**
- * implementation — `useNotebookRun` hook.
+ * `useNotebookRun` hook.
  *
  * Per-tab orchestration for Run cell / Run all / Run above / Stop.
  * Bypasses `useRunner` so notebook execution does NOT pollute the
  * user's regular execution history or capsule snapshots (mirror of
- * the implementation `useRecipeRun` pattern).
+ * the `useRecipeRun` pattern).
  *
- * Concurrency: implementation blocks `'concurrent-run'` per tab. The
+ * Concurrency: the hook blocks `'concurrent-run'` per tab. The
  * `runAll` / `runAbove` loops invoke `runNotebookCell` sequentially
  * with an early-stop when a cell errors (mirrors Jupyter's default
  * "stop on first failure" behavior).
  *
  * Stop semantics: clicking `Stop` flips `stopRequested = true` and
- * also calls `runnerManager.stop('javascript')` so the worker's
+ * stops only the runner the in-flight cell holds, so the worker's
  * Promise rejects. The current cell's status becomes `'stopped'`;
  * subsequent cells in a `runAll` chain do not run.
  *
- * FASE 4: this hook also owns the per-cell latency (measured around
+ * This hook also owns the per-cell latency (measured around
  * the `runNotebookCell` await) and the inter-cell variable flow
  * (`produces` from the kernel delta, `uses` from a pre-run sandbox
  * snapshot ∩ source token scan). Both land in TRANSIENT store maps —
@@ -36,24 +36,28 @@ import {
   getNotebookSessionKeys,
   isNotebookRunnableLanguage,
   runNotebookCell,
+  stopNotebookRun,
   type NotebookCellRunOutcome,
 } from '../runtime/notebookSession';
 import i18next from 'i18next';
 import { runnerManager } from '../runners';
+import { useEditorStore } from '../stores/editorStore';
 import { useNotebookStore } from '../stores/notebookStore';
+import { editorRunnerKey, notebookCellRunnerKey } from '../stores/notebookRunnerLockStore';
+import { useResultStore } from '../stores/resultStore';
 import { hasNotebookExecutionEvidence } from '../stores/notebookReactivity';
 import { useUIStore } from '../stores/uiStore';
 import { useAnnounce } from './useAnnounce';
 import { trackNotebookCellExecuted } from './notebookTelemetry';
 
 /**
- * FASE 4 — cheap `uses` derivation. We scan the cell source for
+ * Cheap `uses` derivation. We scan the cell source for
  * JS identifier tokens and keep only those that already existed in
  * the per-tab sandbox BEFORE the run. This is intentionally a regex
  * token match, not static analysis: it over-reports an identifier
  * that only appears inside a string/comment, and under-reports
  * member access like `obj.foo` (we match `obj`, not `foo`). That is
- * an acceptable implementation approximation for a header hint — the
+ * an acceptable approximation for a header hint — the
  * authoritative cross-cell wiring still lives in the kernel's
  * pull-in step. Bounded to the first matches to keep the chip short.
  */
@@ -73,6 +77,25 @@ function deriveUsesKeys(
     if (referenced.size >= MAX_USES_CHIP_KEYS) break;
   }
   return [...referenced];
+}
+
+/** A manual editor, Recipe or Debug run is executing on this cell's runner. */
+function isRunnerUsedByManualRun(language: NotebookCellLanguage): boolean {
+  const key = notebookCellRunnerKey(language);
+  const { manualRunSession, manualRunMode } = useResultStore.getState();
+  if (!key || !manualRunSession?.tabId) return false;
+  const tab = useEditorStore
+    .getState()
+    .tabs.find((candidate) => candidate.id === manualRunSession.tabId);
+  if (!tab) return false;
+  return editorRunnerKey(tab.language, tab.runtimeMode, manualRunMode === 'debug') === key;
+}
+
+function pushRuntimeBusyNotice(): void {
+  useUIStore.getState().pushStatusNotice({
+    tone: 'info',
+    messageKey: 'notebook.notice.runtimeBusy',
+  });
 }
 
 export interface UseNotebookRunResult {
@@ -97,6 +120,8 @@ export function useNotebookRun(): UseNotebookRunResult {
   const [isAnyCellRunning, setIsAnyCellRunning] = useState(false);
   const busyCountRef = useRef(0);
   const stopRequestedRef = useRef(false);
+  // Counted: a rejected concurrent click must not untrack the cell in flight.
+  const runningTabIdsRef = useRef(new Map<string, number>());
   const announce = useAnnounce();
   const beginBusy = useCallback(() => {
     busyCountRef.current += 1;
@@ -125,11 +150,18 @@ export function useNotebookRun(): UseNotebookRunResult {
         return null;
       }
 
+      if (isRunnerUsedByManualRun(cell.language)) {
+        pushRuntimeBusyNotice();
+        return null;
+      }
+
       const store = useNotebookStore.getState();
       store.setCellRunStatus(tabId, cellId, 'running');
       if (manageBusyState) beginBusy();
+      const running = runningTabIdsRef.current;
+      running.set(tabId, (running.get(tabId) ?? 0) + 1);
 
-      // implementation Slice F (implementation note) — the first Python cell run boots Pyodide
+      // implementation Slice F — the first Python cell run boots Pyodide
       // (web) / the native runtime, which can take a few seconds. Surface
       // a one-shot info notice so a freshly-clicked Python cell doesn't
       // read as hung. `needsInitialization` is false on every subsequent
@@ -144,7 +176,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         });
       }
 
-      // FASE 4 — snapshot the sandbox keys BEFORE the run so the
+      // Snapshot the sandbox keys BEFORE the run so the
       // `uses` chip reflects what this cell consumed from earlier
       // cells (the run itself will add this cell's own declarations).
       const priorSandboxKeys = getNotebookSessionKeys(tabId);
@@ -156,7 +188,7 @@ export function useNotebookRun(): UseNotebookRunResult {
           language: cell.language,
           source: cell.source,
         });
-        // FASE 4 — measure only the kernel round-trip; timing lives in
+        // Measure only the kernel round-trip; timing lives in
         // the hook, never in `notebookSession`, to keep the kernel file
         // minimal (GAP A).
         const durationMs = e2eFixedDurationMs(performance.now() - startedAt);
@@ -171,6 +203,8 @@ export function useNotebookRun(): UseNotebookRunResult {
               tone: 'warning',
               messageKey: 'notebook.notice.concurrentRun',
             });
+          } else if (result.reason === 'runtime-busy') {
+            pushRuntimeBusyNotice();
           } else if (result.reason === 'language-not-supported') {
             useUIStore.getState().pushStatusNotice({
               tone: 'info',
@@ -201,7 +235,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         // still consumed a slot in the kernel, so it earns a number
         // too, matching Jupyter's interrupted-cell behavior.
         store.setCellExecutionOrder(tabId, cellId);
-        // FASE 4 — thread the transient latency + variable-flow into
+        // Thread the transient latency + variable-flow into
         // the store. `produces` comes straight from the kernel's
         // delta keys; `uses` is the cheap pre-run snapshot ∩ token
         // scan. Recorded for every terminal outcome (ok / error /
@@ -228,7 +262,7 @@ export function useNotebookRun(): UseNotebookRunResult {
         store.setCellRunStatus(tabId, cellId, 'error');
         // Signal-Slate — an errored run still earns a `[N]` stamp.
         store.setCellExecutionOrder(tabId, cellId);
-        // FASE 4 — even an unexpected throw gets its latency + a
+        // Even an unexpected throw gets its latency + a
         // (produces-empty) var-flow entry so the header stays coherent.
         store.setCellDurationMs(tabId, cellId, e2eFixedDurationMs(performance.now() - startedAt));
         store.setCellVarFlow(tabId, cellId, {
@@ -248,6 +282,9 @@ export function useNotebookRun(): UseNotebookRunResult {
           producedKeys: [],
         };
       } finally {
+        const remaining = (running.get(tabId) ?? 1) - 1;
+        if (remaining > 0) running.set(tabId, remaining);
+        else running.delete(tabId);
         if (manageBusyState) endBusy();
       }
     },
@@ -445,16 +482,10 @@ export function useNotebookRun(): UseNotebookRunResult {
 
   const stop = useCallback(() => {
     stopRequestedRef.current = true;
-    // Best-effort: tell the in-flight runner to abort. We stop both
-    // notebook-runnable runners because the hook does not track which
-    // language is currently executing — JS / TS share the `'javascript'`
-    // worker (TS type-strips to JS), Python  runs on the
-    // `'python'` runner. `stop()` is idempotent on an idle runner, so
-    // stopping both is safe. The worker / native runtime treats this as a
-    // hard abort; `notebookSession.runNotebookCell` catches the
-    // `cancelled` flag and resolves with `status: 'stopped'`.
-    runnerManager.stop('javascript');
-    runnerManager.stop('python');
+    // Only the runner this notebook's cell holds: the other one may be
+    // serving an editor run. `runNotebookCell` maps the hard abort to
+    // `status: 'stopped'`.
+    for (const tabId of runningTabIdsRef.current.keys()) stopNotebookRun(tabId);
   }, []);
 
   return {

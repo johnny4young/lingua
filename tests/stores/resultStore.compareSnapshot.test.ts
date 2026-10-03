@@ -1,5 +1,5 @@
 /**
- * implementation — result store snapshot ring + pin coverage.
+ * Result store snapshot ring + pin coverage.
  *
  * Covers:
  *   - `captureSuccessfulSnapshot(language)` writes `language` +
@@ -16,7 +16,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 
-describe('implementation — result store snapshot ring', () => {
+describe('result store snapshot ring', () => {
   beforeEach(() => {
     useResultStore.getState().clear();
   });

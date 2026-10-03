@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { act, render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { StatusNoticeBanner } from '../../src/renderer/components/StatusNotice/StatusNoticeBanner';
@@ -77,5 +77,47 @@ describe('StatusNoticeBanner', () => {
     expect(
       screen.getByRole('button', { name: 'Retry detection' })
     ).toBeTruthy();
+  });
+
+  it('keeps notices with actions up past the auto-dismiss window', () => {
+    vi.useFakeTimers();
+    try {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'onboarding.firstRun.message',
+        actions: [{ labelKey: 'onboarding.firstRun.cta', onClick: vi.fn() }],
+      });
+      render(<StatusNoticeBanner />);
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('onboarding.firstRun.message');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('pauses auto-dismiss while hovered and resumes on leave', () => {
+    vi.useFakeTimers();
+    try {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'onboarding.firstRun.message',
+      });
+      render(<StatusNoticeBanner />);
+      const banner = screen.getByTestId('status-notice-banner');
+      fireEvent.mouseEnter(banner);
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(useUIStore.getState().statusNotice).not.toBeNull();
+      fireEvent.mouseLeave(banner);
+      act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(useUIStore.getState().statusNotice).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

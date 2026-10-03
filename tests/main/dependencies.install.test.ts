@@ -1,5 +1,5 @@
 /**
- * implementation — main-side install spawn safety + outcome mapping.
+ * main-side install spawn safety + outcome mapping.
  *
  * Pins:
  *   - Platform-safe launcher: direct `npm` on POSIX and explicit
@@ -9,8 +9,8 @@
  *   - Specifier validation (invalid names never reach npm).
  *   - Unsaved tab refusal (no filePath → `no-package-json` failure
  *     without ever spawning).
- *   - Missing package.json refusal (implementation note).
- *   - Pre-flight integrity check (implementation note — already-installed names
+ *   - Missing package.json refusal.
+ *   - Pre-flight integrity check (already-installed names
  *     short-circuit without spawning).
  *   - Exit-code mapping (0 → success, non-zero → failed with
  *     exit-nonzero, ENOENT → binary-missing).
@@ -106,7 +106,7 @@ describe('installJsDependencyBatch', () => {
     expect(Object.keys(result.statuses)).toEqual([]);
   });
 
-  it('refuses without spawning when the cwd has no package.json (implementation note)', async () => {
+  it('refuses without spawning when the cwd has no package.json', async () => {
     await mkdir(path.join(workdir, 'node_modules'), { recursive: true });
     const { installJsDependencyBatch } = await import(
       '../../src/main/dependencies'
@@ -123,7 +123,7 @@ describe('installJsDependencyBatch', () => {
     expect(result.failureReason).toBe('no-package-json');
   });
 
-  it('short-circuits already-installed names without spawning (implementation note)', async () => {
+  it('short-circuits already-installed names without spawning', async () => {
     await mkdir(path.join(workdir, 'node_modules', 'lodash'), {
       recursive: true,
     });

@@ -1,5 +1,5 @@
 /**
- * implementation — pure env-var scope merger.
+ * Pure env-var scope merger.
  *
  * Tab > project > global > process precedence, with empty-string
  * values preserved (POSIX-like "unset the inherited variable" shape).

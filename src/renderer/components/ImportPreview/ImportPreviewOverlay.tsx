@@ -1,22 +1,22 @@
 /**
- * implementation — global Import overlay.
+ * Global Import overlay.
  *
  * Mod+Alt+I from anywhere opens this overlay. 3-section layout
  * mirroring `<CapsuleImportOverlay>` :
  *
  *   - TOP    : Load source (Paste textarea + Pick-a-file button +
- *              full-overlay drag-drop). implementation note = drag-drop with
- *              visible ring on `dragover`.
+ *              full-overlay drag-drop with a
+ *              visible ring on `dragover`).
  *   - MIDDLE : Read-only preview band (<ImportPreviewBody>) OR a
  *              reject band when the source doesn't parse.
- *              Warning band lists lossy cURL flags (implementation note codes).
+ *              Warning band lists lossy cURL flags (warning codes).
  *   - BOTTOM : Action bar — Cancel + Import (disabled until valid
- *              preview). implementation note (implementation) — confirm flips the
+ *              preview). Confirm
  *              opens or focuses the HTTP workspace editor tab for cURL;
- *              implementation note (implementation) — the hook creates notebook tabs with
+ *              The hook creates notebook tabs with
  *              the detected dominant code-cell language.
  *
- * implementation folds:
+ * Features:
  *   A. Drag-drop accepts notebook files (file input `accept` widened).
  *   B. `detectImporter` content-sniff handles both adapters; file
  *      extension hint kicks in for drop events.
@@ -25,11 +25,11 @@
  *   E. Warning telemetry fires for ipynb imports with lossy bits.
  *   F. After-confirm language chip auto-flip.
  *
- * Escape closes. Click-outside closes. Telemetry (implementation note) is
+ * Escape closes. Click-outside closes. Telemetry is
  * owned by `useImportPreview`; the overlay just calls
  * `trackCancelled()` on dismiss.
  *
- * FASE 1 (MOV.01) — the ad-hoc backdrop/card chrome was replaced by the
+ * The ad-hoc backdrop/card chrome was replaced by the
  * shared `<ModalShell>` (title-header variant + `x` close button + the
  * 900px clamp). Escape / scrim-click / the header `x` all route through
  * the shell's `onClose` (wired to `handleClose`, which fires the cancel
@@ -217,7 +217,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         }
         return;
       }
-      // implementation note — multiple files: detect a Postman collection + route any
+      // Multiple files: detect a Postman collection + route any
       // environment/globals exports into the variable slots. Falls back to
       // first-file-wins when no collection+variables combo is present.
       if (files.length > 1) {
@@ -352,7 +352,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     importerId === 'postman-collection' || importerId === 'bruno-collection';
   const collectionCount =
     previewed && previewed.kind === 'http-collection' ? previewed.counts.total : 0;
-  // implementation note — confirm label per importer kind.
+  // Confirm label per importer kind.
   const confirmLabel =
     importerId === 'ipynb-notebook' || importerId === 'linguanb-notebook'
       ? t('importPreview.action.confirm.notebook')
@@ -364,7 +364,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
             ? t('importPreview.action.confirm.collection', { count: collectionCount })
             : t('importPreview.action.confirm');
   // Footer-left hint — the detected source format, mirroring the
-  // MOV.01 prototype's "Detected: …" legend. Only shown once a preview
+  // design prototype's "Detected: …" legend. Only shown once a preview
   // resolves (so `importerId` is known); reuses the existing
   // `importPreview.format.*` value strings.
   const detectedFormatLabel =
@@ -589,7 +589,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                   `.ipynb` `wrong-version` / `oversized` reject), the
                   detail IS the accurate message — promote it to the
                   bold header and skip the generic outer-reason copy,
-                  which is written for the implementation "importer not
+                  which is written for the original "importer not
                   wired" meaning and reads wrong for these cases. */}
               {rejectDetailKey ? (
                 <div
@@ -621,7 +621,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 }
 
 /**
- * implementation note — optional environment + globals variable sources for
+ * Optional environment + globals variable sources for
  * a Postman collection import. Each slot accepts a paste or a file; providing
  * one re-runs the preview with the merged variables (env > globals >
  * collection). Rendered only for `postman-collection`.

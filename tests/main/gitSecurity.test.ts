@@ -6,6 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -171,5 +172,30 @@ describe('read-only Git trust boundary', () => {
     expect(await getFileStatus(worktree, path.join(worktree, 'sample.txt'))).toMatchObject({
       status: 'clean',
     });
+  });
+});
+
+describe('working-tree side of a diff', () => {
+  it.skipIf(process.platform === 'win32')('does not read through a symlinked directory that leaves the repository', async () => {
+    const outside = realpathSync(mkdtempSync(path.join(tmpdir(), 'lingua-git-outside-')));
+    try {
+      writeFileSync(path.join(outside, 'secret.txt'), 'TOP SECRET\n');
+      symlinkSync(outside, path.join(root, 'linked-dir'));
+      expect(await getFileDiff(root, path.join(root, 'linked-dir', 'secret.txt'))).toEqual({
+        originalContent: '',
+        modifiedContent: '',
+        truncated: false,
+      });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('caps a large working-tree file at the diff budget', async () => {
+    writeFileSync(path.join(root, 'sample.txt'), 'x'.repeat(200 * 1024));
+    const diff = await getFileDiff(root, path.join(root, 'sample.txt'));
+    expect(diff.truncated).toBe(true);
+    expect(diff.modifiedContent).toHaveLength(64 * 1024);
+    expect(diff.originalContent).toBe('before\n');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * MOV.02 (FASE 3) — full-screen mount wrapper for the HTTP workspace.
+ * full-screen mount wrapper for the HTTP workspace.
  *
  * Thin pass-through: it is the `React.lazy` import target in AppLayout
  * (keeping the HTTP/fetch chunk out of the initial bundle) and forwards

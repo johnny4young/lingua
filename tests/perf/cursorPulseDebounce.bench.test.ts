@@ -1,5 +1,5 @@
 /**
- * implementation Sub-slice G.1 implementation note — cursor pulse debounce regression
+ * Cursor pulse debounce regression
  * guard.
  *
  * Acceptance criteria locked here:

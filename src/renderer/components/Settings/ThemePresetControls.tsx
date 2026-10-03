@@ -48,7 +48,7 @@ export function ThemePresetControls() {
       editorTheme: settings.editorTheme,
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
-      // implementation — these fields stay in the preset schema for backward
+      // These fields stay in the preset schema for backward
       // compatibility with older exports, but are hardcoded to baseline
       // values (ligatures on, shell follows editor theme).
       fontLigatures: true,
@@ -91,7 +91,7 @@ export function ThemePresetControls() {
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      // internal — atomic IPC: the picker mints a capability tied to the
+      // Atomic IPC: the picker mints a capability tied to the
       // parent directory; we revoke it once the one-shot write finishes
       // so transient tokens for theme exports don't accumulate.
       if (mintedRootId && revokeRoot) {
@@ -135,7 +135,7 @@ export function ThemePresetControls() {
         editorTheme: result.preset.appearance.editorTheme,
         fontFamily: result.preset.typography.fontFamily,
         fontSize: result.preset.typography.fontSize,
-        // implementation — `syncShellWithEditorTheme` / `fontLigatures` are
+        // `syncShellWithEditorTheme` / `fontLigatures` are
         // baseline ON; imported presets that carry them are ignored.
         layoutPreset: result.preset.layout.layoutPreset,
       });

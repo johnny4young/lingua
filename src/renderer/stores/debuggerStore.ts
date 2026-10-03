@@ -3,25 +3,25 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
- * implementation — Debugger state machine store.
+ * Debugger state machine store.
  *
  * # Purpose
  *
  * Source of truth for the active debug session, registered breakpoints
  * (per file), watch expressions (global), and the last call-stack frame
- * snapshot. The store is intentionally **runtime-agnostic** — implementation
+ * snapshot. The store is intentionally **runtime-agnostic** — it serves
  * the JS worker adapter plus desktop Python, Go, and Rust adapters while the
  * discriminated `runtime` field keeps presentation state protocol-neutral.
  *
  * # Persistence
  *
  * Lives in a dedicated localStorage key `lingua-debugger-state` (Vite
- * config `envDir` precedent set by implementation so the persisted
+ * config `envDir` precedent so the persisted
  * blob never collides with `lingua-settings`). Persisted: `breakpoints`
  * + `watches`. NOT persisted: `session` (transient, dies on reload),
  * `pausedFrame` (only meaningful while paused).
  *
- * # Caps (implementation note)
+ * # Caps
  *
  * `MAX_BREAKPOINTS_GLOBAL = 100` with FIFO eviction of the
  * oldest-by-line breakpoint when the cap is hit. The cap is global
@@ -35,7 +35,7 @@ import { createMigrate } from './persistence/migrationRegistry';
  * Every mutator returns a new state object so React subscribers
  * re-render correctly.
  *
- * Reference: implementation and `docs/DEBUGGER_ADR.md`.
+ * Reference: `docs/DEBUGGER_ADR.md`.
  */
 
 export const DEBUGGER_STORAGE_KEY = 'lingua-debugger-state';
@@ -56,7 +56,7 @@ interface Breakpoint {
   /** 1-indexed line number in the user's source (NOT the instrumented JS). */
   line: number;
   /**
-   * Optional predicate (implementation note — conditional breakpoints). When set,
+   * Optional predicate (conditional breakpoints). When set,
    * the worker evaluates the expression in the paused-frame closure
    * and only pauses if the result is truthy. Empty string === no
    * condition.
@@ -100,8 +100,8 @@ export interface PausedFrame {
   /**
    * Latest watch evaluations, keyed by the user-typed expression. Each
    * entry is `{ value, error }` (exactly one defined when evaluated)
-   * OR `{ pending: true }` while implementation ships without the eval pass —
-   * implementation introduces predicate evaluation under a security review.
+   * OR `{ pending: true }` while the eval pass is not shipped —
+   * a later change introduces predicate evaluation under a security review.
    */
   watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
   /** Invalid conditional expressions pause fail-safe and surface their reason. */
@@ -137,7 +137,7 @@ export interface DebuggerState {
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
   /**
-   * implementation note — drawer collapse state. Persists across reloads
+   * Drawer collapse state. Persists across reloads
    * (folded users want it folded when they reopen) but defaults to
    * expanded so first-time users discover the panel.
    */
@@ -150,7 +150,7 @@ export interface DebuggerState {
   setBreakpointLogMessage: (tabId: string, line: number, message: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
   /**
-   * implementation note — batch-update `enabled` on every breakpoint.
+   * batch-update `enabled` on every breakpoint.
    * Used by the Debugger panel's Disable all / Enable all control: a
    * single mutator avoids tearing UI re-render across 100 individual calls.
    */
@@ -170,7 +170,7 @@ export interface DebuggerState {
     results: Record<string, { value?: string; error?: string; pending?: boolean }>
   ) => void;
 
-  // Mutators — drawer collapse (implementation note).
+  // Mutators — drawer collapse.
   toggleDrawerCollapsed: () => void;
 }
 
@@ -474,7 +474,7 @@ export const useDebuggerStore = create<DebuggerState>()(
       version: 2,
       migrate: createMigrate(DEBUGGER_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
-      // implementation — only persist breakpoints + watches. Session +
+      // Only persist breakpoints + watches. Session +
       // pausedFrame are transient (rebooting the renderer always
       // detaches; a stale paused frame would be incoherent).
       partialize: (state) => ({

@@ -1,5 +1,5 @@
 /**
- * internal — HTML Entity Encode/Decode helper.
+ * HTML Entity Encode/Decode helper.
  *
  * Pure, offline, renderer-side. Ships three encoding strategies + a single
  * decoder that handles named, decimal numeric, and hex numeric references.

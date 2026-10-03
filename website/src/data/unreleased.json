@@ -1,7 +1,116 @@
 {
-  "generatedAt": "2026-09-24T18:18:05.110Z",
+  "generatedAt": "2026-10-02T20:28:50.447Z",
   "baseRef": "v1.5.1",
-  "commitCount": 0,
-  "totalSinceBase": 1,
-  "commits": []
+  "commitCount": 12,
+  "totalSinceBase": 32,
+  "commits": [
+    {
+      "hash": "a0aef99",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": null,
+      "message": "close live-smoke findings and refresh product screenshots",
+      "breaking": false
+    },
+    {
+      "hash": "7e1bf91",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": null,
+      "message": "resolve full app review findings across runtime, UI, desktop and docs",
+      "breaking": false
+    },
+    {
+      "hash": "0973bb1",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "keep Go and Rust navigation identity and lifecycle consistent",
+      "breaking": false
+    },
+    {
+      "hash": "f288f6c",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "notebook",
+      "message": "keep document recovery and buffer actions honest",
+      "breaking": false
+    },
+    {
+      "hash": "fdfb74a",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "capsules",
+      "message": "align regression cases with captured verification and sanitized export",
+      "breaking": false
+    },
+    {
+      "hash": "0163b9e",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "cli",
+      "message": "treat engine-divergent capsule recordings as inconclusive",
+      "breaking": false
+    },
+    {
+      "hash": "eeb422d",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "cli",
+      "message": "share capsule preflight between replay and verify and tighten verifier evidence",
+      "breaking": false
+    },
+    {
+      "hash": "19a1e4f",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "ai",
+      "message": "size the stream wire cap for SSE envelopes and show budget notices whole",
+      "breaking": false
+    },
+    {
+      "hash": "fb2f5ef",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "ai",
+      "message": "keep non-streaming deadline absolute and localize every budget notice",
+      "breaking": false
+    },
+    {
+      "hash": "96bd292",
+      "date": "2026-10-01",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "discard refused navigation reveals",
+      "breaking": false
+    },
+    {
+      "hash": "000db22",
+      "date": "2026-10-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "notebook",
+      "message": "persist manual project documents",
+      "breaking": false
+    },
+    {
+      "hash": "5c4aed4",
+      "date": "2026-10-01",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsules",
+      "message": "verify current files and regression suites",
+      "breaking": false
+    }
+  ]
 }

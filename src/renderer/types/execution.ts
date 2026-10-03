@@ -37,7 +37,7 @@ export interface ExecutionContext {
    */
   debug?: boolean;
   /**
-   * implementation — tab id of the source being executed. The
+   * Tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
    * store keyed by this id, so a run on a different tab does not
    * trigger pauses set on another tab. The Browser preview runner
@@ -45,7 +45,7 @@ export interface ExecutionContext {
    */
   tabId?: string;
   /**
-   * implementation — JS / TS auto-log mode. When `true` the JS / TS
+   * JS / TS auto-log mode. When `true` the JS / TS
    * runner runs a second source transform that replaces every
    * top-level bare expression statement with an `__mc(line, value)`
    * capture (after the magic-comment transform) so values surface
@@ -56,7 +56,7 @@ export interface ExecutionContext {
    */
   autoLog?: boolean;
   /**
-   * implementation — per-line timing via the Settings toggle. When
+   * per-line timing via the Settings toggle. When
    * `true` the JS / TS runner prefixes every top-level statement with
    * a `__mc_tick(line)` marker so the worker can attribute wall-clock
    * time per statement. A `// @time` magic comment in the buffer
@@ -65,7 +65,7 @@ export interface ExecutionContext {
    */
   lineTiming?: boolean;
   /**
-   * implementation — pre-set stdin buffer the worker consumes for
+   * pre-set stdin buffer the worker consumes for
    * `prompt()` / `readline()` (JS / TS) or `input()` (Python).
    * Newline-delimited; each call consumes one line. Empty /
    * undefined ⇒ native worker behavior. Layered onto the existing
@@ -73,10 +73,10 @@ export interface ExecutionContext {
    * ignore the field harmlessly.
    */
   stdin?: string;
-  /** internal — argv from the active input set; unsupported runners ignore it. */
+  /** Argv from the active input set; unsupported runners ignore it. */
   args?: string[];
   /**
-   * implementation — the resolved preset that produced the active
+   * The resolved preset that produced the active
    * `timeout`. Used by `runnerTimeoutResult` to populate the
    * `RunStatusPill` tooltip with the human-readable preset name
    * ("Run hit the quick limit (5s)"). When `'override'` the run is
@@ -87,13 +87,13 @@ export interface ExecutionContext {
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * implementation — BrowserPreviewRunner keeps the last successful document
+   * BrowserPreviewRunner keeps the last successful document
    * visible when a silent live refresh errors, times out, or is superseded.
    * Manual runs omit this flag and keep their explicit stop semantics.
    */
   preserveBrowserPreviewOnFailure?: boolean;
   /**
-   * implementation — when `true`, the runner asks its worker to
+   * When `true`, the runner asks its worker to
    * capture the post-execute scope and emit a `ScopeSnapshot` on
    * the resulting `ExecutionResult`. Runners that do not implement
    * scope capture ignore the field harmlessly. The runtime layers
@@ -105,14 +105,14 @@ export interface ExecutionContext {
    */
   captureScope?: boolean;
   /**
-   * implementation note — recursion depth for the scope walker
+   * Recursion depth for the scope walker
    * (1–4). `1` is the base scope and matches the renderer's
    * "1-level expand" UX. The runtime threads the user's Settings
    * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
    */
   scopeDepth?: number;
   /**
-   * implementation — when `true`, the runner asks its worker to ALSO
+   * When `true`, the runner asks its worker to ALSO
    * post the run's structured return value (e.g. the notebook's
    * `{ stdout, stderr, sessionDelta }` object) as live data on
    * `ExecutionResult.structuredResult`, bypassing the display-only
@@ -124,7 +124,7 @@ export interface ExecutionContext {
    */
   captureStructuredResult?: boolean;
   /**
-   * implementation — per-notebook Python kernel scope. When set (the notebook session
+   * per-notebook Python kernel scope. When set (the notebook session
    * passes the notebook's tabId), the Python worker runs the cell against a
    * persistent namespace dedicated to that scope, so cells in one notebook
    * share state while staying isolated from the editor scratchpad and other
@@ -142,7 +142,7 @@ export interface ExecutionError {
   endColumn?: number;
   stack?: string;
   /**
-   * implementation — structured stack frames parsed by the worker
+   * Structured stack frames parsed by the worker
    * (`parseJsErrorStack` / `parsePythonTraceback`). The renderer reads
    * these to build a `kind: 'error'` payload with clickable frames
    * . Absent when the worker can't parse a stack — the
@@ -165,11 +165,11 @@ export interface MagicCommentResult {
   line: number;
   value: string;
   /**
-   * implementation — which magic-comment shape produced
+   * Which magic-comment shape produced
    * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
    * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
    * pinned watch; `'autoLog'` for a Scratchpad bare-expression
-   * auto-log surface added in implementation. Runners populate this from
+   * auto-log surface. Runners populate this from
    * `magicCommentKindsByLine(language, source, options)` before
    * dispatch. Optional so a future runner that emits magic results
    * without a transform pass (e.g. a future REPL adapter) doesn't
@@ -185,7 +185,7 @@ export interface MagicCommentResult {
   /** Mapped error details when a captured expression threw in the JS worker. */
   error?: ExecutionError;
   /**
-   * implementation — optional structured payload the runner
+   * Optional structured payload the runner
    * attached after detecting a rich-output directive (`//=> table`)
    * or auto-detecting an array of plain objects. `value` stays the
    * canonical string fallback every renderer surface already reads;
@@ -197,7 +197,7 @@ export interface MagicCommentResult {
 }
 
 /**
- * implementation — wall-clock duration of one top-level statement,
+ * wall-clock duration of one top-level statement,
  * attributed to the statement's first line. Produced by the worker's
  * `__mc_tick` delta accumulator, batched on a single `line-timing`
  * message right before `done`.
@@ -213,7 +213,7 @@ export interface ExecutionResult {
   stderr: ConsoleOutput[];
   result?: unknown;
   executionTime: number;
-  /** internal — per-statement timings; present only when instrumented. */
+  /** per-statement timings; present only when instrumented. */
   lineTimings?: LineTimingEntry[];
   /**
    * True when the user explicitly stopped execution. Cancelled runs
@@ -224,7 +224,7 @@ export interface ExecutionResult {
   error?: ExecutionError;
   magicResults?: MagicCommentResult[];
   /**
-   * implementation note — stdin consumption summary. Populated by
+   * Stdin consumption summary. Populated by
    * runners whose worker pulled at least one line out of the pre-set
    * buffer; the StdinInputPanel reads this to render
    * "Used N of M line(s)". `total` is the number of lines in the
@@ -234,7 +234,7 @@ export interface ExecutionResult {
    */
   stdinConsumed?: { count: number; total: number };
   /**
-   * implementation — explicit termination kind. The renderer's
+   * Explicit termination kind. The renderer's
    * `<RunStatusPill>` self-gates on this field rather than
    * reverse-engineering the kind from `error.message`. `'success'`
    * is the default when no `error` and no `cancelled` flag fires;
@@ -244,19 +244,19 @@ export interface ExecutionResult {
    */
   kind?: 'success' | 'error' | 'timeout' | 'stopped';
   /**
-   * implementation — when `kind === 'timeout'`, names the preset
+   * When `kind === 'timeout'`, names the preset
    * that fired the limit. `'override'` when the run was driven by
    * an explicit caller timeout (one-shot extended / magic-comment).
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
   /**
-   * implementation — the actual timeout in ms that armed the run.
+   * The actual timeout in ms that armed the run.
    * Surfaces in the `RunStatusPill` tooltip + the timed-out result
    * message.
    */
   timeoutMs?: number;
   /**
-   * implementation — post-execute variable scope captured by the
+   * post-execute variable scope captured by the
    * worker. `null` when the runner does not implement capture OR
    * the run errored / timed out / was cancelled. The result store
    * stores the most recent non-null snapshot so the inspector
@@ -264,7 +264,7 @@ export interface ExecutionResult {
    */
   scopeSnapshot?: ScopeSnapshot | null;
   /**
-   * implementation — the run's structured return value, posted by the
+   * The run's structured return value, posted by the
    * worker when the caller set `ExecutionContext.captureStructuredResult`.
    * Unlike `result` (a display string the worker serializes + truncates
    * at `MAX_RESULT_BYTES`), this carries the live value through the
@@ -285,7 +285,7 @@ export interface ConsoleOutput {
   args: string[];
   line?: number;
   /**
-   * implementation — rich payload aligned by index with `args`. The legacy
+   * Rich payload aligned by index with `args`. The legacy
    * `args` string array still ships as the text fallback for non-JS runners
    * + Settings opt-out + payload-missing edge cases. Renderers must treat
    * this as additive: when absent, fall back to `args`.
@@ -335,7 +335,7 @@ export interface LanguageRunner {
 /**
  * Messages sent from the worker to the main thread.
  *
- * internal — every `execute` request carries an opaque `runId` minted
+ * Every `execute` request carries an opaque `runId` minted
  * by the parent. The worker echoes it on every reply so the parent
  * can drop messages from a previous (terminated-by-timeout) run.
  *
@@ -353,23 +353,23 @@ export type WorkerResponse =
       args: string[];
       line?: number;
       /**
-       * implementation — additive typed payload aligned by index
+       * Additive typed payload aligned by index
        * with `args`. Absent from runners that don't emit rich
        * payloads (Python / Go / Rust today); the renderer text path
        * stays the canonical fallback.
        */
       payload?: RichOutputPayload[];
       /**
-       * implementation note — adoption signal for `console.table()`.
+       * Adoption signal for `console.table()`.
        * The runner promotes this into a `runtime.console_table_called`
        * telemetry event; never read by the panel.
        */
       consoleTableInvoked?: boolean;
       /**
-       * implementation — rich-media helper rejection marker emitted
+       * rich-media helper rejection marker emitted
        * by the JS / Python worker bridges. Runner-side telemetry
-       * forwarding (`runtime.rich_media_payload_rejected`) landed in
-       * implementation-β-β-α implementation note; all three runners (JS / TS / Python)
+       * forwarding (`runtime.rich_media_payload_rejected`):
+       * all three runners (JS / TS / Python)
        * read this field and fire-and-forget the event.
        */
       richMediaRejected?: {
@@ -382,7 +382,7 @@ export type WorkerResponse =
       runId: string;
       value?: unknown;
       /**
-       * implementation — structured return value forwarded losslessly
+       * Structured return value forwarded losslessly
        * via the postMessage structured clone when the execute request
        * set `captureStructuredResult`. The runner threads this onto
        * `ExecutionResult.structuredResult`; absent for normal runs.
@@ -413,7 +413,7 @@ export type WorkerResponse =
       isError?: boolean;
       error?: ExecutionError;
       /**
-       * implementation note — when the source carried a `#=> table`
+       * When the source carried a `#=> table`
        * directive, the Python worker computes a forced-table payload
        * alongside the legacy stringified `value`. JS / TS workers
        * currently leave this absent and the renderer recovers a
@@ -424,7 +424,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * internal — live download progress while a WASM runtime
+       * Live download progress while a WASM runtime
        * bootstraps (Pyodide / Ruby). `totalBytes` is null when the
        * server sent no Content-Length (progress is indeterminate).
        * Best-effort: absence of these messages never blocks a boot.
@@ -436,7 +436,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * implementation — batched per-statement timings the worker
+       * Batched per-statement timings the worker
        * posts once, right before `done` (and on the error path, for
        * the statements that DID complete). Only present when the
        * runner instrumented the source with `__mc_tick` markers.
@@ -446,7 +446,7 @@ export type WorkerResponse =
       entries: LineTimingEntry[];
     }
   | {
-      // implementation — debugger pause from the JS worker. Carries
+      // Debugger pause from the JS worker. Carries
       // the source line, the locals snapshot, the call stack, and any
       // watch-result placeholders for the UI drawer.
       type: 'paused';
@@ -466,7 +466,7 @@ export type WorkerResponse =
   | { type: 'resumed'; runId: string }
   | {
       /**
-       * implementation note — stdin consumption summary the worker
+       * Stdin consumption summary the worker
        * posts right before `done`. `count` is the number of lines the
        * program actually consumed; `total` is the size of the
        * pre-set buffer the worker received. Omitted entirely when
@@ -479,7 +479,7 @@ export type WorkerResponse =
     }
   | {
       /**
-       * implementation — post-execute scope snapshot. The worker
+       * post-execute scope snapshot. The worker
        * captures `globalThis` (JS) or `globals()` (Python) after the
        * user code resolves, filters internal helpers + boot-time
        * names, and walks each remaining binding via the shared

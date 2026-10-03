@@ -141,9 +141,9 @@ describe('useGlobalShortcuts', () => {
   it('routes a rebound combo to the correct action and skips the old one', () => {
     // `Mod+Shift+U` is a free combo in the production catalog —
     // verified by `tests/data/keyboardShortcuts.test.ts`. The earlier
-    // choice was `Mod+Shift+J` but implementation bound that to
+    // choice was `Mod+Shift+J` but that went to
     // `view-show-dependencies`; the follow-up `Mod+Shift+Y` was taken
-    // by implementation (capsule import overlay). U remains free, so
+    // by the capsule import overlay. U remains free, so
     // first-match-wins iteration in `useGlobalShortcuts` still routes
     // the overridden combo to the right action.
     useSettingsStore
@@ -167,7 +167,7 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('toggles Recent Runs from Mod+Alt+H', () => {
-    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
+    // Moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity Mod+Shift+H binding can map to project-replace.
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, altKey: true });
@@ -175,13 +175,13 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('opens Project Replace from Mod+Shift+H', () => {
-    // implementation — VSCode-parity binding for replace-in-files.
+    // VSCode-parity binding for replace-in-files.
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, shiftKey: true });
     expect(calls.toggleOverlay).toHaveBeenCalledWith('replace');
   });
 
-  // internal polish #8 — the new Stdin / floating-position shortcuts
+  // The new Stdin / floating-position shortcuts
   // ship with FloatingActionPill + StdinInputPanel; tests guard the
   // dispatch path so a future override change can't silently strip
   // the binding.
@@ -203,9 +203,9 @@ describe('useGlobalShortcuts', () => {
     expect(calls.resetFloatingPositions).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles the variable inspector surface from Mod+Shift+V', () => {
+  it('toggles the variable inspector surface from Mod+Alt+V', () => {
     const calls = renderShortcuts();
-    dispatchKeyDown({ key: 'v', ctrlKey: true, shiftKey: true });
+    dispatchKeyDown({ key: 'v', ctrlKey: true, altKey: true });
     expect(calls.toggleVariableInspectorSurface).toHaveBeenCalledTimes(1);
   });
 
@@ -233,10 +233,10 @@ describe('useGlobalShortcuts', () => {
       configurable: true,
       value: { writeText },
     });
-    // implementation — Mod+Alt+C is now the default capsule-browse
+    // Mod+Alt+C is now the default capsule-browse
     // binding (`overlay-capsule-list`), so this fixture's "free combo"
     // moved to Mod+Alt+J to keep exercising a custom override without a
-    // catalog collision (same precedent as the implementation Mod+Shift+Y→U
+    // catalog collision (same precedent as the Mod+Shift+Y→U
     // move).
     useSettingsStore
       .getState()

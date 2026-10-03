@@ -1,5 +1,5 @@
 /**
- * implementation — UtilityPipelinePanel tests.
+ * UtilityPipelinePanel tests.
  *
  * Focused on the orchestration the panel owns: create + add step +
  * run + result rendering. Adapter behavior is covered by the unit
@@ -126,7 +126,7 @@ describe('UtilityPipelinePanel', () => {
   it('shows the template gallery in the empty state ', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
-    // One card per catalog template (9 after implementation note added
+    // One card per catalog template (9, including
     // the inspect-hidden-chars starter).
     expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(9);
   });
@@ -151,9 +151,9 @@ describe('UtilityPipelinePanel', () => {
       separator: 'hyphen',
       lowercase: true,
     });
-    // implementation note — the sample input is seeded so the pipeline is runnable.
+    // The sample input is seeded so the pipeline is runnable.
     expect(state.getPipelineInput(created.id)).toBe('Hello World Example');
-    // implementation note — adoption telemetry with the curated template id.
+    // Adoption telemetry with the curated template id.
     expect(mockTrackEvent).toHaveBeenCalledWith('utility.pipeline_template_used', {
       templateId: 'slugify',
     });
@@ -343,7 +343,7 @@ describe('UtilityPipelinePanel', () => {
     );
   });
 
-  // implementation note — explicit Save-as-capsule button.
+  // Explicit Save-as-capsule button.
   it('disables Save-as-capsule before a run completes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));

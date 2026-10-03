@@ -1,5 +1,5 @@
 /**
- * implementation trailer — shared replay helper.
+ * Shared replay helper.
  *
  * Both the console-popover Replay button  and the command-palette
  * per-entry Replay action (this change) dispatch the same effect: open a new
@@ -50,7 +50,7 @@ function replayTabName(entry: ExecutionHistoryEntry, language: Language): string
  *
  * Surfaces all feedback through `useUIStore` notices. Returns `true`
  * when the replay run was dispatched, `false` when one of the
- * refusal branches fired. implementation callers gate the
+ * refusal branches fired. Callers gate the
  * `runtime.history_replay` telemetry on this return value so adoption
  * metrics never count replays that didn't actually happen.
  */

@@ -1,5 +1,5 @@
 /**
- * implementation — `src/shared/redaction.ts` extract proof.
+ * `src/shared/redaction.ts` extract proof.
  *
  * These tests assert two contracts:
  *

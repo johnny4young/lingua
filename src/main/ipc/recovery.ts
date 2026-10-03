@@ -1,5 +1,5 @@
 /**
- * internal — recovery IPC handlers.
+ * Recovery IPC handlers.
  *
  *   - `recovery:confirm-reset` — destructive-action confirm dialog
  *     for the five RecoverySection actions. Different copy per

@@ -4,17 +4,17 @@
  * Renders beneath the URL row whenever the request references
  * `{{tokens}}` OR an environment is active. Three parts:
  *
- *   - implementation note — the effective URL with NON-secret vars resolved and
+ *   - The effective URL with NON-secret vars resolved and
  *     SECRET vars shown as their `{{key}}` placeholder. Built via
  *     `maskSecretsForCapsule` so a resolved secret value can NEVER reach
  *     this surface.
- *   - implementation note — the injected Auth header (name + masked value),
+ *   - The injected Auth header (name + masked value),
  *     derived from `buildAuthHeader(maskSecretsForCapsule(request).auth)`.
  *     Because the masked request keeps a secret auth `{{token}}` as its
  *     placeholder, this line shows e.g. `Authorization: Bearer {{token}}`,
  *     never the resolved secret. Only rendered when the active auth config
  *     actually injects a header.
- *   - implementation note — a chip row of the distinct variables referenced, each
+ *   - A chip row of the distinct variables referenced, each
  *     tagged: plain (resolved, non-secret), `secret` (resolved but
  *     masked), or `unresolved` (red — no binding in the active env).
  *     This replaces the brittle in-input overlay: the user sees their
@@ -59,7 +59,7 @@ export function HttpEnvironmentPreview({
   );
   const maskedUrl = masked.url;
 
-  // implementation note — the injected Auth header (name + masked value). Built
+  // The injected Auth header (name + masked value). Built
   // from the MASKED request's auth, so a secret auth `{{token}}` stays
   // `{{token}}` here (never the resolved secret). `null` when the active
   // auth config injects nothing (kind none / empty fields).

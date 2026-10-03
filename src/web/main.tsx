@@ -36,7 +36,7 @@ import {
 import '../renderer/index.css';
 import { markBootPhase } from '../renderer/utils/bootTimings';
 
-// internal — mirror the boot recovery state on `<html data-recovery-state>`
+// Mirror the boot recovery state on `<html data-recovery-state>`
 // and install global error listeners so async + event-handler errors
 // (which React boundaries do not catch) feed the same crash counter
 // + safe-mode mark. Runs synchronously before createRoot.
@@ -110,7 +110,7 @@ async function bootstrapWeb(): Promise<void> {
   const isLocalMcpE2eFixture =
     __LINGUA_E2E_HOOKS__ && searchParams.get('e2e') === 'local-mcp';
 
-// FASE 0 dev-only acceptance artifact. `?lingua-showcase` mounts the
+// Dev-only acceptance artifact. `?lingua-showcase` mounts the
 // recipe gallery instead of the app. The dynamic import code-splits the
 // showcase into its own lazy chunk, so it stays out of the INITIAL
 // bundle and only loads when the param is present. (The chunk still

@@ -42,7 +42,7 @@ const MANIFEST = [
   { from: 'docs/press-kit/founder-bio.md',       to: 'press-kit/founder-bio.md' },
   { from: 'docs/press-kit/README.md',            to: 'press-kit/README.md' },
   // SEO landing scaffold. The main repo is the English source; localized
-  // translations live under sibling locale implementation detail in this repo.
+  // translations live under sibling locale folders in this repo.
   { from: 'docs/seo-pages/go-playground-desktop.md',      to: 'seo/en/go-playground-desktop.md' },
   { from: 'docs/seo-pages/rust-code-runner-desktop.md',   to: 'seo/en/rust-code-runner-desktop.md' },
   { from: 'docs/seo-pages/python-repl-desktop.md',        to: 'seo/en/python-repl-desktop.md' },

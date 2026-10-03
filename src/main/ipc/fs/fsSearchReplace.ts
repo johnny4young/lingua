@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
+  chmod,
   readFile,
   readdir,
   rename as renameFs,
@@ -19,9 +20,15 @@ import {
   shouldHide,
 } from './fsShared';
 import { searchProjectText } from './projectTextSearch';
+import {
+  createRegexWorker,
+  regexHardTimeoutMs,
+  RegexTimeoutError,
+  type RegexLineMatch,
+} from './regexWorker';
 
 /**
- * internal — project-wide text search + literal/regex replace handlers,
+ * project-wide text search + literal/regex replace handlers,
  * extracted VERBATIM from `fileSystem.ts`. These three handlers are
  * fully self-contained: they close over no mutable module state, only
  * the pure `fsShared` helpers and capability-resolved paths. The
@@ -42,29 +49,6 @@ export function registerSearchReplaceHandlers(): void {
     } catch {
       return null;
     }
-  }
-
-  function replacementForMatch(
-    matchedText: string,
-    singleMatchRegex: RegExp,
-    replacement: string,
-    regexMode: boolean
-  ): string {
-    return regexMode
-      ? matchedText.replace(singleMatchRegex, replacement)
-      : replacement;
-  }
-
-  function replaceAllMatches(
-    content: string,
-    re: RegExp,
-    replacement: string,
-    regexMode: boolean
-  ): string {
-    if (regexMode) {
-      return content.replace(re, replacement);
-    }
-    return content.replace(re, () => replacement);
   }
 
   async function walkProject(
@@ -238,6 +222,11 @@ export function registerSearchReplaceHandlers(): void {
         return probe.includes(NUL);
       }
 
+      // Escaped literals cannot backtrack catastrophically; user patterns can.
+      const regexWorker = regexMode ? createRegexWorker() : null;
+      // Each hard timeout costs up to 2 s, so a pattern that keeps stalling ends the scan.
+      const MAX_REGEX_TIMEOUTS = 3;
+      let regexTimeouts = 0;
       await walkProject(
         absolutePath,
         relativePath,
@@ -260,95 +249,101 @@ export function registerSearchReplaceHandlers(): void {
 
           const fileMatches: FsReplaceMatch[] = [];
           const lines = content.split(/\r?\n/);
-          let fileTimedOut = false;
-          const fileDeadline = Date.now() + perLineTimeoutMs * lines.length;
-          // implementation — extra cap beyond the per-file deadline.
-          // `String.prototype.matchAll` runs synchronously per line; a
-          // single catastrophic-backtracking pattern (e.g. `(a+)+$`
-          // against a megabyte-wide minified line) blocks the Node
-          // event loop until the regex returns. The per-file deadline
-          // is checked BETWEEN lines, not inside `matchAll`, so lines
-          // larger than this threshold are skipped to bound the
-          // regex's worst case. Reviewer-flagged HIGH.
+          // Lines past this length are skipped and reported as timed out
+          // rather than handed to the regex engine.
           const MAX_LINE_BYTES = 200_000;
+          const MAX_MATCHES_PER_LINE = 50;
+          const maxMatches = Math.min(
+            maxMatchesPerFile,
+            maxTotalMatches - totalMatches
+          );
+          let rawMatches: RegexLineMatch[];
+          let fileTimedOut = false;
 
-          for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-            if (fileMatches.length >= maxMatchesPerFile) break;
-            if (totalMatches + fileMatches.length >= maxTotalMatches) break;
-            if (Date.now() > fileDeadline) {
-              fileTimedOut = true;
-              break;
-            }
-            const rawLine = lines[lineIndex]!;
-            if (rawLine.length > MAX_LINE_BYTES) {
-              // Treat over-long lines as if they had no match. Surfacing
-              // this through `regexTimedOut` is honest because the
-              // failure mode is identical: the file's preview is
-              // incomplete for the user.
-              fileTimedOut = true;
-              continue;
-            }
-            // implementation note — `matchAll` returns an iterator
-            // so we never call the `.exec` method directly. The `g`
-            // flag is required for matchAll and already set by
-            // `buildSearchRegex`.
-            const matches: RegExpMatchArray[] = [];
-            let matchCount = 0;
-            for (const m of rawLine.matchAll(re)) {
-              matches.push(m);
-              matchCount += 1;
-              if (matchCount >= 50) break;
-            }
-            const singleMatchRegex = new RegExp(
-              re.source,
-              re.flags.replace('g', '')
-            );
-            for (const m of matches) {
-              if (fileMatches.length >= maxMatchesPerFile) break;
-              if (typeof m.index !== 'number') continue;
-              const PREVIEW_BUDGET = 240;
-              const previewStart = Math.max(0, m.index - 80);
-              const previewEnd = Math.min(
-                rawLine.length,
-                previewStart + PREVIEW_BUDGET
+          if (regexWorker) {
+            try {
+              const outcome = await regexWorker.preview(
+                {
+                  source: re.source,
+                  flags: re.flags,
+                  replacement,
+                  lines,
+                  maxMatches,
+                  maxMatchesPerLine: MAX_MATCHES_PER_LINE,
+                  maxLineLength: MAX_LINE_BYTES,
+                  perLineTimeoutMs,
+                },
+                regexHardTimeoutMs(lines.length, perLineTimeoutMs)
               );
-              const preview = rawLine.slice(previewStart, previewEnd);
-              const matchedText = m[0]!;
-              const singleReplacement = replacementForMatch(
-                matchedText,
-                singleMatchRegex,
-                replacement,
-                regexMode
-              );
-              // implementation — substitute ONLY this match's text in
-              // place. The previous implementation called
-              // `rawLine.replace(re, replacement)` (global) and sliced
-              // the result with the original line's offsets, which was
-              // incorrect on multi-match lines because earlier
-              // substitutions shift the byte positions of later ones.
-              // Reviewer-flagged HIGH.
-              const replacedLine =
-                rawLine.slice(0, m.index) +
-                singleReplacement +
-                rawLine.slice(m.index + matchedText.length);
-              const replacedPreviewEnd = Math.min(
-                replacedLine.length,
-                previewStart + PREVIEW_BUDGET
-              );
-              const replacedPreview = replacedLine.slice(
-                previewStart,
-                replacedPreviewEnd
-              );
-              fileMatches.push({
-                line: lineIndex + 1,
-                column: m.index + 1,
-                preview,
-                matchStart: m.index - previewStart,
-                matchEnd: m.index - previewStart + matchedText.length,
-                replacedPreview,
-                replacement: singleReplacement,
+              rawMatches = outcome.matches;
+              fileTimedOut = outcome.timedOut;
+            } catch (error) {
+              if (!(error instanceof RegexTimeoutError)) throw error;
+              results.push({
+                relativePath: asRelativePath(fileRelativePath),
+                matches: [],
+                regexTimedOut: true,
               });
+              regexTimeouts += 1;
+              return regexTimeouts < MAX_REGEX_TIMEOUTS;
             }
+          } else {
+            rawMatches = [];
+            const fileDeadline = Date.now() + perLineTimeoutMs * lines.length;
+            for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+              if (rawMatches.length >= maxMatches) break;
+              if (Date.now() > fileDeadline) {
+                fileTimedOut = true;
+                break;
+              }
+              const rawLine = lines[lineIndex]!;
+              if (rawLine.length > MAX_LINE_BYTES) {
+                fileTimedOut = true;
+                continue;
+              }
+              let lineMatches = 0;
+              for (const m of rawLine.matchAll(re)) {
+                if (rawMatches.length >= maxMatches) break;
+                rawMatches.push({
+                  lineIndex,
+                  index: m.index,
+                  text: m[0],
+                  replacement,
+                });
+                lineMatches += 1;
+                if (lineMatches >= MAX_MATCHES_PER_LINE) break;
+              }
+            }
+          }
+
+          for (const m of rawMatches) {
+            const rawLine = lines[m.lineIndex]!;
+            const PREVIEW_BUDGET = 240;
+            const previewStart = Math.max(0, m.index - 80);
+            const previewEnd = Math.min(
+              rawLine.length,
+              previewStart + PREVIEW_BUDGET
+            );
+            const preview = rawLine.slice(previewStart, previewEnd);
+            // Substitute only this match so earlier replacements on the
+            // same line cannot shift the offsets of later ones.
+            const replacedLine =
+              rawLine.slice(0, m.index) +
+              m.replacement +
+              rawLine.slice(m.index + m.text.length);
+            const replacedPreviewEnd = Math.min(
+              replacedLine.length,
+              previewStart + PREVIEW_BUDGET
+            );
+            fileMatches.push({
+              line: m.lineIndex + 1,
+              column: m.index + 1,
+              preview,
+              matchStart: m.index - previewStart,
+              matchEnd: m.index - previewStart + m.text.length,
+              replacedPreview: replacedLine.slice(previewStart, replacedPreviewEnd),
+              replacement: m.replacement,
+            });
           }
 
           if (fileMatches.length > 0) {
@@ -368,7 +363,7 @@ export function registerSearchReplaceHandlers(): void {
           return totalMatches < maxTotalMatches;
         },
         maxFilesScanned
-      );
+      ).finally(() => regexWorker?.dispose());
 
       return results;
     }
@@ -431,23 +426,47 @@ export function registerSearchReplaceHandlers(): void {
         return { ok: false, replaced: 0, reason: 'binary' };
       }
 
-      // Count matches via matchAll iterator (avoids the .exec API).
+      const MAX_REPLACEMENTS = 100_000;
       let replaced = 0;
-      for (const _ of content.matchAll(re)) {
-        replaced += 1;
-        if (replaced > 100_000) break; // hard cap defense
-        void _;
+      let next: string;
+      if (regexMode) {
+        const perLineTimeoutMs = coercePositiveLimit(
+          safeOptions.perLineTimeoutMs,
+          50,
+          250
+        );
+        const regexWorker = createRegexWorker();
+        try {
+          ({ replaced, next } = await regexWorker.apply(
+            {
+              source: re.source,
+              flags: re.flags,
+              replacement,
+              content,
+              maxCount: MAX_REPLACEMENTS,
+            },
+            regexHardTimeoutMs(content.split('\n').length, perLineTimeoutMs)
+          ));
+        } catch (error) {
+          if (error instanceof RegexTimeoutError) {
+            return { ok: false, replaced: 0, reason: 'regex-timeout' };
+          }
+          throw error;
+        } finally {
+          regexWorker.dispose();
+        }
+      } else {
+        for (const _ of content.matchAll(re)) {
+          replaced += 1;
+          if (replaced > MAX_REPLACEMENTS) break;
+          void _;
+        }
+        // A function replacer keeps `$` sequences literal.
+        next = content.replace(new RegExp(re.source, re.flags), () => replacement);
       }
       if (replaced === 0) {
         return { ok: false, replaced: 0, reason: 'no-matches' };
       }
-
-      const next = replaceAllMatches(
-        content,
-        new RegExp(re.source, re.flags),
-        replacement,
-        regexMode
-      );
 
       // Atomic write: tmpfile in same directory + rename. Same-FS
       // rename is POSIX-atomic; Windows AV can lock the target, so
@@ -459,7 +478,10 @@ export function registerSearchReplaceHandlers(): void {
         `.${base}.tmp-${randomUUID().slice(0, 8)}`
       );
       try {
-        await writeFile(tmpPath, next, 'utf8');
+        // The rename swaps in the temp file's inode; chmod undoes the umask.
+        const mode = info.mode & 0o777;
+        await writeFile(tmpPath, next, { encoding: 'utf8', mode });
+        await chmod(tmpPath, mode).catch(() => {});
       } catch {
         try {
           await unlink(tmpPath);

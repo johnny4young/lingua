@@ -1,5 +1,5 @@
 /**
- * implementation — Compare toggle in the result-panel header.
+ * Compare toggle in the result-panel header.
  *
  * Three states:
  *   - **hidden**: when the active tab is `executionMode === 'view'`
@@ -11,7 +11,7 @@
  *   - **enabled**: snapshot available. Clicking flips
  *     `compareWithSnapshotEnabled` on the active tab. Fires the
  *     `runtime.compare_view_toggled` adoption signal on the
- *     transition that opens the panel (implementation note).
+ *     transition that opens the panel.
  *
  * Visual contract mirrors the `hideUndefined` button-secondary
  * shape so the header stays one tier visually. Active-state class
@@ -36,7 +36,7 @@ export function CompareToggleButton() {
   if (!activeTab) return null;
 
   const enabled = activeTab.compareWithSnapshotEnabled === true;
-  // Snapshot's language must match the current tab's. implementation keeps
+  // Snapshot's language must match the current tab's. Keep
   // this guard in the renderer too — even though the editor store
   // clears the snapshot on language change, this guards against
   // race windows (the active tab updates synchronously, the snapshot

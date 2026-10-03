@@ -1,9 +1,9 @@
 /**
- * implementation — cURL importer adapter unit tests.
+ * cURL importer adapter unit tests.
  *
  * Covers detect → preview → import phases plus the new lossy-flag
  * warning scanner + sensitive-header redaction layer that the
- * implementation `tryParseCurl` did not have.
+ * the original `tryParseCurl` did not have.
  */
 
 import { describe, expect, it } from 'vitest';

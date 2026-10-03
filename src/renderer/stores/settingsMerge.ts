@@ -39,7 +39,7 @@ import {
 } from './settingsSanitizers';
 
 /**
- * internal — `lingua-settings` rehydrate sanitizer, extracted from
+ * `lingua-settings` rehydrate sanitizer, extracted from
  * `settingsStore.ts`. Treats localStorage as tamper-controlled input and
  * narrows every persisted value before it reaches UI, runtime, or telemetry.
  * Pure except for the tier read that selects the dependency-detection default.
@@ -70,7 +70,7 @@ export function settingsMerge(
       : hasSnapshotPreference
         ? false
         : currentState.executionHistorySnapshotEnabled;
-  // implementation Slice A implementation note — corrupted or missing dependency-detection values
+  // Corrupted or missing dependency-detection values
   // fall back to the tier-aware default instead of silently disabling Pro UI.
   const dependencyDetectionEnabled =
     typeof persisted?.dependencyDetectionEnabled === 'boolean'
@@ -102,13 +102,13 @@ export function settingsMerge(
   const requestedThemePack = isKnownThemePackId(merged.themePack)
     ? merged.themePack
     : DEFAULT_THEME_PACK_ID;
-  // implementation — sanitize the user's sensitive header allowlist on
+  // Sanitize the user's sensitive header allowlist on
   // rehydrate (drop non-strings, empties, >100 chars, baseline names,
   // case-insensitive dupes).
   const sanitizedSensitiveHttpHeaders = sanitizeSensitiveHttpHeaders(
     merged.sensitiveHttpHeaders
   );
-  // implementation — sanitize SQL workspace prefs on rehydrate.
+  // Sanitize SQL workspace prefs on rehydrate.
   // Closed-enum values fall back to defaults on drift.
   const sanitizedSqlRowDisplayLimit = sanitizeSqlRowDisplayLimit(
     merged.sqlWorkspaceRowDisplayLimit
@@ -138,7 +138,7 @@ export function settingsMerge(
         ? requestedThemePack
         : DEFAULT_THEME_PACK_ID;
 
-  // implementation — guard `defaultRuntimeMode` on rehydrate the same
+  // Guard `defaultRuntimeMode` on rehydrate the same
   // way `setDefaultRuntimeMode` does at runtime. A tampered localStorage
   // entry with an unimplemented or unknown string would otherwise
   // survive into the live store and surface a broken Select in Settings.
@@ -147,7 +147,7 @@ export function settingsMerge(
     isRuntimeModeImplemented(merged.defaultRuntimeMode as never)
       ? merged.defaultRuntimeMode
       : currentState.defaultRuntimeMode;
-  // implementation note — sanitize the persisted defaults
+  // Sanitize the persisted defaults
   // map and seed any missing Scratchpad-language keys so the
   // Settings UI surfaces a populated row on upgrade. The
   // user's prior overrides win over the seed; the seed only
@@ -159,7 +159,7 @@ export function settingsMerge(
     ...WORKFLOW_MODE_DEFAULT_SEED,
     ...sanitizedWorkflowDefaults,
   };
-  // implementation — sanitize the auto-log map the same way the
+  // Sanitize the auto-log map the same way the
   // workflow defaults are sanitized + seeded on rehydrate. A
   // tampered persisted entry never survives into the live store
   // and missing keys use the current Scratchpad-on defaults.
@@ -175,7 +175,7 @@ export function settingsMerge(
       ? merged.firstWorkflowModeSwitchAcknowledged
       : currentState.firstWorkflowModeSwitchAcknowledged;
   const showStdinPanel = typeof merged.showStdinPanel === 'boolean' ? merged.showStdinPanel : currentState.showStdinPanel;
-  // implementation — guard the closed enum on rehydrate so a
+  // Guard the closed enum on rehydrate so a
   // tampered localStorage entry can't surface a broken
   // dropdown / route to a non-existent panel.
   const variableInspectorSurface: 'floating' | 'bottom' =
@@ -183,7 +183,7 @@ export function settingsMerge(
     merged.variableInspectorSurface === 'bottom'
       ? merged.variableInspectorSurface
       : currentState.variableInspectorSurface;
-  // implementation — sanitize + seed the per-language preset
+  // Sanitize + seed the per-language preset
   // map. Tampered tokens never survive; missing language keys
   // fall back to the language default seed so the Settings UI
   // always shows a row for every supported language.
@@ -198,7 +198,7 @@ export function settingsMerge(
     typeof merged.showTimeoutCountdown === 'boolean'
       ? merged.showTimeoutCountdown
       : currentState.showTimeoutCountdown;
-  // implementation — same guard as the boolean above. Anything
+  // Same guard as the boolean above. Anything
   // outside the closed enum (`auto` / `system` / `wasm`) gets
   // mapped back to the seed.
   const rubyRuntimePreference: 'auto' | 'system' | 'wasm' =
@@ -207,7 +207,7 @@ export function settingsMerge(
     merged.rubyRuntimePreference === 'wasm'
       ? merged.rubyRuntimePreference
       : currentState.rubyRuntimePreference;
-  // implementation — sanitize the onboarding choreography flags.
+  // Sanitize the onboarding choreography flags.
   // Tampered entries (null, string, undefined) fall back to the
   // initial `false` so the user always sees the welcome flow
   // exactly once. The seed-version tracker also defaults to 0
@@ -230,7 +230,7 @@ export function settingsMerge(
     merged.onboardingWelcomeSeedVersion >= 0
       ? Math.floor(merged.onboardingWelcomeSeedVersion)
       : currentState.onboardingWelcomeSeedVersion;
-  // implementation note — guard the capsule-import clipboard
+  // Guard the capsule-import clipboard
   // consent on rehydrate so a tampered localStorage value can
   // never silently bypass the opt-in. Closed enum:
   // 'unset' | 'granted' | 'declined'. Anything else falls back
@@ -241,7 +241,7 @@ export function settingsMerge(
     merged.capsuleImportClipboardOnFocusConsent === 'unset'
       ? merged.capsuleImportClipboardOnFocusConsent
       : 'unset';
-  // internal — guard the session-restore mode after migration or tampering.
+  // Guard the session-restore mode after migration or tampering.
   // Unknown values use the privacy-conscious `ask` default.
   const restoreSessionMode: SettingsState['restoreSessionMode'] =
     merged.restoreSessionMode === 'never' ||
@@ -252,7 +252,7 @@ export function settingsMerge(
   return {
     ...merged,
     restoreSessionMode,
-    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform), // internal S2
+    languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform),
     hasCompletedOnboardingWelcome,
     hasCompletedOnboardingFirstRun,
     hasCompletedOnboardingFirstSnippet,
@@ -273,21 +273,21 @@ export function settingsMerge(
     ),
     inlineLintEnabledByLanguage: resolveInlineLintByLanguage(merged.inlineLintEnabledByLanguage),
     showStdinPanel,
-    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar, // internal
+    showStatusBar: typeof merged.showStatusBar === 'boolean' ? merged.showStatusBar : currentState.showStatusBar,
     smartPasteDetectionEnabled: typeof merged.smartPasteDetectionEnabled === 'boolean' ? merged.smartPasteDetectionEnabled : currentState.smartPasteDetectionEnabled,
     variableInspectorSurface,
     runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
     showTimeoutCountdown,
-    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming, // internal
+    showLineTiming: typeof merged.showLineTiming === 'boolean' ? merged.showLineTiming : currentState.showLineTiming,
     rubyRuntimePreference,
     firstWorkflowModeSwitchAcknowledged,
     sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
     httpAllowPrivateHosts: merged.httpAllowPrivateHosts === true,
     sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
     sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
-    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // internal S3 OPFS: coerce to boolean on rehydrate
-    runLedgerEnabled: merged.runLedgerEnabled === true, // internal: coerce to boolean on rehydrate
-    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // internal SC: only the runnable pair; anything else falls back to JS
+    sqlWorkspacePersistTables: merged.sqlWorkspacePersistTables === true, // OPFS: coerce to boolean on rehydrate
+    runLedgerEnabled: merged.runLedgerEnabled === true, // Coerce to boolean on rehydrate
+    notebookDefaultCellLanguage: merged.notebookDefaultCellLanguage === 'typescript' ? 'typescript' : 'javascript', // Only the runnable pair; anything else falls back to JS
     capsuleImportClipboardOnFocusConsent,
   };
 }
