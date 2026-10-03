@@ -157,7 +157,7 @@ jobs:
         run: |
           pnpm --dir license-server audit --prod --audit-level high
           pnpm --dir update-server audit --prod --audit-level high
-          npm --prefix website audit --package-lock-only --omit=dev --audit-level=high
+          pnpm run check:website-audit
       - name: Run advisory full audit
         run: pnpm audit --audit-level high
         continue-on-error: true

@@ -173,9 +173,7 @@ describe('release workflow', () => {
     );
     expect(workflow).toContain('pnpm --dir license-server audit --prod --audit-level high');
     expect(workflow).toContain('pnpm --dir update-server audit --prod --audit-level high');
-    expect(workflow).toContain(
-      'npm --prefix website audit --package-lock-only --omit=dev --audit-level=high'
-    );
+    expect(workflow).toContain('pnpm run check:website-audit');
     expect(workflow).toMatch(
       /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );

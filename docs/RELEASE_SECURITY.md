@@ -230,6 +230,15 @@ run blocking production audits against the independent
 `website/package-lock.json` graphs; a clean root lockfile cannot mask a Worker
 or website advisory.
 
+The website graph runs through `pnpm run check:website-audit`
+(`scripts/assert-website-audit.mjs`), which fails on any `high` or `critical`
+production advisory except the entries in `scripts/website-audit-exceptions.json`.
+An entry names one GHSA id and one package, records why it cannot reach
+visitors, and carries an `expires` date. After that date, the gate fails again
+until someone re-reviews the entry. Add an entry only when no patched release
+exists. The first one is `GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`, which
+Astro only uses at build time to time remote images; the site ships static files.
+
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
 stays advisory (`continue-on-error: true`): any `high`/`critical` finding it

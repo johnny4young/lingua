@@ -199,9 +199,7 @@ describe('CI workflow', () => {
     const commands = runLines(workflow, 'static');
     expect(commands).toContain('pnpm --dir license-server audit --prod --audit-level high');
     expect(commands).toContain('pnpm --dir update-server audit --prod --audit-level high');
-    expect(commands).toContain(
-      'npm --prefix website audit --package-lock-only --omit=dev --audit-level=high'
-    );
+    expect(commands).toContain('pnpm run check:website-audit');
   });
 
   it('keeps every gate blocking except the advisory i18n inventory and full-graph audit', () => {
