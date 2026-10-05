@@ -465,3 +465,12 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 | Electron modal drag blocking | Added `-webkit-app-region: no-drag` to `.overlay-backdrop` in `index.css` |
 | Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
 | Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API |
+
+### Service-test isolation
+
+Fetch service suites install their own `vi.stubGlobal` mock in every relevant
+case and restore it with `vi.unstubAllGlobals` during teardown. They assert
+the original fetch identity before each case and after cleanup, including
+shuffled runs, without calling the original implementation.
+`tests/services/**/*.ts` participates in the scoped strict test typecheck.
+Device-fingerprint tests retain their DOM environment.
