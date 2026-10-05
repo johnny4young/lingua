@@ -511,3 +511,10 @@ after its bundle build; Windows and macOS bundle qualification still run.
 An explicitly selected check target must have output. The default local check
 continues to support a web-only build, and selecting renderer does not require
 web output. Weekly/manual validation retains the full-target gate.
+
+The PR web lane and weekly full-target lane each invoke only the budget check.
+That command measures/gzips each asset once and writes both JSON and Markdown
+reports before returning a budget or slack failure. `performance:report` remains
+available for an intentional report-only local run. No thresholds change;
+compare target/assets/category measurements independently of timestamps.
+Runner-duration savings require comparable hosted observations before quoting them.

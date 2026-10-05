@@ -469,6 +469,53 @@ describe('performance-report', () => {
     }
   });
 
+  it('a single check preserves report artifacts and measurements on pass, budget failure and slack failure', async () => {
+    const root = await createFixtureBuild();
+    try {
+      await mkdir(path.join(root, 'scripts'));
+      await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
+      await mkdir(path.join(root, '.vite/renderer'), { recursive: true });
+      await mkdir(path.join(root, '.vite/renderer/main_window'));
+      await copyFile(path.join(root, 'index.html'), path.join(root, '.vite/renderer/main_window/index.html'));
+      await mkdir(path.join(root, '.vite/renderer/main_window/assets'));
+      for (const asset of ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm']) {
+        await copyFile(path.join(root, 'assets', asset), path.join(root, '.vite/renderer/main_window/assets', asset));
+      }
+      const script = path.join(root, 'scripts/performance-report.mjs');
+      const baselinePath = path.join(root, 'baseline.json');
+      const common = [script, '--target=renderer', `--baseline=${baselinePath}`, `--output-dir=${root}/report`];
+      const setup = spawnSync(process.execPath, [...common, '--write-baseline'], { encoding: 'utf8' });
+      expect(setup.status, setup.stderr).toBe(0);
+      const original = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
+      const check = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
+      expect(check.status, check.stderr).toBe(0);
+      const checked = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
+      expect(checked.targets).toEqual(original.targets);
+      expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toContain('Budget Result');
+      const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+      const budget = baseline.budgets.renderer.initial;
+      const unchanged = structuredClone(baseline);
+      budget.maxBytes = 0;
+      await writeFile(baselinePath, JSON.stringify(baseline));
+      const over = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
+      expect(over.status).toBe(1);
+      expect(over.stdout).toMatch(/renderer\.initial\.bytes/u);
+      const overReport = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
+      expect(overReport.targets).toEqual(original.targets);
+      expect(overReport.violations).not.toHaveLength(0);
+      expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toContain('renderer.initial.bytes');
+      unchanged.budgets.renderer.initial.baselineBytes *= 2;
+      await writeFile(baselinePath, JSON.stringify(unchanged));
+      const slack = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
+      expect(slack.status).toBe(1);
+      expect(slack.stdout).toContain('Budget warnings:');
+      expect(JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8')).targets).toEqual(original.targets);
+      expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toContain('Budget Warnings');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {
     expect(() =>
       assertAllTargetsAvailable({
