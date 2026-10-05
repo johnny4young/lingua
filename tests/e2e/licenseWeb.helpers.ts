@@ -574,9 +574,13 @@ export async function replaceEditorAndWaitForAutoRun(
   await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', {
     timeout: 30_000,
   });
-  await expect(page.locator('[data-tab-id][data-active="true"]')).toHaveAttribute(
-    'data-execution-state', 'success', { timeout: 30_000 }
-  );
+  // Auto-run intentionally leaves the manual tab badge idle. Its own settled
+  // signal, after source-specific output, is the relevant completion evidence.
+  await expect.poll(
+    () => page.evaluate(() => window.__linguaE2e?.autoRunSettled?.() ?? false),
+    { timeout: 30_000 }
+  ).toBe(true);
+  await expect(page.locator('[data-result-kind="run-status-pill"]')).toHaveCount(0);
 }
 
 /**

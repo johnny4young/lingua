@@ -114,15 +114,22 @@ test.describe('Recent Runs pill ', () => {
   });
 
   test('a delayed automatic execution must finish before history absence is asserted', async ({ page }) => {
+    let delayedWorkerRequests = 0;
+    await page.context().route('**/assets/js-worker-*.js', async route => {
+      delayedWorkerRequests += 1;
+      await new Promise(resolve => setTimeout(resolve, 1_800));
+      await route.continue();
+    });
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
     await replaceEditorAndWaitForAutoRun(
       page,
-      'await new Promise(resolve => setTimeout(resolve, 1800)); console.log("history-delayed-proof")',
+      'console.log("history-delayed-proof")',
       'history-delayed-proof'
     );
+    expect(delayedWorkerRequests).toBeGreaterThan(0);
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 

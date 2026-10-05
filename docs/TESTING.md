@@ -469,7 +469,9 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 ### Automatic execution evidence
 
 Recent Runs and Compare E2E cases replace the editor with a unique output
-marker and wait for that output plus the active tab's success and idle state.
+marker and wait for that output plus the automatic runner's settled signal
+and absence of terminal failure notices. Auto-run does not own the manual
+tab execution-state badge.
 A prior result or idle-before-debounce cannot satisfy the wait. Recent Runs
 covers both locales, delayed execution, manual recording and second-tab
 isolation. Negative-observation waits for lazy resources remain separate.
