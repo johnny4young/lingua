@@ -241,7 +241,9 @@ export function isSameOriginRuntimeShape(target) {
  * Pick the targets named by --target=<id>[,<id>]; every id must exist so a
  * typo cannot silently turn a baseline refresh into a no-op.
  */
-export function selectTargets(targets, ids, { requireAllTargets = false } = {}) {
+export function selectTargets(
+  targets, ids, { requireAllTargets = false, requireSelectedTargets = false } = {}
+) {
   if (requireAllTargets && ids?.length > 0) {
     throw new Error('--target cannot be combined with --require-all-targets.');
   }
@@ -253,7 +255,10 @@ export function selectTargets(targets, ids, { requireAllTargets = false } = {}) 
       `Unknown performance target(s): ${unknown.join(', ')}. Known targets: ${[...byId.keys()].join(', ')}.`
     );
   }
-  return ids.map((id) => byId.get(id));
+  return ids.map((id) => {
+    const target = byId.get(id);
+    return requireSelectedTargets ? { ...target, required: true } : target;
+  });
 }
 
 /**
@@ -845,6 +850,7 @@ async function main() {
     desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
     targets: selectTargets(DEFAULT_TARGETS, options.targetIds, {
       requireAllTargets: options.requireAllTargets,
+      requireSelectedTargets: options.check,
     }),
     check: options.check,
     requireAllTargets: options.requireAllTargets,

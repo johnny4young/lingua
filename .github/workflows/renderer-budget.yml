@@ -1,10 +1,7 @@
 name: Renderer budget
 
-# The desktop renderer ships to users but CI only builds the web target, so
-# its performance budget had no automatic check. It runs weekly and on demand
-# rather than per pull request: the desktop bundle build costs minutes, and
-# the renderer budget moves with dependency and runtime refreshes, not with
-# ordinary product changes.
+# PR CI checks web and the already-built Linux desktop renderer separately.
+# This weekly/manual lane additionally checks both targets together.
 on:
   workflow_dispatch:
   schedule:

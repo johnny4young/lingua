@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -415,6 +416,57 @@ describe('performance-report', () => {
     expect(() =>
       selectTargets(targets, ['web'], { requireAllTargets: true })
     ).toThrow(/cannot be combined/u);
+  });
+
+  it('requires an explicitly selected target without requiring unselected output', async () => {
+    const root = await createFixtureBuild();
+    try {
+      const targets = [
+        { id: 'web', label: 'Web', root: path.join(root, 'missing-web'), required: true },
+        { id: 'renderer', label: 'Renderer', root, required: false },
+      ];
+      const selected = selectTargets(targets, ['renderer'], { requireSelectedTargets: true });
+      expect(selected).toHaveLength(1);
+      expect(selected[0].required).toBe(true);
+      expect(targets[1].required).toBe(false);
+      await expect(collectBuildTarget(selected[0])).resolves.toMatchObject({ available: true });
+      await expect(collectBuildTarget({ ...selected[0], root: path.join(root, 'missing') }))
+        .rejects.toThrow(/output is missing/u);
+      expect(selectTargets(targets, [], { requireSelectedTargets: true })).toBe(targets);
+      await expect(collectBuildTarget({ ...targets[1], root: path.join(root, 'missing') }))
+        .resolves.toMatchObject({ available: false });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails a CLI check for missing selected renderer but permits default web-only output', async () => {
+    const root = await createFixtureBuild();
+    try {
+      await mkdir(path.join(root, 'scripts'));
+      await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
+      await mkdir(path.join(root, 'dist'));
+      // A fixture renderer is deliberately absent. Use the same assets as web.
+      await mkdir(path.join(root, 'dist/web'));
+      await copyFile(path.join(root, 'index.html'), path.join(root, 'dist/web/index.html'));
+      await mkdir(path.join(root, 'dist/web/assets'));
+      for (const asset of ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm']) {
+        await copyFile(path.join(root, 'assets', asset), path.join(root, 'dist/web/assets', asset));
+      }
+      const script = path.join(root, 'scripts/performance-report.mjs');
+      const baseline = path.join(root, 'baseline.json');
+      const setup = spawnSync(process.execPath, [script, '--write-baseline', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(setup.status, setup.stderr).toBe(0);
+      const missing = spawnSync(process.execPath, [script, '--check', '--target=renderer', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(missing.status).toBe(1);
+      expect(missing.stderr).toMatch(/Desktop renderer build output is missing/u);
+      const defaultCheck = spawnSync(process.execPath, [script, '--check', '--fail-on-slack', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(defaultCheck.status, defaultCheck.stderr).toBe(0);
+      expect(JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8')).targets)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ id: 'renderer', available: false })]));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {

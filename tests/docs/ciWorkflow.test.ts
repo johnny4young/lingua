@@ -22,6 +22,7 @@ const RENDERER_BUDGET_WORKFLOW_PATH = resolve(
 
 interface WorkflowStep {
   name?: string;
+  if?: string;
   run?: string;
   uses?: string;
   env?: Record<string, string>;
@@ -35,7 +36,7 @@ interface WorkflowJob {
   if?: string;
   needs?: string | string[];
   'runs-on'?: string;
-  strategy?: { 'fail-fast'?: boolean; matrix?: { shard?: number[] } };
+  strategy?: { 'fail-fast'?: boolean; matrix?: { shard?: number[]; os?: string[] } };
   steps?: WorkflowStep[];
 }
 
@@ -136,6 +137,20 @@ describe('CI workflow', () => {
     expect(reportIndex).toBeGreaterThan(buildIndex);
     expect(checkIndex).toBeGreaterThan(reportIndex);
     expect(stepsOf(workflow, 'build-web')[checkIndex]?.run).toContain('--fail-on-slack');
+  });
+
+  it('checks the existing Linux renderer bundle and keeps all three desktop OS jobs', () => {
+    const job = workflow.jobs?.['desktop-bundles'];
+    expect(job?.strategy?.matrix?.os).toEqual(['ubuntu-latest', 'windows-latest', 'macos-latest']);
+    expect(job?.strategy?.['fail-fast']).toBe(false);
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const build = indexOfRun(workflow, 'desktop-bundles', 'pnpm run build:desktop-bundles');
+    const check = indexOfRun(workflow, 'desktop-bundles', 'pnpm run check:performance');
+    expect(build).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(build);
+    expect(steps[check]?.if).toBe("matrix.os == 'ubuntu-latest'");
+    expect(steps[check]?.run).toBe('pnpm run check:performance --target=renderer --fail-on-slack');
+    expect(runLines(workflow, 'desktop-bundles').filter(command => command === 'pnpm run build:desktop-bundles')).toHaveLength(1);
   });
 
   it('gates the independently managed update-server and website in the subprojects job', () => {

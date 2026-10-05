@@ -502,3 +502,12 @@ URLs and are the only valid input for release budgets. After a local
     generated activation report contains web and desktop samples, median/IQR
     summaries, memory availability, and eager runner dependency chains.
 12. Confirm every web sample records `consoleErrors: []`.
+
+## Review-time build budgets
+
+PR CI checks the web build and the existing Linux desktop renderer bundle.
+The desktop check uses `pnpm run check:performance --target=renderer --fail-on-slack`
+after its bundle build; Windows and macOS bundle qualification still run.
+An explicitly selected check target must have output. The default local check
+continues to support a web-only build, and selecting renderer does not require
+web output. Weekly/manual validation retains the full-target gate.

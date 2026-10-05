@@ -181,7 +181,7 @@ jobs:
       # --fail-on-slack fails a category that measures under 75% of its
       # baseline: a ceiling that far above reality has stopped protecting it.
       # Only targets built in this job are measured, so the desktop renderer
-      # is judged by the scheduled renderer-budget workflow instead.
+      # is checked after the existing Linux desktop build below.
       - name: Performance budget check
         run: pnpm run check:performance --fail-on-slack
 
@@ -204,6 +204,9 @@ jobs:
       # Qualify the native Vite resolver on every release OS without signing
       # or publishing. Packaging/notarization remain separate release gates.
       - run: pnpm run build:desktop-bundles
+      - name: Desktop renderer performance budget
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run check:performance --target=renderer --fail-on-slack
       - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
 
   subprojects:
