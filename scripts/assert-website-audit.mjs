@@ -25,7 +25,10 @@ const { values } = parseArgs({
   args: stripArgSeparator(process.argv.slice(2)),
   options: {
     fixture: { type: 'string' },
-    exceptions: { type: 'string', default: path.join(repoRoot, 'scripts/website-audit-exceptions.json') },
+    exceptions: {
+      type: 'string',
+      default: path.join(repoRoot, 'scripts/website-audit-exceptions.json'),
+    },
     now: { type: 'string' },
   },
   strict: true,
@@ -36,9 +39,21 @@ function readAudit() {
   const result = spawnSync(
     'npm',
     ['--prefix', 'website', 'audit', '--package-lock-only', '--omit=dev', '--json'],
-    { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, shell: process.platform === 'win32' }
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      shell: process.platform === 'win32',
+    }
   );
   if (result.error) throw result.error;
+  // npm uses 1 for a completed audit containing vulnerabilities. Other exits
+  // (including signals) do not prove that the returned graph is complete.
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(
+      `npm audit did not complete (status ${result.status}, signal ${result.signal ?? 'none'})`
+    );
+  }
   return result.stdout;
 }
 
@@ -49,14 +64,26 @@ try {
   console.error(`website-audit: could not read the npm audit payload (${error.message})`);
   process.exit(1);
 }
-const { exceptions } = JSON.parse(await readFile(values.exceptions, 'utf8'));
+let exceptions;
+try {
+  const configuration = JSON.parse(await readFile(values.exceptions, 'utf8'));
+  if (configuration?.schemaVersion !== 1 || !Array.isArray(configuration.exceptions)) {
+    throw new Error('expected schemaVersion 1 and an exceptions array');
+  }
+  exceptions = configuration.exceptions;
+} catch (error) {
+  console.error(`website-audit: could not read the exception configuration (${error.message})`);
+  process.exit(1);
+}
 const result = evaluateWebsiteAudit(audit, {
   exceptions,
   ...(values.now ? { now: new Date(values.now) } : {}),
 });
 
 for (const id of result.expired) {
-  console.error(`website-audit: exception ${id} has expired; re-review it in ${path.relative(repoRoot, values.exceptions)}`);
+  console.error(
+    `website-audit: exception ${id} has expired; re-review it in ${path.relative(repoRoot, values.exceptions)}`
+  );
 }
 for (const item of result.excused) {
   console.log(`website-audit: excused ${item.name} (${item.advisories.join(', ')})`);

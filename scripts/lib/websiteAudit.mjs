@@ -15,7 +15,26 @@ function isPlainRecord(value) {
 
 /** GHSA id from an advisory URL such as https://github.com/advisories/GHSA-xxxx. */
 function advisoryId(url) {
-  return typeof url === 'string' ? (/GHSA-[\w-]+$/u.exec(url)?.[0] ?? null) : null;
+  return typeof url === 'string'
+    ? (/^https:\/\/github\.com\/advisories\/(GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$/u.exec(
+        url
+      )?.[1] ?? null)
+    : null;
+}
+
+function isSeverity(value) {
+  return typeof value === 'string' && Object.hasOwn(SEVERITY_RANK, value);
+}
+
+function failure(error) {
+  return { ok: false, error, offending: [], excused: [], expired: [] };
+}
+
+function expiryTime(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return NaN;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return NaN;
+  return date.getTime() + 24 * 60 * 60 * 1000 - 1;
 }
 
 /** Root advisories behind a vulnerability, following `via` package references. */
@@ -40,16 +59,57 @@ function rootAdvisories(vulnerabilities, name, seen = new Set()) {
 export function evaluateWebsiteAudit(audit, options = {}) {
   const level = options.level ?? DEFAULT_AUDIT_LEVEL;
   const now = options.now ?? new Date();
+  if (!isSeverity(level)) return failure(`unknown audit level ${level}`);
   const threshold = SEVERITY_RANK[level];
-  if (threshold === undefined) {
-    return { ok: false, error: `unknown audit level ${level}`, offending: [], excused: [], expired: [] };
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime()))
+    return failure('invalid audit date');
+  if (
+    !isPlainRecord(audit) ||
+    Object.hasOwn(audit, 'error') ||
+    !isPlainRecord(audit.vulnerabilities)
+  ) {
+    return failure('malformed npm audit payload');
   }
-  if (!isPlainRecord(audit) || !isPlainRecord(audit.vulnerabilities)) {
-    return { ok: false, error: 'malformed npm audit payload', offending: [], excused: [], expired: [] };
+
+  // Validate the whole graph before applying exceptions. Dropping an unreadable
+  // entry or missing reference could make a partial audit appear fully excused.
+  for (const [name, entry] of Object.entries(audit.vulnerabilities)) {
+    if (!isPlainRecord(entry) || !isSeverity(entry.severity) || !Array.isArray(entry.via)) {
+      return failure(`malformed npm audit vulnerability ${name}`);
+    }
+    for (const via of entry.via) {
+      if (typeof via === 'string') {
+        if (!Object.hasOwn(audit.vulnerabilities, via)) {
+          return failure(`missing npm audit vulnerability ${via} referenced by ${name}`);
+        }
+      } else if (
+        !isPlainRecord(via) ||
+        typeof via.name !== 'string' ||
+        !via.name ||
+        !isSeverity(via.severity) ||
+        typeof via.url !== 'string' ||
+        !via.url
+      ) {
+        return failure(`malformed npm audit advisory in ${name}`);
+      }
+    }
   }
 
   const exceptions = options.exceptions ?? [];
-  const expired = exceptions.filter(item => !(new Date(`${item.expires}T23:59:59Z`) >= now));
+  if (
+    !Array.isArray(exceptions) ||
+    exceptions.some(
+      item =>
+        !isPlainRecord(item) ||
+        typeof item.id !== 'string' ||
+        advisoryId(`https://github.com/advisories/${item.id}`) !== item.id ||
+        typeof item.package !== 'string' ||
+        !item.package ||
+        !Number.isFinite(expiryTime(item.expires))
+    )
+  )
+    return failure('malformed website audit exceptions');
+  const expired = exceptions.filter(item => expiryTime(item.expires) < now.getTime());
   const active = exceptions.filter(item => !expired.includes(item));
   const isExcused = advisory =>
     advisory.id !== null &&
@@ -58,9 +118,9 @@ export function evaluateWebsiteAudit(audit, options = {}) {
   const offending = [];
   const excused = [];
   for (const [name, entry] of Object.entries(audit.vulnerabilities)) {
-    if (!isPlainRecord(entry) || (SEVERITY_RANK[entry.severity] ?? Infinity) < threshold) continue;
+    if (SEVERITY_RANK[entry.severity] < threshold) continue;
     const blocking = rootAdvisories(audit.vulnerabilities, name).filter(
-      advisory => (SEVERITY_RANK[advisory.severity] ?? Infinity) >= threshold
+      advisory => SEVERITY_RANK[advisory.severity] >= threshold
     );
     const unexcused = blocking.filter(advisory => !isExcused(advisory));
     if (blocking.length > 0 && unexcused.length === 0) {
@@ -69,12 +129,14 @@ export function evaluateWebsiteAudit(audit, options = {}) {
       offending.push({
         name,
         severity: entry.severity,
-        advisories: (unexcused.length > 0 ? unexcused : blocking).map(advisory => advisory.url ?? advisory.id),
+        advisories: (unexcused.length > 0 ? unexcused : blocking).map(
+          advisory => advisory.url ?? advisory.id
+        ),
       });
     }
   }
   return {
-    ok: offending.length === 0,
+    ok: offending.length === 0 && expired.length === 0,
     error: null,
     offending,
     excused,

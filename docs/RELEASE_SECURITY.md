@@ -237,7 +237,12 @@ An entry names one GHSA id and one package, records why it cannot reach
 visitors, and carries an `expires` date. After that date, the gate fails again
 until someone re-reviews the entry. Add an entry only when no patched release
 exists. The first one is `GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`, which
-Astro only uses at build time to time remote images; the site ships static files.
+Astro only uses at build time to time remote images; the site ships static files. The gate rejects malformed
+vulnerability/advisory entries, missing dependency references, registry error
+payloads, and unsuccessful audit-process exits rather than treating a partial
+graph as reviewed. Exception expiry uses a real UTC calendar date and includes
+the entire named day. Expired entries must be removed or re-reviewed even when
+the corresponding advisory is no longer present.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
