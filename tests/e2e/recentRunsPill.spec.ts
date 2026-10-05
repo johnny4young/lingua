@@ -25,6 +25,7 @@ import {
   expect,
   gotoApp,
   seedSession,
+  replaceEditorAndWaitForAutoRun,
   test,
 } from './licenseWeb.helpers';
 
@@ -56,32 +57,34 @@ async function expectPopoverInsideResultPanel(page: Page): Promise<void> {
 }
 
 test.describe('Recent Runs pill ', () => {
-  test('auto-run alone does not surface the pill — manual Cmd+R does', async ({ page }) => {
-    await seedSession(page, { language: 'en', primeProLicense: true });
-    await gotoApp(page);
-    await dismissWhatsNew(page);
-    await createJavaScriptTab(page);
+  for (const language of ['en', 'es'] as const) {
+    test(`auto-run alone does not surface the pill; manual run does (${language})`, async ({ page }) => {
+      await seedSession(page, { language, primeProLicense: true });
+      await gotoApp(page);
+      await dismissWhatsNew(page);
+      await createJavaScriptTab(page);
 
-    // Wait long enough for the seeded auto-run to fire.
-    await page.waitForTimeout(1_400);
-    // Auto-run does NOT record history; pill stays hidden.
-    await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await replaceEditorAndWaitForAutoRun(page, 'console.log("history-auto-proof")', 'history-auto-proof');
+      // Auto-run does NOT record history; pill stays hidden.
+      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
 
-    // Manual run records an entry; pill appears with count 1.
-    await pressRun(page);
-    await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
-    await expect(page.getByTestId('recent-runs-pill')).toHaveAttribute(
-      'data-recent-runs-count',
-      '1'
-    );
-  });
+      // Manual run records an entry; pill appears with count 1.
+      await pressRun(page);
+      await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
+      await expect(page.getByTestId('recent-runs-pill')).toHaveAttribute(
+        'data-recent-runs-count',
+        '1'
+      );
+    });
+
+  }
 
   test('clicking the pill opens the popover; per-tab isolation works', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-popover-proof")', 'history-popover-proof');
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 
@@ -106,7 +109,20 @@ test.describe('Recent Runs pill ', () => {
     // Open a second tab — its pill should be hidden (different tab id,
     // zero entries).
     await createTypeScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-second-tab-proof")', 'history-second-tab-proof');
+    await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+  });
+
+  test('a delayed automatic execution must finish before history absence is asserted', async ({ page }) => {
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await replaceEditorAndWaitForAutoRun(
+      page,
+      'await new Promise(resolve => setTimeout(resolve, 1800)); console.log("history-delayed-proof")',
+      'history-delayed-proof'
+    );
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
@@ -117,7 +133,7 @@ test.describe('Recent Runs pill ', () => {
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-shortcut-proof")', 'history-shortcut-proof');
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 

@@ -555,6 +555,31 @@ export async function waitForRunCompleted(page: Page): Promise<void> {
 }
 
 /**
+ * Await output unique to the newly edited source, then its terminal state.
+ * Idle or a prior result alone can pass before the auto-run debounce starts.
+ * Callers must choose an output marker that has not appeared in this tab.
+ */
+export async function replaceEditorAndWaitForAutoRun(
+  page: Page,
+  source: string,
+  outputMarker: string
+): Promise<void> {
+  await page.locator('.monaco-editor').first().click({ position: { x: 140, y: 42 } });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(source);
+  await openConsole(page);
+  await expect(page.getByTestId('console-entry-row').filter({ hasText: outputMarker }).first())
+    .toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('action-pill-run')).toHaveAttribute('data-running', 'false', {
+    timeout: 30_000,
+  });
+  await expect(page.locator('[data-tab-id][data-active="true"]')).toHaveAttribute(
+    'data-execution-state', 'success', { timeout: 30_000 }
+  );
+}
+
+/**
  * Wait for the seeded welcome scratchpad to produce output and settle before
  * a test clears the console. Checking only the idle Run label is insufficient:
  * the auto-run debounce may not have started yet, so that assertion can pass
