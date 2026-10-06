@@ -4,10 +4,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { evaluateWebsiteAudit } from '../../scripts/lib/websiteAudit.mjs';
+import { MAX_EXCEPTION_DAYS, evaluateWebsiteAudit } from '../../scripts/lib/websiteAudit.mjs';
 
 const GHSA = 'GHSA-ch52-4w7c-c8xp';
-const exception = { id: GHSA, package: 'http-cache-semantics', expires: '2026-12-01' };
+const exception = {
+  id: GHSA,
+  package: 'http-cache-semantics',
+  reviewed: '2026-10-02',
+  expires: '2026-12-01',
+  reason: 'Build-time only; no shared HTTP cache serves visitors.',
+};
 const now = new Date('2026-10-02T12:00:00Z');
 
 /** Shape of `npm audit --json`: a direct dependency inheriting a transitive advisory. */
@@ -176,6 +182,75 @@ describe('evaluateWebsiteAudit', () => {
     }
   );
 
+  it('rejects an exception that could stay active forever', () => {
+    const critical = {
+      vulnerabilities: {
+        x: {
+          severity: 'critical',
+          via: [
+            {
+              name: 'x',
+              severity: 'critical',
+              url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc',
+            },
+          ],
+        },
+      },
+    };
+    const forever = { ...exception, id: 'GHSA-aaaa-bbbb-cccc', package: 'x', expires: '9999-12-31' };
+    expect(evaluateWebsiteAudit(critical, { exceptions: [forever], now })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(`more than ${MAX_EXCEPTION_DAYS} days`),
+    });
+  });
+
+  it('accepts a review window of exactly the maximum and rejects one day more', () => {
+    // 2026-10-02 through 2026-12-30 inclusive is 90 calendar days.
+    const atLimit = { ...exception, expires: '2026-12-30' };
+    expect(evaluateWebsiteAudit(auditPayload(), { exceptions: [atLimit], now }).ok).toBe(true);
+    const overLimit = { ...exception, expires: '2026-12-31' };
+    expect(evaluateWebsiteAudit(auditPayload(), { exceptions: [overLimit], now })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('days after its review'),
+    });
+  });
+
+  it.each([
+    ['missing reviewed', { reviewed: undefined }, 'reviewed'],
+    ['invalid reviewed', { reviewed: '2026-02-30' }, 'reviewed'],
+    ['future reviewed', { reviewed: '2026-10-03' }, 'in the future'],
+    ['expiry before review', { reviewed: '2026-10-02', expires: '2026-10-01' }, 'before it was reviewed'],
+    ['missing reason', { reason: undefined }, 'reason'],
+    ['blank reason', { reason: '   ' }, 'reason'],
+    ['missing package', { package: '' }, 'package'],
+  ])('rejects an exception with %s', (_label, patch, message) => {
+    const item = { ...exception, ...patch };
+    expect(evaluateWebsiteAudit(auditPayload(), { exceptions: [item], now })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(message),
+    });
+  });
+
+  it('accepts a review dated today', () => {
+    const today = { ...exception, reviewed: '2026-10-02' };
+    expect(
+      evaluateWebsiteAudit(auditPayload(), {
+        exceptions: [today],
+        now: new Date('2026-10-02T00:00:00Z'),
+      }).ok
+    ).toBe(true);
+  });
+
+  it('reports active exceptions that no longer match an advisory without failing', () => {
+    expect(evaluateWebsiteAudit({ vulnerabilities: {} }, { exceptions: [exception], now })).toMatchObject({
+      ok: true,
+      unused: [GHSA],
+    });
+    expect(
+      evaluateWebsiteAudit(auditPayload(), { exceptions: [exception], now }).unused
+    ).toEqual([]);
+  });
+
   it('accepts an exception through the final millisecond of its expiry day', () => {
     expect(
       evaluateWebsiteAudit(auditPayload(), {
@@ -291,6 +366,22 @@ describe('assert-website-audit CLI', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('malformed npm audit vulnerability broken');
     expect(result.stdout).not.toContain('website-audit: ok');
+  });
+
+  it('warns about an active exception that matches nothing but still passes', async () => {
+    const result = await run({ vulnerabilities: {} }, '2026-10-02T12:00:00Z');
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain(`exception ${GHSA} no longer matches any advisory`);
+    expect(result.stdout).toContain('website-audit: ok');
+  });
+
+  it('exits non-zero for an exception without a bounded review window', async () => {
+    const result = await run({ vulnerabilities: {} }, '2026-10-02T12:00:00Z', {
+      schemaVersion: 1,
+      exceptions: [{ ...exception, expires: '2099-12-31' }],
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('days after its review');
   });
 
   it('exits non-zero when an unused exception has expired', async () => {
