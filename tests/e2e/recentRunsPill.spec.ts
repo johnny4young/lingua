@@ -76,7 +76,6 @@ test.describe('Recent Runs pill ', () => {
         '1'
       );
     });
-
   }
 
   test('clicking the pill opens the popover; per-tab isolation works', async ({ page }) => {
@@ -115,6 +114,10 @@ test.describe('Recent Runs pill ', () => {
 
   test('a delayed automatic execution must finish before history absence is asserted', async ({ page }) => {
     let delayedWorkerRequests = 0;
+    // The preview build emits the worker created in
+    // src/renderer/runners/workerRunnerShell.ts (new URL('../workers/js-worker.ts'))
+    // as assets/js-worker-<hash>.js. If that name changes, the request count
+    // assertion below fails instead of the delay silently not applying.
     await page.context().route('**/assets/js-worker-*.js', async route => {
       delayedWorkerRequests += 1;
       await new Promise(resolve => setTimeout(resolve, 1_800));
