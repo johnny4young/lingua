@@ -15,18 +15,18 @@ import {
 } from '../shared/httpWorkspaceSchema';
 import {
   resolveGuardedNetworkTarget,
-  type HttpProxyOptions,
+  type NetworkTargetOptions,
   type LookupImpl,
-} from './httpProxy';
+} from './networkTargetPolicy';
 import { createPinnedLookup } from './pinnedLookup';
 
 const WEBSOCKET_PROTOCOLS = new Set(['ws:', 'wss:']);
 
-export interface WebSocketProxyOptions
-  extends Pick<
-    HttpProxyOptions,
-    'allowPrivateHosts' | 'signal' | 'lookupImpl' | 'maxResponseBodyBytes'
-  > {
+export interface WebSocketProxyOptions extends NetworkTargetOptions {
+  /** Caller-owned cancellation; independent of HTTP redirect/body handling. */
+  signal?: AbortSignal;
+  /** Test seam: override the WebSocket message byte cap. */
+  maxResponseBodyBytes?: number;
   onProgress?: (progress: {
     body: string;
     sizeBytes: number;
