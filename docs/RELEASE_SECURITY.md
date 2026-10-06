@@ -249,6 +249,17 @@ graph as reviewed. Exception expiry uses a real UTC calendar date and includes
 the entire named day. Expired entries must be removed or re-reviewed even when
 the corresponding advisory is no longer present.
 
+When a supported patch exists, update the affected independent lockfile rather
+than broadening the exception list. For example,
+[GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)
+affects `source-map-js` versions >=1.0.0,<1.2.2, and the website resolves the supported
+1.2.2 patch within its existing transitive ranges. Regenerate with the website's
+npm workflow, review the resolution/integrity diff, preserve native platform
+selectors, and qualify a frozen install, build and the unchanged audit gate.
+`tests/build/websiteSourceMapResolution.test.ts` prevents this website resolution
+from falling below the patched minimum; the advisory stays unexcused. Root and
+Worker dev-only graphs remain governed by their separate audit policies.
+
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
 stays advisory (`continue-on-error: true`): any `high`/`critical` finding it
