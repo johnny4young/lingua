@@ -470,7 +470,9 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 
 Fetch service suites install their own `vi.stubGlobal` mock in every relevant
 case and restore it with `vi.unstubAllGlobals` during teardown. They assert
-the original fetch identity before each case and after cleanup, including
-shuffled runs, without calling the original implementation.
+the original fetch identity before each case and after cleanup, without
+calling the original implementation. The suites also pass in random order
+(`pnpm exec vitest run tests/services --sequence.shuffle`); CI runs them in
+the default order.
 `tests/services/**/*.ts` participates in the scoped strict test typecheck.
 Device-fingerprint tests retain their DOM environment.
