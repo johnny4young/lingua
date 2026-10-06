@@ -270,6 +270,32 @@ budget is bounded first. Share-link stdin uses the same prefix helper in both
 the builder and decoder with its separate 4 KiB budget. Existing byte-counter
 exports remain compatibility facades, and unrelated domain limits are unchanged.
 
+Native captures in `spawnNativeRun` and `nativeDependencyInstall` also measure
+the UTF-8 byte length of decoded stdout and stderr independently, counting only
+each newly decoded chunk rather than re-encoding the growing capture. Their native
+marker-aware clipper reuses `shared/utf8.ts`, reserves marker bytes within the
+same cap, and keeps whole source and marker code points, including a leading
+U+FEFF. Exact-limit output is unchanged. If a marker exceeds the cap, only its
+longest fitting code-point-safe prefix is reserved; remaining room may hold a
+source prefix. No source character or complete marker is forced past the cap,
+so a zero budget captures nothing and a very small cap may omit the marker.
+Native clipping rounds fractional caps down to whole bytes and clamps negative
+caps to zero before invoking the shared prefix helper.
+Normal-headroom ASCII output keeps its prior prefix and full marker. The
+legacy `shared/runnerLimits.ts` `truncateBytes` helper remains UTF-16-based for
+its other callers, including its full-marker/minimum-source exception.
+
+These limits bound captured decoded text, not raw pipe bytes or observer
+delivery. A native run still notifies its observer with the decoded crossing
+chunk before clipping, then detaches that pipe's data listener and drains it
+with `resume()` rather than closing it. Native installs retain their listener
+and ignore later chunks after clipping. Neither clipping path kills the child
+or changes cancellation, exit mapping, process ownership, or the streaming
+UTF-8 decoder. Buffer chunks split inside a character are decoded before
+budgeting; malformed bytes follow the decoder's existing replacement behavior.
+Deterministic mocked-stream tests cover these boundaries without a toolchain
+or network request.
+
 ### Debugger expression boundary
 
 JavaScript and TypeScript debugging uses two distinct execution surfaces. The

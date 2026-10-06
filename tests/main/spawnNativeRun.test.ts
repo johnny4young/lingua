@@ -156,8 +156,11 @@ describe('spawnNativeRun', () => {
 
     child.emit('close', 0);
     const result = await promise;
-    expect(result.stdout.endsWith('\n[stdout truncated]')).toBe(true);
-    expect(result.stdout.length).toBeLessThanOrEqual(16 + '\n[stdout truncated]'.length);
+    // The 19-byte marker exceeds this deliberately tiny 16-byte cap.
+    // Native capture now bounds the marker itself instead of returning the
+    // legacy minimum source character plus a full over-budget marker.
+    expect(result.stdout).toBe('\n[stdout truncat');
+    expect(Buffer.byteLength(result.stdout, 'utf8')).toBe(16);
     expect(result.stdout).not.toContain('y');
     // stderr never crossed the cap — its listener stays attached.
     expect(child.stderr.listenerCount('data')).toBe(1);

@@ -22,7 +22,7 @@
  *   - Optional user-driven abort (Stop button) via an `AbortSignal`,
  *     using the same SIGTERM→SIGKILL escalation.
  *   - stdout / stderr each accumulated and capped at `maxOutputBytes`
- *     with the caller-supplied truncation markers via `truncateBytes`.
+ *     including the UTF-8-bounded caller-supplied truncation markers.
  *   - Optional stdin forwarding (write-then-end, with the async EPIPE
  *     guard) — opt-in so runners that never touch stdin (Rust) keep
  *     their exact posture.
@@ -36,7 +36,8 @@
 
 import * as childProc from 'node:child_process';
 import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
-import { truncateBytes } from '../../shared/runnerLimits';
+import { utf8ByteLength } from '../../shared/utf8';
+import { truncateNativeOutputUtf8 } from './nativeOutputUtf8';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
 import { createUtf8ChunkDecoder } from './utf8Chunks';
 
@@ -53,11 +54,11 @@ export interface SpawnNativeRunOptions {
   timeoutMs: number;
   /** SIGTERM→SIGKILL escalation window (ms) after a kill is triggered. */
   killEscalationMs: number;
-  /** Byte cap applied to each of stdout / stderr. */
+  /** UTF-8 byte cap per captured stdout / stderr, including any marker. */
   maxOutputBytes: number;
-  /** Truncation marker appended when stdout is clipped. */
+  /** Marker appended when stdout is clipped; shortened safely if it exceeds the cap. */
   stdoutTruncationMarker: string;
-  /** Truncation marker appended when stderr is clipped. */
+  /** Marker appended when stderr is clipped; shortened safely if it exceeds the cap. */
   stderrTruncationMarker: string;
   /**
    * Opt into stdin management. When set, the helper attaches the async
@@ -140,6 +141,8 @@ export function spawnNativeRun(
     const start = Date.now();
     let stdout = '';
     let stderr = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let stdoutTruncated = false;
     let stderrTruncated = false;
     let resolved = false;
@@ -257,8 +260,11 @@ export function spawnNativeRun(
       const text = decodeStdout(chunk);
       onStdout?.(text);
       stdout += text;
-      if (stdout.length > maxOutputBytes) {
-        stdout = truncateBytes(stdout, maxOutputBytes, stdoutTruncationMarker);
+      // The streaming Buffer decoder emits complete code points. Count only
+      // the new decoded text rather than re-encoding the growing capture.
+      stdoutBytes += utf8ByteLength(text);
+      if (stdoutBytes > maxOutputBytes) {
+        stdout = truncateNativeOutputUtf8(stdout, maxOutputBytes, stdoutTruncationMarker);
         stdoutTruncated = true;
         child.stdout.off('data', onStdoutData);
         child.stdout.resume();
@@ -271,8 +277,9 @@ export function spawnNativeRun(
       const text = decodeStderr(chunk);
       onStderr?.(text);
       stderr += text;
-      if (stderr.length > maxOutputBytes) {
-        stderr = truncateBytes(stderr, maxOutputBytes, stderrTruncationMarker);
+      stderrBytes += utf8ByteLength(text);
+      if (stderrBytes > maxOutputBytes) {
+        stderr = truncateNativeOutputUtf8(stderr, maxOutputBytes, stderrTruncationMarker);
         stderrTruncated = true;
         child.stderr.off('data', onStderrData);
         child.stderr.resume();
