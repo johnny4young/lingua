@@ -517,4 +517,3 @@ That command measures/gzips each asset once and writes both JSON and Markdown
 reports before returning a budget or slack failure. `performance:report` remains
 available for an intentional report-only local run. No thresholds change;
 compare target/assets/category measurements independently of timestamps.
-Runner-duration savings require comparable hosted observations before quoting them.
