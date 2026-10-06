@@ -173,7 +173,12 @@ describe('release workflow', () => {
     );
     expect(workflow).toContain('pnpm --dir license-server audit --prod --audit-level high');
     expect(workflow).toContain('pnpm --dir update-server audit --prod --audit-level high');
-    expect(workflow).toContain('pnpm run check:website-audit');
+    expect(workflow).toContain('pnpm run check:website-audit || failed=1');
+    // Every independent audit runs before the step fails, so one red graph
+    // cannot hide another.
+    expect(workflow).toMatch(
+      /Audit independent production graphs\n\s+run: \|\n\s+failed=0\n(?:\s+pnpm [^\n]+ \|\| failed=1\n){3}\s+exit "\$failed"/u
+    );
     expect(workflow).toMatch(
       /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );
