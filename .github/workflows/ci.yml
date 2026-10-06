@@ -203,11 +203,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Qualify the native Vite resolver on every release OS without signing
       # or publishing. Packaging/notarization remain separate release gates.
-      - run: pnpm run build:desktop-bundles
+      - id: bundles
+        run: pnpm run build:desktop-bundles
       - name: Desktop renderer performance budget
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run check:performance --target=renderer --fail-on-slack
-      - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      # A budget failure must not hide a bundle-config regression on the same
+      # OS: run whenever the bundles built, whatever the budget step reported.
+      - name: Desktop bundle config
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
+        run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
 
   subprojects:
     name: Independent projects (Workers + website)

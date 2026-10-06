@@ -21,6 +21,7 @@ const RENDERER_BUDGET_WORKFLOW_PATH = resolve(
 );
 
 interface WorkflowStep {
+  id?: string;
   name?: string;
   if?: string;
   run?: string;
@@ -151,6 +152,16 @@ describe('CI workflow', () => {
     expect(steps[check]?.if).toBe("matrix.os == 'ubuntu-latest'");
     expect(steps[check]?.run).toBe('pnpm run check:performance --target=renderer --fail-on-slack');
     expect(runLines(workflow, 'desktop-bundles').filter(command => command === 'pnpm run build:desktop-bundles')).toHaveLength(1);
+  });
+
+  it('runs the bundle-config test even when the renderer budget fails', () => {
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const build = indexOfRun(workflow, 'desktop-bundles', 'pnpm run build:desktop-bundles');
+    const check = indexOfRun(workflow, 'desktop-bundles', 'pnpm run check:performance');
+    const config = indexOfRun(workflow, 'desktop-bundles', 'tests/build/desktopBundleConfig.test.ts');
+    expect(config).toBeGreaterThan(check);
+    expect(steps[build]?.id).toBe('bundles');
+    expect(steps[config]?.if).toBe("${{ !cancelled() && steps.bundles.outcome == 'success' }}");
   });
 
   it('gates the independently managed update-server and website in the subprojects job', () => {

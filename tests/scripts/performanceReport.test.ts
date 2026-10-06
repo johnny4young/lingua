@@ -187,6 +187,40 @@ describe('performance-report', () => {
     ]);
   });
 
+  it('fails a measured target that the baseline does not budget', () => {
+    const measurements = {
+      targets: [
+        { id: 'web', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+        { id: 'extra', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+        { id: 'absent', available: false, categories: {} },
+      ],
+    };
+    const baseline = { budgets: { web: { initial: { maxBytes: 100, maxGzipBytes: 100 } } } };
+    expect(compareWithBudgets(measurements, baseline)).toEqual([
+      expect.objectContaining({ target: 'extra', category: 'target', metric: 'budget' }),
+    ]);
+  });
+
+  it('fails a measured category that the baseline does not budget, but not an empty one', () => {
+    const measurements = {
+      targets: [
+        {
+          id: 'web',
+          available: true,
+          categories: {
+            initial: { files: 1, bytes: 10, gzipBytes: 5 },
+            lazy: { files: 2, bytes: 40, gzipBytes: 20 },
+            other: { files: 0, bytes: 0, gzipBytes: 0 },
+          },
+        },
+      ],
+    };
+    const baseline = { budgets: { web: { initial: { maxBytes: 100, maxGzipBytes: 100 } } } };
+    expect(compareWithBudgets(measurements, baseline)).toEqual([
+      expect.objectContaining({ target: 'web', category: 'lazy', metric: 'budget' }),
+    ]);
+  });
+
   it('rejects malformed baselines before comparison', () => {
     expect(() => validateBaseline({ schemaVersion: 2, budgets: {} })).toThrow(/schemaVersion/u);
     expect(() => validateBaseline({ schemaVersion: 1 })).toThrow(/budgets/u);
@@ -307,7 +341,9 @@ describe('performance-report', () => {
         rejectSameOriginRuntime: false,
       });
       expect(
-        compareWithBudgets({ targets: [renderer] }, { budgets: { renderer: {} } })
+        compareWithBudgets({ targets: [renderer] }, { budgets: { renderer: {} } }).filter(
+          (violation) => violation.category === 'shape'
+        )
       ).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
