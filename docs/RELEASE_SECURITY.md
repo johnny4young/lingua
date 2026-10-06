@@ -233,10 +233,15 @@ or website advisory.
 The website graph runs through `pnpm run check:website-audit`
 (`scripts/assert-website-audit.mjs`), which fails on any `high` or `critical`
 production advisory except the entries in `scripts/website-audit-exceptions.json`.
-An entry names one GHSA id and one package, records why it cannot reach
-visitors, and carries an `expires` date. After that date, the gate fails again
-until someone re-reviews the entry. Add an entry only when no patched release
-exists. The first one is `GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`, which
+An entry names one GHSA id and one package, records in a non-empty `reason`
+why it cannot reach visitors, and carries a `reviewed` date (today or earlier)
+and an `expires` date at most 90 days after that review (both inclusive UTC
+days). Entries that break any of these rules fail the gate, so no exception can
+be parked indefinitely. After the expiry date, the gate fails again until
+someone re-reviews the entry. An active entry that no longer matches any
+advisory prints a removal warning without failing. Add an entry only when no
+patched release exists. CI and release run all three independent audits before
+failing, so a red Worker audit cannot hide a red website audit. The first one is `GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`, which
 Astro only uses at build time to time remote images; the site ships static files. The gate rejects malformed
 vulnerability/advisory entries, missing dependency references, registry error
 payloads, and unsuccessful audit-process exits rather than treating a partial
