@@ -295,6 +295,12 @@ UTF-8 decoder. Buffer chunks split inside a character are decoded before
 budgeting; malformed bytes follow the decoder's existing replacement behavior.
 Deterministic mocked-stream tests cover these boundaries without a toolchain
 or network request.
+The macOS desktop-bundle PR job additionally launches the built Electron app
+with an isolated profile and exercises real renderer-to-main Node IPC via
+`node scripts/smoke-native-output.mjs`: finite mixed Unicode output on both
+pipes, Stop after stdout clipping, and a clean subsequent run. Its fixtures
+use no dependency install or external service. This is an unpackaged native
+app check; it does not qualify installers, signing, or other native runtimes.
 
 ### Debugger expression boundary
 
