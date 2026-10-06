@@ -21,6 +21,7 @@ const RENDERER_BUDGET_WORKFLOW_PATH = resolve(
 );
 
 interface WorkflowStep {
+  id?: string;
   name?: string;
   if?: string;
   run?: string;
@@ -152,6 +153,16 @@ describe('CI workflow', () => {
     expect(runLines(workflow, 'desktop-bundles').filter(command => command === 'pnpm run build:desktop-bundles')).toHaveLength(1);
   });
 
+  it('runs the bundle-config test even when the renderer budget fails', () => {
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const build = indexOfRun(workflow, 'desktop-bundles', 'pnpm run build:desktop-bundles');
+    const check = indexOfRun(workflow, 'desktop-bundles', 'pnpm run check:performance');
+    const config = indexOfRun(workflow, 'desktop-bundles', 'tests/build/desktopBundleConfig.test.ts');
+    expect(config).toBeGreaterThan(check);
+    expect(steps[build]?.id).toBe('bundles');
+    expect(steps[config]?.if).toBe("${{ !cancelled() && steps.bundles.outcome == 'success' }}");
+  });
+
   it('gates the independently managed update-server and website in the subprojects job', () => {
     const steps = stepsOf(workflow, 'subprojects');
     const updateServer = steps.find(step => step['working-directory'] === 'update-server');
@@ -211,9 +222,22 @@ describe('CI workflow', () => {
 
   it('blocks production advisories in every independently locked package', () => {
     const commands = runLines(workflow, 'static');
-    expect(commands).toContain('pnpm --dir license-server audit --prod --audit-level high');
-    expect(commands).toContain('pnpm --dir update-server audit --prod --audit-level high');
-    expect(commands).toContain('pnpm run check:website-audit');
+    expect(commands).toContain('pnpm --dir license-server audit --prod --audit-level high || failed=1');
+    expect(commands).toContain('pnpm --dir update-server audit --prod --audit-level high || failed=1');
+    expect(commands).toContain('pnpm run check:website-audit || failed=1');
+  });
+
+  it('runs every independent audit before failing so one red graph cannot mask another', () => {
+    const step = stepsOf(workflow, 'static').find(
+      candidate => candidate.name === 'Independent production dependency audits (blocking)'
+    );
+    const lines = (step?.run ?? '').split('\n').map(line => line.trim()).filter(Boolean);
+    expect(lines[0]).toBe('failed=0');
+    expect(lines.at(-1)).toBe('exit "$failed"');
+    const audits = lines.slice(1, -1);
+    expect(audits).toHaveLength(3);
+    for (const line of audits) expect(line).toMatch(/ \|\| failed=1$/u);
+    expect(step?.['continue-on-error']).toBeUndefined();
   });
 
   it('keeps every gate blocking except the advisory i18n inventory and full-graph audit', () => {

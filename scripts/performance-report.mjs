@@ -358,6 +358,38 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
     }
   }
 
+  // Fail closed the other way round too: a measured target or category the
+  // baseline does not budget would otherwise pass every check unexamined.
+  for (const target of measurements.targets) {
+    if (!target.available) continue;
+    const categoryBudgets = baselineBudgets[target.id];
+    if (!categoryBudgets || typeof categoryBudgets !== 'object') {
+      violations.push({
+        target: target.id,
+        category: 'target',
+        metric: 'budget',
+        actual: 1,
+        max: 0,
+        message: `${target.id} was measured but has no budgets in the baseline; add them with pnpm run performance:baseline --target=${target.id}`,
+      });
+      continue;
+    }
+    // A rejected same-origin shape already reports exactly one violation.
+    if (isSameOriginRuntimeShape(target)) continue;
+    for (const category of CATEGORY_ORDER) {
+      const total = target.categories?.[category];
+      if (!total || total.files === 0 || categoryBudgets[category]) continue;
+      violations.push({
+        target: target.id,
+        category,
+        metric: 'budget',
+        actual: total.bytes,
+        max: Number.NaN,
+        message: `${target.id}.${category} was measured but has no budget in the baseline`,
+      });
+    }
+  }
+
   return violations;
 }
 
