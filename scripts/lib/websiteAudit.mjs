@@ -9,6 +9,15 @@
 
 import { DEFAULT_AUDIT_LEVEL, SEVERITY_RANK } from './prodAudit.mjs';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Longest review window an exception may carry, counted from the start of its
+ * reviewed day to the end of its expiry day. A longer window would let an
+ * entry excuse an advisory indefinitely without anyone looking at it again.
+ */
+export const MAX_EXCEPTION_DAYS = 90;
+
 function isPlainRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -27,14 +36,49 @@ function isSeverity(value) {
 }
 
 function failure(error) {
-  return { ok: false, error, offending: [], excused: [], expired: [] };
+  return { ok: false, error, offending: [], excused: [], expired: [], unused: [] };
 }
 
-function expiryTime(value) {
+/** Start of a real UTC calendar day written as YYYY-MM-DD, or NaN. */
+function dayStart(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return NaN;
   const date = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return NaN;
-  return date.getTime() + 24 * 60 * 60 * 1000 - 1;
+  return date.getTime();
+}
+
+/** Final millisecond of a YYYY-MM-DD UTC day, or NaN. */
+function expiryTime(value) {
+  return dayStart(value) + DAY_MS - 1;
+}
+
+/**
+ * Why an exception entry is unusable, or null when it is well formed. Every
+ * entry must name one GHSA advisory and one package, carry a non-empty reason,
+ * and have been reviewed on a past or current day with an expiry no more than
+ * MAX_EXCEPTION_DAYS after that review.
+ */
+function exceptionProblem(item, now) {
+  if (!isPlainRecord(item)) return 'is not an object';
+  if (
+    typeof item.id !== 'string' ||
+    advisoryId(`https://github.com/advisories/${item.id}`) !== item.id
+  ) {
+    return 'needs a GHSA id';
+  }
+  const label = item.id;
+  if (typeof item.package !== 'string' || !item.package) return `${label} needs a package`;
+  if (typeof item.reason !== 'string' || !item.reason.trim()) return `${label} needs a reason`;
+  const reviewed = dayStart(item.reviewed);
+  if (!Number.isFinite(reviewed)) return `${label} needs a reviewed YYYY-MM-DD date`;
+  if (reviewed > now.getTime()) return `${label} has a reviewed date in the future`;
+  const expires = expiryTime(item.expires);
+  if (!Number.isFinite(expires)) return `${label} needs an expires YYYY-MM-DD date`;
+  if (expires < reviewed) return `${label} expires before it was reviewed`;
+  if (expires - reviewed + 1 > MAX_EXCEPTION_DAYS * DAY_MS) {
+    return `${label} expires more than ${MAX_EXCEPTION_DAYS} days after its review`;
+  }
+  return null;
 }
 
 /** Root advisories behind a vulnerability, following `via` package references. */
@@ -54,7 +98,7 @@ function rootAdvisories(vulnerabilities, name, seen = new Set()) {
 
 /**
  * @param {unknown} audit Parsed `npm audit --json` payload.
- * @param {{ level?: string, exceptions?: Array<{ id: string, package: string, expires: string }>, now?: Date }} options
+ * @param {{ level?: string, exceptions?: Array<{ id: string, package: string, reviewed: string, expires: string, reason: string }>, now?: Date }} options
  */
 export function evaluateWebsiteAudit(audit, options = {}) {
   const level = options.level ?? DEFAULT_AUDIT_LEVEL;
@@ -96,24 +140,20 @@ export function evaluateWebsiteAudit(audit, options = {}) {
   }
 
   const exceptions = options.exceptions ?? [];
-  if (
-    !Array.isArray(exceptions) ||
-    exceptions.some(
-      item =>
-        !isPlainRecord(item) ||
-        typeof item.id !== 'string' ||
-        advisoryId(`https://github.com/advisories/${item.id}`) !== item.id ||
-        typeof item.package !== 'string' ||
-        !item.package ||
-        !Number.isFinite(expiryTime(item.expires))
-    )
-  )
-    return failure('malformed website audit exceptions');
+  if (!Array.isArray(exceptions)) return failure('malformed website audit exceptions');
+  for (const item of exceptions) {
+    const problem = exceptionProblem(item, now);
+    if (problem) return failure(`malformed website audit exceptions: ${problem}`);
+  }
   const expired = exceptions.filter(item => expiryTime(item.expires) < now.getTime());
   const active = exceptions.filter(item => !expired.includes(item));
-  const isExcused = advisory =>
-    advisory.id !== null &&
-    active.some(item => item.id === advisory.id && item.package === advisory.package);
+  const used = new Set();
+  const isExcused = advisory => {
+    if (advisory.id === null) return false;
+    const match = active.find(item => item.id === advisory.id && item.package === advisory.package);
+    if (match) used.add(match);
+    return Boolean(match);
+  };
 
   const offending = [];
   const excused = [];
@@ -141,5 +181,9 @@ export function evaluateWebsiteAudit(audit, options = {}) {
     offending,
     excused,
     expired: expired.map(item => item.id),
+    // Active entries that excused nothing: the advisory is gone or no longer
+    // reaches the production graph. Reported, not fatal, so removal stays a
+    // reviewed change rather than a surprise red build.
+    unused: active.filter(item => !used.has(item)).map(item => item.id),
   };
 }
