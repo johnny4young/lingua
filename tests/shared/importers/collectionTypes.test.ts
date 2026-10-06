@@ -1,10 +1,27 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MAX_COLLECTION_BYTES, MAX_IMPORT_REQUESTS } from '../../../src/shared/importers/collectionTypes';
 import { MAX_COLLECTION_BYTES as postmanBytes, MAX_IMPORT_REQUESTS as postmanRequests } from '../../../src/shared/importers/postmanImporter';
+import { parseSourceFile } from '../../__fixtures__/sourceAst';
 
 const root = resolve(__dirname, '../../..');
+
+/** Every static module specifier a file depends on: imports and re-exports alike. */
+function moduleSpecifiers(file: string): string[] {
+  const { program } = parseSourceFile(resolve(root, file), file);
+  return program.body.flatMap(statement => {
+    if (statement.type === 'ImportDeclaration' || statement.type === 'ExportAllDeclaration') {
+      return [statement.source.value];
+    }
+    if (statement.type === 'ExportNamedDeclaration' && statement.source) {
+      return [statement.source.value];
+    }
+    return [];
+  });
+}
+
+const endsWithModule = (name: string) => (specifier: string) =>
+  specifier === `./${name}` || specifier.endsWith(`/${name}`);
 
 describe('collection contract ownership', () => {
   it('keeps compatible caps without a format-parser dependency in the contract leaf', () => {
@@ -12,8 +29,9 @@ describe('collection contract ownership', () => {
     expect(MAX_IMPORT_REQUESTS).toBe(100);
     expect(postmanBytes).toBe(MAX_COLLECTION_BYTES);
     expect(postmanRequests).toBe(MAX_IMPORT_REQUESTS);
-    const leaf = readFileSync(resolve(root, 'src/shared/importers/collectionTypes.ts'), 'utf8');
-    expect(leaf).not.toMatch(/from ['"][^'"]*(?:postmanImporter|brunoImporter)['"]/u);
+    const leaf = moduleSpecifiers('src/shared/importers/collectionTypes.ts');
+    expect(leaf.some(endsWithModule('postmanImporter'))).toBe(false);
+    expect(leaf.some(endsWithModule('brunoImporter'))).toBe(false);
   });
 
   it('routes Bruno and generic preview contracts to the format-neutral leaf', () => {
@@ -24,10 +42,10 @@ describe('collection contract ownership', () => {
       'src/renderer/hooks/importPreviewConfirm.ts',
       'src/renderer/components/ImportPreview/ImportPreviewBody.tsx',
     ]) {
-      const source = readFileSync(resolve(root, file), 'utf8');
-      expect(source, file).toMatch(/from ['"][^'"]*collectionTypes['"]/u);
+      const specifiers = moduleSpecifiers(file);
+      expect(specifiers.some(endsWithModule('collectionTypes')), file).toBe(true);
       if (file.endsWith('brunoImporter.ts') || file.endsWith('brunoDirectoryImport.ts')) {
-        expect(source, file).not.toMatch(/from ['"][^'"]*postmanImporter['"]/u);
+        expect(specifiers.some(endsWithModule('postmanImporter')), file).toBe(false);
       }
     }
   });
