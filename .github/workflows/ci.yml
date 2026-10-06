@@ -94,11 +94,15 @@ jobs:
       # gate above. This audits exactly that set.
       - name: Bundled dependency audit (blocking)
         run: pnpm run check:bundled-audit
+      # Run every independent audit before failing so one red graph cannot
+      # hide another behind the default bash -e of a multi-line run block.
       - name: Independent production dependency audits (blocking)
         run: |
-          pnpm --dir license-server audit --prod --audit-level high
-          pnpm --dir update-server audit --prod --audit-level high
-          pnpm run check:website-audit
+          failed=0
+          pnpm --dir license-server audit --prod --audit-level high || failed=1
+          pnpm --dir update-server audit --prod --audit-level high || failed=1
+          pnpm run check:website-audit || failed=1
+          exit "$failed"
       - name: Security audit (advisory, full graph)
         run: pnpm audit --audit-level high
         continue-on-error: true
