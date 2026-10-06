@@ -10,7 +10,9 @@ const lock = JSON.parse(readFileSync(path.join(root, 'website/package-lock.json'
 };
 const configuration = JSON.parse(
   readFileSync(path.join(root, 'scripts/website-audit-exceptions.json'), 'utf8')
-) as { exceptions: Array<{ id: string; package: string; expires: string }> };
+) as {
+  exceptions: Array<{ id: string; package: string; reviewed: string; expires: string; reason: string }>;
+};
 
 function meetsPatchedMinimum(version: string): boolean {
   const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(version);
