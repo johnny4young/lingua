@@ -34,7 +34,6 @@ export type {
   NativeInstallResult,
 } from '../shared/dependencies/nativeDependencies';
 import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
-import { utf8ByteLength } from '../shared/utf8';
 import {
   GO_TOOLCHAIN_KEYS,
   RUBY_TOOLCHAIN_KEYS,
@@ -180,7 +179,7 @@ export async function installNativeDependencies(
       stdout += text;
       // Streaming Buffer decoding keeps code points whole, so byte counts
       // compose without re-encoding all previously captured text.
-      stdoutBytes += utf8ByteLength(text);
+      stdoutBytes += Buffer.byteLength(text, 'utf8');
       if (stdoutBytes > MAX_NATIVE_STDERR_BYTES) {
         stdout = truncateNativeOutputUtf8(stdout, MAX_NATIVE_STDERR_BYTES, '\n[stdout truncated]');
         stdoutTruncated = true;
@@ -190,7 +189,7 @@ export async function installNativeDependencies(
       if (stderrTruncated) return;
       const text = decodeStderr(chunk);
       stderr += text;
-      stderrBytes += utf8ByteLength(text);
+      stderrBytes += Buffer.byteLength(text, 'utf8');
       if (stderrBytes > MAX_NATIVE_STDERR_BYTES) {
         stderr = truncateNativeOutputUtf8(stderr, MAX_NATIVE_STDERR_BYTES, '\n[stderr truncated]');
         stderrTruncated = true;

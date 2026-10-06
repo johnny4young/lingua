@@ -281,9 +281,10 @@ source prefix. No source character or complete marker is forced past the cap,
 so a zero budget captures nothing and a very small cap may omit the marker.
 Native clipping rounds fractional caps down to whole bytes and clamps negative
 caps to zero before invoking the shared prefix helper.
-Normal-headroom ASCII output keeps its prior prefix and full marker. The
-legacy `shared/runnerLimits.ts` `truncateBytes` helper remains UTF-16-based for
-its other callers, including its full-marker/minimum-source exception.
+Normal-headroom ASCII output keeps its prior prefix and full marker. The Go
+compile error path and the Rust debugger's joined stderr/stdout compile
+diagnostics use the same clipper, so every main-process output cap is a UTF-8
+byte cap; the former UTF-16 `truncateBytes` helper is gone.
 
 These limits bound captured decoded text, not raw pipe bytes or observer
 delivery. A native run still notifies its observer with the decoded crossing

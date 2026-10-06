@@ -25,8 +25,8 @@ import path from 'node:path';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
   MAX_GO_WASM_BYTES,
-  truncateBytes,
 } from '../shared/runnerLimits';
+import { truncateNativeOutputUtf8 } from './runners/nativeOutputUtf8';
 import {
   GO_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -211,7 +211,7 @@ async function compileGoToWasm(
   } catch (error) {
     if (signal.aborted) return stopped();
     const message = error instanceof Error ? error.message : String(error);
-    return { ...failed(truncateBytes(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
+    return { ...failed(truncateNativeOutputUtf8(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
   } finally {
     if (tempDir) await cleanupNativeRunTempDir(tempDir);
     if (runId && activeCompiles.get(runId) === active) activeCompiles.delete(runId);

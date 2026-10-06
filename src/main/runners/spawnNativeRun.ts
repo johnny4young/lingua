@@ -36,7 +36,6 @@
 
 import * as childProc from 'node:child_process';
 import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
-import { utf8ByteLength } from '../../shared/utf8';
 import { truncateNativeOutputUtf8 } from './nativeOutputUtf8';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
 import { createUtf8ChunkDecoder } from './utf8Chunks';
@@ -262,7 +261,7 @@ export function spawnNativeRun(
       stdout += text;
       // The streaming Buffer decoder emits complete code points. Count only
       // the new decoded text rather than re-encoding the growing capture.
-      stdoutBytes += utf8ByteLength(text);
+      stdoutBytes += Buffer.byteLength(text, 'utf8');
       if (stdoutBytes > maxOutputBytes) {
         stdout = truncateNativeOutputUtf8(stdout, maxOutputBytes, stdoutTruncationMarker);
         stdoutTruncated = true;
@@ -277,7 +276,7 @@ export function spawnNativeRun(
       const text = decodeStderr(chunk);
       onStderr?.(text);
       stderr += text;
-      stderrBytes += utf8ByteLength(text);
+      stderrBytes += Buffer.byteLength(text, 'utf8');
       if (stderrBytes > maxOutputBytes) {
         stderr = truncateNativeOutputUtf8(stderr, maxOutputBytes, stderrTruncationMarker);
         stderrTruncated = true;
