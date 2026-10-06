@@ -94,11 +94,15 @@ jobs:
       # gate above. This audits exactly that set.
       - name: Bundled dependency audit (blocking)
         run: pnpm run check:bundled-audit
+      # Run every independent audit before failing so one red graph cannot
+      # hide another behind the default bash -e of a multi-line run block.
       - name: Independent production dependency audits (blocking)
         run: |
-          pnpm --dir license-server audit --prod --audit-level high
-          pnpm --dir update-server audit --prod --audit-level high
-          pnpm run check:website-audit
+          failed=0
+          pnpm --dir license-server audit --prod --audit-level high || failed=1
+          pnpm --dir update-server audit --prod --audit-level high || failed=1
+          pnpm run check:website-audit || failed=1
+          exit "$failed"
       - name: Security audit (advisory, full graph)
         run: pnpm audit --audit-level high
         continue-on-error: true
@@ -201,11 +205,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Qualify the native Vite resolver on every release OS without signing
       # or publishing. Packaging/notarization remain separate release gates.
-      - run: pnpm run build:desktop-bundles
+      - id: bundles
+        run: pnpm run build:desktop-bundles
       - name: Desktop renderer performance budget
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run check:performance --target=renderer --fail-on-slack
-      - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      # A budget failure must not hide a bundle-config regression on the same
+      # OS: run whenever the bundles built, whatever the budget step reported.
+      - name: Desktop bundle config
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
+        run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
 
   subprojects:
     name: Independent projects (Workers + website)
