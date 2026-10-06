@@ -85,6 +85,11 @@ for (const id of result.expired) {
     `website-audit: exception ${id} has expired; re-review it in ${path.relative(repoRoot, values.exceptions)}`
   );
 }
+for (const id of result.unused) {
+  console.warn(
+    `website-audit: exception ${id} no longer matches any advisory; remove it from ${path.relative(repoRoot, values.exceptions)}`
+  );
+}
 for (const item of result.excused) {
   console.log(`website-audit: excused ${item.name} (${item.advisories.join(', ')})`);
 }
