@@ -117,9 +117,9 @@ function ipv6Hextets(addr: string): number[] | null {
   return hextets;
 }
 
-function embeddedIPv4(hextets: number[]): string {
-  const hi = hextets[6]!;
-  const lo = hextets[7]!;
+function embeddedIPv4(hextets: number[], hiIndex = 6): string {
+  const hi = hextets[hiIndex]!;
+  const lo = hextets[hiIndex + 1]!;
   return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
 }
 
@@ -128,18 +128,39 @@ function isPrivateIPv6(ip: string): boolean {
   if (lower === '::1' || lower === '::') return true; // loopback / unspecified
   const hextets = ipv6Hextets(lower);
   if (!hextets) return true; // unparseable → treat as unsafe
+  const zeros = (from: number, to: number): boolean =>
+    hextets.slice(from, to).every((h) => h === 0);
   // IPv4-mapped (::ffff:0:0/96) in ANY textual form — the low 32 bits are the
   // IPv4 target the socket connects to, so classify by that embedded address.
-  if (hextets.slice(0, 5).every((h) => h === 0) && hextets[5] === 0xffff) {
+  if (zeros(0, 5) && hextets[5] === 0xffff) {
+    return isPrivateIPv4(embeddedIPv4(hextets));
+  }
+  // IPv4-translated (::ffff:0:0:0/96, RFC 2765 SIIT) — same embed.
+  if (zeros(0, 4) && hextets[4] === 0xffff && hextets[5] === 0) {
     return isPrivateIPv4(embeddedIPv4(hextets));
   }
   // IPv4-compatible (::a.b.c.d, deprecated but still routable) — same embed.
-  if (hextets.slice(0, 6).every((h) => h === 0)) {
+  if (zeros(0, 6)) {
     return isPrivateIPv4(embeddedIPv4(hextets));
   }
   const head = hextets[0]!;
+  // NAT64 well-known prefix (64:ff9b::/96, RFC 6052): a NAT64 gateway dials the
+  // embedded IPv4, so classify by it. Public embeds stay reachable, which is
+  // what DNS64 hands out on IPv6-only networks.
+  if (head === 0x64 && hextets[1] === 0xff9b && zeros(2, 6)) {
+    return isPrivateIPv4(embeddedIPv4(hextets));
+  }
+  // NAT64 local-use prefix (64:ff9b:1::/48, RFC 8215): operator-defined
+  // translation that IANA marks as not globally reachable, and whose IPv4
+  // position depends on the operator's prefix length. Never a public target.
+  if (head === 0x64 && hextets[1] === 0xff9b && hextets[2] === 1) return true;
+  // 6to4 (2002::/16, RFC 3056) carries its IPv4 in hextets 1–2.
+  if (head === 0x2002 && isPrivateIPv4(embeddedIPv4(hextets, 1))) return true;
+  if (head === 0x2001 && hextets[1] === 0x0db8) return true; // 2001:db8::/32 documentation
+  if (head === 0x0100 && zeros(1, 4)) return true; // 100::/64 discard-only
   if ((head & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
   if ((head & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((head & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
   if ((head & 0xff00) === 0xff00) return true; // ff00::/8 multicast
   return false;
 }
@@ -187,9 +208,12 @@ async function assertHostAllowed(
 
   // `localhost` and friends may resolve to loopback via /etc/hosts; the DNS
   // resolution below catches those, but we also fast-path the obvious name.
+  // A single trailing dot is the fully-qualified spelling of the same name
+  // (`localhost.`), which WHATWG URL keeps verbatim.
+  const bareName = hostname.toLowerCase().replace(/\.$/u, '');
   if (
     !allowPrivateHosts &&
-    (hostname === 'localhost' || hostname.endsWith('.localhost'))
+    (bareName === 'localhost' || bareName.endsWith('.localhost'))
   ) {
     throw new SsrfBlockedError('Blocked request to localhost');
   }

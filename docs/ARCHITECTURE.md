@@ -1114,6 +1114,14 @@ and Capsules. Only the network transport varies by platform:
   messages and bytes, disables compression, and closes on cancel or timeout.
 - Private, loopback, link-local, CGNAT, multicast, and reserved targets fail
   closed unless the user enables the desktop-only private-host setting.
+  IPv6 forms that carry an IPv4 destination are classified by that IPv4:
+  IPv4-mapped, IPv4-compatible, IPv4-translated (`::ffff:0:0:0/96`), NAT64
+  well-known (`64:ff9b::/96`) and 6to4 (`2002::/16`), so a NAT64 address of a
+  public host stays reachable on IPv6-only networks while one of loopback or
+  cloud metadata does not. The NAT64 local-use prefix (`64:ff9b:1::/48`),
+  site-local (`fec0::/10`), documentation (`2001:db8::/32`) and discard-only
+  (`100::/64`) ranges are always private. The `localhost` fast path also
+  matches the trailing-dot spelling (`localhost.`).
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
