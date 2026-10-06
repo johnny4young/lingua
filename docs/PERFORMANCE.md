@@ -508,6 +508,10 @@ URLs and are the only valid input for release budgets. After a local
 PR CI checks the web build and the existing Linux desktop renderer bundle.
 The desktop check uses `pnpm run check:performance --target=renderer --fail-on-slack`
 after its bundle build; Windows and macOS bundle qualification still run.
-An explicitly selected check target must have output. The default local check
+An explicitly selected check target must have output, and every measured
+target and non-empty category must have a baseline budget: a target or
+category the baseline does not cover fails the check instead of passing
+unexamined. The bundle-config test still runs when the renderer budget fails,
+so one failure cannot hide the other. The default local check
 continues to support a web-only build, and selecting renderer does not require
 web output. Weekly/manual validation retains the full-target gate.
