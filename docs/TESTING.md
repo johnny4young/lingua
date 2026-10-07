@@ -191,7 +191,9 @@ Desktop baseline must guarantee:
 
 Desktop bundle changes are also built on Linux, Windows, and macOS by the
 `desktop-bundles` matrix. It exercises the native Vite production resolver and
-its config-contract tests without signing or publishing installers. A local
+its config-contract tests without signing or publishing installers; the Linux
+leg also checks the built desktop renderer against its performance budget
+(`docs/PERFORMANCE.md` § Review-time build budgets). A local
 packaged-app smoke and release packaging/notarization remain separate evidence.
 The independent-projects job tests and typechecks both Workers and runs Wrangler
 `deploy --dry-run` for each; those commands build locally and do not deploy.
@@ -476,3 +478,13 @@ calling the original implementation. The suites also pass in random order
 the default order.
 `tests/services/**` participates in the scoped strict test typecheck.
 Device-fingerprint tests retain their DOM environment.
+
+### Automatic execution evidence
+
+Recent Runs and Compare E2E cases replace the editor with a unique output
+marker and wait for that output plus the automatic runner's settled signal
+and absence of terminal failure notices. Auto-run does not own the manual
+tab execution-state badge.
+A prior result or idle-before-debounce cannot satisfy the wait. Recent Runs
+covers both locales, delayed execution, manual recording and second-tab
+isolation. Negative-observation waits for lazy resources remain separate.
