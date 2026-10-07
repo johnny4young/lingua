@@ -10,9 +10,9 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { EmptyState } from '../ui/EmptyState';
 
 /**
- * implementation — Settings UI for the env-var tiers.
+ * Settings UI for the env-var tiers.
  *
- * FASE 2a (MOV.04) restructures the presentation onto the Signal-Slate
+ * The Settings rhythm restructures the presentation onto the Signal-Slate
  * Settings rhythm: one `SettingsSection` (eyebrow + description) wraps
  * the three scope blocks at the `space-7` rhythm, each with its own
  * `ScopeHeading` + add-form + var rows; the genuinely-empty project/tab
@@ -161,7 +161,7 @@ const TIER_TONE: Record<string, StatusBadgeTone> = {
 };
 
 /**
- * Highlighted effective-environment tile. FASE 2a promotes the trace
+ * Highlighted effective-environment tile. It promotes the trace
  * out of a quiet collapsed panel into an ACCENT-toned tile (primary-soft
  * surface, accent border) so it reads as the payoff of the three tiers.
  * The summary always shows the precedence chain
@@ -181,9 +181,9 @@ function EffectiveEnvPanel({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  // processEnv intentionally stays empty: implementation put the host env
-  // boundary on main-process side, so the renderer trace never claims a
-  // host-tier value it couldn't actually observe. implementation will surface
+  // processEnv intentionally stays empty: the host env
+  // boundary is main-process side, so the renderer trace never claims a
+  // host-tier value it couldn't actually observe. A later change will surface
   // the main-side merge separately.
   const trace = useMemo(
     () =>
@@ -368,7 +368,7 @@ function ScopeEmpty({ testid, message }: { testid: string; message: string }) {
   const { t } = useTranslation();
   return (
     <div
-      className="rounded-lg border border-dashed border-border-default px-4 py-8"
+      className="rounded-lg border border-dashed border-border-default px-4 py-16"
       data-testid={testid}
     >
       <EmptyState

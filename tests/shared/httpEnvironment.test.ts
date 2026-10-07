@@ -1,5 +1,5 @@
 /**
- * implementation — exhaustive coverage of the HTTP environment engine.
+ * Exhaustive coverage of the HTTP environment engine.
  *
  * The privacy-critical functions (`maskSecretsForCapsule`,
  * `collectSecretResolvedValues`, `maskSecretValuesInResponse`) get the
@@ -33,7 +33,7 @@ import {
 
 /**
  * Build a variable row from `{key, value, secret}` with a deterministic
- * opaque id (implementation added `HttpEnvVariableV1.id`). Tests assert on
+ * opaque id (`HttpEnvVariableV1.id`). Tests assert on
  * key/value/secret semantics, not the opaque id, so a stable synthetic id
  * keeps the literals readable.
  */
@@ -165,7 +165,7 @@ describe('interpolateRequest (outbound — resolves ALL vars)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — auth is a first-class env surface.
+// Auth is a first-class env surface.
 // ---------------------------------------------------------------------------
 
 describe('auth interpolation ', () => {
@@ -454,7 +454,7 @@ describe('parseHttpEnvironment', () => {
       value: 'x',
       secret: true,
     });
-    // implementation — a row with no `id` is backfilled with a fresh UUID.
+    // A row with no `id` is backfilled with a fresh UUID.
     expect(typeof parsed?.variables[0]?.id).toBe('string');
     expect(parsed?.variables[0]?.id.length).toBeGreaterThan(0);
   });
@@ -594,7 +594,7 @@ describe('looksSecret ', () => {
   });
 });
 
-describe('toExportableEnvironment (implementation — privacy)', () => {
+describe('toExportableEnvironment (privacy)', () => {
   it('blanks secret values, keeps non-secret values, strips all ids', () => {
     const e = env(
       [

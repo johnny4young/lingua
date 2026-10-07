@@ -1,5 +1,5 @@
 /**
- * implementation — Language Support Scorecard type contracts.
+ * Language Support Scorecard type contracts.
  *
  * Asserts the coupled invariants that keep `LANGUAGE_SUPPORT_PROFILES`
  * honest:
@@ -11,8 +11,8 @@
  *   3. Every profile fills all nine capabilities (the
  *      `Record<LanguageCapability, ...>` shape catches this at
  *      compile time, but the assertion documents the contract).
- *   4. JS + TS debugger is `'partial'` per AC (implementation
- *      gated under security review).
+ *   4. JS + TS debugger is `'partial'` per AC (the
+ *      debugger is gated under security review).
  *   5. `renderLanguageScorecardMarkdown` produces a stable shape
  *      (header + separator + N data rows).
  */
@@ -82,7 +82,7 @@ describe('LANGUAGE_SUPPORT_PROFILES — coupled invariants', () => {
     }
   });
 
-  it('JS + TS debugger is marked partial per implementation gate', () => {
+  it('JS + TS debugger is marked partial per the debugger gate', () => {
     const js = LANGUAGE_SUPPORT_PROFILES.find(
       (profile) => profile.languageId === 'javascript'
     );
@@ -158,7 +158,7 @@ describe('resolveCapabilityStatus — per-platform resolution ', () => {
     }
   });
 
-  it('an explicit perPlatform override always wins (implementation note consistency guard)', () => {
+  it('an explicit perPlatform override always wins (consistency guard)', () => {
     // Ruby is the canonical override profile. The resolver must surface
     // the declared override verbatim, never a remapped value.
     const ruby = profileById('ruby');
@@ -185,12 +185,12 @@ describe('resolveCapabilityStatus — per-platform resolution ', () => {
   });
 
   it('never remaps the two runtime axes — they pass through their base status', () => {
-    // Lua desktopRuntime is `web-only`: it runs on desktop via the web
-    // engine, so it must NOT collapse to `unsupported` on desktop.
+    // Lua desktopRuntime is `partial` (plugin-gated Fengari) and must not
+    // collapse to `unsupported` on either platform toggle.
     const lua = profileById('lua');
-    expect(lua.capabilities.desktopRuntime).toBe('web-only');
-    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'desktop')).toBe('web-only');
-    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'web')).toBe('web-only');
+    expect(lua.capabilities.desktopRuntime).toBe('partial');
+    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'desktop')).toBe('partial');
+    expect(resolveCapabilityStatus(lua, 'desktopRuntime', 'web')).toBe('partial');
     // Go webRuntime `unsupported` stays unsupported on both platforms.
     const go = profileById('go');
     expect(resolveCapabilityStatus(go, 'webRuntime', 'web')).toBe('unsupported');
@@ -243,7 +243,7 @@ describe('resolveCapabilityStatus — per-platform resolution ', () => {
   });
 });
 
-describe('renderLanguageScorecardMarkdown — per-platform (implementation note)', () => {
+describe('renderLanguageScorecardMarkdown — per-platform', () => {
   it('keeps the header + separator + one-row-per-profile shape for web/desktop', () => {
     for (const platform of ['web', 'desktop'] as const) {
       const lines = renderLanguageScorecardMarkdown(undefined, platform).split('\n');

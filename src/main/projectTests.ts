@@ -38,6 +38,7 @@ import {
   type SpawnNativeRunOptions,
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
+import { resolveHostExecutable } from './runners/hostExecutable';
 
 const PROJECT_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const PROJECT_TEST_KILL_ESCALATION_MS = 300;
@@ -87,37 +88,6 @@ async function readSmallText(candidate: string): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-async function resolveHostExecutable(
-  names: readonly string[],
-  env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform
-): Promise<string | null> {
-  const rawPath = typeof env.PATH === 'string' ? env.PATH : '';
-  const windowsExtensions =
-    platform === 'win32'
-      ? (typeof env.PATHEXT === 'string' ? env.PATHEXT : '.EXE;.CMD;.BAT;.COM')
-          .split(';')
-          .filter(Boolean)
-      : [''];
-
-  for (const directory of rawPath.split(path.delimiter)) {
-    // Empty/relative entries resolve against the untrusted project cwd and
-    // would allow binary planting. Only absolute PATH segments are eligible.
-    if (!path.isAbsolute(directory)) continue;
-    for (const name of names) {
-      const variants =
-        platform === 'win32' && path.extname(name) === ''
-          ? windowsExtensions.map(extension => `${name}${extension.toLowerCase()}`)
-          : [name];
-      for (const variant of variants) {
-        const candidate = path.join(directory, variant);
-        if (await fileExists(candidate, platform !== 'win32')) return candidate;
-      }
-    }
-  }
-  return null;
 }
 
 function dependencyMentions(manifest: Record<string, unknown>, packageName: string): boolean {

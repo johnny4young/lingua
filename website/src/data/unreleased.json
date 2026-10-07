@@ -1,7 +1,116 @@
 {
-  "generatedAt": "2026-09-24T18:18:05.110Z",
+  "generatedAt": "2026-10-07T17:13:05.810Z",
   "baseRef": "v1.5.1",
-  "commitCount": 0,
-  "totalSinceBase": 1,
-  "commits": []
+  "commitCount": 12,
+  "totalSinceBase": 55,
+  "commits": [
+    {
+      "hash": "1a90b10",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "share one marker-aware UTF-8 clipper and keep smoke evidence",
+      "breaking": false
+    },
+    {
+      "hash": "c46b1e2",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "patch source-map-js in the root and Worker lockfiles",
+      "breaking": false
+    },
+    {
+      "hash": "28a6959",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the supported source-map patch",
+      "breaking": false
+    },
+    {
+      "hash": "8dacb47",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "bound compile diagnostics in UTF-8 and retire the UTF-16 truncator",
+      "breaking": false
+    },
+    {
+      "hash": "853af1a",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the patched sharp release",
+      "breaking": false
+    },
+    {
+      "hash": "c31f87a",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "audit",
+      "message": "bound website audit exceptions and run every independent audit",
+      "breaking": false
+    },
+    {
+      "hash": "7e8f5aa",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "enforce native UTF-8 capture budgets",
+      "breaking": false
+    },
+    {
+      "hash": "d6872b0",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the supported source-map patch",
+      "breaking": false
+    },
+    {
+      "hash": "3b2fa6c",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "audit",
+      "message": "reject incomplete website audit evidence",
+      "breaking": false
+    },
+    {
+      "hash": "1146635",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "settle the review design questions",
+      "breaking": false
+    },
+    {
+      "hash": "079a105",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "address the review round on the full app review",
+      "breaking": false
+    },
+    {
+      "hash": "24ad0ac",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "resolve the full review follow-ups",
+      "breaking": false
+    }
+  ]
 }

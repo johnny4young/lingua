@@ -214,6 +214,16 @@ export function GuidedTourRuntime({
     setTargetRect(null);
   }, []);
 
+  // Skipping counts as dismissal for auto-start unless the user set the
+  // "don't show again" box themselves during this tour.
+  const autoStartChoiceTouchedRef = useRef(false);
+  const skipTour = useCallback(() => {
+    if (!autoStartChoiceTouchedRef.current) {
+      useSettingsStore.getState().setSuppressTourAutoStart(true);
+    }
+    cancelTour();
+  }, [cancelTour]);
+
   // A keyboard shortcut can open an App overlay while the tour owns focus.
   // Yield immediately instead of leaving two dialogs mounted together.
   useEffect(() => {
@@ -267,7 +277,7 @@ export function GuidedTourRuntime({
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
-      cancelTour();
+      skipTour();
       return;
     }
     if (event.key !== 'Tab') return;
@@ -372,6 +382,7 @@ export function GuidedTourRuntime({
   }, [activeStep]);
 
   const startTour = useCallback(async () => {
+    autoStartChoiceTouchedRef.current = false;
     controlsRef.current.closeOverlay();
 
     const { tabs, addTab } = useEditorStore.getState();
@@ -427,7 +438,7 @@ export function GuidedTourRuntime({
       return;
     }
 
-    cancelTour();
+    skipTour();
   };
 
   const panelStyle = calculatePanelStyle(targetRect, activeStep?.attachTo.on ?? null);
@@ -472,7 +483,7 @@ export function GuidedTourRuntime({
             type="button"
             className="guided-tour-close"
             aria-label={t('tour.buttons.skip')}
-            onClick={cancelTour}
+            onClick={skipTour}
           >
             <X aria-hidden="true" size={18} strokeWidth={2} />
           </button>
@@ -485,7 +496,10 @@ export function GuidedTourRuntime({
             <input
               checked={suppressTourAutoStart}
               className="guided-tour-dont-show-again-input"
-              onChange={event => setSuppressTourAutoStart(event.currentTarget.checked)}
+              onChange={event => {
+                autoStartChoiceTouchedRef.current = true;
+                setSuppressTourAutoStart(event.currentTarget.checked);
+              }}
               type="checkbox"
             />
             <span>{t('tour.options.dontShowAgain')}</span>

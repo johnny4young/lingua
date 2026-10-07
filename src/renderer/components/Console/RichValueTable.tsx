@@ -7,11 +7,11 @@ interface RichValueTableProps {
 }
 
 /**
- * implementation — inline preview for `{ kind: 'table' }`. Shows a
+ * Inline preview for `{ kind: 'table' }`. Shows a
  * compact `Table(rows×cols) — col1, col2, …` chip; the popover
  * surfaces the full table.
  *
- * Mirrors the inline-pill format from implementation's
+ * Mirrors the inline-pill format from the shared
  * `formatPayloadInlineSummary`, with the type icon hoisted into the
  * chrome so the cell reads visually identical to the inline summary
  * the user already learned in the editor overlay.

@@ -1,8 +1,8 @@
 /**
- * implementation — Playwright smoke for the JS/TS runtime-mode
+ * Playwright smoke for the JS/TS runtime-mode
  * selector.
  *
- * Locks the implementation contract surface:
+ * Locks the contract surface:
  *   - The action pill runtime chip renders for JS tabs (default `Worker`).
  *   - Web keeps Worker/Browser preview enabled and explains desktop subprocess limits.
  *   - The chip is hidden for non-JS/TS tabs.
@@ -107,7 +107,7 @@ test.describe('Runtime mode selector', () => {
     const optionValues = await select.locator('option').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    // implementation runtimes added Deno and Bun as first-class desktop modes.
+    // Deno and Bun are first-class desktop modes.
     expect(optionValues).toEqual(['worker', 'node', 'browser-preview', 'deno', 'bun']);
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)

@@ -1,5 +1,5 @@
 /**
- * implementation — e2e for the global Import overlay.
+ * E2e for the global Import overlay.
  *
  * Acceptance: Mod+Alt+I opens the Import overlay from anywhere. EN
  * + ES locales render with tuteo copy. The full preview + confirm
@@ -83,10 +83,10 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     await page.keyboard.press('ControlOrMeta+Alt+I');
 
     await expect(page.getByTestId('import-preview-overlay')).toBeVisible();
-    await expect(page.getByText(/importa datos/i)).toBeVisible();
+    await expect(page.getByText(/importar datos/i)).toBeVisible();
   });
 
-  test('pasting a Jupyter `.ipynb` payload previews the notebook (implementation, EN)', async ({
+  test('pasting a Jupyter `.ipynb` payload previews the notebook (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -116,13 +116,13 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     await expect(
       page.getByTestId('import-preview-notebook-summary')
     ).toContainText(/2 cells/);
-    // Confirm button label flips to the notebook variant (implementation note).
+    // Confirm button label flips to the notebook variant.
     await expect(page.getByTestId('import-preview-confirm')).toContainText(
       /Import as notebook/i
     );
   });
 
-  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo, implementation)', async ({
+  test('rejects an .ipynb with nbformat 3 with a localized hint (ES tuteo)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'es' });
@@ -140,7 +140,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     ).toContainText(/formato v4/i);
   });
 
-  test('pasting a Postman collection previews every request (implementation, EN)', async ({
+  test('pasting a Postman collection previews every request (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -173,7 +173,7 @@ test.describe('Import overlay — Mod+Alt+I binding ', () => {
     );
   });
 
-  test('confirming a collection lands every request in the stable HTTP workspace rail (implementation / MOV.02, EN)', async ({
+  test('confirming a collection lands every request in the stable HTTP workspace rail (EN)', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

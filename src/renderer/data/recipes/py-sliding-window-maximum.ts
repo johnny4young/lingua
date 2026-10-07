@@ -1,4 +1,4 @@
-/** implementation — Recipe `py-sliding-window-maximum`. */
+/** Recipe `py-sliding-window-maximum`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

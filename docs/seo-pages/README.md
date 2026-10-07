@@ -22,6 +22,9 @@ vendored copy in `website/src/content/seo/es/`.
    and entitlement policy before adding a feature claim.
 2. **Front matter is strict.** Required keys are `title`, `description`
    (160 characters or fewer), `canonical`, `ogImage`, and `language`.
+   `ogImage` is `/assets/og/<slug>.png` (English) or `/assets/og/es/<slug>.png`
+   (Spanish); run `npm --prefix website run generate:og` after adding or
+   retitling a page so the PNG card exists.
 3. **English and Spanish slugs stay in parity.** Every canonical is
    slashless, matching Astro's `trailingSlash: 'never'` route exactly.
 4. **Every page links to the canonical Lingua download surface.**

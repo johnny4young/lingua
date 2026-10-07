@@ -222,7 +222,7 @@ describe('DeveloperUtilitiesModal', () => {
       expect(document.activeElement).toBe(search);
     });
 
-    // internal — the no-query browse view is grouped by category, so the
+    // The no-query browse view is grouped by category, so the
     // second item is the next tool in the "Data" section (json →
     // number-base → yaml-json), not the old flat-catalog neighbour.
     await user.keyboard('{ArrowDown}');
@@ -271,7 +271,7 @@ describe('DeveloperUtilitiesModal', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
-    // Use the testid because implementation adds a sibling
+    // Use the testid because the panel adds a sibling
     // FavoriteToggleButton whose aria-label also contains "Base64
     // Encoder" (e.g. "Pin Base64 Encoder to favorites").
     await user.click(screen.getByTestId('utility-item-base64'));

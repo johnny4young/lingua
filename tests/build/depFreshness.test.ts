@@ -10,8 +10,8 @@
  *       LINGUA_CHECK_FRESHNESS=1 pnpm test -- --run tests/build/depFreshness.test.ts
  *
  * Hold-back exemptions live in HELD_BACK below — packages with a
- * documented reason to stay on a previous major (cross-link the
- * justification to the implementation notes whenever an entry is added).
+ * documented reason to stay on a previous major (record the
+ * justification in the entry).
  */
 
 import { execFileSync } from 'node:child_process';
@@ -36,8 +36,8 @@ const WEBSITE_PACKAGE_JSON_PATH = resolve(ROOT, 'website/package.json');
 const WEBSITE_PACKAGE_LOCK_PATH = resolve(ROOT, 'website/package-lock.json');
 
 // Documented hold-backs: package -> reason. When you add an entry,
-// also append a bullet to the implementation notes under the matching maintenance
-// entry so the next sweep reviewer sees the why.
+// make the reason specific
+// enough that the next sweep reviewer sees the why.
 const HELD_BACK: Record<string, string> = {
   // No current hold-backs. (The former @electron/fuses pin was removed with the
   // Electron Forge maker/fuses toolchain when desktop moved to electron-builder,

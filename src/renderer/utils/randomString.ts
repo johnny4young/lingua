@@ -1,5 +1,5 @@
 /**
- * internal — Random String Generator helper.
+ * Random String Generator helper.
  *
  * Pure, offline, renderer-side. Produces `count` strings of `length`
  * characters each, drawn from a user-selected character set using

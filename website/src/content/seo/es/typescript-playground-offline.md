@@ -2,7 +2,7 @@
 title: 'TypeScript Playground Offline — Lingua'
 description: 'Playground TypeScript offline con Monaco, resultados inline, modo Node.js, vista previa, depuración y format-on-save con Prettier.'
 canonical: 'https://linguacode.dev/es/typescript-playground-offline'
-ogImage: '/assets/og/typescript-playground-offline.png'
+ogImage: '/assets/og/es/typescript-playground-offline.png'
 language: typescript
 ---
 

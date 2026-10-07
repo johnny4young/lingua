@@ -1,7 +1,7 @@
 /**
- * implementation — Recipes overlay (`Mod+Alt+L`).
+ * Recipes overlay (`Mod+Alt+L`).
  *
- * FASE 1 (MOV.01): chrome migrated onto the Signal-Slate `<ModalShell>`.
+ * Chrome migrated onto the Signal-Slate `<ModalShell>`.
  * The four zones map as:
  *
  *   - HEADER : title + subtitle, with `headerClose="button"` so an `x`
@@ -10,10 +10,10 @@
  *              fuzzy-filtered scrollable list (default shell padding).
  *   - FOOTER : `<ModalFooterLegend navigate open close />` on the left
  *              and the Cancel + Open recipe action row in the trailing
- *              slot — matching the MOV.01 prototype.
+ *              slot — matching the design prototype.
  *
  * Each list row carries the title, the first-line prompt preview
- * (implementation note), tag chips, and a progress badge (passed / attempted) via
+ *, tag chips, and a progress badge (passed / attempted) via
  * the shared `<StatusBadge>` primitive.
  *
  * Selection opens a NEW editor tab with the recipe's `starterCode`
@@ -30,10 +30,18 @@
  *   - Cancel button
  *
  * Telemetry: `recipe.opened { language }` on confirm. NO recipe id on
- * the wire (implementation note in the plan — privacy posture).
+ * the wire (privacy posture).
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLessonProgressStore } from '../../stores/lessonProgressStore';
@@ -157,34 +165,28 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
     [addTab, bindRecipeToTab, openBottomPanel, recordOpened]
   );
 
-  // Arrow / Enter navigation. Escape is owned by ModalShell, so it is
-  // intentionally not re-handled here (double-close is harmless, but we
-  // keep the single owner to avoid competing preventDefault calls).
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        // Wrap navigation keeps the modal keyboard-only without requiring
-        // focus to move into the scrollable listbox.
-        setActiveIdx((idx) => (filtered.length === 0 ? 0 : (idx + 1) % filtered.length));
-        return;
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setActiveIdx((idx) =>
-          filtered.length === 0 ? 0 : (idx - 1 + filtered.length) % filtered.length
-        );
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        const recipe = filtered[effectiveActiveIdx];
-        if (recipe) handleOpen(recipe);
-      }
+  // Arrow / Enter navigation, scoped to the search combobox so Enter on
+  // other controls (Cancel, filter chips) keeps its own meaning. Escape
+  // is owned by ModalShell.
+  function handleSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIdx((idx) => (filtered.length === 0 ? 0 : (idx + 1) % filtered.length));
+      return;
     }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [filtered, effectiveActiveIdx, handleOpen]);
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIdx((idx) =>
+        filtered.length === 0 ? 0 : (idx - 1 + filtered.length) % filtered.length
+      );
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const recipe = filtered[effectiveActiveIdx];
+      if (recipe) handleOpen(recipe);
+    }
+  }
 
   return (
     // `display: contents` keeps this test/identity wrapper out of the
@@ -252,6 +254,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
               setSearch(event.target.value);
               setActiveIdx(0);
             }}
+            onKeyDown={handleSearchKeyDown}
             placeholder={t('recipes.overlay.searchPlaceholder')}
             data-testid="recipes-search-input"
             autoFocus
@@ -299,7 +302,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
           {filtered.length === 0 ? (
             <div
               data-testid="recipes-empty"
-              className="grid place-items-center px-6 py-8 text-center text-body-sm text-fg-subtle"
+              className="grid place-items-center px-6 py-16 text-center text-body-sm text-fg-subtle"
             >
               {t('recipes.overlay.empty')}
             </div>

@@ -1,5 +1,5 @@
 /**
- * implementation — Build a `RunCapsuleV1` from a SQL query + response
+ * Build a `RunCapsuleV1` from a SQL query + response
  * pair. Mirror of `httpResponseCapsule.ts` so the SQL workspace
  * inherits the same share / CLI / AI / export contract.
  *

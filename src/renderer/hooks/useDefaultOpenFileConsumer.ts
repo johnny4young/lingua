@@ -1,5 +1,5 @@
 /**
- * implementation detail — default `file.open` command consumer.
+ * Default `file.open` command consumer.
  *
  * When the user clicks a clickable stack frame in `<RichValueError>`
  * or an `<OutputLineBadge>` chip , the component
@@ -7,10 +7,10 @@
  *
  * Two routing paths:
  *   1. `file` is a non-empty string — cross-file click (stack frame).
- *      internal multi-file workspace will register a higher-priority
+ *      A future multi-file workspace will register a higher-priority
  *      consumer that opens the file; until that ships, this hook
  *      falls back to a status notice so users get visible feedback.
- *   2. `file` is empty / absent — within-tab click (implementation
+ *   2. `file` is empty / absent — within-tab click (an
  *      `<OutputLineBadge>` from a single-tab session, plus a future
  *      stack frame whose `file` is unresolved). Move the cursor in
  *      the currently-active editor model via
@@ -61,7 +61,7 @@ export function useDefaultOpenFileConsumer(): void {
 
       if (file) {
         // Cross-file path — show the "coming soon" notice until
-        // internal ships the higher-priority consumer.
+        // a later change ships the higher-priority consumer.
         const key = `${file}:${line}`;
         const last = recentKeys.get(key) ?? 0;
         if (now - last < RECENT_DEBOUNCE_MS) {

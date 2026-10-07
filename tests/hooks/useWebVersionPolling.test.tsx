@@ -1,5 +1,5 @@
 /**
- * implementation — pin the web-update polling hook contract.
+ * Pin the web-update polling hook contract.
  *
  * Covers the two interlocking behaviours that drive the banner:
  *   1. Periodic poll on the 12-hour interval, plus an immediate

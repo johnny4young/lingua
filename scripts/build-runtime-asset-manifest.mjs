@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * implementation — runtime-asset lock builder + checker.
+ * runtime-asset lock builder + checker.
  *
  * Modes:
  *   --write  Compute sha256 over the critical files in

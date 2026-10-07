@@ -1,5 +1,5 @@
 /**
- * internal — the one-shot pending-input consumer.
+ * The one-shot pending-input consumer.
  *
  * Locks the handoff contract between the smart-paste router and a
  * utility panel: the seed applies exactly once (fresh mount AND

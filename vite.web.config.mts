@@ -205,10 +205,10 @@ export default defineConfig(({ command }) => {
           //
           // The helper's virtual id is `\0vite/preload-helper.js`. Keep its
           // pin alongside the vendor groups rather than in a second policy.
-          // Rolldown ignores manualChunks when advancedChunks/codeSplitting
+          // Rolldown ignores manualChunks when codeSplitting
           // is also supplied, so the former mixed config emitted no named
           // vendor chunks. Keep all grouping in this one policy.
-          advancedChunks: {
+          codeSplitting: {
             // Per-group threshold, not a global merge: a vendor group that
             // captures under 4 KB is not worth its own request, so rolldown
             // drops the group and lets those modules fall back to automatic

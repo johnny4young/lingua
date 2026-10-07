@@ -20,6 +20,7 @@ import { CompareResultsPanelHost } from './CompareResultsPanelHost';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { useCommandListener } from '../../hooks/useCommandListener';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 
 function FullOutputView({
   output,
@@ -43,6 +44,7 @@ function FullOutputView({
 
 export function ResultPanel() {
   const { t } = useTranslation();
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore(
     useShallow(state => ({
       lineResults: state.lineResults,
@@ -54,14 +56,14 @@ export function ResultPanel() {
   );
   const activeTab = useActiveTab();
   const scrollRef = useRef<HTMLDivElement>(null);
-  // implementation — hide-undefined is baseline; the runtime button + Settings
+  // hide-undefined is baseline; the runtime button + Settings
   // toggle were removed. `undefined` rows never reach the inline panel.
   const settingsFontSize = useSettingsStore(state => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isInlineResultLanguage(language);
   const executionMode = executionModeForLanguage(language);
-  // implementation — the Compare panel renders when the active
+  // The Compare panel renders when the active
   // tab opted in AND the result store carries a comparator
   // snapshot for the same language. Falsy by default so nothing
   // changes for users who don't touch the toggle.
@@ -84,14 +86,14 @@ export function ResultPanel() {
     activeTab?.compareWithSnapshotEnabled === true &&
     compareTargetSnapshot !== null;
 
-  // implementation — variable inspector visibility gate. The toggle
+  // Variable inspector visibility gate. The toggle
   // is only meaningful when the active language is in the
   // inspector's supported set AND the result store carries a
   // language-matching snapshot. Mutually exclusive with Compare:
   // turning Variables on flips Compare off via the editor-store
   // setter (`setTabVariableInspectorEnabled`).
-  // implementation note — inline diff badges. Only render in
-  // implementation — `inlineDiffMarkers` previously fed
+  // Inline diff badges. Only render in
+  // `inlineDiffMarkers` previously fed
   // <LineAlignedResults> with per-line diff badges (+/−/~) when
   // Compare wasn't the active view. With the scratchpad inline
   // results now rendered in-editor via Monaco overlay widgets, the
@@ -118,7 +120,7 @@ export function ResultPanel() {
   // dynamic modes (run / debug / validate / view).
   const fontSize = settingsFontSize;
 
-  // implementation — the "Resultado en línea / Sincronizado con las
+  // The "Resultado en línea / Sincronizado con las
   // líneas del editor" title was dropped from the scratchpad path
   // because (a) the workflow mode is now visible in the floating
   // action pill and (b) the per-line values render inside the editor
@@ -140,14 +142,17 @@ export function ResultPanel() {
       : executionMode === 'view'
         ? 'results.view.description'
         : 'results.output.description';
-  // implementation note — mode-aware empty-state copy. In Run /
-  // Debug mode the user has to press Cmd+R, so a generic "Run to
+  // mode-aware empty-state copy. In Run /
+  // Debug mode the user has to press Mod+Enter, so a generic "Run to
   // see output" reads stale. Scratchpad-mode tabs keep the live-
   // updates copy; validate / view modes stay on their language-
   // specific keys.
   const workflowMode = activeTab
     ? (activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language))
     : 'scratchpad';
+  const emptyValues = {
+    combo: formatShortcutLabel('run-toggle', shortcutOverrides) ?? '',
+  };
   const emptyKey = dynamic
     ? workflowMode === 'scratchpad'
       ? 'results.empty.inline'
@@ -160,7 +165,7 @@ export function ResultPanel() {
 
   return (
     <div data-testid="result-panel" className="flex h-full flex-col bg-[var(--color-editor-bg)]">
-      {/* implementation — header layout differs by execution mode.
+      {/* Header layout differs by execution mode.
           For scratchpad / run / debug we drop the redundant "Resultado
           en línea" copy (workflow mode is on the pill; inline values
           render inside the editor via overlay widgets) and only keep
@@ -192,7 +197,7 @@ export function ResultPanel() {
           {/* The host keeps capture detection eager, then loads the complete
               export control only after a capsule makes the action useful. */}
           <RunCapsuleExportButtonHost />
-          {/* implementation Phase A1 implementation note — primary share-link surface.
+          {/* Primary share-link surface.
               Lazy-renders null when there's no active tab. */}
           <ShareLinkButton />
         </div>
@@ -200,7 +205,7 @@ export function ResultPanel() {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
         {compareEnabled ? (
-          // implementation — re-mount the compare body on tab switch
+          // re-mount the compare body on tab switch
           // so the internal granularity state resets to `'line'` for
           // each tab. Without this `key`, a `'word'` granularity
           // picked on a compiled-language tab would persist across
@@ -211,10 +216,10 @@ export function ResultPanel() {
           <CompareResultsPanelHost key={activeTab?.id ?? 'none'} language={language} />
         ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-body-sm italic text-muted">{t(emptyKey)}</span>
+            <span className="text-body-sm italic text-muted">{t(emptyKey, emptyValues)}</span>
           </div>
         ) : dynamic ? (
-          // implementation — in scratchpad mode the per-line values
+          // In scratchpad mode the per-line values
           // render inside the editor via Monaco overlay widgets
           // (`<InlineResultWidgets>`), so the result panel body no
           // longer mirrors them. The body keeps the error pane (when
@@ -243,7 +248,7 @@ export function ResultPanel() {
           <FullOutputView
             output={fullOutput}
             error={error?.message ?? null}
-            emptyText={t(emptyKey)}
+            emptyText={t(emptyKey, emptyValues)}
             fontSize={fontSize}
           />
         )}

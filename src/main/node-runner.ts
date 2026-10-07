@@ -14,8 +14,8 @@
  *     We never interpolate user input into a shell command line,
  *     so command injection is impossible at this layer.
  *   - Env: `buildNativeRunnerEnv(['PATH', 'HOME', 'LANG',
- *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. internal allowlist
- *     + internal user-tier env. Lingua's full host env is NOT
+ *     'TMPDIR'] + NODE_TOOLCHAIN_KEYS, userEnv)`. Host allowlist
+ *     + user-tier env. Lingua's full host env is NOT
  *     forwarded.
  *   - Cwd: `app.getPath('temp')` for unsaved tabs (Scratchpad);
  *     `path.dirname(filePath)` for saved tabs (when a
@@ -25,8 +25,8 @@
  *     timeout; we send SIGTERM and escalate to SIGKILL after
  *     200 ms if the child hasn't exited.
  *   - Output caps: stdout / stderr each capped at
- *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
- *     `truncateBytes` helper.
+ *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) of UTF-8, truncation marker
+ *     included, by `spawnNativeRun` (see `runners/nativeOutputUtf8.ts`).
  *
  * Behavioral notes:
  *
@@ -68,6 +68,7 @@ import {
   type SpawnNativeRunResult,
 } from './runners/spawnNativeRun';
 import { detectNativeRuntimeVersion } from './runners/nativeRuntimeDetection';
+import { resolveHostExecutable } from './runners/hostExecutable';
 import type {
   NodeDetectResult,
   NodeRunKind,
@@ -147,7 +148,7 @@ interface NodeRunOptions {
   timeoutMs?: number;
   /** Source-file path of the active tab. `undefined` for Scratchpad. */
   filePath?: string;
-  /** Per-run user-env tier from internal */
+  /** Per-run user-env tier. */
   userEnv?: Record<string, string>;
   /** Stdin buffer. Empty or undefined closes stdin. */
   stdin?: string;
@@ -180,6 +181,12 @@ const activeNodeRuns = new Map<string, () => void>();
  * look the stream up here.
  */
 const activeNodeStdins = new Map<string, NodeJS.WritableStream>();
+// Stop and stdin follow the run's owner: another window must not drive it.
+const nodeRunOwners = new Map<string, number | undefined>();
+
+function ownsNodeRun(runId: string, ownerId: number | undefined): boolean {
+  return nodeRunOwners.has(runId) && nodeRunOwners.get(runId) === ownerId;
+}
 
 function envValue(
   key: string,
@@ -644,6 +651,19 @@ async function spawnNode(
   if (signal.aborted) return stoppedNodeRunResult(options);
   const env = envWithNodeBinary(resolveNodeRunEnv(options.userEnv), nodeBinary);
   const markers = truncationMarkers(options.messages);
+  // Windows searches the spawn cwd (the user's project) before PATH for a bare name.
+  const nodeCommand =
+    process.platform === 'win32' && !path.isAbsolute(nodeBinary)
+      ? await resolveHostExecutable(['node.exe'], env, 'win32')
+      : nodeBinary;
+  if (signal.aborted) return stoppedNodeRunResult(options);
+  if (nodeCommand === null) {
+    return {
+      ...invalidNodeRunResult('Node.js is not installed. Install it from https://nodejs.org'),
+      kind: 'missing-binary',
+      timeoutMs,
+    };
+  }
 
   // Decide between inline `-e` invocation and temp-file fallback.
   // Both paths use `spawn` — no shell, no string interpolation.
@@ -688,7 +708,7 @@ async function spawnNode(
 
   try {
     const run = await spawnNativeRun({
-      command: nodeBinary,
+      command: nodeCommand,
       args,
       cwd,
       env,
@@ -814,7 +834,10 @@ async function runNodeCode(
   }
   const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
-  if (options.runId) activeNodeRuns.set(options.runId, stop);
+  if (options.runId) {
+    activeNodeRuns.set(options.runId, stop);
+    nodeRunOwners.set(options.runId, owner?.id);
+  }
   try {
     if (controller.signal.aborted) return stoppedNodeRunResult(options);
     const detect = await detectNode(options.userEnv, false, controller.signal);
@@ -836,15 +859,16 @@ async function runNodeCode(
     if (options.runId && activeNodeRuns.get(options.runId) === stop) {
       activeNodeRuns.delete(options.runId);
       activeNodeStdins.delete(options.runId);
+      nodeRunOwners.delete(options.runId);
     }
   }
 }
 
-function stopNodeRun(runId: unknown): { stopped: boolean } {
+function stopNodeRun(runId: unknown, ownerId?: number): { stopped: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { stopped: false };
   const stop = activeNodeRuns.get(normalizedRunId);
-  if (!stop) return { stopped: false };
+  if (!stop || !ownsNodeRun(normalizedRunId, ownerId)) return { stopped: false };
   stop();
   return { stopped: true };
 }
@@ -855,14 +879,18 @@ function stopNodeRun(runId: unknown): { stopped: boolean } {
  * or was not started interactively) so the renderer can drop the input
  * quietly instead of throwing.
  */
-export function writeNodeStdin(runId: unknown, data: unknown): { written: boolean } {
+export function writeNodeStdin(
+  runId: unknown,
+  data: unknown,
+  ownerId?: number
+): { written: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId || typeof data !== 'string') return { written: false };
   // Bound a single write so a renderer bug cannot balloon the child's stdin
   // buffer in main-process memory if the child never reads it.
   if (data.length > MAX_STDIN_WRITE_BYTES) return { written: false };
   const stream = activeNodeStdins.get(normalizedRunId);
-  if (!stream) return { written: false };
+  if (!stream || !ownsNodeRun(normalizedRunId, ownerId)) return { written: false };
   try {
     stream.write(data);
     return { written: true };
@@ -873,11 +901,11 @@ export function writeNodeStdin(runId: unknown, data: unknown): { written: boolea
 }
 
 /** Close an interactive run's stdin (sends EOF to the child). */
-export function closeNodeStdin(runId: unknown): { closed: boolean } {
+export function closeNodeStdin(runId: unknown, ownerId?: number): { closed: boolean } {
   const normalizedRunId = normalizeRunId(runId);
   if (!normalizedRunId) return { closed: false };
   const stream = activeNodeStdins.get(normalizedRunId);
-  if (!stream) return { closed: false };
+  if (!stream || !ownsNodeRun(normalizedRunId, ownerId)) return { closed: false };
   try {
     stream.end();
   } catch {
@@ -919,17 +947,17 @@ export function registerNodeJSHandlers(): void {
   );
   typedHandle(
     'node:stop',
-    async (_event, runId?: unknown) =>
-      stopNodeRun(runId)
+    async (event, runId?: unknown) =>
+      stopNodeRun(runId, event.sender?.id)
   );
   typedHandle(
     'node:stdin-write',
-    async (_event, runId: string, data: string) =>
-      writeNodeStdin(runId, data)
+    async (event, runId: string, data: string) =>
+      writeNodeStdin(runId, data, event.sender?.id)
   );
   typedHandle(
     'node:stdin-close',
-    async (_event, runId: string) =>
-      closeNodeStdin(runId)
+    async (event, runId: string) =>
+      closeNodeStdin(runId, event.sender?.id)
   );
 }

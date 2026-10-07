@@ -19,6 +19,23 @@
 
 type EsbuildModule = typeof import('esbuild-wasm');
 
+/**
+ * The first diagnostic's location from an esbuild failure, as one-based line
+ * and column. esbuild columns are zero-based, and the message text can hold
+ * unrelated numbers, so this reads the structured `errors` array only.
+ */
+export function esbuildErrorLocation(err: unknown): { line?: number; column?: number } {
+  const errors: unknown[] = err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)
+    ? err.errors : [];
+  const first = errors[0];
+  const location = first && typeof first === 'object' && 'location' in first ? first.location : null;
+  const line = location && typeof location === 'object' && 'line' in location && typeof location.line === 'number'
+    ? location.line : undefined;
+  const column = location && typeof location === 'object' && 'column' in location && typeof location.column === 'number'
+    ? location.column + 1 : undefined;
+  return { line, column };
+}
+
 let inFlight: Promise<EsbuildModule> | null = null;
 
 export function loadEsbuild(): Promise<EsbuildModule> {

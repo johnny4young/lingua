@@ -1,5 +1,5 @@
 /**
- * implementation closeout — EditorEmptyState capability-aware quick-start
+ * EditorEmptyState capability-aware quick-start
  * buttons. The empty-state hero now walks `LANGUAGE_PACKS` instead of a
  * hardcoded `['javascript', 'typescript', 'go', 'python', 'rust']`
  * array, and renders a localized "Desktop only" pill alongside the

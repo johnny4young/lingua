@@ -7,7 +7,7 @@ import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPres
 import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
 
 /**
- * internal — settings seed constants + the initial-state factory, extracted
+ * Settings seed constants + the initial-state factory, extracted
  * verbatim from `settingsStore.ts`. Pure data (plus the derived language-set
  * lookups the sanitizers consult). Leaf module — depends only on the shared
  * defaults it references, never on the store, sanitizers, or action factories.
@@ -16,8 +16,8 @@ import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPr
 export const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
 /**
- * implementation note — seeded defaults surfaced in Settings → Editor
- * the first time the user reaches a implementation build. Without this seed,
+ * Seeded defaults surfaced in Settings → Editor
+ * the first time the user reaches a build with per-language defaults. Without this seed,
  * a fresh install (no persisted defaults) would resolve every new tab
  * via the shared `defaultWorkflowMode` helper and the Settings rows
  * would look unset — making the per-language defaults feature
@@ -39,7 +39,7 @@ export const SETTINGS_WORKFLOW_MODE_LANGUAGE_SET: ReadonlySet<string> = new Set(
 );
 
 /**
- * implementation — default seed for the bare-expression auto-log mode.
+ * Default seed for the bare-expression auto-log mode.
  * Scratchpad worker languages default ON: inline expression feedback is the
  * defining behavior of Scratchpad, while Run and Debug remain manual/quiet.
  * Users can still disable a language default or one tab explicitly.
@@ -55,7 +55,7 @@ export const SETTINGS_AUTO_LOG_LANGUAGE_SET: ReadonlySet<string> = new Set(
 );
 
 /**
- * internal — per-language inline-lint defaults. implementation covers JS/TS only and
+ * per-language inline-lint defaults. implementation covers JS/TS only and
  * ships ON: Monaco's built-in TS/JS diagnostics are already live, so the
  * default preserves today's behavior while giving users a per-language off
  * switch. Other languages are added here when their lint lands .
@@ -70,7 +70,7 @@ export const SETTINGS_INLINE_LINT_LANGUAGE_SET: ReadonlySet<string> = new Set(
 );
 
 /**
- * internal — platform-aware default for the persistent status-bar toggle.
+ * platform-aware default for the persistent status-bar toggle.
  * ON for the desktop shell (where the chrome echoes a native IDE) and OFF
  * for web (keep the lighter browser canvas quiet by default). Mirrors the
  * platform probe in `runtime/execute/recordRunHistory.ts` but guards `window` so it stays
@@ -90,7 +90,7 @@ export const MAX_TOKENS_PER_COMBO = 5;
 export const MAX_COMBOS_PER_SHORTCUT = 4;
 
 /**
- * implementation — Lowercased baseline list. Used by
+ * Lowercased baseline list. Used by
  * `addSensitiveHttpHeader` / `removeSensitiveHttpHeader` to refuse
  * dedup-against-baseline + immutable-baseline operations, and by the
  * rehydrate sanitizer to drop baseline names from the persisted delta.
@@ -119,7 +119,7 @@ export function createInitialSettingsState() {
     restoreSessionMode: 'ask',
     languageScorecardPlatform: 'all',
     formatOnSave: false,
-    // internal — smart paste detection ships ON: pasting a share-link, capsule,
+    // Smart paste detection ships ON: pasting a share-link, capsule,
     // cURL, stack frame, or large JSON offers an import action. Cmd+Shift+V and
     // this toggle both bypass it.
     smartPasteDetectionEnabled: true,
@@ -128,83 +128,83 @@ export function createInitialSettingsState() {
     executionHistorySnapshotEnabled: true,
     telemetryConsent: 'unset',
     utilitiesClipboardOnFocusConsent: 'unset',
-    // implementation note — capsule-import clipboard auto-detect
+    // capsule-import clipboard auto-detect
     // opt-in. Sticky three-state mirror of the utilities consent.
     capsuleImportClipboardOnFocusConsent: 'unset',
-    // implementation — master toggle for dependency detection +
+    // Master toggle for dependency detection +
     // the bottom-panel Dependencies tab. The rehydrate merge
-    // applies the implementation note tier-aware default when the persisted state
+    // applies the tier-aware default when the persisted state
     // has no preference yet (Free → false, every other tier → true).
     // Once the user persists a choice via the setter, that choice
     // survives across reloads.
     dependencyDetectionEnabled: true,
-    // implementation note — only `worker` is implemented today;
+    // Only `worker` is implemented today;
     // the setter rejects anything else, so this stays a constant
-    // initial value until implementation lands the desktop Node backend.
+    // initial value from before the desktop Node backend landed.
     defaultRuntimeMode: 'worker',
-    // implementation — per-language workflow defaults. Initial
-    // value is the implementation note seed; the merge function preserves user
+    // per-language workflow defaults. Initial
+    // value is the seed; the merge function preserves user
     // overrides on rehydrate and seeds missing keys.
     workflowModeDefaultsByLanguage: { ...WORKFLOW_MODE_DEFAULT_SEED },
-    // implementation — per-language auto-log defaults for every
+    // per-language auto-log defaults for every
     // Scratchpad worker runner. Inline feedback is on by default;
     // Settings and per-tab overrides remain the explicit opt-out.
     scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
-    // implementation — Browser preview follows the fast 300 ms live-refresh
+    // Browser preview follows the fast 300 ms live-refresh
     // path by default. Users can choose Off or 1 s in Settings, while a
     // first-line magic comment overrides the value for one tab.
     browserPreviewRefreshIntervalMs:
       DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL,
     inlineLintEnabledByLanguage: { ...INLINE_LINT_DEFAULT_SEED },
-    // implementation note — bottom-panel `stdin` tab is offered
+    // bottom-panel `stdin` tab is offered
     // by default. The user can hide it from Settings → Editor;
     // disabling the tab does NOT clear per-tab `stdinBuffer`
     // values so re-enabling the tab restores the existing input.
     showStdinPanel: true,
-    // internal — persistent bottom status bar. Default ON desktop / OFF web
+    // Persistent bottom status bar. Default ON desktop / OFF web
     // via the platform probe; the merge function preserves a persisted
     // choice across reloads.
     showStatusBar: defaultShowStatusBar(),
-    // implementation — variable inspector surface preference. Default
+    // Variable inspector surface preference. Default
     // 'floating' keeps backward-compatible behavior for users upgrading
-    // from earlier implementation builds where only the FloatingVariablesCard
+    // from earlier builds where only the FloatingVariablesCard
     // existed. Persisted so the choice survives reloads.
     variableInspectorSurface: 'floating',
-    // implementation — per-language run-time preset. Seed honors
+    // per-language run-time preset. Seed honors
     // the legacy hardcoded DEFAULT_TIMEOUT per runner
     // (JS / TS / Go = 30 s = `normal`; Python = 120 s = `long`).
     // Rust is intentionally absent — its desktop kill path is in
     // main and unchanged.
     runtimeTimeoutPresetByLanguage: defaultRuntimeTimeoutPresetSeed(),
-    // implementation note — countdown pill in the result panel
+    // Countdown pill in the result panel
     // header while a run is in flight. Default OFF so the panel
     // stays quiet by default.
     showTimeoutCountdown: false,
     showLineTiming: false,
-    // implementation note — base scope depth is 1. Settings →
+    // Base scope depth is 1. Settings →
     // Editor lets the user bump it (max enforced renderer-side by
     // `MAX_SCOPE_DEPTH`).
     variableInspectorScopeDepth: 1,
-    // implementation — Ruby runtime preference. `auto` is the
+    // Ruby runtime preference. `auto` is the
     // friendliest default (system when detected, WASM otherwise).
     // Sanitization in the rehydrate handler maps tampered values
     // back to this seed.
     rubyRuntimePreference: 'auto',
-    // implementation note — Node first-run trust notice flag.
+    // Node first-run trust notice flag.
     // Defaults `false`; flipped to `true` after the first
     // successful Node-mode run.
     nodeRunnerFirstRunNoticeShown: false,
-    // implementation note — onboarding-toast acknowledgement.
+    // onboarding-toast acknowledgement.
     firstWorkflowModeSwitchAcknowledged: false,
-    // implementation — three persisted one-shot flags driving the
+    // Three persisted one-shot flags driving the
     // onboarding choreography. All default `false` so a fresh
     // install sees the full sequence; `hasCompletedOnboardingWelcome`
-    // is also gated by `onboardingWelcomeSeedVersion` (implementation note) so a
+    // is also gated by `onboardingWelcomeSeedVersion` so a
     // version bump re-arms the seed even for existing users.
     hasCompletedOnboardingWelcome: false,
     hasCompletedOnboardingFirstRun: false,
     hasCompletedOnboardingFirstSnippet: false,
-    // implementation — seed-version tracker. When the value persisted
+    // seed-version tracker. When the value persisted
     // here is strictly less than `SEEDED_SCRATCHPAD_VERSION` from
     // `src/renderer/onboarding/seedScratchpad.ts`, the choreography
     // hook re-seeds the welcome tab even though the welcome flag is
@@ -220,27 +220,27 @@ export function createInitialSettingsState() {
     shortcutOverrides: {},
     keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
     themePack: DEFAULT_THEME_PACK_ID,
-    // implementation — Sensitive HTTP header allowlist. Initial
+    // Sensitive HTTP header allowlist. Initial
     // state is empty (the baseline list in
     // `BASELINE_SENSITIVE_HEADERS` is always applied additively at
     // redaction time). Users add via Settings → Privacy → Sensitive
     // HTTP headers.
     sensitiveHttpHeaders: [],
     httpAllowPrivateHosts: false,
-    // implementation — SQL workspace preview cap + default timeout.
+    // SQL workspace preview cap + default timeout.
     // The runtime layer enforces `MAX_RESULT_ROWS` (10 000) +
     // `MAX_QUERY_TIMEOUT_MS` (5 min) regardless; these knobs live
     // here so users can dial them down without losing the hard
     // ceiling.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
-    // implementation (SQL OPFS) — off by default; the SQL workspace is
+    // Off by default; the SQL workspace is
     // an in-memory scratchpad unless the user opts into persistence.
     sqlWorkspacePersistTables: false,
-    // internal — the Run Ledger is opt-in; nothing is recorded until the
+    // The Run Ledger is opt-in; nothing is recorded until the
     // user flips the Privacy toggle.
     runLedgerEnabled: false,
-    // implementation Slice C implementation note — new notebook code cells default to JS.
+    // New notebook code cells default to JS.
     notebookDefaultCellLanguage: 'javascript',
   } satisfies Partial<SettingsState>;
 }

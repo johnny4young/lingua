@@ -1,5 +1,5 @@
 /**
- * internal license UI — cover the four states the status pill must
+ * License UI — cover the four states the status pill must
  * represent (free / active / grace / invalid) and the Apply / Clear
  * buttons' state-machine transitions. The verifier itself is tested
  * elsewhere; this suite stubs `setLicenseToken` so we can script each
@@ -26,7 +26,7 @@ vi.mock('@/services/recoveryServer', () => ({
   startRecovery: vi.fn(),
 }));
 
-// internal — the fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
+// The fingerprint row reads the module-scope PUBLIC_KEY_JWK, whose
 // value in vitest depends on whether the root .env was loaded into
 // import.meta.env. A getter-backed mock makes the row deterministic: tests
 // flip `fingerprintMockState.jwk` instead of guessing the ambient env.
@@ -246,6 +246,20 @@ describe('LicenseSection', () => {
     expect(apply.disabled).toBe(true);
   });
 
+  it('pre-fills a deep-linked token on mount and while mounted without applying it', async () => {
+    const { offerLicenseTokenPrefill } = await import('@/components/Settings/pendingLicenseToken');
+    const spy = vi.spyOn(useLicenseStore.getState(), 'setLicenseToken');
+    offerLicenseTokenPrefill('stashed.token');
+    render(<LicenseSection />);
+    const input = screen.getByTestId('license-input') as HTMLTextAreaElement;
+    expect(input.value).toBe('stashed.token');
+
+    act(() => offerLicenseTokenPrefill('live.token'));
+    expect(input.value).toBe('live.token');
+    expect((screen.getByTestId('license-apply') as HTMLButtonElement).disabled).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it('pushes a success notice and clears the draft when setLicenseToken returns active', async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockResolvedValue({
@@ -316,7 +330,7 @@ describe('LicenseSection', () => {
       ['clock-skew', 'license.notice.invalid.clockSkew'],
       ['unsupported-tier', 'license.notice.invalid.unsupportedTier'],
       ['no-public-key', 'license.notice.invalid.notAccepted'],
-      // implementation follow-up: server-side request rejection
+      // Server-side request rejection
       // (validator drift between renderer + worker) gets its own copy
       // so users do not waste time re-pasting a perfectly good token.
       ['invalid-input', 'license.notice.invalid.requestRejected'],
@@ -495,7 +509,7 @@ describe('LicenseSection', () => {
     );
   });
 
-  // ----------- implementation — devices row + exhausted modal ------------
+  // ----------- devices row + exhausted modal ------------
 
   function activeStatusForDevices(): LicenseStatus {
     return {
@@ -782,7 +796,7 @@ describe('LicenseSection', () => {
     }
   });
 
-  // ----------------------------------------------- implementation — CTAs
+  // ----------------------------------------------- CTAs
 
   it('renders the Trial / Education / Recovery CTAs under the free state', () => {
     render(<LicenseSection />);

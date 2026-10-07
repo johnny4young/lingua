@@ -1,15 +1,15 @@
 /**
- * internal structure guard — locks the settingsStore split so a future
- * edit cannot silently regress it. Mirrors the internal editorStore guard.
+ * Structure guard — locks the settingsStore split so a future
+ * edit cannot silently regress it. Mirrors the editorStore guard.
  *
- * - implementation note (public API barrel): the assembled store exposes EXACTLY the
+ * - Public API barrel: the assembled store exposes EXACTLY the
  *   `SettingsState` surface (state fields + setters), and `settingsStore.ts`
  *   re-exports EXACTLY `{ useSettingsStore, sanitizeShortcutOverrides }`. Catches
  *   an accidentally-dropped setter during the split AND a new public export
  *   sneaking in.
- * - implementation note (size budget): the assembly point stays thin and no extracted module
+ * - Size budget: the assembly point stays thin and no extracted module
  *   grows back toward a monolith.
- * - implementation note (import acyclicity): no split module imports the store assembly, and
+ * - Import acyclicity: no split module imports the store assembly, and
  *   the helper/persistence leaves import neither the store nor an action factory.
  */
 
@@ -242,7 +242,7 @@ function lineCount(file: string): number {
   return read(file).split('\n').length;
 }
 
-describe('implementation settingsStore split — public API barrel (implementation note)', () => {
+describe('settingsStore split — public API barrel', () => {
   it('the assembled store exposes exactly the SettingsState surface', () => {
     const keys = Object.keys(useSettingsStore.getState()).sort();
     expect(keys).toEqual(EXPECTED_STORE_KEYS);
@@ -263,7 +263,7 @@ describe('implementation settingsStore split — public API barrel (implementati
   });
 });
 
-describe('implementation settingsStore split — size budget (implementation note)', () => {
+describe('settingsStore split — size budget', () => {
   it('the assembly point stays thin', () => {
     expect(lineCount(ASSEMBLY_FILE)).toBeLessThanOrEqual(ASSEMBLY_MAX_LINES);
   });
@@ -273,7 +273,7 @@ describe('implementation settingsStore split — size budget (implementation not
   });
 });
 
-describe('implementation settingsStore split — import acyclicity (implementation note)', () => {
+describe('settingsStore split — import acyclicity', () => {
   it.each([...SPLIT_MODULES])('%s does not import the store assembly', (file) => {
     expect(read(file)).not.toMatch(/from\s+['"]\.\/settingsStore['"]/);
   });

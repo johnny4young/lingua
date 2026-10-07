@@ -1,6 +1,6 @@
 /**
  * Renderer-side wrapper for `GET /web/version` on the
- * `updates.linguacode.dev` worker. implementation
+ * `updates.linguacode.dev` worker.
  *
  * The endpoint returns either:
  *   - 200 `{ version: "0.2.1" }` when a release exists.

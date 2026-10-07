@@ -102,7 +102,7 @@ async function exportActiveNotebookFromPalette(): Promise<void> {
 }
 
 /**
- * internal — the single-slot overlay layer, extracted verbatim from
+ * The single-slot overlay layer, extracted verbatim from
  * `AppChrome` in `App.tsx`. Renders whichever overlay the `AppOverlay` union
  * selects.
  * `AppChrome` keeps ownership of the overlay STATE + the open/close/toggle
@@ -153,7 +153,7 @@ export function AppOverlays({
       {(overlay === 'palette' || overlay === 'recent-commands') && (
         <CommandPalette
           key={overlay}
-          // internal — Cmd+; renders the same palette pre-scoped to the
+          // Cmd+; renders the same palette pre-scoped to the
           // per-session recent-commands stack (numbered 1-8, no search).
           variant={overlay === 'recent-commands' ? 'recent' : 'all'}
           onClose={closeOverlay}
@@ -164,13 +164,13 @@ export function AppOverlays({
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
           onOpenHttpWorkspace={() => {
-            // implementation → MOV.02 (FASE 3) — palette opens or
+            // Palette opens or
             // focuses the full-screen HTTP workspace tab (no dock
             // panel). Same create-or-focus path as Mod+Shift+K.
             openHttpWorkspaceTab();
           }}
           onOpenSqlWorkspace={() => {
-            // implementation → MOV.02 (FASE 3) — palette opens or
+            // Palette opens or
             // focuses the full-screen SQL workspace tab. Mirror of
             // `onOpenHttpWorkspace`.
             openSqlWorkspaceTab();

@@ -94,7 +94,7 @@ describe('Script naming docs guard', () => {
       'dev:desktop:pro',
       'dev:desktop:prod',
       'build:web',
-      // implementation — CLI bundle (lingua utility, lingua capsule validate)
+      // CLI bundle (lingua utility, lingua capsule validate)
       'build:cli',
       // npm tarball + native Windows/Linux single-executable archives.
       'package:cli',
@@ -111,13 +111,13 @@ describe('Script naming docs guard', () => {
       'smoke:desktop',
       'smoke:desktop:stagewright',
       'smoke:desktop:fs-ipc',
-      // implementation — runtime-asset lock + offline desktop smoke
+      // runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
-      // implementation — packaged desktop smoke (release-blocking)
+      // Packaged desktop smoke (release-blocking)
       'smoke:desktop:packaged',
       'build:runtime-assets',
       'check:runtime-assets',
-      // internal — public-release SBOM + third-party license compliance
+      // public-release SBOM + third-party license compliance
       'sbom:release',
       'check:licenses',
       'license:report',
@@ -127,17 +127,18 @@ describe('Script naming docs guard', () => {
       // runs the release-blocking gates CI-faithfully before dispatch.
       'check:release-infra',
       'release:preflight',
-      // internal — license-signing-key rotation gate (registry +
+      // license-signing-key rotation gate (registry +
       // SLA + env-drift assertions); also wired into release.yml,
       // deploy-web.yml, and ci.yml. See docs/RELEASE_SECURITY.md
       // § Licensing for the rotation runbook.
       'check:license-rotation',
-      // internal — blocking production-graph audit gate (pnpm audit --prod
+      // Blocking production-graph audit gate (pnpm audit --prod
       // wrapper); wired into ci.yml (PR) and release.yml. See
       // docs/RELEASE_SECURITY.md for the prod-vs-full split rationale.
       'check:prod-audit',
       'check:bundled-audit',
-      // internal — bundle/runtime performance budgets and reports
+      'check:website-audit',
+      // bundle/runtime performance budgets and reports
       'performance:report',
       'performance:activation',
       'performance:baseline',
@@ -152,14 +153,14 @@ describe('Script naming docs guard', () => {
       // Complete four-package dead-code gate plus its negative boundary proof.
       'check:deadcode',
       'check:deadcode:config',
-      // implementation detail — scoped tsc gate that type-checks the branded-id
+      // Scoped tsc gate that type-checks the branded-id
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',
       'test:e2e:web',
       'test:smoke:web:license',
       'test:watch',
       'lint',
-      // implementation detail — ratcheting AST guard for direct telemetry callers.
+      // Ratcheting AST guard for direct telemetry callers.
       'check:telemetry-call-sites',
       'check:i18n',
       'check:i18n:copy',
@@ -177,7 +178,7 @@ describe('Script naming docs guard', () => {
       'make:desktop:linux',
       'make:desktop:win',
       'publish:desktop',
-      // implementation note — rebuild CLI bundle on `pnpm install`
+      // Rebuild CLI bundle on `pnpm install`
       // so a `git pull` doesn't require remembering `pnpm run build:cli`.
       'prepare',
     ]);

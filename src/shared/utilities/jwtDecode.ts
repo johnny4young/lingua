@@ -1,5 +1,5 @@
 /**
- * implementation — `jwt-decode` adapter.
+ * `jwt-decode` adapter.
  *
  * Decodes a JWT into pretty-printed JSON of its header + payload.
  * DECODE ONLY — it does NOT verify the signature (the copy says so). A

@@ -8,7 +8,7 @@ import { parseDirective } from './directives';
 import type { MagicCommentLine } from './types';
 
 const PY_WATCH_RE = /^(.*?)#\s*@watch\s+(.+?)\s*$/;
-// implementation — same shape as the JS arrow regex: capture the
+// Same shape as the JS arrow regex: capture the
 // full tail and let `parseDirective` decide whether it's a known
 // directive or a legacy free-form comment.
 const PY_ARROW_RE = /^(.+?)#\s*=>(.*)$/;
@@ -67,8 +67,8 @@ export function detectPythonMagicComments(code: string): MagicCommentLine[] {
 /**
  * Transform Python code so that magic-comment expressions are captured.
  *
- * For arrow lines the line is replaced wholesale (same as before
- * implementation). For watch lines, the prefix statement is kept and the
+ * For arrow lines the line is replaced wholesale (unchanged).
+ * For watch lines, the prefix statement is kept and the
  * watch `__mc` call is appended after a `;` separator — Python allows
  * `a = 5; expr` on a single logical line so the declaration still
  * runs.
@@ -87,7 +87,7 @@ export function transformPythonMagicComments(code: string): string {
     const lineNumber = i + 1;
     const indentMatch = line.match(/^(\s*)/);
     const indent = indentMatch?.[1] ?? '';
-    // implementation / 2b — forward the parsed directive into the
+    // Forward the parsed directive into the
     // `__mc` runner. `table` lets the Python worker attach a forced-table
     // payload; rich-media directives use JSON text so the runner can
     // recover chart / image / html payloads client-side.

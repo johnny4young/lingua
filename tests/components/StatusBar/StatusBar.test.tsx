@@ -1,5 +1,5 @@
 /**
- * internal — `<StatusBar>` render + interaction contract.
+ * `<StatusBar>` render + interaction contract.
  *
  * Covers:
  *   - Unmounts entirely when `showStatusBar` is false; mounts when true.
@@ -160,7 +160,7 @@ describe('StatusBar', () => {
     expect(screen.getByTestId('status-bar-indent').textContent).toContain('Spaces: 2');
   });
 
-  it('keeps every visible segment keyboard-focusable per the internal acceptance criteria', () => {
+  it('keeps every visible segment keyboard-focusable per the acceptance criteria', () => {
     editorAccessState.editor = makeEditorStub();
     act(() => {
       useGitStore.getState().setPosture({

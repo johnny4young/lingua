@@ -1,5 +1,5 @@
 /**
- * implementation detail — branded-id swap-attack compile guard.
+ * branded-id swap-attack compile guard.
  *
  * The three capability ids (`RootId`, `WatchId`, `RelativePath`) are all
  * `string` at runtime, so nothing stops a caller from feeding the

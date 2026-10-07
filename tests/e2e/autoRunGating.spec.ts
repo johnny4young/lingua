@@ -1,5 +1,5 @@
 /**
- * implementation — auto-run completion gate end-to-end smoke.
+ * auto-run completion gate end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -8,7 +8,7 @@
  *     in the panel.
  *   - Completing the expression dismisses the notice and the run
  *     fires.
- *   - implementation note: under `runtimeMode === 'browser-preview'`, the notice
+ *   - Under `runtimeMode === 'browser-preview'`, the notice
  *     swaps to the "Preview paused" copy variant so a DOM-oriented
  *     user knows the iframe re-render is what is paused.
  *
@@ -82,7 +82,7 @@ test.describe('Auto-run completion gate ', () => {
     await expect(page.getByTestId('auto-run-gate-notice')).toHaveCount(0);
   });
 
-  test('implementation note — under Browser preview, the notice uses the preview-paused copy variant', async ({
+  test('under Browser preview, the notice uses the preview-paused copy variant', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });

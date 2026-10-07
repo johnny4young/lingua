@@ -1,7 +1,7 @@
 /**
- * implementation — file tree first-paint defense.
+ * File tree first-paint defense.
  *
- * The implementation acceptance criterion is: opening a folder with ~50
+ * The acceptance criterion is: opening a folder with ~50
  * files renders the tree within 500 ms. The cost we lock here is
  * `entriesToNodes` + the immutable `setNodeChildren` shape the
  * store hands the renderer on every `expandDirectory` / refresh.

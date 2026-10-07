@@ -1,5 +1,5 @@
 /**
- * implementation → MOV.02 (FASE 3) — keyboard + tab contract for the
+ * Keyboard + tab contract for the
  * SQL workspace.
  *
  * The SQL workspace left the bottom dock to become a full-screen
@@ -62,7 +62,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await expect(page.getByTestId('sql-workspace-panel')).toBeVisible();
   });
 
-  // internal (SQL import) — import a small CSV via the keyboard-accessible
+  // Import a small CSV via the keyboard-accessible
   // picker and assert the new table shows in the schema browser. Drives
   // the REAL bundled DuckDB-WASM engine end-to-end (read_csv_auto).
   test('imports a CSV via the picker and lists the new table (EN)', async ({

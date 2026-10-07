@@ -85,6 +85,10 @@ overrides:
   # build tooling, never the packaged artifact. Patch-line pin so the
   # advisory audit stays quiet.
   "postcss": "^8.5.25"
+  # source-map-js <1.2.2 mishandles indexed source-map section offsets
+  # (GHSA-68fv-2mgg-jv7q). Build tooling only, via postcss; keep the patched
+  # floor here as well as in the website and Worker lockfiles.
+  "source-map-js": "^1.2.2"
   # undici is bundled into the desktop main process by Vite (see
   # src/main/httpProxy.ts), so its version ships even though it is only a
   # devDependency and `pnpm audit --prod` cannot see it. The app is on

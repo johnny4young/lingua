@@ -10,8 +10,10 @@ import {
 import {
   clearReloadBatchState,
   createReloadBatchState,
+  reloadTabFromDisk,
   scheduleReloadNotice,
 } from './projectWatchReload';
+import { useCommandListener } from './useCommandListener';
 import { collectLoadedDirs, maybePushStaleTabNotice } from './projectWatchTree';
 
 export { PROJECT_WATCH_REFRESH_DEBOUNCE_MS } from './projectWatchModel';
@@ -23,6 +25,11 @@ export function useProjectWatchSync(): void {
   const activeRootIdRef = useRef<string | null>(null);
   const reloadBatchRef = useRef(createReloadBatchState());
   const watchChangeBatchRef = useRef(createWatchChangeBatch());
+
+  useCommandListener('editor.reloadFromDisk', ({ tabId }, context) => {
+    context.markHandled();
+    void reloadTabFromDisk(tabId);
+  });
 
   useEffect(() => {
     const unsubscribe = window.lingua.fs.onChanged(event => {

@@ -1,5 +1,5 @@
 /**
- * implementation note — Utility pipeline telemetry helper.
+ * Utility pipeline telemetry helper.
  *
  * Single event: `utility.pipeline_executed { stepCount, status }`.
  *

@@ -6,7 +6,7 @@ describe('RubyRunner — metadata + lifecycle', () => {
   it('exposes the expected metadata (hybrid dispatcher)', () => {
     const runner = new RubyRunner();
     expect(runner.id).toBe('ruby');
-    // implementation — the public RubyRunner is now a dispatcher
+    // The public RubyRunner is now a dispatcher
     // that picks WASM vs desktop subprocess per call. Its `name`
     // reads as the generic "Ruby"; the inner WasmRubyRunner /
     // DesktopRubySubprocessRunner keep their specific labels.
@@ -494,7 +494,7 @@ describe('RubyRunner — execute calls that overlap the Ruby boot', () => {
 });
 
 // ----------------------------------------------------------------------
-// implementation — hybrid dispatcher routing
+// Hybrid dispatcher routing
 // ----------------------------------------------------------------------
 
 describe('RubyRunner — desktop dispatcher routing', () => {
@@ -686,5 +686,91 @@ describe('RubyRunner — desktop dispatcher routing', () => {
     });
     const result = await runPromise;
     expect(result.kind).toBe('stopped');
+  });
+
+  it('does not spawn system Ruby when Stop lands during detection', async () => {
+    let releaseDetect: ((value: unknown) => void) | undefined;
+    bridgeDetect.mockImplementationOnce(
+      () => new Promise((resolve) => (releaseDetect = resolve))
+    );
+    const runner = new RubyRunner();
+    await runner.init();
+    const pending = runner.execute('puts "hi"');
+    await vi.waitFor(() => expect(bridgeDetect).toHaveBeenCalled());
+    runner.stop();
+    releaseDetect?.({ installed: true, version: 'ruby 3.3.6' });
+    const result = await pending;
+    expect(bridgeRun).not.toHaveBeenCalled();
+    expect(result.kind).toBe('stopped');
+    expect(result.cancelled).toBe(true);
+  });
+
+  it('runs system Ruby against the file of the run context, not the active tab', async () => {
+    const runner = new RubyRunner();
+    await runner.init();
+    await runner.execute('puts "hi"', { filePath: '/project/lib/other.rb' });
+    expect(bridgeRun.mock.calls[0]?.[1]).toMatchObject({ filePath: '/project/lib/other.rb' });
+  });
+});
+
+describe('RubyRunner — worker crash during a run', () => {
+  let originalWorker: typeof globalThis.Worker;
+  let workers: CrashingWorker[];
+
+  class CrashingWorker {
+    listeners = new Map<string, (event: Event) => void>();
+    terminated = false;
+    constructor() {
+      workers.push(this);
+    }
+    addEventListener(type: string, handler: (event: Event) => void): void {
+      this.listeners.set(type, handler);
+    }
+    removeEventListener(type: string): void {
+      this.listeners.delete(type);
+    }
+    postMessage(message: Record<string, unknown>): void {
+      if (message.type === 'init') {
+        this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+      } else if (message.type === 'execute') {
+        queueMicrotask(() =>
+          this.listeners.get('error')?.(
+            Object.assign(new Event('error'), { message: 'RuntimeError: unreachable' })
+          )
+        );
+      }
+    }
+    terminate(): void {
+      this.terminated = true;
+    }
+  }
+
+  beforeEach(() => {
+    workers = [];
+    originalWorker = globalThis.Worker;
+    Object.defineProperty(globalThis, 'Worker', {
+      value: CrashingWorker,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'Worker', {
+      value: originalWorker,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it('settles as an error right away and boots a fresh worker next run', async () => {
+    const runner = new RubyRunner();
+    await runner.init();
+    const result = await runner.execute('puts "hi"', { timeout: 60_000 });
+    expect(result.kind).toBe('error');
+    expect(result.error?.message).toBe('RuntimeError: unreachable');
+    expect(workers[0]?.terminated).toBe(true);
+    await runner.execute('puts "again"', { timeout: 60_000 });
+    expect(workers).toHaveLength(2);
   });
 });

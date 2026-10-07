@@ -1,7 +1,7 @@
 /**
- * implementation — Settings panel covers the global env-var tier.
+ * Settings panel covers the global env-var tier.
  *
- * The implementation store already has full unit coverage; these component tests
+ * The env-vars store already has full unit coverage; these component tests
  * pin the rendered affordances (empty state, add form, list + remove,
  * validator error path, precedence hint, and the Spanish locale).
  */
@@ -146,7 +146,7 @@ describe('EnvVarsSection', () => {
   });
 
   // ----------------------------------------------------------------
-  // implementation second increment — tab-tier editor
+  // Tab-tier editor
   // ----------------------------------------------------------------
 
   it('shows the tab-scope no-active placeholder when there is no active tab', () => {
@@ -228,7 +228,7 @@ describe('EnvVarsSection', () => {
   });
 
   // ----------------------------------------------------------------
-  // implementation third increment — project tier + effective-env trace view
+  // Project tier + effective-env trace view
   // ----------------------------------------------------------------
 
   it('shows the project-scope no-active placeholder when there is no current project', () => {

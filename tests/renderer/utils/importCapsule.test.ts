@@ -1,5 +1,5 @@
 /**
- * implementation — tests for `tryDecodeCapsuleJson`.
+ * Tests for `tryDecodeCapsuleJson`.
  *
  * Exercises every closed-enum reject reason + the happy path; relies
  * on the existing fixture catalog to keep the schema-side contract

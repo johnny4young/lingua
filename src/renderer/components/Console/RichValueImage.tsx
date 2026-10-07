@@ -1,5 +1,5 @@
 /**
- * implementation — `image` payload renderer. Validates the source
+ * `image` payload renderer. Validates the source
  * against the shared `validateImageSrc` whitelist (`data:image/...` /
  * `blob:` / `https://` only). Rejected sources fall through to a
  * localized text fallback and fire the

@@ -1,5 +1,5 @@
 /**
- * implementation - main-side dependency resolver tests.
+ * Main-side dependency resolver tests.
  *
  * Pins specifier validation (no path traversal, npm-shape regex),
  * the `node_modules/<scope>/<pkg>` walk for scoped packages, and

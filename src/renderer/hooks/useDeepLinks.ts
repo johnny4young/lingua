@@ -5,6 +5,8 @@ import type { AppOverlay } from './useGlobalShortcuts';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { notifyBlockedPath } from '../utils/blockedPath';
 import type { DeepLinkTarget } from '../../shared/deepLinks';
+import { offerLicenseTokenPrefill } from '../components/Settings/pendingLicenseToken';
+import { requestSettingsTarget } from '../components/Settings/pendingSettingsTab';
 
 function fileNameFromPath(filePath: string): string {
   return filePath.split('/').pop() ?? filePath.split('\\').pop() ?? filePath;
@@ -24,7 +26,7 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
       if (target.kind === 'open-file') {
         const name = fileNameFromPath(target.filePath);
         const language = resolveFileLanguageOrPlaintext(name);
-        // internal — mint a capability for this approved file only.
+        // Mint a capability for this approved file only.
         // Re-mint failures (path missing, denylisted, not approved)
         // just skip the open; the user-visible feedback is no tab
         // appearing.
@@ -49,10 +51,18 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
         return;
       }
 
+      if (target.kind === 'license-token') {
+        offerLicenseTokenPrefill(target.token);
+        requestSettingsTarget('account', 'license-token-input', () => openOverlay('settings'));
+        return;
+      }
+
       useSnippetsStore.getState().setPendingLinkedSnippetId(target.snippetId);
       openOverlay('snippets');
     } catch (error) {
-      console.error('[deep-links] Failed to handle deep link', target, error);
+      // A license target carries a credential; never log it.
+      const logged = target.kind === 'license-token' ? target.kind : target;
+      console.error('[deep-links] Failed to handle deep link', logged, error);
     }
   });
 

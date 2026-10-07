@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-array-chunk`.
+ * Recipe `js-array-chunk`.
  *
  * Chunk an array into groups of N. Exercises `slice` + iteration
  * + the off-by-one of partial-last-chunk.

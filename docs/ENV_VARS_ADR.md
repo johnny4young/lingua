@@ -19,7 +19,7 @@ precedence:
    in the renderer (global → project → tab).
 3. Runner-owned keys (`GOOS=js`, `GOARCH=wasm` for Go) — these
    **cannot** be overridden by the user env. Writing them in the user
-   tier is allowed (the implementation validator lets them through) but they
+   tier is allowed (the pure scope merger's validator lets them through) but they
    get dropped during this final merge so the WASM build never breaks
    silently.
 
@@ -40,7 +40,7 @@ same env via `std::env::var` that the compiler saw.
 
 ### Python (shipped 2026-04-20 quinquies)
 
-Python is the only implementation runtime that does NOT use a subprocess
+Python is the only env-aware runtime that does NOT use a subprocess
 — Pyodide runs in a Web Worker inside the renderer. The env crosses
 via the `execute` postMessage payload (`userEnv` field) instead of
 through `ipcRenderer.invoke`. Inside the worker, before user code
@@ -59,7 +59,7 @@ untouched. `os.getenv(...)` from user code reflects the merged
 record exactly the way Go and Rust subprocesses see their env.
 
 There is no `process.env` tier here — Pyodide has no host process
-to read from, and the implementation contract explicitly keeps host env
+to read from, and the settings/snapshot bridge contract explicitly keeps host env
 out of the renderer. The merge is therefore "global → project →
 tab" with no host underlay; that is honest about Pyodide's
 sandbox.
@@ -223,17 +223,16 @@ Open a successor ADR when **any** of these becomes true:
 
 ## Cross-links
 
-- `BUILD_SYSTEM_ADR.md` — unchanged. Stay-on-Forge means env
-  forwarding goes through the existing `execFile` IPC path.
+- `BUILD_SYSTEM_ADR.md` — unaffected by the packaging tool. Env
+  forwarding goes through the main-process runner IPC path in every
+  packaged build, independent of packaging internals.
 - `CAPABILITY_MATRIX.md` — env vars become a new row in the
-  shell-feature matrix when implementation ships ("Hybrid: desktop-native
+  shell-feature matrix once the Settings UI ships ("Hybrid: desktop-native
   for child processes, renderer-only for Pyodide").
-- `LANGUAGE_PACK_ADR.md` — implementation's `LanguagePack` already
-  carries the runtime-deps array; implementation can hang an
+- `LANGUAGE_PACK_ADR.md` — `LanguagePack` already
+  carries the runtime-deps array; a later change can hang an
   `acceptsHostEnv: boolean` capability flag on the same descriptor
   if needed.
-- internal in the implementation notes — flips from `Planned` to `Partial` once this
-  ADR lands, with the implementation steps unblocked.
 
 ## Reviewers
 

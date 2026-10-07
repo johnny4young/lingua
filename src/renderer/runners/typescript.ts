@@ -30,9 +30,9 @@ import {
   collectTopLevelScopeNames,
 } from '../utils/scopeCapture';
 import { runnerStoppedResult, type TranslateFn } from './limits';
-import { loadEsbuild } from './esbuildLoader';
+import { esbuildErrorLocation, loadEsbuild } from './esbuildLoader';
 
-// implementation — the literal DEFAULT_TIMEOUT is gone; the runner
+// The literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
 // every call to `execute()`.
 
@@ -71,7 +71,7 @@ export class TypeScriptRunner implements LanguageRunner {
   /**
    * Transpile TypeScript to JavaScript using esbuild-wasm.
    *
-   * implementation note — when `withMap` is true we ask esbuild for an
+   * When `withMap` is true we ask esbuild for an
    * external source map. Debug runs compose it with the debugger
    * instrumenter map; normal worker runs compose it with all preceding source transforms
    * for original line and column coordinates.
@@ -100,16 +100,7 @@ export class TypeScriptRunner implements LanguageRunner {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
-      // esbuild locations use one-based lines and zero-based columns.
-      // Message text can contain unrelated numbers and is not a coordinate API.
-      const errors: unknown[] = err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)
-        ? err.errors : [];
-      const first = errors[0];
-      const location = first && typeof first === 'object' && 'location' in first ? first.location : null;
-      const line = location && typeof location === 'object' && 'line' in location && typeof location.line === 'number'
-        ? location.line : undefined;
-      const column = location && typeof location === 'object' && 'column' in location && typeof location.column === 'number'
-        ? location.column + 1 : undefined;
+      const { line, column } = esbuildErrorLocation(err);
       return {
         js: '',
         error: {
@@ -122,13 +113,13 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // internal debugger refinement — debug mode resolution mirrors the JS
+    // Debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
     const sourceMappingEnabled = true;
     const sourceMaps: string[] = [];
     const recordMap = (map: string) => sourceMaps.unshift(map);
     const settings = useSettingsStore.getState();
-    // implementation — resolve timeout from the per-language preset
+    // Resolve timeout from the per-language preset
     // unless the caller passed an explicit override.
     const callerOverrode = typeof context?.timeout === 'number';
     const presetForLanguage: RuntimeTimeoutPreset | undefined =
@@ -159,12 +150,12 @@ export class TypeScriptRunner implements LanguageRunner {
     const magicTransformed = hasMagic
       ? transformJSMagicComments(processedCode, recordMap)
       : processedCode;
-    // implementation — per-line kind side-table keyed by the
+    // per-line kind side-table keyed by the
     // PRE-transpile line number (which is what `__mc` carries into
     // the worker; the transpile pass preserves that argument as-is).
     const { kindByLine: magicKindByLine, directiveByLine: magicDirectiveByLine } =
       buildMagicLineMaps(magicEntries);
-    // implementation — opt-in auto-log pass before transpile. The
+    // opt-in auto-log pass before transpile. The
     // detector reads the PRE-transpile source (TypeScript syntax) so
     // a TypeScript-only construct like a type-only `as` cast does
     // not throw the bracket scanner off; esbuild strips the type
@@ -180,7 +171,7 @@ export class TypeScriptRunner implements LanguageRunner {
       }
     }
 
-    // implementation — timing markers BEFORE transpile, mirroring the
+    // Timing markers BEFORE transpile, mirroring the
     // auto-log strategy: the line number is baked into the call
     // argument, so esbuild's line shifts downstream cannot corrupt the
     // attribution. Debug runs never instrument.
@@ -222,7 +213,7 @@ export class TypeScriptRunner implements LanguageRunner {
         result: undefined,
         executionTime: 0,
         error: { ...transpileError, line: undefined, column: undefined, ...position },
-        // implementation — transpile failures count as `'error'` so
+        // Transpile failures count as `'error'` so
         // the result-panel pill surfaces a clear failure variant.
         kind: 'error',
       };
@@ -230,8 +221,8 @@ export class TypeScriptRunner implements LanguageRunner {
 
     if (tsMap) recordMap(tsMap);
 
-    // implementation — instrument the transpiled JS when debug is on.
-    // implementation note — pass the esbuild TS→JS map so the instrumenter
+    // Instrument the transpiled JS when debug is on.
+    // Pass the esbuild TS→JS map so the instrumenter
     // can compose it with its own JS→JS map and emit yields that fire
     // on the user's TS line numbers (which is what the breakpoint store
     // already keeps).

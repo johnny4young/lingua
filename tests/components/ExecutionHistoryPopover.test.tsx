@@ -177,7 +177,7 @@ describe('ExecutionHistoryPopover', () => {
   });
 
   // ------------------------------------------------------------------
-  // implementation — Compare two runs (code diff)
+  // Compare two runs (code diff)
   // ------------------------------------------------------------------
 
   it('hides the Compare button and the checkbox column when onCompare is not wired', async () => {

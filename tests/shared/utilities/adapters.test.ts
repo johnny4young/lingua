@@ -1,5 +1,5 @@
 /**
- * implementation — utility adapter unit tests.
+ * Utility adapter unit tests.
  *
  * Covers the shared utility adapter registry — happy path + reject path
  * + parseOptions shape guard. Keeps the test surface single-file since
@@ -211,6 +211,39 @@ describe('urlParseAdapter', () => {
     expect(parsed.searchParams).toEqual({ id: ['42', '43'] });
   });
 
+  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty', '__defineGetter__'])(
+    'preserves the query key %s as data, including repeated values',
+    async (key) => {
+      const url = new URL('https://example.com/');
+      url.searchParams.append(key, 'first');
+      const single = await urlParseAdapter.run(url.href, {});
+      if (!single.ok) throw new Error('expected ok');
+      expect(JSON.parse(single.value).searchParams).toEqual({ [key]: 'first' });
+
+      url.searchParams.append(key, 'second');
+      url.searchParams.append(key, 'third');
+      const repeated = await urlParseAdapter.run(url.href, {});
+      if (!repeated.ok) throw new Error('expected ok');
+      expect(JSON.parse(repeated.value).searchParams).toEqual({
+        [key]: ['first', 'second', 'third'],
+      });
+    }
+  );
+
+  it('preserves percent-decoded query names, empty values and ordinary duplicate keys', async () => {
+    const result = await urlParseAdapter.run(
+      'https://example.com/?%5F%5Fproto%5F%5F=&id=1&constructor=own&id=2&toString=text',
+      {}
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(JSON.parse(result.value).searchParams).toEqual({
+      ['__proto__']: '',
+      id: ['1', '2'],
+      constructor: 'own',
+      toString: 'text',
+    });
+  });
+
   it('rejects non-absolute input', async () => {
     const r = await urlParseAdapter.run('/relative/path', {});
     expect(r.ok).toBe(false);
@@ -294,7 +327,7 @@ describe('diffTextAdapter', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — vocabulary expansion adapters.
+// Vocabulary expansion adapters.
 // ---------------------------------------------------------------------------
 
 describe('hashAdapter', () => {
@@ -529,7 +562,7 @@ describe('html entity adapters', () => {
   });
 });
 
-// implementation — vocabulary expansion round 2.
+// Vocabulary expansion round 2.
 describe('numberBaseAdapter ', () => {
   it('auto-detects a hex literal and converts to decimal', async () => {
     const r = await numberBaseAdapter.run('0xFF', {
@@ -540,7 +573,7 @@ describe('numberBaseAdapter ', () => {
     expect(r.ok && r.value).toBe('255');
   });
 
-  it('converts decimal to binary with the 0b prefix (implementation note)', async () => {
+  it('converts decimal to binary with the 0b prefix', async () => {
     const r = await numberBaseAdapter.run('10', {
       from: '10',
       to: '2',
@@ -612,7 +645,7 @@ describe('lineSortAdapter ', () => {
     expect(r.ok && r.value).toBe('a\nb');
   });
 
-  it('sorts numerically (natural order) when enabled (implementation note)', async () => {
+  it('sorts numerically (natural order) when enabled', async () => {
     const r = await lineSortAdapter.run('item10\nitem2\nitem1', {
       direction: 'asc',
       caseInsensitive: false,
@@ -689,7 +722,7 @@ describe('slugifyAdapter ', () => {
   });
 });
 
-describe('jsonMinifyAdapter (implementation note)', () => {
+describe('jsonMinifyAdapter', () => {
   it('minifies valid JSON', async () => {
     const r = await jsonMinifyAdapter.run('{\n  "a": 1,\n  "b": [2, 3]\n}', {});
     expect(r.ok && r.value).toBe('{"a":1,"b":[2,3]}');
@@ -709,7 +742,7 @@ describe('jsonMinifyAdapter (implementation note)', () => {
   });
 });
 
-describe('textStatsAdapter (implementation note)', () => {
+describe('textStatsAdapter', () => {
   it('counts lines, words, characters, and bytes', async () => {
     const r = await textStatsAdapter.run('hello world\nsecond line', {});
     expect(r.ok).toBe(true);
@@ -758,7 +791,7 @@ describe('uuidAdapter ', () => {
     expect(ulid.ok && ulid.value).toMatch(ULID);
   });
 
-  it('strips hyphens when hyphens is false (implementation note)', async () => {
+  it('strips hyphens when hyphens is false', async () => {
     const result = await uuidAdapter.run('', { format: 'v4', count: '1', hyphens: false });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -874,7 +907,7 @@ describe('stringInspectAdapter ', () => {
     expect(value).not.toContain('Code points: 1');
   });
 
-  it('flags zero-width and bidi-control code points (implementation note)', async () => {
+  it('flags zero-width and bidi-control code points', async () => {
     expect(await run('a\u200Bb')).toContain('Warnings: zero-width 1, bidi-control 0');
     // BiDi range nests inside zero-width — precedence counts it as bidi.
     expect(await run('\u202E')).toContain('Warnings: zero-width 0, bidi-control 1');
@@ -887,9 +920,9 @@ describe('stringInspectAdapter ', () => {
   });
 });
 
-// implementation note — registry + i18n completeness guard. Every closed-enum id must
+// Registry + i18n completeness guard. Every closed-enum id must
 // have a registry adapter AND title/description keys in BOTH locales.
-describe('adapter registry completeness (implementation note)', () => {
+describe('adapter registry completeness', () => {
   const en = enCommon as Record<string, string>;
   const es = esCommon as Record<string, string>;
 

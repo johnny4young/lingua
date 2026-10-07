@@ -1,10 +1,10 @@
 /**
- * implementation — Root component of the SQL workspace editor tab.
+ * Root component of the SQL workspace editor tab.
  * Three-column layout (query list | editor | result).
  *
  * Mirror of `<HttpWorkspacePanel>`. Wires the workspaceSqlStore,
- * the DuckDB execution path, the capsule builder (implementation note — capsule
- * auto-attach on success), and the telemetry emit (implementation note).
+ * the DuckDB execution path, the capsule builder (capsule
+ * auto-attach on success), and the telemetry emit.
  *
  * Connection lifecycle: a single DuckDB engine instance is shared
  * per browser session via the `duckdbClient` module's cached
@@ -15,6 +15,7 @@
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { e2eFixedDurationMs } from '../../testing/e2eDurations';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
@@ -62,7 +63,7 @@ import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlWorkspaceImportToolbar } from './SqlWorkspaceImportToolbar';
 
 /**
- * implementation (SQL OPFS) implementation note — compact, locale-agnostic byte
+ * Compact, locale-agnostic byte
  * label (`~5 MB`). Origin-wide storage estimate, hence the leading `~`.
  * Numbers only; the surrounding copy is translated.
  */
@@ -85,6 +86,8 @@ export interface SqlWorkspacePanelProps {
    */
   tabId?: string;
 }
+
+const sessionProfileSources = new Map<string, { recordedAt: string; query: string }>();
 
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
@@ -121,16 +124,16 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const queryTimeoutMs = useSettingsStore(
     (state) => state.sqlWorkspaceQueryTimeoutMs
   );
-  // implementation (SQL OPFS) — the user's persistence preference,
+  // The user's persistence preference,
   // applied to the DuckDB engine on mount (before the eager-load).
   const persistTables = useSettingsStore(
     (state) => state.sqlWorkspacePersistTables
   );
 
-  // implementation (SQL OPFS) — the RESOLVED storage backing lives in
+  // The RESOLVED storage backing lives in
   // the store so the chip stays live when Settings "Reconnect now"
   // re-resolves the engine. The approximate origin-storage label
-  // (implementation note) is panel-local and recomputed when the mode flips.
+  // is panel-local and recomputed when the mode flips.
   const storageMode = useWorkspaceSqlStore((state) => state.storageMode);
   const storageRequestedMode = useWorkspaceSqlStore(
     (state) => state.storageRequestedMode
@@ -152,10 +155,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // Profiles must use the exact SQL that produced a response, not subsequent
   // editor drafts. This in-memory map deliberately does not survive reload:
   // persisted responses do not retain their SQL source and profiling a guessed
-  // source would misrepresent the visible result.
-  const [profileSourcesByQueryId, setProfileSourcesByQueryId] = useState(
-    () => new Map<string, { recordedAt: string; query: string }>()
-  );
+  // source would misrepresent the visible result. It lives at module level so
+  // layout remounts (toggling the bottom panel) keep it; the tick re-renders.
+  const [, setProfileSourcesVersion] = useState(0);
   // Run-history selection — index into the active query's response LRU
   // (0 = newest). A fresh run / query switch resets to 0.
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
@@ -193,7 +195,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     activeQuery !== undefined &&
     activeResponse !== null &&
     safeResponseIndex === 0
-      ? profileSourcesByQueryId.get(activeQuery.id)
+      ? sessionProfileSources.get(activeQuery.id)
       : undefined;
 
   // SQL/HTTP MODEL rework — a new query is a row in the collection, NOT a
@@ -267,7 +269,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     setSelectedResponseIndex(index);
   }, []);
 
-  // RQ-02 — patch the query the editor names explicitly, never a
+  // Patch the query the editor names explicitly, never a
   // closed-over `activeQuery` that may have switched during the
   // editor's debounce quiet window. `updateQuery` no-ops on an unknown
   // id, so a flush for a just-deleted query is harmless.
@@ -293,7 +295,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           rows: outcome.rows,
           columns: outcome.columns,
           rowCount: outcome.rowCount,
-          durationMs: outcome.durationMs,
+          durationMs: e2eFixedDurationMs(outcome.durationMs),
           tooLarge: outcome.tooLarge,
           statementCount: outcome.statementCount,
           recordedAt: new Date().toISOString(),
@@ -301,14 +303,15 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             ? { errorMessage: outcome.errorMessage }
             : {}),
         };
-        setProfileSourcesByQueryId((current) => {
-          const next = new Map(current);
-          next.set(queryToRun.id, {
-            recordedAt: response.recordedAt,
-            query: queryToRun.query,
-          });
-          return next;
+        const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
+        for (const id of sessionProfileSources.keys()) {
+          if (!liveIds.has(id)) sessionProfileSources.delete(id);
+        }
+        sessionProfileSources.set(queryToRun.id, {
+          recordedAt: response.recordedAt,
+          query: queryToRun.query,
         });
+        setProfileSourcesVersion((version) => version + 1);
         useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);
         // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);
@@ -328,7 +331,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             : t('sqlWorkspace.run.announceError')
         );
 
-        // implementation note — capsule auto-attach. Build a RunCapsuleV1 for the
+        // Capsule auto-attach. Build a RunCapsuleV1 for the
         // execution and stash it on the ExecutionHistoryEntry so the
         // existing Mod+Shift+X export pathway picks it up uniformly.
         let capsule;
@@ -367,7 +370,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [queryTimeoutMs, t, announce]
   );
 
-  // internal — a profile is deliberate secondary exploration, not another run:
+  // A profile is deliberate secondary exploration, not another run:
   // it must not add a response/history/ledger entry. Reuse the same user
   // timeout as the query that produced the visible result.
   const handleProfileQuery = useCallback(
@@ -378,7 +381,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [queryTimeoutMs]
   );
 
-  // implementation apply-&-re-run: write the AI-suggested SQL into the active query,
+  // Apply-&-re-run: write the AI-suggested SQL into the active query,
   // then run the FRESH store object (not a closed-over `activeQuery`, whose
   // `query` field predates the patch).
   const handleApplyFix = useCallback(
@@ -429,7 +432,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       return;
     }
     try {
-      // internal — schema-qualified table listing (replacing `SHOW TABLES`,
+      // schema-qualified table listing (replacing `SHOW TABLES`,
       // which only sees the current schema). User tables in `main` keep
       // their bare names; tables in any other schema — notably the Run
       // Ledger's `lingua_ledger.runs` / `.capsules` / `.daily_activity` —
@@ -479,7 +482,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           if (typeof bareTableName !== 'string' || typeof columnName !== 'string') {
             continue;
           }
-          // internal — key columns by the SAME display name the table list
+          // Key columns by the SAME display name the table list
           // uses (qualified outside `main`), so the count chip and the
           // autocomplete line up for ledger tables.
           const tableName =
@@ -525,9 +528,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     refreshTablesRef.current = () => void handleRefreshTables();
   }, [handleRefreshTables]);
 
-  // internal (SQL import) — orchestration hook. Owns the validate → read →
-  // preview → confirm → import flow + every notice + the implementation note telemetry.
-  // `existingTableNames` feeds the implementation note collision de-duper; a successful
+  // Orchestration hook. Owns the validate → read →
+  // preview → confirm → import flow + every notice + the import telemetry.
+  // `existingTableNames` feeds the name collision de-duper; a successful
   // import refreshes the schema browser so the new table shows up.
   const existingTableNames = useMemo(
     () => schemaTables.map((table) => table.name),
@@ -547,7 +550,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [sqlImport]
   );
 
-  // MOV.03 — Save-as-snippet nudge. After a first successful run the
+  // Save-as-snippet nudge. After a first successful run the
   // result surface offers to stash the query in the snippet library so
   // it survives the workspace. `addSnippet` already enforces the
   // Free-tier ceiling (returns null + pushes an upsell); on success we
@@ -581,12 +584,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   // cold-boot wait. Fire-and-forget; failures surface on the Run
   // path. Only fires once per session.
   //
-  // implementation (SQL OPFS) — capture the persistence preference
+  // Capture the persistence preference
   // BEFORE the engine instantiates so the factory opens the `opfs://`
   // database when requested. After it resolves, reflect the actual
-  // backing in the chip, fire the storage-mode telemetry once (implementation note),
+  // backing in the chip, fire the storage-mode telemetry once,
   // surface a notice if persistence was requested but unavailable
-  // (implementation note), and compute the approximate storage label (implementation note).
+  //, and compute the approximate storage label.
   // `persistTables` is read once at mount; flipping the toggle takes
   // effect on the next reload or via Settings "Reconnect now".
   useEffect(() => {
@@ -621,7 +624,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // implementation (SQL OPFS) implementation note — recompute the approximate
+  // Recompute the approximate
   // origin-storage label whenever the resolved backing becomes
   // persistent (including after a Settings "Reconnect now"). Origin-wide
   // estimate, hence approximate. No synchronous reset on the non-opfs
@@ -641,10 +644,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     };
   }, [storageMode]);
 
-  // implementation (SQL OPFS) implementation note — flush + release the engine on
+  // Flush + release the engine on
   // page teardown so OPFS sync-access handles release cleanly and the
   // next session/tab re-opens without a stale-lock fallback. Durability
-  // does not depend on this (implementation note checkpoints every write); this is
+  // does not depend on this (every write checkpoints); this is
   // hygiene. `pagehide` fires on tab close + bfcache navigation.
   useEffect(() => {
     const handlePageHide = () => {
@@ -755,7 +758,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         </Panel>
       </Group>
-      {/* implementation (SQL import) implementation note — the preview modal. Renders only
+      {/* The preview modal. Renders only
           while an import is in flight; ModalShell owns focus-trap, Esc,
           scrim-close, and focus-restore-to-trigger. */}
       {sqlImport.modal !== null ? (

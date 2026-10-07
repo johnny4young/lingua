@@ -2,7 +2,7 @@ import type { StoreApi } from 'zustand';
 import type { EditorState } from '../types/editor';
 
 /**
- * internal — shared store-binding types for the editor action factories.
+ * Shared store-binding types for the editor action factories.
  *
  * `editorStore.ts` was split into focused modules; the per-tab action setters
  * now live in `editor*Actions.ts` files as factories of the form

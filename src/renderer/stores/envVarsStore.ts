@@ -4,7 +4,7 @@
  * Holds the three user-owned tiers (`global`, `project`, `tab`) behind a
  * `persist`-backed Zustand store and exposes a pure
  * `resolveEffectiveEnv()` helper that composes them with a caller-supplied
- * `processEnv` tier via the implementation merger.
+ * `processEnv` tier via the merger.
  *
  * Wiring contract (per `docs/ENV_VARS_ADR.md`):
  *   processEnv  (lowest — supplied by the eventual main-side runner path)
@@ -14,7 +14,7 @@
  *
  * this change intentionally stops at the plumbing. A follow-up work threads
  * the resolved record into `RunnerManager.execute` so Go / Rust / Python
- * subprocesses see the merged env. No UI is introduced here — implementation owns
+ * subprocesses see the merged env. No UI is introduced here — a separate change owns
  * the Settings panel.
  *
  * Sanitization on rehydrate: every tier runs through `sanitizeScope` so a
@@ -88,7 +88,7 @@ export interface EnvVarsStoreState {
 
   /**
    * Resolve the merged env for a given runtime context. The caller supplies
-   * the `processEnv` tier; implementation intentionally keeps host env out of the
+   * the `processEnv` tier; the merger intentionally keeps host env out of the
    * renderer, so current desktop + web callers pass `{}`.
    */
   resolveEffectiveEnv: (

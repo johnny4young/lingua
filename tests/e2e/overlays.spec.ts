@@ -180,7 +180,7 @@ test.describe('Developer utilities workspace (Pro)', () => {
     await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
     await expect(page.getByTestId('utilities-search-input')).toBeFocused();
 
-    // internal — the browse view is grouped by category, so ArrowDown from
+    // The browse view is grouped by category, so ArrowDown from
     // the default (json) walks the "Data" section: json → number-base →
     // mock-data.
     await page.keyboard.press('ArrowDown');

@@ -11,7 +11,7 @@ import { useNotebookStore } from './notebookStore';
 import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 
 /**
- * internal — editor store assembly point.
+ * Editor store assembly point.
  *
  * The 1600-line monolith was carved into focused modules with ZERO public API
  * change; this file is the thin assembly that wires them together:
@@ -21,7 +21,7 @@ import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
  *                              constants, `createDefaultTab`
  *   - `editorPersistence`    — format-on-save + `persistTab` (Save/Save-As)
  *   - `editorSelectors`      — `getActiveTab` / `getActiveTabIndex`
- *   - `editorStoreContext`   — shared `EditorSet` / `EditorGet` types (implementation note)
+ *   - `editorStoreContext`   — shared `EditorSet` / `EditorGet` types
  *   - `editorTabActions`     — create / restore / remove / focus / duplicate
  *   - `editorWorkspaceActions`— notebook + SQL / HTTP / Utilities workspace openers
  *   - `editorContentActions` — buffer / execution-state / timeout / recipe-clear

@@ -1,5 +1,5 @@
 /**
- * internal / implementation — Runtime chip + engine picker for the floating action
+ * Runtime chip + engine picker for the floating action
  * pill ("what engine": Worker / Node / Browser preview / Deno / Bun).
  * Only mounted for languages with runtime modes (JS/TS). Extracted
  * verbatim.
@@ -126,7 +126,7 @@ export function FloatingActionPillRuntimeSegment({
                       recoverMissing(item.k);
                       return;
                     }
-                    // internal follow-up — when the user opens
+                    // When the user opens
                     // the Runtime picker without a tab, create
                     // one in the chip's current language and
                     // apply the chosen runtime to it. Avoids

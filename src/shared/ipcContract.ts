@@ -113,7 +113,7 @@ interface IpcInvokeContract {
     result: RubyRunResult;
   };
   'ruby:stop': { args: [runId: string]; result: { stopped: boolean } };
-  // implementation — interactive stdin for a live Ruby run.
+  // Interactive stdin for a live Ruby run.
   'ruby:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
   'ruby:stdin-close': { args: [runId: string]; result: { closed: boolean } };
 
@@ -127,7 +127,7 @@ interface IpcInvokeContract {
     result: NodeRunResult;
   };
   'node:stop': { args: [runId: string]; result: { stopped: boolean } };
-  // implementation — interactive stdin for a live Node run.
+  // Interactive stdin for a live Node run.
   'node:stdin-write': { args: [runId: string, data: string]; result: { written: boolean } };
   'node:stdin-close': { args: [runId: string]; result: { closed: boolean } };
 
@@ -531,7 +531,7 @@ interface IpcInvokeContract {
     args: [runId: string];
     result: { cancelled: boolean };
   };
-  // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
+  // Go / Rust / Ruby install (go get / cargo add / bundle add).
   'dependencies:native:install': {
     args: [language: NativePackageLanguage, specifiers: readonly string[], filePath: string];
     result: NativeInstallResult;
@@ -569,7 +569,7 @@ interface IpcPushContract {
   'fs:watcher-degraded': WatcherDiagnostic;
   'updates:state-changed': UpdateState;
   'dependencies:js:install:log': DependencyInstallLogEvent;
-  // implementation — live stdout/stderr chunks from an interactive Node/Ruby run,
+  // Live stdout/stderr chunks from an interactive Node/Ruby run,
   // streamed as they arrive (keyed by runId) so the console REPL can echo
   // output before the process exits.
   'runtime:output-chunk': RuntimeOutputChunk;

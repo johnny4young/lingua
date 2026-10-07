@@ -1,15 +1,15 @@
 /**
- * internal structure guard — locks the editorStore split so a future
+ * Structure guard — locks the editorStore split so a future
  * edit cannot silently regress it.
  *
- * - implementation note (public API barrel): the assembled store exposes EXACTLY the
+ * - Public API barrel: the assembled store exposes EXACTLY the
  *   `EditorState` surface (3 state fields + 33 actions), and `editorStore.ts`
  *   re-exports EXACTLY the helper/selector symbols the 120+ consumers import.
  *   Catches an accidentally-dropped action during the split AND an accidental
  *   new public export sneaking in.
- * - implementation note (size budget): the assembly point stays thin and no extracted module
+ * - Size budget: the assembly point stays thin and no extracted module
  *   grows back toward a monolith.
- * - implementation note (import acyclicity): no split module imports the store assembly, and
+ * - Import acyclicity: no split module imports the store assembly, and
  *   the pure helper leaves import neither the store nor any action factory — so
  *   `editorStore.ts` is the only place the graph converges.
  */
@@ -141,7 +141,7 @@ function lineCount(file: string): number {
   return read(file).split('\n').length;
 }
 
-describe('implementation editorStore split — public API barrel (implementation note)', () => {
+describe('editorStore split — public API barrel', () => {
   it('the assembled store exposes exactly the EditorState surface', () => {
     const keys = Object.keys(useEditorStore.getState()).sort();
     expect(keys).toEqual(EXPECTED_STORE_KEYS);
@@ -172,7 +172,7 @@ describe('implementation editorStore split — public API barrel (implementation
   });
 });
 
-describe('implementation editorStore split — size budget (implementation note)', () => {
+describe('editorStore split — size budget', () => {
   it('the assembly point stays thin', () => {
     expect(lineCount(ASSEMBLY_FILE)).toBeLessThanOrEqual(ASSEMBLY_MAX_LINES);
   });
@@ -182,7 +182,7 @@ describe('implementation editorStore split — size budget (implementation note)
   });
 });
 
-describe('implementation editorStore split — import acyclicity (implementation note)', () => {
+describe('editorStore split — import acyclicity', () => {
   it.each([...SPLIT_MODULES])('%s does not import the store assembly', file => {
     expect(read(file)).not.toMatch(/from\s+['"]\.\/editorStore['"]/);
   });

@@ -6,7 +6,7 @@
  * - Compiling Go source code to WASM using GOOS=js GOARCH=wasm
  * - Locating wasm_exec.js from the Go installation
  *
- * internal — the toolchain subprocess env is filtered through
+ * The toolchain subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` cannot reach the
  * spawned `go build`. `GOOS=js` and `GOARCH=wasm` are runner-owned
  * overrides that the user env tier cannot shadow. Temp dirs use
@@ -25,8 +25,8 @@ import path from 'node:path';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
   MAX_GO_WASM_BYTES,
-  truncateBytes,
 } from '../shared/runnerLimits';
+import { truncateNativeOutputUtf8 } from './runners/nativeOutputUtf8';
 import {
   GO_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -137,9 +137,9 @@ async function detectGo(userEnv?: Record<string, string>, signal?: AbortSignal):
 /**
  * Build the env passed to `go build`.
  *
- * implementation detail contract:
+ * Contract:
  *  - Only allowlisted host keys flow through (`buildNativeRunnerEnv`).
- *  - User env from internal layers on top.
+ *  - User env layers on top.
  *  - `GOOS=js` / `GOARCH=wasm` are runner-owned overrides applied
  *    last; user env cannot shadow them — they would silently break
  *    the WASM pipeline.
@@ -211,7 +211,7 @@ async function compileGoToWasm(
   } catch (error) {
     if (signal.aborted) return stopped();
     const message = error instanceof Error ? error.message : String(error);
-    return { ...failed(truncateBytes(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
+    return { ...failed(truncateNativeOutputUtf8(message, MAX_COMPILE_OUTPUT_BYTES, compileTruncationMarker(messages))), goVersion };
   } finally {
     if (tempDir) await cleanupNativeRunTempDir(tempDir);
     if (runId && activeCompiles.get(runId) === active) activeCompiles.delete(runId);

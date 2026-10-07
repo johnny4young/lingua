@@ -1,5 +1,5 @@
 /**
- * implementation — "Explain this error" dialog. Verifies the consent
+ * "Explain this error" dialog. Verifies the consent
  * gate (nothing sends on mount), the entitlement + configuration degradations,
  * and the send → result path — all in a real React render with real i18n.
  */

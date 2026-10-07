@@ -1,5 +1,5 @@
 /**
- * implementation — keyboard contract for the capsule import overlay.
+ * Keyboard contract for the capsule import overlay.
  *
  * Acceptance: Mod+Shift+Y opens the import overlay; Escape closes it.
  * The full decode + open-tab flow is covered by the component test
@@ -33,7 +33,7 @@ test.describe('Capsule import — Mod+Shift+Y binding', () => {
     await page.keyboard.press('ControlOrMeta+Shift+Y');
 
     const dialog = page.getByRole('dialog', {
-      name: /importa una cápsula/i,
+      name: /importar una cápsula/i,
     });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/Sin cápsula cargada todavía/i)).toBeVisible();

@@ -16,7 +16,7 @@ import {
 } from './utils/safeBoot';
 import './index.css';
 
-// internal — global handlers for async + event-handler errors.
+// Global handlers for async + event-handler errors.
 // React error boundaries only catch render-time throws inside the
 // component tree; without these listeners, a `setTimeout` reject or
 // an unhandled promise rejection would loop the user into a broken
@@ -69,7 +69,7 @@ async function bootstrap() {
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
 
-  // FASE 0 dev-only acceptance artifact. When the URL carries
+  // Dev-only acceptance artifact. When the URL carries
   // `?lingua-showcase`, mount the recipe gallery instead of the app.
   // The dynamic import code-splits the showcase into its own lazy
   // chunk, so it stays out of the INITIAL bundle and only loads when

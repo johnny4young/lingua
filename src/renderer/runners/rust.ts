@@ -94,7 +94,7 @@ export class RustRunner implements LanguageRunner {
             finish(runnerStoppedResult(t, { stdout: [], stderr: [] }));
             return;
           }
-          // implementation — best-effort `file.rs:N` splitter enriches
+          // best-effort `file.rs:N` splitter enriches
           // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`
           // surfaces a chip on panic / debug rows that mention a source.
           const stdout: ConsoleOutput[] = runResult.stdout

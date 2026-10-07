@@ -399,7 +399,7 @@ function isAllowedValue(
         return typeof value === 'string' && HTTP_STATUS_BUCKETS_SET.has(value);
       if (key === 'redactedHeadersBucket')
         return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value);
-      // implementation note — bucketed count of resolved env vars.
+      // Bucketed count of resolved env vars.
       if (key === 'resolvedVarsBucket')
         return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value);
       return false;
@@ -442,7 +442,7 @@ function isAllowedValue(
         key === 'format' && typeof value === 'string' && NOTEBOOK_EXPORT_FORMATS_SET.has(value)
       );
     case 'persistence.migrated':
-      // internal — `store` is a localStorage key (a safe token like
+      // `store` is a localStorage key (a safe token like
       // `lingua-settings`); the closed-enum membership is enforced at the call
       // site by the `PersistedStoreName` union, and the token shape is enough
       // here (no PII, no version numbers, no payload).

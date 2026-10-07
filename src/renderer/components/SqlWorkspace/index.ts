@@ -1,5 +1,5 @@
 /**
- * implementation — SQL workspace barrel.
+ * SQL workspace barrel.
  *
  * Re-exports the root panel (the only surface other modules need
  * to import) plus the status pill (consumed by tests + future

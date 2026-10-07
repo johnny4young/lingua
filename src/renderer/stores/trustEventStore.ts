@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
 
 /**
- * implementation — Trust event log.
+ * Trust event log.
  *
  * Bounded local log (cap 200) of trust-relevant actions for the
  * Privacy + Trust Dashboard. The shape is deliberately MINIMAL:
@@ -201,7 +201,7 @@ export function _resetTrustEventCounterForTesting(): void {
 }
 
 /**
- * implementation reviewer hardening — trust capture is a transparency mirror,
+ * Reviewer hardening — trust capture is a transparency mirror,
  * not the source of truth for the user action. If localStorage is unavailable
  * or over quota, the egress that already succeeded (clipboard/share/update/
  * telemetry/license) must not be reported as failed. Use this helper at

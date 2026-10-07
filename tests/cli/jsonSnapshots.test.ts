@@ -1,5 +1,5 @@
 /**
- * implementation note — `--json` output snapshot tests.
+ * `--json` output snapshot tests.
  *
  * Pins the `--json` envelope shape across all 5 adapters. Adding
  * fields to the envelope is allowed (downstream consumers can
@@ -18,7 +18,7 @@ import { emitExecution } from '../../src/cli/commands/run';
 import { FIXTURE_MINIMAL_JS } from '../shared/runCapsule.fixtures';
 import { createFakeIo } from './io-fake';
 
-describe('--json envelope snapshots (implementation note)', () => {
+describe('--json envelope snapshots', () => {
   it('utility json-format: success', async () => {
     const { io, state } = createFakeIo({ stdin: '{"a":1}' });
     await runUtilityCommand(

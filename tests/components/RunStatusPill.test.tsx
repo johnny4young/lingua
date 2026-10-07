@@ -1,11 +1,11 @@
 /**
- * implementation — RunStatusPill render contract.
+ * RunStatusPill render contract.
  *
  * Covers:
  *   - Hidden on success and when runTermination is null.
  *   - Renders timeout / stopped / error variants with the right
  *     icon + text + tooltip.
- *   - Renders the implementation note countdown variant when showTimeoutCountdown
+ *   - Renders the countdown variant when showTimeoutCountdown
  *     is on AND runDeadlineAt is set.
  */
 
@@ -47,7 +47,7 @@ function selectPill(): HTMLElement | null {
   );
 }
 
-describe('implementation — <RunStatusPill>', () => {
+describe('<RunStatusPill>', () => {
   beforeEach(() => {
     useResultStore.setState({
       runTermination: null,

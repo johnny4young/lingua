@@ -1,5 +1,5 @@
 /**
- * implementation — pure helper that turns a `(snapshot, current)`
+ * Pure helper that turns a `(snapshot, current)`
  * pair into the row shape consumed by `<CompareResultsPanel>`.
  *
  * Two flavors:

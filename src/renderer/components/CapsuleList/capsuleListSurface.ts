@@ -1,5 +1,5 @@
 /**
- * implementation note — surface claim for the capsule browse
+ * Surface claim for the capsule browse
  * overlay's `capsule.browse_opened` telemetry.
  *
  * The overlay fires the event once per mount, but it can be opened

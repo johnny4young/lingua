@@ -61,6 +61,9 @@ interface ActiveProjectTerminal {
 }
 
 const sessions = new Map<string, ActiveProjectTerminal>();
+// Starts await shell lookup and the node-pty import; reserve their slots up front.
+const pendingStarts = new Map<number, number>();
+const ownerGenerations = new Map<number, number>();
 
 function isValidDimension(
   value: unknown,
@@ -177,10 +180,31 @@ export async function startProjectTerminal(
   ) {
     return { ok: false, reason: 'invalid-dimensions' };
   }
-  if (ownerSessionCount(ownerId) >= MAX_SESSIONS_PER_OWNER) {
+  const pending = pendingStarts.get(ownerId) ?? 0;
+  if (ownerSessionCount(ownerId) + pending >= MAX_SESSIONS_PER_OWNER) {
     return { ok: false, reason: 'session-limit' };
   }
+  pendingStarts.set(ownerId, pending + 1);
+  const generation = ownerGenerations.get(ownerId) ?? 0;
+  try {
+    return await spawnProjectTerminal(rootId, rootPath, ownerId, columns, rows, callbacks, options, generation);
+  } finally {
+    const remaining = (pendingStarts.get(ownerId) ?? 1) - 1;
+    if (remaining > 0) pendingStarts.set(ownerId, remaining);
+    else pendingStarts.delete(ownerId);
+  }
+}
 
+async function spawnProjectTerminal(
+  rootId: string,
+  rootPath: string,
+  ownerId: number,
+  columns: number,
+  rows: number,
+  callbacks: ProjectTerminalCallbacks,
+  options: ProjectTerminalRuntimeOptions,
+  generation: number
+): Promise<ProjectTerminalStartResult> {
   const platform = options.platform ?? process.platform;
   const hostEnv = options.hostEnv ?? process.env;
   const shell = await resolveProjectShell(platform, hostEnv);
@@ -194,6 +218,11 @@ export async function startProjectTerminal(
     } catch {
       return { ok: false, reason: 'spawn-failed' };
     }
+  }
+
+  // The owner reset (reload or destroy) while this start was awaiting.
+  if ((ownerGenerations.get(ownerId) ?? 0) !== generation) {
+    return { ok: false, reason: 'spawn-failed' };
   }
 
   const sessionId = randomUUID();
@@ -297,6 +326,7 @@ export function disposeProjectTerminalSessionsForRoot(rootId: string): number {
 }
 
 export function disposeProjectTerminalSessionsForOwner(ownerId: number): number {
+  ownerGenerations.set(ownerId, (ownerGenerations.get(ownerId) ?? 0) + 1);
   const owned = [...sessions.values()].filter(session => session.ownerId === ownerId);
   for (const session of owned) killSession(session, 'owner-destroyed');
   return owned.length;

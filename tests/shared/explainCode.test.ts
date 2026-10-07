@@ -67,3 +67,10 @@ describe('buildExplainCodeRequest', () => {
     expect(req.model).toBe('qwen3-coder');
   });
 });
+
+describe('buildExplainCodeRequest answer language', () => {
+  it('adds the answer language to the user turn', () => {
+    const req = buildExplainCodeRequest({ code: 'x=1', language: 'python', answerLanguage: 'Spanish' });
+    expect(req.messages[1]!.content).toContain('Answer in: Spanish\n');
+  });
+});

@@ -1,5 +1,5 @@
 /**
- * implementation — `url-parse` adapter.
+ * `url-parse` adapter.
  *
  * Decodes a URL into its structured components (protocol, host,
  * port, pathname, search params, hash). Output is a JSON-stringified
@@ -10,7 +10,7 @@
 
 import type { UtilityAdapter } from './types';
 
-/** No options implementation. implementation could add `outputShape: 'flat' | 'tree'`. */
+/** No options yet. A later change could add `outputShape: 'flat' | 'tree'`. */
 export type UrlParseOptions = Record<string, never>;
 
 interface ParsedUrl {
@@ -31,7 +31,8 @@ interface ParsedUrl {
 function parseUrl(input: string): ParsedUrl | null {
   try {
     const url = new URL(input);
-    const searchParams: Record<string, string | string[]> = {};
+    // Query names are data, including Object.prototype names and __proto__.
+    const searchParams: Record<string, string | string[]> = Object.create(null);
     for (const [key, value] of url.searchParams.entries()) {
       const existing = searchParams[key];
       if (existing === undefined) {

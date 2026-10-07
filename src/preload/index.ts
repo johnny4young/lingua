@@ -132,8 +132,8 @@ contextBridge.exposeInMainWorld('lingua', {
   go: {
     detect: (userEnv?: Record<string, string>) =>
       typedInvoke('go:detect', userEnv),
-    // implementation: userEnv flows through to the Go subprocess and is
-    // merged over the minimal internal host allowlist in main. The
+    // userEnv flows through to the Go subprocess and is
+    // merged over the minimal host allowlist in main. The
     // renderer-side env-vars store already validated + sanitized the
     // record before handing it off.
     compile: (
@@ -149,9 +149,9 @@ contextBridge.exposeInMainWorld('lingua', {
   rust: {
     detect: (userEnv?: Record<string, string>) =>
       typedInvoke('rust:detect', userEnv),
-    // implementation — userEnv flows through to rustc + spawn. The
+    // userEnv flows through to rustc + spawn. The
     // renderer-side envVarsStore already sanitized the record; main
-    // only adds the internal host allowlist under it.
+    // only adds the host allowlist under it.
     run: (
       sourceCode: string,
       userEnv?: Record<string, string>,
@@ -161,7 +161,7 @@ contextBridge.exposeInMainWorld('lingua', {
     stop: (runId: string) => typedInvoke('rust:stop', runId),
   },
 
-  // implementation — desktop Ruby child-spawn IPC. Distinct from the
+  // Desktop Ruby child-spawn IPC. Distinct from the
   // worker-mode WASM runner (@ruby/wasm-wasi); the desktop subprocess
   // path lets the user code see system gems + native performance.
   // Web build's adapter (src/web/adapter.ts) deliberately omits this
@@ -172,16 +172,16 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: RubyRunInvokeOptions) =>
       typedInvoke('ruby:run', source, options),
     stop: (runId: string) => typedInvoke('ruby:stop', runId),
-    // implementation — interactive stdin: stream input to a live run + close it.
+    // Interactive stdin: stream input to a live run + close it.
     writeStdin: (runId: string, data: string) =>
       typedInvoke('ruby:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('ruby:stdin-close', runId),
-    // implementation — live output stream (consumers filter by runId).
+    // Live output stream (consumers filter by runId).
     onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
       typedOn('runtime:output-chunk', handler),
   },
 
-  // implementation — desktop Node child-spawn IPC. Distinct from the
+  // Desktop Node child-spawn IPC. Distinct from the
   // worker-mode JS runner (which executes inside a sandboxed
   // WebWorker on the renderer side). The Node mode runs the user's
   // code in a real `node` subprocess on the desktop host so full
@@ -192,16 +192,16 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (source: string, options?: NodeRunInvokeOptions) =>
       typedInvoke('node:run', source, options),
     stop: (runId: string) => typedInvoke('node:stop', runId),
-    // implementation — interactive stdin: stream input to a live run + close it.
+    // Interactive stdin: stream input to a live run + close it.
     writeStdin: (runId: string, data: string) =>
       typedInvoke('node:stdin-write', runId, data),
     closeStdin: (runId: string) => typedInvoke('node:stdin-close', runId),
-    // implementation — live output stream (consumers filter by runId).
+    // Live output stream (consumers filter by runId).
     onOutput: (handler: (event: RuntimeOutputChunk) => void) =>
       typedOn('runtime:output-chunk', handler),
   },
 
-  // implementation — desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
+  // Desktop Deno child-spawn IPC. Runs TS/JS directly; sandboxed
   // to the temp dir via --allow-read. Web adapter omits this surface.
   deno: {
     detect: (userEnv?: Record<string, string>, force?: boolean) =>
@@ -211,7 +211,7 @@ contextBridge.exposeInMainWorld('lingua', {
     stop: (runId: string) => typedInvoke('deno:stop', runId),
   },
 
-  // implementation — desktop Bun child-spawn IPC. Same shape as deno.
+  // Desktop Bun child-spawn IPC. Same shape as deno.
   bun: {
     detect: (userEnv?: Record<string, string>, force?: boolean) =>
       typedInvoke('bun:detect', userEnv, force),
@@ -228,7 +228,7 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   // Consent mirror — renderer pushes the telemetry/crash opt-in value so
-  // main can read it before creating the window. implementation.
+  // main can read it before creating the window.
   consent: {
     set: (value: 'granted' | 'declined' | 'unset') =>
       typedInvoke('consent:set', value),
@@ -237,7 +237,7 @@ contextBridge.exposeInMainWorld('lingua', {
   // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration
   // lands so secrets never cross into the renderer. The API shape still
-  // exists now so implementation can wire against a stable contract later.
+  // exists now so a later change can wire against a stable contract later.
   env: {
     snapshot: () => typedInvoke('env:snapshot'),
   },
@@ -255,7 +255,7 @@ contextBridge.exposeInMainWorld('lingua', {
   projectTerminal,
   localMcp,
 
-  // implementation — desktop LSP bridges. The renderer
+  // Desktop LSP bridges. The renderer
   // never talks to rust-analyzer or gopls directly; high-level
   // commands go through these handles and notifications stream back
   // via `onNotification` / `onStatusChanged`. Both launchers are
@@ -271,7 +271,7 @@ contextBridge.exposeInMainWorld('lingua', {
     typedOn('app:before-close', () => callback()),
   forceClose: () => typedSend('app:force-close'),
 
-  // File system IPC — internal capability sandbox. Preload is a narrow typed
+  // File system IPC — capability sandbox. Preload is a narrow typed
   // pass-through; main owns approval checks, capability resolution, and
   // containment validation for every rootId + relativePath pair.
   fs: {
@@ -296,7 +296,7 @@ contextBridge.exposeInMainWorld('lingua', {
       query: string,
       options?: FsSearchOptions
     ) => typedInvoke('fs:searchInFiles', rootId, relativePath, query, options),
-    // implementation — preview + apply replace-in-files.
+    // Preview + apply replace-in-files.
     replaceInFiles: (
       rootId: RootId,
       relativePath: RelativePath,
@@ -348,12 +348,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('fs:mkdir', rootId, relativePath),
     touch: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:touch', rootId, relativePath),
-    // implementation note — surface the entry in the OS file
+    // Surface the entry in the OS file
     // manager (Finder / Explorer / Nautilus). Web build no-ops via
     // the FSA adapter (no underlying absolute path).
     revealInFinder: (rootId: RootId, relativePath: RelativePath) =>
       typedInvoke('fs:reveal-in-finder', rootId, relativePath),
-    // implementation — project zip bundles. Export packs the root into
+    // Project zip bundles. Export packs the root into
     // a `.zip` via a save dialog; import extracts renderer-supplied
     // bytes into a chosen folder after authoritative re-validation.
     exportBundle: (
@@ -373,11 +373,11 @@ contextBridge.exposeInMainWorld('lingua', {
         filename: string | null;
       }) => void
     ) => typedOn('fs:changed', callback),
-    // internal — typed watcher-failure subscription. Main emits this
+    // Typed watcher-failure subscription. Main emits this
     // when fs.watch() throws on registration (EACCES, EMFILE, etc.).
     onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) =>
       typedOn('fs:watcher-failed', callback),
-    // internal — informational degraded signal when the watcher reports
+    // Informational degraded signal when the watcher reports
     // a sustained burst of null-filename events (Linux inotify
     // overflow). Renderer surfaces a warning-tone notice.
     onWatcherDegraded: (callback: (diagnostic: WatcherDiagnostic) => void) =>
@@ -406,7 +406,7 @@ contextBridge.exposeInMainWorld('lingua', {
     applyToken: (token: string) => typedInvoke('license:apply-token', token),
     clear: () => typedInvoke('license:clear'),
     revalidate: () => typedInvoke('license:revalidate'),
-    // implementation — desktop-side parallel of the web wrapper's
+    // desktop-side parallel of the web wrapper's
     // `removeDevice`. Renderer's licenseStore desktop branch
     // delegates here when the user clicks Remove on a non-current
     // row in Settings → License or inside the exhausted-devices
@@ -427,7 +427,7 @@ contextBridge.exposeInMainWorld('lingua', {
     getMemorySnapshot: () => typedInvoke('desktop-smoke:get-memory-snapshot'),
   },
 
-  // internal — destructive `replace` policy of the profile-restore
+  // Destructive `replace` policy of the profile-restore
   // flow gates behind a native confirm modal. `merge` and `preserve`
   // skip this round-trip and apply directly.
   profile: {
@@ -435,15 +435,15 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('profile:confirm-replace', counts, language),
   },
 
-  // internal — recovery surface in Settings → Account.
+  // Recovery surface in Settings → Account.
   recovery: {
     confirmReset: (scope: RecoveryResetScope, language?: string) =>
       typedInvoke('recovery:confirm-reset', scope, language),
     revealFolder: () => typedInvoke('recovery:reveal-folder'),
   },
 
-  // implementation — JS / TS dependency resolution and
-  // installation. implementation's `resolveJs` is read-only; implementation adds
+  // JS / TS dependency resolution and
+  // installation. `resolveJs` is read-only; the install path adds
   // `installJs` (spawn via main with `shell: false`),
   // `cancelInstallJs` (SIGTERM → SIGKILL keyed by runId), and
   // `onInstallLogJs` (streams subprocess stdout / stderr lines back
@@ -460,7 +460,7 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('dependencies:js:install:cancel', runId),
     onInstallLogJs: (handler: (event: DependencyInstallLogEvent) => void) =>
       typedOn('dependencies:js:install:log', handler),
-    // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add).
+    // Go / Rust / Ruby install (go get / cargo add / bundle add).
     installNative: (
       language: NativePackageLanguage,
       specifiers: readonly string[],
@@ -468,7 +468,7 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => typedInvoke('dependencies:native:install', language, specifiers, filePath),
   },
 
-  // implementation — Git read-only layer. Three channels:
+  // Git read-only layer. Three channels:
   //   - detect: probe binary + repo root + branch for a folder
   //   - status: per-file porcelain status bucket
   //   - diff: paired strings for Monaco's diff editor
@@ -480,12 +480,12 @@ contextBridge.exposeInMainWorld('lingua', {
       typedInvoke('git:status', repoRoot, filePath),
     diff: (repoRoot: string, filePath: string) =>
       typedInvoke('git:diff', repoRoot, filePath),
-    // implementation — Reveal repo working tree in the OS file
+    // Reveal repo working tree in the OS file
     // manager. Returns false when the path disappeared between the
     // context-menu open and the click, or when the OS rejected the
     // open. Renderer surfaces a localized notice on false.
     reveal: (repoRoot: string) => typedInvoke('git:reveal', repoRoot),
-    // implementation — start a `.git/HEAD` watcher for `repoRoot`.
+    // Start a `.git/HEAD` watcher for `repoRoot`.
     // Main streams `git:on-head-changed` events to the renderer; the
     // renderer subscribes via `onHeadChanged`. Calling twice for the
     // same repoRoot is a no-op.

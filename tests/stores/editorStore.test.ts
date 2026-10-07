@@ -33,9 +33,9 @@ import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
 
 function setActiveProLicense(): void {
-  // The existing editor-store suite predates internal and opens multiple
+  // The existing editor-store suite predates the tab budget and opens multiple
   // tabs per test. Seed a Pro license so those flows bypass the Free
-  // ceiling — each internal gate test below resets the tier back to free
+  // ceiling — each gate test below resets the tier back to free
   // inside its own body.
   useLicenseStore.setState({
     token: 'test.token',
@@ -132,7 +132,7 @@ describe('editorStore', () => {
     const tab = createDefaultTab('javascript');
     expect(tab.language).toBe('javascript');
     expect(tab.name).toMatch(/\.js$/);
-    // implementation — the Scratchpad seed showcases `//=>` + the
+    // The Scratchpad seed showcases `//=>` + the
     // pinned `// @watch` instead of a `console.log`. Asserting the
     // marker survives template refreshes (a contributor reverting
     // the demo would fail this test).
@@ -662,10 +662,15 @@ describe('editorStore', () => {
       useEditorStore.getState().addTab(tab);
       useEditorStore.getState().updateContent(tab.id, 'print("not saved")');
 
-      await useEditorStore.getState().saveActiveTabAs();
+      await expect(useEditorStore.getState().saveTabById(tab.id, true)).resolves.toBe(false);
 
       expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-save-fail');
       expect(useEditorStore.getState().tabs[0].isDirty).toBe(true);
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'error',
+        messageKey: 'editor.save.failed',
+      });
+      expect(useUIStore.getState().statusNotice?.detail).toBeUndefined();
     });
 
     it('revokes a picker-minted Save As capability when formatting throws before write', async () => {
@@ -690,10 +695,14 @@ describe('editorStore', () => {
         useEditorStore.getState().addTab(tab);
         useEditorStore.getState().updateContent(tab.id, 'package main');
 
-        await expect(useEditorStore.getState().saveActiveTabAs()).rejects.toThrow(
-          'formatter crashed'
-        );
+        await expect(useEditorStore.getState().saveTabById(tab.id, true)).resolves.toBe(false);
 
+        expect(useUIStore.getState().statusNotice).toMatchObject({
+          tone: 'error',
+          messageKey: 'editor.save.failed',
+          values: { name: tab.name },
+          detail: 'formatter crashed',
+        });
         expect(window.lingua.fs.write).not.toHaveBeenCalled();
         expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-format-fail');
       } finally {
@@ -822,6 +831,82 @@ describe('editorStore', () => {
     });
   });
 
+  describe('save commit keeps live run state', () => {
+    const savedJsTab = (overrides: Partial<ReturnType<typeof createDefaultTab>> = {}) => ({
+      ...createDefaultTab('javascript'),
+      name: 'live.js',
+      filePath: '/tmp/live.js',
+      rootId: 'root-live',
+      relativePath: 'live.js',
+      ...overrides,
+    });
+
+    it('keeps a run outcome that settled while the write was in flight', async () => {
+      let finishWrite!: (ok: boolean) => void;
+      (window.lingua.fs.write as ReturnType<typeof vi.fn>).mockReturnValue(
+        new Promise<boolean>(resolve => (finishWrite = resolve))
+      );
+      const tab = savedJsTab({ executionState: 'running' });
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'throw 1');
+
+      const saving = useEditorStore.getState().saveTabById(tab.id);
+      await vi.waitFor(() => expect(window.lingua.fs.write).toHaveBeenCalled());
+      useEditorStore.getState().setTabExecutionState(tab.id, 'error', 'Uncaught 1');
+      finishWrite(true);
+      expect(await saving).toBe(true);
+
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        executionState: 'error',
+        parseError: 'Uncaught 1',
+        isDirty: false,
+      });
+    });
+
+    it('keeps an armed one-shot timeout on a plain Save', async () => {
+      const tab = savedJsTab({ nextRunTimeoutOverrideMs: 60_000 });
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'while (true) {}');
+
+      await useEditorStore.getState().saveActiveTab();
+
+      expect(useEditorStore.getState().tabs[0]?.nextRunTimeoutOverrideMs).toBe(60_000);
+    });
+
+    it('does not revive a one-shot timeout consumed during the save', async () => {
+      let finishWrite!: (ok: boolean) => void;
+      (window.lingua.fs.write as ReturnType<typeof vi.fn>).mockReturnValue(
+        new Promise<boolean>(resolve => (finishWrite = resolve))
+      );
+      const tab = savedJsTab({ nextRunTimeoutOverrideMs: 60_000 });
+      useEditorStore.getState().addTab(tab);
+
+      const saving = useEditorStore.getState().saveTabById(tab.id);
+      await vi.waitFor(() => expect(window.lingua.fs.write).toHaveBeenCalled());
+      useEditorStore.getState().setTabNextRunTimeoutOverride(tab.id, null);
+      finishWrite(true);
+      await saving;
+
+      expect(useEditorStore.getState().tabs[0]).not.toHaveProperty('nextRunTimeoutOverrideMs');
+    });
+
+    it('drops the one-shot timeout when Save As retitles the tab', async () => {
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-renamed',
+        rootPath: '/tmp',
+        fileRelativePath: 'renamed.js',
+      });
+      const tab = savedJsTab({ nextRunTimeoutOverrideMs: 60_000 });
+      useEditorStore.getState().addTab(tab);
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      expect(useEditorStore.getState().tabs[0]?.name).toBe('renamed.js');
+      expect(useEditorStore.getState().tabs[0]).not.toHaveProperty('nextRunTimeoutOverrideMs');
+    });
+  });
+
   describe('closeTab', () => {
     it('should close a clean tab immediately', async () => {
       const tab = createDefaultTab('javascript');
@@ -883,6 +968,50 @@ describe('editorStore', () => {
       } finally {
         useSettingsStore.setState({ formatOnSave: false });
       }
+    });
+
+    it('keeps a regular tab open when edits land during the close-save', async () => {
+      (window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+      const tab: ReturnType<typeof createDefaultTab> = {
+        ...createDefaultTab('javascript'),
+        filePath: '/tmp/racing.js',
+        rootId: 'root-race',
+        relativePath: 'racing.js',
+      };
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'const a = 1;');
+      (window.lingua.fs.write as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => {
+        useEditorStore.getState().updateContent(tab.id, 'const a = 2;');
+        return true;
+      });
+
+      await expect(useEditorStore.getState().closeTab(tab.id)).resolves.toBe(false);
+      expect(useEditorStore.getState().tabs[0]?.content).toBe('const a = 2;');
+      expect(useEditorStore.getState().tabs[0]?.isDirty).toBe(true);
+    });
+
+    it('reports a rejected write and keeps the tab open', async () => {
+      (window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+      (window.lingua.fs.write as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error('EACCES: permission denied')
+      );
+      const tab: ReturnType<typeof createDefaultTab> = {
+        ...createDefaultTab('javascript'),
+        filePath: '/tmp/locked.js',
+        rootId: 'root-locked',
+        relativePath: 'locked.js',
+      };
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'const locked = true;');
+
+      await expect(useEditorStore.getState().closeTab(tab.id)).resolves.toBe(false);
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'error',
+        messageKey: 'editor.save.failed',
+        values: { name: tab.name },
+        detail: 'EACCES: permission denied',
+      });
     });
   });
 
@@ -1198,7 +1327,7 @@ describe('editorStore', () => {
     });
   });
 
-  describe('internal tab budget enforcement', () => {
+  describe('tab budget enforcement', () => {
     it('blocks notebook tabs on Free even when the tab budget is empty', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');
@@ -1281,7 +1410,7 @@ describe('editorStore', () => {
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
 
-    it('internal — emits feature.blocked telemetry when addTab hits the Free ceiling', async () => {
+    it('emits feature.blocked telemetry when addTab hits the Free ceiling', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
@@ -1300,7 +1429,7 @@ describe('editorStore', () => {
       );
     });
 
-    it('internal — emits feature.blocked telemetry when openFile hits the Free ceiling', async () => {
+    it('emits feature.blocked telemetry when openFile hits the Free ceiling', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
       mockTrackEvent.mockClear();
@@ -1320,7 +1449,7 @@ describe('editorStore', () => {
       );
     });
 
-    it('internal — does NOT emit feature.blocked when a Pro user opens additional tabs', async () => {
+    it('does NOT emit feature.blocked when a Pro user opens additional tabs', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       useLicenseStore.setState({
         token: 'pro.token',

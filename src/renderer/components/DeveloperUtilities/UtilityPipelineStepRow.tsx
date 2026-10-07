@@ -1,11 +1,11 @@
 /**
- * implementation — single-step row in the pipeline editor.
+ * single-step row in the pipeline editor.
  *
  * Renders the utility dropdown, the schema-driven options form
- * (implementation note: each adapter declares its options shape; this component
+ * (each adapter declares its options shape; this component
  * auto-renders the matching `<input>` / `<select>` / `<textarea>` /
  * checkbox), and the step status badge. Sortable via @dnd-kit
- * (implementation note).
+ *.
  */
 
 import { GripVertical, Trash2 } from 'lucide-react';

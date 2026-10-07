@@ -1,5 +1,5 @@
 /**
- * internal implementation — Signal-Slate UI primitives.
+ * Signal-Slate UI primitives.
  *
  * Low-level building blocks the design system uses everywhere:
  * `Eyebrow` (uppercase section label), `Pill` (status pills with

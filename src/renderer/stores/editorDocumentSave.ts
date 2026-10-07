@@ -6,9 +6,11 @@ import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useRecipeStore } from './recipeStore';
 import { useResultStore } from './resultStore';
 import { isWorkspaceTab } from './editorTabUtils';
-import { persistTab } from './editorPersistence';
+import { FileWriteRejectedError, persistTab } from './editorPersistence';
+import { useUIStore } from './uiStore';
 import { asRootId } from '../../shared/fs/brandedIds';
 import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
+import type { FileTab } from '../types/editor';
 
 /** Commit disk metadata without losing edits that arrive during a save. */
 export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
@@ -51,7 +53,10 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
             () => get().tabs.some(t => t.id === id),
             notebookSnapshot
           )
-        : await persistTab(tab, forceSaveAs);
+        : await persistTab(tab, forceSaveAs).catch((error: unknown) => {
+            notifySaveFailed(tab.name, error);
+            return null;
+          });
     if (!savedTab) return false;
     if (tab.kind === 'notebook' && !get().tabs.some(t => t.id === id)) {
       if (
@@ -85,14 +90,15 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
             isDirty: notebookDocumentSnapshot(id) !== savedTab.content,
           };
         }
+        const committed = withLiveRunState(savedTab, t);
         if (t.content !== tab.content) {
-          return { ...savedTab, content: t.content, isDirty: true };
+          return { ...committed, content: t.content, isDirty: true };
         }
-        return savedTab;
+        return committed;
       }),
     }));
 
-    // implementation — Save-As that changed the language invalidates
+    // Save-As that changed the language invalidates
     // the result-store snapshot ring for the saved tab. Re-read
     // `activeTabId` at this point (not the value captured before the
     // async `persistTab` hop) so that if the user switched tabs
@@ -130,4 +136,28 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
   };
 
   return saveTab;
+}
+
+function notifySaveFailed(name: string, error: unknown): void {
+  const detail =
+    error instanceof Error && !(error instanceof FileWriteRejectedError) && error.message
+      ? error.message
+      : undefined;
+  useUIStore.getState().pushStatusNotice({
+    tone: 'error',
+    messageKey: 'editor.save.failed',
+    values: { name },
+    ...(detail ? { detail } : {}),
+  });
+}
+
+/** A run can settle, or consume its one-shot timeout, while the save is in flight. */
+function withLiveRunState(saved: FileTab, live: FileTab): FileTab {
+  const committed: FileTab = {
+    ...saved,
+    executionState: live.executionState,
+    parseError: live.parseError,
+  };
+  if (live.nextRunTimeoutOverrideMs === undefined) delete committed.nextRunTimeoutOverrideMs;
+  return committed;
 }

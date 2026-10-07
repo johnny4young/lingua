@@ -1,7 +1,7 @@
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
-import { RUNTIME_ASSETS, type RuntimeAssetId } from '../src/shared/runtimeAssets';
+import { RUNTIME_ASSETS, type RuntimeAssetId } from '../src/shared/runtimeAssets.ts';
 
 type CopyRuntimeAssetsPluginOptions = {
   readonly exclude?: readonly RuntimeAssetId[];

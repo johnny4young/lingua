@@ -38,17 +38,3 @@ export const MAX_COMPILE_OUTPUT_BYTES = 1024 * 1024;
 
 /** Cap on compiled Go WASM artifacts before crossing IPC into renderer. */
 export const MAX_GO_WASM_BYTES = 10 * 1024 * 1024;
-
-/**
- * implementation `value` to fit in `maxBytes` (UTF-16 code units, matching
- * `String.prototype.length`) and append `marker` so the user can tell
- * the output was clipped. Returns the input unchanged when it already
- * fits. Marker is always appended in full; if `maxBytes` would not
- * leave room for it we still emit at least one source character before
- * the marker so the truncation is unambiguous.
- */
-export function truncateBytes(value: string, maxBytes: number, marker: string): string {
-  if (value.length <= maxBytes) return value;
-  const headroom = Math.max(1, maxBytes - marker.length);
-  return `${value.slice(0, headroom)}${marker}`;
-}

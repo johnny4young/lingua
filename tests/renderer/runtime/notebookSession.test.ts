@@ -1,5 +1,5 @@
 /**
- * implementation — runner-owned session manager coverage.
+ * runner-owned session manager coverage.
  *
  * Tests the pure helpers (`composeNotebookCellSource`,
  * `rewriteTopLevelDeclarationsForSession`, `extractSerializableDelta`)
@@ -31,14 +31,14 @@ vi.mock('../../../src/renderer/runners', () => {
     runnerManager: {
       execute: vi.fn(),
       stop: vi.fn(),
-      // implementation — the session reaches the Python runner to reset a notebook's
+      // The session reaches the Python runner to reset a notebook's
       // kernel scope on dispose / restart.
       getPythonRunner: vi.fn(() => ({ resetScope: mockResetScope })),
     },
   };
 });
 
-// implementation — the SQL cell branch calls `executeQuery` from the DuckDB client.
+// The SQL cell branch calls `executeQuery` from the DuckDB client.
 // Mock just that export so the session tests never stand up the WASM engine.
 vi.mock('../../../src/renderer/runtime/duckdbClient', () => {
   return { executeQuery: vi.fn() };
@@ -56,9 +56,15 @@ import {
   resetNotebookSessionsForTests,
   rewriteTopLevelDeclarationsForSession,
   runNotebookCell,
+  stopNotebookRun,
   transpileTypescriptCell,
 } from '../../../src/renderer/runtime/notebookSession';
 import { runnerManager } from '../../../src/renderer/runners';
+import {
+  claimNotebookRunner,
+  notebookRunnerOwner,
+  resetNotebookRunnerLocksForTests,
+} from '../../../src/renderer/stores/notebookRunnerLockStore';
 import { executeQuery } from '../../../src/renderer/runtime/duckdbClient';
 import type { NotebookCellLanguage } from '../../../src/shared/notebook';
 import { parse } from 'acorn';
@@ -89,11 +95,12 @@ function sqlOutcome(
 }
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
+const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
 
 /**
  * Whether a source string parses at all, under the same rules the composed
  * cell body runs under: it is an `AsyncFunction` body, so top-level `await`
- * and `return` are legal there. Used by the implementation note round-trip
+ * and `return` are legal there. Used by the round-trip
  * guard to assert the rewriter introduces no new syntax error.
  *
  * The compiler-based version of this helper counted `parseDiagnostics`, a
@@ -132,9 +139,9 @@ describe('notebookSession closed enums', () => {
 
   it('isNotebookRunnableLanguage runs JS + TS + Python ', () => {
     expect(isNotebookRunnableLanguage('javascript')).toBe(true);
-    // implementation — TypeScript is type-stripped + run through the JS pipeline.
+    // TypeScript is type-stripped + run through the JS pipeline.
     expect(isNotebookRunnableLanguage('typescript')).toBe(true);
-    // implementation — Python runs independently through the Python runner.
+    // Python runs independently through the Python runner.
     expect(isNotebookRunnableLanguage('python')).toBe(true);
   });
 });
@@ -165,7 +172,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).toContain('_sessionDelta.v = v');
   });
 
-  it('captures multi-line declarations (implementation — was skipped)', async () => {
+  it('captures multi-line declarations (previously skipped)', async () => {
     const src = 'const obj = {\n  a: 1,\n};';
     const out = await rewriteTopLevelDeclarationsForSession(src);
     expect(out).toContain('_sessionDelta.obj = obj');
@@ -173,7 +180,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(out).not.toContain('_sessionDelta.obj = obj;\n  a:');
   });
 
-  it('captures `class` declarations (implementation — was skipped)', async () => {
+  it('captures `class` declarations (previously skipped)', async () => {
     const out = await rewriteTopLevelDeclarationsForSession('class Greeter { hi() { return 1; } }');
     expect(out).toContain('_sessionDelta.Greeter = Greeter');
   });
@@ -202,7 +209,7 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
 
   it('leaves declarations nested inside a block local', async () => {
     // A real nested decl (inside an `if` block) is NOT a top-level
-    // statement, so it is never hoisted — unlike the implementation regex,
+    // statement, so it is never hoisted — unlike the regex,
     // which used a crude column-zero proxy.
     const out = await rewriteTopLevelDeclarationsForSession(
       'if (true) {\n  const nested = 1;\n}'
@@ -226,11 +233,11 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     expect(await rewriteTopLevelDeclarationsForSession(src)).toBe(src);
   });
 
-  // implementation note — the injection must never corrupt the source: the rewriter
+  // The injection must never corrupt the source: the rewriter
   // introduces no NEW syntax error vs the input (re-parsed with the TS
   // parser). Guards against a future regression that splices a broken
   // assignment mid-expression.
-  it('introduces no new syntax errors for every shape (implementation note)', async () => {
+  it('introduces no new syntax errors for every shape', async () => {
     const inputs = [
       'const x = 1;',
       'const { a, b: c, ...rest } = obj;',
@@ -248,10 +255,10 @@ describe('rewriteTopLevelDeclarationsForSession', () => {
     }
   });
 
-  // implementation note — a destructuring default with a side effect must run once.
+  // A destructuring default with a side effect must run once.
   // The hoist reads the BOUND name (`a`), never re-invokes the default,
   // so the delta capture has no double-evaluation hazard.
-  it('hoists a destructuring default by binding name, not re-eval (implementation note)', async () => {
+  it('hoists a destructuring default by binding name, not re-eval', async () => {
     const out = await rewriteTopLevelDeclarationsForSession(
       'const { a = sideEffect() } = obj;'
     );
@@ -383,7 +390,7 @@ describe('transpileTypescriptCell ', () => {
     expect(result.js).not.toContain('export {}');
   });
 
-  it('implementation note — emits a serializable runtime value for `enum` so it crosses cells', async () => {
+  it('emits a serializable runtime value for `enum` so it crosses cells', async () => {
     const result = await transpileTypescriptCell('enum Color { Red, Green }');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -395,7 +402,7 @@ describe('transpileTypescriptCell ', () => {
     expect(safe.Color).toMatchObject({ Red: 0, Green: 1 });
   });
 
-  it('implementation note — lowers a `namespace` to a captured object', async () => {
+  it('lowers a `namespace` to a captured object', async () => {
     const result = await transpileTypescriptCell(
       'namespace NS { export const v = 1; }'
     );
@@ -406,7 +413,7 @@ describe('transpileTypescriptCell ', () => {
     expect(safe.NS).toMatchObject({ v: 1 });
   });
 
-  it('implementation note — surfaces a syntax error with a 1-based line:col position', async () => {
+  it('surfaces a syntax error with a 1-based line:col position', async () => {
     const result = await transpileTypescriptCell('const y: number = ;');
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -496,7 +503,7 @@ describe('runNotebookCell + session manager', () => {
     // WITHOUT the JS-only structured-result channel.
     expect(mockExecute.mock.calls[0]?.[0]).toBe('python');
     expect(mockExecute.mock.calls[0]?.[1]).toBe('print("hello")');
-    // implementation — the cell runs against a per-notebook kernel scope keyed by tabId.
+    // The cell runs against a per-notebook kernel scope keyed by tabId.
     expect(mockExecute.mock.calls[0]?.[2]).toMatchObject({
       language: 'python',
       scopeId: 'tab-py',
@@ -506,7 +513,7 @@ describe('runNotebookCell + session manager', () => {
     );
   });
 
-  it('implementation — disposing a notebook session resets its Python kernel scope', () => {
+  it('disposing a notebook session resets its Python kernel scope', () => {
     mockResetScope.mockClear();
     disposeNotebookSession('tab-restart');
     expect(mockResetScope).toHaveBeenCalledWith('tab-restart');
@@ -649,7 +656,7 @@ describe('runNotebookCell + session manager', () => {
   });
 
   it('does NOT merge from the display string when structuredResult is absent', async () => {
-    // Regression guard for the pre-internal bug: the worker only
+    // Regression guard for the earlier bug: the worker only
     // ever returned the delta inside the `result` DISPLAY STRING (which it
     // truncates at MAX_RESULT_BYTES), and the merge read it as if it were a
     // structured object — so nothing ever shared cross-cell in the real
@@ -880,6 +887,57 @@ describe('runNotebookCell + session manager', () => {
     });
     expect(await oldRun).toEqual({ ok: false, reason: 'session-disposed' });
     expect(getNotebookSessionKeys('tab-reopened')).toEqual(['fresh']);
+  });
+
+  describe('shared runner claims', () => {
+    beforeEach(() => {
+      resetNotebookRunnerLocksForTests();
+      mockStop.mockReset();
+    });
+
+    it('rejects with runtime-busy while another notebook holds the runner', async () => {
+      const release = claimNotebookRunner('javascript', 'other-notebook')!;
+      const result = await runNotebookCell({
+        tabId: 'tab-busy',
+        language: 'typescript',
+        source: 'const n: number = 1;',
+      });
+      expect(result).toEqual({ ok: false, reason: 'runtime-busy' });
+      expect(mockExecute).not.toHaveBeenCalled();
+      release();
+    });
+
+    it('holds the runner only while the cell runs', async () => {
+      let settle!: (value: unknown) => void;
+      mockExecute.mockImplementationOnce(() => new Promise(resolve => {
+        settle = resolve;
+      }));
+      const run = runNotebookCell({ tabId: 'tab-hold', language: 'python', source: 'x = 1' });
+      expect(notebookRunnerOwner('python')).toBe('tab-hold');
+      await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+      settle({ kind: 'ok', stdout: [], stderr: [] });
+      await run;
+      expect(notebookRunnerOwner('python')).toBeNull();
+    });
+
+    it('stopNotebookRun stops only the runner the cell holds', async () => {
+      mockExecute.mockImplementationOnce(() => new Promise(() => {}));
+      void runNotebookCell({ tabId: 'tab-stop', language: 'python', source: 'while True: pass' });
+      stopNotebookRun('tab-idle');
+      expect(mockStop).not.toHaveBeenCalled();
+      stopNotebookRun('tab-stop');
+      expect(mockStop).toHaveBeenCalledTimes(1);
+      expect(mockStop).toHaveBeenCalledWith('python');
+    });
+
+    it('disposing a notebook stops and releases the runner its cell holds', async () => {
+      mockExecute.mockImplementationOnce(() => new Promise(() => {}));
+      void runNotebookCell({ tabId: 'tab-close', language: 'javascript', source: 'for (;;) {}' });
+      await vi.waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+      disposeNotebookSession('tab-close');
+      expect(mockStop).toHaveBeenCalledWith('javascript');
+      expect(notebookRunnerOwner('javascript')).toBeNull();
+    });
   });
 });
 

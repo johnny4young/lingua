@@ -1,5 +1,5 @@
 /**
- * internal — cURL → Code converter helper.
+ * cURL → Code converter helper.
  *
  * Pure, offline, renderer-side. Takes a cURL invocation and produces
  * equivalent code in one of four targets:

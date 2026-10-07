@@ -1,5 +1,5 @@
 /**
- * implementation note — ambient pill that flags "a stdin buffer
+ * Ambient pill that flags "a stdin buffer
  * is staged for the next run on this tab". Mirrors the visual
  * language of `<AutoLogStatusPill>` / `<AutoRunGateNotice>` so
  * the run-time-affordance row in the result panel stays scannable.
@@ -7,7 +7,7 @@
  * Self-gates on language (JS / TS / Python) AND non-empty buffer.
  * Hidden when:
  *   - The active tab is on an unsupported language.
- *   - The Settings master toggle is off (implementation note).
+ *   - The Settings master toggle is off.
  *   - The buffer is empty / undefined.
  *   - The runtime mode is `browser-preview` (sandbox iframe has no
  *     stdin surface).
@@ -43,7 +43,7 @@ export function StdinStatusPill() {
   const lineCount = lines.length;
   if (lineCount === 0) return null;
 
-  // FASE 2b (MOV.05) — "stdin staged" is an informational marker, so
+  // "stdin staged" is an informational marker, so
   // it adopts the quiet `neutral` StatusBadge tone. The MessageSquare
   // icon and the line-count label ride along as badge children; the
   // wrapper keeps the data-* hook and the tooltip.

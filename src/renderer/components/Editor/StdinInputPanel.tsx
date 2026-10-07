@@ -1,5 +1,5 @@
 /**
- * implementation — Stdin panel redesigned as an ordered queue.
+ * Stdin panel redesigned as an ordered queue.
  *
  * One line in the buffer = one response to `prompt()` / `input()`.
  * The panel layers rich feedback on top of the existing per-tab
@@ -96,7 +96,7 @@ interface PresetDef {
 }
 
 /**
- * internal polish #11 — preset values vary by host language so the
+ * Preset values vary by host language so the
  * "boolean defaults" reflect what `prompt()` / `input()` actually
  * receive in that runtime. JS/TS prompt() returns strings, so any
  * truthy alias works (`y`, `true`); Python `input()` returns strings
@@ -157,7 +157,7 @@ export function StdinInputPanel() {
   const lines = useMemo(() => splitLines(buffer), [buffer]);
   // Append a single trailing blank slot so the next prompt is always
   // visible/editable without forcing the user to press Enter first.
-  // internal review — always allocate a fresh array so we never mutate
+  // Always allocate a fresh array so we never mutate
   // the `lines` memo by accident (the previous `tail = lines` branch
   // pushed empty strings into the cached `lines` reference and the
   // mutation leaked into `lines.filter(...)` downstream).
@@ -168,7 +168,7 @@ export function StdinInputPanel() {
     return tail;
   }, [lines]);
 
-  // internal polish #3 — DnD sensors must be initialised before any
+  // DnD sensors must be initialised before any
   // early return so the hooks list stays stable across re-renders
   // when the active tab toggles between supported / unsupported.
   const sensors = useSensors(
@@ -242,7 +242,7 @@ export function StdinInputPanel() {
 
   const handleClear = () => writeLines([]);
 
-  // internal polish #3 — drag-reorder with @dnd-kit/sortable. The user
+  // Drag-reorder with @dnd-kit/sortable. The user
   // can grab any row's left handle and drop it elsewhere; the buffer
   // is rewritten with the reordered values. Empty trailing slots are
   // not real lines (they're synthesised in `slots`), so reorders only
@@ -267,7 +267,7 @@ export function StdinInputPanel() {
     writeLines(reordered);
   };
 
-  // internal polish #11 — language-aware presets. The preset list is
+  // Language-aware presets. The preset list is
   // recomputed lazily; with three modal options the cost is trivial.
   const language = activeTab.language as 'javascript' | 'typescript' | 'python';
   const presets = presetsForLanguage(language);

@@ -1,5 +1,5 @@
 /**
- * implementation — Utility pipeline schema + execution engine.
+ * Utility pipeline schema + execution engine.
  *
  * A pipeline is a versioned, named, ordered list of utility steps.
  * Each step references an adapter from `src/shared/utilities/registry.ts`
@@ -25,20 +25,19 @@
  * Design landmines documented inline:
  *
  *   1. `PIPELINE_STEP_STATUSES` keeps `'incompatible'` reserved for
- *      implementation binary/structured adapters. All implementation adapters are
+ *      future binary/structured adapters. All current adapters are
  *      `text → text`; the engine code path is wired but never fires
  *      with the current registry.
  *
- *   2. `parsePipeline()` REJECTS the whole pipeline on shape
- *      mismatch. `parseStep()` is more lenient — it returns `null`
- *      for unknown-utility-id so the persisted-pipeline rehydrate
- *      path can drop orphaned steps gracefully. Document which level
- *      the caller is using before adding new validations.
+ *   2. `parsePipeline()` rejects malformed top-level fields but drops
+ *      invalid steps during persisted-library recovery. JSON import
+ *      uses `tryImportPipelineJson()` instead: no imported step may
+ *      disappear silently, including malformed known-utility steps.
  *
  *   3. `runPipeline()` uses `Promise.race` for the per-step timeout
  *      (no native abort for adapter promises). Adapters that take
  *      >`STEP_TIMEOUT_MS` ms return `'timeout'`. The pending adapter
- *      promise is left with an attached no-op catch (implementation
+ *      promise is left with an attached no-op catch (same
  *      precedent) so a late rejection cannot bubble.
  */
 
@@ -69,10 +68,10 @@ export const STEP_VALUE_BYTE_CAP = 256 * 1024;
  *   - `'skipped'`   — an upstream step failed; this step never ran.
  *   - `'timeout'`   — adapter exceeded `STEP_TIMEOUT_MS`.
  *   - `'incompatible'` — adapter's `inputKind` doesn't match the
- *                       upstream's `outputKind`. Reserved for implementation.
+ *                       upstream's `outputKind`. Reserved for later.
  *
  * Mirrored on `update-server/src/telemetry.ts` if telemetry later
- * surfaces this enum directly (implementation uses an aggregate
+ * surfaces this enum directly (today it uses an aggregate
  * `PIPELINE_RUN_STATUSES` instead).
  */
 export const PIPELINE_STEP_STATUSES = [
@@ -180,11 +179,11 @@ export function parsePipelineStep(value: unknown): PipelineStepV1 | null {
 }
 
 /**
- * Strict pipeline parser. Returns `null` if the top-level shape is
- * broken; the engine's load path silently drops malformed pipelines
- * from the persisted list. Steps with unknown utility ids are
- * filtered (so a forward-version drift drops the orphans without
- * losing the whole pipeline shell).
+ * Recovery parser. Returns `null` if the top-level shape is broken or
+ * valid steps share an id. Invalid steps, including unknown utility ids,
+ * are filtered so persisted-library recovery retains the pipeline shell.
+ * Explicit JSON imports must use `tryImportPipelineJson` to prevent
+ * silently changing the imported recipe.
  */
 export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
   if (!isRecord(value)) return null;
@@ -219,7 +218,7 @@ export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
  * Closed-enum reject reasons for `tryImportPipelineJson`. The
  * renderer maps these onto i18n copy + telemetry buckets.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the literal union
 const PIPELINE_IMPORT_REJECT_REASONS = [
   'malformed-json',
   'invalid-shape',
@@ -235,7 +234,7 @@ export type PipelineImportOutcome =
 
 /**
  * Decode a pasted/dropped pipeline JSON. Strict at the top level
- * (wrong-version is rejected outright). implementation also hard-rejects
+ * (wrong-version is rejected outright). It also hard-rejects
  * unknown utility ids so the imported recipe never looks runnable
  * while silently missing a step.
  *
@@ -285,7 +284,7 @@ export function tryImportPipelineJson(
       }
     }
     if (unknown.size > 0) {
-      // implementation treats unknown utility ids as a hard reject (the
+      // The engine treats unknown utility ids as a hard reject (the
       // pipeline as designed can't run). A future work may downgrade
       // this to a warning + drop-the-step.
       return {
@@ -301,6 +300,18 @@ export function tryImportPipelineJson(
   const pipeline = parsePipeline(parsed);
   if (pipeline === null) {
     return { ok: false, reason: 'invalid-shape', detail: 'parsePipeline rejected' };
+  }
+  // Recovery may discard malformed steps; explicit import must retain the
+  // complete recipe rather than report success with different behavior.
+  if (!Array.isArray(parsed.steps) || pipeline.steps.length !== parsed.steps.length) {
+    const index = Array.isArray(parsed.steps)
+      ? parsed.steps.findIndex((step) => parsePipelineStep(step) === null)
+      : -1;
+    return {
+      ok: false,
+      reason: 'invalid-shape',
+      ...(index >= 0 ? { detail: `step ${index + 1} is malformed` } : {}),
+    };
   }
   return { ok: true, pipeline, warnings: [] };
 }
@@ -407,8 +418,8 @@ export async function runPipeline(
     const adapter = getAdapter(step.utilityId);
     if (adapter === undefined) {
       // The adapter is gone (forward-version drift). Mark as error +
-      // cascade skips. implementation can surface this as a structural
-      // `'removed'` status; implementation uses `'error'` for simplicity.
+      // cascade skips. A later change can surface this as a structural
+      // `'removed'` status; for now it uses `'error'` for simplicity.
       const errored: PipelineStepResult = {
         stepId: step.id,
         utilityId: step.utilityId,
@@ -422,8 +433,8 @@ export async function runPipeline(
       continue;
     }
 
-    // Kind compatibility check — reserved for implementation but the engine
-    // wiring is in place. With all implementation adapters at `text → text`
+    // Kind compatibility check — reserved for later, but the engine
+    // wiring is in place. With all current adapters at `text → text`
     // this branch never fires; tests cover it via a synthetic adapter.
     if (i > 0 && adapter.inputKind !== lastOutputKind) {
       const incompat: PipelineStepResult = {
@@ -468,7 +479,7 @@ export async function runPipeline(
     let outcome: PipelineStepResult;
     try {
       const adapterPromise = adapter.run(chainedInput, parsedOptions);
-      // implementation HIGH-2 precedent — defensive no-op catch on
+      // Defensive no-op catch on
       // the pending adapter promise. If timeout wins the race, the
       // adapter may still reject later; we don't want that to bubble
       // as an unhandledRejection.

@@ -1,5 +1,5 @@
 /**
- * implementation detail — paste an image into the console renders it as a
+ * Paste an image into the console renders it as a
  * rich `image` entry. Exercises the real ConsolePanel document-level
  * paste listener with a synthetic `ClipboardEvent` carrying an image
  * `File` (chromium supports `DataTransfer.items.add`).
@@ -107,7 +107,7 @@ async function pasteImageAndExpectRendered(
 
 // Build + paste a >2 MiB PNG so the paste trips the cap and must be
 // downscaled. Random-noise pixels keep PNG incompressible → large file;
-// opaque (alpha 255) so the resize re-encodes to JPEG (implementation note).
+// opaque (alpha 255) so the resize re-encodes to JPEG.
 async function pasteOversizedImage(page: import('@playwright/test').Page) {
   await page.evaluate(async () => {
     const canvas = document.createElement('canvas');
@@ -168,7 +168,7 @@ test.describe('Console image clipboard paste', () => {
     await pasteImageAndExpectRendered(page, TINY_PNG);
   });
 
-  test('an oversized image is resized to fit and renders as a JPEG (implementation note)', async ({
+  test('an oversized image is resized to fit and renders as a JPEG', async ({
     page,
   }) => {
     // Real-canvas resize path (jsdom can't run it): a >2 MiB PNG must be
@@ -184,7 +184,7 @@ test.describe('Console image clipboard paste', () => {
 
     const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
     await expect(img.first()).toBeVisible({ timeout: 30000 });
-    // Opaque source → resize re-encodes to JPEG (implementation note); a non-resized
+    // Opaque source → resize re-encodes to JPEG; a non-resized
     // paste would keep the source PNG mime.
     await expect(img.first()).toHaveAttribute('src', /^data:image\/jpeg/);
     // The resized toast (not the plain "added") confirms the resize branch.

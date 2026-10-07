@@ -1,5 +1,5 @@
 /**
- * implementation — runnable project zip bundles.
+ * Runnable project zip bundles.
  *
  * Pure, isomorphic core for export/import of a multi-file project as a
  * single `.zip`. Runs in BOTH the renderer (web export + import preview)
@@ -19,7 +19,7 @@
  *     so a symlink entry decodes to an inert regular file that cannot
  *     escape the root (the high-level zip API does not surface unix mode
  *     bits, so this write-strategy neutralization is the symlink
- *     defense rather than mode-bit sniffing — implementation note).
+ *     defense rather than mode-bit sniffing).
  *   - Caps bound memory + disk: `unpackBundle` rejects honest oversized
  *     headers before starting an entry, then streams compressed input in
  *     bounded chunks and counts the ACTUAL inflated bytes. A header that
@@ -62,7 +62,7 @@ export type {
 export const PROJECT_BUNDLE_VERSION = 1 as const;
 
 /**
- * Reserved manifest filename written at the bundle root (implementation note). On
+ * Reserved manifest filename written at the bundle root. On
  * import it is parsed for `entryFile` / `languageHint` and then excluded
  * from the extracted file set so it never lands on disk as project copy.
  */
@@ -88,7 +88,7 @@ export const BUNDLE_REJECT_REASONS = [
 export type BundleRejectReason = (typeof BUNDLE_REJECT_REASONS)[number];
 
 /**
- * The `lingua-bundle.json` manifest (implementation note). `createdAt` is supplied by
+ * The `lingua-bundle.json` manifest. `createdAt` is supplied by
  * the caller (the IPC handler stamps `new Date().toISOString()`) so this
  * module stays deterministic + pure for unit tests. `entryFile` +
  * `languageHint` let a re-import restore the active tab + language
@@ -353,12 +353,15 @@ export function unpackBundle(
       rejectEntry(file, file.name, 'path-traversal');
       return;
     }
-    if (seenPaths.has(safe)) {
+    // macOS and Windows volumes are case-insensitive, so `README.md` and
+    // `readme.md` would overwrite each other on extraction.
+    const collisionKey = safe.normalize('NFC').toLowerCase();
+    if (seenPaths.has(collisionKey)) {
       fatalReason = 'malformed-zip';
       file.terminate();
       return;
     }
-    seenPaths.add(safe);
+    seenPaths.add(collisionKey);
 
     if (
       typeof file.originalSize === 'number' &&

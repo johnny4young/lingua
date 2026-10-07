@@ -96,7 +96,7 @@ describe('instrumentForDebugger ', () => {
     expect(result.instrumentedLines).toEqual([1, 2]);
   });
 
-  describe('TS source-map composition (implementation note)', () => {
+  describe('TS source-map composition', () => {
     // Each JS line N maps to source line N+1 in the original TS source.
     // VLQ "AACA" decodes to deltas (genCol 0, srcIdx 0, srcLine 1, srcCol 0).
     // First segment lands on (0, 0, 1, 0); subsequent `;AACA` segments

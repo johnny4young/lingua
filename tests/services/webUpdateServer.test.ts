@@ -1,5 +1,5 @@
 /**
- * implementation — pin the `/web/version` fetch wrapper contract.
+ * Pin the `/web/version` fetch wrapper contract.
  *
  * Renderer never sees a real worker in tests. We mock `fetch` at the
  * global level and pin (a) the request URL, (b) the happy path
@@ -21,13 +21,18 @@ async function importService() {
   return import('../../src/renderer/services/webUpdateServer');
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
+  expect(globalThis.fetch).toBe(originalFetch);
   vi.unstubAllEnvs();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  expect(globalThis.fetch).toBe(originalFetch);
 });
 
 describe('fetchLatestWebVersion', () => {

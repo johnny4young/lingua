@@ -1,5 +1,5 @@
 /**
- * implementation note — HTTP workspace telemetry
+ * HTTP workspace telemetry
  * helper.
  *
  * Single event: `http.request_executed { method, statusBucket,

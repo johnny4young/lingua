@@ -6,7 +6,7 @@ import { currentEffectiveTier } from '../stores/licenseSelectors';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /**
- * internal — the Run Ledger: a local, opt-in, queryable history of the
+ * The Run Ledger: a local, opt-in, queryable history of the
  * user's MANUAL runs, stored in the SAME DuckDB database the SQL
  * workspace uses (schema `lingua_ledger`), so it inherits the existing
  * OPFS persistence opt-in (`sqlWorkspacePersistTables` →

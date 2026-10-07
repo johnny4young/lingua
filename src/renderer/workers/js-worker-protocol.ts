@@ -15,20 +15,20 @@ export interface JsWorkerExecuteMessage {
   sourceMaps?: string[];
   sourceLineCount?: number;
   /**
-   * implementation — false disables console-origin stack capture
+   * False disables console-origin stack capture
    * so the worker does not attach `line` / `payload.origin` metadata
    * when the Settings master toggle is off.
    */
   sourceMappingEnabled?: boolean;
   /**
-   * implementation — pre-set stdin buffer for `prompt()` /
+   * pre-set stdin buffer for `prompt()` /
    * `readline()`. Newline-delimited. Empty / undefined leaves the
    * native worker behavior in place (worker has no `prompt`, so
    * calls throw `ReferenceError`).
    */
   stdin?: string;
   /**
-   * implementation — when `true`, capture the post-execute global
+   * When `true`, capture the post-execute global
    * scope and emit a `'scope-snapshot'` reply before `done`. The
    * runner sets this when the user has the variable inspector
    * toggle on for the active tab (or wants the data eagerly
@@ -37,19 +37,19 @@ export interface JsWorkerExecuteMessage {
    */
   captureScope?: boolean;
   /**
-   * implementation note — recursion depth for the scope walker.
+   * Recursion depth for the scope walker.
    * Defaults to `DEFAULT_SCOPE_DEPTH` (1). `MAX_SCOPE_DEPTH` (4)
    * is the runner-side cap.
    */
   scopeDepth?: number;
   /**
-   * implementation — language id stamped on the snapshot. Lets the
+   * Language id stamped on the snapshot. Lets the
    * shared JS worker emit `'typescript'` when invoked by the TS
    * runner.
    */
   scopeLanguage?: string;
   /**
-   * implementation — when `true`, ALSO post the structured return
+   * When `true`, ALSO post the structured return
    * value on the `'result'` reply (`structured` field) so the notebook
    * runner round-trips `{ stdout, stderr, sessionDelta }` losslessly
    * instead of parsing the truncated display string. Snapshotted via
@@ -60,7 +60,7 @@ export interface JsWorkerExecuteMessage {
 }
 
 /**
- * internal — every message the JS/TS worker can receive. `execute` starts
+ * Every message the JS/TS worker can receive. `execute` starts
  * a run; the debugger-control variants (`resume` / `step` /
  * `set-breakpoints`) reuse the SAME union the sender posts
  * (`DebuggerControlMessage` from `debuggerWorkerBridge`). Asserted once

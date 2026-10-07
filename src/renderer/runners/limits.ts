@@ -1,5 +1,5 @@
 /**
- * internal — Shared resource limits + truncation helpers for the
+ * Shared resource limits + truncation helpers for the
  * JavaScript / TypeScript / Python runners.
  *
  * The runner stack used to rely on a `setTimeout` scheduled INSIDE the
@@ -8,7 +8,7 @@
  * loop, so the timer never fires and the UI hangs until the user
  * clicks Stop.
  *
- * internal moves the kill timer to the parent renderer thread (the only
+ * The kill timer lives on the parent renderer thread (the only
  * thread still responsive when the worker is wedged) and adds these
  * caps so a non-infinite-but-busy run cannot flood the IPC channel,
  * the console panel, or the result panel.
@@ -17,11 +17,11 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
-import { truncateUtf8, utf8ByteLength } from '../../shared/utf8';
+import { truncateUtf8WithMarker } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
-// internal: re-export the main-side native subprocess caps so renderer
+// Re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
 // and subprocess heaps in lockstep. The renderer caps below are
 // intentionally tighter (worker heap shares with the UI thread); see
@@ -101,20 +101,64 @@ export function capStderrIfOverflowing(
   return true;
 }
 
+/** Per-run cap bookkeeping for a runner that streams output live. */
+export interface ConsoleCapState {
+  droppedStdout: number;
+  droppedStderr: number;
+  stderrByteTruncated: boolean;
+}
+
+export function createConsoleCapState(): ConsoleCapState {
+  return { droppedStdout: 0, droppedStderr: 0, stderrByteTruncated: false };
+}
+
+/**
+ * Append `output` to its stream under the per-run caps and return what the
+ * live console should receive: the entry when kept, the truncation marker the
+ * first time a cap trips, and null once the stream is capped. Streaming only
+ * that keeps the live console bounded by the same caps as the final result.
+ */
+export function appendCappedOutput(
+  collected: { stdout: ConsoleOutput[]; stderr: ConsoleOutput[] },
+  state: ConsoleCapState,
+  output: ConsoleOutput,
+  toStderr: boolean,
+  t: TranslateFn
+): ConsoleOutput | null {
+  if (!toStderr) {
+    const before = state.droppedStdout;
+    state.droppedStdout = appendCappedConsole(collected.stdout, output, before, t);
+    return liveEntry(collected.stdout, output, before, state.droppedStdout);
+  }
+  if (state.stderrByteTruncated) return null;
+  const before = state.droppedStderr;
+  state.droppedStderr = appendCappedConsole(collected.stderr, output, before, t);
+  state.stderrByteTruncated = capStderrIfOverflowing(collected.stderr, t);
+  if (state.stderrByteTruncated) return collected.stderr[0] ?? null;
+  return liveEntry(collected.stderr, output, before, state.droppedStderr);
+}
+
+function liveEntry(
+  entries: ConsoleOutput[],
+  output: ConsoleOutput,
+  droppedBefore: number,
+  droppedAfter: number
+): ConsoleOutput | null {
+  if (droppedAfter === droppedBefore) return output;
+  return droppedBefore === 0 ? (entries[MAX_CONSOLE_ENTRIES - 1] ?? null) : null;
+}
+
 /**
  * Truncate a serialized result / magic-comment value to fit in
  * `MAX_RESULT_BYTES`. Used by both workers' `serialize()` step.
  * Returns the input unchanged when it already fits.
  */
 export function truncateSerialized(value: string, marker: string): string {
-  if (utf8ByteLength(value) <= MAX_RESULT_BYTES) return value;
   // Reserve room for the marker so the suffix is always visible even on
   // edge-case-tight budgets. Both sides count UTF-8 bytes: this cap is what
   // bounds the payload crossing the worker boundary, and slicing by UTF-16
   // units let CJK or emoji results through at three to four times the cap.
-  const boundedMarker = truncateUtf8(marker, MAX_RESULT_BYTES);
-  const headroom = MAX_RESULT_BYTES - utf8ByteLength(boundedMarker);
-  return `${truncateUtf8(value, headroom)}${boundedMarker}`;
+  return truncateUtf8WithMarker(value, MAX_RESULT_BYTES, marker);
 }
 
 /**
@@ -130,7 +174,7 @@ export function runnerTimeoutResult(
   timeoutPreset?: RuntimeTimeoutPreset | 'override'
 ): ExecutionResult {
   const seconds = Math.max(1, Math.round(timeoutMs / 1000));
-  // implementation note — point users at the Settings field they
+  // Point users at the Settings field they
   // need so the timed-out message becomes actionable. The hint copy
   // is appended only when the run did NOT come from an explicit
   // caller override; for one-shot extended runs and magic-comment
@@ -147,7 +191,7 @@ export function runnerTimeoutResult(
     result: undefined,
     executionTime: timeoutMs,
     error,
-    // implementation — explicit kind + preset + duration so the
+    // Explicit kind + preset + duration so the
     // renderer's <RunStatusPill> renders the right variant + tooltip
     // without string-matching on `error.message`.
     kind: 'timeout',
@@ -175,7 +219,7 @@ export function runnerStoppedResult(
     error: {
       message: t('runner.stopped.message'),
     },
-    // implementation — explicit `'stopped'` kind so the renderer
+    // Explicit `'stopped'` kind so the renderer
     // can render the dedicated <RunStatusPill> variant instead of
     // re-deriving stop vs. timeout vs. error from `error.message`.
     kind: 'stopped',

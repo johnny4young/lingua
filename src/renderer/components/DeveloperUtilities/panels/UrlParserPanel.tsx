@@ -75,7 +75,7 @@ export function UrlParserPanel() {
 
   const parsed = useMemo(() => parseUrl(input), [input]);
 
-  // implementation — origin is the most useful clipboard target for
+  // Origin is the most useful clipboard target for
   // a parsed URL; href stays available via the per-row CopyButton.
   const registerOutput = useCallback(
     () => (isParsedUrl(parsed) ? parsed.origin || parsed.href || null : null),

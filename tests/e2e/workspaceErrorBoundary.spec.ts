@@ -20,7 +20,7 @@ async function armNotebookCrash(page: import('@playwright/test').Page): Promise<
   await page.evaluate(() => window.__linguaE2e?.armWorkspaceCrash('notebook'));
 }
 
-test.describe('internal regional workspace error boundary', () => {
+test.describe('regional workspace error boundary', () => {
   test('contains a notebook render crash, copies its region, and retries locally in English', async ({
     context,
     page,

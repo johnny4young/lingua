@@ -4,7 +4,7 @@ import { syncConsentMirror } from './settingsPersistence';
 import type { SettingsSet } from './settingsStoreContext';
 
 /**
- * implementation — privacy/consent setter factory for the settings store.
+ * privacy/consent setter factory for the settings store.
  * Bundles the execution-history-snapshot toggle, telemetry + three
  * clipboard-on-focus consents, the dependency-detection master switch, and the
  * sensitive-HTTP-header add/remove setters. Extracted verbatim from
@@ -34,19 +34,19 @@ export function createPrivacyActions(
       // next app boot, before createWindow().
       syncConsentMirror(telemetryConsent);
     },
-    // implementation — clipboard-on-focus consent. Local-only; no
+    // clipboard-on-focus consent. Local-only; no
     // mirror to main because the feature is renderer-scoped.
     setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
       set({ utilitiesClipboardOnFocusConsent });
     },
-    // implementation note — capsule-import clipboard auto-detect
+    // capsule-import clipboard auto-detect
     // consent. Same renderer-scoped boundary as the utilities one.
     setCapsuleImportClipboardOnFocusConsent: (
       capsuleImportClipboardOnFocusConsent
     ) => {
       set({ capsuleImportClipboardOnFocusConsent });
     },
-    // implementation — dependency detection master switch.
+    // Dependency detection master switch.
     toggleDependencyDetectionEnabled: () =>
       set((state) => ({
         dependencyDetectionEnabled: !state.dependencyDetectionEnabled,

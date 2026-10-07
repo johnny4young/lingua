@@ -6,7 +6,7 @@
  * - Compiling Rust source code to a native binary via `rustc`
  * - Running the compiled binary and capturing stdout/stderr
  *
- * internal — the subprocess env is filtered through
+ * The subprocess env is filtered through
  * `buildNativeRunnerEnv` so secrets in `process.env` (CI tokens,
  * OPENAI_API_KEY, etc.) cannot reach the spawned `rustc` or the
  * compiled user binary. Temp dirs use `mkdtemp` for collision
@@ -76,8 +76,8 @@ function truncationMarkers(messages?: NativeRunnerMessages) {
 /**
  * Build the env passed to `rustc` and the compiled binary.
  *
- * internal: only allowlisted host keys flow through; the user-tier env
- * from internal layers on top. There are no runner-owned overrides for
+ * Only allowlisted host keys flow through; the user-tier env
+ * layers on top. There are no runner-owned overrides for
  * Rust — rustc respects the host toolchain on its own and the
  * spawned binary gets whatever the user explicitly configured.
  */

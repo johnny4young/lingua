@@ -1,5 +1,5 @@
 /**
- * implementation — IO seams.
+ * IO seams.
  *
  * Thin wrappers around `fs/promises`, `process.stdin`, and the two
  * write streams. The CLI commands depend on the `CliIo` interface
@@ -25,9 +25,9 @@ export interface CliIo {
    * Read stdin to completion. Returns `null` when stdin is a TTY
    * (i.e. no data is being piped) so the CLI can refuse to hang on
    * an interactive shell. Returns `''` when stdin is piped but
-   * empty.
+   * empty. Aborting `signal` stops reading and releases stdin.
    */
-  readStdin(): Promise<string | null>;
+  readStdin(options?: { signal?: AbortSignal }): Promise<string | null>;
   /** Whether stdout can render ANSI colors safely. */
   stdoutSupportsColor: boolean;
   /** Whether stderr can render ANSI colors safely. */
@@ -75,7 +75,7 @@ export function createDefaultIo(): CliIo {
     async readFile(path) {
       return readFile(path, 'utf8');
     },
-    async readStdin() {
+    async readStdin(options) {
       // `process.stdin.isTTY` is `true` only when the stream is
       // attached to an interactive terminal — no pipe, no redirect.
       // Reading from a TTY would block forever waiting for the user
@@ -84,8 +84,15 @@ export function createDefaultIo(): CliIo {
         return null;
       }
       const chunks: Buffer[] = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const signal = options?.signal;
+      const release = () => process.stdin.destroy();
+      signal?.addEventListener('abort', release, { once: true });
+      try {
+        for await (const chunk of process.stdin) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        }
+      } finally {
+        signal?.removeEventListener('abort', release);
       }
       return Buffer.concat(chunks).toString('utf8');
     },

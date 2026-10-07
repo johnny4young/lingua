@@ -11,7 +11,7 @@ import {
 } from './useLspLifecycle';
 
 /**
- * implementation — rust-analyzer lifecycle wiring. implementation lifted the
+ * rust-analyzer lifecycle wiring. implementation lifted the
  * effect bodies into `useLspLifecycle` so the Go path can reuse them
  * byte-identically. This file stays as the rust-specific facade so
  * every callsite (`useRustLspLifecycle()` in `App.tsx`,

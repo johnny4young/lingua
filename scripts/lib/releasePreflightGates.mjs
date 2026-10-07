@@ -90,6 +90,13 @@ export const PREFLIGHT_GATES = [
     note: 'covers the devDependencies Vite inlines into main/preload, which pnpm audit --prod cannot see',
   },
   {
+    id: 'check:website-audit',
+    label: 'Website production audit',
+    script: 'check:website-audit',
+    argv: ['pnpm', 'run', 'check:website-audit'],
+    note: 'npm audit of website/package-lock.json with the reviewed exceptions in scripts/website-audit-exceptions.json',
+  },
+  {
     id: 'check:licenses',
     label: 'Third-party license policy',
     script: 'check:licenses',

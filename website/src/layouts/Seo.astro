@@ -10,10 +10,8 @@ interface Props {
 }
 
 const { entry, locale } = Astro.props;
-const { title, description, language } = entry.data;
+const { title, description, language, ogImage } = entry.data;
 const copy = t(locale);
-// Front-matter `ogImage` paths point at per-page PNGs that don't exist yet
-// (per-page OG generation is a P1 task). Fall back to the global default in Base.
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -44,6 +42,7 @@ const jsonLd = {
 <Base
   title={title}
   description={description}
+  ogImage={ogImage}
   locale={locale}
   jsonLd={jsonLd}
 >

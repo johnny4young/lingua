@@ -9,7 +9,7 @@
  *   - The shared `spawnNativeRun` supervisor, never a shell. Source is
  *     written to a staged temp file and passed by path — no command-line
  *     interpolation.
- *   - Env filtered through the internal allowlist + internal user tier; the
+ *   - Env filtered through the allowlist + user tier; the
  *     host env is never forwarded wholesale.
  *   - Parent-owned timeout with SIGTERM→SIGKILL escalation via
  *     `killProcessTree` (process-group leader on POSIX).
@@ -67,7 +67,7 @@ interface RuntimeConfig {
   ext: (language: string | undefined) => string;
   /** Build the run argv given the temp entry path and its dir. */
   runArgs: (entryFile: string, entryDir: string) => string[];
-  /** Toolchain env keys these runtimes honor (kept minimal, internal). */
+  /** Toolchain env keys these runtimes honor (kept minimal). */
   toolchainKeys: readonly string[];
 }
 
@@ -98,6 +98,8 @@ const CONFIGS: Record<AltJsRuntimeId, RuntimeConfig> = {
 
 const detectCache = new Map<AltJsRuntimeId, AltJsDetectResult>();
 const activeRuns = new Map<string, () => void>();
+// Stop follows the run's owner: another window must not stop it.
+const runOwners = new Map<string, number | undefined>();
 
 function resolveEnv(id: AltJsRuntimeId, userEnv?: Record<string, string>): NodeJS.ProcessEnv {
   return buildNativeRunnerEnv(combinedAllowlist(CONFIGS[id].toolchainKeys), userEnv);
@@ -255,7 +257,10 @@ async function runAltRuntime(
   }
   const { controller, release } = createNativeRunLifecycle(owner);
   const stop = () => controller.abort();
-  if (options.runId) activeRuns.set(options.runId, stop);
+  if (options.runId) {
+    activeRuns.set(options.runId, stop);
+    runOwners.set(options.runId, owner?.id);
+  }
   try {
     if (controller.signal.aborted) return stoppedAltRunResult(options);
     const detect = await detectAltRuntime(id, options.userEnv, false, controller.signal);
@@ -274,14 +279,18 @@ async function runAltRuntime(
     return await spawnAltRuntime(id, source, options, controller.signal);
   } finally {
     release();
-    if (options.runId && activeRuns.get(options.runId) === stop) activeRuns.delete(options.runId);
+    if (options.runId && activeRuns.get(options.runId) === stop) {
+      activeRuns.delete(options.runId);
+      runOwners.delete(options.runId);
+    }
   }
 }
 
-export function stopAltRun(runId: unknown): { stopped: boolean } {
+export function stopAltRun(runId: unknown, ownerId?: number): { stopped: boolean } {
   if (typeof runId !== 'string' || runId.length === 0) return { stopped: false };
   const stop = activeRuns.get(runId);
   if (!stop) return { stopped: false };
+  if (ownerId !== undefined && runOwners.get(runId) !== ownerId) return { stopped: false };
   stop();
   return { stopped: true };
 }
@@ -339,7 +348,7 @@ export function registerAltJsRuntimeHandlers(): void {
       ? runAltRuntime('deno', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('deno')
   );
-  typedHandle('deno:stop', async (_event, runId: string) => stopAltRun(runId));
+  typedHandle('deno:stop', async (event, runId: string) => stopAltRun(runId, event.sender.id));
 
   typedHandle('bun:detect', async (_event, userEnv?: Record<string, string>, force?: boolean) =>
     detectAltRuntime('bun', userEnv, force === true)
@@ -349,5 +358,5 @@ export function registerAltJsRuntimeHandlers(): void {
       ? runAltRuntime('bun', source, normalizeAltRunOptions(options), event.sender)
       : invalidSourceResult('bun')
   );
-  typedHandle('bun:stop', async (_event, runId: string) => stopAltRun(runId));
+  typedHandle('bun:stop', async (event, runId: string) => stopAltRun(runId, event.sender.id));
 }

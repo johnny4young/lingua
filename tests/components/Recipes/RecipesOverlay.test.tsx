@@ -1,5 +1,5 @@
 /**
- * implementation — `<RecipesOverlay>` tests.
+ * `<RecipesOverlay>` tests.
  *
  * Drives the overlay through the user-event surface:
  *   - Empty / unfiltered render shows every recipe.
@@ -175,6 +175,16 @@ describe('RecipesOverlay', () => {
     expect(useEditorStore.getState().tabs).toHaveLength(0);
   });
 
+  it('Enter on Cancel cancels instead of opening the active recipe', async () => {
+    const user = userEvent.setup();
+    let closed = false;
+    render(<RecipesOverlay onClose={() => (closed = true)} />);
+    screen.getByTestId('recipes-cancel').focus();
+    await user.keyboard('{Enter}');
+    expect(closed).toBe(true);
+    expect(useEditorStore.getState().tabs).toHaveLength(0);
+  });
+
   it('Escape key closes', async () => {
     const user = userEvent.setup();
     let closed = false;
@@ -190,7 +200,7 @@ describe('RecipesOverlay', () => {
     // possible on a noun, but the action buttons live nearby.
     expect(screen.getByText(/^Recetas$/i)).toBeTruthy();
     expect(screen.getByTestId('recipes-cancel').textContent).toMatch(/cancelar/i);
-    expect(screen.getByTestId('recipes-open').textContent).toMatch(/abre la receta/i);
+    expect(screen.getByTestId('recipes-open').textContent).toMatch(/abrir la receta/i);
   });
 
   it('arrow-down moves the active selection', async () => {

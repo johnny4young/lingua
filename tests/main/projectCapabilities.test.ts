@@ -1,5 +1,5 @@
 /**
- * implementation — capability registry unit tests.
+ * Capability registry unit tests.
  *
  * Pins the contract `resolveCapabilityPath` enforces before every
  * filesystem IPC handler is migrated onto it :

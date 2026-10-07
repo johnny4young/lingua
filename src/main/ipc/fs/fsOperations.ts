@@ -2,6 +2,7 @@
 
 import { BrowserWindow, dialog, shell } from 'electron';
 import {
+  lstat,
   mkdir as mkdirFs,
   readFile,
   readdir,
@@ -43,6 +44,22 @@ import {
   resolveOrThrow,
   shouldHide,
 } from './fsShared';
+
+/**
+ * True when `target` exists and is not the same inode as `source`. A
+ * case-only rename on a case-insensitive volume resolves both to one entry.
+ */
+async function isDifferentEntry(source: string, target: string): Promise<boolean> {
+  let targetInfo;
+  try {
+    targetInfo = await lstat(target, { bigint: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+  const sourceInfo = await lstat(source, { bigint: true });
+  return sourceInfo.ino !== targetInfo.ino || sourceInfo.dev !== targetInfo.dev;
+}
 
 export function registerFileOperationHandlers(): void {
   const t = (
@@ -141,7 +158,7 @@ export function registerFileOperationHandlers(): void {
     }
   );
 
-  // implementation detail — read-only classification so the renderer can show an
+  // read-only classification so the renderer can show an
   // actionable, localized denial (and a privacy-safe `fs.blocked` telemetry
   // signal that names only the family, never the path) when a reopen or pick is
   // refused by the denylist. Mints no capability; performs no disk write.
@@ -497,6 +514,9 @@ export function registerFileOperationHandlers(): void {
       if (!verify.ok) {
         throw new CapabilityError(verify.error);
       }
+      if (newAbsolute !== oldAbsolute && (await isDifferentEntry(oldAbsolute, newAbsolute))) {
+        throw new Error(`Cannot rename: "${newName}" already exists`);
+      }
       await renameFs(oldAbsolute, newAbsolute);
       return asRelativePath(newRelative);
     }
@@ -521,14 +541,20 @@ export function registerFileOperationHandlers(): void {
     (args) => fsArgs.rootRelative('fs:touch', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
-      await writeFile(absolutePath, '', 'utf-8');
+      try {
+        await writeFile(absolutePath, '', { encoding: 'utf-8', flag: 'wx' });
+      } catch (error) {
+        // Matches the web adapter: an existing entry is reported, never truncated.
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+        throw error;
+      }
       return true;
     }
   );
 
   // ---------------------------------------------------------- reveal in OS finder
 
-  // implementation note — open the OS file manager (Finder /
+  // Open the OS file manager (Finder /
   // Explorer / Nautilus) with the entry selected. Resolves the
   // capability so an attacker-controlled `relativePath` can never
   // escape the project root. `shell.showItemInFolder` is a synchronous
@@ -542,7 +568,7 @@ export function registerFileOperationHandlers(): void {
     (args) => fsArgs.rootRelative('fs:reveal-in-finder', args),
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
-      // implementation note — `shell.showItemInFolder` is a void
+      // `shell.showItemInFolder` is a void
       // best-effort call that silently no-ops when the entry no
       // longer exists. A small TOCTOU window remains (`stat` →
       // `showItemInFolder`), but probing here lets the renderer

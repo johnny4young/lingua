@@ -18,7 +18,7 @@ function evt(overrides: Partial<TrustEvent> & Pick<TrustEvent, 'feature' | 'at'>
 }
 
 /**
- * implementation next slice implementation note — the console image clipboard paste surface
+ * The console image clipboard paste surface
  * is disclosed in the Privacy + Trust dashboard network table as a
  * local-only, in-memory feature.
  */
@@ -69,7 +69,7 @@ describe('latestEventAtByFeature ', () => {
   });
 });
 
-describe('buildNetworkActivityRows — license lastCall (implementation note)', () => {
+describe('buildNetworkActivityRows — license lastCall', () => {
   it('threads licenseVerifyLastAt onto the license row', () => {
     const rows = buildNetworkActivityRows({
       telemetryConsent: 'granted',

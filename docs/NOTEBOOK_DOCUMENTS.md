@@ -31,6 +31,8 @@ Mounted code and markdown drafts flush before manual save and close, including e
 
 Notebook document buffers never enter Scratchpad auto-run; cells execute only through the notebook kernel and explicit notebook controls.
 
+A running cell holds its shared JavaScript or Python runner: editor auto-run waits for it, a manual editor run on that runtime shows a notice instead of terminating it, and notebook Stop or close stops only the runner the cell holds. A cell does not start while a manual editor run uses its runtime.
+
 Disk-save actions and notebook writer logic load only after an explicit save gesture; initial dirty tracking does not eagerly load the writer.
 
 Manual save freezes the persistible document at the gesture, after flushing mounted drafts and before lock queueing or lazy imports. Later edits remain in memory and dirty even while the action module is loading.

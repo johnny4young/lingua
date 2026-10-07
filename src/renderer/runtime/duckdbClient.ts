@@ -1,5 +1,5 @@
 /**
- * implementation — DuckDB-WASM client wrapper.
+ * DuckDB-WASM client wrapper.
  *
  * Lazy-bootstrap layer between the renderer and `@duckdb/duckdb-wasm`.
  * Three responsibilities:
@@ -24,7 +24,7 @@
  * Privacy posture:
  *
  *   - WASM blob is bundled with the app — no CDN fetch, no
- *     third-party origin. Matches the implementation precedent of
+ *     third-party origin. Matches the precedent of
  *     same-origin copied runtime assets.
  *   - Result cells are user content and never leave the renderer
  *     unless the user explicitly exports a capsule.
@@ -93,7 +93,7 @@ export interface DuckDbConnection {
  * inject a mock without standing up the whole DuckDB engine. The
  * production loader resolves to the real instance.
  *
- * internal (SQL import) — `registerFile` / `dropFile` are OPTIONAL on the
+ * `registerFile` / `dropFile` are OPTIONAL on the
  * handle so the existing in-memory test stubs (which only implement
  * `connect` + `terminate`) keep type-checking. The import helpers fall
  * back gracefully (and tests opt in by implementing them).
@@ -130,7 +130,7 @@ function createEngineLifecycle(): DuckDbEngineLifecycle<DuckDbEngineHandle> {
 }
 
 // ---------------------------------------------------------------------------
-// implementation (SQL OPFS) — opt-in table persistence.
+// opt-in table persistence.
 //
 // The engine is a session singleton. The user's persistence preference
 // is captured into `desiredPersistence` BEFORE the first instantiate
@@ -138,7 +138,7 @@ function createEngineLifecycle(): DuckDbEngineLifecycle<DuckDbEngineHandle> {
 // reads it once and resolves the actual backing into
 // `resolvedStorageMode`. Changing the toggle therefore takes effect on
 // the next reload — or immediately after `flushAndReleaseDuckDbEngine`
-// drops the singleton (the Settings "Reconnect now" action, implementation note).
+// drops the singleton (the Settings "Reconnect now" action).
 // ---------------------------------------------------------------------------
 
 /** The user's requested persistence preference, applied on next instantiate. */
@@ -260,11 +260,11 @@ function resetResolvedStorageMode(): void {
 }
 
 /**
- * implementation note — flush + release on app/tab teardown (or the Settings
+ * Flush + release on app/tab teardown (or the Settings
  * "Reconnect now" action). Checkpoints first when persistent so the WAL
  * lands in the OPFS file, then terminates so the handle releases
  * cleanly and the next session/tab re-opens without a stale-lock
- * fallback. Durability does not depend on this completing — implementation note
+ * fallback. Durability does not depend on this completing: the client
  * already checkpoints after every write.
  */
 export async function flushAndReleaseDuckDbEngine(): Promise<void> {
@@ -315,7 +315,7 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
 }
 
 /**
- * implementation note — approximate origin storage in use, in bytes, via
+ * Approximate origin storage in use, in bytes, via
  * `navigator.storage.estimate()`. This is ORIGIN-WIDE (OPFS + caches +
  * IndexedDB + localStorage), not the database file alone, so the UI
  * labels it as approximate. Returns `null` when the API is absent.
@@ -353,7 +353,7 @@ export function __setDuckDbEngineFactoryForTests(
 
 /**
  * Test seam — force the resolved storage mode so the CHECKPOINT-on-write
- * path (implementation note) can be exercised without a real OPFS-backed engine.
+ * path can be exercised without a real OPFS-backed engine.
  */
 export function __setResolvedSqlStorageModeForTests(
   mode: SqlStorageMode,
@@ -525,7 +525,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
     // completes; revoking frees the duplicated WASM bytes.
     revokeWasmUrl?.();
     revokeWasmUrl = null;
-    // implementation (SQL OPFS) — resolve the storage backing. When the
+    // Resolve the storage backing. When the
     // user opted into persistence and OPFS is available this opens the
     // `opfs://` database so tables survive a reload; otherwise it stays
     // in-memory. Failures fall back to in-memory inside the helper, so
@@ -552,7 +552,7 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
           },
         };
       },
-      // internal (SQL import) — virtual-file registration surface. DuckDB's
+      // virtual-file registration surface. DuckDB's
       // `read_*` table functions read by registered `name`; the import
       // helpers register the file bytes here, run the reader, then drop
       // the file. `registerFileBuffer` accepts both text (CSV/JSON) and
@@ -614,6 +614,14 @@ export function mapArrowTable(table: ArrowTableLike): {
     name: field.name,
     type: stringifyArrowType(field.type),
   }));
+  const temporal = columns.flatMap(column => {
+    const format = temporalFormatter(column.type);
+    return format ? [[column.name, format] as const] : [];
+  });
+  const decimals = columns.flatMap(column => {
+    const scale = decimalScale(column.type);
+    return scale === null ? [] : [[column.name, scale] as const];
+  });
   const allRows = table.toArray();
   const rowCount = allRows.length;
   const rows: Array<Record<string, unknown>> = [];
@@ -624,6 +632,14 @@ export function mapArrowTable(table: ArrowTableLike): {
     const raw = allRows[i];
     if (raw === undefined || raw === null) continue;
     const safeRow = sanitiseRowForJson(raw);
+    for (const [name, scale] of decimals) {
+      const text = formatArrowDecimal(raw[name], scale);
+      if (text !== null) safeRow[name] = text;
+    }
+    for (const [name, format] of temporal) {
+      const cell = safeRow[name];
+      if (typeof cell === 'number') safeRow[name] = format(cell);
+    }
     const serialised = JSON.stringify(safeRow);
     const rowBytes = utf8ByteLength(serialised);
     if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
@@ -687,6 +703,59 @@ function sanitiseValueForJson(value: unknown): unknown {
       out[key] = sanitiseValueForJson(obj[key]);
     }
     return out;
+  }
+  return null;
+}
+
+/** Scale of an Arrow `Decimal[precision e±scale]` type, or null for other types. */
+function decimalScale(type: string): number | null {
+  const match = /^Decimal\[\d+e\+?(-?\d+)\]/u.exec(type);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Arrow Decimal cells (DuckDB SUM over integers, HUGEINT, DECIMAL) arrive as
+ * little-endian 32-bit words of a two's-complement integer; render them as
+ * exact decimal text instead of a word array.
+ */
+function formatArrowDecimal(value: unknown, scale: number): string | null {
+  if (value === null || value === undefined || typeof value !== 'object') return null;
+  const words = Array.from(value as ArrayLike<number>);
+  if (words.length === 0 || words.some(word => typeof word !== 'number')) return null;
+  let unscaled = 0n;
+  for (let index = words.length - 1; index >= 0; index -= 1) {
+    unscaled = (unscaled << 32n) | BigInt(words[index]! >>> 0);
+  }
+  const bits = BigInt(words.length * 32);
+  if (unscaled >> (bits - 1n)) unscaled -= 1n << bits;
+  const negative = unscaled < 0n;
+  let digits = (negative ? -unscaled : unscaled).toString();
+  if (scale > 0) {
+    digits = digits.padStart(scale + 1, '0');
+    digits = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+  }
+  return negative ? `-${digits}` : digits;
+}
+
+/**
+ * Arrow hands DATE and TIMESTAMP cells back as epoch milliseconds; render
+ * them as ISO text so the grid and import preview show calendar values.
+ */
+function temporalFormatter(type: string): ((epochMs: number) => string | number) | null {
+  const iso = (epochMs: number) => {
+    const date = new Date(epochMs);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+  if (/^Date(32)?<DAY>/u.test(type)) return epochMs => iso(epochMs)?.slice(0, 10) ?? epochMs;
+  if (/^Date(64)?</u.test(type)) return epochMs => iso(epochMs) ?? epochMs;
+  if (/^Timestamp</u.test(type)) {
+    // Without a zone the value is a wall-clock time, so drop the UTC marker.
+    const zoned = type.includes(',');
+    return epochMs => {
+      const text = iso(epochMs);
+      if (!text) return epochMs;
+      return zoned ? text : text.replace('Z', '');
+    };
   }
   return null;
 }
@@ -854,7 +923,7 @@ export async function executeQuery(
       };
     }
     const { columns, rows, rowCount, tooLarge } = raceResult;
-    // implementation note — flush the WAL to the OPFS database file so a hard reload
+    // Flush the WAL to the OPFS database file so a hard reload
     // or crash does not lose the writes from this statement. Best-effort
     // on the same connection before it closes: a failed CHECKPOINT must
     // never turn a successful query into an error, and it is a cheap
@@ -897,7 +966,7 @@ export async function executeQuery(
 }
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — file → DuckDB table.
+// File → DuckDB table.
 //
 // `previewImportFile` registers the file bytes and reads a 10-row sample
 // + a total count WITHOUT creating a table, so the preview modal can show
@@ -934,7 +1003,7 @@ function readerExpression(format: SqlImportFormat, name: string): string {
  * a transferable, which DETACHES the original `Uint8Array` on the main
  * thread. The import flow registers the same file twice (preview then
  * import), so handing the worker a fresh copy each time keeps the caller's
- * buffer alive for the second registration. A 25 MiB cap (implementation note) bounds
+ * buffer alive for the second registration. A 25 MiB cap bounds
  * the copy cost.
  */
 async function registerFileCopy(
@@ -1037,7 +1106,7 @@ export async function previewImportFile(args: {
  * either way.
  *
  * When persistent (OPFS), a best-effort CHECKPOINT flushes the new table
- * to disk so it survives a reload — mirroring `executeQuery`'s implementation note
+ * to disk so it survives a reload — mirroring `executeQuery`'s
  * durability pass.
  */
 export async function importFileAsTable(args: {

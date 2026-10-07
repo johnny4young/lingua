@@ -1,5 +1,5 @@
 /**
- * implementation — Auto-run completion gate.
+ * Auto-run completion gate.
  *
  * Renderer hooks call `isLikelyComplete(language, code)` before
  * dispatching an auto-run. If `ready === false`, the hook short-
@@ -246,7 +246,7 @@ function scanSource(source: string): StripResult {
   // outer template is in raw mode (between `${`s); a `${` push flips
   // to JS mode (false) until the matching `}` pops back.
   const templateStack: boolean[] = [];
-  // implementation — per-placeholder snapshot of `braceDepth` at the
+  // per-placeholder snapshot of `braceDepth` at the
   // moment `${` opens its JS context. Pop back to raw template only
   // when a `}` returns the counter to this saved value; otherwise
   // the `}` closes a NESTED object literal / destructuring / arrow

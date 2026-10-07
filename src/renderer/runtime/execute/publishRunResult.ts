@@ -4,6 +4,9 @@
  * `runner.executed` telemetry. Publishers never call lifecycle callbacks,
  * flush the console or report the runtime bootstrap; the orchestrator owns
  * every exit's teardown.
+ *
+ * `showsResults` gates every result-store write: the store mirrors the active
+ * tab only, so a run whose tab is out of view still logs and records history.
  */
 
 import { orderedConsoleOutputs } from '../../utils/capturedOutput';
@@ -24,23 +27,27 @@ import { recordCompletedRun, recordFailedRun, type GitSnapshot } from './recordR
 import type { RunPlan } from './resolveRunPlan';
 import type { CollectedRun, RunConsole } from './runAndCollect';
 import type { ManualExecutionSummary } from './types';
+import { withE2eExecutionTime } from '../../testing/e2eDurations';
 
 export function publishViewOnly(
   activeTab: FileTab,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
 ): ManualExecutionSummary {
   const { clear, setDiagnostics, setExecutionSource, setFullOutput, setIsAutoRunning } =
     useResultStore.getState();
   useConsoleStore.getState().clear();
-  clear();
-  setExecutionSource('manual');
-  setIsAutoRunning(false);
-  setDiagnostics([]);
+  if (showsResults()) {
+    clear();
+    setExecutionSource('manual');
+    setIsAutoRunning(false);
+    setDiagnostics([]);
+    setFullOutput('This file type is editable only. Lingua will not execute or validate it yet.');
+  }
   runConsole.add({
     type: 'info',
     content: `${activeTab.name} is editable, but Lingua does not run or lint this file type yet.`,
   });
-  setFullOutput('This file type is editable only. Lingua will not execute or validate it yet.');
   return {
     mode: 'view',
     ok: true,
@@ -51,12 +58,18 @@ export function publishViewOnly(
 }
 
 /** Clears the previous output and marks a validation as started. */
-export function publishValidationStart(activeTab: FileTab, runConsole: RunConsole): void {
+export function publishValidationStart(
+  activeTab: FileTab,
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
+): void {
   const { clear, setExecutionSource, setIsAutoRunning, setIsManualRunning } =
     useResultStore.getState();
   useConsoleStore.getState().clear();
-  clear();
-  setExecutionSource('manual');
+  if (showsResults()) {
+    clear();
+    setExecutionSource('manual');
+  }
   setIsAutoRunning(false);
   setIsManualRunning(true);
   runConsole.add({ type: 'info', content: `Validating ${activeTab.name}...` });
@@ -65,7 +78,8 @@ export function publishValidationStart(activeTab: FileTab, runConsole: RunConsol
 /** Validates the document synchronously and publishes its diagnostics. */
 export function publishValidation(
   activeTab: FileTab,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
 ): ManualExecutionSummary {
   const { language, content, name } = activeTab;
   const {
@@ -77,12 +91,14 @@ export function publishValidation(
     setLineTimings,
   } = useResultStore.getState();
   const validation = validateDocument(language, content);
-  setDiagnostics(validation.diagnostics);
-  setLineResults([]);
-  setLineTimings([]);
-  setFullOutput(validation.fullOutput);
-  setError(null);
-  setExecutionTime(validation.executionTime);
+  if (showsResults()) {
+    setDiagnostics(validation.diagnostics);
+    setLineResults([]);
+    setLineTimings([]);
+    setFullOutput(validation.fullOutput);
+    setError(null);
+    setExecutionTime(validation.executionTime);
+  }
   const hasErrors = validation.diagnostics.some(item => item.severity === 'error');
 
   runConsole.add({
@@ -121,7 +137,12 @@ export function publishUnsupportedRunner(
 }
 
 /** Clears the previous output and marks the manual run as started. */
-export function publishRunStart(activeTab: FileTab, plan: RunPlan, runConsole: RunConsole): void {
+export function publishRunStart(
+  activeTab: FileTab,
+  plan: RunPlan,
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
+): void {
   const {
     clearVisibleResults,
     setDiagnostics,
@@ -131,11 +152,13 @@ export function publishRunStart(activeTab: FileTab, plan: RunPlan, runConsole: R
   } = useResultStore.getState();
   const { name } = activeTab;
   useConsoleStore.getState().clear();
-  clearVisibleResults();
-  setExecutionSource('manual');
+  if (showsResults()) {
+    clearVisibleResults();
+    setExecutionSource('manual');
+    setDiagnostics([]);
+  }
   setIsAutoRunning(false);
   setIsManualRunning(true);
-  setDiagnostics([]);
   runConsole.add({
     type: 'info',
     content: plan.debugRequested
@@ -161,7 +184,8 @@ export function publishMissingRunner(
 export function publishCancelledRun(
   activeTab: FileTab,
   { result, streamedConsoleCount }: CollectedRun,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
 ): ManualExecutionSummary {
   const { language, content } = activeTab;
   const {
@@ -177,12 +201,14 @@ export function publishCancelledRun(
     ...result,
     error: undefined,
   });
-  setLineResults(presentation.lineResults);
-  setLineTimings([]);
-  setFullOutput(presentation.fullOutput || message);
-  setError(null);
-  setDiagnostics([]);
-  setExecutionTime(result.executionTime);
+  if (showsResults()) {
+    setLineResults(presentation.lineResults);
+    setLineTimings([]);
+    setFullOutput(presentation.fullOutput || message);
+    setError(null);
+    setDiagnostics([]);
+    setExecutionTime(result.executionTime);
+  }
   const cancelledOutputs = streamedConsoleCount > 0 ? [] : orderedConsoleOutputs(result);
   for (const output of cancelledOutputs) {
     runConsole.add(toConsoleEntry(output, language));
@@ -205,11 +231,13 @@ export function publishCancelledRun(
 export async function publishCompletedRun(
   activeTab: FileTab,
   plan: RunPlan,
-  { result, streamedConsoleCount }: CollectedRun,
+  { result: measuredResult, streamedConsoleCount }: CollectedRun,
   gitSnapshot: GitSnapshot | undefined,
   runConsole: RunConsole,
-  isCurrent: () => boolean = () => true
+  isCurrent: () => boolean = () => true,
+  showsResults: () => boolean = isCurrent
 ): Promise<ManualExecutionSummary> {
+  const result = withE2eExecutionTime(measuredResult);
   const { language, content, name } = activeTab;
   const {
     setDiagnostics,
@@ -246,25 +274,29 @@ export async function publishCompletedRun(
       diagnosticsCount: 0,
       message: '',
     };
-  setLineResults(presentation.lineResults);
-  setLineTimings(result.lineTimings ?? []);
-  setFullOutput(presentation.fullOutput);
-  // implementation note — surface the consumption summary alongside the
-  // manual-run results, same as the auto-run path.
-  setStdinConsumed(result.stdinConsumed ?? null);
-  setError(error);
-  setDiagnostics(diagnostics);
-  setExecutionTime(result.executionTime);
+  if (showsResults()) {
+    setLineResults(presentation.lineResults);
+    setLineTimings(result.lineTimings ?? []);
+    setFullOutput(presentation.fullOutput);
+    // Surface the consumption summary alongside the
+    // manual-run results, same as the auto-run path.
+    setStdinConsumed(result.stdinConsumed ?? null);
+    setError(error);
+    setDiagnostics(diagnostics);
+    setExecutionTime(result.executionTime);
 
-  // implementation — manual Run captures the snapshot on the clean-success
-  // branch too, so Compare is not scratchpad-only. Errors are not a
-  // restoration target. Capture happens after the line results and full
-  // output are set so the snapshot reflects what the user just saw.
-  if (kind === 'success') {
-    useResultStore.getState().captureSuccessfulSnapshot(language, content);
-    // implementation — surface the variable inspector snapshot if the worker
-    // emitted one. `null` clears a stale snapshot from the previous run.
-    useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
+    // Manual Run captures the snapshot on the clean-success
+    // branch too, so Compare is not scratchpad-only. Errors are not a
+    // restoration target. Capture happens after the line results and full
+    // output are set so the snapshot reflects what the user just saw.
+    if (kind === 'success') {
+      useResultStore.getState().captureSuccessfulSnapshot(language, content);
+      // Surface the variable inspector snapshot if the worker
+      // emitted one. `null` clears a stale snapshot from the previous run.
+      useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
+    } else if (result.scopeSnapshot !== undefined) {
+      useResultStore.getState().setScopeSnapshot(result.scopeSnapshot);
+    }
   }
 
   const entriesToAdd = toConsoleEntries(result, language, { streamed: streamedConsoleCount > 0 });
@@ -272,7 +304,7 @@ export async function publishCompletedRun(
     runConsole.add(entry);
   }
 
-  // internal — emit runner.executed so consenting users' telemetry reflects
+  // Emit runner.executed so consenting users' telemetry reflects
   // runtime usage. `durationBucketMs` is already coarse, and the property
   // allowlist rejects anything beyond language/status/durationBucketMs.
   void trackEvent('runner.executed', {
@@ -280,7 +312,7 @@ export async function publishCompletedRun(
     status: runStatus,
     durationBucketMs: bucketDurationMs(result.executionTime ?? 0),
   });
-  // implementation note — same adoption signal as the auto-run path: both run
+  // Same adoption signal as the auto-run path: both run
   // surfaces share the buffer and worker (≥1 line consumed, JS / TS / Python).
   if (result.stdinConsumed && result.stdinConsumed.count > 0 && isWorkerRunnerLanguage(language)) {
     void trackEvent('runtime.stdin_used', { language });
@@ -305,19 +337,22 @@ export async function publishRunFailure(
   plan: RunPlan,
   error: unknown,
   gitSnapshot: GitSnapshot | undefined,
-  isCurrent: () => boolean = () => true
+  isCurrent: () => boolean = () => true,
+  showsResults: () => boolean = isCurrent
 ): Promise<string> {
   const { setRunDeadlineAt, setRunTermination } = useResultStore.getState();
   const message = error instanceof Error ? error.message : String(error);
-  // implementation — surface the failure via the pill too.
+  // Surface the failure via the pill too.
   if (plan.recordHistory) {
     await recordFailedRun(activeTab, message, gitSnapshot, isCurrent);
   }
   if (!isCurrent()) return message;
-  setRunDeadlineAt(null);
-  setRunTermination({ kind: 'error' });
+  if (showsResults()) {
+    setRunDeadlineAt(null);
+    setRunTermination({ kind: 'error' });
+  }
 
-  // internal — mirror the error path in telemetry. `durationBucketMs: 0`
+  // Mirror the error path in telemetry. `durationBucketMs: 0`
   // because the runner never completed a timed window.
   void trackEvent('runner.executed', {
     language: activeTab.language,
@@ -332,14 +367,17 @@ export function publishFailedRun(
   language: Language,
   message: string,
   runnerPrepared: boolean,
-  runConsole: RunConsole
+  runConsole: RunConsole,
+  showsResults: () => boolean = () => true
 ): ManualExecutionSummary {
   const { setDiagnostics, setError } = useResultStore.getState();
   if (!runnerPrepared) {
-    setDiagnostics([]);
-    setError({
-      message: `Failed to initialize ${language} runner: ${message}`,
-    });
+    if (showsResults()) {
+      setDiagnostics([]);
+      setError({
+        message: `Failed to initialize ${language} runner: ${message}`,
+      });
+    }
     runConsole.add({
       type: 'error',
       content: `Failed to initialize ${language} runner: ${message}`,
@@ -353,8 +391,10 @@ export function publishFailedRun(
     };
   }
 
-  setDiagnostics([]);
-  setError({ message });
+  if (showsResults()) {
+    setDiagnostics([]);
+    setError({ message });
+  }
   runConsole.add({
     type: 'error',
     content: `Unexpected error: ${message}`,

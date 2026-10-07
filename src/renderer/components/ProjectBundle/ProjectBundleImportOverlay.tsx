@@ -1,5 +1,5 @@
 /**
- * implementation — project bundle import overlay (implementation note).
+ * Project bundle import overlay.
  *
  * Reuses the `<CapsuleImportOverlay>` shell language: a `<ModalShell>`
  * with a 3-section body (load source / read-only preview / action bar),
@@ -262,7 +262,7 @@ export function ProjectBundleImportOverlay({
           ) : (
             <div
               data-testid="project-bundle-import-empty"
-              className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset py-8"
+              className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset py-16"
             >
               <EmptyState
                 icon={<FileArchive size={18} aria-hidden="true" />}

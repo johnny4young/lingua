@@ -149,7 +149,7 @@ describe('JavaScriptRunner', () => {
     }
   });
 
-  // implementation — `outputSourceMappingEnabled` was removed from
+  // `outputSourceMappingEnabled` was removed from
   // `ExecutionContext`; the worker always receives
   // `sourceMappingEnabled: true`. The "OFF state forwards false" case
   // no longer applies.
@@ -354,7 +354,7 @@ describe('JavaScriptRunner', () => {
     }
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation-β-β-α implementation note telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (telemetry fires fire-and-forget)', async () => {
     const originalWorker = globalThis.Worker;
 
     class MockWorker {
@@ -406,7 +406,7 @@ describe('JavaScriptRunner', () => {
   });
 });
 
-describe('internal — per-line timing integration', () => {
+describe('per-line timing integration', () => {
   function installTimingWorkerMock() {
     const originalWorker = globalThis.Worker;
     const seen: { code?: string } = {};

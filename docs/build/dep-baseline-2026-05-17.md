@@ -1,6 +1,6 @@
 # Dependency baseline — 2026-05-17 (pre-sweep)
 
-Captured immediately before the post-internal modernization sweep.
+Captured immediately before the dependency modernization sweep that followed the Vite-major upgrade.
 
 ## `npm outdated`
 

@@ -173,7 +173,7 @@ export function DebuggerDrawer({
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const detach = () => {
-    // implementation note — emit a `debugger.detached` event with
+    // Emit a `debugger.detached` event with
     // `reasonBucket='user-detach'`. The runners emit their own
     // `run-complete` / `crash` / `stop` reasons; this branch covers the
     // explicit user-initiated detach via the drawer button.

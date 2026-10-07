@@ -327,6 +327,23 @@ describe('SqlResultPreview', () => {
       ],
     };
 
+    it('rounds long float aggregates and keeps the exact value in the title', async () => {
+      const user = userEvent.setup();
+      const profile = { ...successfulProfile.profiles[0]!, standardDeviation: '4.242640687119285' };
+      render(
+        <SqlResultPreview
+          response={response()}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+          profileQuerySource="SELECT score FROM metrics"
+          onProfileQuery={() => Promise.resolve({ ...successfulProfile, profiles: [profile] })}
+        />
+      );
+      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      const cell = await screen.findByTitle('4.242640687119285');
+      expect(cell.textContent).toBe('4.2426');
+    });
+
     it('opens an on-demand profile for the newest successful read query', async () => {
       const user = userEvent.setup();
       let resolveProfile: ((value: SqlColumnProfileOutcome) => void) | undefined;

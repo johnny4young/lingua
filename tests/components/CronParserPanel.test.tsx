@@ -1,5 +1,5 @@
 /**
- * internal — CronParserPanel tests. Helper coverage lives in
+ * CronParserPanel tests. Helper coverage lives in
  * tests/utils/cronParser.test.ts, so this suite focuses on wiring:
  * default render, description + next-runs visibility, empty state,
  * invalid-expression error banner, upcoming-runs count input, ES

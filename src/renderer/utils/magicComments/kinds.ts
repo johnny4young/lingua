@@ -22,7 +22,7 @@ export interface MagicCommentTransformOptions {
 }
 
 /**
- * implementation — derive the per-line `kind` map for a given source.
+ * Derive the per-line `kind` map for a given source.
  * Runners use this side-table at result-stitching time to tag each
  * incoming `magic-comment` worker message with `'arrow'` /
  * `'watch'` / `'autoLog'` (the worker postMessage protocol is
@@ -33,7 +33,7 @@ export interface MagicCommentTransformOptions {
  * not have emitted a message for that line in the first place, so
  * the fallback is purely defensive.
  *
- * implementation — when `options.autoLog` is true and the language
+ * When `options.autoLog` is true and the language
  * is JS / TS, any line that the auto-log detector flags AND that is
  * not already claimed by an arrow / watch gets `kind: 'autoLog'` in
  * the returned map. Arrow + watch win over auto-log on the same

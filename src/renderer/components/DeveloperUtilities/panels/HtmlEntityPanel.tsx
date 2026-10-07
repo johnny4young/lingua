@@ -28,7 +28,7 @@ export function HtmlEntityPanel() {
     return { output: encodeHtmlEntities(input, strategy), unresolvedCount: 0 };
   }, [input, mode]);
 
-  // implementation — register the encoded / decoded value.
+  // Register the encoded / decoded value.
   const registerOutput = useCallback(() => output || null, [output]);
   useRegisterUtilityOutput(registerOutput);
 

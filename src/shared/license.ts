@@ -1,5 +1,5 @@
 /**
- * License-token verification for internal
+ * License-token verification.
  *
  * A Lingua license is a compact two-part string: `<payload>.<signature>` where
  * both parts are base64url-encoded. The payload is a JSON document produced
@@ -29,7 +29,7 @@ export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team', 'trial', 'e
 export type LicenseTier = (typeof LICENSE_TIERS)[number];
 
 /**
- * internal hardening (audit implementation) — bind a token to the Lingua product
+ * Hardening: bind a token to the Lingua product
  * family. The signing key may issue tokens for more than one product;
  * without this a token minted for a DIFFERENT product under the same key
  * would satisfy the shape check and grant Lingua entitlements. Every
@@ -65,7 +65,7 @@ export interface LicenseVerificationOptions {
   now?: number;
   /**
    * How far past `supportWindowEndsAt` a license still verifies as `grace`
-   * instead of `expired`. Defaults to 14 days (internal default grace window).
+   * instead of `expired`. Defaults to 14 days (default grace window).
    */
   gracePeriodMs?: number;
   /**
@@ -191,7 +191,7 @@ function isValidPayload(value: unknown): value is LicensePayload {
     return false;
   }
   if (typeof candidate.productId !== 'string' || candidate.productId.length === 0) return false;
-  // Bind the token to the Lingua product family (audit implementation): a token
+  // Bind the token to the Lingua product family: a token
   // minted for another product under the same signing key must not grant
   // Lingua entitlements.
   if (!isLinguaProductId(candidate.productId)) return false;

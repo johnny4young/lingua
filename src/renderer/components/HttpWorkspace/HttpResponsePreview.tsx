@@ -1,7 +1,7 @@
 /**
- * implementation — Right column: response preview.
+ * Right column: response preview.
  *
- * FASE 3 (MOV.02/03) — converged the bespoke status/meta/tabs bar onto
+ * Converged the bespoke status/meta/tabs bar onto
  * the shared `<ResultHeader>` primitive and the no-response / loading
  * states onto `<EmptyState>`, matching the Signal-Slate proto
  * (`proto-workspaces.jsx` httpWs: shared result header `200 OK` +
@@ -16,20 +16,21 @@
  *   - `application/json` (+ variants) → JSON tree (pretty-printed
  *     via `JSON.parse` + `JSON.stringify(_, null, 2)`).
  *   - `text/*` → raw text.
- *   - `image/*` → `<img>` from a data URL (implementation only supports the
+ *   - `image/*` → `<img>` from a data URL (the viewer only supports the
  *     happy-path where the body decoded as UTF-8 is a valid image —
  *     base64 / binary streams are deferred).
  *   - Anything else → raw text fallback.
  *
- * implementation note — pretty/raw toggle on the Body tab. The toggle stays
+ * pretty/raw toggle on the Body tab. The toggle stays
  * local state (resetting on tab change is the desired UX).
  *
- * implementation note — `<HttpStatusPill>` renders the status color-coded.
+ * `<HttpStatusPill>` renders the status color-coded.
  */
 
 import { Loader2, SendHorizontal, X } from 'lucide-react';
 import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { runAssertions } from '../../../shared/httpWorkspaceAssertions';
 import type {
   HttpAssertion,
@@ -136,12 +137,12 @@ export interface HttpResponsePreviewProps {
   response: HttpResponseV1 | undefined;
   isExecuting: boolean;
   /**
-   * implementation — a one-line `METHOD url` summary of the active request. Lets a
+   * A one-line `METHOD url` summary of the active request. Lets a
    * failed request (CORS / network / timeout) offer the AI "Explain this
    * error" trigger with the request as the code context.
    */
   requestSummary?: string;
-  /** internal — the active request's assertions, evaluated against the response. */
+  /** The active request's assertions, evaluated against the response. */
   assertions?: readonly HttpAssertion[];
 }
 
@@ -152,7 +153,8 @@ export function HttpResponsePreview({
   assertions,
 }: HttpResponsePreviewProps) {
   const { t } = useTranslation();
-  // internal — evaluate assertions against the settled response. Enabled
+  const sendCombo = useShortcutLabel('run-toggle');
+  // Evaluate assertions against the settled response. Enabled
   // rows only; disabled rows are excluded by runAssertions.
   const assertionResults = useMemo(() => {
     if (!response || !assertions || assertions.length === 0) return [];
@@ -160,7 +162,7 @@ export function HttpResponsePreview({
   }, [response, assertions]);
   const assertionPassCount = assertionResults.filter((r) => r.pass).length;
   const [tab, setTab] = useState<PreviewTab>('body');
-  // implementation note — pretty/raw toggle.
+  // pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
   // Response body search/filter (Body tab). Highlights matches inline.
   const [search, setSearch] = useState<string>('');
@@ -199,7 +201,7 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<Loader2 size={18} className="animate-spin" aria-hidden="true" />}
           title={t('httpWorkspace.response.loading')}
-          description={t('httpWorkspace.response.empty.body')}
+          description={t('httpWorkspace.response.empty.body', { combo: sendCombo })}
         />
       </div>
     );
@@ -215,7 +217,7 @@ export function HttpResponsePreview({
         <EmptyState
           icon={<SendHorizontal size={18} aria-hidden="true" />}
           title={t('httpWorkspace.response.empty.title')}
-          description={t('httpWorkspace.response.empty.body')}
+          description={t('httpWorkspace.response.empty.body', { combo: sendCombo })}
         />
       </div>
     );
@@ -284,7 +286,7 @@ export function HttpResponsePreview({
         }
       />
 
-      {/* internal — assertion results strip. Only shown when the request has
+      {/* Assertion results strip. Only shown when the request has
           enabled assertions; a green/red summary plus a per-row verdict. */}
       {assertionResults.length > 0 ? (
         <div

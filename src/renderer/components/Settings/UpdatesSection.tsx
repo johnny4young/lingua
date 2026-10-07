@@ -5,7 +5,7 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { Tooltip } from '../ui/chrome';
 
 /**
- * FASE 2a — maps the closed-enum updater status onto a StatusBadge
+ * Maps the closed-enum updater status onto a StatusBadge
  * tone. `available`/`downloaded` are the only genuinely positive
  * states (green); `error` is the only failure (red); everything else
  * (idle/unavailable/up-to-date) stays quiet, with `checking` reading

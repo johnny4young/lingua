@@ -53,7 +53,7 @@ export function Base64ImagePanel() {
     return result.ok ? { ok: true, value: result } : { ok: false, value: result };
   }, [decodeInput]);
 
-  // implementation — encode mode exposes the data URI; decode mode
+  // Encode mode exposes the data URI; decode mode
   // exposes a 1-line summary. Errors fall through to null.
   const registerOutput = useCallback(() => {
     if (mode === 'encode') {
@@ -144,10 +144,10 @@ export function Base64ImagePanel() {
 
         {mode === 'encode' ? (
           <div className="grid gap-2">
-            {/* internal — migrated to <FileDropZone>. The previous version
+            {/* Migrated to <FileDropZone>. The previous version
                 had two separate surfaces (a dropzone div + a separate
                 native file input below) which were redundant — the new
-                component implementation note into a single <label> so click
+                component folds both into a single <label> so click
                 anywhere opens the picker AND drag-drop works on the same
                 target. The `dragOver` local state and its corresponding
                 handlers go away entirely; the hook owns the state machine. */}

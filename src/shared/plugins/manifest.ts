@@ -1,5 +1,5 @@
 /**
- * internal — Local plugin manifest contract.
+ * Local plugin manifest contract.
  *
  * Single source of truth for the plugin manifest schema, the bundled
  * runtime allowlist, and the validator function. Pure module — no

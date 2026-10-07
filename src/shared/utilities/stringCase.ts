@@ -1,5 +1,5 @@
 /**
- * implementation note — `string-case` adapter.
+ * `string-case` adapter.
  *
  * Re-cases the input to a chosen convention (lower / upper / title /
  * camel / snake / kebab). Pure shared implementation: the single-shot

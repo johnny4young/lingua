@@ -24,12 +24,15 @@ function requestId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** Aborting `signal` terminates the worker and resolves with no segments. */
 export async function computeDiffOffThread(
   left: string,
   right: string,
   granularity: DiffGranularity,
-  workerFactory: UtilityComputeWorkerFactory = defaultWorkerFactory
+  workerFactory: UtilityComputeWorkerFactory = defaultWorkerFactory,
+  signal?: AbortSignal
 ): Promise<DiffSegment[]> {
+  if (signal?.aborted) return [];
   let worker: Worker | null = null;
   try {
     worker = workerFactory();
@@ -41,12 +44,15 @@ export async function computeDiffOffThread(
   const id = requestId('diff');
   return await new Promise<DiffSegment[]>((resolve) => {
     let settled = false;
+    const onAbort = () => finish([]);
     const finish = (segments: DiffSegment[]) => {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       worker?.terminate();
       resolve(segments);
     };
+    signal?.addEventListener('abort', onAbort, { once: true });
     worker.addEventListener('message', (event: MessageEvent<UtilityComputeResponse>) => {
       const response = event.data;
       if (response.requestId !== id) return;

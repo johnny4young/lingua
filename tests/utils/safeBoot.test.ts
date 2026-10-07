@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * internal — safe-boot helpers.
+ * safe-boot helpers.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

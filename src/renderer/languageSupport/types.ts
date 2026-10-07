@@ -44,7 +44,7 @@ interface BaseMonacoLanguageContribution {
 type MonacoLanguageContribution =
   | (BaseMonacoLanguageContribution & {
       /**
-       * internal — the id of a bundled Monaco basic language. The actual
+       * The id of a bundled Monaco basic language. The actual
        * `import('monaco-editor/esm/vs/basic-languages/…')` lives ONLY in
        * `basicLanguageLoaders.ts`, which is dynamically imported at
        * registration time. Keeping these dynamic imports out of the

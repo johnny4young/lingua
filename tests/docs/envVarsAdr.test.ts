@@ -22,7 +22,7 @@ describe('ENV_VARS_ADR.md', () => {
     expect(adr).toMatch(/Date\s*\|\s*2026-04-20/u);
   });
 
-  it('answers the three internal scoping questions', () => {
+  it('answers the three scoping questions', () => {
     expect(adr).toMatch(/## Decisions/u);
     // Q1: runtimes
     expect(adr).toMatch(/### 1\. Runtimes that receive env vars/iu);
@@ -48,13 +48,11 @@ describe('ENV_VARS_ADR.md', () => {
     }
   });
 
-  it('cross-links the adjacent ADRs and RL items', () => {
+  it('cross-links the adjacent ADRs', () => {
     for (const pointer of [
       'BUILD_SYSTEM_ADR.md',
       'CAPABILITY_MATRIX.md',
       'LANGUAGE_PACK_ADR.md',
-      'internal',
-      'internal',
     ]) {
       expect(adr).toContain(pointer);
     }

@@ -1,5 +1,5 @@
 /**
- * implementation — formatter helpers shared across the RichValue
+ * Formatter helpers shared across the RichValue
  * components and the dispatch wrapper. Pure (no React, no i18n) so
  * the renderer-side `<ConsoleEntryRenderer>` and the popover surface
  * read the same shape from a single source.
@@ -10,7 +10,7 @@
  *   - `richKindBucket` → the closed-enum bucket the telemetry emit
  *     uses (mirrored on `update-server/src/telemetry.ts`).
  *
- * implementation's `formatPayloadInlineSummary` is reused for the
+ * The existing `formatPayloadInlineSummary` is reused for the
  * minimal "Table(N×M)" / "Map(N)" inline header text — the popover
  * adds deeper rendering on top of that.
  */
@@ -22,7 +22,7 @@ import type { ConsolePayloadKindBucket } from '../../types/console';
 /**
  * Closed-enum bucket the `runtime.console_rich_rendered` telemetry
  * event accepts. Maps every payload kind to a small fixed set so we
- * never transmit unbounded discriminator names (implementation's chart /
+ * never transmit unbounded discriminator names (the chart /
  * image variants are pre-listed in `richOutput.ts`).
  */
 export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBucket {
@@ -47,7 +47,7 @@ export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBu
     case 'array':
       return 'array';
     case 'error':
-      // implementation note — Python `BaseException` payloads ship
+      // Python `BaseException` payloads ship
       // `kind: 'error'` from `__lingua_console_serialize`. The renderer
       // already paints these via the warn/error type colour scheme;
       // bucketing them as `'error'` (not folded into `'text'`) keeps
@@ -133,14 +133,14 @@ export function payloadHasRichSurface(payload: RichOutputPayload): boolean {
     case 'primitive':
     case 'function':
       return false;
-    // implementation — `error` now opens the popover when the worker
+    // `error` now opens the popover when the worker
     // attached a structured `stack`. The renderer's `<RichValueError>`
     // owns the chip; the popover surfaces the full traceback + raw
     // JSON tab.
     case 'error':
       return Array.isArray(payload.stack) && payload.stack.length > 0;
-    // implementation — image + html have dedicated components.
-    // implementation — chart now has a vega-embed renderer.
+    // Image + html have dedicated components.
+    // Chart now has a vega-embed renderer.
     case 'image':
     case 'html':
     case 'chart':

@@ -1,12 +1,12 @@
 /**
- * internal — Minimal env builder for native runner subprocesses.
+ * Minimal env builder for native runner subprocesses.
  *
  * Before this lived, the Go and Rust runners spread `process.env`
  * directly into `execFile`/`spawn`, which leaked every secret the
  * Electron main process happens to inherit (CI tokens, OPENAI_API_KEY,
  * etc.) into the spawned toolchain. The builder picks ONLY the keys
  * a toolchain actually needs from the host env, then layers the
- * user-tier env from internal on top, then applies runner-owned
+ * user-tier env on top, then applies runner-owned
  * overrides (e.g. `GOOS=js` / `GOARCH=wasm` for Go) last so user env
  * cannot shadow them.
  *
@@ -40,12 +40,12 @@ export {
 export const RUST_DEBUGGER_TOOLCHAIN_KEYS = ['LLDB_DAP', 'DEVELOPER_DIR'] as const;
 
 /**
- * implementation — Ruby-specific host-env keys. Covers:
+ * Ruby-specific host-env keys. Covers:
  *   - `GEM_HOME` / `GEM_PATH` / `BUNDLE_GEMFILE`: per-user gem caches
  *     + bundler context. Without these, system Ruby cannot see gems
  *     the user installed via `gem install --user`.
  *   - `RBENV_VERSION` / `ASDF_RUBY_VERSION`: version-pin selectors so
- *     shims pick the right interpreter. implementation note writes these from a
+ *     shims pick the right interpreter. Written from a
  *     discovered `.ruby-version` file.
  *   - `RBENV_ROOT` / `RBENV_DIR`: rbenv installation paths so the
  *     shim wrapper can resolve.
@@ -53,7 +53,7 @@ export const RUST_DEBUGGER_TOOLCHAIN_KEYS = ['LLDB_DAP', 'DEVELOPER_DIR'] as con
  *
  * Intentionally NOT here: `RUBYOPT`, `RUBYLIB`, `IRBRC`, `RUBYRC`,
  * `RACK_ENV`, `RAILS_ENV`. Those are user-controllable knobs that
- * belong in the internal user env tier (Settings → Environment Variables)
+ * belong in the user env tier (Settings → Environment Variables)
  * — same posture as `NODE_OPTIONS` (excluded above) and `RUSTFLAGS`
  * (excluded above). `RUBYOPT` in particular is a command-line flag
  * injector that would let the host slip arbitrary `-r/some/path` /
@@ -73,7 +73,7 @@ export const RUBY_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
- * Env keys the internal user tier may never set when it arrives over IPC.
+ * Env keys the user tier may never set when it arrives over IPC.
  * Running native code is already the user's own machine and their own
  * opt-in — this is not a privilege boundary — but a COMPROMISED renderer
  * should not get a free dynamic-loader injection primitive layered onto
@@ -102,7 +102,7 @@ const USER_ENV_DENYLIST = new Set([
  *      because Node's `child_process` stringifies that to the literal
  *      `"undefined"` on some platforms, which would silently shadow
  *      a real value the spawned binary might pick up from elsewhere.
- *   2. Merge the internal user env tier on top. Non-string values are
+ *   2. Merge the user env tier on top. Non-string values are
  *      dropped defensively (the renderer's envVarsStore validates
  *      them, but the IPC boundary is untrusted).
  *   3. Apply runner-owned `overrides` last so they always win

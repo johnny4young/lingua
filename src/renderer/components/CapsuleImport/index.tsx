@@ -1,5 +1,5 @@
 /**
- * implementation — Capsule import barrel.
+ * Capsule import barrel.
  * Centralises the public surface (overlay + preview) so call sites
  * import from `components/CapsuleImport` without reaching into files.
  */

@@ -27,7 +27,7 @@ import {
 } from './env';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 
-// implementation — the literal DEFAULT_TIMEOUT is gone; the runner
+// The literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
 // every call to `execute()`.
 const t: TranslateFn = (key, options) =>
@@ -89,7 +89,7 @@ export class GoRunner implements LanguageRunner {
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     this.stop();
-    // implementation — resolve deadline from the per-language preset.
+    // Resolve deadline from the per-language preset.
     const settingsSnapshot = useSettingsStore.getState();
     const callerOverrode = typeof context?.timeout === 'number';
     const presetForLanguage: RuntimeTimeoutPreset | undefined =
@@ -114,7 +114,7 @@ export class GoRunner implements LanguageRunner {
             { toolchain: 'Go' }
           ),
         },
-        // implementation — host-not-installed counts as `'error'`.
+        // host-not-installed counts as `'error'`.
         kind: 'error',
       };
     }
@@ -168,7 +168,7 @@ export class GoRunner implements LanguageRunner {
             if (resolved || msg.runId !== runId) return;
             switch (msg.type) {
               case 'console': {
-                // implementation — enrich the line field from a Go
+                // Enrich the line field from a Go
                 // panic-style `file.go:N` reference in the args text when
                 // the worker didn't already provide a line.
                 const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);

@@ -1,5 +1,5 @@
 /**
- * internal privacy guarantees locked as tests:
+ * Privacy guarantees locked as tests:
  *   - redactor drops any property not on the per-event allowlist
  *   - redactor defensively strips keys/values that look like user data
  *   - timestamps are rounded to the minute
@@ -37,35 +37,35 @@ describe('TELEMETRY_EVENTS', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
       'app.boot_phase',
       'app.launched',
-      // implementation note — capsule browse overlay adoption signal.
+      // Capsule browse overlay adoption signal.
       // Closed-enum `{ surface, tier }`. Sorts before `capsule.compared`.
       'capsule.browse_opened',
-      // implementation — capsule diff comparator adoption signal.
+      // Capsule diff comparator adoption signal.
       // Closed-enum `{ sameLanguage }` boolean. Sorts between
       // `capsule.browse_opened` and `capsule.exported`.
       'capsule.compared',
-      // implementation note — Run Capsule export adoption signal.
+      // Run Capsule export adoption signal.
       // Closed-enum `{ trigger, sizeBucket }`. Sorts at the top of the
       // alphabetical list.
       'capsule.exported',
-      // implementation note — Run Capsule import adoption signal.
+      // Run Capsule import adoption signal.
       // Closed-enum `{ surface, status, sizeBucket }`. Property is
       // named `surface` (not `sourceSurface`) because `source` is in
       // `DENY_SUBSTRINGS` — same precedent as
-      // `language_scorecard_viewed` from implementation
+      // `language_scorecard_viewed`.
       'capsule.imported',
-      // implementation — debugger session lifecycle. Closed-enum payload
+      // Debugger session lifecycle. Closed-enum payload
       // per DEBUGGER_ADR §4; the redactor drops anything off the contract.
       'debugger.attached',
       'debugger.detached',
       'debugger.paused',
-      // implementation — dependency detection signals.
+      // Dependency detection signals.
       // `detected_in_tab` per-cycle (closed-enum
       // `{ language, countBucket }`); `banner_shown` once-per
-      // `(tab, language)` per session; `classifications_summary` (implementation note)
+      // `(tab, language)` per session; `classifications_summary`
       // rollup with four bucketed status counts. Sorts alphabetically
       // ahead of `feature.blocked` because `dep` < `fea`.
-      // implementation — install lifecycle: `install_started` per
+      // Install lifecycle: `install_started` per
       // batched click (closed-enum `{ language, countBucket }`);
       // `install_completed` per finished batch
       // (`{ language, outcome }` from DEPENDENCY_INSTALL_OUTCOMES);
@@ -78,7 +78,7 @@ describe('TELEMETRY_EVENTS', () => {
       'dependency.install_completed',
       'dependency.install_failed_reason',
       'dependency.install_started',
-      // implementation — Replace in files applied. Closed-enum
+      // Replace in files applied. Closed-enum
       // `{ scope, countBucket, regex }`. Sorts between
       // `dependency.install_started` (d.e-p) and `feature.blocked`
       // (f.e-a) alphabetically.
@@ -86,204 +86,204 @@ describe('TELEMETRY_EVENTS', () => {
       'editor.replace_in_files_applied',
       'editor.smart_paste_applied',
       'editor.smart_paste_shown',
-      // internal — status-bar visibility toggle. Closed-enum `{ enabled }`
+      // status-bar visibility toggle. Closed-enum `{ enabled }`
       // boolean. Sorts after `smart_paste_shown` (`st` > `sm`) and before
       // `env.*` (`editor` < `env`).
       'editor.status_bar_toggled',
       'env.project_scope_used',
       'feature.blocked',
-      // implementation detail — filesystem-denylist refusal. Closed `{ family }`.
+      // filesystem-denylist refusal. Closed `{ family }`.
       // Sorts between `feature.blocked` and `git.*` (`fe` < `fs` < `gi`).
       'fs.blocked',
-      // implementation note — Git read-only layer adoption signal.
+      // Git read-only layer adoption signal.
       // `git.diff_panel_opened` sorts before `git.layer_attached`
       // because `.diff_` < `.layer_` lexicographically.
       'git.diff_panel_opened',
-      // implementation note — external-modification reload outcome.
+      // external-modification reload outcome.
       // Sorts between `git.diff_panel_opened` and `git.head_changed`
       // because `.external_` < `.head_` < `.layer_`.
       'git.external_modification_reload',
-      // implementation — `.git/HEAD` change signal.
+      // `.git/HEAD` change signal.
       'git.head_changed',
       'git.layer_attached',
-      // implementation — Reveal-in-Source-Control click. Closed-enum
+      // Reveal-in-Source-Control click. Closed-enum
       // `{ target }` ∈ REVEAL_IN_SC_TARGETS (`'repo-root'` only today).
       'git.reveal_in_source_control_clicked',
-      // implementation note — HTTP workspace request execution.
+      // HTTP workspace request execution.
       // Sorts between `git.reveal_in_source_control_clicked` and
       // `language_scorecard_viewed` because `http.` < `language_`.
       'http.request_executed',
-      // implementation note — Importer registry commit. Sorts
+      // Importer registry commit. Sorts
       // between `http.request_executed` and `language_scorecard_viewed`
       // because `import.` < `language_`.
       'import.applied',
-      // implementation note — `.ipynb` warning band. Sorts right
+      // `.ipynb` warning band. Sorts right
       // after `import.applied` (lex order on the dotted segment).
       'import.notebook_warnings_surfaced',
-      // implementation (Postman vars) implementation note — collection-variable
+      // collection-variable
       // resolution outcome. Sorts after `import.notebook_warnings_surfaced`
       // because `notebook` < `postman` on the dotted segment.
       'import.postman_variables_resolved',
-      // implementation note — Web/Desktop scorecard filter toggle.
+      // Web/Desktop scorecard filter toggle.
       // Closed-enum payload `{ platform }` from
       // `LANGUAGE_SCORECARD_PLATFORMS` (all | web | desktop). Sorts
       // before `language_scorecard_viewed` because `platform_` <
       // `viewed` on the shared `language_scorecard_` prefix.
       'language_scorecard_platform_toggled',
-      // implementation note — Language Support Scorecard adoption
+      // Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key
       // is `surface` (not `source`) because the redactor strips
       // anything whose lowercased name contains 'source' — same
       // precedent as `runtime.workflow_mode_changed { trigger }`.
       'language_scorecard_viewed',
-      // internal — Run Ledger: schema drop acknowledgement (no payload)
+      // Run Ledger: schema drop acknowledgement (no payload)
       // and the Privacy opt-in toggle ({ enabled } boolean only).
       'ledger.cleared',
       'ledger.toggled',
-      // implementation Slice (Monaco cells) implementation note — cell editor mounted. Sorts
+      // Cell editor mounted. Sorts
       // before `cell_executed` (`cell_e-ditor` < `cell_e-xecuted`).
       'notebook.cell_editor_mounted',
-      // implementation Slice A implementation note — notebook cell execution. Sorts
+      // Notebook cell execution. Sorts
       // between `language_scorecard_viewed` and
       // `onboarding.first_run_completed` because `n-o-t-e-b` <
       // `o-n-b-o-a`. Closed-enum `{ language, status }`. NO cell
       // source / output reaches the wire.
       'notebook.cell_executed',
-      // implementation Slice C implementation note — per-cell language switch adoption signal.
+      // per-cell language switch adoption signal.
       'notebook.cell_language_changed',
-      // implementation Slice D implementation note — notebook export (script | ipynb) signal.
+      // Notebook export (script | ipynb) signal.
       'notebook.exported',
-      // implementation — onboarding choreography (alphabetic order
+      // Onboarding choreography (alphabetic order
       // puts `onboarding.*` between `language_scorecard_viewed` and
       // `overlay.opened`). Closed-enum payloads:
       // `{ language }` validated against the renderer's
       // `ONBOARDING_LANGUAGE_IDS` set, no payload, and
-      // `{ stage, dismissMode }` (implementation note).
+      // `{ stage, dismissMode }`.
       'onboarding.first_run_completed',
       'onboarding.first_snippet_saved',
-      // implementation note — production diagnostic for the
+      // Production diagnostic for the
       // priority-based clobber refusal. Closed-enum
       // `{ outstandingStage }` from `ONBOARDING_TOAST_STAGES`.
       'onboarding.toast_clobbered',
       'onboarding.toast_dismissed',
       'overlay.opened',
-      // implementation detail — persisted-store schema migration ran on rehydrate.
+      // persisted-store schema migration ran on rehydrate.
       // Closed payload `{ store }` (localStorage key, safe token). Sorts
       // between `overlay.*` and `privacy.*` (pe < pr).
       'persistence.migrated',
-      // implementation note — Privacy + Trust dashboard adoption
+      // Privacy + Trust dashboard adoption
       // signal. Closed-enum `{ surface }` from
       // `PRIVACY_DASHBOARD_SURFACES` ('settings' | 'palette').
       'privacy.dashboard_opened',
-      // implementation — project zip bundle events sort between
+      // Project zip bundle events sort between
       // `privacy.*` and `recipe.*` alphabetically.
       'project.bundle_exported',
       'project.bundle_imported',
       'project.bundle_rejected',
-      // implementation Slice B implementation note — Recipes overlay open + Run + Test
+      // Recipes overlay open + Run + Test
       // settle. `recipe.*` sorts between `privacy.dashboard_opened`
       // and `runner.executed` alphabetically. NO recipe id on the
       // wire — `language` + closed-enum `status` only.
       'recipe.opened',
       'recipe.test_run',
       'runner.executed',
-      // implementation — bare-expression auto-log toggle.
+      // bare-expression auto-log toggle.
       'runtime.auto_log_emitted',
       'runtime.auto_log_enabled',
-      // implementation — per-tab JS/TS runtime mode change.
+      // per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
-      // internal — runtime bootstrap outcome, closed-enum payloads.
+      // Runtime bootstrap outcome, closed-enum payloads.
       'runtime.bootstrap_completed',
       'runtime.bootstrap_failed',
-      // implementation — once-per-session Browser preview live refresh.
+      // once-per-session Browser preview live refresh.
       // Closed payload `{ language, intervalMs }`.
       'runtime.browser_preview_auto_refresh',
-      // implementation — Compare-with-last-stable adoption signal.
+      // Compare-with-last-stable adoption signal.
       'runtime.compare_view_toggled',
-      // implementation — rich console output rendered. Closed-enum
+      // Rich console output rendered. Closed-enum
       // payload `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
       'runtime.console_rich_rendered',
-      // implementation note — `console.table()` adoption signal.
+      // `console.table()` adoption signal.
       // Closed-enum payload `{ language }`.
       'runtime.console_table_called',
-      // implementation Sub-slice G.1 implementation note — implementation note inverse direction
+      // Implementation note inverse direction
       // adoption. Closed-enum payload `{ language }` only. Sorts
       // between `console_table_called` (`c-o-n` < `c-u-r`) and
       // `error_stack_frame_clicked` alphabetically.
       'runtime.cursor_pulse_emitted',
-      // implementation — implementation adoption signal. Closed-enum
+      // Implementation adoption signal. Closed-enum
       // payload `{ language }`. Sorts between `cursor_pulse_emitted`
       // and `fs_directory_picker_unsupported` alphabetically.
       'runtime.error_stack_frame_clicked',
-      // implementation — File System Access API "Open folder"
+      // File System Access API "Open folder"
       // unsupported signal. Closed-enum payload `{ userAgentBucket }`.
       // Sorts between `error_stack_frame_clicked` and
       // `history_replay` alphabetically.
       'runtime.fs_directory_picker_unsupported',
-      // implementation — execution-history replay dispatched.
+      // execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',
-      // implementation detail — console image clipboard paste. Closed-enum
+      // Console image clipboard paste. Closed-enum
       // payload `{ status, sizeBucket }`. Sorts between `history_replay`
       // and `magic_comment_emitted` alphabetically.
       'runtime.image_clipboard_pasted',
-      // implementation — magic-comment results emitted on a clean
+      // magic-comment results emitted on a clean
       // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
       'runtime.magic_comment_emitted',
       'runtime.mode_changed',
-      // implementation — desktop Node child-spawn adoption. Closed-
+      // Desktop Node child-spawn adoption. Closed-
       // enum payload `{ language, status }`. Sorts between
       // `mode_changed` and `stdin_used` alphabetically.
       'runtime.node_runner_used',
-      // implementation — output→source line affordance click.
+      // Output→source line affordance click.
       // Closed-enum payload `{ language, surface }` from
       // `OUTPUT_ORIGIN_SURFACES` (`'badge'`). Sorts between
       // `node_runner_used` and `python_console_payload_emitted`
       // alphabetically (`output_origin_clicked` < `python_…`).
       'runtime.output_origin_clicked',
-      // implementation note — Python (Pyodide) console payload
+      // Python (Pyodide) console payload
       // adoption. Closed-enum payload `{ kind }` from
       // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between
       // `output_origin_clicked` and `stdin_used` alphabetically.
       'runtime.python_console_payload_emitted',
-      // implementation-β-β-α implementation note — Python rich-media adoption.
+      // Python rich-media adoption.
       // Closed-enum payload `{ kind }` from `RICH_MEDIA_REJECTED_KINDS`.
       // Sorts between `python_console_payload_emitted` and
       // `rich_media_payload_rejected` alphabetically.
       'runtime.python_rich_media_used',
-      // implementation — rich-media payload rejection signal. Closed
+      // rich-media payload rejection signal. Closed
       // enum `{ kind, reason }`. Sorts between `python_rich_media_used`
       // and `ruby_runner_dispatched`.
       'runtime.rich_media_payload_rejected',
-      // implementation — Ruby runtime dispatch + Settings preference.
+      // Ruby runtime dispatch + Settings preference.
       // Both closed-enum; sorts after `rich_media_payload_rejected`.
       'runtime.ruby_runner_dispatched',
       'runtime.ruby_runtime_preference_changed',
-      // implementation — bare-stdin adoption signal. Closed-enum
+      // bare-stdin adoption signal. Closed-enum
       // payload `{ language }`. Sorts between `mode_changed` and
       // `workflow_mode_changed` alphabetically.
       'runtime.stdin_used',
-      // implementation — per-language timeout preset change.
+      // per-language timeout preset change.
       // Closed-enum payload `{ language, preset }`.
       'runtime.timeout_preset_changed',
-      // implementation — variable inspector adoption. Closed-enum
+      // Variable inspector adoption. Closed-enum
       // payload `{ language, variableCount }`.
       'runtime.variable_inspector_opened',
-      // implementation note — floating ↔ bottom surface adoption.
+      // Floating ↔ bottom surface adoption.
       // Closed-enum payload `{ surface }`.
       'runtime.variable_inspector_surface_changed',
-      // implementation — per-tab workflow mode change. Closed-enum
+      // per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
-      // internal — workspace session restore. `session.restored`
+      // Workspace session restore. `session.restored`
       // `{ tabCount, source∈{auto,prompt} }`; `session.snapshotDiscarded`
       // `{ tabCount }`. Count only; no tab names/paths/content. Sorts
       // between `runtime.*` (ru) and `share.*` (sh) — `se` < `sh`.
       'session.restored',
       'session.snapshotDiscarded',
-      // implementation Phase A1 implementation note — share-link lifecycle. Two events:
+      // share-link lifecycle. Two events:
       // `share.created` for the encode (copy) side with
       // `{ trigger, status, sizeBucket }`, `share.opened` for the
       // decode (URL-fragment import) side with `{ status, sizeBucket }`.
@@ -293,33 +293,33 @@ describe('TELEMETRY_EVENTS', () => {
       // identical sets.
       'share.created',
       'share.opened',
-      // implementation note — SQL workspace query execution. Closed-
+      // SQL workspace query execution. Closed-
       // enum `{ status, rowCountBucket, durationBucket }` from
       // `SQL_QUERY_STATUSES_SET` + `DEPENDENCY_COUNT_BUCKETS_SET` +
       // `SQL_DURATION_BUCKETS_SET`. Sorts between `share.opened` (sh)
       // and `template_project_applied` (te) alphabetically.
-      // internal — a privacy-safe interaction counter with no payload.
+      // A privacy-safe interaction counter with no payload.
       'sql.profile_opened',
       'sql.query_executed',
-      // implementation (SQL OPFS) implementation note — SQL workspace storage backing.
+      // SQL workspace storage backing.
       'sql.storage_mode',
-      // implementation (SQL import) implementation note — file imported as a DuckDB table.
+      // File imported as a DuckDB table.
       // Closed-enum `{ format, source }` from `SQL_IMPORT_FORMATS_SET` +
       // `SQL_IMPORT_SOURCES_SET`. Sorts between `sql.storage_mode`
       // (sql.s) and `template_project_applied` (te) alphabetically.
       'sql.table_imported',
-      // implementation note — curated project template applied.
+      // Curated project template applied.
       // Closed-enum `{ templateId, language }` from
       // `TEMPLATE_PROJECT_IDS` + language pack id. Sorts between
       // `share.opened` (s.h-a < t.e-m) and `update.checked`
       // (t.e-m < u.p-d) alphabetically.
       'template_project_applied',
       'update.checked',
-      // implementation — Developer Utilities productivity layer.
+      // Developer Utilities productivity layer.
       'utility.clipboard.applied',
       'utility.favorite.pinned',
       'utility.history.cleared',
-      // implementation note — Utility pipeline execution. Closed-enum
+      // Utility pipeline execution. Closed-enum
       // `{ stepCount, status }` from DEPENDENCY_COUNT_BUCKETS_SET +
       // PIPELINE_RUN_STATUSES_SET. Sorts AFTER the other utility.*
       // entries because 'p.i' < 'h.i' (history is last). Wait — it
@@ -327,12 +327,12 @@ describe('TELEMETRY_EVENTS', () => {
       // utility.clipboard < utility.favorite < utility.history <
       // utility.pipeline. Pipeline comes last.
       'utility.pipeline_executed',
-      // implementation note — pipeline template gallery adoption.
+      // Pipeline template gallery adoption.
       'utility.pipeline_template_used',
     ]);
   });
 
-  // implementation Slice B implementation note — structural derivation check. The literal
+  // Structural derivation check. The literal
   // list above is the review wall (every new event has to be reviewed
   // explicitly). This complementary check enforces that the literal
   // matches the TELEMETRY_EVENTS constant byte-for-byte (no
@@ -578,7 +578,7 @@ describe('runtime.mode_changed value validator ', () => {
     }
   });
 
-  it('drops unknown modes (defensive — implementation would have to land the validator branch too)', () => {
+  it('drops unknown modes (defensive — a new mode would have to land the validator branch too)', () => {
     const { event } = redactForTelemetry(
       buildEvent({
         event: 'runtime.mode_changed',
@@ -635,7 +635,7 @@ describe('language_scorecard_platform_toggled value validator ', () => {
   });
 });
 
-describe('runtime.image_clipboard_pasted value validator (implementation detail)', () => {
+describe('runtime.image_clipboard_pasted value validator', () => {
   it('accepts the closed status enum + a CAPSULE_SIZE_BUCKETS value', () => {
     for (const status of [
       'pasted',
@@ -1004,7 +1004,7 @@ describe('runtime.auto_log_enabled value validator ', () => {
   });
 });
 
-describe('runtime.auto_log_emitted value validator (implementation note)', () => {
+describe('runtime.auto_log_emitted value validator', () => {
   it('accepts each closed-enum count bucket', () => {
     for (const countBucket of ['1', '2-5', '6-20', '20-plus'] as const) {
       const { event } = redactForTelemetry(
@@ -1241,16 +1241,16 @@ describe('runtime.variable_inspector_opened value validator ', () => {
   });
 });
 
-describe('capsule.exported value validator (implementation note)', () => {
+describe('capsule.exported value validator', () => {
   it('accepts every closed-enum trigger', () => {
     for (const trigger of [
       'settings-export',
       'palette-export',
-      // implementation — primary result-panel surface trigger.
+      // Primary result-panel surface trigger.
       'result-panel-export',
-      // implementation — per-row export from the browse overlay.
+      // per-row export from the browse overlay.
       'list-export',
-      // implementation — explicit Save-as-capsule from the pipeline panel.
+      // Explicit Save-as-capsule from the pipeline panel.
       'pipeline-run',
     ] as const) {
       const { event } = redactForTelemetry(
@@ -1295,7 +1295,7 @@ describe('capsule.exported value validator (implementation note)', () => {
   });
 });
 
-describe('capsule.browse_opened value validator (implementation note)', () => {
+describe('capsule.browse_opened value validator', () => {
   it('accepts every closed-enum surface', () => {
     for (const surface of [
       'palette',
@@ -1526,7 +1526,7 @@ describe('dependency telemetry value validators ', () => {
   });
 });
 
-describe('runtime.python_rich_media_used value validator (implementation-β-β-α implementation note)', () => {
+describe('runtime.python_rich_media_used value validator', () => {
   it('accepts the closed-enum kind (chart / image / html)', () => {
     for (const kind of ['chart', 'image', 'html'] as const) {
       const { event } = redactForTelemetry(

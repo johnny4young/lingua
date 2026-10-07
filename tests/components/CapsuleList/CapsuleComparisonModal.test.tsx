@@ -1,9 +1,9 @@
 /**
- * implementation — CapsuleComparisonModal.
+ * CapsuleComparisonModal.
  *
  * Pins: null off-state; summary strip (language match + mismatch, status
- * + duration deltas); implementation note section tabs (Code → Input → Output) with
- * the two panes; implementation note env deltas; the contentIdentical collapse; implementation note
+ * + duration deltas); section tabs (Code → Input → Output) with
+ * the two panes; env deltas; the contentIdentical collapse;
  * a11y (role=dialog + aria-modal, Escape closes, close button is a real
  * <button> with an aria-label); and the ES tuteo locale.
  */
@@ -25,8 +25,10 @@ vi.mock('@/components/ui/chrome', () => ({
   }: ButtonHTMLAttributes<HTMLButtonElement> & { tooltip?: string }) => (
     <button {...rest}>{children}</button>
   ),
-  OverlayBackdrop: ({ children }: { children: ReactNode }) => (
-    <div data-testid="overlay-backdrop">{children}</div>
+  OverlayBackdrop: ({ children, onKeyDown }: HTMLAttributes<HTMLDivElement>) => (
+    <div data-testid="overlay-backdrop" onKeyDown={onKeyDown}>
+      {children}
+    </div>
   ),
   OverlayCard: ({ children, ...rest }: HTMLAttributes<HTMLDivElement>) => (
     <div {...rest}>{children}</div>
@@ -119,7 +121,7 @@ describe('CapsuleComparisonModal', () => {
     ).toBe('Language: python → javascript');
   });
 
-  it('shows env deltas only when they differ (implementation note)', () => {
+  it('shows env deltas only when they differ', () => {
     const older = capsule({ id: 'o', platform: 'web', runner: 'javascript' });
     const newer = capsule({ id: 'n', platform: 'desktop', runner: 'node-22' });
 
@@ -145,7 +147,7 @@ describe('CapsuleComparisonModal', () => {
     expect(screen.queryByTestId('capsule-compare-summary-runner')).toBeNull();
   });
 
-  it('renders the Code panes by default and switches sections (implementation note)', async () => {
+  it('renders the Code panes by default and switches sections', async () => {
     const older = capsule({
       id: 'o',
       content: 'console.log(1)',
@@ -274,7 +276,7 @@ describe('CapsuleComparisonModal', () => {
     expect(screen.getByTestId('capsule-compare-summary')).not.toBeNull();
   });
 
-  it('a11y: role=dialog + aria-modal, Escape closes, close is a real button (implementation note)', async () => {
+  it('a11y: role=dialog + aria-modal, Escape closes, close is a real button', async () => {
     const onClose = vi.fn();
     const older = capsule({ id: 'o', content: 'a' });
     const newer = capsule({ id: 'n', content: 'b' });
@@ -291,9 +293,15 @@ describe('CapsuleComparisonModal', () => {
     expect(close.tagName).toBe('BUTTON');
     expect(close.getAttribute('aria-label')).toBe('Close comparison');
 
+    // The parent Capsules overlay must not see the Escape this modal handled.
+    const parentEscape = vi.fn();
+    window.addEventListener('keydown', parentEscape);
+    close.focus();
     const user = userEvent.setup();
     await user.keyboard('{Escape}');
+    window.removeEventListener('keydown', parentEscape);
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(parentEscape).not.toHaveBeenCalled();
   });
 
   it('renders the tuteo Spanish copy when the locale switches', async () => {

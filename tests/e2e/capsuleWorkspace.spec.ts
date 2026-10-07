@@ -106,7 +106,7 @@ test.describe('Capsule Workspace handoff', () => {
       'Revisa antes de ejecutar'
     );
     await auditA11y(page);
-    await captureDialog(page, /importa una cápsula/i, 'capsule-workspace-viewer-es.png');
+    await captureDialog(page, /importar una cápsula/i, 'capsule-workspace-viewer-es.png');
 
     await page.getByTestId('capsule-workspace-viewer-open-file').click();
     await expect(page.getByTestId('status-notice-banner')).toContainText(

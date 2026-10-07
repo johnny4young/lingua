@@ -1,5 +1,5 @@
 /**
- * implementation — `useUtilityPipelineRun` hook.
+ * `useUtilityPipelineRun` hook.
  *
  * State machine `{idle | running | settled}` over the pipeline
  * runner. Components subscribe to the streaming step results array

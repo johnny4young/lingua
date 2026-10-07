@@ -1,17 +1,16 @@
 /** Resource ownership for native preparation and child processes. */
 import type { ChildProcess } from 'node:child_process';
 import { killProcessTree } from './processTree';
+import { onOwnerReset, type ResettableOwner } from './ownerReset';
 
 export const NATIVE_RUN_OWNER_GONE = Symbol('native-run-owner-gone');
 
-interface RunOwner {
+interface RunOwner extends ResettableOwner {
   isDestroyed(): boolean;
-  once(event: 'destroyed', listener: () => void): unknown;
-  removeListener(event: 'destroyed', listener: () => void): unknown;
 }
 interface OwnerRuns {
   controllers: Set<AbortController>;
-  destroyed: () => void;
+  unsubscribe: () => void;
 }
 const owners = new WeakMap<RunOwner, OwnerRuns>();
 const controllers = new Set<AbortController>();
@@ -27,16 +26,17 @@ export function createNativeRunLifecycle(owner?: RunOwner): {
   let owned = owner ? owners.get(owner) : undefined;
   if (owner && !owned && !owner.isDestroyed()) {
     const group = new Set<AbortController>();
-    owned = { controllers: group, destroyed: () => {
+    // A reload keeps the WebContents, but the document that owned these runs is gone.
+    const unsubscribe = onOwnerReset(owner, () => {
       for (const active of group) active.abort(NATIVE_RUN_OWNER_GONE);
       // Abort is one-shot: upgrade a previous graceful Stop as well.
       const signals = new Set([...group].map(active => active.signal));
       for (const [child, signal] of children) {
         if (signal && signals.has(signal)) killProcessTree(child, 'SIGKILL');
       }
-    } };
+    });
+    owned = { controllers: group, unsubscribe };
     owners.set(owner, owned);
-    owner.once('destroyed', owned.destroyed);
   }
   owned?.controllers.add(controller);
   if (owner?.isDestroyed()) controller.abort(NATIVE_RUN_OWNER_GONE);
@@ -46,7 +46,7 @@ export function createNativeRunLifecycle(owner?: RunOwner): {
       controllers.delete(controller);
       owned?.controllers.delete(controller);
       if (owner && owned?.controllers.size === 0) {
-        owner.removeListener('destroyed', owned.destroyed);
+        owned.unsubscribe();
         if (owners.get(owner) === owned) owners.delete(owner);
       }
     },

@@ -3,7 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { OverlayBackdrop, OverlayCard } from './ui/chrome';
 
 /**
- * internal first-run telemetry consent prompt.
+ * First-run telemetry consent prompt.
  *
  * Mounts once on boot when `telemetryConsent === 'unset'` AND the renderer
  * is running inside the desktop shell (the consent IPC bridge is present).

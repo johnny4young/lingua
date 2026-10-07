@@ -1,5 +1,5 @@
 /**
- * implementation — `LspProcess` framing + lifecycle contract.
+ * `LspProcess` framing + lifecycle contract.
  *
  * The wrapper is the foundation for the Rust LSP integration. These
  * tests pin:
@@ -244,5 +244,63 @@ describe('LspProcess', () => {
     );
 
     expect(seen).toEqual(['recovered']);
+  });
+});
+
+describe('LspProcess request deadline', () => {
+  function writtenMessages(child: FakeChild): unknown[] {
+    const raw = Buffer.concat(
+      child.stdin.write.mock.calls.map(([chunk]) => Buffer.from(chunk as Buffer))
+    ).toString('utf8');
+    return raw
+      .split(/Content-Length: \d+\r\n\r\n/u)
+      .filter(Boolean)
+      .map(body => JSON.parse(body));
+  }
+
+  it('cancels, rejects, and forgets a request the server never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const { LspProcess } = await import('../../../src/main/lsp/lspProcess');
+      const lsp = new LspProcess({ command: 'fake-lsp' });
+      lsp.start();
+      const pending = lsp.sendRequest('textDocument/references', {}, { timeoutMs: 1_000 });
+      const settled = expect(pending).rejects.toThrow(/timed out after 1000ms/u);
+      await vi.advanceTimersByTimeAsync(1_000);
+      await settled;
+
+      expect(writtenMessages(currentChild!)).toEqual([
+        { jsonrpc: '2.0', id: 1, method: 'textDocument/references', params: {} },
+        { jsonrpc: '2.0', method: '$/cancelRequest', params: { id: 1 } },
+      ]);
+      expect((lsp as unknown as { pending: Map<unknown, unknown> }).pending.size).toBe(0);
+      // A late answer for the expired id is ignored rather than resolving anything.
+      currentChild!.stdout.emit('data', framedMessage({ jsonrpc: '2.0', id: 1, result: [] }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('applies the documented default deadline and clears it on a reply', async () => {
+    vi.useFakeTimers();
+    try {
+      const { DEFAULT_REQUEST_TIMEOUT_MS, LspProcess } = await import(
+        '../../../src/main/lsp/lspProcess'
+      );
+      expect(DEFAULT_REQUEST_TIMEOUT_MS).toBe(30_000);
+      const lsp = new LspProcess({ command: 'fake-lsp' });
+      lsp.start();
+      const answered = lsp.sendRequest('textDocument/hover', {});
+      currentChild!.stdout.emit('data', framedMessage({ jsonrpc: '2.0', id: 1, result: 'ok' }));
+      await expect(answered).resolves.toBe('ok');
+      expect(vi.getTimerCount()).toBe(0);
+
+      const silent = lsp.sendRequest('textDocument/hover', {});
+      const settled = expect(silent).rejects.toThrow(/timed out/u);
+      await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
+      await settled;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

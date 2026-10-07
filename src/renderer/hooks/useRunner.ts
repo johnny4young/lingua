@@ -4,6 +4,8 @@ import { beginManualRun } from '../runtime/manualRunSession';
 import { useResultStore } from '../stores/resultStore';
 import { useUIStore } from '../stores/uiStore';
 import { loadManualRunController } from './manualRunControllerLoader';
+import { emitCommand } from '../stores/commandBus';
+import { runUtilityApplyFromInput } from './globalShortcutUtilities';
 import { useTelemetry } from './useTelemetry';
 
 export interface RunOptions {
@@ -20,10 +22,17 @@ export function useRunner() {
 
   const run = useCallback(
     async (options: RunOptions = {}) => {
-      const session = beginManualRun(
-        getActiveTab(useEditorStore.getState()) ?? undefined,
-        options.debug
-      );
+      const activeTab = getActiveTab(useEditorStore.getState()) ?? undefined;
+      // Workspace tabs run their own surface, not a language runner.
+      if (activeTab?.kind === 'sql' || activeTab?.kind === 'http') {
+        emitCommand('workspace.run', { kind: activeTab.kind });
+        return;
+      }
+      if (activeTab?.kind === 'utilities') {
+        runUtilityApplyFromInput();
+        return;
+      }
+      const session = beginManualRun(activeTab, options.debug);
       if (!session) return;
       try {
         let controller: Awaited<ReturnType<typeof loadManualRunController>>;

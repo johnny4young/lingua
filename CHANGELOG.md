@@ -6,18 +6,28 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
-### Added
-- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
-- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
-- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
-- Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
+### Fixed
+- Utility pipeline import rejects malformed steps instead of silently saving a shorter recipe. Failed imports preserve the existing library and pasted JSON for correction.
+- URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
+
+## [1.5.2] — 2026-10-06
 
 ### Fixed
+- Native-run capture, Go and Rust debugger compile diagnostics, and Go/Rust/Ruby dependency-install logs honor their UTF-8 byte budgets, including truncation markers, without splitting multibyte characters.
+- The desktop HTTP and WebSocket private-network guard now also blocks NAT64, 6to4 and IPv4-translated IPv6 addresses that point at loopback, private or cloud-metadata IPv4, plus Teredo, benchmarking, site-local, documentation, discard-only and other reserved IPv6 ranges and `localhost.`, while NAT64 addresses of public hosts keep working.
+- **Full app review sweep.** Filesystem: New File no longer truncates an existing file, web rename no longer deletes or corrupts files, renames refuse to overwrite siblings, and reopening a file through a symlinked folder can no longer escape the project. Runs: results stay on the tab that ran them, notebook cells and editor runs no longer stop each other, Stop works for recipes and during Ruby detection, console streaming honors output caps, and the Run/Debug/Scratchpad choice survives a restart. Desktop: Go/Rust language servers are not leaked on project switches, applying a license during startup keeps the new token, reloads and quits clean up terminals, installs and debug sessions, and `lingua://license` email links prefill the token. CLI: annotated TypeScript capsules replay on Node 24, large sources and dash-leading arguments work, repeated signals stop the child, and a piped stdin that never closes times out instead of hanging without eating into the program's own --timeout. UI: shortcut hints follow the platform and user overrides, nested dialogs close one at a time, in-layout dialogs cover the action pill, failed saves explain themselves, and the Recipes catalog no longer ships in the startup bundle. SQL: DATE, TIMESTAMP and DECIMAL results (including every SUM) render as values instead of epoch numbers or word arrays, long profile aggregates are rounded, and the profile action survives hiding the bottom panel. AI answers keep their list numbering around code blocks.
+- **Workspace runs and copy polish.** Mod+Enter and the action pill now run the active SQL query, send the HTTP request, or apply the selected utility, even with focus on a button. AI explanations answer in the interface language. HTTP request controls and Settings rows return to their 32 px height, and short Spanish action labels use the infinitive consistently. Social previews ship real PNG cards per page and locale, and the landing tour shows Spanish captures on the Spanish site.
 - Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
 - **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
 - Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
 - Do not queue a Go/Rust destination selection when a stale file open was refused.
 - Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
+
+### Added
+- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
+- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
+- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
+- Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
 
 ## [1.5.1] — 2026-09-24
 
@@ -292,7 +302,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **License-service compatibility now fails closed**: every machine-readable license and trial response carries protocol version 1, and both the web and desktop clients validate that envelope before reading status or entitlement fields. Missing, malformed, or future versions clear the untrusted token and show a localized update notice instead of falling back to local verification.
 - **The pay-once Pro tier is now a perpetual entitlement**: the **$59 one-time purchase unlocks the paid tier forever with 12 months of included updates**, replacing the previous "every future update included" promise with a sustainable model. Your paid features never expire — a build published after your included-updates window shows a non-blocking optional-renewal notice, never a lockout. The offline Ed25519 verifier keeps a pay-once Pro token `active` regardless of its update-window date (revocation stays authoritative through the license server when the app can sync), and the product-id family check was tightened so a look-alike token signed with the same key is rejected. Public pricing, licensing, and purchase/recovery email copy are updated to match.
 - **Free tier now opens three editor tabs**: the Free editor budget rises from one tab to three, with the License upsell appearing when you open a fourth.
-- **Utilities workspace is more readable and compact**: epoch timestamps render as highlighted chips whose hover shows local time, UTC, and ISO 8601 (and the Timestamp panel gains a UTC output card); the JWT token is segment-colored (header / payload / signature) inside the real input, with a signature-status pill beside the label; pinned favorites open even when the active search filter would exclude them; visited panels stay mounted while the Utilities tab is open, so in-progress input survives navigating between tools (and is discarded when the tab closes); the workspace-local header implementation detail into the shared editor chips row (copy-output hint + tool counter); and JSON outputs gain syntax coloring.
+- **Utilities workspace is more readable and compact**: epoch timestamps render as highlighted chips whose hover shows local time, UTC, and ISO 8601 (and the Timestamp panel gains a UTC output card); the JWT token is segment-colored (header / payload / signature) inside the real input, with a signature-status pill beside the label; pinned favorites open even when the active search filter would exclude them; visited panels stay mounted while the Utilities tab is open, so in-progress input survives navigating between tools (and is discarded when the tab closes); the workspace-local header folds into the shared editor chips row (copy-output hint + tool counter); and JSON outputs gain syntax coloring.
 - **Faster, calmer startup**: Lingua now paints a theme-matched editor skeleton while the renderer bundle loads instead of showing an empty window. On desktop, license verification runs in parallel after its IPC channels are registered, so opening the window no longer waits on disk/token initialization and the license surface shows a neutral verifying state until the real snapshot arrives.
 - **Settings editor internals are easier to maintain**: the SQL workspace defaults and persistence actions now live in their own focused settings component, reducing the parent editor-settings surface below the maintainability threshold without changing controls, copy, persistence, or DuckDB behavior.
 - **Utility pipeline internals are easier to maintain**: the persisted library/import controls and streaming results now live in focused components, reducing the pipeline orchestrator below the maintainability threshold without changing its controls, shortcuts, persistence, execution, or capsule behavior.
@@ -342,7 +352,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **SQL workspace — column-aware schema browser + autocomplete**: the schema browser now expands each table to list its columns with SQL types, and the query editor's autocomplete offers column names (typed detail, de-duplicated across tables) alongside table names and keywords. Introspection is a single `information_schema.columns` probe per refresh instead of one `PRAGMA table_info` per table.
 - **SQL workspace — export results to a file**: the result toolbar gains an "Export…" menu that downloads the current result as a CSV, JSON, or Markdown file. It writes exactly the rows on screen (the same filtered/sorted/capped view Copy uses) and, when the result is truncated to a preview, the confirmation says so — the natural path for a result too large to paste.
 - **Accessibility overhaul**: A sweep across the app brings full keyboard operability and screen-reader support — roving arrow-key navigation and ARIA semantics for the file tree, editor tab strip, command palette, quick-open, recipes, and capsule-comparison surfaces; focus management and traps for the guided tour, overlays, menus, and the execution-history popover; live-region announcements for console run summaries, project-search results, and other dynamic state; and a reduced-motion guard that quiets non-essential animation for people who prefer it.
-- **Safer destructive actions**: Irreversible operations — file and implementation detail delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
+- **Safer destructive actions**: Irreversible operations — file and folder delete, pipeline delete, remove license, keymap and theme import overwrite, and replace-in-files — now route through a shared confirmation dialog, and recoverable deletes (snippets, capsules, clear console) offer an Undo toast that restores the item in place. The web file delete, previously unconfirmed, now always asks first.
 - **Import data files as DuckDB tables**: Load CSV, JSON, and Parquet files directly into the SQL workspace as queryable tables.
 
 ### Changed
@@ -366,7 +376,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **SQL workspace**: the table browser + autocomplete now populate on open and refresh after a schema change (with OPFS persistence, tables from a previous session were invisible until a manual Refresh); Copy CSV/JSON/Markdown now copies exactly the filtered/sorted rows shown in the grid instead of the full raw result; and a name collision on import is reported honestly instead of as a generic "parse error".
 - **Notebook workspace**: editing a markdown cell no longer serializes every notebook to storage on each keystroke (debounced like code cells), which also stops re-rendering sibling cells while you type.
 - **Notebooks: re-running a JS/TS cell no longer throws** `Identifier 'x' has already been declared`. Sandbox pull-ins now skip names the cell itself re-declares at top level.
-- **File watcher no longer crashes the app**: an asynchronous `FSWatcher` error (e.g. deleting the watched implementation detail on Windows) is caught and surfaced as a degraded-watcher notice instead of taking down the main process.
+- **File watcher no longer crashes the app**: an asynchronous `FSWatcher` error (e.g. deleting the watched folder on Windows) is caught and surfaced as a degraded-watcher notice instead of taking down the main process.
 - **File watchers no longer leak**: a project watcher is disposed when its window is closed (macOS keeps the app alive) or the renderer reloads, instead of surviving to the next session.
 - **Language servers**: restarting rust-analyzer / gopls no longer spawns a duplicate orphaned server, and stopping one no longer emits an unhandled promise rejection.
 - **Dependency install**: cancelling or timing out `npm install` now terminates the whole process tree (node-gyp, postinstall) instead of leaving orphaned builds holding `node_modules` locks.
@@ -412,7 +422,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Security
 - **Notarized release gate**: The macOS release workflow now fails closed when a build is signed but not notarized and stapled (`xcrun stapler validate` plus a Gatekeeper `spctl` assessment), and a release-time guard rejects any macOS update package whose filename the update feed cannot resolve — closing the gap that previously stranded macOS auto-update. The full update signature chain (manifest to installer to on-disk binary) is now documented in `docs/RELEASE_SECURITY.md`.
-- **Git layer joins the filesystem sandbox**: The read-only git integration now only operates on repositories that intersect the folder you have explicitly opened (including the repository root above a monorepo subfolder); arbitrary paths are refused, aligning git with the capability sandbox the rest of the filesystem already enforces.
+- **Git layer joins the filesystem sandbox**: The read-only git integration now only operates on repositories that intersect the folders you have explicitly opened (including the repository root above a monorepo subfolder); arbitrary paths are refused, aligning git with the capability sandbox the rest of the filesystem already enforces.
 - **Verified web runtimes**: The standalone web build now verifies the sha256 of the Ruby and DuckDB WebAssembly runtimes fetched from the download mirror before instantiating them, and the web deployment ships hardening response headers (no sniffing, no framing, no referrer leakage).
 - **Sandboxed HTML output locked down**: Rich HTML console payloads now carry the same no-network Content-Security-Policy as the browser preview, both app shells gain `base-uri`/`form-action` CSP directives, and preview messages are validated against a closed per-type shape before rendering.
 
@@ -445,7 +455,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [0.5.0] — 2026-05-31
 
 ### Added
-- **Signal-Slate redesign**: A workspace-wide redesign pass that lands the new notebook surface, tightens the editor chrome, and implementation detail in broad platform hardening across the renderer. The visual language carries forward from Signal-Slate v2 while the workspace layout, panels, and notebook entry points are rebuilt around it.
+- **Signal-Slate redesign**: A workspace-wide redesign pass that lands the new notebook surface, tightens the editor chrome, and folds in broad platform hardening across the renderer. The visual language carries forward from Signal-Slate v2 while the workspace layout, panels, and notebook entry points are rebuilt around it.
 - **Notebook workspace**: A literate, multi-cell notebook surface — ordered code and prose cells in one document — with one-step import of existing Jupyter `.ipynb` notebooks into native Lingua notebooks.
 - **SQL and HTTP workspaces**: A dedicated SQL workspace for ad-hoc querying and a full HTTP workspace for composing, sending, and inspecting requests, including import of Postman and Bruno collections.
 - **Recipe practice library**: A built-in library of runnable recipes for guided practice, with a run panel wired into the editor.
@@ -504,7 +514,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **JS/TS debugger (preview)**: Click-to-toggle gutter breakpoints with `Mod+Shift+B`, a Debugger drawer with step controls, Settings entries to disable or clear all breakpoints, and TypeScript source-map composition so breakpoints stop at the line you authored.
 - **Developer utilities productivity layer**: `Cmd/Ctrl+K` launcher with fuzzy search, `Cmd+Shift+C` / `Cmd+Alt+R` to copy or replace utility output, per-tool history with persistence, drag-reorder favorites with full keyboard support, clipboard-on-focus consent, and Apply-from-input across 29 panels.
 - **QR utility closeout**: Drag-drop image decode, Copy-as-PNG, FG/BG color pickers with a WCAG-AA contrast guard, high-contrast preset, and SVG download.
-- **Recovery experience**: Safe-mode boot via `?safe-mode=1`, automatic factory mode after repeated crashes, a Settings recovery section with five scoped resets, and a reveal-implementation detail shortcut.
+- **Recovery experience**: Safe-mode boot via `?safe-mode=1`, automatic factory mode after repeated crashes, a Settings recovery section with five scoped resets, and a reveal-folder shortcut.
 - **Profile backup and restore**: Versioned profile export and restore with explicit conflict handling, replace confirmation, and machine-bound data exclusions.
 - **Performance visibility**: Release validation captures bundle size, runtime timings, and memory diagnostics before a build ships.
 - **Release update feed gate**: Desktop release validation now includes a draft-channel update-feed check with archived evidence.
@@ -601,13 +611,13 @@ The format follows Keep a Changelog and groups changes by release.
 - **Desktop code runner foundation**: Electron Forge + Vite + React 19 shell with Monaco editor, project explorer, command palette, quick open, snippets, settings, and a structured console panel.
 - **Language execution backends**: JavaScript, TypeScript, Go, Python, and Rust execution paths, with browser support for JS/TS/Python and desktop-only native toolchain flows for Go/Rust.
 - **Inline execution feedback**: Result panel, per-line inline output, runtime markers, execution timing, and magic-comment support for dynamic languages.
-- **Project and file workflows**: Open implementation detail, recent projects, loose-file editing, save/save-as, rename, delete, duplicate tab, and session restore support.
+- **Project and file workflows**: Open folder, recent projects, loose-file editing, save/save-as, rename, delete, duplicate tab, and session restore support.
 - **Monaco authoring support**: Runtime-aligned JavaScript/TypeScript diagnostics, file-extension language detection, and immediate completion providers for Go, Python, Rust, and Lua.
 - **Localization and docs**: English/Spanish UI, i18n validation tooling, architecture docs, renderer reference docs, and contributor guidance for the renderer surface.
 - **Packaging and update infrastructure**: Desktop updater foundation, packaging metadata hardening, protocol registration, release checksums, and manual GitHub release workflows.
 
 ### Changed
-- **Renderer architecture**: Split oversized modules into focused feature implementation detail for editor, file tree, command palette, settings, and project tree helpers.
+- **Renderer architecture**: Split oversized modules into focused feature folders for editor, file tree, command palette, settings, and project tree helpers.
 - **Shell behavior**: Responsive sidebar drawer, persistent resizable layouts, safer overlays over Electron drag regions, and cleaner settings/about organization.
 - **Release and delivery model**: CI now validates build quality; publish/deploy operations are explicitly manual.
 
