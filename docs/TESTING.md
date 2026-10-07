@@ -191,7 +191,9 @@ Desktop baseline must guarantee:
 
 Desktop bundle changes are also built on Linux, Windows, and macOS by the
 `desktop-bundles` matrix. It exercises the native Vite production resolver and
-its config-contract tests without signing or publishing installers. A local
+its config-contract tests without signing or publishing installers; the Linux
+leg also checks the built desktop renderer against its performance budget
+(`docs/PERFORMANCE.md` § Review-time build budgets). A local
 packaged-app smoke and release packaging/notarization remain separate evidence.
 The independent-projects job tests and typechecks both Workers and runs Wrangler
 `deploy --dry-run` for each; those commands build locally and do not deploy.
@@ -465,3 +467,24 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 | Electron modal drag blocking | Added `-webkit-app-region: no-drag` to `.overlay-backdrop` in `index.css` |
 | Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
 | Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API |
+
+### Service-test isolation
+
+Fetch service suites install their own `vi.stubGlobal` mock in every relevant
+case and restore it with `vi.unstubAllGlobals` during teardown. They assert
+the original fetch identity before each case and after cleanup, without
+calling the original implementation. The suites also pass in random order
+(`pnpm exec vitest run tests/services --sequence.shuffle`); CI runs them in
+the default order.
+`tests/services/**` participates in the scoped strict test typecheck.
+Device-fingerprint tests retain their DOM environment.
+
+### Automatic execution evidence
+
+Recent Runs and Compare E2E cases replace the editor with a unique output
+marker and wait for that output plus the automatic runner's settled signal
+and absence of terminal failure notices. Auto-run does not own the manual
+tab execution-state badge.
+A prior result or idle-before-debounce cannot satisfy the wait. Recent Runs
+covers both locales, delayed execution, manual recording and second-tab
+isolation. Negative-observation waits for lazy resources remain separate.
