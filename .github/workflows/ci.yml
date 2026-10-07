@@ -180,8 +180,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build web
         run: pnpm run build:web
-      - name: Performance report
-        run: pnpm run performance:report
       # --fail-on-slack fails a category that measures under 75% of its
       # baseline: a ceiling that far above reality has stopped protecting it.
       # Only targets built in this job are measured, so the desktop renderer

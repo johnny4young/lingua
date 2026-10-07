@@ -386,11 +386,12 @@ The baseline stores current measurements plus conservative headroom:
 - `runtime`: strict; change only when the runtime asset version changes
 - `other`: baseline + 10%
 
-Normal CI runs `pnpm run performance:report` after `pnpm run build:web` in
-the `build-web` job so reviewers can see the table in logs, then runs
-`pnpm run check:performance --fail-on-slack` as the explicit blocking budget
-gate for build outputs that exist on disk. That job builds only the web
-target, so the Linux leg of the `desktop-bundles` matrix checks the desktop
+Normal CI runs `pnpm run check:performance --fail-on-slack` after
+`pnpm run build:web` in the `build-web` job. That single step prints the
+measurement table to the logs, writes the JSON and Markdown reports, and is
+the explicit blocking budget gate for build outputs that exist on disk; a
+separate `performance:report` step would only repeat the same scan. That job
+builds only the web target, so the Linux leg of the `desktop-bundles` matrix checks the desktop
 renderer it already built with `--target=renderer --fail-on-slack` (see
 [Review-time build budgets](#review-time-build-budgets)). The scheduled
 `renderer-budget` workflow (weekly, or on demand from the Actions tab)
@@ -517,3 +518,12 @@ unexamined. The bundle-config test still runs when the renderer budget fails,
 so one failure cannot hide the other. The default local check
 continues to support a web-only build, and selecting renderer does not require
 web output. Weekly/manual validation retains the full-target gate.
+
+The PR web lane and weekly full-target lane each invoke only the budget check.
+That command measures/gzips each asset once and writes both JSON and Markdown
+reports before returning a budget or slack failure. Setup errors still fail
+before any report is written: a missing or invalid baseline, missing web
+output (the web target is always required), or a missing explicitly selected
+target. `performance:report` remains available for an intentional report-only
+local run. No thresholds change;
+compare target/assets/category measurements independently of timestamps.
