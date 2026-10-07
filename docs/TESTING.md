@@ -467,3 +467,13 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 | Electron modal drag blocking | Added `-webkit-app-region: no-drag` to `.overlay-backdrop` in `index.css` |
 | Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
 | Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API |
+
+### Automatic execution evidence
+
+Recent Runs and Compare E2E cases replace the editor with a unique output
+marker and wait for that output plus the automatic runner's settled signal
+and absence of terminal failure notices. Auto-run does not own the manual
+tab execution-state badge.
+A prior result or idle-before-debounce cannot satisfy the wait. Recent Runs
+covers both locales, delayed execution, manual recording and second-tab
+isolation. Negative-observation waits for lazy resources remain separate.

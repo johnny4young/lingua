@@ -17,7 +17,7 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
-import { truncateUtf8, utf8ByteLength } from '../../shared/utf8';
+import { truncateUtf8WithMarker } from '../../shared/utf8';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types/execution';
 
@@ -154,14 +154,11 @@ function liveEntry(
  * Returns the input unchanged when it already fits.
  */
 export function truncateSerialized(value: string, marker: string): string {
-  if (utf8ByteLength(value) <= MAX_RESULT_BYTES) return value;
   // Reserve room for the marker so the suffix is always visible even on
   // edge-case-tight budgets. Both sides count UTF-8 bytes: this cap is what
   // bounds the payload crossing the worker boundary, and slicing by UTF-16
   // units let CJK or emoji results through at three to four times the cap.
-  const boundedMarker = truncateUtf8(marker, MAX_RESULT_BYTES);
-  const headroom = MAX_RESULT_BYTES - utf8ByteLength(boundedMarker);
-  return `${truncateUtf8(value, headroom)}${boundedMarker}`;
+  return truncateUtf8WithMarker(value, MAX_RESULT_BYTES, marker);
 }
 
 /**
