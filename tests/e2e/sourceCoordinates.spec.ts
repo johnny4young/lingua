@@ -37,6 +37,17 @@ for (const language of ['en', 'es'] as const) {
       await expect(rows.filter({ hasText: 'coordinate marker' })).toContainText('user code:3:7');
       const details = rows.filter({ hasText: 'coordinate marker' }).getByTestId('console-rich-error-runtime');
       await expect(details).not.toHaveAttribute('open');
+      // Include clickable frames too: an unnamed `at async URL` frame used
+      // to miss provenance classification and escape the runtime disclosure.
+      const workerFrames = rows.filter({ hasText: 'coordinate marker' }).locator(
+        '[data-testid="console-rich-error-frame-text"], [data-testid="console-rich-error-frame-clickable"]'
+      ).filter({ hasText: /\/js-worker-[^/\s]+\.js/ });
+      await expect(workerFrames.first()).toBeAttached();
+      for (const frame of await workerFrames.all()) {
+        await expect(frame).not.toBeVisible();
+        expect(await frame.evaluate(node => node.closest('details')?.getAttribute('data-testid')))
+          .toBe('console-rich-error-runtime');
+      }
       const internal = details.getByTestId('console-rich-error-frame-text').first();
       await expect(internal).not.toBeVisible();
       const summary = details.locator('summary');
