@@ -503,3 +503,11 @@ standalone website check and production build with its own npm lockfile; use
 both `/releases/` and `/es/releases/` in a supported running preview. Installer
 execution, unsigned-Windows prompts and absent/offline toolchains are separate
 native checks; these tests do not download or execute release assets.
+
+Inline-result geometry measurements run in one coalesced animation frame after
+Monaco model/layout events. `getOffsetForColumn` forces a render and must not
+run during a synchronous selection update. The layout component suite covers
+that transaction boundary, stale frame/event/ResizeObserver callbacks after
+replacement or disposal, and view-zone-generated layout events. Hosted
+source-coordinate, captured-error and console-batching journeys retain the
+zero-console-error check as the real-renderer regression gate.

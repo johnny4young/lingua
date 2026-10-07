@@ -56,8 +56,19 @@ function useInlineResultWidgets(
 ) {
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
   const repositioningRef = useRef(false);
+  const scheduledFrameRef = useRef<number | null>(null);
+  const measurementGenerationRef = useRef(0);
+
+  const cancelMeasurement = useCallback(() => {
+    measurementGenerationRef.current += 1;
+    if (scheduledFrameRef.current !== null) {
+      cancelAnimationFrame(scheduledFrameRef.current);
+      scheduledFrameRef.current = null;
+    }
+  }, []);
 
   const removeAllWidgets = useCallback(() => {
+    cancelMeasurement();
     if (!editor) return;
     repositioningRef.current = true;
     editor.changeViewZones(accessor => {
@@ -78,7 +89,7 @@ function useInlineResultWidgets(
     }
     widgetsRef.current.clear();
     repositioningRef.current = false;
-  }, [editor]);
+  }, [editor, cancelMeasurement]);
 
   // Recompute every widget's `top` (and right gutter offset) when
   // anything that can shift line positions happens: scroll, layout,
@@ -160,21 +171,41 @@ function useInlineResultWidgets(
     }
   }, [editor]);
 
+  // getOffsetForColumn forces a Monaco render. Measuring synchronously from a
+  // model/layout event can render before Monaco has updated its selections.
+  // Coalesce every entry point after that event transaction, and never let an
+  // old editor/widget generation measure or mutate its replacement.
+  const scheduleReposition = useCallback(() => {
+    if (!editor || repositioningRef.current || scheduledFrameRef.current !== null) return;
+    const generation = measurementGenerationRef.current;
+    scheduledFrameRef.current = requestAnimationFrame(() => {
+      if (generation !== measurementGenerationRef.current) return;
+      scheduledFrameRef.current = null;
+      repositionAll();
+    });
+  }, [editor, repositionAll]);
+
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {
     if (!editor) return;
+    let active = true;
+    const schedule = () => {
+      if (active) scheduleReposition();
+    };
     const disposables: monacoTypes.IDisposable[] = [];
-    disposables.push(editor.onDidScrollChange(() => repositionAll()));
-    disposables.push(editor.onDidLayoutChange(() => repositionAll()));
-    disposables.push(editor.onDidChangeConfiguration(() => repositionAll()));
+    disposables.push(editor.onDidScrollChange(schedule));
+    disposables.push(editor.onDidLayoutChange(schedule));
+    disposables.push(editor.onDidChangeConfiguration(schedule));
     const model = editor.getModel();
     if (model) {
-      disposables.push(model.onDidChangeContent(() => repositionAll()));
+      disposables.push(model.onDidChangeContent(schedule));
     }
     return () => {
+      active = false;
+      cancelMeasurement();
       for (const d of disposables) d.dispose();
     };
-  }, [editor, repositionAll]);
+  }, [editor, scheduleReposition, cancelMeasurement]);
 
   // Apply / re-apply widgets whenever the line results change.
   useEffect(() => {
@@ -211,6 +242,7 @@ function useInlineResultWidgets(
       // Monaco only places the host element on the page.
       domNode.style.position = 'absolute';
       domNode.style.pointerEvents = 'none';
+      domNode.style.visibility = 'hidden';
       const id = `${INLINE_RESULT_WIDGET_PREFIX}.${tabId ?? 'none'}.${line}`;
       const widget: InlineWidget = { id, domNode, line };
       widgetsRef.current.set(line, widget);
@@ -221,13 +253,19 @@ function useInlineResultWidgets(
         getPosition: () => null,
       });
     }
-    repositionAll();
+    let active = true;
+    scheduleReposition();
     const observer =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(repositionAll);
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (active) scheduleReposition();
+          });
     for (const widget of widgetsRef.current.values()) observer?.observe(widget.domNode);
     return () => {
+      active = false;
       observer?.disconnect();
       removeAllWidgets();
     };
-  }, [editor, monaco, lineResults, lineTimings, tabId, removeAllWidgets, repositionAll]);
+  }, [editor, monaco, lineResults, lineTimings, tabId, removeAllWidgets, scheduleReposition]);
 }
