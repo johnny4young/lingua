@@ -157,14 +157,23 @@ function isPrivateIPv6(ip: string): boolean {
   // translation that IANA marks as not globally reachable, and whose IPv4
   // position depends on the operator's prefix length. Never a public target.
   if (head === 0x64 && hextets[1] === 0xff9b && hextets[2] === 1) return true;
+  // Only global unicast (2000::/3) can be a public target. Everything else is
+  // IETF-reserved or scoped: the rest of ::/8 and 64:ff9b::/16, 100::/8
+  // (incl. the 100::/64 discard-only block), SRv6 SIDs (5f00::/16),
+  // fc00::/7 unique-local, fe80::/10 link-local, fec0::/10 site-local and
+  // ff00::/8 multicast. Allowlisting the global block keeps unassigned space
+  // fail-closed instead of enumerating every reserved prefix.
+  if ((head & 0xe000) !== 0x2000) return true;
   // 6to4 (2002::/16, RFC 3056) carries its IPv4 in hextets 1–2.
   if (head === 0x2002 && isPrivateIPv4(embeddedIPv4(hextets, 1))) return true;
+  // Teredo (2001::/32, RFC 4380) embeds a server IPv4 in hextets 2–3 and the
+  // bit-inverted client IPv4 in hextets 6–7; a Teredo relay or local client
+  // tunnels to the latter, so both are attacker-chosen dial targets. Teredo
+  // serves no public API, so the whole prefix is non-public.
+  if (head === 0x2001 && hextets[1] === 0) return true;
+  if (head === 0x2001 && hextets[1] === 0x0002 && hextets[2] === 0) return true; // 2001:2::/48 benchmarking
   if (head === 0x2001 && hextets[1] === 0x0db8) return true; // 2001:db8::/32 documentation
-  if (head === 0x0100 && zeros(1, 4)) return true; // 100::/64 discard-only
-  if ((head & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
-  if ((head & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-  if ((head & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
-  if ((head & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  if (head === 0x3fff && hextets[1]! < 0x1000) return true; // 3fff::/20 documentation (RFC 9637)
   return false;
 }
 

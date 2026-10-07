@@ -1118,10 +1118,14 @@ and Capsules. Only the network transport varies by platform:
   IPv4-mapped, IPv4-compatible, IPv4-translated (`::ffff:0:0:0/96`), NAT64
   well-known (`64:ff9b::/96`) and 6to4 (`2002::/16`), so a NAT64 address of a
   public host stays reachable on IPv6-only networks while one of loopback or
-  cloud metadata does not. The NAT64 local-use prefix (`64:ff9b:1::/48`),
-  site-local (`fec0::/10`), documentation (`2001:db8::/32`) and discard-only
-  (`100::/64`) ranges are always private. The `localhost` fast path also
-  matches the trailing-dot spelling (`localhost.`).
+  cloud metadata does not. Any other IPv6 address outside global unicast
+  (`2000::/3`) is private, which covers the NAT64 local-use prefix
+  (`64:ff9b:1::/48`), discard-only (`100::/64`), unique-local, link-local,
+  site-local (`fec0::/10`), multicast and every IETF-reserved block. Inside
+  `2000::/3`, Teredo (`2001::/32`, whose server and inverted client IPv4 are
+  both caller-chosen), benchmarking (`2001:2::/48`) and documentation
+  (`2001:db8::/32`, `3fff::/20`) are private too. The `localhost` fast path
+  also matches the trailing-dot spelling (`localhost.`).
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
