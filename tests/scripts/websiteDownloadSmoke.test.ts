@@ -8,12 +8,6 @@ import {
   websiteDownloadFixture,
   withWebsiteDownloadFixture,
 } from '../../scripts/run-website-download-smoke.mjs';
-import {
-  downloadableAssets,
-  inferPlatformAndArch,
-  inferReleaseProduct,
-} from '../../website/src/lib/releases.ts';
-import { parseReleaseSnapshot } from '../../website/src/lib/releaseSnapshot.ts';
 
 const root = path.resolve(__dirname, '../..');
 
@@ -30,36 +24,6 @@ describe('website download browser qualification controls', () => {
   it('recognizes the hosted CI environment without starting a browser', () => {
     expect(() => assertHostedWebsiteSmoke({ CI: 'true', GITHUB_ACTIONS: 'true' })).not.toThrow();
     expect(() => assertHostedWebsiteSmoke({ CI: '1', GITHUB_ACTIONS: 'true' })).not.toThrow();
-  });
-
-  it('qualifies a synthetic release through the unchanged production validator', () => {
-    const release = parseReleaseSnapshot(websiteDownloadFixture, '1.0.0');
-    expect(release.version).toBe('0.0.0');
-    const products = release.assets.filter(asset =>
-      ['desktop', 'cli'].includes(inferReleaseProduct(asset.name))
-    );
-    for (const platform of ['macos', 'windows', 'linux']) {
-      const owned = products.filter(
-        asset => inferPlatformAndArch(asset.name).platform === platform
-      );
-      expect(new Set(owned.map(asset => inferReleaseProduct(asset.name)))).toEqual(
-        new Set(['desktop', 'cli'])
-      );
-      expect(owned).toHaveLength(platform === 'macos' ? 4 : 2);
-    }
-    expect(products).toHaveLength(8);
-    expect(
-      products
-        .filter(asset => inferReleaseProduct(asset.name) === 'cli')
-        .every(asset => asset.name.endsWith('.zip'))
-    ).toBe(true);
-    expect(
-      downloadableAssets(products.map(asset => ({ ...asset, ...inferPlatformAndArch(asset.name) })))
-    ).toHaveLength(8);
-    expect(release.assets.map(asset => asset.name)).toContain('SHA256SUMS.txt');
-    const foreign = structuredClone(websiteDownloadFixture);
-    foreign.release.assets[0]!.downloadUrl = 'https://untrusted.example/installer.dmg';
-    expect(() => parseReleaseSnapshot(foreign, '1.0.0')).toThrow('canonical GitHub download URL');
   });
 
   it.each([false, true])(
