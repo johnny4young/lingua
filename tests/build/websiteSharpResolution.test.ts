@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { atLeast } from '../__fixtures__/lockfileVersion';
 
 const root = path.resolve(__dirname, '../..');
 const lock = JSON.parse(readFileSync(path.join(root, 'website/package-lock.json'), 'utf8')) as {
@@ -10,16 +11,6 @@ const lock = JSON.parse(readFileSync(path.join(root, 'website/package-lock.json'
 const configuration = JSON.parse(
   readFileSync(path.join(root, 'scripts/website-audit-exceptions.json'), 'utf8')
 ) as { exceptions: Array<{ package: string }> };
-
-function atLeast(version: string, minimum: readonly [number, number, number]): boolean {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(version);
-  if (!match) return false;
-  const parts = match.slice(1).map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    if (parts[index]! !== minimum[index]) return parts[index]! > minimum[index]!;
-  }
-  return true;
-}
 
 describe('website sharp resolution', () => {
   it('keeps every locked sharp instance at the patched minimum', () => {
