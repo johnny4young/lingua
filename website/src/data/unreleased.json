@@ -1,9 +1,36 @@
 {
-  "generatedAt": "2026-10-07T18:27:45.198Z",
+  "generatedAt": "2026-10-07T21:41:24.823Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 103,
+  "totalSinceBase": 136,
   "commits": [
+    {
+      "hash": "4c12f0b",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "name the malformed step in a rejected pipeline import",
+      "breaking": false
+    },
+    {
+      "hash": "b863146",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "preserve all URL query names",
+      "breaking": false
+    },
+    {
+      "hash": "0a80f55",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "reject incomplete pipeline imports",
+      "breaking": false
+    },
     {
       "hash": "810a620",
       "date": "2026-10-07",
@@ -83,33 +110,6 @@
       "typeLabel": "Fix",
       "scope": "network",
       "message": "classify embedded-IPv4 and reserved IPv6 destinations as private",
-      "breaking": false
-    },
-    {
-      "hash": "8dacb47",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runners",
-      "message": "bound compile diagnostics in UTF-8 and retire the UTF-16 truncator",
-      "breaking": false
-    },
-    {
-      "hash": "93898f8",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "performance",
-      "message": "fail measured targets without budgets and keep bundle checks visible",
-      "breaking": false
-    },
-    {
-      "hash": "853af1a",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the patched sharp release",
       "breaking": false
     }
   ]
