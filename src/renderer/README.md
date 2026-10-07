@@ -563,7 +563,9 @@ collection state:
 - [`../main/httpProxy.ts`](../main/httpProxy.ts) and
   [`../main/httpWebSocket.ts`](../main/httpWebSocket.ts) own desktop networking:
   scheme checks, every-hop SSRF validation, DNS-pinned sockets, redirect and
-  credential policy, timeout/cancel, and byte/message ceilings. Renderer code
+  credential policy, timeout/cancel, and byte/message ceilings. Both validate
+  destinations through the shared
+  [`../main/networkTargetPolicy.ts`](../main/networkTargetPolicy.ts) leaf. Renderer code
   must not add a desktop-only direct network path around this bridge.
 - [`../shared/httpWorkspaceCurl.ts`](../shared/httpWorkspaceCurl.ts) owns
   shell-safe cURL serialization and request-body fidelity. Copy surfaces import

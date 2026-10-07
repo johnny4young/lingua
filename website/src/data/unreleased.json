@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-10-07T01:40:03.879Z",
+  "generatedAt": "2026-10-07T17:13:05.810Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 54,
+  "totalSinceBase": 55,
   "commits": [
+    {
+      "hash": "1a90b10",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "share one marker-aware UTF-8 clipper and keep smoke evidence",
+      "breaking": false
+    },
     {
       "hash": "c46b1e2",
       "date": "2026-10-07",
@@ -101,15 +110,6 @@
       "typeLabel": "Fix",
       "scope": "app",
       "message": "resolve the full review follow-ups",
-      "breaking": false
-    },
-    {
-      "hash": "a0aef99",
-      "date": "2026-10-02",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": null,
-      "message": "close live-smoke findings and refresh product screenshots",
       "breaking": false
     }
   ]
