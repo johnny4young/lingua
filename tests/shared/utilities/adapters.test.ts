@@ -211,6 +211,39 @@ describe('urlParseAdapter', () => {
     expect(parsed.searchParams).toEqual({ id: ['42', '43'] });
   });
 
+  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty', '__defineGetter__'])(
+    'preserves the query key %s as data, including repeated values',
+    async (key) => {
+      const url = new URL('https://example.com/');
+      url.searchParams.append(key, 'first');
+      const single = await urlParseAdapter.run(url.href, {});
+      if (!single.ok) throw new Error('expected ok');
+      expect(JSON.parse(single.value).searchParams).toEqual({ [key]: 'first' });
+
+      url.searchParams.append(key, 'second');
+      url.searchParams.append(key, 'third');
+      const repeated = await urlParseAdapter.run(url.href, {});
+      if (!repeated.ok) throw new Error('expected ok');
+      expect(JSON.parse(repeated.value).searchParams).toEqual({
+        [key]: ['first', 'second', 'third'],
+      });
+    }
+  );
+
+  it('preserves percent-decoded query names, empty values and ordinary duplicate keys', async () => {
+    const result = await urlParseAdapter.run(
+      'https://example.com/?%5F%5Fproto%5F%5F=&id=1&constructor=own&id=2&toString=text',
+      {}
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(JSON.parse(result.value).searchParams).toEqual({
+      ['__proto__']: '',
+      id: ['1', '2'],
+      constructor: 'own',
+      toString: 'text',
+    });
+  });
+
   it('rejects non-absolute input', async () => {
     const r = await urlParseAdapter.run('/relative/path', {});
     expect(r.ok).toBe(false);
