@@ -3,6 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as monacoTypes from 'monaco-editor';
 import { InlineResultWidgets } from '@/components/Editor/InlineResultWidgets';
 
+let nextFrame = 0;
+const frames = new Map<number, FrameRequestCallback>();
+let resize: (() => void) | undefined;
+function flushFrames() {
+  act(() => {
+    const pending = [...frames.values()];
+    frames.clear();
+    for (const callback of pending) callback(0);
+  });
+}
+
 function harness() {
   let offset = 100;
   let scrollLeft = 0;
@@ -10,6 +21,8 @@ function harness() {
   let visible = true;
   let lineCount = 2;
   let nextZone = 0;
+  let inSelectionTransaction = false;
+  let emitZoneEvents = false;
   const callbacks = new Map<string, () => void>();
   const zones = new Map<string, monacoTypes.editor.IViewZone>();
   const subscribe = (name: string) => (fn: () => void) => {
@@ -33,7 +46,10 @@ function harness() {
     }),
     getScrollTop: () => 0,
     getScrollLeft: () => scrollLeft,
-    getOffsetForColumn: () => offset,
+    getOffsetForColumn: vi.fn(() => {
+      if (inSelectionTransaction) throw new Error('Monaco selection transaction is incomplete');
+      return offset;
+    }),
     getTopForLineNumber: (line: number) => (line - 1) * 20,
     getBottomForLineNumber: (line: number) => line * 20 + (wrapped ? 20 : 0),
     getLineHeightForPosition: () => 20,
@@ -49,6 +65,10 @@ function harness() {
         addZone: (zone: monacoTypes.editor.IViewZone) => {
           const id = String(++nextZone);
           zones.set(id, zone);
+          if (emitZoneEvents) {
+            callbacks.get('layout')?.();
+            callbacks.get('scroll')?.();
+          }
           return id;
         },
         removeZone: (id: string) => {
@@ -75,7 +95,23 @@ function harness() {
     removeLine: () => {
       lineCount = 0;
     },
-    fire: (name: string) => act(() => callbacks.get(name)?.()),
+    fireSync: (name: string) =>
+      act(() => {
+        inSelectionTransaction = true;
+        try {
+          callbacks.get(name)?.();
+        } finally {
+          inSelectionTransaction = false;
+        }
+      }),
+    emitZoneEvents: () => {
+      emitZoneEvents = true;
+    },
+    fire: (name: string) => {
+      act(() => callbacks.get(name)?.());
+      flushFrames();
+    },
+    measure: editor.getOffsetForColumn,
     callbacks,
   };
 }
@@ -86,6 +122,24 @@ const props = {
 };
 
 beforeEach(() => {
+  frames.clear();
+  resize = undefined;
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resize = callback;
+      }
+      observe() {}
+      disconnect() {}
+    }
+  );
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    const id = ++nextFrame;
+    frames.set(id, callback);
+    return id;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement
   ) {
@@ -105,12 +159,14 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('inline results avoid source collisions', () => {
   it('keeps short source results inline without reserving a row', () => {
     const h = harness();
     render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
     expect(h.zones.size).toBe(0);
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('0px');
   });
@@ -118,6 +174,7 @@ describe('inline results avoid source collisions', () => {
     const h = harness();
     h.setOffset(700);
     const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
     expect(h.zones.size).toBe(1);
     expect([...h.zones.values()][0]).toMatchObject({ afterLineNumber: 1, heightInPx: 30 });
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('20px');
@@ -134,6 +191,7 @@ describe('inline results avoid source collisions', () => {
     const h = harness();
     h.setWrapped();
     const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
     expect(h.zones.size).toBe(1);
     expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('40px');
     view.unmount();
@@ -143,6 +201,7 @@ describe('inline results avoid source collisions', () => {
     const h = harness();
     h.setOffset(700);
     render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
     expect(h.zones.size).toBe(1);
     h.setVisible(false);
     h.setOffset(0);
@@ -165,6 +224,82 @@ describe('inline results avoid source collisions', () => {
     const h = harness();
     h.setOffset(-1);
     render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
     expect(h.zones.size).toBe(1);
+  });
+  it('defers and coalesces measurements until Monaco finishes synchronous content events', () => {
+    const h = harness();
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    expect(h.measure).not.toHaveBeenCalled();
+    flushFrames();
+    h.measure.mockClear();
+    h.setOffset(700);
+    h.fireSync('content');
+    h.fireSync('layout');
+    h.fireSync('scroll');
+    h.fireSync('configuration');
+    act(() => resize?.());
+    expect(h.measure).not.toHaveBeenCalled();
+    expect(frames.size).toBe(1);
+    flushFrames();
+    expect(h.measure).toHaveBeenCalledTimes(1);
+    expect(h.zones.size).toBe(1);
+  });
+  it('cancels queued measurements when widgets unmount or switch editors', () => {
+    const old = harness();
+    const current = harness();
+    const view = render(<InlineResultWidgets {...props} editor={old.editor} />);
+    const staleEvent = old.callbacks.get('content')!;
+    const staleResize = resize!;
+    view.rerender(<InlineResultWidgets {...props} editor={current.editor} />);
+    flushFrames();
+    act(() => {
+      staleEvent();
+      staleResize();
+    });
+    expect(frames.size).toBe(0);
+    expect(old.measure).not.toHaveBeenCalled();
+    expect(current.measure).toHaveBeenCalledTimes(1);
+    current.measure.mockClear();
+    current.fireSync('content');
+    const unmountedEvent = current.callbacks.get('content')!;
+    const unmountedResize = resize!;
+    view.unmount();
+    act(() => {
+      unmountedEvent();
+      unmountedResize();
+    });
+    expect(frames.size).toBe(0);
+    flushFrames();
+    expect(current.measure).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale queued frame after same-editor result and tab replacement', () => {
+    const h = harness();
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    const staleFrame = [...frames.values()][0]!;
+    view.rerender(
+      <InlineResultWidgets
+        {...props}
+        tabId="next"
+        lineResults={[{ line: 2, type: 'error', value: 'Replacement' }]}
+        editor={h.editor}
+      />
+    );
+    act(() => staleFrame(0));
+    expect(h.measure).not.toHaveBeenCalled();
+    expect(frames.size).toBe(1);
+    flushFrames();
+    expect(h.measure).toHaveBeenCalledExactlyOnceWith(2, 90);
+  });
+  it('does not schedule itself through view-zone layout and scroll notifications', () => {
+    const h = harness();
+    h.setOffset(700);
+    h.emitZoneEvents();
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+    expect(frames.size).toBe(0);
+    expect(h.measure).toHaveBeenCalledTimes(1);
   });
 });
