@@ -240,9 +240,11 @@ days). Entries that break any of these rules fail the gate, so no exception can
 be parked indefinitely. After the expiry date, the gate fails again until
 someone re-reviews the entry. An active entry that no longer matches any
 advisory prints a removal warning without failing. Add an entry only when no
-patched release exists. CI and release run all three independent audits before
-failing, so a red Worker audit cannot hide a red website audit. The first one is `GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`, which
-Astro only uses at build time to time remote images; the site ships static files. The gate rejects malformed
+patched release exists. The first entry is `GHSA-ch52-4w7c-c8xp` in
+`http-cache-semantics`, which Astro only uses at build time to time remote
+images; the site ships static files. CI and release run all three independent
+audits before failing, so a red Worker audit cannot hide a red website audit.
+The gate rejects malformed
 vulnerability/advisory entries, missing dependency references, registry error
 payloads, and unsuccessful audit-process exits rather than treating a partial
 graph as reviewed. Exception expiry uses a real UTC calendar date and includes
@@ -256,9 +258,12 @@ affects `source-map-js` versions >=1.0.0,<1.2.2, and the website resolves the su
 1.2.2 patch within its existing transitive ranges. Regenerate with the website's
 npm workflow, review the resolution/integrity diff, preserve native platform
 selectors, and qualify a frozen install, build and the unchanged audit gate.
-`tests/build/websiteSourceMapResolution.test.ts` prevents this website resolution
-from falling below the patched minimum; the advisory stays unexcused. Root and
-Worker dev-only graphs remain governed by their separate audit policies.
+The same package reaches the root, `license-server`, and `update-server`
+build tooling through `postcss`, so each of those `pnpm-workspace.yaml` files
+carries its own `source-map-js` override (a root override never reaches an
+independent lockfile). `tests/build/websiteSourceMapResolution.test.ts` keeps
+the website and all three pnpm lockfiles at or above the patched minimum; the
+advisory stays unexcused.
 
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
