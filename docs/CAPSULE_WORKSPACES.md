@@ -91,3 +91,8 @@ replay Capsule Workspaces or resolve supplemental imports. Use the app to
 inspect the wrapper, or extract the nested `capsule` object when the single
 source is independently replayable. Use `lingua run <project-directory>` when
 execution depends on a real project tree and installed dependencies.
+
+The English/Spanish browser integrity journeys capture only synthetic verified
+and mismatched text fixtures. CI retains those explicit PNGs for seven days
+under `capsule-integrity-web-shard-*`; console-error and inert-import assertions
+remain blocking. These captures are review evidence, not an authenticity claim.
