@@ -25,8 +25,8 @@
  *     send SIGTERM and escalate to SIGKILL after `KILL_ESCALATION_DELAY_MS`
  *     if the child has not exited.
  *   - Output caps: stdout / stderr each capped at
- *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) with the existing
- *     `truncateBytes` helper.
+ *     `MAX_NATIVE_STDERR_BYTES` (1 MiB) of UTF-8, truncation marker
+ *     included, by `spawnNativeRun` (see `runners/nativeOutputUtf8.ts`).
  *
  * Behavioral notes:
  *
