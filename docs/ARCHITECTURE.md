@@ -1683,4 +1683,5 @@ Only manual disk saving is provided; local session persistence remains independe
 `src/shared/importers/collectionTypes.ts` is the format-neutral leaf for
 collection request, preview and commit shapes plus count/byte caps. Postman
 and Bruno parsers and generic preview consumers depend on that leaf. Postman
-retains compatibility re-exports; neither parser or variable engine changes.
+retains compatibility re-exports of every moved contract; neither parser nor
+variable engine behavior changes.
