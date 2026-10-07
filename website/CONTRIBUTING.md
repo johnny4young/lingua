@@ -35,7 +35,11 @@ npm audit --audit-level=moderate
 ```
 
 Pull-request CI also runs the download matrix in the root lockfile's Chromium
-via `node scripts/run-website-download-smoke.mjs`. This hosted-only smoke builds
+on the existing macOS desktop runner via `node scripts/run-website-download-smoke.mjs`.
+The browser sandbox stays enabled and runner security settings stay unchanged.
+The website's independent npm lockfile is installed in that job; its dedicated
+smoke typecheck remains in the Linux independent-projects job. This hosted-only
+smoke builds
 the real site with synthetic `v0.0.0` metadata and `LINGUA_SOURCE=local`; it does
 not fetch releases, download binaries, or deploy anything. The original release
 snapshot is restored byte-for-byte in `finally` before preview starts, and the
