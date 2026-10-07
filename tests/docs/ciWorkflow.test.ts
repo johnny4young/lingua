@@ -163,6 +163,19 @@ describe('CI workflow', () => {
     expect(steps[config]?.if).toBe("${{ !cancelled() && steps.bundles.outcome == 'success' }}");
   });
 
+  it('qualifies native output in the macOS PR app without replacing existing gates', () => {
+    const steps = stepsOf(workflow, 'desktop-bundles');
+    const build = steps.findIndex(step => step.run === 'pnpm run build:desktop-bundles');
+    const smoke = steps.findIndex(step => step.run === 'node scripts/smoke-native-output.mjs');
+    expect(smoke).toBeGreaterThan(build);
+    expect(steps[smoke]?.if).toBe("matrix.os == 'macos-latest' && github.event_name == 'pull_request'");
+    expect(steps[smoke]?.['continue-on-error']).toBeUndefined();
+    const evidence = steps.find(step => step.name === 'Upload native output smoke evidence');
+    expect(evidence?.if).toContain('always()');
+    expect(evidence?.with?.path).toContain('native-output/result.json');
+    expect(evidence?.with?.path).not.toContain('profile');
+  });
+
   it('gates the independently managed update-server and website in the subprojects job', () => {
     const steps = stepsOf(workflow, 'subprojects');
     const updateServer = steps.find(step => step['working-directory'] === 'update-server');

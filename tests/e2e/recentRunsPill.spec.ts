@@ -25,6 +25,7 @@ import {
   expect,
   gotoApp,
   seedSession,
+  replaceEditorAndWaitForAutoRun,
   test,
 } from './licenseWeb.helpers';
 
@@ -56,32 +57,33 @@ async function expectPopoverInsideResultPanel(page: Page): Promise<void> {
 }
 
 test.describe('Recent Runs pill ', () => {
-  test('auto-run alone does not surface the pill — manual Cmd+R does', async ({ page }) => {
-    await seedSession(page, { language: 'en', primeProLicense: true });
-    await gotoApp(page);
-    await dismissWhatsNew(page);
-    await createJavaScriptTab(page);
+  for (const language of ['en', 'es'] as const) {
+    test(`auto-run alone does not surface the pill; manual run does (${language})`, async ({ page }) => {
+      await seedSession(page, { language, primeProLicense: true });
+      await gotoApp(page);
+      await dismissWhatsNew(page);
+      await createJavaScriptTab(page);
 
-    // Wait long enough for the seeded auto-run to fire.
-    await page.waitForTimeout(1_400);
-    // Auto-run does NOT record history; pill stays hidden.
-    await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await replaceEditorAndWaitForAutoRun(page, 'console.log("history-auto-proof")', 'history-auto-proof');
+      // Auto-run does NOT record history; pill stays hidden.
+      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
 
-    // Manual run records an entry; pill appears with count 1.
-    await pressRun(page);
-    await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
-    await expect(page.getByTestId('recent-runs-pill')).toHaveAttribute(
-      'data-recent-runs-count',
-      '1'
-    );
-  });
+      // Manual run records an entry; pill appears with count 1.
+      await pressRun(page);
+      await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
+      await expect(page.getByTestId('recent-runs-pill')).toHaveAttribute(
+        'data-recent-runs-count',
+        '1'
+      );
+    });
+  }
 
   test('clicking the pill opens the popover; per-tab isolation works', async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-popover-proof")', 'history-popover-proof');
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 
@@ -106,7 +108,34 @@ test.describe('Recent Runs pill ', () => {
     // Open a second tab — its pill should be hidden (different tab id,
     // zero entries).
     await createTypeScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-second-tab-proof")', 'history-second-tab-proof');
+    await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+  });
+
+  test('a delayed automatic execution must finish before history absence is asserted', async ({ page }) => {
+    let delayedWorkerRequests = 0;
+    // The preview build emits the worker created in
+    // src/renderer/runners/workerRunnerShell.ts (new URL('../workers/js-worker.ts'))
+    // as assets/js-worker-<hash>.js. If that name changes, the request count
+    // assertion below fails instead of the delay silently not applying.
+    await page.context().route('**/assets/js-worker-*.js', async route => {
+      delayedWorkerRequests += 1;
+      await new Promise(resolve => setTimeout(resolve, 1_800));
+      await route.continue();
+    });
+    await seedSession(page, { language: 'en', primeProLicense: true });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    // The seeded scratchpad's own auto-run also fetches the worker, so only
+    // requests made after this baseline prove the edited run was delayed.
+    const requestsBeforeEdit = delayedWorkerRequests;
+    await replaceEditorAndWaitForAutoRun(
+      page,
+      'console.log("history-delayed-proof")',
+      'history-delayed-proof'
+    );
+    expect(delayedWorkerRequests).toBeGreaterThan(requestsBeforeEdit);
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
@@ -117,7 +146,7 @@ test.describe('Recent Runs pill ', () => {
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("history-shortcut-proof")', 'history-shortcut-proof');
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 
