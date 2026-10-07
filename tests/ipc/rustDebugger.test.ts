@@ -155,4 +155,23 @@ describe('Rust debugger IPC lifecycle', () => {
       output: expect.stringContaining('fixture compile failure'),
     });
   });
+
+  it('bounds joined multibyte compiler diagnostics to the UTF-8 compile budget', async () => {
+    const start = handlers.get('debugger:rust:start');
+    const response = (await start?.(
+      { sender: sender(52) },
+      {
+        tabId: 'rust-tab',
+        fileName: 'flood.rs',
+        source: 'compile_error!("flood");\nfn main() {}\n',
+        breakpoints: [2],
+        watches: [],
+      }
+    )) as { kind: string; reason: string; output: string; outputTruncated: boolean };
+    expect(response).toMatchObject({ kind: 'error', reason: 'compile-failed', outputTruncated: true });
+    expect(Buffer.byteLength(response.output, 'utf8')).toBeLessThanOrEqual(1024 * 1024);
+    expect(response.output.endsWith('\n[Compile output truncated]')).toBe(true);
+    expect(response.output.includes('\uFFFD')).toBe(false);
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(response.output)).toBe(false);
+  }, 30_000);
 });
