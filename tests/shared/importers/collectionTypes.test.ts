@@ -1,7 +1,17 @@
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { MAX_COLLECTION_BYTES, MAX_IMPORT_REQUESTS } from '../../../src/shared/importers/collectionTypes';
 import { MAX_COLLECTION_BYTES as postmanBytes, MAX_IMPORT_REQUESTS as postmanRequests } from '../../../src/shared/importers/postmanImporter';
+import type {
+  CollectionImporterPreview,
+  CollectionImporterResult,
+  ParsedCollectionRequest,
+} from '../../../src/shared/importers/collectionTypes';
+import type {
+  CollectionImporterPreview as PostmanPreview,
+  CollectionImporterResult as PostmanResult,
+  ParsedCollectionRequest as PostmanRequest,
+} from '../../../src/shared/importers/postmanImporter';
 import { parseSourceFile } from '../../__fixtures__/sourceAst';
 
 const root = resolve(__dirname, '../../..');
@@ -24,6 +34,14 @@ const endsWithModule = (name: string) => (specifier: string) =>
   specifier === `./${name}` || specifier.endsWith(`/${name}`);
 
 describe('collection contract ownership', () => {
+  // Checked by typecheck:tests as well as Vitest: the compatibility facade
+  // must retain every moved type without changing the canonical leaf shape.
+  it('preserves the Postman compatibility type exports', () => {
+    expectTypeOf<PostmanRequest>().toEqualTypeOf<ParsedCollectionRequest>();
+    expectTypeOf<PostmanPreview>().toEqualTypeOf<CollectionImporterPreview>();
+    expectTypeOf<PostmanResult>().toEqualTypeOf<CollectionImporterResult>();
+  });
+
   it('keeps compatible caps without a format-parser dependency in the contract leaf', () => {
     expect(MAX_COLLECTION_BYTES).toBe(4 * 1024 * 1024);
     expect(MAX_IMPORT_REQUESTS).toBe(100);
