@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { truncateUtf8, utf8ByteLength } from '../../src/shared/utf8';
+import { truncateUtf8, truncateUtf8WithMarker, utf8ByteLength } from '../../src/shared/utf8';
 
 function hasLoneSurrogate(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -71,5 +71,25 @@ describe('truncateUtf8', () => {
     expect(truncateUtf8(value, 9)).toBe('ab日😀');
     expect(truncateUtf8(value, 8)).toBe('ab日');
     expect(truncateUtf8(value, 4)).toBe('ab');
+  });
+});
+
+describe('truncateUtf8WithMarker', () => {
+  it('returns fitting text unchanged, including at the exact byte limit', () => {
+    expect(truncateUtf8WithMarker('日本', 6, '[cut]')).toBe('日本');
+  });
+
+  it('reserves the marker inside the budget and keeps whole code points', () => {
+    const cut = truncateUtf8WithMarker('😀'.repeat(10), 12, '[cut]');
+    expect(cut).toBe('😀[cut]');
+    expect(utf8ByteLength(cut)).toBeLessThanOrEqual(12);
+    expect(hasLoneSurrogate(cut)).toBe(false);
+  });
+
+  it('bounds an oversized marker and never exceeds the budget', () => {
+    expect(truncateUtf8WithMarker('abcdefgh', 5, '😀漢')).toBe('a😀');
+    expect(truncateUtf8WithMarker('abcdefgh', 3, '[cut]')).toBe('[cu');
+    expect(truncateUtf8WithMarker('abc', 0, '[cut]')).toBe('');
+    expect(truncateUtf8WithMarker('abc', -1, '[cut]')).toBe('');
   });
 });

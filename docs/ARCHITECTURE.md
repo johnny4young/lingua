@@ -265,10 +265,44 @@ only on standard text encoders, not Node or renderer APIs. Truncation preserves
 a leading U+FEFF as payload data and never splits a valid surrogate pair.
 
 Worker serialized values reserve space for the localized truncation marker
-inside their 64 KiB UTF-8 budget; even a marker that fills or exceeds that
-budget is bounded first. Share-link stdin uses the same prefix helper in both
+inside their 64 KiB UTF-8 budget through the shared `truncateUtf8WithMarker`
+clipper; even a marker that fills or exceeds that budget is bounded first. Share-link stdin uses the same prefix helper in both
 the builder and decoder with its separate 4 KiB budget. Existing byte-counter
 exports remain compatibility facades, and unrelated domain limits are unchanged.
+
+Native captures in `spawnNativeRun` and `nativeDependencyInstall` also measure
+the UTF-8 byte length of decoded stdout and stderr independently, counting only
+each newly decoded chunk rather than re-encoding the growing capture. Their native
+clipper delegates to the same `truncateUtf8WithMarker`, reserves marker bytes within the
+same cap, and keeps whole source and marker code points, including a leading
+U+FEFF. Exact-limit output is unchanged. If a marker exceeds the cap, only its
+longest fitting code-point-safe prefix is reserved; remaining room may hold a
+source prefix. No source character or complete marker is forced past the cap,
+so a zero budget captures nothing and a very small cap may omit the marker.
+The shared clipper rounds fractional caps down to whole bytes and clamps
+negative caps to zero before cutting.
+Normal-headroom ASCII output keeps its prior prefix and full marker. The Go
+compile error path and the Rust debugger's joined stderr/stdout compile
+diagnostics use the same clipper; the former UTF-16 `truncateBytes` helper is
+gone. The JavaScript dependency-install log in `dependencies.ts` still caps its
+streamed log by UTF-16 code units and is not covered by this guarantee.
+
+These limits bound captured decoded text, not raw pipe bytes or observer
+delivery. A native run still notifies its observer with the decoded crossing
+chunk before clipping, then detaches that pipe's data listener and drains it
+with `resume()` rather than closing it. Native installs retain their listener
+and ignore later chunks after clipping. Neither clipping path kills the child
+or changes cancellation, exit mapping, process ownership, or the streaming
+UTF-8 decoder. Buffer chunks split inside a character are decoded before
+budgeting; malformed bytes follow the decoder's existing replacement behavior.
+Deterministic mocked-stream tests cover these boundaries without a toolchain
+or network request.
+The macOS desktop-bundle PR job additionally launches the built Electron app
+with an isolated profile and exercises real renderer-to-main Node IPC via
+`node scripts/smoke-native-output.mjs`: finite mixed Unicode output on both
+pipes, Stop after stdout clipping, and a clean subsequent run. Its fixtures
+use no dependency install or external service. This is an unpackaged native
+app check; it does not qualify installers, signing, or other native runtimes.
 
 ### Debugger expression boundary
 
@@ -1077,6 +1111,25 @@ are rejected instead of expanding the network boundary.
 
 ### Guarded HTTP workspace transport
 
+`src/main/networkTargetPolicy.ts` is the shared destination-policy leaf for
+HTTP/SSE and WebSocket. It owns URL parsing, caller-selected scheme validation,
+private-address classification and validation of all lookup results. It imports
+only Node's address classifier, creates no transport, and keeps no DNS cache or
+mutable singleton. Lookup evidence is returned unchanged for socket pinning.
+
+`httpProxy.ts` owns HTTP redirects, credentials, undici dispatchers and body/SSE
+limits; `httpWebSocket.ts` owns handshake, messages, redirects-off and socket
+cancellation. Both import the policy directly. Each transport retains its own
+protocol set, default lookup, timeout and private-host opt-in. The historical
+policy exports from `httpProxy.ts` remain compatibility aliases; new consumers
+should use the neutral leaf rather than depend on an HTTP implementation.
+
+`tests/main/networkTargetPolicy.test.ts` locks dependency direction, historical
+function/type identities and deterministic lookup/error semantics without live
+network access. Existing HTTP, WebSocket and IPC suites continue covering their
+transport-specific behavior. The extraction changes ownership only; it does not
+extend accepted destinations or promise an additional sandbox.
+
 The HTTP workspace has one renderer orchestration path for environment
 interpolation, capture chaining, assertion evaluation, secret masking, history,
 and Capsules. Only the network transport varies by platform:
@@ -1095,6 +1148,18 @@ and Capsules. Only the network transport varies by platform:
   messages and bytes, disables compression, and closes on cancel or timeout.
 - Private, loopback, link-local, CGNAT, multicast, and reserved targets fail
   closed unless the user enables the desktop-only private-host setting.
+  IPv6 forms that carry an IPv4 destination are classified by that IPv4:
+  IPv4-mapped, IPv4-compatible, IPv4-translated (`::ffff:0:0:0/96`), NAT64
+  well-known (`64:ff9b::/96`) and 6to4 (`2002::/16`), so a NAT64 address of a
+  public host stays reachable on IPv6-only networks while one of loopback or
+  cloud metadata does not. Any other IPv6 address outside global unicast
+  (`2000::/3`) is private, which covers the NAT64 local-use prefix
+  (`64:ff9b:1::/48`), discard-only (`100::/64`), unique-local, link-local,
+  site-local (`fec0::/10`), multicast and every IETF-reserved block. Inside
+  `2000::/3`, Teredo (`2001::/32`, whose server and inverted client IPv4 are
+  both caller-chosen), benchmarking (`2001:2::/48`) and documentation
+  (`2001:db8::/32`, `3fff::/20`) are private too. The `localhost` fast path
+  also matches the trailing-dot spelling (`localhost.`).
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
@@ -1677,3 +1742,11 @@ cells and the original expected hash rather than adopting conflicting disk bytes
 Browser handles are session-scoped: after reload a recovered document needs an
 explicit picker selection to bind again. No heap is restored and no code auto-runs.
 Only manual disk saving is provided; local session persistence remains independent.
+
+## Collection import contracts
+
+`src/shared/importers/collectionTypes.ts` is the format-neutral leaf for
+collection request, preview and commit shapes plus count/byte caps. Postman
+and Bruno parsers and generic preview consumers depend on that leaf. Postman
+retains compatibility re-exports of every moved contract; neither parser nor
+variable engine behavior changes.
