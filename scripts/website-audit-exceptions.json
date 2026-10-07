@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "id": "GHSA-ch52-4w7c-c8xp",
+      "package": "http-cache-semantics",
+      "reviewed": "2026-10-02",
+      "expires": "2026-12-01",
+      "reason": "No patched release exists (<=4.2.0, latest is 4.2.0). Astro only calls it at build time to compute the TTL of remote images in assets/build/remote.js; the site ships static files, so no shared HTTP cache ever serves visitors."
+    }
+  ]
+}

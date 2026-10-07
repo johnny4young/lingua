@@ -49,13 +49,15 @@ Before making non-trivial changes, open these files (in order).
   is standalone npm (its own `package.json` + `package-lock.json`), the two
   Workers are separate pnpm projects. Bumping `pnpm-workspace.yaml` leaves
   their lockfiles exactly where they were. CI audits all three in one step
-  (`ci.yml` § Independent production dependency audits) under `bash -e`, so
-  the FIRST failing audit masks the rest: a green root audit can be hiding a
-  red website one that only appears once you fix the root. When patching an
-  advisory, grep every lockfile for the package and regenerate each affected
-  sub-project with ITS OWN package manager — `npm --prefix website install
-  --package-lock-only` for the site, `pnpm --dir <sub> install --lockfile-only`
-  for a Worker. `js-yaml` needed the root pin AND the website pin.
+  (`ci.yml` § Independent production dependency audits) that runs every audit
+  and only then fails, so read the WHOLE step log: one red graph no longer
+  hides another, but the step stays red until every graph is clean. When
+  patching an advisory, grep every lockfile for the package and regenerate
+  each affected sub-project with ITS OWN package manager — `npm --prefix
+  website install --package-lock-only` for the site (use the CI npm major,
+  `npx -y npm@11`, because npm 10 drops the `libc` selectors on native
+  optional packages), `pnpm --dir <sub> install --lockfile-only` for a
+  Worker. `js-yaml` needed the root pin AND the website pin.
 - **`pnpm audit --prod` cannot see what Vite bundles.** It reads package.json
   `dependencies` only, while the main/preload graphs are inlined into
   `.vite/build/main.js`. A devDependency imported by `src/main/**` ships to

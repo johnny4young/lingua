@@ -137,6 +137,7 @@ describe('Script naming docs guard', () => {
       // docs/RELEASE_SECURITY.md for the prod-vs-full split rationale.
       'check:prod-audit',
       'check:bundled-audit',
+      'check:website-audit',
       // bundle/runtime performance budgets and reports
       'performance:report',
       'performance:activation',
