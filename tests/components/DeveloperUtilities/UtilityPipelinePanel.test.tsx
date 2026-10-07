@@ -144,6 +144,9 @@ describe('UtilityPipelinePanel', () => {
     expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
       'The pipeline shape is invalid.'
     );
+    expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
+      'step 2 is malformed'
+    );
     expect((textarea as HTMLTextAreaElement).value).toBe(json);
     expect(useUtilityPipelineStore.getState().pipelines).toEqual([existing]);
     expect(useUtilityPipelineStore.getState().activePipelineId).toBe(existing.id);

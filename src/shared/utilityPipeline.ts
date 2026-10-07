@@ -304,7 +304,14 @@ export function tryImportPipelineJson(
   // Recovery may discard malformed steps; explicit import must retain the
   // complete recipe rather than report success with different behavior.
   if (!Array.isArray(parsed.steps) || pipeline.steps.length !== parsed.steps.length) {
-    return { ok: false, reason: 'invalid-shape' };
+    const index = Array.isArray(parsed.steps)
+      ? parsed.steps.findIndex((step) => parsePipelineStep(step) === null)
+      : -1;
+    return {
+      ok: false,
+      reason: 'invalid-shape',
+      ...(index >= 0 ? { detail: `step ${index + 1} is malformed` } : {}),
+    };
   }
   return { ok: true, pipeline, warnings: [] };
 }

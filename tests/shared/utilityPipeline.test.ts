@@ -198,6 +198,7 @@ describe('tryImportPipelineJson', () => {
     expect(tryImportPipelineJson(JSON.stringify(broken), 0)).toMatchObject({
       ok: false,
       reason: 'invalid-shape',
+      detail: 'step 2 is malformed',
     });
     // Recovery of an already-saved library remains deliberately lenient.
     expect(parsePipeline(broken)?.steps).toEqual(valid.steps);
