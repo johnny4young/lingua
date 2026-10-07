@@ -391,8 +391,7 @@ Normal CI runs `pnpm run check:performance --fail-on-slack` after
 measurement table to the logs, writes the JSON and Markdown reports, and is
 the explicit blocking budget gate for build outputs that exist on disk; a
 separate `performance:report` step would only repeat the same scan. That job
-builds only the web
-target, so the Linux leg of the `desktop-bundles` matrix checks the desktop
+builds only the web target, so the Linux leg of the `desktop-bundles` matrix checks the desktop
 renderer it already built with `--target=renderer --fail-on-slack` (see
 [Review-time build budgets](#review-time-build-budgets)). The scheduled
 `renderer-budget` workflow (weekly, or on demand from the Actions tab)
@@ -522,8 +521,9 @@ web output. Weekly/manual validation retains the full-target gate.
 
 The PR web lane and weekly full-target lane each invoke only the budget check.
 That command measures/gzips each asset once and writes both JSON and Markdown
-reports before returning a budget or slack failure (a missing baseline or a
-missing explicitly selected target still fails before any report is written).
-`performance:report` remains
-available for an intentional report-only local run. No thresholds change;
+reports before returning a budget or slack failure. Setup errors still fail
+before any report is written: a missing or invalid baseline, missing web
+output (the web target is always required), or a missing explicitly selected
+target. `performance:report` remains available for an intentional report-only
+local run. No thresholds change;
 compare target/assets/category measurements independently of timestamps.
