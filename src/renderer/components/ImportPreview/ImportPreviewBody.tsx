@@ -30,7 +30,7 @@ import type { PlaygroundSourcePreview } from '../../../shared/importers/playgrou
 import type {
   CollectionImporterPreview,
   ParsedCollectionRequest,
-} from '../../../shared/importers/postmanImporter';
+} from '../../../shared/importers/collectionTypes';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 
