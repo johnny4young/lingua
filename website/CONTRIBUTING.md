@@ -34,6 +34,32 @@ env LINGUA_SOURCE=local npm run build
 npm audit --audit-level=moderate
 ```
 
+Pull-request CI also runs the download matrix in the root lockfile's Chromium
+via `node scripts/run-website-download-smoke.mjs`. This hosted-only smoke builds
+the real site with synthetic `v0.0.0` metadata and `LINGUA_SOURCE=local`; it does
+not fetch releases, download binaries, or deploy anything. The original release
+snapshot is restored byte-for-byte in `finally` before preview starts, and the
+synthetic build output is removed after the smoke.
+
+The four cases cover English and Spanish at desktop (1440px) and mobile (390px)
+widths: GUI/CLI headings and guidance, every asset's platform/product/architecture
+and exact link, checksum disclosure, responsive card placement, unclipped text,
+non-overlapping download controls, and zero console errors or external requests.
+The CLI ZIPs must remain visible beside same-architecture macOS DMGs and under
+the correct Windows/Linux cards.
+Only the four explicit PNGs are retained, in the `website-download-matrix`
+artifact for seven days. They show a synthetic asset matrix, not current release
+availability. No traces, videos, profiles, or complete build directories are
+uploaded. Local validation can run the non-browser controls and type check:
+
+```sh
+pnpm exec vitest run tests/scripts/websiteDownloadSmoke.test.ts
+pnpm exec tsc --noEmit -p tsconfig.website-downloads.json
+```
+
+Run those commands from the repository root. Browser qualification itself is
+restricted to GitHub Actions; do not spoof CI environment variables locally.
+
 ## Build and deploy
 
 Deploys run from the repo-root workflow `.github/workflows/deploy-website.yml` —
@@ -53,9 +79,9 @@ API. Download links point directly at the attached GitHub assets. Cloudflare R2
 is not a desktop download source; it hosts only oversized web runtimes used by
 the app at `downloads.linguacode.dev/web-runtime/`.
 
-Set `LINGUA_SOURCE=local` to skip the network fetch and synthesize a
-multi-platform placeholder release from the committed `changelog.json` — useful
-for offline development and responsive download-page smoke tests.
+Set `LINGUA_SOURCE=local` to skip the network fetch and validate the committed
+`latest-release.json` snapshot instead. Ordinary offline builds keep its real
+published assets; only the hosted smoke above substitutes synthetic metadata.
 
 ## Content sync
 
