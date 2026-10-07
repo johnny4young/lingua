@@ -127,12 +127,15 @@ test.describe('Recent Runs pill ', () => {
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
+    // The seeded scratchpad's own auto-run also fetches the worker, so only
+    // requests made after this baseline prove the edited run was delayed.
+    const requestsBeforeEdit = delayedWorkerRequests;
     await replaceEditorAndWaitForAutoRun(
       page,
       'console.log("history-delayed-proof")',
       'history-delayed-proof'
     );
-    expect(delayedWorkerRequests).toBeGreaterThan(0);
+    expect(delayedWorkerRequests).toBeGreaterThan(requestsBeforeEdit);
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
