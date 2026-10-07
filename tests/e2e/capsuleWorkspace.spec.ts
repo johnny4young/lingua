@@ -146,9 +146,15 @@ test.describe('Capsule Workspace handoff', () => {
       await page.getByTestId('capsule-import-preview-tab-files').click();
       const status = page.getByTestId('capsule-workspace-file-integrity');
       await expect(status).toContainText(language === 'en' ? 'Verified:' : 'Verificado:');
+      await page.screenshot({
+        path: test.info().outputPath(`capsule-workspace-integrity-verified-${language}.png`),
+      });
       await input.fill(JSON.stringify(changed));
       await expect(status).toContainText(language === 'en' ? 'Mismatch:' : 'No coincide:');
       await expect(page.getByTestId('capsule-workspace-viewer-content')).toHaveText('Changed text');
+      await page.screenshot({
+        path: test.info().outputPath(`capsule-workspace-integrity-mismatch-${language}.png`),
+      });
       await input.fill(built.json);
       await expect(status).toContainText(language === 'en' ? 'Verified:' : 'Verificado:');
       await expect(
