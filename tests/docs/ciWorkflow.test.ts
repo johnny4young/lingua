@@ -129,14 +129,13 @@ describe('CI workflow', () => {
     expect(runLines(workflow, 'unit')).not.toContain('pnpm run test:coverage');
   });
 
-  it('runs the performance budget check after the web build report, with slack fatal', () => {
+  it('measures web once after its build and keeps report-writing budget/slack enforcement', () => {
     const buildIndex = indexOfRun(workflow, 'build-web', 'pnpm run build:web');
-    const reportIndex = indexOfRun(workflow, 'build-web', 'pnpm run performance:report');
     const checkIndex = indexOfRun(workflow, 'build-web', 'pnpm run check:performance');
 
     expect(buildIndex).toBeGreaterThan(-1);
-    expect(reportIndex).toBeGreaterThan(buildIndex);
-    expect(checkIndex).toBeGreaterThan(reportIndex);
+    expect(checkIndex).toBeGreaterThan(buildIndex);
+    expect(runLines(workflow, 'build-web')).not.toContain('pnpm run performance:report');
     expect(stepsOf(workflow, 'build-web')[checkIndex]?.run).toContain('--fail-on-slack');
   });
 
@@ -288,6 +287,8 @@ describe('renderer budget workflow', () => {
     expect(commands).toContain('pnpm run build:web');
     expect(commands).toContain('pnpm run build:desktop-bundles');
     const check = commands.find(command => command.startsWith('pnpm run check:performance'));
+    expect(commands).not.toContain('pnpm run performance:report');
+    expect(commands.filter(command => command.startsWith('pnpm run check:performance'))).toHaveLength(1);
     expect(check).toContain('--require-all-targets');
     expect(check).toContain('--fail-on-slack');
   });

@@ -468,6 +468,17 @@ Console output route for Python and Rust runs via the bottom console panel (INF/
 | Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
 | Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API |
 
+### Service-test isolation
+
+Fetch service suites install their own `vi.stubGlobal` mock in every relevant
+case and restore it with `vi.unstubAllGlobals` during teardown. They assert
+the original fetch identity before each case and after cleanup, without
+calling the original implementation. The suites also pass in random order
+(`pnpm exec vitest run tests/services --sequence.shuffle`); CI runs them in
+the default order.
+`tests/services/**` participates in the scoped strict test typecheck.
+Device-fingerprint tests retain their DOM environment.
+
 ### Automatic execution evidence
 
 Recent Runs and Compare E2E cases replace the editor with a unique output
