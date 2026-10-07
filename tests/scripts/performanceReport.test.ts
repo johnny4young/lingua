@@ -538,6 +538,9 @@ describe('performance-report', () => {
       const setup = spawnSync(process.execPath, [...common, '--write-baseline'], { encoding: 'utf8' });
       expect(setup.status, setup.stderr).toBe(0);
       const original = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
+      // Drop the setup report so the pass assertions below prove the check
+      // itself wrote the artifacts instead of reading the setup leftovers.
+      await rm(path.join(root, 'report'), { recursive: true, force: true });
       const check = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
       expect(check.status, check.stderr).toBe(0);
       const checked = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
