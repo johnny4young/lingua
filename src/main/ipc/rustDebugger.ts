@@ -31,7 +31,8 @@ import {
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
 import { onOwnerReset } from '../runners/ownerReset';
-import { MAX_COMPILE_OUTPUT_BYTES, truncateBytes } from '../../shared/runnerLimits';
+import { MAX_COMPILE_OUTPUT_BYTES } from '../../shared/runnerLimits';
+import { truncateNativeOutputUtf8 } from '../runners/nativeOutputUtf8';
 import { DebuggerPreparationRegistry } from './debuggerPreparation';
 import { spawnNativeRun } from '../runners/spawnNativeRun';
 
@@ -336,7 +337,9 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Ru
       const outputTruncated =
         raw.includes(RUST_COMPILE_TRUNCATION_MARKER) ||
         Buffer.byteLength(raw, 'utf8') > MAX_COMPILE_OUTPUT_BYTES;
-      const output = truncateBytes(raw, MAX_COMPILE_OUTPUT_BYTES, RUST_COMPILE_TRUNCATION_MARKER);
+      // stderr and stdout are each capped upstream, so their join can reach
+      // twice the budget; bound the combined diagnostics in UTF-8 bytes too.
+      const output = truncateNativeOutputUtf8(raw, MAX_COMPILE_OUTPUT_BYTES, RUST_COMPILE_TRUNCATION_MARKER);
       await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
       return errorResponse('compile-failed', undefined, { output, outputTruncated });
     }
