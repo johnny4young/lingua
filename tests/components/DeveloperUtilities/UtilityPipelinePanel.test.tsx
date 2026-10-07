@@ -123,6 +123,44 @@ describe('UtilityPipelinePanel', () => {
     expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
+  it('keeps a malformed recipe available to correct, then imports all corrected steps', async () => {
+    const user = userEvent.setup();
+    const existing = createBlankPipeline({ id: 'existing', name: 'Saved recipe' });
+    useUtilityPipelineStore.getState().createPipeline(existing);
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-list-import'));
+    const textarea = await screen.findByTestId('utility-pipeline-import-textarea');
+    const incoming = {
+      ...createBlankPipeline({ id: 'incoming', name: 'Incoming recipe' }),
+      steps: [
+        createBlankStep({ id: 'decode', utilityId: 'base64-decode' }),
+        { id: 'format', utilityId: 'json-format' },
+      ],
+    };
+    const json = JSON.stringify(incoming);
+    fireEvent.change(textarea, { target: { value: json } });
+    await user.click(screen.getByTestId('utility-pipeline-import-confirm'));
+
+    expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
+      'The pipeline shape is invalid.'
+    );
+    expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
+      'step 2 is malformed'
+    );
+    expect((textarea as HTMLTextAreaElement).value).toBe(json);
+    expect(useUtilityPipelineStore.getState().pipelines).toEqual([existing]);
+    expect(useUtilityPipelineStore.getState().activePipelineId).toBe(existing.id);
+
+    incoming.steps[1] = createBlankStep({ id: 'format', utilityId: 'json-format' });
+    fireEvent.change(textarea, { target: { value: JSON.stringify(incoming) } });
+    await user.click(screen.getByTestId('utility-pipeline-import-confirm'));
+    expect(screen.queryByTestId('utility-pipeline-import-panel')).toBeNull();
+    expect(useUtilityPipelineStore.getState().getPipeline('incoming')?.steps).toEqual(
+      incoming.steps
+    );
+    expect(useUtilityPipelineStore.getState().activePipelineId).toBe('incoming');
+  });
+
   it('shows the template gallery in the empty state ', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();

@@ -32,8 +32,6 @@ jobs:
         run: pnpm run build:web
       - name: Build desktop bundles
         run: pnpm run build:desktop-bundles
-      - name: Performance report
-        run: pnpm run performance:report
       # Every baseline target must be present and inside its budget, and a
       # category measuring under 75% of its baseline fails as slack.
       - name: Performance budget check (all targets)

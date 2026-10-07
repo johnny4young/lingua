@@ -6,7 +6,7 @@ import {
 import {
   MAX_COLLECTION_BYTES,
   type CollectionImporterPreview,
-} from '../../shared/importers/postmanImporter';
+} from '../../shared/importers/collectionTypes';
 import type { BrunoRejectReason, ImporterRejectReason } from '../../shared/importers/types';
 import { utf8ByteLength } from '../../shared/httpWorkspaceSchema';
 
