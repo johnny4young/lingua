@@ -13,7 +13,7 @@ import {
 import type {
   CollectionImporterPreview,
   CollectionImporterResult,
-} from '../../../src/shared/importers/postmanImporter';
+} from '../../../src/shared/importers/collectionTypes';
 
 function preview(source: string): CollectionImporterPreview {
   const outcome = brunoImporterAdapter.preview(source);
