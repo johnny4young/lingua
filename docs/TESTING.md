@@ -474,5 +474,5 @@ the original fetch identity before each case and after cleanup, without
 calling the original implementation. The suites also pass in random order
 (`pnpm exec vitest run tests/services --sequence.shuffle`); CI runs them in
 the default order.
-`tests/services/**/*.ts` participates in the scoped strict test typecheck.
+`tests/services/**` participates in the scoped strict test typecheck.
 Device-fingerprint tests retain their DOM environment.
