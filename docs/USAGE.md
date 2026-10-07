@@ -57,6 +57,18 @@ For a reproducible run rather than a source excerpt, use the separate
 Exporting or validating a Capsule does not execute its source; replay is an
 explicit trusted-code action.
 
+## Importing utility pipelines
+
+Developer Utilities → Pipelines imports the complete JSON recipe. If any step
+has an unknown utility id or is missing a required field (`id`, `utilityId`,
+or an object-valued `options`), import rejects the recipe. It keeps the pasted
+JSON available to correct and leaves the saved library and selection unchanged.
+A valid empty recipe is allowed. Import does not execute any utility.
+
+Recovery of an already-saved local library remains lenient: malformed or unknown
+steps can be dropped while restoring the remaining recipe. Adapter-specific
+option defaults and execution-time validation are unchanged.
+
 ## Desktop deep links
 
 Packaged desktop builds register the `lingua://` protocol and handle these entry points:

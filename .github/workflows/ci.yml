@@ -180,12 +180,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build web
         run: pnpm run build:web
-      - name: Performance report
-        run: pnpm run performance:report
       # --fail-on-slack fails a category that measures under 75% of its
       # baseline: a ceiling that far above reality has stopped protecting it.
       # Only targets built in this job are measured, so the desktop renderer
-      # is judged by the scheduled renderer-budget workflow instead.
+      # is checked after the existing Linux desktop build below.
       - name: Performance budget check
         run: pnpm run check:performance --fail-on-slack
 
@@ -207,8 +205,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Qualify the native Vite resolver on every release OS without signing
       # or publishing. Packaging/notarization remain separate release gates.
-      - run: pnpm run build:desktop-bundles
-      - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      - id: bundles
+        run: pnpm run build:desktop-bundles
+      - name: Desktop renderer performance budget
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run check:performance --target=renderer --fail-on-slack
+      # A budget failure must not hide a bundle-config regression on the same
+      # OS: run whenever the bundles built, whatever the budget step reported.
+      - name: Desktop bundle config
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
+        run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
       # macOS provides a native display session without disabling Chromium's
       # sandbox. This is the built app + real Node IPC, not browser/CLI smoke.
       - name: Native Unicode capture and Stop smoke
