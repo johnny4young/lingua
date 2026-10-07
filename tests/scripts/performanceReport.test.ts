@@ -20,6 +20,24 @@ import {
   validateBaseline,
 } from '../../scripts/performance-report.mjs';
 
+const FIXTURE_ASSETS = ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm'];
+
+/**
+ * Copy the CLI script into a fixture root (so its repo-relative defaults
+ * resolve inside the fixture) and stage the fixture build at `buildDir`.
+ * Returns the path of the copied script.
+ */
+async function stageCliFixture(root: string, buildDir: string) {
+  await mkdir(path.join(root, 'scripts'));
+  await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
+  await mkdir(path.join(root, buildDir, 'assets'), { recursive: true });
+  await copyFile(path.join(root, 'index.html'), path.join(root, buildDir, 'index.html'));
+  for (const asset of FIXTURE_ASSETS) {
+    await copyFile(path.join(root, 'assets', asset), path.join(root, buildDir, 'assets', asset));
+  }
+  return path.join(root, 'scripts/performance-report.mjs');
+}
+
 async function createFixtureBuild() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lingua-perf-'));
   await mkdir(path.join(root, 'assets'), { recursive: true });
@@ -494,17 +512,8 @@ describe('performance-report', () => {
   it('fails a CLI check for missing selected renderer but permits default web-only output', async () => {
     const root = await createFixtureBuild();
     try {
-      await mkdir(path.join(root, 'scripts'));
-      await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
-      await mkdir(path.join(root, 'dist'));
       // A fixture renderer is deliberately absent. Use the same assets as web.
-      await mkdir(path.join(root, 'dist/web'));
-      await copyFile(path.join(root, 'index.html'), path.join(root, 'dist/web/index.html'));
-      await mkdir(path.join(root, 'dist/web/assets'));
-      for (const asset of ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm']) {
-        await copyFile(path.join(root, 'assets', asset), path.join(root, 'dist/web/assets', asset));
-      }
-      const script = path.join(root, 'scripts/performance-report.mjs');
+      const script = await stageCliFixture(root, 'dist/web');
       const baseline = path.join(root, 'baseline.json');
       const setup = spawnSync(process.execPath, [script, '--write-baseline', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
       expect(setup.status, setup.stderr).toBe(0);
@@ -523,16 +532,7 @@ describe('performance-report', () => {
   it('a single check preserves report artifacts and measurements on pass, budget failure and slack failure', async () => {
     const root = await createFixtureBuild();
     try {
-      await mkdir(path.join(root, 'scripts'));
-      await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
-      await mkdir(path.join(root, '.vite/renderer'), { recursive: true });
-      await mkdir(path.join(root, '.vite/renderer/main_window'));
-      await copyFile(path.join(root, 'index.html'), path.join(root, '.vite/renderer/main_window/index.html'));
-      await mkdir(path.join(root, '.vite/renderer/main_window/assets'));
-      for (const asset of ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm']) {
-        await copyFile(path.join(root, 'assets', asset), path.join(root, '.vite/renderer/main_window/assets', asset));
-      }
-      const script = path.join(root, 'scripts/performance-report.mjs');
+      const script = await stageCliFixture(root, '.vite/renderer/main_window');
       const baselinePath = path.join(root, 'baseline.json');
       const common = [script, '--target=renderer', `--baseline=${baselinePath}`, `--output-dir=${root}/report`];
       const setup = spawnSync(process.execPath, [...common, '--write-baseline'], { encoding: 'utf8' });
@@ -550,17 +550,21 @@ describe('performance-report', () => {
       await writeFile(baselinePath, JSON.stringify(baseline));
       const over = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
       expect(over.status).toBe(1);
-      expect(over.stdout).toMatch(/renderer\.initial\.bytes/u);
+      expect(over.stdout).toMatch(/renderer\.initial\.bytes \d+ exceeds 0/u);
       const overReport = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
       expect(overReport.targets).toEqual(original.targets);
       expect(overReport.violations).not.toHaveLength(0);
-      expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toContain('renderer.initial.bytes');
+      expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toMatch(/renderer\.initial\.bytes \d+ exceeds 0/u);
       unchanged.budgets.renderer.initial.baselineBytes *= 2;
       await writeFile(baselinePath, JSON.stringify(unchanged));
       const slack = spawnSync(process.execPath, [...common, '--check', '--fail-on-slack'], { encoding: 'utf8' });
       expect(slack.status).toBe(1);
       expect(slack.stdout).toContain('Budget warnings:');
-      expect(JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8')).targets).toEqual(original.targets);
+      const slackReport = JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8'));
+      expect(slackReport.targets).toEqual(original.targets);
+      // The exit code must come from --fail-on-slack, not a leftover violation.
+      expect(slackReport.violations).toHaveLength(0);
+      expect(slackReport.warnings).not.toHaveLength(0);
       expect(await readFile(path.join(root, 'report/performance-report.md'), 'utf8')).toContain('Budget Warnings');
     } finally {
       await rm(root, { recursive: true, force: true });
