@@ -18,9 +18,9 @@
  *     stays uniform across importers.
  *   - Multiple requests per source — unlike cURL (1 request) and
  *     `.ipynb` (1 notebook). The shared `CollectionImporterPreview`
- *     shape is also produced by the Bruno adapter so the
- *     `useImportPreview` confirm path + `<ImportPreviewBody>` collection
- *     band handle both uniformly.
+ *     shape (owned by `./collectionTypes`) is also produced by the Bruno
+ *     adapter so the `useImportPreview` confirm path + `<ImportPreviewBody>`
+ *     collection band handle both uniformly.
  *   - Sensitive header VALUES never reach the preview band — the
  *     collection list renders header COUNTS only (with a redaction
  *     badge), and the originals round-trip on confirm.
@@ -44,12 +44,22 @@ import type {
   PostmanRejectReason,
 } from './types';
 
-import { MAX_COLLECTION_BYTES, MAX_IMPORT_REQUESTS } from './collectionTypes';
-import type { CollectionImporterPreview, CollectionImporterResult, ParsedCollectionRequest } from './collectionTypes';
+import {
+  MAX_COLLECTION_BYTES,
+  MAX_IMPORT_REQUESTS,
+  type CollectionImporterPreview,
+  type CollectionImporterResult,
+  type ParsedCollectionRequest,
+} from './collectionTypes';
 
 // Compatibility for existing consumers; new generic contracts use the leaf.
-export { MAX_COLLECTION_BYTES, MAX_IMPORT_REQUESTS } from './collectionTypes';
-export type { CollectionImporterPreview, CollectionImporterResult } from './collectionTypes';
+export {
+  MAX_COLLECTION_BYTES,
+  MAX_IMPORT_REQUESTS,
+  type CollectionImporterPreview,
+  type CollectionImporterResult,
+  type ParsedCollectionRequest,
+};
 
 // ---------------------------------------------------------------------------
 // Detect
