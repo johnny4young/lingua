@@ -1,9 +1,54 @@
 {
-  "generatedAt": "2026-10-07T17:53:52.096Z",
+  "generatedAt": "2026-10-07T21:46:04.390Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 74,
+  "totalSinceBase": 132,
   "commits": [
+    {
+      "hash": "4c12f0b",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "name the malformed step in a rejected pipeline import",
+      "breaking": false
+    },
+    {
+      "hash": "b863146",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "preserve all URL query names",
+      "breaking": false
+    },
+    {
+      "hash": "0a80f55",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "utilities",
+      "message": "reject incomplete pipeline imports",
+      "breaking": false
+    },
+    {
+      "hash": "810a620",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "importers",
+      "message": "re-export every moved collection contract from Postman",
+      "breaking": false
+    },
+    {
+      "hash": "1c5dfde",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "performance",
+      "message": "report malformed budgets instead of crashing",
+      "breaking": false
+    },
     {
       "hash": "1a90b10",
       "date": "2026-10-07",
@@ -65,51 +110,6 @@
       "typeLabel": "Fix",
       "scope": "runners",
       "message": "bound compile diagnostics in UTF-8 and retire the UTF-16 truncator",
-      "breaking": false
-    },
-    {
-      "hash": "853af1a",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the patched sharp release",
-      "breaking": false
-    },
-    {
-      "hash": "c31f87a",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "audit",
-      "message": "bound website audit exceptions and run every independent audit",
-      "breaking": false
-    },
-    {
-      "hash": "7e8f5aa",
-      "date": "2026-10-05",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runners",
-      "message": "enforce native UTF-8 capture budgets",
-      "breaking": false
-    },
-    {
-      "hash": "d6872b0",
-      "date": "2026-10-05",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the supported source-map patch",
-      "breaking": false
-    },
-    {
-      "hash": "3b2fa6c",
-      "date": "2026-10-05",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "audit",
-      "message": "reject incomplete website audit evidence",
       "breaking": false
     }
   ]
