@@ -117,6 +117,51 @@ test.describe('Capsule Workspace handoff', () => {
     ).toBeVisible();
   });
 
+  for (const language of ['en', 'es'] as const) {
+    test(`reports attached text integrity and replacement without executing (${language})`, async ({
+      page,
+    }) => {
+      const built = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+        { path: 'notes.txt', language: 'text', content: '\uFEFFOriginal 漢😀\r\n' },
+      ]);
+      if (!built.ok) throw new Error(built.reason);
+      const changed = {
+        ...built.value,
+        files: [{ ...built.value.files[0]!, content: 'Changed text' }],
+      };
+      const consoleErrors: string[] = [];
+      page.on('pageerror', error => consoleErrors.push(error.message));
+      page.on('console', message => {
+        if (message.type() === 'error') consoleErrors.push(message.text());
+      });
+      await seedSession(page, { language, primeProLicense: true });
+      await gotoApp(page);
+      await expectTier(page, 'PRO');
+      await dismissWhatsNew(page);
+      await createJavaScriptTab(page);
+      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await page.keyboard.press('ControlOrMeta+Shift+Y');
+      const input = page.getByTestId('capsule-import-paste-textarea');
+      await input.fill(built.json);
+      await page.getByTestId('capsule-import-preview-tab-files').click();
+      const status = page.getByTestId('capsule-workspace-file-integrity');
+      await expect(status).toContainText(language === 'en' ? 'Verified:' : 'Verificado:');
+      await input.fill(JSON.stringify(changed));
+      await expect(status).toContainText(language === 'en' ? 'Mismatch:' : 'No coincide:');
+      await expect(page.getByTestId('capsule-workspace-viewer-content')).toHaveText('Changed text');
+      await input.fill(built.json);
+      await expect(status).toContainText(language === 'en' ? 'Verified:' : 'Verificado:');
+      await expect(
+        page.getByTestId('editor-tab-activation').filter({ hasText: 'notes.txt' })
+      ).toHaveCount(0);
+      await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
+      await auditA11y(page);
+      expect(consoleErrors).toEqual([]);
+      await page.keyboard.press('Escape');
+      await expect(input).toHaveCount(0);
+    });
+  }
+
   test('rejects a workspace that leaks an absolute path before rendering files', async ({
     page,
   }) => {

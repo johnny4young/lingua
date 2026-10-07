@@ -50,10 +50,24 @@ Opening never runs code.
 - Secret detection is advisory. Source is preserved exactly for
   reproducibility, so the review confirmation is mandatory. Import reruns the
   current detector instead of trusting the count stored by the sender.
-- File hashes are recorded integrity metadata, not signatures. The read-only
-  importer displays them but does not recompute them. Anyone who can edit the
-  JSON can edit a file and recompute its hash. Treat workspaces from untrusted
+- The read-only importer recomputes each supplemental file's SHA-256 locally.
+  The Files tab distinguishes checking, verified, mismatch, and not verified
+  (for example, when Web Crypto is unavailable). Replacing the import cannot
+  reuse an earlier workspace's verification result. Opening a file remains an
+  explicit, inert action even when verification fails.
+- Hashes cover the exact UTF-8 encoding of the JSON string value using
+  `TextEncoder`, matching the exporter. BOMs, newline sequences and Unicode
+  normalization forms are preserved; unpaired UTF-16 surrogates follow
+  `TextEncoder` replacement semantics. JSON escape spelling is not hashed.
+- Hashes are integrity metadata, not signatures. Anyone who can edit the JSON
+  can edit a file and recompute its hash. A verified file does not authenticate
+  its author, establish safe execution, validate the primary Run Capsule's
+  source hash, or check dependency availability. Treat workspaces from untrusted
   sources as untrusted code.
+- Missing or malformed hashes remain invalid under the existing v1 schema and
+  reject the workspace before preview; integrity results are transient and are
+  not added to the artifact or persisted. No dependencies are downloaded and no
+  code is executed to perform verification.
 
 ## Limits
 

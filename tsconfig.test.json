@@ -55,6 +55,7 @@
     "tests/build/ambientTypeBoundaries.test.ts",
     "tests/shared/telemetryArchitecture.test.ts",
     "tests/components/commandPaletteArchitecture.test.ts",
+    "tests/components/CapsuleImport/CapsuleWorkspaceIntegrity.test.tsx",
     "tests/cli/**/*.ts",
     "tests/cli/**/*.tsx",
     "tests/docs/**/*.ts",
