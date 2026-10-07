@@ -31,6 +31,29 @@ export function truncateUtf8(value: string, maxBytes: number): string {
   if (maxBytes <= 0) return '';
   const bytes = encoder.encode(value);
   if (bytes.byteLength <= maxBytes) return value;
+  return decodePrefix(bytes, maxBytes);
+}
+
+/**
+ * Clip `value` and `marker` together into `maxBytes` of UTF-8.
+ *
+ * Text that already fits is returned unchanged. Otherwise the marker is
+ * reserved first (itself cut to a code-point-safe prefix when it exceeds the
+ * budget) and the longest fitting source prefix fills the remaining room, so
+ * neither side is ever forced past the cap. Fractional budgets round down to
+ * whole bytes and negative budgets capture nothing.
+ */
+export function truncateUtf8WithMarker(value: string, maxBytes: number, marker: string): string {
+  const budget = Math.max(0, Math.floor(maxBytes));
+  const bytes = encoder.encode(value);
+  if (bytes.byteLength <= budget) return value;
+  const boundedMarker = truncateUtf8(marker, budget);
+  const headroom = budget - utf8ByteLength(boundedMarker);
+  return `${decodePrefix(bytes, headroom)}${boundedMarker}`;
+}
+
+/** Decode the longest whole-code-point prefix of `bytes` within `maxBytes`. */
+function decodePrefix(bytes: Uint8Array, maxBytes: number): string {
   let end = maxBytes;
   while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end -= 1;
   return decoder.decode(bytes.subarray(0, end));

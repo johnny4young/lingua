@@ -14,6 +14,8 @@ const profile = await mkdtemp(path.join(artifacts, 'profile-'));
 const errors = [];
 const results = [];
 let app;
+let page;
+let failure = null;
 try {
   app = await _electron.launch({
     executablePath: createRequire(import.meta.url)('electron'),
@@ -27,7 +29,7 @@ try {
     },
     timeout: 30_000,
   });
-  const page = await app.firstWindow();
+  page = await app.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => {
     if (message.type() === 'error') errors.push(message.text());
@@ -78,14 +80,18 @@ try {
   assert.equal(recovered.stdout, 'Recovered é漢😀');
   assert.equal(recovered.stderr, '');
   results.push({ scenario: 'same-app-recovery', kind: recovered.kind });
-  await page.screenshot({ path: path.join(artifacts, 'app.png') });
   assert.deepEqual(errors, [], 'Renderer console and uncaught errors');
+  console.log('Native output smoke passed: Unicode on both pipes, Stop after cap, same-app recovery, zero renderer errors');
+} catch (error) {
+  failure = error instanceof Error ? error.message : String(error);
+  throw error;
+} finally {
+  // Evidence is written on failure too: that is when the uploaded artifact matters.
+  await page?.screenshot({ path: path.join(artifacts, 'app.png') }).catch(() => undefined);
   await writeFile(path.join(artifacts, 'result.json'), JSON.stringify({
-    results, errors, packaged: false,
+    passed: failure === null, failure, results, errors, packaged: false,
     coverage: 'Built desktop app launch, renderer-to-main Node IPC, Unicode capture, Stop and recovery',
   }, null, 2));
-  console.log('Native output smoke passed: Unicode on both pipes, Stop after cap, same-app recovery, zero renderer errors');
-} finally {
   // App shutdown owns its native children. No process-table scanning or broad kill.
   await app?.close();
   await rm(profile, { recursive: true, force: true });
