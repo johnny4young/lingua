@@ -12,19 +12,17 @@ The format follows Keep a Changelog and groups changes by release.
 - Native-run capture, Go and Rust debugger compile diagnostics, and Go/Rust/Ruby dependency-install logs honor their UTF-8 byte budgets, including truncation markers, without splitting multibyte characters.
 - **Full app review sweep.** Filesystem: New File no longer truncates an existing file, web rename no longer deletes or corrupts files, renames refuse to overwrite siblings, and reopening a file through a symlinked folder can no longer escape the project. Runs: results stay on the tab that ran them, notebook cells and editor runs no longer stop each other, Stop works for recipes and during Ruby detection, console streaming honors output caps, and the Run/Debug/Scratchpad choice survives a restart. Desktop: Go/Rust language servers are not leaked on project switches, applying a license during startup keeps the new token, reloads and quits clean up terminals, installs and debug sessions, and `lingua://license` email links prefill the token. CLI: annotated TypeScript capsules replay on Node 24, large sources and dash-leading arguments work, repeated signals stop the child, and a piped stdin that never closes times out instead of hanging without eating into the program's own --timeout. UI: shortcut hints follow the platform and user overrides, nested dialogs close one at a time, in-layout dialogs cover the action pill, failed saves explain themselves, and the Recipes catalog no longer ships in the startup bundle. SQL: DATE, TIMESTAMP and DECIMAL results (including every SUM) render as values instead of epoch numbers or word arrays, long profile aggregates are rounded, and the profile action survives hiding the bottom panel. AI answers keep their list numbering around code blocks.
 - **Workspace runs and copy polish.** Mod+Enter and the action pill now run the active SQL query, send the HTTP request, or apply the selected utility, even with focus on a button. AI explanations answer in the interface language. HTTP request controls and Settings rows return to their 32 px height, and short Spanish action labels use the infinitive consistently. Social previews ship real PNG cards per page and locale, and the landing tour shows Spanish captures on the Spanish site.
+- Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
+- **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
+- Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
+- Do not queue a Go/Rust destination selection when a stale file open was refused.
+- Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
 
 ### Added
 - **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
 - Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
 - **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
 - Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
-
-### Fixed
-- Raised the transitive undici 7.x security floor to 7.29.1 in all independently locked projects.
-- **AI responses have bounded size and duration.** JSON and streaming answers stop at resource limits, cancel cleanly, and never save a clipped answer as complete. English and Spanish notices explain limits and deadlines.
-- Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
-- Do not queue a Go/Rust destination selection when a stale file open was refused.
-- Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
 
 ## [1.5.1] — 2026-09-24
 
