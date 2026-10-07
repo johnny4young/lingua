@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -186,6 +187,55 @@ describe('performance-report', () => {
     ]);
   });
 
+  it('fails a measured target that the baseline does not budget', () => {
+    const measurements = {
+      targets: [
+        { id: 'web', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+        { id: 'extra', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+        { id: 'absent', available: false, categories: {} },
+      ],
+    };
+    const baseline = { budgets: { web: { initial: { maxBytes: 100, maxGzipBytes: 100 } } } };
+    expect(compareWithBudgets(measurements, baseline)).toEqual([
+      expect.objectContaining({ target: 'extra', category: 'target', metric: 'budget' }),
+    ]);
+  });
+
+  it('reports a malformed baseline target or category entry instead of throwing', () => {
+    const measurements = {
+      targets: [
+        { id: 'web', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+      ],
+    };
+    expect(compareWithBudgets(measurements, { budgets: { web: null } })).toEqual([
+      expect.objectContaining({ target: 'web', category: 'target', metric: 'budget' }),
+    ]);
+    expect(compareWithBudgets(measurements, { budgets: { web: { initial: null } } })).toEqual([
+      expect.objectContaining({ target: 'web', category: 'initial', metric: 'bytes' }),
+      expect.objectContaining({ target: 'web', category: 'initial', metric: 'gzipBytes' }),
+    ]);
+  });
+
+  it('fails a measured category that the baseline does not budget, but not an empty one', () => {
+    const measurements = {
+      targets: [
+        {
+          id: 'web',
+          available: true,
+          categories: {
+            initial: { files: 1, bytes: 10, gzipBytes: 5 },
+            lazy: { files: 2, bytes: 40, gzipBytes: 20 },
+            other: { files: 0, bytes: 0, gzipBytes: 0 },
+          },
+        },
+      ],
+    };
+    const baseline = { budgets: { web: { initial: { maxBytes: 100, maxGzipBytes: 100 } } } };
+    expect(compareWithBudgets(measurements, baseline)).toEqual([
+      expect.objectContaining({ target: 'web', category: 'lazy', metric: 'budget' }),
+    ]);
+  });
+
   it('rejects malformed baselines before comparison', () => {
     expect(() => validateBaseline({ schemaVersion: 2, budgets: {} })).toThrow(/schemaVersion/u);
     expect(() => validateBaseline({ schemaVersion: 1 })).toThrow(/budgets/u);
@@ -306,7 +356,9 @@ describe('performance-report', () => {
         rejectSameOriginRuntime: false,
       });
       expect(
-        compareWithBudgets({ targets: [renderer] }, { budgets: { renderer: {} } })
+        compareWithBudgets({ targets: [renderer] }, { budgets: { renderer: {} } }).filter(
+          (violation) => violation.category === 'shape'
+        )
       ).toEqual([]);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -415,6 +467,57 @@ describe('performance-report', () => {
     expect(() =>
       selectTargets(targets, ['web'], { requireAllTargets: true })
     ).toThrow(/cannot be combined/u);
+  });
+
+  it('requires an explicitly selected target without requiring unselected output', async () => {
+    const root = await createFixtureBuild();
+    try {
+      const targets = [
+        { id: 'web', label: 'Web', root: path.join(root, 'missing-web'), required: true },
+        { id: 'renderer', label: 'Renderer', root, required: false },
+      ];
+      const selected = selectTargets(targets, ['renderer'], { requireSelectedTargets: true });
+      expect(selected).toHaveLength(1);
+      expect(selected[0].required).toBe(true);
+      expect(targets[1].required).toBe(false);
+      await expect(collectBuildTarget(selected[0])).resolves.toMatchObject({ available: true });
+      await expect(collectBuildTarget({ ...selected[0], root: path.join(root, 'missing') }))
+        .rejects.toThrow(/output is missing/u);
+      expect(selectTargets(targets, [], { requireSelectedTargets: true })).toBe(targets);
+      await expect(collectBuildTarget({ ...targets[1], root: path.join(root, 'missing') }))
+        .resolves.toMatchObject({ available: false });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails a CLI check for missing selected renderer but permits default web-only output', async () => {
+    const root = await createFixtureBuild();
+    try {
+      await mkdir(path.join(root, 'scripts'));
+      await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
+      await mkdir(path.join(root, 'dist'));
+      // A fixture renderer is deliberately absent. Use the same assets as web.
+      await mkdir(path.join(root, 'dist/web'));
+      await copyFile(path.join(root, 'index.html'), path.join(root, 'dist/web/index.html'));
+      await mkdir(path.join(root, 'dist/web/assets'));
+      for (const asset of ['index.js', 'react.js', 'index.css', 'js-worker.js', 'marked.esm.js', 'feature.js', 'runtime.wasm']) {
+        await copyFile(path.join(root, 'assets', asset), path.join(root, 'dist/web/assets', asset));
+      }
+      const script = path.join(root, 'scripts/performance-report.mjs');
+      const baseline = path.join(root, 'baseline.json');
+      const setup = spawnSync(process.execPath, [script, '--write-baseline', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(setup.status, setup.stderr).toBe(0);
+      const missing = spawnSync(process.execPath, [script, '--check', '--target=renderer', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(missing.status).toBe(1);
+      expect(missing.stderr).toMatch(/Desktop renderer build output is missing/u);
+      const defaultCheck = spawnSync(process.execPath, [script, '--check', '--fail-on-slack', `--baseline=${baseline}`, `--output-dir=${root}/report`], { encoding: 'utf8' });
+      expect(defaultCheck.status, defaultCheck.stderr).toBe(0);
+      expect(JSON.parse(await readFile(path.join(root, 'report/performance-report.json'), 'utf8')).targets)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ id: 'renderer', available: false })]));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {
