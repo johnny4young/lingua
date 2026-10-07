@@ -265,10 +265,44 @@ only on standard text encoders, not Node or renderer APIs. Truncation preserves
 a leading U+FEFF as payload data and never splits a valid surrogate pair.
 
 Worker serialized values reserve space for the localized truncation marker
-inside their 64 KiB UTF-8 budget; even a marker that fills or exceeds that
-budget is bounded first. Share-link stdin uses the same prefix helper in both
+inside their 64 KiB UTF-8 budget through the shared `truncateUtf8WithMarker`
+clipper; even a marker that fills or exceeds that budget is bounded first. Share-link stdin uses the same prefix helper in both
 the builder and decoder with its separate 4 KiB budget. Existing byte-counter
 exports remain compatibility facades, and unrelated domain limits are unchanged.
+
+Native captures in `spawnNativeRun` and `nativeDependencyInstall` also measure
+the UTF-8 byte length of decoded stdout and stderr independently, counting only
+each newly decoded chunk rather than re-encoding the growing capture. Their native
+clipper delegates to the same `truncateUtf8WithMarker`, reserves marker bytes within the
+same cap, and keeps whole source and marker code points, including a leading
+U+FEFF. Exact-limit output is unchanged. If a marker exceeds the cap, only its
+longest fitting code-point-safe prefix is reserved; remaining room may hold a
+source prefix. No source character or complete marker is forced past the cap,
+so a zero budget captures nothing and a very small cap may omit the marker.
+The shared clipper rounds fractional caps down to whole bytes and clamps
+negative caps to zero before cutting.
+Normal-headroom ASCII output keeps its prior prefix and full marker. The Go
+compile error path and the Rust debugger's joined stderr/stdout compile
+diagnostics use the same clipper; the former UTF-16 `truncateBytes` helper is
+gone. The JavaScript dependency-install log in `dependencies.ts` still caps its
+streamed log by UTF-16 code units and is not covered by this guarantee.
+
+These limits bound captured decoded text, not raw pipe bytes or observer
+delivery. A native run still notifies its observer with the decoded crossing
+chunk before clipping, then detaches that pipe's data listener and drains it
+with `resume()` rather than closing it. Native installs retain their listener
+and ignore later chunks after clipping. Neither clipping path kills the child
+or changes cancellation, exit mapping, process ownership, or the streaming
+UTF-8 decoder. Buffer chunks split inside a character are decoded before
+budgeting; malformed bytes follow the decoder's existing replacement behavior.
+Deterministic mocked-stream tests cover these boundaries without a toolchain
+or network request.
+The macOS desktop-bundle PR job additionally launches the built Electron app
+with an isolated profile and exercises real renderer-to-main Node IPC via
+`node scripts/smoke-native-output.mjs`: finite mixed Unicode output on both
+pipes, Stop after stdout clipping, and a clean subsequent run. Its fixtures
+use no dependency install or external service. This is an unpackaged native
+app check; it does not qualify installers, signing, or other native runtimes.
 
 ### Debugger expression boundary
 

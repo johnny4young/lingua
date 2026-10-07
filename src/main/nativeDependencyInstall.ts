@@ -33,7 +33,7 @@ import {
 export type {
   NativeInstallResult,
 } from '../shared/dependencies/nativeDependencies';
-import { MAX_NATIVE_STDERR_BYTES, truncateBytes } from '../shared/runnerLimits';
+import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import {
   GO_TOOLCHAIN_KEYS,
   RUBY_TOOLCHAIN_KEYS,
@@ -45,6 +45,7 @@ import { detachedSpawnOptions, killProcessTree } from './runners/processTree';
 import { resolveWindowsLaunch } from './runners/hostExecutable';
 import { trackNativeRunProcess } from './runners/nativeRunLifecycle';
 import { createUtf8ChunkDecoder } from './runners/utf8Chunks';
+import { truncateNativeOutputUtf8 } from './runners/nativeOutputUtf8';
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // installs pull from the network
 const KILL_ESCALATION_DELAY_MS = 200;
@@ -125,6 +126,8 @@ export async function installNativeDependencies(
   return await new Promise<NativeInstallResult>((resolve) => {
     let stdout = '';
     let stderr = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let stdoutTruncated = false;
     let stderrTruncated = false;
     let resolved = false;
@@ -172,17 +175,23 @@ export async function installNativeDependencies(
     const decodeStderr = createUtf8ChunkDecoder();
     child.stdout?.on('data', (chunk: Buffer) => {
       if (stdoutTruncated) return;
-      stdout += decodeStdout(chunk);
-      if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
-        stdout = truncateBytes(stdout, MAX_NATIVE_STDERR_BYTES, '\n[stdout truncated]');
+      const text = decodeStdout(chunk);
+      stdout += text;
+      // Streaming Buffer decoding keeps code points whole, so byte counts
+      // compose without re-encoding all previously captured text.
+      stdoutBytes += Buffer.byteLength(text, 'utf8');
+      if (stdoutBytes > MAX_NATIVE_STDERR_BYTES) {
+        stdout = truncateNativeOutputUtf8(stdout, MAX_NATIVE_STDERR_BYTES, '\n[stdout truncated]');
         stdoutTruncated = true;
       }
     });
     child.stderr?.on('data', (chunk: Buffer) => {
       if (stderrTruncated) return;
-      stderr += decodeStderr(chunk);
-      if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
-        stderr = truncateBytes(stderr, MAX_NATIVE_STDERR_BYTES, '\n[stderr truncated]');
+      const text = decodeStderr(chunk);
+      stderr += text;
+      stderrBytes += Buffer.byteLength(text, 'utf8');
+      if (stderrBytes > MAX_NATIVE_STDERR_BYTES) {
+        stderr = truncateNativeOutputUtf8(stderr, MAX_NATIVE_STDERR_BYTES, '\n[stderr truncated]');
         stderrTruncated = true;
       }
     });
