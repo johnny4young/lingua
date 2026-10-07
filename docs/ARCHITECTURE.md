@@ -1111,6 +1111,25 @@ are rejected instead of expanding the network boundary.
 
 ### Guarded HTTP workspace transport
 
+`src/main/networkTargetPolicy.ts` is the shared destination-policy leaf for
+HTTP/SSE and WebSocket. It owns URL parsing, caller-selected scheme validation,
+private-address classification and validation of all lookup results. It imports
+only Node's address classifier, creates no transport, and keeps no DNS cache or
+mutable singleton. Lookup evidence is returned unchanged for socket pinning.
+
+`httpProxy.ts` owns HTTP redirects, credentials, undici dispatchers and body/SSE
+limits; `httpWebSocket.ts` owns handshake, messages, redirects-off and socket
+cancellation. Both import the policy directly. Each transport retains its own
+protocol set, default lookup, timeout and private-host opt-in. The historical
+policy exports from `httpProxy.ts` remain compatibility aliases; new consumers
+should use the neutral leaf rather than depend on an HTTP implementation.
+
+`tests/main/networkTargetPolicy.test.ts` locks dependency direction, historical
+function/type identities and deterministic lookup/error semantics without live
+network access. Existing HTTP, WebSocket and IPC suites continue covering their
+transport-specific behavior. The extraction changes ownership only; it does not
+extend accepted destinations or promise an additional sandbox.
+
 The HTTP workspace has one renderer orchestration path for environment
 interpolation, capture chaining, assertion evaluation, secret masking, history,
 and Capsules. Only the network transport varies by platform:
@@ -1129,6 +1148,18 @@ and Capsules. Only the network transport varies by platform:
   messages and bytes, disables compression, and closes on cancel or timeout.
 - Private, loopback, link-local, CGNAT, multicast, and reserved targets fail
   closed unless the user enables the desktop-only private-host setting.
+  IPv6 forms that carry an IPv4 destination are classified by that IPv4:
+  IPv4-mapped, IPv4-compatible, IPv4-translated (`::ffff:0:0:0/96`), NAT64
+  well-known (`64:ff9b::/96`) and 6to4 (`2002::/16`), so a NAT64 address of a
+  public host stays reachable on IPv6-only networks while one of loopback or
+  cloud metadata does not. Any other IPv6 address outside global unicast
+  (`2000::/3`) is private, which covers the NAT64 local-use prefix
+  (`64:ff9b:1::/48`), discard-only (`100::/64`), unique-local, link-local,
+  site-local (`fec0::/10`), multicast and every IETF-reserved block. Inside
+  `2000::/3`, Teredo (`2001::/32`, whose server and inverted client IPv4 are
+  both caller-chosen), benchmarking (`2001:2::/48`) and documentation
+  (`2001:db8::/32`, `3fff::/20`) are private too. The `localhost` fast path
+  also matches the trailing-dot spelling (`localhost.`).
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the
