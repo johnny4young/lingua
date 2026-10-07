@@ -1,9 +1,90 @@
 {
-  "generatedAt": "2026-10-02T20:28:50.447Z",
+  "generatedAt": "2026-10-07T00:17:03.733Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 32,
+  "totalSinceBase": 48,
   "commits": [
+    {
+      "hash": "8dacb47",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "bound compile diagnostics in UTF-8 and retire the UTF-16 truncator",
+      "breaking": false
+    },
+    {
+      "hash": "853af1a",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the patched sharp release",
+      "breaking": false
+    },
+    {
+      "hash": "c31f87a",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "audit",
+      "message": "bound website audit exceptions and run every independent audit",
+      "breaking": false
+    },
+    {
+      "hash": "7e8f5aa",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "enforce native UTF-8 capture budgets",
+      "breaking": false
+    },
+    {
+      "hash": "d6872b0",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the supported source-map patch",
+      "breaking": false
+    },
+    {
+      "hash": "3b2fa6c",
+      "date": "2026-10-05",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "audit",
+      "message": "reject incomplete website audit evidence",
+      "breaking": false
+    },
+    {
+      "hash": "1146635",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "settle the review design questions",
+      "breaking": false
+    },
+    {
+      "hash": "079a105",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "address the review round on the full app review",
+      "breaking": false
+    },
+    {
+      "hash": "24ad0ac",
+      "date": "2026-10-02",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "app",
+      "message": "resolve the full review follow-ups",
+      "breaking": false
+    },
     {
       "hash": "a0aef99",
       "date": "2026-10-02",
@@ -29,87 +110,6 @@
       "typeLabel": "Fix",
       "scope": "editor",
       "message": "keep Go and Rust navigation identity and lifecycle consistent",
-      "breaking": false
-    },
-    {
-      "hash": "f288f6c",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "notebook",
-      "message": "keep document recovery and buffer actions honest",
-      "breaking": false
-    },
-    {
-      "hash": "fdfb74a",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "capsules",
-      "message": "align regression cases with captured verification and sanitized export",
-      "breaking": false
-    },
-    {
-      "hash": "0163b9e",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "cli",
-      "message": "treat engine-divergent capsule recordings as inconclusive",
-      "breaking": false
-    },
-    {
-      "hash": "eeb422d",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "cli",
-      "message": "share capsule preflight between replay and verify and tighten verifier evidence",
-      "breaking": false
-    },
-    {
-      "hash": "19a1e4f",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "ai",
-      "message": "size the stream wire cap for SSE envelopes and show budget notices whole",
-      "breaking": false
-    },
-    {
-      "hash": "fb2f5ef",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "ai",
-      "message": "keep non-streaming deadline absolute and localize every budget notice",
-      "breaking": false
-    },
-    {
-      "hash": "96bd292",
-      "date": "2026-10-01",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "editor",
-      "message": "discard refused navigation reveals",
-      "breaking": false
-    },
-    {
-      "hash": "000db22",
-      "date": "2026-10-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "notebook",
-      "message": "persist manual project documents",
-      "breaking": false
-    },
-    {
-      "hash": "5c4aed4",
-      "date": "2026-10-01",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "capsules",
-      "message": "verify current files and regression suites",
       "breaking": false
     }
   ]
