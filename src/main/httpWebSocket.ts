@@ -25,7 +25,7 @@ const WEBSOCKET_PROTOCOLS = new Set(['ws:', 'wss:']);
 export interface WebSocketProxyOptions extends NetworkTargetOptions {
   /** Caller-owned cancellation; independent of HTTP redirect/body handling. */
   signal?: AbortSignal;
-  /** Test seam: override the WebSocket message byte cap. */
+  /** Test seam: override the per-message and cumulative stream byte cap. */
   maxResponseBodyBytes?: number;
   onProgress?: (progress: {
     body: string;

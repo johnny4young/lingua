@@ -21,15 +21,18 @@ export type LookupImpl = (
 
 /** Shared destination-policy inputs; transport lifecycle stays with the caller. */
 export interface NetworkTargetOptions {
-  /** Explicit desktop opt-in to private destinations; false by default. */
+  /**
+   * Explicit desktop opt-in to private destinations (the Settings private-host
+   * toggle); false by default. The caller's scheme allowlist still applies.
+   */
   allowPrivateHosts?: boolean;
   /** Test seam: callers use their normal DNS lookup when omitted. */
   lookupImpl?: LookupImpl;
 }
 
 /**
- * Thrown internally when the SSRF guard rejects a hop. Caught in the top-level
- * executor and mapped to a `network-error` response with the guard message.
+ * Thrown when the destination policy rejects a URL or resolved address. Each
+ * transport maps it to a `network-error` response carrying the guard message.
  */
 export class SsrfBlockedError extends Error {
   constructor(message: string) {
