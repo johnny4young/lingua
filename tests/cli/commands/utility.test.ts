@@ -66,6 +66,24 @@ describe('runUtilityCommand', () => {
     expect(parsed).toEqual({ ok: true, value: 'hello' });
   });
 
+  it('preserves object-prototype query names in the URL parser JSON envelope', async () => {
+    const { io, state } = createFakeIo({
+      stdin: 'https://example.com/?__proto__=first&__proto__=second&constructor=value',
+    });
+    const code = await runUtilityCommand(
+      { utilityId: 'url-parse', options: [], json: true, quiet: false },
+      io
+    );
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    const envelope = JSON.parse(state.stdout);
+    expect(envelope.ok).toBe(true);
+    expect(JSON.parse(envelope.value).searchParams).toEqual({
+      ['__proto__']: ['first', 'second'],
+      constructor: 'value',
+    });
+    expect(state.stderr).toBe('');
+  });
+
   it('passes --option key=value through to parseOptions', async () => {
     const { io, state } = createFakeIo({ stdin: '{"a":1}' });
     const code = await runUtilityCommand(

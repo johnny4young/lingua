@@ -1742,3 +1742,11 @@ cells and the original expected hash rather than adopting conflicting disk bytes
 Browser handles are session-scoped: after reload a recovered document needs an
 explicit picker selection to bind again. No heap is restored and no code auto-runs.
 Only manual disk saving is provided; local session persistence remains independent.
+
+## Collection import contracts
+
+`src/shared/importers/collectionTypes.ts` is the format-neutral leaf for
+collection request, preview and commit shapes plus count/byte caps. Postman
+and Bruno parsers and generic preview consumers depend on that leaf. Postman
+retains compatibility re-exports of every moved contract; neither parser nor
+variable engine behavior changes.

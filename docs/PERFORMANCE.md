@@ -386,15 +386,18 @@ The baseline stores current measurements plus conservative headroom:
 - `runtime`: strict; change only when the runtime asset version changes
 - `other`: baseline + 10%
 
-Normal CI runs `pnpm run performance:report` after `pnpm run build:web` in
-the `build-web` job so reviewers can see the table in logs, then runs
-`pnpm run check:performance --fail-on-slack` as the explicit blocking budget
-gate for build outputs that exist on disk. That job builds only the web
-target, so the desktop renderer budget runs in the scheduled
-`renderer-budget` workflow (weekly, or on demand from the Actions tab), which
-builds both targets and checks them with `--require-all-targets
---fail-on-slack`. A strict release/local check can require every baseline
-target with:
+Normal CI runs `pnpm run check:performance --fail-on-slack` after
+`pnpm run build:web` in the `build-web` job. That single step prints the
+measurement table to the logs, writes the JSON and Markdown reports, and is
+the explicit blocking budget gate for build outputs that exist on disk; a
+separate `performance:report` step would only repeat the same scan. That job
+builds only the web target, so the Linux leg of the `desktop-bundles` matrix checks the desktop
+renderer it already built with `--target=renderer --fail-on-slack` (see
+[Review-time build budgets](#review-time-build-budgets)). The scheduled
+`renderer-budget` workflow (weekly, or on demand from the Actions tab)
+additionally builds both targets and checks them together with
+`--require-all-targets --fail-on-slack`. A strict release/local check can
+require every baseline target with:
 
 ```bash
 node ./scripts/performance-report.mjs --check --require-all-targets
@@ -412,7 +415,7 @@ The check also reports two conditions that are not byte overages:
   committed baseline, the budget has stopped protecting that category: the
   ceiling still sits at the old size plus headroom. The report prints a
   `Budget warnings` block pointing at the refresh command; pass
-  `--fail-on-slack` to make it a gate. Both CI budget checks pass it, so a
+  `--fail-on-slack` to make it a gate. Every CI budget check passes it, so a
   slack category fails the run until the baseline is refreshed.
 
 The baseline was re-synchronized after v0.15.0 because an exact
@@ -502,3 +505,25 @@ URLs and are the only valid input for release budgets. After a local
     generated activation report contains web and desktop samples, median/IQR
     summaries, memory availability, and eager runner dependency chains.
 12. Confirm every web sample records `consoleErrors: []`.
+
+## Review-time build budgets
+
+PR CI checks the web build and the existing Linux desktop renderer bundle.
+The desktop check uses `pnpm run check:performance --target=renderer --fail-on-slack`
+after its bundle build; Windows and macOS bundle qualification still run.
+An explicitly selected check target must have output, and every measured
+target and non-empty category must have a baseline budget: a target or
+category the baseline does not cover fails the check instead of passing
+unexamined. The bundle-config test still runs when the renderer budget fails,
+so one failure cannot hide the other. The default local check
+continues to support a web-only build, and selecting renderer does not require
+web output. Weekly/manual validation retains the full-target gate.
+
+The PR web lane and weekly full-target lane each invoke only the budget check.
+That command measures/gzips each asset once and writes both JSON and Markdown
+reports before returning a budget or slack failure. Setup errors still fail
+before any report is written: a missing or invalid baseline, missing web
+output (the web target is always required), or a missing explicitly selected
+target. `performance:report` remains available for an intentional report-only
+local run. No thresholds change;
+compare target/assets/category measurements independently of timestamps.

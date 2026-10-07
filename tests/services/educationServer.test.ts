@@ -18,13 +18,18 @@ async function importService(): Promise<typeof import('../../src/renderer/servic
   return import('../../src/renderer/services/educationServer');
 }
 
+const originalFetch = globalThis.fetch;
+
 beforeEach(() => {
+  expect(globalThis.fetch).toBe(originalFetch);
   vi.unstubAllEnvs();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  expect(globalThis.fetch).toBe(originalFetch);
 });
 
 describe('startEducation', () => {

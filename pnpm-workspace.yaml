@@ -51,7 +51,7 @@ blockExoticSubdeps: true
 # npm-style `overrides` block stays in package.json too (npm-compat +
 # asserted by the depFreshness test).
 overrides:
-  "monaco-editor>dompurify": "^3.4.15"
+  "monaco-editor>dompurify": "^3.4.16"
   # Security patch pins. Keep each brace-expansion override inside its
   # existing major so legacy Electron tooling does not receive a breaking
   # transitive upgrade. The remaining pins are patch/minor-compatible with
