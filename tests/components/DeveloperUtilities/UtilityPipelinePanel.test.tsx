@@ -196,6 +196,24 @@ describe('UtilityPipelinePanel', () => {
     expect(useAnnouncerStore.getState().message).toContain('2 of 2 steps succeeded');
   });
 
+  it('renders all URL query names and repeated values after running the parser pipeline', async () => {
+    const pipeline = createBlankPipeline({ id: 'url-query', name: 'Parse URL' });
+    pipeline.steps.push(createBlankStep({ id: 'parse', utilityId: 'url-parse' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput(
+      pipeline.id,
+      'https://example.com/?__proto__=first&__proto__=second&constructor=value'
+    );
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    const output = await screen.findByTestId('utility-pipeline-result-output');
+    expect(JSON.parse(output.textContent ?? '').searchParams).toEqual({
+      ['__proto__']: ['first', 'second'],
+      constructor: 'value',
+    });
+  });
+
   it('cascades skipped status when an upstream step fails', async () => {
     const pipeline = createBlankPipeline({ id: 'p1' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));

@@ -31,7 +31,8 @@ interface ParsedUrl {
 function parseUrl(input: string): ParsedUrl | null {
   try {
     const url = new URL(input);
-    const searchParams: Record<string, string | string[]> = {};
+    // Query names are data, including Object.prototype names and __proto__.
+    const searchParams: Record<string, string | string[]> = Object.create(null);
     for (const [key, value] of url.searchParams.entries()) {
       const existing = searchParams[key];
       if (existing === undefined) {
