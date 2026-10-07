@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation note — Project template telemetry helper.
+ * Project template telemetry helper.
  *
  * Fires `template_project_applied` once per successful multi-file
  * scaffold. Closed-enum payload `{ templateId, language }` validated

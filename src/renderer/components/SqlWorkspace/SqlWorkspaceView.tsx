@@ -1,5 +1,5 @@
 /**
- * MOV.02 (FASE 3) — full-screen mount wrapper for the SQL workspace.
+ * full-screen mount wrapper for the SQL workspace.
  *
  * Mirror of `<HttpWorkspaceView>`. SQL/HTTP MODEL rework — the SQL
  * surface is a single COLLECTION tab, not one tab per query. `tabId` is

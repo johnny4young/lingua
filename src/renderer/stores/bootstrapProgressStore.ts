@@ -1,5 +1,5 @@
 /**
- * internal — live runtime-bootstrap progress.
+ * Live runtime-bootstrap progress.
  *
  * The Pyodide / Ruby workers stream `bootstrap-progress` messages while
  * their WASM asset downloads; the runner writes them here and the

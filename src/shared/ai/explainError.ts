@@ -102,6 +102,8 @@ export interface ExplainErrorInput {
    * content, so it is always visible in the consent preview.
    */
   readonly runtimeNote?: string;
+  /** Human language the answer should be written in (from `answerLanguageFor`). */
+  readonly answerLanguage?: string;
   /** Redact obvious secrets before building the request. Defaults to true. */
   readonly redact?: boolean;
   /** Optional model id to request (provider-specific). */
@@ -132,6 +134,17 @@ export interface ExplainErrorRequest {
    * can't render an accurate count). 0 when nothing was masked.
    */
   readonly redactedCount: number;
+}
+
+const ANSWER_LANGUAGES: Readonly<Record<string, string>> = { es: 'Spanish' };
+
+/** Maps a UI locale to the answer language; undefined keeps the model default (English). */
+export function answerLanguageFor(locale: string | undefined): string | undefined {
+  return locale ? ANSWER_LANGUAGES[locale.split('-')[0]!] : undefined;
+}
+
+export function answerLanguageLine(answerLanguage: string | undefined): string {
+  return answerLanguage ? `Answer in: ${answerLanguage}\n` : '';
 }
 
 const SYSTEM_PROMPT =
@@ -165,6 +178,7 @@ export function buildExplainErrorRequest(
   const userContent =
     `Language: ${input.language}${fileLabel}\n` +
     runtimeLine +
+    answerLanguageLine(input.answerLanguage) +
     `\nError:\n${errorMessage}\n\n` +
     `Code:\n\`\`\`${input.language}\n${code}\n\`\`\``;
 

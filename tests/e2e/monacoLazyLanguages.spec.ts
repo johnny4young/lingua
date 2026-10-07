@@ -1,5 +1,5 @@
 /**
- * implementation detail — lazy Monaco language registration.
+ * Lazy Monaco language registration.
  *
  * Locks the runtime win of `registerLanguageOnce`: a fresh JavaScript
  * scratchpad must NOT fetch any other language's completion / hover / signature

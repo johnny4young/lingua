@@ -1,5 +1,5 @@
 import { DEVELOPER_UTILITIES } from '../../../data/developerUtilities';
-import { buildActionCommand } from '../commandPaletteModelHelpers';
+import { buildActionCommand, shortcutComboValues } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildUtilityCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -50,7 +50,7 @@ export const buildUtilityCommands: CommandPaletteRegistry = ({ args, translate }
       buildActionCommand(
         'action-open-file',
         translate('commandPalette.action.openFile.label'),
-        translate('commandPalette.action.openFile.description'),
+        translate('commandPalette.action.openFile.description', shortcutComboValues(args, 'file-open')),
         ['open', 'file', 'disk', 'browse'],
         () => {
           void openFileFromDisk();
@@ -65,7 +65,7 @@ export const buildUtilityCommands: CommandPaletteRegistry = ({ args, translate }
       buildActionCommand(
         'action-save-as',
         translate('commandPalette.action.saveAs.label'),
-        translate('commandPalette.action.saveAs.description'),
+        translate('commandPalette.action.saveAs.description', shortcutComboValues(args, 'file-save-as')),
         ['save as', 'save copy', 'export'],
         () => {
           void saveActiveTabAs();

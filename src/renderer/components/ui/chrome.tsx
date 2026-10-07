@@ -305,6 +305,12 @@ export function Kbd({
 interface OverlayBackdropProps extends HTMLAttributes<HTMLDivElement> {
   align?: 'center' | 'top';
   onClose?: () => void;
+  /**
+   * Render into document.body. Needed for dialogs opened from inside the
+   * shell layout, whose stacking context would otherwise sit below the
+   * body-portaled action pill.
+   */
+  portal?: boolean;
 }
 
 const FOCUSABLE_SELECTOR = [
@@ -332,6 +338,7 @@ export function OverlayBackdrop({
   onClose,
   onKeyDown,
   onClick,
+  portal = false,
   ...props
 }: OverlayBackdropProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -406,7 +413,7 @@ export function OverlayBackdrop({
     }
   };
 
-  return (
+  const backdrop = (
     <div
       ref={backdropRef}
       tabIndex={-1}
@@ -427,6 +434,9 @@ export function OverlayBackdrop({
       {children}
     </div>
   );
+  return portal && typeof document !== 'undefined'
+    ? createPortal(backdrop, document.body)
+    : backdrop;
 }
 
 export function OverlayCard({

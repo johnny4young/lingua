@@ -52,6 +52,15 @@ function markCheckingForUpdates(): void {
   });
 }
 
+function markUpdateError(message: string): void {
+  // A staged download stays installable when a later check fails, e.g. offline.
+  if (updateState.status === 'downloaded') {
+    setUpdateState({ lastCheckedAt: isoNow() });
+    return;
+  }
+  setUpdateState({ status: 'error', message, lastCheckedAt: isoNow() });
+}
+
 /** UpdateInfo carries `version` plus an optional human `releaseName`. */
 function resolveReleaseName(info: UpdateInfo): string {
   return info.releaseName?.trim() || info.version;
@@ -152,11 +161,7 @@ function startUpdater(): void {
   });
 
   autoUpdater.on('error', (error: Error) => {
-    setUpdateState({
-      status: 'error',
-      message: error?.message || 'Automatic update failed.',
-      lastCheckedAt: isoNow(),
-    });
+    markUpdateError(error?.message || 'Automatic update failed.');
   });
 
   // Initial check shortly after launch, then every hour. checkForUpdates()
@@ -164,11 +169,7 @@ function startUpdater(): void {
   // state instead of an unhandled rejection.
   const runCheck = () => {
     void autoUpdater.checkForUpdates()?.catch((error: unknown) => {
-      setUpdateState({
-        status: 'error',
-        message: error instanceof Error ? error.message : String(error),
-        lastCheckedAt: isoNow(),
-      });
+      markUpdateError(error instanceof Error ? error.message : String(error));
     });
   };
   // Neither timer should keep the event loop alive or start a check during
@@ -177,7 +178,8 @@ function startUpdater(): void {
   initialCheck.unref?.();
   const poll = setInterval(runCheck, UPDATE_INTERVAL_MS);
   poll.unref?.();
-  app.once('before-quit', () => {
+  // Not before-quit: the dirty-tab prompt can still cancel the quit there.
+  app.once('will-quit', () => {
     clearTimeout(initialCheck);
     clearInterval(poll);
   });
@@ -193,11 +195,7 @@ export function registerUpdater(): void {
         markCheckingForUpdates();
         await autoUpdater.checkForUpdates();
       } catch (error) {
-        setUpdateState({
-          status: 'error',
-          message: error instanceof Error ? error.message : String(error),
-          lastCheckedAt: isoNow(),
-        });
+        markUpdateError(error instanceof Error ? error.message : String(error));
       }
 
       return updateState;

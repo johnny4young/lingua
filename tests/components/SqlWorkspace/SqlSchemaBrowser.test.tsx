@@ -201,7 +201,7 @@ describe('SqlSchemaBrowser', () => {
     expect(screen.queryByTestId('sql-schema-browser-columns')).toBeNull();
   });
 
-  it('renders the storage chip per mode (implementation OPFS)', () => {
+  it('renders the storage chip per mode (OPFS)', () => {
     // Persistent: opfs mode + a usage label.
     const { rerender } = render(
       <SqlSchemaBrowser

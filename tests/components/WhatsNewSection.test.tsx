@@ -55,7 +55,7 @@ describe('WhatsNewSection', () => {
   it('lists all versions in the sidebar timeline and shows the selected version detail', async () => {
     render(<WhatsNewSection entries={entries} onClose={() => {}} />);
 
-    // internal — the changelog overlay was rebuilt as a sidebar timeline
+    // The changelog overlay was rebuilt as a sidebar timeline
     // + detail pane. Both versions appear in the list, the current
     // version (0.1.0) is the default selection, and rich-text
     // formatting (`<strong>`, `<code>`) keeps working.

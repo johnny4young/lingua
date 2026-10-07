@@ -113,7 +113,7 @@ describe('PrivacyTrustSection', () => {
     );
   });
 
-  // implementation — Recent activity feed + live Network last-call.
+  // Recent activity feed + live Network last-call.
   it('shows the empty state when no trust events are captured', () => {
     render(<PrivacyTrustSection />);
     expect(screen.getByTestId('privacy-recent-empty')).toBeTruthy();
@@ -143,7 +143,7 @@ describe('PrivacyTrustSection', () => {
     expect(rows[1]!.getAttribute('data-feature')).toBe('capsule-export');
   });
 
-  it('filters the feed by sensitivity (implementation note)', () => {
+  it('filters the feed by sensitivity', () => {
     const record = useTrustEventStore.getState().record;
     record({ feature: 'telemetry', action: 'event_sent', sensitivity: 'low', summary: 'a' });
     record({ feature: 'capsule-export', action: 'exported', sensitivity: 'medium', summary: 'b' });
@@ -192,7 +192,7 @@ describe('PrivacyTrustSection', () => {
     expect(screen.getByTestId('privacy-recent-list').textContent).not.toContain('ago');
   });
 
-  it('deep-links Network rows to the owning Settings tab (implementation note)', () => {
+  it('deep-links Network rows to the owning Settings tab', () => {
     const listener = vi.fn();
     const unsubscribe = subscribeCommand('settings.navigate', listener);
     render(<PrivacyTrustSection />);

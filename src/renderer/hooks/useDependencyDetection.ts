@@ -1,5 +1,5 @@
 /**
- * implementation - per-tab dependency detection runner.
+ * Per-tab dependency detection runner.
  *
  * One hook subscribes to the active tab's content + language +
  * filePath, debounces edits (300ms keystroke / 60ms paste), handles
@@ -14,7 +14,7 @@
  *   per (tabId, language) when the panel first surfaces a row.
  * - `dependency.classifications_summary { language, ... }` fires
  *   once per session per (tabId, language) - bucketed counts per
- *   status (implementation note).
+ *   status.
  */
 
 import { useEffect } from 'react';

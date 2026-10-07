@@ -1,7 +1,7 @@
 /**
- * implementation note — Color-coded HTTP status pill.
+ * Color-coded HTTP status pill.
  *
- * FASE 2b (MOV.05) — converged onto the shared `<StatusBadge>`
+ * Converged onto the shared `<StatusBadge>`
  * primitive. The HTTP-range classifier is the specialized logic that
  * survives verbatim; only the chip shell changes. The five response
  * buckets re-map onto StatusBadge tones:

@@ -1,12 +1,12 @@
 /**
- * implementation — SQL workspace schema (DuckDB-WASM).
+ * SQL workspace schema (DuckDB-WASM).
  *
  * Mirror of the HTTP workspace schema for the SQL companion tab. Two
  * versioned shapes:
  *
  *   - `SqlQueryV1` — user-editable query: name + text. Persisted in
  *     `workspaceSqlStore` (CRUD identical to `workspaceToolStore` so
- *     internal Utility Pipelines can iterate over both stores
+ *     Utility Pipelines can iterate over both stores
  *     uniformly).
  *   - `SqlResponseV1` — the result of a query execution. Wrapped
  *     into a `RunCapsuleV1` via `sqlResponseCapsule.ts` so share /
@@ -32,7 +32,7 @@
  */
 
 /**
- * Closed enum of SQL outcomes implementation surfaces. Aligned with the
+ * Closed enum of SQL outcomes the workspace surfaces. Aligned with the
  * `RunCapsuleStatus` slots so the capsule mapping is trivial.
  *
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
@@ -92,7 +92,7 @@ export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
 export const MAX_QUERY_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * implementation (SQL OPFS) — where the persistent DuckDB database
+ * Where the persistent DuckDB database
  * file lives in the origin's OPFS (Origin Private File System) when
  * the user opts into table persistence. The `opfs://` protocol is
  * understood natively by `@duckdb/duckdb-wasm`'s `db.open({ path })`.
@@ -102,7 +102,7 @@ export const MAX_QUERY_TIMEOUT_MS = 5 * 60 * 1000;
 export const OPFS_SQL_DB_PATH = 'opfs://lingua-sql.db';
 
 /**
- * implementation (SQL OPFS) — resolved storage backing of the live
+ * Resolved storage backing of the live
  * DuckDB session.
  *
  *   - `'opfs'`   — the database is persisted to OPFS; tables + rows
@@ -124,7 +124,7 @@ export type SqlStorageMode = 'opfs' | 'memory';
 export const SQL_STORAGE_MODES: readonly SqlStorageMode[] = ['opfs', 'memory'];
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — file → DuckDB table
+// File → DuckDB table
 // import helpers.
 //
 // Pure, side-effect-free helpers shared by the renderer import flow and

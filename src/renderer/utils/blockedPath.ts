@@ -1,5 +1,5 @@
 /**
- * implementation detail — surface a denylist refusal to the user.
+ * Surface a denylist refusal to the user.
  *
  * When a reopen / pick is refused because the path falls inside a protected
  * family (`src/main/ipc/permissions.ts`), the renderer asks main to classify

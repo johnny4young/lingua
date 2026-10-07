@@ -1,12 +1,12 @@
 /**
- * implementation — CLI exit-code contract.
+ * CLI exit-code contract.
  *
  * Closed enum. CI scripts depend on these numbers being stable across
  * releases. Adding new codes is allowed; renumbering existing ones is
  * forbidden — the snapshot test in `tests/cli/parseArgs.test.ts`
  * pins the map.
  *
- * Per the implementation scope:
+ * Per the original scope:
  *
  *   - `0` ok
  *   - `1` user input error (bad args, unknown id, missing file, bad shape)

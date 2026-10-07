@@ -1,5 +1,5 @@
 /**
- * implementation — `RustAnalyzerLauncher` detection contract.
+ * `RustAnalyzerLauncher` detection contract.
  *
  * Most of the framing logic is covered by `lspProcess.test.ts`. Here we
  * pin the launcher-specific pieces:
@@ -14,10 +14,12 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 const execFileMock = vi.fn();
 const accessMock = vi.fn();
+const spawnMock = vi.fn();
 
 vi.mock('node:child_process', async () => ({
   execFile: execFileMock,
-  default: { execFile: execFileMock },
+  spawn: spawnMock,
+  default: { execFile: execFileMock, spawn: spawnMock },
 }));
 
 vi.mock('node:fs/promises', async () => ({
@@ -28,6 +30,7 @@ vi.mock('node:fs/promises', async () => ({
 beforeEach(() => {
   execFileMock.mockReset();
   accessMock.mockReset();
+  spawnMock.mockReset();
 });
 
 describe('pathToFileUri', () => {
@@ -255,5 +258,54 @@ describe('RustAnalyzerLauncher crash recovery', () => {
       process.off('unhandledRejection', onRejection);
       vi.useRealTimers();
     }
+  });
+});
+
+describe('RustAnalyzerLauncher dispose during startup', () => {
+  // Detection calls park until released, so dispose() can land between startup awaits.
+  function parkExecFile(failFast: () => boolean) {
+    const parked: Array<() => void> = [];
+    execFileMock.mockImplementation(
+      (
+        _cmd: string,
+        _args: readonly string[],
+        _opts: unknown,
+        cb: (err: Error | null, stdout: string) => void
+      ) => {
+        if (failFast()) cb(new Error('ENOENT'), '');
+        else parked.push(() => cb(null, 'rust-analyzer 0.4.0\n'));
+      }
+    );
+    return async () => {
+      parked.shift()?.();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    };
+  }
+
+  async function expectNoSpawnAfterDispose(release: () => Promise<void>, stepsBeforeDispose: number) {
+    const { RustAnalyzerLauncher } = await import('../../../src/main/lsp/rustAnalyzerLauncher');
+    const statuses: Array<{ kind: string }> = [];
+    const launcher = new RustAnalyzerLauncher({
+      workspaceRoot: '/tmp/project',
+      onStatus: status => statuses.push(status),
+    });
+    const started = launcher.start();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    for (let i = 0; i < stepsBeforeDispose; i += 1) await release();
+    launcher.dispose();
+    await release();
+
+    await expect(started).resolves.toEqual({ kind: 'startup-failed', error: 'Launcher disposed' });
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(statuses).toEqual([{ kind: 'starting' }]);
+  }
+
+  it('does not spawn when disposed during binary resolution', async () => {
+    await expectNoSpawnAfterDispose(parkExecFile(() => false), 0);
+  });
+
+  it('does not spawn when disposed during the version probe', async () => {
+    const release = parkExecFile(() => false);
+    await expectNoSpawnAfterDispose(release, 1);
   });
 });

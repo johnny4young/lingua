@@ -48,7 +48,7 @@ function AiExplainCodeLoadingDialog({ onClose }: { readonly onClose: () => void 
 }
 
 /**
- * internal  — single mount point for the "Explain this code" dialog.
+ * Single mount point for the "Explain this code" dialog.
  * Renders it whenever the store holds an open request, so both the editor
  * context-menu action and the command-palette command open the same
  * dialog. Mounted once near the app root, while the complete dialog,

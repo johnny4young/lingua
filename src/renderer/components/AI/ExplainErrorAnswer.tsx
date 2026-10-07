@@ -1,5 +1,5 @@
 /**
- * implementation — renders the AI "Explain this error" answer.
+ * Renders the AI "Explain this error" answer.
  *
  * Models reply in Markdown, so showing `phase.content` as raw
  * `whitespace-pre-wrap` text leaks the syntax (```` ``` ````, `**`, `1.`) and
@@ -66,13 +66,13 @@ function renderInline(text: string): ReactNode[] {
 /** A prose segment: paragraphs + `-`/`*` and `1.` lists. */
 function ProseBlock({ text }: { readonly text: string }): ReactNode {
   const nodes: ReactNode[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
+  let list: { ordered: boolean; start: number; items: string[] } | null = null;
   const flush = (): void => {
     if (!list) return;
     const items = list.items.map((item, i) => <li key={i}>{renderInline(item)}</li>);
     nodes.push(
       list.ordered ? (
-        <ol key={nodes.length} className="ml-4 list-decimal space-y-1">
+        <ol key={nodes.length} start={list.start} className="ml-4 list-decimal space-y-1">
           {items}
         </ol>
       ) : (
@@ -85,7 +85,7 @@ function ProseBlock({ text }: { readonly text: string }): ReactNode {
   };
   for (const line of text.split('\n')) {
     const heading = /^#{1,6}\s+(.*)/.exec(line);
-    const ordered = /^\s*\d+\.\s+(.*)/.exec(line);
+    const ordered = /^\s*(\d+)\.\s+(.*)/.exec(line);
     const unordered = /^\s*[-*]\s+(.*)/.exec(line);
     if (heading) {
       // `#`..`######` headings (models love `## Fixes`) → a bold lead-in
@@ -99,13 +99,15 @@ function ProseBlock({ text }: { readonly text: string }): ReactNode {
     } else if (ordered) {
       if (!list || !list.ordered) {
         flush();
-        list = { ordered: true, items: [] };
+        // Keep the model's numbering: a code fence between items splits the
+        // prose into separate blocks, which would otherwise restart at 1.
+        list = { ordered: true, start: Number(ordered[1]) || 1, items: [] };
       }
-      list.items.push(ordered[1] ?? '');
+      list.items.push(ordered[2] ?? '');
     } else if (unordered) {
       if (!list || list.ordered) {
         flush();
-        list = { ordered: false, items: [] };
+        list = { ordered: false, start: 1, items: [] };
       }
       list.items.push(unordered[1] ?? '');
     } else if (line.trim()) {

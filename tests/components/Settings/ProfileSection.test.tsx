@@ -171,7 +171,7 @@ describe('ProfileSection', () => {
     });
     expect(useSettingsStore.getState().vimMode).toBe(false);
     expect(useSnippetsStore.getState().snippets).toHaveLength(0);
-    // internal — surface an explicit notice so the click never reads
+    // Surface an explicit notice so the click never reads
     // as a silent no-op (important for the web stub which always
     // returns 1 because there is no native confirm dialog there).
     await waitFor(() => {

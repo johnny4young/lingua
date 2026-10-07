@@ -13,7 +13,7 @@ import {
 } from './notebookReactivity';
 
 /**
- * implementation — notebook cell-editing action factory.
+ * Notebook cell-editing action factory.
  *
  * Owns add / remove / undo-delete / update-source / transform / set-language /
  * move for a tab's cells. `addCell` reads the current store via `get()` before
@@ -91,7 +91,7 @@ export function createCellActions(
         const { [cellId]: _droppedStatus, ...remainingStatus } =
           slice.cellRunStatus;
         void _droppedStatus;
-        // FASE 4 — drop this cell's transient latency + var-flow
+        // Drop this cell's transient latency + var-flow
         // entries in lockstep with its run status so a deleted cell
         // never leaves orphaned per-cell state behind. The `?? {}`
         // guards a slice seeded without these maps (tests / legacy).
@@ -302,7 +302,7 @@ export function createCellActions(
 
     setCellLanguage: (tabId, cellId, language) =>
       set((state) => {
-        // implementation — JS / TS / Python are all valid code-cell
+        // JS / TS / Python are all valid code-cell
         // languages now. Defensively reject a runtime value outside the
         // schema enum (e.g. a cast from a programmatic caller).
         if (!NOTEBOOK_CELL_LANGUAGES.includes(language)) {

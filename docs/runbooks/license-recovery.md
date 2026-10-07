@@ -20,8 +20,8 @@ The `licenses/recover/start` handler accepts an email address, looks up active l
 
 Direct the customer to the in-app recovery flow:
 
-1. Open Lingua → Settings → License → "Recover license" (web build) / "Resend activation email" (desktop).
-2. Enter the email used at purchase.
+1. Open Lingua → Settings → Account → License → "Recover your license" (same section on web and desktop).
+2. Enter the email used at purchase and click "Resend token".
 3. Wait up to 5 minutes for the email; check spam.
 
 If this works, the operator does nothing further.

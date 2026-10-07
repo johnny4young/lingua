@@ -1,5 +1,5 @@
 /**
- * implementation — per-file git status driver.
+ * per-file git status driver.
  *
  * Subscribes to:
  *   1. `useGitStore.posture` — re-queries open tabs after a folder
@@ -22,7 +22,7 @@
  *   - Magic-comment opt-out (`// @git-ignore-status`) is checked
  *     against the live tab content so a user can toggle suppression
  *     without saving.
- *   - implementation removed the settings master toggle; the per-file
+ *   - An earlier change removed the settings master toggle; the per-file
  *     magic-comment directive is the opt-out that prevents spawns.
  */
 
@@ -54,7 +54,7 @@ function shouldQueryFor(tab: FileTab): boolean {
 }
 
 export function useGitStatus(): void {
-  // implementation note a primitive: subscribing to `state.tabs` re-renders this
+  // Fold to a primitive: subscribing to `state.tabs` re-renders this
   // hook's host (AppChrome) AND tears down / re-subscribes the watcher
   // effect below on every keystroke (updateContent rebuilds the array).
   // Only the set of open file paths matters for (re)priming; the live

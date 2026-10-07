@@ -141,7 +141,7 @@ describe('debuggerStore ', () => {
     expect(parsed.state.session).toBeUndefined();
   });
 
-  it('setAllBreakpointsEnabled toggles every breakpoint in batch (implementation note)', () => {
+  it('setAllBreakpointsEnabled toggles every breakpoint in batch', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 3);
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 7);
     useDebuggerStore.getState().toggleBreakpoint('tab-2', 5);
@@ -164,7 +164,7 @@ describe('debuggerStore ', () => {
     expect(useDebuggerStore.getState().breakpoints).toBe(before);
   });
 
-  it('toggleDrawerCollapsed flips the drawer state (implementation note)', () => {
+  it('toggleDrawerCollapsed flips the drawer state', () => {
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
     useDebuggerStore.getState().toggleDrawerCollapsed();
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
@@ -172,7 +172,7 @@ describe('debuggerStore ', () => {
     expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
   });
 
-  it('persists drawerCollapsed across reloads (implementation note)', async () => {
+  it('persists drawerCollapsed across reloads', async () => {
     useDebuggerStore.getState().toggleDrawerCollapsed();
     await Promise.resolve();
     const raw = localStorage.getItem(DEBUGGER_STORAGE_KEY);

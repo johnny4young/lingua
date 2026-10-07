@@ -4,15 +4,15 @@
  * Loads Pyodide on first use, caches in memory for subsequent runs,
  * captures stdout/stderr, and sends results to the main thread.
  *
- * implementation — desktop/dev resolve `pyodide.mjs` against the
+ * desktop/dev resolve `pyodide.mjs` against the
  * renderer build output (file:// in packaged Electron, the dev server
  * origin in `pnpm run dev:desktop`). The build pipeline copies
  * `node_modules/pyodide/*` to `<outDir>/pyodide/` via
  * `build/copyRuntimeAssetsPlugin.mts`. The web build explicitly
- * overrides the index URL to the CDN until implementation picks the
+ * overrides the index URL to the CDN until a later change picks the
  * first-party hosting path.
  *
- * internal: this worker no longer schedules its own deadline. The
+ * This worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
  * `worker.terminate()` if user code does not yield in time. Each
  * `execute` request carries a `runId` that the worker echoes on

@@ -1,5 +1,5 @@
 /**
- * implementation — VariableInspectorToggleButton render contract.
+ * VariableInspectorToggleButton render contract.
  *
  * Covers:
  *   - Disabled when no scope snapshot for the active language.
@@ -82,7 +82,7 @@ function setScopeSnapshot(language: string, variableCount = 1): void {
   });
 }
 
-describe('implementation — <VariableInspectorToggleButton>', () => {
+describe('<VariableInspectorToggleButton>', () => {
   beforeEach(() => {
     trackEventMock.mockReset();
     setTabVariableInspectorEnabledMock.mockReset();

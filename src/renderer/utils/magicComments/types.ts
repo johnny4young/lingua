@@ -8,7 +8,7 @@
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
 /**
- * implementation / 2b — rich-output directives surfaced on an arrow
+ * rich-output directives surfaced on an arrow
  * magic comment. `table`, `chart`, `image`, and `html` are all live
  * across JS / TS / Python; runner-side payload conversion consumes the
  * canonical directive name.
@@ -28,7 +28,7 @@ export interface MagicCommentLine {
   /** The expression text the runner should evaluate */
   expression: string;
   /**
-   * implementation — which magic-comment syntactic variant produced
+   * Which magic-comment syntactic variant produced
    * this entry. Arrow is the legacy `//=>` shape; watch is the new
    * `// @watch <expr>` pin.
    */
@@ -41,7 +41,7 @@ export interface MagicCommentLine {
    */
   preserve: string;
   /**
-   * implementation — optional rich-output directive parsed from
+   * Optional rich-output directive parsed from
    * the comment tail (`//=> table`). The runner consumes this to
    * decide whether to upgrade the captured value to a typed
    * `RichOutputPayload`. Only set when `kind === 'arrow'` AND the

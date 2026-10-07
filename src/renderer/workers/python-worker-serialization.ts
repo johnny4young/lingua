@@ -44,7 +44,7 @@ export function parsePythonWorkerError(errorText: string): { line?: number; mess
 }
 
 /**
- * implementation — bridge `__lingua.{chart,image,html}` callbacks
+ * Bridge `__lingua.{chart,image,html}` callbacks
  * registered on Pyodide globals. Each helper unwraps the PyProxy passed
  * from Python (dict → JS via `dict_converter: Object.fromEntries`),
  * runs the same `validate*` whitelist the JS worker uses, and posts the
@@ -162,7 +162,7 @@ export function buildPythonRichMediaBridge(runId: string): PythonRichMediaBridge
 }
 
 /**
- * implementation — Python-side scope capture.
+ * Python-side scope capture.
  *
  * Two helpers below:
  *
@@ -411,7 +411,7 @@ export interface PythonPrintEntry {
 }
 
 /**
- * implementation — post the typed per-print payloads from the Python
+ * Post the typed per-print payloads from the Python
  * worker preamble. Each entry's joined text is split by newline so the
  * console panel keeps its "one entry per line" cadence; the rich
  * `payloads` array is attached to the FIRST line only (subsequent

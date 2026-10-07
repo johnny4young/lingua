@@ -53,7 +53,7 @@ function installCapturingWorker() {
   };
 }
 
-describe('implementation — runner scope-capture wiring', () => {
+describe('runner scope-capture wiring', () => {
   it('injects a lexical scope capture into JavaScript runs', async () => {
     const worker = installCapturingWorker();
     try {

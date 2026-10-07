@@ -36,12 +36,12 @@ function ColorOutputCard({
 export function ColorUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('#4f46e5');
-  // internal — seed from a smart-pasted color value.
+  // Seed from a smart-pasted color value.
   usePendingUtilityInput('color', setInput);
   const analysis = useMemo(() => analyzeColor(input), [input]);
   const swatch = analysis.hex ?? 'transparent';
 
-  // implementation — Hex is the most universally pasteable. Surface
+  // Hex is the most universally pasteable. Surface
   // null when the input failed to parse so the shortcut returns the
   // empty toast instead of a misleading "transparent".
   const registerOutput = useCallback(() => analysis.hex ?? null, [analysis.hex]);

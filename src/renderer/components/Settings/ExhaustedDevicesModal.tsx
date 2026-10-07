@@ -8,11 +8,11 @@ import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { DeviceList } from './DeviceList';
 
 /**
- * implementation — exhausted-devices remediation modal.
+ * exhausted-devices remediation modal.
  *
  * Mounts when `setLicenseToken(...)` returned
  * `{ kind: 'invalid', reason: 'devices-exhausted' }`. The store keeps
- * the original token in that case (implementation contract) so the user can
+ * the original token in that case so the user can
  * remove a device + click Retry without re-pasting from their email.
  *
  * On open the modal calls `revalidate()` so the device list reflects
@@ -22,7 +22,7 @@ import { DeviceList } from './DeviceList';
  * `clearLicense()`.
  *
  * Web-only — desktop's licenseStore branch returns `not-implemented`
- * from `removeDevice` until implementation wires the main bridge into the
+ * from `removeDevice` until a later change wires the main bridge into the
  * server. The modal therefore never opens on desktop because the
  * `devices-exhausted` reason is web-side only.
  */

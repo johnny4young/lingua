@@ -13,7 +13,7 @@ import type { CommandPaletteProps } from './commandPaletteTypes';
 
 export type { CommandPaletteProps } from './commandPaletteTypes';
 
-/** internal — the Cmd+; popover shows at most this many recent commands. */
+/** The Cmd+; popover shows at most this many recent commands. */
 const RECENT_COMMAND_SLOTS = 8;
 
 export function CommandPalette(props: CommandPaletteProps) {
@@ -32,7 +32,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   const recentEntries = useCommandHistoryStore(state => state.entries);
   const { t } = useTranslation();
 
-  // internal — every executed ACTION lands in the per-session recent stack.
+  // Every executed ACTION lands in the per-session recent stack.
   // Wrapping here (the single place both Enter and row clicks call
   // `action()`) keeps the recording invisible to the model builders.
   const allCommands = useMemo(
@@ -84,7 +84,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   }, [visibleSelectedIndex]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    // internal — in the recent stack, 1-8 executes that slot directly.
+    // In the recent stack, 1-8 executes that slot directly.
     if (isRecentVariant && /^[1-8]$/u.test(event.key)) {
       event.preventDefault();
       const command = filtered[Number(event.key) - 1];

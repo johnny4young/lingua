@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * implementation — bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
+ * Bundle src/cli/lingua.ts into dist/cli/lingua.cjs.
  *
  * Single CJS file, Node 22+ target, everything bundled (utility
  * adapters, capsule schema, command parser, and runtime registry). No
  * Electron, no React — the ESLint rule + this bundle's
  * shape-check at the end of the run keep it that way.
  *
- * implementation note — the bundled artifact is prefixed with `#!/usr/bin/env node`
+ * The bundled artifact is prefixed with `#!/usr/bin/env node`
  * and gets `chmod +x` so it is directly executable on Unix shells.
  *
  * The `__LINGUA_CLI_VERSION__` placeholder in `src/cli/lingua.ts`
@@ -61,7 +61,7 @@ await build({
   logLevel: 'info',
 });
 
-// implementation note — make the bundle directly executable on Unix.
+// Make the bundle directly executable on Unix.
 try {
   chmodSync(outFile, 0o755);
 } catch (err) {

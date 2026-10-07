@@ -57,6 +57,22 @@ describe('applyAutoRunResult', () => {
     expect(useConsoleStore.getState().entries.filter(entry => entry.type === 'error')).toHaveLength(1);
   });
 
+  it('replaces the variable scope from a failed run that still captured one', () => {
+    const scope = (name: string) => ({ language: 'javascript' as const, variables: [{ name }] }) as never;
+    applyAutoRunResult({ code: 'const a = 1', language: 'javascript', result: executionResult({ scopeSnapshot: scope('a') }) });
+    const fresh = scope('b');
+    applyAutoRunResult({
+      code: 'const b = 2\nthrow 1', language: 'javascript',
+      result: executionResult({ error: { message: 'boom', line: 2 }, scopeSnapshot: fresh }),
+    });
+    expect(useResultStore.getState().scopeSnapshot).toBe(fresh);
+    applyAutoRunResult({
+      code: 'throw 1', language: 'javascript',
+      result: executionResult({ error: { message: 'boom', line: 1 } }),
+    });
+    expect(useResultStore.getState().scopeSnapshot).toBe(fresh);
+  });
+
   it('does not restore a watch row that no longer exists in the failed source', () => {
     captureWatchSnapshot();
 

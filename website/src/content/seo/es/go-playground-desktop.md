@@ -2,7 +2,7 @@
 title: 'Go Playground para escritorio — Lingua'
 description: 'Ejecuta y depura Go localmente con go build, Delve, inteligencia gopls, gofmt, errores inline, ayuda de dependencias y pruebas de proyecto en desktop.'
 canonical: 'https://linguacode.dev/es/go-playground-desktop'
-ogImage: '/assets/og/go-playground-desktop.png'
+ogImage: '/assets/og/es/go-playground-desktop.png'
 language: go
 ---
 

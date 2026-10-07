@@ -1,5 +1,5 @@
 /**
- * implementation — HTTP client that wraps native `fetch` with the
+ * HTTP client that wraps native `fetch` with the
  * full privacy + safety envelope:
  *
  *   - `AbortController` timeout (30 s default; user-configurable per

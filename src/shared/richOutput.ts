@@ -1,5 +1,5 @@
 /**
- * implementation — typed payloads for the structured console-entry
+ * Typed payloads for the structured console-entry
  * model.
  *
  * Today every value the user logs / peeks via `//=>` reaches the
@@ -32,11 +32,11 @@
  *   - **No React deps.** Stays under `src/shared/` so a future
  *     worker can `import { serializeRichValue }` without dragging
  *     in renderer code.
- *   - **Pre-stage implementation stubs** (implementation note): the `image` and `chart`
- *     variants are reserved here with a TODO so implementation doesn't
+ *   - **Pre-stage implementation stubs**: the `image` and `chart`
+ *     variants are reserved here with a TODO so a later change doesn't
  *     have to migrate the discriminator union again.
  *
- * Out of scope this change (deferred to implementation):
+ * Out of scope this change (deferred):
  *   - Migrating `ConsoleOutput.args: string[]` to
  *     `RichOutputPayload[]` (breaking — touches every fixture).
  *   - `ConsolePanel` renderer dispatch.
@@ -93,19 +93,19 @@ export interface RichOutputRawText {
 }
 
 /**
- * implementation stub (implementation note). Reserved so the discriminator union does
+ * implementation stub. Reserved so the discriminator union does
  * not need another migration when image rendering lands. No runner
  * emits this today.
  */
 export interface RichOutputImage {
   kind: 'image';
-  /** Resolved as `<img src=...>` after the implementation sandbox lands. */
+  /** Resolved as `<img src=...>` after the sandbox lands. */
   src: string;
   mime: string;
 }
 
 /**
- * implementation stub (implementation note). Chart-library choice (recharts vs
+ * implementation stub. Chart-library choice (recharts vs
  * vega-lite) and the typed spec are deferred. No runner emits this
  * today.
  */
@@ -115,7 +115,7 @@ export interface RichOutputChart {
 }
 
 /**
- * implementation — sandboxed HTML payload. Rendered inside an
+ * Sandboxed HTML payload. Rendered inside an
  * `<iframe sandbox="allow-scripts">` (NO `allow-same-origin`) so
  * inline `<script>` cannot reach the parent window. `height` is an
  * optional clamp the worker can request; the renderer caps at
@@ -128,7 +128,7 @@ export interface RichOutputHtml {
 }
 
 /**
- * implementation — source line origin for an output payload.
+ * Source line origin for an output payload.
  *
  * Runners that know which user-source line produced an entry
  * (JS/TS workers via `parseJsErrorStack`, Python via
@@ -198,23 +198,23 @@ const RICH_KINDS_BEYOND_SCOPE_VALUE = new Set([
   'html',
 ]);
 
-/** implementation — renderer-side cap, enforced regardless of payload-requested height. */
+/** renderer-side cap, enforced regardless of payload-requested height. */
 export const MAX_HTML_PAYLOAD_HEIGHT_PX = 800;
-/** implementation — default iframe height when the payload omits one. */
+/** Default iframe height when the payload omits one. */
 export const DEFAULT_HTML_PAYLOAD_HEIGHT_PX = 240;
-/** implementation — maximum image source string length (~5 MB base64 ≈ 7 MB encoded). */
+/** Maximum image source string length (~5 MB base64 ≈ 7 MB encoded). */
 export const MAX_IMAGE_SRC_LENGTH = 7_000_000;
-/** implementation — maximum HTML payload length the worker is allowed to ship (256 KB). */
+/** Maximum HTML payload length the worker is allowed to ship (256 KB). */
 export const MAX_HTML_PAYLOAD_LENGTH = 256 * 1024;
-/** implementation — maximum inline `data.values` entries in a chart spec. */
+/** Maximum inline `data.values` entries in a chart spec. */
 export const MAX_CHART_DATA_VALUES = 5000;
-/** implementation — maximum object / array nodes scanned in a chart spec. */
+/** Maximum object / array nodes scanned in a chart spec. */
 export const MAX_CHART_SPEC_NODES = 20_000;
 
 // Five `ScopeValue` discriminants + the eight extended kinds = the
 // full RichOutputPayload union. Centralised here so the type-guard,
 // the refinement helpers, and any future dispatch switch stay in
-// lockstep when implementation widens the union.
+// lockstep when the union widens.
 const VALID_RICH_KINDS = new Set<string>([
   'primitive',
   'function',
@@ -255,7 +255,7 @@ export function isExtendedRichKind(
 // ---------------------------------------------------------------------------
 
 /**
- * implementation — `image` payload source validation. Accepts:
+ * `image` payload source validation. Accepts:
  *   - `data:image/...` URLs (worker-generated SVG / base64 PNG)
  *   - `blob:` URLs (canvas → blob roundtrip)
  *   - `https://` URLs only — `http://` is rejected to avoid mixed-content.
@@ -277,7 +277,7 @@ export function validateImageSrc(src: unknown): string | null {
 }
 
 /**
- * implementation — clamp the iframe height a `RichOutputHtml`
+ * Clamp the iframe height a `RichOutputHtml`
  * payload requests against the renderer-side cap.
  */
 export function clampHtmlHeight(requested: number | undefined): number {
@@ -288,7 +288,7 @@ export function clampHtmlHeight(requested: number | undefined): number {
 }
 
 /**
- * implementation — worker-side gate on the HTML payload string size.
+ * worker-side gate on the HTML payload string size.
  * Returns the html on success, `null` when empty / non-string /
  * over the cap.
  */
@@ -300,7 +300,7 @@ export function validateHtmlPayload(html: unknown): string | null {
 }
 
 /**
- * implementation — chart spec security whitelist.
+ * Chart spec security whitelist.
  *
  * Vega-lite specs support `data.url` and `data.name` references that
  * silently fetch external resources. Anti-feature §A-008 forbids
@@ -615,7 +615,7 @@ export function wrapAsRawText(text: string): RichOutputRawText {
 // ---------------------------------------------------------------------------
 
 /**
- * implementation — shared formatter that converts a payload into
+ * Shared formatter that converts a payload into
  * a compact inline summary `{ display, kindLabel }`. Returns `null`
  * for payload kinds that don't have a meaningful inline shape
  * (callers fall back to the legacy stringified value + inferred
@@ -702,7 +702,7 @@ export function tryParseJsonForPayload(
 export type RichMediaMagicDirective = 'chart' | 'image' | 'html';
 
 /**
- * implementation — convert rich-media magic-comment values into
+ * Convert rich-media magic-comment values into
  * typed payloads. The JS worker serializes objects as JSON but strings
  * as bare text, so image/html directives must accept both parsed JSON
  * and the original raw string form.

@@ -1,5 +1,5 @@
 /**
- * implementation — Bundled recipe catalog audits.
+ * Bundled recipe catalog audits.
  *
  * Pins:
  *   - All 16 recipes load + parse cleanly via `parseLessonPack`.
@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { RECIPE_CATALOG, getRecipeById } from '../../src/renderer/data/recipes';
 import { parseLessonPack } from '../../src/shared/lessonPack';
+import { isBundledRecipeId } from '../../src/renderer/data/recipes/recipeIds';
 
 describe('RECIPE_CATALOG', () => {
   it('ships 10 JavaScript + 3 TypeScript + 3 Python recipes', () => {
@@ -28,6 +29,11 @@ describe('RECIPE_CATALOG', () => {
       const outcome = parseLessonPack(recipe);
       expect(outcome.ok, `recipe ${recipe.id} failed to parse`).toBe(true);
     }
+  });
+
+  it('the startup id list matches the catalog', () => {
+    for (const recipe of RECIPE_CATALOG) expect(isBundledRecipeId(recipe.id)).toBe(true);
+    expect(isBundledRecipeId('not-a-recipe')).toBe(false);
   });
 
   it('recipe ids are unique', () => {

@@ -1,5 +1,5 @@
 /**
- * internal — HTTP response assertions. Pure tests for the assertion model:
+ * HTTP response assertions. Pure tests for the assertion model:
  * per-source extraction, every comparator, the runAssertions reducer,
  * and persistence round-tripping through parseHttpRequest.
  */

@@ -80,7 +80,7 @@ function pickAssetTab(
 }
 
 /**
- * implementation note should only seed assets that plausibly belong to the active
+ * The preview should only seed assets that plausibly belong to the active
  * preview tab. Open editors can contain files from multiple folders or
  * projects, so a global first .css / .html match would leak unrelated
  * markup into the current preview.

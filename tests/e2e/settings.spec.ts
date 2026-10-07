@@ -49,7 +49,7 @@ test.describe('Settings — structural tour', () => {
     await openSettingsTab(page, 'plugins');
     await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
 
-    // implementation (post-review refactor) — Languages tab hosts the
+    // Languages tab hosts the
     // capability scorecard + per-language LSP rows.
     await openSettingsTab(page, 'languages');
     await expect(
@@ -478,7 +478,7 @@ test.describe('Settings persistence', () => {
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
 
-  // implementation note — a returning user whose `lingua-settings` was
+  // A returning user whose `lingua-settings` was
   // written before schema versioning (an unversioned v0 payload) must still
   // load cleanly through the new migrate path, and the store must re-stamp the
   // envelope to the current version on the next write.
@@ -487,7 +487,7 @@ test.describe('Settings persistence', () => {
   }) => {
     await seedSession(page, { language: 'en' });
     // Seed a v0 envelope (no `version` field) BEFORE the app boots, mimicking
-    // localStorage written by a build that predated internal
+    // localStorage written by a build that predated schema versioning.
     await page.addInitScript(() => {
       window.localStorage.setItem(
         'lingua-settings',

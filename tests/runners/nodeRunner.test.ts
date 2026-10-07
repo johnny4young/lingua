@@ -85,6 +85,42 @@ describe('NodeRunner', () => {
     });
   });
 
+  it('emits one console row per output line, keeping inner blank lines', async () => {
+    installNodeBridge({
+      run: vi.fn().mockResolvedValue({
+        kind: 'error',
+        stdout: 'first\n\nthird\n',
+        stderr: 'warn one\nwarn two',
+        exitCode: 1,
+        executionTime: 3,
+        timeoutMs: 30_000,
+      }),
+    });
+    const runner = new NodeRunner();
+
+    const result = await runner.execute('console.log(1)', { language: 'javascript' });
+
+    expect(result.stdout.map(output => output.args)).toEqual([['first'], [''], ['third']]);
+    expect(result.stderr.map(output => output.args)).toEqual([['warn one'], ['warn two']]);
+    expect(result.stderr.every(output => output.type === 'error')).toBe(true);
+  });
+
+  it('reads TypeScript error coordinates from esbuild locations, not the message text', async () => {
+    const node = installNodeBridge();
+    esbuildTransformMock.mockRejectedValueOnce(
+      Object.assign(new Error('Transform failed with 1 error:\n<stdin>:99:88: ERROR: Expected ";"'), {
+        errors: [{ text: 'Expected ";"', location: { line: 3, column: 4 } }],
+      })
+    );
+    const runner = new NodeRunner();
+
+    const result = await runner.execute('const a: number = 1 2;', { language: 'typescript' });
+
+    expect(result.kind).toBe('error');
+    expect(result.error).toMatchObject({ line: 3, column: 5 });
+    expect(node.run).not.toHaveBeenCalled();
+  });
+
   it('uses the TypeScript timeout preset for TypeScript Node-mode runs', async () => {
     const node = installNodeBridge();
     useSettingsStore.setState({

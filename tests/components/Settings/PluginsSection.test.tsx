@@ -8,7 +8,7 @@ import { usePluginStore } from '../../../src/renderer/stores/pluginStore';
 import { pluginRegistry } from '../../../src/renderer/plugins';
 
 /**
- * internal — capa 3 cobertura UI.
+ * Capa 3 cobertura UI.
  *
  * Cada caso fija el estado de `usePluginStore` con un fixture y
  * verifica que el badge + diagnóstico se rendericen correctamente.
@@ -160,7 +160,7 @@ describe('PluginsSection', () => {
       expect(screen.getByText('Plugin requires app version >= 99.0.0.')).toBeTruthy();
     });
 
-    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic (internal NEW)', () => {
+    it('renders an unknown plugin with the new Unknown badge and the unknown diagnostic', () => {
       setStore([
         fixture({
           status: 'unknown',

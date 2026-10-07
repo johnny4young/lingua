@@ -220,7 +220,7 @@ describe('HttpEnvironmentManager', () => {
     expect(onDelete).toHaveBeenCalledWith('e1');
   });
 
-  // ---------------- implementation — secret-by-default heuristic ----------------
+  // ---------------- secret-by-default heuristic ----------------
 
   it('secret-by-default: a token-like NEW key auto-suggests secret: true', async () => {
     const onUpdateVariables = vi.fn();
@@ -267,7 +267,7 @@ describe('HttpEnvironmentManager', () => {
     expect(next[0].secret).toBe(false);
   });
 
-  // ------------------------ implementation — duplicate env ----------------------
+  // ------------------------ duplicate env ----------------------
 
   it('the duplicate button fires onDuplicate with the env id', async () => {
     const onDuplicate = vi.fn();
@@ -280,7 +280,7 @@ describe('HttpEnvironmentManager', () => {
     expect(onDuplicate).toHaveBeenCalledWith('e1');
   });
 
-  // -------------------------- implementation — export ---------------------------
+  // -------------------------- export ---------------------------
 
   it('export copies the share-safe JSON to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -300,7 +300,7 @@ describe('HttpEnvironmentManager', () => {
     );
   });
 
-  // -------------------------- implementation — import ---------------------------
+  // -------------------------- import ---------------------------
 
   it('import: textarea → confirm calls onImport with the pasted JSON', async () => {
     const onImport = vi.fn(() => ({ ok: true as const, id: 'new-env' }));
@@ -339,7 +339,7 @@ describe('HttpEnvironmentManager', () => {
     ).not.toBeNull();
   });
 
-  // ------------------------- implementation — reorder ---------------------------
+  // ------------------------- reorder ---------------------------
 
   it('renders a drag handle per variable row + uses stable variable.id keys', () => {
     render(
@@ -381,7 +381,7 @@ describe('HttpEnvironmentManager', () => {
       screen.getByTestId('http-environment-manager').textContent
     ).toContain('Entornos HTTP');
     expect(screen.getByTestId('http-environment-add').textContent).toContain(
-      'Agrega entorno'
+      'Agregar entorno'
     );
     expect(screen.getByTestId('http-environment-import').textContent).toContain(
       'Importa'

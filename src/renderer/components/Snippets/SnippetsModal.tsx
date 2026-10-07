@@ -34,7 +34,7 @@ const EMPTY_SNIPPET_DRAFT: SnippetDraft = {
   code: '',
 };
 
-// implementation closeout — pull the runnable language set from the
+// Pull the runnable language set from the
 // shared `LANGUAGE_PACKS` registry instead of a hardcoded list. Walking
 // the registry means future languages added to `src/shared/languagePacks.ts`
 // surface in the snippet picker automatically. We keep the picker

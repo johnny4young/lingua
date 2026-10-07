@@ -2,7 +2,7 @@ import type { FileTreeNode as ProjectFileTreeNode } from '../../stores/projectSt
 import type { CreationTarget } from './fileTreeTypes';
 
 /**
- * internal — flat row model for the virtualized explorer. The tree renders
+ * Flat row model for the virtualized explorer. The tree renders
  * as ONE windowed list (via the shared `useListWindow`), so everything
  * that used to render inside a directory's recursive `role="group"` block
  * must exist as a row with a stable key and a known display position:

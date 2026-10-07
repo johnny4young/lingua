@@ -339,7 +339,7 @@ describe('HttpWorkspacePanel', () => {
     expect(useAnnouncerStore.getState().message).not.toMatch(/Response 0/i);
   });
 
-  // ---- implementation — environment interpolation + secret redaction ----
+  // ---- Environment interpolation + secret redaction ----
 
   it('interpolates the active environment into the OUTBOUND request', async () => {
     const user = userEvent.setup();
@@ -524,7 +524,7 @@ describe('HttpWorkspacePanel', () => {
     expect(capsule.result.stdout ?? '').not.toContain(SECRET);
   });
 
-  // ---- implementation — Auth-tab interpolation is privacy-critical ----
+  // ---- Auth-tab interpolation is privacy-critical ----
 
   it('PRIVACY: a secret in the AUTH Bearer field resolves OUTBOUND but never reaches the response/capsule', async () => {
     const user = userEvent.setup();
@@ -860,7 +860,7 @@ describe('HttpWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(useWorkspaceToolStore.getState().getRequest(reqB.id)).toBeDefined();
   });
 
-  // ---- implementation — request chaining (capture response variables) ----
+  // ---- Request chaining (capture response variables) ----
 
   function seedCaptureRequest() {
     const req = {

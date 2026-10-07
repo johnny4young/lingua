@@ -39,7 +39,7 @@ describe('PythonRunner', () => {
     expect(() => runner.stop()).not.toThrow();
   });
 
-  it('implementation — resetScope is a no-op when the worker was never created', () => {
+  it('resetScope is a no-op when the worker was never created', () => {
     const runner = new PythonRunner();
     // Pyodide is never booted just to clear an empty scope.
     expect(() => runner.resetScope('nb-1')).not.toThrow();
@@ -197,7 +197,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(result.stdinConsumed).toEqual({ count: 1, total: 2 });
   });
 
-  // implementation — payload pass-through + telemetry coverage.
+  // Payload pass-through + telemetry coverage.
 
   it('forwards rich console payload from the Pyodide worker to ConsoleOutput', async () => {
     class PayloadWorker {
@@ -258,7 +258,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
   it('omits payload when the worker emits the legacy text-only console shape', async () => {
     // Drive a REAL console message that lacks the `payload` field to
     // exercise the runner's `msg.payload ? … : …` branch. This is the
-    // path triggered when implementation note is OFF or when sys.stdout.write
+    // path triggered when the rich console is OFF or when sys.stdout.write
     // bypasses the print override.
     class TextOnlyWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
@@ -361,7 +361,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(executeMessage?.richConsoleEnabled).toBe(true);
   });
 
-  // implementation — `consoleRichRenderingEnabled` + `outputSourceMappingEnabled`
+  // `consoleRichRenderingEnabled` + `outputSourceMappingEnabled`
   // were removed; the worker always receives both flags as `true`.
 
   it('forwards sourceMappingEnabled = true by default to the Pyodide worker', async () => {
@@ -623,6 +623,65 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     }
   });
 
+  it('settles a run as an error when the worker crashes and reboots on the next run', async () => {
+    const workers: CrashWorker[] = [];
+    class CrashWorker {
+      private listeners = new Map<string, Set<(event: Event) => void>>();
+      terminated = false;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workers.push(this);
+      }
+
+      addEventListener(type: string, handler: (event: Event) => void): void {
+        const set = this.listeners.get(type) ?? new Set();
+        set.add(handler);
+        this.listeners.set(type, set);
+      }
+
+      removeEventListener(type: string, handler: (event: Event) => void): void {
+        this.listeners.get(type)?.delete(handler);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.emit('message', { data: { type: 'ready' } } as MessageEvent);
+        } else if (message.type === 'execute' && workers.length === 1) {
+          this.emit('error', Object.assign(new Event('error'), { message: 'RangeError: out of memory' }));
+        } else if (message.type === 'execute') {
+          this.emit('message', { data: { type: 'done', runId: message.runId, executionTime: 1 } } as MessageEvent);
+        }
+      }
+
+      emit(type: string, event: Event): void {
+        for (const listener of [...(this.listeners.get(type) ?? [])]) listener(event);
+      }
+
+      terminate(): void {
+        this.terminated = true;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: CrashWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    const crashed = await runner.execute('print("boom")', { timeout: 60_000 });
+    expect(crashed.kind).toBe('error');
+    expect(crashed.error?.message).toBe('RangeError: out of memory');
+    expect(workers[0]?.terminated).toBe(true);
+    expect(runner.isPyodideBooted()).toBe(false);
+
+    const recovered = await runner.execute('print("ok")', { timeout: 60_000 });
+    expect(recovered.kind).toBe('success');
+    expect(workers).toHaveLength(2);
+    runner.stop();
+  });
+
   it('ignores foreign run IDs, including stale output and done from a prior run', async () => {
     const workers: ManualWorker[] = [];
     class ManualWorker {
@@ -762,7 +821,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(runner.isPyodideBooted()).toBe(true);
   });
 
-  // implementation — Python paridad rich-media.
+  // Python paridad rich-media.
 
   it('keeps captured Python failures and later results while classifying the run as an error', async () => {
     class CapturedErrorWorker {
@@ -953,7 +1012,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(magic?.payload).toBeUndefined();
   });
 
-  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (implementation note telemetry fires fire-and-forget)', async () => {
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (telemetry fires fire-and-forget)', async () => {
     class RejectingWorker {
       private listeners = new Map<string, (event: MessageEvent) => void>();
       addEventListener(type: string, handler: (event: MessageEvent) => void): void {
@@ -1001,7 +1060,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(entry.payload).toBeUndefined();
   });
 
-  it('implementation — forwards scopeId on the execute message for a notebook cell run', async () => {
+  it('forwards scopeId on the execute message for a notebook cell run', async () => {
     const runner = new PythonRunner();
     await runner.init();
     await runner.execute('x = 1', { scopeId: 'nb-1' });
@@ -1009,7 +1068,7 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     expect(executeMessage?.scopeId).toBe('nb-1');
   });
 
-  it('implementation — resetScope posts a reset-scope message once the worker exists', async () => {
+  it('resetScope posts a reset-scope message once the worker exists', async () => {
     const runner = new PythonRunner();
     await runner.init();
     await runner.execute('x = 1', { scopeId: 'nb-1' });

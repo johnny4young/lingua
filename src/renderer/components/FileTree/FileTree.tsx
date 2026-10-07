@@ -35,7 +35,7 @@ import type { CreationTarget } from './fileTreeTypes';
 // ------------------------------------------------------------------ main FileTree
 
 /**
- * internal — estimated row height for the windower. Rows are `py-1` over a
+ * Estimated row height for the windower. Rows are `py-1` over a
  * ~16px line: ~24-26px real; `useListWindow` self-corrects per row via
  * ResizeObserver, so the estimate only shapes the first paint.
  */
@@ -52,7 +52,7 @@ function shouldUseRendererDeleteConfirm(): boolean {
 
 export function FileTree({ onNavigate }: FileTreeProps) {
   const { t } = useTranslation();
-  // internal — granular selectors only. The previous store-wide
+  // Granular selectors only. The previous store-wide
   // `useEditorStore()` / `useProjectStore()` destructures re-rendered the
   // entire recursive tree on every editor keystroke (a `content` update
   // rewrites `editorStore.tabs`, and a store-wide subscription fires on
@@ -88,7 +88,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   const collapseAllDirectories = useProjectStore(
     (state) => state.collapseAllDirectories
   );
-  // implementation — export the open project as a `.zip` bundle.
+  // Export the open project as a `.zip` bundle.
   const { exportProjectBundle } = useProjectBundle();
 
   const [creating, setCreating] = useState<CreationTarget>(null);
@@ -100,7 +100,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     null
   );
 
-  // implementation note — discovered-file count for the
+  // discovered-file count for the
   // header badge and a smart-truncated tooltip path. Memoised on the
   // tree reference so unrelated re-renders don't walk the tree.
   const fileCount = useMemo(() => countFiles(nodes), [nodes]);
@@ -115,16 +115,16 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     [currentProject]
   );
 
-  // implementation — lift `useDirtyTabPaths` to the tree root and
+  // Lift `useDirtyTabPaths` to the tree root and
   // thread the resulting Set down as a prop. Subscribing per-node
   // would mount N independent Zustand listeners against
   // `editorStore.tabs`, and every keystroke creates a fresh `tabs`
   // array, so N nodes would mean N re-renders per character.
   const dirtyTabPaths = useDirtyTabPaths();
 
-  // FASE 4 — derive the `rootId::relativePath` key of the active editor
+  // Derive the `rootId::relativePath` key of the active editor
   // tab so the matching tree row can render the proto active accent.
-  // internal — computed from the narrow `activeTabRootId` /
+  // Computed from the narrow `activeTabRootId` /
   // `activeTabRelativePath` selectors (primitives that only change on a
   // tab switch / save), never the whole `tabs` array, so editor
   // keystrokes leave this key — and the tree rows it drives —
@@ -141,7 +141,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     return dirtyTabKey(currentProject.rootId, activeTabRelativePath);
   }, [currentProject, activeTabRootId, activeTabRelativePath]);
 
-  // internal — the flat display-order row list (nodes + the synthetic
+  // The flat display-order row list (nodes + the synthetic
   // create/empty-dir rows) feeding the windower, plus the node-only
   // projection the ArrowUp/Down keyboard navigator steps through.
   const flatRows = useMemo(() => flattenVisibleRows(nodes, creating), [nodes, creating]);
@@ -159,7 +159,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 
   const focusTreeRow = (path: string | undefined) => {
     if (!path) return;
-    // internal — a keyboard jump (Home/End/long Arrow runs) can target a
+    // A keyboard jump (Home/End/long Arrow runs) can target a
     // row that is currently windowed out. Scroll it into the window
     // first so the focus target actually mounts.
     const rowIndex = flatRows.findIndex(
@@ -396,7 +396,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         </div>
       </div>
 
-      {/* Tree — internal: one windowed flat list. Only the rows whose band
+      {/* Tree: one windowed flat list. Only the rows whose band
           intersects the viewport (plus overscan) mount; two spacer divs
           preserve the scrollbar geometry. In jsdom (clientHeight 0) the
           windower degrades to the full list, so component tests see every
@@ -506,9 +506,9 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         </button>
       </div>
 
-      {/* FASE 4 — synced Open-tabs foot, identical to the no-project
+      {/* Synced Open-tabs foot, identical to the no-project
           empty state. Self-renders to null when no tabs are open.
-          internal — it owns its own narrowed `tabs` projection so a
+          It owns its own narrowed `tabs` projection so a
           keystroke in the editor does not re-render the explorer tree. */}
       <FileTreeOpenTabs onNavigate={onNavigate} />
 
@@ -533,7 +533,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 }
 
 /**
- * implementation note — best-effort home directory prefix for the
+ * best-effort home directory prefix for the
  * `smartTruncatePath` helper. The renderer can't read environment
  * variables directly, but the desktop preload exposes `process` via
  * `window.lingua.platform`. We probe `window.lingua` for any home

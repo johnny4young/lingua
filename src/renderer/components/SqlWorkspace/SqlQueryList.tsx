@@ -1,8 +1,8 @@
 /**
- * implementation — Left column of the SQL workspace: list of saved
+ * Left column of the SQL workspace: list of saved
  * queries + create / activate / rename / delete affordances.
  *
- * Mirror of `<HttpRequestList>` from implementation — same row shape, same
+ * Mirror of `<HttpRequestList>` — same row shape, same
  * keyboard a11y, same native-confirm pattern on delete. The only
  * difference is that the left chip shows the first non-whitespace
  * word of the query as a hint instead of an HTTP method (so a
@@ -137,6 +137,7 @@ export function SqlQueryList({
                   ref={renameInputRef}
                   type="text"
                   defaultValue={q.name}
+                  aria-label={t('sqlWorkspace.queryList.renameAria', { name: q.name })}
                   data-testid="sql-query-list-rename-input"
                   className="min-w-0 flex-1 truncate bg-transparent text-body-sm text-fg-base outline-none focus:ring-0"
                   onBlur={(event) => {

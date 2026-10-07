@@ -12,7 +12,7 @@ interface AppChromeProps {
 }
 
 /**
- * implementation — Signal-Slate v2 chrome row above the main toolbar.
+ * Signal-Slate v2 chrome row above the main toolbar.
  * Three-column grid: traffic-light spacer + sidebar handle (left, ~120px
  * on macOS for the native window controls), app mark + active filename
  * + unsaved dot + LicenseBadge (centre). The command icons live in the

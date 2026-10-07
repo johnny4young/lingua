@@ -1,5 +1,5 @@
 /**
- * internal / implementation — Language chip + language picker dropdown for the
+ * Language chip + language picker dropdown for the
  * floating action pill. Extracted verbatim from FloatingActionPill so
  * the pill body stays readable; behaviour is unchanged.
  */

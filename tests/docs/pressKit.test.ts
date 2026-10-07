@@ -1,5 +1,5 @@
 /**
- * internal press kit guard — the launch assets live in `docs/press-kit/`
+ * Press kit guard — the launch assets live in `docs/press-kit/`
  * and must (a) exist, (b) ship en + es variants where a file is
  * customer-facing, (c) carry the honesty disclaimers the press-kit
  * README enforces. This test keeps a future overhaul from silently

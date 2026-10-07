@@ -13,7 +13,7 @@ interface FileTreeOpenTabsProps {
 }
 
 /**
- * internal — the open-tabs foot is the only part of the explorer that
+ * The open-tabs foot is the only part of the explorer that
  * legitimately needs the tab list, but it only needs a *projection* of
  * it (id / name / language / isDirty + the active id), never the tab
  * `content`. Subscribing to a derived projection through `useShallow`
@@ -22,7 +22,7 @@ interface FileTreeOpenTabsProps {
  * shallow-equal), so editor typing no longer churns the explorer. The
  * recursive `FileTreeNode` body subscribes to none of this.
  *
- * FASE 4 — Explorer (ADD.A). Shared "Pestañas abiertas" foot rendered
+ * Explorer (ADD.A). Shared "Pestañas abiertas" foot rendered
  * identically by BOTH the no-project empty state and the project view,
  * mirroring the proto (`proto-explorer.jsx`) where the open-tabs list
  * is present in every explorer state.
@@ -41,7 +41,7 @@ interface OpenTabSummary {
 }
 
 /**
- * internal — encode each tab's rendered fields as a single string so
+ * Encode each tab's rendered fields as a single string so
  * `useShallow` (which compares array elements with `Object.is`) treats
  * an unchanged projection as equal. A naive `.map(tab => ({...}))`
  * mints fresh objects every render, which `Object.is` always reports as

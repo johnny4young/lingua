@@ -175,7 +175,7 @@ describe('parsePythonTraceback', () => {
     expect(() => parsePythonTraceback('Traceback (no frames)')).not.toThrow();
   });
 
-  // implementation-β-β-α implementation note — PEP 3134 cause chain awareness.
+  // PEP 3134 cause chain awareness.
 
   it('tags explicit `raise … from …` cause separator with causedBy: cause', () => {
     const tb = [

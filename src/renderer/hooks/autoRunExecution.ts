@@ -139,6 +139,7 @@ export async function executeAutoRun({
   setExecutionSource('auto');
   setAutoRunGateReason(gate.reason);
 
+  let armedDeadlineAt: number | null = null;
   try {
     const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner || shouldDiscard()) {
@@ -156,7 +157,9 @@ export async function executeAutoRun({
     const timeoutPreset =
       settings.runtimeTimeoutPresetByLanguage?.[language] ??
       defaultRuntimeTimeoutPreset(language);
-    setRunDeadlineAt(Date.now() + (overrideMs ?? presetToMs(timeoutPreset)));
+    const deadlineAt = Date.now() + (overrideMs ?? presetToMs(timeoutPreset));
+    setRunDeadlineAt(deadlineAt);
+    armedDeadlineAt = deadlineAt;
 
     if (oneShotOverrideMs !== null && activeTabId) {
       useEditorStore
@@ -182,7 +185,7 @@ export async function executeAutoRun({
       ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
       tabId: activeTab.id,
       autoLog: autoLogEnabled,
-      // internal — Settings-level per-line timing; the runner also honors
+      // Settings-level per-line timing; the runner also honors
       // an in-buffer // @time directive on its own.
       ...(useSettingsStore.getState().showLineTiming ? { lineTiming: true } : {}),
       ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
@@ -199,19 +202,23 @@ export async function executeAutoRun({
         : {}),
     });
 
-    // These two fields historically settle before the stale-result guard;
-    // preserve that ordering while the visible result remains protected.
+    if (shouldDiscard()) {
+      // A newer run owns the pill now; only retract the countdown this run armed.
+      if (useResultStore.getState().runDeadlineAt === deadlineAt) setRunDeadlineAt(null);
+      finish();
+      return;
+    }
     setRunDeadlineAt(null);
+    // A live refresh with no mounted preview panel settles as a quiet stop;
+    // publishing it would wipe the console on every keystroke.
+    if (runtimeMode === 'browser-preview' && result.cancelled) {
+      return;
+    }
     setRunTermination({
       kind: executionKind(result),
       timeoutPreset: result.timeoutPreset,
       timeoutMs: result.timeoutMs,
     });
-
-    if (shouldDiscard()) {
-      finish();
-      return;
-    }
     applyAutoRunResult({
       autoLogEnabled,
       code,
@@ -219,6 +226,9 @@ export async function executeAutoRun({
       result,
     });
   } catch (error) {
+    if (armedDeadlineAt !== null && useResultStore.getState().runDeadlineAt === armedDeadlineAt) {
+      setRunDeadlineAt(null);
+    }
     if (!shouldDiscard()) {
       setError({
         message: error instanceof Error ? error.message : String(error),

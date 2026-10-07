@@ -153,7 +153,7 @@ undocumented, drifted, duplicate, private, oversized, or invalid-status
 keyrings. It warns during the final `warnWindowDays` (14).
 
 **Where to read the fingerprint.** The guard prints the active thumbprint; the
-running app shows it under **Settings → License → Signing key fingerprint**.
+running app shows it under **Settings → Account → License → Signing key fingerprint**.
 `pnpm run dev:web:pro` / `dev:desktop:pro` print the session key fingerprint in
 their launch banner. The production app and guard must match the registry's
 `active` entry.
@@ -230,16 +230,50 @@ run blocking production audits against the independent
 `website/package-lock.json` graphs; a clean root lockfile cannot mask a Worker
 or website advisory.
 
+The website graph runs through `pnpm run check:website-audit`
+(`scripts/assert-website-audit.mjs`), which fails on any `high` or `critical`
+production advisory except the entries in `scripts/website-audit-exceptions.json`.
+An entry names one GHSA id and one package, records in a non-empty `reason`
+why it cannot reach visitors, and carries a `reviewed` date (today or earlier)
+and an `expires` date at most 90 days after that review (both inclusive UTC
+days). Entries that break any of these rules fail the gate, so no exception can
+be parked indefinitely. After the expiry date, the gate fails again until
+someone re-reviews the entry. An active entry that no longer matches any
+advisory prints a removal warning without failing. Add an entry only when no
+patched release exists. The first entry is `GHSA-ch52-4w7c-c8xp` in
+`http-cache-semantics`, which Astro only uses at build time to time remote
+images; the site ships static files. CI and release run all three independent
+audits before failing, so a red Worker audit cannot hide a red website audit.
+The gate rejects malformed
+vulnerability/advisory entries, missing dependency references, registry error
+payloads, and unsuccessful audit-process exits rather than treating a partial
+graph as reviewed. Exception expiry uses a real UTC calendar date and includes
+the entire named day. Expired entries must be removed or re-reviewed even when
+the corresponding advisory is no longer present.
+
+When a supported patch exists, update the affected independent lockfile rather
+than broadening the exception list. For example,
+[GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)
+affects `source-map-js` versions >=1.0.0,<1.2.2, and the website resolves the supported
+1.2.2 patch within its existing transitive ranges. Regenerate with the website's
+npm workflow, review the resolution/integrity diff, preserve native platform
+selectors, and qualify a frozen install, build and the unchanged audit gate.
+The same package reaches the root, `license-server`, and `update-server`
+build tooling through `postcss`, so each of those `pnpm-workspace.yaml` files
+carries its own `source-map-js` override (a root override never reaches an
+independent lockfile). `tests/build/websiteSourceMapResolution.test.ts` keeps
+the website and all three pnpm lockfiles at or above the patched minimum; the
+advisory stays unexcused.
+
 **Prod-vs-full split — deliberate, do not "fix".** Only the PRODUCTION graph
 and the BUNDLED graph (see the next section) are blocking. The dev-inclusive full audit (`pnpm audit --audit-level high`)
-stays advisory (`continue-on-error: true`): its remaining `high`/`critical`
-findings are dev-only tooling paths: `tar@6` is held by Electron Forge's
-rebuild stack, while `sharp@0.34` is held by Wrangler/Miniflare. The patched
-`tar` line is a new major, and Miniflare currently pins `sharp` below its
-patched line exactly; neither should be forced across its parent toolchain
-without cross-platform validation. These paths do not ship in the packaged
-artifact. Re-check them on Electron Forge and Wrangler upgrades. Making the
-full audit blocking would
+stays advisory (`continue-on-error: true`): any `high`/`critical` finding it
+reports sits on a dev-only tooling path (for example Wrangler/Miniflare's
+`sharp`). Electron Forge and its legacy `tar` 6 graph were removed, so the root
+lockfile resolves only `tar` 7. A dev-only advisory should not be forced across
+its parent toolchain without cross-platform validation, because these paths do
+not ship in the packaged artifact. Re-check them on Wrangler upgrades. Making
+the full audit blocking would
 red-CI the repo on dev-tooling advisories that pose no user risk. Keep the
 split.
 

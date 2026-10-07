@@ -1,5 +1,5 @@
 /**
- * implementation — execution timeout preset end-to-end smoke.
+ * Execution timeout preset end-to-end smoke.
  *
  * Locks the user-visible contract:
  *

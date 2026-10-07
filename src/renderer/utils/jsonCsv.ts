@@ -1,5 +1,5 @@
 /**
- * internal — JSON ↔ CSV converter helper.
+ * JSON ↔ CSV converter helper.
  *
  * Pure, offline, renderer-side. Implements RFC 4180 CSV with a
  * configurable delimiter (`,` default, `\t`, `;`, `|`) and an

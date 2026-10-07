@@ -1,5 +1,5 @@
 /**
- * internal — self-contained HTML export for a `RunCapsuleV1`.
+ * self-contained HTML export for a `RunCapsuleV1`.
  *
  * Renders ONE portable `.html` document — code with static syntax
  * colors, output, input, environment metadata — that opens in any

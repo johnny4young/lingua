@@ -1,5 +1,5 @@
 /**
- * implementation — Root component of the HTTP workspace editor tab.
+ * Root component of the HTTP workspace editor tab.
  * Three-column layout (request list | editor | response).
  *
  * Wires the store actions, the runtime execution path, the capsule
@@ -62,7 +62,7 @@ export interface HttpWorkspacePanelProps {
 }
 
 /**
- * implementation — apply a request's resolved capture writes to the ACTIVE
+ * Apply a request's resolved capture writes to the ACTIVE
  * environment. Upserts by variable key (existing key → value updated;
  * new key → appended, secret-by-default via the `looksSecret`
  * heuristic). Surfaces a warning when there is no active environment to
@@ -129,7 +129,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
   const responsesByRequestId = useWorkspaceToolStore(state => state.responsesByRequestId);
   const sensitiveHttpHeaders = useSettingsStore(state => state.sensitiveHttpHeaders);
   const httpAllowPrivateHosts = useSettingsStore(state => state.httpAllowPrivateHosts);
-  // implementation — environments + active selection drive the
+  // Environments + active selection drive the
   // selector, the resolution preview, and send-time interpolation.
   const environments = useWorkspaceToolStore(state => state.environments);
   const activeEnvironmentId = useWorkspaceToolStore(state => state.activeEnvironmentId);
@@ -262,7 +262,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().deleteRequest(id);
   }, []);
 
-  // RQ-02 — patch the request the editor names explicitly, never a
+  // Patch the request the editor names explicitly, never a
   // closed-over `activeRequest` that may have switched during the
   // editor's debounce quiet window. `updateRequest` no-ops on an
   // unknown id, so a flush for a just-deleted request is harmless.
@@ -270,7 +270,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     useWorkspaceToolStore.getState().updateRequest(requestId, patch);
   }, []);
 
-  // implementation — send pipeline with environment interpolation +
+  // Send pipeline with environment interpolation +
   // secret-aware redaction. The privacy invariant (no resolved secret on
   // any persisted / shared / displayed surface) is enforced here:
   //   - `interpolateRequest` resolves ALL vars into the OUTBOUND request
@@ -362,7 +362,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         const response = maskSecretValuesInResponse(raw, secretValues);
         setLivePreview(null);
         useWorkspaceToolStore.getState().recordResponse(requestToSend.id, response);
-        // implementation — request chaining. On a successful response, apply the
+        // Request chaining. On a successful response, apply the
         // request's capture rules: extract values from the RAW response
         // (real values, before secret-masking) and upsert them into the
         // ACTIVE environment so the next request can interpolate them via

@@ -1,5 +1,5 @@
 /**
- * internal — SvgToCssPanel tests. The pure helper is covered in
+ * SvgToCssPanel tests. The pure helper is covered in
  * tests/utils/svgToCss.test.ts, so this suite focuses on wiring: mode
  * toggle, live data-URI + CSS block outputs, size hint visibility,
  * error banner surfacing, CopyButton plumbing, ES locale.

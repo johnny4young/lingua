@@ -22,7 +22,7 @@ function makeEditor(opts: {
   } as unknown as Editor;
 }
 
-describe('aiExplainCodeStore (internal implementation)', () => {
+describe('aiExplainCodeStore', () => {
   beforeEach(() => {
     useAiExplainCodeStore.setState({ request: null });
   });

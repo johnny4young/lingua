@@ -11,7 +11,7 @@ type HoverModel = Parameters<ProvideHover>[0];
 type HoverPosition = Parameters<ProvideHover>[1];
 
 /**
- * implementation — Monaco hover provider for Rust. Delegates to the
+ * Monaco hover provider for Rust. Delegates to the
  * rust-analyzer adapter. The provider self-gates on
  * `isRustLspAvailable()` so the web build short-circuits without ever
  * trying to call IPC.

@@ -1,5 +1,5 @@
 /**
- * implementation note — shared capsule export flow.
+ * Shared capsule export flow.
  *
  * Three call sites need the same sanitize → JSON.stringify (pretty)
  * → clipboard write → telemetry → status notice pipeline:
@@ -17,7 +17,7 @@
  * / fallback notices.
  *
  * `pretty` defaults to `true` for human-readable clipboard payloads;
- * `internal` share-links can pass `pretty: false` later when the URL
+ * Share links can pass `pretty: false` later when the URL
  * fragment encoder needs the minified form.
  *
  * Returns a discriminated result so the caller can render a
@@ -40,7 +40,7 @@ export type CapsuleExportTrigger =
   | 'settings-export'
   | 'palette-export'
   | 'result-panel-export'
-  // implementation — per-row export from the capsule browse overlay.
+  // per-row export from the capsule browse overlay.
   | 'list-export'
   | 'settings-export-file';
 
@@ -94,7 +94,7 @@ export async function exportCapsuleToClipboard(
   }
   try {
     await navigator.clipboard.writeText(json);
-    // implementation note — record the egress in the local trust log
+    // Record the egress in the local trust log
     // ONLY after the clipboard write succeeds (a rejected write means
     // nothing left the app). Summary is METADATA ONLY — the capsule
     // language + size bucket, never the capsule body or any field value.

@@ -1,5 +1,5 @@
 /**
- * implementation — ExecutionComparisonModal.
+ * ExecutionComparisonModal.
  *
  * Pins the side-by-side comparison surface: both panes render the captured
  * code, the summary strip math (language match + duration delta + status),

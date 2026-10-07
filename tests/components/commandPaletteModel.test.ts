@@ -521,7 +521,7 @@ describe('buildCommandPaletteModel', () => {
     expect(onToggleInlineLint).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalledOnce();
 
-    // implementation — when the active buffer has custom-lint issues, the
+    // When the active buffer has custom-lint issues, the
     // description previews the count; with zero it stays the plain copy.
     const plain = buildCommandPaletteModel({ ...baseArgs, onToggleInlineLint }).find(
       (c) => c.id === 'action-toggle-inline-lint'
@@ -655,9 +655,9 @@ describe('buildCommandPaletteModel', () => {
     // beautify-minify, url-parser, string-case, html-entity,
     // string-inspector, qr-code, backslash-escape, random-string,
     // base64-image, lorem-ipsum, svg-to-css, cron-parser, html-to-jsx,
-    // curl-to-code, plus the internal closeout bundle (yaml-json,
-    // json-csv, markdown-preview, sql-formatter) — was 29. internal
-    // implementation bumps to 30 with `utility-pipelines`; the mock-data
+    // curl-to-code, plus the closeout bundle (yaml-json,
+    // json-csv, markdown-preview, sql-formatter) — was 29.
+    // `utility-pipelines` bumps it to 30; the mock-data
     // generator bumps to 31 with `mock-data`.
     expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(31);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
@@ -763,12 +763,12 @@ describe('buildCommandPaletteModel', () => {
     });
     const action = withShortcuts.find((c) => c.id === 'action-keyboard-shortcuts');
     expect(action).toBeDefined();
-    expect(action?.label).toBe('Open Keyboard Shortcuts');
+    expect(action?.label).toBe('Open keyboard shortcuts');
     action?.action();
     expect(onOpenKeyboardShortcuts).toHaveBeenCalledOnce();
   });
 
-  // implementation — `action-toggle-console-rich-rendering` was removed
+  // `action-toggle-console-rich-rendering` was removed
   // from the palette catalog; rich rendering is baseline and the
   // model no longer exposes the toggle.
 
@@ -921,7 +921,7 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['close', 'privacy']);
   });
 
-  it('exposes the New project from template action only when the opener is wired in (implementation note)', () => {
+  it('exposes the New project from template action only when the opener is wired in', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));
     const onNewProjectFromTemplate = vi.fn(() => calls.push('template'));
@@ -1019,7 +1019,7 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['close', 'browse']);
   });
 
-  it('exposes the Compare two capsules action only when the opener is wired in (implementation note)', () => {
+  it('exposes the Compare two capsules action only when the opener is wired in', () => {
     const calls: string[] = [];
     const onClose = vi.fn(() => calls.push('close'));
     const onBrowseCapsules = vi.fn(() => calls.push('browse'));
@@ -1096,7 +1096,7 @@ describe('buildCommandPaletteModel', () => {
   });
 });
 
-describe('buildCommandPaletteModel — recent runs (implementation)', () => {
+describe('buildCommandPaletteModel — recent runs', () => {
   function buildWithHistory(
     history: Array<{
       id: string;
@@ -1409,7 +1409,7 @@ describe('buildCommandPaletteModel — compare actions ', () => {
   });
 });
 
-describe('buildCommandPaletteModel — implementation note: per-tab recent runs (implementation)', () => {
+describe('buildCommandPaletteModel — per-tab recent runs', () => {
   function build(args: {
     history: Array<{
       id: string;
@@ -1495,7 +1495,7 @@ describe('buildCommandPaletteModel — implementation note: per-tab recent runs 
   });
 });
 
-describe('buildCommandPaletteModel — re-run last action (implementation)', () => {
+describe('buildCommandPaletteModel — re-run last action', () => {
   function buildWith(onRerunLast?: () => void) {
     return buildCommandPaletteModel({
       templates: [],
@@ -1552,7 +1552,7 @@ describe('buildCommandPaletteModel — re-run last action (implementation)', () 
   });
 });
 
-describe('buildCommandPaletteModel — per-entry replay (implementation detail)', () => {
+describe('buildCommandPaletteModel — per-entry replay', () => {
   type HistoryEntry = {
     id: string;
     language: string;
@@ -1904,7 +1904,7 @@ describe('buildCommandPaletteModel — Toggle Vim mode', () => {
   });
 });
 
-describe('buildCommandPaletteModel — onShowDependencies (implementation Slice A implementation note)', () => {
+describe('buildCommandPaletteModel — onShowDependencies', () => {
   function buildMinimalArgs(overrides: Partial<Parameters<typeof buildCommandPaletteModel>[0]> = {}) {
     return {
       templates: BUILT_IN_TEMPLATES.slice(0, 1),
@@ -1973,14 +1973,14 @@ describe('buildCommandPaletteModel — onShowDependencies (implementation Slice 
         buildMinimalArgs({ onShowDependencies: vi.fn() })
       );
       const entry = commands.find((c) => c.id === 'action-show-dependencies');
-      expect(entry?.label).toBe('Muestra las dependencias');
+      expect(entry?.label).toBe('Mostrar las dependencias');
     } finally {
       await i18next.changeLanguage('en');
     }
   });
 });
 
-// implementation — `action-toggle-output-source-mapping` was removed from
+// `action-toggle-output-source-mapping` was removed from
 // the palette catalog (output→source linking is baseline; per-file
 // `// @origin off` directive remains the user-controlled escape).
 

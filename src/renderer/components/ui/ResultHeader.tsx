@@ -1,5 +1,5 @@
 /**
- * FASE 0 — Signal-Slate recipe: ResultHeader.
+ * Signal-Slate recipe: ResultHeader.
  *
  * The shared status/meta/tabs bar that sits atop every result surface
  * (HTTP response, SQL result table, notebook cell output). Status chip
@@ -13,7 +13,7 @@
  *
  * Deviation from the mockup, intentional: the proposal renders the tabs
  * as inert `<span>`s. This primitive promotes them to real `<button>`s
- * with a focus-visible ring and `aria-pressed`, per the FASE 0 a11y
+ * with a focus-visible ring and `aria-pressed`, per the design-system a11y
  * rule (every interactive element must be keyboard-reachable). The
  * focus ring reuses the slate accent like `.field-shell`.
  *

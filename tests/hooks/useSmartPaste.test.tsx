@@ -5,7 +5,7 @@ import { useSmartPaste, requestPlainPaste } from '@/hooks/useSmartPaste';
 import { NON_SECRET_TEST_JWT } from '../__fixtures__/jwt';
 
 /**
- * internal — locks the paste hook's gating + toast wiring without a real Monaco
+ * Locks the paste hook's gating + toast wiring without a real Monaco
  * instance: detection runs for real (so hook<->detector integration is real),
  * everything else is mocked so we can assert the toast + telemetry + the
  * one-shot Cmd+Shift+V bypass.
@@ -147,7 +147,7 @@ describe('useSmartPaste', () => {
     }
   );
 
-  it('internal — suggests the matching utility with per-format telemetry + catalog label', () => {
+  it('suggests the matching utility with per-format telemetry + catalog label', () => {
     const h = createHarness(NON_SECRET_TEST_JWT);
     renderHook(() => useSmartPaste(h.editor, h.monaco));
     act(() => {

@@ -2,7 +2,7 @@
  * Stable public facade for Lingua telemetry.
  *
  * Responsibility modules live under ./telemetry. Keep application imports on
- * this facade so the internal split can evolve without call-site churn.
+ * this facade so the module split can evolve without call-site churn.
  */
 
 export { BOOT_DURATION_BUCKETS, BOOT_PHASES, bucketBootDuration } from './bootTelemetry';

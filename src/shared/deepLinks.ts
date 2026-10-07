@@ -3,7 +3,18 @@ const LINGUA_DEEP_LINK_SCHEME = 'lingua';
 export type DeepLinkTarget =
   | { kind: 'open-file'; filePath: string; rawUrl: string }
   | { kind: 'open-snippet'; snippetId: string; rawUrl: string }
-  | { kind: 'new-file'; language: string; rawUrl: string };
+  | { kind: 'new-file'; language: string; rawUrl: string }
+  // No rawUrl: the URL embeds the token, and targets show up in renderer logs.
+  | { kind: 'license-token'; token: string };
+
+/** Signed tokens are a few hundred bytes; the cap keeps a hostile URL from flooding IPC. */
+const MAX_LICENSE_TOKEN_LENGTH = 8192;
+const LICENSE_TOKEN_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u;
+
+/** Shape check only (`payload.signature`, base64url); the license runtime still verifies it. */
+function isLicenseTokenShape(value: string): boolean {
+  return value.length <= MAX_LICENSE_TOKEN_LENGTH && LICENSE_TOKEN_SHAPE.test(value);
+}
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   js: 'javascript',
@@ -95,6 +106,15 @@ export function parseLinguaDeepLink(rawUrl: string): DeepLinkTarget | null {
         language,
         rawUrl,
       };
+    }
+
+    if (action === 'license') {
+      const token = url.searchParams.get('token')?.trim();
+      if (!token || !isLicenseTokenShape(token)) {
+        return null;
+      }
+
+      return { kind: 'license-token', token };
     }
 
     return null;

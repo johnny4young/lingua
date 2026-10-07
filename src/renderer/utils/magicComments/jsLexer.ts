@@ -206,7 +206,7 @@ export interface TopLevelLineInfo {
  * Shared JS/TS line walker: one pass over the buffer tracking bracket
  * depth, strings, templates (with `${}` nesting), and comments, calling
  * `onLine` with the structural facts for every physical line. Both the
- * auto-log detector  and the internal statement-start
+ * auto-log detector  and the statement-start
  * detector consume it, so the tokenizer quirks live in exactly one
  * place.
  */

@@ -44,7 +44,7 @@ export const EditorTabItem = memo(function EditorTabItem({
   onCancelRename,
   onClose,
 }: EditorTabItemProps) {
-  // MOV.02 (FASE 3) — workspace + notebook tabs carry a neutral
+  // Workspace + notebook tabs carry a neutral
   // marker language ('sql' / 'http') whose shortLabel resolves to
   // "TXT", which would mislead a screen-reader user. Prefix the
   // accessible label with the kind code instead so the tab announces
@@ -77,7 +77,7 @@ export const EditorTabItem = memo(function EditorTabItem({
           onKeyDown={event => onActivationKeyDown(event, tab.id)}
           className="flex h-full min-w-0 flex-1 items-center gap-2"
         >
-          {/* MOV.02 (FASE 3) — workspace + notebook tabs lead with
+          {/* Workspace + notebook tabs lead with
               a kind glyph (Database / Globe / BookOpen) instead of
               the language code chip, which would otherwise read
               "TXT" for the neutral 'sql' / 'http' marker languages.
@@ -115,7 +115,7 @@ export const EditorTabItem = memo(function EditorTabItem({
           )}
         </div>
 
-        {/* implementation — Git status pill (clean / modified /
+        {/* Git status pill (clean / modified /
             untracked / unknown) inline between the filename and
             the execution status dot. Self-renders to null when
             git posture is unavailable, settings master is OFF,
@@ -229,7 +229,7 @@ function RenameInput({
 /* ---------------------------------------------------------------- */
 
 /**
- * internal — single source of truth for the tab's right-edge state
+ * Single source of truth for the tab's right-edge state
  * indicator. The close button replaces whatever dot is showing on
  * hover so the user always has one click to close, regardless of
  * the tab's current lifecycle state.
@@ -340,7 +340,7 @@ function resolveTabTooltip(tab: EditorTabSummary, t: TFn): string {
 }
 
 /**
- * implementation — `+N` overflow popover. Provides a single jump
+ * `+N` overflow popover. Provides a single jump
  * point across every open tab without horizontal-scrolling the tab
  * strip. Renders a chevron button at the right of the strip; opening
  * the popover gives a scrollable tab list with lang chip, filename,
@@ -558,7 +558,7 @@ export function TabsOverflowDropdown({
 }
 
 /**
- * MOV.02 (FASE 3) — short type code for workspace + notebook tabs,
+ * Short type code for workspace + notebook tabs,
  * used in the accessible tab label so it doesn't fall back to the
  * neutral marker language's "TXT". Returns null for code tabs (they
  * keep their language short label). Matches the prototype TypeGlyph
@@ -573,7 +573,7 @@ function tabKindShortCode(tab: EditorTabSummary): string | null {
 }
 
 /**
- * MOV.02 (FASE 3) — per-kind type glyph rendered before the language
+ * per-kind type glyph rendered before the language
  * chip. Workspace + notebook tabs carry a `kind` discriminator
  * (`'sql' | 'http' | 'notebook'`); code tabs do not. The glyph gives
  * those special tabs an at-a-glance identity (Database / Globe /

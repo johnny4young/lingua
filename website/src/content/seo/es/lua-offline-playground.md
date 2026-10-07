@@ -2,7 +2,7 @@
 title: 'Lua Offline Playground — Lingua'
 description: 'Lingua incluye Fengari compatible con Lua 5.3, pero la ejecución sigue detrás de la ruta de plugin local y no del flujo de lenguajes integrados.'
 canonical: 'https://linguacode.dev/es/lua-offline-playground'
-ogImage: '/assets/og/lua-offline-playground.png'
+ogImage: '/assets/og/es/lua-offline-playground.png'
 language: lua
 ---
 

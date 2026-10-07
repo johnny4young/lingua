@@ -1,5 +1,5 @@
 /**
- * implementation — workspaceSqlStore tests.
+ * workspaceSqlStore tests.
  *
  * Mirror coverage of `tests/stores/workspaceToolStore.test.ts` for
  * the SQL workspace persisted store. CRUD + LRU + active-id reset

@@ -1,5 +1,5 @@
 /**
- * internal — Run Ledger contract tests against an injected mock engine
+ * Run Ledger contract tests against an injected mock engine
  * (same seam as duckdbClient.test). Locks: opt-in gating (OFF writes
  * NOTHING), DDL-once-per-session, escaped inserts with hashes instead
  * of source, Free-tier retention pruning vs paid no-pruning, clear as

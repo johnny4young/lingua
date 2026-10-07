@@ -9,7 +9,7 @@ describe('resolveEffectiveShellTheme', () => {
     expect(resolveEffectiveShellTheme('light', 'one-dark-pro')).toBe('dark');
   });
 
-  it('ignores the `syncShellWithEditorTheme` argument (implementation removed the user opt-out)', () => {
+  it('ignores the `syncShellWithEditorTheme` argument (the user opt-out was removed)', () => {
     // Third arg is retained for backward-compat with existing
     // callers; the helper unconditionally derives polarity from the
     // editor theme so the shell + editor stay visually consistent.

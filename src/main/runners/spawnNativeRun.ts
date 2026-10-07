@@ -22,7 +22,7 @@
  *   - Optional user-driven abort (Stop button) via an `AbortSignal`,
  *     using the same SIGTERM→SIGKILL escalation.
  *   - stdout / stderr each accumulated and capped at `maxOutputBytes`
- *     with the caller-supplied truncation markers via `truncateBytes`.
+ *     including the UTF-8-bounded caller-supplied truncation markers.
  *   - Optional stdin forwarding (write-then-end, with the async EPIPE
  *     guard) — opt-in so runners that never touch stdin (Rust) keep
  *     their exact posture.
@@ -36,8 +36,9 @@
 
 import * as childProc from 'node:child_process';
 import { NATIVE_RUN_OWNER_GONE, trackNativeRunProcess } from './nativeRunLifecycle';
-import { truncateBytes } from '../../shared/runnerLimits';
+import { truncateNativeOutputUtf8 } from './nativeOutputUtf8';
 import { detachedSpawnOptions, killProcessTree } from './processTree';
+import { createUtf8ChunkDecoder } from './utf8Chunks';
 
 export interface SpawnNativeRunOptions {
   /** Executable to run. Absolute path or PATH-resolved name. */
@@ -52,11 +53,11 @@ export interface SpawnNativeRunOptions {
   timeoutMs: number;
   /** SIGTERM→SIGKILL escalation window (ms) after a kill is triggered. */
   killEscalationMs: number;
-  /** Byte cap applied to each of stdout / stderr. */
+  /** UTF-8 byte cap per captured stdout / stderr, including any marker. */
   maxOutputBytes: number;
-  /** Truncation marker appended when stdout is clipped. */
+  /** Marker appended when stdout is clipped; shortened safely if it exceeds the cap. */
   stdoutTruncationMarker: string;
-  /** Truncation marker appended when stderr is clipped. */
+  /** Marker appended when stderr is clipped; shortened safely if it exceeds the cap. */
   stderrTruncationMarker: string;
   /**
    * Opt into stdin management. When set, the helper attaches the async
@@ -139,12 +140,17 @@ export function spawnNativeRun(
     const start = Date.now();
     let stdout = '';
     let stderr = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let stdoutTruncated = false;
     let stderrTruncated = false;
     let resolved = false;
     let timedOut = false;
     let killed = false;
+    let exited = false;
+    let exitCode: number | null = null;
     let escalationTimer: NodeJS.Timeout | null = null;
+    let exitGraceTimer: NodeJS.Timeout | null = null;
 
     let child: childProc.ChildProcessWithoutNullStreams;
     try {
@@ -187,14 +193,15 @@ export function spawnNativeRun(
       // An owner that no longer exists cannot resume or observe graceful exit.
       if (reason === 'stopped' && signal?.reason === NATIVE_RUN_OWNER_GONE) {
         killProcessTree(child, 'SIGKILL');
-        return;
+      } else {
+        killProcessTree(child, 'SIGTERM');
+        if (escalationTimer === null) {
+          escalationTimer = setTimeout(() => {
+            killProcessTree(child, 'SIGKILL');
+          }, killEscalationMs);
+        }
       }
-      killProcessTree(child, 'SIGTERM');
-      if (escalationTimer === null) {
-        escalationTimer = setTimeout(() => {
-          killProcessTree(child, 'SIGKILL');
-        }, killEscalationMs);
-      }
+      if (exited) scheduleFinishAfterExit();
     };
 
     const onAbort = () => terminate('stopped');
@@ -245,13 +252,18 @@ export function spawnNativeRun(
     // straight to the void. destroy() is deliberately avoided — closing
     // the pipe can EPIPE a still-writing child and change its behavior;
     // the run contract (child lives until exit/timeout) stays intact.
+    const decodeStdout = createUtf8ChunkDecoder();
+    const decodeStderr = createUtf8ChunkDecoder();
     const onStdoutData = (chunk: Buffer) => {
       if (stdoutTruncated) return;
-      const text = chunk.toString();
+      const text = decodeStdout(chunk);
       onStdout?.(text);
       stdout += text;
-      if (stdout.length > maxOutputBytes) {
-        stdout = truncateBytes(stdout, maxOutputBytes, stdoutTruncationMarker);
+      // The streaming Buffer decoder emits complete code points. Count only
+      // the new decoded text rather than re-encoding the growing capture.
+      stdoutBytes += Buffer.byteLength(text, 'utf8');
+      if (stdoutBytes > maxOutputBytes) {
+        stdout = truncateNativeOutputUtf8(stdout, maxOutputBytes, stdoutTruncationMarker);
         stdoutTruncated = true;
         child.stdout.off('data', onStdoutData);
         child.stdout.resume();
@@ -261,11 +273,12 @@ export function spawnNativeRun(
 
     const onStderrData = (chunk: Buffer) => {
       if (stderrTruncated) return;
-      const text = chunk.toString();
+      const text = decodeStderr(chunk);
       onStderr?.(text);
       stderr += text;
-      if (stderr.length > maxOutputBytes) {
-        stderr = truncateBytes(stderr, maxOutputBytes, stderrTruncationMarker);
+      stderrBytes += Buffer.byteLength(text, 'utf8');
+      if (stderrBytes > maxOutputBytes) {
+        stderr = truncateNativeOutputUtf8(stderr, maxOutputBytes, stderrTruncationMarker);
         stderrTruncated = true;
         child.stderr.off('data', onStderrData);
         child.stderr.resume();
@@ -273,7 +286,7 @@ export function spawnNativeRun(
     };
     child.stderr.on('data', onStderrData);
 
-    // Parent-owned timeout. Mirrors internal's pattern for the worker
+    // Parent-owned timeout. Mirrors the renderer's pattern for the worker
     // runners — main owns the kill timer; the subprocess never schedules
     // its own.
     const killTimer: NodeJS.Timeout = setTimeout(() => {
@@ -290,9 +303,35 @@ export function spawnNativeRun(
       releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
+      if (exitGraceTimer !== null) clearTimeout(exitGraceTimer);
       if (signal) signal.removeEventListener('abort', onAbort);
       resolve(result);
     };
+
+    // 'close' waits for every stdio holder, and a descendant that escaped the
+    // tree kill (setsid, or any survivor on Windows) can hold the pipes forever.
+    // A killed run therefore settles shortly after the direct child exits.
+    function scheduleFinishAfterExit(): void {
+      if (resolved || exitGraceTimer !== null) return;
+      exitGraceTimer = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish({
+          stdout,
+          stderr,
+          exitCode: exitCode ?? -1,
+          executionTime: Date.now() - start,
+          timedOut,
+          killed,
+        });
+      }, killEscalationMs);
+    }
+
+    child.on('exit', (code: number | null) => {
+      exited = true;
+      exitCode = code;
+      if (killed || timedOut) scheduleFinishAfterExit();
+    });
 
     child.on('close', (code: number | null) => {
       finish({

@@ -1,5 +1,5 @@
 /**
- * implementation — presenter / focus mode end-to-end.
+ * Presenter / focus mode end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - the shortcut hides the toolbar chrome and lifts the editor font,

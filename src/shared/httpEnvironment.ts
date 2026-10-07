@@ -1,5 +1,5 @@
 /**
- * implementation — HTTP environments + `{{variable}}` interpolation
+ * HTTP environments + `{{variable}}` interpolation
  * with secret-aware redaction.
  *
  * An HTTP environment is a named bag of `{{key}}` → value bindings the
@@ -42,7 +42,7 @@ import type {
 /**
  * One variable binding in an environment.
  *
- *   - `id`     — implementation An opaque client-side row id used ONLY
+ *   - `id`     — an opaque client-side row id used ONLY
  *     as the React list key + the @dnd-kit drag-reorder handle. It is NOT
  *     user-visible, NOT part of the value identity (two rows with the same
  *     key/value/secret but different ids are equivalent bindings), and is
@@ -70,7 +70,7 @@ export interface HttpEnvVariableV1 {
 }
 
 /**
- * implementation — case-insensitive heuristic for "this key looks like a
+ * case-insensitive heuristic for "this key looks like a
  * secret". Matches a `_TOKEN` / `_KEY` / `_SECRET` suffix, the whole-word
  * `PASSWORD` / `TOKEN` / `KEY` / `SECRET`, or a `PASSWORD` substring (so
  * `DB_PASSWORD`, `apiPassword`, `MY_API_TOKEN`, `STRIPE_SECRET_KEY`, a bare
@@ -159,9 +159,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * (forward-compat: an environment persisted before the secret flag
  * existed loads as all-non-secret).
  *
- * implementation — `id` is kept when it is a non-empty string, otherwise
+ * `id` is kept when it is a non-empty string, otherwise
  * BACKFILLED with a fresh `crypto.randomUUID()`. This is the ONE place the
- * parser is intentionally non-pure: rows persisted before implementation (and
+ * parser is intentionally non-pure: rows persisted before ids existed (and
  * rows from an imported / hand-written JSON, whose ids are deliberately
  * stripped on export) have no id, and the React list + drag reorder need a
  * stable one. The backfill touches only this opaque id — it never
@@ -232,7 +232,7 @@ export function createBlankHttpEnvironment(options: {
 }
 
 /**
- * implementation — build a fresh variable row with a minted opaque id.
+ * Build a fresh variable row with a minted opaque id.
  * Centralises the `crypto.randomUUID()` mint so the manager's add, the
  * duplicate-env clone, and the import path all stamp a unique row id
  * without each re-stating the `id` field.
@@ -244,7 +244,7 @@ export function createEnvVariable(
 }
 
 /**
- * implementation — the shape `exportEnvironmentJson` serialises. It is a
+ * The shape `exportEnvironmentJson` serialises. It is a
  * SHARE-time projection of an environment, deliberately divergent from the
  * persisted `HttpEnvironmentV1`:
  *
@@ -366,7 +366,7 @@ function buildNonSecretLookup(
 }
 
 /**
- * implementation — interpolate every value-bearing field of an auth block
+ * Interpolate every value-bearing field of an auth block
  * (`token` / `username` / `password` / `apiKeyHeader` / `apiKeyValue`)
  * through `lookup`, preserving `kind` and any other fields. Returns the
  * SAME reference for absent / `kind: 'none'` auth (nothing to resolve), so
@@ -409,7 +409,7 @@ function interpolateAuth(
 
 /**
  * Apply a lookup across the interpolatable surfaces of a request (url,
- * every header value, body.content, AND the auth block — implementation)
+ * every header value, body.content, AND the auth block)
  * and return a NEW request. The `version`/`id` pins are preserved. Shared
  * by the outbound + masked paths — the only difference between them is
  * which lookup they pass.
@@ -475,7 +475,7 @@ export function maskSecretsForCapsule(
 }
 
 /**
- * implementation — the value-bearing strings of an auth block that may
+ * The value-bearing strings of an auth block that may
  * carry `{{tokens}}`, in field order. Empty for absent / `kind: 'none'`
  * auth. Used by BOTH variable scanners so the Auth sub-tab participates in
  * the resolved / unresolved bucketing exactly like url / headers / body.
@@ -493,8 +493,8 @@ function authScanFields(auth: HttpRequestAuth | undefined): string[] {
 
 /**
  * Collect every distinct `{{token}}` key that appears in the request's
- * url, ENABLED header values, body.content, or auth fields (implementation
- * 3b) but is NOT defined in the environment (when `env` is null, ALL
+ * url, ENABLED header values, body.content, or auth fields
+ * but is NOT defined in the environment (when `env` is null, ALL
  * referenced tokens count as unresolved). First-seen order, deduped.
  * Drives the pre-send block + the "unresolved" chips in the editor
  * preview.
@@ -537,9 +537,9 @@ export function findUnresolvedVariables(
 
 /**
  * Collect every distinct `{{token}}` key referenced in the request's
- * url, ENABLED header values, body.content, or auth fields (implementation
+ * url, ENABLED header values, body.content, or auth fields
  * 3b) that IS defined in the environment. First-seen order, deduped. Used
- * to bucket the resolved-variable count for telemetry (implementation note) and to
+ * to bucket the resolved-variable count for telemetry and to
  * drive the resolution-preview chips.
  */
 export function findResolvedVariables(

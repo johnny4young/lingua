@@ -1,5 +1,5 @@
 /**
- * implementation — shared timeout-preset enum + resolver.
+ * Shared timeout-preset enum + resolver.
  *
  * Lives in `src/shared/` so the renderer Settings UI, every runner,
  * the telemetry validators (renderer + update-server mirror), and
@@ -41,9 +41,9 @@ const PRESET_MS: Record<RuntimeTimeoutPreset, number> = {
 };
 
 /**
- * Languages whose run-time preset implementation wires through. Rust
+ * Languages whose run-time preset wires through. Rust
  * (desktop child-process kill in main) and the LSP-only entries are
- * intentionally out. implementation added Ruby once the @ruby/wasm-wasi
+ * intentionally out. Ruby joined once the @ruby/wasm-wasi
  * web runner shipped; the preset list drives the Settings UI rows so a
  * runnable web language must enroll or its row disappears.
  */
@@ -79,7 +79,7 @@ const RUNTIME_TIMEOUT_DEFAULT_PRESET: Record<
   typescript: 'normal',
   python: 'long',
   go: 'normal',
-  // implementation — Ruby's @ruby/wasm-wasi boot is comparable to
+  // Ruby's @ruby/wasm-wasi boot is comparable to
   // Pyodide's first run (~1-2s WASM compile), but per-run user code
   // is closer to Go's interpreted shape than to Python's numerical
   // workloads. `normal` (30s) matches what other web-WASM runtimes

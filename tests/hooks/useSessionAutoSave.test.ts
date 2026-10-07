@@ -1,10 +1,10 @@
 /**
- * internal — behavioral contract of the debounced session
+ * Behavioral contract of the debounced session
  * auto-save. The §3.10 regression this locks: transient editor-store
  * mutations (pendingReveal, isDirty churn, per-run execution-state
  * flips) must neither schedule a save nor POSTPONE one already
- * pending; only save-relevant changes re-arm the 1 s window. implementation note
- * adds the flush-on-exit contract (pagehide / visibilitychange).
+ * pending; only save-relevant changes re-arm the 1 s window. It also
+ * locks the flush-on-exit contract (pagehide / visibilitychange).
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -81,7 +81,7 @@ describe('useSessionAutoSave', () => {
     changeUntitledContent('const x = 2;');
     vi.advanceTimersByTime(500);
     transientMutationBurst();
-    // Before internal the burst re-armed the timer, so 500 ms later the
+    // Previously the burst re-armed the timer, so 500 ms later the
     // save had still not fired. Now it fires exactly at the original
     // 1 s mark.
     vi.advanceTimersByTime(500);
@@ -136,7 +136,7 @@ describe('useSessionAutoSave', () => {
     expect(saveSpy).not.toHaveBeenCalled();
   });
 
-  describe('flush-on-exit (implementation note)', () => {
+  describe('flush-on-exit', () => {
     function setVisibilityState(value: 'hidden' | 'visible'): void {
       Object.defineProperty(document, 'visibilityState', {
         configurable: true,

@@ -90,7 +90,7 @@ export function PluginsSection() {
       </div>
 
       {plugins.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-border/80 px-4 py-8">
+        <div className="rounded-3xl border border-dashed border-border/80 px-4 py-16">
           <EmptyState
             icon={<Puzzle size={18} aria-hidden="true" />}
             title={t('plugins.empty')}

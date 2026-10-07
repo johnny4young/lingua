@@ -132,7 +132,7 @@ export function HashUtilityPanel() {
 
   const algorithmOptions = mode === 'hmac' ? HMAC_ALGORITHMS : HASH_ALGORITHMS;
 
-  // implementation — Hex digest is the canonical output. Surface null
+  // Hex digest is the canonical output. Surface null
   // when the result is missing or errored so Cmd+Shift+C falls through
   // to the empty-output toast.
   const registerOutput = useCallback(
@@ -226,7 +226,7 @@ export function HashUtilityPanel() {
         ) : (
           <div className="grid gap-2">
             <FieldLabel>{t('utilities.tool.hash.input.fileLabel')}</FieldLabel>
-            {/* internal — migrated to <FileDropZone> so the hash input
+            {/* Migrated to <FileDropZone> so the hash input
                 inherits the new four-state visual (idle/over/dropping/
                 error). The wrapper testid `hash-dropzone` is preserved
                 for the existing regression test, and the hidden file

@@ -1,5 +1,6 @@
 import { prepareNotebookDocument } from './notebookDocumentOpen';
 import { notebookDocumentNotice } from './notebookDocumentPersistence';
+import { notebookConflictActions } from './notebookConflictActions';
 import { useNotebookStore } from './notebookStore';
 import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 
@@ -25,7 +26,8 @@ export async function restoreNotebookDocument(
       // A changed/invalid disk file cannot become an implicit baseline.
       content = saved.content;
       // An invalid file was already reported by prepareNotebookDocument.
-      if (disk && disk.hash !== saved.notebookDocumentHash) notebookDocumentNotice('conflict');
+      if (disk && disk.hash !== saved.notebookDocumentHash)
+        notebookDocumentNotice('conflict', notebookConflictActions(id, true));
     }
   } else {
     content = saved.content;

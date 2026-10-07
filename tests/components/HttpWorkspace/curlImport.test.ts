@@ -1,5 +1,5 @@
 /**
- * implementation note — cURL paste parser.
+ * cURL paste parser.
  *
  * Pinned coverage: the 80% case (browser + Postman copy-as-curl
  * shapes). Failure modes are documented in `curlImport.ts`.
@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { tryParseCurl } from '../../../src/renderer/components/HttpWorkspace/curlImport';
 
-describe('tryParseCurl (implementation note)', () => {
+describe('tryParseCurl', () => {
   it('returns null on non-curl input', () => {
     expect(tryParseCurl('not a curl command')).toBeNull();
     expect(tryParseCurl('')).toBeNull();

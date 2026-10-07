@@ -217,6 +217,46 @@ describe('current-target regression cases', () => {
       summary: { failed: 1, inconclusive: 1 },
     });
   });
+  it.each([
+    ['a program timeout', ['--timeout', '300'], 'setInterval(() => {}, 1000);', 2],
+    ['a missing runtime', ['--env', 'PATH=/lingua/missing/bin'], 'puts 3', 3],
+  ] as const)(
+    'exits 5 for drift even when another case fails with %s',
+    async (_label, flags, source, otherExit) => {
+      await writeFile(path.join(dir, 'hello.js'), 'console.log("changed")');
+      const other = baseline();
+      const ruby = source === 'puts 3';
+      const file = ruby ? 'other.rb' : 'other.js';
+      if (ruby) {
+        other.tab.language = 'ruby';
+        other.environment.platform = 'desktop';
+      }
+      other.source = { content: source, contentHash: await computeContentHash(source) };
+      await writeFile(path.join(dir, file), source);
+      const suiteFile = path.join(dir, 'suite.json');
+      await writeFile(
+        suiteFile,
+        JSON.stringify(
+          suite([
+            { id: 'drift', name: 'Drift', target: 'hello.js', baseline: baseline() },
+            { id: 'other', name: 'Other', target: file, baseline: other },
+          ])
+        )
+      );
+      const result = await command([
+        'capsule',
+        'verify-suite',
+        suiteFile,
+        '--root',
+        dir,
+        ...flags,
+        '--json',
+      ]);
+      expect(result.body).toMatchObject({ verdict: 'fail', summary: { failed: 1 } });
+      expect(result.body.cases[1]).toMatchObject({ exitCode: otherExit });
+      expect(result.code).toBe(5);
+    }
+  );
   it('executes target bytes in the baseline runtime mode', async () => {
     const source = 'console.log(await Promise.resolve(3));';
     const awaited = baseline();

@@ -1,5 +1,5 @@
 /**
- * implementation — UtilityPipelinePanel tests.
+ * UtilityPipelinePanel tests.
  *
  * Focused on the orchestration the panel owns: create + add step +
  * run + result rendering. Adapter behavior is covered by the unit
@@ -123,10 +123,48 @@ describe('UtilityPipelinePanel', () => {
     expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
+  it('keeps a malformed recipe available to correct, then imports all corrected steps', async () => {
+    const user = userEvent.setup();
+    const existing = createBlankPipeline({ id: 'existing', name: 'Saved recipe' });
+    useUtilityPipelineStore.getState().createPipeline(existing);
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-list-import'));
+    const textarea = await screen.findByTestId('utility-pipeline-import-textarea');
+    const incoming = {
+      ...createBlankPipeline({ id: 'incoming', name: 'Incoming recipe' }),
+      steps: [
+        createBlankStep({ id: 'decode', utilityId: 'base64-decode' }),
+        { id: 'format', utilityId: 'json-format' },
+      ],
+    };
+    const json = JSON.stringify(incoming);
+    fireEvent.change(textarea, { target: { value: json } });
+    await user.click(screen.getByTestId('utility-pipeline-import-confirm'));
+
+    expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
+      'The pipeline shape is invalid.'
+    );
+    expect(screen.getByTestId('utility-pipeline-import-error').textContent).toContain(
+      'step 2 is malformed'
+    );
+    expect((textarea as HTMLTextAreaElement).value).toBe(json);
+    expect(useUtilityPipelineStore.getState().pipelines).toEqual([existing]);
+    expect(useUtilityPipelineStore.getState().activePipelineId).toBe(existing.id);
+
+    incoming.steps[1] = createBlankStep({ id: 'format', utilityId: 'json-format' });
+    fireEvent.change(textarea, { target: { value: JSON.stringify(incoming) } });
+    await user.click(screen.getByTestId('utility-pipeline-import-confirm'));
+    expect(screen.queryByTestId('utility-pipeline-import-panel')).toBeNull();
+    expect(useUtilityPipelineStore.getState().getPipeline('incoming')?.steps).toEqual(
+      incoming.steps
+    );
+    expect(useUtilityPipelineStore.getState().activePipelineId).toBe('incoming');
+  });
+
   it('shows the template gallery in the empty state ', () => {
     render(<UtilityPipelinePanel />);
     expect(screen.getByTestId('pipeline-template-gallery')).toBeTruthy();
-    // One card per catalog template (9 after implementation note added
+    // One card per catalog template (9, including
     // the inspect-hidden-chars starter).
     expect(screen.getAllByTestId('pipeline-template-card')).toHaveLength(9);
   });
@@ -151,9 +189,9 @@ describe('UtilityPipelinePanel', () => {
       separator: 'hyphen',
       lowercase: true,
     });
-    // implementation note — the sample input is seeded so the pipeline is runnable.
+    // The sample input is seeded so the pipeline is runnable.
     expect(state.getPipelineInput(created.id)).toBe('Hello World Example');
-    // implementation note — adoption telemetry with the curated template id.
+    // Adoption telemetry with the curated template id.
     expect(mockTrackEvent).toHaveBeenCalledWith('utility.pipeline_template_used', {
       templateId: 'slugify',
     });
@@ -194,6 +232,24 @@ describe('UtilityPipelinePanel', () => {
 
     // accessibility pass — the run result is announced to screen readers.
     expect(useAnnouncerStore.getState().message).toContain('2 of 2 steps succeeded');
+  });
+
+  it('renders all URL query names and repeated values after running the parser pipeline', async () => {
+    const pipeline = createBlankPipeline({ id: 'url-query', name: 'Parse URL' });
+    pipeline.steps.push(createBlankStep({ id: 'parse', utilityId: 'url-parse' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput(
+      pipeline.id,
+      'https://example.com/?__proto__=first&__proto__=second&constructor=value'
+    );
+    const user = userEvent.setup();
+    render(<UtilityPipelinePanel />);
+    await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+    const output = await screen.findByTestId('utility-pipeline-result-output');
+    expect(JSON.parse(output.textContent ?? '').searchParams).toEqual({
+      ['__proto__']: ['first', 'second'],
+      constructor: 'value',
+    });
   });
 
   it('cascades skipped status when an upstream step fails', async () => {
@@ -343,7 +399,7 @@ describe('UtilityPipelinePanel', () => {
     );
   });
 
-  // implementation note — explicit Save-as-capsule button.
+  // Explicit Save-as-capsule button.
   it('disables Save-as-capsule before a run completes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));

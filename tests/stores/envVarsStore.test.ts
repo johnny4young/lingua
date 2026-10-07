@@ -1,8 +1,8 @@
 /**
- * implementation — store plumbing tests. Pins the tier model, the
+ * Store plumbing tests. Pins the tier model, the
  * accept/reject contract on writes, the clear-scope semantics, the
  * `localStorage` rehydrate sanitization, and the `resolveEffectiveEnv`
- * helper's composition with the implementation merger.
+ * helper's composition with the merger.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -109,7 +109,7 @@ describe('envVarsStore — removal + clearScope', () => {
 });
 
 describe('envVarsStore — resolveEffectiveEnv', () => {
-  it('returns the implementation merge with tab > project > global > processEnv', () => {
+  it('returns the merge with tab > project > global > processEnv', () => {
     const store = useEnvVarsStore.getState();
     store.setGlobalVar('LEVEL', 'global');
     store.setGlobalVar('ONLY_G', 'g');
@@ -137,7 +137,7 @@ describe('envVarsStore — resolveEffectiveEnv', () => {
     expect(store.resolveEffectiveEnv({}, 'p1', 't1').FOO).toBe('t');
   });
 
-  it('returns a frozen record (matches the implementation mergeEnvScopes contract)', () => {
+  it('returns a frozen record (matches the mergeEnvScopes contract)', () => {
     const store = useEnvVarsStore.getState();
     store.setGlobalVar('A', '1');
     const merged = store.resolveEffectiveEnv({}, null, null);

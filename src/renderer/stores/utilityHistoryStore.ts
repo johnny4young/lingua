@@ -11,7 +11,7 @@ import { isEntitled } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 
 /**
- * implementation — Per-tool history + favorites store.
+ * Per-tool history + favorites store.
  *
  * Lives in a dedicated localStorage namespace (`lingua-utility-state`)
  * separated from `lingua-settings`. Reasoning:
@@ -237,7 +237,7 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
       version: 2,
       migrate: createMigrate(UTILITY_HISTORY_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
-      // implementation — only persist the bits the user explicitly opted into.
+      // Only persist the bits the user explicitly opted into.
       // History is filtered per-tool by `persistEnabled[id]`. Favorites
       // always persist; workflow persistence toggles/history are paid
       // and are stripped while the effective tier is Free.

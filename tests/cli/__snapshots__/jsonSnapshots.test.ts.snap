@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`--json envelope snapshots (implementation note) > capsule replay: matching success 1`] = `
+exports[`--json envelope snapshots > capsule replay: matching success 1`] = `
 {
   "capsuleId": "00000000-0000-4000-8000-000000000001",
   "command": "capsule-replay",
@@ -26,7 +26,7 @@ exports[`--json envelope snapshots (implementation note) > capsule replay: match
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > capsule validate: invalid-json failure 1`] = `
+exports[`--json envelope snapshots > capsule validate: invalid-json failure 1`] = `
 {
   "detail": "<stripped>",
   "ok": false,
@@ -34,14 +34,14 @@ exports[`--json envelope snapshots (implementation note) > capsule validate: inv
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > capsule validate: success 1`] = `
+exports[`--json envelope snapshots > capsule validate: success 1`] = `
 {
   "ok": true,
   "summary": "<stripped>",
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > run: success 1`] = `
+exports[`--json envelope snapshots > run: success 1`] = `
 {
   "ok": true,
   "run": {
@@ -58,21 +58,21 @@ exports[`--json envelope snapshots (implementation note) > run: success 1`] = `
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility base64-decode: success 1`] = `
+exports[`--json envelope snapshots > utility base64-decode: success 1`] = `
 {
   "ok": true,
   "value": "hello",
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility base64-encode: success 1`] = `
+exports[`--json envelope snapshots > utility base64-encode: success 1`] = `
 {
   "ok": true,
   "value": "aGVsbG8=",
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility diff-text: success 1`] = `
+exports[`--json envelope snapshots > utility diff-text: success 1`] = `
 {
   "ok": true,
   "value": "- line1
@@ -80,7 +80,7 @@ exports[`--json envelope snapshots (implementation note) > utility diff-text: su
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility json-format: failure 1`] = `
+exports[`--json envelope snapshots > utility json-format: failure 1`] = `
 {
   "detail": "<stripped>",
   "ok": false,
@@ -88,7 +88,7 @@ exports[`--json envelope snapshots (implementation note) > utility json-format: 
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility json-format: success 1`] = `
+exports[`--json envelope snapshots > utility json-format: success 1`] = `
 {
   "ok": true,
   "value": "{
@@ -97,14 +97,14 @@ exports[`--json envelope snapshots (implementation note) > utility json-format: 
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility regex-replace: success 1`] = `
+exports[`--json envelope snapshots > utility regex-replace: success 1`] = `
 {
   "ok": true,
   "value": "abcNdef",
 }
 `;
 
-exports[`--json envelope snapshots (implementation note) > utility url-parse: success 1`] = `
+exports[`--json envelope snapshots > utility url-parse: success 1`] = `
 {
   "ok": true,
   "value": "{

@@ -7,7 +7,7 @@ import {
 } from './notebookReactivity';
 
 /**
- * implementation — notebook lifecycle action factory.
+ * Notebook lifecycle action factory.
  *
  * Owns creating / installing / disposing / renaming a tab's notebook entry.
  * Every action is a pure `set` update, so the factory only needs zustand `set`.
@@ -94,7 +94,7 @@ export function createLifecycleActions(
         const { [tabId]: _drop, ...rest } = state.notebooks;
         void _drop;
         // Drop the tab's remembered scroll offset in lockstep so it can't
-        // outlive the notebook (implementation Slice H implementation note).
+        // outlive the notebook.
         const { [tabId]: _dropScroll, ...restScroll } =
           state.notebookScrollTop;
         void _dropScroll;

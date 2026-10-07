@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-object-deep-clone`.
+ * Recipe `js-object-deep-clone`.
  *
  * Deep-clone a nested object. Exercises structuredClone vs hand-
  * rolled recursion; tests prove independence of the clone.

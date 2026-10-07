@@ -8,6 +8,7 @@ import {
   stopProjectTerminal,
   writeProjectTerminal,
 } from '../projectTerminal';
+import { onOwnerReset } from '../runners/ownerReset';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { typedHandle } from './typedHandle';
 
@@ -16,7 +17,7 @@ const observedOwners = new WeakSet<WebContents>();
 function observeOwner(sender: WebContents): void {
   if (observedOwners.has(sender)) return;
   observedOwners.add(sender);
-  sender.once('destroyed', () => {
+  onOwnerReset(sender, () => {
     disposeProjectTerminalSessionsForOwner(sender.id);
   });
 }

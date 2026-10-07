@@ -1,5 +1,5 @@
 /**
- * implementation — HttpCaptureTab isolated UI tests: empty state, add, per-row edits
+ * HttpCaptureTab isolated UI tests: empty state, add, per-row edits
  * (source / path / target), the status-source path lockout, and remove.
  */
 

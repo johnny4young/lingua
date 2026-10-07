@@ -3,7 +3,7 @@ import type { LspLanguageIntelligenceAdapter } from './types';
 import { createActivationScopedAdapterLoader } from './createActivationScopedAdapterLoader';
 
 /**
- * implementation — process-wide singleton for the Go LSP adapter.
+ * process-wide singleton for the Go LSP adapter.
  *
  * The bridge probe stays synchronous, but the adapter implementation is
  * imported only after gopls reports ready. This keeps the desktop-only

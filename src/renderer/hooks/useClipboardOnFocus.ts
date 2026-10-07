@@ -1,11 +1,6 @@
 import { useEffect, useRef } from 'react';
 import i18next from 'i18next';
-import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../data/keyboardShortcuts';
+import { formatShortcutLabel } from '../data/keyboardShortcuts';
 import {
   findDeveloperUtilityCatalogEntry,
   type DeveloperUtilityId,
@@ -17,7 +12,7 @@ import { currentEffectiveTier } from './useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 
 /**
- * implementation — clipboard-on-focus apply.
+ * clipboard-on-focus apply.
  *
  * When the user has granted consent
  * (`utilitiesClipboardOnFocusConsent === 'granted'`), this hook reads
@@ -83,7 +78,7 @@ export function useClipboardOnFocus(
       });
 
       // Stash the value on a module-level singleton so the global
-      // Mod+Shift+A handler can implementation note into the next apply. The
+      // Mod+Shift+A handler can fold it into the next apply. The
       // store-based handoff keeps the hook's surface narrow — no need
       // to thread the clipboard value through every panel.
       pendingClipboardApplyRef.value = {
@@ -135,14 +130,8 @@ export function takePendingClipboardApply(): PendingClipboardApply | null {
 }
 
 function resolveApplyShortcut(): string {
-  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-apply-from-input');
-  if (!definition) return '';
-  const overrides = useSettingsStore.getState().shortcutOverrides;
-  const combo = resolveCombos(definition, overrides)[0];
-  if (!combo) return '';
-  const runtimePlatform =
-    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
-  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
-  const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
-  return formatShortcutCombo(combo, displayPlatform);
+  return (
+    formatShortcutLabel('utility-apply-from-input', useSettingsStore.getState().shortcutOverrides) ??
+    ''
+  );
 }

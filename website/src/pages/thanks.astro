@@ -42,9 +42,10 @@ const locale: Locale = Astro.props.locale ?? 'en';
           for macOS, Windows or Linux.
         </li>
         <li>
-          <strong>Paste the token.</strong> In the app go to <em>Settings → License → Paste a license token</em>.
-          Activation is offline — Lingua verifies the Ed25519 signature against a public key
-          embedded in the binary, no phone-home.
+          <strong>Paste the token.</strong> In the app go to <em>Settings → Account → License → Paste a license token</em>.
+          Lingua verifies the Ed25519 signature offline against a public key embedded in the
+          binary, then registers this device with the license server. If the server is
+          unreachable, the locally verified license keeps working while Lingua retries.
         </li>
       </ol>
     </section>
@@ -59,7 +60,7 @@ const locale: Locale = Astro.props.locale ?? 'en';
         </li>
         <li>
           <strong>Devices.</strong> A paid token activates on a small set of machines (currently
-          three for Pro). Manage them from <em>Settings → License</em> in the app — see <a href={localizePath(locale, '/licensing')}>licensing</a>
+          three for Pro). Manage them from <em>Settings → Account → License</em> in the app — see <a href={localizePath(locale, '/licensing')}>licensing</a>
           for the full policy.
         </li>
         <li>

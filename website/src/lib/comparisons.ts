@@ -314,12 +314,12 @@ const COMPARISONS: Comparison[] = [
       es: 'Lingua vs CodeRunner',
     },
     metaDescription: {
-      en: 'CodeRunner runs 25 languages through your local toolchain on macOS. Lingua sandboxes its runners, shows inline values and per-line timing, and ships on Windows, Linux, and the web too.',
-      es: 'CodeRunner ejecuta 25 lenguajes a través de tu toolchain local en macOS. Lingua aísla sus runners, muestra valores inline y timing por línea, y también corre en Windows, Linux y la web.',
+      en: 'CodeRunner runs 25 languages through your local toolchain on macOS. Lingua isolates its browser runtimes in workers, shows inline values and per-line timing, and ships on Windows, Linux, and the web too.',
+      es: 'CodeRunner ejecuta 25 lenguajes a través de tu toolchain local en macOS. Lingua aísla sus runtimes de navegador en workers, muestra valores inline y timing por línea, y también corre en Windows, Linux y la web.',
     },
     intro: {
-      en: "CodeRunner is a fast native macOS editor that runs 25 languages by shelling out to whatever toolchains you have installed. Lingua takes a different bet: fewer languages, but sandboxed runners with observability baked in — inline values next to every line, per-line timing, and a queryable run ledger — and it runs on Windows, Linux, and in a browser, not just macOS. Different tools for different priorities.",
-      es: 'CodeRunner es un editor nativo de macOS rápido que ejecuta 25 lenguajes llamando a las toolchains que tengas instaladas. Lingua hace una apuesta distinta: menos lenguajes, pero runners aislados con observabilidad incorporada — valores inline junto a cada línea, timing por línea y un run ledger consultable — y corre en Windows, Linux y un navegador, no solo macOS. Herramientas distintas para prioridades distintas.',
+      en: "CodeRunner is a fast native macOS editor that runs 25 languages by shelling out to whatever toolchains you have installed. Lingua takes a different bet: fewer languages, worker-isolated browser runtimes for JavaScript, TypeScript, Python, and Ruby (native desktop runners use your toolchain without a sandbox), and observability baked in — inline values next to every line, per-line timing, and a queryable run ledger — and it runs on Windows, Linux, and in a browser, not just macOS. Different tools for different priorities.",
+      es: 'CodeRunner es un editor nativo de macOS rápido que ejecuta 25 lenguajes llamando a las toolchains que tengas instaladas. Lingua hace una apuesta distinta: menos lenguajes, runtimes de navegador aislados en workers para JavaScript, TypeScript, Python y Ruby (los runners nativos de escritorio usan tu toolchain sin sandbox) y observabilidad incorporada — valores inline junto a cada línea, timing por línea y un run ledger consultable — y corre en Windows, Linux y un navegador, no solo macOS. Herramientas distintas para prioridades distintas.',
     },
     rows: [
       {
@@ -336,8 +336,11 @@ const COMPARISONS: Comparison[] = [
       },
       {
         feature: { en: 'Sandboxed execution', es: 'Ejecución aislada' },
-        lingua: 'yes',
-        linguaNote: { en: 'allow-listed env, no shell', es: 'entorno restringido, sin shell' },
+        lingua: 'partial',
+        linguaNote: {
+          en: 'browser runtimes in workers; native runs use an allow-listed env, no shell, no sandbox',
+          es: 'runtimes de navegador en workers; los runs nativos usan entorno restringido, sin shell ni sandbox',
+        },
         other: 'partial',
         otherNote: { en: 'runs on your machine directly', es: 'corre en tu máquina directamente' },
       },

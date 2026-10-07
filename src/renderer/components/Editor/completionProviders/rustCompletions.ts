@@ -68,7 +68,7 @@ const RUST_COMPLETIONS = [
 ] as const;
 
 /**
- * implementation — Monaco completion provider for Rust.
+ * Monaco completion provider for Rust.
  *
  * Layered strategy:
  *  - Static `RUST_COMPLETIONS` keep keyword + snippet suggestions

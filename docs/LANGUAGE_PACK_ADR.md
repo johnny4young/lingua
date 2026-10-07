@@ -21,13 +21,13 @@ Lingua currently spreads language metadata across ~8 files:
 - `src/renderer/monaco.ts` — Monaco registration / completion providers.
 - `src/renderer/components/Toolbar/Toolbar.tsx` + language selector
   menus — hardcoded switch statements for display + iconography.
-- `src/renderer/plugins/lua-runner/` — a separate plugin shape that
+- `src/renderer/plugins/lua-runner.ts` — a separate plugin shape that
   does not share the built-in contract.
 
 Adding a new language today requires touching 5–6 of these files in
 parallel, and the Lua plugin cannot express capabilities (formatter,
-LSP support flags, docs link) through a shared descriptor. internal asks
-us to consolidate the metadata into one descriptor so the app can
+LSP support flags, docs link) through a shared descriptor. The goal is
+to consolidate the metadata into one descriptor so the app can
 render capability-aware UI without scattered `switch(language)`
 statements, while keeping third-party arbitrary-code loading out of
 scope.
@@ -94,8 +94,9 @@ executionModeFor(lang: Language): LanguagePack['execution']
 formatterStrategyFor(lang: Language): LanguagePack['formatter']
 ```
 
-These live in `src/renderer/utils/languagePacks.ts` and re-export the
-existing helper names so callers don't have to migrate all at once.
+These live in `src/shared/languagePacks.ts` (shipped with a `…ForPack`
+suffix, e.g. `monacoLanguageForPack`) and re-export the existing helper
+names so internal callers don't have to migrate all at once.
 
 ## Migration history
 
@@ -192,8 +193,8 @@ descriptor only when one of the triggers below is hit.
 
 Open a successor ADR when:
 
-1. A third non-JS language needs real LSP support (internal gains
-   serious traction). The `lsp` capability field will need a richer
+1. A third non-JS language needs real LSP support (language
+   intelligence gains serious traction). The `lsp` capability field will need a richer
    shape than the enum.
 2. The debugger MVP lands and `debuggerSupport` needs
    protocol details, not just a flag.

@@ -38,8 +38,7 @@ Safe mode is opt-in via:
 
 1. Adding `?safe-mode=1` to the URL.
 2. Clicking **Reload in safe mode** in any error fallback.
-3. Clicking **Reload in safe mode** under Settings → Account →
-   Recovery.
+3. Clicking **Reload in safe mode** under Settings → Recovery.
 4. Automatically when the previous boot crashed (the renderer marks
    `lingua-safe-mode = '1'` on catch and clears it on the next clean
    render).
@@ -71,7 +70,7 @@ intentionally (e.g. clicking "Reset everything" in Recovery) your
 license stays intact; you just lose preferences, snippets, env vars,
 recent projects, and any tab restore data.
 
-## Recovery surface (Settings → Account → Recovery)
+## Recovery surface (Settings → Recovery)
 
 Five scoped reset actions plus two affordances:
 
@@ -113,7 +112,7 @@ On Linux:
 ~/.config/Lingua/
 ```
 
-The "Open recovery folder" button under Settings → Account → Recovery
+The "Open recovery folder" button under Settings → Recovery
 is the same path. Web builds do not have a recovery folder — they
 live entirely in the browser's localStorage, which the dev tools'
 "Application" tab can clear directly.

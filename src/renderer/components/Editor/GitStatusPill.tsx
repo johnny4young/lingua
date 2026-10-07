@@ -1,5 +1,5 @@
 /**
- * implementation — per-tab Git status pill.
+ * per-tab Git status pill.
  *
  * Visual language:
  *
@@ -20,7 +20,7 @@
  *   the action for `clean` so users can preview the file in the
  *   diff editor regardless of state.
  *
- * Right-click (implementation note): renders a context menu portal anchored to
+ * Right-click: renders a context menu portal anchored to
  *   the click position. Three actions today:
  *     - "Show diff"        — same as left-click.
  *     - "Copy file path"   — `navigator.clipboard.writeText(filePath)`.
@@ -104,7 +104,7 @@ export function GitStatusPill({
     (state) => state.byFile.get(filePath)
   );
 
-  // Per-file magic-comment opt-out (implementation note). Memoised by content so
+  // Per-file magic-comment opt-out. Memoised by content so
   // a clean file with the directive in a comment doesn't re-evaluate
   // on every render.
   const suppressedFromContent = useMemo(
@@ -182,14 +182,14 @@ export function GitStatusPill({
       await navigator.clipboard.writeText(filePath);
     } catch {
       // Best effort; nothing to surface for a clipboard reject in
-      // implementation. future work pattern would push a status notice
-      // here — deferred to implementation.
+      // this release. A later change could push a status notice
+      // here.
     }
   }, [filePath, closeMenu]);
 
-  // implementation — Reveal in Source Control. Calls the new
+  // Reveal in Source Control. Calls the new
   // `git:reveal` IPC, telemetry-tags the click as `'repo-root'`
-  // (closed-enum extension point for implementation targets), and
+  // (closed-enum extension point for future targets), and
   // surfaces a localized notice when the OS refuses the open.
   const handleRevealInSc = useCallback(async () => {
     closeMenu();
@@ -232,7 +232,7 @@ export function GitStatusPill({
   // Tooltip composition. The branch name is always part of the
   // tooltip so the user can confirm which branch the chip reflects;
   // a future implementation may also pin the branch inline next to the
-  // pill (internal persistent status bar reuses this signal).
+  // pill (persistent status bar reuses this signal).
   const branchLabel = posture.branch ?? t('editor.git.tooltip.detachedHead');
   const tooltipKey = `editor.git.tooltip.${entry.status}` as const;
   const tooltip = showCounts
@@ -300,7 +300,7 @@ export function GitStatusPill({
               >
                 {t('editor.git.contextMenu.copyPath')}
               </button>
-              {/* implementation — Reveal action enabled. Falls back
+              {/* Reveal action enabled. Falls back
                   to disabled chrome only when the bridge OR repoRoot
                   is missing (defense in depth — `posture.available`
                   should already guard the parent surface, but a

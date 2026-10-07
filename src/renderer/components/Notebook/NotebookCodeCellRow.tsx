@@ -1,6 +1,6 @@
 import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDrafts';
 /**
- * implementation — Single code-cell row.
+ * Single code-cell row.
  *
  * Layout:
  *   - Header: language badge + cell index + status pill + action row
@@ -9,7 +9,7 @@ import { registerNotebookDocumentDraft } from '../../stores/notebookDocumentDraf
  *   - Outputs: stdout (foreground) + stderr (error tone) inline below
  *     the source.
  *
- * implementation promotes code cells to a mount-virtualized Monaco editor — the
+ * Code cells use a mount-virtualized Monaco editor — the
  * surface contract (source string, language, run handler) stays unchanged.
  */
 
@@ -40,13 +40,13 @@ export interface NotebookCodeCellRowProps {
   readonly cellIndex: number;
   readonly status: NotebookCellRunStatus;
   /**
-   * FASE 4 — last-run latency in ms (fractional). Appended to the
+   * last-run latency in ms (fractional). Appended to the
    * header StatusBadge (" · 1.2 ms") and the output meta. Omitted
    * until the cell has run (transient store state, reset on reload).
    */
   readonly durationMs?: number;
   /**
-   * FASE 4 — inter-cell variable flow surfaced as header chips:
+   * inter-cell variable flow surfaced as header chips:
    * `uses` (identifiers consumed from earlier cells) and `produces`
    * (top-level declarations this run added to the sandbox).
    */
@@ -66,7 +66,7 @@ export interface NotebookCodeCellRowProps {
    */
   readonly isActive: boolean;
   /**
-   * implementation (Monaco cells) — command-mode "enter edit" signal. The
+   * command-mode "enter edit" signal. The
    * view bumps a `{ cellId, nonce }` request (Jupyter Enter / run-and-
    * advance / insert-below); when this cell's nonce changes the row mounts
    * its Monaco editor. `null` when no request targets this cell. The nonce
@@ -95,13 +95,13 @@ export interface NotebookCodeCellRowProps {
   onMoveUp: (cellId: string) => void;
   onMoveDown: (cellId: string) => void;
   onDelete: (cellId: string) => void;
-  /** implementation — change this cell's language via the header
+  /** Change this cell's language via the header
    * selector (JavaScript ↔ TypeScript; Python is shown but disabled). */
   onLanguageChange: (cellId: string, language: NotebookCellLanguage) => void;
 }
 
 /**
- * FASE 4 — the per-cell run status maps onto a canonical
+ * The per-cell run status maps onto a canonical
  * `<StatusBadge>` tone, used BOTH in the cell header (replacing the
  * old bespoke pill) and in the OUTPUT-region ResultHeader. `ok`/`error`
  * get the friendlier "Success"/"Error" copy in the output header;
@@ -121,7 +121,7 @@ const STATUS_BADGE_TONE: Record<NotebookCellRunStatus, StatusBadgeTone> = {
 };
 
 /**
- * FASE 4 — render the per-cell latency as a compact mono suffix
+ * Render the per-cell latency as a compact mono suffix
  * (" · 1.2 ms"), matching the proto's `StatusBadge … · 1.2 ms`. One
  * decimal keeps sub-millisecond runs legible without noisy precision.
  * `performance.now()` deltas are already in ms.
@@ -166,7 +166,7 @@ function outputStatusKey(status: NotebookCellRunStatus): string {
 }
 
 /**
- * implementation — try to upgrade a plain-text output to a rich table. Only a
+ * Try to upgrade a plain-text output to a rich table. Only a
  * string that trims to a JSON array of homogeneous plain objects
  * qualifies (a terminal-expression array, `console.log([{…}])`, or a
  * Python `print` of a JSON list). Returns `null` for everything else —
@@ -211,7 +211,7 @@ function NotebookCodeCellRowImpl({
   const { t } = useTranslation();
   const shellRef = useRef<HTMLElement | null>(null);
   const label = languageLabel(cell.language);
-  // implementation — "Explain this error": on an errored cell, LOCAL_AI users get the
+  // "Explain this error": on an errored cell, LOCAL_AI users get the
   // consent-gated AI trigger (shared ExplainErrorButton owns the dialog +
   // open state). `canExplainError` gates the wrapper so Free users don't get
   // an empty padded slot.
@@ -223,7 +223,7 @@ function NotebookCodeCellRowImpl({
   const [editing, setEditing] = useState(false);
   const mode: 'command' | 'edit' = editing ? 'edit' : 'command';
 
-  // implementation detail — keep the source in local React state and
+  // Keep the source in local React state and
   // debounce the persisted-store write, exactly like
   // `SqlQueryEditor` / `HttpRequestEditor`. Previously every keystroke
   // called `onSourceChange` → `updateCellSource`, which writes the
@@ -328,13 +328,13 @@ function NotebookCodeCellRowImpl({
     },
     [cell.id, flushPendingSource]
   );
-  // FASE 4 token sweep — the language chip reuses the canonical
+  // The language chip reuses the canonical
   // `languageBadgeTone` triple (the same token-backed oklch pairs the
   // file-tree glyph, editor tab strip, and action pill consume) instead
   // of a bespoke raw-palette map, so JS/TS/PY tints can never drift from
   // the rest of the app and carry no hardcoded Tailwind scale.
   const languageTone = languageBadgeTone(cell.language);
-  // MOV.03 — the OUTPUT region is collapsible. Default expanded so the
+  // The OUTPUT region is collapsible. Default expanded so the
   // surface matches today's always-visible output list; this is purely
   // a view toggle and never touches run/store state.
   const [outputsCollapsed, setOutputsCollapsed] = useState(false);
@@ -345,7 +345,7 @@ function NotebookCodeCellRowImpl({
   // status (ok / error / stopped) lands.
   const showOutputHeader = hasOutputs && status !== 'running';
   const outputsRegionId = `${cell.id}-outputs`;
-  // FASE 4 — derived latency + variable-flow display values. Latency
+  // Derived latency + variable-flow display values. Latency
   // only shows once a run has produced a finite, terminal timing; we
   // hide it while `running` so the badge doesn't flash a stale number.
   const hasLatency =
@@ -357,7 +357,7 @@ function NotebookCodeCellRowImpl({
   const usesKeys = varFlow?.uses ?? [];
   const producesKeys = varFlow?.produces ?? [];
 
-  // implementation (Monaco cells) — command-mode "enter edit" requests
+  // command-mode "enter edit" requests
   // (Jupyter Enter / run-and-advance / insert-below) flow in as a bumped
   // nonce; mount the Monaco editor in response (it focuses itself on mount).
   // Match NotebookMarkdownCellRow: depend ONLY on the nonce.
@@ -416,7 +416,7 @@ function NotebookCodeCellRowImpl({
       ) : null}
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          {/* implementation — language selector. JS / TS / Python are all
+          {/* Language selector. JS / TS / Python are all
               runnable now (Python runs independently per cell). Styled as
               the canonical language-tone pill. */}
           <select
@@ -461,7 +461,7 @@ function NotebookCodeCellRowImpl({
               {t('notebook.cell.executionOrder', { n: executionOrder })}
             </span>
           ) : null}
-          {/* FASE 4 — canonical StatusBadge (was a bespoke pill). The
+          {/* Canonical StatusBadge (was a bespoke pill). The
               latency rides inside the badge as a mono suffix, mirroring
               the proto's `StatusBadge … · 1.2 ms`. */}
           <span data-testid="notebook-code-cell-status" data-status={status}>
@@ -470,7 +470,7 @@ function NotebookCodeCellRowImpl({
               {latencyLabel ? t('notebook.cell.latencySuffix', { ms: latencyLabel }) : ''}
             </StatusBadge>
           </span>
-          {/* FASE 4 — inter-cell variable flow. `uses` is an
+          {/* inter-cell variable flow. `uses` is an
               accent-soft chip (the DS `info` ramp is the canonical
               accent-tinted soft surface); `produces` is a muted mono
               `→` list. Both are token-only and render only when
@@ -493,7 +493,7 @@ function NotebookCodeCellRowImpl({
               })}
             </span>
           ) : null}
-          {/* implementation — Python cells share a per-notebook
+          {/* Python cells share a per-notebook
               kernel scope, so cell 2 sees cell 1's imports/vars (Restart
               kernel clears it). The chip truncates; the full sentence is
               the hover title. */}
@@ -506,7 +506,7 @@ function NotebookCodeCellRowImpl({
               {t('notebook.cell.pythonIndependentHint')}
             </span>
           ) : null}
-          {/* implementation — SQL cells run on the shared DuckDB engine, so tables
+          {/* SQL cells run on the shared DuckDB engine, so tables
               created in one cell persist to later SQL cells (and the SQL
               workspace). The chip truncates; the hover title carries the
               full sentence. */}
@@ -575,7 +575,7 @@ function NotebookCodeCellRowImpl({
           </button>
         </div>
       </header>
-      {/* implementation (Monaco cells) — the body is a Monaco editor while
+      {/* The body is a Monaco editor while
           editing and a cheap colorized static view otherwise, so a large
           notebook never mounts more than ~1 editor. The run / Esc keybinds
           and the draft-flush-before-run contract are preserved through the
@@ -676,7 +676,7 @@ function NotebookCodeCellRowImpl({
               className="grid gap-0.5 p-2"
             >
               {cell.outputs.map((output, idx) => {
-                // implementation — a stdout output that is a homogeneous JSON array of
+                // A stdout output that is a homogeneous JSON array of
                 // objects renders as a table (mirroring the console's
                 // auto-table), instead of raw JSON text. stderr always
                 // stays plain error-toned text.
@@ -743,7 +743,7 @@ function NotebookCodeCellRowImpl({
 }
 
 /**
- * implementation Slice H implementation note — memoized so the windowed cell list only re-renders
+ * Memoized so the windowed cell list only re-renders
  * the rows whose props actually change. Every handler the view passes is a
  * stable `useCallback`, and the per-cell data props (cell, status, latency,
  * var-flow, execution order, active/move flags) are referentially stable

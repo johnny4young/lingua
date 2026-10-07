@@ -1,5 +1,5 @@
 /**
- * implementation (SQL import) implementation note — import preview modal. The heart of the UX.
+ * Import preview modal. The heart of the UX.
  *
  * Reuses `<ModalShell>` (title-header variant) so focus-trap,
  * Esc-to-close, scrim-close, focus-restore-to-trigger, `role=dialog`, and
@@ -97,7 +97,7 @@ export function SqlImportPreviewModal({
       onClose={handleClose}
       size="max-w-[760px]"
       labelledById={titleId}
-      // internal UX — `esc` (not the `button` X) so the table-name input is the
+      // `esc` (not the `button` X) so the table-name input is the
       // first focusable element ModalShell focuses on open: a keyboard user
       // lands on the primary field, not on a close button. Esc keycap hint
       // stays in the header; Cancel + scrim still close for the mouse.

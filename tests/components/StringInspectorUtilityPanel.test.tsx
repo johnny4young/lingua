@@ -1,5 +1,5 @@
 /**
- * internal — String Inspector panel tests. The pure helper is covered in
+ * String Inspector panel tests. The pure helper is covered in
  * tests/utils/stringInspector.test.ts, so this suite only checks wiring:
  * the summary cards reflect live counts, warnings render per kind, the
  * character table shows rows with category data-attributes, and Spanish

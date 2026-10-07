@@ -1,5 +1,5 @@
 /**
- * implementation — `url-encode` + `url-decode` adapters.
+ * `url-encode` + `url-decode` adapters.
  *
  * Percent-encode / decode the input as a URL COMPONENT (distinct from
  * the `url-parse` adapter, which parses a full URL's query string).

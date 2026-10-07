@@ -1,5 +1,5 @@
 /**
- * internal — Unit tests for `convertHtmlToJsx`. Covers attribute
+ * Unit tests for `convertHtmlToJsx`. Covers attribute
  * translation, void-element self-closing, style-object literal, text
  * escaping, multi-root fragment wrap toggle, and the three error
  * branches (empty / tooLarge / parseFailure).

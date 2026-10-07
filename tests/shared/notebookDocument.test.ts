@@ -1,8 +1,8 @@
 /**
- * implementation — `.linguanb` native notebook document round-trip +
+ * `.linguanb` native notebook document round-trip +
  * reject coverage. Pins the lossless serialize/parse contract, the
  * closed-enum rejects, the detect probe, and the execution-order
- * (implementation note) sanitization.
+ * sanitization.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -12,7 +12,11 @@ import {
   serializeNotebookDocument,
   MAX_LINGUANB_BYTES,
 } from '../../src/shared/notebookDocument';
-import type { NotebookCellV1, NotebookV1 } from '../../src/shared/notebook';
+import {
+  serializeNotebookDocumentWithinLimit,
+  type NotebookCellV1,
+  type NotebookV1,
+} from '../../src/shared/notebook';
 
 function notebook(cells: NotebookCellV1[]): NotebookV1 {
   return {
@@ -66,7 +70,7 @@ describe('serializeNotebookDocument / parseNotebookDocument', () => {
     expect(doc.notebook.title).toBe('My Notebook');
   });
 
-  it('implementation note — round-trips the execution-order map, sanitized to cells + positive ints', () => {
+  it('round-trips the execution-order map, sanitized to cells + positive ints', () => {
     const json = serializeNotebookDocument(notebook(SAMPLE_CELLS), {
       executionOrder: { c1: 2, c2: 1, ghost: 9, c1bad: -3 },
     });
@@ -163,5 +167,48 @@ describe('detectLinguanbDocument', () => {
   it('does NOT claim cURL / plain text / non-JSON', () => {
     expect(detectLinguanbDocument('curl https://x.dev')).toBe(false);
     expect(detectLinguanbDocument('format: linguanb but not json')).toBe(false);
+  });
+});
+
+describe('serializeNotebookDocumentWithinLimit', () => {
+  function sized(totalBytes: number): NotebookV1 {
+    const cells: NotebookCellV1[] = [];
+    const base = Buffer.byteLength(serializeNotebookDocument(notebook([])));
+    let remaining = totalBytes - base;
+    for (let index = 0; remaining > 0; index += 1) {
+      const empty = {
+        kind: 'markdown' as const,
+        id: `m${String(index).padStart(3, '0')}`,
+        source: '',
+      };
+      const before = Buffer.byteLength(serializeNotebookDocument(notebook(cells)));
+      const after = Buffer.byteLength(serializeNotebookDocument(notebook([...cells, empty])));
+      const length = Math.min(30_000, remaining - (after - before));
+      cells.push({ ...empty, source: 'a'.repeat(length) });
+      remaining = totalBytes - Buffer.byteLength(serializeNotebookDocument(notebook(cells)));
+    }
+    return notebook(cells);
+  }
+
+  it('exports a document exactly at the reader limit and reopens it', () => {
+    const outcome = serializeNotebookDocumentWithinLimit(sized(MAX_LINGUANB_BYTES));
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(Buffer.byteLength(outcome.json)).toBe(MAX_LINGUANB_BYTES);
+    expect(parseNotebookDocument(outcome.json).ok).toBe(true);
+  });
+
+  it('refuses a document one byte over the limit the reader enforces', () => {
+    const over = sized(MAX_LINGUANB_BYTES + 1);
+    expect(parseNotebookDocument(serializeNotebookDocument(over))).toMatchObject({
+      ok: false,
+      reason: 'oversized',
+    });
+    expect(serializeNotebookDocumentWithinLimit(over)).toEqual({
+      ok: false,
+      reason: 'oversized',
+      bytes: MAX_LINGUANB_BYTES + 1,
+      limit: MAX_LINGUANB_BYTES,
+    });
   });
 });

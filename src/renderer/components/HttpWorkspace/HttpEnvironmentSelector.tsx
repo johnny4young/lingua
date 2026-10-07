@@ -1,5 +1,5 @@
 /**
- * implementation — active-environment selector.
+ * active-environment selector.
  *
  * A compact dropdown bound to the store's `activeEnvironmentId` plus a
  * "Manage" affordance that opens the environment manager. Rendered in

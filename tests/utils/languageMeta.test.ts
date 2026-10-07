@@ -73,7 +73,7 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
-  it('resolves Java and Scala through the LanguagePack descriptor (implementation)', () => {
+  it('resolves Java and Scala through the LanguagePack descriptor', () => {
     expect(languageForExtension('java')).toBe('java');
     expect(languageForExtension('.java')).toBe('java');
     expect(languageForExtension('scala')).toBe('scala');
@@ -86,7 +86,7 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('scala')).toBe('validate');
   });
 
-  it('resolves Swift and Kotlin through the LanguagePack descriptor (implementation)', () => {
+  it('resolves Swift and Kotlin through the LanguagePack descriptor', () => {
     expect(languageForExtension('swift')).toBe('swift');
     expect(languageForExtension('.swift')).toBe('swift');
     expect(languageForExtension('kt')).toBe('kotlin');
@@ -99,7 +99,7 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('kotlin')).toBe('validate');
   });
 
-  it('resolves C and C++ through the LanguagePack descriptor (implementation)', () => {
+  it('resolves C and C++ through the LanguagePack descriptor', () => {
     expect(languageForExtension('c')).toBe('c');
     expect(languageForExtension('.h')).toBe('c');
     expect(languageForExtension('cpp')).toBe('cpp');
@@ -113,11 +113,11 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('cpp')).toBe('validate');
   });
 
-  it('resolves Ruby through the LanguagePack descriptor (runnable since implementation)', () => {
+  it('resolves Ruby through the LanguagePack descriptor (runnable)', () => {
     expect(languageForExtension('rb')?.toString()).toBe('ruby');
     expect(extensionForLanguage('ruby')).toBe('rb');
     expect(monacoLanguageFor('ruby')).toBe('ruby');
-    // implementation flipped Ruby from validate-only to runnable via
+    // Ruby moved from validate-only to runnable via
     // the `@ruby/wasm-wasi` web worker.
     expect(executionModeForLanguage('ruby')).toBe('run');
   });

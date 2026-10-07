@@ -1,5 +1,5 @@
 /**
- * implementation — sqlWorkspace.ts unit tests.
+ * sqlWorkspace.ts unit tests.
  *
  * Exercises: parsers (happy path + every shape rejection), bucketing
  * helper, caps, closed-enum lock.
@@ -229,7 +229,7 @@ describe('createBlankSqlQuery', () => {
 });
 
 // ---------------------------------------------------------------------------
-// internal (SQL import) — shared import helpers.
+// Shared import helpers.
 // ---------------------------------------------------------------------------
 
 describe('detectImportFormat', () => {

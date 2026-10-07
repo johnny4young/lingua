@@ -1,5 +1,5 @@
 /**
- * implementation — closed contract for Browser preview live refresh.
+ * Closed contract for Browser preview live refresh.
  *
  * `0` is the persisted representation of Off. Keeping the setting numeric
  * lets the auto-run scheduler consume the two live values directly while the

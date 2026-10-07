@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-fizzbuzz`.
+ * Recipe `js-fizzbuzz`.
  *
  * The classic FizzBuzz. Tested via `console-contains` because the
  * canonical version prints lines rather than returning a value.

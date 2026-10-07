@@ -1,5 +1,5 @@
 /**
- * implementation — `RustLanguageIntelligenceRow` mount conditions.
+ * `RustLanguageIntelligenceRow` mount conditions.
  *
  * The row is conditional. These tests pin the matrix:
  *   - `unknown` and `available` → row absent (toast covers happy path)

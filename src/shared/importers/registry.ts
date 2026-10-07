@@ -1,9 +1,9 @@
 /**
- * implementation — Importer registry.
+ * Importer registry.
  *
  * Single source of truth for `id → adapter` lookup. Mirrors
- * `src/shared/utilities/registry.ts` (set as precedent by internal
- * implementation) so a future fourth registry doesn't have to invent its
+ * `src/shared/utilities/registry.ts` so
+ * a future fourth registry doesn't have to invent its
  * own shape.
  *
  * Adding an importer means:
@@ -63,9 +63,9 @@ export function listImporters(): ReadonlyArray<ImporterAdapter<unknown, unknown>
 /**
  * Best-effort auto-detection — runs `detect(source)` on every
  * registered importer and returns the first match's id, or `null`
- * if nothing claims the input. implementation only has one importer so
+ * if nothing claims the input. With a single importer
  * this is trivially `'curl-http'` for inputs starting with `curl `;
- * the shape stays useful for implementation when multiple importers
+ * the shape stays useful once multiple importers
  * could compete.
  */
 export function detectImporter(source: string): ImporterId | null {

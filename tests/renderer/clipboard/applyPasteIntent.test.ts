@@ -5,7 +5,7 @@ import { FIXTURE_MINIMAL_JS } from '../../shared/runCapsule.fixtures';
 import { _resetCommandBusForTesting, subscribeCommand } from '@/stores/commandBus';
 
 /**
- * internal — locks the impure router's delegation: each intent kind routes to the
+ * Locks the impure router's delegation: each intent kind routes to the
  * right existing importer and (for content imports) strips the literal paste.
  * Delegates + stores are mocked via their aliases; the real `parseRunCapsule` /
  * `parseCurlCommand` run on real fixtures so detection and routing agree.
@@ -187,7 +187,7 @@ describe('applyPasteIntent', () => {
     expect(pushEditOperations).toHaveBeenCalledTimes(1);
   });
 
-  it('routes an internal utility suggestion: seed first, then open, then strip', async () => {
+  it('routes a utility suggestion: seed first, then open, then strip', async () => {
     const { ctx, pushEditOperations } = makeCtx();
     const ok = await applyPasteIntent(
       { kind: 'utility', utilityId: 'jwt', source: 'aaa.bbb.ccc' },

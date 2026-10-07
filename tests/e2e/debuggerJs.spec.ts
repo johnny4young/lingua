@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /**
- * implementation — Debugger end-to-end smoke (JS).
+ * Debugger end-to-end smoke (JS).
  *
  * Drives the user-facing surface that the slice unlocks:
  *

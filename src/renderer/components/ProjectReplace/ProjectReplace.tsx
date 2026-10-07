@@ -1,5 +1,5 @@
 /**
- * implementation — "Replace in files" overlay (companion to
+ * "Replace in files" overlay (companion to
  * Cmd+Shift+F find-in-files).
  *
  * Layout mirrors `ProjectSearch` chrome (`OverlayBackdrop` +
@@ -7,10 +7,10 @@
  * Replace-with input below the Find input, regex + case toggles, a
  * grouped-by-file preview with inline before/after diff, per-file
  * `Apply` buttons + a global `Apply to all` confirmation modal,
- * an `Apply queue` progress strip (implementation note), per-match diff hover
- * popover (implementation note), an `Excludes` chip strip in the header (implementation note).
+ * an `Apply queue` progress strip, per-match diff hover
+ * popover, an `Excludes` chip strip in the header.
  *
- * Apply dispatch (implementation note — surface open tab before apply): when a
+ * Apply dispatch (surface open tab before apply): when a
  * replace targets a file already open in `editorStore.tabs` with a
  * matching `filePath`, the overlay switches the active tab to that
  * file FIRST so the user can observe the change. The substitution
@@ -56,7 +56,7 @@ import { useUIStore } from '../../stores/uiStore';
 const PREVIEW_DEBOUNCE_MS = 220;
 
 /**
- * implementation note — defaults documented by the main IPC's
+ * Defaults documented by the main IPC's
  * `shouldHide` predicate. Surfacing them in the overlay header as
  * muted chips prevents the "why isn't my replace finding it?"
  * confusion when the match lives inside an excluded directory.
@@ -73,7 +73,7 @@ interface ProjectReplaceProps {
 }
 
 function MatchDiff({ match }: { readonly match: ProjectReplaceMatch }) {
-  // implementation note — diff hover popover. The hover surface
+  // Diff hover popover. The hover surface
   // renders a fuller context window (5 lines of left+right context
   // would require the IPC to return surrounding lines, deferred to
   // a follow-up; for MVP we render the full single-line preview /
@@ -263,7 +263,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
   const handleApplyToFile = useCallback(
     async (relativePath: string) => {
       if (!currentProject) return;
-      // implementation note — if the file is currently open in a
+      // If the file is currently open in a
       // tab, switch the active tab to that file BEFORE applying so
       // the user can see the change on the surface they already had.
       // After the IPC apply succeeds, re-read the file from disk and
@@ -281,7 +281,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
         return;
       }
       const result = await applyToFileAction(relativePath);
-      // Reviewer-flagged HIGH (implementation note Monaco path was dead code).
+      // The previous Monaco-model path was dead code.
       // Refresh the in-memory tab from disk on success so the open
       // tab's buffer reflects the replacement.
       if (result.ok && matchingTab) {
@@ -289,7 +289,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
       }
       void trackEvent('editor.replace_in_files_applied', {
         scope: 'single-file',
-        // implementation reviewer pass — bucket the real replaced
+        // Reviewer pass — bucket the real replaced
         // count (0 included). The previous `|| 1` fallback mapped
         // every failed apply to bucket `'1'`, inflating the
         // "successful replace" telemetry with no-op events.

@@ -29,7 +29,7 @@ execution path — `docs/CAPABILITY_MATRIX.md`'s "native (desktop)" note is
 about asset resolution, not a separate interpreter). So one design covers both
 platforms.
 
-implementation's goal: **intentional, isolated per-notebook Python state** — cells within
+The goal: **intentional, isolated per-notebook Python state** — cells within
 one notebook share a namespace (so cell 2 sees cell 1's `import pandas as pd`
 and `df`), while notebook A, notebook B, and the editor scratchpad stay
 isolated from each other. Plus an explicit **Restart kernel** that clears one
@@ -102,7 +102,7 @@ worker (memory + a reopened same-id tab starting dirty).
    `editorStore.removeTab` both already route through `disposeNotebookSession`,
    restart + tab-close reset the scope for free; no new session API is added.
 4. **UI**: no new control — the notebook toolbar already has a "Restart kernel"
-   button, so implementation only wires the reset through the existing dispose path.
+   button, so the change only wires the reset through the existing dispose path.
    Update the Python cell hint ("shares state with other Python cells in this
    notebook") in i18n en/es (neutral LatAm tuteo).
 5. **Docs**: flip the `CAPABILITY_MATRIX.md` notebook row + a CHANGELOG entry.

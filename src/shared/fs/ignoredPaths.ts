@@ -1,5 +1,5 @@
 /**
- * internal — single source of truth for path prefixes that should never
+ * Single source of truth for path prefixes that should never
  * trigger re-index work in the renderer (or, in future work,
  * search-in-files / find-in-tree / project-wide indexing).
  *

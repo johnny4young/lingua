@@ -1,37 +1,40 @@
 /**
- * implementation — export a Lingua notebook to its native `.linguanb`
+ * Export a Lingua notebook to its native `.linguanb`
  * document, the lossless counterpart of `notebookExportToIpynb.ts`.
  *
  * Pure helper (mirrors `notebookExportToScript` / `notebookExportToIpynb`):
  * the component layer wraps the JSON in a `Blob` + `URL.createObjectURL`
  * for download (web) or hands it to the capability IPC for a disk save
- * (desktop, implementation note). No clipboard / no IPC here.
+ * (desktop). No clipboard / no IPC here.
  *
  * Unlike the `.ipynb` export, `.linguanb` is lossless — it embeds the
  * full `NotebookV1` plus the transient per-cell `[N]` execution-order
- * map (implementation note), so re-importing it via the `linguanbImporter` restores
+ * map, so re-importing it via the `linguanbImporter` restores
  * the notebook with nothing dropped.
  */
 
-import {
-  serializeNotebookDocument,
-  LINGUANB_FILE_EXTENSION,
-} from '../../../shared/notebookDocument';
-import type { NotebookV1 } from '../../../shared/notebook';
+import { LINGUANB_FILE_EXTENSION } from '../../../shared/notebookDocument';
+import { serializeNotebookDocumentWithinLimit, type NotebookV1 } from '../../../shared/notebook';
 
-/** Result of a `.linguanb` export — pretty-printed JSON + a suggested name. */
-export interface NotebookLinguanbExportResult {
-  /** Pretty-printed `.linguanb` JSON, ready for a `Blob`. */
-  readonly json: string;
-  /** Suggested file name (kebab-cased title + `.linguanb`). */
-  readonly suggestedFileName: string;
-}
+/**
+ * Result of a `.linguanb` export. Oversized documents are refused because
+ * the reader rejects them, so the exported file could never be reopened.
+ */
+export type NotebookLinguanbExportResult =
+  | {
+      readonly ok: true;
+      /** Pretty-printed `.linguanb` JSON, ready for a `Blob`. */
+      readonly json: string;
+      /** Suggested file name (kebab-cased title + `.linguanb`). */
+      readonly suggestedFileName: string;
+    }
+  | { readonly ok: false; readonly reason: 'oversized'; readonly limitKb: number };
 
 /**
  * Serialize a notebook to a `.linguanb` document.
  *
  * @param notebook the notebook to export.
- * @param opts.executionOrder per-cell Jupyter `[N]` stamps (implementation note); the
+ * @param opts.executionOrder per-cell Jupyter `[N]` stamps; the
  *   serializer sanitizes them to the document's cells + positive ints.
  *   The map is transient store state, so the caller threads it in.
  */
@@ -39,11 +42,15 @@ export function exportNotebookAsLinguanb(
   notebook: NotebookV1,
   opts: { executionOrder?: Readonly<Record<string, number>> } = {}
 ): NotebookLinguanbExportResult {
-  const json = serializeNotebookDocument(notebook, {
+  const outcome = serializeNotebookDocumentWithinLimit(notebook, {
     ...(opts.executionOrder ? { executionOrder: opts.executionOrder } : {}),
   });
+  if (!outcome.ok) {
+    return { ok: false, reason: 'oversized', limitKb: Math.floor(outcome.limit / 1024) };
+  }
   return {
-    json,
+    ok: true,
+    json: outcome.json,
     suggestedFileName: `${toKebabCase(notebook.title || 'notebook')}${LINGUANB_FILE_EXTENSION}`,
   };
 }

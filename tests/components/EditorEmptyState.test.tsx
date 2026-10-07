@@ -29,7 +29,7 @@ vi.mock('../../src/renderer/utils/languageMeta', () => ({
         : id.charAt(0).toUpperCase() + id.slice(1),
   languageBadgeClass: () => 'badge',
   extensionForLanguage: (id: string) => (id === 'typescript' ? 'ts' : 'js'),
-  // implementation closeout — the empty-state component now reads
+  // The empty-state component now reads
   // capability metadata to surface a "Desktop only" pill on the web
   // build. Mock the helper so jsdom default (no `window.lingua`)
   // resolves to a desktop build with no pill rendered.

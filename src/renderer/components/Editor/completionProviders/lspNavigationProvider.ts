@@ -3,6 +3,8 @@ import type { LspLanguageIntelligenceAdapter } from '../../../languageIntelligen
 import { useEditorStore } from '../../../stores/editorStore';
 import { useProjectStore } from '../../../stores/projectStore';
 import { joinAbsolute, pathToFileUri } from '../../../utils/filePath';
+import type { RelativePath } from '../../../../shared/fs/brandedIds';
+import { ensureLspPreviewModels } from './lspPreviewModels';
 
 /** Every destination is authorized in main before Monaco receives a navigable URI. */
 export function createLspNavigationProviders(
@@ -72,11 +74,13 @@ export function createLspNavigationProviders(
           : await service.provideDefinition?.(uri, position.lineNumber, position.column);
       if (!fresh()) return [];
       const authorized = [];
+      const relativePaths: RelativePath[] = [];
       for (const destination of destinations ?? []) {
         if (!fresh()) return [];
         const relativePath = await window.lingua.lsp.resolveTarget(project.rootId, destination.uri);
         if (!fresh()) return [];
         if (!relativePath) continue;
+        relativePaths.push(relativePath);
         authorized.push({
           uri: monaco.Uri.parse(pathToFileUri(joinAbsolute(project.rootPath, relativePath))),
           range: {
@@ -87,6 +91,7 @@ export function createLspNavigationProviders(
           },
         });
       }
+      if (!(await ensureLspPreviewModels(monaco, project, relativePaths, fresh))) return [];
       return authorized;
     } catch {
       return [];

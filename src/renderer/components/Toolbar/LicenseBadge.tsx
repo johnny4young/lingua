@@ -10,7 +10,7 @@ import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
  * paid styling silently. Purely a read-only surface — clicking routes the
  * user to the License settings section via the supplied handler.
  *
- * FASE 2b (MOV.05) — the hand-rolled `status-pill` span now wraps the
+ * The hand-rolled `status-pill` span now wraps the
  * shared `<StatusBadge>` primitive: `free` → quiet outline, any paid
  * tier → slate accent ramp with a leading dot. The structural element
  * (span when read-only, button when `onClick` is supplied) keeps every

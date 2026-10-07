@@ -1,5 +1,5 @@
 /**
- * implementation — `lessonRunner` tests.
+ * `lessonRunner` tests.
  *
  * Covers:
  *   - `buildLessonRunSource` composition shape + sentinel inclusion.

@@ -1,5 +1,5 @@
 /**
- * internal — bootstrap progress store + the loading-line composer.
+ * Bootstrap progress store + the loading-line composer.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';

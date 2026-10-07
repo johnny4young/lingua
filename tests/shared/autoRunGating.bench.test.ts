@@ -1,5 +1,5 @@
 /**
- * implementation note — auto-run gating performance defense.
+ * auto-run gating performance defense.
  *
  * The gate runs on every debounced auto-run keystroke. A regression
  * to "let's just call the TS worker / Monaco diagnostics" would push
@@ -50,7 +50,7 @@ function buildBuffer(minBytes: number): string {
   // unbalanced and the gate would correctly report `incomplete`,
   // confusing the test assertion.
   const sample = [
-    '// Generated benchmark fixture — implementation note.',
+    '// Generated benchmark fixture.',
     'const items = [1, 2, 3, 4, 5].map((n) => n * n);',
     'const greet = (name) => `hello ${name}, ${items.length} items`;',
     'function compute(a, b) {',

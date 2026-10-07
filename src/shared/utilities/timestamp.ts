@@ -1,5 +1,5 @@
 /**
- * implementation note — `timestamp` adapter.
+ * `timestamp` adapter.
  *
  * Parses a Unix epoch (seconds or milliseconds) OR a date string and
  * emits a deterministic multi-line readout: ISO 8601 (UTC), epoch

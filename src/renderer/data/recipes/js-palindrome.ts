@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-palindrome`.
+ * Recipe `js-palindrome`.
  *
  * Detect palindromes. Exercises string normalization + reverse-and-
  * compare. Tests cover punctuation + casing.

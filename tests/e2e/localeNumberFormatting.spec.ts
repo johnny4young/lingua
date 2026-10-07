@@ -20,7 +20,7 @@ async function selectedMaxIterations(page: import('@playwright/test').Page) {
   return select.locator('option:checked');
 }
 
-test.describe('internal locale-aware numeric formatting', () => {
+test.describe('locale-aware numeric formatting', () => {
   test('uses English grouping in Settings', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

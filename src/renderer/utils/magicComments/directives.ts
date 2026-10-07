@@ -13,8 +13,8 @@ import type { MagicCommentDirective } from './types';
 
 const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'table',
-  // implementation — chart / image / html become recognised
-  // directive words. implementation (JS / TS) + implementation (Python) wire
+  // Chart / image / html become recognised
+  // directive words. The JS / TS and Python detectors wire
   // the runner-side payload upgrade so the directive contract is now
   // fully live cross-language.
   'chart',
@@ -22,7 +22,7 @@ const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'html',
 ]);
 
-// implementation-β-β-α implementation note — directive aliases. Maps user-facing
+// Directive aliases. Maps user-facing
 // shorthand to the canonical `MagicCommentDirective`. `figure` matches
 // the matplotlib convention (`plt.show()` → "figure"); the runner
 // receives the canonical name so the payload conversion stays single-
@@ -43,7 +43,7 @@ export function parseDirective(raw: string | undefined): MagicCommentDirective |
 }
 
 /**
- * implementation note — `// @timeout 60s` (JS / TS) and `# @timeout
+ * `// @timeout 60s` (JS / TS) and `# @timeout
  * 60s` (Python). The first matching directive wins; later directives
  * are ignored so a forgotten copy-paste doesn't keep extending the
  * deadline silently.
@@ -95,7 +95,7 @@ export function extractTimeoutMagicComment(
 }
 
 /**
- * implementation Sub-slice G implementation note — `// @origin off` (JS / TS) and
+ * `// @origin off` (JS / TS) and
  * `# @origin off` (Python) per-tab directive that suppresses the
  * `<OutputLineBadge>` chip for sensitive logs. Users pasting tokens
  * or stack traces they don't want leaked through capsule export
@@ -110,7 +110,7 @@ export function extractTimeoutMagicComment(
  * `@origin on` (re-enable mid-buffer) would require its own scope
  * and conflicts with the per-tab persistence model.
  */
-// WARNING — implementation Sub-slice G.1 implementation note: this regex matches anywhere
+// WARNING: this regex matches anywhere
 // in the buffer, including INSIDE string literals. A line like
 // `console.log("// @origin off")` will trip the directive and silently
 // suppress the chip even though the user only wanted to log the
@@ -134,7 +134,7 @@ export function originSuppressedByMagicComment(
 /**
  * Whole-buffer pragma enabling per-statement timing for this run.
  * `\b` keeps `@timeout` (whose next char is a word char) from matching.
- * JS/TS only in implementation, hence the `//`-only comment opener.
+ * JS/TS only, hence the `//`-only comment opener.
  */
 const TIME_DIRECTIVE_COMMENT_RE = /^\s*@time\b/iu;
 

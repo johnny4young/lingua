@@ -3,6 +3,7 @@
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
+import path from 'node:path';
 import {
   asRelativePath,
   asWatchId,
@@ -34,7 +35,7 @@ interface WatcherEntry {
 
 const watchers = new Map<WatchId, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, WatchId>();
-// internal hardening  — tie each watcher to the webContents that
+// Hardening: tie each watcher to the webContents that
 // created it so a window close (macOS keeps the app alive with no
 // window) or a renderer reload does not leak the recursive project
 // watcher. Without this, `before-quit` was the ONLY cleanup for these
@@ -68,7 +69,7 @@ function stopWatcherById(watchId: WatchId): boolean {
   if (entry.senderId !== undefined) {
     forgetWatcherForSender(entry.senderId, watchId);
   }
-  // internal — drop the per-watcher burst tracker entry so a long
+  // Drop the per-watcher burst tracker entry so a long
   // session that opens + closes many projects under inotify load
   // does not accumulate dead UUIDs in the map.
   nullFilenameBursts.delete(watchId);
@@ -92,7 +93,7 @@ function stopWatchersForSender(senderId: number): void {
 }
 
 /**
- * internal — purge every active watcher. Called from `before-quit` so
+ * Purge every active watcher. Called from `before-quit` so
  * Node's fs.watch handles never outlive the process.
  */
 function stopAllWatchers(): void {
@@ -117,7 +118,7 @@ function stopAllWatchers(): void {
 let beforeQuitListenerInstalled = false;
 
 /**
- * internal — install the `before-quit` handler exactly once. Called
+ * Install the `before-quit` handler exactly once. Called
  * lazily from `registerFileSystemHandlers` because Electron's `app`
  * is not safe to `app.on(...)` against in test setup that mocks the
  * module without a real lifecycle.
@@ -130,7 +131,7 @@ function ensureBeforeQuitCleanup(): void {
 }
 
 /**
- * internal — null-filename burst tracker. Some platforms (Linux inotify
+ * null-filename burst tracker. Some platforms (Linux inotify
  * under load) drop the entry name from `fs.watch` callbacks; a sustained
  * burst suggests the watcher is overwhelmed. Track per-watchId and emit
  * `fs:watcher-degraded` once per 5s window when the count crosses the
@@ -165,7 +166,7 @@ function recordNullFilenameBurst(watchId: WatchId): boolean {
 }
 
 /**
- * internal — exported for tests so we can simulate a burst without
+ * Exported for tests so we can simulate a burst without
  * spinning up a real watcher.
  */
 export function _resetWatcherBurstTrackerForTests(): void {
@@ -173,13 +174,21 @@ export function _resetWatcherBurstTrackerForTests(): void {
 }
 
 /**
- * internal — exported for tests that re-run `registerFileSystemHandlers`
+ * Exported for tests that re-run `registerFileSystemHandlers`
  * across cases. Without this, the `beforeQuitListenerInstalled` flag
  * stays true between cases and the second `registerFileSystemHandlers`
  * call becomes a silent no-op.
  */
 export function _resetBeforeQuitInstallStateForTests(): void {
   beforeQuitListenerInstalled = false;
+}
+
+/**
+ * Recursive `fs.watch` reports nested names with the native separator; the
+ * renderer keys every tree node and tab by `/`-separated paths.
+ */
+export function toWatchRelativeName(filename: string, separator: string = path.sep): string {
+  return separator === '\\' ? filename.replace(/\\/g, '/') : filename;
 }
 
 export function registerWatcherHandlers(): void {
@@ -209,7 +218,7 @@ export function registerWatcherHandlers(): void {
       }
       const watchId = asWatchId(randomUUID());
 
-      // internal — wrap fs.watch in try/catch so registration failures
+      // Wrap fs.watch in try/catch so registration failures
       // (EACCES, EMFILE, ENOSPC, ENOENT) surface as a typed diagnostic
       // to the renderer instead of crashing the IPC handler.
       let watcher: ReturnType<typeof watch>;
@@ -248,7 +257,7 @@ export function registerWatcherHandlers(): void {
             // The watcher reports filenames relative to the watched
             // dir; convert to a path relative to the project root so
             // the renderer always speaks the same coordinate space.
-            const fileName = String(filename);
+            const fileName = toWatchRelativeName(String(filename));
             const eventRelative = asRelativePath(
               joinRelative(relativePath, fileName)
             );

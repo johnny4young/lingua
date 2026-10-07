@@ -1,5 +1,5 @@
 /**
- * internal — runner.executed telemetry wiring.
+ * runner.executed telemetry wiring.
  *
  * These tests isolate `executeTabManually` behind hoisted mocks for
  * `runnerManager`, the telemetry emitter, and the console + result

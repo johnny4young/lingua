@@ -1,18 +1,13 @@
 import { SendHorizontal, Plus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../../data/keyboardShortcuts';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { EmptyState } from '../ui/EmptyState';
 import { Kbd } from '../ui/ModalShell';
 
 /**
- * internal — actionable empty state for the HTTP workspace collection.
+ * Actionable empty state for the HTTP workspace collection.
  *
  * The collection is a single COLLECTION workspace tab (not one tab per
  * request), so when it holds no requests the panel used to show a
@@ -24,22 +19,10 @@ import { Kbd } from '../ui/ModalShell';
  */
 function useImportShortcutCombo(): string | null {
   const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
-  return useMemo(() => {
-    const runtimePlatform =
-      typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
-    const navigatorPlatform =
-      typeof navigator !== 'undefined' ? navigator.platform : undefined;
-    const displayPlatform = resolveShortcutDisplayPlatform(
-      runtimePlatform,
-      navigatorPlatform
-    );
-    const definition = KEYBOARD_SHORTCUTS.find(
-      entry => entry.id === 'action-open-import-overlay'
-    );
-    if (!definition) return null;
-    const combo = resolveCombos(definition, shortcutOverrides)[0];
-    return combo ? formatShortcutCombo(combo, displayPlatform) : null;
-  }, [shortcutOverrides]);
+  return useMemo(
+    () => formatShortcutLabel('action-open-import-overlay', shortcutOverrides),
+    [shortcutOverrides]
+  );
 }
 
 export function HttpEmptyState({ onCreate }: { onCreate: () => void }) {

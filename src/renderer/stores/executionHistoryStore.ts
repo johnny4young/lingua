@@ -1,15 +1,15 @@
 /**
- * implementation — execution history ring-buffer store.
+ * Execution history ring-buffer store.
  *
  * Captures metadata for the last N manual/auto runs so future work can
  * render "Recent runs" surfaces (command palette entry, drawer, metrics
  * dashboard) without re-wiring the execution path. This store NEVER
  * persists across reloads — keeping history in memory is a deliberate
- * privacy choice, same spirit as the internal telemetry posture. No code
+ * privacy choice, same spirit as the telemetry posture. No code
  * body, no stdout / stderr, no file path is captured by default — only the
  * bucketed metadata the future UI actually needs.
  *
- * implementation — opt-in code snapshot. When the caller passes a
+ * opt-in code snapshot. When the caller passes a
  * `snapshot` payload (gated upstream by `executionHistorySnapshotEnabled`
  * in `settingsStore` and a Pro entitlement check in
  * `executeTabManually`), the entry retains the source code at execution
@@ -61,7 +61,7 @@ export interface ExecutionHistoryEntry {
    */
   snapshot: ExecutionHistorySnapshot | null;
   /**
-   * implementation — id of the editor tab that produced this run.
+   * Id of the editor tab that produced this run.
    * Optional so legacy entries and any future tab-less call site
    * (programmatic tests, future replay-by-script paths) continue to
    * record without churn. The per-tab pill in the result panel uses
@@ -71,14 +71,14 @@ export interface ExecutionHistoryEntry {
    */
   tabId?: string;
   /**
-   * implementation note — user-pinned entry. When `true`, the FIFO
+   * user-pinned entry. When `true`, the FIFO
    * eviction skips this entry: pinned rows survive past the 50-entry
    * ring cap until the user explicitly unpins them. Default `false`
    * for every recorded entry; the popover toggles it via `togglePin`.
    */
   pinned?: boolean;
   /**
-   * implementation note / implementation note — captured RunCapsuleV1 for
+   * Captured RunCapsuleV1 for
    * the most recent runs. Only the newest tier-aware capsule-cap entries
    * carry this (`CAPSULE_LRU_CAP` for Free, `CAPSULE_LRU_CAP_PRO` for
    * paid tiers); older entries lose `lastCapsule` on subsequent records
@@ -106,13 +106,13 @@ interface ExecutionHistoryRecord {
    */
   snapshot?: { code: string; language: string } | null;
   /**
-   * implementation — id of the editor tab that produced this run.
+   * Id of the editor tab that produced this run.
    * Required by the per-tab pill but optional on the record contract
    * so legacy / programmatic call sites stay compatible.
    */
   tabId?: string;
   /**
-   * implementation — optional captured capsule. When present,
+   * Optional captured capsule. When present,
    * the store attaches it to the new entry and prunes `lastCapsule` from
    * any entry beyond the current tier-aware capsule cap so the in-memory
    * cost stays bounded. Omit when the run produced no capsule.
@@ -121,7 +121,7 @@ interface ExecutionHistoryRecord {
 }
 
 /**
- * implementation note — cap on how many entries retain their
+ * Cap on how many entries retain their
  * captured capsule. Capsules embed the full source + stdout/stderr
  * and can be hundreds of KB; keeping all 50 history entries' capsules
  * resident would dominate the renderer's heap on long sessions. The
@@ -129,7 +129,7 @@ interface ExecutionHistoryRecord {
  * Settings → Account "Export latest run" reads the newest, and any
  * history-list view  can re-build on demand.
  *
- * implementation note — the cap is now tier-aware. Free keeps the
+ * The cap is now tier-aware. Free keeps the
  * 5-entry ceiling; paid tiers (anything granting `EXECUTION_HISTORY`)
  * retain `CAPSULE_LRU_CAP_PRO` so the Pro-gated capsule browse view
  * (`<CapsuleListOverlay>`) has more than a handful of rows to show.
@@ -141,7 +141,7 @@ interface ExecutionHistoryRecord {
 export const CAPSULE_LRU_CAP = 5;
 
 /**
- * implementation note — paid-tier capsule retention ceiling. Chosen
+ * paid-tier capsule retention ceiling. Chosen
  * at 20 so the browse view is meaningfully deeper than the Free cap
  * without letting in-memory capsules dominate the heap on long
  * sessions (20 × 1 MiB worst case, typically far less).
@@ -242,14 +242,14 @@ export interface ExecutionHistoryState {
   entries: readonly ExecutionHistoryEntry[];
   record: (input: ExecutionHistoryRecord) => ExecutionHistoryEntry;
   /**
-   * implementation — newest-first walk for the first entry that still
+   * newest-first walk for the first entry that still
    * carries a `lastCapsule`. Returns `null` when no entry has one
    * (fresh session, or LRU evicted them all). Cheap; no allocation
    * beyond the find().
    */
   latestCapsule: () => RunCapsuleV1 | null;
   /**
-   * implementation — newest-first list of the entries that still carry
+   * newest-first list of the entries that still carry
    * a `lastCapsule`, for the Pro-gated capsule browse overlay. Only the
    * retained (`resolveCapsuleCap()`) entries qualify; older runs whose
    * capsule the LRU stripped are excluded. Returns a fresh array on
@@ -261,7 +261,7 @@ export interface ExecutionHistoryState {
   capsuleEntries: () => readonly ExecutionHistoryEntry[];
   clear: () => void;
   /**
-   * implementation note — drop the captured capsule from a single
+   * Drop the captured capsule from a single
    * history entry while keeping the run row itself. Lets a user remove
    * a capsule whose source is sensitive before exporting or sharing.
    * No-op when `id` is unknown or the entry has no capsule.
@@ -278,14 +278,14 @@ export interface ExecutionHistoryState {
   restoreCapsule: (id: string, capsule: RunCapsuleV1) => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
   /**
-   * implementation — return only the entries recorded against this
+   * Return only the entries recorded against this
    * editor tab, newest first. Entries with `tabId: undefined` are
    * excluded so the per-tab pill never surfaces legacy or
    * programmatic entries the user didn't drive themselves.
    */
   byTabId: (tabId: string) => readonly ExecutionHistoryEntry[];
   /**
-   * implementation note — toggle the `pinned` flag for an entry.
+   * Toggle the `pinned` flag for an entry.
    * No-op when `id` is unknown. Pinned entries skip FIFO eviction so
    * the user can keep a sticky reference without grooming the ring
    * buffer.
@@ -309,11 +309,11 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       durationMs: input.durationMs,
       timestamp,
       snapshot,
-      // implementation — `tabId` is optional on the record contract;
+      // `tabId` is optional on the record contract;
       // omit the field entirely when the caller passed nothing so the
       // serialized shape stays stable for legacy callers.
       ...(input.tabId !== undefined ? { tabId: input.tabId } : {}),
-      // implementation — attach the captured capsule. Pruning of older
+      // Attach the captured capsule. Pruning of older
       // entries' capsules happens in the `set` below so the cap is
       // applied AFTER the FIFO drop, never before.
       ...(input.lastCapsule !== undefined
@@ -322,7 +322,7 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
     };
     set((state) => {
       const next = [...state.entries, entry];
-      // implementation note — FIFO drop keeps the newest 50, but
+      // FIFO drop keeps the newest 50, but
       // pinned entries are exempt. We drop the oldest UNPINNED entry
       // first; if every slot is pinned the buffer is allowed to grow
       // past `MAX_HISTORY_ENTRIES` (rare in practice — pinning every
@@ -336,10 +336,10 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
           ...trimmed.slice(oldestUnpinnedIdx + 1),
         ];
       }
-      // implementation note — capsule LRU cap. Walk newest-first;
+      // Capsule LRU cap. Walk newest-first;
       // keep `lastCapsule` on the first `cap` entries that have one,
       // strip it from the rest. Idempotent across records. The cap is
-      // resolved per-record (implementation note) so a license tier
+      // resolved per-record so a license tier
       // change takes effect on the next run without a store reset.
       return { entries: pruneCapsulesToCap(trimmed) };
     });

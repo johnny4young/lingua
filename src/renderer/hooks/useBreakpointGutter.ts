@@ -5,7 +5,7 @@ import type { Language } from '../types/language';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 
 /**
- * implementation — Monaco glyph-margin integration for breakpoints.
+ * Monaco glyph-margin integration for breakpoints.
  *
  * Renders one dot per breakpoint in the active tab and turns clicks on
  * the gutter into `toggleBreakpoint(tabId, line)` calls. Disabled

@@ -10,10 +10,12 @@ import {
 } from '../../../shared/workflowMode';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
 
 /**
- * implementation — per-tab workflow-mode segmented control.
+ * per-tab workflow-mode segmented control.
  *
  * Renders three segments — Run / Debug / Scratchpad — next to the
  * existing Run button. The active tab's mode is highlighted; segments
@@ -23,7 +25,7 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
  * Layout:
  *
  *   - Mode segments are <button>s inside a `role="group"` container
- *     with arrow-key navigation. implementation note — arrow keys SKIP disabled
+ *     with arrow-key navigation. Arrow keys SKIP disabled
  *     segments instead of stopping on them so keyboard users never
  *     land on a no-op slot.
  *
@@ -42,7 +44,7 @@ import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
  *   - Click a disabled segment → noop; the tooltip already explains
  *     when the mode lands.
  *
- *   - implementation note — first time the user switches AWAY from Scratchpad,
+ *   - First time the user switches AWAY from Scratchpad,
  *     `editorStore.setTabWorkflowMode` surfaces a one-shot status
  *     notice explaining the modes. Centralizing it in the store keeps
  *     toolbar clicks and the keyboard cycle consistent.
@@ -70,6 +72,8 @@ const MODE_UNSUPPORTED_HINT_KEY: Record<WorkflowMode, string> = {
 
 export function WorkflowModeSegment() {
   const { t } = useTranslation();
+  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
+  const runShortcut = { combo: formatShortcutLabel('run-toggle', shortcutOverrides) ?? '' };
   const setTabWorkflowMode = useEditorStore((state) => state.setTabWorkflowMode);
   const groupRef = useRef<HTMLDivElement | null>(null);
 
@@ -89,7 +93,7 @@ export function WorkflowModeSegment() {
   if (supportedModes.length <= 1) {
     const onlyMode = supportedModes[0] ?? 'run';
     return (
-      <Tooltip content={t('workflowMode.toggle.description')}>
+      <Tooltip content={t('workflowMode.toggle.description', runShortcut)}>
         <span
           data-testid="workflow-mode-segment-collapsed"
           data-workflow-mode={onlyMode}
@@ -107,7 +111,7 @@ export function WorkflowModeSegment() {
     setTabWorkflowMode(activeTab.id, mode);
   };
 
-  // implementation note — arrow-key navigation that SKIPS disabled segments.
+  // arrow-key navigation that SKIPS disabled segments.
   // Tab still moves focus to the next focusable element outside the
   // group; arrows cycle inside the supported subset.
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -137,7 +141,7 @@ export function WorkflowModeSegment() {
     <div
       ref={groupRef}
       role="group"
-      aria-label={t('workflowMode.toggle.description')}
+      aria-label={t('workflowMode.toggle.description', runShortcut)}
       data-testid="workflow-mode-segment"
       data-workflow-mode={currentMode}
       onKeyDown={handleKeyDown}

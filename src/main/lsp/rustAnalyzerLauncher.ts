@@ -11,7 +11,7 @@ import type { RustAnalyzerStatus } from '../../shared/lspLauncherTypes';
 export type { RustAnalyzerStatus } from '../../shared/lspLauncherTypes';
 
 /**
- * implementation — rust-analyzer launcher.
+ * rust-analyzer launcher.
  *
  * Wraps `LspProcess` with rust-analyzer-specific concerns:
  *   - Detection: PATH lookup first (most common path on macOS/Linux
@@ -58,6 +58,7 @@ const RUST_ANALYZER_BIN = process.platform === 'win32' ? 'rust-analyzer.exe' : '
 const FALLBACK_BIN_PATHS = [path.join(HOME_CARGO_BIN, RUST_ANALYZER_BIN)] as const;
 
 const RESTART_BACKOFF_MS = 500;
+const DISPOSED_STATUS: RustAnalyzerStatus = { kind: 'startup-failed', error: 'Launcher disposed' };
 
 /**
  * Resolve the rust-analyzer binary path. Returns the literal name when
@@ -108,7 +109,7 @@ async function detectRustAnalyzerVersion(command: string): Promise<string | null
 }
 
 function buildLauncherEnv(): NodeJS.ProcessEnv {
-  // implementation note — host secrets stay out of the subprocess. user env
+  // Host secrets stay out of the subprocess. user env
   // is intentionally NOT layered here: LSP servers should not inherit
   // arbitrary user vars (no eval, no compile, just analysis).
   return buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS), undefined);
@@ -131,9 +132,7 @@ export class RustAnalyzerLauncher {
   }
 
   start(): Promise<RustAnalyzerStatus> {
-    if (this.disposed) {
-      return Promise.resolve({ kind: 'startup-failed', error: 'Launcher disposed' });
-    }
+    if (this.disposed) return Promise.resolve(DISPOSED_STATUS);
     // In-flight guard: `start()` is async and yields at the binary
     // resolution step (up to 5s timeout). Two concurrent callers (two
     // BrowserWindows, a fast double-click on Restart, the boot-trigger
@@ -153,6 +152,7 @@ export class RustAnalyzerLauncher {
     this.setStatus({ kind: 'starting' });
 
     const binary = await resolveRustAnalyzerBinary();
+    if (this.disposed) return DISPOSED_STATUS;
     if (!binary) {
       const status: RustAnalyzerStatus = {
         kind: 'missing',
@@ -163,6 +163,7 @@ export class RustAnalyzerLauncher {
     }
 
     const version = await detectRustAnalyzerVersion(binary.command);
+    if (this.disposed) return DISPOSED_STATUS;
     if (!version) {
       const status: RustAnalyzerStatus = {
         kind: 'startup-failed',
@@ -224,6 +225,8 @@ export class RustAnalyzerLauncher {
   }
 
   private async spawnAndInitialize(command: string, version: string): Promise<RustAnalyzerStatus> {
+    // Detection awaits can outlive dispose(); a child spawned now would be untracked.
+    if (this.disposed) return DISPOSED_STATUS;
     const lsp = new LspProcess({
       command,
       env: buildLauncherEnv(),
@@ -321,6 +324,7 @@ export class RustAnalyzerLauncher {
 
   private async spawnAndInitializeRecovery(exitDetail: string): Promise<void> {
     const binary = await resolveRustAnalyzerBinary();
+    if (this.disposed) return;
     if (!binary) {
       this.setStatus({
         kind: 'degraded',
@@ -329,6 +333,7 @@ export class RustAnalyzerLauncher {
       return;
     }
     const version = await detectRustAnalyzerVersion(binary.command);
+    if (this.disposed) return;
     if (!version) {
       this.setStatus({
         kind: 'degraded',

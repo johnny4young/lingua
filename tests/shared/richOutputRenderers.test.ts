@@ -15,7 +15,7 @@ import {
   type RichOutputHtml,
 } from '../../src/shared/richOutput';
 
-describe('implementation — validateImageSrc', () => {
+describe('validateImageSrc', () => {
   it('accepts data:image/ URLs', () => {
     expect(validateImageSrc('data:image/png;base64,abc')).toBe(
       'data:image/png;base64,abc'
@@ -80,7 +80,7 @@ describe('implementation — validateImageSrc', () => {
   });
 });
 
-describe('implementation — clampHtmlHeight', () => {
+describe('clampHtmlHeight', () => {
   it('returns the default when no height is requested', () => {
     expect(clampHtmlHeight(undefined)).toBe(DEFAULT_HTML_PAYLOAD_HEIGHT_PX);
   });
@@ -105,7 +105,7 @@ describe('implementation — clampHtmlHeight', () => {
   });
 });
 
-describe('implementation — validateHtmlPayload', () => {
+describe('validateHtmlPayload', () => {
   it('accepts a normal html string', () => {
     expect(validateHtmlPayload('<div>Hello</div>')).toBe('<div>Hello</div>');
   });
@@ -124,7 +124,7 @@ describe('implementation — validateHtmlPayload', () => {
   });
 });
 
-describe('implementation — RichOutputHtml discriminator', () => {
+describe('RichOutputHtml discriminator', () => {
   it('isRichOutputPayload accepts html kind', () => {
     const payload: RichOutputHtml = { kind: 'html', html: '<p>x</p>' };
     expect(isRichOutputPayload(payload)).toBe(true);
@@ -140,7 +140,7 @@ describe('implementation — RichOutputHtml discriminator', () => {
   });
 });
 
-describe('implementation — validateChartSpec', () => {
+describe('validateChartSpec', () => {
   it('accepts a minimal vega-lite spec with inline data.values', () => {
     const spec = {
       mark: 'bar',

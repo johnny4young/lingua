@@ -38,9 +38,10 @@ const locale: Locale = 'es';
           para macOS, Windows o Linux.
         </li>
         <li>
-          <strong>Pega el token.</strong> En la app ve a <em>Settings → License → Paste a license token</em>.
-          La activación es offline: Lingua verifica la firma Ed25519 contra una llave pública
-          incluida en el binario, sin phone-home.
+          <strong>Pega el token.</strong> En la app ve a <em>Configuración → Cuenta → Licencia → Pega un token de licencia</em>.
+          Lingua verifica la firma Ed25519 offline contra una llave pública incluida en el
+          binario y luego registra este dispositivo en el servidor de licencias. Si el servidor
+          no responde, la licencia verificada localmente sigue funcionando mientras Lingua reintenta.
         </li>
       </ol>
     </section>
@@ -55,7 +56,7 @@ const locale: Locale = 'es';
         </li>
         <li>
           <strong>Dispositivos.</strong> Un token de pago activa un conjunto pequeño de máquinas
-          (actualmente tres para Pro). Gestiónalos desde <em>Settings → License</em> en la app —
+          (actualmente tres para Pro). Gestiónalos desde <em>Configuración → Cuenta → Licencia</em> en la app —
           consulta <a href={localizePath(locale, '/licensing')}>licencias</a> para la política
           completa.
         </li>

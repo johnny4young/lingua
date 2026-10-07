@@ -1,16 +1,16 @@
 /**
- * implementation — LanguageSupportScorecard component tests.
+ * LanguageSupportScorecard component tests.
  *
  * Covers:
  *   1. Renders a row per `LANGUAGE_SUPPORT_PROFILES` entry and a
  *      column per `LANGUAGE_CAPABILITIES` axis.
- *   2. Per-platform chip (implementation note) renders only when a profile has a
+ *   2. Per-platform chip renders only when a profile has a
  *      `perPlatform` override (Ruby is the canonical case).
- *   3. Legend popover (implementation note) is closed by default, opens on click,
+ *   3. Legend popover is closed by default, opens on click,
  *      and lists every `LanguageCapabilityStatus`.
- *   4. implementation note stayed dropped: no closed-source CTA, planning label, or
+ *   4. No closed-source CTA, planning label, or
  *      private repo URL leaks into the scorecard.
- *   5. Adoption telemetry (implementation note) fires `language_scorecard_viewed`
+ *   5. Adoption telemetry fires `language_scorecard_viewed`
  *      once per surface via the no-IntersectionObserver fallback path,
  *      and the module-level guard prevents double-fire on remount.
  *      `markLanguageScorecardSurfaceForNextMount('palette')` claims
@@ -57,7 +57,7 @@ describe('LanguageSupportScorecard', () => {
     await i18next.changeLanguage('en');
     _resetLanguageScorecardAdoptionGuardForTesting();
     trackEventMock.mockReset();
-    // implementation — reset the sticky platform filter so a toggle in one
+    // Reset the sticky platform filter so a toggle in one
     // test never leaks the resolved-cell view into the next.
     useSettingsStore.setState({ languageScorecardPlatform: 'all' });
     // Force the no-IntersectionObserver fallback so telemetry fires
@@ -217,7 +217,7 @@ describe('LanguageSupportScorecard', () => {
     expect(calls).toEqual([{ surface: 'settings' }, { surface: 'palette' }]);
   });
 
-  // implementation — Web | Desktop platform filter.
+  // Web | Desktop platform filter.
   const toggledCalls = () =>
     trackEventMock.mock.calls.filter(
       (args) => args[0] === 'language_scorecard_platform_toggled'

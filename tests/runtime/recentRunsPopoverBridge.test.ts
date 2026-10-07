@@ -1,5 +1,5 @@
 /**
- * implementation note — module-level popover-opener handle.
+ * module-level popover-opener handle.
  *
  * Locks:
  *   - `toggleRecentRunsPopover` returns `false` when no opener is

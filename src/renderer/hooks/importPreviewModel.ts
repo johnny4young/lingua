@@ -10,9 +10,9 @@ import type {
 } from '../../shared/importers/playgroundUrlImport';
 import {
   previewPostmanWithVariables,
-  type CollectionImporterPreview,
   type PostmanVariableSourceStatus,
 } from '../../shared/importers/postmanImporter';
+import type { CollectionImporterPreview } from '../../shared/importers/collectionTypes';
 import { detectImporter, getImporter } from '../../shared/importers/registry';
 import type {
   ImportFlowId,

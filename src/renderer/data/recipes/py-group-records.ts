@@ -1,4 +1,4 @@
-/** implementation — Recipe `py-group-records`. */
+/** Recipe `py-group-records`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

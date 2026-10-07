@@ -1,5 +1,5 @@
 /**
- * implementation — Floating, draggable action pill.
+ * Floating, draggable action pill.
  *
  * Replaces the centre cluster of the chrome toolbar (Run+Debug split,
  * Workflow segment, Runtime selector, New-file menu) with a single
@@ -29,7 +29,7 @@
  * not mounted invisibly beside this surface. Both controls resolve
  * product eligibility through one pure execution-control policy.
  *
- * internal / implementation — the pill's segments live in sibling files
+ * The pill's segments live in sibling files
  * (`FloatingActionPill<Part>.tsx`) and its logic in
  * `useFloatingActionPill`; this file wires them together.
  */
@@ -40,6 +40,7 @@ import { GripVertical, Settings as SettingsIcon } from 'lucide-react';
 import { Tooltip } from '../ui/chrome';
 import { RunHistoryDots } from '../ui/primitives';
 import { cn } from '../../utils/cn';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useFloatingActionPill } from './useFloatingActionPill';
 import { FloatingActionPillLanguageSegment } from './FloatingActionPillLanguageSegment';
 import { FloatingActionPillRuntimeSegment } from './FloatingActionPillRuntimeSegment';
@@ -52,7 +53,7 @@ interface FloatingActionPillProps {
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
   /**
-   * implementation Slice B implementation note — Opens the Recipes overlay (`Mod+Alt+L`).
+   * Opens the Recipes overlay (`Mod+Alt+L`).
    * When provided, the pill mounts a graduation-cap icon button +
    * progress badge between Utilities and Settings.
    */
@@ -77,6 +78,8 @@ export function FloatingActionPill({
   onOpenSettings,
 }: FloatingActionPillProps) {
   const { t } = useTranslation();
+  const saveCombo = useShortcutLabel('file-save');
+  const settingsCombo = useShortcutLabel('overlay-settings');
   const {
     container,
     pillRef,
@@ -121,7 +124,7 @@ export function FloatingActionPill({
   if (!container) return null;
 
   return createPortal(
-    // internal review — only the drag handle gets the grab cursor.
+    // Only the drag handle gets the grab cursor.
     // The previous version applied `cursor-grab`/`cursor-grabbing` to
     // the whole pill div, which made every chip (Lang, Workflow, Run,
     // …) look draggable when only the leading handle is.
@@ -170,7 +173,7 @@ export function FloatingActionPill({
 
         <span className="action-pill-divider" />
 
-        {/* implementation — runtime chip stays separate (orthogonal to
+        {/* Runtime chip stays separate (orthogonal to
             workflow). The old "Workflow" chip + separate "Run" split
             button were merged into a single mode-aware action button at
             the end of the pill (see "Mode-aware action button" below). */}
@@ -240,7 +243,7 @@ export function FloatingActionPill({
       {/* 5. Autosave dot — Lingua persists every keystroke locally, so
               the chip is informational rather than a toggle. Surfaces
               a tooltip explaining the always-on behaviour. */}
-      <Tooltip content={t('actionPill.autosaveTooltip')}>
+      <Tooltip content={t('actionPill.autosaveTooltip', { combo: saveCombo })}>
         <div
           className="action-pill-meta inline-flex items-center gap-1.5 pl-2 pr-3 text-eyebrow font-mono text-fg-muted"
           data-testid="action-pill-autosave"
@@ -271,7 +274,7 @@ export function FloatingActionPill({
         />
       ) : null}
 
-      {/* implementation Slice B implementation note — Recipes badge button. Rendered as a
+      {/* Recipes badge button. Rendered as a
               sibling component so the lessonProgressStore subscription
               stays scoped (no parent re-render storms). */}
       {/* 6. Settings cog — opens the Settings modal. Only mounted when
@@ -279,10 +282,10 @@ export function FloatingActionPill({
       {onOpenSettings ? (
         <>
           <span className="action-pill-divider action-pill-direct-settings" />
-          <Tooltip content={t('actionPill.settingsTooltip')}>
+          <Tooltip content={t('actionPill.settingsTooltip', { combo: settingsCombo })}>
             <button
               type="button"
-              aria-label={t('actionPill.settingsTooltip')}
+              aria-label={t('actionPill.settingsTooltip', { combo: settingsCombo })}
               data-testid="action-pill-settings"
               onClick={() => {
                 setOpenMenu(null);

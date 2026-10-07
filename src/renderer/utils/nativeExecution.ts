@@ -1,5 +1,5 @@
 /**
- * internal — shared helpers for the trust-boundary gate.
+ * Shared helpers for the trust-boundary gate.
  *
  * Imported by both `useRunner` (manual Run) and `useAutoRun` (debounced
  * auto-run on edit) so the acknowledgement requirement applies

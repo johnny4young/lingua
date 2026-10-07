@@ -14,7 +14,7 @@ export interface ManualExecutionLifecycle {
    */
   recordHistory?: boolean;
   /**
-   * internal — opt-in override for the runner's deadline (ms). Used by
+   * opt-in override for the runner's deadline (ms). Used by
    * the desktop smoke timeout cases so the parent kill timer fires
    * within a few seconds instead of the language default. End-user
    * surfaces leave this undefined and inherit each runner's default.

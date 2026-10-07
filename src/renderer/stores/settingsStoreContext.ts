@@ -2,7 +2,7 @@ import type { StoreApi } from 'zustand';
 import type { SettingsState } from '../types/settings';
 
 /**
- * internal — shared store-binding types for the settings action factories.
+ * Shared store-binding types for the settings action factories.
  *
  * `settingsStore.ts` was split into focused modules; the per-domain setters now
  * live in `settings*Actions.ts` files as factories of the form

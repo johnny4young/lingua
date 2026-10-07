@@ -1,5 +1,5 @@
 /**
- * implementation - DependenciesPanel rendering smoke tests.
+ * DependenciesPanel rendering smoke tests.
  *
  * Pins the empty / mixed / disabled-toggle states, the disabled
  * Install button tooltip variants (web vs desktop vs `needs-desktop`

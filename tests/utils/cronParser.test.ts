@@ -1,5 +1,5 @@
 /**
- * internal — Unit tests for `parseCronExpression`. Covers happy-path
+ * Unit tests for `parseCronExpression`. Covers happy-path
  * expressions in both locales, next-run counting, reference-date
  * determinism, and the three error branches (empty / invalid / iteration).
  *

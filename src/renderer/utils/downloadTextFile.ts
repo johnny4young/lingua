@@ -1,11 +1,11 @@
 /**
- * implementation — shared text-file download helper.
+ * Shared text-file download helper.
  *
  * Extracted from `NotebookView` so the notebook toolbar AND the
- * command-palette "Export notebook as .linguanb" action (implementation note) share
+ * command-palette "Export notebook as .linguanb" action share
  * one Blob → object-URL → anchor-click download path instead of
  * duplicating it. Web-only (no IPC); the desktop capability-IPC save
- * (implementation note) uses a separate native dialog path.
+ * uses a separate native dialog path.
  */
 export function downloadTextFile(
   content: string,

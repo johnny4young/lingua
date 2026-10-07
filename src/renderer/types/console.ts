@@ -21,13 +21,13 @@ export interface ConsoleEntry {
   /** Execution time in ms — shown as a badge when set (only on the last entry) */
   executionTime?: number;
   /**
-   * implementation — rich payload aligned with the legacy `content` string.
+   * Rich payload aligned with the legacy `content` string.
    * One entry per console-arg; absent on non-JS runners and on the text
    * fallback path. The renderer must always tolerate missing payload.
    */
   payload?: RichOutputPayload[];
   /**
-   * implementation detail — content-equality hash of type + line + content +
+   * content-equality hash of type + line + content +
    * payload shape, computed once at push time.
    * The store uses it to collapse consecutive identical entries without
    * re-running `JSON.stringify` on every render. Optional because callers
@@ -38,7 +38,7 @@ export interface ConsoleEntry {
 }
 
 /**
- * implementation detail — one visible console row after consecutive identical
+ * One visible console row after consecutive identical
  * entries are collapsed. Derived store-side at push time (not on render);
  * `repeatCount >= 2` surfaces the ×N badge. `entry` is the first member of
  * the run and carries its `equalityHash` for the next push's comparison.
@@ -59,12 +59,12 @@ export type ConsolePayloadKindBucket =
   | 'rawText'
   | 'image'
   | 'chart'
-  // implementation note — Python `BaseException` payloads ship
+  // Python `BaseException` payloads ship
   // `kind: 'error'`. The renderer chip family already had an
   // `'errorish'` filter for warn/error entry types; this is the
   // distinct payload-level bucket.
   | 'error'
-  // implementation — sandboxed HTML payloads.
+  // Sandboxed HTML payloads.
   | 'html';
 
 export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
@@ -93,7 +93,7 @@ export interface ConsoleState {
   clearVersion: number;
   entries: ConsoleEntry[];
   /**
-   * implementation detail — consecutive identical entries collapsed once at
+   * Consecutive identical entries collapsed once at
    * push time. The console renders (and then filters) these rows instead
    * of recomputing the collapse + `JSON.stringify` equality on every
    * render. Collapsed groups are homogeneous (same type + content +
@@ -104,7 +104,7 @@ export interface ConsoleState {
   /** Which entry types are currently visible */
   activeFilters: Set<ConsoleEntryType>;
   /**
-   * implementation note — which payload-kind chips are dimmed-out.
+   * Which payload-kind chips are dimmed-out.
    * Empty set = all visible. We track *hidden* kinds so the default
    * (no filter applied) does not require pre-populating every kind.
    */

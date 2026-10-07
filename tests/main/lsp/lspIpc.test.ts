@@ -156,4 +156,25 @@ describe('registerLspHandlers', () => {
       contentChanges: [{ text: 'fn main() {}' }],
     });
   });
+
+  it('drops editor traffic whose document is not a plain file URI', async () => {
+    sendRequestMock.mockResolvedValue(null);
+    const { request, notify } = await loadHandlers('go');
+
+    for (const uri of [
+      'https://example.com/main.go',
+      'file://remote-host/src/main.go',
+      'file:///src/main.go?query',
+      42,
+    ]) {
+      notify({}, 'textDocument/didOpen', { textDocument: { uri, text: '' } });
+      await expect(
+        request({}, 'textDocument/hover', { textDocument: { uri }, position: { line: 0, character: 0 } })
+      ).resolves.toMatchObject({ ok: false, reason: 'request-failed' });
+    }
+    notify({}, 'textDocument/didChange', { contentChanges: [] });
+    expect(sendNotificationMock).not.toHaveBeenCalled();
+    expect(sendRequestMock).not.toHaveBeenCalled();
+  });
 });
+

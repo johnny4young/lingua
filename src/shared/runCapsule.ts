@@ -1,19 +1,19 @@
 /**
- * implementation — Run Capsules.
+ * Run Capsules.
  *
  * `RunCapsuleV1` is the versioned, sanitised, JSON-serialisable record
  * of one Lingua execution: "I ran this code with this input, in this
  * environment, and got this output". The schema is the wire format
  * every downstream integration consumes:
  *
- *   - internal share-links serialise a capsule as the URL fragment.
- *   - internal CLI replays a capsule outside the GUI.
- *   - implementation attaches a capsule to AI prompt previews.
- *   - internal records HTTP responses as capsules.
- *   - internal pipelines emit one capsule per step.
- *   - implementation references a known-good capsule as the expected
+ *   - Share links serialise a capsule as the URL fragment.
+ *   - The CLI replays a capsule outside the GUI.
+ *   - AI prompt previews attach a capsule.
+ *   - The HTTP workspace records responses as capsules.
+ *   - Utility pipelines emit one capsule per step.
+ *   - Lessons reference a known-good capsule as the expected
  *     output reference for a lesson.
- *   - internal importers produce capsules from external formats.
+ *   - Importers produce capsules from external formats.
  *
  * Shipping the schema first means each downstream integration inherits the
  * same redaction registry (`src/shared/redaction.ts`), the same
@@ -21,10 +21,9 @@
  * `CAPSULE_MIGRATIONS` chain replayed by `parseRunCapsule`), and the
  * same round-trip contract.
  *
- * implementation ships the schema + builder + sanitiser + parser + a single
+ * This module ships the schema + builder + sanitiser + parser + a single
  * consumer (Settings → Account "Export latest run"). Import preview,
- * list view, and auto-capsule belong to future work. See the
- * internal scope for the full sequence and
+ * list view, and auto-capsule belong to future work. See
  * `docs/CAPSULE_TEST_MATRIX.md` for the test matrix.
  */
 
@@ -40,8 +39,7 @@ import { REDACTION_VERSION, redactFlatRecord } from './redaction';
  * Status enum mirrored from `ExecutionResult.kind` so the capsule
  * tells the consumer the run outcome without re-parsing the error
  * string. The four-state enum widens the legacy `'ok' | 'error'`
- * to include `'timeout'` (parent-killed) and `'stopped'` (user-Stop)
- * per implementation
+ * to include `'timeout'` (parent-killed) and `'stopped'` (user-Stop).
  */
 export type RunCapsuleStatus = 'success' | 'error' | 'timeout' | 'stopped';
 
@@ -86,7 +84,7 @@ interface RunCapsuleEnvironment {
   /** Optional dependency summary opaque to the schema. */
   dependencySummary?: unknown;
   /**
-   * implementation note — pre-run branch snapshot. Captured when
+   * pre-run branch snapshot. Captured when
    * `executeTabManually` starts a run so a mid-run sibling-terminal
    * `git checkout` does NOT pollute the capsule with the post-checkout
    * branch. Absent on web builds (no git layer), in detached-HEAD
@@ -110,9 +108,9 @@ interface RunCapsulePrivacy {
 interface RunCapsuleInput {
   /** Optional pre-set stdin buffer . May be empty. */
   stdin?: string;
-  /** internal — optional name of the saved input set used for this run. */
+  /** Optional name of the saved input set used for this run. */
   setName?: string;
-  /** internal — optional argv snapshot, one array item per argument. */
+  /** Optional argv snapshot, one array item per argument. */
   args?: string[];
 }
 
@@ -260,7 +258,7 @@ export function sanitizeRunCapsule(capsule: RunCapsuleV1): RunCapsuleV1 {
     omittedFields.push('result.stderr');
   }
 
-  // implementation — dependencySummary is opaque-to-the-schema but
+  // dependencySummary is opaque-to-the-schema but
   // when it is a flat object we delegate to `redactFlatRecord` so
   // any future rule change in `shared/redaction.ts` propagates here
   // automatically (the reviewer-driven extraction guards against
@@ -511,6 +509,18 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
       };
     }
   }
+  // Renderers and the HTML export interpolate these directly.
+  if (
+    typeof candidate.capsuleId !== 'string' ||
+    typeof candidate.createdAt !== 'string' ||
+    typeof candidate.appVersion !== 'string'
+  ) {
+    return {
+      ok: false,
+      reason: 'invalid-field-type',
+      detail: 'capsuleId / createdAt / appVersion',
+    };
+  }
   // Minimal type-shape validation on the load-bearing nested fields.
   if (!isRecord(candidate.tab)) {
     return {
@@ -590,9 +600,14 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
     };
   }
   const environment = candidate.environment;
+  const git = environment.git;
   if (
     (environment.platform !== 'web' && environment.platform !== 'desktop') ||
-    typeof environment.runner !== 'string'
+    typeof environment.runner !== 'string' ||
+    (git !== undefined &&
+      (!isRecord(git) ||
+        (git.branch !== undefined && typeof git.branch !== 'string') ||
+        (git.commit !== undefined && typeof git.commit !== 'string')))
   ) {
     return {
       ok: false,
@@ -637,7 +652,8 @@ export function parseRunCapsule(json: string): ParseRunCapsuleResult {
   const privacy = candidate.privacy;
   if (
     typeof privacy.redactionVersion !== 'string' ||
-    !Array.isArray(privacy.omittedFields)
+    !Array.isArray(privacy.omittedFields) ||
+    privacy.omittedFields.some((field) => typeof field !== 'string')
   ) {
     return {
       ok: false,
@@ -680,7 +696,7 @@ export function summarizeRunCapsule(capsule: RunCapsuleV1): string {
  *     is always present in Lingua's Electron target.
  *   - **Web Workers** — `crypto.subtle` is present in Workers since
  *     Chromium 95; safe for Lingua's pinned Electron.
- *   - **Node (CLI / tests / future internal)** — present since Node 19.
+ *   - **Node (CLI / tests)** — present since Node 19.
  *     Older Node would need a polyfill before calling.
  *
  * Throw path: reachable only in environments without Web Crypto

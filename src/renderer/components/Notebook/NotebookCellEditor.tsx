@@ -1,5 +1,5 @@
 /**
- * implementation (Monaco cells) — the code-cell editor surface.
+ * The code-cell editor surface.
  *
  * Mount-virtualization is the whole point: a notebook can hold up to 200
  * cells, and mounting a Monaco editor per cell would be ruinous. So only
@@ -20,11 +20,11 @@
  *   - Alt+Enter          → `onRunInsertBelow`
  *   - Esc (no widget open) → `onEscape` (parent drops to command mode)
  *
- * implementation note here:
- *   - B: internal inline lint + quick-fixes inside the active JS/TS cell.
- *   - C: internal status bar — the focused cell registers as the active
+ * Features here:
+ *   - B: inline lint + quick-fixes inside the active JS/TS cell.
+ *   - C: status bar — the focused cell registers as the active
  *        editor so the bar's cursor / lint segments come alive.
- *   - D: internal Vim mode parity on the active cell.
+ *   - D: Vim mode parity on the active cell.
  *   - E: `notebook.cell_editor_mounted` telemetry on mount.
  */
 
@@ -197,7 +197,7 @@ function NotebookCellStaticView({
 }
 
 // ---------------------------------------------------------------------------
-// Active view — live Monaco editor (implementation note / C / D / E)
+// Active view — live Monaco editor (features B / C / D / E)
 // ---------------------------------------------------------------------------
 
 function NotebookCellMonaco({
@@ -246,7 +246,7 @@ function NotebookCellMonaco({
     translateRef.current = t;
   }, [onBlur, onRunInPlace, onRunAdvance, onRunInsertBelow, onEscape, t]);
 
-  // implementation note — inline lint + quick-fixes on the active JS/TS cell. The
+  // Inline lint + quick-fixes on the active JS/TS cell. The
   // tab object mirrors `<CodeEditor>`'s `useActiveTab` shape; a Python cell
   // falls through useInlineLint's LINTABLE guard untouched. Memoized so a
   // non-content re-render (e.g. an auto-height change) doesn't churn the
@@ -271,12 +271,12 @@ function NotebookCellMonaco({
       editorRef.current = editor;
       setEditorInstance(editor);
       setMonacoInstance(monaco);
-      // implementation note — a notebook tab has no main code editor, so registering the
+      // A notebook tab has no main code editor, so registering the
       // focused cell as the active editor is unambiguous: the persistent
       // status bar's cursor + lint segments now track this cell. Cleared on
       // dispose so the bar never holds a torn-down editor.
       setActiveEditor(editor, monaco);
-      // implementation note — adoption + perf signal. NO source on the wire.
+      // Adoption + perf signal. NO source on the wire.
       trackNotebookCellEditorMounted(language);
       // Entering edit mode focuses the editor (click + command-mode Enter
       // + run-and-advance all route here).
@@ -293,7 +293,7 @@ function NotebookCellMonaco({
       editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.Enter, () => {
         onRunInsertBelowRef.current();
       });
-      // implementation note — Esc drops to command mode, but only when no Monaco widget
+      // Esc drops to command mode, but only when no Monaco widget
       // is open (so Esc still closes suggest / find first).
       editor.addCommand(
         monaco.KeyCode.Escape,
@@ -326,7 +326,7 @@ function NotebookCellMonaco({
         // user switches cells, the NEXT cell's onMount calls
         // setActiveEditor(next) BEFORE this (now-blurred) editor disposes, so
         // an unconditional clear would clobber the new active editor and blank
-        // the internal status-bar cursor/lint segments.
+        // the status-bar cursor/lint segments.
         if (getActiveEditor() === editor) setActiveEditor(null);
         editorRef.current = null;
       });
@@ -334,7 +334,7 @@ function NotebookCellMonaco({
     [language]
   );
 
-  // implementation note — Vim parity on the active cell, mirroring `<CodeEditor>`'s
+  // Vim parity on the active cell, mirroring `<CodeEditor>`'s
   // adapter lifecycle (lazy chunk, localized status bar, dispose on
   // unmount / toggle-off). Keyed on the editor instance so it wires once
   // the editor has mounted.

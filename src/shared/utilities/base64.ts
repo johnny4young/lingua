@@ -1,5 +1,5 @@
 /**
- * implementation — `base64-encode` + `base64-decode` adapters.
+ * `base64-encode` + `base64-decode` adapters.
  *
  * Pure UTF-8 encoder/decoder mirroring the renderer's
  * `developerUtilities.ts` implementations so the panel and the

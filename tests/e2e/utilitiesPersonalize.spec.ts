@@ -1,5 +1,5 @@
 /**
- * implementation — Functional smoke for the Developer Utilities
+ * Functional smoke for the Developer Utilities
  * personalization layer: pin/unpin favorites, drag-reorder via
  * @dnd-kit (mouse + keyboard), per-tool history accumulation across
  * Apply gestures, persist toggle survives reload, clipboard-on-focus
@@ -12,7 +12,7 @@
  * Single-shot Developer Utilities are Free; this personalize suite
  * seeds Pro because it exercises the paid productivity layer
  * (persistent history + clipboard automation). The blocking smoke
- * gate the user elevated for implementation carries over — the slice does
+ * gate the user elevated earlier carries over — the slice does
  * not close until every assertion stays green.
  */
 
@@ -31,7 +31,7 @@ import {
 
 test.describe.configure({ mode: 'parallel' });
 
-test.describe('implementation — personalize gesture smoke', () => {
+test.describe('personalize gesture smoke', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
@@ -205,7 +205,7 @@ test.describe('implementation — personalize gesture smoke', () => {
 
       // Open history drawer — labels in Spanish.
       await page.getByTestId('utility-history-drawer').click();
-      await expect(page.getByText('Guarda entre recargas')).toBeVisible();
+      await expect(page.getByText('Guardar entre recargas')).toBeVisible();
       await closeDeveloperUtilities(page);
 
       // Settings — clipboard toggle status reads in Spanish.

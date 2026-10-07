@@ -1,5 +1,5 @@
 /**
- * implementation — exhausted-devices remediation modal.
+ * exhausted-devices remediation modal.
  *
  * Drives the modal in isolation: stubs the licenseStore actions
  * (`removeDevice`, `setLicenseToken`, `clearLicense`, `revalidate`)

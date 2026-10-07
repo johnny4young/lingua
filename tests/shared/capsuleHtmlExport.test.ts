@@ -1,5 +1,5 @@
 /**
- * internal — the self-contained HTML document builder.
+ * The self-contained HTML document builder.
  *
  * The AC this file locks:
  *   - the document declares the capsule schema version,

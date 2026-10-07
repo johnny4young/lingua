@@ -1,4 +1,4 @@
-import { FolderOpen, Save } from 'lucide-react';
+import { FilePlus2, FolderOpen, Save } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { notebookDocumentNotice } from '../../stores/notebookDocumentPersistence';
@@ -54,7 +54,7 @@ export function NotebookDocumentActions({ tabId }: { tabId: string }) {
             .catch(() => notebookDocumentNotice('writeFailed'));
         }}
       >
-        <Save size={14} aria-hidden="true" />
+        <FilePlus2 size={14} aria-hidden="true" />
       </button>
       {isDirty && (
         <span

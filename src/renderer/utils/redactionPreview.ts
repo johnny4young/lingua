@@ -6,7 +6,7 @@ import {
 } from '../../shared/redaction';
 
 /**
- * implementation — adaptor that lets the Privacy + Trust dashboard
+ * Adaptor that lets the Privacy + Trust dashboard
  * surface preview run the SAME redactor logic as the rest of the
  * codebase against an arbitrary user-pasted string. Pure: no
  * network, no IO, no telemetry side effects.

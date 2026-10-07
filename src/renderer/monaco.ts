@@ -12,7 +12,7 @@ import 'monaco-editor/esm/vs/editor/editor.all.js';
 // TypeScript contribution, not by the raw editor API surface.
 import * as typeScriptContribution from 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
-// implementation — the SQL workspace editor renders Monaco on the `sql`
+// The SQL workspace editor renders Monaco on the `sql`
 // language. SQL is a basic-language (Monarch tokenizer + language config),
 // so its contribution is imported eagerly here alongside JS/TS/JSON. It is
 // not routed through the lazy `registerLanguageOnce` registry because the
@@ -160,7 +160,7 @@ async function registerLanguageContribution(m: Monaco, languageId: string): Prom
 
     if (lang.basicLanguage) {
       try {
-        // internal — the monaco basic-language imports live in a module that is
+        // The monaco basic-language imports live in a module that is
         // ONLY dynamically imported (here), never statically reachable from
         // the app entry, so Monaco core stays out of the web `initial` bundle.
         const { loadBasicLanguage } = await import('./languageSupport/basicLanguageLoaders');
@@ -484,7 +484,7 @@ export function applyTypeScriptDefaults(m: Monaco): void {
 }
 
 /**
- * internal — toggle Monaco's built-in TS/JS live diagnostics for one language.
+ * Toggle Monaco's built-in TS/JS live diagnostics for one language.
  * `applyTypeScriptDefaults` enables them by default; this lets the Settings
  * "Inline lint" toggle silence (or restore) the squiggles per language by
  * flipping `noSemanticValidation` / `noSyntaxValidation`. Monaco's TS/JS

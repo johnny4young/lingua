@@ -1,5 +1,5 @@
 /**
- * implementation — the per-session recent-commands ring buffer.
+ * The per-session recent-commands ring buffer.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';

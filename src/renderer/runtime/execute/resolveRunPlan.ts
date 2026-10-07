@@ -22,7 +22,7 @@ import type { ManualExecutionLifecycle } from './types';
 const NATIVE_DEBUGGER_LANGUAGES: ReadonlySet<string> = new Set(['python', 'go', 'rust']);
 
 /**
- * implementation — capture the post-execute scope when the active language
+ * Capture the post-execute scope when the active language
  * supports the inspector. `captureScope` is passed eagerly (not gated on the
  * toggle being on) so the toggle can light up after the first clean run; the
  * worker cost is bounded by the shared payload caps.
@@ -72,7 +72,7 @@ export function resolveRunExecution(
   >
 ): RunExecution {
   const { language } = tab;
-  // implementation — resolve the per-run timeout in priority order:
+  // Resolve the per-run timeout in priority order:
   // lifecycle override (desktop smoke / test) → one-shot tab override
   // (palette "Run with extended timeout") → magic comment `// @timeout 60s`
   // → undefined, which lets the runner read the Settings preset.
@@ -93,17 +93,17 @@ export function resolveRunExecution(
       ...(resolvedTimeoutMs !== undefined ? { timeout: resolvedTimeoutMs } : {}),
       tabId: tab.id,
       ...(plan.debugRequested ? { debug: true } : {}),
-      // implementation — manual Run feeds the same pre-set buffer that
+      // Manual Run feeds the same pre-set buffer that
       // auto-run uses. Runners that do not consume stdin ignore the field.
       ...(tab.stdinBuffer ? { stdin: tab.stdinBuffer } : {}),
       ...(tab.inputArgs && tab.inputArgs.length > 0 ? { args: tab.inputArgs } : {}),
-      // internal — per-line timing toggle; the runner also honors an
+      // per-line timing toggle; the runner also honors an
       // in-buffer // @time directive on its own.
       ...(settings.showLineTiming ? { lineTiming: true } : {}),
       ...(wantsScopeCapture ? { captureScope: true } : {}),
       ...(wantsScopeCapture && typeof scopeDepth === 'number' ? { scopeDepth } : {}),
     },
-    // implementation note — the countdown pill shows either the explicit
+    // The countdown pill shows either the explicit
     // override or the active Settings preset for the language.
     deadlineTimeoutMs: resolvedTimeoutMs ?? settingsTimeoutMs,
     clearsTimeoutOverride: tab.nextRunTimeoutOverrideMs !== undefined,

@@ -302,7 +302,7 @@ describe('useProjectWatchSync', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation note — end-to-end delta readdir wiring. Uses the REAL
+// end-to-end delta readdir wiring. Uses the REAL
 // applyWatchChanges so a watch event drives a scoped readdir of only the
 // affected directory's branch (not a full tree walk).
 // ---------------------------------------------------------------------------
@@ -403,7 +403,7 @@ describe('useProjectWatchSync — delta readdir wiring', () => {
     expect(srcNode?.children?.map((c) => c.path)).toContain('src/new.ts');
   });
 
-  it('does not re-read anything for a pure file change event (implementation note)', async () => {
+  it('does not re-read anything for a pure file change event', async () => {
     render(<WatchSyncHarness />);
     emitChange?.({
       rootId: 'root-proj',

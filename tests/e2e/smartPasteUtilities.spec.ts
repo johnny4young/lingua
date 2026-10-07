@@ -1,5 +1,5 @@
 /**
- * internal — smart-paste utility suggestions end-to-end.
+ * smart-paste utility suggestions end-to-end.
  *
  * Locks the user-visible contract on the production web build:
  *

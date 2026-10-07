@@ -10,7 +10,7 @@ import { Eyebrow, Pill } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 
 /**
- * internal implementation — Changelog overlay rebuilt as a version timeline.
+ * Changelog overlay rebuilt as a version timeline.
  *
  * The previous overlay stacked a "current" featured card and a
  * collapsed `<details>` block for older versions. The Signal-Slate
@@ -162,7 +162,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
                 placeholder={t('whatsNew.search.placeholder')}
                 aria-label={t('whatsNew.search.ariaLabel')}
                 data-testid="changelog-search"
-                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-xl border border-border/80 bg-background-elevated/88 px-16 py-1.5 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
             </div>
             {/* accessibility pass — announce the filtered result count to screen
@@ -276,7 +276,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
             </IconButton>
           </div>
 
-          {/* internal — keyboard users without a focusable descendant cannot
+          {/* Keyboard users without a focusable descendant cannot
               scroll this region. Adding tabindex=0 + region role + aria-label
               keeps it keyboard-reachable and announces context to screen
               readers (axe rule: scrollable-region-focusable). */}

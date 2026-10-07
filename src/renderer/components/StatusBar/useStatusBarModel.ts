@@ -8,7 +8,7 @@ import {
 } from '../../runtime/editorAccess';
 
 /**
- * internal — editor-derived data the persistent status bar renders.
+ * editor-derived data the persistent status bar renders.
  *
  * Every field degrades to a quiet default (null cursor/indent, 0/0 lint
  * counts) when no editor / model / monaco namespace is registered, so the
@@ -26,7 +26,7 @@ export interface StatusBarModel {
 }
 
 /**
- * internal — subscribe to the active editor and surface cursor position, indent
+ * Subscribe to the active editor and surface cursor position, indent
  * options, and lint marker counts as React state for the status bar.
  *
  * Re-binding model: a single effect (run once on mount) subscribes via

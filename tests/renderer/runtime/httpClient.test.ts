@@ -1,5 +1,5 @@
 /**
- * implementation — `httpClient.ts` end-to-end behaviour with a mock
+ * `httpClient.ts` end-to-end behaviour with a mock
  * `fetch`. Covers the typed failure classification, the body cap,
  * header redaction (baseline + user allowlist), and the URL
  * validation.

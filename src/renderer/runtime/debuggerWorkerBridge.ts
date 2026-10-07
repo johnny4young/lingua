@@ -1,5 +1,5 @@
 /**
- * implementation — runtime-agnostic bridge between the UI and the
+ * runtime-agnostic bridge between the UI and the
  * worker that owns the paused execution. The JS / TS runners register
  * the active Worker via `setActiveDebugWorker(worker)` when a debug
  * run starts and clear it on `done`. The DebuggerDrawer's continue /
@@ -11,11 +11,11 @@
  * adapter and future Go / Rust adapters to plug in (each language's
  * adapter implements this same `(type, payload) => void` shape).
  *
- * Reference: implementation and docs/DEBUGGER_ADR.md.
+ * Reference: docs/DEBUGGER_ADR.md.
  */
 
 /**
- * internal — the single source of truth for debugger-control messages.
+ * The single source of truth for debugger-control messages.
  * Exported so the worker's protocol (`js-worker-protocol.ts`) can
  * consume the SAME union the sender posts, closing the send/receive drift
  * (the worker previously read `event.data` as `any` and cast per branch).

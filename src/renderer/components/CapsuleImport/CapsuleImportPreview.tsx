@@ -1,5 +1,5 @@
 /**
- * implementation — Pure preview component.
+ * Pure preview component.
  *
  * Renders a decoded `RunCapsuleV1` as a read-only panel with three
  * tabs (Source / Result / Environment) plus a metadata header strip.

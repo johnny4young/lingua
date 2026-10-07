@@ -2,7 +2,7 @@ import type { StoreApi } from 'zustand';
 import type { NotebookState } from './notebookStore';
 
 /**
- * implementation — shared store-binding types for the notebook action factories.
+ * Shared store-binding types for the notebook action factories.
  *
  * `notebookStore.ts` was split into focused modules; the per-tab action
  * setters + selectors now live in `notebook*Actions.ts` / `notebookSelectors.ts`

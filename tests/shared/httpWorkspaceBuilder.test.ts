@@ -54,7 +54,7 @@ function env(
     version: 1,
     id: 'e1',
     name: 'Dev',
-    // implementation added the opaque `id`; stamp a synthetic one per row.
+    // Rows carry an opaque `id`; stamp a synthetic one per row.
     variables: variables.map((row, i) => ({ id: `v${i}`, ...row })),
     createdAt: '2026-06-16T00:00:00.000Z',
     updatedAt: '2026-06-16T00:00:00.000Z',
@@ -302,10 +302,10 @@ describe('buildCurlCommand — copy as cURL', () => {
     );
   });
 
-  // implementation note — secret-safe cURL. When an environment is
+  // secret-safe cURL. When an environment is
   // active, callers pre-mask via `maskSecretsForCapsule` so non-secret
   // vars resolve (runnable) and secret vars stay `{{key}}` (no leak).
-  it('with a masked request, non-secret vars resolve and secret vars stay {{key}} (implementation note)', () => {
+  it('with a masked request, non-secret vars resolve and secret vars stay {{key}}', () => {
     const request = makeRequest({
       method: 'POST',
       url: 'https://{{host}}/users',

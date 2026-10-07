@@ -15,13 +15,13 @@ https://linguacode.dev/pricing.
 | Education | $0    | / year         | Verified students and educators (renewable) | Full paid entitlements for verified educational use, renewable annually.                                                                                                                                                                                                               |
 
 Education access is free for verified students and educators. Open
-Lingua → Settings → License → Educational license. We accept any
+Lingua → Settings → Account → License → Educational license. We accept any
 `.edu` domain plus `.ac.uk`, `.edu.mx`, `.edu.au`, `.edu.ca`,
 `.edu.br`, `.ac.in`. The license is good for one year and renewable
 from the same screen.
 
 A 14-day Pro trial is available without a credit card from
-Settings → License → Try Lingua Pro free for 14 days.
+Settings → Account → License → Try Lingua Pro free for 14 days.
 
 ## Español
 
@@ -34,19 +34,19 @@ Settings → License → Try Lingua Pro free for 14 days.
 | Educativa | $0     | / año           | Estudiantes y profesores verificados (renovable)         | Entitlements de pago completos para uso educativo verificado, renovables anualmente.                                                                                                                                                                                                                                                    |
 
 El acceso educativo es gratuito para estudiantes y profesores
-verificados. Abre Lingua → Configuración → Licencia → Licencia
+verificados. Abre Lingua → Configuración → Cuenta → Licencia → Licencia
 educativa. Aceptamos cualquier dominio `.edu` más `.ac.uk`, `.edu.mx`,
 `.edu.au`, `.edu.ca`, `.edu.br`, `.ac.in`. La licencia dura un año y
 se renueva desde la misma pantalla.
 
 Hay una prueba de 14 días de Pro sin tarjeta de crédito en
-Configuración → Licencia → Prueba Lingua Pro gratis por 14 días.
+Configuración → Cuenta → Licencia → Prueba Lingua Pro gratis por 14 días.
 
 ## Notes for press
 
 - Lingua is source-available (see `LICENSE`), not open source. Please
   do not describe it as MIT, Apache, or GPL.
-- License keys are offline-verifiable — no phone-home or account check
-  is required at launch time.
+- License signatures are verified offline; the launch-time status refresh
+  runs in the background and never blocks startup.
 - The app runs fully offline in desktop mode. Web builds work without
   a network connection once the initial page has loaded.

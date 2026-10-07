@@ -1,5 +1,5 @@
 /**
- * internal guard: the server observability docs and runbooks must only
+ * Guard: the server observability docs and runbooks must only
  * reference events that the Workers actually emit today.
  */
 

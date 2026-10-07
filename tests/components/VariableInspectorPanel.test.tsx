@@ -1,5 +1,5 @@
 /**
- * implementation — VariableInspectorPanel render contract.
+ * VariableInspectorPanel render contract.
  *
  * Covers:
  *   - Empty state when no language-matched snapshot exists.
@@ -34,7 +34,7 @@ beforeEach(() => {
   useResultStore.setState({ scopeSnapshot: null, snapshotRing: [] });
 });
 
-describe('implementation — <VariableInspectorPanel>', () => {
+describe('<VariableInspectorPanel>', () => {
   it('renders the empty state when there is no language-matched snapshot', () => {
     useResultStore.setState({
       scopeSnapshot: {

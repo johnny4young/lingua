@@ -1,5 +1,5 @@
 /**
- * internal — Trust-boundary acknowledgement modal.
+ * Trust-boundary acknowledgement modal.
  *
  * Mounted once at App level. The modal subscribes to
  * `useNativeExecutionGateStore` — when a Run dispatch on Go or Rust
@@ -14,7 +14,7 @@
  * regular OS process".
  */
 import { useTranslation } from 'react-i18next';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNativeExecutionGateStore } from '../../stores/nativeExecutionGateStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -38,20 +38,15 @@ export function NativeExecutionWarning() {
     if (pendingLanguage) confirmButtonRef.current?.focus();
   }, [pendingLanguage]);
 
-  // Escape cancels — matches the OverlayBackdrop click-out behaviour.
-  useEffect(() => {
-    if (!pendingLanguage) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        cancel();
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [pendingLanguage, cancel]);
-
   if (!pendingLanguage) return null;
+
+  // Escape cancels only this gate; stopping it keeps an overlay underneath open.
+  const handleEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    cancel();
+  };
 
   const isProjectTests = pendingLanguage === 'project-tests';
   const isProjectTerminal = pendingLanguage === 'project-terminal';
@@ -74,7 +69,7 @@ export function NativeExecutionWarning() {
   };
 
   return (
-    <OverlayBackdrop align="center" onClose={cancel}>
+    <OverlayBackdrop align="center" onClose={cancel} onKeyDown={handleEscape}>
       <OverlayCard
         role="dialog"
         aria-modal="true"

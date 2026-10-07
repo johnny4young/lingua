@@ -55,4 +55,26 @@ describe('deepLinks parser', () => {
     expect(parseLinguaDeepLink('lingua://unknown?x=1')).toBeNull();
     expect(parseLinguaDeepLink('notaurl')).toBeNull();
   });
+  it('parses license links into a shape-checked token without echoing the raw URL', () => {
+    const token = 'eyJ0aWVyIjoicHJvIn0.c2lnbmF0dXJlLWJ5dGVz_-';
+    expect(parseLinguaDeepLink(`lingua://license?token=${encodeURIComponent(token)}`)).toEqual({
+      kind: 'license-token',
+      token,
+    });
+    expect(parseLinguaDeepLink(`lingua:license?token=${token}`)).toEqual({
+      kind: 'license-token',
+      token,
+    });
+  });
+
+  it.each([
+    ['missing token', 'lingua://license'],
+    ['empty token', 'lingua://license?token='],
+    ['one segment', 'lingua://license?token=abc'],
+    ['three segments', 'lingua://license?token=a.b.c'],
+    ['non-base64url characters', 'lingua://license?token=a%2Bb.c%2Fd'],
+    ['oversized token', `lingua://license?token=${'a'.repeat(8192)}.b`],
+  ])('rejects license links with %s', (_label, url) => {
+    expect(parseLinguaDeepLink(url)).toBeNull();
+  });
 });

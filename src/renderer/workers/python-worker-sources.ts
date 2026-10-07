@@ -18,7 +18,7 @@ __lingua_prev_stderr = sys.stderr
 sys.stdout = __lingua_stdout
 sys.stderr = __lingua_stderr
 
-# implementation — rich console payload pipeline.
+# Rich console payload pipeline.
 # The user's namespace gets a wrapped 'print' that captures (text, [payload_per_arg])
 # into __lingua_print_entries. Libraries that reach for the bare builtin via
 # __lingua_builtins.print still get the unpatched function — only the user-code
@@ -221,13 +221,13 @@ def __lingua_force_table(value):
 
 
 def __lingua_console_serialize(value, force_table=False):
-    # implementation note — bypass entirely when rich rendering is off; saves cycles
+    # Bypass entirely when rich rendering is off; saves cycles
     # on hot Python loops by short-circuiting before the type walk.
     if not __lingua_rich_console_enabled:
         return None
     if force_table:
         return __lingua_force_table(value)
-    # implementation note — Python exception → error payload.
+    # Python exception → error payload.
     if isinstance(value, BaseException):
         return {"kind": "error", "message": __lingua_repr_safe(value)}
     auto_table = __lingua_detect_auto_table(value)
@@ -246,7 +246,7 @@ __lingua_builtins_print = __lingua_builtins.print
 
 
 def __lingua_caller_line():
-    # implementation follow-up — surface the user-source line number
+    # Surface the user-source line number
     # so each print() entry threads through ConsoleOutput.line and
     # paints an inline pill via InlineResultWidgets (same JS behavior as
     # console.log). Walk frames upward until we exit the lingua-owned
@@ -282,7 +282,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
     if len(__lingua_print_entries) >= __lingua_print_entries_cap:
         return
     method = "error" if file is sys.stderr else "log"
-    # implementation note — per-arg payload capture: each positional arg becomes its
+    # per-arg payload capture: each positional arg becomes its
     # own payload entry aligned with the joined text.
     payloads = []
     for arg in args:
@@ -291,7 +291,7 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
             payload = {"kind": "rawText", "text": __lingua_repr_safe(arg)}
         payloads.append(payload)
     entry = {"text": text, "method": method, "payloads": payloads}
-    # implementation — skip the inspect-frame walk when the
+    # Skip the inspect-frame walk when the
     # master toggle is OFF. Privacy-side, the renderer strips origin
     # at executeTabManually as defense in depth; this gate is the
     # actual CPU short-circuit for tight print loops.
@@ -309,7 +309,7 @@ globals()["print"] = __lingua_print
 
 
 def __lingua_displayhook(value):
-    # implementation note — REPL-style top-level expression capture. Pyodide's
+    # REPL-style top-level expression capture. Pyodide's
     # default displayhook prints repr() for non-None expression
     # results. We mirror that text output AND capture the value as a
     # rich payload, so a scratchpad cell ending in 'users' (no print
@@ -327,7 +327,7 @@ def __lingua_displayhook(value):
     if payload is None:
         payload = {"kind": "rawText", "text": __lingua_repr_safe(value)}
     entry = {"text": text, "method": "log", "payloads": [payload]}
-    # implementation — same gate as __lingua_print. The
+    # Same gate as __lingua_print. The
     # displayhook fires once per top-level expression so the CPU win
     # is smaller than in tight print loops, but the consistency
     # matters: both surfaces have to honor the master toggle so the
@@ -352,7 +352,7 @@ def __mc(line, expr_fn, directive=None, kind=None):
         # explicit arrows/watches still show None as before.
         if kind == "autoLog" and val is None:
             return val
-        # implementation — rich-media directives need JSON-encoded
+        # rich-media directives need JSON-encoded
         # values because the runner side calls
         # \`payloadForRichMediaMagicDirective\` which delegates to
         # \`tryParseJsonForPayload\`. Python's \`repr(dict)\` produces
@@ -373,7 +373,7 @@ def __mc(line, expr_fn, directive=None, kind=None):
             record["kind"] = kind
         if isinstance(val, BaseException):
             record["is_error"] = True
-        # implementation note — magic-comment '#=> table' upgrade. When the
+        # magic-comment '#=> table' upgrade. When the
         # directive tags 'table', also include a forced-table payload
         # so the renderer can dispatch to the rich table widget.
         if directive == "table" and __lingua_rich_console_enabled:
@@ -390,7 +390,7 @@ def __mc(line, expr_fn, directive=None, kind=None):
         __lingua_magic_results.append(record)
         return None
 
-# implementation — \`__lingua\` namespace mirror of the JS
+# \`__lingua\` namespace mirror of the JS
 # \`lingua.{chart,image,html}\` bridge. Wrapping the three helpers in a
 # types.SimpleNamespace keeps the user API ergonomic across languages:
 #     // JS:       lingua.chart({ ... })
@@ -425,7 +425,7 @@ __lingua = __lingua_types.SimpleNamespace(
 
 
 def __lingua_seed_scope(ns):
-    # implementation — copy ONLY the framework helpers user code resolves by bare
+    # Copy ONLY the framework helpers user code resolves by bare
     # name (the 'print' override, the '__mc' magic runner, the '__lingua'
     # namespace + its '__lingua_*' shims, and '__builtins__') into a
     # per-notebook scope dict. User variables are NEVER copied, so a
@@ -446,7 +446,7 @@ def __lingua_seed_scope(ns):
 /** Read and reset redirected streams after user-code execution. */
 export const PYTHON_STREAM_STATE_SOURCE = `
 import sys
-# implementation — guarantee sys.stdout / sys.stderr / sys.displayhook
+# Guarantee sys.stdout / sys.stderr / sys.displayhook
 # get restored even if the JSON dump itself raises. The Pyodide worker
 # is persistent, so a stranded __lingua_displayhook reference from a
 # previous run would re-fire against a stale __lingua_print_entries

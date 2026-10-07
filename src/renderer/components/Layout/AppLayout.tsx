@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { RefObject } from 'react';
 import { ChevronUp, PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
@@ -54,7 +55,7 @@ const LazyNotebookView = lazy(async () => {
   return { default: module.NotebookView };
 });
 
-// MOV.02 (FASE 3) — SQL / HTTP / Utilities workspaces mount as full-screen tabs
+// SQL / HTTP / Utilities workspaces mount as full-screen tabs
 // in the editor area (replacing the dock panels). Lazy so the DuckDB
 // WASM + HTTP client chunks stay out of the initial bundle until a
 // workspace tab is actually opened.
@@ -102,7 +103,7 @@ function useCompactShellLayout() {
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
-  // internal — keep the inner divider transparent so the editor +
+  // Keep the inner divider transparent so the editor +
   // result panel read as ONE canvas. The hit zone stays 3px wide
   // so power users can still resize, and the bar fades in on hover.
   return (
@@ -125,6 +126,7 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
 function EditorArea() {
   const hasTabs = useEditorStore(s => s.tabs.length > 0);
   const { t } = useTranslation();
+  const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
   const sidebarVisible = useUIStore(s => s.sidebarVisible);
   const toggleSidebar = useUIStore(s => s.toggleSidebar);
   const editorResultsLayout = useDefaultLayout({
@@ -132,7 +134,7 @@ function EditorArea() {
     panelIds: ['editor-panel', 'results-panel'],
     storage: localStorage,
   });
-  // implementation — when the active tab carries `kind: 'notebook'`,
+  // When the active tab carries `kind: 'notebook'`,
   // mount `<NotebookView>` instead of Monaco. The selector returns a
   // primitive string-or-null so Zustand's default `===` check skips
   // re-renders when the active tab's kind hasn't changed.
@@ -141,7 +143,7 @@ function EditorArea() {
     const active = getActiveTab(s);
     return active?.kind === 'notebook' ? active.id : null;
   });
-  // MOV.02 (FASE 3) — same primitive-or-null selector shape for the
+  // Same primitive-or-null selector shape for the
   // SQL / HTTP / Utilities workspace tabs. When the active tab carries
   // `kind: 'sql' | 'http'` we mount the full-screen workspace view
   // instead of Monaco; the FileTab id is the binding into the
@@ -164,7 +166,7 @@ function EditorArea() {
   const utilitiesTabOpen = useEditorStore(s => s.tabs.some(tab => tab.kind === 'utilities'));
 
   // Utilities is a full-screen workspace with no runtime output, so
-  // activating it implementation note console away and leaving restores the user's
+  // activating it folds the console away and leaving restores the user's
   // previous choice. Mutating the store (instead of gating the render)
   // keeps the restore strip honest: explicitly reopening the console
   // while on Utilities works, and that explicit choice is respected.
@@ -190,7 +192,7 @@ function EditorArea() {
           <IconButton
             onClick={toggleSidebar}
             active={sidebarVisible}
-            tooltip={t('toolbar.sidebar.toggle')}
+            tooltip={t('toolbar.sidebar.toggle', { combo: sidebarCombo })}
             tooltipSide="bottom"
             aria-controls="project-explorer"
             aria-expanded={sidebarVisible}
@@ -224,7 +226,7 @@ function EditorArea() {
           </div>
         ) : null}
         {activeUtilitiesTabId !== null ? null : activeNotebookTabId !== null ? (
-          /* implementation — notebook tabs mount `<NotebookView>` in
+          /* Notebook tabs mount `<NotebookView>` in
              place of the Monaco + ResultPanel split. The Monaco editor
              would otherwise try to render the (empty) notebook tab
              `content` and the result panel would surface stale state. */
@@ -234,7 +236,7 @@ function EditorArea() {
             </Suspense>
           </WorkspaceErrorBoundary>
         ) : activeSqlTabId !== null ? (
-          /* MOV.02 (FASE 3) — SQL workspace as a full-screen tab. The
+          /* SQL workspace as a full-screen tab. The
              view fills the editor area height (h-full min-h-0) instead
              of the old ~30% dock slot, and binds the workspace store
              to this tab id. No editor + ResultPanel split here. */
@@ -246,7 +248,7 @@ function EditorArea() {
             </WorkspaceErrorBoundary>
           </div>
         ) : activeHttpTabId !== null ? (
-          /* MOV.02 (FASE 3) — HTTP workspace as a full-screen tab.
+          /* HTTP workspace as a full-screen tab.
              Mirror of the SQL branch above. */
           <div className="h-full min-h-0">
             <WorkspaceErrorBoundary key={activeHttpTabId} region="http">
@@ -334,7 +336,7 @@ interface MainContentProps {
   showDebuggerPanel: boolean;
   showBrowserPreviewPanel: boolean;
   /**
-   * implementation — true when the active tab + Settings combination
+   * True when the active tab + Settings combination
    * permits the stdin panel AND the user has actively focused it via
    * the command palette / palette focus action. Without this term in
    * the `showBottomPanel` gate, `openBottomPanel('stdin')` from a
@@ -343,14 +345,14 @@ interface MainContentProps {
    */
   showStdinTabBody: boolean;
   /**
-   * implementation — true when surface=bottom + variables capture
+   * True when surface=bottom + variables capture
    * available + active panel is 'variables'. Same shape as
    * `showStdinTabBody`: keeps the drawer mounted when Variables is
    * the only thing the user wants visible.
    */
   showVariablesTabBody: boolean;
   /**
-   * implementation — true when a recipe-bound active tab owns the
+   * True when a recipe-bound active tab owns the
    * selected bottom panel. Mirrors the stdin / variables gates so a
    * restored or programmatically-selected Recipe panel can mount
    * even when the console drawer was previously collapsed.
@@ -432,7 +434,7 @@ function MainContent({
 }
 
 /**
- * implementation — Prerequisite fix surfaced during validation.
+ * Prerequisite fix surfaced during validation.
  *
  * Wraps `<EditorArea>` with a thin restore strip pinned to the bottom
  * when the console / bottom panel is hidden. Without it, hiding the
@@ -445,6 +447,7 @@ function MainContent({
 function EditorAreaWithConsoleRestoreStrip() {
   const { t } = useTranslation();
   const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
+  const consoleCombo = useShortcutLabel('view-toggle-console');
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1">
@@ -459,7 +462,7 @@ function EditorAreaWithConsoleRestoreStrip() {
       >
         <ChevronUp size={12} aria-hidden="true" />
         {t('bottomPanel.tabs.console')}
-        <span className="ml-1 text-fg-subtle">⌘\</span>
+        {consoleCombo ? <span className="ml-1 text-fg-subtle">{consoleCombo}</span> : null}
       </button>
     </div>
   );
@@ -469,14 +472,14 @@ interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   /**
-   * internal follow-up — toolbar action icons live in FloatingActionPill,
+   * Toolbar action icons live in FloatingActionPill,
    * so keep the overlay callbacks flowing through this layout boundary.
    */
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
   /**
-   * implementation Slice B implementation note — Recipes overlay opener (Mod+Alt+L).
+   * Recipes overlay opener (Mod+Alt+L).
    * Threaded through to `<FloatingActionPill>` so the badge + button
    * surface next to Utilities + Settings.
    */
@@ -540,7 +543,7 @@ export function AppLayout({
     showRecipeTabBody,
     showProjectTerminalTabBody,
   } = useLayoutAvailability();
-  // internal — presenter mode hides the persistent chrome at render
+  // Presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving
   // the mode restores the exact previous layout.
   const presenterActive = usePresenterModeStore(s => s.active);
@@ -746,7 +749,7 @@ export function AppLayout({
             </div>
           </div>
         )}
-        {/* internal — persistent bottom status bar. Last child of the
+        {/* Persistent bottom status bar. Last child of the
             shell-underlay flex-col so it pins to the bottom of the flow AND
             inherits the inert + aria-hidden the underlay receives while the
             compact drawer is open. Self-renders null when showStatusBar is

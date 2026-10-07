@@ -27,7 +27,7 @@ import { useTelemetry } from '../../hooks/useTelemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 
 /**
- * FASE 1 (MOV.01) — Developer utilities migrated onto the Signal-Slate
+ * Developer utilities migrated onto the Signal-Slate
  * `ModalShell`.
  *
  * The overlay keeps its adaptive master-detail layout (searchable
@@ -48,7 +48,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
  * Everything the overlay *does* — fuzzy search, arrow-key navigation,
  * favorites, telemetry, the selected-utility workspace — is unchanged.
  *
- * MOV.03 — the same master/detail body is also exported as
+ * The same master/detail body is also exported as
  * `<DeveloperUtilitiesWorkspaceView>` so Utilities can live as a full-screen
  * editor workspace tab without duplicating the 30-panel picker logic.
  */
@@ -60,7 +60,7 @@ interface DeveloperUtilitiesModalProps {
 
 function useFavoriteTelemetry(): void {
   const { track } = useTelemetry();
-  // implementation — emit favorite-pinned telemetry from a one-shot
+  // Emit favorite-pinned telemetry from a one-shot
   // store subscription. We listen on the store so the telemetry call
   // lives in one place even when the user pins from the sidebar OR
   // (potentially) from a future shortcut.
@@ -142,11 +142,11 @@ function DeveloperUtilitiesWorkspaceBody({
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
-    // internal — the no-query browse view groups by category, so the flat
+    // The no-query browse view groups by category, so the flat
     // nav array follows the category order too (keyboard nav + headers
     // then read the same sequence). Search stays purely rank-ordered.
     if (q.length === 0) return CATEGORY_SORTED_UTILITIES;
-    // implementation — fuzzy match against title, description,
+    // Fuzzy match against title, description,
     // keywords, and aliases. Score the best match across those fields
     // so a hit on the title outranks a hit on a tangential keyword.
     type Ranked = { utility: DeveloperUtilityDefinition; score: number };
@@ -175,7 +175,7 @@ function DeveloperUtilitiesWorkspaceBody({
     return ranked.map(r => r.utility);
   }, [searchQuery, t]);
 
-  // internal — category headings only make sense in the ungrouped browse
+  // Category headings only make sense in the ungrouped browse
   // view; while searching, the list is a single ranked run.
   const showCategoryHeadings = searchQuery.trim().length === 0;
 
@@ -349,7 +349,7 @@ function DeveloperUtilitiesWorkspaceBody({
             filteredUtilities.map((utility, index) => {
               const isSelected = utility.id === activeSelectedUtilityId;
               const isLocked = isUtilityLocked(utility);
-              // internal — in the no-query browse view, emit a category
+              // In the no-query browse view, emit a category
               // heading before the first utility of each category. The
               // heading is skipped while searching (the list is ranked,
               // not grouped).

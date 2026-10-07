@@ -1,4 +1,4 @@
-/** implementation — Recipe `ts-discriminated-union-area`. */
+/** Recipe `ts-discriminated-union-area`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

@@ -1,5 +1,5 @@
 /**
- * internal / implementation — Mode-aware action button + workflow picker for the
+ * Mode-aware action button + workflow picker for the
  * floating action pill. The main button fires the active workflow (or
  * stops a running task); the chevron opens a dropdown that switches the
  * per-tab workflow AND fires it in one click. Extracted verbatim.
@@ -19,6 +19,7 @@ import type { Language } from '../../types/language';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import type { RunOptions } from '../../hooks/useRunner';
 import { Kbd } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { MonoBadge } from '../ui/primitives';
 import type { ActionPillMenu, ActionPillMenuSetter } from './useFloatingActionPill';
 import {
@@ -32,7 +33,7 @@ interface RunGroupProps {
   currentWorkflow: WorkflowMode;
   isRunning: boolean;
   isInitializing: boolean;
-  /** internal — live bootstrap text (static message or MB counter). */
+  /** Live bootstrap text (static message or MB counter). */
   loadingMessage: string | null;
   runDisabled: boolean;
   runDisabledTooltip: string | undefined;
@@ -65,8 +66,9 @@ export function FloatingActionPillRunGroup({
   setTabWorkflowMode,
 }: RunGroupProps) {
   const { t } = useTranslation();
+  const runShortcut = useShortcutLabel('run-toggle');
   const isAutoRunning = useResultStore(state => state.isAutoRunning);
-  // internal — live runtime-bootstrap progress, path-agnostic: the
+  // Live runtime-bootstrap progress, path-agnostic: the
   // store is fed by the worker whether the boot started from a manual
   // run's initialization window OR the scratchpad auto-run, so the
   // pill shows the download counter either way.
@@ -118,7 +120,7 @@ export function FloatingActionPillRunGroup({
             {bootstrapLabel ?? loadingMessage}
           </span>
         ) : null}
-        {!isRunning ? <Kbd>⌘⏎</Kbd> : null}
+        {!isRunning && runShortcut ? <Kbd>{runShortcut}</Kbd> : null}
       </button>
       <button
         type="button"
@@ -142,7 +144,7 @@ export function FloatingActionPillRunGroup({
                 icon: <Play size={13} />,
                 label: t('actionPill.run'),
                 desc: t('actionPill.workflow.run'),
-                kbd: '⌘⏎',
+                kbd: runShortcut || null,
                 availability: workflowAvailability.run,
                 fire: () => void run(),
               },
@@ -151,7 +153,7 @@ export function FloatingActionPillRunGroup({
                 icon: <Bug size={13} />,
                 label: t('toolbar.debug.label'),
                 desc: t('actionPill.workflow.debug'),
-                kbd: '⌥⏎',
+                kbd: null as string | null,
                 availability: workflowAvailability.debug,
                 fire: () => void run({ debug: true }),
               },
@@ -190,7 +192,7 @@ export function FloatingActionPillRunGroup({
                 onClick={() => {
                   setOpenMenu(null);
                   if (itemDisabled) return;
-                  // internal follow-up — same fallback as the
+                  // Same fallback as the
                   // Runtime chip: create a tab in the chip's
                   // current language if there's none so the
                   // workflow picker always advances the user.

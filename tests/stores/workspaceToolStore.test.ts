@@ -1,5 +1,5 @@
 /**
- * implementation — `workspaceToolStore` CRUD + LRU + active-request
+ * `workspaceToolStore` CRUD + LRU + active-request
  * lifecycle.
  */
 

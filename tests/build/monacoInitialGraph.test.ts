@@ -55,6 +55,7 @@ const MUST_STAY_LAZY: Array<{ module: string; why: string }> = [
     why: '2.4 MiB of raw @types/node declarations, loaded on idle with the Node runtime or once a buffer refers to Node',
   },
   { module: 'src/renderer/components/Settings/SettingsModal.tsx', why: 'the whole Settings tree' },
+  { module: 'src/renderer/data/recipes/index.ts', why: 'the bundled recipe bodies' },
   {
     module: 'src/renderer/components/CommandPalette/CommandPalette.tsx',
     why: 'the 30 KiB palette model',
@@ -692,13 +693,13 @@ describe('Monaco stays out of the initial graph', () => {
     // edge onto the whole editor. Keep this pin in the active group policy,
     // not in a manualChunks callback ignored by the mixed configuration.
     // Comments are stripped first, and the group has to match INSIDE the
-    // advancedChunks block in a single pattern. Two independent regexes would
+    // codeSplitting block in a single pattern. Two independent regexes would
     // both pass on prose that merely mentions the two strings — which is the
     // exact shape of the explanatory comment sitting above this config.
     for (const config of ['vite.web.config.mts', 'vite.renderer.config.mts']) {
       const source = stripComments(readFileSync(path.join(repoRoot, config), 'utf8'));
-      expect(source, `${config} lost its advancedChunks preload-helper group`).toMatch(
-        /advancedChunks:\s*\{[^}]*groups:\s*\[[^\]]*test:\s*\/preload-helper\//
+      expect(source, `${config} lost its codeSplitting preload-helper group`).toMatch(
+        /codeSplitting:\s*\{[^}]*groups:\s*\[[^\]]*test:\s*\/preload-helper\//
       );
       expect(source, `${config} lets the vendor threshold disable the preload pin`).toMatch(
         /\{\s*name:\s*['"]vite-preload['"][^}]*\bminSize:\s*0\b[^}]*\}/

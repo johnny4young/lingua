@@ -1,5 +1,5 @@
 {
-  "$comment": "internal — registry of every Ed25519 license-signing public key ever embedded in a Lingua build, keyed by RFC 7638 JWK thumbprint. Exactly one entry is active; ordered overlap entries may be pending or retiring until the rollout completes. The release/deploy/CI guard fails closed on undocumented, drifted, stale, duplicate, private, or invalid-status keyrings. Rotation runbook: docs/RELEASE_SECURITY.md § Licensing.",
+  "$comment": "Registry of every Ed25519 license-signing public key ever embedded in a Lingua build, keyed by RFC 7638 JWK thumbprint. Exactly one entry is active; ordered overlap entries may be pending or retiring until the rollout completes. The release/deploy/CI guard fails closed on undocumented, drifted, stale, duplicate, private, or invalid-status keyrings. Rotation runbook: docs/RELEASE_SECURITY.md § Licensing.",
   "rotationSlaDays": 90,
   "warnWindowDays": 14,
   "keys": [

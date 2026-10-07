@@ -1,5 +1,5 @@
 /**
- * implementation — Editor settings: execution-history snapshot toggle.
+ * Editor settings: execution-history snapshot toggle.
  *
  * Verifies the toggle is visible + functional for Pro users, locked
  * behind an upsell CTA for Free users, and that flipping it persists

@@ -1,5 +1,5 @@
 /**
- * implementation — impure router that turns a detected {@link PasteIntent}
+ * Impure router that turns a detected {@link PasteIntent}
  * into the right import action by DELEGATING to the already-shipped importers:
  *
  *   - share-link  -> `decodeShareFragment` + `editorStore.addTab` (mirrors the
@@ -9,7 +9,7 @@
  *                    + `openHttpWorkspaceTab` (mirrors `useImportPreview`'s
  *                    `curl-http` confirm branch)
  *   - stack-trace -> emit the existing `file.open` command (reveals
- *                    within-tab today; opens cross-file once internal lands)
+ *                    within-tab today; opens cross-file once multi-file lands)
  *   - large-json  -> open a new `json` editor tab with the blob
  *
  * On a content import (everything except stack-trace navigation) the literal
@@ -126,7 +126,7 @@ async function applyShareLink(fragment: string, ctx: ApplyPasteContext): Promise
 function applyCapsule(source: string, ctx: ApplyPasteContext): boolean {
   // Re-validate before handing off; the overlay re-decodes for its preview.
   if (!parseRunCapsule(source).ok) return false;
-  // implementation note — route through the confirm-first CapsuleImportOverlay (implementation UX)
+  // Route through the confirm-first CapsuleImportOverlay (implementation UX)
   // rather than opening a tab one-click. Stash the JSON + emit the command
   // App already consumes; the overlay decodes the seed on mount.
   setPendingCapsuleImportSource(source);
@@ -168,7 +168,7 @@ async function applyCurl(source: string, ctx: ApplyPasteContext): Promise<boolea
 
 function applyStackTrace(intent: Extract<PasteIntent, { kind: 'stack-trace' }>): boolean {
   // Reuse the existing clickable-stack-frame command. The default consumer
-  // reveals within-tab; a higher-priority internal consumer will open cross-file
+  // reveals within-tab; a higher-priority consumer will open cross-file
   // once multi-file lands. Navigation, so the pasted trace is left in place.
   emitCommand('file.open', {
     file: intent.file ?? undefined,
@@ -189,7 +189,7 @@ function applyUtility(
   intent: Extract<PasteIntent, { kind: 'utility' }>,
   ctx: ApplyPasteContext
 ): boolean {
-  // internal — stash the one-shot seed FIRST so the panel (fresh mount or
+  // Stash the one-shot seed FIRST so the panel (fresh mount or
   // already mounted) finds it when the workspace tab activates, then open
   // the Utilities workspace on the matching panel. The value moved into
   // the utility, so the literal paste is stripped like the other imports.

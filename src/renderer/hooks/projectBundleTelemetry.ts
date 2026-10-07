@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — project zip bundle telemetry helpers.
+ * Project zip bundle telemetry helpers.
  *
  * Three closed-enum events fire here and only here:
  *   - `project.bundle_exported { status, fileCountBucket }`

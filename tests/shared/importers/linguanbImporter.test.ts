@@ -1,5 +1,5 @@
 /**
- * implementation — `.linguanb` importer adapter + registry detection
+ * `.linguanb` importer adapter + registry detection
  * routing. Pins the lossless preview/import round-trip, the reject
  * mapping, and the critical ordering guard: a `.linguanb` (whose
  * envelope embeds an inner `"cells":` array) must route to the
@@ -61,7 +61,7 @@ describe('linguanbImporterAdapter.preview', () => {
     expect(p.warnings).toEqual([]);
   });
 
-  it('threads the execution-order map (implementation note)', () => {
+  it('threads the execution-order map', () => {
     const p = preview(
       serializeNotebookDocument(notebook(CELLS), { executionOrder: { c1: 1, c2: 2 } })
     );

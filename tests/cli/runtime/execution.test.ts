@@ -120,4 +120,66 @@ describe('CLI subprocess execution', () => {
       stdout: 'ready\ndone\n',
     });
   });
+
+  function isAlive(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function startWithPid(source: string) {
+    let reportPid: ((pid: number) => void) | undefined;
+    const pid = new Promise<number>(resolve => {
+      reportPid = resolve;
+    });
+    // Report the pid only after the source installed its signal handlers.
+    const execution = executeCliPlan(nodePlan(`${source}; console.log(process.pid);`), {
+      timeoutMs: 20_000,
+      env: { PATH: process.env.PATH },
+      onStdout: chunk => reportPid?.(Number.parseInt(chunk, 10)),
+    });
+    return { pid: await pid, execution };
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'kills a SIGTERM-trapping child at once on a repeated Ctrl+C',
+    async () => {
+      const listeners = process.listenerCount('SIGINT');
+      const { pid, execution } = await startWithPid(
+        'process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);'
+      );
+      process.emit('SIGINT');
+      process.emit('SIGINT');
+      const result = await execution;
+      expect(result).toMatchObject({ status: 'stopped', reason: 'stopped', signal: 'SIGKILL' });
+      expect(result.durationMs).toBeLessThan(1_500);
+      expect(isAlive(pid)).toBe(false);
+      expect(process.listenerCount('SIGINT')).toBe(listeners);
+    }
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'terminates the detached child when the terminal hangs up',
+    async () => {
+      const listeners = process.listenerCount('SIGHUP');
+      const { pid, execution } = await startWithPid('setInterval(() => {}, 1000);');
+      process.emit('SIGHUP');
+      await expect(execution).resolves.toMatchObject({ status: 'stopped', reason: 'stopped' });
+      expect(isAlive(pid)).toBe(false);
+      expect(process.listenerCount('SIGHUP')).toBe(listeners);
+    }
+  );
+
+  it('counts time spent before execution against the timeout', async () => {
+    const result = await executeCliPlan(nodePlan('setInterval(() => {}, 1000)'), {
+      timeoutMs: 1_000,
+      startedAt: Date.now() - 900,
+      env: { PATH: process.env.PATH },
+    });
+    expect(result.status).toBe('timeout');
+    expect(result.durationMs).toBeGreaterThanOrEqual(900);
+  });
 });

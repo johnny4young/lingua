@@ -1,5 +1,5 @@
 /**
- * implementation — stdin / input end-to-end smoke.
+ * Stdin / input end-to-end smoke.
  *
  * Locks the user-visible contract via diverse paths:
  *

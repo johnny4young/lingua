@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { access, chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { executeCliPlan } from '../../../src/cli/runtime/execution';
 import {
   ExecutionTargetError,
+  INLINE_SOURCE_MAX_BYTES,
   nodeRuntimeExecutable,
+  npmScriptCommand,
   pythonCommandCandidates,
   resolveCapsuleSource,
   resolveExecutionTarget,
@@ -238,5 +242,135 @@ describe('CLI execution target resolution', () => {
         []
       )
     ).rejects.toMatchObject({ reason: 'unsupported-runtime-mode' });
+  });
+
+  async function replay(
+    language: string,
+    runtimeMode: string,
+    source: string,
+    args: string[] = []
+  ) {
+    const plan = await resolveCapsuleSource(
+      { language, runtimeMode, source, capsuleId: 'capsule-exec' },
+      args
+    );
+    const result = await executeCliPlan(plan, {
+      timeoutMs: 10_000,
+      env: { PATH: process.env.PATH },
+    });
+    return { plan, result };
+  }
+
+  it.each([
+    ['worker', 'const x: number = 1;\nconsole.log(x);'],
+    ['node', 'const x: number = 1;\nconsole.log(x);'],
+    [
+      'node',
+      'import process from "node:process";\nconst x: number = 1;\nprocess.stdout.write(`${x}\\n`);',
+    ],
+    ['node', 'const x: number = await Promise.resolve(1);\nconsole.log(x);'],
+  ])('executes annotated TypeScript Capsules in %s mode', async (mode, source) => {
+    const { result } = await replay('typescript', mode, source);
+    expect(result).toMatchObject({ status: 'success', stdout: '1\n', stderr: '' });
+  });
+
+  it.each([
+    ['javascript', 'worker'],
+    ['javascript', 'node'],
+    ['typescript', 'node'],
+  ])(
+    'forwards dash-leading argv to %s %s Capsules as program arguments',
+    async (language, mode) => {
+      const { result } = await replay(
+        language,
+        mode,
+        'console.log(JSON.stringify(process.argv.slice(1)))',
+        ['--flag', '-v']
+      );
+      expect(result).toMatchObject({ status: 'success', stdout: '["--flag","-v"]\n' });
+    }
+  );
+
+  it.skipIf(spawnSync('ruby', ['-v']).status !== 0)(
+    'forwards dash-leading argv to Ruby Capsules',
+    async () => {
+      const { result } = await replay('ruby', 'worker', 'p ARGV', ['--flag', 'v']);
+      expect(result).toMatchObject({ status: 'success', stdout: '["--flag", "v"]\n' });
+    }
+  );
+
+  it.each([
+    ['javascript', 'worker', ''],
+    ['javascript', 'node', ''],
+    ['typescript', 'node', '\nexport {};'],
+  ])(
+    'stages a %s %s source above the argv limit and keeps the inline argv contract',
+    async (language, mode, suffix) => {
+      const padding = `// ${'x'.repeat(1_200_000)}\n`;
+      const source = `${padding}console.log(JSON.stringify(process.argv.slice(1)));${suffix}`;
+      expect(Buffer.byteLength(source)).toBeGreaterThan(INLINE_SOURCE_MAX_BYTES);
+      const { plan, result } = await replay(language, mode, source, ['-a', 'b']);
+      expect(plan.steps[0]?.args.every(arg => arg.length < 4096)).toBe(true);
+      expect(result).toMatchObject({ status: 'success', stdout: '["-a","b"]\n' });
+      for (const cleanup of plan.cleanupPaths ?? []) {
+        await expect(access(cleanup)).rejects.toMatchObject({ code: 'ENOENT' });
+      }
+    }
+  );
+
+  it('stages oversized Python Capsule source instead of passing it on argv', async () => {
+    const plan = await resolveCapsuleSource(
+      {
+        language: 'python',
+        runtimeMode: 'worker',
+        source: `# ${'x'.repeat(INLINE_SOURCE_MAX_BYTES)}\nprint(1)`,
+        capsuleId: 'capsule-large-python',
+      },
+      ['-x']
+    );
+    expect(plan.cleanupPaths).toHaveLength(1);
+    expect(plan.steps[0]?.args).toEqual([path.join(plan.cleanupPaths![0]!, 'main.py'), '-x']);
+    await rm(plan.cleanupPaths![0]!, { recursive: true, force: true });
+  });
+
+  it('runs npm scripts through an escaped absolute COMSPEC on Windows', async () => {
+    const command = await npmScriptCommand(
+      'start',
+      ['--port', 'a b', 'x&calc', '50%'],
+      { COMSPEC: 'C:\\Windows\\System32\\cmd.exe', PATH: 'relative;C:\\nodejs' },
+      'win32',
+      async candidate => candidate === 'C:\\nodejs\\npm.cmd'
+    );
+    expect(command).toEqual({
+      command: 'C:\\Windows\\System32\\cmd.exe',
+      args: [
+        '/d',
+        '/s',
+        '/c',
+        '"C:\\nodejs\\npm.cmd ^^^"run^^^" ^^^"start^^^" ^^^"--^^^" ^^^"--port^^^" ^^^"a^^^ b^^^" ^^^"x^^^&calc^^^" ^^^"50^^^%^^^""',
+      ],
+      windowsVerbatimArguments: true,
+    });
+  });
+
+  it('leaves npm unresolved on Windows without a trusted COMSPEC or launcher', async () => {
+    const env = { COMSPEC: 'cmd.exe', PATH: 'C:\\nodejs' };
+    expect(await npmScriptCommand('dev', [], env, 'win32', async () => true)).toEqual({
+      command: 'npm',
+      args: ['run', 'dev', '--'],
+    });
+    expect(
+      await npmScriptCommand(
+        'dev',
+        [],
+        { ...env, COMSPEC: 'C:\\cmd.exe' },
+        'win32',
+        async () => false
+      )
+    ).toMatchObject({ command: 'npm' });
+    expect(await npmScriptCommand('dev', ['-x'], {}, 'linux')).toEqual({
+      command: 'npm',
+      args: ['run', 'dev', '--', '-x'],
+    });
   });
 });

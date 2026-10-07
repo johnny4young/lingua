@@ -1,5 +1,5 @@
 /**
- * implementation — `regex-replace` adapter.
+ * `regex-replace` adapter.
  *
  * Thin port of the renderer's `applyRegexReplace` helper. Takes a
  * pattern + flags + replacement and runs them against the chained

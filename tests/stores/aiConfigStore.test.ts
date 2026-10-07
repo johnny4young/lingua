@@ -1,5 +1,5 @@
 /**
- * implementation — AI config store. Isolated persist boundary; setters +
+ * AI config store. Isolated persist boundary; setters +
  * the `isAiConfigured` gate.
  */
 

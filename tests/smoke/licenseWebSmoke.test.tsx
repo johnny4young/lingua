@@ -60,7 +60,7 @@ function setProTier() {
 }
 
 function renderSmoke() {
-  // internal follow-up — <LicenseBadge> stays in <AppChrome>, while
+  // <LicenseBadge> stays in <AppChrome>, while
   // overlay shortcuts and the single Settings cog live in the floating
   // toolbar. The smoke renders all three shell pieces so the gated web
   // surfaces match the real shell.
@@ -189,7 +189,7 @@ describe('web license smoke', () => {
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
     expect(useEditorStore.getState().tabs.some(tab => tab.language === 'go')).toBe(true);
 
-    // internal follow-up — command palette lives in the floating toolbar
+    // Command palette lives in the floating toolbar
     // alongside Quick Open, Snippets and Developer Utilities.
     await user.click(screen.getByTestId('action-pill-search'));
     expect(onOpenPalette).toHaveBeenCalledOnce();
@@ -239,7 +239,7 @@ describe('web license smoke', () => {
     expect(screen.getByText('Paquete de tema')).toBeTruthy();
     expect(screen.getByText('Familia tipográfica')).toBeTruthy();
 
-    // internal follow-up — the single toolbar gear opens Settings in Spanish locale.
+    // The single toolbar gear opens Settings in Spanish locale.
     await user.click(screen.getByTestId('action-pill-settings'));
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });

@@ -135,7 +135,7 @@ async function installLicenseServerMock(page: Page): Promise<void> {
     });
   });
 
-  // implementation — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
+  // Every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
   // baked in (see playwright.license-web.config.mts). Tests that
   // grant consent (telemetry.spec.ts) install their own /telemetry
   // route to capture events; every other test seeds consent as
@@ -552,6 +552,38 @@ export async function waitForRunCompleted(page: Page): Promise<void> {
     name: /^running\.\.\.$|^ejecutando\.\.\.$/i,
   });
   await expect(runningButton).toHaveCount(0, { timeout: 30_000 });
+}
+
+/** Replace the active Monaco buffer wholesale with `source`. */
+export async function replaceEditorText(page: Page, source: string): Promise<void> {
+  await page.locator('.monaco-editor').first().click({ position: { x: 140, y: 42 } });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(source);
+}
+
+/**
+ * Await output unique to the newly edited source, then its terminal state.
+ * Idle or a prior result alone can pass before the auto-run debounce starts.
+ * Callers must choose an output marker that has not appeared in this tab.
+ */
+export async function replaceEditorAndWaitForAutoRun(
+  page: Page,
+  source: string,
+  outputMarker: string
+): Promise<void> {
+  await replaceEditorText(page, source);
+  await openConsole(page);
+  await expect(page.getByTestId('console-entry-row').filter({ hasText: outputMarker }).first())
+    .toBeVisible({ timeout: 30_000 });
+  // The action pill's data-running tracks manual runs only, so it cannot
+  // gate an auto-run. Auto-run's own settled signal, after source-specific
+  // output, is the relevant completion evidence.
+  await expect.poll(
+    () => page.evaluate(() => window.__linguaE2e?.autoRunSettled?.() ?? false),
+    { timeout: 30_000 }
+  ).toBe(true);
+  await expect(page.locator('[data-result-kind="run-status-pill"]')).toHaveCount(0);
 }
 
 /**

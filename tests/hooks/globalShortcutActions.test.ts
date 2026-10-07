@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { KEYBOARD_SHORTCUTS } from '@/data/keyboardShortcuts';
 import { buildGlobalShortcutActions } from '@/hooks/globalShortcutActions';
 import type { UseGlobalShortcutsOptions } from '@/hooks/globalShortcutTypes';
+import { useEditorStore } from '@/stores/editorStore';
 
 function options(isRunning = false): UseGlobalShortcutsOptions {
   const callback = () => undefined;
@@ -61,5 +62,20 @@ describe('buildGlobalShortcutActions', () => {
     buildGlobalShortcutActions(running)['run-toggle']?.(new KeyboardEvent('keydown'));
     expect(running.stop).toHaveBeenCalledTimes(1);
     expect(running.run).not.toHaveBeenCalled();
+  });
+
+  it('runs the active workspace tab when focus is outside its editor', () => {
+    const previous = useEditorStore.getState();
+    useEditorStore.setState({
+      tabs: [{ id: 'http', name: 'HTTP', language: 'http', content: '', kind: 'http' }],
+      activeTabId: 'http',
+    } as Partial<typeof previous>);
+    try {
+      const idle = options(false);
+      buildGlobalShortcutActions(idle)['run-toggle']?.(new KeyboardEvent('keydown'));
+      expect(idle.run).toHaveBeenCalledTimes(1);
+    } finally {
+      useEditorStore.setState({ tabs: previous.tabs, activeTabId: previous.activeTabId });
+    }
   });
 });

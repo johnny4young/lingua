@@ -12,7 +12,7 @@ import type { EditorDiagnostic } from '../types/execution';
  */
 
 /**
- * internal i18n: every diagnostic message and success-state copy below
+ * i18n: every diagnostic message and success-state copy below
  * routes through `t()`. The keys live under `validation.<source>.<rule>`
  * so they're discoverable per validator. New messages MUST add the key
  * to both en and es locales — `pnpm run check:i18n` enforces that.

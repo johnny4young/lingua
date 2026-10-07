@@ -1,5 +1,5 @@
 /**
- * implementation — Settings → Account → Run Capsules surface test.
+ * Settings → Account → Run Capsules surface test.
  *
  * Covers the clipboard export, JSON-file handoff and CLI command affordances:
  *
@@ -43,7 +43,7 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
   ),
 }));
 
-// internal — the HTML export orchestration is covered by its own unit
+// The HTML export orchestration is covered by its own unit
 // suite (`tests/utils/exportCapsuleHtml.test.ts`); here we only assert
 // the surface wires the right capsule + trigger + outcome notices.
 const { mockExportCapsuleAsHtml } = vi.hoisted(() => ({

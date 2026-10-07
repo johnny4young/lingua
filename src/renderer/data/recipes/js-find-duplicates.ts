@@ -1,5 +1,5 @@
 /**
- * implementation — Recipe `js-find-duplicates`.
+ * Recipe `js-find-duplicates`.
  *
  * Find duplicate entries in an array. Exercises `Map` counting + the
  * insertion-order-of-first-occurrence subtlety.

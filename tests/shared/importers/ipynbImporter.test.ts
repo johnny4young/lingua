@@ -1,5 +1,5 @@
 /**
- * implementation — `.ipynb` importer adapter coverage.
+ * `.ipynb` importer adapter coverage.
  *
  * Pins the closed-enum outcomes, the cell-mapping table, language
  * inference, the lossy-warning surface, and the rejection paths.
@@ -158,7 +158,7 @@ describe('ipynbImporterAdapter.preview — happy paths', () => {
     expect(code.language).toBe('python');
   });
 
-  it('implementation Slice D implementation note — a per-cell metadata.lingua.language wins over the kernelspec', () => {
+  it('a per-cell metadata.lingua.language wins over the kernelspec', () => {
     const outcome = ipynbImporterAdapter.preview(
       JSON.stringify({
         nbformat: 4,
@@ -194,7 +194,7 @@ describe('ipynbImporterAdapter.preview — happy paths', () => {
     if (code[2]?.kind === 'code') expect(code[2].language).toBe('javascript');
   });
 
-  it('implementation preserves reusable Lingua cell ids and regenerates unsafe ones', () => {
+  it('preserves reusable Lingua cell ids and regenerates unsafe ones', () => {
     const outcome = ipynbImporterAdapter.preview(
       JSON.stringify({
         nbformat: 4,

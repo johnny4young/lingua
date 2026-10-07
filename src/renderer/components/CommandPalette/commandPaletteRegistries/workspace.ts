@@ -1,4 +1,4 @@
-import { buildActionCommand } from '../commandPaletteModelHelpers';
+import { buildActionCommand, shortcutComboValues } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -21,7 +21,10 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
           buildActionCommand(
             'action-run-active-tab',
             translate('commandPalette.action.runActiveTab.label'),
-            translate('commandPalette.action.runActiveTab.description'),
+            translate(
+              'commandPalette.action.runActiveTab.description',
+              shortcutComboValues(args, 'run-toggle')
+            ),
             ['run', 'execute', 'code', 'active tab', 'ejecutar', 'codigo', 'pestana'],
             () => {
               onRunActiveTab();
@@ -86,7 +89,7 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
           ),
         ]
       : []),
-    // implementation — Re-run last execution. Hidden when the
+    // Re-run last execution. Hidden when the
     // caller does not wire `onRerunLast` so legacy callers (or
     // surfaces with no execution context) keep working.
     ...(onRerunLast
@@ -103,7 +106,7 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
           ),
         ]
       : []),
-    // implementation note — New project from curated template.
+    // New project from curated template.
     // Hidden when the caller omits the handler so test scaffolds that
     // don't wire a Welcome surface keep working.
     ...(onNewProjectFromTemplate
@@ -130,7 +133,7 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
           ),
         ]
       : []),
-    // implementation — Restore last session. Surfaces only when the caller
+    // Restore last session. Surfaces only when the caller
     // wires the handler AND a persisted/pending snapshot with ≥1 tab exists,
     // so the command never offers to restore nothing.
     ...(onRestoreSession && savedSessionTabCount > 0

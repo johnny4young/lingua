@@ -1,5 +1,5 @@
 /**
- * implementation — Run Capsule test matrix.
+ * Run Capsule test matrix.
  *
  * Covers eight dimensions per `docs/CAPSULE_TEST_MATRIX.md`:
  *   1. Schema round-trip (every fixture).
@@ -173,7 +173,7 @@ describe('sanitizeRunCapsule — redaction proof', () => {
       FIXTURE_LICENSE_LEAK_PROBE.source.content
     );
     // The capsule design accepts source content verbatim (per
-    // Privacy + Trust Dashboard / internal contract). The honest
+    // the Privacy + Trust Dashboard contract). The honest
     // user-facing flow is: surface the source through the export
     // preview UI before publishing. The redactor's job is to keep
     // *out-of-band* metadata (tokens in env, paths in errorMessages)
@@ -513,6 +513,41 @@ describe('parseRunCapsule — shape validation', () => {
       }
     }
   );
+
+  it.each([
+    ['capsuleId', { capsuleId: { x: 1 } }],
+    ['createdAt', { createdAt: 5 }],
+    ['appVersion', { appVersion: null }],
+    ['environment.git', { environment: { ...FIXTURE_MINIMAL_JS.environment, git: 'main' } }],
+    [
+      'environment.git.branch',
+      { environment: { ...FIXTURE_MINIMAL_JS.environment, git: { branch: {} } } },
+    ],
+    [
+      'environment.git.commit',
+      { environment: { ...FIXTURE_MINIMAL_JS.environment, git: { commit: 7 } } },
+    ],
+    [
+      'privacy.omittedFields items',
+      { privacy: { ...FIXTURE_MINIMAL_JS.privacy, omittedFields: [1] } },
+    ],
+  ] as const)('rejects a non-string %s as invalid-field-type', (_field, patch) => {
+    const parsed = parseRunCapsule(JSON.stringify({ ...FIXTURE_MINIMAL_JS, ...patch }));
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.reason).toBe('invalid-field-type');
+    }
+  });
+
+  it('accepts string git metadata', () => {
+    const parsed = parseRunCapsule(
+      JSON.stringify({
+        ...FIXTURE_MINIMAL_JS,
+        environment: { ...FIXTURE_MINIMAL_JS.environment, git: { branch: 'main', commit: 'abc' } },
+      })
+    );
+    expect(parsed.ok).toBe(true);
+  });
 
   it('rejects an unknown result.status', () => {
     const broken = JSON.stringify({

@@ -1,5 +1,5 @@
 /**
- * implementation — client-side cloud sync engine for user artifacts (snippets,
+ * client-side cloud sync engine for user artifacts (snippets,
  * settings, themes, keymaps).
  *
  * This is the transport-independent core: a pure last-write-wins merge

@@ -1,11 +1,11 @@
 /**
- * implementation - main-side JS / TS dependency resolver
+ * Main-side JS / TS dependency resolver
  * and installer.
  *
- * implementation — read-only existence check against the active tab's
+ * read-only existence check against the active tab's
  * resolved cwd (`resolveNodeCwd` re-uses the Node-runner walker).
  *
- * implementation — install path via `child_process.spawn` with a platform-safe
+ * Install path via `child_process.spawn` with a platform-safe
  * launcher and `{ shell: false }`. POSIX invokes `npm` directly; Windows
  * explicitly invokes `cmd.exe /d /c npm.cmd` because `.cmd` files are not
  * executables on their own. Reuses every safety primitive already in this
@@ -17,14 +17,14 @@
  * absolute paths, no `node:` built-ins). Main re-validates so a
  * compromised renderer cannot probe arbitrary filesystem paths.
  *
- * Install policy (implementation note): we refuse to spawn when the resolved cwd
+ * Install policy: we refuse to spawn when the resolved cwd
  * has no `package.json`. Without this guard `npm install <name>`
  * silently creates a `package.json` next to a one-off scratchpad,
  * which violates the "no silent installs" line in
  * the internal dependency-manager ADR.
  *
- * implementation note — pre-flight integrity check: before spawning we re-run
- * the implementation resolver against the batch and drop any specifier
+ * pre-flight integrity check: before spawning we re-run
+ * the resolver against the batch and drop any specifier
  * that already maps to `installed`. Common case ("install" clicked
  * twice in a row) avoids a no-op `npm install`.
  */
@@ -57,6 +57,8 @@ import {
   killProcessTree,
 } from './runners/processTree';
 import { resolveNodeCwd } from './node-runner';
+import { trackNativeRunProcess } from './runners/nativeRunLifecycle';
+import { createUtf8ChunkDecoder } from './runners/utf8Chunks';
 
 // This is intentionally npm-name strict, not package-manager generic:
 // the installed dependency belongs to the user's JS/TS project and the
@@ -144,7 +146,7 @@ export async function resolveJsDependencyBatch(
 }
 
 // ────────────────────────────────────────────────────────────────
-// implementation — JS / TS desktop install path.
+// JS / TS desktop install path.
 // ────────────────────────────────────────────────────────────────
 
 /** Per-line callback for streaming subprocess output to the renderer. */
@@ -288,9 +290,9 @@ async function npmInstallSpawnCommand(
  *     so PATH and Windows COMSPEC/PATHEXT survive the secret-filtering boundary.
  *   - cwd via `resolveNodeCwd(filePath)` (saved tab only).
  *   - Refuse without spawning when the cwd has no `package.json`
- *     (implementation note: avoid silently turning a scratchpad into a project).
- *   - Pre-flight: re-run the implementation resolver and skip already-
- *     installed names without spawning (implementation note).
+ *     (avoid silently turning a scratchpad into a project).
+ *   - Pre-flight: re-run the resolver and skip already-
+ *     installed names without spawning.
  *   - No `-g` / `--global` / `--prefix` flags ever — project
  *     isolation is part of the contract.
  */
@@ -343,7 +345,7 @@ export async function installJsDependencyBatch(
     };
   }
 
-  // implementation note — pre-flight integrity check. Skip names that already
+  // pre-flight integrity check. Skip names that already
   // resolve as `installed`; we never invoke npm for a no-op.
   const preflight = await resolveJsDependencyBatch(safeNames, filePath);
   const toInstall: string[] = [];
@@ -440,6 +442,8 @@ export async function installJsDependencyBatch(
     };
   }
 
+  // Quit disposal must reach installs too: the detached group outlives Lingua.
+  const releaseChild = trackNativeRunProcess(child);
   return await new Promise<DependencyInstallResult>((resolve) => {
     let settled = false;
     let cancelled = false;
@@ -503,9 +507,11 @@ export async function installJsDependencyBatch(
       },
     });
 
+    const decodeStdout = createUtf8ChunkDecoder();
+    const decodeStderr = createUtf8ChunkDecoder();
     child.stdout?.on('data', (data: Buffer) => {
       if (stdoutTruncated) return;
-      const text = data.toString('utf-8');
+      const text = decodeStdout(data);
       const cap = MAX_NATIVE_STDERR_BYTES - truncationMarker.length;
       const prevLen = stdoutAcc.length;
       const result = appendCapped(stdoutAcc, text, cap);
@@ -523,7 +529,7 @@ export async function installJsDependencyBatch(
     });
     child.stderr?.on('data', (data: Buffer) => {
       if (stderrTruncated) return;
-      const text = data.toString('utf-8');
+      const text = decodeStderr(data);
       const cap = MAX_NATIVE_STDERR_BYTES - truncationMarker.length;
       const prevLen = stderrAcc.length;
       const result = appendCapped(stderrAcc, text, cap);
@@ -541,6 +547,7 @@ export async function installJsDependencyBatch(
     });
 
     child.on('error', (err: NodeJS.ErrnoException) => {
+      releaseChild();
       if (err.code === 'ENOENT') {
         finalize('failed', 'binary-missing', -1);
         return;
@@ -549,6 +556,7 @@ export async function installJsDependencyBatch(
     });
 
     child.on('close', (code, signal) => {
+      releaseChild();
       clearKillTimer();
       if (cancelled) {
         finalize('cancelled', 'cancelled', code ?? -1);
@@ -566,7 +574,7 @@ export async function installJsDependencyBatch(
       }
       // Reference the accumulated logs so eslint does not warn about
       // unused captures — they exist as a safety net for future
-      // ipc-level diagnostics even though implementation streams via onLog.
+      // ipc-level diagnostics even though output streams via onLog.
       void stdoutAcc;
       void stderrAcc;
     });

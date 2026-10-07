@@ -6,7 +6,7 @@ import { SpecRow } from '../ui/SpecRow';
 import { Select } from './shared';
 
 /**
- * implementation — Settings → Languages row that lets the user pick
+ * Settings → Languages row that lets the user pick
  * between the bundled `@ruby/wasm-wasi` worker and the host `ruby`
  * binary. Defaults to `auto`; web builds hide the `system` choice
  * because the desktop bridge is missing.
@@ -39,7 +39,7 @@ function getDesktopBridge(): DesktopBridge | null {
 
 export interface RubyRuntimeRowProps {
   /**
-   * FASE 2a — drops the SpecRow bottom hairline. Ruby is the
+   * Drops the SpecRow bottom hairline. Ruby is the
    * always-rendered last row of the shared per-language `SpecCard`,
    * so the parent passes `last` to keep the card's final divider off.
    */
@@ -140,7 +140,7 @@ export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
               {status}
             </p>
           ) : null}
-          {/* implementation note — quick affordance to the upstream
+          {/* Quick affordance to the upstream
               Ruby docs. Uses `window.lingua.openExternal` on desktop so
               the link opens in the user's browser instead of inside the
               Electron window. */}

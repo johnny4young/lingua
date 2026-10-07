@@ -1,5 +1,5 @@
 /**
- * implementation — main-side license runtime + IPC bridge.
+ * main-side license runtime + IPC bridge.
  *
  * Coverage:
  * - persisted-license atomic round trip (write / read / clear)
@@ -645,7 +645,7 @@ describe('registerLicenseHandlers', () => {
 });
 
 /**
- * implementation — server-aware desktop runtime.
+ * server-aware desktop runtime.
  *
  * The base `createLicenseRuntime` block above keeps
  * `LINGUA_LICENSE_SERVER_URL` unset so the runtime stays in
@@ -1227,4 +1227,70 @@ describe('createLicenseRuntime — server-aware desktop branch ', () => {
     );
     expect(removeCalls.length).toBe(1);
   });
+
+  it.each(['active', 'refunded'] as const)(
+    'a token applied during the boot revalidate wins on disk and in memory (server %s)',
+    async (serverStatus) => {
+      const oldToken = await signLicenseTokenForTest(
+        { ...freshPayload({ issuedAt: new Date(Date.now() - 20_000).toISOString() }), issuedTo: 'old@example.com' },
+        privateKeyJwk
+      );
+      const refreshedOld = await signLicenseTokenForTest(
+        { ...freshPayload({ issuedAt: new Date(Date.now() - 5_000).toISOString() }), issuedTo: 'old@example.com' },
+        privateKeyJwk
+      );
+      const newToken = await signLicenseTokenForTest(
+        { ...freshPayload(), issuedTo: 'new@example.com' },
+        privateKeyJwk
+      );
+      let releaseStatus!: () => void;
+      const statusGate = new Promise<void>((resolve) => (releaseStatus = resolve));
+      let statusCalls = 0;
+      const fetchMock = makeFetchMock();
+      fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+        if (String(url) === `${SERVER_URL}/licenses/activate`) {
+          return jsonResponse({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [], web: [] },
+            deviceLimit: { desktop: 3, web: 3 },
+          });
+        }
+        statusCalls += 1;
+        await statusGate;
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          status: serverStatus,
+          tier: 'pro',
+          expiresAt: null,
+          supportWindowEndsAt: Math.floor(Date.now() / 1000) + 30 * 86_400,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+          deviceRegistered: true,
+          refreshedToken: refreshedOld,
+        });
+      });
+
+      const license = await import('../../src/main/license');
+      const licensePath = license.resolveLicensePath(tempDir);
+      await license.writePersistedLicense(licensePath, { token: oldToken, lastVerifiedAt: Date.now() });
+      const runtime = await license.createLicenseRuntime({
+        userDataDir: tempDir,
+        publicKeyJwk,
+        deviceMetadata: { deviceName: 'host', os: 'darwin' },
+      });
+      await vi.waitFor(() => expect(statusCalls).toBe(1));
+
+      const applying = runtime.applyToken(newToken);
+      releaseStatus();
+      await applying;
+
+      const disk = await license.readPersistedLicense(licensePath);
+      expect(runtime.getSnapshot().token).toBe(newToken);
+      expect(disk?.token).toBe(newToken);
+    }
+  );
 });

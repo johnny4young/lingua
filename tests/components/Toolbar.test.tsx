@@ -64,7 +64,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     activeTabId: editorStoreState.activeTabId,
     addTab: mockAddTab,
     openFileFromDisk: mockOpenFileFromDisk,
-    // implementation — RuntimeModeSelector consumes this action via
+    // RuntimeModeSelector consumes this action via
     // `useEditorStore((s) => s.setTabRuntimeMode)`. Mock as a no-op
     // so the selector renders without throwing; tests that exercise
     // mode changes go through the editor-store unit suite.
@@ -138,14 +138,14 @@ vi.mock('lucide-react', () => ({
   FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
   Wrench: () => null,
   Bug: () => null,
-  // implementation — RuntimeModeSelector consumes Cpu/Layers/Globe.
+  // RuntimeModeSelector consumes Cpu/Layers/Globe.
   Cpu: () => null,
   Layers: () => null,
   Globe: () => null,
-  // implementation — RuntimeModeSelector consumes Zap/Rabbit for deno/bun.
+  // RuntimeModeSelector consumes Zap/Rabbit for deno/bun.
   Zap: () => null,
   Rabbit: () => null,
-  // implementation — WorkflowModeSegment consumes Sparkles for the
+  // WorkflowModeSegment consumes Sparkles for the
   // Scratchpad icon (Play + Bug are already declared above).
   Sparkles: () => null,
 }));
@@ -236,7 +236,7 @@ describe('Toolbar', () => {
   });
 
   it('shows the Run button with "Run" accessible label when not running', () => {
-    // internal UI refinement — the Run button is icon-only; the label
+    // The Run button is icon-only; the label
     // moves to `aria-label` so screen readers still announce it.
     render(<Toolbar />);
     const runBtn = screen.getByTestId('toolbar-run-button');
@@ -361,7 +361,8 @@ describe('Toolbar', () => {
 
     await user.hover(screen.getByTestId('toolbar-run-button'));
 
-    expect(screen.getByRole('tooltip').textContent).toContain('Run (Cmd+Enter)');
+    // Derived from the shortcut catalog: jsdom reports a non-Mac platform.
+    expect(screen.getByRole('tooltip').textContent).toContain('Run (Ctrl+Enter)');
   });
 
   it('switches the primary action to Validate for non-runnable config files', () => {
@@ -677,7 +678,7 @@ describe('Toolbar', () => {
 
     render(<Toolbar />);
 
-    // implementation — the right-side icon cluster moved to AppChrome;
+    // The right-side icon cluster moved to AppChrome;
     // the toolbar now carries the run / new-file / workflow cluster
     // only. Spanish copy check is now scoped to what the toolbar
     // actually renders.
@@ -693,7 +694,7 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: /Toggle sidebar/ })).toBeTruthy();
   });
 
-  // implementation — developer-utilities + console-toggle + open-file
+  // developer-utilities + console-toggle + open-file
   // toolbar buttons removed (relocated to chrome / command palette).
   // Their tests moved to AppChrome.test.tsx / palette suites.
 

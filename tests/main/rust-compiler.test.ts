@@ -1,5 +1,5 @@
 /**
- * internal — Rust compile + run env merge under the minimal allowlist.
+ * Rust compile + run env merge under the minimal allowlist.
  *
  * Same shape as go-compiler.test.ts, minus the runner-owned keys:
  * Rust does not claim any env variables for itself, so the user env
@@ -29,7 +29,7 @@ vi.mock('node:child_process', () => ({
 
 import { registerRustHandlers, resolveRustRunEnv } from '../../src/main/rust-compiler';
 
-describe('main rust compiler env resolver (internal minimal allowlist)', () => {
+describe('main rust compiler env resolver (minimal allowlist)', () => {
   const SECRET = 'LINGUA_SMOKE_SECRET';
   const INJECTED = 'LINGUA_TEST_RUST_INJECT';
   const ALLOWED = 'CARGO_HOME';
@@ -85,7 +85,7 @@ describe('main rust compiler env resolver (internal minimal allowlist)', () => {
   });
 
   it('lets user-set RUSTFLAGS / RUSTC_WRAPPER through (no runner-owned overrides for Rust)', () => {
-    // The user explicitly opts into RUSTFLAGS via the internal user env
+    // The user explicitly opts into RUSTFLAGS via the user env
     // tier; the resolver must not strip it. Compare to Go where GOOS
     // / GOARCH are runner-owned.
     const resolved = resolveRustRunEnv({

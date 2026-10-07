@@ -1,6 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { getActiveTab, useEditorStore } from '../stores/editorStore';
+import {
+  editorRunnerKey,
+  notebookRunnerClaimEpoch,
+  notebookRunnerOwner,
+  useNotebookRunnerLockStore,
+} from '../stores/notebookRunnerLockStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useTelemetry } from './useTelemetry';
@@ -22,14 +28,19 @@ export function useAutoRun() {
   const abortRef = useRef(false);
   const runTokenRef = useRef(0);
   const lastRunInputRef = useRef<AutoRunInput | null>(null);
+  const blockedByRunnerOwnerRef = useRef(false);
+  const [runnerReleaseResumes, setRunnerReleaseResumes] = useState(0);
 
   const activeTabId = useEditorStore(state => state.activeTabId);
   const activeTab = useEditorStore(state => getActiveTab(state));
+  const isManualRunning = useResultStore(state => state.isManualRunning);
   const autoLogByLanguage = useSettingsStore(state => state.scratchpadAutoLogByLanguage);
   const browserPreviewRefreshPreference = useSettingsStore(
     state => state.browserPreviewRefreshIntervalMs
   );
 
+  const hasActiveTab = activeTab !== null && activeTab !== undefined;
+  const isNotebook = activeTab?.kind === 'notebook';
   const code = activeTab?.content ?? '';
   const language = activeTab?.language ?? 'javascript';
   const runtimeMode = activeTab?.runtimeMode;
@@ -41,18 +52,31 @@ export function useAutoRun() {
     autoLogByLanguage
   );
   const stdinBuffer = activeTab?.stdinBuffer;
+  const runnerKey = editorRunnerKey(language, runtimeMode);
+  const isNotebookHoldingRunner = useNotebookRunnerLockStore(state =>
+    runnerKey ? state.owners[runnerKey] !== undefined : false
+  );
   const autoRunSchedule = resolveAutoRunSchedule(
     runtimeMode,
     code,
     browserPreviewRefreshPreference
   );
 
+  // A timer skipped (or a run preempted) while a manual run or a notebook
+  // cell held the runner is scheduled once that owner releases it.
   useEffect(() => {
+    if (isManualRunning || isNotebookHoldingRunner || !blockedByRunnerOwnerRef.current) return;
+    blockedByRunnerOwnerRef.current = false;
+    setRunnerReleaseResumes(count => count + 1);
+  }, [isManualRunning, isNotebookHoldingRunner]);
+
+  useEffect(() => {
+    blockedByRunnerOwnerRef.current = false;
     // Notebooks own their kernel; document JSON is never Scratchpad source.
     // Run and Debug are manual workflows. A restored desktop-only runtime on
     // web is also not schedulable. Keep the last visible result in both cases.
     if (
-      activeTab?.kind === 'notebook' ||
+      isNotebook ||
       workflowMode !== 'scratchpad' ||
       (runtimeMode !== undefined && !supportsRuntimeModeHere(runtimeMode))
     ) {
@@ -74,7 +98,7 @@ export function useAutoRun() {
       return;
     }
 
-    if (!activeTab || !code.trim()) {
+    if (!hasActiveTab || !code.trim()) {
       runTokenRef.current += 1;
       abortRef.current = true;
       lastRunInputRef.current = null;
@@ -84,7 +108,7 @@ export function useAutoRun() {
       return;
     }
 
-    // internal — Off is a real scheduling mode, not a large timeout. Cancel a
+    // Off is a real scheduling mode, not a large timeout. Cancel a
     // pending/in-flight silent preview without touching the last visible DOM
     // or result so manual Run remains the only refresh path.
     if (autoRunSchedule.debounceMs === null) {
@@ -125,10 +149,14 @@ export function useAutoRun() {
     runTokenRef.current = runToken;
 
     timerRef.current = setTimeout(async () => {
+      // A notebook claim mid-run terminates this run on the shared runner.
+      const claimEpoch = notebookRunnerClaimEpoch(runnerKey);
+      const wasPreemptedByNotebook = () => notebookRunnerClaimEpoch(runnerKey) !== claimEpoch;
       const isRunStale = () =>
         abortRef.current ||
         runToken !== runTokenRef.current ||
-        useResultStore.getState().isManualRunning;
+        useResultStore.getState().isManualRunning ||
+        wasPreemptedByNotebook();
       const shouldDiscard = () =>
         isRunStale() || useResultStore.getState().executionSource !== 'auto';
       const finish = () => {
@@ -137,9 +165,15 @@ export function useAutoRun() {
         }
       };
 
-      if (runToken !== runTokenRef.current || useResultStore.getState().isManualRunning) {
+      if (runToken !== runTokenRef.current) return;
+      if (useResultStore.getState().isManualRunning || notebookRunnerOwner(runnerKey)) {
+        blockedByRunnerOwnerRef.current = true;
         return;
       }
+      // Read the tab at fire time: the effect keys on run inputs only, so a
+      // same-input tab replacement (save, panel toggles) never aborts a run.
+      const currentTab = getActiveTab(useEditorStore.getState());
+      if (!currentTab || currentTab.id !== activeTabId) return;
 
       lastRunInputRef.current = input;
       abortRef.current = false;
@@ -148,7 +182,7 @@ export function useAutoRun() {
         if (isRunStale()) return;
         await executeAutoRun({
           input,
-          activeTab,
+          activeTab: currentTab,
           activeTabId,
           shouldDiscard,
           finish,
@@ -161,6 +195,12 @@ export function useAutoRun() {
           });
         }
         finish();
+      } finally {
+        if (wasPreemptedByNotebook() && runToken === runTokenRef.current && !abortRef.current) {
+          lastRunInputRef.current = null;
+          if (notebookRunnerOwner(runnerKey)) blockedByRunnerOwnerRef.current = true;
+          else setRunnerReleaseResumes(count => count + 1);
+        }
       }
     }, autoRunSchedule.debounceMs);
 
@@ -188,8 +228,11 @@ export function useAutoRun() {
     autoRunSchedule.debounceMs,
     autoRunSchedule.browserPreviewRefreshIntervalMs,
     stdinBuffer,
-    activeTab,
+    hasActiveTab,
+    isNotebook,
     activeTabId,
+    runnerKey,
+    runnerReleaseResumes,
     track,
   ]);
 

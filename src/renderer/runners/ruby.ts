@@ -24,9 +24,10 @@ import {
 import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
+import { splitOutputLines } from './outputLines';
 
 /**
- * Ruby runtime dispatcher — implementation (WASM) + implementation (desktop).
+ * Ruby runtime dispatcher — WASM (web) + native (desktop).
  *
  * `RubyRunner` is now a thin façade. On every `execute()` call it
  * inspects the platform (`window.lingua.ruby?` for the desktop bridge)
@@ -48,7 +49,7 @@ import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
  * Telemetry: every dispatch emits `runtime.ruby_runner_dispatched`
  * with `{ mode: 'system' | 'wasm' | 'missing', bucketedSpawnMs }` so
  * dashboards can isolate the two paths and detect spawn-latency
- * regressions (implementation note).
+ * regressions.
  */
 
 const RUBY_LOAD_TIMEOUT = 90_000;
@@ -57,15 +58,15 @@ const RUBY_LOAD_CANCELLED = '__LINGUA_RUBY_LOAD_CANCELLED__';
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
-function workerLoadErrorMessage(event: Event): string {
+function workerLoadErrorMessage(event: Event, fallback = 'Ruby worker failed to load'): string {
   const maybeMessage = (event as { message?: unknown }).message;
   return typeof maybeMessage === 'string' && maybeMessage.length > 0
     ? maybeMessage
-    : 'Ruby worker failed to load';
+    : fallback;
 }
 
 /**
- * implementation note — bucket the spawn-to-result latency so a
+ * Bucket the spawn-to-result latency so a
  * future regression in the IPC marshalling or the spawn path surfaces
  * in telemetry without leaking real timings. Closed-enum values; the
  * update-server parity test pins them.
@@ -79,7 +80,7 @@ function bucketRubySpawnMs(ms: number): '<100ms' | '<300ms' | '<1s' | '<3s' | '>
 }
 
 // ----------------------------------------------------------------------
-// WASM runtime (was the entire `RubyRunner` in implementation)
+// WASM runtime (was the entire `RubyRunner`)
 // ----------------------------------------------------------------------
 
 class WasmRubyRunner implements LanguageRunner {
@@ -175,7 +176,7 @@ class WasmRubyRunner implements LanguageRunner {
         const handler = (event: MessageEvent) => {
           const msg = event.data;
           if (msg.type === 'bootstrap-progress') {
-            // internal — Ruby WASM download progress during the init
+            // Ruby WASM download progress during the init
             // handshake; mirrors the Python runner.
             useBootstrapProgressStore.getState().report({
               language: 'ruby',
@@ -294,6 +295,7 @@ class WasmRubyRunner implements LanguageRunner {
           timeoutHandle = null;
         }
         worker.removeEventListener('message', handler);
+        worker.removeEventListener('error', crashHandler);
         if (this.currentRunId === runId) {
           this.currentRunId = null;
         }
@@ -308,6 +310,29 @@ class WasmRubyRunner implements LanguageRunner {
       };
       this.cancelInFlight = cancelInFlight;
 
+      // A crashed worker never posts done; without this the run would wait
+      // for the kill timer and report a timeout.
+      const crashHandler = (event: Event) => {
+        if (this.currentRunId !== runId) return;
+        useBootstrapProgressStore.getState().clear('ruby');
+        worker.terminate();
+        if (this.worker === worker) {
+          this.worker = null;
+          this.rubyLoaded = false;
+          this.loadingPromise = null;
+        }
+        finish({
+          stdout,
+          stderr,
+          result: undefined,
+          executionTime: 0,
+          error: { message: workerLoadErrorMessage(event, 'Ruby worker error') },
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
+        });
+      };
+
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
         if (!('runId' in msg) || msg.runId !== runId) return;
@@ -315,7 +340,7 @@ class WasmRubyRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'bootstrap-progress':
-            // internal — live runtime download progress; the
+            // Live runtime download progress; the
             // initialization window in executeTabManually composes it
             // into the loading message.
             useBootstrapProgressStore.getState().report({
@@ -356,7 +381,7 @@ class WasmRubyRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            // internal — boot finished (or was already warm); drop the
+            // Boot finished (or was already warm); drop the
             // progress line so the pill returns to its normal label.
             useBootstrapProgressStore.getState().clear('ruby');
             finish({
@@ -374,6 +399,7 @@ class WasmRubyRunner implements LanguageRunner {
       };
 
       worker.addEventListener('message', handler);
+      worker.addEventListener('error', crashHandler);
 
       timeoutHandle = setTimeout(() => {
         worker.terminate();
@@ -484,7 +510,7 @@ class DesktopRubySubprocessRunner implements LanguageRunner {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
 
-    const filePath = resolveActiveFilePath();
+    const filePath = context?.filePath ?? resolveActiveFilePath();
     const userEnv = resolveUserEnvForRunner();
 
     let result: RubyRunResult;
@@ -521,11 +547,11 @@ class DesktopRubySubprocessRunner implements LanguageRunner {
     // Translate the IPC text streams into ConsoleOutput rows. The
     // worker path already splits on newline; mirror that here so the
     // ConsolePanel surface stays line-oriented.
-    const stdoutRows = splitLines(result.stdout).map<ConsoleOutput>((line) => ({
+    const stdoutRows = splitOutputLines(result.stdout).map<ConsoleOutput>((line) => ({
       type: 'log',
       args: [line],
     }));
-    const stderrRows = splitLines(result.stderr).map<ConsoleOutput>((line) => ({
+    const stderrRows = splitOutputLines(result.stderr).map<ConsoleOutput>((line) => ({
       type: 'warn',
       args: [line],
     }));
@@ -568,17 +594,6 @@ class DesktopRubySubprocessRunner implements LanguageRunner {
   }
 }
 
-function splitLines(text: string): string[] {
-  if (text.length === 0) return [];
-  const parts = text.split('\n');
-  // Drop ONLY the trailing empty entry produced by a trailing
-  // newline. Mid-output blank lines (`puts ""` between two prints)
-  // must survive so the desktop path stays line-for-line faithful to
-  // the WASM worker's `postBufferedOutput` semantics.
-  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
-  return parts;
-}
-
 function resolveActiveFilePath(): string | undefined {
   try {
     const editor = useEditorStore.getState();
@@ -618,6 +633,8 @@ export class RubyRunner implements LanguageRunner {
   private desktop = new DesktopRubySubprocessRunner();
   private ready = false;
   private detection: DetectionState = { inFlight: null, cached: null, envKey: null };
+  /** Bumped by stop() so a run still awaiting detection never spawns afterwards. */
+  private stopGeneration = 0;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -668,6 +685,7 @@ export class RubyRunner implements LanguageRunner {
     const preference =
       useSettingsStore.getState().rubyRuntimePreference ?? 'auto';
     const bridge = getDesktopBridge();
+    const generation = this.stopGeneration;
 
     let mode: RubyDispatchedMode;
     let dispatchTarget: 'wasm' | 'desktop';
@@ -704,6 +722,10 @@ export class RubyRunner implements LanguageRunner {
       }
     }
 
+    if (generation !== this.stopGeneration) {
+      return runnerStoppedResult(t, { stdout: [], stderr: [] });
+    }
+
     const start =
       typeof performance !== 'undefined' && typeof performance.now === 'function'
         ? performance.now()
@@ -731,6 +753,7 @@ export class RubyRunner implements LanguageRunner {
     // idempotent: `WasmRubyRunner.stop()` is a no-op when the worker
     // is null, `DesktopRubySubprocessRunner.stop()` is a no-op when
     // `currentRunId` is null.
+    this.stopGeneration += 1;
     this.wasm.stop();
     this.desktop.stop();
   }

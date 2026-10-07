@@ -1,5 +1,5 @@
 /**
- * implementation — Browser preview runtime.
+ * Browser preview runtime.
  *
  * Routes JS / TS user code through an iframe-isolated DOM context.
  * The iframe is owned by `<BrowserPreviewPanel>` (the React surface
@@ -21,9 +21,11 @@
  *
  * Lifecycle:
  *
- *   1. `execute()` mints a fresh `runId` (UUID), checks for a
- *      registered iframe ref, and ensures the Browser preview tab
- *      is the active bottom-panel tab.
+ *   1. A manual `execute()` brings the Browser preview tab to the
+ *      front and waits briefly for its iframe to register; a live
+ *      refresh (`preserveBrowserPreviewOnFailure`) never switches
+ *      tabs and ends as stopped when no iframe is mounted. Then it
+ *      mints a fresh `runId` (UUID).
  *   2. The renderer picks the sibling `.css` / `.html` tabs of the
  *      tab named by `context.tabId` from the editor store, builds the
  *      srcdoc with `buildPreviewDocument`,
@@ -34,7 +36,7 @@
  *      promise rejections stream in between.
  *   4. Parent-owned `setTimeout` clears the document on timeout
  *      (effectively terminating user code).
- *   5. On `done` OR timeout OR stop(): resolve the promise with
+ *   5. On `done` OR timeout OR stop() OR the iframe unmounting: resolve the promise with
  *      the canonical ExecutionResult shape and detach the listener.
  */
 
@@ -52,7 +54,12 @@ import {
   isBridgeMessage,
   type BridgeMessage,
 } from '../components/BrowserPreview/iframeBridge';
-import { getActiveBrowserPreviewIframe, activateBrowserPreviewTab } from '../runtime/browserPreviewBridge';
+import {
+  activateBrowserPreviewTab,
+  getActiveBrowserPreviewIframe,
+  onBrowserPreviewIframeDetached,
+  waitForBrowserPreviewIframe,
+} from '../runtime/browserPreviewBridge';
 import {
   collectBrowserPreviewSiblingSources,
   type BrowserPreviewSiblingSources,
@@ -64,14 +71,14 @@ import {
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
 import {
-  appendCappedConsole,
-  capStderrIfOverflowing,
+  appendCappedOutput,
+  createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
 
-// implementation — the literal DEFAULT_TIMEOUT is gone; the browser
+// The literal DEFAULT_TIMEOUT is gone; the browser
 // preview runner inherits the host tab's JS / TS preset on every
 // call to `execute()`. The JS host is canonical: when the user
 // renames the tab to TS or HTML/CSS, the runner is dispatched per
@@ -86,6 +93,21 @@ const t: TranslateFn = (key, options) =>
 // immediately rejected Promise is reported rather than published as success.
 // This does not attempt to await arbitrary asynchronous work from user code.
 const POST_DONE_REJECTION_GRACE_MS = 75;
+
+// Activating the preview tab mounts the panel on the next React commit; give
+// it that long before reporting the panel as missing.
+const PANEL_MOUNT_WAIT_MS = 1_500;
+
+function panelMissingResult(): ExecutionResult {
+  return {
+    stdout: [],
+    stderr: [{ type: 'error', args: [t('browserPreview.error.panelMissing')] }],
+    result: undefined,
+    executionTime: 0,
+    error: { message: t('browserPreview.error.panelMissing') },
+    kind: 'error',
+  };
+}
 
 /**
  * Sibling `.css` / `.html` tabs of the running tab, read from the editor
@@ -112,6 +134,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   private ready = false;
   private currentRunId: string | null = null;
   private cancelInFlight: (() => void) | null = null;
+  private pendingMount: AbortController | null = null;
   // Keep only the serializable document. Retaining the iframe would pin a
   // detached BrowserPreviewPanel for the renderer session and would prevent a
   // remounted panel from recovering the last successful preview.
@@ -126,7 +149,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    // implementation — browser preview inherits the JS preset (the
+    // Browser preview inherits the JS preset (the
     // canonical host language for the iframe). When the host tab is
     // TS, the preset under `'typescript'` wins because the runner is
     // already dispatched per language.
@@ -143,40 +166,33 @@ export class BrowserPreviewRunner implements LanguageRunner {
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     let nextCaptureOrder = 0;
-    let droppedStdout = 0;
-    let droppedStderr = 0;
-    let stderrByteTruncated = false;
+    const caps = createConsoleCapState();
     let executionError: ExecutionError | undefined;
 
-    const iframe = getActiveBrowserPreviewIframe();
-    if (!iframe) {
-      // Panel not mounted (e.g., user runs from the palette before
-      // the bottom panel ever opens). Surface a clear error rather
-      // than silently hanging.
-      return {
-        stdout,
-        stderr: [
-          {
-            type: 'error',
-            args: [t('browserPreview.error.panelMissing')],
-          },
-        ],
-        result: undefined,
-        executionTime: 0,
-        error: {
-          message: t('browserPreview.error.panelMissing'),
-        },
-        // implementation — panel-missing counts as `'error'`.
-        kind: 'error',
-      };
+    const liveRefresh = context?.preserveBrowserPreviewOnFailure === true;
+    let iframe = getActiveBrowserPreviewIframe();
+    if (!iframe && liveRefresh) {
+      // A live refresh never pulls another bottom tab out of the way, so with
+      // the preview hidden there is nothing to refresh.
+      return { stdout, stderr, result: undefined, executionTime: 0, cancelled: true, kind: 'stopped' };
     }
 
     // Bring the Browser preview tab to the front so the iframe is
     // visible while user code runs. No-op if it's already active.
-    activateBrowserPreviewTab();
+    if (!liveRefresh) activateBrowserPreviewTab();
 
     // Stop any previous in-flight run before starting a new one.
     this.stop();
+
+    if (!iframe) {
+      const pendingMount = new AbortController();
+      this.pendingMount = pendingMount;
+      iframe = await waitForBrowserPreviewIframe(PANEL_MOUNT_WAIT_MS, pendingMount.signal);
+      if (this.pendingMount === pendingMount) this.pendingMount = null;
+      if (pendingMount.signal.aborted) return runnerStoppedResult(t, { stdout, stderr });
+      if (!iframe) return panelMissingResult();
+    }
+    const previewFrame = iframe;
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
@@ -213,8 +229,15 @@ export class BrowserPreviewRunner implements LanguageRunner {
         }
       };
 
+      // An unmounted panel can neither render nor report back, so end the run
+      // now instead of at the deadline.
+      const stopOnDetach = onBrowserPreviewIframeDetached(detached => {
+        if (detached === previewFrame) finish(runnerStoppedResult(t, { stdout, stderr }));
+      });
+
       const detachListener = () => {
         window.removeEventListener('message', handleMessage);
+        stopOnDetach();
       };
 
       const restoreLastSuccessfulDocument = (clearWhenDisabled = false) => {
@@ -225,8 +248,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
             preserve && documentTabId !== null && this.lastSuccessfulDocument?.tabId === documentTabId
               ? this.lastSuccessfulDocument.srcdoc
               : null;
-          if (previous) setSandboxDocument(iframe, previous);
-          else clearSandboxDocument(iframe);
+          if (previous) setSandboxDocument(previewFrame, previous);
+          else clearSandboxDocument(previewFrame);
         } catch {
           /* iframe may be detached; ignore */
         }
@@ -253,7 +276,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
       this.cancelInFlight = cancel;
 
       const handleMessage = (event: MessageEvent) => {
-        if (event.source !== iframe.contentWindow) return;
+        if (event.source !== previewFrame.contentWindow) return;
         // Origin guard: sandboxed iframe without `allow-same-origin`
         // posts as `null`. In test or future allow-origin contexts,
         // accept the parent origin too. Everything else is rejected.
@@ -279,15 +302,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
               type: message.method,
               args: message.args,
             };
-            if (message.method === 'error') {
-              if (!stderrByteTruncated) {
-                droppedStderr = appendCappedConsole(stderr, output, droppedStderr, t);
-                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-              }
-            } else {
-              droppedStdout = appendCappedConsole(stdout, output, droppedStdout, t);
-            }
-            context?.onConsole?.(output);
+            const live = appendCappedOutput({ stdout, stderr }, caps, output, message.method === 'error', t);
+            if (live) context?.onConsole?.(live);
             break;
           }
           case 'error': {
@@ -297,17 +313,14 @@ export class BrowserPreviewRunner implements LanguageRunner {
               type: 'error',
               args: [message.stack ?? message.message],
             };
-            if (!stderrByteTruncated) {
-              droppedStderr = appendCappedConsole(stderr, error, droppedStderr, t);
-              stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-            }
+            const live = appendCappedOutput({ stdout, stderr }, caps, error, true, t);
             executionError = {
               message: message.message,
               line: message.lineno,
               column: message.colno,
               stack: message.stack,
             };
-            context?.onConsole?.(error);
+            if (live) context?.onConsole?.(live);
             break;
           }
           case 'unhandledrejection': {
@@ -317,12 +330,9 @@ export class BrowserPreviewRunner implements LanguageRunner {
               type: 'error',
               args: [message.message],
             };
-            if (!stderrByteTruncated) {
-              droppedStderr = appendCappedConsole(stderr, error, droppedStderr, t);
-              stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-            }
+            const live = appendCappedOutput({ stdout, stderr }, caps, error, true, t);
             executionError = executionError ?? { message: message.message };
-            context?.onConsole?.(error);
+            if (live) context?.onConsole?.(live);
             break;
           }
           case 'done': {
@@ -364,7 +374,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
       // The transport waits for the isolated bootstrap, then the execution
       // bridge streams ready/output/done. The deadline also covers loading.
       try {
-        setSandboxDocument(iframe, doc);
+        setSandboxDocument(previewFrame, doc);
       } catch (assignError) {
         restoreLastSuccessfulDocument();
         finish({
@@ -396,6 +406,11 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   stop(): void {
+    if (this.pendingMount) {
+      const pendingMount = this.pendingMount;
+      this.pendingMount = null;
+      pendingMount.abort();
+    }
     if (this.cancelInFlight) {
       const cancel = this.cancelInFlight;
       this.cancelInFlight = null;

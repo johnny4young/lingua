@@ -1,5 +1,5 @@
 /**
- * implementation — Compare-with-last-stable end-to-end smoke.
+ * Compare-with-last-stable end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
@@ -10,27 +10,15 @@
  *   - Language change clears the snapshot and disables the chip.
  */
 
-import type { Page } from '@playwright/test';
 import {
   createJavaScriptTab,
   dismissWhatsNew,
   expect,
   gotoApp,
   seedSession,
+  replaceEditorAndWaitForAutoRun,
   test,
 } from './licenseWeb.helpers';
-
-async function replaceEditorText(page: Page, source: string): Promise<void> {
-  await page
-    .locator('.monaco-editor')
-    .first()
-    .click({ position: { x: 140, y: 42 } });
-  await page.keyboard.press(
-    process.platform === 'darwin' ? 'Meta+A' : 'Control+A'
-  );
-  await page.keyboard.press('Backspace');
-  await page.keyboard.insertText(source);
-}
 
 test.describe('compare with last stable run ', () => {
   test('toggle is disabled until the first clean run captures a snapshot', async ({
@@ -55,16 +43,13 @@ test.describe('compare with last stable run ', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    await replaceEditorText(page, 'console.log(2)');
-    // Wait for the auto-run debounce + the panel update.
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("compare-result-2", 2)', 'compare-result-2');
 
     const toggle = page.getByTestId('panel-chip-compare');
     await expect(toggle).not.toBeDisabled();
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
-    await replaceEditorText(page, 'console.log(4)');
-    await page.waitForTimeout(1_400);
+    await replaceEditorAndWaitForAutoRun(page, 'console.log("compare-result-4", 4)', 'compare-result-4');
 
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');

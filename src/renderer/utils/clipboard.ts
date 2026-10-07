@@ -20,7 +20,7 @@ export async function writeToClipboard(text: string): Promise<boolean> {
 }
 
 /**
- * implementation — read the clipboard once. Returns null on missing
+ * Read the clipboard once. Returns null on missing
  * permission, missing API, empty contents, or any other failure. Never
  * throws — callers treat null as "no clipboard content available" and
  * stay silent rather than nagging the user with a permission prompt.

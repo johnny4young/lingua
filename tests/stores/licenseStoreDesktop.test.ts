@@ -1,5 +1,5 @@
 /**
- * implementation — renderer licenseStore against the desktop IPC bridge.
+ * Renderer licenseStore against the desktop IPC bridge.
  *
  * The store auto-detects `window.lingua.license` at module-load time. When
  * the bridge is present (packaged desktop / `pnpm run dev:desktop:pro`),

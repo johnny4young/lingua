@@ -1,5 +1,5 @@
 /**
- * implementation — utilityPipeline schema + engine tests.
+ * utilityPipeline schema + engine tests.
  *
  * Exercises: parsers (happy + every shape rejection),
  * `tryImportPipelineJson` closed reject reasons, the `runPipeline`
@@ -178,6 +178,53 @@ describe('tryImportPipelineJson', () => {
     if (outcome.ok) return;
     expect(outcome.reason).toBe('unknown-utility-id');
     expect(outcome.detail).toContain('made-up');
+  });
+
+  it.each([
+    ['null', null],
+    ['an array', []],
+    ['a string', 'base64-decode'],
+    ['a missing id', { utilityId: 'base64-decode', options: {} }],
+    ['an empty id', { id: '', utilityId: 'base64-decode', options: {} }],
+    ['a numeric id', { id: 42, utilityId: 'base64-decode', options: {} }],
+    ['a missing utility id', { id: 'broken', options: {} }],
+    ['a numeric utility id', { id: 'broken', utilityId: 42, options: {} }],
+    ['missing options', { id: 'broken', utilityId: 'regex-replace' }],
+    ['null options', { id: 'broken', utilityId: 'regex-replace', options: null }],
+    ['array options', { id: 'broken', utilityId: 'regex-replace', options: [] }],
+  ])('rejects %s instead of silently dropping an imported step', (_label, invalidStep) => {
+    const valid = fixturePipeline();
+    const broken = { ...valid, steps: [valid.steps[0], invalidStep, valid.steps[1]] };
+    expect(tryImportPipelineJson(JSON.stringify(broken), 0)).toMatchObject({
+      ok: false,
+      reason: 'invalid-shape',
+      detail: 'step 2 is malformed',
+    });
+    // Recovery of an already-saved library remains deliberately lenient.
+    expect(parsePipeline(broken)?.steps).toEqual(valid.steps);
+  });
+
+  it('rejects a recipe whose only step is malformed instead of importing an empty recipe', () => {
+    const broken = { ...fixturePipeline(), steps: [{ id: 'step-1', utilityId: 'base64-decode' }] };
+    expect(tryImportPipelineJson(JSON.stringify(broken), 0)).toMatchObject({
+      ok: false,
+      reason: 'invalid-shape',
+    });
+  });
+
+  it('preserves an intentionally empty recipe and valid step options unchanged', () => {
+    const empty = { ...fixturePipeline(), steps: [] };
+    expect(tryImportPipelineJson(JSON.stringify(empty), 0)).toEqual({
+      ok: true,
+      pipeline: empty,
+      warnings: [],
+    });
+    const valid = fixturePipeline();
+    expect(tryImportPipelineJson(JSON.stringify(valid), 0)).toEqual({
+      ok: true,
+      pipeline: valid,
+      warnings: [],
+    });
   });
 
   it('rejects duplicate step ids as invalid-shape', () => {

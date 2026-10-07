@@ -1,5 +1,5 @@
 /**
- * implementation — Primary notebook editor area.
+ * Primary notebook editor area.
  *
  * Replaces the Monaco editor when `activeTab.kind === 'notebook'`.
  * Layout:
@@ -8,8 +8,8 @@
  *   - Cell list: scrollable column of `<NotebookMarkdownCellRow>` +
  *     `<NotebookCodeCellRow>` interspersed in user-defined order.
  *
- * implementation mount-virtualized the Monaco editor (only the active cell
- * hosts a live editor). implementation windows the ROW COUNT via the shared
+ * An earlier change mount-virtualized the Monaco editor (only the active cell
+ * hosts a live editor). The view now windows the ROW COUNT via the shared
  * `useListWindow` hook: only the rows whose vertical band intersects the
  * viewport (plus an overscan margin) mount, with two spacer `<li>`s
  * preserving the scrollbar geometry. In jsdom (`clientHeight === 0`) the
@@ -50,7 +50,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const { t } = useTranslation();
   const notebook = useNotebookStore(s => s.notebooks[tabId]?.notebook);
   const cellRunStatusMap = useNotebookStore(s => s.notebooks[tabId]?.cellRunStatus);
-  // FASE 4 — transient per-cell latency + variable-flow maps, threaded
+  // Transient per-cell latency + variable-flow maps, threaded
   // into each code-cell row alongside `status`.
   const cellDurationMsMap = useNotebookStore(s => s.notebooks[tabId]?.cellDurationMs);
   const cellVarFlowMap = useNotebookStore(s => s.notebooks[tabId]?.cellVarFlow);
@@ -86,7 +86,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // button in the toolbar.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const shortcutsAnchorRef = useRef<HTMLDivElement | null>(null);
-  // implementation — export-format menu (Script | Jupyter .ipynb). Same
+  // export-format menu (Script | Jupyter .ipynb). Same
   // popover mechanics as the shortcuts legend.
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -106,10 +106,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   }, []);
   const activeCellId = useNotebookStore(s => s.notebooks[tabId]?.activeCellId ?? null);
   const setActiveCell = useNotebookStore(s => s.setActiveCell);
-  // implementation Slice H implementation note — per-tab cell-list scroll persistence.
+  // per-tab cell-list scroll persistence.
   const setNotebookScrollTop = useNotebookStore(s => s.setNotebookScrollTop);
 
-  // implementation — window the cell ROW count. The scrolling <section>
+  // Window the cell ROW count. The scrolling <section>
   // is the viewport; `useListWindow` mounts only the rows whose vertical
   // band intersects it (plus an 800px overscan tuned for tall cells). The
   // hook must run unconditionally (rules of hooks), so it reads an empty
@@ -120,13 +120,13 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const { listWindow, measureRef, scrollToIndex } = useListWindow({
     scrollRef: cellsScrollRef,
     keys: cellKeys,
-    // implementation note — tuned for tall notebook cells (editor + outputs) vs. the
+    // Tuned for tall notebook cells (editor + outputs) vs. the
     // console's 28px ANSI rows.
     estimate: 120,
     overscanPx: 800,
   });
 
-  // implementation note — restore this tab's remembered scroll offset ONCE, after the
+  // Restore this tab's remembered scroll offset ONCE, after the
   // first layout, then hand control to the user. A layout effect runs
   // before paint so the restore is invisible. We restore per `tabId` (not
   // on every render) so the windower's own scroll tracking isn't fought.
@@ -142,7 +142,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     if (remembered > 0) element.scrollTop = remembered;
   }, [notebookReady, tabId]);
 
-  // implementation note — persist the scroll offset as the user scrolls, throttled to
+  // Persist the scroll offset as the user scrolls, throttled to
   // one write per animation frame so a flick-scroll doesn't thrash the
   // store. This coexists with the windower's own (separate) rAF scroll
   // listener; both read the same `scrollTop` independently.
@@ -176,7 +176,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       ).length ?? 0,
     [cellRunStatusMap, notebook]
   );
-  // implementation Slice C implementation note — the user's default-language preference is the
+  // The user's default-language preference is the
   // floor for new code cells, replacing the hardcoded `'javascript'`. The
   // contextual signals (backing tab language, an existing code cell) are
   // more specific and still win.
@@ -231,8 +231,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [addCell, notebook, pushStatusNotice, tabId]
   );
 
-  // implementation — switch a cell's language via the header selector +
-  // emit the implementation note adoption signal. JS / TS / Python are all runnable
+  // Switch a cell's language via the header selector +
+  // emit the language adoption signal. JS / TS / Python are all runnable
   // now; the handler still guards programmatic events against a
   // hypothetical non-runnable code-cell language so the store + telemetry
   // never carry one.
@@ -270,7 +270,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [removeCell, tabId]
   );
 
-  // implementation Slice H implementation note — stable per-cell handlers so the memoized rows
+  // Stable per-cell handlers so the memoized rows
   // see referentially-equal props and a keystroke in one cell does not
   // re-render every other mounted row. These replace the inline arrows the
   // row map used to pass (which changed identity every render).
@@ -296,7 +296,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const handleMoveUp = useCallback((cellId: string) => handleMove(cellId, 'up'), [handleMove]);
   const handleMoveDown = useCallback((cellId: string) => handleMove(cellId, 'down'), [handleMove]);
 
-  // implementation — read a cell's current index off the LIVE store rather
+  // Read a cell's current index off the LIVE store rather
   // than closing over `notebook`, so the focus helpers below keep empty /
   // minimal dep lists (closing over `notebook` would rebuild them — and the
   // memoized command-mode actions — on every keystroke). Returns -1 when
@@ -306,7 +306,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [getLiveNotebookCells]
   );
 
-  // Jupyter-parity run keybinds. implementation (Monaco cells): a code cell
+  // Jupyter-parity run keybinds. With Monaco cells, a code cell
   // no longer has an always-mounted textarea to focus, so "advance into
   // edit mode" routes through the edit-request mechanism — select the cell
   // and bump its edit nonce, which mounts its Monaco editor (it focuses
@@ -314,7 +314,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   // the store synchronously, so the target row exists by the time React
   // re-renders with the bumped nonce.
   //
-  // implementation — the active cell hosts the live editor, but a windowed off-
+  // The active cell hosts the live editor, but a windowed off-
   // screen row is UNMOUNTED, so we must scroll it into the window BEFORE
   // focusing (the editor / shell only exists once the recompute mounts it).
   // `scrollToIndex` seeds the internal scrollTop synchronously, so one frame
@@ -338,7 +338,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
 
   // Focus a cell SHELL (command mode) after the next paint — used after
   // a structural edit so focus follows the active cell back into command
-  // mode rather than getting orphaned on a removed element. implementation: scroll
+  // mode rather than getting orphaned on a removed element. Scroll
   // the target into the window first (double rAF: one frame for the window-
   // recompute render to mount the row, one to query + focus it), since an
   // off-screen shell is unmounted and `querySelector` would miss it.
@@ -511,7 +511,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     clearAllOutputs(tabId);
   }, [clearAllOutputs, tabId]);
 
-  // implementation note — kick off the whole-notebook run, then scroll the FIRST code
+  // Kick off the whole-notebook run, then scroll the FIRST code
   // cell (where progress begins) into view so a long notebook surfaces its
   // running cell instead of leaving the user staring at an off-screen row.
   const handleRunAll = useCallback(() => {
@@ -532,7 +532,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const handleRunFromHere = useCallback(() => {
     if (!activeCellId) return;
     void runFromHere(tabId, activeCellId);
-    // implementation note — bring the cell the run starts at into view.
+    // Bring the cell the run starts at into view.
     const idx = cellIndexOf(activeCellId);
     if (idx >= 0) scrollToIndex(idx);
   }, [activeCellId, cellIndexOf, runFromHere, scrollToIndex, tabId]);
@@ -580,7 +580,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       runAndInsertBelow: (cellId: string) => handleRunAndInsertBelow(cellId),
       interrupt: () => stop(),
       setActiveCell: (cellId: string) => {
-        // implementation — j/k command-mode navigation routes through here. Scroll
+        // j/k command-mode navigation routes through here. Scroll
         // the target row into the window FIRST (synchronously seeds the
         // internal scrollTop), so the recompute mounts its shell before the
         // command-mode hook's own next-frame `focusShell` queries for it —

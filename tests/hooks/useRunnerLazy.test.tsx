@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRunner } from '../../src/renderer/hooks/useRunner';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
+import { subscribeCommand } from '../../src/renderer/stores/commandBus';
 
 const mocks = vi.hoisted(() => ({
   loadController: vi.fn(),
@@ -20,6 +22,30 @@ describe('useRunner activation boundary', () => {
     mocks.loadController.mockResolvedValue({
       runActiveTab: mocks.runActiveTab,
     });
+  });
+
+  it.each(['sql', 'http'] as const)('routes Run on a %s workspace tab to the workspace', async kind => {
+    const previous = useEditorStore.getState();
+    useEditorStore.setState({
+      tabs: [{ id: kind, name: kind, language: kind, content: '', kind } as never],
+      activeTabId: kind,
+    });
+    const received: string[] = [];
+    const unsubscribe = subscribeCommand('workspace.run', payload => {
+      received.push(payload.kind);
+    });
+    try {
+      const { result } = renderHook(() => useRunner());
+      await act(async () => {
+        await result.current.run();
+      });
+      expect(received).toEqual([kind]);
+      expect(mocks.loadController).not.toHaveBeenCalled();
+      expect(useUIStore.getState().statusNotice).toBeNull();
+    } finally {
+      unsubscribe();
+      useEditorStore.setState({ tabs: previous.tabs, activeTabId: previous.activeTabId });
+    }
   });
 
   it('does not load manual-run orchestration while controls are idle', () => {

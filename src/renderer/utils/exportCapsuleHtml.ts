@@ -1,5 +1,5 @@
 /**
- * internal — renderer orchestration for the capsule → HTML export.
+ * Renderer orchestration for the capsule → HTML export.
  *
  * Pipeline: `sanitizeRunCapsule` → static Monaco tokenization (best
  * effort — a failure or an unknown language falls back to plain

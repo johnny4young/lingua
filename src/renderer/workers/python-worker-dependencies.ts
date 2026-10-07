@@ -6,7 +6,7 @@ import type { PythonWorkerDependencyMessage, PythonWorkerPort } from './python-w
 import { classifyMicropipError, type PythonRuntimeAdapter } from './python-worker-runtime';
 import type { PyProxyLike } from './python-worker-serialization';
 
-// implementation — defensive PyPI-name regex. PyPI's accepted form is
+// Defensive PyPI-name regex. PyPI's accepted form is
 // case-insensitive: starts with a letter or digit, allows interior
 // `[A-Za-z0-9._-]`, and ends in a letter or digit. Trailing `.` or
 // `-` would resolve to surprising packages once PyPI's normaliser
@@ -31,7 +31,7 @@ export function createPythonDependencyHandler(
         });
       } catch {
         // Pyodide boot failed — caller falls back to `'detected'` for
-        // every name, preserving implementation's honest signal.
+        // every name, preserving the honest signal.
         ctx.postMessage({
           type: 'dependencies:list-loaded:reply',
           requestId,
@@ -123,7 +123,7 @@ export function createPythonDependencyHandler(
           {};
         for (const name of safeNames) statuses[name] = 'installed';
         for (const name of rejectedNames) statuses[name] = 'failed';
-        // implementation reviewer fix — when SOME names were rejected
+        // Reviewer fix — when SOME names were rejected
         // (regex-invalid) but the rest installed cleanly, surface a
         // `partial` outcome so the renderer can see "some succeeded,
         // some failed". The dominant failure reason is the regex

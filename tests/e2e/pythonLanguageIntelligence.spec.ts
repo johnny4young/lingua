@@ -1,5 +1,5 @@
 /**
- * implementation — browser smoke for Python language intelligence.
+ * Browser smoke for Python language intelligence.
  *
  * The unit tests own parser precision. This spec verifies the Monaco surface
  * mounts the adapter, renders a marker in the real editor, exposes local

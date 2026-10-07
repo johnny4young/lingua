@@ -25,7 +25,7 @@ async function replaceEditorContent(page: Page, content: string): Promise<void> 
   await page.keyboard.insertText(content);
 }
 
-test.describe('internal magic comment discoverability', () => {
+test.describe('magic comment discoverability', () => {
   test('suggests the real directive catalog inside JavaScript comments', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);

@@ -48,7 +48,7 @@ function formatCronRunTimestamp(date: Date, locale: string): string {
 export function CronParserPanel() {
   const { t, i18n } = useTranslation();
   const [expression, setExpression] = useState(DEFAULT_CRON_EXPRESSION);
-  // internal — seed from a smart-pasted cron expression.
+  // Seed from a smart-pasted cron expression.
   usePendingUtilityInput('cron-parser', setExpression);
   const [nextCount, setNextCount] = useState(DEFAULT_CRON_NEXT_COUNT);
   const [resolvedResult, setResolvedResult] = useState<ResolvedCronResult | null>(null);
@@ -96,7 +96,7 @@ export function CronParserPanel() {
     setNextCount(clamped);
   };
 
-  // implementation — emit the human-readable description (when
+  // Emit the human-readable description (when
   // available) as the canonical output so users can paste a sentence
   // like "Every 5 minutes" alongside the cron string.
   const registerOutput = useCallback(() => {

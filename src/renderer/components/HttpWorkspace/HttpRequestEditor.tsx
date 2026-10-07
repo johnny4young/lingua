@@ -1,5 +1,5 @@
 /**
- * implementation — Center column: edit the active request (method,
+ * Center column: edit the active request (method,
  * URL, headers, body, Send).
  *
  * HTTP workspace usability upgrade — the request builder gained
@@ -8,7 +8,7 @@
  * with the URL bar; the Auth tab injects an Authorization / API-key
  * header on send.
  *
- * implementation note here:
+ * Features here:
  *
  *   - **A**: Cmd/Ctrl+Enter while focus is inside any input fires
  *     the Send handler. Mirrors the run-shortcut muscle memory the
@@ -24,6 +24,8 @@
 import { ChevronDown, Copy, Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { buildCurlCommand } from '../../../shared/httpWorkspaceCurl';
 import {
   paramsToUrl,
@@ -70,7 +72,7 @@ export interface HttpRequestEditorProps {
    * Patches land via this callback (auto-save). The target request id
    * is passed explicitly so a debounced flush always lands on the
    * entry the edit was typed into, even if the active request switched
-   * during the debounce quiet window (RQ-02).
+   * during the debounce quiet window.
    */
   onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
@@ -79,7 +81,7 @@ export interface HttpRequestEditorProps {
   onStop?: () => void;
   isExecuting: boolean;
   /**
-   * implementation — environment wiring. The selector renders in the
+   * Environment wiring. The selector renders in the
    * header; the resolution preview renders beneath the URL. The active
    * environment also drives the secret-safe Copy-as-cURL. Optional with
    * empty/no-op defaults so the editor still renders standalone (e.g. in
@@ -119,6 +121,7 @@ export function HttpRequestEditor({
   onManageEnvironment,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
+  const sendCombo = useShortcutLabel('run-toggle');
 
   // Local draft state. Auto-save debounce flushes to the store via
   // `onPatch` after `AUTO_SAVE_DEBOUNCE_MS` of quiet. Local state
@@ -140,13 +143,13 @@ export function HttpRequestEditor({
   const [assertions, setAssertions] = useState<HttpAssertion[]>(request.assertions ?? []);
   const [builderTab, setBuilderTab] = useState<HttpRequestBuilderTab>('params');
 
-  // implementation — the active environment, resolved from props.
+  // The active environment, resolved from props.
   const activeEnv = useMemo<HttpEnvironmentV1 | null>(
     () => environments.find(e => e.id === activeEnvironmentId) ?? null,
     [environments, activeEnvironmentId]
   );
 
-  // implementation note — a LIVE request snapshot for the
+  // A LIVE request snapshot for the
   // resolution preview, rebuilt from the in-editor draft state on every
   // keystroke (the persisted `request` lags behind the 500 ms debounce).
   const previewRequest = useMemo<HttpRequestV1>(
@@ -163,11 +166,11 @@ export function HttpRequestEditor({
     [request, transport, method, url, headers, params, auth, body]
   );
 
-  // implementation note — debounced auto-save. One timer covers all fields so a
+  // Debounced auto-save. One timer covers all fields so a
   // rapid edit across URL + params + headers + body settles to a
   // single patch.
   //
-  // RQ-02 — the pending patch carries the id of the request it was
+  // The pending patch carries the id of the request it was
   // typed into (`pendingTargetIdRef`), captured at schedule time. A
   // flush always targets that captured id, never the (possibly
   // already-switched) active request, so an edit to request A can
@@ -202,7 +205,7 @@ export function HttpRequestEditor({
   // Sync local state when the active request switches (different id).
   // Flush the previous request's pending edit FIRST so it lands on the
   // entry it was typed into before we overwrite the draft with the
-  // newly-active request (RQ-02).
+  // newly-active request.
   const lastRequestIdRef = useRef<string>(request.id);
   useEffect(() => {
     if (lastRequestIdRef.current === request.id) return;
@@ -268,7 +271,7 @@ export function HttpRequestEditor({
       pendingPatchRef.current = fullPatch;
       // Capture the id of the request being edited NOW. The flush reads
       // this captured id, so a switch before the timer fires cannot
-      // redirect the patch onto the newly-active request (RQ-02).
+      // redirect the patch onto the newly-active request.
       pendingTargetIdRef.current = request.id;
       if (patchTimerRef.current !== null) {
         window.clearTimeout(patchTimerRef.current);
@@ -331,12 +334,13 @@ export function HttpRequestEditor({
     if (!draft) return;
     onSend(draft);
   }, [flushDraftBeforeSend, isExecuting, onSend]);
+  useWorkspaceRunTarget('http', sendCurrentDraft);
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy
   // it. A one-shot notice confirms / surfaces a clipboard failure.
   //
-  // implementation note — when an environment is active, feed the
+  // When an environment is active, feed the
   // curl builder a request whose NON-secret vars are resolved (so the
   // printed command is runnable) but whose SECRET vars stay as their
   // `{{key}}` placeholder (no clipboard leak). With no env active, the
@@ -387,18 +391,14 @@ export function HttpRequestEditor({
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
-  useEffect(() => {
-    return () => {
-      flushPendingPatch();
-    };
-  }, [flushPendingPatch]);
+  useEffect(() => () => flushPendingPatch(), [flushPendingPatch]);
 
-  // implementation note — Cmd/Ctrl+Enter sends.
+  // Cmd/Ctrl+Enter sends; stopped here so the global run toggle stays out.
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (event.key !== 'Enter') return;
-      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key !== 'Enter' || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
+      event.stopPropagation();
       sendCurrentDraft();
     },
     [sendCurrentDraft]
@@ -485,7 +485,7 @@ export function HttpRequestEditor({
     [captures, applyCaptures]
   );
 
-  // internal — response assertions. Same local-state + debounced-patch
+  // Response assertions. Same local-state + debounced-patch
   // pattern as captures.
   const applyAssertions = useCallback(
     (nextAssertions: HttpAssertion[]) => {
@@ -525,7 +525,7 @@ export function HttpRequestEditor({
     [scheduleAutoSave]
   );
 
-  // implementation note — cURL paste import. Listens on the URL input only.
+  // cURL paste import. Listens on the URL input only.
   const handleUrlPaste = useCallback(
     (event: React.ClipboardEvent<HTMLInputElement>) => {
       const pasted = event.clipboardData.getData('text');
@@ -629,7 +629,7 @@ export function HttpRequestEditor({
       onKeyDown={handleKeyDown}
       className="flex h-full min-w-0 flex-col gap-2 overflow-hidden p-3"
     >
-      {/* implementation — environment selector slot, above the
+      {/* Environment selector slot, above the
           method/URL row so it reads as request-wide context. */}
       <div className="flex shrink-0 items-center justify-end">
         <HttpEnvironmentSelector
@@ -728,7 +728,7 @@ export function HttpRequestEditor({
             </div>
           ) : null}
         </div>
-        {/* FASE 3 — Send is the SLATE accent primary per the proto
+        {/* Send is the SLATE accent primary per the proto
             (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
             Green stays reserved for SQL Run / success states. Label +
             shortcut hint show inline. */}
@@ -754,7 +754,7 @@ export function HttpRequestEditor({
             disabled={url.trim().length === 0}
             data-testid="http-request-editor-send"
             aria-label={t('httpWorkspace.editor.send.label')}
-            title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
+            title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint', { combo: sendCombo })}`}
             className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <SendHorizontal size={14} aria-hidden="true" />
@@ -763,7 +763,7 @@ export function HttpRequestEditor({
         )}
       </div>
 
-      {/* implementation note — resolution preview beneath the
+      {/* Resolution preview beneath the
           URL. Resolved URL (secrets masked) + variable-state chips. */}
       <HttpEnvironmentPreview request={previewRequest} env={activeEnv} />
 

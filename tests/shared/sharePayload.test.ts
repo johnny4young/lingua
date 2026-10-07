@@ -1,5 +1,5 @@
 /**
- * implementation — `SharePayloadV1` round-trip + reject path matrix.
+ * `SharePayloadV1` round-trip + reject path matrix.
  *
  * Pinning the wire format end-to-end (build → encode → decode →
  * matches), every reject path, the URL-safe alphabet contract, the
@@ -449,7 +449,7 @@ describe('decodeShareFragment — drops unknown mode values silently', () => {
   });
 });
 
-describe('bucketShareSize — implementation note', () => {
+describe('bucketShareSize', () => {
   it('maps every boundary into a closed enum value', () => {
     expect(bucketShareSize(0)).toBe('<1kb');
     expect(bucketShareSize(1023)).toBe('<1kb');

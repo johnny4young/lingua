@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +64,13 @@ async function validateLocale(locale, directory, filenames, errors) {
     const { data, body } = parsed;
     for (const key of REQUIRED_FRONT_MATTER) {
       if (!data[key]) errors.push(`${locale}/${filename}: missing ${key}`);
+    }
+
+    const expectedOgImage = `/assets/og${prefix}/${slug}.png`;
+    if (data.ogImage !== expectedOgImage) {
+      errors.push(`${locale}/${filename}: ogImage must be ${expectedOgImage}, got ${data.ogImage ?? 'nothing'}`);
+    } else if (!existsSync(join(WEBSITE_ROOT, 'public', expectedOgImage))) {
+      errors.push(`${locale}/${filename}: ${expectedOgImage} is missing; run npm run generate:og`);
     }
 
     if ((data.description ?? '').length > 160) {

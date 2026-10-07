@@ -1,5 +1,5 @@
 /**
- * implementation note — pure helper that decides how to append a
+ * Pure helper that decides how to append a
  * `// @watch <expr>` (or `# @watch <expr>` for Python) marker to a
  * line of code.
  *

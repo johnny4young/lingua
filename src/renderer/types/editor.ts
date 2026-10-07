@@ -12,7 +12,7 @@ import type { DeveloperUtilityId } from '../data/developerUtilityCatalog';
 import type { Language } from './language';
 
 /**
- * internal implementation follow-up — per-tab execution lifecycle.
+ * per-tab execution lifecycle.
  *
  * The tab bar surfaces these as a small status dot to the left of
  * the close button so the user can scan multiple tabs and tell
@@ -29,7 +29,7 @@ import type { Language } from './language';
  */
 export type TabExecutionState = 'idle' | 'running' | 'success' | 'error';
 
-/** internal — a named, per-tab replayable stdin + argv snapshot. */
+/** A named, per-tab replayable stdin + argv snapshot. */
 export interface InputSet {
   id: string;
   name: string;
@@ -52,7 +52,7 @@ export interface FileTab {
    */
   filePath?: string;
   /**
-   * internal capability binding. The `rootId` is a process-lifetime token
+   * Capability binding. The `rootId` is a process-lifetime token
    * minted when the picker resolved this file (single-file open or
    * save-as) or when the file was opened from inside the active
    * project tree. `relativePath` is the file path inside that root.
@@ -73,21 +73,21 @@ export interface FileTab {
    */
   parseError?: string | null;
   /**
-   * implementation — explicit per-tab runtime mode for JS/TS tabs.
+   * Explicit per-tab runtime mode for JS/TS tabs.
    * `'worker'` for all freshly created JS/TS tabs; `undefined` for
-   * every other language. implementation surfaced `'browser-preview'` for
-   * the iframe-isolated preview pane; implementation will surface `'node'`
+   * every other language. An earlier change surfaced `'browser-preview'` for
+   * the iframe-isolated preview pane; a later change will surface `'node'`
    * once the desktop child-process backend lands.
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
   runtimeMode?: RuntimeMode;
   /**
-   * implementation — explicit per-tab workflow mode. Three values:
+   * Explicit per-tab workflow mode. Three values:
    *
    *   - `scratchpad` — auto-run fires on debounced keystrokes
-   *     (gated by the implementation completion heuristic). Default for
+   *     (gated by the completion heuristic). Default for
    *     Scratchpad-capable languages (JS / TS / Python today).
-   *   - `run` — auto-run is OFF. Manual Cmd+R still works. Default
+   *   - `run` — auto-run is OFF. Manual Mod+Enter still works. Default
    *     for compiled / validate / view-only tabs and the fall-back
    *     for any language whose explicit mode is no longer
    *     supported after a language change.
@@ -101,7 +101,7 @@ export interface FileTab {
    */
   workflowMode?: WorkflowMode;
   /**
-   * implementation note — explicit per-tab auto-log override on
+   * Explicit per-tab auto-log override on
    * top of the per-language Settings default. Three resolved
    * states:
    *
@@ -117,7 +117,7 @@ export interface FileTab {
    */
   autoLogEnabled?: boolean;
   /**
-   * implementation — per-tab pre-set stdin buffer consumed by JS / TS
+   * per-tab pre-set stdin buffer consumed by JS / TS
    * `prompt()` / `readline()` and Python `input()` during the next
    * run. Newline-delimited; each call to `prompt()` / `input()`
    * consumes one line. Empty / undefined ⇒ no patching, native worker
@@ -128,14 +128,14 @@ export interface FileTab {
    * stdin support (anything outside JS / TS / Python).
    */
   stdinBuffer?: string;
-  /** internal — named input snapshots saved with the editor session. */
+  /** Named input snapshots saved with the editor session. */
   inputSets?: InputSet[];
-  /** internal — the set currently loaded into `stdinBuffer` / `inputArgs`. */
+  /** The set currently loaded into `stdinBuffer` / `inputArgs`. */
   activeInputSetId?: string;
-  /** internal — current argv draft; runners may consume it when supported. */
+  /** Current argv draft; runners may consume it when supported. */
   inputArgs?: string[];
   /**
-   * implementation note — one-shot extended-timeout override for
+   * one-shot extended-timeout override for
    * the NEXT run on this tab. Set by the command palette
    * "Run with extended timeout" entry. `executeTabManually` reads
    * the value, threads it onto `ExecutionContext.timeout`, and
@@ -145,7 +145,7 @@ export interface FileTab {
    */
   nextRunTimeoutOverrideMs?: number;
   /**
-   * implementation — per-tab flag for the "Compare with last
+   * per-tab flag for the "Compare with last
    * stable run" toggle in the result-panel header. `true` swaps
    * the inline-results region for `<CompareResultsPanel>` when a
    * comparator snapshot is available; otherwise the toggle stays
@@ -155,7 +155,7 @@ export interface FileTab {
    */
   compareWithSnapshotEnabled?: boolean;
   /**
-   * implementation — per-tab flag for the "Variables" toggle in
+   * per-tab flag for the "Variables" toggle in
    * the result-panel header. `true` swaps the inline-results
    * region for `<VariableInspectorPanel>` when a language-matching
    * `ScopeSnapshot` is available. Mutually exclusive with the
@@ -166,7 +166,7 @@ export interface FileTab {
    */
   variableInspectorEnabled?: boolean;
   /**
-   * implementation — when set, this tab was opened from the Recipes
+   * When set, this tab was opened from the Recipes
    * overlay and the bottom-panel `'recipe'` sibling tab is gated on
    * this binding. The string is the `LessonPackV1.id` of the bundled
    * recipe. Cleared on language change to a non-recipe-runnable
@@ -177,14 +177,14 @@ export interface FileTab {
    */
   recipeBindingId?: string;
   /**
-   * implementation — when `'notebook'`, this tab renders
+   * When `'notebook'`, this tab renders
    * `<NotebookView>` instead of Monaco. The companion document
    * (cells + outputs + run status) lives in `useNotebookStore` keyed
    * by `tab.id`. The `content` field is unused for notebook tabs (the
    * cell sources are the source of truth); `language` is informational
    * only — per-cell language is the runner dispatch key.
    *
-   * MOV.02 — widened to `'sql'` / `'http'`. MOV.03 adds
+   * Widened to `'sql'` / `'http'`, then
    * `'utilities'`. These ascend workspace surfaces from modal/dock
    * slots to full-screen workspace tabs that sit alongside Notebook.
    * As with `'notebook'`, the `content` field is unused: SQL/HTTP own
@@ -229,14 +229,14 @@ export interface EditorState {
   addTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   /**
    * Grandfather an array of tabs into the store without consulting the
-   * internal tier ceiling. Only the session-restore path should use this
+   * tier ceiling. Only the session-restore path should use this
    * so users' prior workspaces are never truncated by a Free downgrade.
    */
   restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   /**
-   * implementation note — switch a tab's language without
+   * Switch a tab's language without
    * re-creating it. Used by the `.ipynb` import flow to flip a
    * freshly-imported notebook tab's language chip to the dominant
    * cell language. No-op on unknown tab, matching language, or
@@ -245,7 +245,7 @@ export interface EditorState {
   setTabLanguage: (id: string, language: Language) => void;
   updateContent: (id: string, content: string) => void;
   /**
-   * implementation — refresh a tab's buffer from disk content without
+   * Refresh a tab's buffer from disk content without
    * marking it dirty. Used by the Replace in files overlay so the
    * on-screen tab reflects the post-replace disk content. Cmd+Z does
    * not restore the previous content; replace-in-files is a
@@ -254,7 +254,7 @@ export interface EditorState {
   setTabContentFromDisk: (id: string, content: string) => void;
   markSaved: (id: string) => void;
   /**
-   * internal — flip the per-tab lifecycle marker. Called by the runner
+   * Flip the per-tab lifecycle marker. Called by the runner
    * when execution starts (`running`), resolves cleanly (`success`),
    * or fails (`error`). `parseError` accepts an optional one-line
    * explanation that the tab bar surfaces via title tooltip on
@@ -262,17 +262,17 @@ export interface EditorState {
    */
   setTabExecutionState: (id: string, state: TabExecutionState, parseError?: string | null) => void;
   /**
-   * implementation — set the runtime mode for a JS/TS tab. No-op
+   * Set the runtime mode for a JS/TS tab. No-op
    * (and a status-notice toast) when:
    *   - the tab does not own a runtime-mode surface (non-JS/TS), or
    *   - the requested mode is not yet implemented (`'node'` until
-   *     implementation lands).
+   *     a later change lands).
    * Telemetry (`runtime.mode_changed`) fires on every successful
    * change.
    */
   setTabRuntimeMode: (id: string, mode: RuntimeMode) => void;
   /**
-   * implementation — set the workflow mode for a tab. No-op when:
+   * Set the workflow mode for a tab. No-op when:
    *   - the tab does not exist;
    *   - the language does not support the requested mode (e.g.
    *     `debug` on a Rust tab).
@@ -281,7 +281,7 @@ export interface EditorState {
    */
   setTabWorkflowMode: (id: string, mode: WorkflowMode) => void;
   /**
-   * implementation note — set the per-tab auto-log override.
+   * Set the per-tab auto-log override.
    * `null` clears the override so the tab falls back to the
    * per-language Settings default. The mutation is a no-op if:
    *   - the tab does not exist;
@@ -290,38 +290,38 @@ export interface EditorState {
    */
   setTabAutoLogEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * implementation — write the per-tab stdin buffer. `null` clears
+   * Write the per-tab stdin buffer. `null` clears
    * the field. No-op when:
    *   - the tab does not exist;
    *   - the tab's language is not JS / TS / Python (stdin is
    *     worker-only this change; the desktop runners stay TODO).
    */
   setTabStdinBuffer: (id: string, text: string | null) => void;
-  /** internal — replace the active tab's argv draft (one array item per argument). */
+  /** Replace the active tab's argv draft (one array item per argument). */
   setTabInputArgs: (id: string, args: string[] | null) => void;
-  /** internal — create/update a named snapshot from the tab's current input. */
+  /** create/update a named snapshot from the tab's current input. */
   saveTabInputSet: (id: string, name: string) => string | null;
-  /** internal — load a named snapshot, or detach into an unsaved draft with null. */
+  /** Load a named snapshot, or detach into an unsaved draft with null. */
   selectTabInputSet: (id: string, inputSetId: string | null) => void;
-  /** internal — rename an existing input snapshot. */
+  /** Rename an existing input snapshot. */
   renameTabInputSet: (id: string, inputSetId: string, name: string) => boolean;
-  /** internal — remove a snapshot without clearing the currently loaded values. */
+  /** Remove a snapshot without clearing the currently loaded values. */
   deleteTabInputSet: (id: string, inputSetId: string) => void;
   /**
-   * implementation note — set / clear the one-shot extended-timeout
+   * Set / clear the one-shot extended-timeout
    * override for the next run on the given tab. `executeTabManually`
    * consumes the value once and clears it. `null` clears the field
    * without consuming.
    */
   setTabNextRunTimeoutOverride: (id: string, timeoutMs: number | null) => void;
   /**
-   * implementation — write the per-tab `compareWithSnapshotEnabled`
+   * Write the per-tab `compareWithSnapshotEnabled`
    * flag. `null` clears the field (toggle returns to disabled).
    * No-op when the tab does not exist.
    */
   setTabCompareEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * implementation — write the per-tab `variableInspectorEnabled`
+   * Write the per-tab `variableInspectorEnabled`
    * flag. `null` clears the field (toggle returns to disabled).
    * Mutual exclusion with `setTabCompareEnabled` is enforced at the
    * caller level — toggling Variables on flips Compare off, and
@@ -329,13 +329,13 @@ export interface EditorState {
    */
   setTabVariableInspectorEnabled: (id: string, enabled: boolean | null) => void;
   /**
-   * implementation — clear the per-tab recipe binding. Used by the
+   * Clear the per-tab recipe binding. Used by the
    * Recipe panel's explicit unbind action so the persisted
    * session-store copy cannot resurrect the panel after reload.
    */
   clearRecipeBinding: (id: string) => void;
   /**
-   * implementation — create a fresh notebook tab. Wraps `addTab` with
+   * Create a fresh notebook tab. Wraps `addTab` with
    * `kind: 'notebook'` + seeds the companion `useNotebookStore`
    * entry. `language` is the notebook-level display/default cell
    * language used when an importer knows the dominant code-cell
@@ -362,7 +362,7 @@ export interface EditorState {
    */
   addHttpTab: () => string | null;
   /**
-   * MOV.03 — focus (or create) the single Developer Utilities
+   * Focus (or create) the single Developer Utilities
    * workspace tab. The selected utility id is owned by
    * `utilityWorkspaceStore` / `utilityHistoryStore`, so this tab is only the
    * full-screen shell.

@@ -1,5 +1,5 @@
 /**
- * internal — contract test for the debugger worker bridge. The bridge's
+ * Contract test for the debugger worker bridge. The bridge's
  * `DebuggerControlMessage` union is now ALSO consumed by the worker's
  * inbound handler (`WorkerInboundMessage` in js-worker.ts), so this
  * locks the sender side: every variant round-trips verbatim to the

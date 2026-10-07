@@ -1,6 +1,5 @@
 import { X } from 'lucide-react';
 import {
-  useEffect,
   useId,
   useMemo,
   useRef,
@@ -19,15 +18,15 @@ import {
 } from './capsuleComparison';
 
 /**
- * implementation — read-only side-by-side comparator for two run
+ * read-only side-by-side comparator for two run
  * capsules. Mirrors `ExecutionComparisonModal` : an
  * `OverlayBackdrop`/`OverlayCard` dialog with an Escape-closes effect, a
  * summary strip, and the older-on-the-left / newer-on-the-right pane
  * grid. It extends that precedent with:
  *
- *   - implementation note — a Code | Input | Output tab bar; the active section
+ *   - A Code | Input | Output tab bar; the active section
  *     renders the two `<pre>` panes plus the line-by-line diff below.
- *   - implementation note — environment chips (platform / runner / git branch /
+ *   - Environment chips (platform / runner / git branch /
  *     commit) shown as `older → newer` only when they differ.
  *
  * `capsules` is `[older, newer]` sorted oldest → newest by the caller.
@@ -121,19 +120,14 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
   const tablistBaseId = useId();
   const tablistRef = useRef<HTMLDivElement>(null);
 
-  // Escape closes — `OverlayBackdrop` only handles the backdrop click.
-  // Mirror `ExecutionComparisonModal`: attach a window listener while
-  // open, tear it down on unmount (parent flips `capsules` to null).
-  useEffect(() => {
-    if (!capsules) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [capsules, onClose]);
+  // Escape closes only this modal; stopping it here keeps the parent
+  // Capsules overlay's global Escape from closing it too.
+  const handleEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
 
   const model = useMemo<CapsuleComparison | null>(
     () => (capsules ? compareRunCapsules(capsules[0], capsules[1]) : null),
@@ -214,7 +208,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
   };
 
   return (
-    <OverlayBackdrop onClose={onClose}>
+    <OverlayBackdrop onClose={onClose} onKeyDown={handleEscape}>
       <OverlayCard
         role="dialog"
         aria-modal="true"
@@ -271,7 +265,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
               delta: formatDelta(model.older.durationMs, model.newer.durationMs),
             })}
           </div>
-          {/* implementation note — environment deltas. Each chip self-hides when the
+          {/* Environment deltas. Each chip self-hides when the
               two sides match, so this row is empty when the run
               environment was identical. */}
           <div
@@ -308,13 +302,13 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
         {model.contentIdentical ? (
           <p
             data-testid="capsule-compare-identical"
-            className="px-6 py-8 text-center text-body-sm text-muted"
+            className="px-6 py-16 text-center text-body-sm text-muted"
           >
             {t('capsule.compare.identical')}
           </p>
         ) : (
           <>
-            {/* implementation note — section tab bar. */}
+            {/* Section tab bar. */}
             <div
               ref={tablistRef}
               role="tablist"
@@ -358,7 +352,7 @@ export function CapsuleComparisonModal({ capsules, onClose }: CapsuleComparisonM
             {active.empty ? (
               <p
                 data-testid="capsule-compare-section-empty"
-                className="px-6 py-8 text-center text-body-sm text-muted"
+                className="px-6 py-16 text-center text-body-sm text-muted"
               >
                 {t('capsule.compare.section.empty')}
               </p>

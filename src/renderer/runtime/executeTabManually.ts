@@ -89,22 +89,23 @@ async function executeOwnedTab(
 ): Promise<ManualExecutionSummary> {
   const session = lifecycle.session!;
   const runConsole = createRunConsole(session.isCurrent);
+  const showsResults = () => session.isCurrent() && isTabInView(activeTab.id);
   const plan = resolveRunPlan(activeTab, lifecycle);
   const { language } = activeTab;
 
   lifecycle.setCurrentLanguage?.(language);
 
   if (plan.mode === 'view') {
-    const summary = publishViewOnly(activeTab, runConsole);
+    const summary = publishViewOnly(activeTab, runConsole, showsResults);
     lifecycle.setCurrentLanguage?.(null);
     runConsole.flush();
     return summary;
   }
   if (plan.mode === 'validate') {
-    publishValidationStart(activeTab, runConsole);
+    publishValidationStart(activeTab, runConsole, showsResults);
     lifecycle.setIsRunning?.(true);
     try {
-      return publishValidation(activeTab, runConsole);
+      return publishValidation(activeTab, runConsole, showsResults);
     } finally {
       runConsole.flush();
       useResultStore.getState().setIsManualRunning(false);
@@ -119,11 +120,11 @@ async function executeOwnedTab(
     return summary;
   }
 
-  publishRunStart(activeTab, plan, runConsole);
+  publishRunStart(activeTab, plan, runConsole, showsResults);
   lifecycle.setIsRunning?.(true);
   const bootstrap = startRunnerBootstrap(activeTab, plan, lifecycle, runConsole);
   let runnerPrepared = false;
-  // implementation note — snapshot the git posture at run START, before
+  // Snapshot the git posture at run START, before
   // runner preparation can await. The same value is reused on the outer throw
   // path so a long failed prepare / execute cannot capture a later
   // sibling-terminal checkout instead.
@@ -153,13 +154,20 @@ async function executeOwnedTab(
       : session.onCancel(() => runnerManager.stop(language, activeTab.runtimeMode));
     let run;
     try {
-      run = await runAndCollect(runner, activeTab, execution, runConsole, session.isCurrent);
+      run = await runAndCollect(
+        runner,
+        activeTab,
+        execution,
+        runConsole,
+        session.isCurrent,
+        showsResults
+      );
     } finally {
       unregisterStop();
     }
     if (!session.isCurrent()) return cancelledSummary();
     if (run.result.cancelled) {
-      return publishCancelledRun(activeTab, run, runConsole);
+      return publishCancelledRun(activeTab, run, runConsole, showsResults);
     }
     return await publishCompletedRun(
       activeTab,
@@ -167,16 +175,24 @@ async function executeOwnedTab(
       run,
       gitSnapshot,
       runConsole,
-      session.isCurrent
+      session.isCurrent,
+      showsResults
     );
   } catch (error) {
     if (!session.isCurrent()) return cancelledSummary();
-    const message = await publishRunFailure(activeTab, plan, error, gitSnapshot, session.isCurrent);
+    const message = await publishRunFailure(
+      activeTab,
+      plan,
+      error,
+      gitSnapshot,
+      session.isCurrent,
+      showsResults
+    );
     if (!session.isCurrent()) return cancelledSummary();
     if (!runnerPrepared) {
       bootstrap.fail();
     }
-    return publishFailedRun(language, message, runnerPrepared, runConsole);
+    return publishFailedRun(language, message, runnerPrepared, runConsole, showsResults);
   } finally {
     bootstrap.dispose();
     runConsole.flush();
@@ -186,4 +202,10 @@ async function executeOwnedTab(
     lifecycle.setLoadingMessage?.(null);
     lifecycle.setCurrentLanguage?.(null);
   }
+}
+
+/** The result store mirrors the active tab; synthetic tabs (smoke) always own it. */
+function isTabInView(tabId: string): boolean {
+  const { activeTabId, tabs } = useEditorStore.getState();
+  return activeTabId === tabId || !tabs.some(tab => tab.id === tabId);
 }

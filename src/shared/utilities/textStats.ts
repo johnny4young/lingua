@@ -1,5 +1,5 @@
 /**
- * implementation note — `text-stats` adapter.
+ * `text-stats` adapter.
  *
  * A terminal "inspect" step: report line / word / character / byte
  * counts for the input. Pure shared implementation; no options.

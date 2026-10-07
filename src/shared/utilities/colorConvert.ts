@@ -1,5 +1,5 @@
 /**
- * implementation note — `color-convert` adapter.
+ * `color-convert` adapter.
  *
  * Parses a CSS color in hex (#rgb / #rrggbb / #rrggbbaa) or
  * rgb()/rgba() notation and emits hex, rgb(), and hsl() lines. Pure

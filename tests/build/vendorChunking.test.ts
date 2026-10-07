@@ -13,7 +13,7 @@ describe.each(configs)('%s vendor chunking', (_surface, config) => {
   it('keeps the preload pin exempt from the vendor size threshold', () => {
     const output = config.build!.rollupOptions!.output!;
     if (Array.isArray(output)) throw new Error('Expected one output');
-    const chunking = output.advancedChunks!;
+    const chunking = output.codeSplitting as Exclude<typeof output.codeSplitting, boolean | undefined>;
     const preload = chunking.groups!.find(group => group.name === 'vite-preload')!;
     expect(preload.minSize).toBe(0);
     expect(preload.priority).toBeGreaterThan(50);
@@ -44,7 +44,7 @@ describe.each(configs)('%s vendor chunking', (_surface, config) => {
         minify: false,
         rolldownOptions: {
           input: 'probe-entry',
-          output: { advancedChunks: output.advancedChunks },
+          output: { codeSplitting: output.codeSplitting },
         },
       },
     });

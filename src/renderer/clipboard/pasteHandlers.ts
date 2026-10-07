@@ -1,5 +1,5 @@
 /**
- * implementation — pure paste-intent detectors.
+ * Pure paste-intent detectors.
  *
  * When the user pastes into the Monaco editor, `useSmartPaste` reads the
  * pasted text and asks this module "is this a known Lingua artifact?". Each
@@ -65,7 +65,7 @@ interface CurlIntent {
  * A pasted stack trace's first resolvable frame. `file` may be an absolute
  * path, a `node:` internal, or null when the frame had no file token; the
  * router forwards it to the existing `file.open` command, which reveals
- * within-tab today and opens cross-file once internal lands.
+ * within-tab today and opens cross-file once multi-file lands.
  */
 interface StackTraceIntent {
   kind: 'stack-trace';
@@ -83,7 +83,7 @@ interface LargeJsonIntent {
 }
 
 /**
- * internal — Developer Utilities the paste router can suggest. Values are
+ * Developer Utilities the paste router can suggest. Values are
  * catalog ids from `data/developerUtilities.ts`, narrowed to the formats
  * with a conservative single-value detector.
  */
@@ -97,7 +97,7 @@ export type UtilitySuggestionId =
   | 'json';
 
 /**
- * internal — a pasted value a Developer Utility can handle better than the
+ * A pasted value a Developer Utility can handle better than the
  * code buffer (a JWT, a UUID, a color, an epoch, a cron expression,
  * Base64 text, or a small JSON snippet). `source` is the trimmed paste,
  * pre-loaded into the panel when the user accepts.
@@ -199,7 +199,7 @@ function detectLargeJson(text: string): LargeJsonIntent | null {
 }
 
 /**
- * internal — utility suggestions. Pastes longer than this never suggest a
+ * Utility suggestions. Pastes longer than this never suggest a
  * utility: the formats below are short values, and analyzing a huge paste
  * on the paste path is wasted work.
  */
@@ -322,8 +322,8 @@ function decodesToReadableText(value: string): boolean {
 }
 
 /**
- * internal — map a paste to the Developer Utility that handles it, or null.
- * Runs LAST in the chain, so every internal code-like artifact (share-link,
+ * Map a paste to the Developer Utility that handles it, or null.
+ * Runs LAST in the chain, so every code-like artifact (share-link,
  * capsule, cURL, stack trace, large JSON) wins first. Within the family,
  * JWT precedes Base64 (JWT segments are themselves base64url) and every
  * check is single-value strict so ordinary code never matches.
@@ -365,7 +365,7 @@ function detectUtilitySuggestion(text: string): UtilityIntent | null {
 /**
  * Run every detector in priority order and return the first match, or null
  * when the paste is plain text. Order matters: share-link and capsule are the
- * most specific, large-JSON is the JSON catch-all, and the internal utility
+ * most specific, large-JSON is the JSON catch-all, and the utility
  * suggestions run last so they can never shadow an importer.
  */
 export function detectPasteIntent(text: string): PasteIntent | null {

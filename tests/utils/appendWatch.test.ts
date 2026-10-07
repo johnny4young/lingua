@@ -1,5 +1,5 @@
 /**
- * implementation note — `appendWatch` helper coverage.
+ * `appendWatch` helper coverage.
  *
  * Locks:
  *   - Idempotent when the line is already a watch.

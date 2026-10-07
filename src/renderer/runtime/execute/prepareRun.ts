@@ -57,7 +57,7 @@ export function startRunnerBootstrap(
   const { language, runtimeMode } = activeTab;
   const shouldShowInitialization =
     !plan.usesNativeDebugger && runnerManager.needsInitialization(language, runtimeMode);
-  // internal — while the runtime bootstraps, compose the live download
+  // While the runtime bootstraps, compose the live download
   // progress the worker streams into the static loading message
   // ("Loading Python runtime (Pyodide)... 34 MB / 60 MB"). The
   // subscription lives exactly as long as the initialization window.
@@ -100,7 +100,7 @@ export function startRunnerBootstrap(
     },
     complete: () => {
       if (!shouldShowInitialization) return;
-      // internal — bucketed adoption signal; exact durations stay local.
+      // Bucketed adoption signal; exact durations stay local.
       settle({ kind: 'completed', durationMs: performance.now() - bootstrapStartedAt });
     },
     // Closed-enum failure signal; the console entry carries the honest local message.

@@ -38,7 +38,7 @@ test.describe('project terminal bilingual evidence', () => {
       await page.getByRole('button', { name: startLabel }).click();
       await expect(page.getByText(activeLabel, { exact: true })).toBeVisible();
       await expect(page.locator('.xterm-screen')).toContainText('Project terminal ready');
-      await expect(page.getByRole('button', { name: locale === 'es' ? 'Detén' : 'Stop' })).toBeVisible();
+      await expect(page.getByRole('button', { name: locale === 'es' ? 'Detener' : 'Stop' })).toBeVisible();
       await page.waitForTimeout(250);
       expect(
         await page.evaluate(() => ({

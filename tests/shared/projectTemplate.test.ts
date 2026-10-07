@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * implementation — Schema validator unit tests for
+ * Schema validator unit tests for
  * `parseProjectTemplate`. Covers the four reject paths explicitly
  * (path traversal, duplicate relPath, entry-file-not-in-files,
  * invalid language) plus a positive baseline so the happy path is

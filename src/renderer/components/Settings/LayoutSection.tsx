@@ -41,7 +41,7 @@ export function LayoutSection() {
   return (
     <SettingsSection eyebrow={t('layout.title')} description={t('layout.description')}>
       {/*
-       * MOV.04 rhythm — the layout presets are selectable preview cards,
+       * The layout presets are selectable preview cards,
        * which the proto keeps as a bespoke custom grid (NOT SpecRows).
        * Only the surfacing is normalized to the section's inset/accent
        * tokens; selection logic and the LayoutIcon preview are preserved.

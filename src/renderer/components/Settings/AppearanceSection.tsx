@@ -71,7 +71,7 @@ export function AppearanceSection() {
   return (
     <SettingsSection eyebrow={t('appearance.title')} description={t('appearance.description')}>
       {/*
-       * MOV.04 rhythm — the two field Selects (theme pack + language)
+       * The two field Selects (theme pack + language)
        * are read-only-shaped metadata rows grouped into ONE SpecCard.
        * The bespoke theme tile grid below stays a custom selectable card
        * cluster (proto keeps it custom), so it is NOT a SpecRow.

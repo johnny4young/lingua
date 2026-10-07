@@ -16,18 +16,18 @@ import { analyzeJson } from '../../../utils/developerUtilities';
 export function JsonUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('{\n  "name": "Lingua",\n  "tools": ["json", "base64"]\n}');
-  // internal — seed from a smart-pasted JSON snippet.
+  // Seed from a smart-pasted JSON snippet.
   usePendingUtilityInput('json', setInput);
   const analysis = useMemo(() => analyzeJson(input), [input]);
 
-  // implementation — register the formatted JSON as the panel's
+  // Register the formatted JSON as the panel's
   // canonical output for Cmd+Shift+C / Cmd+Alt+R. Invalid in-progress
   // edits surface null so the shortcut shows the empty-output toast
   // instead of copying malformed JSON.
   const registerOutput = useCallback(() => analysis.formatted ?? null, [analysis.formatted]);
   useRegisterUtilityOutput(registerOutput);
 
-  // implementation — Apply re-formats the input. For valid JSON the
+  // Apply re-formats the input. For valid JSON the
   // visible output is unchanged (the live memo already produced it),
   // but the success toast confirms the gesture from the keyboard.
   const runApply = useCallback(() => {

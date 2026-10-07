@@ -55,7 +55,7 @@ export function LoremIpsumPanel() {
     setOutput(generateLorem({ unit, count, startWithClassic }));
   };
 
-  // implementation — pure generator: no detect, no Apply button.
+  // Pure generator: no detect, no Apply button.
   const registerOutput = useCallback(() => output || null, [output]);
   useRegisterUtilityOutput(registerOutput);
 

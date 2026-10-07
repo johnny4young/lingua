@@ -1,6 +1,6 @@
 import { getSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
 /**
- * implementation — BrowserPreviewRunner + iframe bridge tests.
+ * BrowserPreviewRunner + iframe bridge tests.
  *
  * Coverage:
  *
@@ -11,7 +11,7 @@ import { getSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
  *     discriminator + the serializer + console / error /
  *     unhandledrejection / done forwarders).
  *   - `buildPreviewDocument` injects user code verbatim (with
- *     literal close-script-tag sequences escaped), splices implementation note
+ *     literal close-script-tag sequences escaped), splices in
  *     sibling sources, and carries the strict CSP meta tag.
  *   - `isBridgeMessage` accepts well-formed payloads and rejects
  *     spoofed shapes.
@@ -36,12 +36,14 @@ import {
 } from '@/components/BrowserPreview/iframeBridge';
 import { BrowserPreviewRunner } from '@/runners/browserPreview';
 import {
+  registerBrowserPreviewActivator,
   setActiveBrowserPreviewIframe,
   _resetBrowserPreviewBridgeForTesting,
 } from '@/runtime/browserPreviewBridge';
+import { MAX_CONSOLE_ENTRIES } from '@/runners/limits';
 import { collectBrowserPreviewSiblingSources } from '@/runtime/browserPreviewSiblings';
 import { useEditorStore } from '@/stores/editorStore';
-import type { FileTab } from '@/types';
+import type { ConsoleOutput, FileTab } from '@/types';
 
 describe('BrowserPreviewRunner — metadata', () => {
   it('reports id / name / language / extensions', () => {
@@ -138,7 +140,7 @@ describe('iframe bridge — buildPreviewDocument', () => {
     expect(openTagCount).toBe(closeTagCount);
   });
 
-  it('implementation note — splices sibling CSS into <style> and sibling HTML into <body>', () => {
+  it('splices sibling CSS into <style> and sibling HTML into <body>', () => {
     const doc = buildPreviewDocument({
       runId: 'run-1',
       userCode: 'console.log(1);',
@@ -385,12 +387,120 @@ describe('BrowserPreviewRunner — execute()', () => {
     vi.useRealTimers();
   });
 
-  it('surfaces a clear error when the panel has not mounted', async () => {
+  it('surfaces a clear error when the panel never mounts after activation', async () => {
+    vi.useFakeTimers();
+    const activator = vi.fn();
+    registerBrowserPreviewActivator(activator);
     const runner = new BrowserPreviewRunner();
     await runner.init();
-    const result = await runner.execute('console.log(1);');
+    const promise = runner.execute('console.log(1);');
+    await vi.advanceTimersByTimeAsync(1_499);
+    let settled = false;
+    void promise.then(() => (settled = true));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await promise;
+    expect(activator).toHaveBeenCalledWith('browser-preview');
     expect(result.error?.message).toMatch(/panel|not mounted/i);
     expect(result.stderr.length).toBeGreaterThan(0);
+  });
+
+  it('runs once the activated preview tab mounts its iframe', async () => {
+    const iframe = createFakeIframe();
+    registerBrowserPreviewActivator(() => {
+      queueMicrotask(() => setActiveBrowserPreviewIframe(iframe));
+    });
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const promise = runner.execute('console.log("mounted");');
+    await vi.waitFor(() => expect(getSandboxDocument(iframe)).toContain('mounted'));
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+    const result = await promise;
+    expect(result.kind).toBe('success');
+  });
+
+  it('stop() while waiting for the panel settles as stopped', async () => {
+    registerBrowserPreviewActivator(vi.fn());
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const promise = runner.execute('console.log(1);');
+    await Promise.resolve();
+    runner.stop();
+    const result = await promise;
+    expect(result.kind).toBe('stopped');
+    expect(result.cancelled).toBe(true);
+    // A later mount must not resurrect the stopped run.
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    expect(getSandboxDocument(iframe)).toBe('');
+  });
+
+  it('a live refresh with the panel hidden neither switches tabs nor reports an error', async () => {
+    const activator = vi.fn();
+    registerBrowserPreviewActivator(activator);
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const result = await runner.execute('console.log(1);', {
+      tabId: 'hidden-tab',
+      preserveBrowserPreviewOnFailure: true,
+    });
+    expect(activator).not.toHaveBeenCalled();
+    expect(result.kind).toBe('stopped');
+    expect(result.error).toBeUndefined();
+    expect(result.stderr).toEqual([]);
+  });
+
+  it('a live refresh into a mounted panel does not switch bottom tabs', async () => {
+    const activator = vi.fn();
+    registerBrowserPreviewActivator(activator);
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const promise = runner.execute('// refresh', { preserveBrowserPreviewOnFailure: true });
+    await Promise.resolve();
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+    expect((await promise).kind).toBe('success');
+    expect(activator).not.toHaveBeenCalled();
+  });
+
+  it('stops the run when the panel unmounts mid-run instead of waiting for the deadline', async () => {
+    vi.useFakeTimers();
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    const promise = runner.execute('while (true) {}', { timeout: 30_000 });
+    await Promise.resolve();
+    setActiveBrowserPreviewIframe(null);
+    await vi.advanceTimersByTimeAsync(0);
+    const result = await promise;
+    expect(result.kind).toBe('stopped');
+  });
+
+  it('streams only capped console entries plus one truncation notice', async () => {
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const iframe = createFakeIframe();
+    setActiveBrowserPreviewIframe(iframe);
+    const streamed: ConsoleOutput[] = [];
+    const promise = runner.execute('// flood', { onConsole: output => streamed.push(output) });
+    await Promise.resolve();
+    const runId = getSandboxDocument(iframe).match(/var RUN_ID = "([^"]+)";/u)![1]!;
+    for (let i = 0; i < MAX_CONSOLE_ENTRIES + 200; i += 1) {
+      postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'console', method: 'log', args: [`l${i}`] });
+    }
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'console', method: 'error', args: ['x'.repeat(256 * 1024 + 1)] });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'console', method: 'error', args: ['after-cap'] });
+    postBridgeMessage({ __lingua: BRIDGE_DISCRIMINATOR, runId, type: 'done' });
+    const result = await promise;
+    const stdoutStreamed = streamed.filter(output => output.type !== 'error');
+    expect(stdoutStreamed).toHaveLength(MAX_CONSOLE_ENTRIES + 1);
+    expect(stdoutStreamed.at(-1)).toBe(result.stdout[MAX_CONSOLE_ENTRIES - 1]);
+    expect(streamed.filter(output => output.type === 'error')).toEqual(result.stderr);
   });
 
   it('resolves on a done message and captures console output', async () => {

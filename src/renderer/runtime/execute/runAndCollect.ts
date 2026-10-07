@@ -60,7 +60,9 @@ export async function runAndCollect(
   activeTab: FileTab,
   execution: RunExecution,
   runConsole: RunConsole,
-  isCurrent: () => boolean = () => true
+  isCurrent: () => boolean = () => true,
+  // Result-panel writes only; console streaming follows `isCurrent`.
+  showsResults: () => boolean = isCurrent
 ): Promise<CollectedRun> {
   const { language, content } = activeTab;
   const {
@@ -84,7 +86,7 @@ export async function runAndCollect(
   // publishes the final presentation, which a late frame must not overwrite.
   const publishStreamedPresentation = () => {
     presentationPending = false;
-    if (settled || !isCurrent()) return;
+    if (settled || !showsResults()) return;
     const presentation = toExecutionPresentation(language, content, {
       stdout: streamedStdout,
       stderr: streamedStderr,
@@ -114,10 +116,10 @@ export async function runAndCollect(
     }
   };
 
-  // implementation note — set the in-flight deadline so the countdown pill
+  // Set the in-flight deadline so the countdown pill
   // can render `mm:ss` until termination; the pill reads
   // `useResultStore.runDeadlineAt` to compute the remaining time.
-  if (execution.deadlineTimeoutMs !== undefined) {
+  if (execution.deadlineTimeoutMs !== undefined && showsResults()) {
     setRunDeadlineAt(Date.now() + execution.deadlineTimeoutMs);
   }
 
@@ -138,11 +140,11 @@ export async function runAndCollect(
       ? output : { ...output, captureOrder };
   };
   result = { ...result, stdout: result.stdout.map(retainObservedOrder), stderr: result.stderr.map(retainObservedOrder) };
-  if (!isCurrent()) return { result, streamedConsoleCount };
+  if (!showsResults()) return { result, streamedConsoleCount };
   // Tear down the in-flight deadline immediately; the pill flips to the
   // termination variant on the next render.
   setRunDeadlineAt(null);
-  // implementation — propagate the termination summary so `<RunStatusPill>`
+  // Propagate the termination summary so `<RunStatusPill>`
   // can render the right variant. Runners that don't set `kind` default to a
   // best-effort guess based on `error` / `cancelled`.
   const terminationKind = executionKind(result);

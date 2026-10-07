@@ -24,7 +24,7 @@ import {
 import type { SettingsGet, SettingsSet } from './settingsStoreContext';
 
 /**
- * implementation — runtime/execution setter factory for the settings store.
+ * runtime/execution setter factory for the settings store.
  * Bundles loop-iteration, format-on-save, native-execution-ack,
  * default-runtime-mode, per-language workflow/auto-log defaults, stdin-panel
  * visibility, variable-inspector surface, per-language timeout preset, countdown
@@ -59,14 +59,14 @@ export function createRuntimeActions(
   return {
     setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
     toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
-    // internal — flip smart-paste detection. Plain boolean toggle (mirrors
+    // Flip smart-paste detection. Plain boolean toggle (mirrors
     // formatOnSave); adoption rides editor.smart_paste_shown/applied, not the
     // toggle itself, so no telemetry here.
     toggleSmartPasteDetection: () =>
       set((s) => ({ smartPasteDetectionEnabled: !s.smartPasteDetectionEnabled })),
     setNativeExecutionAcknowledged: (nativeExecutionAcknowledged) =>
       set({ nativeExecutionAcknowledged }),
-    // implementation note — guard the setter so only implemented
+    // Guard the setter so only implemented
     // modes can be persisted as the per-app default. This remains
     // defensive for future enum additions that an older build
     // should not persist.
@@ -74,14 +74,14 @@ export function createRuntimeActions(
       if (!isRuntimeModeImplemented(mode) || !supportsRuntimeModeHere(mode)) return;
       set({ defaultRuntimeMode: mode });
     },
-    // implementation Slice C implementation note — seed language for new notebook code cells.
+    // Seed language for new notebook code cells.
     // Guards the closed pair so a programmatic call can't smuggle an
     // unrunnable language (e.g. python) into the default.
     setNotebookDefaultCellLanguage: (language) => {
       if (language !== 'javascript' && language !== 'typescript') return;
       set({ notebookDefaultCellLanguage: language });
     },
-    // implementation — set or clear the per-language workflow
+    // Set or clear the per-language workflow
     // default. `null` resets to the shared helper. The setter
     // refuses any mode the language does not support so the
     // Settings UI cannot smuggle an invalid combination through
@@ -100,7 +100,7 @@ export function createRuntimeActions(
         return { workflowModeDefaultsByLanguage: next };
       });
     },
-    // implementation — flip the per-language auto-log default.
+    // Flip the per-language auto-log default.
     // The setter is the only authoritative entry point for the
     // map; it rejects unsupported languages and emits the
     // `runtime.auto_log_enabled` adoption signal on every flip
@@ -125,7 +125,7 @@ export function createRuntimeActions(
         void trackEvent('runtime.auto_log_enabled', { language, enabled });
       }
     },
-    // implementation — closed persisted preference. Adoption telemetry fires
+    // Closed persisted preference. Adoption telemetry fires
     // from the first actual live refresh, not from changing the dropdown, so
     // selecting Off never claims that an automatic refresh occurred.
     setBrowserPreviewRefreshInterval: (intervalMs) => {
@@ -136,7 +136,7 @@ export function createRuntimeActions(
           : { browserPreviewRefreshIntervalMs: intervalMs }
       );
     },
-    // internal — flip inline lint for one language. Pure state write (no toggle
+    // Flip inline lint for one language. Pure state write (no toggle
     // telemetry; adoption rides `editor.lint_diagnostic_emitted`). No-op for
     // languages outside the supported set so a stray call can't seed a key.
     setInlineLintEnabled: (language: string, enabled: boolean) => {
@@ -152,7 +152,7 @@ export function createRuntimeActions(
         };
       });
     },
-    // internal — flip the persistent status-bar visibility. Emits
+    // Flip the persistent status-bar visibility. Emits
     // `editor.status_bar_toggled` on real change only (idempotent calls do
     // not re-emit); the telemetry call is consent-gated upstream by
     // `trackEvent`, so no consent duplication is needed here.
@@ -167,11 +167,11 @@ export function createRuntimeActions(
         void trackEvent('editor.status_bar_toggled', { enabled });
       }
     },
-    // implementation note — flip the bottom-panel stdin tab
+    // Flip the bottom-panel stdin tab
     // visibility. Per-tab buffers are preserved either way.
     toggleShowStdinPanel: () =>
       set((s) => ({ showStdinPanel: !s.showStdinPanel })),
-    // implementation — switch the variable inspector surface.
+    // Switch the variable inspector surface.
     // Rejects unknown tokens so the closed-enum contract holds even
     // against the palette / scripted callers. Emits an adoption
     // telemetry event so we can see whether the floating default
@@ -188,11 +188,11 @@ export function createRuntimeActions(
         void trackEvent('runtime.variable_inspector_surface_changed', { surface });
       }
     },
-    // implementation — write the per-language preset. Rejects
+    // Write the per-language preset. Rejects
     // unsupported languages + unknown preset tokens so the
     // closed-enum contract holds even against programmatic
     // callers (palette, scripted tests). Fires
-    // `runtime.timeout_preset_changed` (implementation note) on actual
+    // `runtime.timeout_preset_changed` on actual
     // change only — idempotent calls do not re-emit.
     setRuntimeTimeoutPreset: (
       language: string,
@@ -220,13 +220,13 @@ export function createRuntimeActions(
         });
       }
     },
-    // implementation note — flip the countdown-pill toggle.
+    // Flip the countdown-pill toggle.
     toggleShowTimeoutCountdown: () =>
       set((s) => ({ showTimeoutCountdown: !s.showTimeoutCountdown })),
-    // implementation — flip the per-line timing toggle.
+    // Flip the per-line timing toggle.
     toggleShowLineTiming: () =>
       set((s) => ({ showLineTiming: !s.showLineTiming })),
-    // implementation — set the Ruby runtime dispatcher preference.
+    // Set the Ruby runtime dispatcher preference.
     // Telemetry mirrors the closed enum so dashboards see the
     // distribution. Tampered values are rejected by the setter
     // itself; the sanitizer in `settingsMerge` is the additional
@@ -246,7 +246,7 @@ export function createRuntimeActions(
         preference,
       });
     },
-    // implementation note — record that the onboarding toast has
+    // Record that the onboarding toast has
     // been seen so future workflow-mode switches stay silent.
     acknowledgeFirstWorkflowModeSwitch: () =>
       set({ firstWorkflowModeSwitchAcknowledged: true }),

@@ -1,7 +1,7 @@
 /**
- * FASE 0 acceptance artifact — RecipeShowcase.
+ * Acceptance artifact — RecipeShowcase.
  *
- * A dev-only gallery that renders EVERY Signal-Slate FASE 0 recipe in a
+ * A dev-only gallery that renders EVERY Signal-Slate base recipe in a
  * labeled grid, in both themes (via the in-page toggle). It exists so
  * the foundation can be screenshotted and reviewed before any screen is
  * assembled from these recipes in later phases.
@@ -77,11 +77,11 @@ export function RecipeShowcase() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-base p-8 text-fg-base">
-      <header className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-bg-base p-16 text-fg-base">
+      <header className="mb-16 flex items-center justify-between">
         <div>
           <h1 className="text-h2 font-semibold text-fg-base">
-            Signal-Slate · FASE 0 recipes
+            Signal-Slate · base recipes
           </h1>
           <p className="mt-1 text-body text-fg-subtle">
             Every token-driven foundation primitive, in one place.

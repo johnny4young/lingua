@@ -34,7 +34,7 @@ function createLicenseStore() {
 
 export const useLicenseStore = createLicenseStore();
 
-// implementation note — wire license-verify trust capture (logic extracted
+// Wire license-verify trust capture (logic extracted
 // to keep this facade thin; see licenseTrustCapture.ts).
 registerLicenseTrustCapture(useLicenseStore);
 

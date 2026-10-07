@@ -2,7 +2,7 @@
 title: 'Runner JavaScript para escritorio — Lingua'
 description: 'Ejecuta JavaScript en un Worker rápido, Node.js local o una vista previa aislada. Monaco, resultados inline, depuración y trabajo offline-first.'
 canonical: 'https://linguacode.dev/es/javascript-code-runner-desktop'
-ogImage: '/assets/og/javascript-code-runner-desktop.png'
+ogImage: '/assets/og/es/javascript-code-runner-desktop.png'
 language: javascript
 ---
 

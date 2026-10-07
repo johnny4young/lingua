@@ -1,7 +1,7 @@
 /**
- * implementation — argv parser.
+ * Argv parser.
  *
- * Tiny hand-rolled parser (no commander dep) covering the implementation
+ * Tiny hand-rolled parser (no commander dep) covering the v1 command
  * surface:
  *
  *   lingua utility <utility-id> [--input <file>] [--json] [--quiet]
@@ -10,9 +10,9 @@
  *   lingua capsule replay <file> [--timeout <ms>] [--json] [--quiet]
  *   lingua run <file-or-directory> [--stdin <file>] [--timeout <ms>]
  *              [--env NAME=value ...] [--json] [--quiet] [-- args...]
- *   lingua list utilities [--json]            (implementation note)
+ *   lingua list utilities [--json]
  *   lingua completion [bash|zsh|fish|install] [--yes] [--dry-run]
- *   lingua --version                          (implementation note)
+ *   lingua --version
  *   lingua --help | lingua <cmd> --help
  *
  * Anything unrecognized throws a `CliUsageError` so the entry can
@@ -426,14 +426,14 @@ function parseCapsuleReplay(
 
 function parseList(rest: ReadonlyArray<string>, color: CliColorMode): ParsedArgs {
   if (rest.length === 0) {
-    throw new CliUsageError('lingua list requires a subcommand. implementation ships: utilities');
+    throw new CliUsageError('lingua list requires a subcommand. Available: utilities');
   }
   const sub = rest[0]!;
   if (sub === '--help' || sub === '-h') {
     return finalize('list-utilities', [], { ...freshFlags(color), help: true });
   }
   if (sub !== 'utilities') {
-    throw new CliUsageError(`Unknown list subcommand "${sub}". implementation ships: utilities`);
+    throw new CliUsageError(`Unknown list subcommand "${sub}". Available: utilities`);
   }
   const flags = freshFlags(color);
   for (let i = 1; i < rest.length; i += 1) {

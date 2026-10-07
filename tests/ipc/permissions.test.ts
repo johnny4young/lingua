@@ -75,12 +75,12 @@ describe('isPathBlocked', () => {
   );
 });
 
-// implementation detail — one positive + one negative case per blocked family,
+// One positive + one negative case per blocked family,
 // plus the family the matcher reports. Paths are built with `path.join(home,
 // ...)` so the matrix runs on the CI OS without mocking: every static entry is
 // present on every platform (entries for other OSes simply never match a real
 // path), so a `home`-relative path matches its entry regardless of runner.
-describe('blocked-path families (internal coverage matrix)', () => {
+describe('blocked-path families (coverage matrix)', () => {
   const FAMILY_CASES = [
     {
       family: 'system' as const,
@@ -134,7 +134,7 @@ describe('blocked-path families (internal coverage matrix)', () => {
   });
 });
 
-// implementation note — Lingua's own electron-owned dirs are registered at
+// Lingua's own electron-owned dirs are registered at
 // startup so renderer-initiated reads/writes cannot reach them. Symlink-escape
 // is intentionally NOT handled in the lexical denylist; it is covered at the
 // capability chokepoint (realpath + containment + denylist) — see the symlink
@@ -166,7 +166,7 @@ describe('registerBlockedPaths (Lingua data dirs)', () => {
   });
 });
 
-// implementation note — the telemetry family set must stay in lockstep
+// The telemetry family set must stay in lockstep
 // with the main-process source of truth so the privacy-safe `fs.blocked` signal
 // never accepts a family the denylist cannot produce (and vice versa).
 describe('FS_BLOCKED_FAMILIES telemetry parity', () => {

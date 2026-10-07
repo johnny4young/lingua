@@ -27,7 +27,7 @@ export function RegexUtilityPanel() {
     [pattern, flags, input, replacement]
   );
 
-  // implementation — In match mode, output the matched values
+  // In match mode, output the matched values
   // newline-joined; in replace mode, the substituted output. Falls
   // back to null when nothing meaningful exists.
   const registerOutput = useCallback(() => {

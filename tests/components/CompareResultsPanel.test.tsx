@@ -1,5 +1,5 @@
 /**
- * implementation — CompareResultsPanel render contract.
+ * CompareResultsPanel render contract.
  *
  * Covers:
  *   - "No snapshot" empty state when the ring is empty for the
@@ -40,7 +40,7 @@ function makeSnapshot(partial: Partial<ResultSnapshot>): ResultSnapshot {
   };
 }
 
-describe('implementation — <CompareResultsPanel>', () => {
+describe('<CompareResultsPanel>', () => {
   beforeEach(() => {
     useResultStore.setState({
       snapshotRing: [],

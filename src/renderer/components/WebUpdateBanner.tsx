@@ -5,7 +5,7 @@ import { useWebVersionPolling } from '../hooks/useWebVersionPolling';
 import { isVersionNewer } from '../utils/version';
 
 /**
- * implementation — top-of-app banner that tells web users when the
+ * top-of-app banner that tells web users when the
  * deployed bundle is older than the latest published release.
  *
  * Renders only when:

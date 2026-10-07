@@ -26,3 +26,10 @@ export function e2eFixedDurationMs(measuredMs: number): number {
   const fixed = (window as { __linguaE2eFixedDurationMs?: unknown }).__linguaE2eFixedDurationMs;
   return typeof fixed === 'number' ? fixed : measuredMs;
 }
+
+/** Same override for a run result's measured `executionTime`. */
+export function withE2eExecutionTime<T extends { executionTime: number }>(result: T): T {
+  if (!__LINGUA_E2E_HOOKS__) return result;
+  const executionTime = e2eFixedDurationMs(result.executionTime);
+  return executionTime === result.executionTime ? result : { ...result, executionTime };
+}

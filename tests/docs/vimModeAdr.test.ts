@@ -1,5 +1,5 @@
 /**
- * internal Vim mode ADR guard — locks the five decision sections, the
+ * Vim mode ADR guard — locks the five decision sections, the
  * rollback clause, the revisit triggers, and the adjacent-ADR cross-links
  * so a future edit can't silently strip the reasoning that unblocked the
  * implementation slice.
@@ -58,6 +58,5 @@ describe('VIM_MODE_ADR.md', () => {
     expect(adr).toContain('BUILD_SYSTEM_ADR.md');
     expect(adr).toContain('LANGUAGE_PACK_ADR.md');
     expect(adr).toContain('CAPABILITY_MATRIX.md');
-    expect(adr).toContain('internal');
   });
 });

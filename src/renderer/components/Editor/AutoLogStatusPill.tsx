@@ -1,5 +1,5 @@
 /**
- * implementation note — ambient pill that surfaces in the result-
+ * Ambient pill that surfaces in the result-
  * panel header when the active tab is in JS / TS Scratchpad mode AND
  * the bare-expression auto-log feature is active for that tab. Tells
  * the user "this is why your buffer suddenly has inline values
@@ -7,7 +7,7 @@
  *
  * Mirrors the visual language of `<StdinStatusPill>` and
  * `<AutoRunGateNotice>` so the row stays scannable. Reads the per-tab
- * override (implementation note) layered on top of the per-language Settings
+ * override layered on top of the per-language Settings
  * default — the same resolution `useAutoRun.ts` uses.
  */
 
@@ -46,7 +46,7 @@ export function AutoLogStatusPill() {
   // tag from the visible label; keep it in the tooltip so screen
   // readers and slow-discover users still get the full context.
   //
-  // FASE 2b (MOV.05) — "auto-log is on" is an informational ambient
+  // "auto-log is on" is an informational ambient
   // marker, so it adopts the quiet `neutral` StatusBadge tone. The
   // MoveRight icon rides along as a badge child; the wrapper keeps the
   // data-* hook plus the title/aria the header relies on.

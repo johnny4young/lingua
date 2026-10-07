@@ -1,5 +1,5 @@
 /**
- * implementation — notebook rich outputs. A stdout output that is a homogeneous
+ * Notebook rich outputs. A stdout output that is a homogeneous
  * JSON array of objects renders as a table grid; everything else stays
  * plain text; stderr is never tabled.
  */

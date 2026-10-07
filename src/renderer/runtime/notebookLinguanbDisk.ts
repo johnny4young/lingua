@@ -1,8 +1,8 @@
 /**
- * implementation Slice E implementation note — desktop native "Save to disk" for a
- * `.linguanb` document, via the existing internal capability sandbox.
+ * Desktop native "Save to disk" for a
+ * `.linguanb` document, via the existing capability sandbox.
  *
- * internal moved the generic dialog → capability-write → blob-download
+ * A refactor moved the generic dialog → capability-write → blob-download
  * orchestration to `utils/saveTextFileToDisk.ts` so the capsule HTML
  * export shares it; this module keeps the `.linguanb`-specific MIME
  * hint and the names its callers (notebook toolbar + command palette)
@@ -13,7 +13,7 @@
  * files; `'unavailable'` signals that fallback so unsupported/cancelled
  * browser save-pickers never swallow the export.
  * The matching OPEN flow is served by the global Import overlay's file
- * picker, which already accepts `.linguanb` (implementation note) and routes it
+ * picker, which already accepts `.linguanb` and routes it
  * through the registered `linguanbImporter` on web AND desktop.
  */
 

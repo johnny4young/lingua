@@ -56,7 +56,7 @@ const mockEditorState = {
   saveTabById: vi.fn().mockResolvedValue(true),
   openFileFromDisk: vi.fn().mockResolvedValue(undefined),
   closeTab: vi.fn().mockResolvedValue(true),
-  // implementation — `useOnboardingChoreography` calls `addTab`
+  // `useOnboardingChoreography` calls `addTab`
   // when seeding the welcome scratchpad on a fresh install. Stub
   // it so the hook is a silent no-op in App.test.tsx.
   addTab: vi.fn(),
@@ -81,7 +81,7 @@ const mockSettingsState = {
   setTelemetryConsent: vi.fn(),
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
-  // implementation — onboarding flags + setters consumed by
+  // Onboarding flags + setters consumed by
   // `useOnboardingChoreography`. Default `true` so the welcome
   // seed path does NOT fire during App.test.tsx (the test asserts
   // unrelated boot behaviours and doesn't seed snippets / tabs).
@@ -180,7 +180,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     selector ? selector(mockEditorState) : mockEditorState;
   useEditorStore.getState = () => mockEditorState;
   useEditorStore.subscribe = mockEditorSubscribe;
-  // implementation — `useOnboardingChoreography` imports
+  // `useOnboardingChoreography` imports
   // `createDefaultTab` to construct the seed tab. Stub it to a
   // minimal FileTab-shaped object; tests never assert on the seed
   // contents here.
@@ -217,7 +217,7 @@ vi.mock('../../src/renderer/stores/sessionStore', () => ({
     getState: () => ({
       restoreSession: mockRestoreSession,
       saveSession: mockSaveSession,
-      // internal — the boot hook reads savedTabs.length for the restore
+      // The boot hook reads savedTabs.length for the restore
       // telemetry tabCount and the ask-mode prompt gate.
       savedTabs: [],
     }),
@@ -476,6 +476,46 @@ describe('App', () => {
     });
   });
 
+  it('keeps the app open and reports still-dirty tabs when a quit save is canceled', async () => {
+    mockEditorState.saveTabById.mockResolvedValue(false);
+    mockEditorState.tabs = [
+      { id: 'tab-1', name: 'a.js', content: '', language: 'javascript', isDirty: true },
+      { id: 'tab-2', name: 'b.js', content: '', language: 'javascript', isDirty: true },
+    ];
+
+    render(<App />);
+    beforeCloseHandler?.();
+
+    await waitFor(() => {
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tone: 'error',
+          messageKey: 'dialogs.closeApp.saveIncomplete',
+          values: { count: 2, names: 'a.js, b.js' },
+        })
+      );
+    });
+    expect(mockEditorState.saveTabById).toHaveBeenCalledTimes(1);
+    expect(mockForceClose).not.toHaveBeenCalled();
+  });
+
+  it('reports instead of rejecting when a quit save throws', async () => {
+    mockEditorState.saveTabById.mockRejectedValue(new Error('EACCES'));
+    mockEditorState.tabs = [
+      { id: 'tab-1', name: 'a.js', content: '', language: 'javascript', isDirty: true },
+    ];
+
+    render(<App />);
+    beforeCloseHandler?.();
+
+    await waitFor(() => {
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ values: { count: 1, names: 'a.js' } })
+      );
+    });
+    expect(mockForceClose).not.toHaveBeenCalled();
+  });
+
   it('fires overlay.opened when the upgrade notice CTA opens whats new', async () => {
     mockSettingsState.lastSeenVersion = '0.0.9';
     render(<App />);
@@ -497,7 +537,7 @@ describe('App', () => {
     });
   });
 
-  // implementation — desktop builds must NOT mount the
+  // Desktop builds must NOT mount the
   // WebUpdateBanner. The native autoupdater handles updates.
   it('does NOT mount the WebUpdateBanner on desktop builds', async () => {
     render(<App />);

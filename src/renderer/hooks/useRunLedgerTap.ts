@@ -22,7 +22,7 @@ function loadRunLedger(): Promise<RunLedgerModule> {
 }
 
 /**
- * internal — the Run Ledger tap. Subscribes ONCE (app-level, mounted from
+ * The Run Ledger tap. Subscribes ONCE (app-level, mounted from
  * `App` next to the onboarding choreography) to the execution history
  * store and forwards each NEW entry to the ledger, fire-and-forget.
  *

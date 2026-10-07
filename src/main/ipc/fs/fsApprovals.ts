@@ -1,7 +1,7 @@
 /** User-approved filesystem scope persistence and read-only scope checks. */
 
 import { app } from 'electron';
-import { mkdir as mkdirFs, readFile, writeFile } from 'node:fs/promises';
+import { mkdir as mkdirFs, readFile, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isPathWithinProject } from '../permissions';
 
@@ -100,9 +100,21 @@ export async function hasApprovedFile(absolutePath: string): Promise<boolean> {
   // Files under an approved project root can be reopened individually for
   // recent-file/session restore flows without approving every child file.
   for (const root of approvedRoots) {
-    if (isPathWithinProject(normalized, root)) return true;
+    if (!isPathWithinProject(normalized, root)) continue;
+    if (await realPathStaysInside(normalized, root)) return true;
   }
   return false;
+}
+
+// A file capability is rooted at the file's own parent, so a symlinked
+// directory inside the project would otherwise move the grant outside it.
+async function realPathStaysInside(filePath: string, root: string): Promise<boolean> {
+  try {
+    const [realFile, realRoot] = await Promise.all([realpath(filePath), realpath(root)]);
+    return isPathWithinProject(realFile, realRoot);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -117,7 +129,7 @@ export async function hasApprovedFile(absolutePath: string): Promise<boolean> {
  * handlers) gate on this so a compromised renderer cannot point them at
  * arbitrary disk locations — closing the one IPC door that previously
  * accepted raw absolute paths with no approval check, and aligning git
- * with the internal defense-in-depth posture.
+ * with the defense-in-depth posture.
  */
 export async function pathIntersectsApprovedScope(
   absolutePath: string

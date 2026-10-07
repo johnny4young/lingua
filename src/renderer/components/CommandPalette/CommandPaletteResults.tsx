@@ -7,6 +7,7 @@ import {
 } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import { EmptyState } from '../ui/EmptyState';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { CommandCategory, CommandEntry } from './commandPaletteModel';
 
 const CATEGORY_ICON: Record<CommandCategory, ReactNode> = {
@@ -48,7 +49,7 @@ interface CommandPaletteResultsProps {
   /** Stable per-row option id, for the input's aria-activedescendant. */
   optionId: (index: number) => string;
   /**
-   * internal — present ONLY in the Cmd+; recent-commands variant: maps a
+   * Present ONLY in the Cmd+; recent-commands variant: maps a
    * command id to its last execution epoch. Switches the list to a flat
    * numbered stack (1-8 badges + relative "2m ago" column) and skips
    * the category grouping.
@@ -67,6 +68,8 @@ export function CommandPaletteResults({
   recentTimestamps,
 }: CommandPaletteResultsProps) {
   const { t } = useTranslation();
+  const paletteCombo = useShortcutLabel('overlay-command-palette');
+  const quickOpenCombo = useShortcutLabel('nav-quick-open');
   const isEmptyQuery = query.trim().length === 0;
   const isRecentStack = recentTimestamps !== undefined;
 
@@ -89,11 +92,11 @@ export function CommandPaletteResults({
               isRecentStack ? 'commandPalette.recent.empty' : 'commandPalette.results.empty',
               { query }
             )}
-            description={t(
+            description={
               isRecentStack
-                ? 'commandPalette.recent.empty.hint'
-                : 'commandPalette.results.empty.hint'
-            )}
+                ? t('commandPalette.recent.empty.hint', { combo: paletteCombo })
+                : t('commandPalette.results.empty.hint', { combo: quickOpenCombo })
+            }
           />
         </div>
       ) : isRecentStack ? (
@@ -115,7 +118,7 @@ export function CommandPaletteResults({
 }
 
 /**
- * internal — compact relative timestamp for the recent stack. Reuses the
+ * Compact relative timestamp for the recent stack. Reuses the
  * existing `executionHistory.relative.*` plural keys so the palette and
  * the Recent-runs pill describe time identically.
  */

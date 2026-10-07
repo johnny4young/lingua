@@ -1,4 +1,4 @@
-/** implementation — Recipe `ts-group-by-property`. */
+/** Recipe `ts-group-by-property`. */
 
 import type { LessonPackV1 } from '../../../shared/lessonPack';
 

@@ -1,5 +1,5 @@
 /**
- * implementation — per-tab render isolation.
+ * per-tab render isolation.
  *
  * `updateContent` mints a new `tabs` array on every keystroke. The strip now
  * subscribes to a value-comparable projection, so once the first edit flips

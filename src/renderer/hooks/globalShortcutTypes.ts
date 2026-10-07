@@ -2,7 +2,7 @@ export type AppOverlay =
   | 'none'
   | 'settings'
   | 'palette'
-  // internal — Cmd+; recent-commands stack (the palette's `recent` variant).
+  // Cmd+; recent-commands stack (the palette's `recent` variant).
   | 'recent-commands'
   | 'quick-open'
   | 'search'

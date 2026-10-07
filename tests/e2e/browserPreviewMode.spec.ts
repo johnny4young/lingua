@@ -1,5 +1,5 @@
 /**
- * implementation — end-to-end smoke for the Browser preview
+ * end-to-end smoke for the Browser preview
  * runtime.
  *
  * Locks the user-visible contract:

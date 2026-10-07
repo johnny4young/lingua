@@ -1,25 +1,25 @@
 /**
- * implementation — Capsule import overlay.
+ * Capsule import overlay.
  *
  * 3-section modal:
  *   - Top: Load source (Paste textarea + Open file button + Drop zone).
  *   - Middle: <CapsuleImportPreview> when a valid capsule decoded;
  *     otherwise an inline reject banner with the closed-enum reason.
  *   - Bottom: Action bar — Cancel + "Open as new tab" (disabled until
- *     valid capsule). implementation note adds "Copy source to clipboard"; implementation note
- *     adds "Open in HTTP workspace" when the capsule's
+ *     valid capsule), "Copy source to clipboard", and
+ *     "Open in HTTP workspace" when the capsule's
  *     `tab.language === 'http'`.
  *
- * Source surfaces (implementation note):
+ * Source surfaces:
  *   - Paste textarea — manual JSON paste; primary surface.
  *   - File picker — hidden `<input type="file">` triggered by the
  *     button so web + desktop both go through `File.text()` (no IPC).
  *   - Drag-drop — full-overlay drop zone with visual feedback ring.
- *   - Clipboard auto-detect (implementation note) — only fires when consent is
+ *   - Clipboard auto-detect — only fires when consent is
  *     `'granted'`; the row also exposes "Detect clipboard now" so
  *     users with consent can re-trigger after copying.
  *
- * Telemetry (implementation note) is owned by `useCapsuleImport`; this component
+ * Telemetry is owned by `useCapsuleImport`; this component
  * passes through. The overlay itself fires NO telemetry directly.
  *
  * Escape closes the overlay; click-outside closes too. Body scroll
@@ -72,7 +72,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   // No document-level listener here, otherwise the close would fire
   // twice when the shell already handles the key.
 
-  // ─── Clipboard auto-detect (implementation note) ─────────────────────────────
+  // ─── Clipboard auto-detect ─────────────────────────────
   const clipboardConsent = useSettingsStore(
     (s) => s.capsuleImportClipboardOnFocusConsent
   );
@@ -81,7 +81,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   );
   const [pasteValue, setPasteValue] = useState('');
   const autoDetectedRef = useRef(false);
-  // implementation — when the overlay was opened by a smart-paste capsule
+  // When the overlay was opened by a smart-paste capsule
   // import, decode the stashed JSON on mount so the preview opens pre-filled.
   // Takes precedence over the clipboard auto-detect below (seed wins) and is
   // one-shot (the holder clears itself).
@@ -102,7 +102,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     if (autoDetectedRef.current) return;
     if (clipboardConsent !== 'granted') return;
     autoDetectedRef.current = true;
-    // Reviewer fix (implementation final pass) — `cancelled` flag
+    // Reviewer fix (final pass) — `cancelled` flag
     // guards against a state update on an unmounted overlay when the
     // user closes the overlay during the async clipboard read. React 19
     // silenced the warning but the work is still wasted, and the
@@ -140,7 +140,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     [decodeFromFile]
   );
 
-  // ─── Drag-drop (implementation note) ─────────────────────────────────────────
+  // ─── Drag-drop ─────────────────────────────────────────
   const [isDragOver, setIsDragOver] = useState(false);
   const handleDragOver = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -223,7 +223,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     [pushStatusNotice]
   );
 
-  // implementation note — copy source to clipboard secondary action.
+  // Copy source to clipboard secondary action.
   const handleCopySource = useCallback(async () => {
     if (!decoded) return;
     try {
@@ -240,7 +240,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     }
   }, [decoded, pushStatusNotice, sourceJson]);
 
-  // implementation note — when the capsule originated from implementation's HTTP workspace,
+  // When the capsule originated from implementation's HTTP workspace,
   // offer to recreate the request in the workspace store instead of
   // dropping the source as a JSON tab.
   const handleOpenInHttpWorkspace = useCallback(() => {
@@ -462,7 +462,7 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
           ) : (
             <div
               data-testid="capsule-import-empty"
-              className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset py-8"
+              className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset py-16"
             >
               <EmptyState
                 icon={<FileUp size={18} aria-hidden="true" />}

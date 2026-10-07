@@ -1,12 +1,12 @@
 /**
- * implementation — `@watch` magic-comment pin end-to-end smoke.
+ * `@watch` magic-comment pin end-to-end smoke.
  *
  * Locks the user-visible contract:
  *
  *   - A JS scratchpad with an arrow (`=>`) and a pin watch
  *     (`data-result-kind="watch"`) surfaces both inline.
- *   - Breaking the buffer fires implementation's gate AND the pin watches
- *     stay on screen (implementation snapshot restore + implementation watch
+ *   - Breaking the buffer fires the auto-run gate AND the pin watches
+ *     stay on screen (snapshot restore + watch
  *     persistence).
  *   - Repairing the buffer updates the watch values cleanly.
  *
@@ -35,7 +35,7 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
 /**
  * Append text at the end of the active editor buffer without clearing
  * what's already there. This avoids the Cmd+A → Backspace empty-state
- * transit that defeats the implementation snapshot-restore flow when the
+ * transit that defeats the snapshot-restore flow when the
  * caller's intent is "edit incrementally and observe the gate".
  */
 async function appendToEditor(page: Page, source: string): Promise<void> {
@@ -93,12 +93,12 @@ test.describe('@watch magic-comment pin ', () => {
     // Append a clearly-incomplete fragment at the END of the seeded
     // buffer (no Cmd+A → Backspace empty transit that would defeat
     // the snapshot-restore). The trailing `+` operator triggers the
-    // implementation gate cleanly.
+    // auto-run gate cleanly.
     await appendToEditor(page, '\nconst y = 1 +');
 
     // Gate notice appears (toBeVisible waits out the debounce).
     await expect(page.getByTestId('auto-run-gate-notice')).toBeVisible();
-    // Watch SURVIVES the gated keystroke (implementation snapshot restore).
+    // Watch SURVIVES the gated keystroke (snapshot restore).
     await expect(page.locator('[data-result-kind="watch"]').first()).toBeVisible();
   });
 

@@ -1,7 +1,7 @@
 /**
  * Lightweight semver compare for `MAJOR.MINOR.PATCH` versions.
  *
- * implementation — used by the web update banner to decide whether
+ * Used by the web update banner to decide whether
  * the remote release tag is strictly newer than the bundle's
  * build-time pin. Mirrors the worker's `update-server/src/version.ts:isNewer`
  * helper intentionally — main / renderer / update-server cannot

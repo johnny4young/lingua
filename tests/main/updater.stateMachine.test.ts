@@ -115,12 +115,14 @@ afterEach(() => {
 });
 
 describe('updater state-machine guards', () => {
-  it('stops the hourly poll on before-quit instead of leaving the interval running', async () => {
+  it('stops the hourly poll on will-quit instead of leaving the interval running', async () => {
     vi.useFakeTimers();
     try {
       const harness = await loadUpdaterHarness();
-      const beforeQuit = harness.appOnce.mock.calls.find(([event]) => event === 'before-quit');
-      expect(beforeQuit).toBeDefined();
+      // before-quit can still be cancelled by the dirty-tab prompt.
+      expect(harness.appOnce.mock.calls.some(([event]) => event === 'before-quit')).toBe(false);
+      const willQuit = harness.appOnce.mock.calls.find(([event]) => event === 'will-quit');
+      expect(willQuit).toBeDefined();
 
       // Initial check after 10 s, then the hourly poll.
       await vi.advanceTimersByTimeAsync(10_000);
@@ -128,7 +130,7 @@ describe('updater state-machine guards', () => {
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
       expect(harness.checkForUpdates).toHaveBeenCalledTimes(2);
 
-      (beforeQuit![1] as () => void)();
+      (willQuit![1] as () => void)();
       await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
       expect(harness.checkForUpdates).toHaveBeenCalledTimes(2);
     } finally {
@@ -140,12 +142,12 @@ describe('updater state-machine guards', () => {
     vi.useFakeTimers();
     try {
       const harness = await loadUpdaterHarness();
-      const beforeQuit = harness.appOnce.mock.calls.find(([event]) => event === 'before-quit');
-      expect(beforeQuit).toBeDefined();
+      const willQuit = harness.appOnce.mock.calls.find(([event]) => event === 'will-quit');
+      expect(willQuit).toBeDefined();
       expect(vi.getTimerCount()).toBe(2);
 
       await vi.advanceTimersByTimeAsync(5_000);
-      (beforeQuit![1] as () => void)();
+      (willQuit![1] as () => void)();
       expect(vi.getTimerCount()).toBe(0);
       await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
       expect(harness.checkForUpdates).not.toHaveBeenCalled();
@@ -208,6 +210,22 @@ describe('updater state-machine guards', () => {
       status: 'downloaded',
       releaseName: 'v0.4.0',
     });
+  });
+
+  it('keeps a downloaded update installable when a later check fails', async () => {
+    const harness = await loadUpdaterHarness();
+    harness.autoUpdaterHandlers.get('update-downloaded')!({ version: '0.4.0', releaseName: 'v0.4.0' });
+    harness.autoUpdaterHandlers.get('error')!(new Error('net::ERR_INTERNET_DISCONNECTED'));
+    harness.checkForUpdates.mockRejectedValueOnce(new Error('offline'));
+    await harness.ipcHandlers.get('updates:check')!();
+
+    expect(await harness.getState()).toMatchObject({ status: 'downloaded', releaseName: 'v0.4.0' });
+  });
+
+  it('still surfaces an error that is not preceded by a download', async () => {
+    const harness = await loadUpdaterHarness();
+    harness.autoUpdaterHandlers.get('error')!(new Error('feed unreachable'));
+    expect(await harness.getState()).toMatchObject({ status: 'error', message: 'feed unreachable' });
   });
 
   it('preserves the in-flight available status when update-not-available races a download', async () => {

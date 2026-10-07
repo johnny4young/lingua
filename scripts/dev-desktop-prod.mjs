@@ -3,19 +3,9 @@
  * Dev wrapper that boots the managed Electron desktop launcher with the
  * **production** Lingua license public key baked in, so the local
  * verifier accepts tokens issued by the real Cloudflare worker
- * (`licenses.linguacode.dev`). Useful when smoking a paid Polar token
- * end-to-end without minting a throwaway dev keypair.
- *
- * Important: implementation ships with the desktop main bridge in
- * **local-verify-only mode** — pasting a CF-issued token here flips
- * the pill to `Active · <tier>` and unlocks `useEntitlement(...)`,
- * but the desktop process does NOT call `/licenses/activate` (that
- * wiring is deferred to implementation, tracked under `[licensing]
- * 2026-04-28` in the maintenance notes). Until implementation lands, the
- * Devices section will not render on desktop because `serverSync`
- * stays `'disabled'` and `devices` stays `null`. To exercise the
- * full server-aware path today, use the web build with
- * `pnpm run build:web` + paste a real CF token there.
+ * (`licenses.linguacode.dev`). Useful when smoking a paid Lemon Squeezy
+ * token end-to-end without minting a throwaway dev keypair. Server sync
+ * (activation, Devices) needs the license-server URL configured too.
  *
  * Usage:
  *   node scripts/dev-desktop-prod.mjs                 # local-verify with prod key

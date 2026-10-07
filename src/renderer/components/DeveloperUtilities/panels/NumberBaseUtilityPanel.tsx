@@ -82,7 +82,7 @@ export function NumberBaseUtilityPanel() {
     setInvalidId(null);
   };
 
-  // implementation — decimal is the canonical interchange format for
+  // Decimal is the canonical interchange format for
   // copy. Hex / binary / octal stay reachable through the per-row
   // CopyButtons.
   const registerOutput = useCallback(

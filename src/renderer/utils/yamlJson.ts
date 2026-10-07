@@ -1,5 +1,5 @@
 /**
- * internal — YAML ↔ JSON converter helper.
+ * YAML ↔ JSON converter helper.
  *
  * Pure, offline, renderer-side. `js-yaml@^4` is already a prod dep
  * (used by `src/renderer/validation/index.ts`); no bundle delta from

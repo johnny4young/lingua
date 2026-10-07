@@ -148,6 +148,24 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
+  it('skipping stops auto-start unless the user chose the box in this tour', async () => {
+    settingsState.setSuppressTourAutoStart.mockClear();
+    renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(settingsState.setSuppressTourAutoStart).toHaveBeenCalledWith(true);
+
+    settingsState.setSuppressTourAutoStart.mockClear();
+    fireEvent.click(screen.getByTestId('trigger'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(dialog.querySelector('input[type="checkbox"]')!);
+    settingsState.setSuppressTourAutoStart.mockClear();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(settingsState.setSuppressTourAutoStart).not.toHaveBeenCalled();
+  });
+
   it('traps Tab focus inside the dialog', async () => {
     renderTour();
     fireEvent.click(screen.getByTestId('trigger'));

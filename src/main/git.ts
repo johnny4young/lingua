@@ -7,7 +7,12 @@
  */
 
 import * as childProc from 'node:child_process';
-import { existsSync, promises as fsAsync, watch as fsWatch } from 'node:fs';
+import {
+  constants as fsConstants,
+  existsSync,
+  promises as fsAsync,
+  watch as fsWatch,
+} from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { shell } from 'electron';
@@ -480,7 +485,7 @@ export async function getFileStatus(
     }
     // Anything else with a porcelain line means "tracked + changed
     // in some way (modified, deleted, renamed, added)". Bucket all
-    // of these as `modified` for implementation — implementation can split them.
+    // of these as `modified` for now — a later change can split them.
     const counts = await getNumstatForFile(binary, repoRoot, relative, filters);
     return { status: 'modified', ...counts };
   } catch {
@@ -617,6 +622,19 @@ async function readWorkingTreeVersion(
 ): Promise<[string, boolean]> {
   const absolute = path.join(repoRoot, relative);
   try {
+    // A symlinked parent directory must not lead the read outside the repo.
+    const [realRoot, realParent] = await Promise.all([
+      fsAsync.realpath(repoRoot),
+      fsAsync.realpath(path.dirname(absolute)),
+    ]);
+    const parentRelative = path.relative(realRoot, realParent);
+    if (
+      parentRelative === '..' ||
+      parentRelative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(parentRelative)
+    ) {
+      return ['', false];
+    }
     const stat = await fsAsync.lstat(absolute);
     if (stat.isSymbolicLink()) {
       const target = await fsAsync.readlink(absolute);
@@ -625,14 +643,33 @@ async function readWorkingTreeVersion(
         target.length > MAX_DIFF_BYTES,
       ];
     }
-    const buf = await fsAsync.readFile(absolute);
+    if (!stat.isFile()) return ['', false];
+    const buf = await readPrefix(absolute, MAX_DIFF_BYTES + 1);
     if (buf.includes(0)) return ['', true];
     if (buf.length > MAX_DIFF_BYTES) {
-      return [buf.slice(0, MAX_DIFF_BYTES).toString('utf-8'), true];
+      return [buf.subarray(0, MAX_DIFF_BYTES).toString('utf-8'), true];
     }
     return [buf.toString('utf-8'), false];
   } catch {
     return ['', false];
+  }
+}
+
+/** Read at most `limit` bytes, refusing to follow a leaf symlink swapped in after `lstat`. */
+async function readPrefix(absolute: string, limit: number): Promise<Buffer> {
+  const noFollow = fsConstants.O_NOFOLLOW ?? 0;
+  const handle = await fsAsync.open(absolute, fsConstants.O_RDONLY | noFollow);
+  try {
+    const buffer = Buffer.alloc(limit);
+    let filled = 0;
+    while (filled < limit) {
+      const { bytesRead } = await handle.read(buffer, filled, limit - filled, filled);
+      if (bytesRead === 0) break;
+      filled += bytesRead;
+    }
+    return buffer.subarray(0, filled);
+  } finally {
+    await handle.close();
   }
 }
 
@@ -651,7 +688,7 @@ export function resetGitProbeCacheForTests(): void {
 }
 
 // ---------------------------------------------------------------------------
-// implementation — `.git/HEAD` watcher + `Reveal in Source Control` action.
+// `.git/HEAD` watcher + `Reveal in Source Control` action.
 // ---------------------------------------------------------------------------
 
 /**
@@ -912,7 +949,7 @@ export async function watchRepoHead(
       // non-idiomatic and untestable against the actual watch path.
       watcher = fsWatch(headDir, (_eventType, filename) => {
         // Some platforms drop the filename in the callback under
-        // load (internal §) — when absent, schedule the resolve
+        // load — when absent, schedule the resolve
         // unconditionally and let the diff vs `lastBranch` decide
         // whether to fire. When present, only fire for `HEAD` to
         // avoid double-firing on sibling-file noise (`ORIG_HEAD`,
@@ -970,7 +1007,7 @@ export async function revealRepo(repoRoot: string): Promise<boolean> {
   } catch {
     return false;
   }
-  // Defense in depth — make sure the path still exists. implementation's
+  // Defense in depth — make sure the path still exists. The diff path's
   // `validateGitRepoRoot` re-runs `git rev-parse --show-toplevel` on
   // every diff call; reveal is a cheaper action so we settle for an
   // `fs.stat` existence probe.

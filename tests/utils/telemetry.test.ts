@@ -1,5 +1,5 @@
 /**
- * internal emitter wiring — `trackEvent` must respect the consent + kill
+ * Emitter wiring — `trackEvent` must respect the consent + kill
  * switch gates and compose the base fields through `resolveTelemetryBase`
  * without leaking anything outside the allow-list.
  */
@@ -82,7 +82,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
 });
 
 /**
- * implementation note — endpoint URL validation. A typo like
+ * Endpoint URL validation. A typo like
  * `http:/telemetry` used to silently swallow every event because the
  * emitter accepted any non-empty string. The module-load probe now
  * runs the value through `new URL()` and an https-or-localhost
@@ -94,7 +94,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
  * vite import.meta.env value. Each test re-imports the module to
  * pick up a fresh endpoint resolution.
  */
-describe('readEndpoint URL validation (implementation note)', () => {
+describe('readEndpoint URL validation', () => {
   const initialSettings = useSettingsStore.getState();
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
@@ -175,7 +175,7 @@ describe('readEndpoint URL validation (implementation note)', () => {
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
-  // implementation note — coalesced telemetry trust capture.
+  // Coalesced telemetry trust capture.
   it('records a coalesced telemetry trust event when telemetry actually sends', async () => {
     vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
     const {

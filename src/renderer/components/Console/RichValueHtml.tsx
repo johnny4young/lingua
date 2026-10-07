@@ -1,5 +1,5 @@
 /**
- * implementation — `html` payload renderer. Renders inside a
+ * `html` payload renderer. Renders inside a
  * sandboxed `<iframe>` with `sandbox="allow-scripts"` (NO
  * `allow-same-origin`, NO `allow-top-navigation`) so user-supplied
  * scripts cannot reach the parent window or navigate the top frame.

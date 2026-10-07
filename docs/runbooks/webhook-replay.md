@@ -2,7 +2,7 @@
 
 **Severity:** S1 (degraded). Customer paid but did not receive a license.
 **Owner:** maintainer (single-operator rotation, see `docs/SERVER_OBSERVABILITY.md` § Rotation).
-**Related:** the internal licensing ADR (webhook contract), `license-server/src/handlers/webhooks.ts`.
+**Related:** `license-server/README.md` (webhook contract), `license-server/src/handlers/webhooks.ts`.
 
 ## Detection
 

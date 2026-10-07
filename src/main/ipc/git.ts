@@ -1,5 +1,5 @@
 /**
- * implementation — IPC handlers for the Git read-only layer.
+ * IPC handlers for the Git read-only layer.
  *
  * Three channels:
  *
@@ -16,7 +16,7 @@
  * via `validateRepoRelativePath`); this module is a thin marshaling
  * layer that only normalizes the raw IPC tuple into typed arguments.
  *
- * implementation is read-only. There is no write surface; a future work
+ * The git layer is read-only. There is no write surface; a future work
  * with `git:add` / `git:commit` would register here too, behind an
  * explicit feature gate.
  */
@@ -43,7 +43,7 @@ import {
 import { isPathBlocked } from './permissions';
 
 /**
- * internal gate for the git read-only layer. The git handlers are
+ * Gate for the git read-only layer. The git handlers are
  * the one IPC surface that receives raw absolute paths (the repo toplevel
  * can sit ABOVE the approved project root, so a rootId capability cannot
  * express it). Before this gate they accepted ANY path — `git:diff` would
@@ -85,7 +85,7 @@ async function isApprovedGitFile(
 }
 
 /**
- * implementation — per-sender head-watch registry.
+ * per-sender head-watch registry.
  *
  * Keyed by `webContents.id` × `repoRoot`. The map lets us reuse a
  * single underlying `fs.watch` per repo even if the renderer's hook
@@ -219,7 +219,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — `Reveal in Source Control` action. Returns a
+  // `Reveal in Source Control` action. Returns a
   // boolean so the renderer can push a localized error notice on
   // false. Input validation lives in `revealRepo` (existence probe
   // + path normalization).
@@ -236,7 +236,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — start a HEAD watcher for `repoRoot` and stream
+  // Start a HEAD watcher for `repoRoot` and stream
   // `git:on-head-changed` events to the renderer that called us.
   // Returns the resolved initial state so the renderer can warm its
   // store without waiting for the first watch event.
@@ -315,7 +315,7 @@ export function registerGitHandlers(): void {
     }
   );
 
-  // implementation — stop a HEAD watcher. Idempotent on a missing
+  // Stop a HEAD watcher. Idempotent on a missing
   // key; the renderer hook calls this on every cleanup pass.
   typedHandle(
     'git:unwatch-head',

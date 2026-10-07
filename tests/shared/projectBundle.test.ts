@@ -34,7 +34,7 @@ function patchDeclaredUncompressedSize(
   return output;
 }
 
-describe('internal — validateBundleEntryPath', () => {
+describe('validateBundleEntryPath', () => {
   it('accepts and normalizes plain + nested relative paths', () => {
     expect(validateBundleEntryPath('index.js')).toBe('index.js');
     expect(validateBundleEntryPath('src/utils/math.ts')).toBe('src/utils/math.ts');
@@ -58,7 +58,7 @@ describe('internal — validateBundleEntryPath', () => {
   });
 });
 
-describe('internal — packBundle', () => {
+describe('packBundle', () => {
   it('round-trips through unpackBundle with a manifest', () => {
     const zip = packBundle([file('index.js'), file('src/lib.ts')], {
       createdAt: CREATED_AT,
@@ -174,7 +174,7 @@ describe('internal — packBundle', () => {
   });
 });
 
-describe('internal — unpackBundle guards', () => {
+describe('unpackBundle guards', () => {
   it('rejects empty input', () => {
     expect(unpackBundle(new Uint8Array(0))).toEqual({
       ok: false,
@@ -193,6 +193,14 @@ describe('internal — unpackBundle guards', () => {
     expect(result).toEqual({ ok: false, reason: 'too-large' });
   });
 
+  it('rejects entries that collide on a case-insensitive filesystem', () => {
+    const zip = zipSync({
+      'src/README.md': strToU8('upper'),
+      'SRC/readme.md': strToU8('lower'),
+    });
+    expect(unpackBundle(zip)).toEqual({ ok: false, reason: 'malformed-zip' });
+  });
+
   it('skips a traversal entry as a per-entry reject, never extracting it', () => {
     // Hand-build a hostile zip fflate would never produce via packBundle.
     const hostile = zipSync({
@@ -209,7 +217,7 @@ describe('internal — unpackBundle guards', () => {
     });
   });
 
-  it('rejects an oversize entry while keeping the rest (implementation note caps)', () => {
+  it('rejects an oversize entry while keeping the rest', () => {
     const zip = zipSync({
       'big.txt': strToU8('x'.repeat(64)),
       'small.txt': strToU8('ok'),
@@ -224,7 +232,7 @@ describe('internal — unpackBundle guards', () => {
     });
   });
 
-  it('trips the zip-bomb guard when total uncompressed size crosses the cap (implementation note)', () => {
+  it('trips the zip-bomb guard when total uncompressed size crosses the cap', () => {
     const zip = zipSync({
       'a.txt': strToU8('x'.repeat(40)),
       'b.txt': strToU8('y'.repeat(40)),
@@ -286,7 +294,7 @@ describe('internal — unpackBundle guards', () => {
   });
 });
 
-describe('internal — BUNDLE_REJECT_REASONS', () => {
+describe('BUNDLE_REJECT_REASONS', () => {
   it('is sorted and free of duplicates (parity-test anchor)', () => {
     const arr = [...BUNDLE_REJECT_REASONS];
     expect(arr).toEqual([...arr].sort());

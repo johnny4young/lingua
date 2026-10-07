@@ -12,7 +12,7 @@ import type {
 import { requestLspData, type LspRequestTransport } from './lspRequest';
 
 /**
- * implementation — renderer-side adapter for gopls.
+ * renderer-side adapter for gopls.
  *
  * Mirrors `rust.ts`: transport-layer glue between Monaco and the
  * main-process LSP bridge (`window.lingua.lsp.go`). Per-document

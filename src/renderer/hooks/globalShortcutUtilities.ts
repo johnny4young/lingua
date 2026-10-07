@@ -1,10 +1,5 @@
 import i18next from 'i18next';
-import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../data/keyboardShortcuts';
+import { formatShortcutLabel, type ShortcutId } from '../data/keyboardShortcuts';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUtilityOutputStore } from '../stores/utilityOutputStore';
@@ -13,17 +8,8 @@ import { takePendingClipboardApply } from './useClipboardOnFocus';
 
 let utilityClipboardInFlight = false;
 
-function getShortcutLabel(shortcutId: string): string | undefined {
-  const definition = KEYBOARD_SHORTCUTS.find(entry => entry.id === shortcutId);
-  if (!definition) return undefined;
-  const combo = resolveCombos(definition, useSettingsStore.getState().shortcutOverrides)[0];
-  if (!combo) return undefined;
-
-  const runtimePlatform =
-    typeof window !== 'undefined' ? (window.lingua?.platform ?? 'web') : 'web';
-  const navigatorPlatform = typeof navigator !== 'undefined' ? navigator.platform : undefined;
-  const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
-  return formatShortcutCombo(combo, displayPlatform);
+function getShortcutLabel(shortcutId: ShortcutId): string | undefined {
+  return formatShortcutLabel(shortcutId, useSettingsStore.getState().shortcutOverrides) ?? undefined;
 }
 
 export function runUtilityApplyFromInput(): void {

@@ -1,5 +1,5 @@
 /**
- * implementation - Python dependency detector tests.
+ * Python dependency detector tests.
  */
 
 import { describe, expect, it } from 'vitest';

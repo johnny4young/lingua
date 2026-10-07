@@ -6,7 +6,7 @@ interface RichValueArrayProps {
 }
 
 /**
- * implementation — compact preview for `{ kind: 'array' }`. Mirrors
+ * Compact preview for `{ kind: 'array' }`. Mirrors
  * the `<VariableInspectorPanel>` chrome: type icon + `[a, b, c, …]`
  * with `previewSummary` clipping each cell to 24 chars.
  */

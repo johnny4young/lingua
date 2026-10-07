@@ -63,7 +63,7 @@ describe('keyboardShortcuts catalog', () => {
     }
   });
 
-  // Reviewer pass on implementation caught a silent
+  // A reviewer pass caught a silent
   // `run-copy-share-link` ↔ `overlay-command-palette` collision on
   // `Mod+Shift+P` (the share entry won because it was declared earlier
   // in the catalog and useGlobalShortcuts iterates first-match-wins).
@@ -108,7 +108,7 @@ describe('keyboardShortcuts catalog', () => {
       'nav-quick-open',
       'nav-go-to-symbol',
       'nav-project-search',
-      // implementation — capsule browse overlay shortcut.
+      // Capsule browse overlay shortcut.
       'overlay-capsule-list',
       'overlay-command-palette',
       'overlay-settings',
@@ -116,10 +116,10 @@ describe('keyboardShortcuts catalog', () => {
       'overlay-close',
       'view-toggle-sidebar',
       'view-toggle-console',
-      // implementation — Developer Utilities productivity shortcuts.
+      // Developer Utilities productivity shortcuts.
       'utility-copy-output',
       'utility-replace-clipboard',
-      // implementation — Apply-from-input shortcut.
+      // Apply-from-input shortcut.
       'utility-apply-from-input',
     ]) {
       expect(ids.has(required)).toBe(true);
@@ -134,7 +134,7 @@ describe('keyboardShortcuts catalog', () => {
   });
 
   it('declares the Recent Runs popover shortcut as Mod+Alt+H', () => {
-    // implementation — moved from Mod+Shift+H to Mod+Alt+H so the
+    // Moved from Mod+Shift+H to Mod+Alt+H so the
     // VSCode-parity `Mod+Shift+H` binding goes to project-replace.
     const shortcut = KEYBOARD_SHORTCUTS.find(entry => entry.id === 'run-toggle-recent-runs');
     expect(shortcut).toBeDefined();
@@ -197,14 +197,14 @@ describe('keyboardShortcuts catalog', () => {
     expect(
       KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-replace-clipboard')?.combos
     ).toEqual([{ tokens: ['Mod', 'Alt', 'R'] }]);
-    // implementation — Mod+Shift+A keeps Mod+Enter free for the
+    // Mod+Shift+A keeps Mod+Enter free for the
     // editor's run-toggle shortcut.
     expect(
       KEYBOARD_SHORTCUTS.find(entry => entry.id === 'utility-apply-from-input')?.combos
     ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
 
-  it('declares a debugger group with the implementation control shortcuts and the implementation toggle', () => {
+  it('declares a debugger group with the control shortcuts and the toggle', () => {
     const groupIds = new Set(SHORTCUT_GROUPS.map(group => group.id));
     expect(groupIds.has('debugger')).toBe(true);
 
@@ -214,7 +214,7 @@ describe('keyboardShortcuts catalog', () => {
       'debugger-step-into',
       'debugger-step-out',
       'debugger-step-over',
-      // implementation note — keyboard-accessible breakpoint toggle.
+      // keyboard-accessible breakpoint toggle.
       'debugger-toggle-breakpoint',
     ]);
 
@@ -232,7 +232,7 @@ describe('keyboardShortcuts catalog', () => {
     expect(KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-step-out')?.combos).toEqual([
       { tokens: ['Shift', 'F11'] },
     ]);
-    // implementation note — Mod+B is taken by `view-toggle-sidebar`, so the
+    // Mod+B is taken by `view-toggle-sidebar`, so the
     // breakpoint toggle ships with Mod+Shift+B.
     expect(
       KEYBOARD_SHORTCUTS.find(entry => entry.id === 'debugger-toggle-breakpoint')?.combos

@@ -1,6 +1,6 @@
 /**
- * implementation note — renderer-side Python console-payload
- * processing budget. Mirrors the JS implementation note bench
+ * renderer-side Python console-payload
+ * processing budget. Mirrors the JS console-payload bench
  * (`consoleRich.bench.test.ts`), but on the path the Python runner
  * actually exercises: a flooded Pyodide `print(...)` loop produces a
  * thousand-entry `print_entries` array, the renderer maps each entry

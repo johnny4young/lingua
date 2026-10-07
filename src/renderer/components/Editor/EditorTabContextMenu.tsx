@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Kbd } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { EditorTabContextMenuProps } from './editorTabContextMenuLoader';
 import { resolveEditorTabContextMenuAnchor } from './editorTabContextMenuPosition';
 
@@ -97,12 +98,13 @@ export function EditorTabContextMenu({
   // anchored tab is already the last one.
   const closeOthersDisabled = isLastTab;
   const closeRightDisabled = isLastTab || isRightmost;
+  const closeTabShortcut = useShortcutLabel('file-close-tab');
 
   const items: ReadonlyArray<MenuItem | 'divider'> = [
     {
       key: 'close',
       label: t('editorTabs.menu.close'),
-      kbd: '⌘W',
+      kbd: closeTabShortcut || undefined,
       onSelect: onCloseTab,
     },
     {
@@ -120,7 +122,6 @@ export function EditorTabContextMenu({
     {
       key: 'closeAll',
       label: t('editorTabs.menu.closeAll'),
-      kbd: '⌘⇧W',
       onSelect: onCloseAll,
     },
     'divider',

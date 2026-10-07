@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { DragEvent as ReactDragEvent } from 'react';
 
 /**
- * internal — drag-and-drop state machine for file drop zones.
+ * drag-and-drop state machine for file drop zones.
  *
  * Returns:
  *

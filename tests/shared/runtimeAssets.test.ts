@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
 
 /**
- * implementation — integrity gate for vendored runtime assets.
+ * Integrity gate for vendored runtime assets.
  *
  * The committed `runtime-assets.lock.json` is the authoritative
  * fingerprint of runtime files we ship inside desktop/dev builds or
@@ -38,7 +38,7 @@ type LockShape = Record<
   { version: string; sourceUrl: string; integrity: Record<string, string> }
 >;
 
-describe('internal — runtime-assets.lock.json integrity', () => {
+describe('runtime-assets.lock.json integrity', () => {
   it('lock matches the freshly-installed Pyodide payload', async () => {
     const lockRaw = await readFile(lockPath, 'utf8');
     const lock = JSON.parse(lockRaw) as LockShape;

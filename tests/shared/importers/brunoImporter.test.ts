@@ -1,5 +1,5 @@
 /**
- * implementation (implementation note) — Bruno `.bru` importer adapter coverage.
+ * Bruno `.bru` importer adapter coverage.
  *
  * Pins detection, the block parser (method / headers / auth / body /
  * scripts / meta), the lossy-warning surface, and the reject paths.
@@ -13,7 +13,7 @@ import {
 import type {
   CollectionImporterPreview,
   CollectionImporterResult,
-} from '../../../src/shared/importers/postmanImporter';
+} from '../../../src/shared/importers/collectionTypes';
 
 function preview(source: string): CollectionImporterPreview {
   const outcome = brunoImporterAdapter.preview(source);

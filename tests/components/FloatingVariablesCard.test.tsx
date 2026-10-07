@@ -1,5 +1,5 @@
 /**
- * internal polish #7 — smoke tests for FloatingVariablesCard.
+ * Smoke tests for FloatingVariablesCard.
  *
  * Eligibility and lazy loading belong to FloatingVariablesCardHost. These
  * tests exercise the loaded implementation: value rendering, scroll reach,

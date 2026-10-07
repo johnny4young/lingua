@@ -1,5 +1,5 @@
 /**
- * implementation note — license-verify trust capture.
+ * license-verify trust capture.
  *
  * Extracted from the `licenseStore` facade so the seam stays thin (the
  * facade just wires this in after creating the store). Records a `license`

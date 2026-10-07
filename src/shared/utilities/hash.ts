@@ -1,5 +1,5 @@
 /**
- * implementation — `hash` adapter.
+ * `hash` adapter.
  *
  * Hashes the input text with a chosen Web Crypto algorithm and returns
  * the lowercase hex digest. Pure shared reimplementation: the renderer's

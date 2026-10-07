@@ -1,5 +1,5 @@
 /**
- * internal — guard: every macOS release must carry BOTH arches.
+ * Guard: every macOS release must carry BOTH arches.
  *
  * Through 0.12.0 the release only published `mac-arm64` artifacts, so an
  * Intel Mac had literally nothing to download — a silent sales blocker, not

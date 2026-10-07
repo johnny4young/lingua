@@ -13,7 +13,7 @@
  * no-break space on alternating announces, guaranteeing the text node
  * mutates on every announce even when the message string is unchanged. A
  * no-break space (not a plain space, which the DOM would collapse) is
- * used so the change is real; it lives inside an `internal` region and is
+ * used so the change is real; it lives inside a visually hidden region and is
  * never seen.
  */
 import { useAnnouncerStore } from '../../stores/announcerStore';

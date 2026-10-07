@@ -1,5 +1,5 @@
 /**
- * implementation — Postman Collection importer adapter coverage.
+ * Postman Collection importer adapter coverage.
  *
  * Pins the closed-enum outcomes, folder flattening, url-object
  * reconstruction, body-mode mapping, auth flattening, the lossy-warning
@@ -419,7 +419,7 @@ describe('postmanImporterAdapter.preview — collection variable resolution', ()
     expect(p.counts.variablesUnresolved).toBe(0);
   });
 
-  it('resolves variables in header names + values (implementation note)', () => {
+  it('resolves variables in header names + values', () => {
     const p = preview(
       collection(
         [
@@ -463,7 +463,7 @@ describe('postmanImporterAdapter.preview — collection variable resolution', ()
     expect(p.warnings).not.toContain('postman-variable');
   });
 
-  it('resolves transitive references through the variable map (implementation note)', () => {
+  it('resolves transitive references through the variable map', () => {
     const p = preview(
       collection([leaf('T', { method: 'GET', url: 'https://{{fullHost}}/v1' })], {
         variable: [
@@ -476,7 +476,7 @@ describe('postmanImporterAdapter.preview — collection variable resolution', ()
     expect(p.warnings).not.toContain('postman-variable');
   });
 
-  it('terminates on a variable reference cycle, leaving it literal (implementation note guard)', () => {
+  it('terminates on a variable reference cycle, leaving it literal', () => {
     const p = preview(
       collection([leaf('C', { method: 'GET', url: 'https://x.dev/{{a}}' })], {
         variable: [
@@ -516,7 +516,7 @@ describe('postmanImporterAdapter.preview — collection variable resolution', ()
     expect(p.counts.variablesUnresolved).toBe(1);
   });
 
-  it('keeps a dynamic {{$guid}} literal + warns distinctly (implementation note)', () => {
+  it('keeps a dynamic {{$guid}} literal + warns distinctly', () => {
     const p = preview(
       collection([leaf('D', { method: 'GET', url: 'https://x.dev/{{$guid}}' })])
     );
@@ -538,7 +538,7 @@ describe('postmanImporterAdapter.preview — collection variable resolution', ()
     expect(p.counts.variablesResolved).toBe(0);
   });
 
-  it('resolves variables in folder + request names (implementation note)', () => {
+  it('resolves variables in folder + request names', () => {
     const p = preview(
       collection(
         [
@@ -680,7 +680,7 @@ describe('postmanImporterAdapter.import', () => {
 });
 
 // ---------------------------------------------------------------------------
-// implementation — environment / globals variable resolution
+// Environment / globals variable resolution
 // ---------------------------------------------------------------------------
 
 function variableExport(
@@ -751,7 +751,7 @@ describe('parsePostmanVariableExport ', () => {
   });
 });
 
-describe('isSensitiveVariableKey (implementation note)', () => {
+describe('isSensitiveVariableKey', () => {
   it('flags secret-like key names', () => {
     for (const key of [
       'token',
@@ -798,7 +798,7 @@ describe('previewPostmanWithVariables ', () => {
     expect(req.url).toContain('supersecret'); // resolved from env
   });
 
-  it('counts env-sourced resolutions (implementation note)', () => {
+  it('counts env-sourced resolutions', () => {
     const { outcome } = previewPostmanWithVariables(coll, {
       environment: envSource,
     });
@@ -806,7 +806,7 @@ describe('previewPostmanWithVariables ', () => {
     expect(outcome.preview.counts.variablesResolvedFromEnv).toBe(2);
   });
 
-  it('redacts a sensitive env value in the display URL, keeps the real URL (implementation note)', () => {
+  it('redacts a sensitive env value in the display URL, keeps the real URL', () => {
     const { outcome } = previewPostmanWithVariables(coll, {
       environment: envSource,
     });
@@ -838,7 +838,7 @@ describe('previewPostmanWithVariables ', () => {
     expect(req.displayUrl).not.toContain('supersecret');
   });
 
-  it('lists still-unresolved variable names (implementation note)', () => {
+  it('lists still-unresolved variable names', () => {
     const c = collection([
       leaf('R', { method: 'GET', url: '{{baseUrl}}/{{missing}}' }),
     ]);

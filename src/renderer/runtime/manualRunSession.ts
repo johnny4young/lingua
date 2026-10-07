@@ -2,7 +2,9 @@ import i18next from 'i18next';
 import { announce } from '../stores/announcerStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useEditorStore } from '../stores/editorStore';
+import { editorRunnerKey, notebookRunnerOwner } from '../stores/notebookRunnerLockStore';
 import { useResultStore } from '../stores/resultStore';
+import { useUIStore } from '../stores/uiStore';
 import type { FileTab } from '../types/editor';
 
 /** In-memory ownership only: never serialized into tabs, history or capsules. */
@@ -18,6 +20,18 @@ export interface ManualRunSession {
 export function beginManualRun(tab?: FileTab, debug = false): ManualRunSession | null {
   const state = useResultStore.getState();
   if (state.isManualRunning || state.manualRunSession) return null;
+  // Starting would terminate the notebook cell on the shared runner.
+  if (
+    tab &&
+    tab.kind !== 'notebook' &&
+    notebookRunnerOwner(editorRunnerKey(tab.language, tab.runtimeMode, debug))
+  ) {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'notebook.notice.runtimeHeldByNotebook',
+    });
+    return null;
+  }
   const cancellations = new Set<() => void>();
   let unsubscribe: (() => void) | undefined;
   let revoked = false;

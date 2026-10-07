@@ -1,5 +1,5 @@
 /**
- * implementation — `setTabCompareEnabled` + language-change cleanup.
+ * `setTabCompareEnabled` + language-change cleanup.
  *
  * Covers:
  *   - Setter writes / clears the per-tab flag.
@@ -30,7 +30,7 @@ function snapshotForLanguage(language: string): void {
   useResultStore.getState().captureSuccessfulSnapshot(language);
 }
 
-describe('implementation — editorStore compare flag', () => {
+describe('editorStore compare flag', () => {
   beforeEach(() => {
     useEditorStore.setState({ tabs: [], activeTabId: null });
     useResultStore.getState().clear();

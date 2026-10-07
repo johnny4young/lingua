@@ -74,7 +74,7 @@ describe('PrivacySection', () => {
     expect(screen.getByText(/controlled by the browser/i)).toBeTruthy();
   });
 
-  // implementation — `shareLinkConfirmEnabled` was removed; the share-link
+  // `shareLinkConfirmEnabled` was removed; the share-link
   // confirmation modal is now the only path before clipboard writes
   // (safer default for accidental shares). The toggle no longer
   // renders.

@@ -13,17 +13,18 @@ import { useUIStore } from '../../stores/uiStore';
 import { resolveBrowserPreviewRefreshInterval } from '../../../shared/browserPreviewRefresh';
 
 /**
- * implementation — bottom-panel surface for the Browser preview
+ * bottom-panel surface for the Browser preview
  * runtime. Renders a sandboxed iframe + a thin status footer.
  *
  *   - On mount, registers the iframe element with the
  *     `browserPreviewBridge` so the runner can write into its
  *     isolated document. On unmount, clears the registration so a stale ref
- *     never points at a torn-down element.
+ *     never points at a torn-down element; the bridge then stops any run
+ *     still writing into it.
  *   - The footer reflects running / idle / error / timeout states
  *     by consuming the existing result store (`isManualRunning`,
  *     `error`).
- *   - implementation note — inspect button opens the current iframe document in
+ *   - Inspect button opens the current iframe document in
  *     a new opaque-origin data URL. Implemented as a best-effort
  *     affordance — wrapped in try/catch so the panel never breaks
  *     if the host blocks popups.

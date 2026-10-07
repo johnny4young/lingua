@@ -1,5 +1,5 @@
 /**
- * implementation — Utility Pipelines panel.
+ * Utility Pipelines panel.
  *
  * 3-section layout inside the Developer Utilities workspace. It started
  * life inside the utilities overlay, but the workspace shell now gives
@@ -7,13 +7,13 @@
  *
  *   - LEFT  : pipeline list (create / select / rename / duplicate /
  *             delete / import / export).
- *   - CENTER: step editor (sortable via @dnd-kit drag handles —
- *             implementation note), Add step button, Run button, input textarea.
+ *   - CENTER: step editor (sortable via @dnd-kit drag handles),
+ *             Add step button, Run button, input textarea.
  *   - RIGHT : streaming result table with per-step status + output.
  *
  * Wires the persisted store (`useUtilityPipelineStore`), the run
  * hook (`useUtilityPipelineRun`), and the closed-enum telemetry
- * emit (`utility.pipeline_executed` — implementation note).
+ * emit (`utility.pipeline_executed`).
  */
 
 import { PlayCircle, Plus } from 'lucide-react';
@@ -109,7 +109,7 @@ export function UtilityPipelinePanel() {
     return (
       <div
         data-testid="utility-pipeline-locked"
-        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-2xl border border-warning/30 bg-warning/5 p-8 text-center"
+        className="flex h-full min-h-[34rem] flex-col items-center justify-center gap-4 rounded-2xl border border-warning/30 bg-warning/5 p-16 text-center"
       >
         <span className="rounded-full border border-warning/45 bg-warning/10 px-2 py-1 font-mono text-eyebrow font-bold uppercase tracking-[0.16em] text-warning">
           {t('utilities.locked.proBadge')}
@@ -175,9 +175,9 @@ function UtilityPipelinePanelUnlocked() {
     resetRun();
   }, [activePipelineId, resetRun]);
 
-  // implementation — instantiate a gallery template into a fresh
-  // pipeline, select it, seed the sample input (implementation note), and record the
-  // adoption event (implementation note). Ids are minted here (the shared catalog
+  // Instantiate a gallery template into a fresh
+  // pipeline, select it, seed the sample input, and record the
+  // adoption event. Ids are minted here (the shared catalog
   // stays free of crypto), one per step.
   const handleUseTemplate = useCallback(
     (template: PipelineTemplate) => {
@@ -317,9 +317,9 @@ function UtilityPipelinePanelUnlocked() {
     }
   }, [activePipeline, activeInput, run, t, announce]);
 
-  // implementation note — EXPLICIT "Save run as capsule". This is deliberately NOT
+  // EXPLICIT "Save run as capsule". This is deliberately NOT
   // wired into `handleRun`: a pipeline run only lands in the in-memory
-  // execution-history ring (and thus the Pro browse overlay + internal
+  // execution-history ring (and thus the Pro browse overlay +
   // comparator) when the user asks for it. Keep a snapshot of the exact
   // run inputs so edits made after settle cannot pair a stale outcome with
   // the current recipe/input.
@@ -404,7 +404,7 @@ function UtilityPipelinePanelUnlocked() {
               <div className="text-body font-medium">{t('utilityPipeline.empty.title')}</div>
               <div className="text-body-sm text-muted">{t('utilityPipeline.empty.body')}</div>
             </div>
-            {/* implementation — starter gallery so a blank pipeline panel
+            {/* Starter gallery so a blank pipeline panel
                 is discoverable now the engine ships 15 adapters. */}
             <PipelineTemplateGallery onUseTemplate={handleUseTemplate} />
           </div>

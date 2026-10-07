@@ -1,5 +1,5 @@
 /**
- * implementation — StdinInputPanel render contract.
+ * StdinInputPanel render contract.
  *
  * Covers:
  *   - Renders the textarea for JS / TS / Python tabs.
@@ -84,7 +84,7 @@ describe('StdinInputPanel ', () => {
   });
 
   it('renders per-line inputs for a JS tab and writes via the action', () => {
-    // internal — the v2 panel replaced the single textarea with one input
+    // The v2 panel replaced the single textarea with one input
     // per ordered-queue row. The test now writes into the first row and
     // expects the action to be called with the same `'5'` buffer.
     editorState.tabs = [

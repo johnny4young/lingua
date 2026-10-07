@@ -43,8 +43,8 @@ import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../utils/telemetry';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
-  appendCappedConsole,
-  capStderrIfOverflowing,
+  appendCappedOutput,
+  createConsoleCapState,
   runnerStoppedResult,
   runnerTimeoutResult,
   type TranslateFn,
@@ -170,9 +170,7 @@ export class WorkerRunnerShell {
     let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — stdout overflowing should not mute the
     // truncation notice on stderr (and vice versa).
-    let droppedStdout = 0;
-    let droppedStderr = 0;
-    let stderrByteTruncated = false;
+    const caps = createConsoleCapState();
 
     // Terminate any previous worker. `stop()` also drops `currentRunId` so any
     // in-flight messages from the old worker are ignored.
@@ -254,15 +252,8 @@ export class WorkerRunnerShell {
               const { kind, reason } = msg.richMediaRejected;
               void trackEvent('runtime.rich_media_payload_rejected', { kind, reason });
             }
-            if (msg.method === 'error') {
-              if (!stderrByteTruncated) {
-                droppedStderr = appendCappedConsole(stderr, output, droppedStderr, t);
-                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
-              }
-            } else {
-              droppedStdout = appendCappedConsole(stdout, output, droppedStdout, t);
-            }
-            context?.onConsole?.(output);
+            const live = appendCappedOutput({ stdout, stderr }, caps, output, msg.method === 'error', t);
+            if (live) context?.onConsole?.(live);
             break;
           }
           case 'stdin-consumed': {

@@ -76,7 +76,7 @@ test.describe('Run Capsule upgrade from stable v0.15.0', () => {
     await openImportOverlay(page);
     await loadStableFixture(page);
 
-    await expect(page.getByRole('dialog', { name: /importa una cápsula/i })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /importar una cápsula/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Código' })).toHaveAttribute(
       'aria-selected',
       'true'

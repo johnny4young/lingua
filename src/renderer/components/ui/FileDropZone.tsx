@@ -5,7 +5,7 @@ import { cn } from '../../utils/cn';
 import { useFileDropZone, type FileDropState } from '../../hooks/useFileDropZone';
 
 /**
- * internal — Signal-Slate file drop zone.
+ * Signal-Slate file drop zone.
  *
  * Visual states:
  *

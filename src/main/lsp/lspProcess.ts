@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 /**
- * implementation — generic LSP child-process wrapper.
+ * Generic LSP child-process wrapper.
  *
  * Owns the JSON-RPC v2 framing every LSP server speaks over stdio
  * (`Content-Length: N\r\n\r\n<JSON>`). The wrapper is intentionally
@@ -25,6 +25,10 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
  *    notifications (carry `method` but no `id`). The wrapper routes
  *    responses to the pending request map and forwards notifications
  *    to the `onNotification` listener.
+ *  - Every request carries a deadline (`DEFAULT_REQUEST_TIMEOUT_MS`
+ *    unless the caller passes `timeoutMs`). On expiry the entry leaves
+ *    the pending map, the server gets `$/cancelRequest`, and the
+ *    promise rejects, so a wedged server cannot grow the map forever.
  *
  * Robustness:
  *  - The stdout reader handles split chunks (a single Buffer chunk may
@@ -67,6 +71,18 @@ export interface LspProcessOptions {
 }
 
 const DEFAULT_MAX_BUFFER_BYTES = 32 * 1024 * 1024;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+export interface LspRequestOptions {
+  /** Milliseconds before the request is cancelled and rejected; `0` disables the deadline. */
+  timeoutMs?: number;
+}
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+}
 const HEADER_TERMINATOR = Buffer.from('\r\n\r\n');
 const CONTENT_LENGTH_REGEX = /^Content-Length:\s*(\d+)/i;
 
@@ -74,10 +90,7 @@ export class LspProcess {
   private child: ChildProcessWithoutNullStreams | null = null;
   private buffer: Buffer = Buffer.alloc(0);
   private nextRequestId = 1;
-  private pending = new Map<
-    JsonRpcId,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >();
+  private pending = new Map<JsonRpcId, PendingRequest>();
   private disposed = false;
   private exited = false;
   private exitPromise: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
@@ -133,6 +146,7 @@ export class LspProcess {
         `LSP process exited before responding (code=${code}, signal=${signal})`
       );
       for (const pending of this.pending.values()) {
+        if (pending.timer) clearTimeout(pending.timer);
         pending.reject(error);
       }
       this.pending.clear();
@@ -171,17 +185,34 @@ export class LspProcess {
     this.writeFramedMessage(payload);
   }
 
-  sendRequest<T = unknown>(method: string, params?: unknown): Promise<T> {
+  sendRequest<T = unknown>(
+    method: string,
+    params?: unknown,
+    options: LspRequestOptions = {}
+  ): Promise<T> {
     if (!this.isAlive()) {
       return Promise.reject(new Error('LSP process is not running'));
     }
     const id = this.nextRequestId++;
     const payload = { jsonrpc: '2.0' as const, id, method, params };
+    const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, {
+      const entry: PendingRequest = {
         resolve: resolve as (value: unknown) => void,
         reject,
-      });
+        timer: null,
+      };
+      if (timeoutMs > 0) {
+        entry.timer = setTimeout(() => {
+          if (this.pending.get(id) !== entry) return;
+          this.pending.delete(id);
+          this.sendNotification('$/cancelRequest', { id });
+          reject(new Error(`LSP request ${method} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        // A pending deadline must not keep main alive during quit.
+        entry.timer.unref?.();
+      }
+      this.pending.set(id, entry);
       this.writeFramedMessage(payload);
     });
   }
@@ -275,6 +306,7 @@ export class LspProcess {
       const pending = this.pending.get(id);
       if (!pending) return;
       this.pending.delete(id);
+      if (pending.timer) clearTimeout(pending.timer);
       if (message.error) {
         const err = message.error as { code: number; message: string };
         pending.reject(new Error(`LSP error ${err.code}: ${err.message}`));

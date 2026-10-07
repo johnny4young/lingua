@@ -1,5 +1,5 @@
 /**
- * implementation note — Settings → Editor → SQL workspace subsection.
+ * Settings → Editor → SQL workspace subsection.
  *
  * Verifies the row-display-limit + query-timeout selects render, reflect
  * the persisted settings, and route changes to the (clamped) store
@@ -65,7 +65,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(useSettingsStore.getState().sqlWorkspaceQueryTimeoutMs).toBe(60_000);
   });
 
-  it('renders the persist-tables toggle and flips the setting on click (implementation OPFS)', () => {
+  it('renders the persist-tables toggle and flips the setting on click (OPFS)', () => {
     useSettingsStore.setState({ sqlWorkspacePersistTables: false });
     render(<EditorSection />);
 
@@ -77,7 +77,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(useSettingsStore.getState().sqlWorkspacePersistTables).toBe(false);
   });
 
-  it('renders the clear + reconnect actions (implementation OPFS)', () => {
+  it('renders the clear + reconnect actions (OPFS)', () => {
     render(<EditorSection />);
     // Present but not clicked here — both touch the live DuckDB engine
     // (reconnect re-instantiates; clear terminates), exercised in the
@@ -94,7 +94,7 @@ describe('EditorSection — SQL workspace subsection ', () => {
     expect(
       screen.getByText('Tiempo de espera de la consulta')
     ).toBeTruthy();
-    // implementation — tuteo imperative for the persistence toggle.
+    // Tuteo imperative for the persistence toggle.
     expect(
       screen.getByText('Conserva las tablas entre sesiones')
     ).toBeTruthy();

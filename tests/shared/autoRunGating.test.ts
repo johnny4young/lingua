@@ -1,5 +1,5 @@
 /**
- * implementation — auto-run gating heuristics.
+ * auto-run gating heuristics.
  *
  * Coverage:
  *

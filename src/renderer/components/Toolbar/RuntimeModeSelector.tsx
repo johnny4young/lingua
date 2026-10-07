@@ -15,18 +15,18 @@ import { useNativeJsRuntimeAvailability } from '../../hooks/useNativeJsRuntimeAv
 import { isNativeJsRuntimeMode, nativeJsRuntimeHintKey } from '../../utils/nativeJsRuntimeStatus';
 
 /**
- * implementation — explicit per-tab JS/TS runtime mode selector.
+ * Explicit per-tab JS/TS runtime mode selector.
  *
  * Renders only when the active tab is a JS/TS buffer. Five options:
- *   - Worker — implementation, enabled.
- *   - Node — implementation, enabled in desktop.
- *   - Browser preview — implementation, enabled.
+ *   - Worker — enabled.
+ *   - Node — enabled in desktop.
+ *   - Browser preview — enabled.
  *   - Deno / Bun — available in Desktop; the runner checks their binaries
  *     when execution starts.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
- *     fires the `runtime.mode_changed` telemetry and (implementation note)
+ *     fires the `runtime.mode_changed` telemetry and
  *     pushes a status-notice toast confirming the switch.
  *   - Click a disabled option → noop; the tooltip explains why the
  *     mode is unavailable.
@@ -37,15 +37,15 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.mode.worker',
   node: 'runtimeMode.mode.node',
   'browser-preview': 'runtimeMode.mode.browserPreview',
-  // implementation — Deno / Bun desktop runtimes.
+  // Deno / Bun desktop runtimes.
   deno: 'runtimeMode.mode.deno',
   bun: 'runtimeMode.mode.bun',
 };
 
 const MODE_HINT_KEY: Record<'worker' | 'browser-preview', string> = {
   worker: 'runtimeMode.hint.worker',
-  // implementation — browser-preview is implemented now; use the
-  // shipping copy instead of the implementation disabled-state hint.
+  // browser-preview is implemented now; use the
+  // shipping copy instead of the disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
 };
 

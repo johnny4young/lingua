@@ -1,5 +1,5 @@
 /**
- * implementation — `<GitStatusPill>` render contract.
+ * `<GitStatusPill>` render contract.
  *
  * Covers:
  *   - All 4 status buckets render with their distinct visual class
@@ -96,7 +96,7 @@ describe('GitStatusPill', () => {
     expect(queryByTestId('git-status-pill')).toBeNull();
   });
 
-  it('renders null when `// @git-ignore-status` is in the buffer (implementation note)', () => {
+  it('renders null when `// @git-ignore-status` is in the buffer', () => {
     primePosture();
     primeStatus('modified');
     const { queryByTestId } = render(
@@ -121,7 +121,7 @@ describe('GitStatusPill', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('git-diff');
   });
 
-  it('renders the context menu on right-click with 3 actions (implementation note)', () => {
+  it('renders the context menu on right-click with 3 actions', () => {
     primePosture();
     primeStatus('modified');
     const { getByTestId, queryByTestId, getAllByRole } = render(
@@ -151,7 +151,7 @@ describe('GitStatusPill', () => {
   });
 
   // -------------------------------------------------------------------------
-  // implementation — Reveal in Source Control row enabled.
+  // Reveal in Source Control row enabled.
   // -------------------------------------------------------------------------
 
   describe('Reveal in Source Control action ', () => {

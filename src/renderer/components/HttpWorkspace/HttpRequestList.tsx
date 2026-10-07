@@ -1,10 +1,10 @@
 /**
- * implementation — Left column of the HTTP workspace: list of saved
+ * Left column of the HTTP workspace: list of saved
  * requests + create / activate / rename / delete affordances.
  *
  * Each row renders the method + name. Click activates the request;
  * double-click on the name starts an inline rename. Trash icon
- * opens a native confirm before deleting (implementation pattern —
+ * opens a native confirm before deleting (a
  * native confirm matches the "no silent mutation" principle).
  */
 
@@ -123,7 +123,7 @@ export function HttpRequestList({
               role="button"
               tabIndex={isRenaming ? -1 : 0}
               aria-current={isActive ? 'true' : undefined}
-              // FASE 3 — proto rail row: rounded inset surface + 2px
+              // Proto rail row: rounded inset surface + 2px
               // accent left-border when active (httpWs `Rail`,
               // `borderLeft: 2px solid D.acc`). The left-border slot is
               // always reserved (transparent when inactive) so the row
@@ -160,6 +160,7 @@ export function HttpRequestList({
                   ref={renameInputRef}
                   type="text"
                   defaultValue={req.name}
+                  aria-label={t('httpWorkspace.requestList.rename.aria', { name: req.name })}
                   data-testid="http-request-list-rename-input"
                   className="min-w-0 flex-1 truncate bg-transparent text-body-sm outline-none focus:ring-0"
                   onBlur={(event) => {

@@ -63,6 +63,14 @@ export function useNotebookExportActions({
     const result = exportNotebookAsLinguanb(notebook, {
       executionOrder: cellExecutionOrderMap ?? {},
     });
+    if (!result.ok) {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'notebook.notice.exportTooLarge',
+        values: { limit: result.limitKb },
+      });
+      return;
+    }
     void saveOrDownloadLinguanb(result.json, result.suggestedFileName, {
       onOk: () => {
         trackNotebookExported('linguanb');

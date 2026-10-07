@@ -1,12 +1,12 @@
 /**
- * implementation - IPC handlers for JS / TS dependency
+ * IPC handlers for JS / TS dependency
  * resolution and installation.
  *
- * implementation channels:
+ * Channels:
  *   - `dependencies:js:resolve` — read-only batch resolver. Returns
  *     one status per name from the active tab's resolved cwd.
  *
- * implementation channels:
+ * Channels:
  *   - `dependencies:js:install` — `npm install` batch via
  *     `child_process.spawn` with `shell: false`. Streams log lines
  *     back to the renderer via `webContents.send('dependencies:js:install:log', …)`
@@ -83,7 +83,11 @@ export function registerDependencyHandlers(): void {
         specifiers,
         onLog: (stream: DependencyInstallLogStream, chunk: string) => {
           if (sender.isDestroyed()) return;
-          sender.send(INSTALL_LOG_CHANNEL, { runId, stream, chunk });
+          try {
+            sender.send(INSTALL_LOG_CHANNEL, { runId, stream, chunk });
+          } catch {
+            // A frame can disappear before WebContents emits destroyed.
+          }
         },
       });
     }
@@ -99,7 +103,7 @@ export function registerDependencyHandlers(): void {
     }
   );
 
-  // implementation — Go / Rust / Ruby install (go get / cargo add / bundle add). The
+  // Go / Rust / Ruby install (go get / cargo add / bundle add). The
   // cwd is the directory of the active tab's saved file; main derives it
   // and `installNativeDependencies` refuses without the project manifest.
   typedHandle(

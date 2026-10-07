@@ -1,5 +1,5 @@
 /**
- * internal — consume the one-shot input seed the smart-paste router leaves
+ * Consume the one-shot input seed the smart-paste router leaves
  * in the utility-workspace store.
  *
  * Each target panel calls this with its id and an `apply` callback that

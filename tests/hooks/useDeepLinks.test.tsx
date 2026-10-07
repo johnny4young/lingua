@@ -114,6 +114,24 @@ describe('useDeepLinks', () => {
     });
   });
 
+  it('pre-fills the license paste field and opens Settings on Account without applying', async () => {
+    const { peekPendingLicenseToken, subscribeLicenseTokenPrefill } = await import(
+      '@/components/Settings/pendingLicenseToken'
+    );
+    const { peekPendingSettingsTab, peekPendingSettingsTarget, clearPendingSettingsTab } =
+      await import('@/components/Settings/pendingSettingsTab');
+    consumePending.mockResolvedValue({ kind: 'license-token', token: 'payload.signature' });
+
+    render(<Harness openOverlay={openOverlay} />);
+
+    await waitFor(() => expect(openOverlay).toHaveBeenCalledWith('settings'));
+    expect(peekPendingSettingsTab()).toBe('account');
+    expect(peekPendingSettingsTarget()).toBe('license-token-input');
+    expect(peekPendingLicenseToken()).toBe('payload.signature');
+    subscribeLicenseTokenPrefill(() => {}).unsubscribe();
+    clearPendingSettingsTab();
+  });
+
   it('swallows file-open failures without leaving unhandled deep-link state', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     consumePending.mockResolvedValue({

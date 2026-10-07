@@ -224,7 +224,7 @@ async function main() {
     console.log('[desktop-smoke] offline mode: blocking non-loopback HTTP/HTTPS requests');
   }
 
-  // implementation — packaged-mode flag. When set, skip the Vite dev
+  // packaged-mode flag. When set, skip the Vite dev
   // server + run-electron-desktop launcher entirely and run the smoke
   // directly against the produced `Lingua.app`. macOS-only for now.
   // Forces the renderer hook into the 2-runtime-case subset
@@ -342,7 +342,7 @@ async function main() {
           // contains the secret, which would mean the env builder
           // leaked it. Real CI environments do not set this name.
           LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
-          // implementation — propagate offline mode to the spawned
+          // Propagate offline mode to the spawned
           // Electron so its main process installs the webRequest
           // filter before any window loads.
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),

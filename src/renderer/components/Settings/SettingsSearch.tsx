@@ -3,6 +3,7 @@ import { ArrowRight, Search, SearchX, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 import { Kbd } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import type { SettingsSearchResult } from './settingsSearchModel';
 
 interface SettingsSearchProps {
@@ -21,6 +22,7 @@ export function SettingsSearch({
   onSelect,
 }: SettingsSearchProps) {
   const { t } = useTranslation();
+  const focusShortcut = useShortcutLabel('overlay-settings');
   const [activeIndex, setActiveIndex] = useState(0);
   const safeActiveIndex =
     results.length === 0
@@ -130,10 +132,7 @@ export function SettingsSearch({
             </button>
           </>
         ) : (
-          <span className="flex gap-1">
-            <Kbd>⌘</Kbd>
-            <Kbd>,</Kbd>
-          </span>
+          focusShortcut && <Kbd>{focusShortcut}</Kbd>
         )}
       </div>
 

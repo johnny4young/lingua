@@ -1,5 +1,5 @@
 /**
- * implementation note — per-tab `autoLogEnabled` override.
+ * per-tab `autoLogEnabled` override.
  *
  * Covers:
  *   - `setTabAutoLogEnabled(true | false)` writes the override.

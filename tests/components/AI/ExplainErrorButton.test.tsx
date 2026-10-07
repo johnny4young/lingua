@@ -1,5 +1,5 @@
 /**
- * implementation — the shared "Explain this error" trigger. Verifies the entitlement
+ * The shared "Explain this error" trigger. Verifies the entitlement
  * gate (invisible without LOCAL_AI) and that clicking opens the consent
  * dialog without sending anything. The dialog's own behavior is covered by
  * ExplainErrorDialog.test.tsx; this only asserts the button contract every

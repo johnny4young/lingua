@@ -46,13 +46,13 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
   let activeSession: JsWorkerDebuggerSession | null = null;
 
   return async (event: MessageEvent<unknown>): Promise<void> => {
-    // internal — one deliberate boundary assertion; `MessageEvent.data` is
+    // One deliberate boundary assertion; `MessageEvent.data` is
     // untyped by the DOM. Every branch below narrows by `msg.type` with no
     // further casts, and the exhaustiveness guard after the last branch
     // makes an unhandled variant a compile error.
     const msg = event.data as JsWorkerInboundMessage;
 
-    // implementation — debugger control messages from main. These
+    // Debugger control messages from main. These
     // arrive WHILE a run is ongoing (the worker is paused awaiting a
     // resume), so we route them ahead of the `execute` branch.
     if (msg.type === 'resume' || msg.type === 'step') {
@@ -128,7 +128,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       activeSession = session;
       let lexicalScopeVariables: ScopeVariable[] | null = null;
 
-      // implementation — install line-by-line stdin readers. We
+      // Install line-by-line stdin readers. We
       // capture the previous values so a follow-up run starts from a
       // clean global scope (workers are single-shot today so this is
       // belt-and-braces, but if a future runner reuses the same
@@ -142,7 +142,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         (self as unknown as { readline: () => string | null }).readline = consumer;
       }
 
-      // implementation — per-statement wall-clock ticks. The runner's
+      // per-statement wall-clock ticks. The runner's
       // transform prefixes each top-level statement with
       // `__mc_tick(<line>)`; each tick closes the PREVIOUS statement's
       // interval and opens its own, so the elapsed time between two
@@ -187,7 +187,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             });
           };
 
-          // implementation — yield helper. Called before each
+          // Yield helper. Called before each
           // instrumented statement. Fast path when debug is off OR
           // no breakpoint matches AND no step mode is armed.
           const __lingua_dbg_yield = async (
@@ -278,14 +278,13 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             lexicalScopeVariables = captureLexicalScope(getters, exec.scopeDepth, marker);
           };
 
-          // implementation — rich-media helpers exposed to user code as
+          // rich-media helpers exposed to user code as
           // the `lingua` parameter. Closure-bound (not on globalThis) so
           // there's no global pollution and the binding goes out of scope
           // when the AsyncFunction returns. Each helper validates the
           // payload via the shared whitelist. Rejects include a
           // `richMediaRejected` flag; the JS / TS / Python runners
-          // forward that flag to `runtime.rich_media_payload_rejected`
-          // (implementation-β-β-α implementation note).
+          // forward that flag to `runtime.rich_media_payload_rejected`.
           const lingua = buildLinguaWorkerBridge(ctx, runId);
 
           const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -326,7 +325,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
             runId,
             value: serializeJsWorkerValues([result], marker)[0],
           };
-          // implementation — forward the live structured value (the
+          // Forward the live structured value (the
           // notebook's `{ stdout, stderr, sessionDelta }`) when asked, so
           // the runner can round-trip it losslessly instead of parsing the
           // display string that `serialize` truncates at MAX_RESULT_BYTES.
@@ -342,7 +341,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
           ctx.postMessage(resultMessage);
         }
 
-        // implementation — capture the post-execute scope BEFORE the
+        // Capture the post-execute scope BEFORE the
         // stdin-consumed / done replies so the runner can stitch the
         // snapshot onto the `ExecutionResult` it builds at `done`.
         // The capture is gated on `exec.captureScope` to keep the hot
@@ -372,7 +371,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         }
 
         const executionTime = performance.now() - startTime;
-        // implementation note — emit consumption summary BEFORE the
+        // Emit consumption summary BEFORE the
         // `done` reply so the runner can stitch it onto the
         // `ExecutionResult` the panel renders.
         if (stdinReader.getTotal() > 0) {
@@ -436,7 +435,7 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       return;
     }
 
-    // internal — exhaustiveness lock: adding a new JsWorkerInboundMessage
+    // Exhaustiveness lock: adding a new JsWorkerInboundMessage
     // variant without a branch above turns this assignment into a compile
     // error (the narrowed remainder must be `never`).
     const unhandled: never = msg;

@@ -1,15 +1,15 @@
 /**
- * implementation — explicit per-tab JS/TS runtime modes.
+ * Explicit per-tab JS/TS runtime modes.
  *
  * Contract:
  *   - `worker` — current default. Sandboxed Web Worker, no DOM, no
  *     Node built-ins. Fast and isolated; ideal for algorithm work.
  *   - `node` — desktop child-process Node. Built-ins (`fs`, `path`,
- *     `http`, `process`, ...) available through the implementation
+ *     `http`, `process`, ...) available through the
  *     subprocess spawn, timeout, and env allowlist in the desktop
  *     main process.
- *   - `browser-preview` — iframe-isolated context with DOM. implementation
- *     ships the preview pane.
+ *   - `browser-preview` — iframe-isolated context with DOM. Runs in
+ *     the preview pane.
  *   - `deno` / `bun` — desktop child-process alternatives for JS/TS.
  *     They execute TypeScript directly when the matching binary is on
  *     PATH and otherwise surface a detector-gated unavailable state.
@@ -18,7 +18,7 @@
  * `null` for every other language. Non-JS/TS tabs intentionally
  * carry NO runtime-mode field — the selector renders only for
  * `javascript` / `typescript`, mirroring the language-pack
- * capability contract from internal
+ * capability contract.
  *
  * `isRuntimeModeImplemented(mode)` reports wiring, not availability in a
  * particular shell. `isRuntimeModeSupportedInShell` applies the web/Desktop
@@ -70,9 +70,9 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
 }
 
 /**
- * Whether a mode is wired today. implementation shipped `worker`; implementation
- * (2026-05-12) added `browser-preview`; **implementation (2026-05-14)
- * flipped `node` to enabled** once the desktop Node child-spawn
+ * Whether a mode is wired today. `worker` came first;
+ * `browser-preview` followed (2026-05-12); **`node` was
+ * enabled on 2026-05-14** once the desktop Node child-spawn
  * backend landed. A missing host binary is reported by the desktop runner
  * at execution time, separately from this wiring check.
  */
@@ -117,7 +117,7 @@ export function coerceRuntimeMode(
 
 /**
  * Return the next implemented mode after `current`, cycling through
- * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (implementation note).
+ * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut.
  */
 export function cycleRuntimeMode(current: RuntimeMode, webShell = false): RuntimeMode {
   const implemented = RUNTIME_MODES.filter(mode => isRuntimeModeSupportedInShell(mode, webShell));

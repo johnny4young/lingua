@@ -1,5 +1,5 @@
 /**
- * internal — HashUtilityPanel tests. Helper coverage lives in
+ * HashUtilityPanel tests. Helper coverage lives in
  * tests/utils/developerUtilities.test.ts; this suite focuses on wiring:
  * mode + source + algorithm toggles, conditional fields, HMAC key
  * requirement, MD5/SHA-384/SHA-512 digests rendering through the panel,

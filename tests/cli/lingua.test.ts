@@ -1,5 +1,5 @@
 /**
- * implementation — dispatcher tests.
+ * Dispatcher tests.
  *
  * Drives the top-level `dispatch()` directly. Validates argv → exit
  * code mapping for the cross-cutting flows (help, version, parse

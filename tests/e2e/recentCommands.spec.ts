@@ -1,5 +1,5 @@
 /**
- * implementation — Cmd+; recent commands stack, end-to-end.
+ * Cmd+; recent commands stack, end-to-end.
  *
  * Locks the acceptance criteria on the production web build:
  *   - executing palette commands surfaces them in the Cmd+; stack in

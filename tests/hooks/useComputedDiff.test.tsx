@@ -53,4 +53,22 @@ describe('useComputedDiff', () => {
     });
     expect(result.current).toEqual([{ kind: 'add', text: 'second' }]);
   });
+
+  it('aborts the superseded worker request when the inputs change', () => {
+    computeDiffOffThreadMock.mockReturnValue(new Promise(() => {}));
+    const { rerender, unmount } = renderHook(
+      ({ left }) => useComputedDiff(left, '', 'line'),
+      { initialProps: { left: 'a'.repeat(4_100) } }
+    );
+    const firstSignal = computeDiffOffThreadMock.mock.calls[0]?.[4] as AbortSignal;
+    expect(firstSignal.aborted).toBe(false);
+
+    rerender({ left: 'b'.repeat(4_100) });
+    expect(firstSignal.aborted).toBe(true);
+    const secondSignal = computeDiffOffThreadMock.mock.calls[1]?.[4] as AbortSignal;
+    expect(secondSignal.aborted).toBe(false);
+
+    unmount();
+    expect(secondSignal.aborted).toBe(true);
+  });
 });

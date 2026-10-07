@@ -39,7 +39,7 @@ needs no network request.
 
 ## Switch language
 
-Open the language menu in the tab strip (or `Cmd/Ctrl+L`) and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, Python, and Ruby work on every install — they're shipped runtimes inside Lingua.
+Click the language chip in the floating action pill and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, Python, and Ruby work on every install — they're shipped runtimes inside Lingua.
 
 Go and Rust delegate to the toolchains you already have on your machine. If `go version` or `rustc --version` works in your terminal, Lingua will pick them up automatically.
 
@@ -63,11 +63,12 @@ available on the `PATH` inherited by desktop applications.
 
 A handful of shortcuts that make Lingua disappear:
 
-- `Cmd/Ctrl+P` — quick-open snippet
+- `Cmd/Ctrl+P` — go to file (Quick Open)
 - `Cmd/Ctrl+Shift+P` — command palette
 - `Cmd/Ctrl+Enter` — run current tab
 - `Cmd/Ctrl+,` — settings
-- `Cmd/Ctrl+\\` — toggle the developer-utilities panel
+- `Cmd/Ctrl+\` — toggle the console
+- `Cmd/Ctrl+K` — open Developer Utilities
 
 Vim mode is opt-in — turn it on under Settings → Editor.
 

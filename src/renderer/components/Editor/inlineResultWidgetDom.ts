@@ -48,7 +48,7 @@ export function renderInlineResultNode(
   root.className = 'lingua-inline-result';
   root.setAttribute('data-testid', 'lingua-inline-result');
 
-  // implementation follow-up — cap rendered items per line so a
+  // Cap rendered items per line so a
   // Python SyntaxError that ships 4+ console messages tagged to the
   // same line (or a hot loop with multiple prints) doesn't pile up
   // horizontally and visually overrun the editor. The dropped count
@@ -61,7 +61,7 @@ export function renderInlineResultNode(
     const result = visibleItems[i];
     if (!result) continue;
     const isWatch = result.type === 'watch';
-    // implementation — when the runner attached a typed payload,
+    // When the runner attached a typed payload,
     // upgrade the pill via the shared formatter so the editor-
     // decoration path and this overlay-widget path stay byte-for-
     // byte identical. Falls back to the legacy stringified value +
@@ -93,7 +93,7 @@ export function renderInlineResultNode(
 
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';
-    // Prerequisite fix (internal overflow): cap the rendered string so
+    // Prerequisite fix (overflow): cap the rendered string so
     // the overlay widget never overruns the editor viewport. The
     // legacy `//=>` arrow on a large array used to paint past the
     // gutter; this keeps the pill inside the editor padding. Rich
@@ -130,7 +130,7 @@ export function renderInlineResultNode(
     root.appendChild(overflow);
   }
 
-  // internal — trailing per-statement timing chip. The slowest line of
+  // Trailing per-statement timing chip. The slowest line of
   // the run carries `data-slowest` so the stylesheet can paint the hot
   // spot red while every other measurement stays a quiet italic gray.
   if (timing) {
@@ -146,7 +146,7 @@ export function renderInlineResultNode(
 }
 
 /**
- * internal — compact duration label. Mirrors the notebook's
+ * Compact duration label. Mirrors the notebook's
  * `formatLatencyMs`: sub-100ms keeps one decimal so quick statements
  * do not all read as `0 ms`; everything else rounds to whole ms.
  */

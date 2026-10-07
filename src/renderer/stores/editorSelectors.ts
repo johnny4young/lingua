@@ -1,7 +1,7 @@
 import type { EditorState, FileTab } from '../types/editor';
 
 /**
- * implementation — derived active-tab selectors, extracted verbatim from
+ * Derived active-tab selectors, extracted verbatim from
  * `editorStore.ts`. Pure functions over `EditorState`; co-located so every
  * consumer (and the store assembly that re-exports them) inherits a single
  * active-tab derivation seam instead of re-introducing inline
@@ -9,7 +9,7 @@ import type { EditorState, FileTab } from '../types/editor';
  */
 
 /**
- * internal — derived active-tab selector. Returns the `FileTab` whose id
+ * Derived active-tab selector. Returns the `FileTab` whose id
  * matches `state.activeTabId`, or `null` when there is no active tab
  * (empty workspace) or the id points at a since-removed tab.
  *
@@ -26,7 +26,7 @@ export function getActiveTab(state: EditorState): FileTab | null {
 }
 
 /**
- * implementation — index of the active tab within `state.tabs`, or `-1`
+ * Index of the active tab within `state.tabs`, or `-1`
  * when there is no active tab. Co-located with `getActiveTab` so the
  * PanelChipsRow memoization and the editorStore split
  * inherit a single active-tab derivation seam instead of re-introducing

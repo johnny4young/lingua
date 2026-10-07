@@ -1,5 +1,5 @@
 /**
- * implementation — Settings → Editor → Debugger preference.
+ * Settings → Editor → Debugger preference.
  *
  * Pins:
  *   - debugging remains a baseline capability without a master toggle,
@@ -56,7 +56,7 @@ describe('EditorSection — Debugger rows ', () => {
     useLicenseStore.setState(initialLicense, true);
   });
 
-  // implementation — the debugger master toggle was removed from Settings →
+  // The debugger master toggle was removed from Settings →
   // Editor; debugging is baseline IDE expectation. The "renders the
   // master toggle ON" and ES localization cases no longer apply.
   it('does not render breakpoint management actions in Editor settings', () => {

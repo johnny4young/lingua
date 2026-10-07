@@ -1,5 +1,5 @@
 /**
- * implementation — Python debugger bridge engine.
+ * Python debugger bridge engine.
  *
  * `parsePdbLocation` is a pure unit test. The session tests drive a REAL
  * `python3 -m pdb` subprocess (the engine's whole point is the pdb REPL

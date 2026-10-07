@@ -1,5 +1,5 @@
 /**
- * internal — Unit tests for `formatSql`. Async because the helper
+ * Unit tests for `formatSql`. Async because the helper
  * lazy-imports `sql-formatter`. Covers all three dialects, the
  * keyword-case toggle, the indent option, the empty / tooLarge
  * branches, and a parse-failure surface.

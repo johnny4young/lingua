@@ -1,5 +1,5 @@
 /**
- * implementation fifth increment — capability badge in the file tree.
+ * Capability badge in the file tree.
  *
  * The badge appears next to file names when:
  *   - the file is a host-toolchain language (Go, Rust today),

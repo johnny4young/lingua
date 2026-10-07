@@ -135,6 +135,9 @@ const sections = [
             <strong>{isEs ? 'Depurador Go en desktop' : 'Desktop Go debugger'}</strong> — {isEs ? 'breakpoints estándar, step over/into/out, variables locales, call stack y watches mediante Delve/DAP del host.' : 'standard breakpoints, step over/into/out, locals, call stack, and watches through host Delve/DAP.'}
           </li>
           <li>
+            <strong>{isEs ? 'Depurador Rust en desktop' : 'Desktop Rust debugger'}</strong> — {isEs ? 'compila el archivo actual con símbolos de depuración y ofrece breakpoints estándar, step over/into/out, variables locales, call stack y watches mediante lldb-dap del host.' : 'compiles the current file with debug symbols, then offers standard breakpoints, step over/into/out, locals, call stack, and watches through host lldb-dap.'}
+          </li>
+          <li>
             <strong>Format on save</strong> {isEs ? 'por lenguaje: prettier / ruff / gofmt / rustfmt donde esté disponible.' : 'per language: prettier / ruff / gofmt / rustfmt where available.'}
           </li>
         </ul>
@@ -289,7 +292,7 @@ const sections = [
             {isEs
               ? 'Cada release incluye checksums; las releases públicas de macOS se firman y notarizan, y Windows usa Authenticode cuando hay un certificado configurado. La publicación está bloqueada por'
               : 'Every release includes checksums; public macOS releases are signed and notarized, and Windows uses Authenticode when a certificate is configured. Publishing is gated by'}
-            <code>pnpm run check:prod-audit</code>. {isEs ? 'Las licencias se verifican offline: sin conexión al iniciar.' : 'License keys verify offline — no phone-home check at launch.'}
+            <code>pnpm run check:prod-audit</code>. {isEs ? 'La firma de la licencia se verifica offline; la actualización de estado al iniciar corre en segundo plano y nunca bloquea el arranque.' : 'License signatures verify offline; the launch-time status refresh runs in the background and never blocks startup.'}
           </p>
         </div>
       </header>

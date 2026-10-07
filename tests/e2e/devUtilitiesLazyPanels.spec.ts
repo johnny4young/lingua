@@ -1,5 +1,5 @@
 /**
- * implementation detail — lazy Developer Utilities panels.
+ * Lazy Developer Utilities panels.
  *
  * Locks the per-tool code-splitting win: opening the workspace on the default
  * (JSON) tool must NOT fetch the heavier QR / SQL panel chunks, and selecting

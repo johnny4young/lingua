@@ -1,13 +1,13 @@
 /**
- * implementation — per-tab workflow mode (Run / Debug / Scratchpad).
+ * per-tab workflow mode (Run / Debug / Scratchpad).
  *
  * Three discrete user intents that constrain what fires automatically
  * around the manual Run gesture:
  *
  *   - `scratchpad` — auto-run fires on debounced keystrokes (subject
- *     to the implementation completion gate). Default for languages
+ *     to the completion gate). Default for languages
  *     that have a Scratchpad-class runner (JS / TS / Python today).
- *   - `run` — auto-run is OFF. Cmd+R still executes manually. Default
+ *   - `run` — auto-run is OFF. Mod+Enter still executes manually. Default
  *     for compiled / validate / view-only tabs.
  *   - `debug` — auto-run is OFF; the user intends to step through
  *     breakpoints. Only valid for languages that have a debugger
@@ -15,7 +15,7 @@
  *     manual Run gesture still works; this mode is mostly a UI hint
  *     and an auto-run silencer.
  *
- * The Run gesture (Cmd+R / toolbar button) executes in ALL three
+ * The Run gesture (Mod+Enter / toolbar button) executes in ALL three
  * modes — workflow mode does not constrain manual execution. It only
  * controls AUTOMATIC behavior around the gesture.
  *
@@ -115,7 +115,7 @@ export function supportsWorkflowMode(
  * so the live-results experience stays the discoverable default;
  * everything else defaults to `run` so a compiled-language buffer
  * does not look like a no-op (no auto-run = no surprise empty
- * panel until the user presses Cmd+R, paired with implementation note's
+ * panel until the user presses Mod+Enter, paired with the
  * mode-aware empty-state copy).
  */
 export function defaultWorkflowMode(language: string | undefined): WorkflowMode {
@@ -154,7 +154,7 @@ export function coerceWorkflowMode(
  * through `WORKFLOW_MODES` in declaration order while skipping
  * unsupported segments for the given language.
  *
- * Used by the `Mod+Shift+M` keyboard cycle (implementation note). Behaviour:
+ * Used by the `Mod+Shift+M` keyboard cycle. Behaviour:
  *
  *   - Only one supported mode → returns `current` unchanged (cycle
  *     would be a no-op).

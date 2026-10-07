@@ -1,5 +1,5 @@
 /**
- * implementation — live Windows guard for the npm.cmd launch boundary.
+ * Live Windows guard for the npm.cmd launch boundary.
  *
  * The general install suite injects spawn and pins the exact argv. This test
  * intentionally uses the real Node child_process implementation on win32 so

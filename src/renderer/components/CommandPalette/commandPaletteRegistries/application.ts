@@ -1,4 +1,4 @@
-import { buildActionCommand } from '../commandPaletteModelHelpers';
+import { buildActionCommand, shortcutComboValues } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildApplicationCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -102,7 +102,7 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
     );
   }
 
-  // implementation — Replace in files. Mirrors the projectSearch
+  // Replace in files. Mirrors the projectSearch
   // entry so users with VSCode muscle memory find both Find AND
   // Replace via the palette without leaving Lingua.
   if (onOpenProjectReplace) {
@@ -120,15 +120,18 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
     );
   }
 
-  // implementation — Open the full-screen HTTP workspace tab
-  // (MOV.02 moved it out of the dock). Surface aliases pick up the
+  // Open the full-screen HTTP workspace tab
+  // (it moved out of the dock). Surface aliases pick up the
   // common "fetch / api / rest / request" mental model.
   if (onOpenHttpWorkspace) {
     commands.push(
       buildActionCommand(
         'action-open-http-workspace',
         translate('commandPalette.action.openHttpWorkspace.label'),
-        translate('commandPalette.action.openHttpWorkspace.description'),
+        translate(
+          'commandPalette.action.openHttpWorkspace.description',
+          shortcutComboValues(args, 'workspace-toggle-http')
+        ),
         ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
         () => {
           onClose();
@@ -138,8 +141,8 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
     );
   }
 
-  // implementation — Open the full-screen SQL workspace tab
-  // (MOV.02 moved it out of the dock). Surface aliases pick up the
+  // Open the full-screen SQL workspace tab
+  // (it moved out of the dock). Surface aliases pick up the
   // common "sql / query / duckdb / table" mental model. Mirror of
   // `action-open-http-workspace`.
   if (onOpenSqlWorkspace) {
@@ -147,7 +150,10 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
       buildActionCommand(
         'action-open-sql-workspace',
         translate('commandPalette.action.openSqlWorkspace.label'),
-        translate('commandPalette.action.openSqlWorkspace.description'),
+        translate(
+          'commandPalette.action.openSqlWorkspace.description',
+          shortcutComboValues(args, 'workspace-toggle-sql')
+        ),
         ['sql', 'query', 'duckdb', 'table', 'database', 'workspace'],
         () => {
           onClose();

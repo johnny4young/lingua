@@ -15,15 +15,16 @@ import {
   languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
-// implementation closeout — the quick-start row used to be a hardcoded
+// The quick-start row used to be a hardcoded
 // `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
 // `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
 // the list in sync with the registry: future runnable packs that ship
 // with starter templates land here automatically; Lua stays out until
-// it gains a starter (its `templateIds` is empty per the implementation
-// guard test).
+// it gains a starter (its `templateIds` is empty per the
+// language-pack guard test).
 const QUICK_START_PACKS = LANGUAGE_PACKS.filter(
   (pack) =>
     (pack.execution === 'run' || pack.execution === 'compile') &&
@@ -36,6 +37,9 @@ const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
 export function EditorEmptyState() {
   const addTab = useEditorStore((state) => state.addTab);
   const { t } = useTranslation();
+  const paletteCombo = useShortcutLabel('overlay-command-palette');
+  const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
+  const runCombo = useShortcutLabel('run-toggle');
   // Mirror the platform-gate idiom used elsewhere (Toolbar, FileTree).
   // The "Desktop only" pill only makes sense on the web build —
   // packaged Electron actually runs Go / Rust, so a pill there would
@@ -62,7 +66,7 @@ export function EditorEmptyState() {
   };
 
   return (
-    // internal polish #5 — Welcome screen migrated from the legacy
+    // Welcome screen migrated from the legacy
     // purple-gradient + `text-foreground` / `text-muted` palette to the
     // Signal-Slate tokens shipping with the v2 design (slate accent at
     // hue 210, semantic bg-/fg- variables). The gradient now reads as a
@@ -70,8 +74,8 @@ export function EditorEmptyState() {
     <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
 
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 sm:px-8 lg:gap-10">
-        <div className="flex flex-col justify-center gap-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-16 px-5 py-16 sm:px-16 lg:gap-10">
+        <div className="flex flex-col justify-center gap-16 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
         <section className="animate-rise-in space-y-7">
           <div className="inline-flex items-center gap-3">
             <div className="relative flex h-14 w-14 items-center justify-center rounded-3xl border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
@@ -116,7 +120,7 @@ export function EditorEmptyState() {
                   {showDesktopOnlyBadge ? (
                     <span
                       data-testid={`empty-state-desktop-only-${language}`}
-                      // internal — bumped from `text-muted` to `text-foreground` so the
+                      // Bumped from `text-muted` to `text-foreground` so the
                       // 10px badge passes WCAG 2.1 AA contrast (>=4.5:1) on top of the
                       // language button's tinted background. axe-core flagged the
                       // previous combo at 4.35:1.
@@ -132,13 +136,13 @@ export function EditorEmptyState() {
 
           <div className="flex flex-wrap items-center gap-4 text-caption text-fg-muted">
             <span>
-              <Kbd>Cmd+Shift+P</Kbd> {t('emptyState.shortcut.commands')}
+              <Kbd>{paletteCombo}</Kbd> {t('emptyState.shortcut.commands')}
             </span>
             <span>
-              <Kbd>Cmd+B</Kbd> {t('emptyState.shortcut.sidebar')}
+              <Kbd>{sidebarCombo}</Kbd> {t('emptyState.shortcut.sidebar')}
             </span>
             <span>
-              <Kbd>Cmd+Enter</Kbd> {t('emptyState.shortcut.run')}
+              <Kbd>{runCombo}</Kbd> {t('emptyState.shortcut.run')}
             </span>
           </div>
         </section>

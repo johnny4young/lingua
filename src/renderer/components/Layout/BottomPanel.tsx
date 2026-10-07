@@ -19,8 +19,7 @@ import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
 import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
 import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
-import { RecipeRunPanel } from '../Recipes/RecipeRunPanel';
-import { getRecipeById } from '../../data/recipes';
+import { isBundledRecipeId } from '../../data/recipes/recipeIds';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../../shared/languageFamilies';
@@ -31,6 +30,7 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { cn } from '../../utils/cn';
+import { formatShortcutLabel } from '../../data/keyboardShortcuts';
 import { useProjectStore } from '../../stores/projectStore';
 
 // Lazy so the `DiffEditor` import inside GitDiffPanel does not drag the
@@ -43,13 +43,19 @@ const GitDiffPanel = lazy(async () => {
   return { default: module.GitDiffPanel };
 });
 
+// The recipe bodies only load once a recipe tab shows its panel.
+const RecipeRunPanel = lazy(async () => {
+  const module = await import('../Recipes/RecipeRunPanel');
+  return { default: module.RecipeRunPanel };
+});
+
 const ProjectTerminalPanel = lazy(async () => {
   const module = await import('../ProjectTerminal/ProjectTerminalPanel');
   return { default: module.ProjectTerminalPanel };
 });
 
 /**
- * internal — the bottom console/project-terminal/debugger/preview/stdin/
+ * The bottom console/project-terminal/debugger/preview/stdin/
  * variables/dependencies/git-diff/recipe drawer, extracted from `AppLayout.tsx`.
  * `debuggerAvailable` is computed by the shell (via `useLayoutAvailability`) and
  * passed in; every other availability gate + the `effectiveTab` resolution
@@ -67,16 +73,17 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const activeVariableInspectorEnabled = useEditorStore(
     (s) => getActiveTab(s)?.variableInspectorEnabled === true
   );
-  // implementation — the Browser preview tab is only relevant for
+  // The Browser preview tab is only relevant for
   // JS/TS tabs whose runtime mode is `browser-preview`. Other tabs
   // hide the tab button entirely.
   const browserPreviewAvailable =
     languageHasRuntimeModes(activeLanguage) && activeRuntimeMode === 'browser-preview';
-  // implementation — the Input tab is offered for JS / TS / Python
+  // The Input tab is offered for JS / TS / Python
   // tabs whose runtime mode is NOT `browser-preview` (the iframe
   // sandbox has no stdin surface). The user can also hide it
-  // globally via Settings → Editor (implementation note).
+  // globally via Settings → Editor.
   const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
+  const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const variableInspectorSurface = useSettingsStore(
     (state) => state.variableInspectorSurface,
   );
@@ -85,7 +92,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     showStdinPanelSetting &&
     activeRuntimeMode !== 'browser-preview' &&
     isWorkerRunnerLanguage(activeLanguage);
-  // implementation — bottom-panel Variables tab is only offered when:
+  // bottom-panel Variables tab is only offered when:
   // the user picked the bottom surface, the language supports the
   // inspector, a scope snapshot exists, and the per-tab flag is on.
   // Mirrors `FloatingVariablesCard`'s gate so the two surfaces show /
@@ -101,7 +108,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
-  // implementation — Prerequisite fix surfaced during validation.
+  // Prerequisite fix surfaced during validation.
   // The "hide bottom panel" affordance disappeared from the header
   // some time ago (no chevron / X button to collapse the console
   // surface — users had to find the `Cmd+\` shortcut). Re-add a
@@ -113,7 +120,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   const projectTerminalAvailable =
     currentProject !== null && window.lingua?.projectTerminal !== undefined;
 
-  // implementation — register the activator so the
+  // Register the activator so the
   // BrowserPreviewRunner can switch to the preview tab before it
   // loads the isolated document. Cleanup clears the registration when the
   // panel unmounts.
@@ -139,7 +146,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
   });
   const dependenciesAvailable = useDependenciesPanelAvailable();
   const gitDiffAvailable = useGitDiffTabAvailable();
-  // implementation — gate the `recipe` bottom-panel tab on the
+  // Gate the `recipe` bottom-panel tab on the
   // persisted tab binding, not the transient recipeStore Map. The
   // Map only owns run results / in-flight state; the tab field is
   // what survives session restore and explicit unbind.
@@ -151,7 +158,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
     );
   });
   const recipeTabAvailable =
-    activeRecipeBindingId !== null && getRecipeById(activeRecipeBindingId) !== undefined;
+    activeRecipeBindingId !== null && isBundledRecipeId(activeRecipeBindingId);
   const effectiveTab:
     | 'console'
     | 'debugger'
@@ -176,7 +183,7 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
               ? 'dependencies'
               : gitDiffAvailable && activeBottomPanel === 'git-diff'
                 ? 'git-diff'
-                // implementation — Recipes Run + Test panel. Only when
+                // Recipes Run + Test panel. Only when
                 // the active tab is bound (the overlay's "open recipe"
                 // confirm flips here automatically).
                 : recipeTabAvailable && activeBottomPanel === 'recipe'
@@ -370,7 +377,12 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
           </Tooltip>
         ) : null}
         {variablesAvailable ? (
-          <Tooltip content={t('bottomPanel.tabs.variablesHint')} side="bottom">
+          <Tooltip
+            content={t('bottomPanel.tabs.variablesHint', {
+              combo: formatShortcutLabel('run-toggle-variable-inspector', shortcutOverrides) ?? '',
+            })}
+            side="bottom"
+          >
             <button
               type="button"
               role="tab"
@@ -429,12 +441,12 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
             </button>
           </Tooltip>
         ) : null}
-        {/* MOV.02 (FASE 3) — the HTTP + SQL workspace dock tabs were
+        {/* The HTTP + SQL workspace dock tabs were
             removed. Both surfaces are now full-screen `FileTab`s mounted
             in the editor area (see EditorArea's activeSqlTabId /
             activeHttpTabId branches). The dock keeps only ephemeral
             streams + contextual panels. */}
-        {/* implementation — Recipes Run + Test tab. Only mounts when
+        {/* Recipes Run + Test tab. Only mounts when
             the active tab has a recipe binding (the overlay's open-
             recipe confirm sets the binding + flips the panel here). */}
         {recipeTabAvailable ? (
@@ -503,7 +515,9 @@ export function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean 
             />
           </Suspense>
         ) : effectiveTab === 'recipe' ? (
-          <RecipeRunPanel />
+          <Suspense fallback={null}>
+            <RecipeRunPanel />
+          </Suspense>
         ) : (
           <ConsolePanel />
         )}

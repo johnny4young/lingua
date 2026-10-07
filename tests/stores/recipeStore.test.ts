@@ -1,5 +1,5 @@
 /**
- * implementation — `useRecipeStore` tests.
+ * `useRecipeStore` tests.
  *
  * Transient state: per-tab binding, last-run results, in-flight flag.
  */

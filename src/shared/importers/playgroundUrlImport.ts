@@ -1,7 +1,7 @@
 import { utf8ByteLength } from '../httpWorkspaceSchema';
 import { decompressUriComponentBounded } from './boundedLzString';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the internal literal union
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- canonical tuple for the literal union
 const PLAYGROUND_PROVIDER_IDS = ['typescript-playground', 'go-playground'] as const;
 type PlaygroundProviderId = (typeof PLAYGROUND_PROVIDER_IDS)[number];
 

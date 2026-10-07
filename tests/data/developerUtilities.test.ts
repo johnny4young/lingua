@@ -77,7 +77,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     const withAliases = DEVELOPER_UTILITIES.filter(utility => utility.aliases !== undefined);
 
     it('seeds aliases on a meaningful subset of the catalog', () => {
-      // implementation deliberately scopes aliases to ~15 panels with obvious
+      // The catalog deliberately scopes aliases to ~15 panels with obvious
       // shorthand. Asserting >= 10 so future maintenance can prune
       // a duplicate or two without breaking the test, while still
       // catching a regression that drops them altogether.
@@ -127,7 +127,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
       'random-string',
       'mock-data',
       'lorem-ipsum',
-      // implementation — Utility Pipelines panel takes its input
+      // Utility Pipelines panel takes its input
       // from the user-defined first step + the pipeline editor; the
       // overlay's ⚡ Apply button doesn't apply. Treated as a
       // generator from the catalog's POV.
@@ -146,7 +146,7 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     });
 
     it('detect predicates accept the generalised inputs shape', () => {
-      // The signature was widened in implementation to support diff and regex,
+      // The signature was widened to support diff and regex,
       // which need both a primary and a secondary value. Every other
       // panel ignores `secondary` — passing it must still be safe.
       for (const utility of DEVELOPER_UTILITIES) {

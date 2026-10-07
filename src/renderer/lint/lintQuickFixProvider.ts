@@ -1,5 +1,5 @@
 /**
- * implementation — Monaco CodeActionProvider for the custom JS/TS quick-fixes
+ * Monaco CodeActionProvider for the custom JS/TS quick-fixes
  * Monaco's built-in TypeScript worker does not offer (they are style/refactor
  * concerns, not type errors). Registered once per Monaco instance for
  * `javascript` + `typescript` by `useInlineLint`.

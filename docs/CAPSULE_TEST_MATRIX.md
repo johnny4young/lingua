@@ -1,6 +1,6 @@
 # Run Capsule test matrix
 
-> **Status:** Live — implementation (`2026-05-21`).
+> **Status:** Live since `2026-05-21`.
 >
 > Reference for downstream integrations that consume the
 > `tests/shared/runCapsule.fixtures.ts` catalog and the
@@ -52,7 +52,7 @@ verify coverage by reading.
 | 9 | Stable-release upgrade journey across shared, renderer, CLI, and web boundaries | `runCapsuleStableCompatibility.test.ts` + `capsuleStableUpgrade.spec.ts` |
 
 If a downstream integration needs an additional dimension (e.g. URL
-fragment percent-encoding round-trip for internal) that dimension goes
+fragment percent-encoding round-trip for share links) that dimension goes
 in the consumer's own test file but MUST import from
 `runCapsule.fixtures.ts` instead of inlining a capsule literal.
 
@@ -61,18 +61,18 @@ in the consumer's own test file but MUST import from
 `tests/shared/runCapsule.fixtures.ts` exports ten frozen capsules
 plus the `ALL_FIXTURES` array. Names match the import re-exports:
 
-| Fixture | Why it exists | Primary consumer (implementation + downstream) |
+| Fixture | Why it exists | Primary consumers |
 |---|---|---|
-| `FIXTURE_MINIMAL_JS` | Minimal happy-path, no rich output. | Settings export smoke, internal fragment encoder default. |
-| `FIXTURE_FULL_TS` | Every field populated incl. `lineResults` + `diagnostics`. | internal HTTP step assertion, internal pipeline step. |
-| `FIXTURE_PYTHON_CHART` | Vega-Lite chart embedded under `richOutputs`. | internal cross-language preview test, internal CLI render. |
-| `FIXTURE_PYTHON_ERROR` | Status `'error'` + structured stderr. | implementation lesson assertion (negative). |
-| `FIXTURE_TIMEOUT` | Status `'timeout'` with the parent-killer message. | internal CLI replay status-bucket coverage. |
-| `FIXTURE_STOPPED` | Status `'stopped'` (user clicked Stop). | internal CLI replay status-bucket coverage. |
-| `FIXTURE_LARGE_STDOUT` | 1.2 MiB stdout — exercises the sanitiser truncation. | Stream-cap coverage, internal share-link size budget. |
-| `FIXTURE_LICENSE_LEAK_PROBE` | Source content contains a fake JWT substring. | Sanitiser must NEVER strip `source.content` (capsules ARE replay artifacts); the consumer-side flow MUST surface a preview before publishing. internal share-link confirmation modal. |
+| `FIXTURE_MINIMAL_JS` | Minimal happy-path, no rich output. | Settings export smoke, share-link fragment encoder default. |
+| `FIXTURE_FULL_TS` | Every field populated incl. `lineResults` + `diagnostics`. | HTTP step assertion, utility pipeline step. |
+| `FIXTURE_PYTHON_CHART` | Vega-Lite chart embedded under `richOutputs`. | Share-link cross-language preview test, CLI render. |
+| `FIXTURE_PYTHON_ERROR` | Status `'error'` + structured stderr. | Lesson assertion (negative). |
+| `FIXTURE_TIMEOUT` | Status `'timeout'` with the parent-killer message. | CLI replay status-bucket coverage. |
+| `FIXTURE_STOPPED` | Status `'stopped'` (user clicked Stop). | CLI replay status-bucket coverage. |
+| `FIXTURE_LARGE_STDOUT` | 1.2 MiB stdout — exercises the sanitiser truncation. | Stream-cap coverage, share-link size budget. |
+| `FIXTURE_LICENSE_LEAK_PROBE` | Source content contains a fake JWT substring. | Sanitiser must NEVER strip `source.content` (capsules ARE replay artifacts); the consumer-side flow MUST surface a preview before publishing. Share-link confirmation modal. |
 | `FIXTURE_DESKTOP_DEP_SUMMARY` | Desktop platform + flat dependency summary with one nested object. | Sanitiser drops nested objects + records the field in `omittedFields`. |
-| `FIXTURE_LESSON_ASSERTION` | Stable timestamp + minimal env so two runs on different days byte-equal after sanitise. | implementation lesson expected-output reference. |
+| `FIXTURE_LESSON_ASSERTION` | Stable timestamp + minimal env so two runs on different days byte-equal after sanitise. | Lesson expected-output reference. |
 
 ## Stable-release artifact
 
@@ -96,7 +96,7 @@ replace an existing stable artifact with the current builder.
 
 ## Integration consumption guide
 
-### internal share-links (slot 14)
+### Share links
 
 ```ts
 import {
@@ -114,7 +114,7 @@ import {
   fails closed (HTTP-error-style) rather than silently truncating
   beyond what the URL fragment can hold.
 
-### internal HTTP + SQL workspace (slot 20)
+### HTTP + SQL workspace
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -145,7 +145,7 @@ import {
   child process starts. Replay tests keep using this shared fixture catalog
   rather than creating a second CLI-only Capsule shape.
 
-### internal utility pipelines (slot 21)
+### Utility pipelines
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -154,7 +154,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - Pipeline step output is a capsule. Use `FIXTURE_FULL_TS` as the
   baseline shape for `step.output`.
 
-### internal importers (slot 24)
+### Importers
 
 ```ts
 import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
@@ -163,7 +163,7 @@ import { FIXTURE_FULL_TS } from '../shared/runCapsule.fixtures';
 - cURL importer produces a capsule shaped like `FIXTURE_FULL_TS`
   with `environment.runner = 'http'`. Assert the shape.
 
-### implementation lessons (slot 25)
+### Lessons
 
 ```ts
 import { FIXTURE_LESSON_ASSERTION } from '../shared/runCapsule.fixtures';

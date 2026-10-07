@@ -1,5 +1,5 @@
 /**
- * implementation — utility command tests.
+ * Utility command tests.
  *
  * Drives `runUtilityCommand` + `runListUtilitiesCommand` through the
  * in-memory IO fake. Covers happy path per adapter, stdin path,
@@ -64,6 +64,24 @@ describe('runUtilityCommand', () => {
     expect(code).toBe(CLI_EXIT_CODES.ok);
     const parsed = JSON.parse(state.stdout);
     expect(parsed).toEqual({ ok: true, value: 'hello' });
+  });
+
+  it('preserves object-prototype query names in the URL parser JSON envelope', async () => {
+    const { io, state } = createFakeIo({
+      stdin: 'https://example.com/?__proto__=first&__proto__=second&constructor=value',
+    });
+    const code = await runUtilityCommand(
+      { utilityId: 'url-parse', options: [], json: true, quiet: false },
+      io
+    );
+    expect(code).toBe(CLI_EXIT_CODES.ok);
+    const envelope = JSON.parse(state.stdout);
+    expect(envelope.ok).toBe(true);
+    expect(JSON.parse(envelope.value).searchParams).toEqual({
+      ['__proto__']: ['first', 'second'],
+      constructor: 'value',
+    });
+    expect(state.stderr).toBe('');
   });
 
   it('passes --option key=value through to parseOptions', async () => {
@@ -219,7 +237,7 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('url-parse');
     expect(state.stdout).toContain('regex-replace');
     expect(state.stdout).toContain('diff-text');
-    // implementation — vocabulary expansion adapters.
+    // Vocabulary expansion adapters.
     expect(state.stdout).toContain('hash');
     expect(state.stdout).toContain('jwt-decode');
     expect(state.stdout).toContain('url-encode');
@@ -229,13 +247,13 @@ describe('runListUtilitiesCommand', () => {
     expect(state.stdout).toContain('string-case');
     expect(state.stdout).toContain('html-entity-encode');
     expect(state.stdout).toContain('html-entity-decode');
-    // implementation — vocabulary expansion round 2.
+    // Vocabulary expansion round 2.
     expect(state.stdout).toContain('number-base');
     expect(state.stdout).toContain('line-sort');
     expect(state.stdout).toContain('slugify');
     expect(state.stdout).toContain('json-minify');
     expect(state.stdout).toContain('text-stats');
-    // implementation — generator-style holdouts.
+    // generator-style holdouts.
     expect(state.stdout).toContain('uuid');
     expect(state.stdout).toContain('lorem-ipsum');
     expect(state.stdout).toContain('string-inspect');
@@ -251,7 +269,7 @@ describe('runListUtilitiesCommand', () => {
     expect(parsed.utilities).toHaveLength(24);
     const jsonFormat = parsed.utilities.find((u) => u.id === 'json-format');
     expect(jsonFormat?.optionKeys).toEqual(['indent']);
-    // implementation — the hash adapter surfaces its algorithm option.
+    // The hash adapter surfaces its algorithm option.
     const hash = parsed.utilities.find((u) => u.id === 'hash');
     expect(hash?.optionKeys).toEqual(['algorithm']);
   });

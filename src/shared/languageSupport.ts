@@ -1,7 +1,7 @@
 /**
- * implementation — Language Support Scorecard typed matrix.
+ * Language Support Scorecard typed matrix.
  *
- * "Language support" in Lingua is not a single bit. internal surfaced
+ * "Language support" in Lingua is not a single bit. An audit surfaced
  * nine distinct axes that vary per language across platforms (web vs
  * desktop). Without a typed matrix, each new language implementation invented
  * its own status field and `docs/CAPABILITY_MATRIX.md` drifted with
@@ -19,7 +19,7 @@
  *     worst, and the render layer maps each state to a fixed color
  *     token so dashboards and users read the same signal.
  *   - `LanguageSupportProfile` — one row per language. `capabilities`
- *     is the default per-axis status; `perPlatform` (implementation note) records
+ *     is the default per-axis status; `perPlatform` records
  *     web/desktop overrides only for axes that differ.
  *   - `LANGUAGE_SUPPORT_PROFILES` — seven entries (JS, TS, Python,
  *     Go, Rust, Ruby, Lua) covering every supported language in
@@ -70,7 +70,7 @@ export type LanguageCapabilityStatus =
  *   - `stdin` — runtime supports pre-set stdin buffer.
  *   - `richOutput` — chart / image / html / table payloads via the
  *     `lingua.*` bridge.
- *   - `debugger` — breakpoints + step + watch via the internal surface.
+ *   - `debugger` — breakpoints + step + watch via the debugger surface.
  */
 export type LanguageCapability =
   | 'syntax'
@@ -107,7 +107,7 @@ export const LANGUAGE_CAPABILITY_STATUSES: readonly LanguageCapabilityStatus[] =
 ] as const;
 
 /**
- * Per-platform override. implementation note — for axes whose
+ * Per-platform override for axes whose
  * status differs between web and desktop (e.g. Ruby's `webRuntime`
  * is `partial` via wasm-wasi while `desktopRuntime` is `available`
  * via system gem). When `perPlatform[capability]` is absent, the
@@ -127,7 +127,7 @@ export interface LanguageSupportProfile {
   capabilities: Record<LanguageCapability, LanguageCapabilityStatus>;
   /** Optional per-axis tooltip explaining a `partial` or caveat. */
   notes?: Partial<Record<LanguageCapability, string>>;
-  /** Optional per-axis platform overrides (implementation note). */
+  /** Optional per-axis platform overrides. */
   perPlatform?: Partial<Record<LanguageCapability, LanguagePlatformStatus>>;
 }
 
@@ -289,23 +289,24 @@ export const LANGUAGE_SUPPORT_PROFILES: readonly LanguageSupportProfile[] = [
       syntax: 'available',
       autocomplete: 'available',
       lsp: 'unsupported',
-      webRuntime: 'available',
-      desktopRuntime: 'web-only',
+      webRuntime: 'unsupported',
+      desktopRuntime: 'partial',
       packages: 'unsupported',
       stdin: 'unsupported',
       richOutput: 'unsupported',
       debugger: 'unsupported',
     },
     notes: {
-      webRuntime: 'Fengari runs Lua in the browser worker.',
+      webRuntime:
+        'The web build has no plugin discovery, so Lua execution does not ship there.',
       desktopRuntime:
-        'Same Fengari worker on desktop; no native lua subprocess integration.',
+        'Desktop runs the bundled Fengari JS interpreter on the renderer thread once a local lua plugin manifest is discovered; no native lua subprocess.',
     },
   },
 ] as const;
 
 // ---------------------------------------------------------------------------
-// implementation — per-platform resolution (Web | Desktop toggle)
+// per-platform resolution (Web | Desktop toggle)
 // ---------------------------------------------------------------------------
 
 /**
@@ -334,7 +335,7 @@ export const RUNTIME_CAPABILITIES: ReadonlySet<LanguageCapability> = new Set<Lan
 );
 
 /**
- * implementation — resolve a capability's effective status for ONE
+ * Resolve a capability's effective status for ONE
  * platform. Precedence:
  *
  *   1. An explicit `perPlatform[capability][platform]` override wins
@@ -368,15 +369,15 @@ export function resolveCapabilityStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Markdown renderer (used by docs guard test + implementation note palette command)
+// Markdown renderer (used by docs guard test + palette command)
 // ---------------------------------------------------------------------------
 
 /**
- * implementation — single source of truth for the scorecard
+ * Single source of truth for the scorecard
  * markdown representation. `tests/docs/capabilityMatrixDrift.test.ts`
  * regenerates the fenced section of `docs/CAPABILITY_MATRIX.md` from
  * this function and asserts byte equality; the palette command "Copy
- * language scorecard as Markdown" (implementation note) consumes the same output
+ * language scorecard as Markdown" consumes the same output
  * so the clipboard payload matches the doc verbatim.
  *
  * Output uses GitHub-flavored markdown tables with one column per
@@ -394,7 +395,7 @@ export function renderLanguageScorecardMarkdown(
   const rows = profiles.map((profile) => [
     profile.displayName,
     ...LANGUAGE_CAPABILITIES.map((cap) => {
-      // implementation — `all` keeps the declared cross-platform status;
+      // `all` keeps the declared cross-platform status;
       // `web` / `desktop` collapse to the resolved per-platform status.
       const status =
         platform === 'all'

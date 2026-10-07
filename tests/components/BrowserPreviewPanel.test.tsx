@@ -1,6 +1,6 @@
 import { setSandboxDocument } from '../../src/renderer/runtime/sandboxDocument';
 /**
- * implementation — BrowserPreviewPanel surface tests.
+ * BrowserPreviewPanel surface tests.
  *
  * Covers:
  *
@@ -20,6 +20,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { BrowserPreviewPanel } from '@/components/BrowserPreview/BrowserPreviewPanel';
+import { BrowserPreviewRunner } from '@/runners/browserPreview';
 import { useEditorStore } from '@/stores/editorStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -85,6 +86,16 @@ describe('BrowserPreviewPanel', () => {
     expect(getActiveBrowserPreviewIframe()).not.toBeNull();
     unmount();
     expect(getActiveBrowserPreviewIframe()).toBeNull();
+  });
+
+  it('stops a run still writing into the panel when it unmounts', async () => {
+    seedActiveTab();
+    const { unmount } = render(<BrowserPreviewPanel />);
+    const runner = new BrowserPreviewRunner();
+    await runner.init();
+    const pending = runner.execute('while (true) {}', { timeout: 30_000 });
+    unmount();
+    await expect(pending).resolves.toMatchObject({ kind: 'stopped', cancelled: true });
   });
 
   it('hides the empty-state overlay when active tab is JS/TS in browser-preview mode', () => {

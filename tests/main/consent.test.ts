@@ -1,5 +1,5 @@
 /**
- * internal consent mirror — writer + reader round-trip, plus the failure
+ * Consent mirror — writer + reader round-trip, plus the failure
  * branches that must default to `unset` (missing file, malformed JSON,
  * unknown value under the key) so the crash reporter never upgrades a
  * corrupt read into `granted`.

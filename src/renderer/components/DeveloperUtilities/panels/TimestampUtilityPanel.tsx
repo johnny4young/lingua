@@ -16,11 +16,11 @@ import { analyzeTimestamp, inspectTimestampLike } from '../../../utils/developer
 export function TimestampUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState(() => String(Math.floor(Date.now() / 1000)));
-  // internal — seed from a smart-pasted epoch value.
+  // Seed from a smart-pasted epoch value.
   usePendingUtilityInput('timestamp', setInput);
   const analysis = useMemo(() => analyzeTimestamp(input), [input]);
 
-  // implementation — ISO 8601 is the most copy-worthy output for the
+  // ISO 8601 is the most copy-worthy output for the
   // shortcut. The other readouts (epoch s/ms, local) stay reachable
   // through their per-row CopyButtons.
   const registerOutput = useCallback(() => analysis.iso ?? null, [analysis.iso]);

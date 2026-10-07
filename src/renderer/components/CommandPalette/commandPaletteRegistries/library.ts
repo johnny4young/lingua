@@ -53,7 +53,7 @@ export const buildLibraryCommands: CommandPaletteRegistry = ({ args, translate }
     .slice(-MAX_RECENT_RUNS_IN_PALETTE)
     .reverse();
 
-  // implementation note — per-tab recent runs ranked above the
+  // per-tab recent runs ranked above the
   // global group when the active tab has at least one matching
   // entry. Same `MAX_RECENT_RUNS_IN_PALETTE` ceiling so neither
   // group dominates the palette.
@@ -82,7 +82,7 @@ export const buildLibraryCommands: CommandPaletteRegistry = ({ args, translate }
     ...snippets.map(snippet =>
       withNativeLanguageBoundary(buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate))
     ),
-    // implementation note — per-tab group FIRST so the user sees
+    // per-tab group FIRST so the user sees
     // "what I just ran on this tab" before the global recents.
     ...recentRunOnTabEntries.map(entry =>
       buildRecentRunOnTabCommand(entry, onClose, translate, onFocusLanguageTab)

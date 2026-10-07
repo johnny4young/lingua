@@ -108,9 +108,9 @@ describe('KeyboardShortcutsModal', () => {
     // `Mod+Shift+U` is a free combo in the production catalog —
     // verified by `tests/data/keyboardShortcuts.test.ts` (no two
     // shortcut ids share a combo). The earlier choice was `Mod+Shift+J`
-    // but implementation bound that to `view-show-dependencies`; the
-    // follow-up choice `Mod+Shift+Y` was taken by implementation
-    // (capsule import overlay). U remains free.
+    // but that went to `view-show-dependencies`; the
+    // follow-up choice `Mod+Shift+Y` was taken by the
+    // capsule import overlay. U remains free.
     await act(async () => {
       fireEvent.keyDown(window, { key: 'u', ctrlKey: true, shiftKey: true });
     });

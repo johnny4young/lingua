@@ -2,6 +2,13 @@
 
 import type { TFunction } from 'i18next';
 import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+  formatShortcutLabel,
+  type ShortcutId,
+} from '../../data/keyboardShortcuts';
+import type { BuildCommandPaletteModelArgs } from './commandPaletteModelTypes';
+import {
   resolveTemplateDescription,
   resolveTemplateFileStem,
   resolveTemplateLabel,
@@ -38,7 +45,7 @@ export function buildTemplateCommand(
     language: template.language,
     // Keep the English `fileStem` in the keyword index so the command palette
     // stays bilingually searchable even when the active locale is not `en`
-    // (see implementation: discoverability aliases must survive localization).
+    // (discoverability aliases must survive localization).
     keywords: normalizeKeywords([label, fileStem, template.language, description]),
     action: () => {
       const tab = createDefaultTab(template.language);
@@ -106,7 +113,7 @@ export function identityTranslate(key: string): string {
 }
 
 /**
- * implementation — surface up to 5 recent runs as palette actions.
+ * Surface up to 5 recent runs as palette actions.
  * Label format is `{{language}} · {{status}} · {{duration}}`,
  * all localized. `onFocusLanguageTab` is optional; when it's missing
  * the action just closes the palette (a harmless "I saw the entry"
@@ -154,7 +161,7 @@ export function buildRecentRunCommand(
 }
 
 /**
- * implementation note — parallel "Recent runs (this tab)" entry.
+ * Parallel "Recent runs (this tab)" entry.
  * Same shape as `buildRecentRunCommand` but labels itself with a
  * dedicated copy key so the palette result list visibly distinguishes
  * per-tab entries from the legacy global group. The action is
@@ -203,7 +210,7 @@ export function buildRecentRunOnTabCommand(
 }
 
 /**
- * implementation trailer — per-entry Replay command.
+ * per-entry Replay command.
  *
  * Emitted only for snapshot-bearing entries so the user can fuzzy-search
  * "replay python ok 1.2s" and re-run any of the recent captures from the
@@ -256,5 +263,20 @@ export function buildReplayHistoryCommand(
       onReplayEntry(entry);
       onClose();
     },
+  };
+}
+
+/** Interpolation values naming the live combo for a catalog shortcut. */
+export function shortcutComboValues(
+  args: Pick<BuildCommandPaletteModelArgs, 'shortcutOverrides'>,
+  id: ShortcutId
+): { combo: string } {
+  return { combo: formatShortcutLabel(id, args.shortcutOverrides ?? {}) ?? '' };
+}
+
+/** Monaco owns plain paste, so it is not in the remappable catalog. */
+export function plainPasteComboValues(): { combo: string } {
+  return {
+    combo: formatShortcutCombo({ tokens: ['Mod', 'Shift', 'V'] }, currentShortcutDisplayPlatform()),
   };
 }

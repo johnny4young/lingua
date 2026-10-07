@@ -49,7 +49,7 @@ const GO_COMPLETIONS = [
 ] as const;
 
 /**
- * implementation — Monaco completion provider for Go.
+ * Monaco completion provider for Go.
  *
  * Layered strategy mirroring `rustCompletions.ts`:
  *  - Static `GO_COMPLETIONS` keep keyword + snippet suggestions

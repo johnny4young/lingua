@@ -1,5 +1,5 @@
 /**
- * implementation — open a capsule's source in a fresh editor tab.
+ * Open a capsule's source in a fresh editor tab.
  *
  * Shared by the capsule import flow (`useCapsuleImport`) and the
  * capsule browse overlay (`<CapsuleListOverlay>`) so both surfaces
@@ -8,11 +8,11 @@
  * Runtime + workflow mode are deliberately NOT threaded from the
  * capsule — the new tab starts in `createDefaultTab` defaults so the
  * user has to explicitly Run / Cmd+Enter to re-execute. "No silent
- * execution" is the core internal promise; opening a capsule must never
- * run code on its own. internal restores the inert stdin/argv snapshot and
+ * execution" is the core promise; opening a capsule must never
+ * run code on its own. It restores the inert stdin/argv snapshot and
  * optional set name so an explicitly-triggered replay receives the same input.
  *
- * implementation note — non-code capsules. `capsule.tab.language`
+ * non-code capsules. `capsule.tab.language`
  * is a string that, for workspace-kind capsules, is NOT a real editor
  * language pack id: `'http'` and now `'pipeline'`
  * are neutral markers, not packs. The previous code cast the token

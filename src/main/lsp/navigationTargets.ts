@@ -35,12 +35,41 @@ export async function resolveLspNavigationTarget(
   return fresh.ok && fresh.absolutePath === resolved.absolutePath ? asRelativePath(relative) : null;
 }
 
-// Servers start on the root's realpath, so destinations may arrive through it.
+// Servers start on the authorized (symlink-preserving) root but may still report realpath URIs.
 async function relativeToRoot(rootPath: string, absolute: string): Promise<string | null> {
-  for (const base of [rootPath, await realpath(rootPath).catch(() => rootPath)]) {
+  return relativeToBases([rootPath, await realpath(rootPath).catch(() => rootPath)], absolute);
+}
+
+function relativeToBases(bases: readonly string[], absolute: string): string | null {
+  for (const base of bases) {
     const relative = path.relative(base, absolute);
     if (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
       return relative.replaceAll(path.sep, '/');
   }
   return null;
+}
+
+/** Renderer scratch buffers have no file on disk; see `lspModelPathForTab`. */
+const LSP_UNSAVED_URI_PATH_PREFIX = '/__lingua_unsaved__/';
+
+/**
+ * Synchronous so `notify` keeps didOpen/didChange ordering. `bases` are the
+ * authorized root and its realpath; `null` means no project context.
+ */
+export function isLspDocumentUriAllowed(uri: unknown, bases: readonly string[] | null): boolean {
+  if (typeof uri !== 'string' || uri.length > 8192) return false;
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'file:' || url.hostname || url.search || url.hash) return false;
+  if (url.pathname.startsWith(LSP_UNSAVED_URI_PATH_PREFIX)) return true;
+  if (bases === null) return true;
+  try {
+    return relativeToBases(bases, fileURLToPath(url)) !== null;
+  } catch {
+    return false;
+  }
 }

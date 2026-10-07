@@ -1,5 +1,5 @@
 /**
- * implementation — workflow-mode pure module.
+ * workflow-mode pure module.
  *
  * Coverage:
  *
@@ -51,7 +51,7 @@ describe('defaultWorkflowMode', () => {
     expect(defaultWorkflowMode('typescript')).toBe('scratchpad');
     expect(defaultWorkflowMode('python')).toBe('scratchpad');
     // Go + Rust auto-run on desktop today; preserve that default
-    // intent so implementation doesn't silently regress existing users.
+    // intent so the migration doesn't silently regress existing users.
     expect(defaultWorkflowMode('go')).toBe('scratchpad');
     expect(defaultWorkflowMode('rust')).toBe('scratchpad');
   });
