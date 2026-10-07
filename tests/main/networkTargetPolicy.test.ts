@@ -159,6 +159,19 @@ describe('IPv6 forms that embed or route to non-public space', () => {
     ['::ffff:0:10.1.2.3', 'IPv4-translated 10.1.2.3, dotted tail'],
     ['2001:db8::1', 'documentation'],
     ['100::1', 'discard-only'],
+    ['100:0:0:1::1', 'reserved 100::/8 outside the discard /64'],
+    ['2001:0:7f00:1::', 'Teredo with a loopback server IPv4'],
+    ['2001:0:4136:e378:8000:63bf:80ff:fffe', 'Teredo whose inverted client IPv4 is 127.0.0.1'],
+    ['2001:0:808:808::f7f7:f7f7', 'Teredo even with public server and client IPv4'],
+    ['2001:2::1', 'benchmarking, like IPv4 198.18.0.0/15'],
+    ['3fff::1', 'documentation 3fff::/20'],
+    ['3fff:fff::1', 'top of documentation 3fff::/20'],
+    ['64:ff9b::1:7f00:1', 'reserved 64:ff9b::/16 space outside the /96'],
+    ['64:ff9b:2::1', 'reserved 64:ff9b::/16 space outside both NAT64 prefixes'],
+    ['::1:7f00:1', 'reserved ::/8 that is not an IPv4 embed'],
+    ['5f00::1', 'SRv6 SID block'],
+    ['4000::1', 'unassigned space outside global unicast'],
+    ['fe7f::1', 'reserved fe00::/9 below link-local'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -168,9 +181,11 @@ describe('IPv6 forms that embed or route to non-public space', () => {
     ['64:ff9b::5db8:d822', 'NAT64 to public 93.184.216.34'],
     ['2002:808:808::1', '6to4 to public 8.8.8.8'],
     ['::ffff:0:808:808', 'IPv4-translated public 8.8.8.8'],
-    ['fe7f::1', 'just below site-local, outside link-local'],
     ['2001:db9::1', 'just above documentation'],
-    ['100:0:0:1::1', 'outside the discard /64'],
+    ['2001:1::1', 'PCP anycast, next to Teredo'],
+    ['2001:2:1::1', 'just above benchmarking'],
+    ['3fff:1000::1', 'just above documentation 3fff::/20'],
+    ['2c0f:fb50::1', 'top region of global unicast'],
     ['2606:2800:220:1:248:1893:25c8:1946', 'ordinary global unicast'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
