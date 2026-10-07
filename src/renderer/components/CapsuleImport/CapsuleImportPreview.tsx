@@ -1,24 +1,26 @@
 /**
- * Pure preview component.
+ * Read-only preview component with local attached-file integrity checks.
  *
  * Renders a decoded `RunCapsuleV1` as a read-only panel with three
  * tabs (Source / Result / Environment) plus a metadata header strip.
  *
- * Pure means: no IPC, no telemetry, no editorStore writes. The
+ * No IPC, telemetry, or editorStore writes occur here. The
  * parent `<CapsuleImportOverlay>` owns those side effects. Splitting
  * the surface here keeps the test surface tiny (one prop, one
  * snapshot) and lets the overlay swap in different action bars
  * without touching layout.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ExternalLink, FileJson, Files, Globe, ShieldCheck } from 'lucide-react';
 import type { RunCapsuleV1 } from '../../../shared/runCapsule';
 import { utf8ByteLength } from '../../../shared/runCapsule';
-import type {
-  CapsuleWorkspaceFileV1,
-  CapsuleWorkspaceV1,
+import {
+  verifyCapsuleWorkspaceFiles,
+  type CapsuleWorkspaceFileIntegrity,
+  type CapsuleWorkspaceFileV1,
+  type CapsuleWorkspaceV1,
 } from '../../../shared/capsuleWorkspace';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
@@ -52,6 +54,22 @@ export function CapsuleImportPreview({
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState<PreviewTab>('source');
   const effectiveActiveTab = activeTab === 'files' && !workspace ? 'source' : activeTab;
+  const [verification, setVerification] = useState<{
+    workspace: CapsuleWorkspaceV1;
+    files: readonly CapsuleWorkspaceFileIntegrity[];
+  } | null>(null);
+  useEffect(() => {
+    if (!workspace) return;
+    let cancelled = false;
+    void verifyCapsuleWorkspaceFiles(workspace).then(files => {
+      if (!cancelled) setVerification({ workspace, files });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
+  // Never display the previous artifact's results while a replacement hashes.
+  const integrity = verification?.workspace === workspace ? verification?.files : undefined;
   const omittedFields = capsule.privacy?.omittedFields ?? [];
   const isHttpCapsule = capsule.tab.language === 'http';
 
@@ -77,21 +95,15 @@ export function CapsuleImportPreview({
         </span>
         <span data-testid="capsule-import-preview-metadata-runner">
           {t('capsuleImport.preview.metadata.runner')}:{' '}
-          <span className="font-mono text-foreground">
-            {capsule.environment?.runner ?? '—'}
-          </span>
+          <span className="font-mono text-foreground">{capsule.environment?.runner ?? '—'}</span>
         </span>
         <span data-testid="capsule-import-preview-metadata-appversion">
           {t('capsuleImport.preview.metadata.appVersion')}:{' '}
-          <span className="font-mono text-foreground">
-            {capsule.appVersion}
-          </span>
+          <span className="font-mono text-foreground">{capsule.appVersion}</span>
         </span>
         <span data-testid="capsule-import-preview-metadata-created">
           {t('capsuleImport.preview.metadata.createdAt')}:{' '}
-          <span className="font-mono text-foreground">
-            {capsule.createdAt}
-          </span>
+          <span className="font-mono text-foreground">{capsule.createdAt}</span>
         </span>
         <span data-testid="capsule-import-preview-metadata-size">
           {t('capsuleImport.preview.metadata.size')}:{' '}
@@ -108,9 +120,7 @@ export function CapsuleImportPreview({
         >
           <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-semibold">
-              {t('capsuleImport.preview.omittedFields')}
-            </p>
+            <p className="font-semibold">{t('capsuleImport.preview.omittedFields')}</p>
             <p className="mt-0.5 font-mono text-eyebrow text-amber-100/80">
               {omittedFields.join(', ')}
             </p>
@@ -127,7 +137,7 @@ export function CapsuleImportPreview({
           ...(workspace
             ? [{ id: 'files' as const, labelKey: 'capsuleImport.preview.tab.files' }]
             : []),
-        ].map((tab) => {
+        ].map(tab => {
           const isActive = effectiveActiveTab === tab.id;
           return (
             <button
@@ -155,15 +165,15 @@ export function CapsuleImportPreview({
         data-testid={`capsule-import-preview-panel-${effectiveActiveTab}`}
         className="flex-1 min-h-0 overflow-auto p-3 font-mono text-body-sm"
       >
-        {effectiveActiveTab === 'source' ? (
-          <SourcePanel capsule={capsule} />
-        ) : null}
+        {effectiveActiveTab === 'source' ? <SourcePanel capsule={capsule} /> : null}
         {effectiveActiveTab === 'result' ? <ResultPanel capsule={capsule} /> : null}
-        {effectiveActiveTab === 'environment' ? (
-          <EnvironmentPanel capsule={capsule} />
-        ) : null}
+        {effectiveActiveTab === 'environment' ? <EnvironmentPanel capsule={capsule} /> : null}
         {effectiveActiveTab === 'files' && workspace ? (
-          <WorkspaceFilesPanel workspace={workspace} onOpenFile={onOpenWorkspaceFile} />
+          <WorkspaceFilesPanel
+            workspace={workspace}
+            integrity={integrity}
+            onOpenFile={onOpenWorkspaceFile}
+          />
         ) : null}
       </div>
     </div>
@@ -172,9 +182,11 @@ export function CapsuleImportPreview({
 
 function WorkspaceFilesPanel({
   workspace,
+  integrity,
   onOpenFile,
 }: {
   workspace: CapsuleWorkspaceV1;
+  integrity?: readonly CapsuleWorkspaceFileIntegrity[];
   onOpenFile?: (file: CapsuleWorkspaceFileV1) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -188,6 +200,9 @@ function WorkspaceFilesPanel({
           <ShieldCheck size={13} className="mt-0.5 shrink-0 text-accent-fg" aria-hidden="true" />
           <p>{t('capsuleImport.preview.files.localOnly')}</p>
         </div>
+        <p className="mb-2 text-caption text-fg-subtle">
+          {t('capsuleImport.preview.files.integrityTrust')}
+        </p>
         {workspace.privacy.obviousSecretsDetected > 0 ? (
           <div
             role="alert"
@@ -236,6 +251,15 @@ function WorkspaceFilesPanel({
                   {t('capsuleImport.preview.files.hashSummary', {
                     hash: selected.contentHash.slice(0, 12),
                   })}
+                </p>
+                <p
+                  role="status"
+                  data-testid="capsule-workspace-file-integrity"
+                  className="mt-1 text-caption text-fg-base"
+                >
+                  {t(
+                    `capsuleImport.preview.files.integrity.${integrity?.find(file => file.path === selected.path)?.status ?? 'pending'}`
+                  )}
                 </p>
               </div>
               {onOpenFile ? (
@@ -287,8 +311,8 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
   return (
     <div className="space-y-2">
       <div data-testid="capsule-import-preview-result-status" className="text-muted">
-        <span className="font-semibold text-foreground">{result.status}</span>{' '}
-        · {Math.max(0, Math.round(result.durationMs))} ms
+        <span className="font-semibold text-foreground">{result.status}</span> ·{' '}
+        {Math.max(0, Math.round(result.durationMs))} ms
       </div>
       {result.errorMessage ? (
         <pre
@@ -306,7 +330,8 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
               data-testid="capsule-import-preview-result-stdout-truncated"
               className="ml-1 normal-case text-amber-300"
             >
-              · {t('capsuleImport.preview.truncated', {
+              ·{' '}
+              {t('capsuleImport.preview.truncated', {
                 size: formatNumber(utf8ByteLength(stdout), i18n.language),
               })}
             </span>
@@ -327,7 +352,8 @@ function ResultPanel({ capsule }: { capsule: RunCapsuleV1 }) {
               data-testid="capsule-import-preview-result-stderr-truncated"
               className="ml-1 normal-case text-amber-300"
             >
-              · {t('capsuleImport.preview.truncated', {
+              ·{' '}
+              {t('capsuleImport.preview.truncated', {
                 size: formatNumber(utf8ByteLength(stderr), i18n.language),
               })}
             </span>
@@ -348,9 +374,7 @@ function EnvironmentPanel({ capsule }: { capsule: RunCapsuleV1 }) {
   const { t } = useTranslation();
   const env = capsule.environment;
   const dependencyJson =
-    env.dependencySummary !== undefined
-      ? JSON.stringify(env.dependencySummary, null, 2)
-      : null;
+    env.dependencySummary !== undefined ? JSON.stringify(env.dependencySummary, null, 2) : null;
   return (
     <div className="space-y-2">
       <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-foreground">

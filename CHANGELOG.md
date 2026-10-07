@@ -14,6 +14,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Workspace runs and copy polish.** Mod+Enter and the action pill now run the active SQL query, send the HTTP request, or apply the selected utility, even with focus on a button. AI explanations answer in the interface language. HTTP request controls and Settings rows return to their 32 px height, and short Spanish action labels use the infinitive consistently. Social previews ship real PNG cards per page and locale, and the landing tour shows Spanish captures on the Spanish site.
 
 ### Added
+- Capsule Workspace imports recompute attached-file SHA-256 hashes locally and distinguish matching, mismatched, and unverified text without executing code.
 - **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
 - Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
 - **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
