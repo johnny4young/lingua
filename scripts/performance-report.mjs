@@ -324,12 +324,15 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
       continue;
     }
 
+    // A malformed target entry is reported by the unbudgeted-target pass below.
+    if (!categoryBudgets || typeof categoryBudgets !== 'object') continue;
+
     for (const [category, budget] of Object.entries(categoryBudgets)) {
       const total = target.categories[category];
       if (!total) continue;
       for (const metric of ['bytes', 'gzipBytes']) {
         const maxKey = metric === 'bytes' ? 'maxBytes' : 'maxGzipBytes';
-        const max = budget[maxKey];
+        const max = budget?.[maxKey];
         if (typeof max !== 'number') {
           violations.push({
             target: targetId,
@@ -378,14 +381,16 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
     if (isSameOriginRuntimeShape(target)) continue;
     for (const category of CATEGORY_ORDER) {
       const total = target.categories?.[category];
-      if (!total || total.files === 0 || categoryBudgets[category]) continue;
+      if (!total || total.files === 0 || Object.hasOwn(categoryBudgets, category)) continue;
       violations.push({
         target: target.id,
         category,
         metric: 'budget',
         actual: total.bytes,
         max: Number.NaN,
-        message: `${target.id}.${category} was measured but has no budget in the baseline`,
+        // Keep the `${target}.${category}.${metric}` token used by every
+        // other budget violation so log greps catch this case too.
+        message: `${target.id}.${category}.budget was measured but has no budget in the baseline; refresh it with pnpm run performance:baseline --target=${target.id}`,
       });
     }
   }
