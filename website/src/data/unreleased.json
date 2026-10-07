@@ -1,9 +1,45 @@
 {
-  "generatedAt": "2026-10-07T00:23:25.441Z",
+  "generatedAt": "2026-10-07T02:09:18.055Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 49,
+  "totalSinceBase": 58,
   "commits": [
+    {
+      "hash": "1a90b10",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "runners",
+      "message": "share one marker-aware UTF-8 clipper and keep smoke evidence",
+      "breaking": false
+    },
+    {
+      "hash": "c46b1e2",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "deps",
+      "message": "patch source-map-js in the root and Worker lockfiles",
+      "breaking": false
+    },
+    {
+      "hash": "ce92e17",
+      "date": "2026-10-06",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsules",
+      "message": "verify attached workspace text integrity",
+      "breaking": false
+    },
+    {
+      "hash": "28a6959",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "resolve the supported source-map patch",
+      "breaking": false
+    },
     {
       "hash": "8dacb47",
       "date": "2026-10-06",
@@ -74,42 +110,6 @@
       "typeLabel": "Fix",
       "scope": "app",
       "message": "address the review round on the full app review",
-      "breaking": false
-    },
-    {
-      "hash": "24ad0ac",
-      "date": "2026-10-02",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "app",
-      "message": "resolve the full review follow-ups",
-      "breaking": false
-    },
-    {
-      "hash": "a0aef99",
-      "date": "2026-10-02",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": null,
-      "message": "close live-smoke findings and refresh product screenshots",
-      "breaking": false
-    },
-    {
-      "hash": "7e1bf91",
-      "date": "2026-10-02",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": null,
-      "message": "resolve full app review findings across runtime, UI, desktop and docs",
-      "breaking": false
-    },
-    {
-      "hash": "0973bb1",
-      "date": "2026-10-02",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "editor",
-      "message": "keep Go and Rust navigation identity and lifecycle consistent",
       "breaking": false
     }
   ]
