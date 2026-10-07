@@ -120,6 +120,25 @@ describe('useUtilityPipelineStore', () => {
     expect(outcome.reason).toBe('malformed-json');
   });
 
+  it('leaves the saved library, selection and input unchanged after a malformed-step import', () => {
+    const existing = createBlankPipeline({ id: 'existing', name: 'Saved recipe' });
+    useUtilityPipelineStore.getState().createPipeline(existing);
+    useUtilityPipelineStore.getState().setPipelineInput(existing.id, 'keep this input');
+    const before = useUtilityPipelineStore.getState();
+    const persistedBefore = localStorage.getItem('lingua-utility-pipeline-state');
+    const broken = {
+      ...createBlankPipeline({ id: 'incoming' }),
+      steps: [{ id: 'broken', utilityId: 'regex-replace' }],
+    };
+
+    expect(before.importPipelineJson(JSON.stringify(broken))).toMatchObject({
+      ok: false,
+      reason: 'invalid-shape',
+    });
+    expect(useUtilityPipelineStore.getState()).toBe(before);
+    expect(localStorage.getItem('lingua-utility-pipeline-state')).toBe(persistedBefore);
+  });
+
   it('setActivePipeline resets isExecutingActive on switch', () => {
     useUtilityPipelineStore.getState().createPipeline(createBlankPipeline({ id: 'a' }));
     useUtilityPipelineStore.getState().createPipeline(createBlankPipeline({ id: 'b' }));

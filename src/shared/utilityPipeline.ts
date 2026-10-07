@@ -29,11 +29,10 @@
  *      `text → text`; the engine code path is wired but never fires
  *      with the current registry.
  *
- *   2. `parsePipeline()` REJECTS the whole pipeline on shape
- *      mismatch. `parseStep()` is more lenient — it returns `null`
- *      for unknown-utility-id so the persisted-pipeline rehydrate
- *      path can drop orphaned steps gracefully. Document which level
- *      the caller is using before adding new validations.
+ *   2. `parsePipeline()` rejects malformed top-level fields but drops
+ *      invalid steps during persisted-library recovery. JSON import
+ *      uses `tryImportPipelineJson()` instead: no imported step may
+ *      disappear silently, including malformed known-utility steps.
  *
  *   3. `runPipeline()` uses `Promise.race` for the per-step timeout
  *      (no native abort for adapter promises). Adapters that take
@@ -180,11 +179,11 @@ export function parsePipelineStep(value: unknown): PipelineStepV1 | null {
 }
 
 /**
- * Strict pipeline parser. Returns `null` if the top-level shape is
- * broken; the engine's load path silently drops malformed pipelines
- * from the persisted list. Steps with unknown utility ids are
- * filtered (so a forward-version drift drops the orphans without
- * losing the whole pipeline shell).
+ * Recovery parser. Returns `null` if the top-level shape is broken or
+ * valid steps share an id. Invalid steps, including unknown utility ids,
+ * are filtered so persisted-library recovery retains the pipeline shell.
+ * Explicit JSON imports must use `tryImportPipelineJson` to prevent
+ * silently changing the imported recipe.
  */
 export function parsePipeline(value: unknown): UtilityPipelineV1 | null {
   if (!isRecord(value)) return null;
@@ -301,6 +300,11 @@ export function tryImportPipelineJson(
   const pipeline = parsePipeline(parsed);
   if (pipeline === null) {
     return { ok: false, reason: 'invalid-shape', detail: 'parsePipeline rejected' };
+  }
+  // Recovery may discard malformed steps; explicit import must retain the
+  // complete recipe rather than report success with different behavior.
+  if (!Array.isArray(parsed.steps) || pipeline.steps.length !== parsed.steps.length) {
+    return { ok: false, reason: 'invalid-shape' };
   }
   return { ok: true, pipeline, warnings: [] };
 }
