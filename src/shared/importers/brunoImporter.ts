@@ -39,8 +39,8 @@ import type {
   CollectionImporterPreview,
   CollectionImporterResult,
   ParsedCollectionRequest,
-} from './postmanImporter';
-import { MAX_IMPORT_REQUESTS } from './postmanImporter';
+} from './collectionTypes';
+import { MAX_IMPORT_REQUESTS } from './collectionTypes';
 
 const BRUNO_METHOD_BLOCKS: ReadonlySet<string> = new Set([
   'get',

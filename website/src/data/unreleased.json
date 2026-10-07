@@ -1,9 +1,27 @@
 {
-  "generatedAt": "2026-10-07T17:53:51.290Z",
+  "generatedAt": "2026-10-07T18:27:45.198Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 77,
+  "totalSinceBase": 103,
   "commits": [
+    {
+      "hash": "810a620",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "importers",
+      "message": "re-export every moved collection contract from Postman",
+      "breaking": false
+    },
+    {
+      "hash": "1c5dfde",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "performance",
+      "message": "report malformed budgets instead of crashing",
+      "breaking": false
+    },
     {
       "hash": "1a90b10",
       "date": "2026-10-07",
@@ -77,39 +95,21 @@
       "breaking": false
     },
     {
+      "hash": "93898f8",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "performance",
+      "message": "fail measured targets without budgets and keep bundle checks visible",
+      "breaking": false
+    },
+    {
       "hash": "853af1a",
       "date": "2026-10-06",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "website",
       "message": "resolve the patched sharp release",
-      "breaking": false
-    },
-    {
-      "hash": "c31f87a",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "audit",
-      "message": "bound website audit exceptions and run every independent audit",
-      "breaking": false
-    },
-    {
-      "hash": "7e8f5aa",
-      "date": "2026-10-05",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runners",
-      "message": "enforce native UTF-8 capture budgets",
-      "breaking": false
-    },
-    {
-      "hash": "d6872b0",
-      "date": "2026-10-05",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the supported source-map patch",
       "breaking": false
     }
   ]
