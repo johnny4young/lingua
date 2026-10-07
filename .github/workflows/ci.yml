@@ -351,6 +351,14 @@ jobs:
           SHARD: ${{ matrix.shard }}
       # Traces and screenshots are what make a red run diagnosable; without
       # them a failure here is just a name and a line number.
+      - name: Upload first-use visual evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: first-use-web-shard-${{ matrix.shard }}
+          path: output/playwright/**/first-use-*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
