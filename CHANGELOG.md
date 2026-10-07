@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - Utility pipeline import rejects malformed steps instead of silently saving a shorter recipe. Failed imports preserve the existing library and pasted JSON for correction.
+- URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
 
 ## [1.5.2] — 2026-10-06
 
