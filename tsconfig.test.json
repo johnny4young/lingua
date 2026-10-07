@@ -9,7 +9,7 @@
 // Whole directories follow, cheapest first. Measured with a scratch config
 // per directory at 6f0ddc1c (2026-09-18), so re-measure before trusting these
 // for scope. Already in: cli, docs, runners, main, shared, build, i18n,
-// workers, web. Remaining: scripts 62 errors, hooks 80, components 94,
+// workers, web, services. Remaining: scripts 62 errors, hooks 80, components 94,
 // stores 212. Adding a directory that imports the root `.mts` configs or
 // `scripts/**/*.mjs` pulls those files into the program too; type them at
 // the source (JSDoc for the scripts) rather than casting in the tests.
@@ -72,7 +72,9 @@
     "tests/workers/**/*.ts",
     "tests/workers/**/*.tsx",
     "tests/web/**/*.ts",
-    "tests/web/**/*.tsx"
+    "tests/web/**/*.tsx",
+    "tests/services/**/*.ts",
+    "tests/services/**/*.tsx"
   ],
   "exclude": ["node_modules", "out", ".vite", "dist"]
 }
