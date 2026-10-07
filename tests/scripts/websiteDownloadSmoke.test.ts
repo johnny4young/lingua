@@ -104,25 +104,43 @@ describe('website download browser qualification controls', () => {
 
   it('retains only four named PNGs for seven days in an isolated artifact', () => {
     const workflow = load(readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8')) as {
-      jobs: {
-        subprojects: {
+      jobs: Record<
+        string,
+        {
           steps: Array<{
             name?: string;
             run?: string;
             if?: string;
+            'working-directory'?: string;
+            env?: Record<string, string>;
             with?: Record<string, unknown>;
           }>;
-        };
-      };
+        }
+      >;
     };
-    const steps = workflow.jobs.subprojects.steps;
+    const steps = workflow.jobs['desktop-bundles']!.steps;
+    const macPullRequest = "matrix.os == 'macos-latest' && github.event_name == 'pull_request'";
+    const dependencies = steps.find(step => step.name === 'Install website smoke dependencies');
+    expect(dependencies?.run).toBe('npm ci --no-audit --no-fund');
+    expect(dependencies?.['working-directory']).toBe('website');
+    expect(dependencies?.if).toBe(macPullRequest);
+    const chromium = steps.find(step => step.name === 'Install website smoke Chromium');
+    expect(chromium?.run).toBe('pnpm exec playwright install chromium');
+    expect(chromium?.env?.PLAYWRIGHT_BROWSERS_PATH).toBe('0');
+    expect(chromium?.if).toBe(macPullRequest);
     const smoke = steps.find(step => step.name === 'Website download browser smoke');
     expect(smoke?.run).toBe('node scripts/run-website-download-smoke.mjs');
-    expect(smoke?.if).toBe("github.event_name == 'pull_request'");
-    expect(steps.find(step => step.name === 'Website download smoke types')?.run).toBe(
+    expect(smoke?.if).toBe(macPullRequest);
+    const subprojects = workflow.jobs.subprojects!.steps;
+    expect(subprojects.find(step => step.name === 'Website download smoke types')?.run).toBe(
       'pnpm exec tsc --noEmit -p tsconfig.website-downloads.json'
     );
+    expect(subprojects.some(step => step.name === 'Website download browser smoke')).toBe(false);
+    expect(subprojects.some(step => step.name === 'Install website smoke Chromium')).toBe(false);
     const upload = steps.find(step => step.name === 'Upload website download evidence');
+    expect(upload?.if).toBe(
+      `always() && ${macPullRequest} && steps.website-download-smoke.outcome != 'skipped'`
+    );
     expect(upload?.with?.name).toBe('website-download-matrix');
     expect(upload?.with?.['retention-days']).toBe(7);
     expect(upload?.with?.['if-no-files-found']).toBe('error');
@@ -132,6 +150,10 @@ describe('website download browser qualification controls', () => {
       'output/playwright/website-downloads/en-mobile.png',
       'output/playwright/website-downloads/es-mobile.png',
     ]);
+    const native = steps.find(step => step.name === 'Native Unicode capture and Stop smoke');
+    expect(native?.run).toBe('node scripts/smoke-native-output.mjs');
+    expect(native?.if).toBe(macPullRequest);
+    expect(steps.indexOf(native!)).toBeLessThan(steps.indexOf(dependencies!));
   });
 
   it('keeps browser capture explicit and preserves sandbox and server isolation', () => {
