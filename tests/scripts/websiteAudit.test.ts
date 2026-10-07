@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -303,15 +303,18 @@ describe('assert-website-audit CLI', () => {
     roots.push(root);
     const fixture = path.join(root, 'audit.json');
     await writeFile(fixture, JSON.stringify(payload), 'utf8');
-    const extraArgs: string[] = [];
-    if (configuration !== undefined) {
-      const configPath = path.join(root, 'exceptions.json');
-      await writeFile(configPath, JSON.stringify(configuration), 'utf8');
-      extraArgs.push('--exceptions', configPath);
-    }
+    // Always pass an explicit configuration: the shipped list is re-reviewed
+    // and eventually emptied, so pinning these fixed-clock cases to it would
+    // break them on routine maintenance rather than on a gate regression.
+    const configPath = path.join(root, 'exceptions.json');
+    await writeFile(
+      configPath,
+      JSON.stringify(configuration === undefined ? { schemaVersion: 1, exceptions: [exception] } : configuration),
+      'utf8'
+    );
     return spawnSync(
       process.execPath,
-      ['scripts/assert-website-audit.mjs', '--fixture', fixture, '--now', nowIso, ...extraArgs],
+      ['scripts/assert-website-audit.mjs', '--fixture', fixture, '--now', nowIso, '--exceptions', configPath],
       { cwd: path.resolve(__dirname, '../..'), encoding: 'utf8' }
     );
   }
@@ -355,7 +358,18 @@ describe('assert-website-audit CLI', () => {
     expect(result.stdout).not.toContain('website-audit: ok');
   });
 
-  it('passes the shipped exception list against the reviewed advisory', async () => {
+  it('ships a well-formed exception list on the real clock', async () => {
+    const configuration = JSON.parse(
+      await readFile(path.resolve(__dirname, '../../scripts/website-audit-exceptions.json'), 'utf8')
+    ) as { schemaVersion: number; exceptions: Array<typeof exception> };
+    expect(configuration.schemaVersion).toBe(1);
+    // Expiry is the live gate's job; this only proves the entries parse.
+    expect(
+      evaluateWebsiteAudit({ vulnerabilities: {} }, { exceptions: configuration.exceptions }).error
+    ).toBeNull();
+  });
+
+  it('passes a reviewed exception list against the reviewed advisory', async () => {
     const result = await run(auditPayload(), '2026-10-02T12:00:00Z');
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`excused http-cache-semantics (${GHSA})`);
