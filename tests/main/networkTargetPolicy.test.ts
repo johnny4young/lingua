@@ -142,3 +142,85 @@ describe('network destination resolution contract', () => {
     expect(lookup).toHaveBeenCalledOnce();
   });
 });
+
+describe('IPv6 forms that embed or route to non-public space', () => {
+  it.each([
+    ['64:ff9b::7f00:1', 'NAT64 well-known prefix embedding 127.0.0.1'],
+    ['64:ff9b::a9fe:a9fe', 'NAT64 well-known prefix embedding 169.254.169.254'],
+    ['64:ff9b::10.0.0.1', 'NAT64 well-known prefix, dotted tail'],
+    ['64:ff9b:1::a00:1', 'NAT64 local-use prefix'],
+    ['64:ff9b:1:ffff::8.8.8.8', 'NAT64 local-use prefix even with a public tail'],
+    ['2002:7f00:1::', '6to4 embedding 127.0.0.1'],
+    ['2002:a9fe:a9fe::1', '6to4 embedding 169.254.169.254'],
+    ['2002:c0a8:101::', '6to4 embedding 192.168.1.1'],
+    ['fec0::1', 'site-local'],
+    ['feff::1', 'top of site-local'],
+    ['::ffff:0:7f00:1', 'IPv4-translated 127.0.0.1'],
+    ['::ffff:0:10.1.2.3', 'IPv4-translated 10.1.2.3, dotted tail'],
+    ['2001:db8::1', 'documentation'],
+    ['100::1', 'discard-only'],
+    ['100:0:0:1::1', 'reserved 100::/8 outside the discard /64'],
+    ['2001:0:7f00:1::', 'Teredo with a loopback server IPv4'],
+    ['2001:0:4136:e378:8000:63bf:80ff:fffe', 'Teredo whose inverted client IPv4 is 127.0.0.1'],
+    ['2001:0:808:808::f7f7:f7f7', 'Teredo even with public server and client IPv4'],
+    ['2001:2::1', 'benchmarking, like IPv4 198.18.0.0/15'],
+    ['3fff::1', 'documentation 3fff::/20'],
+    ['3fff:fff::1', 'top of documentation 3fff::/20'],
+    ['64:ff9b::1:7f00:1', 'reserved 64:ff9b::/16 space outside the /96'],
+    ['64:ff9b:2::1', 'reserved 64:ff9b::/16 space outside both NAT64 prefixes'],
+    ['::1:7f00:1', 'reserved ::/8 that is not an IPv4 embed'],
+    ['5f00::1', 'SRv6 SID block'],
+    ['4000::1', 'unassigned space outside global unicast'],
+    ['fe7f::1', 'reserved fe00::/9 below link-local'],
+  ])('blocks %s (%s)', (ip) => {
+    expect(isPrivateAddress(ip)).toBe(true);
+  });
+
+  it.each([
+    ['64:ff9b::808:808', 'NAT64 to public 8.8.8.8, as DNS64 returns on IPv6-only networks'],
+    ['64:ff9b::5db8:d822', 'NAT64 to public 93.184.216.34'],
+    ['2002:808:808::1', '6to4 to public 8.8.8.8'],
+    ['::ffff:0:808:808', 'IPv4-translated public 8.8.8.8'],
+    ['2001:db9::1', 'just above documentation'],
+    ['2001:1::1', 'PCP anycast, next to Teredo'],
+    ['2001:2:1::1', 'just above benchmarking'],
+    ['3fff:1000::1', 'just above documentation 3fff::/20'],
+    ['2c0f:fb50::1', 'top region of global unicast'],
+    ['2606:2800:220:1:248:1893:25c8:1946', 'ordinary global unicast'],
+  ])('allows %s (%s)', (ip) => {
+    expect(isPrivateAddress(ip)).toBe(false);
+  });
+
+  it('rejects the bracketed NAT64 literal before DNS', async () => {
+    const lookup = vi.fn<LookupImpl>();
+    await expect(
+      resolveGuardedNetworkTarget('https://[64:ff9b::a9fe:a9fe]/latest/meta-data', protocols, false, lookup)
+    ).rejects.toThrow('Blocked request to private address 64:ff9b::a9fe:a9fe');
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it('still honors the explicit private-host opt-in for these forms', async () => {
+    const lookup = vi.fn<LookupImpl>();
+    const target = await resolveGuardedNetworkTarget('https://[fec0::1]/', protocols, true, lookup);
+    expect(target.addresses).toEqual([{ address: 'fec0::1', family: 6 }]);
+  });
+});
+
+describe('localhost fast path', () => {
+  it.each(['https://localhost./', 'https://LOCALHOST./', 'https://api.localhost./', 'https://Api.LocalHost/'])(
+    'blocks %s without consulting DNS',
+    async (url) => {
+      const lookup = vi.fn<LookupImpl>().mockResolvedValue(publicAddresses);
+      await expect(resolveGuardedNetworkTarget(url, protocols, false, lookup)).rejects.toThrow(
+        'Blocked request to localhost'
+      );
+      expect(lookup).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not treat a name that merely contains localhost as local', async () => {
+    const lookup = vi.fn<LookupImpl>().mockResolvedValue(publicAddresses);
+    const target = await resolveGuardedNetworkTarget('https://localhost.example.com./', protocols, false, lookup);
+    expect(target.addresses).toBe(publicAddresses);
+  });
+});
