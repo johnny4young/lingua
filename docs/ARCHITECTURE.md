@@ -1077,6 +1077,25 @@ are rejected instead of expanding the network boundary.
 
 ### Guarded HTTP workspace transport
 
+`src/main/networkTargetPolicy.ts` is the shared destination-policy leaf for
+HTTP/SSE and WebSocket. It owns URL parsing, caller-selected scheme validation,
+private-address classification and validation of all lookup results. It imports
+only Node's address classifier, creates no transport, and keeps no DNS cache or
+mutable singleton. Lookup evidence is returned unchanged for socket pinning.
+
+`httpProxy.ts` owns HTTP redirects, credentials, undici dispatchers and body/SSE
+limits; `httpWebSocket.ts` owns handshake, messages, redirects-off and socket
+cancellation. Both import the policy directly. Each transport retains its own
+protocol set, default lookup, timeout and private-host opt-in. The historical
+policy exports from `httpProxy.ts` remain compatibility aliases; new consumers
+should use the neutral leaf rather than depend on an HTTP implementation.
+
+`tests/main/networkTargetPolicy.test.ts` locks dependency direction, historical
+function/type identities and deterministic lookup/error semantics without live
+network access. Existing HTTP, WebSocket and IPC suites continue covering their
+transport-specific behavior. The extraction changes ownership only; it does not
+extend accepted destinations or promise an additional sandbox.
+
 The HTTP workspace has one renderer orchestration path for environment
 interpolation, capture chaining, assertion evaluation, secret masking, history,
 and Capsules. Only the network transport varies by platform:
