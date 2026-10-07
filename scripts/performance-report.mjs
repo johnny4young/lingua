@@ -241,7 +241,9 @@ export function isSameOriginRuntimeShape(target) {
  * Pick the targets named by --target=<id>[,<id>]; every id must exist so a
  * typo cannot silently turn a baseline refresh into a no-op.
  */
-export function selectTargets(targets, ids, { requireAllTargets = false } = {}) {
+export function selectTargets(
+  targets, ids, { requireAllTargets = false, requireSelectedTargets = false } = {}
+) {
   if (requireAllTargets && ids?.length > 0) {
     throw new Error('--target cannot be combined with --require-all-targets.');
   }
@@ -253,7 +255,10 @@ export function selectTargets(targets, ids, { requireAllTargets = false } = {}) 
       `Unknown performance target(s): ${unknown.join(', ')}. Known targets: ${[...byId.keys()].join(', ')}.`
     );
   }
-  return ids.map((id) => byId.get(id));
+  return ids.map((id) => {
+    const target = byId.get(id);
+    return requireSelectedTargets ? { ...target, required: true } : target;
+  });
 }
 
 /**
@@ -319,12 +324,15 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
       continue;
     }
 
+    // A malformed target entry is reported by the unbudgeted-target pass below.
+    if (!categoryBudgets || typeof categoryBudgets !== 'object') continue;
+
     for (const [category, budget] of Object.entries(categoryBudgets)) {
       const total = target.categories[category];
       if (!total) continue;
       for (const metric of ['bytes', 'gzipBytes']) {
         const maxKey = metric === 'bytes' ? 'maxBytes' : 'maxGzipBytes';
-        const max = budget[maxKey];
+        const max = budget?.[maxKey];
         if (typeof max !== 'number') {
           violations.push({
             target: targetId,
@@ -350,6 +358,40 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
           });
         }
       }
+    }
+  }
+
+  // Fail closed the other way round too: a measured target or category the
+  // baseline does not budget would otherwise pass every check unexamined.
+  for (const target of measurements.targets) {
+    if (!target.available) continue;
+    const categoryBudgets = baselineBudgets[target.id];
+    if (!categoryBudgets || typeof categoryBudgets !== 'object') {
+      violations.push({
+        target: target.id,
+        category: 'target',
+        metric: 'budget',
+        actual: 1,
+        max: 0,
+        message: `${target.id} was measured but has no budgets in the baseline; add them with pnpm run performance:baseline --target=${target.id}`,
+      });
+      continue;
+    }
+    // A rejected same-origin shape already reports exactly one violation.
+    if (isSameOriginRuntimeShape(target)) continue;
+    for (const category of CATEGORY_ORDER) {
+      const total = target.categories?.[category];
+      if (!total || total.files === 0 || Object.hasOwn(categoryBudgets, category)) continue;
+      violations.push({
+        target: target.id,
+        category,
+        metric: 'budget',
+        actual: total.bytes,
+        max: Number.NaN,
+        // Keep the `${target}.${category}.${metric}` token used by every
+        // other budget violation so log greps catch this case too.
+        message: `${target.id}.${category}.budget was measured but has no budget in the baseline; refresh it with pnpm run performance:baseline --target=${target.id}`,
+      });
     }
   }
 
@@ -845,6 +887,7 @@ async function main() {
     desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
     targets: selectTargets(DEFAULT_TARGETS, options.targetIds, {
       requireAllTargets: options.requireAllTargets,
+      requireSelectedTargets: options.check,
     }),
     check: options.check,
     requireAllTargets: options.requireAllTargets,

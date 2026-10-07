@@ -191,7 +191,9 @@ Desktop baseline must guarantee:
 
 Desktop bundle changes are also built on Linux, Windows, and macOS by the
 `desktop-bundles` matrix. It exercises the native Vite production resolver and
-its config-contract tests without signing or publishing installers. A local
+its config-contract tests without signing or publishing installers; the Linux
+leg also checks the built desktop renderer against its performance budget
+(`docs/PERFORMANCE.md` § Review-time build budgets). A local
 packaged-app smoke and release packaging/notarization remain separate evidence.
 The independent-projects job tests and typechecks both Workers and runs Wrangler
 `deploy --dry-run` for each; those commands build locally and do not deploy.
