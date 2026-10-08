@@ -459,6 +459,8 @@
   "capsuleImport.preview.files.secretWarning_other": "The exporter detected {{count}} possible secret patterns. Review every file before opening or sharing it.",
   "capsuleImport.preview.files.hashSummary": "SHA-256 {{hash}}… · declared hash",
   "capsuleImport.preview.files.integrityTrust": "Matching hashes only confirm attached text matches its declared hash. They do not verify the author, dependencies, primary run, or safety of execution.",
+  "capsuleImport.preview.files.integrityMismatchSummary_one": "{{count}} attached file differs from its declared SHA-256. Review it before opening.",
+  "capsuleImport.preview.files.integrityMismatchSummary_other": "{{count}} attached files differ from their declared SHA-256. Review them before opening.",
   "capsuleImport.preview.files.integrity.pending": "Checking attached text integrity…",
   "capsuleImport.preview.files.integrity.verified": "Verified: attached text matches its declared SHA-256",
   "capsuleImport.preview.files.integrity.mismatch": "Mismatch: attached text differs from its declared SHA-256",

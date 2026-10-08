@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-10-08T02:23:31.539Z",
+  "generatedAt": "2026-10-08T02:26:17.971Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 132,
+  "totalSinceBase": 145,
   "commits": [
+    {
+      "hash": "c937ee8",
+      "date": "2026-10-08",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "keep inline result zones anchored after edits and model swaps",
+      "breaking": false
+    },
     {
       "hash": "4c12f0b",
       "date": "2026-10-07",
@@ -68,6 +77,15 @@
       "breaking": false
     },
     {
+      "hash": "93edac3",
+      "date": "2026-10-06",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "defer inline measurements past selection updates",
+      "breaking": false
+    },
+    {
       "hash": "c46b1e2",
       "date": "2026-10-07",
       "type": "fix",
@@ -86,30 +104,12 @@
       "breaking": false
     },
     {
-      "hash": "28a6959",
+      "hash": "4415ea1",
       "date": "2026-10-06",
       "type": "fix",
       "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the supported source-map patch",
-      "breaking": false
-    },
-    {
-      "hash": "7ed0345",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "network",
-      "message": "classify embedded-IPv4 and reserved IPv6 destinations as private",
-      "breaking": false
-    },
-    {
-      "hash": "8dacb47",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "runners",
-      "message": "bound compile diagnostics in UTF-8 and retire the UTF-16 truncator",
+      "scope": "web",
+      "message": "clarify first use and preserve readable execution feedback",
       "breaking": false
     }
   ]
