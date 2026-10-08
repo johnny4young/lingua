@@ -343,10 +343,8 @@ function AppChrome({
     openOverlay('capsule-list');
   });
 
-  const handleStartGuidedTour = () => {
-    closeOverlay();
-    startTour();
-  };
+  // The tour provider closes the source overlay inside the same gesture.
+  const handleStartGuidedTour = startTour;
 
   // Surface the web-build update banner at the top
   // of the chrome. Browser builds expose `window.lingua` through

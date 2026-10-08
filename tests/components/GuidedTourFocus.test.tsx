@@ -252,12 +252,12 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     fireEvent.click(screen.getByTestId('trigger'));
     await waitFor(() => expect(wait).toHaveBeenCalled());
 
+    // The newer overlay opens and closes before the wait settles, so only the
+    // start generation (not the current overlay flag) can reject the old start.
     rerender(<TourTree hasActiveOverlay />);
+    rerender(<TourTree />);
     await act(async () => ready());
 
-    expect(screen.queryByRole('dialog')).toBeNull();
-    // Closing the newer overlay must not resurrect the old start either.
-    rerender(<TourTree />);
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByTestId('trigger'));
     expect(await screen.findByRole('dialog')).toBeTruthy();
