@@ -98,7 +98,7 @@
     "@electron/fuses": "1.8.0",
     "@electron/windows-sign": "2.1.0",
     "@jridgewell/trace-mapping": "^0.3.31",
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@playwright/test": "^1.63.0",
     "@prettier/plugin-xml": "^3.4.2",
