@@ -1,9 +1,18 @@
 {
-  "generatedAt": "2026-10-07T21:41:24.823Z",
+  "generatedAt": "2026-10-08T02:26:17.971Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 136,
+  "totalSinceBase": 145,
   "commits": [
+    {
+      "hash": "c937ee8",
+      "date": "2026-10-08",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "keep inline result zones anchored after edits and model swaps",
+      "breaking": false
+    },
     {
       "hash": "4c12f0b",
       "date": "2026-10-07",
@@ -86,30 +95,21 @@
       "breaking": false
     },
     {
+      "hash": "ce92e17",
+      "date": "2026-10-06",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "capsules",
+      "message": "verify attached workspace text integrity",
+      "breaking": false
+    },
+    {
       "hash": "4415ea1",
       "date": "2026-10-06",
       "type": "fix",
       "typeLabel": "Fix",
       "scope": "web",
       "message": "clarify first use and preserve readable execution feedback",
-      "breaking": false
-    },
-    {
-      "hash": "28a6959",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "website",
-      "message": "resolve the supported source-map patch",
-      "breaking": false
-    },
-    {
-      "hash": "7ed0345",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "network",
-      "message": "classify embedded-IPv4 and reserved IPv6 destinations as private",
       "breaking": false
     }
   ]

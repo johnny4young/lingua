@@ -357,6 +357,42 @@ export function parseCapsuleWorkspace(json: string): ParseCapsuleWorkspaceResult
   };
 }
 
+export interface CapsuleWorkspaceFileIntegrity {
+  readonly path: string;
+  readonly status: 'verified' | 'mismatch' | 'not-verified';
+}
+
+/**
+ * Inspect a structurally validated workspace without executing or opening files.
+ * Hashes cover TextEncoder UTF-8 bytes, exactly as at export: no BOM stripping,
+ * newline conversion or Unicode normalization. Matching hashes establish neither
+ * authenticity nor safe execution. Results are transient, never wire metadata.
+ */
+export async function verifyCapsuleWorkspaceFiles(
+  workspace: CapsuleWorkspaceV1
+): Promise<readonly CapsuleWorkspaceFileIntegrity[]> {
+  // Snapshot before the first await so a caller mutation cannot mix artifacts.
+  const files = workspace.files.map(({ path, content, contentHash }) => ({
+    path,
+    content,
+    contentHash,
+  }));
+  const results: CapsuleWorkspaceFileIntegrity[] = [];
+  // Sequential hashing keeps only one bounded file's encoded bytes in flight.
+  for (const file of files) {
+    try {
+      const actual = await computeContentHash(file.content);
+      results.push({
+        path: file.path,
+        status: actual === file.contentHash ? 'verified' : 'mismatch',
+      });
+    } catch {
+      results.push({ path: file.path, status: 'not-verified' });
+    }
+  }
+  return results;
+}
+
 export function isCapsuleWorkspaceJson(source: string): boolean {
   try {
     const raw: unknown = JSON.parse(source);
