@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -378,7 +379,8 @@ export function GuidedTourRuntime({
 
   // The translated copy can be taller than an estimate. Measure actual content,
   // including overflow, so the Console step stays above the output it explains.
-  useEffect(() => {
+  // Measure before paint so a step never flashes at the previous step's size.
+  useLayoutEffect(() => {
     const panel = dialogRef.current;
     if (!panel) return;
     const measure = () => {
