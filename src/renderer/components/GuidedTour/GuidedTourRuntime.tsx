@@ -90,7 +90,6 @@ function getButtonClassName(kind: GuidedTourButtonKind) {
 }
 
 export function GuidedTourRuntime({
-  controls,
   hasActiveOverlay,
   onActiveChange,
   startRequest,
@@ -102,7 +101,8 @@ export function GuidedTourRuntime({
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [targetRect, setTargetRect] = useState<GuidedTourTargetRect | null>(null);
   const activeStepIndexRef = useRef<number | null>(null);
-  const controlsRef = useRef(controls);
+  const startGenerationRef = useRef(0);
+  const hasActiveOverlayRef = useRef(hasActiveOverlay);
   // accessibility pass — focus management for the tour dialog (it declared
   // role=dialog + aria-modal but trapped nothing). Focus the dialog when the
   // tour opens and restore focus to the trigger when it closes.
@@ -115,9 +115,16 @@ export function GuidedTourRuntime({
   const announce = useAnnounce();
   const previousStepIndexRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    controlsRef.current = controls;
-  }, [controls]);
+  useLayoutEffect(() => {
+    hasActiveOverlayRef.current = hasActiveOverlay;
+  }, [hasActiveOverlay]);
+
+  useEffect(
+    () => () => {
+      startGenerationRef.current += 1;
+    },
+    []
+  );
 
   const tourSteps = useMemo(
     () =>
@@ -138,6 +145,8 @@ export function GuidedTourRuntime({
   const activeStep = activeStepIndex === null ? null : (tourSteps[activeStepIndex] ?? null);
 
   const cancelTour = useCallback(() => {
+    startGenerationRef.current += 1;
+    activeStepIndexRef.current = null;
     setActiveStepIndex(null);
     setTargetRect(null);
   }, []);
@@ -155,8 +164,9 @@ export function GuidedTourRuntime({
   // A keyboard shortcut can open an App overlay while the tour owns focus.
   // Yield immediately instead of leaving two dialogs mounted together.
   useEffect(() => {
-    if (hasActiveOverlay && activeStepIndexRef.current !== null) {
-      cancelTour();
+    if (hasActiveOverlay) {
+      startGenerationRef.current += 1;
+      if (activeStepIndexRef.current !== null) cancelTour();
     }
   }, [cancelTour, hasActiveOverlay]);
 
@@ -173,7 +183,7 @@ export function GuidedTourRuntime({
     return () => {
       cancelAnimationFrame(frame);
       const previous = tourReturnFocusRef.current;
-      if (previous && document.contains(previous)) {
+      if (!hasActiveOverlayRef.current && previous && document.contains(previous)) {
         try {
           previous.focus({ preventScroll: true });
         } catch {
@@ -233,9 +243,8 @@ export function GuidedTourRuntime({
 
   const completeTour = useCallback(() => {
     setHasCompletedTour(true);
-    setActiveStepIndex(null);
-    setTargetRect(null);
-  }, [setHasCompletedTour]);
+    cancelTour();
+  }, [setHasCompletedTour, cancelTour]);
 
   const goToNextStep = useCallback(() => {
     setActiveStepIndex(current => {
@@ -318,26 +327,21 @@ export function GuidedTourRuntime({
   }, [activeStep]);
 
   const startTour = useCallback(async () => {
+    // Repeated requests must not reset an active step or checkbox choice.
+    if (activeStepIndexRef.current !== null) return;
+    const generation = ++startGenerationRef.current;
     autoStartChoiceTouchedRef.current = false;
-    controlsRef.current.closeOverlay();
 
     const { tabs, addTab } = useEditorStore.getState();
     if (tabs.length === 0) {
       addTab(createDefaultTab('javascript'));
     }
-
     useUIStore.getState().openBottomPanel('console');
-
-    // `startTour` can be called by Settings, the command palette, and
-    // first-run choreography. If a tour is already active, leave the current
-    // step in control instead of restarting underneath the user.
-    if (activeStepIndexRef.current !== null) {
-      return;
-    }
 
     await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.editor);
 
-    if (activeStepIndexRef.current === null) {
+    if (generation === startGenerationRef.current && !hasActiveOverlayRef.current) {
+      activeStepIndexRef.current = 0;
       setActiveStepIndex(0);
     }
   }, []);
