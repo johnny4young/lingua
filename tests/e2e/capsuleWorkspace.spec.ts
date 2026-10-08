@@ -151,12 +151,14 @@ test.describe('Capsule Workspace handoff', () => {
       });
       await input.fill(JSON.stringify(changed));
       await expect(status).toContainText(language === 'en' ? 'Mismatch:' : 'No coincide:');
+      await expect(page.getByTestId('capsule-workspace-integrity-mismatch-summary')).toBeVisible();
       await expect(page.getByTestId('capsule-workspace-viewer-content')).toHaveText('Changed text');
       await page.screenshot({
         path: test.info().outputPath(`capsule-workspace-integrity-mismatch-${language}.png`),
       });
       await input.fill(built.json);
       await expect(status).toContainText(language === 'en' ? 'Verified:' : 'Verificado:');
+      await expect(page.getByTestId('capsule-workspace-integrity-mismatch-summary')).toHaveCount(0);
       await expect(
         page.getByTestId('editor-tab-activation').filter({ hasText: 'notes.txt' })
       ).toHaveCount(0);

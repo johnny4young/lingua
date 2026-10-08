@@ -92,6 +92,47 @@ describe('attached-file verification preview', () => {
       i18next.t('capsuleImport.preview.files.integrity.mismatch')
     );
   });
+  it('flags every mismatched file, not only the selected one', async () => {
+    const pair = await buildCapsuleWorkspace(FIXTURE_MINIMAL_JS, [
+      { path: 'a.ts', language: 'typescript', content: 'a' },
+      { path: 'b.ts', language: 'typescript', content: 'b' },
+    ]);
+    if (!pair.ok) throw new Error(pair.reason);
+    verify.mockResolvedValue([
+      { path: 'a.ts', status: 'verified' },
+      { path: 'b.ts', status: 'mismatch' },
+    ]);
+    render(<CapsuleImportPreview {...props(pair.value)} />);
+    showFiles();
+    const summary = await screen.findByTestId('capsule-workspace-integrity-mismatch-summary');
+    expect(summary.textContent).toBe(
+      i18next.t('capsuleImport.preview.files.integrityMismatchSummary', { count: 1 })
+    );
+    expect(
+      screen.getAllByTestId('capsule-workspace-viewer-file').map(row => row.dataset.integrity)
+    ).toEqual(['verified', 'mismatch']);
+    expect(screen.getByTestId('capsule-workspace-file-integrity').textContent).toBe(
+      i18next.t('capsuleImport.preview.files.integrity.verified')
+    );
+  });
+  it('fails closed when the verifier rejects or omits a file', async () => {
+    verify.mockRejectedValueOnce(new Error('boom'));
+    const view = render(<CapsuleImportPreview {...props()} />);
+    showFiles();
+    await waitFor(() =>
+      expect(screen.getByTestId('capsule-workspace-file-integrity').textContent).toBe(
+        i18next.t('capsuleImport.preview.files.integrity.not-verified')
+      )
+    );
+    verify.mockResolvedValueOnce([]);
+    view.rerender(<CapsuleImportPreview {...props({ ...workspace })} />);
+    await waitFor(() =>
+      expect(screen.getByTestId('capsule-workspace-file-integrity').textContent).toBe(
+        i18next.t('capsuleImport.preview.files.integrity.not-verified')
+      )
+    );
+    expect(screen.queryByTestId('capsule-workspace-integrity-mismatch-summary')).toBeNull();
+  });
   it('does not verify a single-source capsule', () => {
     render(<CapsuleImportPreview capsule={FIXTURE_MINIMAL_JS} byteLength={100} />);
     expect(verify).not.toHaveBeenCalled();

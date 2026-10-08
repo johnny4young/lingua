@@ -52,7 +52,9 @@ Opening never runs code.
   current detector instead of trusting the count stored by the sender.
 - The read-only importer recomputes each supplemental file's SHA-256 locally.
   The Files tab distinguishes checking, verified, mismatch, and not verified
-  (for example, when Web Crypto is unavailable). Replacing the import cannot
+  (for example, when Web Crypto is unavailable), marks mismatched rows in the
+  file list, and shows a warning counting every mismatched file so a tampered
+  file is visible without selecting it. Replacing the import cannot
   reuse an earlier workspace's verification result. Opening a file remains an
   explicit, inert action even when verification fails.
 - Hashes cover the exact UTF-8 encoding of the JSON string value using

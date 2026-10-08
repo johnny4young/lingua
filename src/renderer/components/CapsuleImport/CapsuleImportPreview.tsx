@@ -61,9 +61,15 @@ export function CapsuleImportPreview({
   useEffect(() => {
     if (!workspace) return;
     let cancelled = false;
-    void verifyCapsuleWorkspaceFiles(workspace).then(files => {
-      if (!cancelled) setVerification({ workspace, files });
-    });
+    void verifyCapsuleWorkspaceFiles(workspace)
+      .catch(() =>
+        // Fail closed: an unexpected verifier failure must not leave the
+        // preview stuck on "checking" or imply a match.
+        workspace.files.map(file => ({ path: file.path, status: 'not-verified' as const }))
+      )
+      .then(files => {
+        if (!cancelled) setVerification({ workspace, files });
+      });
     return () => {
       cancelled = true;
     };
@@ -193,6 +199,9 @@ function WorkspaceFilesPanel({
   const [pickedPath, setPickedPath] = useState<string | null>(null);
   const selected =
     workspace.files.find(file => file.path === pickedPath) ?? workspace.files[0] ?? null;
+  const statusOf = (path: string) =>
+    integrity ? (integrity.find(file => file.path === path)?.status ?? 'not-verified') : 'pending';
+  const mismatchCount = integrity?.filter(file => file.status === 'mismatch').length ?? 0;
   return (
     <div className="grid min-h-[260px] gap-3 font-sans md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]">
       <section>
@@ -216,6 +225,20 @@ function WorkspaceFilesPanel({
             </p>
           </div>
         ) : null}
+        {mismatchCount > 0 ? (
+          <div
+            role="alert"
+            data-testid="capsule-workspace-integrity-mismatch-summary"
+            className="mb-2 flex items-start gap-2 rounded border border-warning-border bg-warning-bg p-2 text-caption text-warning-fg"
+          >
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <p>
+              {t('capsuleImport.preview.files.integrityMismatchSummary', {
+                count: mismatchCount,
+              })}
+            </p>
+          </div>
+        ) : null}
         <div className="space-y-1">
           {workspace.files.map(file => (
             <button
@@ -224,6 +247,7 @@ function WorkspaceFilesPanel({
               onClick={() => setPickedPath(file.path)}
               aria-pressed={selected?.path === file.path}
               data-testid="capsule-workspace-viewer-file"
+              data-integrity={statusOf(file.path)}
               className={cn(
                 'focus-ring block w-full rounded border px-2 py-1.5 text-left',
                 selected?.path === file.path
@@ -231,8 +255,15 @@ function WorkspaceFilesPanel({
                   : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
               )}
             >
-              <span className="block truncate font-mono text-caption text-fg-base">
-                {file.path}
+              <span className="flex items-center gap-1 font-mono text-caption text-fg-base">
+                {statusOf(file.path) === 'mismatch' ? (
+                  <AlertTriangle
+                    size={11}
+                    className="shrink-0 text-warning-fg"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="min-w-0 truncate">{file.path}</span>
               </span>
               <span className="mt-0.5 block text-eyebrow text-fg-subtle">
                 {file.language} · {formatNumber(utf8ByteLength(file.content), i18n.language)} B
@@ -257,9 +288,7 @@ function WorkspaceFilesPanel({
                   data-testid="capsule-workspace-file-integrity"
                   className="mt-1 text-caption text-fg-base"
                 >
-                  {t(
-                    `capsuleImport.preview.files.integrity.${integrity?.find(file => file.path === selected.path)?.status ?? 'pending'}`
-                  )}
+                  {t(`capsuleImport.preview.files.integrity.${statusOf(selected.path)}`)}
                 </p>
               </div>
               {onOpenFile ? (
