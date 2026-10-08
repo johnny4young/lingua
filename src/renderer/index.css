@@ -960,6 +960,12 @@
     background: var(--tour-overlay);
   }
 
+  .guided-tour-overlay[data-spotlight='true'] {
+    /* The spotlight shadow dims only the outside. Keep the input shield, but
+       do not paint a second full-screen tint over the highlighted content. */
+    background: transparent;
+  }
+
   .guided-tour-spotlight {
     @apply pointer-events-none fixed rounded-2xl;
     box-shadow:
@@ -976,7 +982,7 @@
     --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 52%, black);
     @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-3xl border text-foreground;
     width: min(25rem, calc(100vw - 2rem));
-    overflow: visible;
+    overflow: auto;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--tour-surface-strong) 82%, white 4%),

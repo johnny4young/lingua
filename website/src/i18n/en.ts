@@ -543,6 +543,17 @@ export const en = {
       short: { year: 'numeric', month: 'short', day: 'numeric' } as Intl.DateTimeFormatOptions,
     },
     downloadMatrix: {
+      products: {
+        desktop: {
+          title: 'Desktop app',
+          description: 'Choose this for the graphical editor and console. Native execution also needs the runtime for your language.',
+        },
+        cli: {
+          title: 'Terminal tool (CLI)',
+          description: 'For terminal commands, without a graphical editor. Running code needs its language runtime, including Node.js 24.x for JavaScript and TypeScript.',
+        },
+        other: { title: 'Other downloads', description: 'Check the filename and release notes before choosing.' },
+      },
       verifySummary: 'Verify your download',
       downloadAlongside: 'Download',
       thenRun: 'alongside your binary, then run:',
