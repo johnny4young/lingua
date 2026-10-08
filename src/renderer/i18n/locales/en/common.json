@@ -234,7 +234,7 @@
   "tour.step.editor.title": "Editor workspace",
   "tour.step.editor.text": "Start in the Scratchpad: it runs automatically as you edit, so the sample may already have a result.",
   "tour.step.run.title": "Run the active file",
-  "tour.step.run.text": "Scratchpad runs automatically. Click Run sample to execute the active file again and continue to its console feedback.",
+  "tour.step.run.text": "In Scratchpad, code runs automatically as you edit. Click Run sample to run the active file and continue to its console feedback.",
   "tour.step.console.title": "Console feedback",
   "tour.step.console.text": "Your result, logs, errors, and timing land here. After the first successful run, Lingua offers to save the code as a reusable snippet.",
   "appearance.title": "Appearance",

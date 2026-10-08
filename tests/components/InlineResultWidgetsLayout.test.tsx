@@ -29,10 +29,10 @@ function harness() {
     callbacks.set(name, fn);
     return { dispose: () => callbacks.delete(name) };
   };
+  let contentChanges: Array<{ range: { startLineNumber: number; endLineNumber: number }; text: string }> = [];
   const model = {
     getLineCount: () => lineCount,
     getLineMaxColumn: () => 90,
-    onDidChangeContent: subscribe('content'),
   };
   const editor = {
     getModel: () => model,
@@ -56,6 +56,9 @@ function harness() {
     onDidScrollChange: subscribe('scroll'),
     onDidLayoutChange: subscribe('layout'),
     onDidChangeConfiguration: subscribe('configuration'),
+    onDidChangeModelContent: (fn: (event: { changes: typeof contentChanges }) => void) =>
+      subscribe('content')(() => fn({ changes: contentChanges })),
+    onDidChangeModel: subscribe('model'),
     addOverlayWidget: (widget: monacoTypes.editor.IOverlayWidget) =>
       document.body.append(widget.getDomNode()),
     removeOverlayWidget: (widget: monacoTypes.editor.IOverlayWidget) =>
@@ -94,6 +97,15 @@ function harness() {
     },
     removeLine: () => {
       lineCount = 0;
+    },
+    insertLineAbove: () => {
+      lineCount += 1;
+      contentChanges = [{ range: { startLineNumber: 1, endLineNumber: 1 }, text: '\n' }];
+      // Monaco moves an existing zone with the inserted line.
+      for (const zone of zones.values()) zone.afterLineNumber += 1;
+    },
+    dropZonesForModelSwap: () => {
+      zones.clear();
     },
     fireSync: (name: string) =>
       act(() => {
@@ -291,6 +303,28 @@ describe('inline results avoid source collisions', () => {
     expect(frames.size).toBe(1);
     flushFrames();
     expect(h.measure).toHaveBeenCalledExactlyOnceWith(2, 90);
+  });
+  it('re-anchors a reserved row after a line insertion moves Monaco zones', () => {
+    const h = harness();
+    h.setOffset(700);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.values()][0]).toMatchObject({ afterLineNumber: 1 });
+    h.insertLineAbove();
+    h.fire('content');
+    expect(h.zones.size).toBe(1);
+    expect([...h.zones.values()][0]).toMatchObject({ afterLineNumber: 1 });
+  });
+  it('restores reserved rows after Monaco swaps the model and drops view zones', () => {
+    const h = harness();
+    h.setOffset(700);
+    render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+    h.dropZonesForModelSwap();
+    h.fire('model');
+    expect(h.zones.size).toBe(1);
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.style.top).toBe('20px');
   });
   it('does not schedule itself through view-zone layout and scroll notifications', () => {
     const h = harness();

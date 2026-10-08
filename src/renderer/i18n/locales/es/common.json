@@ -234,7 +234,7 @@
   "tour.step.editor.title": "Espacio del editor",
   "tour.step.editor.text": "Empieza en Scratchpad: se ejecuta automáticamente mientras editas, así que el ejemplo puede tener un resultado.",
   "tour.step.run.title": "Ejecuta el archivo activo",
-  "tour.step.run.text": "Scratchpad se ejecuta automáticamente. Haz clic en Ejecutar ejemplo para ejecutar de nuevo el archivo activo y ver el resultado en la consola.",
+  "tour.step.run.text": "En Scratchpad, el código se ejecuta automáticamente mientras editas. Haz clic en Ejecutar ejemplo para ejecutar el archivo activo y ver el resultado en la consola.",
   "tour.step.console.title": "Feedback de la consola",
   "tour.step.console.text": "Aquí aparecen el resultado, los logs, los errores y el tiempo. Después de la primera ejecución correcta, Lingua te ofrece guardar el código como fragmento reutilizable.",
   "appearance.title": "Apariencia",

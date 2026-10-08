@@ -58,6 +58,9 @@ function useInlineResultWidgets(
   const repositioningRef = useRef(false);
   const scheduledFrameRef = useRef<number | null>(null);
   const measurementGenerationRef = useRef(0);
+  // Monaco shifts a view zone with inserted/deleted lines, while a widget
+  // stays on the line its run reported. Re-anchor zones after such edits.
+  const zonesMovedRef = useRef(false);
 
   const cancelMeasurement = useCallback(() => {
     measurementGenerationRef.current += 1;
@@ -71,24 +74,27 @@ function useInlineResultWidgets(
     cancelMeasurement();
     if (!editor) return;
     repositioningRef.current = true;
-    editor.changeViewZones(accessor => {
-      for (const widget of widgetsRef.current.values()) {
-        if (widget.zone) accessor.removeZone(widget.zone.id);
+    try {
+      editor.changeViewZones(accessor => {
+        for (const widget of widgetsRef.current.values()) {
+          if (widget.zone) accessor.removeZone(widget.zone.id);
+        }
+      });
+      for (const w of widgetsRef.current.values()) {
+        try {
+          editor.removeOverlayWidget({
+            getId: () => w.id,
+            getDomNode: () => w.domNode,
+            getPosition: () => null,
+          });
+        } catch {
+          /* widget already gone; ignore */
+        }
       }
-    });
-    for (const w of widgetsRef.current.values()) {
-      try {
-        editor.removeOverlayWidget({
-          getId: () => w.id,
-          getDomNode: () => w.domNode,
-          getPosition: () => null,
-        });
-      } catch {
-        /* widget already gone; ignore */
-      }
+    } finally {
+      widgetsRef.current.clear();
+      repositioningRef.current = false;
     }
-    widgetsRef.current.clear();
-    repositioningRef.current = false;
   }, [editor, cancelMeasurement]);
 
   // Recompute every widget's `top` (and right gutter offset) when
@@ -103,6 +109,8 @@ function useInlineResultWidgets(
       const layout = editor.getLayoutInfo();
       const rightOffset = (layout.minimap.minimapWidth ?? 0) + layout.verticalScrollbarWidth + 12;
       const visibleRanges = editor.getVisibleRanges();
+      const relocateZones = zonesMovedRef.current;
+      zonesMovedRef.current = false;
       const changes: Array<{ widget: InlineWidget; height: number }> = [];
       for (const widget of widgetsRef.current.values()) {
         const valid = widget.line >= 1 && widget.line <= model.getLineCount();
@@ -114,7 +122,10 @@ function useInlineResultWidgets(
         widget.domNode.style.visibility = visible ? '' : 'hidden';
         // Monaco cannot measure columns on an unrendered line. Preserve its
         // reserved row while scrolling, avoiding document-height oscillation.
-        if (valid && !visible) continue;
+        if (valid && !visible) {
+          if (relocateZones && widget.zone) changes.push({ widget, height: widget.zone.height });
+          continue;
+        }
         let height = 0;
         if (visible) {
           const rect = widget.domNode.getBoundingClientRect();
@@ -135,7 +146,10 @@ function useInlineResultWidgets(
             height = Math.ceil(Math.max(lineHeight, rect.height + 6));
           }
         }
-        if ((widget.zone?.height ?? 0) !== height) changes.push({ widget, height });
+        const zoneHeight = widget.zone?.height ?? 0;
+        if (zoneHeight !== height || (relocateZones && zoneHeight > 0)) {
+          changes.push({ widget, height });
+        }
       }
       if (changes.length > 0) {
         editor.changeViewZones(accessor => {
@@ -196,10 +210,29 @@ function useInlineResultWidgets(
     disposables.push(editor.onDidScrollChange(schedule));
     disposables.push(editor.onDidLayoutChange(schedule));
     disposables.push(editor.onDidChangeConfiguration(schedule));
-    const model = editor.getModel();
-    if (model) {
-      disposables.push(model.onDidChangeContent(schedule));
-    }
+    // Editor-level events follow `setModel` (a same-tab rename or save-as
+    // swaps the model), unlike a listener bound to the model seen at mount.
+    disposables.push(
+      editor.onDidChangeModelContent(event => {
+        if (
+          event.changes.some(
+            change =>
+              change.range.startLineNumber !== change.range.endLineNumber ||
+              change.text.includes('\n')
+          )
+        ) {
+          zonesMovedRef.current = true;
+        }
+        schedule();
+      })
+    );
+    disposables.push(
+      editor.onDidChangeModel(() => {
+        // A model swap rebuilds Monaco's view and drops every view zone.
+        for (const widget of widgetsRef.current.values()) widget.zone = undefined;
+        schedule();
+      })
+    );
     return () => {
       active = false;
       cancelMeasurement();
