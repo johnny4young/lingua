@@ -612,8 +612,12 @@ bindings remain in `recipeStore` after the Recipes browser closes — but
 visibility stays in the single App slot.
 
 The guided tour is a separate, short-lived onboarding layer. It closes any
-existing App overlay before starting and yields when a shortcut opens one. Its
-task flow stays on the editor, Run action, and console; it must not open a
+existing App overlay synchronously when a start is requested and yields when
+a shortcut opens one, including during the lazy runtime load or editor-readiness
+wait. An interrupted start never resumes when that overlay closes; an explicit
+retry reuses the loaded runtime. Only the current request can activate or report
+a load failure. Dismissal restores the launcher only when no newer overlay owns
+focus. Its task flow stays on the editor, Run action, and console; it must not open a
 second modal from inside a tour step.
 
 ### Settings discovery

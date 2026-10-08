@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuidedTourProvider } from '@/components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from '@/components/GuidedTour/guidedTourContext';
@@ -57,17 +57,21 @@ function RuntimeProbe({
   );
 }
 
-function renderProvider() {
-  return render(
+function providerTree(hasActiveOverlay = false, closeOverlay = vi.fn()) {
+  return (
     <GuidedTourProvider
       controls={{
-        closeOverlay: vi.fn(),
+        closeOverlay,
       }}
-      hasActiveOverlay={false}
+      hasActiveOverlay={hasActiveOverlay}
     >
       <Harness />
     </GuidedTourProvider>
   );
+}
+
+function renderProvider() {
+  return render(providerTree());
 }
 
 describe('GuidedTourProvider lazy runtime', () => {
@@ -127,5 +131,44 @@ describe('GuidedTourProvider lazy runtime', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start tour' }));
     expect(await screen.findByTestId('tour-runtime')).toBeTruthy();
     expect(mocks.loadRuntime).toHaveBeenCalledTimes(2);
+  });
+  it('closes the source overlay immediately and does not reopen after a newer overlay', async () => {
+    let loaded!: (module: { GuidedTourRuntime: typeof RuntimeProbe }) => void;
+    mocks.loadRuntime.mockReturnValue(
+      new Promise(resolve => {
+        loaded = resolve;
+      })
+    );
+    const closeOverlay = vi.fn();
+    const { rerender } = render(providerTree(true, closeOverlay));
+    fireEvent.click(screen.getByRole('button', { name: 'Start tour' }));
+    expect(closeOverlay).toHaveBeenCalledTimes(1);
+    rerender(providerTree(false, closeOverlay));
+    rerender(providerTree(true, closeOverlay));
+    await act(async () => loaded({ GuidedTourRuntime: RuntimeProbe }));
+    expect(screen.getByTestId('start-request').textContent).toBe('0');
+    expect(closeOverlay).toHaveBeenCalledTimes(1);
+
+    rerender(providerTree(false, closeOverlay));
+    fireEvent.click(screen.getByRole('button', { name: 'Start tour' }));
+    expect(screen.getByTestId('start-request').textContent).toBe('1');
+    expect(mocks.loadRuntime).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors a fresh request while an interrupted runtime load is still pending', async () => {
+    let loaded!: (module: { GuidedTourRuntime: typeof RuntimeProbe }) => void;
+    mocks.loadRuntime.mockReturnValue(
+      new Promise(resolve => {
+        loaded = resolve;
+      })
+    );
+    const { rerender } = renderProvider();
+    fireEvent.click(screen.getByRole('button', { name: 'Start tour' }));
+    rerender(providerTree(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Start tour' }));
+    rerender(providerTree(false));
+    await act(async () => loaded({ GuidedTourRuntime: RuntimeProbe }));
+    expect(screen.getByTestId('start-request').textContent).toBe('1');
+    expect(mocks.loadRuntime).toHaveBeenCalledTimes(1);
   });
 });

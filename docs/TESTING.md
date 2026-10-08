@@ -498,7 +498,10 @@ explains existing output and its Run sample action starts another execution.
 The console step uses the measured translated card height and a transparent
 input shield inside the spotlight. Its screenshot and geometry assertions
 check that the explanation stays above the output. Back and Escape remain
-covered alongside error-to-success recovery.
+covered alongside error-to-success recovery. A delayed first runtime chunk
+checks that opening Settings again wins focus, the late load cannot close or
+cover it, and explicit retry still works in both languages. Component regressions
+separately control the editor-readiness wait and shared chunk-load promise.
 
 Inline result overlays keep right alignment on short lines. When the source
 would intersect the result, or the source wraps, a Monaco view zone reserves a
