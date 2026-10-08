@@ -488,3 +488,49 @@ tab execution-state badge.
 A prior result or idle-before-debounce cannot satisfy the wait. Recent Runs
 covers both locales, delayed execution, manual recording and second-tab
 isolation. Negative-observation waits for lazy resources remain separate.
+
+
+## First-use guidance and download choice
+
+`tests/e2e/firstUseGuidance.spec.ts` exercises the English and Spanish tour
+through its Settings launcher. Scratchpad execution remains automatic: the tour
+explains existing output and its Run sample action starts another execution.
+The console step uses the measured translated card height and a transparent
+input shield inside the spotlight. Its screenshot and geometry assertions
+check that the explanation stays above the output. Back and Escape remain
+covered alongside error-to-success recovery.
+
+Inline result overlays keep right alignment on short lines. When the source
+would intersect the result, or the source wraps, a Monaco view zone reserves a
+row below the source. Model line numbers stay unchanged. Tests cover resizing,
+horizontal scrolling, offscreen retention and cleanup; the browser spec checks
+a long error line and recovery. The existing `sourceCoordinates.spec.ts` owns
+user-first errors and collapsed runtime stacks, including keyboard disclosure.
+It also checks every bundled worker URL frame stays inside that disclosure;
+unnamed V8 `at async URL` frames must not be mistaken for external sources.
+The shared parser removes that syntactic prefix only before a URI or absolute
+path, preserves displayed stack text and ambiguous relative filenames, and
+leaves unknown external frames visible. A real worker-source-mapper unit test
+compares named and unnamed async forms of its trusted probe location.
+
+The three existing E2E shards retain their full inventory and failure traces.
+A narrow first-use screenshot upload also runs on successful jobs; inspect
+those screenshots before calling a visual change verified. Passing component
+geometry tests alone does not establish visual correctness or native first use.
+
+The website release tests distinguish desktop and terminal products independently
+of architecture. They cover the committed public release snapshot, explicit
+Windows/Linux ZIP targets and CLI ZIP retention beside a desktop DMG. Run the
+standalone website check and production build with its own npm lockfile; use
+`LINGUA_SOURCE=local` only for the build, not the fetch-contract tests. Verify
+both `/releases/` and `/es/releases/` in a supported running preview. Installer
+execution, unsigned-Windows prompts and absent/offline toolchains are separate
+native checks; these tests do not download or execute release assets.
+
+Inline-result geometry measurements run in one coalesced animation frame after
+Monaco model/layout events. `getOffsetForColumn` forces a render and must not
+run during a synchronous selection update. The layout component suite covers
+that transaction boundary, stale frame/event/ResizeObserver callbacks after
+replacement or disposal, and view-zone-generated layout events. Hosted
+source-coordinate, captured-error and console-batching journeys retain the
+zero-console-error check as the real-renderer regression gate.

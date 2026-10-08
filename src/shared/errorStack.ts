@@ -125,15 +125,20 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
     }
     const v8Bare = raw.match(V8_WITHOUT_NAME);
     if (v8Bare?.groups) {
+      // V8 prefixes unnamed awaited frames with `async `. It is not part of
+      // the source identity used by the worker's runtime-frame classifier.
+      // Only normalize before a URI or absolute path; ambiguous relative
+      // filenames and async text inside the path retain their original form.
+      const file = v8Bare.groups.file?.replace(/^async\s+(?=(?:[a-z][a-z\d+.-]*:|\/|\\\\))/i, '');
       const lineNum = Number.parseInt(v8Bare.groups.line ?? '', 10);
       const colNum = Number.parseInt(v8Bare.groups.col ?? '', 10);
-      if (isEvalInternalFile(v8Bare.groups.file)) {
+      if (isEvalInternalFile(file)) {
         frames.push({ text: raw.trim() });
         continue;
       }
       frames.push({
         text: raw.trim(),
-        file: v8Bare.groups.file,
+        file,
         line: Number.isFinite(lineNum) ? lineNum : undefined,
         column: Number.isFinite(colNum) ? colNum : undefined,
       });

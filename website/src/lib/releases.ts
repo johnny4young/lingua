@@ -117,13 +117,10 @@ export function inferPlatformAndArch(name: string): {
     format === 'dmg'
   ) {
     platform = 'macos';
-  } else if (format === 'zip' && /\barm64\b|\bx64\b|\bx86_64\b/.test(lower)) {
-    // Bare .zip without darwin/mac in name but with mac-style arch — assume mac.
-    platform = 'macos';
   } else if (
     format === 'exe' ||
     format === 'msi' ||
-    lower.includes('win32') ||
+    /\bwin(?:32|64)?\b/.test(lower) ||
     lower.includes('windows')
   ) {
     platform = 'windows';
@@ -134,6 +131,9 @@ export function inferPlatformAndArch(name: string): {
     lower.includes('linux')
   ) {
     platform = 'linux';
+  } else if (format === 'zip' && /\barm64\b|\bx64\b|\bx86_64\b/.test(lower)) {
+    // Bare .zip without darwin/mac in name but with mac-style arch — assume mac.
+    platform = 'macos';
   }
 
   let arch: Arch = 'unknown';
@@ -349,6 +349,13 @@ function excerptItems(entry: { sections: { items: string[] }[] }, max: number): 
 // Component helpers
 // ────────────────────────────────────────────────────────────────────────────
 
+/** Product identity comes from the release filename, never architecture alone. */
+export function inferReleaseProduct(name: string): 'desktop' | 'cli' | 'other' {
+  if (/^(?:lingua-cli-|linguacode-cli-)/i.test(name)) return 'cli';
+  if (/^lingua-/i.test(name) && ['dmg', 'zip', 'exe', 'msi', 'deb', 'rpm', 'appimage'].includes(inferPlatformAndArch(name).format)) return 'desktop';
+  return 'other';
+}
+
 export function groupAssetsByPlatform(release: Release): Record<Platform, ReleaseAsset[]> {
   const grouped: Record<Platform, ReleaseAsset[]> = {
     macos: [],
@@ -390,7 +397,7 @@ export function downloadableAssets(assets: ReleaseAsset[]): ReleaseAsset[] {
   };
   return installerAssets
     .filter(
-      asset => !(asset.platform === 'macos' && asset.format === 'zip' && dmgArches.has(asset.arch))
+      asset => !(asset.platform === 'macos' && asset.format === 'zip' && inferReleaseProduct(asset.name) === 'desktop' && dmgArches.has(asset.arch))
     )
     .sort(
       (left, right) =>

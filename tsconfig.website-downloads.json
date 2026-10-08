@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "playwright.website-downloads.config.mts",
+    "scripts/run-website-download-smoke.mjs",
+    "tests/website/downloadMatrix.spec.ts",
+    "tests/scripts/websiteDownloadSmoke.test.ts"
+  ],
+  "exclude": ["node_modules", "dist", "output"]
+}
