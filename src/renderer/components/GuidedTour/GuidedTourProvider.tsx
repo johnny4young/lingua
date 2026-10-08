@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -30,32 +31,50 @@ export function GuidedTourProvider({
   const [isTourActive, setIsTourActive] = useState(false);
   const [runtime, setRuntime] = useState<GuidedTourRuntimeComponent | null>(null);
   const [startRequest, setStartRequest] = useState(0);
-  const loadPendingRef = useRef(false);
+  const loadPendingRef = useRef<ReturnType<typeof loadGuidedTourRuntime> | null>(null);
+  const startGenerationRef = useRef(0);
   const mountedRef = useRef(true);
+  const controlsRef = useRef(controls);
+
+  useLayoutEffect(() => {
+    controlsRef.current = controls;
+  }, [controls]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      startGenerationRef.current += 1;
     };
   }, []);
 
+  // A newer overlay owns focus, even before the lazy runtime has mounted.
+  useLayoutEffect(() => {
+    if (hasActiveOverlay) startGenerationRef.current += 1;
+  }, [hasActiveOverlay]);
+
   const startTour = useCallback(() => {
+    const generation = ++startGenerationRef.current;
+    // Close the source overlay in the user's gesture, not when a chunk arrives:
+    // a delayed close could otherwise dismiss an unrelated, newer dialog.
+    controlsRef.current.closeOverlay();
     if (runtime) {
       setStartRequest(request => request + 1);
       return;
     }
-    if (loadPendingRef.current) return;
 
-    loadPendingRef.current = true;
-    void loadGuidedTourRuntime()
+    const pending = loadPendingRef.current ?? loadGuidedTourRuntime();
+    loadPendingRef.current = pending;
+    void pending
       .then(module => {
         if (!mountedRef.current) return;
         setRuntime(() => module.GuidedTourRuntime);
-        setStartRequest(request => request + 1);
+        if (generation === startGenerationRef.current) {
+          setStartRequest(request => request + 1);
+        }
       })
       .catch((error: unknown) => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || generation !== startGenerationRef.current) return;
         console.error('[guided-tour] failed to load the tour runtime', error);
         useUIStore.getState().pushStatusNotice({
           tone: 'error',
@@ -63,7 +82,7 @@ export function GuidedTourProvider({
         });
       })
       .finally(() => {
-        loadPendingRef.current = false;
+        if (loadPendingRef.current === pending) loadPendingRef.current = null;
       });
   }, [runtime]);
 
@@ -82,7 +101,6 @@ export function GuidedTourProvider({
       {children}
       {Runtime ? (
         <Runtime
-          controls={controls}
           hasActiveOverlay={hasActiveOverlay}
           onActiveChange={setIsTourActive}
           startRequest={startRequest}
