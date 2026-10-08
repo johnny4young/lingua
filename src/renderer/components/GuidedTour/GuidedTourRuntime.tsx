@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -19,22 +20,11 @@ import {
   DONT_SHOW_AGAIN_TESTID,
   buildGuidedTourSteps,
   type GuidedTourButtonKind,
-  type GuidedTourPlacement,
 } from './guidedTourSteps';
 
-interface GuidedTourTargetRect {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-  width: number;
-  height: number;
-}
+import { calculatePanelStyle, type GuidedTourTargetRect } from './guidedTourLayout';
 
 const TARGET_PADDING = 10;
-const PANEL_MARGIN = 16;
-const PANEL_WIDTH = 400;
-const PANEL_HEIGHT_ESTIMATE = 260;
 
 const BUTTON_LABEL_KEYS: Record<GuidedTourButtonKind, string> = {
   back: 'tour.buttons.back',
@@ -63,10 +53,6 @@ function getTourFocusable(container: HTMLElement): HTMLElement[] {
   );
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
 function toTargetRect(rect: DOMRect): GuidedTourTargetRect {
   return {
     top: rect.top,
@@ -75,65 +61,6 @@ function toTargetRect(rect: DOMRect): GuidedTourTargetRect {
     left: rect.left,
     width: rect.width,
     height: rect.height,
-  };
-}
-
-/**
- * Position the tour card near the highlighted element while keeping it inside
- * the viewport. The panel height is an estimate because copy length changes by
- * locale; the final clamp is the safety rail that prevents offscreen controls.
- */
-function calculatePanelStyle(
-  targetRect: GuidedTourTargetRect | null,
-  placement: GuidedTourPlacement | null
-): CSSProperties {
-  if (!targetRect || !placement) {
-    return {
-      left: '50%',
-      top: '50%',
-      transform: 'translate(-50%, -50%)',
-    };
-  }
-
-  const maxLeft = Math.max(PANEL_MARGIN, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN);
-  const maxTop = Math.max(PANEL_MARGIN, window.innerHeight - PANEL_HEIGHT_ESTIMATE - PANEL_MARGIN);
-  let left = targetRect.left;
-  let top = targetRect.bottom + PANEL_MARGIN;
-
-  if (placement === 'right' || placement === 'right-start') {
-    left = targetRect.right + PANEL_MARGIN;
-    top =
-      placement === 'right-start'
-        ? targetRect.top
-        : targetRect.top + targetRect.height / 2 - PANEL_HEIGHT_ESTIMATE / 2;
-
-    if (left > maxLeft) {
-      left = targetRect.left - PANEL_WIDTH - PANEL_MARGIN;
-    }
-  }
-
-  if (placement === 'bottom') {
-    left = targetRect.left + targetRect.width / 2 - PANEL_WIDTH / 2;
-    top = targetRect.bottom + PANEL_MARGIN;
-  }
-
-  if (placement === 'bottom-end') {
-    left = targetRect.right - PANEL_WIDTH;
-    top = targetRect.bottom + PANEL_MARGIN;
-  }
-
-  if (placement === 'top') {
-    left = targetRect.left + targetRect.width / 2 - PANEL_WIDTH / 2;
-    top = targetRect.top - PANEL_HEIGHT_ESTIMATE - PANEL_MARGIN;
-  }
-
-  if (top > maxTop && targetRect.top > PANEL_HEIGHT_ESTIMATE + PANEL_MARGIN * 2) {
-    top = targetRect.top - PANEL_HEIGHT_ESTIMATE - PANEL_MARGIN;
-  }
-
-  return {
-    left: clamp(left, PANEL_MARGIN, maxLeft),
-    top: clamp(top, PANEL_MARGIN, maxTop),
   };
 }
 
@@ -180,6 +107,7 @@ export function GuidedTourRuntime({
   // role=dialog + aria-modal but trapped nothing). Focus the dialog when the
   // tour opens and restore focus to the trigger when it closes.
   const dialogRef = useRef<HTMLElement>(null);
+  const [panelSize, setPanelSize] = useState({ width: 400, height: 260 });
   const tourReturnFocusRef = useRef<HTMLElement | null>(null);
   // accessibility pass — the layer used to wrap the whole card in aria-live, which
   // re-announced the buttons + checkbox on every step. Announce only the new
@@ -333,28 +261,31 @@ export function GuidedTourRuntime({
     // apply a stale rectangle or highlight class after the step has changed.
     let cancelled = false;
     let highlightedElement: HTMLElement | null = null;
+    let targetObserver: ResizeObserver | null = null;
 
     const clearHighlight = () => {
+      targetObserver?.disconnect();
       highlightedElement?.classList.remove('guided-tour-target');
       highlightedElement = null;
     };
 
     const updateTarget = () => {
       const element = document.querySelector<HTMLElement>(activeStep.attachTo.selector);
-      clearHighlight();
+      if (element !== highlightedElement) clearHighlight();
 
       if (!element) {
         setTargetRect(null);
         return;
       }
 
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'center',
-      });
-      element.classList.add('guided-tour-target');
-      highlightedElement = element;
+      if (element !== highlightedElement) {
+        element.classList.add('guided-tour-target');
+        highlightedElement = element;
+        if (typeof ResizeObserver !== 'undefined') {
+          targetObserver = new ResizeObserver(updateTarget);
+          targetObserver.observe(element);
+        }
+      }
       setTargetRect(toTargetRect(element.getBoundingClientRect()));
     };
 
@@ -364,6 +295,11 @@ export function GuidedTourRuntime({
       await waitForGuidedTourSelector(activeStep.attachTo.selector);
 
       if (!cancelled) {
+        document.querySelector(activeStep.attachTo.selector)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'center',
+        });
         updateTarget();
       }
     };
@@ -441,7 +377,36 @@ export function GuidedTourRuntime({
     skipTour();
   };
 
-  const panelStyle = calculatePanelStyle(targetRect, activeStep?.attachTo.on ?? null);
+  // The translated copy can be taller than an estimate. Measure actual content,
+  // including overflow, so the Console step stays above the output it explains.
+  // Measure before paint so a step never flashes at the previous step's size.
+  useLayoutEffect(() => {
+    const panel = dialogRef.current;
+    if (!panel) return;
+    const measure = () => {
+      const { width, height } = panel.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
+      const contentHeight = Math.max(height, panel.scrollHeight + 2);
+      setPanelSize(previous =>
+        previous.width === width && previous.height === contentHeight
+          ? previous
+          : { width, height: contentHeight }
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [activeStep]);
+
+  const panelStyle = calculatePanelStyle(targetRect, activeStep?.attachTo.on ?? null, panelSize, {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
 
   useEffect(() => {
     onActiveChange(tourActive);
@@ -456,7 +421,7 @@ export function GuidedTourRuntime({
 
   return activeStep ? (
     <div className="guided-tour-layer">
-      <div className="guided-tour-overlay" />
+      <div className="guided-tour-overlay" data-spotlight={targetRect ? 'true' : 'false'} />
       {targetRect ? (
         <div
           aria-hidden="true"

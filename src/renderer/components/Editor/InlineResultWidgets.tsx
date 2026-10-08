@@ -36,27 +36,13 @@ interface InlineWidget {
   id: string;
   domNode: HTMLElement;
   line: number;
+  zone?: { id: string; height: number };
 }
 
 /**
- * Hook variant that renders inline results as **Monaco overlay
- * widgets**. Each line with a result gets a
- * widget that floats at the editor's right edge — independent of the
- * code's actual end-of-line column — so values line up vertically
- * the way Quokka / RunJS do. The DOM carries the design's chrome:
- * `⟸ value · type-pill · ms · 📌 · @WATCH`.
- *
- * Overlay widgets sit on top of the editor's overlay layer (a single
- * absolutely-positioned host inside `.monaco-editor`), so we pin
- * each widget with `position: absolute; right: 12px; top: <px>` and
- * recompute `top` whenever the editor scrolls, the layout changes,
- * or the model edits (line counts can shift the line's `topForLine`).
- *
- * The hook used to use content widgets which Monaco places inline
- * after the line's last character; that approach left long lines
- * pushing the widget off-screen and short lines collapsing it to the
- * left of the canvas. Overlay widgets keep the right-edge alignment
- * stable regardless of code length.
+ * Right-aligned overlays stay inline while there is empty space after source.
+ * A colliding or wrapped line gets a Monaco view zone beneath it, preserving
+ * both source and result without shifting the document's model line numbers.
  */
 function useInlineResultWidgets(
   editor: monacoTypes.editor.IStandaloneCodeEditor | null,
@@ -69,55 +55,190 @@ function useInlineResultWidgets(
   lineTimings: readonly LineTimingEntry[] = []
 ) {
   const widgetsRef = useRef<Map<number, InlineWidget>>(new Map());
+  const repositioningRef = useRef(false);
+  const scheduledFrameRef = useRef<number | null>(null);
+  const measurementGenerationRef = useRef(0);
+  // Monaco shifts a view zone with inserted/deleted lines, while a widget
+  // stays on the line its run reported. Re-anchor zones after such edits.
+  const zonesMovedRef = useRef(false);
+
+  const cancelMeasurement = useCallback(() => {
+    measurementGenerationRef.current += 1;
+    if (scheduledFrameRef.current !== null) {
+      cancelAnimationFrame(scheduledFrameRef.current);
+      scheduledFrameRef.current = null;
+    }
+  }, []);
 
   const removeAllWidgets = useCallback(() => {
+    cancelMeasurement();
     if (!editor) return;
-    for (const w of widgetsRef.current.values()) {
-      try {
-        editor.removeOverlayWidget({
-          getId: () => w.id,
-          getDomNode: () => w.domNode,
-          getPosition: () => null,
-        });
-      } catch {
-        /* widget already gone; ignore */
+    repositioningRef.current = true;
+    try {
+      editor.changeViewZones(accessor => {
+        for (const widget of widgetsRef.current.values()) {
+          if (widget.zone) accessor.removeZone(widget.zone.id);
+        }
+      });
+      for (const w of widgetsRef.current.values()) {
+        try {
+          editor.removeOverlayWidget({
+            getId: () => w.id,
+            getDomNode: () => w.domNode,
+            getPosition: () => null,
+          });
+        } catch {
+          /* widget already gone; ignore */
+        }
       }
+    } finally {
+      widgetsRef.current.clear();
+      repositioningRef.current = false;
     }
-    widgetsRef.current.clear();
-  }, [editor]);
+  }, [editor, cancelMeasurement]);
 
   // Recompute every widget's `top` (and right gutter offset) when
   // anything that can shift line positions happens: scroll, layout,
   // model edits. Cheap O(widgets) — typically <50 lines per tab.
   const repositionAll = useCallback(() => {
-    if (!editor) return;
-    const layout = editor.getLayoutInfo();
-    const scrollTop = editor.getScrollTop();
-    // Right offset: leave room for the vertical scrollbar so the pill
-    // doesn't collide with it. The minimap, when enabled, also lives
-    // in `verticalScrollbarWidth` + `minimap.minimapWidth`.
-    const rightOffset = (layout.minimap.minimapWidth ?? 0) + layout.verticalScrollbarWidth + 12;
-    for (const widget of widgetsRef.current.values()) {
-      const top = editor.getTopForLineNumber(widget.line) - scrollTop;
-      widget.domNode.style.top = `${top}px`;
-      widget.domNode.style.right = `${rightOffset}px`;
+    if (!editor || repositioningRef.current) return;
+    repositioningRef.current = true;
+    try {
+      const model = editor.getModel();
+      if (!model) return;
+      const layout = editor.getLayoutInfo();
+      const rightOffset = (layout.minimap.minimapWidth ?? 0) + layout.verticalScrollbarWidth + 12;
+      const visibleRanges = editor.getVisibleRanges();
+      const relocateZones = zonesMovedRef.current;
+      zonesMovedRef.current = false;
+      const changes: Array<{ widget: InlineWidget; height: number }> = [];
+      for (const widget of widgetsRef.current.values()) {
+        const valid = widget.line >= 1 && widget.line <= model.getLineCount();
+        const visible =
+          valid &&
+          visibleRanges.some(
+            range => widget.line >= range.startLineNumber && widget.line <= range.endLineNumber
+          );
+        widget.domNode.style.visibility = visible ? '' : 'hidden';
+        // Monaco cannot measure columns on an unrendered line. Preserve its
+        // reserved row while scrolling, avoiding document-height oscillation.
+        if (valid && !visible) {
+          if (relocateZones && widget.zone) changes.push({ widget, height: widget.zone.height });
+          continue;
+        }
+        let height = 0;
+        if (visible) {
+          const rect = widget.domNode.getBoundingClientRect();
+          const lineHeight = editor.getLineHeightForPosition({
+            lineNumber: widget.line,
+            column: 1,
+          });
+          const sourceOffset = editor.getOffsetForColumn(
+            widget.line,
+            model.getLineMaxColumn(widget.line)
+          );
+          const sourceEnd = layout.contentLeft + sourceOffset - editor.getScrollLeft();
+          const widgetLeft = layout.width - rightOffset - rect.width;
+          const wrapped =
+            editor.getBottomForLineNumber(widget.line) - editor.getTopForLineNumber(widget.line) >
+            lineHeight + 1;
+          if (sourceOffset < 0 || wrapped || sourceEnd + 12 > widgetLeft) {
+            height = Math.ceil(Math.max(lineHeight, rect.height + 6));
+          }
+        }
+        const zoneHeight = widget.zone?.height ?? 0;
+        if (zoneHeight !== height || (relocateZones && zoneHeight > 0)) {
+          changes.push({ widget, height });
+        }
+      }
+      if (changes.length > 0) {
+        editor.changeViewZones(accessor => {
+          for (const { widget, height } of changes) {
+            if (widget.zone) accessor.removeZone(widget.zone.id);
+            widget.zone = undefined;
+            if (height > 0) {
+              const spacer = document.createElement('div');
+              spacer.setAttribute('aria-hidden', 'true');
+              const id = accessor.addZone({
+                afterLineNumber: widget.line,
+                heightInPx: height,
+                domNode: spacer,
+                suppressMouseDown: true,
+              });
+              widget.zone = { id, height };
+            }
+          }
+        });
+      }
+      // Adding a zone moves subsequent lines; read positions after the batch.
+      const scrollTop = editor.getScrollTop();
+      for (const widget of widgetsRef.current.values()) {
+        if (widget.domNode.style.visibility === 'hidden') continue;
+        const top = widget.zone
+          ? editor.getBottomForLineNumber(widget.line)
+          : editor.getTopForLineNumber(widget.line);
+        widget.domNode.style.top = `${top - scrollTop}px`;
+        widget.domNode.style.right = `${rightOffset}px`;
+      }
+    } finally {
+      repositioningRef.current = false;
     }
   }, [editor]);
+
+  // getOffsetForColumn forces a Monaco render. Measuring synchronously from a
+  // model/layout event can render before Monaco has updated its selections.
+  // Coalesce every entry point after that event transaction, and never let an
+  // old editor/widget generation measure or mutate its replacement.
+  const scheduleReposition = useCallback(() => {
+    if (!editor || repositioningRef.current || scheduledFrameRef.current !== null) return;
+    const generation = measurementGenerationRef.current;
+    scheduledFrameRef.current = requestAnimationFrame(() => {
+      if (generation !== measurementGenerationRef.current) return;
+      scheduledFrameRef.current = null;
+      repositionAll();
+    });
+  }, [editor, repositionAll]);
 
   // Wire scroll + layout listeners. Disposed on unmount / tab swap.
   useEffect(() => {
     if (!editor) return;
+    let active = true;
+    const schedule = () => {
+      if (active) scheduleReposition();
+    };
     const disposables: monacoTypes.IDisposable[] = [];
-    disposables.push(editor.onDidScrollChange(() => repositionAll()));
-    disposables.push(editor.onDidLayoutChange(() => repositionAll()));
-    const model = editor.getModel();
-    if (model) {
-      disposables.push(model.onDidChangeContent(() => repositionAll()));
-    }
+    disposables.push(editor.onDidScrollChange(schedule));
+    disposables.push(editor.onDidLayoutChange(schedule));
+    disposables.push(editor.onDidChangeConfiguration(schedule));
+    // Editor-level events follow `setModel` (a same-tab rename or save-as
+    // swaps the model), unlike a listener bound to the model seen at mount.
+    disposables.push(
+      editor.onDidChangeModelContent(event => {
+        if (
+          event.changes.some(
+            change =>
+              change.range.startLineNumber !== change.range.endLineNumber ||
+              change.text.includes('\n')
+          )
+        ) {
+          zonesMovedRef.current = true;
+        }
+        schedule();
+      })
+    );
+    disposables.push(
+      editor.onDidChangeModel(() => {
+        // A model swap rebuilds Monaco's view and drops every view zone.
+        for (const widget of widgetsRef.current.values()) widget.zone = undefined;
+        schedule();
+      })
+    );
     return () => {
+      active = false;
+      cancelMeasurement();
       for (const d of disposables) d.dispose();
     };
-  }, [editor, repositionAll]);
+  }, [editor, scheduleReposition, cancelMeasurement]);
 
   // Apply / re-apply widgets whenever the line results change.
   useEffect(() => {
@@ -154,6 +275,7 @@ function useInlineResultWidgets(
       // Monaco only places the host element on the page.
       domNode.style.position = 'absolute';
       domNode.style.pointerEvents = 'none';
+      domNode.style.visibility = 'hidden';
       const id = `${INLINE_RESULT_WIDGET_PREFIX}.${tabId ?? 'none'}.${line}`;
       const widget: InlineWidget = { id, domNode, line };
       widgetsRef.current.set(line, widget);
@@ -164,9 +286,19 @@ function useInlineResultWidgets(
         getPosition: () => null,
       });
     }
-    repositionAll();
+    let active = true;
+    scheduleReposition();
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (active) scheduleReposition();
+          });
+    for (const widget of widgetsRef.current.values()) observer?.observe(widget.domNode);
     return () => {
+      active = false;
+      observer?.disconnect();
       removeAllWidgets();
     };
-  }, [editor, monaco, lineResults, lineTimings, tabId, removeAllWidgets, repositionAll]);
+  }, [editor, monaco, lineResults, lineTimings, tabId, removeAllWidgets, scheduleReposition]);
 }

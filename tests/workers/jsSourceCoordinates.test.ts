@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { transform } from 'esbuild';
+import { fileURLToPath } from 'node:url';
 import type { WorkerResponse } from '@/types/execution';
 import { transformJSLineTiming, transformJSMagicComments, transformJSAutoLog } from '@/utils/magicComments';
 import { injectJSLoopProtection } from '@/utils/loopProtection';
@@ -35,6 +36,34 @@ describe('worker source coordinates', () => {
     expect(frames.find(frame => frame.provenance === 'user')).toMatchObject({ line: 1, column: 7 });
     expect(frames.some(frame => frame.provenance === 'runtime')).toBe(true);
     expect(frames.filter(frame => frame.provenance === 'runtime').every(frame => !frame.file)).toBe(true);
+  });
+
+  it('recognizes the worker module in unnamed asynchronous frames without hiding external sources', async () => {
+    const { createJsWorkerSourceMapper } = await import('@/workers/js-worker-source');
+    const source = await createJsWorkerSourceMapper();
+    const moduleUrl = new URL('../../src/renderer/workers/js-worker-source.ts', import.meta.url);
+    const errorWith = (frame: string) => {
+      const error = new Error('async marker');
+      error.stack = `Error: async marker\n    ${frame}`;
+      return error;
+    };
+    // V8/Vitest can represent this same module as a file URL or native path.
+    // First prove the actual mapper trusts its own synchronous probe location.
+    const runtimeFile = [moduleUrl.href, fileURLToPath(moduleUrl)].find(file =>
+      source.errorFrames(errorWith(`at handler (${file}:1:1)`))[0]?.provenance === 'runtime');
+    expect(runtimeFile).toBeDefined();
+    const runtimeText = `at async ${runtimeFile}:13:3056`;
+    expect(source.errorFrames(errorWith(runtimeText))).toEqual([
+      { text: runtimeText, fnName: undefined, provenance: 'runtime' },
+    ]);
+    const external = 'https://example.invalid/async/js-worker-source.ts';
+    const externalText = `at async ${external}:8:2`;
+    const error = errorWith(externalText);
+    Object.freeze(error);
+    expect(source.errorFrames(error)).toEqual([
+      { text: externalText, file: external, line: 8, column: 2 },
+    ]);
+    expect(error.stack).toContain(externalText);
   });
 
   it.each([
