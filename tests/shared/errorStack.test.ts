@@ -58,6 +58,38 @@ describe('parseJsErrorStack', () => {
     expect(frameAt(frames, 1).fnName).toBeUndefined();
   });
 
+  it.each([
+    'https://example.test/assets/js-worker.js',
+    'file:///workspace/worker.js',
+    'blob:https://example.test/worker-id',
+    '/workspace/worker.js',
+    'C:\\workspace\\worker.js',
+    '\\\\server\\share\\worker.js',
+  ])('separates the unnamed V8 async marker from location %s', file => {
+    const text = `at async ${file}:13:3056`;
+    expect(parseJsErrorStack(`    ${text}`)).toEqual([
+      { text, file, line: 13, column: 3056 },
+    ]);
+  });
+
+  it.each([
+    'https://example.test/async file.js',
+    '/workspace/async file.js',
+    'C:\\workspace\\async file.js',
+    'async relative file.js',
+    'async:resource',
+  ])('preserves async text belonging to a URL or path: %s', file => {
+    const text = `at ${file}:8:2`;
+    expect(parseJsErrorStack(text)).toEqual([{ text, file, line: 8, column: 2 }]);
+  });
+
+  it('keeps named asynchronous functions and their file paths unchanged', () => {
+    expect(parseJsErrorStack('at async handler (https://example.test/async.js:8:2)')).toEqual([
+      { text: 'at async handler (https://example.test/async.js:8:2)', fnName: 'async handler',
+        file: 'https://example.test/async.js', line: 8, column: 2 },
+    ]);
+  });
+
   it('parses SpiderMonkey frames', () => {
     const stack = 'handler@/Users/me/x.js:10:3\n@/Users/me/x.js:1:0';
     const frames = parseJsErrorStack(stack);

@@ -200,6 +200,11 @@ lingua utility regex-replace --input src.ts \
 lingua utility diff-text --input new.txt --option baseline="$(cat old.txt)"
 ```
 
+The `url-parse` result groups decoded query names under `searchParams`. A
+single value is a string; repeated values are an array in occurrence order.
+Every name is treated as data, including `__proto__`, `constructor` and
+`toString`; empty values remain empty strings.
+
 Flags:
 
 - `--input <file>` — read from `<file>` instead of stdin.
