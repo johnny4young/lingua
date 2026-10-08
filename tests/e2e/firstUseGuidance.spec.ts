@@ -78,6 +78,7 @@ for (const language of ['en', 'es'] as const) {
   }) => {
     await seedSession(page, { language });
     await gotoApp(page);
+    await openConsole(page);
     await waitForInitialAutoRunCompleted(page);
     await openSettings(page);
 
