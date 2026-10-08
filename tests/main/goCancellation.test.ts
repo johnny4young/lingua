@@ -168,3 +168,31 @@ describe('Go cancellation owns every preparation phase', () => {
     expect(mocks.spawn).toHaveBeenCalledTimes(phase + 1);
   });
 });
+
+describe('Go compile error budget', () => {
+  it('bounds a multibyte failure message to the UTF-8 compile budget with its marker', async () => {
+    // 300k pairs of a BMP and an astral character: 2.1 MB of UTF-8 but only
+    // 900k UTF-16 code units, which a code-unit cap would have let through.
+    mocks.write.mockRejectedValueOnce(new Error('漢😀'.repeat(300_000)));
+    const result = await handler('go:compile')(
+      { sender: owner() },
+      'package main\nfunc main() {}',
+      {},
+      { compileOutputTruncated: '[Kompilierausgabe gekürzt]' },
+      'budget'
+    );
+    expect(result).toMatchObject({ success: false, kind: 'error' });
+    const error = (result as { error: string }).error;
+    expect(Buffer.byteLength(error, 'utf8')).toBeLessThanOrEqual(1024 * 1024);
+    expect(error.endsWith('\n[Kompilierausgabe gekürzt]')).toBe(true);
+    expect(error.includes('�')).toBe(false);
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(error)).toBe(false);
+  });
+
+  it('keeps a short failure message unchanged', async () => {
+    mocks.write.mockRejectedValueOnce(new Error('disk full é漢😀'));
+    expect(
+      await handler('go:compile')({ sender: owner() }, 'package main\nfunc main() {}', {}, undefined, 'short')
+    ).toMatchObject({ success: false, kind: 'error', error: 'disk full é漢😀' });
+  });
+});

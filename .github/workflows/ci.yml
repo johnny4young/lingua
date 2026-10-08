@@ -180,12 +180,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build web
         run: pnpm run build:web
-      - name: Performance report
-        run: pnpm run performance:report
       # --fail-on-slack fails a category that measures under 75% of its
       # baseline: a ceiling that far above reality has stopped protecting it.
       # Only targets built in this job are measured, so the desktop renderer
-      # is judged by the scheduled renderer-budget workflow instead.
+      # is checked after the existing Linux desktop build below.
       - name: Performance budget check
         run: pnpm run check:performance --fail-on-slack
 
@@ -207,8 +205,58 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Qualify the native Vite resolver on every release OS without signing
       # or publishing. Packaging/notarization remain separate release gates.
-      - run: pnpm run build:desktop-bundles
-      - run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      - id: bundles
+        run: pnpm run build:desktop-bundles
+      - name: Desktop renderer performance budget
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run check:performance --target=renderer --fail-on-slack
+      # A budget failure must not hide a bundle-config regression on the same
+      # OS: run whenever the bundles built, whatever the budget step reported.
+      - name: Desktop bundle config
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
+        run: pnpm exec vitest run tests/build/desktopBundleConfig.test.ts
+      # macOS provides a native display session without disabling Chromium's
+      # sandbox. This is the built app + real Node IPC, not browser/CLI smoke.
+      - name: Native Unicode capture and Stop smoke
+        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        run: node scripts/smoke-native-output.mjs
+      - name: Upload native output smoke evidence
+        if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-output-smoke
+          path: |
+            output/playwright/native-output/result.json
+            output/playwright/native-output/app.png
+          retention-days: 7
+      # Run hosted browser qualification on macOS with the sandbox enabled.
+      # Keep runner security settings unchanged; this is a synthetic local
+      # website build, not a deployment or a release-asset download.
+      - name: Install website smoke dependencies
+        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        working-directory: website
+        run: npm ci --no-audit --no-fund
+      - name: Install website smoke Chromium
+        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        run: pnpm exec playwright install chromium
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+      - name: Website download browser smoke
+        id: website-download-smoke
+        if: matrix.os == 'macos-latest' && github.event_name == 'pull_request'
+        run: node scripts/run-website-download-smoke.mjs
+      - name: Upload website download evidence
+        if: always() && matrix.os == 'macos-latest' && github.event_name == 'pull_request' && steps.website-download-smoke.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: website-download-matrix
+          path: |
+            output/playwright/website-downloads/en-desktop.png
+            output/playwright/website-downloads/es-desktop.png
+            output/playwright/website-downloads/en-mobile.png
+            output/playwright/website-downloads/es-mobile.png
+          if-no-files-found: error
+          retention-days: 7
 
   subprojects:
     name: Independent projects (Workers + website)
@@ -276,6 +324,8 @@ jobs:
         run: |
           pnpm run check:deadcode
           pnpm run check:deadcode:config
+      - name: Website download smoke types
+        run: pnpm exec tsc --noEmit -p tsconfig.website-downloads.json
 
   web-e2e:
     name: Web end-to-end (Playwright) ${{ matrix.shard }}/3
@@ -337,6 +387,14 @@ jobs:
           SHARD: ${{ matrix.shard }}
       # Traces and screenshots are what make a red run diagnosable; without
       # them a failure here is just a name and a line number.
+      - name: Upload first-use visual evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: first-use-web-shard-${{ matrix.shard }}
+          path: output/playwright/**/first-use-*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -345,6 +403,14 @@ jobs:
           # unique within a run.
           name: playwright-web-e2e-shard-${{ matrix.shard }}
           path: output/playwright/
+          retention-days: 7
+      - name: Upload Capsule Workspace integrity visual evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: capsule-integrity-web-shard-${{ matrix.shard }}
+          path: output/playwright/**/capsule-workspace-integrity-*.png
+          if-no-files-found: ignore
           retention-days: 7
 
   windows-path-hardening:

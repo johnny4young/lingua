@@ -544,6 +544,17 @@ export const es = {
       short: { year: 'numeric', month: 'short', day: 'numeric' } as Intl.DateTimeFormatOptions,
     },
     downloadMatrix: {
+      products: {
+        desktop: {
+          title: 'Aplicación de escritorio',
+          description: 'Elige esta opción para el editor gráfico y la consola. La ejecución nativa también necesita el runtime de tu lenguaje.',
+        },
+        cli: {
+          title: 'Herramienta de terminal (CLI)',
+          description: 'Para comandos de terminal, sin editor gráfico. Ejecutar código requiere el runtime del lenguaje, incluido Node.js 24.x para JavaScript y TypeScript.',
+        },
+        other: { title: 'Otras descargas', description: 'Revisa el nombre del archivo y las notas de la versión antes de elegir.' },
+      },
       verifySummary: 'Verificar descarga',
       downloadAlongside: 'Descarga',
       thenRun: 'junto al binario y ejecuta:',

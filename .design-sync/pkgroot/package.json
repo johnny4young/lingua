@@ -1,6 +1,6 @@
 {
   "name": "lingua",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "private": true,
   "types": "types/index.d.ts"
 }

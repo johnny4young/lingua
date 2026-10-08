@@ -5,7 +5,7 @@ import {
 import type { CurlImporterResult } from '../../shared/importers/curlImporter';
 import type { IpynbImporterResult } from '../../shared/importers/ipynbImporter';
 import type { LinguanbImporterResult } from '../../shared/importers/linguanbImporter';
-import type { CollectionImporterResult } from '../../shared/importers/postmanImporter';
+import type { CollectionImporterResult } from '../../shared/importers/collectionTypes';
 import { getImporter } from '../../shared/importers/registry';
 import { bucketCapsuleSize } from '../../shared/runCapsule';
 import { openHttpWorkspaceTab } from '../runtime/openWorkspaceTab';
