@@ -7,7 +7,7 @@
  * is trapped inside the dialog.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 
 const settingsState = {
@@ -19,9 +19,9 @@ const settingsState = {
 
 vi.mock('../../src/renderer/stores/settingsStore', () => {
   const useSettingsStore = ((selector?: (state: unknown) => unknown) =>
-    selector ? selector(settingsState) : settingsState) as ((
-    selector?: unknown
-  ) => unknown) & { getState: () => typeof settingsState };
+    selector ? selector(settingsState) : settingsState) as ((selector?: unknown) => unknown) & {
+    getState: () => typeof settingsState;
+  };
   useSettingsStore.getState = () => settingsState;
   return { useSettingsStore };
 });
@@ -47,13 +47,14 @@ const editorState = {
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
   const useEditorStore = ((selector?: (state: unknown) => unknown) =>
-    selector ? selector(editorState) : editorState) as ((
-    selector?: unknown
-  ) => unknown) & { getState: () => typeof editorState };
+    selector ? selector(editorState) : editorState) as ((selector?: unknown) => unknown) & {
+    getState: () => typeof editorState;
+  };
   useEditorStore.getState = () => editorState;
   return { useEditorStore, createDefaultTab: vi.fn(() => ({ id: 'default' })) };
 });
 
+import * as tourSelectors from '../../src/renderer/components/GuidedTour/guidedTourSelectors';
 import { GuidedTourProvider } from '../../src/renderer/components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from '../../src/renderer/components/GuidedTour/guidedTourContext';
 import { useAnnouncerStore } from '../../src/renderer/stores/announcerStore';
@@ -68,9 +69,7 @@ const FOCUSABLE = [
 ].join(',');
 
 function focusablesIn(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) => el.tabIndex !== -1
-  );
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el => el.tabIndex !== -1);
 }
 
 function Harness() {
@@ -121,6 +120,7 @@ describe('GuidedTour focus management (accessibility pass)', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     if (originalScrollIntoView) {
       Element.prototype.scrollIntoView = originalScrollIntoView;
     } else {
@@ -205,14 +205,10 @@ describe('GuidedTour focus management (accessibility pass)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: i18next.t('tour.buttons.next') }));
     await waitFor(() =>
-      expect(useAnnouncerStore.getState().message).toContain(
-        i18next.t('tour.step.run.title')
-      )
+      expect(useAnnouncerStore.getState().message).toContain(i18next.t('tour.step.run.title'))
     );
     // The body is announced, not the control labels.
-    expect(useAnnouncerStore.getState().message).not.toBe(
-      i18next.t('tour.buttons.next')
-    );
+    expect(useAnnouncerStore.getState().message).not.toBe(i18next.t('tour.buttons.next'));
   });
 
   it('runs the highlighted sample from the tour action and advances to results', async () => {
@@ -221,9 +217,7 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     await screen.findByRole('dialog');
     fireEvent.click(screen.getByRole('button', { name: i18next.t('tour.buttons.next') }));
 
-    const runTarget = document.querySelector<HTMLButtonElement>(
-      '[data-tour-id="run-button"]'
-    );
+    const runTarget = document.querySelector<HTMLButtonElement>('[data-tour-id="run-button"]');
     const runSpy = vi.fn();
     runTarget?.addEventListener('click', runSpy);
 
@@ -245,5 +239,45 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     rerender(<TourTree hasActiveOverlay />);
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+  it('does not start after an overlay interrupts the editor readiness wait', async () => {
+    let ready!: () => void;
+    const wait = vi.spyOn(tourSelectors, 'waitForGuidedTourSelector').mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          ready = resolve;
+        })
+    );
+    const { rerender } = renderTour();
+    fireEvent.click(screen.getByTestId('trigger'));
+    await waitFor(() => expect(wait).toHaveBeenCalled());
+
+    // The newer overlay opens and closes before the wait settles, so only the
+    // start generation (not the current overlay flag) can reject the old start.
+    rerender(<TourTree hasActiveOverlay />);
+    rerender(<TourTree />);
+    await act(async () => ready());
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByTestId('trigger'));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+  it('does not restore the old trigger over a newer overlay focus target', async () => {
+    const { rerender } = renderTour();
+    const trigger = screen.getByTestId('trigger');
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    const newerTarget = document.createElement('button');
+    document.body.append(newerTarget);
+    try {
+      newerTarget.focus();
+      rerender(<TourTree hasActiveOverlay />);
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(document.activeElement).toBe(newerTarget);
+    } finally {
+      newerTarget.remove();
+    }
   });
 });

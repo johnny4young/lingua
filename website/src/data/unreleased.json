@@ -1,9 +1,27 @@
 {
-  "generatedAt": "2026-10-08T02:26:17.971Z",
+  "generatedAt": "2026-10-08T04:02:12.289Z",
   "baseRef": "v1.5.1",
   "commitCount": 12,
-  "totalSinceBase": 145,
+  "totalSinceBase": 148,
   "commits": [
+    {
+      "hash": "38109f8",
+      "date": "2026-10-07",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "tour",
+      "message": "cancel interrupted asynchronous starts",
+      "breaking": false
+    },
+    {
+      "hash": "c87a323",
+      "date": "2026-10-08",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "capsules",
+      "message": "flag every mismatched attached file and fail closed",
+      "breaking": false
+    },
     {
       "hash": "c937ee8",
       "date": "2026-10-08",
@@ -92,24 +110,6 @@
       "typeLabel": "Fix",
       "scope": "deps",
       "message": "patch source-map-js in the root and Worker lockfiles",
-      "breaking": false
-    },
-    {
-      "hash": "ce92e17",
-      "date": "2026-10-06",
-      "type": "feat",
-      "typeLabel": "New",
-      "scope": "capsules",
-      "message": "verify attached workspace text integrity",
-      "breaking": false
-    },
-    {
-      "hash": "4415ea1",
-      "date": "2026-10-06",
-      "type": "fix",
-      "typeLabel": "Fix",
-      "scope": "web",
-      "message": "clarify first use and preserve readable execution feedback",
       "breaking": false
     }
   ]

@@ -73,6 +73,60 @@ for (const language of ['en', 'es'] as const) {
     await expect(page.locator('.guided-tour-spotlight')).toHaveCount(0);
   });
 
+  test(`a newer overlay cancels a slow first tour load and explicit retry works (${language})`, async ({
+    page,
+  }) => {
+    await seedSession(page, { language });
+    await gotoApp(page);
+    await openConsole(page);
+    await waitForInitialAutoRunCompleted(page);
+    await openSettings(page);
+
+    let releaseChunk!: () => void;
+    const released = new Promise<void>(resolve => {
+      releaseChunk = resolve;
+    });
+    let sawRequest!: () => void;
+    const requested = new Promise<void>(resolve => {
+      sawRequest = resolve;
+    });
+    const runtimeUrl = /\/GuidedTourRuntime-[^/]+\.js(?:\?|$)/;
+    await page.route(runtimeUrl, async route => {
+      sawRequest();
+      await released;
+      await route.continue();
+    });
+    const response = page.waitForResponse(runtimeUrl);
+    await page.getByTestId('about-start-tour').click();
+    try {
+      await requested;
+      // The source Settings closes before the deferred chunk is available.
+      await expect(page.getByTestId('about-start-tour')).toHaveCount(0);
+      await openSettings(page);
+    } finally {
+      releaseChunk();
+    }
+    await (await response).finished();
+    // Negative observation: allow the late module and React effects to settle.
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('about-start-tour')).toBeVisible();
+    await expect(page.locator('.guided-tour-step')).toHaveCount(0);
+
+    await page.getByTestId('about-start-tour').click();
+    await expect(page.locator('.guided-tour-step')).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+Comma');
+    await expect(page.getByTestId('about-start-tour')).toBeVisible();
+    await expect(page.locator('.guided-tour-step')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.getByRole('dialog').evaluate(dialog => dialog.contains(document.activeElement))
+      )
+      .toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.unroute(runtimeUrl);
+  });
+
   test(`long source errors reserve a separate result row and recover (${language})`, async ({
     page,
   }) => {
