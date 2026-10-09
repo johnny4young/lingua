@@ -170,11 +170,15 @@ function withLiveTabState(saved: FileTab, live: FileTab, original: FileTab): Fil
           executionState: live.executionState,
           parseError: live.parseError,
         };
-  // A consumed override must not return; retitling Save As still clears it.
+  // Save cannot leave saveTab's recipe store unbound while the tab keeps the id.
+  if (original.recipeBindingId !== undefined && saved.recipeBindingId === undefined)
+    delete committed.recipeBindingId;
+  // A consumed override must not return, and one persistTab cleared (a
+  // retitling or language-changing picker save) must not be restored.
   if (
     live.nextRunTimeoutOverrideMs === undefined ||
-    saved.name !== original.name ||
-    saved.language !== original.language
+    (original.nextRunTimeoutOverrideMs !== undefined &&
+      saved.nextRunTimeoutOverrideMs === undefined)
   )
     delete committed.nextRunTimeoutOverrideMs;
   return committed;
