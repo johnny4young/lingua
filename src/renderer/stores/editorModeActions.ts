@@ -20,14 +20,9 @@ import {
 } from './editorTabUtils';
 
 /**
- * runtime/workflow mode + capability-toggle setter factory
- * for the editor store. Bundles `setTabRuntimeMode`, `setTabWorkflowMode`,
- * `setTabAutoLogEnabled`, `setTabStdinBuffer`, and the mutually-exclusive
- * `setTabCompareEnabled` / `setTabVariableInspectorEnabled`. Extracted verbatim
- * from `editorStore.ts`; `createModeActions(set, get)` gets the same zustand
- * `set`/`get` the inline `create()` callback received, so the panel-reveal +
- * status-notice + telemetry side-effects and the Compare/Variables mutual
- * exclusion are unchanged.
+ * Runtime/workflow choices and capability toggles. Owns panel-reveal,
+ * status-notice and telemetry effects, plus Compare/Variables mutual exclusion.
+ * Stdin, argv and named input sets belong to editorInputActions.
  */
 export function createModeActions(
   set: EditorSet,

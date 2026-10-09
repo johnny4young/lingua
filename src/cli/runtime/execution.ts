@@ -18,10 +18,7 @@ import {
   CLI_OUTPUT_PAYLOAD_BYTES,
   CLI_OUTPUT_TRUNCATION_MARKER,
 } from '../../shared/capsuleVerification';
-import {
-  buildMissingRuntimeRecovery,
-  type CliRuntimeRecovery,
-} from './runtimeRecovery';
+import { buildMissingRuntimeRecovery, type CliRuntimeRecovery } from './runtimeRecovery';
 
 export const DEFAULT_CLI_RUN_TIMEOUT_MS = 30_000;
 export const MIN_CLI_RUN_TIMEOUT_MS = 100;
@@ -58,12 +55,7 @@ export interface CliExecutionResult {
   stdout: string;
   stderr: string;
   reason?:
-    | 'missing-runtime'
-    | 'prepare-failed'
-    | 'non-zero-exit'
-    | 'timeout'
-    | 'stopped'
-    | 'spawn-failed';
+    'missing-runtime' | 'prepare-failed' | 'non-zero-exit' | 'timeout' | 'stopped' | 'spawn-failed';
   detail?: string;
   recovery?: CliRuntimeRecovery;
   /** Present only when captured bytes were clipped; never infer this from text. */
@@ -122,7 +114,8 @@ export async function executeCliPlan(
         return finish(plan, startedAt, result, stdout, stderr, 'error', {
           reason: missing ? 'missing-runtime' : 'spawn-failed',
           detail:
-            missingRuntime?.detail ?? `Failed to start ${step.command}: ${result.spawnError.message}`,
+            missingRuntime?.detail ??
+            `Failed to start ${step.command}: ${result.spawnError.message}`,
           ...(missingRuntime ? { recovery: missingRuntime.recovery } : {}),
         });
       }
@@ -159,7 +152,9 @@ export async function executeCliPlan(
       signal: null,
       stdout: stdout.value,
       stderr: stderr.value,
-      ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
+      ...(stdout.truncated || stderr.truncated
+        ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } }
+        : {}),
       ...(last ? {} : { detail: 'Execution plan contained no steps.' }),
     };
   } finally {
@@ -189,7 +184,9 @@ function finish(
     signal: result.signal,
     stdout: stdout.value,
     stderr: stderr.value,
-    ...(stdout.truncated || stderr.truncated ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } } : {}),
+    ...(stdout.truncated || stderr.truncated
+      ? { truncated: { stdout: stdout.truncated, stderr: stderr.truncated } }
+      : {}),
     ...diagnostic,
   };
 }
@@ -212,6 +209,10 @@ function runStep(
     let timedOut = false;
     let stopped = false;
     let escalationTimer: NodeJS.Timeout | null = null;
+    let exitGraceTimer: NodeJS.Timeout | null = null;
+    let exited = false;
+    let childExitCode: number | null = null;
+    let childExitSignal: NodeJS.Signals | null = null;
 
     const finishStep = (
       exitCode: number | null,
@@ -220,8 +221,12 @@ function runStep(
     ) => {
       if (settled) return;
       settled = true;
+      // Direct-child close is not evidence that its process group is gone.
+      // Complete cancellation before clearing the force-kill deadline.
+      if (timedOut || stopped) killProcessTree(child, 'SIGKILL');
       clearTimeout(timeoutTimer);
       if (escalationTimer) clearTimeout(escalationTimer);
+      if (exitGraceTimer) clearTimeout(exitGraceTimer);
       for (const name of FORWARDED_SIGNALS) process.off(name, onSignal);
       resolve({
         exitCode,
@@ -241,7 +246,19 @@ function runStep(
       escalationTimer ??= setTimeout(() => {
         killProcessTree(child, 'SIGKILL');
       }, KILL_ESCALATION_MS);
+      if (exited) scheduleFinishAfterExit();
     };
+
+    // An escaped descendant can retain the pipe after the owned child exits.
+    // Bound collection without claiming that process groups are a sandbox.
+    function scheduleFinishAfterExit(): void {
+      if (settled || exitGraceTimer) return;
+      exitGraceTimer = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finishStep(childExitCode, childExitSignal);
+      }, KILL_ESCALATION_MS);
+    }
 
     // A repeat signal must not fall through to Node's default exit: the
     // detached child would outlive the CLI, so escalate immediately instead.
@@ -290,6 +307,12 @@ function runStep(
     child.stdout.on('data', options.onStdout);
     child.stderr.on('data', options.onStderr);
     child.once('error', error => finishStep(null, null, asErrno(error)));
+    child.once('exit', (code, signal) => {
+      exited = true;
+      childExitCode = code;
+      childExitSignal = signal;
+      if (timedOut || stopped) scheduleFinishAfterExit();
+    });
     child.once('close', (code, signal) => finishStep(code, signal));
   });
 }
@@ -334,9 +357,19 @@ function asErrno(error: unknown): NodeJS.ErrnoException {
 function killProcessTree(child: ChildProcess, signal: 'SIGTERM' | 'SIGKILL'): void {
   const pid = child.pid;
   if (process.platform === 'win32') {
-    if (signal === 'SIGKILL' && typeof pid === 'number' && pid > 0) {
+    // Killing just the parent first loses the ancestry taskkill needs. Never
+    // target an already-exited Windows PID, which may have been recycled.
+    if (typeof child.exitCode === 'number' || typeof child.signalCode === 'string') return;
+    if (typeof pid === 'number' && pid > 0) {
       try {
-        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], () => {});
+        execFile('taskkill', ['/pid', String(pid), '/T', '/F'], error => {
+          if (!error) return;
+          try {
+            child.kill(signal);
+          } catch {
+            /* Already gone. */
+          }
+        });
         return;
       } catch {
         // Fall through to the direct signal.

@@ -71,6 +71,7 @@ Run these before treating a broad UI/runtime change as healthy:
 ```bash
 pnpm test -- --run
 pnpm exec tsc --noEmit
+pnpm run typecheck:tests
 pnpm run lint
 pnpm run check:i18n
 pnpm run check:i18n:copy
