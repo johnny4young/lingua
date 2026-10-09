@@ -69,3 +69,41 @@ it.each(['edit', 'clear', 'named-set', 'workflow', 'timeout'] as const)(
     expect(saved.isDirty).toBe(false);
   }
 );
+
+it('keeps an armed timeout override when a plain save writes a retitled tab', async () => {
+  const write = vi.spyOn(window.lingua.fs, 'write').mockResolvedValue(true);
+  // The tab was retitled in place; a plain save still writes demo.js without a picker.
+  const tab = {
+    ...createDefaultTab('javascript'),
+    name: 'renamed.js',
+    filePath: '/tmp/demo.js',
+    rootId: 'root-demo',
+    relativePath: 'demo.js',
+    nextRunTimeoutOverrideMs: 60_000,
+  };
+  useEditorStore.getState().addTab(tab);
+  expect(await useEditorStore.getState().saveTabById(tab.id)).toBe(true);
+  expect(write).toHaveBeenCalledOnce();
+  const saved = useEditorStore.getState().tabs.find(t => t.id === tab.id)!;
+  expect(saved.name).toBe('demo.js');
+  expect(saved.nextRunTimeoutOverrideMs).toBe(60_000);
+});
+
+it('drops a recipe binding from the tab when the save drops it', async () => {
+  vi.spyOn(window.lingua.fs, 'write').mockResolvedValue(true);
+  // A restored binding on a language where recipes cannot run.
+  const tab = {
+    ...createDefaultTab('go'),
+    name: 'main.go',
+    filePath: '/tmp/main.go',
+    rootId: 'root-demo',
+    relativePath: 'main.go',
+    recipeBindingId: 'recipe-1',
+  };
+  // Seed directly: the Free tier would refuse to open a Go tab through addTab.
+  useEditorStore.setState({ tabs: [tab], activeTabId: tab.id });
+  const ok = await useEditorStore.getState().saveTabById(tab.id);
+  expect(ok).toBe(true);
+  const saved = useEditorStore.getState().tabs.find(t => t.id === tab.id)!;
+  expect(saved.recipeBindingId).toBeUndefined();
+});

@@ -394,9 +394,10 @@ Execution flags:
   `timeout`. Timeout, Ctrl+C, SIGTERM and SIGHUP request subprocess-tree
   termination; a second signal forces termination immediately. On POSIX,
   remaining group members are force-stopped even if the direct child closes
-  first. Windows requests tree termination before killing the parent. If an
-  escaped descendant retains an output pipe after the direct child exits,
-  collection ends after a 1.5-second grace period. Process groups are not
+  first. Windows requests tree termination before killing the parent. Once a
+  timeout or stop has been requested, an escaped descendant that retains an
+  output pipe after the direct child exits ends collection after a 1.5-second
+  grace period; before that, the run waits for the timeout. Process groups are not
   containment: a process that deliberately leaves the group may survive.
 - `--env NAME=value` — repeatable explicit environment value. Arbitrary parent
   environment variables are not inherited; only audited toolchain/location
