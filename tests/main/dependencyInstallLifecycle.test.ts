@@ -37,6 +37,29 @@ afterEach(async () => {
 });
 
 describe('native dependency install lifecycle', () => {
+  it('force-stops remaining descendants before releasing a timed-out install', async () => {
+    const { installNativeDependencies } = await import('../../src/main/nativeDependencyInstall');
+    vi.useFakeTimers();
+    try {
+      const child = createChild();
+      const pending = installNativeDependencies({
+        language: 'go',
+        specifiers: ['github.com/gin-gonic/gin'],
+        cwd: workdir,
+        skipManifestCheck: true,
+        spawnImpl: vi.fn(() => child) as never,
+        platform: 'linux',
+      });
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+      child.emit('close', null);
+      await expect(pending).resolves.toMatchObject({ status: 'timeout' });
+      expect(child.kill).toHaveBeenCalledWith('SIGKILL');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('is killed by quit disposal while running and released after close', async () => {
     const { installNativeDependencies } = await import('../../src/main/nativeDependencyInstall');
     const { disposeNativeRuns } = await import('../../src/main/runners/nativeRunLifecycle');
@@ -70,8 +93,16 @@ describe('native dependency install lifecycle', () => {
     const userEnv = { PATH: workdir, PATHEXT: '.COM;.EXE;.BAT;.CMD', COMSPEC: comspec };
 
     for (const [language, specifier, expected] of [
-      ['go', 'github.com/gin-gonic/gin', [path.join(workdir, 'go.exe'), ['get', '--', 'github.com/gin-gonic/gin']]],
-      ['ruby', 'rails', [comspec, ['/d', '/c', path.join(workdir, 'bundle.bat'), 'add', '--', 'rails']]],
+      [
+        'go',
+        'github.com/gin-gonic/gin',
+        [path.join(workdir, 'go.exe'), ['get', '--', 'github.com/gin-gonic/gin']],
+      ],
+      [
+        'ruby',
+        'rails',
+        [comspec, ['/d', '/c', path.join(workdir, 'bundle.bat'), 'add', '--', 'rails']],
+      ],
     ] as const) {
       const child = createChild();
       const spawnImpl = vi.fn(() => child);
@@ -111,9 +142,8 @@ describe('native dependency install lifecycle', () => {
 describe('npm dependency install lifecycle', () => {
   it('is killed by quit disposal and decodes split UTF-8 log chunks', async () => {
     await writeFile(path.join(workdir, 'package.json'), '{}');
-    const { installJsDependencyBatch, __resetActiveInstallsForTests } = await import(
-      '../../src/main/dependencies'
-    );
+    const { installJsDependencyBatch, __resetActiveInstallsForTests } =
+      await import('../../src/main/dependencies');
     const { disposeNativeRuns } = await import('../../src/main/runners/nativeRunLifecycle');
     const child = createChild();
     const spawnImpl = vi.fn(() => child);

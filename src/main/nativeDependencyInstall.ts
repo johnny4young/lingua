@@ -30,9 +30,7 @@ import {
   type NativeInstallStatus,
   type NativePackageLanguage,
 } from '../shared/dependencies/nativeDependencies';
-export type {
-  NativeInstallResult,
-} from '../shared/dependencies/nativeDependencies';
+export type { NativeInstallResult } from '../shared/dependencies/nativeDependencies';
 import { MAX_NATIVE_STDERR_BYTES } from '../shared/runnerLimits';
 import {
   GO_TOOLCHAIN_KEYS,
@@ -100,10 +98,7 @@ export async function installNativeDependencies(
   }
 
   const manifest = MANIFEST_BY_LANGUAGE[options.language];
-  if (
-    !options.skipManifestCheck &&
-    !existsSync(path.join(options.cwd, manifest))
-  ) {
+  if (!options.skipManifestCheck && !existsSync(path.join(options.cwd, manifest))) {
     return result('missing-manifest', {
       error: `No ${manifest} found in the project directory. Save the file inside a ${options.language} project first.`,
     });
@@ -123,7 +118,7 @@ export async function installNativeDependencies(
     return result('missing-binary', { error: `${command.binary} was not found on PATH.` });
   }
 
-  return await new Promise<NativeInstallResult>((resolve) => {
+  return await new Promise<NativeInstallResult>(resolve => {
     let stdout = '';
     let stderr = '';
     let stdoutBytes = 0;
@@ -132,7 +127,10 @@ export async function installNativeDependencies(
     let stderrTruncated = false;
     let resolved = false;
     let timedOut = false;
+    let exited = false;
+    let childExitCode: number | null = null;
     let escalationTimer: NodeJS.Timeout | null = null;
+    let exitGraceTimer: NodeJS.Timeout | null = null;
 
     let child: ReturnType<typeof spawn>;
     try {
@@ -160,16 +158,39 @@ export async function installNativeDependencies(
         () => killProcessTree(child, 'SIGKILL'),
         KILL_ESCALATION_DELAY_MS
       );
+      if (exited) scheduleFinishAfterExit();
     }, INSTALL_TIMEOUT_MS);
 
     const finish = (value: NativeInstallResult) => {
       if (resolved) return;
       resolved = true;
+      // The installer parent can close while TERM-ignoring descendants remain.
+      // Finish cancellation before releasing the tracked tree or its deadline.
+      if (timedOut) killProcessTree(child, 'SIGKILL');
       releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
+      if (exitGraceTimer !== null) clearTimeout(exitGraceTimer);
       resolve(value);
     };
+
+    // A descendant outside the process group may retain the pipes. Once the
+    // direct child has exited, bound collection without waiting for that child.
+    function scheduleFinishAfterExit(): void {
+      if (resolved || exitGraceTimer !== null) return;
+      exitGraceTimer = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        finish(
+          result('timeout', {
+            stdout,
+            stderr,
+            exitCode: childExitCode ?? -1,
+            error: 'Install timed out.',
+          })
+        );
+      }, KILL_ESCALATION_DELAY_MS);
+    }
 
     const decodeStdout = createUtf8ChunkDecoder();
     const decodeStderr = createUtf8ChunkDecoder();
@@ -208,6 +229,12 @@ export async function installNativeDependencies(
       );
     });
 
+    child.on('exit', (code: number | null) => {
+      exited = true;
+      childExitCode = code;
+      if (timedOut) scheduleFinishAfterExit();
+    });
+
     child.on('close', (code: number | null) => {
       const exitCode = code ?? -1;
       if (timedOut) {
@@ -219,9 +246,7 @@ export async function installNativeDependencies(
           stdout,
           stderr,
           exitCode,
-          ...(exitCode === 0
-            ? {}
-            : { error: stderr || `Install exited with code ${exitCode}` }),
+          ...(exitCode === 0 ? {} : { error: stderr || `Install exited with code ${exitCode}` }),
         })
       );
     });
