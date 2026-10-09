@@ -90,7 +90,7 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
             isDirty: notebookDocumentSnapshot(id) !== savedTab.content,
           };
         }
-        const committed = withLiveRunState(savedTab, t);
+        const committed = withLiveTabState(savedTab, t, tab);
         if (t.content !== tab.content) {
           return { ...committed, content: t.content, isDirty: true };
         }
@@ -151,13 +151,31 @@ function notifySaveFailed(name: string, error: unknown): void {
   });
 }
 
-/** A run can settle, or consume its one-shot timeout, while the save is in flight. */
-function withLiveRunState(saved: FileTab, live: FileTab): FileTab {
-  const committed: FileTab = {
-    ...saved,
-    executionState: live.executionState,
-    parseError: live.parseError,
-  };
-  if (live.nextRunTimeoutOverrideMs === undefined) delete committed.nextRunTimeoutOverrideMs;
+/** Disk metadata belongs to Save; same-language session state remains live. */
+function withLiveTabState(saved: FileTab, live: FileTab, original: FileTab): FileTab {
+  const committed: FileTab =
+    saved.language === live.language
+      ? {
+          ...live,
+          name: saved.name,
+          filePath: saved.filePath,
+          rootId: saved.rootId,
+          relativePath: saved.relativePath,
+          content: saved.content,
+          isDirty: saved.isDirty,
+        }
+      : {
+          // Language-changing Save As retains its capability pruning.
+          ...saved,
+          executionState: live.executionState,
+          parseError: live.parseError,
+        };
+  // A consumed override must not return; retitling Save As still clears it.
+  if (
+    live.nextRunTimeoutOverrideMs === undefined ||
+    saved.name !== original.name ||
+    saved.language !== original.language
+  )
+    delete committed.nextRunTimeoutOverrideMs;
   return committed;
 }

@@ -30,6 +30,13 @@ an update request that has already started. A failed later check keeps an
 already downloaded update in the `downloaded` state so Restart to update stays
 available.
 
+Native dependency installation keeps its five-minute timeout. If the direct
+installer exits after timeout (or exited earlier while a descendant held its
+pipes), capture settles after a 200 ms grace period. Cancellation force-stops
+remaining process-group members before releasing ownership. A descendant that
+leaves that group may survive; closing inherited output pipes bounds collection,
+not filesystem or network authority.
+
 ## Telemetry responsibility boundaries
 
 `src/shared/telemetry.ts` is a compatibility facade. Product code imports that
@@ -1715,6 +1722,12 @@ Desktop LSP startup may carry an optional RootId. Main resolves it through proje
 CLI regression suites are independent v1 artifacts with complete Capsule baselines. Current-file target resolution uses canonical in-root regular files; code execution itself is not sandboxed. Import/export/preview stay inert.
 
 ## Manual notebook document persistence
+
+Regular code-file saves commit disk binding and formatted source without
+replacing newer same-language session state. Stdin, argv, named input sets,
+workflow/runtime choices and result-view toggles remain owned by the live tab.
+Source edits arriving during the write remain dirty. Language-changing Save As
+keeps its capability pruning; retitling still clears a one-shot timeout.
 
 `.linguanb` v1 is the lossless document envelope, not a new schema. Selected-file
 and project-tree opens parse that envelope without executing cells. Save and

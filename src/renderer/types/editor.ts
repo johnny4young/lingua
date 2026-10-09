@@ -75,9 +75,8 @@ export interface FileTab {
   /**
    * Explicit per-tab runtime mode for JS/TS tabs.
    * `'worker'` for all freshly created JS/TS tabs; `undefined` for
-   * every other language. An earlier change surfaced `'browser-preview'` for
-   * the iframe-isolated preview pane; a later change will surface `'node'`
-   * once the desktop child-process backend lands.
+   * every other language. Browser preview runs in the isolated iframe;
+   * Node, Deno and Bun use desktop child processes when the host runtime exists.
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
   runtimeMode?: RuntimeMode;
@@ -93,7 +92,7 @@ export interface FileTab {
    *     supported after a language change.
    *   - `debug` — auto-run is OFF; the user intends to step
    *     through breakpoints. Only valid for languages with a
-   *     debugger adapter (JS / TS everywhere, Python on desktop).
+   *     debugger adapter (JS / TS everywhere; Python / Go / Rust on desktop).
    *
    * Optional so legacy persisted tabs load cleanly — the
    * resolved selector falls through to
@@ -112,7 +111,7 @@ export interface FileTab {
    *   - `undefined` — fall through to
    *     `scratchpadAutoLogByLanguage[language]`.
    *
-   * Cleared in `renameTab` when the new language is not JS / TS so
+   * Cleared in `renameTab` when the new language is not JS / TS / Python so
    * a stale override does not persist across language changes.
    */
   autoLogEnabled?: boolean;
@@ -180,14 +179,14 @@ export interface FileTab {
    * When `'notebook'`, this tab renders
    * `<NotebookView>` instead of Monaco. The companion document
    * (cells + outputs + run status) lives in `useNotebookStore` keyed
-   * by `tab.id`. The `content` field is unused for notebook tabs (the
-   * cell sources are the source of truth); `language` is informational
+   * by `tab.id`. The `content` field holds the last saved canonical document
+   * baseline; live cells remain in notebookStore. `language` is informational
    * only — per-cell language is the runner dispatch key.
    *
    * Widened to `'sql'` / `'http'`, then
    * `'utilities'`. These ascend workspace surfaces from modal/dock
    * slots to full-screen workspace tabs that sit alongside Notebook.
-   * As with `'notebook'`, the `content` field is unused: SQL/HTTP own
+   * For these workspace kinds the `content` field is unused: SQL/HTTP own
    * their collections in dedicated workspace stores, and Utilities
    * keeps active tool selection in `utilityWorkspaceStore` and
    * favorites/history in activation-scoped `utilityHistoryStore`.
