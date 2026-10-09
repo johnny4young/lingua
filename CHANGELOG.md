@@ -7,6 +7,7 @@ The format follows Keep a Changelog and groups changes by release.
 ## [Unreleased]
 
 ### Fixed
+- Saving a file no longer reverts stdin, named inputs, workflow or one-shot timeout changes made while the save was still writing. Timed-out or stopped CLI runs and native dependency installs now force-stop their remaining process group and no longer hang on output held open by an escaped background process.
 - A guided tour interrupted while loading or waiting for the editor no longer opens over a newer dialog or closes it when the delayed load finishes. Explicit retry still works.
 - Utility pipeline import rejects malformed steps instead of silently saving a shorter recipe. Failed imports preserve the existing library and pasted JSON for correction.
 - URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
