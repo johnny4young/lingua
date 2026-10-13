@@ -28,8 +28,12 @@ const FIXTURE_ASSETS = ['index.js', 'react.js', 'index.css', 'js-worker.js', 'ma
  * Returns the path of the copied script.
  */
 async function stageCliFixture(root: string, buildDir: string) {
-  await mkdir(path.join(root, 'scripts'));
+  await mkdir(path.join(root, 'scripts/lib'), { recursive: true });
   await copyFile(path.resolve(__dirname, '../../scripts/performance-report.mjs'), path.join(root, 'scripts/performance-report.mjs'));
+  await copyFile(
+    path.resolve(__dirname, '../../scripts/lib/isDirectInvocation.mjs'),
+    path.join(root, 'scripts/lib/isDirectInvocation.mjs')
+  );
   await mkdir(path.join(root, buildDir, 'assets'), { recursive: true });
   await copyFile(path.join(root, 'index.html'), path.join(root, buildDir, 'index.html'));
   for (const asset of FIXTURE_ASSETS) {

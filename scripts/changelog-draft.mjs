@@ -5,6 +5,7 @@ import process from 'node:process';
 import { parseArgs } from 'node:util';
 
 import { stripArgSeparator } from './lib/cli-args.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 export const CHANGELOG_SECTIONS = [
   'Added',
@@ -228,6 +229,6 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd() } = {})
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectInvocation(import.meta.url)) {
   process.exitCode = main();
 }

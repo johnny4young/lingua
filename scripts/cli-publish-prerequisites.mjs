@@ -11,10 +11,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { CLI_PACKAGE_NAME } from './cli-package-contract.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 export const CLI_PUBLISH_REPOSITORY = 'johnny4young/lingua';
 export const CLI_PUBLISH_ENVIRONMENT = 'npm-production';
@@ -538,7 +536,7 @@ export async function main(argv = process.argv.slice(2)) {
   return 0;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch(error => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

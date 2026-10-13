@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { stripArgSeparator } from './lib/cli-args.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 import { validateLinuxPackage } from './lib/linuxPackageValidation.mjs';
 
 export async function main(argv = process.argv.slice(2)) {
@@ -25,7 +25,7 @@ export async function main(argv = process.argv.slice(2)) {
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectInvocation(import.meta.url)) {
   main().then(
     code => {
       process.exitCode = code;

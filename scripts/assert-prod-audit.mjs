@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { stripArgSeparator } from './lib/cli-args.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 import {
   DEFAULT_AUDIT_LEVEL,
   evaluateProdAudit,
@@ -147,7 +148,7 @@ export async function main(argv = process.argv.slice(2)) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectInvocation(import.meta.url)) {
   main().then(
     (code) => {
       process.exitCode = code;

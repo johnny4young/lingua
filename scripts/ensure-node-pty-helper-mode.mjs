@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
+
 const EXECUTE_BITS = 0o111;
 
 async function exists(filePath) {
@@ -73,6 +75,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isDirectInvocation(import.meta.url)) {
   await main();
 }

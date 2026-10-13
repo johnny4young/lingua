@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseSourceText, walk } from './lib/estree.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const TELEMETRY_HOOK_PATH = 'src/renderer/hooks/useTelemetry.ts';
 
@@ -215,11 +215,7 @@ export function auditDirectTelemetryCalls(
   return { calls, issues };
 }
 
-const isMain =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isMain) {
+if (isDirectInvocation(import.meta.url)) {
   const { calls, issues } = auditDirectTelemetryCalls(process.cwd());
   if (issues.length > 0) {
     console.error('Telemetry call-site audit failed:');

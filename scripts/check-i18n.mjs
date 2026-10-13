@@ -1,7 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const DEFAULT_LOCALES_ROOT = path.resolve('src/renderer/i18n/locales');
 const SOURCE_LANGUAGE = 'en';
@@ -149,7 +150,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isDirectInvocation(import.meta.url)) {
   await main();
 }
 

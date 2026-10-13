@@ -6,6 +6,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
@@ -922,7 +924,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch((error) => {
     // Preserve the stack trace so CI logs surface the failing line, not
     // just the message. Falls back to the message when stack is missing
