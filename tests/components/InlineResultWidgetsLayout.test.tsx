@@ -29,7 +29,8 @@ function harness() {
     callbacks.set(name, fn);
     return { dispose: () => callbacks.delete(name) };
   };
-  let contentChanges: Array<{ range: { startLineNumber: number; endLineNumber: number }; text: string }> = [];
+  type EditRange = { startLineNumber: number; endLineNumber: number; startColumn: number };
+  let contentChanges: Array<{ range: EditRange; text: string }> = [];
   const model = {
     getLineCount: () => lineCount,
     getLineMaxColumn: () => 90,
@@ -100,9 +101,16 @@ function harness() {
     },
     insertLineAbove: () => {
       lineCount += 1;
-      contentChanges = [{ range: { startLineNumber: 1, endLineNumber: 1 }, text: '\n' }];
-      // Monaco moves an existing zone with the inserted line.
-      for (const zone of zones.values()) zone.afterLineNumber += 1;
+      // Enter at column 1 inserts line 2, so Monaco leaves a zone after line 1.
+      contentChanges = [{ range: { startLineNumber: 1, endLineNumber: 1, startColumn: 1 }, text: '\n' }];
+    },
+    // Monaco shifts rows below an edit by the number of lines it adds or removes.
+    editLines: (range: EditRange, text: string, delta: number) => {
+      lineCount += delta;
+      contentChanges = [{ range, text }];
+      for (const zone of zones.values()) {
+        if (zone.afterLineNumber > range.startLineNumber) zone.afterLineNumber += delta;
+      }
     },
     dropZonesForModelSwap: () => {
       zones.clear();
@@ -304,7 +312,108 @@ describe('inline results avoid source collisions', () => {
     flushFrames();
     expect(h.measure).toHaveBeenCalledExactlyOnceWith(2, 90);
   });
-  it('re-anchors a reserved row after a line insertion moves Monaco zones', () => {
+  it('keeps a reserved row through a run-start clear and reuses it for the same line', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    const [zoneId] = [...h.zones.keys()];
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.rerender(
+      <InlineResultWidgets
+        {...props}
+        lineResults={[{ line: 1, type: 'error', value: 'Next run' }]}
+        editor={h.editor}
+      />
+    );
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.unmount();
+    expect(h.zones.size).toBe(0);
+  });
+
+  it('releases rows the finished run did not reuse, and only once it finishes', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    h.setOffset(0);
+    const partial = [{ line: 2, type: 'error' as const, value: 'Streamed' }];
+    view.rerender(<InlineResultWidgets {...props} lineResults={partial} running editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+    view.rerender(<InlineResultWidgets {...props} lineResults={partial} editor={h.editor} />);
+    expect(h.zones.size).toBe(0);
+  });
+
+  it('releases reserved rows when a run ends without results or results clear without a run', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    expect(h.zones.size).toBe(1);
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    expect(h.zones.size).toBe(0);
+
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    expect(h.zones.size).toBe(0);
+  });
+
+  it('keeps a retained row through line edits and hands it to the moved result', () => {
+    const h = harness();
+    h.setOffset(700);
+    const onLine = (line: number) => [{ line, type: 'error' as const, value: 'Long error example' }];
+    const view = render(<InlineResultWidgets {...props} lineResults={onLine(2)} editor={h.editor} />);
+    flushFrames();
+    const [zoneId] = [...h.zones.keys()];
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    h.editLines({ startLineNumber: 1, endLineNumber: 1, startColumn: 15 }, '\n', 1);
+    h.fire('content');
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.rerender(<InlineResultWidgets {...props} lineResults={onLine(3)} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    h.editLines({ startLineNumber: 1, endLineNumber: 2, startColumn: 15 }, '', -1);
+    h.fire('content');
+    view.rerender(<InlineResultWidgets {...props} lineResults={onLine(2)} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    expect(h.zones.get(zoneId)).toMatchObject({ afterLineNumber: 2 });
+  });
+
+  it('does not hand a retained row dropped by a model swap to the next results', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} running editor={h.editor} />);
+    h.dropZonesForModelSwap();
+    h.fire('model');
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+  });
+
+  it('schedules no measurement while there are no widgets', () => {
+    const h = harness();
+    render(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    act(() => {
+      h.callbacks.get('scroll')?.();
+      h.callbacks.get('content')?.();
+    });
+    expect(frames.size).toBe(0);
+  });
+
+  it('moves a shown result and its row below a line inserted above its source', () => {
     const h = harness();
     h.setOffset(700);
     render(<InlineResultWidgets {...props} editor={h.editor} />);
@@ -313,7 +422,37 @@ describe('inline results avoid source collisions', () => {
     h.insertLineAbove();
     h.fire('content');
     expect(h.zones.size).toBe(1);
-    expect([...h.zones.values()][0]).toMatchObject({ afterLineNumber: 1 });
+    expect([...h.zones.values()][0]).toMatchObject({ afterLineNumber: 2 });
+    const widget = document.querySelector<HTMLElement>('.lingua-inline-result');
+    expect(widget?.dataset.line).toBe('2');
+    expect(widget?.style.top).toBe('40px');
+  });
+
+  it('keeps a shown result and its row with the source when a line opens above it', () => {
+    const h = harness();
+    h.setOffset(700);
+    const onLine2 = [{ line: 2, type: 'error' as const, value: 'Long error example' }];
+    render(<InlineResultWidgets {...props} lineResults={onLine2} editor={h.editor} />);
+    flushFrames();
+    const [zoneId] = [...h.zones.keys()];
+    // Enter at the end of line 1: Monaco moves the row with the source.
+    h.editLines({ startLineNumber: 1, endLineNumber: 1, startColumn: 15 }, '\n', 1);
+    h.fire('content');
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    expect(h.zones.get(zoneId)).toMatchObject({ afterLineNumber: 3 });
+    expect(document.querySelector<HTMLElement>('.lingua-inline-result')?.dataset.line).toBe('3');
+  });
+
+  it('drops a shown result and its row when its source line is deleted', () => {
+    const h = harness();
+    h.setOffset(700);
+    const onLine2 = [{ line: 2, type: 'error' as const, value: 'Long error example' }];
+    render(<InlineResultWidgets {...props} lineResults={onLine2} editor={h.editor} />);
+    flushFrames();
+    h.editLines({ startLineNumber: 2, endLineNumber: 3, startColumn: 1 }, '', -1);
+    h.fire('content');
+    expect(h.zones.size).toBe(0);
+    expect(document.querySelector('.lingua-inline-result')).toBeNull();
   });
   it('restores reserved rows after Monaco swaps the model and drops view zones', () => {
     const h = harness();

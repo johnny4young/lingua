@@ -25,13 +25,14 @@ export function utf8ByteLength(value: string): number {
  * Cuts on a code point boundary by walking back over continuation bytes, so
  * a multibyte character is either kept whole or dropped whole; decoding the
  * kept bytes can therefore never produce a lone surrogate. Returns the input
- * unchanged when it already fits.
+ * unchanged when it already fits; fractional budgets round down.
  */
 export function truncateUtf8(value: string, maxBytes: number): string {
-  if (maxBytes <= 0) return '';
+  const budget = Math.floor(maxBytes);
+  if (!(budget > 0)) return '';
   const bytes = encoder.encode(value);
-  if (bytes.byteLength <= maxBytes) return value;
-  return decodePrefix(bytes, maxBytes);
+  if (bytes.byteLength <= budget) return value;
+  return decodePrefix(bytes, budget);
 }
 
 /**

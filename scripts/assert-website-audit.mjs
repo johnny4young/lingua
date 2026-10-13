@@ -85,6 +85,11 @@ for (const id of result.expired) {
     `website-audit: exception ${id} has expired; re-review it in ${path.relative(repoRoot, values.exceptions)}`
   );
 }
+for (const id of result.fixable) {
+  console.error(
+    `website-audit: exception ${id} covers an advisory npm can now fix; apply the fix and remove it from ${path.relative(repoRoot, values.exceptions)}`
+  );
+}
 for (const id of result.unused) {
   console.warn(
     `website-audit: exception ${id} no longer matches any advisory; remove it from ${path.relative(repoRoot, values.exceptions)}`

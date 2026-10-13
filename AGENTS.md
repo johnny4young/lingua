@@ -112,16 +112,17 @@ Minimum smoke pass for a renderer-side slice:
   end of the pass.
 - Kill the preview server before closing out.
 
-Skip UI verification only when ALL of these are true: the diff is
-purely main-process IPC with no renderer effect, purely a shared
-helper with component-test coverage, purely a doc/ADR/test change, or
-purely a dependency bump with no behavior delta. When in doubt, run
-the web smoke. The token cost is small; a shipped runtime bug is
-larger.
+Skip live UI verification only when there is no user-facing behavior change
+and the diff falls entirely within these exempt categories: documentation/ADR/
+tests, shared helpers with component-test coverage, or dependency updates with
+no behavior delta. When in doubt, run the applicable smoke.
 
-Corollary: if the future work can'T be validated via web (it's Electron
-main-only or needs IPC shapes the web adapter stubs out), fall
-through to Electron smoke. Never skip both tiers silently.
+Changes to desktop runtime behavior, including main-process IPC, require the
+applicable Electron smoke when web cannot exercise the behavior. Never skip
+both tiers silently. An available equivalent harness may supply the same live
+assertions, EN/ES coverage, and zero-console-errors evidence when the preferred
+MCP is unavailable; static tests are not a substitute. Report the actual harness
+and any blocked validation rather than claiming an unavailable tool ran.
 
 ## Workflow conventions
 

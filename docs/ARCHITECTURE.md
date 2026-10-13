@@ -30,9 +30,11 @@ an update request that has already started. A failed later check keeps an
 already downloaded update in the `downloaded` state so Restart to update stays
 available.
 
-Native dependency installation keeps its five-minute timeout. If the direct
-installer exits after timeout (or exited earlier while a descendant held its
-pipes), capture settles after a 200 ms grace period. Cancellation force-stops
+Native dependency installation keeps its five-minute timeout. An installer
+that exits before the deadline settles by its exit code; if a descendant still
+holds its pipes, capture drains for up to two seconds, then force-stops the
+process group. If the direct installer exits after timeout, capture settles
+after a 200 ms grace period. Cancellation force-stops
 remaining process-group members before releasing ownership. A descendant that
 leaves that group may survive; closing inherited output pipes bounds collection,
 not filesystem or network authority.

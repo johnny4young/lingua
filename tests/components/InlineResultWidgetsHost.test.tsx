@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InlineResultWidgetsHost } from '@/components/Editor/InlineResultWidgetsHost';
+import { useResultStore } from '@/stores/resultStore';
 import type { InlineResultWidgetsProps } from '@/components/Editor/inlineResultWidgetsLoader';
 
 const mocks = vi.hoisted(() => ({
@@ -35,9 +36,9 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function WidgetsProbe({ lineResults, lineTimings = [], tabId }: InlineResultWidgetsProps) {
+function WidgetsProbe({ lineResults, lineTimings = [], tabId, running }: InlineResultWidgetsProps) {
   return (
-    <span data-testid="inline-result-widgets-probe">
+    <span data-testid="inline-result-widgets-probe" data-running={String(running)}>
       {tabId}:{lineResults.length}:{lineTimings.length}
     </span>
   );
@@ -102,6 +103,41 @@ describe('InlineResultWidgetsHost', () => {
 
     expect(screen.getByTestId('inline-result-widgets-probe').textContent).toBe('tab-2:1:1');
     expect(mocks.loadWidgets).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays mounted through a run-start clear so reserved rows can be reconciled', async () => {
+    mocks.loadWidgets.mockResolvedValue({ InlineResultWidgets: WidgetsProbe });
+    const { rerender } = render(
+      <InlineResultWidgetsHost
+        {...makeProps({ lineResults: [{ line: 1, value: '42', type: 'result' }] })}
+      />
+    );
+    await screen.findByTestId('inline-result-widgets-probe');
+
+    rerender(<InlineResultWidgetsHost {...makeProps()} />);
+
+    expect(screen.getByTestId('inline-result-widgets-probe').textContent).toBe('tab-1:0:0');
+  });
+
+  it('tells the overlay whether an automatic or manual run is in flight', async () => {
+    mocks.loadWidgets.mockResolvedValue({ InlineResultWidgets: WidgetsProbe });
+    render(
+      <InlineResultWidgetsHost
+        {...makeProps({ lineResults: [{ line: 1, value: '42', type: 'result' }] })}
+      />
+    );
+    const probe = await screen.findByTestId('inline-result-widgets-probe');
+    try {
+      expect(probe.dataset.running).toBe('false');
+      act(() => useResultStore.setState({ isAutoRunning: true }));
+      expect(probe.dataset.running).toBe('true');
+      act(() => useResultStore.setState({ isAutoRunning: false, isManualRunning: true }));
+      expect(probe.dataset.running).toBe('true');
+      act(() => useResultStore.setState({ isManualRunning: false }));
+      expect(probe.dataset.running).toBe('false');
+    } finally {
+      useResultStore.setState({ isAutoRunning: false, isManualRunning: false });
+    }
   });
 
   it('also activates for a timing-only run', async () => {

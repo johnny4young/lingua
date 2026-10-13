@@ -240,9 +240,11 @@ days). Entries that break any of these rules fail the gate, so no exception can
 be parked indefinitely. After the expiry date, the gate fails again until
 someone re-reviews the entry. An active entry that no longer matches any
 advisory prints a removal warning without failing. Add an entry only when no
-patched release exists. The first entry is `GHSA-ch52-4w7c-c8xp` in
-`http-cache-semantics`, which Astro only uses at build time to time remote
-images; the site ships static files. CI and release run all three independent
+patched release exists: once `npm audit` reports a fix that needs no
+semver-major bump, the entry stops excusing the advisory and the gate fails
+until the fix lands and the entry is removed. The list is currently empty; the
+first entry (`GHSA-ch52-4w7c-c8xp` in `http-cache-semantics`) was retired when
+4.3.0 shipped the patch. CI and release run all three independent
 audits before failing, so a red Worker audit cannot hide a red website audit.
 The gate rejects malformed
 vulnerability/advisory entries, missing dependency references, registry error
