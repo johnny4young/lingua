@@ -104,6 +104,14 @@ function harness() {
       // Monaco moves an existing zone with the inserted line.
       for (const zone of zones.values()) zone.afterLineNumber += 1;
     },
+    // Monaco shifts rows below an edit by the number of lines it adds or removes.
+    editLines: (range: { startLineNumber: number; endLineNumber: number }, text: string, delta: number) => {
+      lineCount += delta;
+      contentChanges = [{ range, text }];
+      for (const zone of zones.values()) {
+        if (zone.afterLineNumber > range.startLineNumber) zone.afterLineNumber += delta;
+      }
+    },
     dropZonesForModelSwap: () => {
       zones.clear();
     },
@@ -358,6 +366,53 @@ describe('inline results avoid source collisions', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps a retained row through line edits and hands it to the moved result', () => {
+    const h = harness();
+    h.setOffset(700);
+    const onLine = (line: number) => [{ line, type: 'error' as const, value: 'Long error example' }];
+    const view = render(<InlineResultWidgets {...props} lineResults={onLine(2)} editor={h.editor} />);
+    flushFrames();
+    const [zoneId] = [...h.zones.keys()];
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    h.editLines({ startLineNumber: 1, endLineNumber: 1 }, '\n', 1);
+    h.fire('content');
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.rerender(<InlineResultWidgets {...props} lineResults={onLine(3)} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    h.editLines({ startLineNumber: 1, endLineNumber: 2 }, '', -1);
+    h.fire('content');
+    view.rerender(<InlineResultWidgets {...props} lineResults={onLine(2)} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    expect(h.zones.get(zoneId)).toMatchObject({ afterLineNumber: 2 });
+  });
+
+  it('does not hand a retained row dropped by a model swap to the next results', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    h.dropZonesForModelSwap();
+    h.fire('model');
+    view.rerender(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    expect(h.zones.size).toBe(1);
+  });
+
+  it('schedules no measurement while there are no widgets', () => {
+    const h = harness();
+    render(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    act(() => {
+      h.callbacks.get('scroll')?.();
+      h.callbacks.get('content')?.();
+    });
+    expect(frames.size).toBe(0);
   });
 
   it('re-anchors a reserved row after a line insertion moves Monaco zones', () => {

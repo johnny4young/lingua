@@ -130,7 +130,6 @@ export async function installNativeDependencies(
     let stderrTruncated = false;
     let resolved = false;
     let timedOut = false;
-    let exited = false;
     let drained = false;
     let childExitCode: number | null = null;
     let escalationTimer: NodeJS.Timeout | null = null;
@@ -162,7 +161,6 @@ export async function installNativeDependencies(
         () => killProcessTree(child, 'SIGKILL'),
         KILL_ESCALATION_DELAY_MS
       );
-      if (exited) scheduleFinishAfterExit(KILL_ESCALATION_DELAY_MS);
     }, INSTALL_TIMEOUT_MS);
 
     const finish = (value: NativeInstallResult) => {
@@ -244,8 +242,9 @@ export async function installNativeDependencies(
     });
 
     child.on('exit', (code: number | null) => {
-      exited = true;
       childExitCode = code;
+      // An exit that beats the deadline settles by its code, even mid-drain.
+      if (!timedOut) clearTimeout(killTimer);
       scheduleFinishAfterExit(timedOut ? KILL_ESCALATION_DELAY_MS : EXIT_DRAIN_MS);
     });
 

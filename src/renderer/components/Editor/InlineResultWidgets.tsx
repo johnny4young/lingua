@@ -47,6 +47,27 @@ interface InlineWidget {
   zone?: InlineZone;
 }
 
+interface RetainedZone {
+  line: number;
+  zone: InlineZone;
+}
+
+/** Where Monaco's line layout moves a zone anchored after `line` for one edit. */
+function shiftZoneLine(line: number, change: monacoTypes.editor.IModelContentChange): number {
+  const { startLineNumber: start, endLineNumber: end } = change.range;
+  const deleting = end - start;
+  const inserting = change.text.split('\n').length - 1;
+  const editing = Math.min(deleting, inserting);
+  const from = start + editing + 1;
+  let next = line;
+  if (deleting > editing) {
+    if (next > end) next -= end - from + 1;
+    else if (next >= from) next = from - 1;
+  }
+  if (inserting > editing && next >= from) next += inserting - editing;
+  return next;
+}
+
 /**
  * Right-aligned overlays stay inline while there is empty space after source.
  * A colliding or wrapped line gets a Monaco view zone beneath it, preserving
@@ -71,7 +92,7 @@ function useInlineResultWidgets(
   const zonesMovedRef = useRef(false);
   // Every run clears results before it publishes new ones. Keeping the old
   // rows reserved until then stops the source below them from jumping.
-  const retainedZonesRef = useRef<Map<number, InlineZone>>(new Map());
+  const retainedZonesRef = useRef<RetainedZone[]>([]);
   const retainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelMeasurement = useCallback(() => {
@@ -88,59 +109,42 @@ function useInlineResultWidgets(
       retainTimerRef.current = null;
     }
     const retained = retainedZonesRef.current;
-    if (!editor || retained.size === 0) {
-      retained.clear();
-      return;
-    }
-    const wasRepositioning = repositioningRef.current;
+    retainedZonesRef.current = [];
+    if (!editor || retained.length === 0) return;
     repositioningRef.current = true;
     try {
       editor.changeViewZones(accessor => {
-        for (const zone of retained.values()) accessor.removeZone(zone.id);
+        for (const { zone } of retained) accessor.removeZone(zone.id);
       });
     } finally {
-      retained.clear();
-      repositioningRef.current = wasRepositioning;
+      repositioningRef.current = false;
     }
   }, [editor]);
 
   const armRetainTimer = useCallback(() => {
     if (retainTimerRef.current !== null) clearTimeout(retainTimerRef.current);
     retainTimerRef.current =
-      retainedZonesRef.current.size > 0 ? setTimeout(removeRetainedZones, RETAINED_ZONE_MS) : null;
+      retainedZonesRef.current.length > 0 ? setTimeout(removeRetainedZones, RETAINED_ZONE_MS) : null;
   }, [removeRetainedZones]);
 
-  const detachWidgets = useCallback(
-    (retainZones: boolean) => {
-      cancelMeasurement();
-      if (!editor) return;
-      repositioningRef.current = true;
+  // Removes the overlays but keeps their rows reserved for the next results.
+  const detachWidgets = useCallback(() => {
+    cancelMeasurement();
+    if (!editor) return;
+    for (const w of widgetsRef.current.values()) {
+      if (w.zone) retainedZonesRef.current.push({ line: w.line, zone: w.zone });
       try {
-        editor.changeViewZones(accessor => {
-          for (const widget of widgetsRef.current.values()) {
-            if (!widget.zone) continue;
-            if (retainZones) retainedZonesRef.current.set(widget.line, widget.zone);
-            else accessor.removeZone(widget.zone.id);
-          }
+        editor.removeOverlayWidget({
+          getId: () => w.id,
+          getDomNode: () => w.domNode,
+          getPosition: () => null,
         });
-        for (const w of widgetsRef.current.values()) {
-          try {
-            editor.removeOverlayWidget({
-              getId: () => w.id,
-              getDomNode: () => w.domNode,
-              getPosition: () => null,
-            });
-          } catch {
-            /* widget already gone; ignore */
-          }
-        }
-      } finally {
-        widgetsRef.current.clear();
-        repositioningRef.current = false;
+      } catch {
+        /* widget already gone; ignore */
       }
-    },
-    [editor, cancelMeasurement]
-  );
+    }
+    widgetsRef.current.clear();
+  }, [editor, cancelMeasurement]);
 
   // Recompute every widget's `top` (and right gutter offset) when
   // anything that can shift line positions happens: scroll, layout,
@@ -156,9 +160,6 @@ function useInlineResultWidgets(
       const visibleRanges = editor.getVisibleRanges();
       const relocateZones = zonesMovedRef.current;
       zonesMovedRef.current = false;
-      // Retained rows are keyed by their old lines; an edit that moved them
-      // makes that key wrong, so give them up.
-      if (relocateZones) removeRetainedZones();
       const changes: Array<{ widget: InlineWidget; height: number }> = [];
       for (const widget of widgetsRef.current.values()) {
         const valid = widget.line >= 1 && widget.line <= model.getLineCount();
@@ -231,14 +232,21 @@ function useInlineResultWidgets(
     } finally {
       repositioningRef.current = false;
     }
-  }, [editor, removeRetainedZones]);
+  }, [editor]);
 
   // getOffsetForColumn forces a Monaco render. Measuring synchronously from a
   // model/layout event can render before Monaco has updated its selections.
   // Coalesce every entry point after that event transaction, and never let an
   // old editor/widget generation measure or mutate its replacement.
   const scheduleReposition = useCallback(() => {
-    if (!editor || repositioningRef.current || scheduledFrameRef.current !== null) return;
+    if (
+      !editor ||
+      repositioningRef.current ||
+      scheduledFrameRef.current !== null ||
+      widgetsRef.current.size === 0
+    ) {
+      return;
+    }
     const generation = measurementGenerationRef.current;
     scheduledFrameRef.current = requestAnimationFrame(() => {
       if (generation !== measurementGenerationRef.current) return;
@@ -262,7 +270,16 @@ function useInlineResultWidgets(
     // swaps the model), unlike a listener bound to the model seen at mount.
     disposables.push(
       editor.onDidChangeModelContent(event => {
+        // Retained rows move with Monaco's lines, so their keys follow the edit.
+        // Ranges use pre-edit lines; applying bottom-up keeps them valid.
+        const bottomUp = [...event.changes].sort(
+          (a, b) => b.range.startLineNumber - a.range.startLineNumber
+        );
+        for (const retained of retainedZonesRef.current) {
+          for (const change of bottomUp) retained.line = shiftZoneLine(retained.line, change);
+        }
         if (
+          widgetsRef.current.size > 0 &&
           event.changes.some(
             change =>
               change.range.startLineNumber !== change.range.endLineNumber ||
@@ -279,7 +296,7 @@ function useInlineResultWidgets(
       editor.onDidChangeModel(() => {
         // A model swap rebuilds Monaco's view and drops every view zone.
         for (const widget of widgetsRef.current.values()) widget.zone = undefined;
-        retainedZonesRef.current.clear();
+        retainedZonesRef.current = [];
         schedule();
       })
     );
@@ -327,10 +344,10 @@ function useInlineResultWidgets(
       domNode.style.visibility = 'hidden';
       const id = `${INLINE_RESULT_WIDGET_PREFIX}.${tabId ?? 'none'}.${line}`;
       const widget: InlineWidget = { id, domNode, line };
-      const retainedZone = retainedZonesRef.current.get(line);
-      if (retainedZone) {
-        widget.zone = retainedZone;
-        retainedZonesRef.current.delete(line);
+      const retainedIndex = retainedZonesRef.current.findIndex(item => item.line === line);
+      if (retainedIndex >= 0) {
+        widget.zone = retainedZonesRef.current[retainedIndex]!.zone;
+        retainedZonesRef.current.splice(retainedIndex, 1);
       }
       widgetsRef.current.set(line, widget);
       editor.addOverlayWidget({
@@ -357,7 +374,7 @@ function useInlineResultWidgets(
     return () => {
       active = false;
       observer?.disconnect();
-      detachWidgets(true);
+      detachWidgets();
     };
   }, [
     editor,

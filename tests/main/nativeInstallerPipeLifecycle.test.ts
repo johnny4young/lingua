@@ -5,16 +5,23 @@ import { expect, it, vi } from 'vitest';
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' } }));
 const sleep = (ms: number) => new Promise(resolve => realSetTimeout(resolve, ms));
 
-it.skipIf(process.platform === 'win32').each([false, true])(
-  'settles installer timeout with escaped output pipes (parent already exited: %s)',
-  async exitsBeforeTimeout => {
+// exitCode null keeps the parent alive past the deadline; elapsedMs is how long
+// the install ran before the parent exits.
+it.skipIf(process.platform === 'win32').each([
+  { exitCode: null, elapsedMs: 0 },
+  { exitCode: 0, elapsedMs: 0 },
+  { exitCode: 0, elapsedMs: 299_000 },
+  { exitCode: 3, elapsedMs: 0 },
+])(
+  'settles an install whose output pipes escaped (parent exit $exitCode after $elapsedMs ms)',
+  async ({ exitCode, elapsedMs }) => {
     const { installNativeDependencies } = await import('../../src/main/nativeDependencyInstall');
     let reportReady!: (pid: number) => void;
     const ready = new Promise<number>(resolve => {
       reportReady = resolve;
     });
     const descendantSource = `process.send(process.pid);setInterval(()=>{},1000);`;
-    const parentSource = `const c=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendantSource)}],{detached:true,stdio:['ignore',process.stdout,process.stderr,'ipc']});c.on('message',pid=>{console.log(pid);${exitsBeforeTimeout ? 'process.exit(0);' : ''}});setInterval(()=>{},1000);`;
+    const parentSource = `const c=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(descendantSource)}],{detached:true,stdio:['ignore',process.stdout,process.stderr,'ipc']});c.on('message',pid=>console.log(pid));process.on('SIGUSR2',()=>process.exit(${exitCode ?? 0}));setInterval(()=>{},1000);`;
     let descendant: number | undefined;
     let child: ReturnType<typeof spawn> | undefined;
     let parentExit!: Promise<unknown[]>;
@@ -44,13 +51,19 @@ it.skipIf(process.platform === 'win32').each([false, true])(
           throw new Error('Fixture readiness timeout');
         }),
       ]);
-      if (exitsBeforeTimeout) {
+      if (exitCode !== null) {
+        await vi.advanceTimersByTimeAsync(elapsedMs);
+        process.kill(child!.pid!, 'SIGUSR2');
         await parentExit;
-        // A finished installer settles by exit code once the bounded drain ends.
+        // A finished installer settles by exit code once the bounded drain
+        // ends, even when that drain outlasts the install deadline.
         await vi.advanceTimersByTimeAsync(1999);
         expect(settled).toBe(false);
         await vi.advanceTimersByTimeAsync(1);
-        await expect(pending).resolves.toMatchObject({ status: 'success', exitCode: 0 });
+        await expect(pending).resolves.toMatchObject({
+          status: exitCode === 0 ? 'success' : 'error',
+          exitCode,
+        });
         expect(child!.stdout!.destroyed).toBe(true);
         expect(child!.stderr!.destroyed).toBe(true);
         return;
