@@ -117,6 +117,10 @@ overrides:
   # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65).
   # Keep the patched floor for fengari and packaging's tmp-promise chain.
   "tmp": "^0.2.7"
+  # http-cache-semantics <=4.2.0 can serve one user's cached response to
+  # another (GHSA-ch52-4w7c-c8xp). Dev-only here, through electron-builder's
+  # got chain; 4.3.0 is the first release outside the advisory range.
+  "http-cache-semantics": "^4.3.0"
 
 minimumReleaseAgeExclude:
   # Same-day security releases for published GitHub advisories. Exact

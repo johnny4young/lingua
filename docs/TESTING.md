@@ -506,8 +506,12 @@ separately control the editor-readiness wait and shared chunk-load promise.
 
 Inline result overlays keep right alignment on short lines. When the source
 would intersect the result, or the source wraps, a Monaco view zone reserves a
-row below the source. Model line numbers stay unchanged. Tests cover resizing,
-horizontal scrolling, offscreen retention and cleanup; the browser spec checks
+row below the source. Model line numbers stay unchanged. Until the next run
+replaces them, results and rows follow their source through edits, and results
+on deleted lines are dropped. A run that clears results keeps the rows reserved
+while it is in flight, then releases the rows its results did not reuse. Tests
+cover resizing, horizontal scrolling, offscreen retention, edits, run start and
+finish, and cleanup; the browser spec checks
 a long error line and recovery. The existing `sourceCoordinates.spec.ts` owns
 user-first errors and collapsed runtime stacks, including keyboard disclosure.
 It also checks every bundled worker URL frame stays inside that disclosure;

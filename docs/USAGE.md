@@ -61,7 +61,8 @@ explicit trusted-code action.
 
 Developer Utilities → Pipelines imports the complete JSON recipe. If any step
 has an unknown utility id or is missing a required field (`id`, `utilityId`,
-or an object-valued `options`), import rejects the recipe. It keeps the pasted
+or an object-valued `options`), import rejects the recipe and names the first
+malformed step. It keeps the pasted
 JSON available to correct and leaves the saved library and selection unchanged.
 A valid empty recipe is allowed. Import does not execute any utility.
 

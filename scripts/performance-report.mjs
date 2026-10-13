@@ -335,7 +335,7 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
       for (const metric of ['bytes', 'gzipBytes']) {
         const maxKey = metric === 'bytes' ? 'maxBytes' : 'maxGzipBytes';
         const max = budget?.[maxKey];
-        if (typeof max !== 'number') {
+        if (!Number.isFinite(max) || max < 0) {
           violations.push({
             target: targetId,
             category,

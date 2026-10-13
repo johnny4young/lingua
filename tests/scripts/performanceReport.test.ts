@@ -238,6 +238,20 @@ describe('performance-report', () => {
     ]);
   });
 
+  it('reports a non-finite or negative budget instead of comparing against it', () => {
+    const measurements = {
+      targets: [
+        { id: 'web', available: true, categories: { initial: { files: 1, bytes: 10, gzipBytes: 5 } } },
+      ],
+    };
+    for (const max of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      const baseline = { budgets: { web: { initial: { maxBytes: max, maxGzipBytes: 100 } } } };
+      expect(compareWithBudgets(measurements, baseline)).toEqual([
+        expect.objectContaining({ target: 'web', category: 'initial', metric: 'bytes' }),
+      ]);
+    }
+  });
+
   it('fails a measured category that the baseline does not budget, but not an empty one', () => {
     const measurements = {
       targets: [
