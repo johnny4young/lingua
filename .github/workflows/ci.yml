@@ -453,6 +453,7 @@ jobs:
           tests/cli/capsuleVerifyBundle.test.ts
           tests/cli/capsuleRegressionBundle.test.ts
           tests/cli/commands/capsuleSuiteBudget.test.ts
+          tests/scripts/isDirectInvocation.test.ts
       # Build the real standalone archive on win32. Unit tests can prove path
       # normalization, but only GNU tar on the hosted Windows runner catches
       # drive-letter operands being mistaken for remote archive destinations.

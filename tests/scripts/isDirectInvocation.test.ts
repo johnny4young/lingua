@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, symlink, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,6 +24,8 @@ describe('isDirectInvocation', () => {
   });
 
   afterAll(async () => {
+    // Drop the link first so cleanup never depends on rm not following it into the repo.
+    await unlink(linkedRepo).catch(() => undefined);
     await rm(tempRoot, { recursive: true, force: true });
   });
 
@@ -36,9 +38,9 @@ describe('isDirectInvocation', () => {
     expect(isDirectInvocation(helperUrl, undefined)).toBe(false);
     expect(isDirectInvocation(helperUrl, '')).toBe(false);
     expect(isDirectInvocation(helperUrl, path.join(tempRoot, 'missing.mjs'))).toBe(false);
-    expect(isDirectInvocation(helperUrl, path.join(repoRoot, 'scripts', 'lib', 'cli-args.mjs'))).toBe(
-      false
-    );
+    expect(
+      isDirectInvocation(helperUrl, path.join(repoRoot, 'scripts', 'lib', 'cli-args.mjs'))
+    ).toBe(false);
   });
 
   it('still runs a gate invoked through a symlinked path, so a bad flag fails', () => {
@@ -50,5 +52,19 @@ describe('isDirectInvocation', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Unknown option '--bogus-flag'");
+  });
+
+  it('is the only main-module guard under scripts/', async () => {
+    const guard =
+      /import\.meta\.url\s*===|===\s*import\.meta\.url|argv\[1\][^;\n]*===|===[^;\n]*argv\[1\]/;
+    const entries = await readdir(path.join(repoRoot, 'scripts'), { recursive: true });
+    const offenders: string[] = [];
+    for (const entry of entries) {
+      if (!entry.endsWith('.mjs')) continue;
+      const source = await readFile(path.join(repoRoot, 'scripts', entry), 'utf8');
+      if (guard.test(source)) offenders.push(entry);
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
