@@ -4,7 +4,8 @@
  * Judges an `npm audit --json` payload for website/package-lock.json. It fails
  * closed like scripts/lib/prodAudit.mjs, with one addition: a reviewed
  * exception may excuse a specific advisory on a specific package until it
- * expires. Exceptions exist only for advisories with no patched release.
+ * expires. Exceptions exist only for advisories with no patched release, so an
+ * entry stops applying once npm reports a non-breaking fix for the package.
  */
 
 import { DEFAULT_AUDIT_LEVEL, SEVERITY_RANK } from './prodAudit.mjs';
@@ -36,7 +37,7 @@ function isSeverity(value) {
 }
 
 function failure(error) {
-  return { ok: false, error, offending: [], excused: [], expired: [], unused: [] };
+  return { ok: false, error, offending: [], excused: [], expired: [], fixable: [], unused: [] };
 }
 
 /** Start of a real UTC calendar day written as YYYY-MM-DD, or NaN. */
@@ -96,6 +97,12 @@ function rootAdvisories(vulnerabilities, name, seen = new Set()) {
   );
 }
 
+/** True when `npm audit fix` can patch the package without a semver-major bump. */
+function hasNonBreakingFix(entry) {
+  const fix = isPlainRecord(entry) ? entry.fixAvailable : undefined;
+  return fix === true || (isPlainRecord(fix) && fix.isSemVerMajor !== true);
+}
+
 /**
  * @param {unknown} audit Parsed `npm audit --json` payload.
  * @param {{ level?: string, exceptions?: Array<{ id: string, package: string, reviewed: string, expires: string, reason: string }>, now?: Date }} options
@@ -148,11 +155,17 @@ export function evaluateWebsiteAudit(audit, options = {}) {
   const expired = exceptions.filter(item => expiryTime(item.expires) < now.getTime());
   const active = exceptions.filter(item => !expired.includes(item));
   const used = new Set();
+  const fixable = new Set();
   const isExcused = advisory => {
     if (advisory.id === null) return false;
     const match = active.find(item => item.id === advisory.id && item.package === advisory.package);
-    if (match) used.add(match);
-    return Boolean(match);
+    if (!match) return false;
+    used.add(match);
+    if (hasNonBreakingFix(audit.vulnerabilities[advisory.package])) {
+      fixable.add(match.id);
+      return false;
+    }
+    return true;
   };
 
   const offending = [];
@@ -181,6 +194,8 @@ export function evaluateWebsiteAudit(audit, options = {}) {
     offending,
     excused,
     expired: expired.map(item => item.id),
+    // Exceptions that matched an advisory npm can now fix; the fix replaces them.
+    fixable: [...fixable],
     // Active entries that excused nothing: the advisory is gone or no longer
     // reaches the production graph. Reported, not fatal, so removal stays a
     // reviewed change rather than a surprise red build.

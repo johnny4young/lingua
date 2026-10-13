@@ -70,6 +70,27 @@ describe('evaluateWebsiteAudit', () => {
     expect(result.expired).toEqual([GHSA]);
   });
 
+  it('stops excusing an advisory once npm reports a non-breaking fix', () => {
+    for (const fixAvailable of [true, { name: 'astro', version: '6.4.0', isSemVerMajor: false }]) {
+      const payload = auditPayload();
+      Object.assign(payload.vulnerabilities['http-cache-semantics'], { fixAvailable });
+      const result = evaluateWebsiteAudit(payload, { exceptions: [exception], now });
+      expect(result.ok).toBe(false);
+      expect(result.fixable).toEqual([GHSA]);
+      expect(result.unused).toEqual([]);
+    }
+  });
+
+  it('keeps excusing an advisory whose only fix is a semver-major bump', () => {
+    const payload = auditPayload();
+    Object.assign(payload.vulnerabilities['http-cache-semantics'], {
+      fixAvailable: { name: 'astro', version: '7.0.0', isSemVerMajor: true },
+    });
+    const result = evaluateWebsiteAudit(payload, { exceptions: [exception], now });
+    expect(result.ok).toBe(true);
+    expect(result.fixable).toEqual([]);
+  });
+
   it('only excuses the advisory on the package it was reviewed for', () => {
     const result = evaluateWebsiteAudit(auditPayload(), {
       exceptions: [{ ...exception, package: 'other-package' }],
