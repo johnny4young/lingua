@@ -304,6 +304,62 @@ describe('inline results avoid source collisions', () => {
     flushFrames();
     expect(h.measure).toHaveBeenCalledExactlyOnceWith(2, 90);
   });
+  it('keeps a reserved row through a run-start clear and reuses it for the same line', () => {
+    const h = harness();
+    h.setOffset(700);
+    const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+    flushFrames();
+    const [zoneId] = [...h.zones.keys()];
+    view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.rerender(
+      <InlineResultWidgets
+        {...props}
+        lineResults={[{ line: 1, type: 'error', value: 'Next run' }]}
+        editor={h.editor}
+      />
+    );
+    flushFrames();
+    expect([...h.zones.keys()]).toEqual([zoneId]);
+    view.unmount();
+    expect(h.zones.size).toBe(0);
+  });
+
+  it('drops retained rows the next results no longer need, or after the grace period', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const h = harness();
+      h.setOffset(700);
+      const view = render(<InlineResultWidgets {...props} editor={h.editor} />);
+      flushFrames();
+      view.rerender(<InlineResultWidgets {...props} lineResults={[]} editor={h.editor} />);
+      expect(h.zones.size).toBe(1);
+      // Typing supersedes the pending run, so each edit restarts the grace period.
+      act(() => vi.advanceTimersByTime(1_500));
+      h.fire('content');
+      act(() => vi.advanceTimersByTime(1_500));
+      expect(h.zones.size).toBe(1);
+      act(() => vi.advanceTimersByTime(500));
+      expect(h.zones.size).toBe(0);
+
+      view.rerender(<InlineResultWidgets {...props} editor={h.editor} />);
+      flushFrames();
+      expect(h.zones.size).toBe(1);
+      h.setOffset(0);
+      view.rerender(
+        <InlineResultWidgets
+          {...props}
+          lineResults={[{ line: 2, type: 'error', value: 'Moved' }]}
+          editor={h.editor}
+        />
+      );
+      expect(h.zones.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('re-anchors a reserved row after a line insertion moves Monaco zones', () => {
     const h = harness();
     h.setOffset(700);

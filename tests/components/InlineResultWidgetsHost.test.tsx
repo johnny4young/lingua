@@ -104,6 +104,20 @@ describe('InlineResultWidgetsHost', () => {
     expect(mocks.loadWidgets).toHaveBeenCalledTimes(2);
   });
 
+  it('stays mounted through a run-start clear so reserved rows can be reconciled', async () => {
+    mocks.loadWidgets.mockResolvedValue({ InlineResultWidgets: WidgetsProbe });
+    const { rerender } = render(
+      <InlineResultWidgetsHost
+        {...makeProps({ lineResults: [{ line: 1, value: '42', type: 'result' }] })}
+      />
+    );
+    await screen.findByTestId('inline-result-widgets-probe');
+
+    rerender(<InlineResultWidgetsHost {...makeProps()} />);
+
+    expect(screen.getByTestId('inline-result-widgets-probe').textContent).toBe('tab-1:0:0');
+  });
+
   it('also activates for a timing-only run', async () => {
     mocks.loadWidgets.mockResolvedValue({ InlineResultWidgets: WidgetsProbe });
 

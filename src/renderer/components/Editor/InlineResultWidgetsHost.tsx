@@ -38,5 +38,7 @@ export function InlineResultWidgetsHost(props: InlineResultWidgetsProps) {
     };
   }, [Widgets, enabled, failed, pushErrorNotice]);
 
-  return enabled && Widgets ? <Widgets {...props} /> : null;
+  // Stay mounted once loaded: a run's transient empty results must not tear
+  // down the reserved rows the overlay reconciles when results return.
+  return Widgets ? <Widgets {...props} /> : null;
 }
