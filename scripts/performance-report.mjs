@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { gzipSync } from 'node:zlib';
+import { realpathSync } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -333,7 +334,7 @@ export function compareWithBudgets(measurements, baseline, { requireAllTargets =
       for (const metric of ['bytes', 'gzipBytes']) {
         const maxKey = metric === 'bytes' ? 'maxBytes' : 'maxGzipBytes';
         const max = budget?.[maxKey];
-        if (typeof max !== 'number') {
+        if (typeof max !== 'number' || !Number.isFinite(max) || max < 0) {
           violations.push({
             target: targetId,
             category,
@@ -922,7 +923,9 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+// Compare real paths: a symlinked invocation path (macOS /var -> /private/var)
+// must not skip main() and exit 0 without checking anything.
+if (process.argv[1] && realpathSync(path.resolve(process.argv[1])) === realpathSync(__filename)) {
   main().catch((error) => {
     // Preserve the stack trace so CI logs surface the failing line, not
     // just the message. Falls back to the message when stack is missing
