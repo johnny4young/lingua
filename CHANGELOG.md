@@ -11,7 +11,7 @@ The format follows Keep a Changelog and groups changes by release.
 - A guided tour interrupted while loading or waiting for the editor no longer opens over a newer dialog or closes it when the delayed load finishes. Explicit retry still works.
 - Utility pipeline import rejects malformed steps instead of silently saving a shorter recipe. Failed imports preserve the existing library and pasted JSON for correction.
 - URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
-- Long inline results keep their reserved row while the next run is starting, so the code below no longer jumps on every automatic run. Rows the new results no longer need are released once those results arrive.
+- Long inline results keep their reserved row while the next run is in flight, so the code below no longer jumps on every automatic run. Rows the finished run does not reuse are released when it ends. Shown results now follow their source line through edits until the next run, instead of staying on the line number that run reported.
 - A native dependency install whose installer already exited no longer waits out the five-minute deadline when a leftover helper holds its output open; it settles by the installer's exit code. A timed-out Rust debugger compile keeps the timeout reason even when compiler output fills the diagnostics budget.
 
 ### Added
