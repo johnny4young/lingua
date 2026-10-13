@@ -326,11 +326,13 @@ async function startSession(owner: WebContents, rawRequest: unknown): Promise<Ru
     });
     signal.throwIfAborted();
     if (compiled.spawnError || compiled.timedOut || compiled.exitCode !== 0) {
+      // Status lines go first so clipping capped compiler output cannot drop
+      // the only explanation of a timeout or spawn failure.
       const raw = [
-        compiled.stderr,
-        compiled.stdout,
         compiled.spawnError?.message,
         compiled.timedOut ? `Rust compilation timed out after ${RUST_COMPILE_TIMEOUT_MS}ms` : '',
+        compiled.stderr,
+        compiled.stdout,
       ]
         .filter((value): value is string => typeof value === 'string' && value.length > 0)
         .join('\n');

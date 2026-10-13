@@ -175,3 +175,52 @@ describe('Rust debugger IPC lifecycle', () => {
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(response.output)).toBe(false);
   }, 30_000);
 });
+
+describe('Rust debugger compile timeout diagnostics', () => {
+  afterEach(() => {
+    vi.doUnmock('../../src/main/runners/spawnNativeRun');
+  });
+
+  it('keeps the timeout line when capped compiler output fills the budget', async () => {
+    const marker = '\n[Compile output truncated]';
+    vi.resetModules();
+    handlers.clear();
+    vi.doMock('../../src/main/runners/spawnNativeRun', () => ({
+      // Toolchain probes succeed; only the compile itself times out.
+      spawnNativeRun: vi.fn(async ({ args }: { args: string[] }) =>
+        args.includes('-o')
+          ? {
+              stdout: '',
+              stderr: `${'e'.repeat(1024 * 1024 - marker.length)}${marker}`,
+              exitCode: -1,
+              executionTime: 60_000,
+              timedOut: true,
+              killed: false,
+            }
+          : {
+              stdout: 'rustc 1.90.0\n',
+              stderr: '',
+              exitCode: 0,
+              executionTime: 1,
+              timedOut: false,
+              killed: false,
+            }
+      ),
+    }));
+    const { registerRustDebuggerHandlers } = await import('../../src/main/ipc/rustDebugger');
+    registerRustDebuggerHandlers();
+    const response = (await handlers.get('debugger:rust:start')?.(
+      { sender: sender(61) },
+      {
+        tabId: 'rust-tab',
+        fileName: 'slow.rs',
+        source: 'fn main() {}\n',
+        breakpoints: [1],
+        watches: [],
+      }
+    )) as { reason: string; output: string; outputTruncated: boolean };
+    expect(response).toMatchObject({ reason: 'compile-failed', outputTruncated: true });
+    expect(response.output.startsWith('Rust compilation timed out after 60000ms')).toBe(true);
+    expect(Buffer.byteLength(response.output, 'utf8')).toBeLessThanOrEqual(1024 * 1024);
+  });
+});

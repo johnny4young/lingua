@@ -47,6 +47,9 @@ import { truncateNativeOutputUtf8 } from './runners/nativeOutputUtf8';
 
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000; // installs pull from the network
 const KILL_ESCALATION_DELAY_MS = 200;
+// Output a finished installer's leftover helpers still hold is not worth the
+// full install deadline.
+const EXIT_DRAIN_MS = 2_000;
 
 const MANIFEST_BY_LANGUAGE: Record<NativePackageLanguage, string> = {
   go: 'go.mod',
@@ -128,6 +131,7 @@ export async function installNativeDependencies(
     let resolved = false;
     let timedOut = false;
     let exited = false;
+    let drained = false;
     let childExitCode: number | null = null;
     let escalationTimer: NodeJS.Timeout | null = null;
     let exitGraceTimer: NodeJS.Timeout | null = null;
@@ -158,7 +162,7 @@ export async function installNativeDependencies(
         () => killProcessTree(child, 'SIGKILL'),
         KILL_ESCALATION_DELAY_MS
       );
-      if (exited) scheduleFinishAfterExit();
+      if (exited) scheduleFinishAfterExit(KILL_ESCALATION_DELAY_MS);
     }, INSTALL_TIMEOUT_MS);
 
     const finish = (value: NativeInstallResult) => {
@@ -166,7 +170,7 @@ export async function installNativeDependencies(
       resolved = true;
       // The installer parent can close while TERM-ignoring descendants remain.
       // Finish cancellation before releasing the tracked tree or its deadline.
-      if (timedOut) killProcessTree(child, 'SIGKILL');
+      if (timedOut || drained) killProcessTree(child, 'SIGKILL');
       releaseChild();
       clearTimeout(killTimer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
@@ -176,20 +180,30 @@ export async function installNativeDependencies(
 
     // A descendant outside the process group may retain the pipes. Once the
     // direct child has exited, bound collection without waiting for that child.
-    function scheduleFinishAfterExit(): void {
-      if (resolved || exitGraceTimer !== null) return;
+    function scheduleFinishAfterExit(delayMs: number): void {
+      if (resolved) return;
+      if (exitGraceTimer !== null) clearTimeout(exitGraceTimer);
       exitGraceTimer = setTimeout(() => {
+        drained = true;
         child.stdout?.destroy();
         child.stderr?.destroy();
-        finish(
-          result('timeout', {
-            stdout,
-            stderr,
-            exitCode: childExitCode ?? -1,
-            error: 'Install timed out.',
-          })
-        );
-      }, KILL_ESCALATION_DELAY_MS);
+        settle(childExitCode ?? -1);
+      }, delayMs);
+    }
+
+    function settle(exitCode: number): void {
+      if (timedOut) {
+        finish(result('timeout', { stdout, stderr, exitCode, error: 'Install timed out.' }));
+        return;
+      }
+      finish(
+        result(exitCode === 0 ? 'success' : 'error', {
+          stdout,
+          stderr,
+          exitCode,
+          ...(exitCode === 0 ? {} : { error: stderr || `Install exited with code ${exitCode}` }),
+        })
+      );
     }
 
     const decodeStdout = createUtf8ChunkDecoder();
@@ -232,23 +246,9 @@ export async function installNativeDependencies(
     child.on('exit', (code: number | null) => {
       exited = true;
       childExitCode = code;
-      if (timedOut) scheduleFinishAfterExit();
+      scheduleFinishAfterExit(timedOut ? KILL_ESCALATION_DELAY_MS : EXIT_DRAIN_MS);
     });
 
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? -1;
-      if (timedOut) {
-        finish(result('timeout', { stdout, stderr, exitCode, error: 'Install timed out.' }));
-        return;
-      }
-      finish(
-        result(exitCode === 0 ? 'success' : 'error', {
-          stdout,
-          stderr,
-          exitCode,
-          ...(exitCode === 0 ? {} : { error: stderr || `Install exited with code ${exitCode}` }),
-        })
-      );
-    });
+    child.on('close', (code: number | null) => settle(code ?? -1));
   });
 }

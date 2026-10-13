@@ -12,6 +12,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Utility pipeline import rejects malformed steps instead of silently saving a shorter recipe. Failed imports preserve the existing library and pasted JSON for correction.
 - URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
 - Long inline results keep their reserved row while the next run is starting, so the code below no longer jumps on every automatic run. Rows the new results no longer need are released once those results arrive.
+- A native dependency install whose installer already exited no longer waits out the five-minute deadline when a leftover helper holds its output open; it settles by the installer's exit code. A timed-out Rust debugger compile keeps the timeout reason even when compiler output fills the diagnostics budget.
 
 ### Added
 - Capsule Workspace imports recompute attached-file SHA-256 hashes locally and distinguish matching, mismatched, and unverified text without executing code.

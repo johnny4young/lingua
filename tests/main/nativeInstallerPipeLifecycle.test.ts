@@ -44,7 +44,17 @@ it.skipIf(process.platform === 'win32').each([false, true])(
           throw new Error('Fixture readiness timeout');
         }),
       ]);
-      if (exitsBeforeTimeout) await parentExit;
+      if (exitsBeforeTimeout) {
+        await parentExit;
+        // A finished installer settles by exit code once the bounded drain ends.
+        await vi.advanceTimersByTimeAsync(1999);
+        expect(settled).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(pending).resolves.toMatchObject({ status: 'success', exitCode: 0 });
+        expect(child!.stdout!.destroyed).toBe(true);
+        expect(child!.stderr!.destroyed).toBe(true);
+        return;
+      }
       await vi.advanceTimersByTimeAsync(300000);
       await Promise.race([
         parentExit,

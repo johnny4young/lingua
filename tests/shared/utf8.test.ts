@@ -72,6 +72,11 @@ describe('truncateUtf8', () => {
     expect(truncateUtf8(value, 8)).toBe('ab日');
     expect(truncateUtf8(value, 4)).toBe('ab');
   });
+
+  it('rounds a fractional budget down instead of overrunning it', () => {
+    expect(truncateUtf8('é', 1.5)).toBe('');
+    expect(truncateUtf8('aé', 2.9)).toBe('a');
+  });
 });
 
 describe('truncateUtf8WithMarker', () => {
