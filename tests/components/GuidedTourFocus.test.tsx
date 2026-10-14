@@ -249,6 +249,7 @@ describe('GuidedTour focus management (accessibility pass)', () => {
         })
     );
     const { rerender } = renderTour();
+    uiState.openBottomPanel.mockClear();
     fireEvent.click(screen.getByTestId('trigger'));
     await waitFor(() => expect(wait).toHaveBeenCalled());
 
@@ -259,8 +260,10 @@ describe('GuidedTour focus management (accessibility pass)', () => {
     await act(async () => ready());
 
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(uiState.openBottomPanel).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('trigger'));
     expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(uiState.openBottomPanel).toHaveBeenCalledWith('console');
   });
   it('does not restore the old trigger over a newer overlay focus target', async () => {
     const { rerender } = renderTour();
