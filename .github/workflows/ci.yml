@@ -7,6 +7,9 @@ on:
   # review gates for every pull request instead of silently skipping those
   # intermediate heads.
   pull_request:
+  # Post-release sync opens its PR with GITHUB_TOKEN, which starts no
+  # workflows, so it dispatches CI on the branch instead.
+  workflow_dispatch:
 
 # Cancel in-flight runs when a new commit lands on the same branch /
 # PR — the older run becomes irrelevant the moment a fix is pushed,

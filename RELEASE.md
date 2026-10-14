@@ -63,7 +63,11 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
    - `SHA256SUMS.txt`, SBOM, and third-party license report;
    - Cloudflare web deployment and R2 web-runtime readiness.
 7. Open the draft GitHub Release and confirm that every enabled platform is
-   represented. The website reads these public GitHub assets directly.
+   represented. The website reads these public GitHub assets directly. The
+   draft notes are generated from the version's CHANGELOG section by
+   `scripts/release-notes.mjs`, with trust lines for the platforms built and
+   the signing actually used; replace the summary comment at the top with a
+   short highlights paragraph before promoting.
 8. Follow [`docs/runbooks/desktop-update-draft-validation.md`](./docs/runbooks/desktop-update-draft-validation.md)
    for static draft checks and manual candidate installation.
 9. Promote the draft only after the checklist is complete.
@@ -79,7 +83,11 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
     formula from the published `SHA256SUMS.txt` and pushes them to
     `johnny4young/homebrew-tap`. Confirm the run pushed (or reported the tap
     already current); a missing `TAP_DEPLOY_KEY` only warns, so rerun it
-    through `workflow_dispatch` with the tag once the key exists.
+    through `workflow_dispatch` with the tag once the key exists. Publishing
+    also triggers `Post-release sync`, which opens a PR refreshing the website
+    release snapshot, the pinned CLI recipes and the distribution manifests.
+    The release-event website deploy fails its recipe check until that PR
+    lands; merge it only after the npm package is public.
 12. Run a post-publish smoke from the previous stable desktop version on every
     supported updater platform, and verify `https://updates.linguacode.dev/web/version`.
 13. Announce only after the post-publish smoke passes.
