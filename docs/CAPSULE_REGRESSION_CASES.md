@@ -1,7 +1,7 @@
 # Current-file Capsule regression cases
 
-Unreleased/source-build functionality. Feature-detect `verify-suite` and `--target`
-in `lingua --help`; the published CLI 1.5.1 does not provide these commands.
+Available in CLI 1.6.0 and later. Older CLIs lack `verify-suite` and `--target`;
+feature-detect them in `lingua --help`.
 
 ```sh
 lingua capsule verify baseline.capsule.json --target src/hello.js --json
