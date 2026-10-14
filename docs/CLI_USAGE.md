@@ -505,9 +505,9 @@ lingua utility json-format --input expected.json --option indent=2 \
   > expected.formatted.json
 ```
 
-## Strict Capsule verification (unreleased/source builds)
+## Strict Capsule verification
 
-This command is not in public CLI 1.5.1; feature-detect it in help.
+Available in CLI 1.6.0 and later; feature-detect it in help on older installs.
 Use `lingua capsule verify ./run.capsule.json --json` to check a complete,
 successful recording against a new execution of its **captured** source. The
 source hash is checked before execution. Comparison is exact for status,
@@ -534,4 +534,4 @@ even when its comparison reports drift.
 
 ## Current-file regression suites (unreleased/source builds)
 
-`lingua capsule verify <file> --target <relative-file> --json` checks the current saved file, not the captured source. `lingua capsule verify-suite <suite> --root <directory> --json` consumes suite v1. See [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) for schema, bounds, trust and verdicts. Feature-detect these commands in help; they are not in public CLI 1.5.1.
+`lingua capsule verify <file> --target <relative-file> --json` checks the current saved file, not the captured source. `lingua capsule verify-suite <suite> --root <directory> --json` consumes suite v1. See [Capsule regression cases](CAPSULE_REGRESSION_CASES.md) for schema, bounds, trust and verdicts. Both commands ship in CLI 1.6.0 and later.
