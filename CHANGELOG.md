@@ -8,6 +8,7 @@ The format follows Keep a Changelog and groups changes by release.
 
 ### Fixed
 - Lua `string.format` with a zero `%g` precision, such as `%.0g`, now formats like standard Lua instead of failing the run with a meaningless error.
+- `lingua capsule verify` and the regression-suite export name the engine mismatch for Python, Go and web Ruby recordings. A real recording with per-line results or a failed run used to report a generic incomplete baseline instead.
 
 ## [1.6.0] — 2026-10-13
 

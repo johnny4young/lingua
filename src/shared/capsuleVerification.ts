@@ -54,11 +54,14 @@ export function compareCapsuleStreams(
   return { matches: status && stdout && stderr, status, stdout, stderr };
 }
 
-/** Why the CLI can never pass this recording, checked before anything executes. */
+/**
+ * Why the CLI can never pass this recording, checked before anything executes.
+ * Engine divergence comes first: no baseline shape could make it comparable.
+ */
 export function capsuleStrictVerificationRefusal(capsule: RunCapsuleV1): string | null {
   return (
-    capsuleVerificationBlocker(capsule, CLI_OUTPUT_PAYLOAD_BYTES) ??
     capsuleEngineDivergence(capsule) ??
+    capsuleVerificationBlocker(capsule, CLI_OUTPUT_PAYLOAD_BYTES) ??
     (capsule.tab.runtimeMode === 'browser-preview' ? 'unsupported-runtime-mode' : null)
   );
 }
