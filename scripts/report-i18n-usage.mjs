@@ -11,6 +11,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { flattenMessages } from './check-i18n.mjs';
 import { lineAndColumn, parseSourceText, walk } from './lib/estree.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = path.join(repoRoot, 'src');
@@ -168,7 +169,7 @@ async function main() {
   console.log('Advisory only: verify dynamic and indirect consumers before removing any key.');
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch(error => {
     console.error(
       `i18n usage report failed: ${error instanceof Error ? error.message : String(error)}`

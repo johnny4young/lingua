@@ -12,6 +12,7 @@ import {
   resolveLatestTag,
 } from './changelog-draft.mjs';
 import { stripArgSeparator } from './lib/cli-args.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -212,6 +213,6 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectInvocation(import.meta.url)) {
   process.exitCode = main();
 }

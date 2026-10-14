@@ -2,7 +2,9 @@
 
 import { chmod, copyFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(here, '..');
@@ -78,11 +80,7 @@ export async function copyRipgrepBinaries({
   return destinationPaths;
 }
 
-const invokedPath = process.argv[1]
-  ? pathToFileURL(path.resolve(process.argv[1])).href
-  : '';
-
-if (import.meta.url === invokedPath) {
+if (isDirectInvocation(import.meta.url)) {
   const destinationPaths = await copyRipgrepBinaries();
   for (const destinationPath of destinationPaths) {
     process.stdout.write(

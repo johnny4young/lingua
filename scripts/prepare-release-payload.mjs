@@ -8,6 +8,8 @@ import process from 'node:process';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
@@ -452,7 +454,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch(error => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

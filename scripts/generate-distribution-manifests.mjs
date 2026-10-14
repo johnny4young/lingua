@@ -25,7 +25,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -341,8 +343,6 @@ async function main() {
   }
 }
 
-// `pathToFileURL` rather than a hand-built `file://` string: on Windows the
-// latter never matches `import.meta.url`, so the CLI would silently no-op.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectInvocation(import.meta.url)) {
   await main();
 }

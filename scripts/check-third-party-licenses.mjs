@@ -3,8 +3,9 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 export const APPROVED_LICENSE_EXPRESSIONS = [
   '(MPL-2.0 OR Apache-2.0)',
@@ -378,7 +379,6 @@ function main() {
   }
 }
 
-const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
-if (import.meta.url === invokedPath) {
+if (isDirectInvocation(import.meta.url)) {
   main();
 }

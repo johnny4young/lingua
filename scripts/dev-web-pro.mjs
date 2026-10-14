@@ -18,13 +18,14 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import {
   mintDevLicense,
   parseDevLicenseCliArgs,
   printDevLicenseBanner,
   shouldSkipDevSessionLaunch,
 } from './dev-license-shared.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,7 +106,7 @@ async function main() {
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectInvocation(import.meta.url)) {
   try {
     await main();
   } catch (error) {

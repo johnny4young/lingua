@@ -15,6 +15,7 @@ import {
   summarizeDesktopActivation,
   summarizeWebActivation,
 } from './lib/activationMetrics.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 import { collectBuildTarget } from './performance-report.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -794,7 +795,7 @@ async function main() {
   );
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch(error => {
     console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
     process.exitCode = 1;

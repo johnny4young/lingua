@@ -3,8 +3,8 @@ import { execFile as execFileCallback } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { lineAndColumn, parseSourceText } from './lib/estree.mjs';
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const execFile = promisify(execFileCallback);
 const COPY_ATTRIBUTES = new Set(['title', 'aria-label', 'placeholder', 'alt', 'label']);
@@ -246,6 +246,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isDirectInvocation(import.meta.url)) {
   await main();
 }

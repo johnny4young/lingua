@@ -4,9 +4,9 @@
 
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const DEFAULT_ORIGIN = 'https://app.linguacode.dev';
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -68,7 +68,7 @@ export async function verifyWebRuntimeMirror(filePath, url, { origin = DEFAULT_O
   return expected;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isDirectInvocation(import.meta.url)) {
   const [filePath, url, ...extra] = process.argv.slice(2);
   if (!filePath || !url || extra.length > 0) {
     console.error(

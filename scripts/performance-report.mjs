@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { gzipSync } from 'node:zlib';
-import { realpathSync } from 'node:fs';
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { isDirectInvocation } from './lib/isDirectInvocation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -923,9 +924,7 @@ async function main() {
   }
 }
 
-// Compare real paths: a symlinked invocation path (macOS /var -> /private/var)
-// must not skip main() and exit 0 without checking anything.
-if (process.argv[1] && realpathSync(path.resolve(process.argv[1])) === realpathSync(__filename)) {
+if (isDirectInvocation(import.meta.url)) {
   main().catch((error) => {
     // Preserve the stack trace so CI logs surface the failing line, not
     // just the message. Falls back to the message when stack is missing

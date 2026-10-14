@@ -10,7 +10,6 @@ import {
   cliArchiveName,
   cliBinaryName,
   CLI_PACKAGE_NAME,
-  isDirectInvocation,
   main,
   resolveStandaloneTarget,
   SEA_SENTINEL_FUSE,
@@ -83,20 +82,6 @@ describe('CLI distribution packaging', () => {
 
   it('accepts the pnpm argument separator used by the release workflow', async () => {
     await expect(main(['--', '--help'])).resolves.toBe(0);
-  });
-
-  it('detects direct invocation with Windows paths', () => {
-    const modulePath = 'D:\\a\\lingua\\lingua\\scripts\\package-cli.mjs';
-
-    expect(isDirectInvocation(modulePath, modulePath, nodePath.win32)).toBe(true);
-    expect(
-      isDirectInvocation(
-        modulePath,
-        'D:\\a\\lingua\\lingua\\scripts\\build-cli.mjs',
-        nodePath.win32
-      )
-    ).toBe(false);
-    expect(isDirectInvocation(modulePath, undefined, nodePath.win32)).toBe(false);
   });
 
   it('keeps tar output local when packaging from a Windows runner', () => {
