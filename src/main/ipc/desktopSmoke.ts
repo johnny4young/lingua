@@ -20,7 +20,7 @@ const SMOKE_LICENSE_TOKEN_ENV = 'LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN';
  * preload surface inert for normal production sessions while still letting the
  * packaged release smoke reuse the real app binary.
  */
-export function isDesktopSmokeEnabled(): boolean {
+function isDesktopSmokeEnabled(): boolean {
   return (
     process.env.LINGUA_DESKTOP_SMOKE === '1' ||
     process.argv.includes(DESKTOP_SMOKE_FLAG)
