@@ -6,6 +6,15 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-13
+
+### Added
+- Capsule Workspace imports recompute attached-file SHA-256 hashes locally and distinguish matching, mismatched, and unverified text without executing code.
+- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
+- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
+- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
+- Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
+
 ### Fixed
 - Saving a file no longer reverts stdin, named inputs, workflow or one-shot timeout changes made while the save was still writing. Timed-out or stopped CLI runs and native dependency installs now force-stop their remaining process group and no longer hang on output held open by an escaped background process.
 - A guided tour interrupted while loading or waiting for the editor no longer opens over a newer dialog or closes it when the delayed load finishes. Explicit retry still works.
@@ -13,13 +22,6 @@ The format follows Keep a Changelog and groups changes by release.
 - URL parsing in utility pipelines and the CLI preserves query names such as `__proto__`, `constructor` and `toString`, including repeated values, instead of dropping them or adding nonexistent values.
 - Long inline results keep their reserved row while the next run is in flight, so the code below no longer jumps on every automatic run. Rows the finished run does not reuse are released when it ends. Shown results now follow their source line through edits until the next run, instead of staying on the line number that run reported.
 - A native dependency install whose installer already exited no longer waits out the five-minute deadline when a leftover helper holds its output open; it settles by the installer's exit code. A timed-out Rust debugger compile keeps the timeout reason even when compiler output fills the diagnostics budget.
-
-### Added
-- Capsule Workspace imports recompute attached-file SHA-256 hashes locally and distinguish matching, mismatched, and unverified text without executing code.
-
-## [1.5.2] — 2026-10-06
-
-### Fixed
 - Native-run capture, Go and Rust debugger compile diagnostics, and Go/Rust/Ruby dependency-install logs honor their UTF-8 byte budgets, including truncation markers, without splitting multibyte characters.
 - Release downloads separate desktop apps from terminal tools, and explicit Windows/Linux ZIP targets keep their platform. The guided tour explains automatic Scratchpad runs and leaves console feedback illuminated; long inline results reserve space below source instead of covering it. Unnamed asynchronous worker stack frames join the existing collapsed runtime details.
 - The desktop HTTP and WebSocket private-network guard now also blocks NAT64, 6to4 and IPv4-translated IPv6 addresses that point at loopback, private or cloud-metadata IPv4, plus Teredo, benchmarking, site-local, documentation, discard-only and other reserved IPv6 ranges and `localhost.`, while NAT64 addresses of public hosts keep working.
@@ -30,12 +32,6 @@ The format follows Keep a Changelog and groups changes by release.
 - Ordinary desktop windows no longer disable session recovery merely because the optional smoke bridge is present.
 - Do not queue a Go/Rust destination selection when a stale file open was refused.
 - Handle Monaco delayed-task cancellation when model handoff or reference widgets dispose, without suppressing unexpected errors.
-
-### Added
-- **Manual notebook project documents.** Open, Save and Save As preserve .linguanb v1 cells and output evidence; capability-backed writes detect changed files and retain unsaved edits.
-- Explicit current-file Capsule verification and bounded serial suite v1 with strict per-case verdicts, unchanged baselines, in-root target validation and inert project-target export/inspection.
-- **Run Capsules support strict CLI verification.** The new verify command rejects drift and incomplete evidence with nonzero exits, treats Python, Go and web Ruby recordings as inconclusive because their app engine differs from the CLI, while validate stays inert and replay keeps its original exit contract.
-- Go/Rust project definition and references use server-declared capabilities and capability-authorized destinations, preserving dirty buffers and rejecting stale responses.
 
 ## [1.5.1] — 2026-09-24
 
