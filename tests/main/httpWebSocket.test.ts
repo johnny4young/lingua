@@ -124,7 +124,7 @@ describe('desktop WebSocket proxy', () => {
     await executeWebSocketProxyRequest(
       {
         ...request(`ws://127.0.0.1:${port}/socket`),
-        headers: [{ id: 'h1', name: '__proto__', value: 'kept', enabled: true }],
+        headers: [{ name: '__proto__', value: 'kept', enabled: true }],
       },
       { allowPrivateHosts: true }
     );
