@@ -6,8 +6,8 @@ import {
   getBlockedOfflineSmokeUrls,
   isOfflineSmokeRequested,
 } from '../offlineSmoke';
+import { DESKTOP_SMOKE_FLAG } from '../../shared/desktopSmoke';
 
-const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
 const SMOKE_LICENSE_TOKEN_PREFIX = '--lingua-smoke-license-token=';
 const SMOKE_LAUNCHED_AT_ENV = 'LINGUA_SMOKE_LAUNCHED_AT_MS';

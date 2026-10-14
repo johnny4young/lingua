@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DESKTOP_SMOKE_FLAG } from '#src/shared/desktopSmoke';
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>();
 const listeners = new Map<string, (...args: unknown[]) => unknown>();
@@ -294,5 +297,18 @@ describe('desktop smoke IPC handlers', () => {
 
     process.argv = ['electron', 'main.js', '--lingua-desktop-smoke'];
     expect(desktopSmokeRendererArguments()).toEqual(['--lingua-desktop-smoke']);
+  });
+
+  it('wires the forwarded flag into the main window and reads the same flag in the preload', () => {
+    const root = path.resolve(__dirname, '../..');
+    const main = readFileSync(path.join(root, 'src/main/index.ts'), 'utf8');
+    const webPreferences = main.slice(main.indexOf('webPreferences: {'));
+    expect(webPreferences.slice(0, webPreferences.indexOf('}'))).toContain(
+      'additionalArguments: desktopSmokeRendererArguments()'
+    );
+
+    const preload = readFileSync(path.join(root, 'src/preload/index.ts'), 'utf8');
+    expect(preload).toContain('process.argv.includes(DESKTOP_SMOKE_FLAG)');
+    expect(preload).not.toContain(`'${DESKTOP_SMOKE_FLAG}'`);
   });
 });

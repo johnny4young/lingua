@@ -12,6 +12,7 @@ import type { PythonDebuggerBridge } from '../shared/pythonDebugger';
 import type { GoDebuggerBridge } from '../shared/goDebugger';
 import type { RustDebuggerBridge } from '../shared/rustDebugger';
 import { typedInvoke, typedOn, typedSend } from './ipcTyped';
+import { DESKTOP_SMOKE_FLAG } from '../shared/desktopSmoke';
 
 const lsp: LspBridge = {
   resolveTarget: (rootId: RootId, uri: string) => typedInvoke('lsp:resolve-target', rootId, uri),
@@ -48,7 +49,7 @@ const lsp: LspBridge = {
 
 const desktopSmokeEnabled =
   process.env.LINGUA_DESKTOP_SMOKE === '1' ||
-  process.argv.includes('--lingua-desktop-smoke');
+  process.argv.includes(DESKTOP_SMOKE_FLAG);
 
 const http: HttpDesktopAPI = {
   execute: (runId, request, options) =>
