@@ -283,4 +283,16 @@ describe('desktop smoke IPC handlers', () => {
       reason: 'smoke-disabled',
     });
   });
+
+  it('forwards smoke mode to the sandboxed renderer only when main is in smoke mode', async () => {
+    const { desktopSmokeRendererArguments } = await import('#src/main/ipc/desktopSmoke');
+    expect(desktopSmokeRendererArguments()).toEqual(['--lingua-desktop-smoke']);
+
+    delete process.env.LINGUA_DESKTOP_SMOKE;
+    process.argv = ['electron', 'main.js'];
+    expect(desktopSmokeRendererArguments()).toEqual([]);
+
+    process.argv = ['electron', 'main.js', '--lingua-desktop-smoke'];
+    expect(desktopSmokeRendererArguments()).toEqual(['--lingua-desktop-smoke']);
+  });
 });

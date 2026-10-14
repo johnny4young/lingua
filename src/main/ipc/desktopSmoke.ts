@@ -20,11 +20,19 @@ const SMOKE_LICENSE_TOKEN_ENV = 'LINGUA_DESKTOP_SMOKE_LICENSE_TOKEN';
  * preload surface inert for normal production sessions while still letting the
  * packaged release smoke reuse the real app binary.
  */
-function isDesktopSmokeEnabled(): boolean {
+export function isDesktopSmokeEnabled(): boolean {
   return (
     process.env.LINGUA_DESKTOP_SMOKE === '1' ||
     process.argv.includes(DESKTOP_SMOKE_FLAG)
   );
+}
+
+/**
+ * Renderer arguments that let the sandboxed preload see smoke mode. A packaged
+ * renderer does not inherit the launcher's environment or main's argv.
+ */
+export function desktopSmokeRendererArguments(): string[] {
+  return isDesktopSmokeEnabled() ? [DESKTOP_SMOKE_FLAG] : [];
 }
 
 /**

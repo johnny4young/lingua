@@ -27,7 +27,7 @@ import { registerAltJsRuntimeHandlers } from './altJsRuntimes';
 import { registerAppInfoHandlers } from './ipc/appInfo';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
-import { registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
+import { desktopSmokeRendererArguments, registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerEnvHandlers } from './ipc/env';
 import { registerLspHandlers, disposeLspBridge } from './ipc/lsp';
 import { registerProfileHandlers } from './ipc/profile';
@@ -171,6 +171,7 @@ const createWindow = async () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      additionalArguments: desktopSmokeRendererArguments(),
       // Pin the same-origin policy explicitly. This is the
       // Electron default, but pinning it ensures a future edit cannot
       // silently disable web security (which would let a compromised
