@@ -52,6 +52,15 @@ describe('LuaRunner limits', () => {
     expect(elapsed).toBeLessThan(5_000);
   });
 
+  it('formats zero and out-of-range precisions like C Lua instead of failing the run', async () => {
+    // fengari formats through sprintf-js, patched for GHSA-hp3w-g68c-fv3c.
+    const result = await runner.execute(
+      'print(string.format("%.0g|%.0e|%.0f|%.99g", 1.5, 1.5, 1.5, 1.5))'
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.stdout[0]).toEqual({ type: 'log', args: ['2|2e+0|2|1.5'] });
+  });
+
   it('caps unbounded print output at the shared console-entry limit', async () => {
     const result = await runner.execute(
       `for i = 1, ${MAX_CONSOLE_ENTRIES + 500} do print(i) end`

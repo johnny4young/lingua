@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- Lua `string.format` with a zero `%g` precision, such as `%.0g`, now formats like standard Lua instead of failing the run with a meaningless error.
+
 ## [1.6.0] — 2026-10-13
 
 ### Added

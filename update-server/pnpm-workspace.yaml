@@ -13,6 +13,8 @@ allowBuilds:
 overrides:
   'esbuild': '0.28.1'
   'postcss': '8.5.25'
+  # GHSA-wq5f-xc86-pv6w: miniflare pins sharp 0.35.4; dev-only, via wrangler.
+  'sharp': '0.35.5'
   # GHSA-68fv-2mgg-jv7q: first patched source-map-js release.
   'source-map-js': '1.2.2'
   'undici': '7.29.1'
