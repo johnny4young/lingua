@@ -82,6 +82,19 @@ describe('strict Capsule verification', () => {
       expect(body.run).toBeUndefined();
     }
   );
+  it('names the engine for a real Python recording with line results or a failed status', async () => {
+    const capsule = await source('print("sum =", 55)');
+    capsule.tab.language = 'python';
+    capsule.environment = { platform: 'web', runner: 'python' };
+    capsule.result.stdout = 'sum = 55';
+    capsule.result.lineResults = [{ line: 1, value: 'sum = 55', type: 'log' }];
+    capsule.result.richOutputs = [{ kind: 'primitive', type: 'number', repr: '55' }];
+    expect((await verify(capsule)).body.reason).toBe('engine-divergent-baseline');
+    capsule.result.status = 'error';
+    const { exit, body } = await verify(capsule);
+    expect(exit).toBe(6);
+    expect(body).toMatchObject({ verdict: 'inconclusive', reason: 'engine-divergent-baseline' });
+  });
   it('does not treat a desktop Ruby recording as engine-divergent', async () => {
     const capsule = await source('puts 3');
     capsule.tab.language = 'ruby';

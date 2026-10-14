@@ -193,6 +193,13 @@ describe('inert regression export', () => {
       expect(saveOrDownloadTextFile).not.toHaveBeenCalled();
     }
   );
+  it('explains the engine for a Python recording that also carries line results', () => {
+    const capsule = structuredClone(FIXTURE_MINIMAL_JS);
+    capsule.tab.language = 'python';
+    capsule.result.lineResults = [{ line: 1, value: 'sum = 55', type: 'log' }];
+    render(<CapsuleRegressionExportDialog capsule={capsule} onClose={vi.fn()} />);
+    expect(screen.getByRole('status').textContent).toContain('different engine than the CLI');
+  });
   it('initializes a newly selected capsule after an inert null mount', async () => {
     const view = render(<CapsuleRegressionExportDialog capsule={null} onClose={vi.fn()} />);
     expect(screen.queryByRole('combobox')).toBeNull();
