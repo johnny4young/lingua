@@ -1125,6 +1125,9 @@ HTTP/SSE and WebSocket. It owns URL parsing, caller-selected scheme validation,
 private-address classification and validation of all lookup results. It imports
 only Node's address classifier, creates no transport, and keeps no DNS cache or
 mutable singleton. Lookup evidence is returned unchanged for socket pinning.
+The lookup takes the caller's abort signal, so Stop and the request deadline
+settle a resolution that never answers; an aborted lookup is reported as the
+caller's cancel or timeout, never as a policy rejection.
 
 `httpProxy.ts` owns HTTP redirects, credentials, undici dispatchers and body/SSE
 limits; `httpWebSocket.ts` owns handshake, messages, redirects-off and socket

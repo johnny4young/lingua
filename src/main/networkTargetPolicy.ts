@@ -196,7 +196,8 @@ export function isPrivateAddress(ip: string): boolean {
 async function assertHostAllowed(
   rawHostname: string,
   allowPrivateHosts: boolean,
-  lookupImpl: LookupImpl
+  lookupImpl: LookupImpl,
+  signal?: AbortSignal
 ): Promise<LookupAddress[]> {
 
   // WHATWG `URL` keeps the square brackets on an IPv6 host (`[::1]`), and
@@ -232,8 +233,10 @@ async function assertHostAllowed(
 
   let addresses: LookupAddress[];
   try {
-    addresses = await lookupImpl(hostname);
+    addresses = await abortable(lookupImpl(hostname), signal);
   } catch (err) {
+    // Cancel and timeout belong to the caller, not to the destination policy.
+    if (signal?.aborted) throw abortError(signal);
     const message = err instanceof Error ? err.message : String(err);
     throw new SsrfBlockedError(`DNS resolution failed for ${hostname}: ${message}`);
   }
@@ -250,6 +253,22 @@ async function assertHostAllowed(
   return addresses;
 }
 
+function abortError(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : new Error(`Request aborted: ${String(reason)}`);
+}
+
+/** Settle with `signal`'s abort even when a DNS lookup never answers. */
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(abortError(signal));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 export interface GuardedNetworkTarget {
   readonly url: URL;
   readonly addresses: ReadonlyArray<LookupAddress>;
@@ -260,7 +279,8 @@ export async function resolveGuardedNetworkTarget(
   rawUrl: string,
   allowedProtocols: ReadonlySet<string>,
   allowPrivateHosts: boolean,
-  lookupImpl: LookupImpl
+  lookupImpl: LookupImpl,
+  signal?: AbortSignal
 ): Promise<GuardedNetworkTarget> {
   let url: URL;
   try {
@@ -274,7 +294,8 @@ export async function resolveGuardedNetworkTarget(
   const addresses = await assertHostAllowed(
     url.hostname,
     allowPrivateHosts,
-    lookupImpl
+    lookupImpl,
+    signal
   );
   return { url, addresses };
 }
