@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import * as editorPersistence from '@/stores/editorPersistence';
 import { createDefaultTab, useEditorStore } from '@/stores/editorStore';
+import { useRecipeStore } from '@/stores/recipeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 const bridge = Object.getOwnPropertyDescriptor(window, 'lingua');
@@ -106,4 +108,30 @@ it('drops a recipe binding from the tab when the save drops it', async () => {
   expect(ok).toBe(true);
   const saved = useEditorStore.getState().tabs.find(t => t.id === tab.id)!;
   expect(saved.recipeBindingId).toBeUndefined();
+});
+
+it('unbinds a recipe bound while a language-changing Save As was writing', async () => {
+  const tab = { ...createDefaultTab('javascript'), name: 'demo.js' };
+  useEditorStore.getState().addTab(tab);
+  vi.spyOn(editorPersistence, 'persistTab').mockImplementation(async original => {
+    // The user binds a recipe while the write is in flight.
+    useEditorStore.setState(state => ({
+      tabs: state.tabs.map(t => (t.id === tab.id ? { ...t, recipeBindingId: 'recipe-1' } : t)),
+    }));
+    useRecipeStore.getState().bindRecipeToTab(tab.id, 'recipe-1');
+    return {
+      ...original,
+      name: 'demo.py',
+      language: 'python',
+      filePath: '/tmp/demo.py',
+      rootId: 'root-demo',
+      relativePath: 'demo.py',
+    };
+  });
+  const unbind = vi.spyOn(useRecipeStore.getState(), 'unbindRecipe');
+  expect(await useEditorStore.getState().saveTabById(tab.id, true)).toBe(true);
+  const saved = useEditorStore.getState().tabs.find(t => t.id === tab.id)!;
+  expect(saved.language).toBe('python');
+  expect(saved.recipeBindingId).toBeUndefined();
+  expect(unbind).toHaveBeenCalledWith(tab.id);
 });

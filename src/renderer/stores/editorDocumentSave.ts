@@ -69,6 +69,7 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
       return false;
     }
 
+    let droppedLiveBinding = false;
     set(state => ({
       tabs: state.tabs.map(t => {
         if (t.id !== id) return t;
@@ -91,6 +92,8 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
           };
         }
         const committed = withLiveTabState(savedTab, t, tab);
+        droppedLiveBinding =
+          t.recipeBindingId !== undefined && committed.recipeBindingId === undefined;
         if (t.content !== tab.content) {
           return { ...committed, content: t.content, isDirty: true };
         }
@@ -112,7 +115,11 @@ export function createDocumentSaveAction(set: EditorSet, get: EditorGet) {
     if (savedTab.language !== previousLanguage) {
       useDependencyDetectionStore.getState().evictTab(id);
     }
-    if (tab.recipeBindingId !== undefined && savedTab.recipeBindingId === undefined) {
+    // Includes a binding made while a language-changing save was writing.
+    if (
+      droppedLiveBinding ||
+      (tab.recipeBindingId !== undefined && savedTab.recipeBindingId === undefined)
+    ) {
       useRecipeStore.getState().unbindRecipe(id);
     }
 
