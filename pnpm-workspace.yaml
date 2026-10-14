@@ -61,17 +61,17 @@ overrides:
   # pin froze the tree one patch below a fix more than once (nanoid,
   # undici, brace-expansion), because the next advisory never re-opens the
   # pin by itself. minimumReleaseAge still keeps day-old releases out.
-  "brace-expansion@1.1.15": "^1.1.18"
+  "brace-expansion@1.1.15": "^1.1.21"
   # nanoid <3.3.18: custom generators can loop indefinitely when size is
   # zero. Build-tooling only (postcss), but the website audit gate is
   # blocking and its previous EXACT pin (3.3.17) froze the tree one patch
   # below the fix — range pins so the next advisory bump flows through.
   "nanoid": "^3.3.18"
-  "brace-expansion@2.1.1": "^2.1.4"
-  "brace-expansion@5.0.6": "^5.0.9"
-  # 3.1.6 fixes host normalization advisories; widening the old 3.1.5 pin
-  # alone still permits a vulnerable frozen lockfile. Keep a patched floor.
-  "fast-uri": "^3.1.6"
+  "brace-expansion@2.1.1": "^2.1.7"
+  "brace-expansion@5.0.6": "^5.0.12"
+  # 3.1.6 fixes host normalization advisories and 3.1.8 GHSA-hrr3-gc8f-f4qj;
+  # widening an old pin alone still permits a vulnerable frozen lockfile.
+  "fast-uri": "^3.1.8"
   # js-yaml 4.3.2 counts empty merge sources against maxTotalMergeKeys
   # (GHSA-2883-xcg3-v3hh). electron-updater ships this parser to users;
   # keep the patched floor here and in the independently locked website.
@@ -121,6 +121,11 @@ overrides:
   # another (GHSA-ch52-4w7c-c8xp). Dev-only here, through electron-builder's
   # got chain; 4.3.0 is the first release outside the advisory range.
   "http-cache-semantics": "^4.3.0"
+  # smol-toml <=1.8.0 (GHSA-r4xh-jqrq-34v2) reaches the graph through knip.
+  "smol-toml": "^1.9.0"
+  # miniflare pins sharp exactly; 0.35.5 fixes GHSA-wq5f-xc86-pv6w. Dev-only,
+  # through wrangler.
+  "sharp": "^0.35.5"
 
 minimumReleaseAgeExclude:
   # Same-day security releases for published GitHub advisories. Exact
@@ -131,3 +136,7 @@ minimumReleaseAgeExclude:
 # Handle owned delayed-task cancellation when Monaco navigation widgets dispose.
 patchedDependencies:
   monaco-editor@0.55.1: patches/monaco-editor@0.55.1.patch
+  # No sprintf-js release fixes GHSA-hp3w-g68c-fv3c. The Lua runner's
+  # string.format reaches it through fengari; clamp precision instead of
+  # throwing RangeError (%.0g failed every Lua run that used it).
+  sprintf-js@1.1.3: patches/sprintf-js@1.1.3.patch

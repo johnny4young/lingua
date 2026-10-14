@@ -1,0 +1,34 @@
+diff --git a/src/sprintf.js b/src/sprintf.js
+index 65d6324645ef1d0133614a71497751009dc5c912..e154f7dd31b9a70cc1b4e09bd7541d906ca88b25 100644
+--- a/src/sprintf.js
++++ b/src/sprintf.js
+@@ -21,6 +21,12 @@
+         sign: /^[+-]/
+     }
+ 
++    // Number#toFixed/toExponential accept 0-100 digits and toPrecision 1-100;
++    // C treats %.0g as precision 1. Clamp instead of throwing RangeError.
++    function bounded_precision(precision, min) {
++        return Math.min(100, Math.max(min, parseInt(precision, 10) || 0))
++    }
++
+     function sprintf(key) {
+         // `arguments` is not an array, but should be fine for this call
+         return sprintf_format(sprintf_parse(key), arguments)
+@@ -81,13 +87,13 @@
+                         arg = JSON.stringify(arg, null, ph.width ? parseInt(ph.width) : 0)
+                         break
+                     case 'e':
+-                        arg = ph.precision ? parseFloat(arg).toExponential(ph.precision) : parseFloat(arg).toExponential()
++                        arg = ph.precision ? parseFloat(arg).toExponential(bounded_precision(ph.precision, 0)) : parseFloat(arg).toExponential()
+                         break
+                     case 'f':
+-                        arg = ph.precision ? parseFloat(arg).toFixed(ph.precision) : parseFloat(arg)
++                        arg = ph.precision ? parseFloat(arg).toFixed(bounded_precision(ph.precision, 0)) : parseFloat(arg)
+                         break
+                     case 'g':
+-                        arg = ph.precision ? String(Number(arg.toPrecision(ph.precision))) : parseFloat(arg)
++                        arg = ph.precision ? String(Number(arg.toPrecision(bounded_precision(ph.precision, 1)))) : parseFloat(arg)
+                         break
+                     case 'o':
+                         arg = (parseInt(arg, 10) >>> 0).toString(8)
