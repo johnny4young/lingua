@@ -312,6 +312,10 @@ with an isolated profile and exercises real renderer-to-main Node IPC via
 pipes, Stop after stdout clipping, and a clean subsequent run. Its fixtures
 use no dependency install or external service. This is an unpackaged native
 app check; it does not qualify installers, signing, or other native runtimes.
+The same PR job then packages an ad-hoc signed `--dir` app and runs
+`pnpm run smoke:desktop:packaged` against it, so the packaged renderer path the
+release smoke depends on is qualified before merge; signing, notarization and
+updater manifests remain release-only.
 
 ### Debugger expression boundary
 
