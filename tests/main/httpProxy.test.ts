@@ -254,6 +254,17 @@ describe('executeHttpProxyRequest — failure branches', () => {
     expect(res.errorMessage).toMatch(/timed out/i);
   });
 
+  it('times out a DNS lookup that never answers instead of waiting on it', async () => {
+    const fetchImpl = vi.fn(mockFetch({ status: 200 }));
+    const hangingLookup: LookupImpl = () => new Promise(() => {});
+    const res = await executeHttpProxyRequest(makeRequest({ timeoutMs: 10 }), {
+      fetchImpl,
+      lookupImpl: hangingLookup,
+    });
+    expect(res.kind).toBe('timeout');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('surfaces a generic fetch failure as network-error', async () => {
     const fetchImpl = (async () => {
       throw new TypeError('Failed to fetch');

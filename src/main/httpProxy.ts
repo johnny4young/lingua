@@ -479,7 +479,8 @@ export async function executeHttpProxyRequest(
         currentUrl,
         HTTP_PROTOCOLS,
         allowPrivateHosts,
-        lookupImpl
+        lookupImpl,
+        controller.signal
       );
       let hopDispatcher: Agent | null = null;
       if (fetchImpl) {
