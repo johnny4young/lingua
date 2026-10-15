@@ -336,11 +336,12 @@ export function GuidedTourRuntime({
     if (tabs.length === 0) {
       addTab(createDefaultTab('javascript'));
     }
-    useUIStore.getState().openBottomPanel('console');
 
     await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.editor);
 
     if (generation === startGenerationRef.current && !hasActiveOverlayRef.current) {
+      // Open the console only for a tour that actually starts.
+      useUIStore.getState().openBottomPanel('console');
       activeStepIndexRef.current = 0;
       setActiveStepIndex(0);
     }

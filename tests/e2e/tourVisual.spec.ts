@@ -133,7 +133,11 @@ test.describe('website tour evidence', () => {
       await replaceEditorText(page, PYTHON_SOURCE);
       await expect(page.getByText('slowest path: db').first()).toBeVisible({ timeout: 60_000 });
       await openConsole(page);
-      await expect(page.getByText(/slowest path: db'/).first()).toBeVisible();
+      // The console row prints the str() text, so scope it to the console
+      // rather than relying on repr quotes to tell it from the inline pill.
+      await expect(
+        page.getByTestId('console-entry-row').filter({ hasText: 'slowest path: db' }).first()
+      ).toBeVisible();
       await capture(page, `workspace-python-${language}.png`);
 
       // Command palette filtered to sql.

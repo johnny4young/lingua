@@ -286,6 +286,10 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
     # own payload entry aligned with the joined text.
     payloads = []
     for arg in args:
+        # print() shows str(arg); a repr payload would add quotes to strings.
+        if isinstance(arg, str):
+            payloads.append({"kind": "primitive", "type": "string", "repr": arg})
+            continue
         payload = __lingua_console_serialize(arg)
         if payload is None:
             payload = {"kind": "rawText", "text": __lingua_repr_safe(arg)}
