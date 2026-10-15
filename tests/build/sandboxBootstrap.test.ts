@@ -39,6 +39,10 @@ describe('independent sandbox bootstrap', () => {
     );
     expect(headers).toContain('X-Frame-Options: DENY');
   });
+  it('keeps Cloudflare from rewriting the app document', () => {
+    const headers = readFileSync(path.resolve(__dirname, '../../public/_headers'), 'utf8');
+    expect(headers).toMatch(/^\/\n  Cache-Control: [^\n]*\bno-transform\b/mu);
+  });
   it.each([{ top: true }, { origin: 'https://app.test' }, { token: '' }])(
     'refuses an unisolated or unidentified document: %j',
     options => {

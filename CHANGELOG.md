@@ -13,6 +13,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Python `print` with several arguments shows strings in the console as `print` does, without repr quotes (`sum = 55`, not `'sum =' 55`). Strings inside lists and other containers keep their quotes.
 - A language-changing Save As no longer leaves a recipe bound in the background when the binding was made while the file was still writing.
 - Starting the guided tour opens the console only once the tour actually begins; a start interrupted by another dialog leaves the bottom panel as it was.
+- The web app no longer logs a Content Security Policy error on every load from a script Cloudflare injected into the page.
 
 ## [1.6.0] — 2026-10-13
 
