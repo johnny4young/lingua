@@ -33,7 +33,7 @@ test('longer-cached paths detach the page default instead of joining it', () => 
   }
 });
 
-test('the analytics beacon the edge no longer injects is still allowed by the CSP', () => {
+test('the CSP still allows the injected Pages Analytics beacon', () => {
   const csp = rule('/*').find(line => line.startsWith('Content-Security-Policy:')) ?? '';
   assert.match(csp, /script-src [^;]*https:\/\/static\.cloudflareinsights\.com/u);
   assert.match(csp, /connect-src [^;]*https:\/\/cloudflareinsights\.com/u);

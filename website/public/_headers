@@ -2,8 +2,8 @@
 # per-build JSON-LD SHA-256 sources to dist/_headers after Astro renders HTML.
 #
 # no-transform stops Cloudflare's JavaScript Detections (no off switch on the
-# Free plan) from injecting an inline script the CSP blocks. It also stops the
-# automatic Web Analytics beacon, so Base.astro renders that beacon itself.
+# Free plan) from injecting an inline script the CSP blocks. Pages Analytics
+# still injects its beacon, so the build must not render a second one.
 # Pages joins values of a header set by several matching rules, so each
 # longer-cached path detaches the default before setting its own.
 /*
