@@ -620,6 +620,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RELEASE_ASSETS: ${{ steps.release-payload.outputs.assets }}
+          RELEASE_MACOS: ${{ inputs.release_macos }}
+          RELEASE_WINDOWS: ${{ inputs.release_windows }}
+          RELEASE_LINUX: ${{ inputs.release_linux }}
+          RELEASE_CLI: ${{ inputs.release_cli }}
+          # Booleans only: the notes state the signing the builds actually used.
+          MAC_NOTARIZED: ${{ secrets.APPLE_CERT_P12_BASE64 != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_ID_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
+          WINDOWS_SIGNED: ${{ secrets.WIN_CERT_FILE != '' && secrets.WIN_CERT_PASSWORD != '' }}
         run: |
           set -euo pipefail
           if [[ -z "${RELEASE_ASSETS}" ]]; then
@@ -640,11 +647,20 @@ jobs:
             echo "Draft release ${RELEASE_TAG} already exists; uploading assets in place."
             gh release upload "${RELEASE_TAG}" --clobber "${assets[@]}"
           else
+            platforms=()
+            [[ "${RELEASE_MACOS}" == "true" ]] && platforms+=(macos)
+            [[ "${RELEASE_WINDOWS}" == "true" ]] && platforms+=(windows)
+            [[ "${RELEASE_LINUX}" == "true" ]] && platforms+=(linux)
+            [[ "${RELEASE_CLI}" == "true" ]] && platforms+=(cli)
+            notes_args=(--tag "${RELEASE_TAG}" --platforms "$(IFS=,; echo "${platforms[*]}")")
+            [[ "${MAC_NOTARIZED}" == "true" ]] && notes_args+=(--mac-notarized)
+            [[ "${WINDOWS_SIGNED}" == "true" ]] && notes_args+=(--windows-signed)
+            node scripts/release-notes.mjs "${notes_args[@]}" > "${RUNNER_TEMP}/release-notes.md"
             gh release create "${RELEASE_TAG}" \
               --target main \
               --title "${RELEASE_TAG}" \
               --draft \
-              --notes "Draft release for ${RELEASE_TAG}. Run the human checklist in RELEASE.md before promoting." \
+              --notes-file "${RUNNER_TEMP}/release-notes.md" \
               "${assets[@]}"
           fi
 

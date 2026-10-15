@@ -312,6 +312,10 @@ with an isolated profile and exercises real renderer-to-main Node IPC via
 pipes, Stop after stdout clipping, and a clean subsequent run. Its fixtures
 use no dependency install or external service. This is an unpackaged native
 app check; it does not qualify installers, signing, or other native runtimes.
+The same PR job then packages an ad-hoc signed `--dir` app and runs
+`pnpm run smoke:desktop:packaged` against it, so the packaged renderer path the
+release smoke depends on is qualified before merge; signing, notarization and
+updater manifests remain release-only.
 
 ### Debugger expression boundary
 
@@ -1125,6 +1129,9 @@ HTTP/SSE and WebSocket. It owns URL parsing, caller-selected scheme validation,
 private-address classification and validation of all lookup results. It imports
 only Node's address classifier, creates no transport, and keeps no DNS cache or
 mutable singleton. Lookup evidence is returned unchanged for socket pinning.
+The lookup takes the caller's abort signal, so Stop and the request deadline
+settle a resolution that never answers; an aborted lookup is reported as the
+caller's cancel or timeout, never as a policy rejection.
 
 `httpProxy.ts` owns HTTP redirects, credentials, undici dispatchers and body/SSE
 limits; `httpWebSocket.ts` owns handshake, messages, redirects-off and socket

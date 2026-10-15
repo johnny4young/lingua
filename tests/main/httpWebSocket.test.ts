@@ -91,6 +91,47 @@ describe('desktop WebSocket proxy', () => {
     expect(progress).toContain('echo:hello');
   });
 
+  it('honors Stop and the deadline while DNS is still resolving', async () => {
+    const hangingLookup = () => new Promise<never>(() => {});
+    const controller = new AbortController();
+    const cancelled = executeWebSocketProxyRequest(request('wss://example.com/socket'), {
+      lookupImpl: hangingLookup,
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(cancelled).resolves.toMatchObject({
+      kind: 'network-error',
+      errorMessage: 'Request cancelled',
+    });
+
+    const timedOut = await executeWebSocketProxyRequest(
+      { ...request('wss://example.com/socket'), timeoutMs: 10 },
+      { lookupImpl: hangingLookup }
+    );
+    expect(timedOut).toMatchObject({ kind: 'timeout', errorMessage: 'Request timed out' });
+  });
+
+  it('sends a header named __proto__ as an ordinary header', async () => {
+    const server = createServer();
+    const webSocketServer = new WebSocketServer({ server });
+    let received: string | undefined;
+    webSocketServer.on('connection', (socket, upgrade) => {
+      const raw = upgrade.rawHeaders;
+      received = raw[raw.findIndex((name) => name.toLowerCase() === '__proto__') + 1];
+      socket.close(1000, 'done');
+    });
+    const port = await listen(server);
+    await executeWebSocketProxyRequest(
+      {
+        ...request(`ws://127.0.0.1:${port}/socket`),
+        headers: [{ name: '__proto__', value: 'kept', enabled: true }],
+      },
+      { allowPrivateHosts: true }
+    );
+    webSocketServer.close();
+    expect(received).toBe('kept');
+  });
+
   it('rejects handshake redirects instead of following them', async () => {
     const server = createServer((_request, response) => {
       response.writeHead(302, { location: 'ws://127.0.0.1:9/private' });

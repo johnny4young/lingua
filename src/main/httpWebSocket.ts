@@ -67,7 +67,8 @@ function failure(
 }
 
 function toHeaderRecord(request: HttpRequestV1): Record<string, string> {
-  const headers: Record<string, string> = {};
+  // No prototype: a header named `__proto__` must stay a header.
+  const headers: Record<string, string> = Object.create(null);
   for (const entry of composeRequestHeaders(request)) {
     if (!entry.name.trim()) continue;
     if (/\r|\n/u.test(entry.name) || /\r|\n/u.test(entry.value)) continue;
@@ -97,21 +98,37 @@ export async function executeWebSocketProxyRequest(
   const lookupImpl: LookupImpl =
     options.lookupImpl ?? ((hostname) => dnsLookup(hostname, { all: true }));
 
+  // The connection below owns its own Stop and timeout; the lookup needs both too.
+  const lookupController = new AbortController();
+  const lookupTimer = setTimeout(() => lookupController.abort('timeout'), timeoutMs);
+  const abortLookup = (): void => lookupController.abort('cancelled');
+  if (options.signal?.aborted) abortLookup();
+  else options.signal?.addEventListener('abort', abortLookup, { once: true });
   let target;
   try {
     target = await resolveGuardedNetworkTarget(
       request.url,
       WEBSOCKET_PROTOCOLS,
       allowPrivateHosts,
-      lookupImpl
+      lookupImpl,
+      lookupController.signal
     );
   } catch (error) {
+    if (lookupController.signal.reason === 'timeout') {
+      return failure(request, 'timeout', 'Request timed out', startedAt);
+    }
+    if (lookupController.signal.aborted) {
+      return failure(request, 'network-error', 'Request cancelled', startedAt);
+    }
     return failure(
       request,
       'network-error',
       error instanceof Error ? error.message : String(error),
       startedAt
     );
+  } finally {
+    clearTimeout(lookupTimer);
+    options.signal?.removeEventListener('abort', abortLookup);
   }
 
   const openingMessage = request.body?.content ?? '';

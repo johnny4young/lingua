@@ -24,7 +24,7 @@ published release's `SHA256SUMS.txt`, so a digest can never drift from the
 artifact it describes:
 
 ```bash
-node scripts/generate-distribution-manifests.mjs --tag v1.6.0 --release-date 2026-10-14
+node scripts/generate-distribution-manifests.mjs --tag vX.Y.Z --release-date YYYY-MM-DD
 ```
 
 Outputs `packaging/homebrew/Casks/lingua.rb`,
@@ -278,9 +278,10 @@ Configure Authenticode signing, then re-generate and submit:
    `wingetcreate submit packaging/winget`.
 
 The manifests are generated and validated in-repo, but can lag the latest
-release. Regenerate them from the newly published checksums before submission;
-the in-repository v1.6.0 manifests describe an **unsigned preview** and are
-not eligible for winget submission. Signing and a clean Windows validation
+release. The `Post-release sync` workflow regenerates them from the published
+checksums in a PR after each release. While Windows stays unsigned, the
+in-repository manifests describe an **unsigned preview** and are not eligible
+for winget submission. Signing and a clean Windows validation
 remain independent gates.
 
 ### Local validation

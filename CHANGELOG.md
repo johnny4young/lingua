@@ -9,6 +9,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Fixed
 - Lua `string.format` with a zero `%g` precision, such as `%.0g`, now formats like standard Lua instead of failing the run with a meaningless error.
 - `lingua capsule verify` and the regression-suite export name the engine mismatch for Python, Go and web Ruby recordings. A real recording with per-line results or a failed run used to report a generic incomplete baseline instead.
+- Desktop HTTP, SSE and WebSocket requests honor Stop and their timeout while the host name is still resolving, instead of waiting on a DNS lookup that never answers. A WebSocket header named `__proto__` is now sent like any other header.
 - Python `print` with several arguments shows strings in the console as `print` does, without repr quotes (`sum = 55`, not `'sum =' 55`). Strings inside lists and other containers keep their quotes.
 - A language-changing Save As no longer leaves a recipe bound in the background when the binding was made while the file was still writing.
 - Starting the guided tour opens the console only once the tour actually begins; a start interrupted by another dialog leaves the bottom panel as it was.
