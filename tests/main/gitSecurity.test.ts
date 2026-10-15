@@ -21,12 +21,17 @@ import {
   resetGitProbeCacheForTests,
 } from '../../src/main/git';
 
+// A cold git on a hosted Windows runner can take several seconds per call, so
+// bound each call generously and give hooks and tests room for several calls.
+const GIT_TIMEOUT_MS = 30_000;
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
 let root: string;
 const git = (cwd: string, ...args: string[]) =>
   execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
-    timeout: 5000,
+    timeout: GIT_TIMEOUT_MS,
     env: {
       ...process.env,
       GIT_CONFIG_NOSYSTEM: '1',
@@ -46,7 +51,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllEnvs();
-  rmSync(root, { recursive: true, force: true });
+  // Windows can briefly hold git's files after it exits (EPERM/EBUSY).
+  rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
 describe('read-only Git trust boundary', () => {
@@ -130,7 +136,7 @@ describe('read-only Git trust boundary', () => {
         deletions: 1,
       });
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   });
 
@@ -187,7 +193,7 @@ describe('working-tree side of a diff', () => {
         truncated: false,
       });
     } finally {
-      rmSync(outside, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   });
 
