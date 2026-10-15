@@ -95,6 +95,10 @@ jobs:
           PUBLIC_LS_CHECKOUT_PRO: ${{ vars.PUBLIC_LS_CHECKOUT_PRO }}
           PUBLIC_LS_CHECKOUT_PRO_LIFETIME: ${{ vars.PUBLIC_LS_CHECKOUT_PRO_LIFETIME }}
           PUBLIC_LS_CHECKOUT_TEAM: ${{ vars.PUBLIC_LS_CHECKOUT_TEAM }}
+          # Web Analytics site token (public: it ships in every page). The HTML
+          # is served with no-transform, so Cloudflare no longer auto-injects
+          # the beacon; Base.astro renders it from this value instead.
+          PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.PUBLIC_CF_ANALYTICS_TOKEN }}
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
