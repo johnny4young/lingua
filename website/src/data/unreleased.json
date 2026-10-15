@@ -1,7 +1,80 @@
 {
-  "generatedAt": "2026-10-14T15:25:01.159Z",
+  "generatedAt": "2026-10-15T22:32:35.763Z",
   "baseRef": "v1.6.0",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 8,
+  "totalSinceBase": 28,
+  "commits": [
+    {
+      "hash": "f362f84",
+      "date": "2026-10-15",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "render a single Web Analytics beacon",
+      "breaking": false
+    },
+    {
+      "hash": "6afc8ad",
+      "date": "2026-10-15",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "website",
+      "message": "keep Cloudflare from injecting a script into site pages",
+      "breaking": false
+    },
+    {
+      "hash": "fb1ffe2",
+      "date": "2026-10-15",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "web",
+      "message": "keep Cloudflare from injecting a script into the app page",
+      "breaking": false
+    },
+    {
+      "hash": "894f7a8",
+      "date": "2026-10-14",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "tour",
+      "message": "open the console only when the tour actually starts",
+      "breaking": false
+    },
+    {
+      "hash": "acfe71e",
+      "date": "2026-10-14",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "editor",
+      "message": "unbind a recipe dropped by a language-changing Save As",
+      "breaking": false
+    },
+    {
+      "hash": "8d0924c",
+      "date": "2026-10-14",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "python",
+      "message": "show printed strings without repr quotes",
+      "breaking": false
+    },
+    {
+      "hash": "9ea5ad9",
+      "date": "2026-10-14",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "let Stop and timeouts end a pending DNS lookup",
+      "breaking": false
+    },
+    {
+      "hash": "e9400c5",
+      "date": "2026-10-14",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "capsules",
+      "message": "report engine divergence before baseline shape",
+      "breaking": false
+    }
+  ]
 }
