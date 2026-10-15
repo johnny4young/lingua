@@ -16,6 +16,12 @@
   Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 
+# Cloudflare's JavaScript Detections (no off switch on the Free plan) inject an
+# inline script into HTML that the meta CSP blocks; no-transform opts the app
+# document out. Scoped to the document so assets keep their own caching.
+/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
 # Only the fingerprinted opaque sandbox document may be framed by this app.
 # Detach rather than override: Pages combines duplicate header values.
 # https://developers.cloudflare.com/pages/configuration/headers/#detach-a-header
