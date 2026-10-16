@@ -12,14 +12,14 @@
     {
       "thumbprint": "5i_i0yv43on3C8Orm6Zvzmv8GwjB49cx0rhvdk29ePo",
       "issuedAt": "2026-07-21",
-      "status": "active",
-      "note": "Primary key for the first production rotation after compatible web and desktop builds shipped the overlap keyring. Private half is stored only as LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK."
+      "status": "retiring",
+      "note": "Primary key of the first production rotation, retiring since 2026-10-16. Private half stays in LINGUA_LICENSE_NEXT_PRIVATE_KEY_JWK but no longer signs; its public key keeps verifying existing tokens until they refresh."
     },
     {
       "thumbprint": "4R57zj0UOFJ8yc4O0XBIUkeBVd8H8370dKzX3vhPTeU",
       "issuedAt": "2026-10-15",
-      "status": "pending",
-      "note": "Second production rotation. Private half is stored only as LINGUA_LICENSE_PRIVATE_KEY_JWK (the current slot, replacing the retiring initial key's private half, which no longer signs). Verification-only until compatible builds ship and LINGUA_LICENSE_SIGNING_KEY_SLOT switches to current."
+      "status": "active",
+      "note": "Primary key for the second production rotation, promoted on 2026-10-16 after v1.6.1 shipped the three-key keyring. Private half is stored only as LINGUA_LICENSE_PRIVATE_KEY_JWK (current slot)."
     }
   ]
 }

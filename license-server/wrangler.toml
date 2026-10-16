@@ -53,7 +53,7 @@ RESEND_FROM_NAME = "Lingua"
 # Non-secret two-slot selector. During rotation, the public keyring verifies old
 # and new signatures; `next` selects the private key that signs newly
 # issued/refreshed tokens. Keep it paired with the primary public key.
-LINGUA_LICENSE_SIGNING_KEY_SLOT = "next"
+LINGUA_LICENSE_SIGNING_KEY_SLOT = "current"
 # CORS allowed origins for browser-side activation calls from the web
 # build. Add additional origins (e.g. preview deploys) here.
 CORS_ALLOWED_ORIGINS = "https://linguacode.dev,https://app.linguacode.dev,http://localhost:5174,http://localhost:4173"
