@@ -86,6 +86,9 @@ auto-update source. Cloudflare R2 stores only oversized web runtimes.
     through `workflow_dispatch` with the tag once the key exists. Publishing
     also triggers `Post-release sync`, which opens a PR refreshing the website
     release snapshot, the pinned CLI recipes and the distribution manifests.
+    If the repository does not let Actions open pull requests, the run pushes
+    the `release-sync/vX.Y.Z` branch and leaves a warning with its compare
+    link; open the PR from that link.
     The release-event website deploy fails its recipe check until that PR
     lands; merge it only after the npm package is public.
 12. Run a post-publish smoke from the previous stable desktop version on every
