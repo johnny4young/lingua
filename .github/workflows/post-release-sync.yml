@@ -97,9 +97,16 @@ jobs:
           **Merge only after \`@linguacode/cli@${RELEASE_TAG#v}\` is public on npm.** Publishing the site first advertises a package users cannot install.
           EOF
           if ! gh pr view "${branch}" >/dev/null 2>&1; then
-            gh pr create --base main --head "${branch}" \
+            # Repositories may forbid Actions from opening PRs; the pushed
+            # branch is the deliverable, so hand it to the maintainer instead.
+            if ! gh pr create --base main --head "${branch}" \
               --title "docs(website): sync published ${RELEASE_TAG} surfaces" \
-              --body-file "${RUNNER_TEMP}/pr-body.md"
+              --body-file "${RUNNER_TEMP}/pr-body.md"; then
+              compare="https://github.com/${GH_REPO}/compare/main...${branch}?expand=1"
+              echo "::warning::Could not open the sync PR with GITHUB_TOKEN. Open it from ${compare} and merge it only after the npm package is public."
+              echo "Open the ${RELEASE_TAG} sync PR: ${compare}" >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
           fi
           # Pushes and PRs made with GITHUB_TOKEN start no workflows; dispatch CI
           # on the branch so the PR still gets its checks.
