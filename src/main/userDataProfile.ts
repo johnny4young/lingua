@@ -1,12 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-/**
- * Which `userData` profile this process owns. Release builds keep the
- * installed app's folder; dev launchers and locally packaged builds get a
- * sibling folder so an older keyring or a dev-minted key can never rewrite
- * the installed app's license, consent, or approvals.
- */
+/** Dev and local builds get a sibling folder so they cannot rewrite the installed app's data. */
 export type UserDataProfile = 'release' | 'dev' | 'local';
 
 /** `package.json` key that local packaging scripts set through `-c.extraMetadata`. */

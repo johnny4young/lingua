@@ -81,7 +81,7 @@ export interface LicenseVerificationOptions {
   buildDate?: string | number | null;
 }
 
-type LicenseFailureReason =
+export type LicenseFailureReason =
   | 'malformed'
   | 'invalid-signature'
   | 'expired'

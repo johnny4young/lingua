@@ -6,7 +6,7 @@
  * older local build cannot rewrite the installed app's license or data.
  */
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BUILD_CHANNEL_METADATA_KEY, LOCAL_BUILD_CHANNEL } from '../../src/main/userDataProfile';
@@ -28,12 +28,13 @@ describe('local build channel marker', () => {
     expect(scripts['publish:desktop']).not.toContain(marker);
   });
 
-  it('marks the packaged smoke builds', () => {
-    for (const script of [
-      'scripts/smoke-notebook-packaged.mjs',
-      'scripts/smoke-lsp-navigation.mjs',
-      'scripts/smoke-notebook-documents.mjs',
-    ]) {
+  it('marks every script that packages through the electron-builder CLI', () => {
+    const builderScripts = readdirSync(resolve(root, 'scripts'), { recursive: true, encoding: 'utf-8' })
+      .filter((file) => file.endsWith('.mjs'))
+      .map((file) => `scripts/${file}`)
+      .filter((script) => read(script).includes('electron-builder/out/cli/cli.js'));
+    expect(builderScripts.length).toBeGreaterThan(0);
+    for (const script of builderScripts) {
       expect(read(script), script).toContain(marker.replace(/^-c\./, "'-c.").concat("'"));
     }
   });

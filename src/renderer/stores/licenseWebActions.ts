@@ -174,7 +174,7 @@ export function createWebActions(
     clearLicense: async () => {
       const { token, status } = get();
       // A token no build or server vouched for never registered this device.
-      const releaseDevice = token !== null && !retainsLicenseToken(status);
+      const releaseToken = retainsLicenseToken(status) ? null : token;
       // Optimistic local flip — UI feedback is instant. Server cleanup
       // happens fire-and-forget below so a fast tab close still completes
       // the device removal via fetch keepalive.
@@ -188,14 +188,14 @@ export function createWebActions(
         recoverHint: null,
       });
 
-      if (releaseDevice && token && isLicenseServerEnabled()) {
+      if (releaseToken && isLicenseServerEnabled()) {
         const deviceId = getOrMintDeviceId();
         // Don't await — `keepalive: true` inside the wrapper keeps the
         // request alive across navigations / tab close. Errors are
         // intentionally swallowed because the local clear already
         // succeeded; the server row will lapse to `removed_at` on the
         // next activate from another device anyway.
-        void serverRemoveDevice({ token, deviceIdToRemove: deviceId });
+        void serverRemoveDevice({ token: releaseToken, deviceIdToRemove: deviceId });
       }
       return FREE_STATUS;
     },

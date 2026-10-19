@@ -340,6 +340,24 @@ describe('createLicenseRuntime', () => {
     expect((await readPersistedLicense(file))?.token).toBe(token);
   });
 
+  it('a rejected paste still clears a dead token whose boot wipe failed', async () => {
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
+      await import('../../src/main/license');
+    const file = resolveLicensePath(tempDir);
+    const runtime = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk });
+    const expiredToken = await signLicenseTokenForTest(
+      freshPayload({
+        issuedAt: new Date(Date.now() - 365 * 86_400_000).toISOString(),
+        supportWindowEndsAt: new Date(Date.now() - 90 * 86_400_000).toISOString(),
+      }),
+      privateKeyJwk
+    );
+    await writePersistedLicense(file, { token: expiredToken, lastVerifiedAt: 1 });
+
+    await runtime.applyToken('aaa.bbb');
+    expect(await readPersistedLicense(file)).toBeNull();
+  });
+
   it('revalidate and a rejected paste leave a retained token on disk, and clear removes it', async () => {
     const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
       await import('../../src/main/license');

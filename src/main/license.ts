@@ -46,7 +46,6 @@ import {
 
 const FREE_STATUS: LicenseStatus = { kind: 'free' };
 
-
 export function resolveLicensePath(userDataDir: string): string {
   return path.join(userDataDir, 'license.json');
 }
@@ -508,8 +507,10 @@ export async function createLicenseRuntime(
       const status = await runVerify(trimmed, options.publicKeyJwk, now());
       const verifiedAt = now();
       if (status.kind === 'invalid') {
-        // A rejected paste never deletes a token already on disk.
+        // A retained token lives in the cache, so this only clears a dead one
+        // whose boot wipe failed.
         if (!cache.token) {
+          await clearPersistedLicense(licensePath);
           cache = freeSnapshotWithStatus(status, verifiedAt);
         }
         return status;
