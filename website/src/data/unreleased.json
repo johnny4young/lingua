@@ -1,7 +1,62 @@
 {
-  "generatedAt": "2026-10-15T23:21:29.817Z",
+  "generatedAt": "2026-10-19T23:13:13.682Z",
   "baseRef": "v1.6.1",
-  "commitCount": 0,
-  "totalSinceBase": 0,
-  "commits": []
+  "commitCount": 6,
+  "totalSinceBase": 16,
+  "commits": [
+    {
+      "hash": "9a4b08a",
+      "date": "2026-10-19",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "licensing",
+      "message": "keep the retained reason set module-private",
+      "breaking": false
+    },
+    {
+      "hash": "824e680",
+      "date": "2026-10-19",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "licensing",
+      "message": "address review findings on token retention and build profiles",
+      "breaking": false
+    },
+    {
+      "hash": "73c4b6a",
+      "date": "2026-10-19",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "licensing",
+      "message": "keep unverifiable license tokens in the web store",
+      "breaking": false
+    },
+    {
+      "hash": "0a550b8",
+      "date": "2026-10-19",
+      "type": "feat",
+      "typeLabel": "New",
+      "scope": "privacy",
+      "message": "log license rejections in the trust log",
+      "breaking": false
+    },
+    {
+      "hash": "850604c",
+      "date": "2026-10-19",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "main",
+      "message": "give dev and local desktop builds their own userData profile",
+      "breaking": false
+    },
+    {
+      "hash": "4359770",
+      "date": "2026-10-19",
+      "type": "fix",
+      "typeLabel": "Fix",
+      "scope": "licensing",
+      "message": "keep license tokens a build cannot verify",
+      "breaking": false
+    }
+  ]
 }
