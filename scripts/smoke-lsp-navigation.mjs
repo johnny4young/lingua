@@ -68,7 +68,7 @@ try {
   if (packaged) {
     result = spawnSync(
       process.execPath,
-      ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-', '-c.extraMetadata.linguaBuildChannel=local'],
+      ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-', '-c.extraMetadata.linguaBuildChannel=local', '-c.appId=com.lingua.app.local'],
       { cwd: root, env, stdio: 'inherit' }
     );
     assert.equal(result.status, 0, 'Unsigned package');
