@@ -8,7 +8,9 @@
  * in `src/preload/index.ts`.
  *
  * Persistence layout under `app.getPath('userData')`:
- * - `license.json`  — { token, lastVerifiedAt }; absent when free
+ * - `license.json`  — { token, lastVerifiedAt }; absent when free. A token
+ *   this build or the server cannot vouch for (see `RETAINED_INVALID_REASONS`)
+ *   stays on disk so a build that trusts its signing key can restore it.
  * - `device-id.json` — { deviceId, createdAt }; written once on first launch
  *
  * Both writes are atomic (tmp + rename, mode 0o600 on POSIX) using the
@@ -42,6 +44,22 @@ import {
 } from './licenseServer';
 
 const FREE_STATUS: LicenseStatus = { kind: 'free' };
+
+// Rejections that only show this build or server cannot vouch for the token
+// (unknown signing key, newer format, misconfigured keyring), not that the
+// license is dead. Deleting on these lets an older build destroy a license.
+const RETAINED_INVALID_REASONS: ReadonlySet<string> = new Set([
+  'malformed',
+  'invalid-signature',
+  'unsupported-tier',
+  'clock-skew',
+  'no-public-key',
+  'unknown-license',
+]);
+
+function retainsToken(status: LicenseStatus): boolean {
+  return status.kind === 'invalid' && RETAINED_INVALID_REASONS.has(status.reason);
+}
 
 export function resolveLicensePath(userDataDir: string): string {
   return path.join(userDataDir, 'license.json');
@@ -348,8 +366,8 @@ export async function createLicenseRuntime(
    * caches devices + deviceLimit + sets `synced`; transient failure
    * keeps the local-verify status with `serverSync='unreachable'`;
    * terminal failure flips to a discrete invalid status (token
-   * preserved only on `exhausted` so the renderer's modal can
-   * remediate). Returns the status the caller should propagate to
+   * preserved on `exhausted` so the renderer's modal can remediate, and
+   * on retained reasons). Returns the status the caller should propagate to
    * its own return value.
    */
   async function activateAfterVerify(
@@ -413,7 +431,7 @@ export async function createLicenseRuntime(
 
     const invalid =
       failureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-    const keepToken = result.reason === 'exhausted';
+    const keepToken = result.reason === 'exhausted' || retainsToken(invalid);
     cache = {
       token: keepToken ? token : null,
       status: invalid,
@@ -434,10 +452,20 @@ export async function createLicenseRuntime(
   const persisted = await readPersistedLicense(licensePath);
   if (persisted) {
     const status = await runVerify(persisted.token, options.publicKeyJwk, now());
-    if (status.kind === 'invalid') {
-      // Stale or tampered token on disk — wipe so a future GetSnapshot
-      // reports `free` instead of a sticky `invalid` state the user
-      // cannot clear from the UI.
+    if (retainsToken(status)) {
+      // Keep the token without granting Pro; Remove license still clears it.
+      cache = {
+        token: persisted.token,
+        status,
+        deviceId,
+        lastVerifiedAt: persisted.lastVerifiedAt,
+        serverSync: initialServerSync,
+        devices: null,
+        deviceLimit: null,
+      };
+    } else if (status.kind === 'invalid') {
+      // Expired token on disk — wipe so a future GetSnapshot reports `free`
+      // instead of a sticky `invalid` state.
       await clearPersistedLicense(licensePath).catch(() => {
         // Startup should still reach the renderer even if a stale token file
         // cannot be removed. Future explicit clears keep reporting failures.
@@ -459,7 +487,7 @@ export async function createLicenseRuntime(
   // non-blocking AFTER `runtime` is constructed below, so app.ready
   // is not delayed by a slow server roundtrip and the IIFE can call
   // back into the runtime safely.
-  const shouldBootRevalidate = cache.token !== null;
+  const shouldBootRevalidate = cache.token !== null && !retainsToken(cache.status);
 
   // Mutations interleave across awaits (boot revalidate vs a fresh Apply), so a
   // stale branch could persist or wipe a token the user replaced. Run them one at a time.
@@ -494,8 +522,8 @@ export async function createLicenseRuntime(
       const status = await runVerify(trimmed, options.publicKeyJwk, now());
       const verifiedAt = now();
       if (status.kind === 'invalid') {
+        // A rejected paste never deletes a token already on disk.
         if (!cache.token) {
-          await clearPersistedLicense(licensePath);
           cache = freeSnapshotWithStatus(status, verifiedAt);
         }
         return status;
@@ -540,6 +568,10 @@ export async function createLicenseRuntime(
       const verifiedAt = now();
       if (cache.token !== currentToken) {
         return cache.status;
+      }
+      if (retainsToken(status)) {
+        cache = { ...cache, status, lastVerifiedAt: verifiedAt, devices: null, deviceLimit: null };
+        return status;
       }
       if (status.kind === 'invalid') {
         await clearPersistedLicense(licensePath);
@@ -587,7 +619,7 @@ export async function createLicenseRuntime(
         }
         const invalid =
           failureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-        const keepToken = result.reason === 'exhausted';
+        const keepToken = result.reason === 'exhausted' || retainsToken(invalid);
         if (!keepToken) {
           await clearPersistedLicense(licensePath).catch(() => undefined);
         }
@@ -685,9 +717,12 @@ export async function createLicenseRuntime(
           // matching invalid status on next snapshot.
           const invalid = failureToInvalid(result.reason);
           if (invalid) {
-            await clearPersistedLicense(licensePath).catch(() => undefined);
+            const keepToken = retainsToken(invalid);
+            if (!keepToken) {
+              await clearPersistedLicense(licensePath).catch(() => undefined);
+            }
             cache = {
-              token: null,
+              token: keepToken ? currentToken : null,
               status: invalid,
               deviceId,
               lastVerifiedAt: now(),

@@ -6,6 +6,10 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Fixed
+- A desktop build that cannot verify your license token, such as an older version opened after a signing-key rotation, no longer deletes it. The license shows as rejected with its reason, grants nothing in that build, and is back on the next launch of a build that trusts it. The same holds when the license server does not recognize the token or its signature. Privacy & Trust now lists each rejection.
+- Development and locally packaged desktop builds keep their data in separate `Lingua Dev` and `Lingua Local` folders, so they can no longer change the installed app's license, consent or approvals, and they no longer take over `lingua://` links.
+
 ## [1.6.1] — 2026-10-15
 
 ### Fixed

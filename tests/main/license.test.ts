@@ -5,7 +5,7 @@
  * - persisted-license atomic round trip (write / read / clear)
  * - device-id mint-once + reuse across runtime instances
  * - createLicenseRuntime against a fixture keypair (active / invalid /
- *   stale-on-disk wipe / revalidate / clear)
+ *   stale-on-disk wipe / unverifiable-token retention / revalidate / clear)
  * - registerLicenseHandlers wiring the `license:*` channels to runtime
  *   methods
  *
@@ -303,6 +303,61 @@ describe('createLicenseRuntime', () => {
     expect(runtime.getSnapshot().token).toBeNull();
     expect(runtime.getSnapshot().status.kind).toBe('free');
     expect(await readPersistedLicense(file)).toBeNull();
+  });
+
+  it('boot keeps a token signed by a key this build does not trust, and a trusting build restores it', async () => {
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
+      await import('../../src/main/license');
+    const file = resolveLicensePath(tempDir);
+    const token = await signLicenseTokenForTest(freshPayload({ tier: 'pro_lifetime' }), privateKeyJwk);
+    await writePersistedLicense(file, { token, lastVerifiedAt: 1 });
+
+    const olderBuild = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk: otherPublicKeyJwk });
+    const status = olderBuild.getSnapshot().status;
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('invalid-signature');
+    expect(olderBuild.getSnapshot().token).toBe(token);
+    expect((await readPersistedLicense(file))?.token).toBe(token);
+
+    const newerBuild = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk: [otherPublicKeyJwk, publicKeyJwk],
+    });
+    expect(newerBuild.getSnapshot().status.kind).toBe('active');
+  });
+
+  it('boot keeps the persisted token when the build embeds no public key', async () => {
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
+      await import('../../src/main/license');
+    const file = resolveLicensePath(tempDir);
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await writePersistedLicense(file, { token, lastVerifiedAt: 1 });
+
+    const runtime = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk: null });
+    const status = runtime.getSnapshot().status;
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('no-public-key');
+    expect((await readPersistedLicense(file))?.token).toBe(token);
+  });
+
+  it('revalidate and a rejected paste leave a retained token on disk, and clear removes it', async () => {
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath, readPersistedLicense } =
+      await import('../../src/main/license');
+    const file = resolveLicensePath(tempDir);
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await writePersistedLicense(file, { token, lastVerifiedAt: 1 });
+    const runtime = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk: otherPublicKeyJwk });
+
+    const revalidated = await runtime.revalidate();
+    expect(revalidated.kind).toBe('invalid');
+    expect((await readPersistedLicense(file))?.token).toBe(token);
+
+    await runtime.applyToken('aaa.bbb');
+    expect((await readPersistedLicense(file))?.token).toBe(token);
+
+    await runtime.clear();
+    expect(await readPersistedLicense(file)).toBeNull();
+    expect(runtime.getSnapshot().token).toBeNull();
   });
 
   it('keeps a persisted Pro Lifetime token active after its included-update window ends', async () => {
@@ -922,6 +977,80 @@ describe('createLicenseRuntime — server-aware desktop branch ', () => {
     const snap = runtime.getSnapshot();
     expect(snap.token).toBeNull();
     expect(snap.devices).toBeNull();
+  });
+
+  it.each([
+    ['unknown-license', 'unknown-license'],
+    ['invalid-signature', 'invalid-signature'],
+    ['invalid-token', 'invalid-signature'],
+  ])('revalidate keeps the token on disk when the server answers %s', async (serverReason, expectedReason) => {
+    const fetchMock = makeFetchMock();
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      if (String(url) === `${SERVER_URL}/licenses/activate`) {
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      return jsonResponse({ ok: false, reason: serverReason }, { status: 401 });
+    });
+
+    const { createLicenseRuntime, readPersistedLicense, resolveLicensePath } = await import(
+      '../../src/main/license'
+    );
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+
+    const status = await runtime.revalidate();
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe(expectedReason);
+    expect(runtime.getSnapshot().token).toBe(token);
+    expect((await readPersistedLicense(resolveLicensePath(tempDir)))?.token).toBe(token);
+  });
+
+  it('applyToken keeps the pasted token when activation is rejected as unknown-license', async () => {
+    const fetchMock = makeFetchMock();
+    fetchMock.mockResolvedValue(jsonResponse({ ok: false, reason: 'unknown-license' }, { status: 401 }));
+
+    const { createLicenseRuntime, readPersistedLicense, resolveLicensePath } = await import(
+      '../../src/main/license'
+    );
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    const status = await runtime.applyToken(token);
+
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('unknown-license');
+    expect(runtime.getSnapshot().token).toBe(token);
+    expect((await readPersistedLicense(resolveLicensePath(tempDir)))?.token).toBe(token);
+  });
+
+  it('boot never sends a token this build cannot verify to the server', async () => {
+    const fetchMock = makeFetchMock();
+    const { createLicenseRuntime, writePersistedLicense, resolveLicensePath } = await import(
+      '../../src/main/license'
+    );
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await writePersistedLicense(resolveLicensePath(tempDir), { token, lastVerifiedAt: 1 });
+
+    const runtime = await createLicenseRuntime({ userDataDir: tempDir, publicKeyJwk: otherPublicKeyJwk });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(runtime.getSnapshot().status.kind).toBe('invalid');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('honors server-side revocation for a Pro Lifetime token after its update window ends', async () => {
