@@ -7,7 +7,7 @@ import type { LicenseServerFailureReason } from './licenseServerTypes';
  * not that the license is dead. Desktop and web keep the token on these so
  * an older build cannot destroy a license; it still grants nothing.
  */
-export const RETAINED_INVALID_REASONS: ReadonlySet<string> = new Set([
+const RETAINED_INVALID_REASONS: ReadonlySet<string> = new Set([
   'malformed',
   'invalid-signature',
   'unsupported-tier',
