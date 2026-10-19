@@ -9,7 +9,7 @@
  *
  * Persistence layout under `app.getPath('userData')`:
  * - `license.json`  — { token, lastVerifiedAt }; absent when free. A token
- *   this build or the server cannot vouch for (see `RETAINED_INVALID_REASONS`)
+ *   this build or the server cannot vouch for (see `shared/licenseRetention`)
  *   stays on disk so a build that trusts its signing key can restore it.
  * - `device-id.json` — { deviceId, createdAt }; written once on first launch
  *
@@ -30,6 +30,7 @@ import {
   verifyLicenseToken,
 } from '../shared/license';
 import type { LicenseSnapshot, LicenseStatus } from '../shared/licenseSnapshot';
+import { retainsLicenseToken } from '../shared/licenseRetention';
 import { bundledBuildDate } from '../shared/appInfo';
 import {
   activate as serverActivate,
@@ -45,21 +46,6 @@ import {
 
 const FREE_STATUS: LicenseStatus = { kind: 'free' };
 
-// Rejections that only show this build or server cannot vouch for the token
-// (unknown signing key, newer format, misconfigured keyring), not that the
-// license is dead. Deleting on these lets an older build destroy a license.
-const RETAINED_INVALID_REASONS: ReadonlySet<string> = new Set([
-  'malformed',
-  'invalid-signature',
-  'unsupported-tier',
-  'clock-skew',
-  'no-public-key',
-  'unknown-license',
-]);
-
-function retainsToken(status: LicenseStatus): boolean {
-  return status.kind === 'invalid' && RETAINED_INVALID_REASONS.has(status.reason);
-}
 
 export function resolveLicensePath(userDataDir: string): string {
   return path.join(userDataDir, 'license.json');
@@ -431,7 +417,7 @@ export async function createLicenseRuntime(
 
     const invalid =
       failureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-    const keepToken = result.reason === 'exhausted' || retainsToken(invalid);
+    const keepToken = result.reason === 'exhausted' || retainsLicenseToken(invalid);
     cache = {
       token: keepToken ? token : null,
       status: invalid,
@@ -452,7 +438,7 @@ export async function createLicenseRuntime(
   const persisted = await readPersistedLicense(licensePath);
   if (persisted) {
     const status = await runVerify(persisted.token, options.publicKeyJwk, now());
-    if (retainsToken(status)) {
+    if (retainsLicenseToken(status)) {
       // Keep the token without granting Pro; Remove license still clears it.
       cache = {
         token: persisted.token,
@@ -487,7 +473,7 @@ export async function createLicenseRuntime(
   // non-blocking AFTER `runtime` is constructed below, so app.ready
   // is not delayed by a slow server roundtrip and the IIFE can call
   // back into the runtime safely.
-  const shouldBootRevalidate = cache.token !== null && !retainsToken(cache.status);
+  const shouldBootRevalidate = cache.token !== null && !retainsLicenseToken(cache.status);
 
   // Mutations interleave across awaits (boot revalidate vs a fresh Apply), so a
   // stale branch could persist or wipe a token the user replaced. Run them one at a time.
@@ -544,7 +530,8 @@ export async function createLicenseRuntime(
       // fails the throw propagates so the IPC handler reports
       // `clear-failed` to the renderer instead of advertising free while
       // disk still holds the token.
-      const previousToken = cache.token;
+      // A token no build or server vouched for never registered this device.
+      const previousToken = retainsLicenseToken(cache.status) ? null : cache.token;
       await clearPersistedLicense(licensePath);
       cache = freeSnapshot(now());
       // Best-effort server-side cleanup so the desktop bucket in D1
@@ -569,7 +556,7 @@ export async function createLicenseRuntime(
       if (cache.token !== currentToken) {
         return cache.status;
       }
-      if (retainsToken(status)) {
+      if (retainsLicenseToken(status)) {
         cache = { ...cache, status, lastVerifiedAt: verifiedAt, devices: null, deviceLimit: null };
         return status;
       }
@@ -619,7 +606,7 @@ export async function createLicenseRuntime(
         }
         const invalid =
           failureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-        const keepToken = result.reason === 'exhausted' || retainsToken(invalid);
+        const keepToken = result.reason === 'exhausted' || retainsLicenseToken(invalid);
         if (!keepToken) {
           await clearPersistedLicense(licensePath).catch(() => undefined);
         }
@@ -717,7 +704,7 @@ export async function createLicenseRuntime(
           // matching invalid status on next snapshot.
           const invalid = failureToInvalid(result.reason);
           if (invalid) {
-            const keepToken = retainsToken(invalid);
+            const keepToken = retainsLicenseToken(invalid);
             if (!keepToken) {
               await clearPersistedLicense(licensePath).catch(() => undefined);
             }

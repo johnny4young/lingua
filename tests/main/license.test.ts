@@ -1038,7 +1038,7 @@ describe('createLicenseRuntime — server-aware desktop branch ', () => {
     expect((await readPersistedLicense(resolveLicensePath(tempDir)))?.token).toBe(token);
   });
 
-  it('boot never sends a token this build cannot verify to the server', async () => {
+  it('never sends a token this build cannot verify to the server, at boot or on Remove license', async () => {
     const fetchMock = makeFetchMock();
     const { createLicenseRuntime, writePersistedLicense, resolveLicensePath } = await import(
       '../../src/main/license'
@@ -1050,6 +1050,9 @@ describe('createLicenseRuntime — server-aware desktop branch ', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(runtime.getSnapshot().status.kind).toBe('invalid');
+
+    await runtime.clear();
+    expect(runtime.getSnapshot().token).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

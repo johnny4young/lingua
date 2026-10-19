@@ -8,6 +8,7 @@ import { getDeviceName, getOrMintDeviceId, getOs } from '../services/deviceFinge
 import { runVerifyWeb } from './licenseWebVerify';
 import { attemptStaleTokenRefresh, decodeIssuedTo } from './licenseTokenHelpers';
 import { isTransientServerFailure, serverFailureToInvalid } from './licenseServerMappers';
+import { retainsLicenseToken } from '../../shared/licenseRetention';
 import {
   FREE_STATUS,
   type LicenseGet,
@@ -143,10 +144,11 @@ export function createWebActions(
       // Terminal server rejection: revoked / exhausted / invalid-token /
       // invalid-input. Map to a discrete invalid status. Keep the token in
       // state for `exhausted` so the modal can remediate without
-      // forcing the user to re-paste; wipe it for everything else.
+      // forcing the user to re-paste, and for retained reasons; wipe it
+      // for everything else.
       const invalid =
         serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
-      const keepToken = result.reason === 'exhausted';
+      const keepToken = result.reason === 'exhausted' || retainsLicenseToken(invalid);
       // Persist `devices` + `deviceLimit` on `exhausted` — the modal needs
       // the bucket to render the per-device Remove buttons. Every other
       // terminal branch clears the bucket so a replacement token cannot
@@ -170,7 +172,9 @@ export function createWebActions(
       return invalid;
     },
     clearLicense: async () => {
-      const { token } = get();
+      const { token, status } = get();
+      // A token no build or server vouched for never registered this device.
+      const releaseDevice = token !== null && !retainsLicenseToken(status);
       // Optimistic local flip — UI feedback is instant. Server cleanup
       // happens fire-and-forget below so a fast tab close still completes
       // the device removal via fetch keepalive.
@@ -184,7 +188,7 @@ export function createWebActions(
         recoverHint: null,
       });
 
-      if (token && isLicenseServerEnabled()) {
+      if (releaseDevice && token && isLicenseServerEnabled()) {
         const deviceId = getOrMintDeviceId();
         // Don't await — `keepalive: true` inside the wrapper keeps the
         // request alive across navigations / tab close. Errors are
@@ -215,7 +219,7 @@ export function createWebActions(
           const invalid = serverFailureToInvalid(result.reason);
           if (invalid) {
             set({
-              token: null,
+              token: retainsLicenseToken(invalid) ? token : null,
               status: invalid,
               lastVerifiedAt: Date.now(),
               serverSync: 'synced',

@@ -1379,14 +1379,15 @@ release builds register `lingua://`; a dev launcher opts in with
 so forgetting it falls back to today's shared folder rather than splitting the
 installed app's data. `tests/build/localBuildChannel.test.ts` pins both sides.
 
-`src/main/license.ts` deletes `license.json` only when the token is dead:
-expired locally for a time-bound tier, or refunded/expired according to the
-license server. A token this build or the server cannot vouch for
-(`malformed`, `invalid-signature`, `unsupported-tier`, `clock-skew`,
-`no-public-key`, `unknown-license`) stays on disk and in the snapshot with an
-`invalid` status, so it grants nothing, is never sent to the server at boot
-when local verification failed, and comes back the next time a build that
-trusts its signing key starts. **Remove license** still deletes it. The
+`src/main/license.ts` deletes `license.json`, and the web store drops the
+`lingua-license` token, only when the token is dead: expired locally for a
+time-bound tier, or refunded/expired according to the license server. A token
+this build or the server cannot vouch for (`RETAINED_INVALID_REASONS` in
+`src/shared/licenseRetention.ts`: `malformed`, `invalid-signature`,
+`unsupported-tier`, `clock-skew`, `no-public-key`, `unknown-license`) stays
+persisted with an `invalid` status, so it grants nothing, is never sent to the
+server when local verification failed, and comes back the next time a build
+that trusts its signing key loads it. **Remove license** still deletes it. The
 renderer records each rejection in the Privacy & Trust log as
 `License rejected (<reason>)`.
 
