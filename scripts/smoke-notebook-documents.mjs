@@ -44,7 +44,7 @@ try {
   if (packaged) {
     const bundle = spawnSync(
       process.execPath,
-      ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-'],
+      ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-', '-c.extraMetadata.linguaBuildChannel=local'],
       { cwd: root, env, stdio: 'inherit' }
     );
     assert.equal(bundle.status, 0, 'Unsigned disposable desktop package');

@@ -72,7 +72,7 @@ option defaults and execution-time validation are unchanged.
 
 ## Desktop deep links
 
-Packaged desktop builds register the `lingua://` protocol and handle these entry points:
+Released desktop builds register the `lingua://` protocol and handle these entry points:
 
 - `lingua://open?file=/absolute/path/to/file.ts`
 - `lingua://new?lang=python`

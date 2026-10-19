@@ -315,6 +315,8 @@ What it does:
 - launches the Electron app from the repository root
 - shuts the local renderer server down automatically when Electron exits
 
+Dev launchers store their data in a separate `Lingua Dev` profile, and builds made with `package:desktop` or `make:desktop*` use `Lingua Local`, so neither can change the installed app's license, consent or approvals. Neither registers the `lingua://` handler unless `LINGUA_DEV_PROTOCOL_CLIENT=1` is set.
+
 If `src/main` or `src/preload` changed and the existing `.vite/build` bundle may be stale, resync those artifacts once before launch:
 
 ```bash
@@ -340,6 +342,7 @@ Advanced launcher toggles:
 | `LINGUA_RENDERER_URL`            | `scripts/run-electron-desktop.mjs`                | Default renderer URL when `--renderer-url` is not passed.                                        |
 | `LINGUA_ELECTRON_LAUNCHER`       | `scripts/run-electron-desktop.mjs`, desktop smoke | Force Electron launch mode: `direct` or macOS `open` via LaunchServices.                         |
 | `LINGUA_DEV_SESSION_SKIP_LAUNCH` | `dev:web:pro`, `dev:desktop:pro`                  | Print the throwaway license material without starting the target app. Useful for scripted tests. |
+| `LINGUA_DEV_PROTOCOL_CLIENT`     | `src/main/index.ts`                               | Set to `1` to let a dev or local build register the `lingua://` handler for deep-link testing.   |
 
 ## Testing Pro locally
 

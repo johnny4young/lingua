@@ -19,7 +19,7 @@ const env = { ...process.env, ELECTRON_RUN_AS_NODE: undefined,
 let child, browser, watchdog, page;
 const errors = [], reports = [];
 try {
-  for (const args of [['scripts/build-desktop-bundles.mjs'], ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-']]) {
+  for (const args of [['scripts/build-desktop-bundles.mjs'], ['node_modules/electron-builder/out/cli/cli.js', '--dir', '-c.mac.identity=-', '-c.extraMetadata.linguaBuildChannel=local']]) {
     assert.equal(spawnSync(process.execPath, args, { cwd: root, env, stdio: 'inherit' }).status, 0);
   }
   const appPath = path.join(root, 'out-builder', process.arch === 'arm64' ? 'mac-arm64' : 'mac', 'lingua.app');
