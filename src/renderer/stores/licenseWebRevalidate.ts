@@ -16,6 +16,7 @@ import {
   serverFailureToInvalid,
   serverStatusKindToStatus,
 } from './licenseServerMappers';
+import { retainsLicenseToken } from '../../shared/licenseRetention';
 import {
   FREE_STATUS,
   type LicenseGet,
@@ -87,10 +88,10 @@ export function createWebRevalidate(
             return localStatus;
           }
         } else {
-          // Stored token failed local verification (key rotation, tampering,
-          // or signature corruption) — wipe regardless of server reachability.
+          // This build cannot vouch for the stored token (unknown signing
+          // key, newer format). Keep it without granting anything and never
+          // send it to the server; Remove license still clears it.
           commit({
-            token: null,
             status: localStatus,
             lastVerifiedAt: Date.now(),
             devices: null,
@@ -194,7 +195,7 @@ export function createWebRevalidate(
               kind: 'invalid' as const,
               reason: activation.reason,
             };
-          const keepToken = activation.reason === 'exhausted';
+          const keepToken = activation.reason === 'exhausted' || retainsLicenseToken(invalid);
           commit({
             token: keepToken ? activeToken : null,
             status: invalid,
@@ -239,7 +240,7 @@ export function createWebRevalidate(
           ? decodeIssuedTo(activeToken)
           : null;
       commit({
-        token: invalid.kind === 'invalid' && result.reason !== 'exhausted' ? null : activeToken,
+        token: result.reason === 'exhausted' || retainsLicenseToken(invalid) ? activeToken : null,
         status: invalid,
         lastVerifiedAt: Date.now(),
         serverSync: 'synced',

@@ -56,6 +56,13 @@ import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 import { installDirtyCloseGuard } from './windowCloseGuard';
+import {
+  readBuildChannel,
+  resolveUserDataOverride,
+  resolveUserDataProfile,
+  shouldRegisterProtocolClient,
+  type UserDataProfile,
+} from './userDataProfile';
 
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
@@ -97,7 +104,10 @@ function handleDeepLink(rawUrl: string) {
   focusMainWindow();
 }
 
-function registerProtocolClient() {
+function registerProtocolClient(profile: UserDataProfile) {
+  if (!shouldRegisterProtocolClient(profile, process.env.LINGUA_DEV_PROTOCOL_CLIENT === '1')) {
+    return;
+  }
   if (!app.isPackaged && !process.defaultApp) {
     return;
   }
@@ -353,7 +363,7 @@ function registerPrimaryInstance() {
       });
       registerLicenseHandlers(licenseRuntime);
 
-      registerProtocolClient();
+      registerProtocolClient(userDataProfile);
       registerUpdater();
       initialized = true;
       await startup.run('renderer-load', createWindow);
@@ -388,10 +398,19 @@ function registerPrimaryInstance() {
   });
 }
 
+const userDataProfile = resolveUserDataProfile({
+  isPackaged: app.isPackaged,
+  buildChannel: readBuildChannel(app.getAppPath()),
+});
+
 void startup.run('initialization', () => {
-  // Test profiles do not contend with or mutate the installed application's data.
-  const smokeUserDataDir = process.env.LINGUA_SMOKE_USER_DATA_DIR?.trim();
-  if (smokeUserDataDir) app.setPath('userData', smokeUserDataDir);
+  // Test, dev and local builds do not contend with or mutate the installed application's data.
+  const userDataOverride = resolveUserDataOverride({
+    profile: userDataProfile,
+    defaultUserDataDir: app.getPath('userData'),
+    smokeUserDataDir: process.env.LINGUA_SMOKE_USER_DATA_DIR,
+  });
+  if (userDataOverride) app.setPath('userData', userDataOverride);
   if (!app.requestSingleInstanceLock()) {
     startup.stop();
     app.quit();

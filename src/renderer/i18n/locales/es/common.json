@@ -3327,6 +3327,7 @@
   "settings.privacy.recent.action.opened": "abierto",
   "settings.privacy.recent.action.checked": "consultado",
   "settings.privacy.recent.action.verified": "verificada",
+  "settings.privacy.recent.action.rejected": "rechazada",
   "settings.privacy.recent.action.event_sent": "evento enviado",
   "settings.privacy.network.feature.telemetry": "Telemetría",
   "settings.privacy.network.feature.updates": "Actualizaciones",

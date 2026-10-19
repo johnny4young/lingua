@@ -137,6 +137,45 @@ describe('licenseStore', () => {
     });
     expect(rehydratedStore.getState().token).toBe(token);
   });
+
+  it('keeps a persisted token this build cannot verify, and a build that trusts its key restores it', async () => {
+    const otherPair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+      'sign',
+      'verify',
+    ])) as CryptoKeyPair;
+    const otherPublicKeyJwk = await crypto.subtle.exportKey('jwk', otherPair.publicKey);
+    const token = await signLicenseTokenForTest(
+      {
+        productId: 'lingua-desktop',
+        tier: 'pro',
+        issuedTo: 'user@example.com',
+        issuedAt: new Date(Date.now() - 1000).toISOString(),
+        supportWindowEndsAt: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+        entitlements: ['plugins'],
+      },
+      privateKeyJwk
+    );
+    await useLicenseStore.getState().setLicenseToken(token);
+
+    vi.resetModules();
+    import.meta.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK = JSON.stringify(otherPublicKeyJwk);
+    const { useLicenseStore: olderBuild } = await import('../../src/renderer/stores/licenseStore');
+    await vi.waitFor(() => {
+      expect(olderBuild.getState().status).toMatchObject({ kind: 'invalid', reason: 'invalid-signature' });
+    });
+    expect(olderBuild.getState().token).toBe(token);
+    expect(localStorage.getItem('lingua-license')).toContain(token);
+
+    vi.resetModules();
+    import.meta.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK = JSON.stringify(publicKeyJwk);
+    const { useLicenseStore: trustingBuild } = await import('../../src/renderer/stores/licenseStore');
+    await vi.waitFor(() => {
+      expect(trustingBuild.getState().status.kind).toBe('active');
+    });
+
+    await trustingBuild.getState().clearLicense();
+    expect(localStorage.getItem('lingua-license')).not.toContain(token);
+  });
 });
 
 /**
@@ -340,6 +379,85 @@ describe('licenseStore — server-aware web branch ', () => {
     expect(status.kind).toBe('invalid');
     if (status.kind === 'invalid') expect(status.reason).toBe('license-refunded');
     expect(store.getState().token).toBeNull();
+  });
+
+  it.each(['invalid-signature', 'unknown-license'])(
+    'keeps the token when activation is rejected as %s',
+    async (reason) => {
+      const fetchMock = vi.fn(
+        async () => new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason }), { status: 401 })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const store = await importFreshStore();
+      const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+      const status = await store.getState().setLicenseToken(token);
+
+      expect(status).toMatchObject({ kind: 'invalid', reason });
+      expect(store.getState().token).toBe(token);
+    }
+  );
+
+  it('revalidate keeps the token when /licenses/status answers unknown-license', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url === `${SERVER_URL}/licenses/activate`
+        ? new Response(
+            JSON.stringify({
+              protocolVersion: 1,
+              ok: true,
+              licenseId: 'lic_1',
+              activated: true,
+              idempotent: false,
+              devices: { desktop: [], web: [] },
+              deviceLimit: { desktop: 3, web: 3 },
+            }),
+            { status: 200 }
+          )
+        : new Response(JSON.stringify({ protocolVersion: 1, ok: false, reason: 'unknown-license' }), {
+            status: 401,
+          })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    const status = await store.getState().revalidate();
+
+    expect(status).toMatchObject({ kind: 'invalid', reason: 'unknown-license' });
+    expect(store.getState().token).toBe(token);
+    expect(store.getState().recoverHint).toEqual({ email: 'user@example.com' });
+  });
+
+  it('never sends a rehydrated token this build cannot verify to the server, even on Remove license', async () => {
+    const otherPair = (await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+      'sign',
+      'verify',
+    ])) as CryptoKeyPair;
+    const token = await signLicenseTokenForTest(
+      buildPayload(),
+      await crypto.subtle.exportKey('jwk', otherPair.privateKey)
+    );
+    localStorage.setItem(
+      'lingua-license',
+      JSON.stringify({
+        state: { token, status: { kind: 'free' }, lastVerifiedAt: 1, serverSync: 'synced' },
+        version: 1,
+      })
+    );
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 500 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    await vi.waitFor(() => {
+      expect(store.getState().status).toMatchObject({ kind: 'invalid', reason: 'invalid-signature' });
+    });
+    expect(store.getState().token).toBe(token);
+
+    await store.getState().clearLicense();
+    expect(store.getState().token).toBeNull();
+    const sentToken = fetchMock.mock.calls.some((call) => JSON.stringify(call).includes(token));
+    expect(sentToken).toBe(false);
   });
 
   it('revalidate replaces the local token when /licenses/status returns a strictly-newer refreshedToken (Monthly renewal pickup)', async () => {

@@ -219,6 +219,9 @@ Copy the token printed in the terminal → open the running desktop app
 status pill flips to `Active · pro` and `useEntitlement(...)` returns
 true everywhere.
 
+The dev launcher keeps its data in the `Lingua Dev` profile, so this
+token never touches the installed app's license.
+
 ### Data path — `scripts/mint-dev-license.mjs`
 
 Use this when you need the key and token as data (e.g. desktop-dev,
