@@ -315,7 +315,7 @@ What it does:
 - launches the Electron app from the repository root
 - shuts the local renderer server down automatically when Electron exits
 
-Dev launchers store their data in a separate `Lingua Dev` profile, and builds made with `package:desktop` or `make:desktop*` use `Lingua Local`, so neither can change the installed app's license, consent or approvals. Neither registers the `lingua://` handler unless `LINGUA_DEV_PROTOCOL_CLIENT=1` is set.
+Dev launchers store their data in a separate `Lingua Dev` profile, and builds made with `package:desktop` or `make:desktop*` use `Lingua Local` and the `com.lingua.app.local` bundle id, so neither can change the installed app's license, consent or approvals, or be opened in its place. Neither registers the `lingua://` handler unless `LINGUA_DEV_PROTOCOL_CLIENT=1` is set.
 
 If `src/main` or `src/preload` changed and the existing `.vite/build` bundle may be stale, resync those artifacts once before launch:
 
