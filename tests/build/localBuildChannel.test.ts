@@ -10,12 +10,15 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { load } from 'js-yaml';
 import { describe, expect, it } from 'vitest';
 import { BUILD_CHANNEL_METADATA_KEY, LOCAL_BUILD_CHANNEL } from '../../src/main/userDataProfile';
 
 const root = resolve(__dirname, '../..');
 const marker = `-c.extraMetadata.${BUILD_CHANNEL_METADATA_KEY}=${LOCAL_BUILD_CHANNEL}`;
-const localAppId = '-c.appId=com.lingua.app.local';
+const releaseAppId = (load(readFileSync(resolve(root, 'electron-builder.yml'), 'utf-8')) as { appId: string })
+  .appId;
+const localAppId = `-c.appId=${releaseAppId}.local`;
 const quoted = (flag: string) => `'${flag}'`;
 const read = (relative: string) => readFileSync(resolve(root, relative), 'utf-8');
 
@@ -44,6 +47,10 @@ describe('local build markers', () => {
       expect(read(script), script).toContain(quoted(marker));
       expect(read(script), script).toContain(quoted(localAppId));
     }
+  });
+
+  it('keeps the release bundle id the installed apps already carry', () => {
+    expect(releaseAppId).toBe('com.lingua.app');
   });
 
   it('never marks a release workflow build', () => {

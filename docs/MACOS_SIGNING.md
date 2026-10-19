@@ -2,7 +2,8 @@
 
 Lingua packages macOS arm64 and x64 with electron-builder. Each architecture
 ships a dmg for installation and a zip for electron-updater. The bundle id is
-`com.lingua.app` in `electron-builder.yml`.
+`com.lingua.app` in `electron-builder.yml`; packages built by the local scripts
+override it to `com.lingua.app.local`.
 
 ## Credentials
 
