@@ -3300,6 +3300,7 @@
   "settings.privacy.recent.action.opened": "opened",
   "settings.privacy.recent.action.checked": "checked",
   "settings.privacy.recent.action.verified": "verified",
+  "settings.privacy.recent.action.rejected": "rejected",
   "settings.privacy.recent.action.event_sent": "event sent",
   "settings.privacy.network.feature.telemetry": "Telemetry",
   "settings.privacy.network.feature.updates": "Updates",
