@@ -146,4 +146,25 @@ describe('RegexUtilityPanel', () => {
     expect(labels).toContain('Coincidir');
     expect(labels).toContain('Reemplazar');
   });
+
+  it('mirrors the flags field in chips both ways and explains the pattern', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    const flags = screen.getByTestId('regex-flags') as HTMLInputElement;
+    expect(screen.getByTestId('regex-flag-g').getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByTestId('regex-flag-i'));
+    expect(flags.value).toBe('gi');
+    await user.click(screen.getByTestId('regex-flag-g'));
+    expect(flags.value).toBe('i');
+
+    await user.clear(flags);
+    await user.type(flags, 'my');
+    expect(screen.getByTestId('regex-flag-m').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('regex-flag-y').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('regex-flag-i').getAttribute('aria-pressed')).toBe('false');
+
+    expect(screen.getByTestId('regex-explanation').textContent).toContain('→ group 1');
+  });
 });
