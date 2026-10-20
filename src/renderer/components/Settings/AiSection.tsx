@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SecretStorageNote } from '../ui/SecretStorageNote';
 import { SettingsSection } from '../ui/SpecRow';
 import { useAiConfigStore } from '../../stores/aiConfigStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
@@ -178,6 +179,7 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
               </div>
             ) : null}
           </div>
+          <SecretStorageNote testId="ai-settings-secret-storage" />
           <p className="text-caption text-fg-subtle">
             {t('ai.settings.storedLocally')}
           </p>

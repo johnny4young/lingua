@@ -1184,6 +1184,38 @@ assertion failure unless the saved pipeline says to continue. SSE and WebSocket
 sessions are intentionally excluded because a long-lived connection has no
 deterministic next-step boundary.
 
+### Encrypted secret vault
+
+The HTTP workspace's secret environment values and the AI API key live in the
+desktop secret vault, not in localStorage. `src/main/secretStore.ts` encrypts
+each value with Electron `safeStorage` and writes one file per id under
+`userData/secrets` (atomic tmp + rename, mode 0600). Ids are namespaced
+(`ai.api-key`, `http-env.<environment>.<variable>`) and limited to a
+filename-safe charset by `src/shared/secretVault.ts`; the `secrets:*` handlers
+in `src/main/ipc/secrets.ts` validate every id, prefix and value size before
+touching the store.
+
+When the OS offers no real keyring (encryption unavailable, or Linux reports a
+backend other than libsecret or KWallet, such as `basic_text`) the store
+reports `session` mode and would keep values in memory only. The AI and HTTP
+stores do not use the vault in that mode, so their values keep today's
+localStorage storage and nothing saved earlier is lost on restart. Settings ›
+AI and the HTTP environment manager say so with the "No system keyring
+available" note.
+
+The renderer still decrypts the value into memory to send a request, because
+the AI client and HTTP interpolation run in the renderer today; the vault
+removes the plaintext copy at rest. The persisted stores keep the variable
+rows with blanked secret values. On first launch after upgrading, each store
+copies its plaintext values into the vault, reads them back, and only then
+rewrites its localStorage blob; a failed write keeps the plaintext copy. The
+AI blob records `apiKeyInVault`, so a key whose vault delete failed is not
+loaded back on the next boot. Only environment variables flagged secret and the AI key are vaulted; Auth-tab
+credentials and explicit `Authorization` header rows still persist in plain,
+as `httpWorkspaceSchema.ts` documents. Web builds have no vault and keep values in browser storage,
+which Settings says next to the field. Settings › Recovery › Reset everything
+also deletes the vault entries.
+
 ### Event-style IPC
 
 The push-style filesystem channels in this architecture are:
