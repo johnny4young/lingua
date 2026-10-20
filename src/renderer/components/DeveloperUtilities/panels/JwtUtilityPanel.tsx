@@ -12,6 +12,7 @@ import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutpu
 import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { CopyButton } from '../CopyButton';
 import { cn } from '../../../utils/cn';
+import { relativeTimeLabel } from '../../../utils/timeLabels';
 import {
   JWT_SUPPORTED_ALGORITHMS,
   decodeJwt,
@@ -165,7 +166,9 @@ function JwtDecodeSection({
                 ariaLabel={t('utilities.tool.jwt.payloadTitle')}
                 testid="jwt-payload-output"
                 value={JSON.stringify(analysis.payload, null, 2)}
+                annotateTimestamps
               />
+              <JwtTimeClaims payload={analysis.payload} />
               <div className="flex justify-end">
                 <CopyButton
                   value={JSON.stringify(analysis.payload, null, 2)}
@@ -677,4 +680,54 @@ function signatureStatusLabelKey(state: JwtSignatureState): string {
     case 'unverified':
       return 'utilities.jwtPreview.signature.unverified';
   }
+}
+
+const TIME_CLAIMS = ['exp', 'nbf', 'iat'] as const;
+
+/** Relative badges for the registered time claims, so expiry reads at a glance. */
+function JwtTimeClaims({ payload }: { payload: Record<string, unknown> }) {
+  const { t, i18n } = useTranslation();
+  const [now] = useState(() => Date.now());
+  const claims = TIME_CLAIMS.flatMap(claim => {
+    const seconds = payload[claim];
+    return typeof seconds === 'number' && Number.isFinite(seconds)
+      ? [{ claim, at: seconds * 1000 }]
+      : [];
+  });
+  if (claims.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="jwt-time-claims">
+      {claims.map(({ claim, at }) => {
+        const expired = claim === 'exp' && at <= now;
+        const pending = claim === 'nbf' && at > now;
+        const tone = expired
+          ? 'border-error-border bg-error-bg text-error-fg'
+          : pending
+            ? 'border-warning-border bg-warning-bg text-warning-fg'
+            : claim === 'exp'
+              ? 'border-success-border bg-success-bg text-success-fg'
+              : 'border-border-default text-fg-muted';
+        return (
+          <span
+            key={claim}
+            data-testid={`jwt-time-claim-${claim}`}
+            data-state={expired ? 'expired' : pending ? 'pending' : 'ok'}
+            title={
+              expired
+                ? t('utilities.tool.jwt.claim.expired')
+                : pending
+                  ? t('utilities.tool.jwt.claim.notYetValid')
+                  : undefined
+            }
+            className={cn(
+              'inline-flex h-5 items-center rounded border px-1.5 font-mono text-micro font-semibold',
+              tone
+            )}
+          >
+            {claim} {relativeTimeLabel(at, now, i18n.language)}
+          </span>
+        );
+      })}
+    </div>
+  );
 }

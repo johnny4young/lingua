@@ -2346,6 +2346,8 @@
   "utilities.tool.jwt.headerTitle": "Decoded header",
   "utilities.tool.jwt.headerDescription": "Algorithm and token metadata extracted from the header segment.",
   "utilities.tool.jwt.payloadTitle": "Decoded payload",
+  "utilities.tool.jwt.claim.expired": "Expired",
+  "utilities.tool.jwt.claim.notYetValid": "Not valid yet",
   "utilities.tool.jwt.payloadDescription": "Claims extracted from the payload segment.",
   "utilities.tool.jwt.empty": "Enter a JWT to inspect its decoded JSON payload.",
   "utilities.jwtPreview.signature.verified": "Signature verified",
