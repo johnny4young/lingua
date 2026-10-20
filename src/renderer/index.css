@@ -2068,11 +2068,24 @@
   .settings-modal-shell {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
   .settings-modal-rail-slot {
-    grid-row: 1 / span 3;
+    grid-row: 1 / span 4;
+  }
+  /* Explicit rows, so a tab without section chips leaves row 2 empty. */
+  .settings-modal-topbar {
+    grid-row: 1;
+  }
+  .settings-section-chips {
+    grid-row: 2;
+  }
+  .settings-modal-panel {
+    grid-row: 3;
+  }
+  .settings-status-bar {
+    grid-row: 4;
   }
   .settings-modal-breadcrumb,
   .settings-status-shortcuts {
@@ -2084,6 +2097,11 @@
   .spec-row {
     align-items: center;
   }
+  /* Settings selects: 30 px, radius 6, sized to their options. */
+  .settings-select {
+    @apply h-[30px] max-w-[230px] rounded-md border border-border-default bg-bg-panel pl-3 pr-8 text-body-sm text-fg-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/40;
+    transition: border-color var(--duration-fast) var(--curve-ease-out);
+  }
 
   /* At 200% zoom a 1024px window has only 512 CSS pixels. Keep the Settings
      navigation horizontally scrollable rather than shrinking the content
@@ -2091,7 +2109,10 @@
   @media (max-width: 760px) {
     .settings-modal-shell {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    }
+    .settings-section-chips {
+      grid-row: 3;
     }
 
     .settings-modal-rail-slot {
@@ -2106,11 +2127,11 @@
       min-width: 0;
     }
     .settings-modal-panel {
-      grid-row: 3;
+      grid-row: 4;
       padding: 16px;
     }
     .settings-status-bar {
-      grid-row: 4;
+      grid-row: 5;
       min-width: 0;
       overflow: hidden;
     }

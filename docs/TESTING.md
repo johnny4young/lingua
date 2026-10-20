@@ -314,6 +314,8 @@ Use this order when automating:
 | ✅ | `TC-048` | `BOTH` | `developer` | Toggle word wrap | Monaco wrapping updates |
 | ✅ | `TC-049` | `BOTH` | `developer` | Toggle minimap | Monaco minimap updates |
 | ✅ | `TC-050` | `BOTH` | `developer` | Change layout horizontal/vertical/editor-only | Shell panels rearrange correctly |
+| ✅ | `TC-104` | `BOTH` | `developer` | In Settings press `Cmd/Ctrl+1`–`9` and `0`, then click a section chip on the Editor tab | Tabs open in rail order (Plugins has no number); the chip scrolls to its section and stays pressed while that section is in view |
+| ✅ | `TC-105` | `BOTH` | `developer` | Settings → Privacy → Local data → `Clear everything…` | One confirmation lists the stores, the SQL database and the capsules; confirming clears them and keeps HTTP requests, notebooks and the session |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |
 | ✅ | `TC-053` | `ELEC` | `developer` | Click `Check now` | Update flow starts without crash |

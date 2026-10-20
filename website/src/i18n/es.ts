@@ -240,7 +240,7 @@ export const es = {
         },
         {
           image: '/screenshots/tour/settings-privacy-es.png',
-          alt: 'Página de privacidad en Settings: analítica anónima apagada, Run Ledger apagado, lista de headers HTTP sensibles y vista previa de redacción',
+          alt: 'Página de privacidad en Settings: chips de sección para Run Ledger, Datos locales, Red, Actividad reciente y Redacción, analítica anónima apagada, la lista de headers HTTP sensibles y Run Ledger apagado',
           title: 'La privacidad es una página de Settings, no una promesa',
           body: 'La telemetría viene apagada y se queda así hasta que tú la actives. El Run Ledger guarda solo local, los headers sensibles se redactan por nombre y la vista previa de redacción muestra exactamente qué saldría de tu máquina — nada.',
         },

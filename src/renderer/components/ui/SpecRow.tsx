@@ -6,6 +6,8 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 
 /* -------------------------------------------------------------- SpecRow */
@@ -21,6 +23,8 @@ export interface SpecRowProps {
   last?: boolean;
   /** Stable target used by Settings search to scroll and focus this row. */
   searchTargetId?: string;
+  /** Marks a Pro-only row with a lock badge after the label. */
+  pro?: boolean;
 }
 
 export function SpecRow({
@@ -29,6 +33,7 @@ export function SpecRow({
   control,
   last = false,
   searchTargetId,
+  pro = false,
 }: SpecRowProps) {
   const labelId = useId();
   const onlyControl = Children.count(control) === 1 ? Children.only(control) : null;
@@ -46,7 +51,7 @@ export function SpecRow({
       data-settings-search-target={searchTargetId}
       tabIndex={searchTargetId ? -1 : undefined}
       className={cn(
-        'spec-row flex justify-between gap-4 rounded-md py-[13px] outline-none',
+        'spec-row flex justify-between gap-4 rounded-md py-2.5 outline-none',
         searchTargetId && 'focus:ring-2 focus:ring-accent/70 focus:ring-offset-2 focus:ring-offset-bg-base',
         last ? '' : 'border-b border-border-subtle'
       )}
@@ -63,12 +68,17 @@ export function SpecRow({
           )}
         >
           {label}
+          {pro ? <ProBadge /> : null}
         </div>
         {description ? (
-          <div className="mt-[2px] text-caption text-fg-subtle">{description}</div>
+          <div className="mt-[2px] max-w-[70ch] text-caption leading-snug text-fg-subtle">
+            {description}
+          </div>
         ) : null}
       </div>
-      <div className="spec-row-control shrink-0">{labelledControl}</div>
+      <div className="spec-row-control ml-auto flex shrink-0 flex-col items-end">
+        {labelledControl}
+      </div>
     </div>
   );
 }
@@ -89,7 +99,7 @@ export function SpecCard({ children, className }: SpecCardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-1',
+        'rounded-[10px] border border-border-subtle bg-bg-panel px-4',
         className
       )}
     >
@@ -105,12 +115,17 @@ export interface SettingsSectionProps {
   eyebrow: ReactNode;
   /** Optional intro paragraph under the eyebrow. */
   description?: ReactNode;
+  /** Short name in the tab's section chips; defaults to a string eyebrow. */
+  chip?: string;
   children: ReactNode;
 }
 
-export function SettingsSection({ eyebrow, description, children }: SettingsSectionProps) {
+export function SettingsSection({ eyebrow, description, chip, children }: SettingsSectionProps) {
   return (
-    <section className="flex flex-col gap-[14px]">
+    <section
+      className="flex flex-col gap-2.5"
+      data-settings-chip={chip ?? (typeof eyebrow === 'string' ? eyebrow : undefined)}
+    >
       <div>
         <h3 className="font-mono text-eyebrow font-semibold uppercase text-fg-muted">
           {eyebrow}
@@ -121,5 +136,48 @@ export function SettingsSection({ eyebrow, description, children }: SettingsSect
       </div>
       {children}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------ Pro rows */
+
+/** The lock badge after a Pro-only row's label. */
+function ProBadge() {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={cn(
+        'ml-2 inline-flex h-[18px] items-center gap-1 rounded-sm border px-1.5 align-middle',
+        'border-warning-border bg-warning-bg text-warning-fg',
+        'font-mono text-eyebrow font-semibold uppercase'
+      )}
+    >
+      <Lock size={9} aria-hidden />
+      {t('settings.pro.badge')}
+    </span>
+  );
+}
+
+/** The Free-tier control of a Pro-only row: a text link to the upsell. */
+export function UnlockProLink({
+  onClick,
+  testId,
+}: {
+  onClick: () => void;
+  testId?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className={cn(
+        'text-body-sm font-semibold text-accent underline-offset-2',
+        'hover:text-accent-fg hover:underline'
+      )}
+    >
+      {t('settings.pro.unlock')}
+    </button>
   );
 }

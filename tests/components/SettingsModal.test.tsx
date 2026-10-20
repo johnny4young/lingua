@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
@@ -13,6 +13,9 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUpdateStore } from '../../src/renderer/stores/updateStore';
 
 describe('SettingsModal', () => {
+  // Section chips repeat each section name, so content queries stay inside the tab panel.
+  const inPanel = () => within(screen.getByRole('tabpanel'));
+
   const initialPluginState = usePluginStore.getState();
   const initialUpdateState = useUpdateStore.getState();
   const initialSettingsState = useSettingsStore.getState();
@@ -53,12 +56,12 @@ describe('SettingsModal', () => {
     // Sections are now grouped under rail tabs. Walk through
     // each tab and assert its contents instead of expecting everything
     // on the default tab. Default tab is `general` (About + Updates).
-    expect(screen.getByText('Acerca de')).toBeTruthy();
-    expect(await screen.findByText('MIT')).toBeTruthy();
-    expect(screen.getByText('Iniciar tour guiado')).toBeTruthy();
-    expect(screen.getByText('Novedades')).toBeTruthy();
-    expect(screen.getByText('Actualizaciones')).toBeTruthy();
-    expect(screen.getByText('No disponible')).toBeTruthy();
+    expect(inPanel().getByText('Acerca de')).toBeTruthy();
+    expect(await inPanel().findByText('MIT')).toBeTruthy();
+    expect(inPanel().getByText('Iniciar tour guiado')).toBeTruthy();
+    expect(inPanel().getByText('Novedades')).toBeTruthy();
+    expect(inPanel().getByText('Actualizaciones')).toBeTruthy();
+    expect(inPanel().getByText('No disponible')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
     expect(document.getElementById('settings-modal-title')?.className).toContain(
       'sr-only'
@@ -76,8 +79,8 @@ describe('SettingsModal', () => {
     expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(
       appearanceTab.id
     );
-    expect(screen.getByText('Diseño')).toBeTruthy();
-    expect(screen.getByText('División horizontal')).toBeTruthy();
+    expect(inPanel().getByText('Diseño')).toBeTruthy();
+    expect(inPanel().getByText('División horizontal')).toBeTruthy();
     const themePackSelect = screen.getByTestId('theme-pack-select');
     fireEvent.keyDown(themePackSelect, { key: 'ArrowRight' });
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
@@ -87,12 +90,12 @@ describe('SettingsModal', () => {
 
     // Switch to Editor → editor theme lives here.
     fireEvent.click(screen.getByTestId('settings-tab-editor'));
-    expect(screen.getByText('Tema del editor')).toBeTruthy();
+    expect(inPanel().getByText('Tema del editor')).toBeTruthy();
     // Plugins moved to its own rail entry under Advanced.
     fireEvent.click(screen.getByTestId('settings-tab-plugins'));
-    expect(screen.getAllByText('Plugins').length).toBeGreaterThan(0);
-    expect(screen.getByText('Directorio local de plugins')).toBeTruthy();
-    expect(screen.getByText('No hay plugins locales instalados.')).toBeTruthy();
+    expect(inPanel().getAllByText('Plugins').length).toBeGreaterThan(0);
+    expect(inPanel().getByText('Directorio local de plugins')).toBeTruthy();
+    expect(inPanel().getByText('No hay plugins locales instalados.')).toBeTruthy();
   }, 10000);
 
   it('focuses the filter on the Settings shortcut without reaching the global toggle', () => {
@@ -151,30 +154,62 @@ describe('SettingsModal', () => {
       />
     );
 
-    expect(await screen.findByText('MIT')).toBeTruthy();
+    expect(await inPanel().findByText('MIT')).toBeTruthy();
 
-    // Languages sits visually between Editor and Environment,
-    // while preserving Environment on Cmd+4 and assigning Languages to Cmd+8.
-    fireEvent.keyDown(window, { key: '8', metaKey: true });
-    expect(screen.getByTestId('settings-tab-languages').getAttribute('aria-selected')).toBe(
-      'true'
-    );
-    expect(screen.getByText('Scorecard de soporte de lenguajes')).toBeTruthy();
+    // Cmd+1-9 then Cmd+0 follow the rail top to bottom; Plugins has no number.
+    const railOrder = [
+      ['1', 'general'],
+      ['2', 'appearance'],
+      ['3', 'editor'],
+      ['4', 'languages'],
+      ['5', 'environment'],
+      ['6', 'privacy'],
+      ['7', 'account'],
+      ['8', 'integrations'],
+      ['9', 'shortcuts'],
+      ['0', 'recovery'],
+    ] as const;
+    for (const [key, tab] of railOrder) {
+      fireEvent.keyDown(window, { key, metaKey: true });
+      expect(screen.getByTestId(`settings-tab-${tab}`).getAttribute('aria-selected')).toBe('true');
+    }
+    expect(screen.getByTestId('settings-tab-plugins').textContent).not.toMatch(/\d/);
 
     fireEvent.keyDown(window, { key: '4', metaKey: true });
-    expect(screen.getByTestId('settings-tab-environment').getAttribute('aria-selected')).toBe(
-      'true'
-    );
-    expect(screen.getByText('Variables de entorno')).toBeTruthy();
+    expect(inPanel().getByText('Scorecard de soporte de lenguajes')).toBeTruthy();
+    fireEvent.keyDown(window, { key: '5', metaKey: true });
+    expect(inPanel().getByText('Variables de entorno')).toBeTruthy();
 
-    fireEvent.keyDown(window, { key: '9', metaKey: true });
+    fireEvent.keyDown(window, { key: '6', metaKey: true });
     expect(screen.getByTestId('settings-tab-privacy').getAttribute('aria-selected')).toBe(
       'true'
     );
-    expect(screen.getByText('Privacidad y confianza')).toBeTruthy();
-    expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
-    expect(screen.getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
+    expect(inPanel().getByText('Privacidad y confianza')).toBeTruthy();
+    expect(inPanel().getByText('Vista previa de redacción')).toBeTruthy();
+    expect(inPanel().getByText('Run Ledger (historial local de ejecuciones)')).toBeTruthy();
   }, 10000);
+
+  it('shows one section chip per Editor section, in the board order', async () => {
+    render(
+      <SettingsModal onClose={() => {}} onOpenWhatsNew={() => {}} onStartGuidedTour={() => {}} />
+    );
+    fireEvent.click(screen.getByTestId('settings-tab-editor'));
+    await waitFor(() => expect(screen.getAllByTestId('settings-section-chip')).toHaveLength(6));
+    expect(screen.getAllByTestId('settings-section-chip').map(chip => chip.textContent)).toEqual(
+      [
+        'editor.title',
+        'settings.perLanguage.chip',
+        'settings.editor.sqlWorkspace.title',
+        'executionHistory.title',
+        'utilities.settings.title',
+        'settings.themePreset.label',
+      ].map(key => i18next.t(key))
+    );
+
+    // A single-section tab has no chip bar.
+    fireEvent.click(screen.getByTestId('settings-tab-environment'));
+    await waitFor(() => expect(screen.queryByTestId('settings-section-chips')).toBeNull());
+  });
 
   it('acknowledges live tab navigation so callers do not seed the next open', async () => {
     render(

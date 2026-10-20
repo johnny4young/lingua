@@ -22,12 +22,17 @@ The format follows Keep a Changelog and groups changes by release.
 - The Utilities tab folds its tool list to a 56 px icon rail (search, favorites, the six categories, Pipelines) so the open tool gets the width; Cmd/Ctrl+B on a Utilities tab opens and closes the compact list, which shows the tool count in its footer, and Cmd/Ctrl+K opens it with search focused.
 - The JWT Debugger dates each time claim in UTC at the end of its line and badges exp, nbf and iat with how far they are from now, flagging an expired token or one that is not valid yet.
 - The Regex Tester mirrors its flags field in g, i, m, s, u and y chips, and explains the pattern token by token with a local parser, without any network request.
+- Settings tab shortcuts follow the rail from top to bottom: Cmd/Ctrl+1 General, 2 Appearance, 3 Editor, 4 Languages, 5 Environment, 6 Privacy, 7 Account, 8 Integrations, 9 Shortcuts and 0 Recovery; Plugins has no number. The old numbers for Languages (8), Environment (4), Privacy (9), Account (5), Shortcuts (6) and Plugins (7) no longer apply. Languages, Integrations and Recovery get braces, plug and life-buoy icons.
+- Settings rows are denser: hints wrap at 70 characters, controls sit on the right with 30-pixel selects, and a tab with several sections shows chips that jump to a section and follow the scroll. Pro-only rows show a Pro lock badge and an Unlock in Pro link instead of a disabled control or a full button.
+- Settings → Editor puts the default workflow, auto-log and execution timeout in one Per-language defaults grid (JavaScript, TypeScript, Python, Go and Ruby; a dash marks a setting a language does not have), and Theme preset moves to the end of the tab.
+- Settings → Privacy is split into Privacy + Trust, Run Ledger, Local data, Network activity, Recent activity and Redaction preview. Local data opens with a total for the stores, the SQL workspace database and the run capsules in memory, a Reveal folder button on desktop, and Clear everything…, which clears your settings, snippets, utility history, trust feed and license token, the SQL workspace database (including the Run Ledger) and the capsules after one confirmation that warns about the license; HTTP requests, notebooks and the open session are kept. Clearing a store also resets its live copy, so the next change cannot write the cleared data back.
 
 ### Fixed
 - Language chips and labels in the light theme are readable (they were pale text on pale tints).
 - The Cron Parser's schedule field is no longer cut off at narrow window widths, since the tool list folds to a rail.
 - Disabled primary buttons such as Save set, Save Snippet and Start free trial keep readable text instead of white on pale blue.
 - Danger-coloured text that rendered without a colour now uses the error colour.
+- Settings selects given a custom width, such as the execution timeout ones, keep their styling instead of rendering as plain browser selects.
 
 ### Security
 - On desktop, the AI API key and HTTP environment values marked secret are encrypted with the system keychain instead of being stored in plain text. Existing values move on first launch, and a value stays where it was if the move fails. Without a system keyring, as on Linux sessions that report the basic_text backend, they stay in local storage as before and Settings says they are not encrypted. The web app keeps them in browser storage and now says so next to the field.

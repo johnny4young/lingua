@@ -22,7 +22,8 @@ describe('PrivacySection', () => {
   it('renders the unset status copy before the user makes a choice', () => {
     render(<PrivacySection />);
 
-    expect(screen.getByText('Privacy')).toBeTruthy();
+    expect(screen.getByText('Privacy + Trust')).toBeTruthy();
+    expect(screen.getByText('Run Ledger')).toBeTruthy();
     expect(screen.getByTestId('telemetry-status').textContent).toContain('Not set');
   });
 

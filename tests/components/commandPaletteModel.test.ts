@@ -914,7 +914,7 @@ describe('buildCommandPaletteModel', () => {
       (entry) => entry.id === 'action-show-privacy-dashboard'
     );
     expect(command?.description).toBe(
-      'Open Settings on the Privacy tab — local stores, redaction preview, and network activity audit.'
+      'Open Settings on the Privacy tab — local data, Run Ledger, network and recent activity, and the redaction preview.'
     );
 
     command?.action();

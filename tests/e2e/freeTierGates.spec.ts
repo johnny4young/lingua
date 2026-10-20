@@ -298,10 +298,10 @@ test.describe('Free tier gates', () => {
     await openSettings(page);
     await openSettingsTab(page, 'editor');
 
-    const toggle = page.getByRole('switch', {
-      name: 'Apply from clipboard on panel focus',
-    });
-    await expect(toggle).toBeDisabled();
+    // On Free the Pro row shows the lock badge and an unlock link, not a switch.
+    await expect(
+      page.getByRole('switch', { name: 'Apply from clipboard on panel focus' })
+    ).toHaveCount(0);
     await expect(page.getByTestId('utilities-clipboard-on-focus-status')).toContainText(
       'Pro automation'
     );

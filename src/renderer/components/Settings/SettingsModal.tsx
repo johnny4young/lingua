@@ -28,6 +28,7 @@ import { OnboardingSection } from './OnboardingSection';
 import { RecipesProgressResetSection } from './RecipesProgressResetSection';
 import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
+import { ThemePresetControls } from './ThemePresetControls';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
@@ -45,6 +46,7 @@ import { KEYBOARD_SHORTCUT_REFERENCE } from '../../data/keyboardShortcutReferenc
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useCommandListener } from '../../hooks/useCommandListener';
 import { SettingsRail } from './SettingsRail';
+import { SettingsSectionChips } from './SettingsSectionChips';
 import { RAIL_ITEMS, type TabId } from './settingsRailModel';
 import {
   clearPendingSettingsTab,
@@ -73,7 +75,7 @@ import {
  *   Workspace
  *     1. general      → About + Updates
  *     2. appearance   → Appearance + Layout
- *     3. editor       → Editor + ExecutionHistory + Utilities
+ *     3. editor       → Editor + Per-language + SQL + ExecutionHistory + Utilities + ThemePreset
  *     4. languages    → Languages
  *     5. environment  → EnvVars
  *     6. privacy      → Privacy + PrivacyTrust
@@ -87,8 +89,8 @@ import {
  *    10. plugins      → PluginsSection (was nested under "editor")
  *    11. recovery     → RecoverySection (was nested under "account")
  *
- * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
- * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
+ * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins has no digit)
+ * and ⌘0 opens recovery; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
 interface SettingsModalProps {
   onClose: () => void;
@@ -299,6 +301,7 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
       <span className="flex-1" />
       <span className="settings-status-shortcuts items-center gap-1.5">
         <Kbd>{formatShortcutCombo({ tokens: ['Mod', '1'] }, platform)}</Kbd>
+        <span aria-hidden className="text-fg-subtle">–</span>
         <Kbd>{formatShortcutCombo({ tokens: ['Mod', '0'] }, platform)}</Kbd>
         <span className="text-fg-muted">{t('settings.statusBar.section')}</span>
       </span>
@@ -394,6 +397,7 @@ export function SettingsModal({
     () => peekPendingSettingsTarget()
   );
   const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Siblings request a typed tab jump after opening
   // Settings, while SettingsModal remains the sole owner of activeTab.
@@ -518,6 +522,9 @@ export function SettingsModal({
             </SettingsSearchTarget>
             <SettingsSearchTarget id="section-utilities">
               <UtilitiesSection />
+            </SettingsSearchTarget>
+            <SettingsSearchTarget id="section-theme-preset">
+              <ThemePresetControls />
             </SettingsSearchTarget>
           </div>
         );
@@ -651,8 +658,15 @@ export function SettingsModal({
           filterInputRef={filterInputRef}
         />
 
+        <SettingsSectionChips
+          panelRef={panelRef}
+          tabKey={activeTab}
+          tabLabel={t(`settings.tabs.${activeTab}`)}
+        />
+
         {/* Tab content */}
         <div
+          ref={panelRef}
           id={`settings-panel-${activeTab}`}
           className="settings-modal-panel min-h-0 min-w-0 overflow-y-auto bg-bg-base"
           role="tabpanel"

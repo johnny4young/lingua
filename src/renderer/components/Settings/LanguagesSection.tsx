@@ -13,7 +13,7 @@ import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
  * inline at the bottom of Settings → Editor. The split lets the
  * Editor tab stay focused on editor-shell concerns (theme, font,
  * timeouts, vim mode) and gives the language matrix its own
- * discoverable surface — Cmd+8 in Settings, plus the palette
+ * discoverable surface — Cmd+4 in Settings, plus the palette
  * `Show language support` command which emits the
  * `settings.navigate` command so this tab opens on demand.
  *

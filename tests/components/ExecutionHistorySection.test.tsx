@@ -123,6 +123,10 @@ describe('ExecutionHistorySection', () => {
     render(<ExecutionHistorySection />);
 
     expect(screen.getByText('Recent runs and rerun tools')).toBeTruthy();
+    // The link is the row's only control; its name stays Unlock in Pro, not the row label.
+    expect(screen.getByRole('button', { name: 'Unlock in Pro' })).toBe(
+      screen.getByTestId('execution-history-unlock')
+    );
     await user.click(screen.getByTestId('execution-history-unlock'));
 
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');

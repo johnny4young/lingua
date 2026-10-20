@@ -3,7 +3,7 @@ import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
+import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
 
 /**
  * Settings row that surfaces the in-memory
@@ -48,6 +48,7 @@ export function ExecutionHistorySection() {
                 ? t('executionHistory.countLabel', { count: entryCount })
                 : t('executionHistory.lockedLabel')
             }
+            pro={!canUseExecutionHistory}
             description={
               canUseExecutionHistory
                 ? t('executionHistory.privacyNote')
@@ -67,15 +68,7 @@ export function ExecutionHistorySection() {
                   {t('executionHistory.clearButton')}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={handleUnlock}
-                  data-testid="execution-history-unlock"
-                  aria-label={t('executionHistory.unlockButton')}
-                >
-                  {t('executionHistory.unlockButton')}
-                </button>
+                <UnlockProLink onClick={handleUnlock} testId="execution-history-unlock" />
               )
             }
           />

@@ -13,7 +13,7 @@
  * Web has no native dialog or file browser; the web stub for both
  * resolves to a safe no-op (cancel / unsupported) and the
  * RecoverySection falls through to its inline confirm step / hides
- * the reveal-folder button.
+ * the reveal-folder button. Privacy → Local data reuses reveal-folder.
  */
 
 import { dialog, BrowserWindow, app, shell } from 'electron';

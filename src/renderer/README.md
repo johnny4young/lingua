@@ -658,6 +658,18 @@ in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
 switches tabs, scrolls to the target, and moves keyboard focus there.
 
+`SettingsSectionChips.tsx` reads the open tab's `SettingsSection`s from the
+panel (`data-settings-chip`, the eyebrow or a short `chip` label) and shows a
+chip per section once a tab has two or more; the pressed chip follows the
+scroll. Give a new section a short `chip` when its eyebrow is long. Pro-only
+rows pass `pro` to `SpecRow` and use `UnlockProLink` as their Free control.
+The Editor tab's per-language defaults are one grid
+(`PerLanguageDefaultsSection.tsx`) over the existing workflow, auto-log and
+timeout maps; rows follow `RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES`. Privacy's
+Local data summary (`LocalDataSummary.tsx`) totals the audited stores, the
+OPFS SQL database and the in-memory capsules, and its Clear everything runs the
+same per-store clears, `clearPersistedSqlDatabase` and `clearCapsule`.
+
 `LocalMcpSection.tsx` owns only transient consent, reveal, copy, and busy UI.
 The desktop bridge and main process own endpoint credentials and lifecycle;
 neither the token nor the running state is persisted in a renderer store.

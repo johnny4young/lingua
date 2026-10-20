@@ -4,8 +4,8 @@
  * Pulled out of `<PrivacyTrustSection>` so the size estimator, the
  * byte formatter, and the localStorage row builder are independently
  * unit-testable without rendering the component. All helpers are
- * read-only with respect to localStorage; the dashboard's Clear
- * action calls `removeItem` directly from the component handler.
+ * read-only with respect to localStorage; the dashboard's per-row Clear
+ * and Clear everything remove keys from the component.
  */
 
 import type { TrustEvent, TrustFeature } from '../../stores/trustEventStore';
