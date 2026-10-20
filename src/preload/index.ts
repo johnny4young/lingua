@@ -2,6 +2,7 @@ import type { RootId } from '../shared/fs/brandedIds';
 import type { LspBridge, LspNotification } from '../shared/lspBridge';
 import { contextBridge } from 'electron';
 import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
+import type { SecretVaultBridge } from '../shared/secretVault';
 import type {
   ProjectTerminalBridge,
   ProjectTerminalDataEvent,
@@ -234,6 +235,15 @@ contextBridge.exposeInMainWorld('lingua', {
     set: (value: 'granted' | 'declined' | 'unset') =>
       typedInvoke('consent:set', value),
   },
+
+  // Encrypted secret vault; values are encrypted in main with safeStorage.
+  secrets: {
+    status: () => typedInvoke('secrets:status'),
+    set: (id: string, value: string) => typedInvoke('secrets:set', id, value),
+    get: (id: string) => typedInvoke('secrets:get', id),
+    delete: (id: string) => typedInvoke('secrets:delete', id),
+    list: (prefix: string) => typedInvoke('secrets:list', prefix),
+  } satisfies SecretVaultBridge,
 
   // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration

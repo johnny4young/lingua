@@ -549,6 +549,8 @@ interface LinguaAPI {
   getAppInfo: () => Promise<AppInfo>;
   openExternal: (url: string) => Promise<boolean>;
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
+  /** Desktop-only encrypted secret vault; absent on web. */
+  secrets?: import('./shared/secretVault').SecretVaultBridge;
   pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
   goDebugger?: import('./shared/goDebugger').GoDebuggerBridge;
   rustDebugger?: import('./shared/rustDebugger').RustDebuggerBridge;

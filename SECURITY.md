@@ -38,6 +38,8 @@ Security reviews should pay special attention to:
   flows
 - update feed behavior and release artifact integrity
 - telemetry and crash-reporting consent plus payload redaction
+- the desktop secret vault (`safeStorage` storage and `secrets:*` IPC id,
+  prefix and size validation)
 
 ## Secret Handling
 
