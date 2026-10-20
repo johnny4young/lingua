@@ -378,7 +378,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             onClick={handleSaveActiveTab}
             disabled={!activeTab}
             data-tour-id="snippets-save-active-tab"
-            className="button-primary w-full"
+            className="button-secondary w-full"
           >
             <Save size={13} />
             {t('snippets.actions.saveActiveTab')}
@@ -446,7 +446,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                 type="button"
                 onClick={handleInsertIntoActiveTab}
                 disabled={!activeTabId || (!canSaveSnippet && !selectedSnippet)}
-                className="button-primary"
+                className="button-secondary"
               >
                 {t('snippets.actions.insertIntoActiveTab')}
               </button>

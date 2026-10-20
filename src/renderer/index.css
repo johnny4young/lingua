@@ -131,6 +131,7 @@
   /* Accent */
   --color-accent: oklch(0.52 0.18 210);
   --color-accent-hover: oklch(0.44 0.18 210);
+  --color-accent-pressed: oklch(0.36 0.18 210);
   --color-accent-fg: oklch(0.36 0.17 210);
   /* DS parity (design-sync apply) — soft pill / selected-row / focus-ring tint
      that DS primitives (Badge accent, IconButton active) reference. */
@@ -391,6 +392,7 @@
 
   --color-accent: oklch(0.72 0.17 210);
   --color-accent-hover: oklch(0.8 0.16 210);
+  --color-accent-pressed: oklch(0.64 0.16 210);
   --color-accent-fg: oklch(0.85 0.14 210);
   /* DS parity (design-sync apply) — dark accent tint. */
   --color-accent-tint: oklch(0.22 0.035 210);
@@ -489,7 +491,15 @@
   --color-success: var(--app-success);
   --color-warning: var(--app-warning);
   --color-error: var(--app-error);
+  /* `text-danger` / `bg-danger/*` callers resolve to the error hue. */
+  --color-danger: var(--app-error);
   --color-ring: var(--app-ring);
+
+  /* Elevation e0 flat → e1 card → e2 raised (hover, selection) → e3 overlay. */
+  --shadow-e0: var(--shadow-none);
+  --shadow-e1: var(--shadow-sm);
+  --shadow-e2: var(--shadow-md);
+  --shadow-e3: var(--shadow-lg);
 
   /* DS canonical names — what new code SHOULD reach for. Tailwind v4
      reads each `--color-*` from this @theme block and generates the
@@ -542,6 +552,7 @@
      `bg-accent-tint` (DS parity, design-sync apply). */
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
+  --color-accent-pressed: var(--color-accent-pressed);
   --color-accent-fg: var(--color-accent-fg);
   --color-accent-tint: var(--color-accent-tint);
 
@@ -836,7 +847,14 @@
      both the box and the glyph and `tests/build/iconButtonDensity.test.ts`
      keeps call sites on them. */
   .icon-button {
-    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted transition-all duration-200 hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .icon-button {
+    transition:
+      background-color var(--duration-fast) var(--curve-ease-out),
+      border-color var(--duration-fast) var(--curve-ease-out),
+      color var(--duration-fast) var(--curve-ease-out);
   }
 
   .icon-button-active {
@@ -847,29 +865,77 @@
     @apply hover:border-error/35 hover:bg-error/10 hover:text-error;
   }
 
-  /* Primary button families — RL UI pass: one compact ~28px scale,
-     rounded-lg (was rounded-xl), py-1.5 (was py-2), font-medium, a
-     subtle primary shadow instead of the old 14px/35px glow, and a
-     focus-visible ring on every variant. */
+  /* Button families on one state rule: hover lifts 1px and steps the fill,
+     pressed steps it again and settles, disabled drops the shadow, and focus
+     is a 2px gap plus a 2px ring in the control's hue. One saturated control
+     per surface: primary (and Run) fill with the accent, secondary is surface
+     plus hairline, ghost is accent text, danger is red text until it sits
+     inside a confirmation (`.button-danger-solid`). */
+  .button-primary,
+  .button-secondary,
+  .button-ghost,
+  .button-danger,
+  .button-danger-solid {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border py-1.5 text-control font-medium tracking-[0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed;
+    transition:
+      background-color var(--duration-fast) var(--curve-ease-out),
+      border-color var(--duration-fast) var(--curve-ease-out),
+      box-shadow var(--duration-fast) var(--curve-ease-out),
+      transform var(--duration-fast) var(--curve-ease-out);
+  }
+
+  .button-primary:not(:disabled):hover,
+  .button-secondary:not(:disabled):hover,
+  .button-ghost:not(:disabled):hover,
+  .button-danger:not(:disabled):hover,
+  .button-danger-solid:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  .button-primary:not(:disabled):active,
+  .button-secondary:not(:disabled):active,
+  .button-ghost:not(:disabled):active,
+  .button-danger:not(:disabled):active,
+  .button-danger-solid:not(:disabled):active {
+    transform: translateY(0);
+  }
+
   .button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary px-3 py-1.5 text-control font-medium tracking-[0.01em] text-primary-foreground transition-colors duration-150 hover:bg-primary/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--app-primary) 22%, transparent);
+    @apply border-transparent bg-accent px-3 text-fg-on-accent focus-visible:ring-accent-fg hover:bg-accent-hover active:bg-accent-pressed;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
+  /* A pale accent fill fails contrast, so disabled primary is a muted pair. */
+  .button-primary:disabled {
+    @apply border-border-default bg-bg-inset text-fg-muted;
+    box-shadow: none;
   }
 
   .button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border/70 bg-surface-strong/70 px-3 py-1.5 text-control font-medium tracking-[0.01em] text-foreground transition-colors duration-150 hover:border-border-strong/80 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply border-border-default bg-bg-panel-alt px-3 text-fg-base focus-visible:ring-accent-fg hover:bg-bg-inset active:bg-bg-panel disabled:opacity-40;
   }
 
   .button-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-control font-medium tracking-[0.01em] text-muted transition-colors duration-150 hover:bg-surface-strong/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply border-transparent bg-transparent px-2.5 text-accent-fg focus-visible:ring-accent-fg hover:bg-accent-tint active:bg-accent-tint/70 disabled:opacity-40;
   }
 
   .button-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-error/25 bg-error/12 px-3 py-1.5 text-control font-medium tracking-[0.01em] text-error transition-colors duration-150 hover:bg-error/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply border-transparent bg-transparent px-3 text-error-fg focus-visible:ring-error-fg hover:bg-error-bg active:bg-error-bg/70 disabled:opacity-40;
+  }
+
+  .button-danger-solid {
+    @apply border-transparent bg-error-fg px-3 text-fg-on-accent focus-visible:ring-error-fg hover:bg-error-border disabled:opacity-40;
   }
 
   .field-shell {
-    @apply w-full rounded-4xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-body-md text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
+    @apply w-full rounded-4xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-body-md text-foreground outline-none placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
+  }
+
+  .field-shell {
+    transition:
+      border-color var(--duration-normal) var(--curve-ease-out),
+      background-color var(--duration-normal) var(--curve-ease-out),
+      box-shadow var(--duration-normal) var(--curve-ease-out);
   }
 
   .field-label {
@@ -1521,13 +1587,13 @@
   .action-pill {
     @apply inline-flex items-stretch rounded-full border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
     padding: 4px;
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
     gap: 4px;
   }
 
   .dark .action-pill,
   [data-theme='dark'] .action-pill {
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
   }
 
   .action-pill-segment {
@@ -1641,7 +1707,7 @@
 
   /* Unified mode-aware action button.
      The button colours itself by the active workflow:
-       · run        → green (was the only colour previously)
+       · run        → accent
        · debug      → red-soft
        · scratchpad → slate accent (matches the workflow chip's
                       previous colour so users feel continuity)
@@ -1658,16 +1724,21 @@
     font-size: 13px;
     font-weight: 600;
     line-height: 1;
-    transition: background-color 150ms ease, box-shadow 150ms ease;
-    /* Run green routes through the DS success token (hue 155) — the
-       same fill the RuntimeSelector and SQL Run affordances use
-       (`bg-success-fg` + `text-fg-on-accent`). Sharing one token
-       means every run/success green stays in lockstep across themes;
-       `--color-fg-on-accent` flips light/dark so the label keeps
-       contrast on both fills. */
-    background: var(--color-success-fg);
+    transition:
+      background-color var(--duration-fast) var(--curve-ease-out),
+      box-shadow var(--duration-fast) var(--curve-ease-out);
+    /* Run is the surface's one saturated control: the accent fill with ink
+       chosen by contrast (`--color-fg-on-accent` is dark in dark, white in
+       light). RuntimeSelector and SQL Run share the same pair. */
+    background: var(--color-accent);
     color: var(--color-fg-on-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success-fg) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  .action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled):hover {
+    background: var(--color-accent-hover);
+  }
+  .action-pill-run:not([data-workflow='debug']):not([data-workflow='scratchpad']):not(:disabled):active {
+    background: var(--color-accent-pressed);
   }
 
   .action-pill-run[data-workflow='debug'] {
@@ -1807,12 +1878,12 @@
      icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
   .dropdown-rich {
     @apply rounded-xl border border-border/80 bg-bg-panel p-1.5 backdrop-blur-xl;
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
   }
 
   .dark .dropdown-rich,
   [data-theme='dark'] .dropdown-rich {
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
   }
 
   .dropdown-rich-row {
@@ -1929,12 +2000,12 @@
 
   .floating-variables-card {
     @apply w-[260px] overflow-hidden rounded-xl border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
   }
 
   .dark .floating-variables-card,
   [data-theme='dark'] .floating-variables-card {
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-e3);
   }
 
   .floating-variables-card[data-collapsed='true'] {
@@ -2164,6 +2235,12 @@
 /* spinners still render — they just stop rotating.             */
 /* ============================================================ */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+
   *,
   *::before,
   *::after {

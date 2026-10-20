@@ -285,7 +285,7 @@ export function SqlQueryEditor({
           data-testid="sql-query-editor-format"
           aria-label={t('sqlWorkspace.editor.format')}
           title={t('sqlWorkspace.editor.format')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Wand2 size={11} aria-hidden="true" />
           <span>{t('sqlWorkspace.editor.format')}</span>
@@ -296,7 +296,7 @@ export function SqlQueryEditor({
           disabled={isExecuting || overCap || text.trim().length === 0}
           data-testid="sql-query-editor-run"
           aria-label={t('sqlWorkspace.editor.run')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-success-fg bg-success-fg px-2.5 text-body-sm font-semibold text-bg-base transition-colors hover:bg-success-border hover:border-success-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover hover:border-accent-hover active:bg-accent-pressed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isExecuting ? (
             <Loader2 size={11} aria-hidden="true" className="animate-spin" />

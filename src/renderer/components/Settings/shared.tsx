@@ -54,16 +54,19 @@ export function Toggle({
       disabled={disabled}
       onClick={onChange}
       className={cn(
-        'relative inline-flex h-[32px] w-[56px] shrink-0 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-        value
-          ? 'border-primary/30 bg-primary'
-          : 'border-border/80 bg-surface-strong/80',
-        disabled && 'cursor-not-allowed opacity-60'
+        'relative inline-flex h-5 w-9 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        value ? 'bg-accent' : 'bg-border-strong',
+        disabled && 'cursor-not-allowed opacity-40'
       )}
+      style={{ transition: 'background-color var(--duration-fast) var(--curve-ease-out)' }}
     >
+      {/* 36×20 track, 16px knob; on and off differ only by the track colour. */}
       <span
-        className="absolute left-[2px] top-1/2 h-[28px] w-[28px] rounded-full bg-white shadow-[var(--shadow-md)] transition-transform"
-        style={{ transform: `translate(${value ? 24 : 0}px, -50%)` }}
+        className="absolute left-[2px] top-[2px] h-4 w-4 rounded-full bg-white shadow-e1"
+        style={{
+          transform: `translateX(${value ? 16 : 0}px)`,
+          transition: 'transform var(--duration-fast) var(--curve-ease-out)',
+        }}
       />
     </button>
   );
