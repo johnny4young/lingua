@@ -97,6 +97,22 @@ describe('createSecretStore (no keyring)', () => {
     await vi.waitFor(async () => expect(await readdir(dir)).toEqual(['ai.api-key.secret']));
   });
 
+  it('does not let the startup sweep remove a write that starts right away', async () => {
+    await createSecretStore({ dir, safeStorage: fakeSafeStorage(), platform: 'darwin' }).set('ai.api-key', 'old');
+    await writeFile(path.join(dir, 'ai.api-key.secret.leftover.tmp'), 'partial');
+    const store = createSecretStore({ dir, safeStorage: fakeSafeStorage(), platform: 'darwin' });
+    const writes = await Promise.all(
+      ['http-env.e.a', 'http-env.e.b', 'http-env.e.c'].map((id) => store.set(id, id))
+    );
+    expect(writes.every((result) => result.ok)).toBe(true);
+    expect((await readdir(dir)).sort()).toEqual([
+      'ai.api-key.secret',
+      'http-env.e.a.secret',
+      'http-env.e.b.secret',
+      'http-env.e.c.secret',
+    ]);
+  });
+
   it('lists files from an earlier keyring session so a reset can delete them', async () => {
     await createSecretStore({ dir, safeStorage: fakeSafeStorage(), platform: 'darwin' }).set('http-env.e.v', 'x');
     const noKeyring = createSecretStore({

@@ -54,11 +54,14 @@ export function isAiConfigured(
 let vaultReady = false;
 /** True once the vault holds the key, so the localStorage blob must not. */
 let vaultOwnsApiKey = false;
+/** Whether the vault currently holds a key; persisted so boot knows to load it. */
+let vaultHasKey = false;
 
 function storeKeyInVault(apiKey: string): void {
   const vault = getSecretVault();
   if (!vault || !vaultReady) return;
   void writeSecret(vault, AI_API_KEY_SECRET_ID, apiKey).then((ok) => {
+    if (ok) vaultHasKey = apiKey.length > 0;
     if (ok || !vaultOwnsApiKey) return;
     // Keep the key across restarts rather than lose it to a failed write.
     vaultOwnsApiKey = false;
@@ -91,7 +94,7 @@ export const useAiConfigStore = create<AiConfigState>()(
       partialize: (state) => ({
         endpoint: state.endpoint,
         ...(vaultOwnsApiKey
-          ? { apiKeyInVault: state.apiKey.length > 0 }
+          ? { apiKeyInVault: vaultHasKey }
           : { apiKey: state.apiKey }),
         model: state.model,
       }),
@@ -114,6 +117,7 @@ export async function syncAiKeyWithVault(): Promise<void> {
   if (legacyKey) {
     if (await writeSecretVerified(vault, AI_API_KEY_SECRET_ID, legacyKey)) {
       vaultOwnsApiKey = true;
+      vaultHasKey = true;
       // A key typed while the copy was in flight.
       const current = useAiConfigStore.getState().apiKey;
       if (current !== legacyKey) storeKeyInVault(current);
@@ -122,7 +126,8 @@ export async function syncAiKeyWithVault(): Promise<void> {
     return;
   }
   vaultOwnsApiKey = true;
-  if (!apiKeyInVault) return;
+  vaultHasKey = apiKeyInVault === true;
+  if (!vaultHasKey) return;
   const stored = await vault.get(AI_API_KEY_SECRET_ID).catch(() => null);
   if (stored && !useAiConfigStore.getState().apiKey) {
     useAiConfigStore.setState({ apiKey: stored });

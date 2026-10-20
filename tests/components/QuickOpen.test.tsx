@@ -337,12 +337,28 @@ describe('QuickOpen', () => {
           id: 'tab-2',
           name: 'latency.ts',
           language: 'typescript',
-          filePath: '/Users/me/polyglot-checkout/src/metrics/latency.ts',
+          filePath: '/proj/src/metrics/latency.ts',
+          rootId: 'root-proj',
           relativePath: 'src/metrics/latency.ts',
         },
       ];
       render(<QuickOpen onClose={vi.fn()} />);
       expect(screen.getByText('src/metrics/latency.ts')).toBeTruthy();
+    });
+
+    it('keeps the full path for a file opened outside the project', () => {
+      mockTabs = [
+        {
+          id: 'tab-3',
+          name: 'todo.md',
+          language: 'markdown',
+          filePath: '/tmp/notes/todo.md',
+          rootId: 'root-single-file',
+          relativePath: 'todo.md',
+        },
+      ];
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.getByText('/tmp/notes/todo.md')).toBeTruthy();
     });
   });
 });

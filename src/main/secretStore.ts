@@ -60,8 +60,8 @@ export function createSecretStore(options: {
 
   const fileFor = (id: string) => path.join(dir, `${id}${FILE_SUFFIX}`);
 
-  // Temp files left by a crash mid-write.
-  void readdir(dir)
+  // Temp files left by a crash mid-write; writes wait for this so it never sees theirs.
+  const sweep = readdir(dir)
     .then((names) =>
       Promise.all(
         names.filter((name) => name.endsWith(TMP_SUFFIX)).map((name) => rm(path.join(dir, name), { force: true }))
@@ -79,6 +79,7 @@ export function createSecretStore(options: {
         session.set(id, value);
         return { ok: true, mode };
       }
+      await sweep;
       const target = fileFor(id);
       const tmp = `${target}.${randomUUID()}${TMP_SUFFIX}`;
       try {

@@ -109,6 +109,26 @@ describe('AI key in the secret vault', () => {
     expect(reboot.useAiConfigStore.getState().apiKey).toBe('');
   });
 
+  it('keeps the vault marker while the key is still loading', async () => {
+    vault.values.set('ai.api-key', 'sk-slow');
+    localStorage.setItem('lingua-ai', JSON.stringify({ state: { apiKeyInVault: true, model: 'm' }, version: 1 }));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const realGet = vault.get;
+    vault.get = async (id) => {
+      await gate;
+      return realGet(id);
+    };
+    const { useAiConfigStore } = await bootAiStore();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    useAiConfigStore.getState().setModel('m2');
+    expect(persisted('lingua-ai')).toMatchObject({ apiKeyInVault: true, model: 'm2' });
+    release();
+    await vi.waitFor(() => expect(useAiConfigStore.getState().apiKey).toBe('sk-slow'));
+  });
+
   it('leaves the key in localStorage when the system has no keyring', async () => {
     vault.mode = 'session';
     localStorage.setItem('lingua-ai', JSON.stringify({ state: { apiKey: 'sk-linux' }, version: 1 }));

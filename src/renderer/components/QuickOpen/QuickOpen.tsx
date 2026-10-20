@@ -79,6 +79,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     }))
   );
   const nodes = useProjectStore((state) => state.nodes);
+  const projectRootId = useProjectStore((state) => state.currentProject?.rootId);
   const recentFiles = useRecentFilesStore((state) => state.recentFiles);
   const indexEntries = useProjectIndexStore((state) => state.entries);
   const indexStatus = useProjectIndexStore((state) => state.status);
@@ -129,8 +130,11 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     const openTabs: FileResult[] = tabs.map((tab) => ({
       name: tab.name,
       path: tab.filePath ?? '',
+      // Project-relative only for project files; a single-file open keeps its full path.
       detail: tab.filePath
-        ? (tab.relativePath ?? tab.filePath)
+        ? tab.relativePath && tab.rootId !== undefined && tab.rootId === projectRootId
+          ? tab.relativePath
+          : tab.filePath
         : unsavedDetail(tab.lastEditedAt, now, t),
       tabId: tab.id,
       language: tab.language,
@@ -149,7 +153,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     const seenPaths = new Set([...openPaths, ...recentOnly.map((f) => f.path)]);
     const projectOnly = projectFiles.filter((file) => !seenPaths.has(file.path));
     return [...openTabs, ...recentOnly, ...projectOnly];
-  }, [tabs, projectFiles, recentFiles, t, openedAt]);
+  }, [tabs, projectFiles, recentFiles, t, openedAt, projectRootId]);
 
   const filtered = useMemo<FileResult[]>(() => {
     const normalizedQuery = query.trim().toLowerCase();
