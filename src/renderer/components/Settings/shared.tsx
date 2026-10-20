@@ -73,7 +73,7 @@ export function Toggle({
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('field-shell pr-9 text-body', props.className)} {...props} />;
+  return <select {...props} className={cn('settings-select', props.className)} />;
 }
 
 export function StepperButton({
@@ -84,7 +84,7 @@ export function StepperButton({
   return (
     <button
       type={props.type ?? 'button'}
-      className={cn('button-secondary h-9 w-9 px-0 text-body', className)}
+      className={cn('button-secondary h-[30px] w-7 px-0 text-body', className)}
       {...props}
     >
       {children}

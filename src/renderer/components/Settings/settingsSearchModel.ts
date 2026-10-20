@@ -122,6 +122,14 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: ['runtime', 'worker', 'node', 'browser', 'ejecucion', 'motor'],
   },
   {
+    id: 'per-language-defaults',
+    tab: 'editor',
+    labelKey: 'settings.perLanguage.title',
+    descriptionKey: 'settings.perLanguage.description',
+    targetId: 'editor-per-language',
+    keywords: ['workflow', 'auto-log', 'timeout', 'scratchpad', 'flujo', 'tiempo', 'limite'],
+  },
+  {
     id: 'word-wrap',
     tab: 'editor',
     labelKey: 'editor.wordWrap.label',

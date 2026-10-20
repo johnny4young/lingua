@@ -57,10 +57,10 @@ describe('UtilitiesSection ', () => {
     setFreeTier();
     render(<UtilitiesSection />);
 
-    const toggle = screen.getByRole('switch', {
-      name: 'Apply from clipboard on panel focus',
-    }) as HTMLButtonElement;
-    expect(toggle.disabled).toBe(true);
+    // A Pro row on Free shows the lock badge and an unlock link instead of the toggle.
+    expect(screen.queryByRole('switch', { name: 'Apply from clipboard on panel focus' })).toBeNull();
+    expect(screen.getByText('Pro')).toBeTruthy();
+    expect(screen.getByTestId('utilities-clipboard-on-focus-unlock').textContent).toBe('Unlock in Pro');
     expect(screen.getByTestId('utilities-clipboard-on-focus-status').textContent).toMatch(
       /Pro automation/
     );

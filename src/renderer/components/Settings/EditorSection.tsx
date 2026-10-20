@@ -13,10 +13,10 @@ import {
   FONT_SIZES,
 } from './settingsOptions';
 import { Select, StepperButton, Toggle } from './shared';
-import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
+import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
 import { languageLabel } from '../../utils/languageMeta';
 import { SqlWorkspaceSettingsSection } from './SqlWorkspaceSettingsSection';
-import { ThemePresetControls } from './ThemePresetControls';
+import { PerLanguageDefaultsSection } from './PerLanguageDefaultsSection';
 import {
   currentShortcutDisplayPlatform,
   formatShortcutCombo,
@@ -26,18 +26,6 @@ import {
   isRuntimeModeSupportedInShell,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
-import {
-  WORKFLOW_MODES,
-  defaultWorkflowMode,
-  type WorkflowMode,
-} from '../../../shared/workflowMode';
-import { supportsWorkflowModeInShell } from '../../utils/workflowModeSupport';
-import {
-  RUNTIME_TIMEOUT_PRESETS,
-  RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES,
-  defaultRuntimeTimeoutPreset,
-  type RuntimeTimeoutPreset,
-} from '../../../shared/runtimeTimeoutPresets';
 import {
   BROWSER_PREVIEW_REFRESH_INTERVALS,
   isBrowserPreviewRefreshInterval,
@@ -82,18 +70,6 @@ export function EditorSection() {
   const setNotebookDefaultCellLanguage = useSettingsStore(
     (state) => state.setNotebookDefaultCellLanguage
   );
-  const workflowModeDefaultsByLanguage = useSettingsStore(
-    (state) => state.workflowModeDefaultsByLanguage
-  );
-  const setWorkflowModeDefault = useSettingsStore(
-    (state) => state.setWorkflowModeDefault
-  );
-  const scratchpadAutoLogByLanguage = useSettingsStore(
-    (state) => state.scratchpadAutoLogByLanguage
-  );
-  const setScratchpadAutoLogDefault = useSettingsStore(
-    (state) => state.setScratchpadAutoLogDefault
-  );
   const browserPreviewRefreshIntervalMs = useSettingsStore(
     (state) => state.browserPreviewRefreshIntervalMs
   );
@@ -116,12 +92,6 @@ export function EditorSection() {
   );
   const setVariableInspectorSurface = useSettingsStore(
     (state) => state.setVariableInspectorSurface
-  );
-  const runtimeTimeoutPresetByLanguage = useSettingsStore(
-    (state) => state.runtimeTimeoutPresetByLanguage
-  );
-  const setRuntimeTimeoutPreset = useSettingsStore(
-    (state) => state.setRuntimeTimeoutPreset
   );
   const showTimeoutCountdown = useSettingsStore(
     (state) => state.showTimeoutCountdown
@@ -188,9 +158,7 @@ export function EditorSection() {
   };
 
   return (
-    // Editor + ThemePreset render as two sibling SettingsSections. The
-    // gap matches the modal-level section rhythm (SettingsModal wraps the
-    // editor tab's sections in the same spacing scale).
+    // Editor, Per-language and SQL render as sibling SettingsSections, each a section chip.
     <div className="space-y-6">
       <SettingsSection eyebrow={t('editor.title')} description={t('editor.description')}>
       {/* FIELDS card — each option keeps its place as a spec row whose
@@ -481,6 +449,7 @@ export function EditorSection() {
 
         <SpecRow
           label={t('editor.executionHistorySnapshot.label')}
+          pro={!canUseExecutionHistory}
           description={
             canUseExecutionHistory
               ? t('editor.executionHistorySnapshot.hint')
@@ -494,15 +463,10 @@ export function EditorSection() {
                 aria-label={t('editor.executionHistorySnapshot.label')}
               />
             ) : (
-              <button
-                type="button"
-                className="button-secondary"
+              <UnlockProLink
                 onClick={handleExecutionHistorySnapshotUnlock}
-                data-testid="editor-execution-history-snapshot-unlock"
-                aria-label={t('executionHistory.unlockButton')}
-              >
-                {t('executionHistory.unlockButton')}
-              </button>
+                testId="editor-execution-history-snapshot-unlock"
+              />
             )
           }
         />
@@ -587,7 +551,6 @@ export function EditorSection() {
         <SpecRow
           label={t('settings.editor.showLineTiming.label')}
           description={t('settings.editor.showLineTiming.hint')}
-          last
           control={
             <Toggle
               value={showLineTiming}
@@ -597,18 +560,14 @@ export function EditorSection() {
             />
           }
         />
-      </SpecCard>
 
-      {/* PER-LANGUAGE card — the three sub-grids (workflow mode, auto-log,
-          execution timeout) each keep their nested per-language grid as
-          the spec-row control; the wide control fills a fixed column. */}
-      <SpecCard>
         {/* Browser preview reuses Scratchpad auto-run, but
             carries its own fast closed-enum debounce. The first-line magic
             comment can override this setting per tab. */}
         <SpecRow
           label={t('browserPreview.autoRefresh.settings.label')}
           description={t('browserPreview.autoRefresh.settings.hint')}
+          last
           control={
             <Select
               value={browserPreviewRefreshIntervalMs}
@@ -636,157 +595,12 @@ export function EditorSection() {
           }
         />
 
-        {/* per-language default workflow mode.
-            Settings intentionally surfaces the lightweight in-process
-            languages first (JS / TS / Python); Go / Rust keep the
-            shared Scratchpad default until native-runner workflow
-            presets get their own product pass. Each Select lists
-            exactly the supported modes for the surfaced language. */}
-        <SpecRow
-          label={t('settings.workflowMode.title')}
-          description={t('settings.workflowMode.description')}
-          control={
-            <div
-              data-testid="settings-workflow-mode-defaults"
-              className="grid w-72 gap-2"
-            >
-              {(['javascript', 'typescript', 'python'] as const).map((lang) => {
-                const stored = workflowModeDefaultsByLanguage[lang];
-                const value: WorkflowMode =
-                  stored !== undefined ? stored : defaultWorkflowMode(lang);
-                return (
-                  <label
-                    key={lang}
-                    className="flex items-center justify-between gap-2 text-body-sm text-fg-base"
-                  >
-                    <span className="text-fg-muted">
-                      {t(`workflowMode.languageLabel.${lang}`)}
-                    </span>
-                    <Select
-                      value={value}
-                      data-testid={`settings-workflow-mode-default-${lang}`}
-                      onChange={(event) =>
-                        setWorkflowModeDefault(lang, event.target.value as WorkflowMode)
-                      }
-                    >
-                      {WORKFLOW_MODES.filter((mode) =>
-                        supportsWorkflowModeInShell(lang, mode)
-                      ).map((mode) => (
-                        <option key={mode} value={mode}>
-                          {t(`workflowMode.${mode}.label`)}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                );
-              })}
-            </div>
-          }
-        />
-
-        {/* Per-language default for Scratchpad expression capture. JS/TS use
-            source instrumentation; Python uses CPython AST instrumentation.
-            Defaults ON because inline feedback defines Scratchpad, while each
-            language and tab remains explicitly disable-able. */}
-        <SpecRow
-          label={t('autoLog.settings.title')}
-          description={t('autoLog.settings.description')}
-          control={
-            <div data-testid="settings-auto-log-defaults" className="grid w-72 gap-2">
-              {(['javascript', 'typescript', 'python'] as const).map((lang) => {
-                const enabled = scratchpadAutoLogByLanguage[lang] === true;
-                return (
-                  <label
-                    key={lang}
-                    className="flex items-center justify-between gap-2 text-body-sm text-fg-base"
-                  >
-                    <span className="text-fg-muted">
-                      {t(`autoLog.settings.${lang}.label`)}
-                    </span>
-                    <Toggle
-                      value={enabled}
-                      onChange={() => setScratchpadAutoLogDefault(lang, !enabled)}
-                      aria-label={t(`autoLog.settings.${lang}.label`)}
-                      data-testid={`settings-auto-log-default-${lang}`}
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          }
-        />
-
-        {/* per-language execution timeout preset.
-            Four supported languages (JS / TS / Python / Go). Rust is
-            intentionally absent because its desktop kill path is in
-            main and unchanged. */}
-        <SpecRow
-          label={t('runtime.timeout.section.title')}
-          description={t('runtime.timeout.section.description')}
-          last
-          control={
-            <div
-              data-testid="settings-runtime-timeout-presets"
-              className="grid w-72 gap-2"
-            >
-              {RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES.map((lang) => {
-                const stored = runtimeTimeoutPresetByLanguage[lang];
-                const value: RuntimeTimeoutPreset =
-                  stored !== undefined ? stored : defaultRuntimeTimeoutPreset(lang);
-                return (
-                  <label
-                    key={lang}
-                    className="flex items-center justify-between gap-2 text-body-sm text-fg-base"
-                  >
-                    <span className="text-fg-muted">
-                      {t('runtime.timeout.row.label', {
-                        language: t(`workflowMode.languageLabel.${lang}`),
-                      })}
-                    </span>
-                    <Select
-                      value={value}
-                      data-testid={`settings-runtime-timeout-preset-${lang}`}
-                      // The localized preset labels carry
-                      // a parenthetical duration (`Quick (5s)` /
-                      // `Rápida (5s)`). Tablet widths truncate the
-                      // default `Select` so the duration disappears.
-                      // Lock a minimum width so the trailing parenthesis
-                      // always survives even on a 1024-wide viewport.
-                      className="min-w-[8rem]"
-                      onChange={(event) =>
-                        setRuntimeTimeoutPreset(
-                          lang,
-                          event.target.value as RuntimeTimeoutPreset
-                        )
-                      }
-                      aria-label={t('runtime.timeout.row.label', {
-                        language: t(`workflowMode.languageLabel.${lang}`),
-                      })}
-                    >
-                      {RUNTIME_TIMEOUT_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {t(`runtime.timeout.preset.${preset}.label`)}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                );
-              })}
-            </div>
-          }
-        />
       </SpecCard>
       </SettingsSection>
 
-      <SqlWorkspaceSettingsSection />
+      <PerLanguageDefaultsSection />
 
-      {/* The Language Support
-          Scorecard + per-language preference rows (Rust / Go LSP, Ruby
-          runtime) moved to their own Settings → Languages tab
-          (`LanguagesSection.tsx`, Cmd+8). The Editor tab now stays
-          focused on editor-shell concerns. ThemePresetControls renders
-          as its own sibling SettingsSection below. */}
-      <ThemePresetControls />
+      <SqlWorkspaceSettingsSection />
     </div>
   );
 }

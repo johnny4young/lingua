@@ -6,7 +6,7 @@ import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { Toggle } from './shared';
-import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
+import { SpecCard, SpecRow, SettingsSection, UnlockProLink } from '../ui/SpecRow';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
 /**
@@ -80,14 +80,21 @@ export function UtilitiesSection() {
         <SpecRow
           label={t('utilities.settings.clipboardOnFocus.label')}
           description={t('utilities.settings.clipboardOnFocus.hint')}
+          pro={!canUseUtilityWorkflows}
           control={
             <div className="grid justify-items-end gap-1">
-              <Toggle
-                value={canUseUtilityWorkflows && consent === 'granted'}
-                onChange={handleClipboardToggle}
-                disabled={!canUseUtilityWorkflows}
-                aria-label={t('utilities.settings.clipboardOnFocus.label')}
-              />
+              {canUseUtilityWorkflows ? (
+                <Toggle
+                  value={consent === 'granted'}
+                  onChange={handleClipboardToggle}
+                  aria-label={t('utilities.settings.clipboardOnFocus.label')}
+                />
+              ) : (
+                <UnlockProLink
+                  onClick={handleClipboardUpsell}
+                  testId="utilities-clipboard-on-focus-unlock"
+                />
+              )}
               <span
                 data-testid="utilities-clipboard-on-focus-status"
                 role="status"
@@ -96,16 +103,6 @@ export function UtilitiesSection() {
               >
                 {t(consentStatusKey)}
               </span>
-              {!canUseUtilityWorkflows ? (
-                <button
-                  type="button"
-                  data-testid="utilities-clipboard-on-focus-unlock"
-                  onClick={handleClipboardUpsell}
-                  className="text-body-sm font-medium text-warning underline-offset-2 hover:underline"
-                >
-                  {t('utilities.settings.clipboardOnFocus.unlock')}
-                </button>
-              ) : null}
             </div>
           }
         />

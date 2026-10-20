@@ -1,17 +1,17 @@
 /** Settings rail metadata. Search vocabulary lives in settingsSearchModel. */
 
 import {
+  Braces,
   FileCode2,
-  Cable,
   Key,
   Keyboard,
-  Languages,
+  LifeBuoy,
   Package,
   Palette,
+  Plug,
   Settings as SettingsIcon,
   ShieldCheck,
   Terminal,
-  Wrench,
 } from 'lucide-react';
 import type { SettingsTabId } from '../../stores/commandBus';
 
@@ -47,61 +47,59 @@ export const RAIL_ITEMS: readonly RailItem[] = [
     icon: FileCode2,
     kbdToken: '3',
   },
-  // Languages keeps Cmd+8 so the existing Environment through Recovery
-  // shortcuts remain stable after this tab was inserted.
   {
     id: 'languages',
     group: 'workspace',
     labelKey: 'settings.tabs.languages',
-    icon: Languages,
-    kbdToken: '8',
+    icon: Braces,
+    kbdToken: '4',
   },
   {
     id: 'environment',
     group: 'workspace',
     labelKey: 'settings.tabs.environment',
     icon: Terminal,
-    kbdToken: '4',
+    kbdToken: '5',
   },
   {
     id: 'privacy',
     group: 'workspace',
     labelKey: 'settings.tabs.privacy',
     icon: ShieldCheck,
-    kbdToken: '9',
+    kbdToken: '6',
   },
   {
     id: 'account',
     group: 'workspace',
     labelKey: 'settings.tabs.account',
     icon: Key,
-    kbdToken: '5',
+    kbdToken: '7',
   },
   {
     id: 'integrations',
     group: 'advanced',
     labelKey: 'settings.tabs.integrations',
-    icon: Cable,
+    icon: Plug,
+    kbdToken: '8',
   },
   {
     id: 'shortcuts',
     group: 'advanced',
     labelKey: 'settings.tabs.shortcuts',
     icon: Keyboard,
-    kbdToken: '6',
+    kbdToken: '9',
   },
   {
     id: 'plugins',
     group: 'advanced',
     labelKey: 'settings.tabs.plugins',
     icon: Package,
-    kbdToken: '7',
   },
   {
     id: 'recovery',
     group: 'advanced',
     labelKey: 'settings.tabs.recovery',
-    icon: Wrench,
+    icon: LifeBuoy,
     kbdToken: '0',
   },
 ];
