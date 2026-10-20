@@ -1,158 +1,80 @@
 /**
- * Right column: render the latest SQL response.
- *
- * Signal-Slate polish. The header converged onto
- * the shared `<ResultHeader>` (StatusBadge + mono `rows · timing` meta +
- * Table/JSON body tabs + copy actions in the trailing slot), the
- * no-result state onto the canonical `<EmptyState>` (No result yet · CTA
- * Run query), and a Save-as-snippet nudge lands beneath a first
- * successful result. All palette colors resolve through DS tokens — no
- * hex / oklch literals.
- *
- * Layout:
- *   - Header: `<ResultHeader>` — status pill + rows·timing meta +
- *     Table/JSON sub-tabs + copy (JSON / CSV / Markdown) trailing.
- *   - Body: scrollable typed-column result table OR JSON view OR error
- *     band OR too-large band, depending on `response.status` + the
- *     active body tab.
- *   - Footer: Save-as-snippet nudge on a successful run.
- *
- * Features here:
- *
- *   - **D** — Copy as CSV / JSON / Markdown buttons in the header when
- *     a successful result is in view.
- *   - **E** — Result row pagination chip. When `response.tooLarge`
- *     is true and `rowCount > rows.length`, the band discloses that
- *     the table and copy actions use the truncated preview.
- *   - **C** — `SHOW TABLES` introspection chip strip rendered above
- *     the table when the panel detects the session has run
- *     `CREATE TABLE ...` statements. Chips are inert read-only signal.
+ * Results below the SQL editor: status + Table / JSON / Profile, the SQL
+ * strip naming what produced the rows, a typed grid where a click selects a
+ * row and Cmd/Ctrl+C copies it as JSON, and Export full result… in the footer.
  */
 
-import {
-  AlertTriangle,
-  BarChart3,
-  Bookmark,
-  CheckCircle2,
-  ChevronDown,
-  Download,
-  FileJson,
-  FileSpreadsheet,
-  FileText,
-  Hash,
-  Loader2,
-  Search,
-  X,
-} from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Bookmark, Download, Hash, Loader2, Search, X } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
 import {
   buildColumnProfileQuery,
   type SqlColumnProfileOutcome,
 } from '../../runtime/sqlColumnProfile';
-import { downloadTextFile } from '../../utils/downloadTextFile';
-import type {
-  SqlQueryStatus,
-  SqlResponseV1,
-} from '../../../shared/sqlWorkspace';
+import {
+  currentShortcutDisplayPlatform,
+  formatShortcutCombo,
+} from '../../data/keyboardShortcuts';
+import type { SqlQueryStatus, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
-import { rowsToCsv, rowsToMarkdownTable } from './sqlResultFormatters';
 import { SqlRunHistory } from './SqlRunHistory';
 import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
-import { CopyButton, ErrorBand, JsonView, ResultTable } from './SqlResultPreviewParts';
-import {
-  EXPORT_FORMATS,
-  EXPORT_MIME_TYPES,
-  buildExportFilename,
-  copyNoticeFor,
-  copyToClipboard,
-  exportNoticeFor,
-  type ExportFormat,
-} from './sqlResultActions';
-import {
-  filterRows,
-  nextSortState,
-  sortRows,
-  type SqlSortState,
-} from './sqlResultGrid';
+import { ErrorBand, JsonView, ResultTable } from './SqlResultPreviewParts';
+import { SqlExportDialog, type SqlResultHandoffs } from './SqlExportDialog';
+import { copyToClipboard } from './sqlResultActions';
+import { filterRows, nextSortState, sortRows, type SqlSortState } from './sqlResultGrid';
+
+/** Where the rows on screen came from: an editor run, or a table opened from the Explorer. */
+export type SqlResultSource =
+  | { origin: 'editor'; sql: string }
+  | { origin: 'table'; sql: string; tableName: string };
 
 export interface SqlResultPreviewProps {
-  /**
-   * Most-recent response for the active query. `null` is the
-   * empty-state (the user has not run anything yet for this query).
-   */
+  /** The response on screen; `null` before the first run. */
   response: SqlResponseV1 | null;
   isExecuting: boolean;
-  /**
-   * Cap rendered rows in the table to this many. Defaults to all
-   * available preview rows in the response. Settings exposes a
-   * `sqlWorkspaceRowDisplayLimit` toggle that the parent threads in
-   * here.
-   */
+  /** Rows the grid renders at most (Settings › SQL). */
   rowDisplayLimit: number;
-  /**
-   * Whether a query is bound to the surface (an active query exists).
-   * Drives the no-result EmptyState CTA — without a query there is
-   * nothing to run, so the CTA hides.
-   */
+  /** An active query exists, so the empty state can offer Run. */
   canRun?: boolean;
-  /** Run the active query (no-result EmptyState CTA). */
   onRun?: () => void;
-  /** Stash the active query in the snippet library (footer nudge). */
   onSaveSnippet?: () => void;
-  /** Run the active read query again as an explicit DuckDB column profile. */
+  /** Runs the source as a DuckDB column profile for the Profile tab. */
   onProfileQuery?: (query: string) => Promise<SqlColumnProfileOutcome>;
   /**
-   * Exact source that produced the newest response during this renderer
-   * session. Unlike `querySource`, this must not follow editor changes made
-   * after a run: a column profile always describes the result on screen.
+   * The exact SQL behind the newest response in this session. A profile
+   * must describe the rows on screen, never a later editor draft.
    */
   profileQuerySource?: string;
-  /**
-   * Per-query response LRU (newest-first) for the run-history list.
-   * Defaults to the single `response` when omitted so callers that
-   * don't track history still render a coherent grid.
-   */
+  /** The query's response history, newest first. */
   responses?: ReadonlyArray<SqlResponseV1>;
-  /**
-   * Index into `responses` of the run currently shown in the grid
-   * (`0` = newest). Drives the history highlight.
-   */
   selectedResponseIndex?: number;
-  /** Select a history entry to view (by index into `responses`). */
   onSelectResponse?: (index: number) => void;
-  /**
-   * The current editor text of the active query, used as the code
-   * context for the AI "Explain this error" trigger. A recorded response does
-   * NOT store the SQL that produced it, so a historical run being viewed can't
-   * be reconstructed; the trigger is therefore only offered for the newest run
-   * (`selectedResponseIndex === 0`), where this editor text is what produced
-   * the error.
-   */
+  /** Editor text, the context for Explain this error on the newest run. */
   querySource?: string;
-  /**
-   * Apply-&-re-run: replace the active query's SQL with the AI
-   * suggestion and run it. Offered only alongside `querySource` (newest
-   * run), since applying over a historical view would be incoherent.
-   */
   onApplyFix?: (sql: string) => void;
+  /** Shown in the SQL strip above the grid. */
+  source?: SqlResultSource;
+  onEditInEditor?: (sql: string) => void;
+  handoffs?: SqlResultHandoffs;
 }
 
-type ResultBodyTab = 'table' | 'json';
+type ResultBodyTab = 'table' | 'json' | 'profile';
 
-/**
- * DuckDB status → StatusBadge tone. Mirrors `<SqlStatusPill>`'s
- * classifier so the header badge and any deep-link pill stay in lockstep.
- */
+/** DuckDB status → StatusBadge tone. */
 function toneForStatus(status: SqlQueryStatus): StatusBadgeTone {
   if (status === 'success') return 'success';
   if (status === 'sql-error') return 'error';
   if (status === 'timeout' || status === 'too-large') return 'warning';
   return 'neutral';
 }
+
+const jsonReplacer = (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value;
+
+const COPY_ROW_COMBO = { tokens: ['Mod', 'c'] } as const;
 
 export function SqlResultPreview({
   response,
@@ -168,48 +90,44 @@ export function SqlResultPreview({
   onSelectResponse,
   querySource,
   onApplyFix,
+  source,
+  onEditInEditor,
+  handoffs = {},
 }: SqlResultPreviewProps) {
   const { t } = useTranslation();
-  // Table/JSON view preference. Persists across re-runs by design — the
-  // user's last-picked view is the one they want for the next result,
-  // so we deliberately do NOT reset it when a fresh response lands.
+  // The picked view survives re-runs: the user's last view is the one they want next.
   const [bodyTab, setBodyTab] = useState<ResultBodyTab>('table');
-  // In-memory grid controls. Sort is per-column asc/desc/off; the filter
-  // box hides rows whose cells don't contain the needle. Both operate on
-  // the already-fetched preview rows — they never re-run the query.
-  const [sort, setSort] = useState<SqlSortState>({
-    column: null,
-    direction: 'asc',
-  });
+  // Sort and filter work on the fetched rows; they never re-run the query.
+  const [sort, setSort] = useState<SqlSortState>({ column: null, direction: 'asc' });
   const [filter, setFilter] = useState<string>('');
+  const [selection, setSelection] = useState<{ key: string; index: number } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const profileRequestIdRef = useRef(0);
   const [profileState, setProfileState] = useState<{
     responseKey: string;
     outcome: SqlColumnProfileOutcome | null;
   } | null>(null);
 
-  // A profile belongs to one exact fresh response. Keeping the key beside the
-  // local result avoids an effect/reset race when the user selects history or
-  // runs a new query while the profile request is still resolving.
-  const responseKey = response
-    ? `${response.recordedAt}:${selectedResponseIndex}`
-    : null;
+  // A profile belongs to one exact response; the key keeps a late answer off a newer result.
+  const responseKey = response ? `${response.recordedAt}:${selectedResponseIndex}` : null;
   const visibleProfile =
-    responseKey !== null && profileState?.responseKey === responseKey
-      ? profileState
-      : null;
+    responseKey !== null && profileState?.responseKey === responseKey ? profileState : null;
+
+  // A selection belongs to one view of one response; a new run, filter or sort clears it.
+  const selectionKey = `${responseKey}|${filter}|${sort.column}:${sort.direction}`;
+  const selectedRow = selection?.key === selectionKey ? selection.index : null;
+  const setSelectedRow = useCallback(
+    (index: number | null) => setSelection(index === null ? null : { key: selectionKey, index }),
+    [selectionKey]
+  );
 
   const handleSort = useCallback((column: string) => {
     setSort((current) => nextSortState(current, column));
   }, []);
 
-  // Memoized: buildColumnProfileQuery strips literals/comments over the
-  // whole source (up to the workspace byte cap), and this component
-  // re-renders on every filter keystroke.
+  // Memoized: stripping literals and comments walks the whole source on every keystroke otherwise.
   const isProfileableSource = useMemo(
-    () =>
-      profileQuerySource !== undefined &&
-      buildColumnProfileQuery(profileQuerySource) !== null,
+    () => profileQuerySource !== undefined && buildColumnProfileQuery(profileQuerySource) !== null,
     [profileQuerySource]
   );
   const canProfile =
@@ -220,12 +138,7 @@ export function SqlResultPreview({
     isProfileableSource;
 
   const handleProfile = useCallback(async () => {
-    if (
-      !canProfile ||
-      profileQuerySource === undefined ||
-      onProfileQuery === undefined ||
-      responseKey === null
-    ) {
+    if (!canProfile || profileQuerySource === undefined || !onProfileQuery || responseKey === null) {
       return;
     }
     const requestId = profileRequestIdRef.current + 1;
@@ -240,103 +153,48 @@ export function SqlResultPreview({
         errorMessage: error instanceof Error ? error.message : String(error),
       };
     }
-    if (profileRequestIdRef.current === requestId) {
-      setProfileState({ responseKey, outcome });
-    }
+    if (profileRequestIdRef.current === requestId) setProfileState({ responseKey, outcome });
   }, [canProfile, onProfileQuery, profileQuerySource, responseKey]);
 
-  const handleCloseProfile = useCallback(() => {
-    profileRequestIdRef.current += 1;
-    setProfileState(null);
-  }, []);
+  // Profile shows only once requested for this response; a new run falls back to the table.
+  const activeTab: ResultBodyTab =
+    bodyTab === 'profile' ? (canProfile && visibleProfile !== null ? 'profile' : 'table') : bodyTab;
 
-  // Filter + sort once, reused for the display cap and the pre-cap count
-  // (was filtered twice per render).
   const filteredSortedRows = useMemo(() => {
     if (!response || response.rows.length === 0) return [];
     return sortRows(filterRows(response.rows, filter), sort);
   }, [response, filter, sort]);
-
-  // The filtered + sorted + capped rows the table / JSON view render.
   const displayRows = useMemo(
     () => filteredSortedRows.slice(0, Math.max(1, rowDisplayLimit)),
     [filteredSortedRows, rowDisplayLimit]
   );
-
-  // Count of preview rows surviving the filter (before the display cap)
-  // so the filter chip can disclose "N of M".
   const filteredCount = filteredSortedRows.length;
 
-  // Copy = WYSIWYG: the filtered / sorted / capped rows the user actually
-  // sees in the grid, NOT the full raw result. Copying something other
-  // than what is on screen is a silent surprise.
-  const handleCopyJson = useCallback(() => {
-    if (!response) return;
-    copyToClipboard(
-      JSON.stringify(displayRows, null, 2),
-      copyNoticeFor(response, 'json')
-    );
-  }, [response, displayRows]);
+  const copySelectedRow = useCallback(() => {
+    const row = selectedRow === null ? undefined : displayRows[selectedRow];
+    if (!row) return false;
+    copyToClipboard(JSON.stringify(row, jsonReplacer, 2), {
+      messageKey: 'sqlWorkspace.grid.rowCopied',
+    });
+    return true;
+  }, [displayRows, selectedRow]);
 
-  const handleCopyCsv = useCallback(() => {
-    if (!response) return;
-    const csv = rowsToCsv(response.columns, displayRows);
-    copyToClipboard(csv, copyNoticeFor(response, 'csv'));
-  }, [response, displayRows]);
-
-  const handleCopyMarkdown = useCallback(() => {
-    if (!response) return;
-    const md = rowsToMarkdownTable(response.columns, displayRows);
-    copyToClipboard(md, copyNoticeFor(response, 'markdown'));
-  }, [response, displayRows]);
-
-  // Export = same WYSIWYG contract as Copy (the filtered / sorted /
-  // capped rows on screen), but written to a downloaded file instead of
-  // the clipboard — the natural flow for a result too large to paste.
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!exportMenuRef.current?.contains(event.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExportMenuOpen(false);
-    };
-    window.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [exportMenuOpen]);
-
-  const handleExport = useCallback(
-    (format: ExportFormat) => {
-      setExportMenuOpen(false);
-      if (!response) return;
-      const content =
-        format === 'json'
-          ? JSON.stringify(displayRows, null, 2)
-          : format === 'csv'
-            ? rowsToCsv(response.columns, displayRows)
-            : rowsToMarkdownTable(response.columns, displayRows);
-      downloadTextFile(
-        content,
-        buildExportFilename(format),
-        EXPORT_MIME_TYPES[format]
+  const handleGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (displayRows.length === 0) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      setSelectedRow(
+        Math.min(displayRows.length - 1, Math.max(0, (selectedRow ?? (step > 0 ? -1 : 1)) + step))
       );
-      const notice = exportNoticeFor(response, format);
-      useUIStore.getState().pushStatusNotice({
-        tone: 'success',
-        messageKey: notice.messageKey,
-        values: notice.values,
-      });
-    },
-    [response, displayRows]
-  );
+      return;
+    }
+    const isCopy = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c';
+    // A text selection in the grid copies as text, the platform default.
+    if (isCopy && (window.getSelection()?.toString() ?? '') === '' && copySelectedRow()) {
+      event.preventDefault();
+    }
+  };
 
   if (response === null) {
     return (
@@ -347,14 +205,8 @@ export function SqlResultPreview({
       >
         {isExecuting ? (
           <div className="flex flex-col items-center gap-2">
-            <Loader2
-              size={18}
-              aria-hidden="true"
-              className="animate-spin text-fg-subtle"
-            />
-            <div className="text-body-sm text-fg-subtle">
-              {t('sqlWorkspace.response.loading')}
-            </div>
+            <Loader2 size={18} aria-hidden="true" className="animate-spin text-fg-subtle" />
+            <div className="text-body-sm text-fg-subtle">{t('sqlWorkspace.response.loading')}</div>
           </div>
         ) : (
           <EmptyState
@@ -380,11 +232,7 @@ export function SqlResultPreview({
   }
 
   const tone = toneForStatus(response.status);
-  // A successful (or capped-but-successful) run gets the rows·timing
-  // meta, the Table/JSON sub-tabs, and the copy actions — an error /
-  // timeout / engine-load failure has no result body to act on.
-  const hasResultBody =
-    response.status === 'success' || response.status === 'too-large';
+  const hasResultBody = response.status === 'success' || response.status === 'too-large';
   const meta = hasResultBody
     ? [
         t('sqlWorkspace.response.rowCount', { count: response.rowCount }),
@@ -392,95 +240,15 @@ export function SqlResultPreview({
       ].join(' · ')
     : undefined;
   const showStatementCount = response.statementCount > 1;
-  const showSnippetNudge =
-    response.status === 'success' && onSaveSnippet !== undefined;
-  const trailing =
-    hasResultBody || showStatementCount ? (
-      <span className="flex items-center gap-1">
-        {showStatementCount ? (
-          <span
-            data-testid="sql-result-preview-statement-count"
-            className="mr-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
-          >
-            {t('sqlWorkspace.response.statementCount', {
-              count: response.statementCount,
-            })}
-          </span>
-        ) : null}
-        {hasResultBody ? (
-          <>
-            <CopyButton
-              onClick={handleCopyJson}
-              testId="sql-result-preview-copy-json"
-              label={t('sqlWorkspace.action.copyAsJson')}
-              icon={<FileJson size={11} aria-hidden="true" />}
-            />
-            <CopyButton
-              onClick={handleCopyCsv}
-              testId="sql-result-preview-copy-csv"
-              label={t('sqlWorkspace.action.copyAsCsv')}
-              icon={<FileSpreadsheet size={11} aria-hidden="true" />}
-            />
-            <CopyButton
-              onClick={handleCopyMarkdown}
-              testId="sql-result-preview-copy-markdown"
-              label={t('sqlWorkspace.action.copyAsMarkdown')}
-              icon={<FileText size={11} aria-hidden="true" />}
-            />
-            {canProfile ? (
-              <CopyButton
-                onClick={() => void handleProfile()}
-                testId="sql-result-preview-profile"
-                label={t('sqlWorkspace.profile.open')}
-                icon={<BarChart3 size={11} aria-hidden="true" />}
-              />
-            ) : null}
-            <div className="relative" ref={exportMenuRef}>
-              <button
-                type="button"
-                onClick={() => setExportMenuOpen((open) => !open)}
-                data-testid="sql-result-preview-export"
-                title={t('sqlWorkspace.action.export')}
-                aria-label={t('sqlWorkspace.action.export')}
-                aria-haspopup="menu"
-                aria-expanded={exportMenuOpen}
-                className="inline-flex h-6 items-center gap-0.5 rounded-md border border-border-default bg-bg-panel-alt px-1.5 text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <Download size={11} aria-hidden="true" />
-                <ChevronDown size={10} aria-hidden="true" />
-              </button>
-              {exportMenuOpen ? (
-                <div
-                  role="menu"
-                  data-testid="sql-result-preview-export-menu"
-                  className="absolute right-0 top-[calc(100%+0.25rem)] z-50 min-w-[9rem] overflow-hidden rounded-md border border-border-default bg-bg-panel py-1 shadow-e3"
-                >
-                  {EXPORT_FORMATS.map((format) => (
-                    <button
-                      key={format.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => handleExport(format.id)}
-                      data-testid={`sql-result-preview-export-${format.id}`}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-body-sm text-fg-muted transition-colors hover:bg-bg-panel-alt hover:text-fg-base focus-visible:bg-bg-panel-alt focus-visible:text-fg-base focus-visible:outline-none"
-                    >
-                      {format.id === 'csv' ? (
-                        <FileSpreadsheet size={12} aria-hidden="true" />
-                      ) : format.id === 'json' ? (
-                        <FileJson size={12} aria-hidden="true" />
-                      ) : (
-                        <FileText size={12} aria-hidden="true" />
-                      )}
-                      {t(format.labelKey)}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-      </span>
-    ) : undefined;
+  const showSnippetNudge = response.status === 'success' && onSaveSnippet !== undefined;
+  const tabs = hasResultBody
+    ? [
+        { id: 'table', label: t('sqlWorkspace.response.tabTable') },
+        { id: 'json', label: t('sqlWorkspace.response.tabJson') },
+        ...(canProfile ? [{ id: 'profile', label: t('sqlWorkspace.response.tabProfile') }] : []),
+      ]
+    : undefined;
+  const showGridChrome = hasResultBody && activeTab !== 'profile';
 
   return (
     <div
@@ -490,29 +258,62 @@ export function SqlResultPreview({
     >
       <ResultHeader
         status={
-          <span
-            data-testid="sql-status-pill"
-            data-tone={tone}
-            data-status={response.status}
-          >
+          <span data-testid="sql-status-pill" data-tone={tone} data-status={response.status}>
             <StatusBadge tone={tone} dot>
               {t(`sqlWorkspace.statusPill.${response.status}`)}
             </StatusBadge>
           </span>
         }
         meta={meta}
-        tabs={
-          hasResultBody
-            ? [
-                { id: 'table', label: t('sqlWorkspace.response.tabTable') },
-                { id: 'json', label: t('sqlWorkspace.response.tabJson') },
-              ]
-            : undefined
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(id) => {
+          setBodyTab(id as ResultBodyTab);
+          if (id === 'profile' && visibleProfile === null) void handleProfile();
+        }}
+        trailing={
+          showStatementCount ? (
+            <span
+              data-testid="sql-result-preview-statement-count"
+              className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
+            >
+              {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
+            </span>
+          ) : undefined
         }
-        activeTab={bodyTab}
-        onTabChange={(id) => setBodyTab(id as ResultBodyTab)}
-        trailing={trailing}
       />
+
+      {source !== undefined && selectedResponseIndex === 0 ? (
+        <div
+          data-testid="sql-result-strip"
+          data-origin={source.origin}
+          className="mx-2.5 mt-2 flex h-[30px] shrink-0 items-center gap-2 rounded-[7px] border border-border-default bg-bg-panel px-2.5"
+        >
+          <span className="font-mono text-micro text-fg-subtle">{t('sqlWorkspace.strip.label')}</span>
+          <span
+            data-testid="sql-result-strip-sql"
+            title={source.sql}
+            className="min-w-0 flex-1 truncate font-mono text-caption text-fg-base"
+          >
+            {source.sql.replace(/\s+/g, ' ').trim()}
+          </span>
+          <span className="shrink-0 font-mono text-micro text-fg-subtle">
+            {source.origin === 'table'
+              ? t('sqlWorkspace.strip.fromTable', { name: source.tableName })
+              : t('sqlWorkspace.strip.fromEditor')}
+          </span>
+          {source.origin === 'table' && onEditInEditor ? (
+            <button
+              type="button"
+              onClick={() => onEditInEditor(source.sql)}
+              data-testid="sql-result-strip-edit"
+              className="focus-ring inline-flex h-[22px] shrink-0 items-center rounded-md border border-border-default bg-bg-panel-alt px-2 text-caption font-medium text-fg-base transition-colors hover:border-border-strong"
+            >
+              {t('sqlWorkspace.strip.editInEditor')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
@@ -520,25 +321,20 @@ export function SqlResultPreview({
         <ErrorBand
           status={response.status}
           message={response.errorMessage}
-          // Only offer Explain for the newest run: the editor text can't be
-          // matched to a historical response (no SQL is stored per run).
+          // Only the newest run can be matched to the editor text.
           querySource={selectedResponseIndex === 0 ? querySource : undefined}
           onApplyFix={selectedResponseIndex === 0 ? onApplyFix : undefined}
         />
       ) : null}
 
-      {response.tooLarge ? (
+      {response.tooLarge && activeTab !== 'profile' ? (
         <div
           role="alert"
           data-testid="sql-result-preview-too-large"
           className="border-b border-warning-border bg-warning-bg px-3 py-2 text-caption text-warning-fg"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle
-              size={12}
-              className="mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
+            <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-semibold">
                 {t('sqlWorkspace.response.tooLargeBand', {
@@ -554,14 +350,10 @@ export function SqlResultPreview({
         </div>
       ) : null}
 
-      {hasResultBody && response.rows.length > 0 ? (
-        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-1.5">
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel-alt px-2 py-1 focus-within:border-border-strong">
-            <Search
-              size={11}
-              aria-hidden="true"
-              className="shrink-0 text-fg-subtle"
-            />
+      {showGridChrome && response.rows.length > 0 ? (
+        <div className="flex items-center gap-2 px-2.5 py-1.5">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-default bg-bg-inset px-2 py-1 focus-within:border-border-strong">
+            <Search size={11} aria-hidden="true" className="shrink-0 text-fg-subtle" />
             <input
               type="text"
               value={filter}
@@ -598,36 +390,51 @@ export function SqlResultPreview({
         </div>
       ) : null}
 
-      <div
-        data-testid="sql-result-preview-table-container"
-        className="min-h-0 flex-1 overflow-auto"
-      >
-        {displayRows.length > 0 ? (
-          bodyTab === 'json' ? (
-            <JsonView rows={displayRows} />
-          ) : (
-            <ResultTable
-              columns={response.columns}
-              rows={displayRows}
-              sort={sort}
-              onSort={handleSort}
-            />
-          )
-        ) : hasResultBody && response.rows.length > 0 && filter.trim().length > 0 ? (
-          <div
-            data-testid="sql-result-preview-filter-empty"
-            className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
-          >
-            {t('sqlWorkspace.grid.filterEmpty')}
-          </div>
-        ) : response.status === 'success' ? (
-          <div className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
-            {t('sqlWorkspace.response.noRows')}
-          </div>
-        ) : null}
-      </div>
+      {activeTab === 'profile' ? (
+        <div className="flex min-h-[6.5rem] flex-1 flex-col">
+          <SqlColumnProfilePanel
+            outcome={visibleProfile?.outcome ?? null}
+            isLoading={visibleProfile === null || visibleProfile.outcome === null}
+            onRetry={() => void handleProfile()}
+          />
+        </div>
+      ) : (
+        <div
+          data-testid="sql-result-preview-table-container"
+          tabIndex={displayRows.length > 0 && activeTab === 'table' ? 0 : undefined}
+          aria-label={activeTab === 'table' ? t('sqlWorkspace.grid.ariaLabel') : undefined}
+          onKeyDown={activeTab === 'table' ? handleGridKeyDown : undefined}
+          className="min-h-[6.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
+        >
+          {displayRows.length > 0 ? (
+            activeTab === 'json' ? (
+              <JsonView rows={displayRows} />
+            ) : (
+              <ResultTable
+                columns={response.columns}
+                rows={displayRows}
+                sort={sort}
+                onSort={handleSort}
+                selectedRowIndex={selectedRow}
+                onSelectRow={setSelectedRow}
+              />
+            )
+          ) : hasResultBody && response.rows.length > 0 && filter.trim().length > 0 ? (
+            <div
+              data-testid="sql-result-preview-filter-empty"
+              className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
+            >
+              {t('sqlWorkspace.grid.filterEmpty')}
+            </div>
+          ) : response.status === 'success' ? (
+            <div className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
+              {t('sqlWorkspace.response.noRows')}
+            </div>
+          ) : null}
+        </div>
+      )}
 
-      {responses && responses.length > 1 && onSelectResponse ? (
+      {activeTab !== 'profile' && responses && responses.length > 1 && onSelectResponse ? (
         <SqlRunHistory
           responses={responses}
           selectedIndex={selectedResponseIndex}
@@ -635,40 +442,49 @@ export function SqlResultPreview({
         />
       ) : null}
 
-      {showSnippetNudge ? (
-        <div
-          data-testid="sql-result-preview-snippet-nudge"
-          className="mt-auto flex items-center gap-2.5 border-t border-border-subtle bg-bg-panel-alt px-3 py-2"
+      {hasResultBody && response.rows.length > 0 ? (
+        <footer
+          data-testid="sql-result-footer"
+          className="flex h-10 shrink-0 items-center gap-2 border-t border-border-subtle px-2.5"
         >
-          <CheckCircle2
-            size={13}
-            aria-hidden="true"
-            className="shrink-0 text-success-fg"
-          />
-          <span className="text-body-sm text-fg-muted">
-            {t('sqlWorkspace.snippet.nudge')}
+          <kbd className="inline-flex h-[18px] items-center rounded border border-border-default px-1 font-mono text-micro text-fg-muted">
+            {formatShortcutCombo(COPY_ROW_COMBO, currentShortcutDisplayPlatform())}
+          </kbd>
+          <span className="truncate font-mono text-caption text-fg-muted">
+            {t('sqlWorkspace.grid.copyRowHint')}
           </span>
+          {showSnippetNudge ? (
+            <button
+              type="button"
+              onClick={onSaveSnippet}
+              title={t('sqlWorkspace.snippet.nudge')}
+              data-testid="sql-result-preview-save-snippet"
+              className="focus-ring ml-auto inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-md px-2 text-body-sm text-fg-muted transition-colors hover:bg-bg-panel-alt hover:text-fg-base"
+            >
+              <Bookmark size={12} aria-hidden="true" />
+              {t('sqlWorkspace.snippet.cta')}
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={onSaveSnippet}
-            data-testid="sql-result-preview-save-snippet"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 py-1 text-caption font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            onClick={() => setExportOpen(true)}
+            data-testid="sql-result-preview-export"
+            className={`focus-ring ${showSnippetNudge ? '' : 'ml-auto '}inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt`}
           >
-            <Bookmark size={12} aria-hidden="true" />
-            {t('sqlWorkspace.snippet.cta')}
+            <Download size={12} aria-hidden="true" />
+            {t('sqlWorkspace.export.open')}
           </button>
-        </div>
+        </footer>
       ) : null}
 
-      {visibleProfile !== null ? (
-        <div className="absolute inset-y-0 right-0 z-20 flex w-full max-w-[34rem] min-h-0 flex-col border-l border-border-default bg-bg-base shadow-[-8px_0_20px_rgba(0,0,0,0.08)]">
-          <SqlColumnProfilePanel
-            outcome={visibleProfile.outcome}
-            isLoading={visibleProfile.outcome === null}
-            onClose={handleCloseProfile}
-            onRetry={() => void handleProfile()}
-          />
-        </div>
+      {exportOpen ? (
+        <SqlExportDialog
+          columns={response.columns}
+          rows={filteredSortedRows}
+          totalRowCount={response.rowCount}
+          handoffs={handoffs}
+          onClose={() => setExportOpen(false)}
+        />
       ) : null}
     </div>
   );

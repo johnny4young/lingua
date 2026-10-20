@@ -22,6 +22,7 @@ import { useSessionStore } from '../../../src/renderer/stores/sessionStore';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useAnnouncerStore } from '../../../src/renderer/stores/announcerStore';
+import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
 import {
   __setDuckDbEngineFactoryForTests,
   mapArrowTable,
@@ -71,7 +72,10 @@ vi.mock('react-resizable-panels', () => ({
       {children}
     </div>
   ),
-  Panel: ({ children }: PropsWithChildren<{ id?: string }>) => <div>{children}</div>,
+  Panel: ({ children, id }: PropsWithChildren<{ id?: string }>) => (
+    <div data-panel-id={id}>{children}</div>
+  ),
+  Separator: () => <div data-testid="sql-resize-handle" />,
   useDefaultLayout: () => ({
     defaultLayout: undefined,
     onLayoutChanged: vi.fn(),
@@ -171,11 +175,31 @@ describe('SqlWorkspacePanel', () => {
     expect(screen.getByTestId('sql-query-list')).toBeTruthy();
   });
 
-  it('lays out query list, editor, and results as columns', () => {
-    render(<SqlWorkspacePanel />);
-    expect(screen.getByTestId('sql-workspace-layout').dataset.orientation).toBe(
-      'horizontal'
+  it('puts the Explorer beside the editor and the results below it', () => {
+    useWorkspaceSqlStore.getState().createQuery(
+      createBlankSqlQuery({ id: 'q', name: 'q', query: 'SELECT 1' })
     );
+    render(<SqlWorkspacePanel />);
+    const [sidebar, main] = screen.getAllByTestId('sql-workspace-layout');
+    expect(sidebar!.dataset.orientation).toBe('horizontal');
+    expect(sidebar!.querySelector('[data-panel-id="sql-explorer-pane"]')).toBeTruthy();
+    expect(main!.dataset.orientation).toBe('vertical');
+    const panels = [...main!.querySelectorAll('[data-panel-id]')].map(
+      (panel) => panel.getAttribute('data-panel-id')
+    );
+    expect(panels).toEqual(['sql-editor-pane', 'sql-results-pane']);
+    expect(screen.getByTestId('sql-connection-pill').textContent).toContain('Local');
+  });
+
+  it('folds the Explorer to its rail and back', async () => {
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-explorer-fold'));
+    expect(screen.queryByTestId('sql-explorer')).toBeNull();
+    expect(screen.getByTestId('sql-explorer-rail')).toBeTruthy();
+    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(true);
+    await user.click(screen.getByTestId('sql-explorer-unfold'));
+    expect(screen.getByTestId('sql-explorer')).toBeTruthy();
   });
 
   it('createQuery makes the editor available', async () => {
@@ -230,10 +254,10 @@ describe('SqlWorkspacePanel', () => {
     await user.click(screen.getByTestId('sql-query-list-create'));
     await user.type(screen.getByTestId('sql-query-editor-textarea'), 'SELECT 1');
     await user.click(screen.getByTestId('sql-query-editor-run'));
-    await waitFor(() => expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Profile' })).toBeTruthy());
     unmount();
     render(<SqlWorkspacePanel />);
-    expect(screen.getByTestId('sql-result-preview-profile')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Profile' })).toBeTruthy();
   });
 
   it('renders the error band on a SQL error', async () => {
@@ -479,20 +503,14 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
     expect(useWorkspaceSqlStore.getState().getQuery(queryId)).toBeDefined();
   });
 
-  it('renders the schema/table browser inside the rail column', async () => {
+  it('renders the Explorer with the queries under it', async () => {
     const user = userEvent.setup();
     useEditorStore.getState().addSqlTab();
     render(<SqlWorkspacePanel />);
     await user.click(screen.getByTestId('sql-query-list-create'));
-    // The collapsible schema browser sits below the query list in the
-    // left column. Its SHOW TABLES / PRAGMA introspection + table-insert
-    // behaviour are covered as an isolated component test
-    // (SqlSchemaBrowser.test.tsx) + the editor insert-signal unit test, to
-    // avoid the panel's heavy DuckDB async path (multiple awaited mocked
-    // queries widen the run window enough to trip Vite's on-demand
-    // esbuild-wasm transform under jsdom).
-    expect(screen.getByTestId('sql-schema-browser')).toBeTruthy();
-    expect(screen.getByTestId('sql-schema-browser-refresh')).toBeTruthy();
+    const explorer = screen.getByTestId('sql-explorer');
+    expect(explorer.querySelector('[data-testid="sql-explorer-refresh"]')).toBeTruthy();
+    expect(explorer.querySelector('[data-testid="sql-query-list"]')).toBeTruthy();
   });
 
   it('does not label a pending persistence toggle as unavailable before reconnect', () => {
@@ -502,7 +520,7 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
 
     render(<SqlWorkspacePanel />);
 
-    const chip = screen.getByTestId('sql-schema-browser-storage');
+    const chip = screen.getByTestId('sql-explorer-storage');
     expect(chip.textContent).toContain('this session');
     expect(chip.textContent).not.toContain('storage unavailable');
   });
@@ -591,6 +609,7 @@ function importEngine(
   existingTables: readonly string[] = [],
   options: { readonly createDelay?: Promise<void> } = {}
 ): DuckDbEngineHandle {
+  const tables = [...existingTables];
   return {
     registerFile: async () => undefined,
     dropFile: async () => undefined,
@@ -598,6 +617,8 @@ function importEngine(
       query: async (sql: string) => {
         if (/CREATE TABLE/i.test(sql)) {
           createCalls.push(sql);
+          const created = /CREATE TABLE "?(\w+)/i.exec(sql)?.[1];
+          if (created) tables.push(created);
           if (options.createDelay) await options.createDelay;
           return mapArrowTable(arrowTable([], []));
         }
@@ -615,7 +636,7 @@ function importEngine(
                 { name: 'table_schema', type: 'VARCHAR' },
                 { name: 'table_name', type: 'VARCHAR' },
               ],
-              existingTables.map((name) => ({ table_schema: 'main', table_name: name }))
+              tables.map((name) => ({ table_schema: 'main', table_name: name }))
             )
           );
         }
@@ -695,10 +716,6 @@ describe('SqlWorkspacePanel — file import', () => {
       (screen.getByTestId('sql-workspace-import-input') as HTMLInputElement)
         .disabled
     ).toBe(true);
-    expect(
-      (screen.getByTestId('sql-schema-browser-import') as HTMLButtonElement)
-        .disabled
-    ).toBe(true);
 
     // Detected columns + sample rows render.
     const columns = screen.getByTestId('sql-import-modal-columns');
@@ -760,11 +777,11 @@ describe('SqlWorkspacePanel — file import', () => {
     const user = userEvent.setup();
     render(<SqlWorkspacePanel />);
 
-    await user.click(screen.getByTestId('sql-schema-browser-refresh'));
+    await user.click(screen.getByTestId('sql-explorer-refresh'));
     await waitFor(() =>
       expect(
         screen
-          .getByTestId('sql-schema-browser-table')
+          .getByTestId('sql-explorer-table')
           .getAttribute('data-table-name')
       ).toBe('sales_data')
     );
@@ -862,11 +879,16 @@ describe('SqlWorkspacePanel — file import', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('the schema-browser "+" import button is a real button with an aria-label', () => {
+  it('records the source format of an imported table for the Explorer tag', async () => {
+    const createCalls: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine(createCalls)));
+    const user = userEvent.setup();
     render(<SqlWorkspacePanel />);
-    const plus = screen.getByTestId('sql-schema-browser-import');
-    expect(plus.tagName).toBe('BUTTON');
-    expect(plus.getAttribute('aria-label')).toBeTruthy();
-    expect(plus.className).toContain('focus-ring');
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile());
+    await screen.findByRole('dialog');
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+    await waitFor(() =>
+      expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales_data: 'csv' })
+    );
   });
 });

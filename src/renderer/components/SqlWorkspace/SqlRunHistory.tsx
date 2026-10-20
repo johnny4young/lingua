@@ -64,7 +64,7 @@ export function SqlRunHistory({
   return (
     <section
       data-testid="sql-run-history"
-      className="shrink-0 border-t border-border-subtle bg-bg-panel"
+      className="max-h-[6.5rem] min-h-0 shrink overflow-y-auto border-t border-border-subtle bg-bg-panel"
     >
       <header className="px-3 py-1.5">
         <span className="font-mono text-micro uppercase tracking-[0.14em] text-fg-subtle">

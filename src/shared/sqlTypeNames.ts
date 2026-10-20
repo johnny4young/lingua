@@ -99,3 +99,11 @@ export function arrowTypeToDuckDb(arrowType: string): string {
   }
   return type;
 }
+
+const NUMERIC_TYPE =
+  /^(U?(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT)|UHUGEINT|FLOAT|DOUBLE|REAL|DECIMAL(\(.*\))?)$/;
+
+/** True for DuckDB numeric types. BIGINT and DECIMAL arrive as strings, so the type decides. */
+export function isNumericSqlType(duckDbType: string): boolean {
+  return NUMERIC_TYPE.test(duckDbType.trim().toUpperCase());
+}

@@ -59,40 +59,98 @@ describe('SqlResultPreview', () => {
         })}
         isExecuting={false}
         rowDisplayLimit={1000}
-        knownTableNames={[]}
-        onShowTables={vi.fn()}
       />
     );
-    expect(screen.getByText('VARCHAR').getAttribute('title')).toBe('Utf8');
-    expect(screen.getByText('DECIMAL(6,2)').getAttribute('title')).toBe('Decimal[6e+2]');
+    expect(screen.getByText('VARCHAR').getAttribute('title')).toBe('Arrow type: Utf8');
+    expect(screen.getByText('DECIMAL(6,2)').getAttribute('title')).toBe('Arrow type: Decimal[6e+2]');
     expect(screen.queryByText('Utf8')).toBeNull();
   });
 
-  it('discloses when copy actions use a truncated preview', async () => {
-    const user = userEvent.setup();
+  it('right-aligns numeric columns by DuckDB type and renders null in italics', () => {
     render(
       <SqlResultPreview
         response={response({
-          status: 'too-large',
-          rowCount: 20,
-          tooLarge: true,
+          rows: [
+            { city: 'Cali', orders: '12', revenue: '12.50' },
+            { city: null, orders: null, revenue: '3.00' },
+          ],
+          columns: [
+            { name: 'city', type: 'Utf8' },
+            { name: 'orders', type: 'Int64' },
+            { name: 'revenue', type: 'Decimal[6e+2]' },
+          ],
+          rowCount: 2,
         })}
         isExecuting={false}
         rowDisplayLimit={1000}
-        knownTableNames={[]}
-        onShowTables={vi.fn()}
       />
     );
+    const [first, second] = screen.getAllByTestId('sql-result-preview-row');
+    const [city, orders, revenue] = [...first!.querySelectorAll('td')];
+    expect(city!.className).not.toContain('text-right');
+    expect(orders!.className).toContain('text-right');
+    expect(revenue!.className).toContain('text-right');
+    const nullCell = second!.querySelector('td[data-null="true"]')!;
+    expect(nullCell.textContent).toBe('null');
+    expect(nullCell.className).toContain('italic');
+  });
 
-    await user.click(screen.getByTestId('sql-result-preview-copy-json'));
-
+  it('selects a row by click or arrow keys and copies it as JSON with Cmd/Ctrl+C', async () => {
+    const user = userEvent.setup();
+    // userEvent installs its own clipboard; spy on that one.
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+    render(
+      <SqlResultPreview
+        response={response({ rows: [{ a: 1 }, { a: 2 }], rowCount: 2 })}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+      />
+    );
+    const rows = screen.getAllByTestId('sql-result-preview-row');
+    await user.click(rows[0]!);
+    expect(rows[0]!.getAttribute('aria-selected')).toBe('true');
+    const grid = screen.getByTestId('sql-result-preview-table-container');
+    grid.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getAllByTestId('sql-result-preview-row')[1]!.getAttribute('aria-selected')).toBe('true');
+    await user.keyboard('{Control>}c{/Control}');
     await waitFor(() => {
-      expect(useUIStore.getState().statusNotice).toMatchObject({
-        tone: 'success',
-        messageKey: 'sqlWorkspace.action.copiedJsonPreview',
-        values: { shown: 1, total: 20 },
-      });
+      expect(writeText).toHaveBeenCalledWith(JSON.stringify({ a: 2 }, null, 2));
     });
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('sqlWorkspace.grid.rowCopied');
+  });
+
+  it('shows the SQL that produced a table preview and hands it to the editor', async () => {
+    const user = userEvent.setup();
+    const onEditInEditor = vi.fn();
+    render(
+      <SqlResultPreview
+        response={response()}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+        source={{ origin: 'table', sql: 'SELECT * FROM "cities" LIMIT 100;', tableName: 'cities' }}
+        onEditInEditor={onEditInEditor}
+      />
+    );
+    const strip = screen.getByTestId('sql-result-strip');
+    expect(strip.textContent).toContain('SELECT * FROM "cities" LIMIT 100;');
+    expect(strip.textContent).toContain('opened from cities');
+    await user.click(screen.getByTestId('sql-result-strip-edit'));
+    expect(onEditInEditor).toHaveBeenCalledWith('SELECT * FROM "cities" LIMIT 100;');
+  });
+
+  it('labels an editor run in the strip without an Edit in editor button', () => {
+    render(
+      <SqlResultPreview
+        response={response()}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+        source={{ origin: 'editor', sql: 'SELECT 1' }}
+        onEditInEditor={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('sql-result-strip').textContent).toContain('ran from the editor');
+    expect(screen.queryByTestId('sql-result-strip-edit')).toBeNull();
   });
 
   describe('column sort', () => {
@@ -250,83 +308,83 @@ describe('SqlResultPreview', () => {
   });
 
   describe('result export', () => {
-    it('exports the on-screen rows to a CSV file with a success notice', async () => {
+    it('exports the fetched rows from the dialog with a success notice', async () => {
       const user = userEvent.setup();
       render(
         <SqlResultPreview
-          response={response({
-            rows: [{ a: 1 }, { a: 2 }],
-            rowCount: 2,
-          })}
+          response={response({ rows: [{ a: 1 }, { a: 2 }], rowCount: 2 })}
+          isExecuting={false}
+          rowDisplayLimit={1}
+        />
+      );
+      expect(screen.queryByTestId('sql-export-dialog')).toBeNull();
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      expect(screen.getByTestId('sql-export-dialog')).toBeTruthy();
+      await user.click(screen.getByTestId('sql-export-download'));
+
+      expect(downloadSpy).toHaveBeenCalledTimes(1);
+      const [content, filename, mime] = downloadSpy.mock.calls[0]!;
+      // Every fetched row, not just the one the grid's display cap shows.
+      expect(content).toBe('a\n1\n2');
+      expect(filename).toMatch(/^lingua-sql-\d{8}-\d{6}\.csv$/);
+      expect(mime).toContain('text/csv');
+      expect(screen.queryByTestId('sql-export-dialog')).toBeNull();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'success',
+        messageKey: 'sqlWorkspace.export.exported',
+        values: { format: 'CSV', count: 2 },
+      });
+    });
+
+    it('copies the chosen format to the clipboard', async () => {
+      const user = userEvent.setup();
+      const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+      render(
+        <SqlResultPreview response={response()} isExecuting={false} rowDisplayLimit={1000} />
+      );
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      await user.click(screen.getByTestId('sql-export-format-sql-insert'));
+      await user.click(screen.getByTestId('sql-export-copy'));
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(
+          'INSERT INTO "result" ("a") VALUES\n  (1);'
+        );
+      });
+    });
+
+    it('says when the result holds only the first rows the query produced', async () => {
+      const user = userEvent.setup();
+      render(
+        <SqlResultPreview
+          response={response({ status: 'too-large', rowCount: 20, tooLarge: true })}
           isExecuting={false}
           rowDisplayLimit={1000}
         />
       );
-
-      // Menu is closed until the trigger is clicked.
-      expect(screen.queryByTestId('sql-result-preview-export-menu')).toBeNull();
       await user.click(screen.getByTestId('sql-result-preview-export'));
-      expect(screen.getByTestId('sql-result-preview-export-menu')).toBeTruthy();
-
-      await user.click(screen.getByTestId('sql-result-preview-export-csv'));
-
-      expect(downloadSpy).toHaveBeenCalledTimes(1);
-      const [content, filename, mime] = downloadSpy.mock.calls[0]!;
-      expect(content).toContain('a');
-      expect(content).toContain('1');
-      expect(content).toContain('2');
-      expect(filename).toMatch(/^lingua-sql-\d{8}-\d{6}\.csv$/);
-      expect(mime).toContain('text/csv');
-      // The menu closes after a pick.
-      expect(screen.queryByTestId('sql-result-preview-export-menu')).toBeNull();
-
-      expect(useUIStore.getState().statusNotice).toMatchObject({
-        tone: 'success',
-        messageKey: 'sqlWorkspace.action.exportedCsv',
-      });
+      expect(screen.getByTestId('sql-export-count').textContent).toContain('first 1 of 20');
     });
 
-    it('exports JSON with a .json extension', async () => {
+    it('offers Save as table only with a known source', async () => {
       const user = userEvent.setup();
+      const onSave = vi.fn().mockResolvedValue(true);
       render(
         <SqlResultPreview
           response={response()}
           isExecuting={false}
           rowDisplayLimit={1000}
+          handoffs={{ saveAsTable: { suggestedName: 'result', existingNames: ['cities'], onSave } }}
         />
       );
       await user.click(screen.getByTestId('sql-result-preview-export'));
-      await user.click(screen.getByTestId('sql-result-preview-export-json'));
-
-      const [, filename, mime] = downloadSpy.mock.calls[0]!;
-      expect(filename).toMatch(/\.json$/);
-      expect(mime).toContain('application/json');
-      expect(useUIStore.getState().statusNotice).toMatchObject({
-        messageKey: 'sqlWorkspace.action.exportedJson',
-      });
-    });
-
-    it('discloses when the export uses a truncated preview', async () => {
-      const user = userEvent.setup();
-      render(
-        <SqlResultPreview
-          response={response({
-            status: 'too-large',
-            rowCount: 20,
-            tooLarge: true,
-          })}
-          isExecuting={false}
-          rowDisplayLimit={1000}
-        />
-      );
-      await user.click(screen.getByTestId('sql-result-preview-export'));
-      await user.click(screen.getByTestId('sql-result-preview-export-markdown'));
-
-      expect(useUIStore.getState().statusNotice).toMatchObject({
-        tone: 'success',
-        messageKey: 'sqlWorkspace.action.exportedMarkdownPreview',
-        values: { shown: 1, total: 20 },
-      });
+      const name = screen.getByTestId('sql-export-save-table-name') as HTMLInputElement;
+      await user.clear(name);
+      await user.type(name, 'cities');
+      expect((screen.getByTestId('sql-export-save-table') as HTMLButtonElement).disabled).toBe(true);
+      await user.clear(name);
+      await user.type(name, 'top_cities');
+      await user.click(screen.getByTestId('sql-export-save-table'));
+      expect(onSave).toHaveBeenCalledWith('top_cities');
     });
   });
 
@@ -360,7 +418,7 @@ describe('SqlResultPreview', () => {
           onProfileQuery={() => Promise.resolve({ ...successfulProfile, profiles: [profile] })}
         />
       );
-      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      await user.click(screen.getByRole('button', { name: 'Profile' }));
       const cell = await screen.findByTitle('4.242640687119285');
       expect(cell.textContent).toBe('4.2426');
     });
@@ -384,7 +442,7 @@ describe('SqlResultPreview', () => {
         />
       );
 
-      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      await user.click(screen.getByRole('button', { name: 'Profile' }));
       expect(screen.getByTestId('sql-column-profile-loading')).toBeTruthy();
       expect(onProfileQuery).toHaveBeenCalledWith('SELECT score FROM metrics');
 
@@ -393,9 +451,10 @@ describe('SqlResultPreview', () => {
         expect(screen.getByTestId('sql-column-profile-panel').textContent).toContain('score');
       });
 
-      await user.click(screen.getByTestId('sql-column-profile-close'));
+      // Profile is a tab: going back to Table leaves the result untouched.
+      await user.click(screen.getByRole('button', { name: 'Table' }));
       expect(screen.queryByTestId('sql-column-profile-panel')).toBeNull();
-      expect(screen.getByTestId('sql-result-preview')).toBeTruthy();
+      expect(screen.getByTestId('sql-result-preview-table')).toBeTruthy();
     });
 
     it('does not offer a profile for a mutating query or historical response', () => {
@@ -408,7 +467,7 @@ describe('SqlResultPreview', () => {
           onProfileQuery={vi.fn()}
         />
       );
-      expect(screen.queryByTestId('sql-result-preview-profile')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
 
       rerender(
         <SqlResultPreview
@@ -421,7 +480,7 @@ describe('SqlResultPreview', () => {
           selectedResponseIndex={1}
         />
       );
-      expect(screen.queryByTestId('sql-result-preview-profile')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Profile' })).toBeNull();
     });
 
     it('shows the profile error and retries without mutating the SQL result', async () => {
@@ -440,7 +499,7 @@ describe('SqlResultPreview', () => {
         />
       );
 
-      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      await user.click(screen.getByRole('button', { name: 'Profile' }));
       await waitFor(() => {
         expect(screen.getByTestId('sql-column-profile-error').textContent).toContain(
           'profile failed'
@@ -469,7 +528,7 @@ describe('SqlResultPreview', () => {
         />
       );
 
-      await user.click(screen.getByTestId('sql-result-preview-profile'));
+      await user.click(screen.getByRole('button', { name: 'Profile' }));
 
       expect(onProfileQuery).toHaveBeenCalledWith('SELECT score FROM metrics');
       expect(onProfileQuery).not.toHaveBeenCalledWith(
