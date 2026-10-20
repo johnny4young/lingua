@@ -228,7 +228,7 @@ export const es = {
         },
         {
           image: '/screenshots/tour/sql-workspace-es.png',
-          alt: 'Workspace SQL con una tabla releases importada en el explorador de esquema, una query de agregación formateada y el panel de perfil de columnas de su resultado',
+          alt: 'Workspace SQL con una tabla releases importada en el explorador, una query de agregación formateada y la pestaña Perfil de su resultado bajo el editor',
           title: 'Un workspace SQL completo sobre DuckDB',
           body: 'Suelta un CSV, JSON o Parquet y se convierte en una tabla consultable sobre el motor DuckDB incluido — con grid de resultados, formateo de queries con una tecla y perfil por columna. Tu Run Ledger local también se consulta desde aquí.',
         },

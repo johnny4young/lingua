@@ -197,7 +197,7 @@ test.describe('website tour evidence', () => {
       await page.getByTestId('sql-query-editor-format').click();
       await page.getByTestId('sql-query-editor-run').click();
       await page.getByRole('button', { name: /(Show columns for|Muestra las columnas de) releases/ }).click();
-      await page.getByTestId('sql-result-preview-profile').click();
+      await page.getByRole('button', { name: /^(Profile|Perfil)$/ }).click();
       await expect(page.getByTestId('sql-column-profile-panel')).toBeVisible();
       await capture(page, `sql-workspace-${language}.png`);
 

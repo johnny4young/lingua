@@ -228,7 +228,7 @@ export const en = {
         },
         {
           image: '/screenshots/tour/sql-workspace.png',
-          alt: 'SQL workspace with an imported releases table in the schema browser, a formatted aggregate query, and the column profile panel for its result',
+          alt: 'SQL workspace with an imported releases table in the Explorer, a formatted aggregate query, and the Profile tab of its result below the editor',
           title: 'A full SQL workspace on DuckDB',
           body: 'Drop a CSV, JSON, or Parquet file and it becomes a queryable table on the bundled DuckDB engine — results grid, one-keystroke query formatting, and per-column profiling included. Your local Run Ledger is queryable from here too.',
         },
