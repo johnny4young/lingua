@@ -13,7 +13,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
 | Close active tab        | `Cmd+W`       | `Ctrl+W`        |
-| Toggle sidebar          | `Cmd+B`       | `Ctrl+B`        |
+| Explorer / tool list    | `Cmd+B`       | `Ctrl+B`        |
 | Show or hide the dock   | `Cmd+\`       | `Ctrl+\`        |
 | Quick open (go to file) | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
@@ -34,6 +34,8 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Debugger: step out      | `Shift+F11`   | `Shift+F11`     |
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
+
+`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty.
 
 The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
 

@@ -219,6 +219,17 @@ Keyboard shortcuts use two data layers with different activation costs:
   must satisfy that union, making missing or stale reference rows a compile
   error.
 
+The command palette buckets ranked results with
+[`components/CommandPalette/commandPaletteGroups.ts`](components/CommandPalette/commandPaletteGroups.ts):
+group order, the command-to-shortcut map for the keycap column, and the Tab
+group jump. Keep shortcuts out of command descriptions; add the command id to
+that map instead, so the keycap follows the user's overrides.
+
+The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
+persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
+through `utils/explorerToggle.ts`, which targets that list on a Utilities tab
+and the project explorer elsewhere. The modal keeps the full card list.
+
 Developer Utilities use separate startup and implementation layers:
 
 - [`data/developerUtilityCatalog.ts`](data/developerUtilityCatalog.ts) is the
