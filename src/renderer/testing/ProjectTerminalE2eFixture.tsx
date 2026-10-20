@@ -24,7 +24,7 @@ export function ProjectTerminalE2eFixture() {
         </span>
       </header>
       <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border-strong shadow-e3">
-        <BottomPanel debuggerAvailable={false} />
+        <BottomPanel expanded />
       </section>
     </main>
   );

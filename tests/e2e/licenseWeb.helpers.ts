@@ -434,12 +434,8 @@ export async function openConsole(page: Page): Promise<void> {
     return;
   }
 
-  const restore = page.getByTestId('bottom-panel-restore');
-  if (await restore.isVisible().catch(() => false)) {
-    await restore.click();
-  } else {
-    await page.getByRole('button', { name: /toggle console|alternar consola/i }).click();
-  }
+  // The dock is open by default; a tab opens it when folded and selects Console.
+  await page.getByTestId('bottom-panel-console-tab').click();
   await expect(historyToggle).toBeVisible();
 }
 

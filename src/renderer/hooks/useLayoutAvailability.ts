@@ -2,130 +2,82 @@ import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
-import { hasScopeSnapshotFor, useResultStore } from '../stores/resultStore';
+import {
+  comparableSnapshotCountFor,
+  hasScopeSnapshotFor,
+  useResultStore,
+} from '../stores/resultStore';
+import { useProjectStore } from '../stores/projectStore';
 import { languageHasRuntimeModes } from '../../shared/runtimeModes';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
-import { languageSupportsDebugger } from '../utils/languageMeta';
+import { executionModeForLanguage, languageSupportsDebugger } from '../utils/languageMeta';
 import { isBundledRecipeId } from '../data/recipes/recipeIds';
-import { useProjectStore } from '../stores/projectStore';
+import { useDependenciesPanelAvailable } from '../components/Dependencies/useDependenciesPanelAvailable';
+import { useGitDiffTabAvailable } from '../components/Editor/useGitDiffTabAvailable';
+import type { DockTabAvailability } from '../components/Layout/dockTabs';
 
-/**
- * The bottom-panel availability gates the shell needs to
- * decide whether the console drawer (and which body inside it) should mount.
- * Each flag is `true` only when the active tab + settings + run-snapshot state
- * make that surface relevant; `editor-only` layout forces them all off.
- */
 export interface LayoutAvailability {
-  /** Console drawer is visible (and not suppressed by the editor-only layout). */
-  showConsole: boolean;
-  /** Debugger tab/body is relevant for the active tab. Also the `debuggerAvailable` prop for BottomPanel. */
-  showDebuggerPanel: boolean;
-  /** Browser-preview body is relevant (JS/TS tab in `browser-preview` runtime). */
-  showBrowserPreviewPanel: boolean;
-  /** Stdin body should stay mounted (focused via palette while the drawer is otherwise empty). */
-  showStdinTabBody: boolean;
-  /** Bottom Variables body should stay mounted (surface=bottom + capture available). */
-  showVariablesTabBody: boolean;
-  /** Recipe body should stay mounted (active tab is recipe-bound). */
-  showRecipeTabBody: boolean;
-  /** Desktop project terminal should keep the bottom drawer mounted. */
-  showProjectTerminalTabBody: boolean;
+  /** Which dock tabs apply to the active tab. Console always applies. */
+  tabs: DockTabAvailability;
+  /** False in the editor-only layout and on full-screen Utilities tabs. */
+  dockShown: boolean;
+  /** The dock body is open: the user opened it, or a live session claims it. */
+  dockExpanded: boolean;
+  /** A debug session runs for the active tab, so its tab claims a hidden dock. */
+  debuggerLive: boolean;
 }
 
 /**
- * The AppLayout-root availability gate cluster, extracted
- * verbatim from `AppLayout`. Computes the seven MainContent gates from the editor
- * / UI / settings / result / debugger stores. Moved as-is (same derivations,
- * same primitive `hasScopeSnapshotFor` subscription) so the resolved gate
- * values are identical to the inline original; only the store reads are now
- * fine-grained selectors rather than whole-store destructures, which can only
- * reduce re-renders, never change a gate's value.
+ * One source for every dock gate, read by the shell (whether the dock is
+ * open) and by the dock (which tabs it lists). Primitive selectors keep a
+ * keystroke from re-rendering the shell.
  */
 export function useLayoutAvailability(): LayoutAvailability {
-  const layoutPreset = useSettingsStore((s) => s.layoutPreset);
-  const consoleVisible = useUIStore((s) => s.consoleVisible);
-  const activeTabId = useEditorStore((s) => s.activeTabId);
-  const activeLanguage = useEditorStore((s) => getActiveTab(s)?.language);
-  const activeRuntimeMode = useEditorStore((s) => getActiveTab(s)?.runtimeMode);
-  const debuggerSession = useDebuggerStore((state) => state.session);
-  const activeBreakpointCount = useDebuggerStore((state) => {
-    if (!activeTabId) return 0;
-    let count = 0;
-    for (const bp of Object.values(state.breakpoints)) {
-      if (bp.tabId === activeTabId) count += 1;
-    }
-    return count;
-  });
+  const layoutPreset = useSettingsStore(s => s.layoutPreset);
+  const showStdinPanel = useSettingsStore(s => s.showStdinPanel);
+  const variableInspectorSurface = useSettingsStore(s => s.variableInspectorSurface);
+  const consoleVisible = useUIStore(s => s.consoleVisible);
+  const activeTabId = useEditorStore(s => s.activeTabId);
+  const activeKind = useEditorStore(s => getActiveTab(s)?.kind);
+  const language = useEditorStore(s => getActiveTab(s)?.language);
+  const runtimeMode = useEditorStore(s => getActiveTab(s)?.runtimeMode);
+  const recipeBindingId = useEditorStore(s => getActiveTab(s)?.recipeBindingId ?? null);
+  const debuggerLive = useDebuggerStore(s => s.session !== null && s.session.tabId === activeTabId);
+  const hasBreakpoints = useDebuggerStore(s =>
+    activeTabId ? Object.values(s.breakpoints).some(bp => bp.tabId === activeTabId) : false
+  );
+  const comparableCount = useResultStore(s => comparableSnapshotCountFor(s, language));
+  const hasScope = useResultStore(s => hasScopeSnapshotFor(s, language, runtimeMode));
+  const hasProject = useProjectStore(s => s.currentProject !== null);
+  const dependencies = useDependenciesPanelAvailable();
+  const gitDiff = useGitDiffTabAvailable();
 
-  const showConsole = consoleVisible && layoutPreset !== 'editor-only';
-  const showDebuggerPanel =
-    layoutPreset !== 'editor-only' &&
-    languageSupportsDebugger(activeLanguage) &&
-    (debuggerSession?.tabId === activeTabId || (consoleVisible && activeBreakpointCount > 0));
-  const showBrowserPreviewPanel =
-    layoutPreset !== 'editor-only' &&
-    languageHasRuntimeModes(activeLanguage) &&
-    activeRuntimeMode === 'browser-preview';
-  // When the user focuses the stdin tab from the
-  // command palette while the console drawer is collapsed,
-  // `openBottomPanel('stdin')` flips `activeBottomPanel` but does
-  // NOT set `consoleVisible: true` reliably across navigation. We
-  // include the stdin body in the MainContent gate so the bottom
-  // drawer renders for stdin even when none of the other panes is
-  // shown.
-  const activeBottomPanelForLayout = useUIStore((state) => state.activeBottomPanel);
-  const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
-  const variableInspectorSurfaceForLayout = useSettingsStore(
-    (state) => state.variableInspectorSurface,
-  );
-  const activeVariableInspectorEnabled = useEditorStore(
-    (s) => getActiveTab(s)?.variableInspectorEnabled === true,
-  );
-  // The bottom Variables drawer only needs the availability
-  // boolean, not the raw scope object; subscribe to the primitive so a
-  // scope replacement that does not change availability is a no-op here.
-  const hasScopeForActiveLayout = useResultStore((state) =>
-    hasScopeSnapshotFor(state, activeLanguage, activeRuntimeMode),
-  );
-  const showStdinTabBody =
-    layoutPreset !== 'editor-only' &&
-    showStdinPanelSetting &&
-    activeBottomPanelForLayout === 'stdin' &&
-    activeRuntimeMode !== 'browser-preview' &&
-    isWorkerRunnerLanguage(activeLanguage);
-  // Mirror BottomPanel.variablesAvailable so the
-  // MainContent gate keeps the drawer mounted when Variables is the
-  // sole reason to show it (no console, no debugger, no stdin).
-  const showVariablesTabBody =
-    layoutPreset !== 'editor-only' &&
-    variableInspectorSurfaceForLayout === 'bottom' &&
-    activeVariableInspectorEnabled &&
-    activeBottomPanelForLayout === 'variables' &&
-    isWorkerRunnerLanguage(activeLanguage) &&
-    hasScopeForActiveLayout;
-  const activeRecipeBindingIdForLayout = useEditorStore((state) => {
-    if (!state.activeTabId) return null;
-    return getActiveTab(state)?.recipeBindingId ?? null;
-  });
-  const showRecipeTabBody =
-    layoutPreset !== 'editor-only' &&
-    activeBottomPanelForLayout === 'recipe' &&
-    activeRecipeBindingIdForLayout !== null &&
-    isBundledRecipeId(activeRecipeBindingIdForLayout);
-  const hasActiveProject = useProjectStore(state => state.currentProject !== null);
-  const showProjectTerminalTabBody =
-    layoutPreset !== 'editor-only' &&
-    activeBottomPanelForLayout === 'project-terminal' &&
-    hasActiveProject &&
-    window.lingua?.projectTerminal !== undefined;
+  const workerLanguage = isWorkerRunnerLanguage(language);
+  const browserPreview = languageHasRuntimeModes(language) && runtimeMode === 'browser-preview';
+  const debuggerTab = languageSupportsDebugger(language) && (debuggerLive || hasBreakpoints);
+  const runMode = language !== undefined && executionModeForLanguage(language) === 'run';
+  const tabs: DockTabAvailability = {
+    stdin: showStdinPanel && runtimeMode !== 'browser-preview' && workerLanguage,
+    compare: runMode && comparableCount > 0,
+    variables:
+      variableInspectorSurface === 'bottom' &&
+      runMode &&
+      runtimeMode !== 'node' &&
+      workerLanguage &&
+      hasScope,
+    'project-terminal': hasProject && window.lingua?.projectTerminal !== undefined,
+    debugger: debuggerTab,
+    'browser-preview': browserPreview,
+    dependencies,
+    'git-diff': gitDiff,
+    recipe: recipeBindingId !== null && isBundledRecipeId(recipeBindingId),
+  };
+  const dockShown = layoutPreset !== 'editor-only' && activeKind !== 'utilities';
 
   return {
-    showConsole,
-    showDebuggerPanel,
-    showBrowserPreviewPanel,
-    showStdinTabBody,
-    showVariablesTabBody,
-    showRecipeTabBody,
-    showProjectTerminalTabBody,
+    tabs,
+    dockShown,
+    dockExpanded: dockShown && (consoleVisible || browserPreview || (debuggerTab && debuggerLive)),
+    debuggerLive,
   };
 }

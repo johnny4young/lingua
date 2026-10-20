@@ -101,6 +101,18 @@ describe('lingua-settings v2->v3 — Scratchpad inline expressions default on', 
   });
 });
 
+describe('lingua-settings v3->v4 — Variables move into the results dock', () => {
+  const migrate = createMigrate('lingua-settings');
+
+  it('moves the seeded floating card to the dock and keeps other settings', () => {
+    const result = migrate({ theme: 'light', variableInspectorSurface: 'floating' }, 3) as Record<
+      string,
+      unknown
+    >;
+    expect(result).toMatchObject({ theme: 'light', variableInspectorSurface: 'bottom' });
+  });
+});
+
 describe('lingua-utility-state v1->v2 — workspace state extraction', () => {
   const migrate = createMigrate('lingua-utility-state');
 

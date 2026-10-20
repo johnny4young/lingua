@@ -12,6 +12,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
 import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
+import { toggleCompareDock } from '../utils/compareDock';
 import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
 import { emitCommand } from '../stores/commandBus';
@@ -183,8 +184,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }
-      const next = tab.compareWithSnapshotEnabled !== true;
-      editorState.setTabCompareEnabled(tab.id, next);
+      const next = toggleCompareDock();
       void trackEvent('runtime.compare_view_toggled', {
         language: tab.language,
         enabled: next,
@@ -222,7 +222,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // active tab. Gates on language (JS / TS / Python only), runtime
       // mode (no Browser preview), and the `showStdinPanel` user
       // setting. The state shape mirrors the panel chip click handler
-      // in AppLayout.PanelChipsRow so keystroke and click stay in sync.
+      // of the dock's Input tab so keystroke and click stay in sync.
       const editorState = useEditorStore.getState();
       const tab = getActiveTab(editorState);
       const settings = useSettingsStore.getState();

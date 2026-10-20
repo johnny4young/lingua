@@ -43,6 +43,7 @@ import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrus
 import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 import { emitCommand } from '../../stores/commandBus';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
+import { isCompareDockOpen, toggleCompareDock } from '../../utils/compareDock';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types/language';
 import { buildCommandPaletteModel } from './commandPaletteModel';
@@ -135,6 +136,7 @@ export function useCommandPaletteCommands({
   // selector is cheap (returns null when no entry carries one).
   const latestCapsule = useExecutionHistoryStore(state => state.latestCapsule());
   const snapshotRing = useResultStore(state => state.snapshotRing);
+  const compareDockOpen = useUIStore(state => isCompareDockOpen(state));
   const dependencyDetectionEnabled = useSettingsStore(state => state.dependencyDetectionEnabled);
   const dependencyDetectionEntry = useDependencyDetectionStore(state =>
     activeTabId ? (state.byTab.get(activeTabId) ?? null) : null
@@ -500,23 +502,19 @@ export function useCommandPaletteCommands({
               onRerunLast();
             }
           : undefined,
-      // Palette toggle for the Compare
-      // panel. Reuses `setTabCompareEnabled` so the source of
-      // truth stays per-tab. The gate (`compareSnapshotAvailable`)
-      // matches the toggle-button gate so the palette never
-      // advertises an action it would refuse.
+      // Compare is a dock tab; the gate (`compareSnapshotAvailable`) matches
+      // the dock's, so the palette never advertises an action it would refuse.
       onToggleCompareWithSnapshot:
         activeTab && activeTabId
           ? () => {
-              const next = activeTab.compareWithSnapshotEnabled !== true;
-              useEditorStore.getState().setTabCompareEnabled(activeTabId, next);
+              const next = toggleCompareDock();
               void trackEvent('runtime.compare_view_toggled', {
                 language: activeTab.language,
                 enabled: next,
               });
             }
           : undefined,
-      activeCompareEnabled: activeTab?.compareWithSnapshotEnabled === true,
+      activeCompareEnabled: compareDockOpen,
       compareSnapshotAvailable: (() => {
         return (
           activeTab !== null && snapshotRing.some(entry => entry.language === activeTab.language)
@@ -702,6 +700,7 @@ export function useCommandPaletteCommands({
     canUseExecutionHistory,
     executionHistory,
     snapshotRing,
+    compareDockOpen,
     onRunActiveTab,
     onOpenProject,
     onOpenProjectTests,

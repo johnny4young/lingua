@@ -21,7 +21,7 @@ import {
 
 /**
  * Runtime/workflow choices and capability toggles. Owns panel-reveal,
- * status-notice and telemetry effects, plus Compare/Variables mutual exclusion.
+ * status-notice and telemetry effects.
  * Stdin, argv and named input sets belong to editorInputActions.
  */
 export function createModeActions(
@@ -32,7 +32,6 @@ export function createModeActions(
   | 'setTabRuntimeMode'
   | 'setTabWorkflowMode'
   | 'setTabAutoLogEnabled'
-  | 'setTabCompareEnabled'
   | 'setTabVariableInspectorEnabled'
 > {
   return {
@@ -186,37 +185,8 @@ export function createModeActions(
     },
 
     /**
-     * Write the per-tab Compare toggle. `null`
-     * clears the field (the toggle returns to disabled). Compare and
-     * Variables are mutually exclusive because both consume the result
-     * panel's focused inspection surface; enforce that invariant here
-     * so keyboard shortcuts, command palette actions, and UI buttons all
-     * share the same state transition.
-     */
-    setTabCompareEnabled: (id, enabled) => {
-      set((state) => ({
-        tabs: state.tabs.map((t) => {
-          if (t.id !== id) return t;
-          if (enabled === null || enabled === false) {
-            if (t.compareWithSnapshotEnabled === undefined) return t;
-            const { compareWithSnapshotEnabled: _drop, ...rest } = t;
-            void _drop;
-            return rest;
-          }
-          // Mutual exclusion with Variables.
-          const { variableInspectorEnabled: _dropInspector, ...rest } = t;
-          void _dropInspector;
-          return { ...rest, compareWithSnapshotEnabled: true };
-        }),
-      }));
-    },
-
-    /**
-     * Write the per-tab Variables toggle. `null`
-     * clears the field. Mutually exclusive with `setTabCompareEnabled`:
-     * enabling Variables forces Compare off. Unsupported runtimes no-op
-     * before clearing Compare so the user cannot lose a valid Compare
-     * view by trying to enable Variables on an ineligible tab.
+     * Write the per-tab Variables toggle. `null` clears the field.
+     * Unsupported languages and the Node runtime no-op.
      */
     setTabVariableInspectorEnabled: (id, enabled) => {
       set((state) => ({
@@ -234,10 +204,7 @@ export function createModeActions(
           ) {
             return t;
           }
-          // Mutual exclusion with Compare.
-          const { compareWithSnapshotEnabled: _dropCompare, ...rest } = t;
-          void _dropCompare;
-          return { ...rest, variableInspectorEnabled: true };
+          return { ...t, variableInspectorEnabled: true };
         }),
       }));
     },

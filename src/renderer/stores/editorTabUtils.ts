@@ -125,30 +125,11 @@ export function dropNextRunTimeoutOverride<T extends FileTab>(tab: T): T {
 }
 
 /**
- * Drop the per-tab Compare flag whenever the
- * language changes (rename / Save-As). The comparator snapshot is
- * tracked by the result store; the editor-store side just owns the
- * toggle bit. Symmetric to `dropAutoLogIfUnsupported` /
- * `dropStdinIfUnsupported`.
- */
-export function dropCompareIfLanguageChanged<T extends FileTab>(
-  tab: T,
-  previousLanguage: Language | null
-): T {
-  if (previousLanguage === null || tab.language === previousLanguage) return tab;
-  if (tab.compareWithSnapshotEnabled === undefined) return tab;
-  const { compareWithSnapshotEnabled: _drop, ...rest } = tab;
-  void _drop;
-  return rest as T;
-}
-
-/**
  * A recipe binding belongs to one exact language.
  * Any rename / Save-As that changes that language drops the binding;
  * otherwise TypeScript syntax could reach a JavaScript recipe (or a
- * Python assertion pack) after a filename-only transition. Mirrors
- * `dropCompareIfLanguageChanged`, but deliberately does not keep a
- * cross-language binding even when both languages support Recipes.
+ * Python assertion pack) after a filename-only transition. It never keeps
+ * a cross-language binding, even when both languages support Recipes.
  */
 export function dropRecipeBindingIfLanguageChanged<T extends FileTab>(
   tab: T,

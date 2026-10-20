@@ -520,6 +520,6 @@ test.describe('Settings persistence', () => {
           return raw ? (JSON.parse(raw) as { version?: number }).version : undefined;
         })
       )
-      .toBe(3);
+      .toBe(4);
   });
 });

@@ -20,8 +20,6 @@ export const LEGACY_DIRECT_CALL_LIMITS = Object.freeze({
   'src/renderer/components/Console/RichValueImage.tsx': 1,
   'src/renderer/components/Debugger/DebuggerDrawer.tsx': 1,
   'src/renderer/components/DeveloperUtilities/UtilityHistoryDrawer.tsx': 2,
-  'src/renderer/components/Editor/CompareToggleButton.tsx': 1,
-  'src/renderer/components/Editor/VariableInspectorToggleButton.tsx': 1,
   'src/renderer/components/ProjectReplace/ProjectReplace.tsx': 2,
   'src/renderer/components/Settings/AppearanceSection.tsx': 1,
   'src/renderer/components/Settings/EditorSection.tsx': 2,

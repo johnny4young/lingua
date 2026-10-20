@@ -46,7 +46,6 @@ const { dependencyDetectionState, editorState, resultState, settingsState, track
       setTabAutoLogEnabled: vi.fn(),
       updateContent: vi.fn(),
       setTabNextRunTimeoutOverride: vi.fn(),
-      setTabCompareEnabled: vi.fn(),
       // Variable inspector palette wiring depends on
       // the setter being present even when not exercised.
       setTabVariableInspectorEnabled: vi.fn(),
@@ -628,7 +627,10 @@ describe('CommandPalette', () => {
       })
     );
 
-    expect(editorState.setTabCompareEnabled).toHaveBeenCalledWith('tab-1', true);
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'compare',
+      consoleVisible: true,
+    });
     expect(trackEventMock).toHaveBeenCalledWith('runtime.compare_view_toggled', {
       language: 'javascript',
       enabled: true,

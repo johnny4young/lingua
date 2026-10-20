@@ -99,6 +99,20 @@ describe('StdinInputPanel ', () => {
     expect(editorState.setTabStdinBuffer).toHaveBeenCalledWith('t1', '5');
   });
 
+  it('puts stdin lines and arguments side by side with the set controls in the header', () => {
+    editorState.tabs = [
+      { id: 't1', name: 'main.js', language: 'javascript', content: '', isDirty: false },
+    ];
+    editorState.activeTabId = 't1';
+    render(<StdinInputPanel />);
+    const panel = screen.getByTestId('stdin-panel');
+    const header = panel.querySelector('header');
+    expect(header?.contains(screen.getByTestId('stdin-input-set-toolbar'))).toBe(true);
+    const columns = screen.getByTestId('stdin-input-args').parentElement;
+    expect(columns?.className).toContain('md:grid-cols-2');
+    expect(columns?.contains(screen.getByTestId('stdin-row-0'))).toBe(true);
+  });
+
   it('surfaces the consumed pill when the result store carries a stdinConsumed summary', () => {
     editorState.tabs = [
       {

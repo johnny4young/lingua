@@ -269,8 +269,8 @@ export interface BuildCommandPaletteModelArgs {
   onRunWithExtendedTimeout?: () => void;
   /**
    * Fires the "Toggle compare with last
-   * stable run" palette action. Caller wires it via
-   * `setTabCompareEnabled` on the active tab. Optional; hidden
+   * stable run" palette action, which opens or closes the dock's
+   * Compare tab. Optional; hidden
    * when the active tab is missing or `executionMode === 'view'`.
    */
   onToggleCompareWithSnapshot?: () => void;

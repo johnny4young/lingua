@@ -169,7 +169,7 @@ export function createInitialSettingsState() {
     // 'floating' keeps backward-compatible behavior for users upgrading
     // from earlier builds where only the FloatingVariablesCard
     // existed. Persisted so the choice survives reloads.
-    variableInspectorSurface: 'floating',
+    variableInspectorSurface: 'bottom',
     // per-language run-time preset. Seed honors
     // the legacy hardcoded DEFAULT_TIMEOUT per runner
     // (JS / TS / Go = 30 s = `normal`; Python = 120 s = `long`).

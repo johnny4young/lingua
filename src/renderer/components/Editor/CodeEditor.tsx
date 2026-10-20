@@ -262,7 +262,6 @@ export function CodeEditor() {
     void registerLanguageOnce(monaco, 'typescript');
   }, []);
 
-  // Sync scroll with ResultPanel
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -275,9 +274,6 @@ export function CodeEditor() {
     // status bar can read marker severities + `getModelMarkers`.
     setActiveEditor(editor, monaco);
 
-    editor.onDidScrollChange(e => {
-      emitCommand('editor.scroll', { scrollTop: e.scrollTop });
-    });
     // Let the dependency detection runner
     // see paste events so it can drop to the 60ms paste debounce
     // instead of the 300ms keystroke debounce on the very next

@@ -27,8 +27,7 @@ export function getActiveTab(state: EditorState): FileTab | null {
 
 /**
  * Index of the active tab within `state.tabs`, or `-1`
- * when there is no active tab. Co-located with `getActiveTab` so the
- * PanelChipsRow memoization and the editorStore split
+ * when there is no active tab. Co-located with `getActiveTab` so callers
  * inherit a single active-tab derivation seam instead of re-introducing
  * inline `tabs.findIndex(... === activeTabId)`.
  */

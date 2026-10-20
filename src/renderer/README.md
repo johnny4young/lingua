@@ -50,17 +50,33 @@ queries and persistence policy. Its small
 owns only engine generations and serialized release; keep OPFS cleanup inside
 that release transition so a new engine cannot reopen partially cleared data.
 
-The floating action pill is portaled to the viewport, but `AppLayout` reserves
-its own row below `AppChrome`. Do not remove that row without moving the pill
-into normal flow: otherwise the pill sits over the editor tab strip and blocks
-activation and close hit targets. Presenter mode hides both the pill and row.
-At narrow widths the secondary commands and Settings move into a keyboard-
-operable More actions menu; Run, language, and runtime remain directly available.
+The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
+and keeps its `app-chrome` landmarks: brand and file on the left, then
+language · engine · mode-aware action, autosave, the command icons, the license
+badge and Settings. On SQL, HTTP and Utilities tabs only the workspace chip
+stays, because Run and Send live inside those tabs. **Undock** in the More
+actions menu brings back the draggable `FloatingActionPill` (persisted in
+`uiStore.commandBarDocked`); `AppLayout` then restores `AppChrome` and reserves a
+row below it so the pill never covers the editor tab strip, and **Dock** puts the
+controls back. Presenter mode keeps the bar and drops the controls. The More
+actions menu is always present; at narrow widths it also takes the secondary
+commands and Settings, while Run, language, and runtime remain directly available.
 At the smallest widths the language chip keeps its full accessible name but
 uses its short badge rather than a long visible language label.
 `useDraggable` clamps its position against the rendered pill size after mount
 and whenever the element or viewport changes; the width hint only guards the
 first render before a DOM measurement exists.
+
+All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
+full-width editor. Its tab row lists Console · Input · Compare · Variables ·
+Terminal, then Debugger, Browser preview, Dependencies, Git diff and Recipe only
+when they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
+and carries the run controls: auto-log, run status, recent runs, time, capsule
+export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
+output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
+`utils/compareDock.ts` opens and closes it for the shortcut and the palette.
+Validation and view-only tabs show their report above the Console rows, and the
+Console tab ends with the last five runs (`Layout/RunHistoryStrip.tsx`).
 
 Console auto-follow is active only while the viewport remains at the bottom.
 `ConsolePanel` records its last pinned geometry so a manual upward scroll wins
@@ -142,10 +158,10 @@ The renderer is intentionally split by feature instead of by component type.
 
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
-| [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`                    | Owns shell composition, panel layout, sidebar/drawer behavior; the closed bottom panel stays behind a lazy boundary so its feature tree loads only when opened |
+| [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`, `dockTabs.ts`     | Owns shell composition, panel layout, sidebar/drawer behavior; the results dock stays behind a lazy boundary so its feature tree stays out of the initial bundle |
 | [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
-| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx`, `ResultPanel.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
+| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/ProjectTerminal/`](components/ProjectTerminal) | `ProjectTerminalPanel.tsx`                            | Desktop-only, lazily loaded xterm surface for the owner-bound project PTY; retains only a bounded session transcript |
@@ -301,7 +317,7 @@ orchestration:
 - [`hooks/useRunner.ts`](hooks/useRunner.ts) subscribes to shared run status,
   exposes stable Run/Stop callbacks, and keeps Stop available while execution
   implementation chunks are preparing.
-- The floating action pill's primary button switches its visible name,
+- The run controls' primary button switches its visible name,
   accessible name, and icon to Stop during a run; runtime download progress
   remains secondary text instead of hiding that action.
 - [`components/Toolbar/executionControlPolicy.ts`](components/Toolbar/executionControlPolicy.ts)
@@ -415,8 +431,8 @@ Sharing separates its always-available triggers from both implementations:
 
 Result comparison has its own activation boundary:
 
-- [`components/Editor/ResultPanel.tsx`](components/Editor/ResultPanel.tsx)
-  keeps the stable-snapshot gate and decides when Compare owns the result body.
+- [`hooks/useLayoutAvailability.ts`](hooks/useLayoutAvailability.ts) keeps the
+  stable-snapshot gate that decides when the dock offers Compare.
 - [`components/Editor/CompareResultsPanelHost.tsx`](components/Editor/CompareResultsPanelHost.tsx)
   provides localized loading and reload states without importing the diff
   implementation.
@@ -674,7 +690,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
 | settings split — action factories: [settingsAppearanceActions.ts](stores/settingsAppearanceActions.ts) (theme/font/layout/keymap/shortcuts), [settingsRuntimeActions.ts](stores/settingsRuntimeActions.ts) (execution/runtime-mode/workflow/auto-log/timeout/ruby), [settingsPrivacyActions.ts](stores/settingsPrivacyActions.ts) (telemetry/clipboard consents + sensitive headers), [settingsSessionActions.ts](stores/settingsSessionActions.ts) (onboarding/tour/language/SQL workspace) | `(set[, get]) => Pick<SettingsState, …>` slices spread into `useSettingsStore` |
 | [telemetryConsentSource.ts](utils/telemetryConsentSource.ts) + [telemetryPolicy.ts](utils/telemetryPolicy.ts) | dependency-neutral consent reader registered after settings-store construction; fails closed during bootstrap and keeps telemetry out of the eager settings graph |
-| [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, bottom panel, floating positions |
+| [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, results dock, command-bar docking, floating positions |
 | status notice API — [useStatusNotice.ts](hooks/useStatusNotice.ts) for React consumers and [statusNotice.ts](utils/statusNotice.ts) for imperative paths | tone-safe `info`/`success`/`warning`/`error` actions that preserve notice options while keeping direct store access out of producers |
 | [commandBus.ts](stores/commandBus.ts) + [useCommandListener.ts](hooks/useCommandListener.ts) | closed-map, synchronous renderer commands with no replay/state updates; priority + handled fallback semantics keep app coordination off the global DOM event target |
 | telemetry API — [useTelemetry.ts](hooks/useTelemetry.ts) for React consumers and [telemetry.ts](utils/telemetry.ts) for non-React layers | closed event names at call sites; a startup-safe facade checks consent and configuration before loading the full emitter |
@@ -959,7 +975,7 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | File/project navigation                 | `tests/components/QuickOpen.test.tsx`, `tests/components/ProjectSearch.test.tsx`, `tests/hooks/useProjectIndexSync.test.tsx`, `tests/stores/projectIndexStore.test.ts`, `tests/stores/recentFilesStore.test.ts` |
 | Project test discovery and execution    | `tests/main/projectTests.test.ts`, `tests/stores/projectTestStore.test.ts`, `tests/components/ProjectTestsOverlay.test.tsx` |
 | Project terminal lifecycle              | `tests/main/projectTerminal.test.ts`, `tests/stores/projectTerminalStore.test.ts`, `tests/components/ProjectTerminal/ProjectTerminalPanel.test.tsx`, `tests/components/AppLayout.test.tsx` |
-| Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, result panel tests |
+| Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, results dock tests |
 | Notebook behavior                       | `tests/stores/notebookStore.test.ts`, `tests/renderer/runtime/notebookSession.test.ts`, `tests/hooks/useNotebookRun.test.ts`, `tests/components/Notebook/*` |
 | HTTP / SQL workspaces                   | `tests/renderer/runtime/httpClient.test.ts`, `tests/renderer/runtime/duckdbClient.test.ts`, workspace component tests |
 | Language intelligence                   | `tests/languageIntelligence/*.test.ts`, `tests/languageSupportRegistry.test.ts` |

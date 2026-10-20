@@ -1,10 +1,8 @@
 /**
  * Compare body. Renders the diff between the
  * latest stable run (`lastSuccessfulSnapshot`) and the current
- * result-store output. Mounted by `ResultPanel.tsx` in place of
- * `<LineAlignedResults>` when the active tab's
- * `compareWithSnapshotEnabled === true` AND the snapshot's
- * language matches.
+ * result-store output. Mounted by the results dock's Compare tab
+ * when a snapshot for the active language exists.
  *
  * Two render modes (decided by `diffSnapshot`):
  *
@@ -139,7 +137,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
 
   return (
     <div className="flex h-full flex-col bg-bg-base" data-testid="compare-results-panel">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-panel-alt/65 px-4 py-3">
+      <div className="flex min-h-9 flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-panel-alt/65 px-4 py-1.5">
         <div className="flex min-w-0 items-center gap-2 text-caption text-fg-muted">
           <GitCompare size={12} className="text-accent-fg" aria-hidden />
           <EyebrowMono>{t('compare.panel.title')}</EyebrowMono>
@@ -156,7 +154,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
                 onChange={(event) =>
                   setCompareTarget(Number(event.target.value))
                 }
-                className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-caption text-fg-base outline-none focus:border-accent/50"
+                className="h-6 rounded-full border border-border/60 bg-bg-panel px-2.5 py-0 text-caption text-fg-base outline-none focus:border-accent/50"
               >
                 {ringOptions.map((entry, index) => (
                   <option key={entry.capturedAt} value={entry.capturedAt}>
@@ -206,7 +204,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
               onChange={(event) =>
                 setGranularity(event.target.value as DiffGranularity)
               }
-              className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-caption text-fg-base outline-none focus:border-accent/50"
+              className="h-6 rounded-full border border-border/60 bg-bg-panel px-2.5 py-0 text-caption text-fg-base outline-none focus:border-accent/50"
             >
               <option value="line">{t('compare.granularity.line')}</option>
               <option value="word">{t('compare.granularity.word')}</option>

@@ -281,12 +281,47 @@ export function StdinInputPanel() {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col gap-3 p-4"
+      className="flex h-full min-h-0 flex-col"
       data-testid="stdin-panel"
       data-stdin-language={activeTab.language}
     >
-      <header className="flex flex-shrink-0 items-start justify-between gap-3">
-        <div className="min-w-0">
+      {/* Set controls share the header so both columns get the full height. */}
+      <header className="flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border-subtle px-4 py-2">
+        <InputSetToolbar
+          key={`${activeTab.id}:${activeTab.activeInputSetId ?? 'draft'}`}
+          tabId={activeTab.id}
+          inputSets={activeTab.inputSets ?? []}
+          activeInputSetId={activeTab.activeInputSetId}
+        />
+        <span className="flex-1" />
+        {stdinConsumed && stdinConsumed.total > 0 ? (
+          <span
+            data-testid="stdin-panel-consumed"
+            className="inline-flex items-center gap-1.5 text-caption font-medium text-success"
+          >
+            <Check size={11} aria-hidden />
+            {t('stdin.panel.consumed', {
+              count: stdinConsumed.count,
+              total: stdinConsumed.total,
+            })}
+          </span>
+        ) : null}
+        {filledCount > 0 ? (
+          <button
+            type="button"
+            onClick={handleClear}
+            data-testid="stdin-panel-clear"
+            aria-label={t('stdin.panel.clear')}
+            title={t('stdin.panel.clear')}
+            className="icon-button h-7 w-7 icon-button-danger"
+          >
+            <Trash2 size={12} aria-hidden />
+          </button>
+        ) : null}
+      </header>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 md:grid-cols-2 md:overflow-hidden">
+        <section className="flex min-h-0 flex-col gap-1.5" aria-label={t('stdin.panel.title')}>
           <div className="flex items-center gap-2">
             <MessageSquare size={11} aria-hidden className="text-fg-subtle" />
             <EyebrowMono>{t('stdin.panel.title')}</EyebrowMono>
@@ -294,107 +329,68 @@ export function StdinInputPanel() {
               {t('stdin.panel.lineCountBadge', { count: filledCount, promptFn })}
             </MonoBadge>
           </div>
-          <p className="mt-1 max-w-[60ch] text-body-sm leading-5 text-fg-muted">
+          <p className="text-caption text-fg-subtle">
             {t('stdin.panel.descriptionShort', { promptFn })}
           </p>
-        </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
-          {stdinConsumed && stdinConsumed.total > 0 ? (
-            <span
-              data-testid="stdin-panel-consumed"
-              className="inline-flex items-center gap-1.5 text-caption font-medium text-success"
+          {/* Ordered queue */}
+          <div className="min-h-[96px] flex-1 overflow-auto rounded-lg border border-border-subtle bg-bg-inset">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <Check size={11} aria-hidden />
-              {t('stdin.panel.consumed', {
-                count: stdinConsumed.count,
-                total: stdinConsumed.total,
-              })}
-            </span>
-          ) : null}
-          {filledCount > 0 ? (
-            <button
-              type="button"
-              onClick={handleClear}
-              data-testid="stdin-panel-clear"
-              aria-label={t('stdin.panel.clear')}
-              title={t('stdin.panel.clear')}
-              className="icon-button h-7 w-7 icon-button-danger"
-            >
-              <Trash2 size={12} aria-hidden />
-            </button>
-          ) : null}
-        </div>
-      </header>
+              <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                {slots.map((value, idx) => {
+                  const consumed = idx < consumedCount && value !== '';
+                  const isNext = idx === nextIndex;
+                  const kind = inferTypeKind(value);
+                  const dragDisabled = consumed || value === '';
+                  return (
+                    <SortableStdinRow
+                      key={`stdin-row-${idx}`}
+                      id={`stdin-row-${idx}`}
+                      idx={idx}
+                      value={value}
+                      consumed={consumed}
+                      isNext={isNext}
+                      kind={kind}
+                      dragDisabled={dragDisabled}
+                      onChange={(next) => handleLineChange(idx, next)}
+                      onKeyDown={handleKeyDown(idx)}
+                      consumedLabel={t('stdin.row.consumed')}
+                      nextLabel={t('stdin.row.next')}
+                      placeholderNext={t('stdin.row.placeholderNext')}
+                      ariaLabel={t('stdin.row.ariaLabel', { line: idx + 1 })}
+                      reorderAriaLabel={t('stdin.row.reorderAriaLabel', {
+                        line: idx + 1,
+                      })}
+                    />
+                  );
+                })}
+              </SortableContext>
+            </DndContext>
+          </div>
+        </section>
 
-      <InputSetToolbar
-        key={`${activeTab.id}:${activeTab.activeInputSetId ?? 'draft'}`}
-        tabId={activeTab.id}
-        inputSets={activeTab.inputSets ?? []}
-        activeInputSetId={activeTab.activeInputSetId}
-      />
-
-      <label className="grid flex-shrink-0 gap-1.5" data-testid="stdin-input-args">
-        <span className="text-caption font-semibold text-fg-muted">
-          {t('stdin.inputSets.argsLabel')}
-        </span>
-        <textarea
-          value={(activeTab.inputArgs ?? []).join('\n')}
-          onChange={(event) => {
-            const value = event.target.value;
-            setTabInputArgs(activeTab.id, value === '' ? null : value.split('\n'));
-          }}
-          rows={2}
-          spellCheck={false}
-          placeholder={t('stdin.inputSets.argsPlaceholder')}
-          aria-label={t('stdin.inputSets.argsAriaLabel')}
-          className="field-shell min-h-12 resize-y px-3 py-2 font-mono text-body-sm"
-        />
-        <span className="text-caption text-fg-subtle">
-          {t('stdin.inputSets.argsHint')}
-        </span>
-      </label>
-
-      {/* Ordered queue */}
-      <div className="flex-1 min-h-0 overflow-auto rounded-xl border border-border/60 bg-bg-panel-alt/70">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-            {slots.map((value, idx) => {
-              const consumed = idx < consumedCount && value !== '';
-              const isNext = idx === nextIndex;
-              const kind = inferTypeKind(value);
-              const dragDisabled = consumed || value === '';
-              return (
-                <SortableStdinRow
-                  key={`stdin-row-${idx}`}
-                  id={`stdin-row-${idx}`}
-                  idx={idx}
-                  value={value}
-                  consumed={consumed}
-                  isNext={isNext}
-                  kind={kind}
-                  dragDisabled={dragDisabled}
-                  onChange={(next) => handleLineChange(idx, next)}
-                  onKeyDown={handleKeyDown(idx)}
-                  consumedLabel={t('stdin.row.consumed')}
-                  nextLabel={t('stdin.row.next')}
-                  placeholderNext={t('stdin.row.placeholderNext')}
-                  ariaLabel={t('stdin.row.ariaLabel', { line: idx + 1 })}
-                  reorderAriaLabel={t('stdin.row.reorderAriaLabel', {
-                    line: idx + 1,
-                  })}
-                />
-              );
-            })}
-          </SortableContext>
-        </DndContext>
+        <label className="flex min-h-0 flex-col gap-1.5" data-testid="stdin-input-args">
+          <EyebrowMono>{t('stdin.inputSets.argsLabel')}</EyebrowMono>
+          <span className="text-caption text-fg-subtle">{t('stdin.inputSets.argsHint')}</span>
+          <textarea
+            value={(activeTab.inputArgs ?? []).join('\n')}
+            onChange={(event) => {
+              const value = event.target.value;
+              setTabInputArgs(activeTab.id, value === '' ? null : value.split('\n'));
+            }}
+            spellCheck={false}
+            placeholder={t('stdin.inputSets.argsPlaceholder')}
+            aria-label={t('stdin.inputSets.argsAriaLabel')}
+            className="field-shell min-h-[96px] flex-1 resize-none rounded-lg px-3 py-2 font-mono text-body-sm"
+          />
+        </label>
       </div>
 
       {/* Presets strip */}
-      <footer className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+      <footer className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle px-4 py-2">
         <EyebrowMono className="text-fg-subtle">
           {t('stdin.presets.label')}
         </EyebrowMono>
@@ -452,10 +448,10 @@ function InputSetToolbar({
 
   return (
     <div
-      className="grid flex-shrink-0 gap-2 rounded-xl border border-border/60 bg-bg-panel-alt/45 p-3 md:grid-cols-[minmax(140px,0.8fr)_minmax(180px,1fr)_auto_auto] md:items-end"
+      className="flex flex-wrap items-center gap-2"
       data-testid="stdin-input-set-toolbar"
     >
-      <label className="grid gap-1.5">
+      <label className="flex items-center gap-2">
         <span className="text-caption font-semibold text-fg-muted">
           {t('stdin.inputSets.label')}
         </span>
@@ -465,7 +461,7 @@ function InputSetToolbar({
             selectTabInputSet(tabId, event.target.value || null)
           }
           aria-label={t('stdin.inputSets.selectAriaLabel')}
-          className="field-shell h-9 px-2.5 text-body-sm"
+          className="field-shell h-7 w-auto rounded-md px-2 py-0 text-body-sm"
         >
           <option value="">{t('stdin.inputSets.draft')}</option>
           {inputSets.map((inputSet) => (
@@ -475,8 +471,8 @@ function InputSetToolbar({
           ))}
         </select>
       </label>
-      <label className="grid gap-1.5">
-        <span className="text-caption font-semibold text-fg-muted">
+      <label className="flex items-center gap-2">
+        <span className="sr-only">
           {t('stdin.inputSets.nameLabel')}
         </span>
         <input
@@ -486,14 +482,14 @@ function InputSetToolbar({
           onChange={(event) => setName(event.target.value)}
           placeholder={t('stdin.inputSets.namePlaceholder')}
           aria-label={t('stdin.inputSets.nameAriaLabel')}
-          className="field-shell h-9 px-3 text-body-sm"
+          className="field-shell h-7 w-44 rounded-md px-2.5 py-0 text-body-sm"
         />
       </label>
       <button
         type="button"
         disabled={!canSave}
         onClick={() => saveTabInputSet(tabId, normalizedName)}
-        className="button-primary h-9 px-3 text-caption"
+        className="button-secondary h-7 px-2.5 text-caption"
         data-testid="stdin-input-set-save"
         title={
           duplicateName
@@ -511,13 +507,13 @@ function InputSetToolbar({
         onClick={() => {
           if (activeInputSet) deleteTabInputSet(tabId, activeInputSet.id);
         }}
-        className="button-ghost h-9 px-3 text-caption text-danger disabled:opacity-40"
+        className="button-danger h-7 px-2.5 text-caption"
         data-testid="stdin-input-set-delete"
       >
         {t('stdin.inputSets.delete')}
       </button>
       {duplicateName ? (
-        <span className="text-caption text-danger md:col-span-4" role="alert">
+        <span className="w-full text-caption text-danger" role="alert">
           {t('stdin.inputSets.duplicateName')}
         </span>
       ) : null}

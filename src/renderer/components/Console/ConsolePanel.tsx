@@ -20,10 +20,9 @@ import {
 } from '../../stores/presenterModeStore';
 import { bucketCapsuleSize } from '../../../shared/runCapsule';
 import { extractClipboardImageFile, readPastedImageFile } from './clipboardImagePaste';
-import { IconButton, Kbd, Tooltip } from '../ui/chrome';
+import { IconButton, Tooltip } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { ContextualHint } from '../ContextualHints/ContextualHint';
-import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
@@ -31,7 +30,6 @@ import { ConsoleEntryRow } from './ConsoleEntryRow';
 import { richKindBucket } from './richConsoleFormat';
 import { useListWindow } from '../../hooks/useListWindow';
 import { useCommandListener } from '../../hooks/useCommandListener';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
 const TYPE_BADGE: Record<ConsoleEntryType, string> = {
   log: 'text-muted',
@@ -123,7 +121,6 @@ function isEditablePasteTarget(target: EventTarget | null): boolean {
 
 export function ConsolePanel() {
   const { t } = useTranslation();
-  const consoleCombo = useShortcutLabel('view-toggle-console');
   const { track } = useTelemetry();
   const { run, isRunning } = useRunner();
   const effectiveTier = useEffectiveTier();
@@ -463,7 +460,6 @@ export function ConsolePanel() {
   const renderedPulseLine =
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
     pulse?.generation === pulseGenerationRef.current ? pulse.line : null;
-  const totalCount = entries.length;
   // Payload-kind menu. Same dismissal hygiene as the other lightweight
   // dropdowns in the shell: outside mousedown or Escape closes it.
   const [payloadMenuOpen, setPayloadMenuOpen] = useState(false);
@@ -528,16 +524,9 @@ export function ConsolePanel() {
 
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
-      {/* Header: eyebrow + count badge + inline level chips + the ⌘\
-          hint. No prose caption here — the CONSOLE/INPUT tabs directly
-          above already name the panel, and at 1024px the caption wrapped
-          to five lines and inflated this whole row. */}
+      {/* Toolbar only: the dock tab above names the panel and carries the
+          count, and its hide button carries the shortcut. */}
       <div className="flex min-h-9 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
-        <div className="flex items-center gap-2.5">
-          <EyebrowMono>{t('console.title')}</EyebrowMono>
-          {totalCount > 0 ? <MonoBadge tone="accent">{totalCount}</MonoBadge> : null}
-        </div>
-
         <div className="ml-auto flex items-center gap-1.5">
           {FILTER_TYPES.map(type => {
             const active = activeFilters.has(type);
@@ -636,13 +625,6 @@ export function ConsolePanel() {
               : null}
           </div>
           <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
-          {consoleCombo ? (
-            <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
-              <span className="inline-flex items-center gap-1 text-eyebrow text-fg-subtle">
-                <Kbd>{consoleCombo}</Kbd>
-              </span>
-            </Tooltip>
-          ) : null}
           <IconButton
             onClick={toggleTimestamps}
             active={showTimestamps}
