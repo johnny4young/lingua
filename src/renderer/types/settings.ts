@@ -34,8 +34,11 @@ export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
  */
 export type RestoreSessionMode = 'never' | 'ask' | 'always';
 
+/** `system` follows the OS light or dark preference with the Lingua themes. */
+export type ThemePreference = 'dark' | 'light' | 'system';
+
 export interface SettingsState {
-  theme: 'dark' | 'light';
+  theme: ThemePreference;
   editorTheme: string;
   fontSize: number;
   fontFamily: string;
@@ -366,7 +369,7 @@ export interface SettingsState {
    * languages are offered; defaults to `'javascript'`.
    */
   notebookDefaultCellLanguage: 'javascript' | 'typescript';
-  setTheme: (theme: 'dark' | 'light') => void;
+  setTheme: (theme: ThemePreference) => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
@@ -423,7 +426,7 @@ export interface SettingsState {
    * left untouched so preset sharing doesn't override safety preferences.
    */
   applyThemePreset: (preset: {
-    theme: 'dark' | 'light';
+    theme: ThemePreference;
     editorTheme: string;
     fontFamily: string;
     fontSize: number;

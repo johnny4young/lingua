@@ -1,4 +1,4 @@
-import { MoonStar, SunMedium } from 'lucide-react';
+import { Monitor, MoonStar, SunMedium } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_THEME_PACK_ID, THEME_PACKS } from '../../data/themePacks';
 import { resolveEffectiveShellTheme } from '../../hooks/useAppTheme';
@@ -24,7 +24,30 @@ const APP_THEMES = [
     descriptionKey: 'appearance.theme.light.description',
     icon: SunMedium,
   },
+  {
+    id: 'system' as const,
+    labelKey: 'appearance.theme.system.label',
+    descriptionKey: 'appearance.theme.system.description',
+    icon: Monitor,
+  },
 ];
+
+/** Shell and editor swatch drawn with that theme's own tokens, not the current theme's. */
+function ThemeSwatch({ polarity }: { readonly polarity: 'dark' | 'light' }) {
+  return (
+    <span
+      data-theme-swatch={polarity}
+      className={`${polarity} flex h-[26px] flex-1 overflow-hidden rounded-md border border-border-subtle`}
+    >
+      <span className="w-[28%] shrink-0 bg-bg-panel-alt" />
+      <span className="flex flex-1 items-center gap-1 bg-[var(--color-editor-bg)] px-2">
+        <span className="h-1.5 w-5 rounded-full bg-[var(--color-syntax-keyword)]" />
+        <span className="h-1.5 w-8 rounded-full bg-[var(--color-syntax-string)]" />
+        <span className="h-1.5 w-3 rounded-full bg-[var(--color-syntax-number)]" />
+      </span>
+    </span>
+  );
+}
 
 const VALID_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'es'];
 
@@ -116,10 +139,11 @@ export function AppearanceSection() {
         />
       </SpecCard>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         {APP_THEMES.map((option) => {
           const Icon = option.icon;
-          const selected = effectiveTheme === option.id;
+          const selected =
+            theme === 'system' ? option.id === 'system' : effectiveTheme === option.id;
 
           return (
             <button
@@ -145,8 +169,14 @@ export function AppearanceSection() {
                 {t(option.descriptionKey)}
               </p>
               <div className="mt-3 flex gap-2">
-                <span className="h-[26px] w-[70px] shrink-0 rounded-md bg-bg-panel-alt" />
-                <span className="h-[26px] flex-1 rounded-md bg-bg-panel" />
+                {option.id === 'system' ? (
+                  <>
+                    <ThemeSwatch polarity="light" />
+                    <ThemeSwatch polarity="dark" />
+                  </>
+                ) : (
+                  <ThemeSwatch polarity={option.id} />
+                )}
               </div>
             </button>
           );

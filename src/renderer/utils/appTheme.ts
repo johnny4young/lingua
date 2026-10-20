@@ -1,6 +1,7 @@
 import type { SettingsState } from '../types/settings';
 
-export type AppTheme = SettingsState['theme'];
+/** The polarity actually applied to the shell. */
+export type AppTheme = 'dark' | 'light';
 export const APP_THEME_COLOR: Record<AppTheme, string> = {
   dark: '#0c1017',
   light: '#f4efe7',
@@ -12,6 +13,16 @@ function isThemeRecord(value: unknown): value is Partial<Pick<SettingsState, 'th
 
 function isAppTheme(value: unknown): value is AppTheme {
   return value === 'dark' || value === 'light';
+}
+
+function systemPrefersDark(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+/** The Lingua editor theme that matches the OS preference. */
+export function systemEditorTheme(): 'lingua-dark' | 'lingua-light' {
+  return systemPrefersDark() ? 'lingua-dark' : 'lingua-light';
 }
 
 export function getStoredAppTheme(serializedState: string | null): AppTheme | null {

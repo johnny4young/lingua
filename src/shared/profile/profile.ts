@@ -31,7 +31,7 @@ export type ProfileImportPolicy = 'replace' | 'merge' | 'preserve';
  *     (machine/build-local UX state)
  */
 export interface PortableSettings {
-  theme?: 'dark' | 'light';
+  theme?: 'dark' | 'light' | 'system';
   editorTheme?: string;
   fontSize?: number;
   fontFamily?: string;
@@ -148,7 +148,7 @@ function pickPortableSettings(raw: unknown): PortableSettings {
   for (const key of STRING_SETTINGS) {
     if (isBoundedString(raw[key])) out[key] = raw[key];
   }
-  if (raw.theme === 'dark' || raw.theme === 'light') out.theme = raw.theme;
+  if (raw.theme === 'dark' || raw.theme === 'light' || raw.theme === 'system') out.theme = raw.theme;
   if (isFiniteNumberInRange(raw.fontSize, 10, 32)) {
     out.fontSize = raw.fontSize;
   }

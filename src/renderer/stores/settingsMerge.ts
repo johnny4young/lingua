@@ -128,7 +128,7 @@ export function settingsMerge(
               layoutPreset: merged.layoutPreset,
             },
             findThemePack(requestedThemePack)?.appearance ?? {
-              theme: currentState.theme,
+              theme: currentState.theme === 'light' ? 'light' : 'dark',
               editorTheme: currentState.editorTheme,
               fontFamily: currentState.fontFamily,
               fontSize: currentState.fontSize,

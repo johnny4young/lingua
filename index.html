@@ -175,6 +175,12 @@
             }
 
             const parsed = JSON.parse(storedState);
+            // System follows the OS; the stored editor theme can be stale.
+            if (parsed?.state?.theme === 'system' || parsed?.theme === 'system') {
+              return window.matchMedia?.('(prefers-color-scheme: dark)').matches === false
+                ? 'light'
+                : 'dark';
+            }
             const directEditorTheme = resolveEditorThemePolarity(parsed?.editorTheme);
             if (directEditorTheme) {
               return directEditorTheme;
