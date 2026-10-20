@@ -87,11 +87,12 @@ export function FloatingActionPillRuntimeSegment({
           className="action-pill-segment rounded-none"
           aria-haspopup="menu"
           aria-expanded={openMenu === 'runtime'}
+          aria-label={runtimeChip.label}
           onClick={() => setOpenMenu(openMenu === 'runtime' ? null : 'runtime')}
           data-testid="action-pill-runtime"
         >
           <span aria-hidden>{runtimeChip.icon}</span>
-          <span>{runtimeChip.label}</span>
+          <span className="action-pill-runtime-label">{runtimeChip.label}</span>
           <ChevronDown size={10} aria-hidden className="text-fg-subtle" />
         </button>
         {openMenu === 'runtime' ? (

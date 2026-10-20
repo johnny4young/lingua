@@ -434,6 +434,23 @@ describe('AppLayout responsive shell', () => {
     );
   });
 
+  it('keeps the editor mounted while the dock folds and opens', async () => {
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
+
+    await renderLayout();
+    const editor = screen.getByTestId('code-editor');
+
+    act(() => useUIStore.getState().setConsoleVisible(false));
+    expect((await screen.findByTestId('results-dock')).getAttribute('data-expanded')).toBe('false');
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+
+    act(() => useUIStore.getState().setConsoleVisible(true));
+    expect(await screen.findByTestId('console-panel')).toBeTruthy();
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+  });
+
   it('lists Variables in the dock once a capture exists and opens it', async () => {
     const user = userEvent.setup();
     editorTabs = [

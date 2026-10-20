@@ -13,6 +13,7 @@ import {
   gotoApp,
   seedSession,
   test,
+  waitForSeededWorkspaceSettled,
 } from './licenseWeb.helpers';
 
 async function countExportResources(page: Page): Promise<{
@@ -43,6 +44,14 @@ test('loads export only after a capsule exists and reuses it for button and shor
   await expect(page.getByTestId('result-panel-export-capsule')).toHaveCount(0);
   expect(await countExportResources(page)).toEqual({ button: 0, pipeline: 0 });
 
+  // A manual run that starts while the welcome auto-run is in flight is
+  // superseded before it records a capsule, so let the seeded run settle first.
+  await waitForSeededWorkspaceSettled(page);
+  await expect
+    .poll(() => page.evaluate(() => window.__linguaE2e?.autoRunSettled?.() ?? false), {
+      timeout: 30_000,
+    })
+    .toBe(true);
   await clickRun(page);
   const button = page.getByTestId('result-panel-export-capsule');
   await expect(button).toBeVisible({ timeout: 30_000 });

@@ -1709,7 +1709,8 @@
       display: none;
     }
 
-    .action-pill-language-label {
+    .action-pill-language-label,
+    .action-pill-runtime-label {
       display: none;
     }
   }

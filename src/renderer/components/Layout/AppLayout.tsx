@@ -1,10 +1,16 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { RefObject } from 'react';
 import { PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+  type PanelImperativeHandle,
+} from 'react-resizable-panels';
 import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { FloatingVariablesCardHost } from '../Editor/FloatingVariablesCardHost';
@@ -99,14 +105,21 @@ function useCompactShellLayout() {
   return isCompact;
 }
 
-function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
+function ResizeHandle({
+  orientation = 'vertical',
+  disabled = false,
+}: {
+  orientation?: 'vertical' | 'horizontal';
+  disabled?: boolean;
+}) {
   const isVertical = orientation === 'vertical';
   // Keep the inner divider transparent so the editor +
   // results dock read as ONE canvas. The hit zone stays 3px wide
   // so power users can still resize, and the bar fades in on hover.
   return (
     <Separator
-      className={`group relative flex items-center justify-center transition-colors ${
+      disabled={disabled}
+      className={`group relative flex items-center justify-center transition-colors ${disabled ? 'pointer-events-none ' : ''}${
         isVertical
           ? '-mx-1 w-3 cursor-col-resize hover:bg-accent/5'
           : '-my-1 h-3 cursor-row-resize hover:bg-accent/5'
@@ -289,7 +302,16 @@ interface MainContentProps {
   layoutPreset: LayoutPreset;
 }
 
+const DOCK_ROW_PX = 34;
+
+/**
+ * One stable tree for every dock state, so folding or opening the dock never
+ * remounts the editor: the dock panel collapses instead of leaving the tree.
+ * Below the editor it folds to its tab row; beside it (vertical preset) it
+ * folds away and the tab row sits under the group.
+ */
 function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps) {
+  const vertical = layoutPreset === 'vertical';
   const verticalLayout = useDefaultLayout({
     id: 'lingua-main-vertical-layout',
     panelIds: ['workspace-panel', 'console-panel'],
@@ -300,58 +322,71 @@ function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps
     panelIds: ['workspace-panel', 'console-panel'],
     storage: localStorage,
   });
+  const layout = vertical ? verticalLayout : horizontalLayout;
+  const dockPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const programmaticRef = useRef(false);
+  const collapsedSize = vertical || !dockShown ? 0 : DOCK_ROW_PX;
 
-  if (!dockShown) return <EditorArea />;
+  useLayoutEffect(() => {
+    const panel = dockPanelRef.current;
+    if (!panel) return;
+    programmaticRef.current = true;
+    if (dockExpanded) {
+      if (panel.isCollapsed()) panel.expand();
+    } else if (!panel.isCollapsed()) {
+      panel.collapse();
+    }
+    programmaticRef.current = false;
+  }, [dockExpanded, collapsedSize]);
 
-  // Collapsed, the dock keeps its tab row so every output surface reopens from one place.
-  if (!dockExpanded) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="min-h-0 flex-1">
+  // Dragging the dock shut or open is the same choice as the hide button.
+  const handleDockResize = () => {
+    const panel = dockPanelRef.current;
+    if (!panel || programmaticRef.current || !dockShown) return;
+    const collapsed = panel.isCollapsed();
+    const visible = useUIStore.getState().consoleVisible;
+    if (collapsed && visible) useUIStore.getState().setConsoleVisible(false);
+    else if (!collapsed && !visible) useUIStore.getState().setConsoleVisible(true);
+  };
+
+  const dockInPanel = dockShown && (dockExpanded || !vertical);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <Group
+        key={vertical ? 'beside' : 'below'}
+        orientation={vertical ? 'horizontal' : 'vertical'}
+        defaultLayout={layout.defaultLayout}
+        onLayoutChanged={layout.onLayoutChanged}
+        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+        className="min-h-0 flex-1"
+      >
+        <Panel
+          id="workspace-panel"
+          defaultSize={vertical ? '60%' : '66%'}
+          minSize={vertical ? 420 : 260}
+        >
           <EditorArea />
-        </div>
+        </Panel>
+        <ResizeHandle orientation={vertical ? 'vertical' : 'horizontal'} disabled={!dockExpanded} />
+        <Panel
+          id="console-panel"
+          panelRef={dockPanelRef}
+          collapsible
+          collapsedSize={collapsedSize}
+          defaultSize={vertical ? '40%' : '34%'}
+          minSize={vertical ? 260 : 160}
+          onResize={handleDockResize}
+        >
+          {dockInPanel ? <BottomPanelSurface expanded={dockExpanded} /> : null}
+        </Panel>
+      </Group>
+      {vertical && dockShown && !dockExpanded ? (
         <div className="h-[34px] shrink-0">
           <BottomPanelSurface expanded={false} />
         </div>
-      </div>
-    );
-  }
-
-  if (layoutPreset === 'vertical') {
-    return (
-      <Group
-        orientation="horizontal"
-        defaultLayout={verticalLayout.defaultLayout}
-        onLayoutChanged={verticalLayout.onLayoutChanged}
-        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-      >
-        <Panel id="workspace-panel" defaultSize="60%" minSize={420}>
-          <EditorArea />
-        </Panel>
-        <ResizeHandle orientation="vertical" />
-        <Panel id="console-panel" defaultSize="40%" minSize={260}>
-          <BottomPanelSurface expanded />
-        </Panel>
-      </Group>
-    );
-  }
-
-  // horizontal (default)
-  return (
-    <Group
-      orientation="vertical"
-      defaultLayout={horizontalLayout.defaultLayout}
-      onLayoutChanged={horizontalLayout.onLayoutChanged}
-      resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-    >
-      <Panel id="workspace-panel" defaultSize="66%" minSize={260}>
-        <EditorArea />
-      </Panel>
-      <ResizeHandle orientation="horizontal" />
-      <Panel id="console-panel" defaultSize="34%" minSize={160}>
-        <BottomPanelSurface expanded />
-      </Panel>
-    </Group>
+      ) : null}
+    </div>
   );
 }
 
