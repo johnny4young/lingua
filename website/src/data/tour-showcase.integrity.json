@@ -19,12 +19,12 @@
       "sha256": "ae95ba966dd3eefac39473d34f5607e4548dc61819b6da4f00424c650d5c3e6e"
     },
     "settings-privacy/en": {
-      "bytes": 184141,
-      "sha256": "d0f961be48f9c446ba3fcd191590cdd2605eff3cdaaa003db875f5fb6cc5d67c"
+      "bytes": 192344,
+      "sha256": "1be10dcae20b1356158a085e389c2575f51a32356dd8772a671cfb2184860b12"
     },
     "settings-privacy/es": {
-      "bytes": 190712,
-      "sha256": "7fa972481000c20bd6d9bed017f460689317e2a8c396381d58cfa57559b1447e"
+      "bytes": 199877,
+      "sha256": "e96c128f6a72444b19b594079e64caea584bfaf02d58dae043ddc13d802b576c"
     },
     "sql-workspace/en": {
       "bytes": 113531,
