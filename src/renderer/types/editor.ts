@@ -62,6 +62,8 @@ export interface FileTab {
    */
   rootId?: string;
   relativePath?: string;
+  /** Epoch ms of the last user edit; session-only, drives Quick Open's "edited N min ago". */
+  lastEditedAt?: number;
   /** Last committed disk hash for optimistic notebook saves; not a capability. */
   notebookDocumentHash?: string | null;
   /** Last execution outcome. Drives the status dot in EditorTabs. */
