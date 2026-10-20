@@ -7,8 +7,8 @@ boundaries, safe mode, and the Recovery surface in Settings.
 
 ## Error boundaries
 
-Every major shell region (toolbar, sidebar, editor, results panel,
-console, settings overlay) is wrapped in a React error boundary. A
+Every major shell region (command bar, sidebar, editor, results dock,
+settings overlay) is wrapped in a React error boundary. A
 render-time crash in any one of them shows a fallback panel inside
 that region instead of leaving the rest of the app unusable. The
 fallback offers three actions:

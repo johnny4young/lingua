@@ -11,6 +11,13 @@ The format follows Keep a Changelog and groups changes by release.
 - Appearance offers Dark, Light and System. System follows the operating system's light or dark setting, and each card's preview uses that theme's real shell and editor colours.
 - Buttons share one set of states: a small lift on hover, a pressed state, a two-pixel focus ring in the control's colour, and the same faded look when disabled. Run and the main action on each surface use the accent colour; destructive buttons stay red text until a confirmation asks for them. Settings switches are smaller (36 by 20 pixels).
 - Animations and transitions use the shared timing tokens and stop when the system asks to reduce motion.
+- The workspace has one 48-pixel command bar instead of a title row plus a floating pill: file, language, engine, Run, the command icons, license and Settings sit in the same row, and the editor starts higher. On SQL, HTTP and Utilities tabs the bar keeps only the workspace chip, since Run and Send live in the tab. Undock in the More actions menu brings the draggable pill back, and Dock returns it.
+- The empty results column next to the editor is gone. Console, Input, Compare, Variables and Terminal are tabs of one results dock under a full-width editor, with Debugger, Browser preview, Dependencies, Git diff and Recipe added when they apply. The dock's tab row carries auto-log, run history, time, capsule export and share, and hiding the dock (Cmd/Ctrl+\) folds it to that row. The dock is open by default.
+- Compare is a dock tab with a one-line header and a full-width diff; Cmd/Ctrl+Shift+D opens and closes it. The Console tab ends with bars for the last five runs.
+- The Input drawer puts stdin lines and arguments side by side, with the input-set controls in its header, so nothing is cut off at the default height. The Input tab shows how many lines are staged.
+- Variables open in the results dock by default; Settings still offers the floating card. Existing installs move to the dock once.
+- Validation and view-only files show their report at the top of the Console tab.
+- Run gives a short press response and one accent sweep down the editor per completed run, and switching dock tabs cross-fades the body; all of it is off when the system asks to reduce motion.
 
 ### Fixed
 - Language chips and labels in the light theme are readable (they were pale text on pale tints).

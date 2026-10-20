@@ -14,7 +14,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
 | Close active tab        | `Cmd+W`       | `Ctrl+W`        |
 | Toggle sidebar          | `Cmd+B`       | `Ctrl+B`        |
-| Toggle console          | `Cmd+\`       | `Ctrl+\`        |
+| Show or hide the dock   | `Cmd+\`       | `Ctrl+\`        |
 | Quick open (go to file) | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
 | Recent commands         | `Cmd+;`       | `Ctrl+;`        |
@@ -35,7 +35,9 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
 
-On workspace tabs `Cmd/Ctrl+Enter` and the action pill's Run act on that workspace instead of a language runner: the HTTP workspace sends the active request, the SQL workspace runs the active query, and Developer Utilities applies the selected utility to its input. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`…`0` jump between sections.
+The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
+
+On workspace tabs the command bar keeps only the workspace chip, because the run action lives in the tab: `Cmd/Ctrl+Enter` and the tab's own Send or Run button act on that workspace instead of a language runner. The HTTP workspace sends the active request, the SQL workspace runs the active query, and Developer Utilities applies the selected utility to its input. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`…`0` jump between sections.
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 

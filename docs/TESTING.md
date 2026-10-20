@@ -46,7 +46,7 @@ Use the web flow for:
 - command palette
 - quick open
 - console UI
-- result panel UI
+- results dock UI
 - responsive behavior
 - browser-supported language execution
 
@@ -342,8 +342,8 @@ Use this order when automating:
 | ✅ | `TC-068` | `BOTH` | `developer` | Toggle log/info/warn/error filters | Visible entries change correctly |
 | ✅ | `TC-069` | `BOTH` | `developer` | Toggle timestamps | Timestamps show/hide |
 | ✅ | `TC-070` | `BOTH` | `developer` | Click clear console | Console becomes empty |
-| ✅ | `TC-071` | `BOTH` | `developer` | Inspect result panel | Inline results align with editor lines |
-| ✅ | `TC-072` | `BOTH` | `developer` | Inspect result panel | Full output view renders |
+| ✅ | `TC-071` | `BOTH` | `developer` | Inspect inline results | Values align with editor lines |
+| ✅ | `TC-072` | `BOTH` | `developer` | Run a Go or JSON tab | Output or the validation report shows in the dock Console tab |
 | ✅ | `TC-073` | `BOTH` | `developer` | Toggle `undef` | Undefined results hide/show |
 | ✅ | `TC-074` | `BOTH` | `developer` | Run failing code | Error is visible with line info if available |
 | ✅ | `TC-075` | `BOTH` | `developer` | Run code | Execution time appears |
