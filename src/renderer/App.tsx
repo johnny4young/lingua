@@ -58,6 +58,7 @@ import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 import { pushUpsellNotice } from './utils/upsellNotice';
+import { toggleExplorerOrToolList } from './utils/explorerToggle';
 
 function FactoryRecoveryNotice() {
   const { t } = useTranslation();
@@ -101,10 +102,9 @@ function AppChrome({
   });
   const suppressTourAutoStart = useSettingsStore(s => s.suppressTourAutoStart);
   const telemetryConsent = useSettingsStore(s => s.telemetryConsent);
-  // Select the two stable actions individually — `useUIStore()` with no
+  // Select the stable action individually — `useUIStore()` with no
   // selector re-renders AppChrome (the entire shell) on EVERY ui-store
   // write, including each of the ~134 statusNotice push/dismiss sites.
-  const toggleSidebar = useUIStore(s => s.toggleSidebar);
   const toggleConsole = useUIStore(s => s.toggleConsole);
   const initializePlugins = usePluginStore(s => s.initialize);
   const initializeUpdates = useUpdateStore(s => s.initialize);
@@ -314,7 +314,7 @@ function AppChrome({
     openFileFromDisk,
     activeTabId,
     closeTab,
-    toggleSidebar,
+    toggleSidebar: toggleExplorerOrToolList,
     toggleConsole,
     overlay,
     toggleOverlay,

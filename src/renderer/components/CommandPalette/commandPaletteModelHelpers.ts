@@ -1,13 +1,7 @@
 /** Shared command constructors. Domain registries own composition. */
 
 import type { TFunction } from 'i18next';
-import {
-  currentShortcutDisplayPlatform,
-  formatShortcutCombo,
-  formatShortcutLabel,
-  type ShortcutId,
-} from '../../data/keyboardShortcuts';
-import type { BuildCommandPaletteModelArgs } from './commandPaletteModelTypes';
+import { currentShortcutDisplayPlatform, formatShortcutCombo } from '../../data/keyboardShortcuts';
 import {
   resolveTemplateDescription,
   resolveTemplateFileStem,
@@ -264,14 +258,6 @@ export function buildReplayHistoryCommand(
       onClose();
     },
   };
-}
-
-/** Interpolation values naming the live combo for a catalog shortcut. */
-export function shortcutComboValues(
-  args: Pick<BuildCommandPaletteModelArgs, 'shortcutOverrides'>,
-  id: ShortcutId
-): { combo: string } {
-  return { combo: formatShortcutLabel(id, args.shortcutOverrides ?? {}) ?? '' };
 }
 
 /** Monaco owns plain paste, so it is not in the remappable catalog. */

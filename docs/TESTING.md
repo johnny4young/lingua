@@ -255,6 +255,8 @@ Use this order when automating:
 | ✅ | `TC-007` | `BOTH` | `developer` | Click `Snippets` | Snippets modal opens |
 | ✅ | `TC-008` | `BOTH` | `developer` | Open command palette | Palette opens and focus lands in search input |
 | ✅ | `TC-009` | `BOTH` | `developer` | Toggle sidebar | Sidebar changes visible/hidden |
+| ✅ | `TC-102` | `BOTH` | `developer` | On a Utilities tab, press `Cmd/Ctrl+B` twice, then `Cmd/Ctrl+K` | The tool list opens from its icon rail and folds back without touching the explorer; `Cmd/Ctrl+K` opens it with search focused |
+| ✅ | `TC-103` | `BOTH` | `developer` | In the palette, press `Tab` and `Shift+Tab`, then type a query | Selection jumps between group headers; Recent shows only on the empty query and the first filtered row is the best match |
 | ✅ | `TC-010` | `BOTH` | `developer` | Show or hide the dock | Dock folds to its tab row and reopens |
 | ✅ | `TC-011` | `BOTH` | `developer` | With no tabs, inspect `Run` | Run is disabled |
 | ✅ | `TC-012` | `BOTH` | `developer` | Create JS file from primary new-file action | JS tab is created and becomes active |

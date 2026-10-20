@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { inspectTimestampLike, type TimestampHoverInfo } from '../../utils/developerUtilities';
 import { cn } from '../../utils/cn';
+import { utcDateLabel } from '../../utils/timeLabels';
 import { defineCustomThemes, getEditorThemeSurface } from '../Editor/editorThemes';
 
 interface JsonTimestampRange {
@@ -19,6 +20,8 @@ export interface JsonSyntaxOutputProps {
   ariaLabel: string;
   testid?: string;
   className?: string;
+  /** Append the UTC date as an end-of-line comment after each timestamp (JWT claims). */
+  annotateTimestamps?: boolean;
 }
 
 /**
@@ -27,7 +30,13 @@ export interface JsonSyntaxOutputProps {
  * text selectable and intentionally owns no Monaco editor model, cursor, or
  * keyboard shortcuts.
  */
-export function JsonSyntaxOutput({ value, ariaLabel, testid, className }: JsonSyntaxOutputProps) {
+export function JsonSyntaxOutput({
+  value,
+  ariaLabel,
+  testid,
+  className,
+  annotateTimestamps = false,
+}: JsonSyntaxOutputProps) {
   const { t } = useTranslation();
   const editorTheme = useSettingsStore(state => state.editorTheme);
   const fontFamily = useSettingsStore(state => state.fontFamily);
@@ -53,6 +62,7 @@ export function JsonSyntaxOutput({ value, ariaLabel, testid, className }: JsonSy
           idPrefix: outputId,
           localLabel,
           utcLabel,
+          annotate: annotateTimestamps ? value : null,
         });
       }
     };
@@ -112,7 +122,7 @@ export function JsonSyntaxOutput({ value, ariaLabel, testid, className }: JsonSy
     return () => {
       cancelled = true;
     };
-  }, [editorTheme, localLabel, outputId, timestamps, utcLabel, value]);
+  }, [annotateTimestamps, editorTheme, localLabel, outputId, timestamps, utcLabel, value]);
 
   return (
     <pre
@@ -189,13 +199,27 @@ function findTimestampRanges(value: string): JsonTimestampRange[] {
 function addTimestampTooltips(
   host: HTMLElement,
   timestamps: readonly JsonTimestampRange[],
-  labels: { idPrefix: string; localLabel: string; utcLabel: string }
+  labels: { idPrefix: string; localLabel: string; utcLabel: string; annotate: string | null }
 ) {
   // Work from the end so the inserted tooltip text never shifts the source
   // offsets for a timestamp that appears earlier in the JSON document.
   for (let index = timestamps.length - 1; index >= 0; index -= 1) {
     const range = timestamps[index];
     if (!range) continue;
+    if (labels.annotate !== null) {
+      // The end-of-line comment goes in before the value is wrapped; both sit
+      // after this range, so the earlier offsets stay valid.
+      const lineEnd = labels.annotate.indexOf('\n', range.end);
+      const at = lineEnd === -1 ? labels.annotate.length : lineEnd;
+      const anchor = rangeForTextOffsets(host, at, at);
+      if (anchor) {
+        const comment = document.createElement('span');
+        comment.setAttribute('data-testid', 'json-timestamp-comment');
+        comment.className = 'select-none italic text-[var(--color-syntax-comment)]';
+        comment.textContent = `  // ${utcDateLabel(range.timestamp.iso)}`;
+        anchor.insertNode(comment);
+      }
+    }
     const sourceRange = rangeForTextOffsets(host, range.start, range.end);
     if (!sourceRange) continue;
 

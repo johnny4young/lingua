@@ -6,7 +6,6 @@
  */
 
 import type { TFunction } from 'i18next';
-import type { ShortcutOverrideMap } from '../../data/keyboardShortcuts';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import type { Template } from '../../data/templates';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
@@ -32,6 +31,8 @@ export interface CommandEntry {
   keywords: string[];
   /** Still searchable, but cannot be activated until its prerequisite exists. */
   disabled?: boolean;
+  /** Keycap for a shortcut outside the remappable catalog; catalog ones resolve by id. */
+  shortcut?: string;
   action: () => void;
 }
 
@@ -488,8 +489,6 @@ export interface BuildCommandPaletteModelArgs {
    * fall back to their English keys.
    */
   t?: TFunction;
-  /** User shortcut overrides, so descriptions name the combo that actually fires. */
-  shortcutOverrides?: ShortcutOverrideMap;
 }
 
 type CommandPaletteTranslate = (key: string, options?: Record<string, unknown>) => string;

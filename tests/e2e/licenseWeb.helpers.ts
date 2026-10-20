@@ -472,6 +472,10 @@ export async function closeSnippets(page: Page): Promise<void> {
 export async function openDeveloperUtilities(page: Page): Promise<void> {
   await page.getByRole('button', { name: /developer utilities|utilidades de desarrollo/i }).click();
   await expect(page.getByTestId('developer-utilities-workspace')).toBeVisible();
+  // The tool list starts folded to its icon rail; these flows browse the list.
+  const expand = page.getByTestId('utility-rail-expand');
+  if (await expand.isVisible().catch(() => false)) await expand.click();
+  await expect(page.getByTestId('utilities-search-input')).toBeVisible();
 }
 
 export async function closeDeveloperUtilities(page: Page): Promise<void> {

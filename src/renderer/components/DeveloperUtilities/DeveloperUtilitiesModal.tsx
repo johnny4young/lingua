@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { PanelLeft, Search } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,8 +12,12 @@ import {
   CATEGORY_SORTED_UTILITIES,
   UTILITY_CATEGORY,
   UTILITY_CATEGORY_LABEL_KEY,
+  type UtilityCategory,
 } from '../../data/utilityCategories';
 import { ModalShell } from '../ui/ModalShell';
+import { Tooltip } from '../ui/chrome';
+import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { UtilityRail } from './UtilityRail';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
@@ -82,6 +86,11 @@ function useFavoriteTelemetry(): void {
   }, [track]);
 }
 
+interface ToolListControl {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
 interface DeveloperUtilitiesWorkspaceBodyProps {
   selectedUtilityId: DeveloperUtilityId;
   onSelectUtility: (utilityId: DeveloperUtilityId) => void;
@@ -89,6 +98,8 @@ interface DeveloperUtilitiesWorkspaceBodyProps {
   testId?: string;
   className?: string;
   active?: boolean;
+  /** The workspace tab folds its list to an icon rail; the modal keeps the full list. */
+  toolList?: ToolListControl;
 }
 
 function DeveloperUtilitiesWorkspaceBody({
@@ -98,6 +109,7 @@ function DeveloperUtilitiesWorkspaceBody({
   testId = 'developer-utilities-workspace-body',
   className = 'grid h-full grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]',
   active = true,
+  toolList,
 }: DeveloperUtilitiesWorkspaceBodyProps) {
   const { t } = useTranslation();
   const { track } = useTelemetry();
@@ -178,6 +190,25 @@ function DeveloperUtilitiesWorkspaceBody({
   // Category headings only make sense in the ungrouped browse
   // view; while searching, the list is a single ranked run.
   const showCategoryHeadings = searchQuery.trim().length === 0;
+  const compact = toolList !== undefined;
+  const toggleCombo = useShortcutLabel('view-toggle-sidebar') ?? '';
+  const listRef = useRef<HTMLDivElement>(null);
+  const openListAt = (focus: 'search' | 'favorites' | UtilityCategory) => {
+    toolList?.setOpen(true);
+    window.requestAnimationFrame(() => {
+      if (focus === 'search') {
+        searchRef.current?.focus();
+        return;
+      }
+      if (focus === 'favorites') {
+        listRef.current?.scrollTo({ top: 0 });
+        return;
+      }
+      listRef.current
+        ?.querySelector(`[data-testid="utility-category-${focus}"]`)
+        ?.scrollIntoView({ block: 'start' });
+    });
+  };
 
   const isUtilityLocked = (utility: DeveloperUtilityDefinition): boolean =>
     utility.requiresEntitlement === 'DEV_UTILITIES' && !canUseUtilityWorkflows;
@@ -306,9 +337,53 @@ function DeveloperUtilitiesWorkspaceBody({
     }
   };
 
+  const panel = (
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg-panel-alt/40">
+      {/* The selected sidebar row already shows this utility's title and
+          description, and the panel below opens with its own heading, so a
+          third copy of the description bought nothing but a bordered band.
+          The heading stays as a visually hidden landmark for screen readers
+          and heading-based tests. */}
+      <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
+      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+        <DeveloperUtilityPanel
+          toolId={activeSelectedUtilityId}
+          mountedToolIds={visitedUtilityIds}
+          active={active}
+        />
+      </div>
+    </main>
+  );
+
+  if (toolList && !toolList.open) {
+    return (
+      <div data-testid={testId} data-tool-list="rail" className="flex min-h-0 flex-1">
+        <UtilityRail
+          activeCategory={UTILITY_CATEGORY[activeSelectedUtilityId]}
+          pipelinesActive={activeSelectedUtilityId === 'utility-pipelines'}
+          onSearch={() => openListAt('search')}
+          onFavorites={() => openListAt('favorites')}
+          onCategory={category => openListAt(category)}
+          onPipelines={() => handleSelectUtility('utility-pipelines')}
+          onExpand={() => toolList.setOpen(true)}
+        />
+        {panel}
+      </div>
+    );
+  }
+
   return (
-    <div data-testid={testId} className={className}>
-      <aside className="flex min-h-0 flex-col border-b border-border-subtle lg:border-b-0 lg:border-r">
+    <div
+      data-testid={testId}
+      data-tool-list={compact ? 'open' : undefined}
+      className={compact ? 'flex min-h-0 flex-1' : className}
+    >
+      <aside
+        className={cn(
+          'flex min-h-0 flex-col border-b border-border-subtle lg:border-b-0 lg:border-r',
+          compact && 'w-[260px] shrink-0 border-b-0 border-r bg-bg-panel'
+        )}
+      >
         <div className="px-4 pb-3 pt-4">
           <div className="relative">
             <Search
@@ -338,7 +413,7 @@ function DeveloperUtilitiesWorkspaceBody({
           </div>
         </div>
         <FavoritesRow selectedUtilityId={activeSelectedUtilityId} onSelect={handleSelectUtility} />
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredUtilities.length === 0 ? (
             <div className="px-3 py-6 text-center">
               <p className="text-body-sm text-fg-muted">
@@ -409,8 +484,10 @@ function DeveloperUtilitiesWorkspaceBody({
                     }}
                     aria-pressed={isSelected}
                     data-testid={`utility-item-${utility.id}`}
+                    title={compact ? t(utility.descriptionKey) : undefined}
                     className={cn(
-                      'flex flex-1 items-start gap-2.5 px-3 py-3 text-left',
+                      'flex flex-1 items-start gap-2.5 px-3 text-left',
+                      compact ? 'py-1.5' : 'py-3',
                       isLocked && 'cursor-pointer'
                     )}
                   >
@@ -440,14 +517,16 @@ function DeveloperUtilitiesWorkspaceBody({
                           </span>
                         ) : null}
                       </span>
-                      <span
-                        className={cn(
-                          'mt-1 line-clamp-2 text-caption leading-[1.45]',
-                          isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
-                        )}
-                      >
-                        {t(utility.descriptionKey)}
-                      </span>
+                      {compact ? null : (
+                        <span
+                          className={cn(
+                            'mt-1 line-clamp-2 text-caption leading-[1.45]',
+                            isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
+                          )}
+                        >
+                          {t(utility.descriptionKey)}
+                        </span>
+                      )}
                     </span>
                   </button>
                   {isLocked ? null : <FavoriteToggleButton utilityId={utility.id} />}
@@ -457,23 +536,27 @@ function DeveloperUtilitiesWorkspaceBody({
             })
           )}
         </div>
+        {toolList ? (
+          <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-3 py-2">
+            <span className="font-mono text-caption text-fg-subtle" data-testid="utility-list-count">
+              {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
+            </span>
+            <span className="flex-1" />
+            <Tooltip content={t('utilities.list.collapse', { combo: toggleCombo })} side="top">
+              <button
+                type="button"
+                data-testid="utility-list-collapse"
+                aria-label={t('utilities.list.collapse', { combo: toggleCombo })}
+                onClick={() => toolList.setOpen(false)}
+                className="icon-button size-7 rounded-md"
+              >
+                <PanelLeft size={14} aria-hidden />
+              </button>
+            </Tooltip>
+          </div>
+        ) : null}
       </aside>
-
-      <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
-        {/* The selected sidebar row already shows this utility's title and
-            description, and the panel below opens with its own heading, so a
-            third copy of the description bought nothing but a bordered band.
-            The heading stays as a visually hidden landmark for screen readers
-            and heading-based tests. */}
-        <h2 className="sr-only">{t(selectedUtility.titleKey)}</h2>
-        <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-          <DeveloperUtilityPanel
-            toolId={activeSelectedUtilityId}
-            mountedToolIds={visitedUtilityIds}
-            active={active}
-          />
-        </div>
-      </main>
+      {panel}
     </div>
   );
 }
@@ -530,6 +613,8 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
   const { t } = useTranslation();
   const activeUtilityId = useUtilityWorkspaceStore(state => state.activeUtilityId);
   const setActiveUtilityId = useUtilityWorkspaceStore(state => state.setActiveUtilityId);
+  const toolListOpen = useUtilityWorkspaceStore(state => state.toolListOpen);
+  const setToolListOpen = useUtilityWorkspaceStore(state => state.setToolListOpen);
 
   return (
     <div
@@ -545,8 +630,9 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
         selectedUtilityId={activeUtilityId}
         onSelectUtility={setActiveUtilityId}
         testId="developer-utilities-workspace-body"
-        className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]"
         active={active}
+        autoFocusSearch={toolListOpen}
+        toolList={{ open: toolListOpen, setOpen: setToolListOpen }}
       />
     </div>
   );

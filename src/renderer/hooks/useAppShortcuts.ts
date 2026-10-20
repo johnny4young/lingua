@@ -12,6 +12,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
 import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
+import { useUtilityWorkspaceStore } from '../stores/utilityWorkspaceStore';
 import { toggleCompareDock } from '../utils/compareDock';
 import {
   nextVariableInspectorEnabled,
@@ -94,7 +95,11 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     toggleConsole,
     overlay,
     toggleOverlay,
-    openDeveloperUtilities: () => handleOpenDeveloperUtility(),
+    // Mod+K searches the utilities, so it opens the tool list with its search focused.
+    openDeveloperUtilities: () => {
+      useUtilityWorkspaceStore.getState().setToolListOpen(true);
+      handleOpenDeveloperUtility();
+    },
     closeOverlay,
     // Mod+Shift+K now opens or
     // focuses a full-screen HTTP workspace tab (the dock panel was

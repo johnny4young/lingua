@@ -183,7 +183,12 @@ function EditorArea() {
           <IconButton
             onClick={toggleSidebar}
             active={sidebarVisible}
-            tooltip={t('toolbar.sidebar.toggle', { combo: sidebarCombo })}
+            // On a Utilities tab Mod+B folds the tool list, so the button names no combo there.
+            tooltip={
+              utilitiesActive
+                ? t('toolbar.sidebar.toggleExplorer')
+                : t('toolbar.sidebar.toggle', { combo: sidebarCombo })
+            }
             tooltipSide="bottom"
             aria-controls="project-explorer"
             aria-expanded={sidebarVisible}

@@ -11,6 +11,10 @@ import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { analyzeRegex, applyRegexReplace } from '../../../utils/developerUtilities';
+import { describeRegexToken, explainRegex } from '../../../utils/regexExplain';
+import { cn } from '../../../utils/cn';
+
+const FLAG_CHIPS = ['g', 'i', 'm', 's', 'u', 'y'] as const;
 
 type RegexMode = 'match' | 'replace';
 
@@ -22,6 +26,9 @@ export function RegexUtilityPanel() {
   const [input, setInput] = useState('hello@lingua.dev and support@example.com');
   const [replacement, setReplacement] = useState('[$1 at $2]');
   const analysis = useMemo(() => analyzeRegex(pattern, flags, input), [pattern, flags, input]);
+  const explanation = useMemo(() => explainRegex(pattern, flags), [pattern, flags]);
+  const toggleFlag = (flag: (typeof FLAG_CHIPS)[number]) =>
+    setFlags(current => (current.includes(flag) ? current.replace(flag, '') : current + flag));
   const replaceResult = useMemo(
     () => applyRegexReplace(pattern, flags, input, replacement),
     [pattern, flags, input, replacement]
@@ -84,6 +91,30 @@ export function RegexUtilityPanel() {
             spellCheck={false}
             maxLength={10}
           />
+          {/* The chips mirror the field: either one edits the same flags string. */}
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('utilities.tool.regex.fieldFlags')}>
+            {FLAG_CHIPS.map(flag => {
+              const on = flags.includes(flag);
+              return (
+                <button
+                  key={flag}
+                  type="button"
+                  aria-pressed={on}
+                  title={t(`utilities.tool.regex.flag.${flag}`)}
+                  data-testid={`regex-flag-${flag}`}
+                  onClick={() => toggleFlag(flag)}
+                  className={cn(
+                    'h-6 rounded-full border px-2.5 font-mono text-caption',
+                    on
+                      ? 'border-accent bg-accent-tint text-accent-fg'
+                      : 'border-border-default text-fg-muted hover:text-fg-base'
+                  )}
+                >
+                  {flag}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="grid gap-2">
           <FieldLabel>{t('utilities.tool.regex.fieldInput')}</FieldLabel>
@@ -172,6 +203,22 @@ export function RegexUtilityPanel() {
               ) : null}
             </div>
           )}
+          {explanation && explanation.length > 0 ? (
+            <section
+              aria-label={t('utilities.tool.regex.explain.title')}
+              data-testid="regex-explanation"
+              className="h-fit self-start rounded-xl border border-dashed border-border-subtle px-3 py-2.5 text-caption leading-5 text-fg-subtle"
+            >
+              {explanation.map((token, index) => (
+                <span key={`${token.source}-${index}`}>
+                  {index > 0 ? ' · ' : null}
+                  <code className="font-mono text-fg-base">{token.source}</code>{' '}
+                  {describeRegexToken(token, t)}
+                </span>
+              ))}
+              <span className="mt-1 block">{t('utilities.tool.regex.explain.footer')}</span>
+            </section>
+          ) : null}
         </PanelSection>
       ) : (
         <PanelSection

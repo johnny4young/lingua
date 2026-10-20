@@ -78,6 +78,17 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByRole('dialog').last()).toHaveScreenshot(`quick-open-${theme}.png`);
     });
 
+    test('utilities rail and regex explanation', async ({ page }) => {
+      await boot(page, theme);
+      await page.getByRole('button', { name: 'Developer utilities' }).click();
+      const rail = page.getByTestId('utility-rail');
+      await expect(rail).toBeVisible();
+      await expect(rail).toHaveScreenshot(`utility-rail-${theme}.png`);
+      await page.getByTestId('utility-rail-expand').click();
+      await page.getByTestId('utility-item-regex').click();
+      await expect(page.getByTestId('regex-explanation')).toHaveScreenshot(`regex-explanation-${theme}.png`);
+    });
+
     test('stdin input panel', async ({ page }) => {
       await boot(page, theme);
       await page.keyboard.press('ControlOrMeta+Shift+E');

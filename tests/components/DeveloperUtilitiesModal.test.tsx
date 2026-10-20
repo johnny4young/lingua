@@ -18,6 +18,7 @@ import {
 } from '../__fixtures__/utilityPanels';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
@@ -58,7 +59,12 @@ describe('DeveloperUtilitiesModal', () => {
       persistEnabled: {},
       favorites: [],
     });
-    useUtilityWorkspaceStore.setState({ activeUtilityId: 'json', pendingUtilityInput: null });
+    // Most cases browse the list; the rail cases fold it explicitly.
+    useUtilityWorkspaceStore.setState({
+      activeUtilityId: 'json',
+      pendingUtilityInput: null,
+      toolListOpen: true,
+    });
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     useUIStore.setState({ statusNotice: null });
     Object.defineProperty(window.navigator, 'platform', {
@@ -94,7 +100,8 @@ describe('DeveloperUtilitiesModal', () => {
       screen.getByRole('heading', { name: 'Built-in utilities' }).className
     ).toContain('sr-only');
     expect(screen.queryByText('Copy output')).toBeNull();
-    expect(screen.queryByText(/\d+ tools/u)).toBeNull();
+    // The tool count moved into the list footer.
+    expect(screen.getByTestId('utility-list-count').textContent).toMatch(/\d+ tools/u);
 
     await user.click(screen.getByTestId('utility-item-json'));
 
@@ -184,6 +191,44 @@ describe('DeveloperUtilitiesModal', () => {
       await screen.findByTestId('utility-pipeline-locked', undefined, { timeout: 5000 })
     ).toBeTruthy();
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
+
+  it('folds the workspace list to an icon rail and opens it at a category', async () => {
+    const user = userEvent.setup();
+    useUtilityWorkspaceStore.setState({ activeUtilityId: 'jwt', toolListOpen: false });
+
+    render(<DeveloperUtilitiesWorkspaceView />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+
+    expect(screen.getByTestId('developer-utilities-workspace-body').dataset.toolList).toBe('rail');
+    expect(screen.queryByTestId('utilities-search-input')).toBeNull();
+    expect(screen.getByTestId('utility-rail-crypto').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('utility-rail-text').getAttribute('aria-pressed')).toBe('false');
+
+    // jsdom has no scrollIntoView; the rail scrolls the list to the picked category.
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      await user.click(screen.getByTestId('utility-rail-time'));
+      expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(true);
+      const timeHeading = await screen.findByTestId('utility-category-time');
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }));
+      expect(scrollIntoView.mock.contexts[0]).toBe(timeHeading);
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+
+    await user.click(screen.getByTestId('utility-list-collapse'));
+    expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(false);
+    expect(screen.getByTestId('utility-rail')).toBeTruthy();
+  });
+
+  it('keeps the full card list in the modal', async () => {
+    useUtilityWorkspaceStore.setState({ toolListOpen: false });
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+    expect(screen.queryByTestId('utility-rail')).toBeNull();
+    expect(screen.getByTestId('utilities-search-input')).toBeTruthy();
   });
 
   it('supports opening directly into a selected utility', async () => {

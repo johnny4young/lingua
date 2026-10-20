@@ -97,6 +97,11 @@ interface ModalShellBaseProps {
    * shell does not double-pad the two-column layout.
    */
   bodyClassName?: string;
+  /**
+   * `veil` keeps the app readable behind a 55 % veil and rises the sheet 8 px,
+   * for launcher-style overlays such as the command palette.
+   */
+  scrim?: 'blur' | 'veil';
 }
 
 /**
@@ -172,6 +177,7 @@ export function ModalShell({
   headerClose = 'esc',
   closeLabel,
   bodyClassName,
+  scrim = 'blur',
 }: ModalShellProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(
@@ -261,7 +267,11 @@ export function ModalShell({
     <div
       // Scrim. -webkit-app-region:no-drag keeps Electron's titlebar drag
       // from swallowing clicks over the modal (see index.css landmine).
-      className="fixed inset-0 z-50 flex items-start justify-center bg-overlay/70 pt-[10vh] backdrop-blur-xl"
+      data-scrim={scrim}
+      className={cn(
+        'fixed inset-0 z-50 flex items-start justify-center pt-[10vh]',
+        scrim === 'veil' ? 'bg-overlay/55' : 'bg-overlay/70 backdrop-blur-xl'
+      )}
       style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -278,7 +288,8 @@ export function ModalShell({
         tabIndex={-1}
         className={cn(
           'mx-4 w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-e3',
-          'animate-shell-fade outline-none',
+          scrim === 'veil' ? 'modal-rise' : 'animate-shell-fade',
+          'outline-none',
           size
         )}
       >

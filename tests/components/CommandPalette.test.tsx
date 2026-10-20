@@ -214,6 +214,10 @@ vi.mock('lucide-react', () => ({
   FileCode: () => null,
   Zap: () => null,
   Lightbulb: () => null,
+  AppWindow: () => null,
+  Braces: () => null,
+  History: () => null,
+  Wrench: () => null,
 }));
 
 describe('CommandPalette', () => {
@@ -496,7 +500,7 @@ describe('CommandPalette', () => {
     }
   });
 
-  it('flattens results without scope headers when the user types a query', () => {
+  it('keeps filtered results under their group eyebrows and counts shown of total', () => {
     render(
       <CommandPalette
         onClose={vi.fn()}
@@ -510,12 +514,60 @@ describe('CommandPalette', () => {
     const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
     fireEvent.change(input, { target: { value: 'layout' } });
 
-    // Search results are intentionally flat; splitting a ranked list
-    // across sections would push exact matches below near-misses from
-    // a different category.
-    expect(screen.queryByText('Actions')).toBeNull();
-    expect(screen.queryByText('Templates')).toBeNull();
-    expect(screen.queryByText('Snippets')).toBeNull();
+    expect(screen.getByTestId('command-palette-group-commands')).toBeTruthy();
+    expect(screen.queryByTestId('command-palette-group-recent')).toBeNull();
+    expect(screen.getByTestId('command-palette-result-count').textContent).toMatch(
+      /^\d+ of \d+ results$/
+    );
+  });
+
+  it('jumps between groups with Tab and Shift+Tab', () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    const selectedGroup = () => {
+      const active = document.querySelector('[role="option"][aria-selected="true"]');
+      let node = active?.previousElementSibling ?? null;
+      while (node && !node.getAttribute('data-testid')?.startsWith('command-palette-group-')) {
+        node = node.previousElementSibling;
+      }
+      return node?.getAttribute('data-testid');
+    };
+
+    const first = selectedGroup();
+    fireEvent.keyDown(input, { key: 'Tab' });
+    const second = selectedGroup();
+    expect(second).not.toBe(first);
+    fireEvent.keyDown(input, { key: 'Tab', shiftKey: true });
+    expect(selectedGroup()).toBe(first);
+  });
+
+  it('shows a command shortcut as a keycap instead of inside its description', () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('Search templates, snippets, commands...'), {
+      target: { value: 'settings' },
+    });
+    const row = screen.getAllByRole('option').find(option => /Open settings/i.test(option.textContent ?? ''));
+    expect(row).toBeTruthy();
+    expect(row?.querySelector('[data-testid="command-palette-keycaps"] kbd')?.textContent).toMatch(/,/);
+    // The Enter keycap on the active row stays out of its accessible name.
+    const active = document.querySelector('[role="option"][aria-selected="true"]');
+    expect(active?.querySelector('[aria-hidden="true"] kbd')?.textContent).toBe('↵');
   });
 
   it('renders a hint alongside the empty state when a query has zero matches', () => {

@@ -674,13 +674,16 @@ describe('AppLayout responsive shell', () => {
     const tabStrip = screen.getByTestId('editor-tab-strip');
     await waitFor(() => {
       expect(tabStrip.textContent).toContain('Copy output');
-      expect(tabStrip.textContent).toMatch(/\d+ tools/u);
     });
 
     // Utilities has no runtime output, so the dock leaves the screen
     // without changing the user's dock preference.
     expect(screen.queryByTestId('results-dock')).toBeNull();
     expect(useUIStore.getState().consoleVisible).toBe(true);
+    // Mod+B folds the tool list here, so the explorer button names no combo.
+    expect(screen.getByTestId('editor-sidebar-toggle').getAttribute('aria-label')).toBe(
+      'Toggle the explorer'
+    );
   });
 
   it.each([

@@ -70,6 +70,53 @@ describe('JwtUtilityPanel', () => {
     expect(screen.getByTestId('jwt-payload-output').tagName).toBe('PRE');
   });
 
+  it('dates each time claim at the end of its line and badges how far it is from now', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.UTC(2026, 9, 17, 1, 0, 0));
+    try {
+      render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+      await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
+      const payload = { sub: 'lingua', iat: 1792195200, exp: 1792281600, nbf: 1792368000 };
+      const encode = (value: object) =>
+        btoa(JSON.stringify(value)).replace(/=+$/u, '').replace(/\+/gu, '-').replace(/\//gu, '_');
+      fireEvent.change(screen.getByTestId('jwt-decode-token'), {
+        target: { value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.sig` },
+      });
+
+      const comments = await screen.findAllByTestId('json-timestamp-comment');
+      expect(comments.map(comment => comment.textContent)).toEqual([
+        '  // 2026-10-17 00:00:00 UTC',
+        '  // 2026-10-18 00:00:00 UTC',
+        '  // 2026-10-19 00:00:00 UTC',
+      ]);
+      expect(screen.getByTestId('jwt-time-claim-exp').textContent).toBe('exp in 23 hr.');
+      expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('ok');
+      expect(screen.getByTestId('jwt-time-claim-iat').textContent).toBe('iat 1 hr. ago');
+      expect(screen.getByTestId('jwt-time-claim-nbf').dataset.state).toBe('pending');
+
+      // A token decoded later is judged against the clock at that moment.
+      vi.setSystemTime(Date.UTC(2026, 9, 18, 2, 0, 0));
+      fireEvent.change(screen.getByTestId('jwt-decode-token'), {
+        target: {
+          value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ exp: 1792281600 })}.sig`,
+        },
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('expired')
+      );
+      expect(screen.getByTestId('jwt-time-claim-exp').textContent).toBe('exp 2 hr. ago');
+
+      // A claim past the Date range gets no badge instead of a crash.
+      fireEvent.change(screen.getByTestId('jwt-decode-token'), {
+        target: { value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ exp: 1e308 })}.sig` },
+      });
+      await waitFor(() => expect(screen.queryByTestId('jwt-time-claim-exp')).toBeNull());
+      expect(screen.getByTestId('jwt-payload-output')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('colors JWT segments and highlights timestamp claims with local and UTC hover metadata', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
     await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());

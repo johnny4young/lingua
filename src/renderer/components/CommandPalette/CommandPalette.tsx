@@ -7,6 +7,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
 import { filterCommandPaletteCommands } from './commandPaletteModel';
+import { adjacentGroupStart, groupCommands } from './commandPaletteGroups';
 import { useCommandPaletteCommands } from './useCommandPaletteCommands';
 import { useCommandHistoryStore } from '../../stores/commandHistoryStore';
 import type { CommandPaletteProps } from './commandPaletteTypes';
@@ -69,8 +70,24 @@ export function CommandPalette(props: CommandPaletteProps) {
     }
     return filterCommandPaletteCommands(allCommands, query);
   }, [allCommands, isRecentVariant, query, recentEntries]);
+  const isEmptyQuery = query.trim().length === 0;
+  // Rows read top to bottom by group, so selection and Enter follow the
+  // grouped order rather than the raw ranking.
+  const groups = useMemo(
+    () =>
+      isRecentVariant
+        ? null
+        : isEmptyQuery
+          ? groupCommands(filtered, recentEntries.map(entry => entry.id))
+          : groupCommands(filtered, [], { ranked: true }),
+    [filtered, isEmptyQuery, isRecentVariant, recentEntries]
+  );
+  const ordered = useMemo(
+    () => (groups ? groups.flatMap(group => group.commands) : filtered),
+    [filtered, groups]
+  );
   const visibleSelectedIndex =
-    filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
+    ordered.length === 0 ? 0 : Math.min(selectedIndex, ordered.length - 1);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -87,14 +104,20 @@ export function CommandPalette(props: CommandPaletteProps) {
     // In the recent stack, 1-8 executes that slot directly.
     if (isRecentVariant && /^[1-8]$/u.test(event.key)) {
       event.preventDefault();
-      const command = filtered[Number(event.key) - 1];
+      const command = ordered[Number(event.key) - 1];
       if (command && !command.disabled) command.action();
+      return;
+    }
+
+    if (event.key === 'Tab' && groups && groups.length > 1) {
+      event.preventDefault();
+      setSelectedIndex(adjacentGroupStart(groups, visibleSelectedIndex, event.shiftKey ? -1 : 1));
       return;
     }
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, filtered.length - 1));
+      setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, ordered.length - 1));
       return;
     }
 
@@ -106,7 +129,7 @@ export function CommandPalette(props: CommandPaletteProps) {
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      const command = filtered[visibleSelectedIndex];
+      const command = ordered[visibleSelectedIndex];
       if (command && !command.disabled) command.action();
       return;
     }
@@ -119,6 +142,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   return (
     <ModalShell
       onClose={onClose}
+      scrim="veil"
       size="max-w-[620px]"
       labelledById="command-palette-title"
       icon={<Search size={16} aria-hidden="true" />}
@@ -148,11 +172,11 @@ export function CommandPalette(props: CommandPaletteProps) {
                 : 'shortcuts.item.commandPalette.label'
             )}
             role="combobox"
-            aria-expanded={filtered.length > 0}
+            aria-expanded={ordered.length > 0}
             aria-controls={listboxId}
             aria-autocomplete="list"
             aria-activedescendant={
-              filtered.length > 0 ? optionId(visibleSelectedIndex) : undefined
+              ordered.length > 0 ? optionId(visibleSelectedIndex) : undefined
             }
             className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
@@ -173,7 +197,9 @@ export function CommandPalette(props: CommandPaletteProps) {
           )}
         </div>
       }
-      footerLegend={<ModalFooterLegend navigate select close={false} />}
+      footerLegend={
+        <ModalFooterLegend navigate select nextGroup={groups !== null} close={false} />
+      }
       trailing={
         // accessibility pass — polite live region announcing the result count as
         // the query narrows, so screen-reader users hear matches/empty.
@@ -184,12 +210,18 @@ export function CommandPalette(props: CommandPaletteProps) {
           data-testid="command-palette-result-count"
           className="font-mono text-caption text-fg-subtle"
         >
-          {t('commandPalette.results.count', { count: filtered.length })}
+          {isEmptyQuery || isRecentVariant
+            ? t('commandPalette.results.count', { count: ordered.length })
+            : t('commandPalette.results.countOf', {
+                shown: ordered.length,
+                total: allCommands.length,
+              })}
         </span>
       }
     >
       <CommandPaletteResults
-        commands={filtered}
+        commands={ordered}
+        groups={groups}
         query={query}
         selectedIndex={visibleSelectedIndex}
         listRef={listRef}
@@ -198,7 +230,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         optionId={optionId}
         recentTimestamps={isRecentVariant ? recentTimestamps : undefined}
       />
-      {filtered.length === 0 && !isRecentVariant ? (
+      {ordered.length === 0 && !isRecentVariant ? (
         <div className="px-4 pb-4">
           <ContextualHint surface="palette" />
         </div>
