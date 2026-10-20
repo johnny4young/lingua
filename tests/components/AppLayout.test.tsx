@@ -674,7 +674,6 @@ describe('AppLayout responsive shell', () => {
     const tabStrip = screen.getByTestId('editor-tab-strip');
     await waitFor(() => {
       expect(tabStrip.textContent).toContain('Copy output');
-      expect(tabStrip.textContent).toMatch(/\d+ tools/u);
     });
 
     // Utilities has no runtime output, so the dock leaves the screen

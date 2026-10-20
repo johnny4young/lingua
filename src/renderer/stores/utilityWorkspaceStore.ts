@@ -21,7 +21,11 @@ export interface UtilityWorkspaceState {
   activeUtilityId: DeveloperUtilityId;
   /** Session-only Smart Paste payload; never included in persisted state. */
   pendingUtilityInput: PendingUtilityInput | null;
+  /** The tool list is open; closed, it folds to a 56 px icon rail so the tool gets the width. */
+  toolListOpen: boolean;
   setActiveUtilityId: (utilityId: DeveloperUtilityId) => void;
+  setToolListOpen: (open: boolean) => void;
+  toggleToolList: () => void;
   setPendingUtilityInput: (pending: PendingUtilityInput | null) => void;
 }
 
@@ -79,6 +83,9 @@ export const useUtilityWorkspaceStore = create<UtilityWorkspaceState>()(
     set => ({
       activeUtilityId: DEFAULT_DEVELOPER_UTILITY_ID,
       pendingUtilityInput: null,
+      toolListOpen: false,
+      setToolListOpen: toolListOpen => set({ toolListOpen }),
+      toggleToolList: () => set(state => ({ toolListOpen: !state.toolListOpen })),
       setActiveUtilityId: activeUtilityId => {
         if (!isKnownUtilityId(activeUtilityId)) return;
         set({ activeUtilityId });
@@ -93,7 +100,10 @@ export const useUtilityWorkspaceStore = create<UtilityWorkspaceState>()(
       version: 1,
       migrate: createMigrate(UTILITY_WORKSPACE_STORAGE_KEY),
       storage,
-      partialize: state => ({ activeUtilityId: state.activeUtilityId }),
+      partialize: state => ({
+        activeUtilityId: state.activeUtilityId,
+        toolListOpen: state.toolListOpen,
+      }),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== 'object') return current;
         const candidate = persisted as Partial<UtilityWorkspaceState>;
@@ -102,6 +112,7 @@ export const useUtilityWorkspaceStore = create<UtilityWorkspaceState>()(
           activeUtilityId: isKnownUtilityId(candidate.activeUtilityId)
             ? candidate.activeUtilityId
             : DEFAULT_DEVELOPER_UTILITY_ID,
+          toolListOpen: candidate.toolListOpen === true,
         };
       },
     }

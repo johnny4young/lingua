@@ -270,6 +270,7 @@ test.describe('Free tier gates', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'JSON Formatter' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pretty print' })).toBeVisible();
 
+    await page.getByTestId('utility-rail-expand').click();
     await page.getByTestId('utilities-search-input').fill('pipeline');
     await expect(page.getByTestId('utility-lock-utility-pipelines')).toBeVisible();
     await page.getByTestId('utility-item-utility-pipelines').click();
