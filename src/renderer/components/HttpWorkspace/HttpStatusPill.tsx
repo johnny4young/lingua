@@ -68,10 +68,11 @@ export function HttpStatusPill({ response }: HttpStatusPillProps) {
       data-tone={tone}
       data-kind={response.kind}
       data-status={response.status}
-      className="inline-flex"
+      className="inline-flex min-w-0 max-w-full"
+      title={label}
     >
       <StatusBadge tone={tone} dot>
-        <span className="tabular-nums">{label}</span>
+        <span className="truncate tabular-nums">{label}</span>
       </StatusBadge>
     </span>
   );
