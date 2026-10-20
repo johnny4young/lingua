@@ -6,6 +6,14 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Security
+- On desktop, the AI API key and HTTP environment values marked secret are encrypted with the system keychain instead of being stored in plain text. Existing values move on first launch, and a value stays where it was if the move fails. Without a system keyring, as on Linux sessions that report the basic_text backend, they stay in local storage as before and Settings says they are not encrypted. The web app keeps them in browser storage and now says so next to the field.
+
+### Fixed
+- The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
+- Quick Open describes an unsaved tab as "Unsaved · edited 2 min ago" instead of showing its internal id, and shows the project-relative path for files on disk.
+- SQL result columns are labeled with DuckDB type names (VARCHAR, INTEGER, DECIMAL(6,2)), the same names the column profile uses; the Arrow name is in the tooltip.
+
 ## [1.6.2] — 2026-10-19
 
 ### Fixed

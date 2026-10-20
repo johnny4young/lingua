@@ -35,6 +35,7 @@ export function createContentActions(
                 ...t,
                 content,
                 isDirty: true,
+                lastEditedAt: Date.now(),
                 executionState: 'idle' as const,
                 parseError: null,
               }

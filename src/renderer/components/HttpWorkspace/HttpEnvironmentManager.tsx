@@ -30,6 +30,7 @@
 import { Copy, GripVertical, Plus, Trash2, Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SecretStorageNote } from '../ui/SecretStorageNote';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -461,6 +462,9 @@ export function HttpEnvironmentManager({
                   </ul>
                 </SortableContext>
               </DndContext>
+              {selected.variables.some((variable) => variable.secret) ? (
+                <SecretStorageNote testId="http-environment-secret-storage" />
+              ) : null}
             </section>
           ) : null}
         </div>

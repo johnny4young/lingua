@@ -1,5 +1,5 @@
 import { createStartupGuard, loadStartupRenderer, startupFailureMessage } from './startup';
-import { app, BrowserWindow, ipcMain, session, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, session, dialog, safeStorage } from 'electron';
 import { typedHandle } from './ipc/typedHandle';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -18,6 +18,8 @@ import {
   registerConsentHandlers,
   resolveConsentMirrorPath,
 } from './ipc/consent';
+import { registerSecretHandlers } from './ipc/secrets';
+import { createSecretStore, resolveSecretsDir } from './secretStore';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
@@ -362,6 +364,9 @@ function registerPrimaryInstance() {
         publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
       });
       registerLicenseHandlers(licenseRuntime);
+      registerSecretHandlers(
+        createSecretStore({ dir: resolveSecretsDir(userDataDir), safeStorage })
+      );
 
       registerProtocolClient(userDataProfile);
       registerUpdater();

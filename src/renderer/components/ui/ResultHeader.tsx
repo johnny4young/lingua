@@ -60,8 +60,13 @@ export function ResultHeader({
         className
       )}
     >
-      {status}
-      {meta ? <span className="font-mono text-caption text-fg-subtle">{meta}</span> : null}
+      {/* The status shrinks first so the meta line never wraps. */}
+      <span className="flex min-w-0 shrink">{status}</span>
+      {meta ? (
+        <span className="shrink-0 whitespace-nowrap font-mono text-caption tabular-nums text-fg-subtle">
+          {meta}
+        </span>
+      ) : null}
       {tabs && tabs.length > 0 ? (
         <div className="ml-auto flex gap-1">
           {tabs.map((tab) => {

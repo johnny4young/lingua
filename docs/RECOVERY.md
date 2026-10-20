@@ -59,16 +59,17 @@ e2e tests and Playwright smokes (`normal`, `safe`, `factory`).
 ## Boot-loop counter and factory mode
 
 If three crashes occur within 60 seconds, the renderer escalates to
-**factory mode**: every localStorage key is cleared except
-`lingua-license`, the data attribute flips to `factory`, and the user
-is shown a recovery notice while the app boots with risky restore
-paths skipped. Reload normally once you finish recovering — clean
-renders auto-clear the factory flag.
+**factory mode**: the data attribute flips to `factory`, the app boots
+with risky restore paths skipped, and the user is shown a recovery
+notice. Nothing is cleared automatically; Settings › Recovery › "Reset
+everything" does the wipe. Reload normally
+once you finish recovering — clean renders auto-clear the factory flag.
 
 Factory mode is the last line of defense. If you reach it
 intentionally (e.g. clicking "Reset everything" in Recovery) your
 license stays intact; you just lose preferences, snippets, env vars,
-recent projects, and any tab restore data.
+recent projects, any tab restore data, and on desktop the encrypted
+AI key and HTTP environment secrets.
 
 ## Recovery surface (Settings → Recovery)
 
@@ -80,7 +81,7 @@ Five scoped reset actions plus two affordances:
 | Reset snippets | every saved snippet | everything else |
 | Reset environment variables | global, project, and tab scopes | settings + snippets |
 | Reset session and recent state | recent projects, execution history | preferences + saved data |
-| Reset everything (keep license) | every localStorage key | `lingua-license` |
+| Reset everything (keep license) | every localStorage key, plus the desktop secret vault (AI key, HTTP environment secrets) | `lingua-license` |
 | Reload in safe mode | nothing — soft reload with `?safe-mode=1` | everything |
 | Open recovery folder (desktop only) | nothing — opens the OS file browser | everything |
 

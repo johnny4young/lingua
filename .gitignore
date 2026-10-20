@@ -133,3 +133,7 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# Design v4 working notes stay local; only the before/after captures are tracked.
+docs/design-v4/*
+!docs/design-v4/screenshots/

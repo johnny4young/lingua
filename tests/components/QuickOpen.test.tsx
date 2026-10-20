@@ -1,16 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useProjectIndexStore } from '../../src/renderer/stores/projectIndexStore';
 
 const mockOpenFile = vi.fn().mockResolvedValue(undefined);
 const mockSetActiveTab = vi.fn();
+let mockTabs: unknown[] = [];
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
   // Selector-aware: QuickOpen reads a shallow slice, not the whole store.
   useEditorStore: (selector?: (state: unknown) => unknown) => {
     const state = {
-      tabs: [],
+      tabs: mockTabs,
       setActiveTab: mockSetActiveTab,
       openFile: mockOpenFile,
     };
@@ -297,5 +298,67 @@ describe('QuickOpen', () => {
       '/proj/NOTES'
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  describe('open tab second line', () => {
+    beforeAll(async () => {
+      const { initI18n } = await import('../../src/renderer/i18n');
+      await initI18n('en');
+    });
+    afterEach(() => {
+      mockTabs = [];
+    });
+
+    it('shows when an unsaved tab was edited instead of its tab id', async () => {
+      mockTabs = [
+        {
+          id: '05796ea9-17e7-4956-864f-a21f93e0d93c',
+          name: 'Hello World.js',
+          language: 'javascript',
+          lastEditedAt: Date.now() - 2 * 60_000,
+        },
+      ];
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.getByText('Unsaved · edited 2 min ago')).toBeTruthy();
+      expect(screen.queryByText(/05796ea9/)).toBeNull();
+
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '05796ea9' } });
+      expect(screen.queryByText('Hello World.js')).toBeNull();
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hello' } });
+      fireEvent.click(screen.getByText('Hello World.js'));
+      await waitFor(() =>
+        expect(mockSetActiveTab).toHaveBeenCalledWith('05796ea9-17e7-4956-864f-a21f93e0d93c')
+      );
+    });
+
+    it('shows the project-relative path for a tab on disk', () => {
+      mockTabs = [
+        {
+          id: 'tab-2',
+          name: 'latency.ts',
+          language: 'typescript',
+          filePath: '/proj/src/metrics/latency.ts',
+          rootId: 'root-proj',
+          relativePath: 'src/metrics/latency.ts',
+        },
+      ];
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.getByText('src/metrics/latency.ts')).toBeTruthy();
+    });
+
+    it('keeps the full path for a file opened outside the project', () => {
+      mockTabs = [
+        {
+          id: 'tab-3',
+          name: 'todo.md',
+          language: 'markdown',
+          filePath: '/tmp/notes/todo.md',
+          rootId: 'root-single-file',
+          relativePath: 'todo.md',
+        },
+      ];
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.getByText('/tmp/notes/todo.md')).toBeTruthy();
+    });
   });
 });

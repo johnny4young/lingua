@@ -46,6 +46,12 @@ import {
   parseHttpPipeline,
   type HttpPipelineV1,
 } from '../../shared/httpPipeline';
+import { httpEnvSecretId, HTTP_ENV_SECRET_PREFIX } from '../../shared/secretVault';
+import {
+  getSecretVault,
+  writeSecret,
+  writeSecretVerified,
+} from '../services/secretVault';
 
 /**
  * Per-request response history LRU. 10 entries keep recent runs
@@ -83,11 +89,9 @@ interface WorkspaceToolState {
   /**
    * Persisted HTTP environments. Each is a named bag
    * of `{{key}}` → value bindings (some flagged secret) the user can
-   * swap before sending. Persisted alongside requests; secret VALUES
-   * are stored in plain the same way an explicit `Authorization`
-   * header row already is — redaction is a TELEMETRY / SHARE / DISPLAY
-   * guarantee, not a localStorage-at-rest one (see `httpWorkspace.ts`
-   * file header).
+   * swap before sending. On desktop secret VALUES live in the encrypted
+   * secret vault and persist here blanked; on web they persist in plain
+   * like an explicit `Authorization` header row (see `httpWorkspaceSchema.ts`).
    */
   readonly environments: ReadonlyArray<HttpEnvironmentV1>;
   /**
@@ -228,6 +232,9 @@ function createInitialState(): Pick<
     activeHttpPipelineId: null,
   };
 }
+
+/** True once the vault holds the secret values, so the localStorage blob must not. */
+let vaultOwnsEnvSecrets = false;
 
 export const useWorkspaceToolStore = create<WorkspaceToolState>()(
   persist(
@@ -575,7 +582,9 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           // `merge` below defaults it to `[]` (and `activeEnvironmentId`
           // to a validated id or null), so old blobs rehydrate cleanly
           // without a migration step.
-          environments: state.environments,
+          environments: vaultOwnsEnvSecrets
+            ? blankSecretValues(state.environments)
+            : state.environments,
           activeEnvironmentId: state.activeEnvironmentId,
           httpPipelines: state.httpPipelines,
           activeHttpPipelineId: state.activeHttpPipelineId,
@@ -684,6 +693,132 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
     }
   )
 );
+
+function secretValues(
+  environments: ReadonlyArray<HttpEnvironmentV1>
+): Map<string, string> {
+  const values = new Map<string, string>();
+  for (const env of environments) {
+    for (const variable of env.variables) {
+      if (variable.secret && variable.value) {
+        values.set(httpEnvSecretId(env.id, variable.id), variable.value);
+      }
+    }
+  }
+  return values;
+}
+
+function blankSecretValues(
+  environments: ReadonlyArray<HttpEnvironmentV1>
+): HttpEnvironmentV1[] {
+  return environments.map((env) =>
+    env.variables.some((variable) => variable.secret && variable.value)
+      ? {
+          ...env,
+          variables: env.variables.map((variable) =>
+            variable.secret ? { ...variable, value: '' } : variable
+          ),
+        }
+      : env
+  );
+}
+
+/** Secret ids and values the vault holds for the current environments. */
+let syncedSecrets = new Map<string, string>();
+let unsubscribeSecretSync: (() => void) | null = null;
+
+function syncSecretDiff(environments: ReadonlyArray<HttpEnvironmentV1>): void {
+  const vault = getSecretVault();
+  if (!vault) return;
+  const next = secretValues(environments);
+  const writes: Promise<boolean>[] = [];
+  for (const [id, value] of next) {
+    if (syncedSecrets.get(id) !== value) writes.push(writeSecret(vault, id, value));
+  }
+  for (const id of syncedSecrets.keys()) {
+    if (!next.has(id)) writes.push(writeSecret(vault, id, ''));
+  }
+  syncedSecrets = next;
+  if (writes.length === 0) return;
+  void Promise.all(writes).then((results) => {
+    if (results.every(Boolean) || !vaultOwnsEnvSecrets) return;
+    // Keep the values across restarts rather than lose them to a failed write.
+    vaultOwnsEnvSecrets = false;
+    useWorkspaceToolStore.setState({});
+  });
+}
+
+function startSecretSync(): void {
+  unsubscribeSecretSync?.();
+  unsubscribeSecretSync = useWorkspaceToolStore.subscribe((state, previous) => {
+    if (state.environments !== previous.environments) syncSecretDiff(state.environments);
+  });
+}
+
+/**
+ * Moves plaintext secret values left in localStorage by an older build into
+ * the vault (copy, read back, then rewrite the blob blanked), or fills the
+ * blanked values from the vault on later boots. Orphaned vault entries are
+ * removed once the vault owns the values.
+ */
+export async function syncHttpEnvSecretsWithVault(): Promise<void> {
+  const vault = getSecretVault();
+  if (!vault) return;
+  // Without a real keyring the values keep today's localStorage storage.
+  const status = await vault.status().catch(() => null);
+  if (status?.mode !== 'encrypted') return;
+  const environments = useWorkspaceToolStore.getState().environments;
+  const legacy = secretValues(environments);
+  if (legacy.size > 0) {
+    const results = await Promise.all(
+      [...legacy].map(([id, value]) => writeSecretVerified(vault, id, value))
+    );
+    if (!results.every(Boolean)) return;
+    vaultOwnsEnvSecrets = true;
+    syncedSecrets = legacy;
+    startSecretSync();
+    // Edits made while the copy was in flight.
+    syncSecretDiff(useWorkspaceToolStore.getState().environments);
+    useWorkspaceToolStore.setState({});
+    return;
+  }
+  vaultOwnsEnvSecrets = true;
+  startSecretSync();
+  const filled = new Map<string, string>();
+  await Promise.all(
+    environments.flatMap((env) =>
+      env.variables
+        .filter((variable) => variable.secret)
+        .map(async (variable) => {
+          const id = httpEnvSecretId(env.id, variable.id);
+          const value = await vault.get(id).catch(() => null);
+          if (value) filled.set(id, value);
+        })
+    )
+  );
+  const stored = await vault.list(HTTP_ENV_SECRET_PREFIX).catch(() => [] as readonly string[]);
+  // Built after the await so variables created meanwhile are not treated as orphans.
+  const known = new Set<string>(syncedSecrets.keys());
+  for (const env of useWorkspaceToolStore.getState().environments) {
+    for (const variable of env.variables) known.add(httpEnvSecretId(env.id, variable.id));
+  }
+  for (const id of stored) {
+    if (!known.has(id)) void writeSecret(vault, id, '');
+  }
+  if (filled.size === 0) return;
+  syncedSecrets = new Map([...syncedSecrets, ...filled]);
+  useWorkspaceToolStore.setState((state) => ({
+    environments: state.environments.map((env) => ({
+      ...env,
+      variables: env.variables.map((variable) => {
+        const value = filled.get(httpEnvSecretId(env.id, variable.id));
+        return value && variable.secret && !variable.value ? { ...variable, value } : variable;
+      }),
+    })),
+  }));
+}
+
+void syncHttpEnvSecretsWithVault();
 
 /**
  * Test seam — reset the store to its initial state. Persisted to

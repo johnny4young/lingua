@@ -207,6 +207,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Desktop-style automatic updates stay unavailable in the browser build; web update detection uses the hosted version endpoint and reload banner.
 - Local plugin discovery stays unavailable in the browser build.
 - External file watching stays unavailable in the browser build.
+- The browser build has no encrypted secret vault: the AI API key and HTTP environment values marked secret stay in the browser's local storage, unencrypted. Desktop encrypts them with the system keychain.
 
 ## Browser preview live refresh
 

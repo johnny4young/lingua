@@ -21,12 +21,34 @@ import { StatusBadge } from '../ui/StatusBadge';
 
 interface FileResult {
   name: string;
+  /** Disk path; empty for unsaved tabs, which open by `tabId`. */
   path: string;
+  /** Second line; defaults to `path`. */
+  detail?: string;
+  tabId?: string;
   language?: Language;
   // Drives both result ordering and the open path: existing tabs activate by
   // id, recent files reopen through the approved-file bridge, and project
   // files open relative to the current root capability.
   source: 'open-tab' | 'recent' | 'project';
+}
+
+function unsavedDetail(
+  lastEditedAt: number | undefined,
+  now: number,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string {
+  if (lastEditedAt === undefined) return t('quickOpen.unsaved');
+  const minutes = Math.floor(Math.max(0, now - lastEditedAt) / 60_000);
+  const ago =
+    minutes < 1
+      ? t('quickOpen.ago.justNow')
+      : minutes < 60
+        ? t('quickOpen.ago.minutes', { count: minutes })
+        : minutes < 1440
+          ? t('quickOpen.ago.hours', { count: Math.floor(minutes / 60) })
+          : t('quickOpen.ago.days', { count: Math.floor(minutes / 1440) });
+  return t('quickOpen.unsavedEdited', { ago });
 }
 
 interface QuickOpenProps {
@@ -36,6 +58,8 @@ interface QuickOpenProps {
 export function QuickOpen({ onClose }: QuickOpenProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // "edited N min ago" is relative to when the overlay opened.
+  const [openedAt] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
@@ -55,6 +79,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     }))
   );
   const nodes = useProjectStore((state) => state.nodes);
+  const projectRootId = useProjectStore((state) => state.currentProject?.rootId);
   const recentFiles = useRecentFilesStore((state) => state.recentFiles);
   const indexEntries = useProjectIndexStore((state) => state.entries);
   const indexStatus = useProjectIndexStore((state) => state.status);
@@ -101,9 +126,17 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     // Order is intentional: open tabs win, recent files fill in previous
     // context, and indexed project files provide the long tail. Later buckets
     // are deduped so a path never appears with two different open semantics.
+    const now = openedAt;
     const openTabs: FileResult[] = tabs.map((tab) => ({
       name: tab.name,
-      path: tab.filePath ?? tab.id,
+      path: tab.filePath ?? '',
+      // Project-relative only for project files; a single-file open keeps its full path.
+      detail: tab.filePath
+        ? tab.relativePath && tab.rootId !== undefined && tab.rootId === projectRootId
+          ? tab.relativePath
+          : tab.filePath
+        : unsavedDetail(tab.lastEditedAt, now, t),
+      tabId: tab.id,
       language: tab.language,
       source: 'open-tab',
     }));
@@ -120,7 +153,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     const seenPaths = new Set([...openPaths, ...recentOnly.map((f) => f.path)]);
     const projectOnly = projectFiles.filter((file) => !seenPaths.has(file.path));
     return [...openTabs, ...recentOnly, ...projectOnly];
-  }, [tabs, projectFiles, recentFiles]);
+  }, [tabs, projectFiles, recentFiles, t, openedAt, projectRootId]);
 
   const filtered = useMemo<FileResult[]>(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -149,8 +182,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
   const select = async (file: FileResult) => {
     if (file.source === 'open-tab') {
-      const tab = tabs.find((item) => (item.filePath ?? item.id) === file.path);
-      if (tab) setActiveTab(tab.id);
+      if (file.tabId) setActiveTab(file.tabId);
       onClose();
       return;
     }
@@ -335,7 +367,7 @@ function renderQuickOpenResults(
   const isEmptyQuery = query.trim().length === 0;
   const renderRow = (file: FileResult, index: number) => (
     <button
-      key={file.path}
+      key={file.tabId ?? `${file.source}:${file.path}`}
       id={optionId(index)}
       role="option"
       aria-selected={index === selectedIndex}
@@ -353,9 +385,9 @@ function renderQuickOpenResults(
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-medium text-fg-base">{file.name}</span>
-        {file.path !== file.name && (
-          <span className="truncate text-body-sm text-fg-subtle">{file.path}</span>
-        )}
+        {(file.detail ?? file.path) && (file.detail ?? file.path) !== file.name ? (
+          <span className="truncate text-body-sm text-fg-subtle">{file.detail ?? file.path}</span>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {file.source === 'open-tab' && (

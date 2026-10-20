@@ -7,6 +7,7 @@ import type {
 } from '../../../shared/sqlWorkspace';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import type { SqlSortState } from './sqlResultGrid';
+import { arrowTypeToDuckDb } from '../../../shared/sqlTypeNames';
 
 export function CopyButton({
   onClick,
@@ -140,7 +141,7 @@ export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
                     className="min-w-0 truncate text-micro tracking-[0.04em] text-accent"
                     title={col.type}
                   >
-                    {col.type}
+                    {arrowTypeToDuckDb(col.type)}
                   </span>
                   {isSorted ? (
                     sort.direction === 'asc' ? (

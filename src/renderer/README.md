@@ -27,7 +27,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`hooks/`](hooks)           | React hooks that coordinate stores, runners, shortcuts, and shell effects |
 | [`runners/`](runners)       | Language-specific execution adapters and result shaping                   |
 | [`runtime/`](runtime)       | Cross-surface runtime orchestration: manual run, notebooks, debugger, HTTP/SQL clients, capsule builders |
-| [`services/`](services)     | Renderer-side HTTP clients for license, trial, education, recovery, update, and web dependency flows |
+| [`services/`](services)     | Renderer-side HTTP clients for license, trial, education, recovery, update, and web dependency flows, plus the desktop secret-vault bridge |
 | [`languageSupport/`](languageSupport) | Declarative editor/language descriptors consumed by Monaco and language intelligence |
 | [`languageIntelligence/`](languageIntelligence) | Renderer adapters for diagnostics, completion, hover, and signature help; `lspRequest.ts` unwraps the shared IPC Result once |
 | [`lint/`](lint)             | Inline-lint rules + quick-fix provider Monaco's TS worker does not cover |
@@ -665,7 +665,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, schema/result state       |
-| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata |
+| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
@@ -684,7 +684,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [snippetsStore.ts](stores/snippetsStore.ts), [recipeStore.ts](stores/recipeStore.ts), [lessonProgressStore.ts](stores/lessonProgressStore.ts) | user-created snippets, built-in recipe state, guided lesson progress |
 | [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
 | [utilityWorkspaceStore.ts](stores/utilityWorkspaceStore.ts), [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities activation, history, output, and pipeline state |
-| [aiConfigStore.ts](stores/aiConfigStore.ts) | BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry |
+| [aiConfigStore.ts](stores/aiConfigStore.ts) | BYO-key AI config (endpoint/apiKey/model) on its own isolated `lingua-ai` persist boundary, kept out of the settings blob/exports/capsules/telemetry; on desktop `apiKey` lives in the encrypted secret vault and is omitted from the blob |
 | [aiExplainCodeStore.ts](stores/aiExplainCodeStore.ts) | single open-request slot for the "Explain this code" dialog so the editor context-menu action and the command palette open the same consent-first dialog (`AiExplainCodeHost`); session-only |
 
 ### Console batch delivery

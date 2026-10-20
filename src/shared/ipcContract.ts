@@ -222,6 +222,19 @@ interface IpcInvokeContract {
     result: { ok: true } | { ok: false; reason: string; message?: string };
   };
 
+  // ---------------------------------------------------------------- secrets
+  'secrets:status': {
+    args: [];
+    result: import('./secretVault').SecretVaultStatus;
+  };
+  'secrets:set': {
+    args: [id: string, value: string];
+    result: import('./secretVault').SecretWriteResult;
+  };
+  'secrets:get': { args: [id: string]; result: string | null };
+  'secrets:delete': { args: [id: string]; result: { ok: boolean } };
+  'secrets:list': { args: [prefix: string]; result: readonly string[] };
+
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
 
@@ -655,6 +668,11 @@ export const IPC_INVOKE_CHANNELS = [
   'debugger:rust:sync-watches',
   'debugger:rust:stop',
   'consent:set',
+  'secrets:status',
+  'secrets:set',
+  'secrets:get',
+  'secrets:delete',
+  'secrets:list',
   'env:snapshot',
   'http:execute',
   'http:cancel',

@@ -170,15 +170,17 @@ describe('public documentation hygiene', () => {
 
   it('keeps singleton docs subdirectories discoverable from the docs index', () => {
     const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
-    const singletonSubdirDocs = readdirSync(resolve(ROOT, 'docs'), { withFileTypes: true })
-      .filter(entry => entry.isDirectory())
-      .flatMap(entry => {
-        const dir = resolve(ROOT, 'docs', entry.name);
-        const markdownFiles = readdirSync(dir)
-          .filter(name => name.endsWith('.md'))
-          .sort();
-        return markdownFiles.length === 1 ? [`${entry.name}/${markdownFiles[0]}`] : [];
-      })
+    // Published files only: gitignored local notes under docs/ do not count.
+    const docsRoot = resolve(ROOT, 'docs');
+    const bySubdir = new Map<string, string[]>();
+    for (const file of markdownFiles) {
+      const parent = dirname(file);
+      if (dirname(parent) !== docsRoot) continue;
+      bySubdir.set(basename(parent), [...(bySubdir.get(basename(parent)) ?? []), basename(file)]);
+    }
+    const singletonSubdirDocs = [...bySubdir]
+      .filter(([, names]) => names.length === 1)
+      .map(([dir, names]) => `${dir}/${names[0]}`)
       .sort();
 
     for (const doc of singletonSubdirDocs) {

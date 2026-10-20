@@ -14,7 +14,7 @@
  *     for consent or for the native-execution trust acknowledgement
  *     after a reset.
  *   - **Factory reset** wipes every localStorage key except
- *     `lingua-license`. Pro tier survives; everything else (including
+ *     `lingua-license`, plus the desktop secret vault. Pro tier survives; everything else (including
  *     telemetry consent and native-exec ack) is cleared and re-prompted
  *     on the next boot. This is intentional — a factory reset is the
  *     last-line-of-defense action; the license invariant is the only
@@ -32,6 +32,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { applyFactoryReset } from '../../utils/safeBoot';
+import { clearVaultSecrets } from '../../services/secretVault';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 
 type ResetScope = RecoveryResetScope;
@@ -42,7 +43,7 @@ interface ScopeAction {
   scope: ResetScope;
   labelKey: string;
   hintKey: string;
-  apply: () => void;
+  apply: () => void | Promise<void>;
 }
 
 function buildScopeActions(): ScopeAction[] {
@@ -120,8 +121,9 @@ function buildScopeActions(): ScopeAction[] {
       scope: 'factory',
       labelKey: 'recovery.action.factory.label',
       hintKey: 'recovery.action.factory.hint',
-      apply: () => {
+      apply: async () => {
         applyFactoryReset();
+        await clearVaultSecrets();
       },
     },
   ];
@@ -173,7 +175,7 @@ export function RecoverySection() {
         pushStatusNotice({ tone: 'info', messageKey: 'recovery.cancelled' });
         return;
       }
-      action.apply();
+      await action.apply();
       pushStatusNotice({ tone: 'success', messageKey: 'recovery.success' });
     } finally {
       setBusyScope(null);
