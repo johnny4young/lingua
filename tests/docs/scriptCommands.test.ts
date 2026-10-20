@@ -157,6 +157,7 @@ describe('Script naming docs guard', () => {
       // swap-attack compile guard under tests/ (tsconfig.test.json).
       'typecheck:tests',
       'test:e2e:web',
+      'test:visual:web',
       'test:smoke:web:license',
       'test:watch',
       'lint',

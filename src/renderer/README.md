@@ -861,6 +861,29 @@ If you add a new global class, place it in the closest subsection instead of app
 - Keep shared presentational components in `components/ui` dumb; product logic stays in feature folders.
 - Every bespoke interactive control (chips, tree rows, status-bar segments, cell-row icon buttons, drop-zones, anything not built from the `.button-*` design-system classes) MUST carry a visible keyboard focus indicator. Reuse the shared `.focus-ring` class (defined in [index.css](index.css) beside the `.button-*` family) — or one of the `.button-*` / `.field-shell` primitives, which already include the ring — instead of hand-rolling a focus style. This keeps keyboard focus visible and consistent everywhere; do not invent a second ring recipe.
 
+### Component states and shared vocabulary
+
+- Buttons share one state rule in `index.css`: hover lifts 1px and steps the
+  fill, pressed steps it again and settles, disabled drops the shadow, and
+  focus is a 2px gap plus a 2px ring in the control's hue (`ring-accent-fg`,
+  `ring-error-fg` for destructive). Transitions use `--duration-*` and
+  `--curve-*`, which drop to 0ms under reduced motion.
+- One saturated control per surface: `.button-primary` (and Run) fill with the
+  accent and take ink by contrast (`--color-fg-on-accent`); `.button-secondary`
+  is surface plus hairline; `.button-ghost` is accent text with a tint on hover;
+  `.button-danger` is red text until it sits inside a confirmation, where
+  `.button-danger-solid` fills. Disabled primary uses the muted pair
+  (`bg-bg-inset` + `text-fg-muted`) because a pale accent fails contrast.
+- Elevation: `shadow-e0` flat, `shadow-e1` cards and panels, `shadow-e2` hover
+  and selection, `shadow-e3` overlays, menus and the action pill. Do not reach
+  for raw `shadow-*` sizes.
+- The primary action shows its shortcut as a keycap inside the button; menus
+  print keys right-aligned; destructive actions never show a key. Toolbar icons
+  are 28px targets and list rows 24px; toggles are 36×20 with a 16px knob.
+- `tests/build/themeTokenContrast.test.ts` measures every text pair in both
+  themes and `tests/shared/languagePackContrast.test.ts` every language chip;
+  `pnpm run test:visual:web` compares the shared surfaces pixel by pixel.
+
 ## Common change paths
 
 ### Add or change a visible renderer feature
