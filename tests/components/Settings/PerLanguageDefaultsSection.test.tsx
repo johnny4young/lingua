@@ -18,6 +18,9 @@ describe('Per-language defaults matrix', () => {
   it('has one row per language and a dash where the language has no such setting', () => {
     render(<PerLanguageDefaultsSection />);
     const table = screen.getByRole('table', { name: 'Per-language defaults' });
+    // At 200% zoom the grid scrolls sideways instead of squeezing its selects.
+    expect(table.className).toMatch(/\bmin-w-\[560px\]/);
+    expect(table.parentElement?.className).toMatch(/\boverflow-x-auto\b/);
     // Every row, the header included, fills the four grid columns.
     for (const row of within(table).getAllByRole('row')) {
       for (const cell of row.children) expect(cell.className).not.toMatch(/\bsr-only\b/);

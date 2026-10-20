@@ -75,7 +75,7 @@ import {
  *   Workspace
  *     1. general      → About + Updates
  *     2. appearance   → Appearance + Layout
- *     3. editor       → Editor + ExecutionHistory + Utilities
+ *     3. editor       → Editor + Per-language + SQL + ExecutionHistory + Utilities + ThemePreset
  *     4. languages    → Languages
  *     5. environment  → EnvVars
  *     6. privacy      → Privacy + PrivacyTrust
@@ -89,8 +89,8 @@ import {
  *    10. plugins      → PluginsSection (was nested under "editor")
  *    11. recovery     → RecoverySection (was nested under "account")
  *
- * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
- * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
+ * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins has no digit)
+ * and ⌘0 opens recovery; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
 interface SettingsModalProps {
   onClose: () => void;

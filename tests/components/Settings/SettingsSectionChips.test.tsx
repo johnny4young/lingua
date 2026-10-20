@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -95,6 +95,56 @@ describe('Settings section chips', () => {
       });
       expect(
         screen.getByRole('button', { name: 'Per-language' }).getAttribute('aria-current')
+      ).toBe('true');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('relabels the chips when a section label changes in place', async () => {
+    const { rerender } = render(<Harness labels={['Editor', 'Per-language']} />);
+    const sections = screen.getByTestId('panel').querySelectorAll('section');
+    sections[1]!.setAttribute('data-settings-chip', 'Por lenguaje');
+    await waitFor(() =>
+      expect(screen.getAllByTestId('settings-section-chip').map(chip => chip.textContent)).toEqual([
+        'Editor',
+        'Por lenguaje',
+      ])
+    );
+    rerender(<Harness labels={['Editor', 'Per-language']} />);
+  });
+
+  it('keeps the clicked chip pressed while its jump scrolls to the bottom', () => {
+    vi.useFakeTimers();
+    try {
+      render(<Harness labels={['Editor', 'Per-language', 'SQL workspace']} />);
+      const panel = screen.getByTestId('panel');
+      panel.scrollTo = vi.fn() as typeof panel.scrollTo;
+      Object.defineProperties(panel, {
+        scrollTop: { configurable: true, value: 1500 },
+        clientHeight: { configurable: true, value: 500 },
+        scrollHeight: { configurable: true, value: 2000 },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Per-language' }));
+      fireEvent.scroll(panel);
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(
+        screen.getByRole('button', { name: 'Per-language' }).getAttribute('aria-current')
+      ).toBe('true');
+
+      // Once the scroll settles, the spy takes over again.
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      fireEvent.scroll(panel);
+      act(() => {
+        vi.advanceTimersByTime(16);
+      });
+      expect(
+        screen.getByRole('button', { name: 'SQL workspace' }).getAttribute('aria-current')
       ).toBe('true');
     } finally {
       vi.useRealTimers();

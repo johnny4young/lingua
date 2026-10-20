@@ -8,6 +8,8 @@ import {
   type ExecutionHistoryEntry,
 } from '@/stores/executionHistoryStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useSnippetsStore } from '@/stores/snippetsStore';
+import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
 import type { RunCapsuleV1 } from '@/../shared/runCapsule';
 
 const { sqlBytesMock, clearSqlMock } = vi.hoisted(() => ({
@@ -107,6 +109,71 @@ describe('Local data summary', () => {
     expect(pushStatusNoticeMock).toHaveBeenCalledWith(
       expect.objectContaining({ messageKey: 'settings.privacy.localData.cleared' })
     );
+  });
+
+  it('resets the live stores, so a later change does not write the cleared data back', async () => {
+    useSnippetsStore.setState({
+      snippets: [
+        {
+          id: 's1',
+          label: 'secret',
+          description: '',
+          code: 'token',
+          language: 'javascript',
+          createdAt: 1,
+        },
+      ],
+    });
+    useUtilityHistoryStore.setState({ favorites: ['jwt'] });
+    render(<PrivacyTrustSection />);
+    await waitFor(() => expect(sqlBytesMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId('privacy-local-data-clear-all'));
+    fireEvent.click(screen.getByTestId('privacy-clear-all-confirm'));
+    await waitFor(() => expect(screen.queryByTestId('privacy-clear-all-modal')).toBeNull());
+
+    expect(useSnippetsStore.getState().snippets).toEqual([]);
+    expect(useUtilityHistoryStore.getState().favorites).toEqual([]);
+    useUtilityHistoryStore.setState({ history: {} });
+    useSnippetsStore.setState({ snippets: [] });
+    expect(window.localStorage.getItem('lingua-snippets') ?? '').not.toContain('secret');
+    expect(window.localStorage.getItem('lingua-utility-state') ?? '').not.toContain('jwt');
+  });
+
+  it('waits for the SQL size before offering Clear everything', async () => {
+    let resolveSize: (bytes: number) => void = () => undefined;
+    sqlBytesMock.mockReturnValue(new Promise<number>(resolve => (resolveSize = resolve)));
+    window.localStorage.setItem('lingua-snippets', 'abcdef');
+    render(<PrivacyTrustSection />);
+    expect(screen.getByTestId('privacy-local-data-clear-all').hasAttribute('disabled')).toBe(true);
+    resolveSize(1024);
+    await waitFor(() =>
+      expect(screen.getByTestId('privacy-local-data-clear-all').hasAttribute('disabled')).toBe(
+        false
+      )
+    );
+  });
+
+  it('says so when the SQL database cannot be cleared', async () => {
+    clearSqlMock.mockRejectedValue(new Error('locked'));
+    render(<PrivacyTrustSection />);
+    await waitFor(() => expect(sqlBytesMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId('privacy-local-data-clear-all'));
+    fireEvent.click(screen.getByTestId('privacy-clear-all-confirm'));
+    await waitFor(() =>
+      expect(pushStatusNoticeMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tone: 'warning',
+          messageKey: 'settings.privacy.localData.clearFailed',
+        })
+      )
+    );
+    expect(pushStatusNoticeMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ messageKey: 'settings.privacy.localData.cleared' })
+    );
+    // The rest of the batch still runs.
+    expect(useExecutionHistoryStore.getState().capsuleEntries()).toHaveLength(0);
   });
 
   it('warns that clearing the license turns Pro off, and keeps everything on cancel', async () => {

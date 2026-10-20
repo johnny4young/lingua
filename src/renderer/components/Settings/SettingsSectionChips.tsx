@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 
@@ -11,6 +11,8 @@ interface SectionEntry {
 const ACTIVE_OFFSET_PX = 24;
 /** Room left above a section the chips scroll to. */
 const SECTION_GAP_PX = 16;
+/** A chip jump keeps its chip pressed until the scroll has been quiet this long. */
+const JUMP_SETTLE_MS = 150;
 
 function collectSections(panel: HTMLElement): SectionEntry[] {
   return [...panel.querySelectorAll<HTMLElement>('[data-settings-chip]')].flatMap(element => {
@@ -43,6 +45,9 @@ export function SettingsSectionChips({ panelRef, tabKey, tabLabel }: SettingsSec
   const { t } = useTranslation();
   const [sections, setSections] = useState<SectionEntry[]>([]);
   const [active, setActive] = useState(0);
+  // While a chip jump scrolls, the spy would press whatever passes or, at the bottom, the last chip.
+  const jumping = useRef(false);
+  const settleTimer = useRef(0);
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -61,9 +66,14 @@ export function SettingsSectionChips({ panelRef, tabKey, tabLabel }: SettingsSec
     };
     refresh();
     setActive(0);
-    // Sections can mount after the tab (lazy rows), so keep the list current.
+    // Sections can mount after the tab (lazy rows) and relabel on a language switch.
     const observer = new MutationObserver(refresh);
-    observer.observe(panel, { childList: true, subtree: true });
+    observer.observe(panel, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-settings-chip'],
+    });
     return () => observer.disconnect();
   }, [panelRef, tabKey]);
 
@@ -73,11 +83,19 @@ export function SettingsSectionChips({ panelRef, tabKey, tabLabel }: SettingsSec
     let frame = 0;
     const onScroll = () => {
       window.cancelAnimationFrame(frame);
+      if (jumping.current) {
+        window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(() => {
+          jumping.current = false;
+        }, JUMP_SETTLE_MS);
+        return;
+      }
       frame = window.requestAnimationFrame(() => setActive(activeSectionIndex(panel, sections)));
     };
     panel.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer.current);
       panel.removeEventListener('scroll', onScroll);
     };
   }, [panelRef, sections]);
@@ -88,6 +106,11 @@ export function SettingsSectionChips({ panelRef, tabKey, tabLabel }: SettingsSec
       const panel = panelRef.current;
       if (!section || !panel) return;
       setActive(index);
+      jumping.current = true;
+      window.clearTimeout(settleTimer.current);
+      settleTimer.current = window.setTimeout(() => {
+        jumping.current = false;
+      }, JUMP_SETTLE_MS);
       const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       // Scroll the panel only: scrollIntoView would also scroll the sheet and hide its top bar.
       const top =

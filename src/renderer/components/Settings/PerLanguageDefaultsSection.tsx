@@ -63,12 +63,13 @@ export function PerLanguageDefaultsSection() {
         description={t('settings.perLanguage.description')}
         chip={t('settings.perLanguage.chip')}
       >
-        <SpecCard>
+        {/* Scrolls sideways at 200% zoom instead of squeezing the selects. */}
+        <SpecCard className="overflow-x-auto">
           <div
             role="table"
             aria-label={t('settings.perLanguage.title')}
             data-testid="settings-per-language-defaults"
-            className="grid grid-cols-[120px_repeat(3,minmax(0,1fr))] items-center gap-x-4 gap-y-1.5 py-3"
+            className="grid min-w-[560px] grid-cols-[120px_repeat(3,minmax(9rem,1fr))] items-center gap-x-4 gap-y-1.5 py-3"
           >
             <div role="row" className="contents">
               <span role="columnheader">

@@ -29,6 +29,15 @@ describe('searchSettings', () => {
     ).toBe('font-size');
   });
 
+  it('names the Privacy entries after the sections they land on', async () => {
+    await i18next.changeLanguage('en');
+    const [localData] = searchSettings('local data', i18next.t.bind(i18next));
+    expect(localData).toMatchObject({ label: 'Local data', targetId: 'section-privacy-trust' });
+    expect(searchSettings('opfs', i18next.t.bind(i18next))[0]?.targetId).toBe(
+      'section-privacy-trust'
+    );
+  });
+
   it('requires every query token and leaves blank searches closed', async () => {
     await i18next.changeLanguage('en');
 

@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { applyRedactionPreview, type RedactionPreviewResult } from '../../utils/redactionPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { createInitialSettingsState } from '../../stores/settingsDefaults';
+import { syncConsentMirror } from '../../stores/settingsPersistence';
+import { useSnippetsStore } from '../../stores/snippetsStore';
+import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { useLicenseStore } from '../../stores/licenseStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
@@ -85,25 +89,17 @@ function trustActionLabel(action: string): string {
 }
 
 /**
- * Privacy + Trust Dashboard root component.
+ * Privacy + Trust dashboard, below PrivacySection on the `'privacy'` tab:
  *
- * Mounted as the `'privacy'` tab in `<SettingsModal>`. Three
- * stacked sub-sections:
+ *   1. Local data — the footprint summary (stores, OPFS SQL database,
+ *      in-memory capsules) with Reveal folder and Clear everything, then the
+ *      audited localStorage keys with a confirmed Clear per row.
+ *   2. Network activity — one-line status per feature that may send data.
+ *   3. Recent activity — the trust event feed, filterable by sensitivity.
+ *   4. Redaction preview — the shared redaction primitives from
+ *      `src/shared/redaction.ts`, the same ones capsule export and share use.
  *
- *   1. Redaction preview — paste-anything textarea showing what the
- *      shared redaction primitives from `src/shared/redaction.ts` would
- *      strip. Same helper that capsule export + share link use, so
- *      the preview cannot drift from the real export.
- *   2. Local stores audit — table of the localStorage keys
- *      Lingua owns, with byte size estimates and per-row Clear
- *      action (gated by a confirmation modal).
- *   3. Network activity summary — one-line status per feature that
- *      may send data off the device.
- *
- * The dashboard reads from existing stores (no new IPC, no new
- * persistent state) so it stays as a passive audit surface. The
- * only mutation is the Clear button per row, which calls
- * `window.localStorage.removeItem` directly.
+ * It adds no persistent state; Reveal folder reuses the recovery IPC.
  */
 export function PrivacyTrustSection() {
   const { t } = useTranslation();
@@ -197,6 +193,17 @@ export function PrivacyTrustSection() {
       }
       if (key === TRUST_EVENT_STORAGE_KEY) {
         useTrustEventStore.getState().clear();
+      }
+      // Persisted stores write their whole state back on the next change, so
+      // the live copy is reset first; removing the key then drops that write.
+      if (key === 'lingua-settings') {
+        const defaults = createInitialSettingsState();
+        useSettingsStore.setState(defaults);
+        syncConsentMirror(defaults.telemetryConsent);
+      }
+      if (key === 'lingua-snippets') useSnippetsStore.setState({ snippets: [] });
+      if (key === 'lingua-utility-state') {
+        useUtilityHistoryStore.setState({ history: {}, persistEnabled: {}, favorites: [] });
       }
       window.localStorage.removeItem(key);
     } catch {

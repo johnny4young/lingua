@@ -240,7 +240,7 @@ export const en = {
         },
         {
           image: '/screenshots/tour/settings-privacy.png',
-          alt: 'Privacy settings page: anonymous usage analytics off, Run Ledger off, sensitive HTTP header redaction list, and a redaction preview',
+          alt: 'Privacy settings page: section chips for Run Ledger, Local data, Network, Recent activity and Redaction, anonymous usage analytics off, the sensitive HTTP header list, and Run Ledger off',
           title: 'Privacy is a settings page, not a promise',
           body: 'Telemetry ships off and stays off until you flip it. The Run Ledger records locally, sensitive headers are redacted by name, and the redaction preview shows exactly what would leave your machine — nothing.',
         },

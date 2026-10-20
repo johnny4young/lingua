@@ -17,7 +17,7 @@ interface LocalDataSummaryProps {
 }
 
 /**
- * The footprint row above the Local stores table: the stores, the SQL
+ * The footprint row above the Local data table: the stores, the SQL
  * workspace database in OPFS and the capsules held in memory, with one
  * Clear everything that chains the same clears behind a single confirm.
  */
@@ -29,7 +29,8 @@ export function LocalDataSummary({
 }: LocalDataSummaryProps) {
   const { t } = useTranslation();
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
-  const [sqlBytes, setSqlBytes] = useState<number | null>(0);
+  // undefined while the first read runs, so Clear everything cannot skip a database it has not sized.
+  const [sqlBytes, setSqlBytes] = useState<number | null | undefined>(undefined);
   const [confirming, setConfirming] = useState(false);
   const [clearing, setClearing] = useState(false);
   const revealSupported = typeof window !== 'undefined' && window.lingua?.platform !== 'web';
@@ -43,22 +44,37 @@ export function LocalDataSummary({
   const storesInUse = rows.filter(row => row.bytes > 0);
   const nothingToClear = storesInUse.length === 0 && sqlBytes === 0 && capsuleCount === 0;
   const sqlLabel =
-    sqlBytes === null ? t('settings.privacy.localData.sqlInUse') : formatBytes(sqlBytes);
+    sqlBytes === undefined
+      ? '…'
+      : sqlBytes === null
+        ? t('settings.privacy.localData.sqlInUse')
+        : formatBytes(sqlBytes);
 
   const handleReveal = async () => {
     const result = await window.lingua.recovery.revealFolder();
-    if (!result.ok) pushStatusNotice({ tone: 'warning', messageKey: 'recovery.openFolder.hint' });
+    if (!result.ok) {
+      pushStatusNotice({ tone: 'warning', messageKey: 'settings.privacy.localData.revealFailed' });
+    }
   };
 
   const handleClearEverything = async () => {
     setClearing(true);
     try {
       for (const row of storesInUse) clearStore(row.key);
-      // Releases the engine before deleting, so an open SQL tab cannot hold the file.
-      if (sqlBytes !== 0) await clearPersistedSqlDatabase();
+      let sqlCleared = true;
+      try {
+        // Releases the engine before deleting, so an open SQL tab cannot hold the file.
+        if (sqlBytes !== 0) await clearPersistedSqlDatabase();
+      } catch {
+        sqlCleared = false;
+      }
       const history = useExecutionHistoryStore.getState();
       for (const entry of history.capsuleEntries()) history.clearCapsule(entry.id);
-      pushStatusNotice({ tone: 'success', messageKey: 'settings.privacy.localData.cleared' });
+      pushStatusNotice(
+        sqlCleared
+          ? { tone: 'success', messageKey: 'settings.privacy.localData.cleared' }
+          : { tone: 'warning', messageKey: 'settings.privacy.localData.clearFailed' }
+      );
     } finally {
       setClearing(false);
       setConfirming(false);
@@ -90,7 +106,7 @@ export function LocalDataSummary({
               <button
                 type="button"
                 onClick={() => setConfirming(true)}
-                disabled={nothingToClear || clearing}
+                disabled={nothingToClear || clearing || sqlBytes === undefined}
                 className="button-danger h-[26px] gap-1.5 px-2.5 text-body-sm disabled:opacity-40"
                 data-testid="privacy-local-data-clear-all"
               >

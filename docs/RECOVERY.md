@@ -113,8 +113,11 @@ On Linux:
 ~/.config/Lingua/
 ```
 
-The "Open recovery folder" button under Settings → Recovery
-is the same path. Web builds do not have a recovery folder — they
+The "Open recovery folder" button under Settings → Recovery and
+"Reveal folder" under Settings → Privacy → Local data open the same path.
+Unlike Reset everything, Local data's "Clear everything…" also removes the
+license token (its confirmation says so), along with the persisted SQL
+workspace database and the run capsules in memory. Web builds do not have a recovery folder — they
 live entirely in the browser's localStorage, which the dev tools'
 "Application" tab can clear directly.
 

@@ -40,7 +40,7 @@ export function AutoLogStatusPill() {
       : activeTab.autoLogEnabled === true;
   if (!enabled) return null;
 
-  const languageLabel = t(`autoLog.settings.${language}.label`);
+  const languageLabel = t(`workflowMode.languageLabel.${language}`);
   // UI refinement — the file extension already says JS/TS; the pill
   // only needs to communicate "auto-log is on". Drop the language
   // tag from the visible label; keep it in the tooltip so screen
