@@ -537,10 +537,9 @@ export function DeveloperUtilitiesWorkspaceView({ active = true }: { active?: bo
       className="flex h-full min-h-0 flex-col bg-bg-panel-alt/40"
     >
       {/* No VISIBLE workspace-local header: the copy-output hint and the
-          tool counter render in the shell's editor chips row (one shared
-          row) via UtilityHeaderPills — see AppLayout's PanelChipsRow
-          trailing. Screen readers still need a landmark heading for the
-          surface, hence the visually hidden h2. */}
+          tool counter render at the end of the shell's tab strip via
+          UtilityHeaderPills. Screen readers still need a landmark heading
+          for the surface, hence the visually hidden h2. */}
       <h2 className="sr-only">{t('utilities.title')}</h2>
       <DeveloperUtilitiesWorkspaceBody
         selectedUtilityId={activeUtilityId}

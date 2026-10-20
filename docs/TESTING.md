@@ -46,7 +46,7 @@ Use the web flow for:
 - command palette
 - quick open
 - console UI
-- result panel UI
+- results dock UI
 - responsive behavior
 - browser-supported language execution
 
@@ -255,7 +255,7 @@ Use this order when automating:
 | ✅ | `TC-007` | `BOTH` | `developer` | Click `Snippets` | Snippets modal opens |
 | ✅ | `TC-008` | `BOTH` | `developer` | Open command palette | Palette opens and focus lands in search input |
 | ✅ | `TC-009` | `BOTH` | `developer` | Toggle sidebar | Sidebar changes visible/hidden |
-| ✅ | `TC-010` | `BOTH` | `developer` | Toggle console | Console panel changes visible/hidden |
+| ✅ | `TC-010` | `BOTH` | `developer` | Show or hide the dock | Dock folds to its tab row and reopens |
 | ✅ | `TC-011` | `BOTH` | `developer` | With no tabs, inspect `Run` | Run is disabled |
 | ✅ | `TC-012` | `BOTH` | `developer` | Create JS file from primary new-file action | JS tab is created and becomes active |
 | ✅ | `TC-013` | `BOTH` | `developer` | Open new-file menu and create Go file | Go tab is created |
@@ -342,8 +342,8 @@ Use this order when automating:
 | ✅ | `TC-068` | `BOTH` | `developer` | Toggle log/info/warn/error filters | Visible entries change correctly |
 | ✅ | `TC-069` | `BOTH` | `developer` | Toggle timestamps | Timestamps show/hide |
 | ✅ | `TC-070` | `BOTH` | `developer` | Click clear console | Console becomes empty |
-| ✅ | `TC-071` | `BOTH` | `developer` | Inspect result panel | Inline results align with editor lines |
-| ✅ | `TC-072` | `BOTH` | `developer` | Inspect result panel | Full output view renders |
+| ✅ | `TC-071` | `BOTH` | `developer` | Inspect inline results | Values align with editor lines |
+| ✅ | `TC-072` | `BOTH` | `developer` | Run a Go or JSON tab | Output or the validation report shows in the dock Console tab |
 | ✅ | `TC-073` | `BOTH` | `developer` | Toggle `undef` | Undefined results hide/show |
 | ✅ | `TC-074` | `BOTH` | `developer` | Run failing code | Error is visible with line info if available |
 | ✅ | `TC-075` | `BOTH` | `developer` | Run code | Execution time appears |
@@ -458,9 +458,7 @@ The code path is correct (`handleCloseOnEscape` in `CommandPalette` + global `us
 
 ### TC-100 — No blocking console errors (Electron)
 
-Console output route for Python and Rust runs via the bottom console panel (INF/LOG/WRN/ERR). TypeScript/JavaScript output appears both in the console panel and as a timing header in the INLINE RESULT panel. The right-side panel shows:
-- **INLINE RESULT** — for JS/TS/Python: per-line expression values (not stdout)
-- **PROGRAM OUTPUT** — for Go/Rust: full stdout captured after compilation
+Output for every language lands in the results dock's Console tab (INF/LOG/WRN/ERR); JS/TS/Python per-line values stay inline in the editor, and validation reports render at the top of Console. (The 2026-04-12 session below predates the dock and used a right-side results column.)
 
 ### Fixes applied during 2026-04-12 testing session
 

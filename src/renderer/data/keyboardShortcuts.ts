@@ -76,10 +76,8 @@ export const KEYBOARD_SHORTCUTS = [
     combos: [{ tokens: ['Mod', 'Alt', 'H'] }],
   },
   {
-    // Toggle the Compare panel on the active
-    // tab. No-op when there's no comparator snapshot (matches the
-    // toggle-button gate). Dispatcher in `App.tsx` reads + writes
-    // `compareWithSnapshotEnabled` via the editor store.
+    // Opens or closes the Compare dock tab (`utils/compareDock.ts`);
+    // shows a notice when no comparable snapshot exists.
     id: 'run-toggle-compare-snapshot',
     group: 'run',
     combos: [{ tokens: ['Mod', 'Shift', 'D'] }],

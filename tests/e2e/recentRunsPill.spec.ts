@@ -46,7 +46,7 @@ async function countRecentRunsPopoverResources(page: Page): Promise<number> {
 }
 
 async function expectPopoverInsideResultPanel(page: Page): Promise<void> {
-  const resultPanelBounds = await page.getByTestId('result-panel').boundingBox();
+  const resultPanelBounds = await page.getByTestId('results-dock').boundingBox();
   const popoverBounds = await page.getByTestId('recent-runs-popover').boundingBox();
   expect(resultPanelBounds).not.toBeNull();
   expect(popoverBounds).not.toBeNull();

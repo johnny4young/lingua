@@ -1405,7 +1405,7 @@ describe('buildCommandPaletteModel — compare actions ', () => {
       commands.find(
         (command) => command.id === 'action-toggle-compare-with-snapshot'
       )?.description
-    ).toBe('Hide the diff and return to the inline results.');
+    ).toBe('Hide the diff and return the dock to Console.');
   });
 });
 

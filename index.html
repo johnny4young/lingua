@@ -246,7 +246,7 @@
         --boot-muted: #536177;
         box-sizing: border-box;
         display: grid;
-        grid-template-rows: 42px minmax(0, 1fr) 26px;
+        grid-template-rows: 48px minmax(0, 1fr) 24px;
         min-height: 100vh;
         overflow: hidden;
         background: var(--boot-bg);
@@ -296,22 +296,21 @@
 
       .lingua-boot-workspace {
         display: grid;
-        grid-template-columns: 224px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 66fr) minmax(0, 34fr);
         min-height: 0;
       }
 
-      .lingua-boot-sidebar {
-        display: grid;
-        align-content: start;
-        gap: 13px;
-        border-right: 1px solid var(--boot-border);
+      .lingua-boot-dock {
+        border-top: 1px solid var(--boot-border);
         background: var(--boot-panel);
-        padding: 18px 14px;
+        background-image: linear-gradient(var(--boot-panel-alt), var(--boot-panel-alt));
+        background-repeat: no-repeat;
+        background-size: 100% 34px;
       }
 
       .lingua-boot-editor {
         display: grid;
-        grid-template-rows: 38px minmax(0, 1fr);
+        grid-template-rows: 34px minmax(0, 1fr);
         min-width: 0;
         background: var(--boot-bg);
       }
@@ -344,10 +343,6 @@
         background: var(--boot-panel);
       }
 
-      @media (max-width: 720px) {
-        .lingua-boot-workspace { grid-template-columns: 72px minmax(0, 1fr); }
-        .lingua-boot-sidebar { padding-inline: 12px; }
-      }
     </style>
   </head>
   <body>
@@ -359,11 +354,6 @@
           <span class="lingua-boot-dot"></span>
         </div>
         <div class="lingua-boot-workspace">
-          <div class="lingua-boot-sidebar">
-            <span class="lingua-boot-line"></span>
-            <span class="lingua-boot-line"></span>
-            <span class="lingua-boot-line"></span>
-          </div>
           <div class="lingua-boot-editor">
             <div class="lingua-boot-tabs"><span class="lingua-boot-tab"></span></div>
             <div class="lingua-boot-code">
@@ -373,6 +363,7 @@
               <span class="lingua-boot-line"></span>
             </div>
           </div>
+          <div class="lingua-boot-dock"></div>
         </div>
         <div class="lingua-boot-status"></div>
       </div>

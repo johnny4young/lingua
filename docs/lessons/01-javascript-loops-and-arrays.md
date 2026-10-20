@@ -13,7 +13,7 @@ prerequisites: []
 A small JavaScript snippet that takes an array of numbers, filters
 out the negative ones, doubles what's left, and prints the running
 sum. By the end you will have used `filter`, `map`, and a `for`
-loop in the same file and seen the inline result panel update as
+loop in the same file and seen the inline results update as
 you change the input.
 
 ### Starter code
@@ -37,10 +37,10 @@ console.log({ positives, doubled, total });
 ### Walkthrough
 
 1. **`filter` keeps the entries that match**. Replace step 1 with
-   `numbers.filter((n) => n >= 0)`. The inline result panel will
+   `numbers.filter((n) => n >= 0)`. The inline results will
    show the new array next to the line.
 2. **`map` transforms each entry**. Replace step 2 with
-   `positives.map((n) => n * 2)`. The result panel updates again.
+   `positives.map((n) => n * 2)`. The inline results update again.
 3. **The `for` loop walks the array**. Replace the placeholder
    with:
 
@@ -62,7 +62,7 @@ console.log({ positives, doubled, total });
 
 - `filter`, `map`, and a classic `for` loop work together in plain
   JavaScript without any libraries.
-- Lingua's inline result panel and `//=>` magic comments make the
+- Lingua's inline results and `//=>` magic comments make the
   intermediate values visible without breakpoints.
 - The Free tier is enough to run this lesson — JavaScript is
   available on every plan.

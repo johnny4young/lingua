@@ -141,14 +141,6 @@ export async function persistTab(
     ? tab.activeInputSetId
     : undefined;
   const inputArgs = languageSupportsStdin(language) ? tab.inputArgs : undefined;
-  // Save-As that changes the language drops the
-  // Compare toggle. Same-language Save-As (renaming `foo.js` →
-  // `bar.js`) keeps the toggle on so the user's workflow isn't
-  // interrupted.
-  const compareWithSnapshotEnabled =
-    tab.language === language && tab.compareWithSnapshotEnabled === true
-      ? true
-      : undefined;
   // Save-As that lands on an unsupported language
   // drops the Variables toggle. Same-language Save-As keeps it on.
   const variableInspectorEnabled =
@@ -179,7 +171,6 @@ export async function persistTab(
     // at when they armed it. A Save-As that retitles or changes
     // language drops the override.
     nextRunTimeoutOverrideMs: _staleNextRunTimeoutOverride,
-    compareWithSnapshotEnabled: _staleCompareEnabled,
     variableInspectorEnabled: _staleInspectorEnabled,
     recipeBindingId: _staleRecipeBindingId,
     ...tabWithoutDropped
@@ -190,7 +181,6 @@ export async function persistTab(
   void _staleActiveInputSetId;
   void _staleInputArgs;
   void _staleNextRunTimeoutOverride;
-  void _staleCompareEnabled;
   void _staleInspectorEnabled;
   void _staleRecipeBindingId;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
@@ -207,9 +197,6 @@ export async function persistTab(
     ...(inputSets !== undefined ? { inputSets } : {}),
     ...(activeInputSetId !== undefined ? { activeInputSetId } : {}),
     ...(inputArgs !== undefined ? { inputArgs } : {}),
-    ...(compareWithSnapshotEnabled !== undefined
-      ? { compareWithSnapshotEnabled }
-      : {}),
     ...(variableInspectorEnabled !== undefined
       ? { variableInspectorEnabled }
       : {}),

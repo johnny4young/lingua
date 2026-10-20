@@ -57,7 +57,6 @@ const EXPECTED_STORE_KEYS = [
   'selectTabInputSet',
   'renameTabInputSet',
   'deleteTabInputSet',
-  'setTabCompareEnabled',
   'setTabVariableInspectorEnabled',
   // open / save
   'openFile',

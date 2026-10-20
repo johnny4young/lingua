@@ -18,7 +18,7 @@ Cargo workspace.
 - `rustc` compiles the current file as Rust 2021 and Lingua executes the
   native binary without invoking a shell.
 - Compile errors become Monaco markers with source locations; stdout,
-  stderr, and panics stream into the result panel.
+  stderr, and panics stream into the results dock's Console tab.
 - `rust-analyzer` provides desktop diagnostics, completions, hover, and
   signature help when the binary is available.
 - `rustfmt` handles format-on-save for `.rs` files.

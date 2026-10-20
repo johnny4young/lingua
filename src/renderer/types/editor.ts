@@ -146,22 +146,9 @@ export interface FileTab {
    */
   nextRunTimeoutOverrideMs?: number;
   /**
-   * per-tab flag for the "Compare with last
-   * stable run" toggle in the result-panel header. `true` swaps
-   * the inline-results region for `<CompareResultsPanel>` when a
-   * comparator snapshot is available; otherwise the toggle stays
-   * dormant. Cleared on language change (rename / Save-As) via
-   * `dropCompareIfLanguageChanged` so a JS-mode toggle doesn't
-   * surface a stale comparator on a freshly-renamed Python tab.
-   */
-  compareWithSnapshotEnabled?: boolean;
-  /**
-   * per-tab flag for the "Variables" toggle in
-   * the result-panel header. `true` swaps the inline-results
-   * region for `<VariableInspectorPanel>` when a language-matching
-   * `ScopeSnapshot` is available. Mutually exclusive with the
-   * `Compare` toggle: the header forces one off when the other
-   * comes on. Cleared on language change (rename / Save-As) when
+   * per-tab flag for the floating Variables card. `true` shows
+   * `<VariableInspectorPanel>` when a language-matching
+   * `ScopeSnapshot` is available. Cleared on language change (rename / Save-As) when
    * the new language is not in the inspector's supported set
    * (`javascript` / `typescript` / `python`).
    */
@@ -316,17 +303,8 @@ export interface EditorState {
    */
   setTabNextRunTimeoutOverride: (id: string, timeoutMs: number | null) => void;
   /**
-   * Write the per-tab `compareWithSnapshotEnabled`
-   * flag. `null` clears the field (toggle returns to disabled).
-   * No-op when the tab does not exist.
-   */
-  setTabCompareEnabled: (id: string, enabled: boolean | null) => void;
-  /**
    * Write the per-tab `variableInspectorEnabled`
    * flag. `null` clears the field (toggle returns to disabled).
-   * Mutual exclusion with `setTabCompareEnabled` is enforced at the
-   * caller level — toggling Variables on flips Compare off, and
-   * vice versa.
    */
   setTabVariableInspectorEnabled: (id: string, enabled: boolean | null) => void;
   /**

@@ -1,28 +1,33 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { RefObject } from 'react';
-import { ChevronUp, PanelLeft, X } from 'lucide-react';
+import { PanelLeft, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout,
+  type PanelImperativeHandle,
+} from 'react-resizable-panels';
 import { FileTreeHost } from '../FileTree/FileTreeHost';
 import { EditorTabs } from '../Editor/EditorTabs';
-import { ResultPanel } from '../Editor/ResultPanel';
 import { FloatingVariablesCardHost } from '../Editor/FloatingVariablesCardHost';
-import { AppChrome } from '../Chrome';
+import { AppChrome, CommandBar } from '../Chrome';
 import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
-import { PanelChipsRow } from './PanelChipsRow';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
-import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
 import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types/settings';
+import { useDockShell } from '../../hooks/useLayoutAvailability';
 import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
+import { RunSweep } from './RunSweep';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
 const RESIZE_TARGET_MINIMUM_SIZE = { coarse: 24, fine: 24 } as const;
@@ -74,10 +79,9 @@ const LazyDeveloperUtilitiesWorkspaceView = lazy(async () => {
   return { default: module.DeveloperUtilitiesWorkspaceView };
 });
 
-// The Utilities status pills (copy-output hint + tool counter) render in
-// the shared editor chips row when a Utilities tab is active — one header
-// row instead of two. Lazy so the shell chunk does not absorb the
-// utilities catalog/data.
+// The Utilities status pills (copy-output hint + tool counter) sit at the end
+// of the tab strip on a Utilities tab. Lazy so the shell chunk does not absorb
+// the utilities catalog/data.
 const LazyUtilityHeaderPills = lazy(async () => {
   const module = await import('../DeveloperUtilities/UtilityHeaderPills');
   return { default: module.UtilityHeaderPills };
@@ -101,14 +105,21 @@ function useCompactShellLayout() {
   return isCompact;
 }
 
-function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
+function ResizeHandle({
+  orientation = 'vertical',
+  disabled = false,
+}: {
+  orientation?: 'vertical' | 'horizontal';
+  disabled?: boolean;
+}) {
   const isVertical = orientation === 'vertical';
   // Keep the inner divider transparent so the editor +
-  // result panel read as ONE canvas. The hit zone stays 3px wide
+  // results dock read as ONE canvas. The hit zone stays 3px wide
   // so power users can still resize, and the bar fades in on hover.
   return (
     <Separator
-      className={`group relative flex items-center justify-center transition-colors ${
+      disabled={disabled}
+      className={`group relative flex items-center justify-center transition-colors ${disabled ? 'pointer-events-none ' : ''}${
         isVertical
           ? '-mx-1 w-3 cursor-col-resize hover:bg-accent/5'
           : '-my-1 h-3 cursor-row-resize hover:bg-accent/5'
@@ -129,11 +140,6 @@ function EditorArea() {
   const sidebarCombo = useShortcutLabel('view-toggle-sidebar');
   const sidebarVisible = useUIStore(s => s.sidebarVisible);
   const toggleSidebar = useUIStore(s => s.toggleSidebar);
-  const editorResultsLayout = useDefaultLayout({
-    id: 'lingua-editor-results-layout',
-    panelIds: ['editor-panel', 'results-panel'],
-    storage: localStorage,
-  });
   // When the active tab carries `kind: 'notebook'`,
   // mount `<NotebookView>` instead of Monaco. The selector returns a
   // primitive string-or-null so Zustand's default `===` check skips
@@ -165,29 +171,14 @@ function EditorArea() {
   });
   const utilitiesTabOpen = useEditorStore(s => s.tabs.some(tab => tab.kind === 'utilities'));
 
-  // Utilities is a full-screen workspace with no runtime output, so
-  // activating it folds the console away and leaving restores the user's
-  // previous choice. Mutating the store (instead of gating the render)
-  // keeps the restore strip honest: explicitly reopening the console
-  // while on Utilities works, and that explicit choice is respected.
   const utilitiesActive = activeUtilitiesTabId !== null;
-  const consoleWasVisibleRef = useRef(false);
-  useEffect(() => {
-    const ui = useUIStore.getState();
-    if (utilitiesActive) {
-      consoleWasVisibleRef.current = ui.consoleVisible;
-      if (ui.consoleVisible) ui.setConsoleVisible(false);
-      return;
-    }
-    if (consoleWasVisibleRef.current) {
-      consoleWasVisibleRef.current = false;
-      useUIStore.getState().setConsoleVisible(true);
-    }
-  }, [utilitiesActive]);
 
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
-      <div className="surface-header flex h-[34px] shrink-0 items-stretch overflow-hidden bg-surface-strong/72">
+      <div
+        data-testid="editor-tab-strip"
+        className="surface-header flex h-[34px] shrink-0 items-stretch overflow-hidden bg-surface-strong/72"
+      >
         <div className="flex h-full shrink-0 items-center border-r border-border/60 px-1.5">
           <IconButton
             onClick={toggleSidebar}
@@ -205,16 +196,14 @@ function EditorArea() {
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabs />
         </div>
-      </div>
-      <PanelChipsRow
-        trailing={
-          utilitiesActive ? (
+        {utilitiesActive ? (
+          <div className="flex shrink-0 items-center gap-2 px-3">
             <Suspense fallback={null}>
               <LazyUtilityHeaderPills />
             </Suspense>
-          ) : null
-        }
-      />
+          </div>
+        ) : null}
+      </div>
       <div className="min-h-0 flex-1">
         {utilitiesTabOpen ? (
           <div className={cn('h-full min-h-0', activeUtilitiesTabId === null && 'hidden')}>
@@ -227,9 +216,8 @@ function EditorArea() {
         ) : null}
         {activeUtilitiesTabId !== null ? null : activeNotebookTabId !== null ? (
           /* Notebook tabs mount `<NotebookView>` in
-             place of the Monaco + ResultPanel split. The Monaco editor
-             would otherwise try to render the (empty) notebook tab
-             `content` and the result panel would surface stale state. */
+             place of Monaco, which would otherwise try to render the
+             (empty) notebook tab `content`. */
           <WorkspaceErrorBoundary key={activeNotebookTabId} region="notebook">
             <Suspense fallback={<EditorLoadingState />}>
               <LazyNotebookView tabId={activeNotebookTabId} />
@@ -239,7 +227,7 @@ function EditorArea() {
           /* SQL workspace as a full-screen tab. The
              view fills the editor area height (h-full min-h-0) instead
              of the old ~30% dock slot, and binds the workspace store
-             to this tab id. No editor + ResultPanel split here. */
+             to this tab id. */
           <div className="h-full min-h-0">
             <WorkspaceErrorBoundary key={activeSqlTabId} region="sql">
               <Suspense fallback={<EditorLoadingState />}>
@@ -259,35 +247,12 @@ function EditorArea() {
           </div>
         ) : hasTabs ? (
           <>
-            <Group
-              orientation="horizontal"
-              defaultLayout={editorResultsLayout.defaultLayout}
-              onLayoutChanged={editorResultsLayout.onLayoutChanged}
-              resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-              className="unified-editor-canvas relative overflow-visible"
-            >
-              <Panel
-                id="editor-panel"
-                defaultSize="75%"
-                minSize={320}
-                className="relative z-20 overflow-visible"
-              >
-                <div className="relative h-full overflow-visible">
-                  <Suspense fallback={<EditorLoadingState />}>
-                    <CodeEditor />
-                  </Suspense>
-                </div>
-              </Panel>
-              <ResizeHandle orientation="vertical" />
-              <Panel
-                id="results-panel"
-                defaultSize="25%"
-                minSize={220}
-                className="relative z-10 overflow-hidden bg-[var(--color-editor-bg)]"
-              >
-                <ResultPanel />
-              </Panel>
-            </Group>
+            <div className="relative h-full overflow-visible">
+              <Suspense fallback={<EditorLoadingState />}>
+                <CodeEditor />
+              </Suspense>
+              <RunSweep />
+            </div>
             <FloatingVariablesCardHost />
           </>
         ) : (
@@ -323,56 +288,30 @@ function BottomPanelLoadingState() {
   );
 }
 
-function BottomPanelSurface({ debuggerAvailable }: { debuggerAvailable: boolean }) {
+function BottomPanelSurface({ expanded }: { expanded: boolean }) {
   return (
     <Suspense fallback={<BottomPanelLoadingState />}>
-      <LazyBottomPanel debuggerAvailable={debuggerAvailable} />
+      <LazyBottomPanel expanded={expanded} />
     </Suspense>
   );
 }
 
 interface MainContentProps {
-  showConsole: boolean;
-  showDebuggerPanel: boolean;
-  showBrowserPreviewPanel: boolean;
-  /**
-   * True when the active tab + Settings combination
-   * permits the stdin panel AND the user has actively focused it via
-   * the command palette / palette focus action. Without this term in
-   * the `showBottomPanel` gate, `openBottomPanel('stdin')` from a
-   * console-closed state would set the store flag but never mount
-   * the panel.
-   */
-  showStdinTabBody: boolean;
-  /**
-   * True when surface=bottom + variables capture
-   * available + active panel is 'variables'. Same shape as
-   * `showStdinTabBody`: keeps the drawer mounted when Variables is
-   * the only thing the user wants visible.
-   */
-  showVariablesTabBody: boolean;
-  /**
-   * True when a recipe-bound active tab owns the
-   * selected bottom panel. Mirrors the stdin / variables gates so a
-   * restored or programmatically-selected Recipe panel can mount
-   * even when the console drawer was previously collapsed.
-   */
-  showRecipeTabBody: boolean;
-  /** Keep the drawer mounted when the project terminal is selected. */
-  showProjectTerminalTabBody: boolean;
+  dockShown: boolean;
+  dockExpanded: boolean;
   layoutPreset: LayoutPreset;
 }
 
-function MainContent({
-  showConsole,
-  showDebuggerPanel,
-  showBrowserPreviewPanel,
-  showStdinTabBody,
-  showVariablesTabBody,
-  showRecipeTabBody,
-  showProjectTerminalTabBody,
-  layoutPreset,
-}: MainContentProps) {
+const DOCK_ROW_PX = 34;
+
+/**
+ * One stable tree for every dock state, so folding or opening the dock never
+ * remounts the editor: the dock panel collapses instead of leaving the tree.
+ * Below the editor it folds to its tab row; beside it (vertical preset) it
+ * folds away and the tab row sits under the group.
+ */
+function MainContent({ dockShown, dockExpanded, layoutPreset }: MainContentProps) {
+  const vertical = layoutPreset === 'vertical';
   const verticalLayout = useDefaultLayout({
     id: 'lingua-main-vertical-layout',
     panelIds: ['workspace-panel', 'console-panel'],
@@ -383,87 +322,70 @@ function MainContent({
     panelIds: ['workspace-panel', 'console-panel'],
     storage: localStorage,
   });
+  const layout = vertical ? verticalLayout : horizontalLayout;
+  const dockPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const programmaticRef = useRef(false);
+  const collapsedSize = vertical || !dockShown ? 0 : DOCK_ROW_PX;
 
-  const showBottomPanel =
-    showConsole ||
-    showDebuggerPanel ||
-    showBrowserPreviewPanel ||
-    showStdinTabBody ||
-    showVariablesTabBody ||
-    showRecipeTabBody ||
-    showProjectTerminalTabBody;
+  useLayoutEffect(() => {
+    const panel = dockPanelRef.current;
+    if (!panel) return;
+    programmaticRef.current = true;
+    if (dockExpanded) {
+      if (panel.isCollapsed()) panel.expand();
+    } else if (!panel.isCollapsed()) {
+      panel.collapse();
+    }
+    programmaticRef.current = false;
+  }, [dockExpanded, collapsedSize]);
 
-  if (!showBottomPanel) return <EditorAreaWithConsoleRestoreStrip />;
+  // Dragging the dock shut or open is the same choice as the hide button.
+  const handleDockResize = () => {
+    const panel = dockPanelRef.current;
+    if (!panel || programmaticRef.current || !dockShown) return;
+    const collapsed = panel.isCollapsed();
+    const visible = useUIStore.getState().consoleVisible;
+    if (collapsed && visible) useUIStore.getState().setConsoleVisible(false);
+    else if (!collapsed && !visible) useUIStore.getState().setConsoleVisible(true);
+  };
 
-  if (layoutPreset === 'vertical') {
-    return (
-      <Group
-        orientation="horizontal"
-        defaultLayout={verticalLayout.defaultLayout}
-        onLayoutChanged={verticalLayout.onLayoutChanged}
-        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-      >
-        <Panel id="workspace-panel" defaultSize="60%" minSize={420}>
-          <EditorArea />
-        </Panel>
-        <ResizeHandle orientation="vertical" />
-        <Panel id="console-panel" defaultSize="40%" minSize={260}>
-          <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
-        </Panel>
-      </Group>
-    );
-  }
+  const dockInPanel = dockShown && (dockExpanded || !vertical);
 
-  // horizontal (default)
-  return (
-    <Group
-      orientation="vertical"
-      defaultLayout={horizontalLayout.defaultLayout}
-      onLayoutChanged={horizontalLayout.onLayoutChanged}
-      resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-    >
-      <Panel id="workspace-panel" defaultSize="70%" minSize={260}>
-        <EditorArea />
-      </Panel>
-      <ResizeHandle orientation="horizontal" />
-      <Panel id="console-panel" defaultSize="30%" minSize={160}>
-        <BottomPanelSurface debuggerAvailable={showDebuggerPanel} />
-      </Panel>
-    </Group>
-  );
-}
-
-/**
- * Prerequisite fix surfaced during validation.
- *
- * Wraps `<EditorArea>` with a thin restore strip pinned to the bottom
- * when the console / bottom panel is hidden. Without it, hiding the
- * panel via `Cmd+\` or the new tablist close button left the user
- * with NO visible affordance to bring it back — only the keyboard
- * shortcut, which is undiscoverable. The strip is intentionally low
- * profile (24px, chevron-up + label) so it doesn't compete with the
- * editor surface but stays clickable.
- */
-function EditorAreaWithConsoleRestoreStrip() {
-  const { t } = useTranslation();
-  const setConsoleVisible = useUIStore(state => state.setConsoleVisible);
-  const consoleCombo = useShortcutLabel('view-toggle-console');
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
-        <EditorArea />
-      </div>
-      <button
-        type="button"
-        data-testid="bottom-panel-restore"
-        onClick={() => setConsoleVisible(true)}
-        className="flex h-6 shrink-0 items-center justify-center gap-2 border-t border-border-strong/60 bg-surface-strong/60 text-eyebrow font-bold uppercase tracking-[0.14em] text-fg-subtle transition-colors hover:bg-surface-strong/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        aria-label={t('bottomPanel.actions.show')}
+      <Group
+        key={vertical ? 'beside' : 'below'}
+        orientation={vertical ? 'horizontal' : 'vertical'}
+        defaultLayout={layout.defaultLayout}
+        onLayoutChanged={layout.onLayoutChanged}
+        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+        className="min-h-0 flex-1"
       >
-        <ChevronUp size={12} aria-hidden="true" />
-        {t('bottomPanel.tabs.console')}
-        {consoleCombo ? <span className="ml-1 text-fg-subtle">{consoleCombo}</span> : null}
-      </button>
+        <Panel
+          id="workspace-panel"
+          defaultSize={vertical ? '60%' : '66%'}
+          minSize={vertical ? 420 : 260}
+        >
+          <EditorArea />
+        </Panel>
+        <ResizeHandle orientation={vertical ? 'vertical' : 'horizontal'} disabled={!dockExpanded} />
+        <Panel
+          id="console-panel"
+          panelRef={dockPanelRef}
+          collapsible
+          collapsedSize={collapsedSize}
+          defaultSize={vertical ? '40%' : '34%'}
+          minSize={vertical ? 260 : 160}
+          onResize={handleDockResize}
+        >
+          {dockInPanel ? <BottomPanelSurface expanded={dockExpanded} /> : null}
+        </Panel>
+      </Group>
+      {vertical && dockShown && !dockExpanded ? (
+        <div className="h-[34px] shrink-0">
+          <BottomPanelSurface expanded={false} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -498,7 +420,7 @@ function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
       id="project-explorer"
       ref={panelRef}
       tabIndex={-1}
-      className="surface-panel h-full min-w-0 overflow-hidden"
+      className="h-full min-w-0 overflow-hidden border-r border-border-subtle bg-bg-panel"
     >
       <FileTreeHost onNavigate={onNavigate} />
     </div>
@@ -534,15 +456,8 @@ export function AppLayout({
     panelIds: ['sidebar-panel', 'content-panel'],
     storage: localStorage,
   });
-  const {
-    showConsole,
-    showDebuggerPanel,
-    showBrowserPreviewPanel,
-    showStdinTabBody,
-    showVariablesTabBody,
-    showRecipeTabBody,
-    showProjectTerminalTabBody,
-  } = useLayoutAvailability();
+  const { dockShown, dockExpanded } = useDockShell();
+  const commandBarDocked = useUIStore(state => state.commandBarDocked);
   // Presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving
   // the mode restores the exact previous layout.
@@ -680,11 +595,23 @@ export function AppLayout({
         aria-hidden={isCompactDrawerOpen ? 'true' : undefined}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <AppChrome onOpenSettings={onOpenSettings} />
-        {/* The fixed pill needs its own layout row. Without this reservation it
-            covers the editor tab strip, making tabs impossible to activate or
-            close with a pointer. Presenter mode hides both pill and row. */}
-        {!presenterActive && (
+        {commandBarDocked ? (
+          <CommandBar
+            showControls={!presenterActive}
+            onOpenSettings={onOpenSettings}
+            onOpenPalette={onOpenPalette}
+            onOpenQuickOpen={onOpenQuickOpen}
+            onOpenSnippets={onOpenSnippets}
+            onOpenUtilities={onOpenUtilities}
+            onOpenRecipes={onOpenRecipes}
+            utilitiesOpen={utilitiesOpen}
+          />
+        ) : (
+          <AppChrome onOpenSettings={onOpenSettings} />
+        )}
+        {/* An undocked pill floats, so it reserves a row; otherwise it would
+            cover the editor tab strip. Presenter mode hides both. */}
+        {!commandBarDocked && !presenterActive && (
           <>
             <div aria-hidden className="h-[52px] shrink-0" data-testid="action-pill-reserved-row" />
             <FloatingActionPill
@@ -704,7 +631,7 @@ export function AppLayout({
             defaultLayout={shellLayout.defaultLayout}
             onLayoutChanged={shellLayout.onLayoutChanged}
             resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-            className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
+            className="min-h-0 flex-1"
           >
             {/* Sidebar */}
             <Panel
@@ -719,31 +646,21 @@ export function AppLayout({
             <ResizeHandle orientation="vertical" />
             {/* Main area */}
             <Panel id="content-panel" minSize={360}>
-              <div className="surface-panel h-full min-w-0 overflow-hidden">
+              <div className="h-full min-w-0 overflow-hidden bg-bg-panel">
                 <MainContent
-                  showConsole={showConsole}
-                  showDebuggerPanel={showDebuggerPanel}
-                  showBrowserPreviewPanel={showBrowserPreviewPanel}
-                  showStdinTabBody={showStdinTabBody}
-                  showVariablesTabBody={showVariablesTabBody}
-                  showRecipeTabBody={showRecipeTabBody}
-                  showProjectTerminalTabBody={showProjectTerminalTabBody}
+                  dockShown={dockShown}
+                  dockExpanded={dockExpanded}
                   layoutPreset={layoutPreset}
                 />
               </div>
             </Panel>
           </Group>
         ) : (
-          <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
-            <div className="surface-panel h-full min-w-0 overflow-hidden">
+          <div className="min-h-0 flex-1">
+            <div className="h-full min-w-0 overflow-hidden bg-bg-panel">
               <MainContent
-                showConsole={showConsole}
-                showDebuggerPanel={showDebuggerPanel}
-                showBrowserPreviewPanel={showBrowserPreviewPanel}
-                showStdinTabBody={showStdinTabBody}
-                showVariablesTabBody={showVariablesTabBody}
-                showRecipeTabBody={showRecipeTabBody}
-                showProjectTerminalTabBody={showProjectTerminalTabBody}
+                dockShown={dockShown}
+                dockExpanded={dockExpanded}
                 layoutPreset={layoutPreset}
               />
             </div>

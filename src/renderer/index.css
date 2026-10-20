@@ -799,7 +799,7 @@
 
    Declared as a Tailwind v4 `@utility` (not a plain @layer-components class)
    so it can be both `@apply focus-ring`'d from other component rules
-   (.panel-chip, .um-control, .settings-rail-row) AND used as a `focus-ring`
+   (.um-control, .settings-rail-row) AND used as a `focus-ring`
    className on bespoke JSX controls — Tailwind v4 only resolves @apply
    against registered utilities, not against sibling component classes. */
 @utility focus-ring {
@@ -1501,12 +1501,6 @@
   }
 
   /* Hover widget */
-  .unified-editor-canvas,
-  .unified-editor-canvas #editor-panel,
-  .unified-editor-canvas #editor-panel > div {
-    overflow: visible !important;
-  }
-
   .monaco-editor .overflowingContentWidgets,
   .monaco-editor .monaco-hover {
     z-index: 12000 !important;
@@ -1662,15 +1656,40 @@
     @apply outline-none ring-2 ring-ring/70 ring-inset;
   }
 
-  @media (max-width: 1499px) {
+  @media (max-width: 1279px) {
     .action-pill .action-pill-meta,
     .action-pill .action-pill-meta-divider {
       display: none !important;
     }
   }
 
+  /* Always reachable: it carries Undock / Dock besides the narrow-width commands. */
   .action-pill-overflow {
-    display: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Docked in the command bar: flat, no pill chrome, board-sized controls. */
+  .action-pill.action-pill-docked {
+    @apply items-center rounded-none border-0 bg-transparent backdrop-blur-none;
+    padding: 0;
+    gap: 10px;
+    box-shadow: none;
+  }
+
+  .action-pill-docked .action-pill-runtime-group {
+    @apply rounded-lg border-border-default;
+    height: 32px;
+  }
+
+  .action-pill-docked .action-pill-icon-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .action-pill-docked .action-pill-command-actions {
+    gap: 2px;
   }
 
   .action-pill-command-actions {
@@ -1683,10 +1702,6 @@
       display: none;
     }
 
-    .action-pill .action-pill-overflow {
-      display: inline-flex;
-      align-items: center;
-    }
   }
 
   @media (max-width: 600px) {
@@ -1694,7 +1709,8 @@
       display: none;
     }
 
-    .action-pill-language-label {
+    .action-pill-language-label,
+    .action-pill-runtime-label {
       display: none;
     }
   }
@@ -1720,7 +1736,8 @@
     line-height: 1;
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
-      box-shadow var(--duration-fast) var(--curve-ease-out);
+      box-shadow var(--duration-fast) var(--curve-ease-out),
+      transform var(--duration-fast) var(--curve-ease-out);
     /* Run is the surface's one saturated control: the accent fill with ink
        chosen by contrast (`--color-fg-on-accent` is dark in dark, white in
        light). RuntimeSelector and SQL Run share the same pair. */
@@ -1808,6 +1825,10 @@
     animation: run-pulse 1.4s ease-in-out infinite;
   }
 
+  .action-pill-run:not(:disabled):active {
+    transform: scale(0.96);
+  }
+
   .action-pill-run:disabled {
     cursor: not-allowed;
     opacity: 0.5;
@@ -1820,40 +1841,6 @@
     border-color: currentColor;
     border-top-color: transparent;
     animation: run-spin 800ms linear infinite;
-  }
-
-  /* Panel chips row — Stdin · Historial · Comparar · Variables. Each
-     chip lives below the tab strip and toggles the bottom drawer. */
-  .panel-chip {
-    @apply focus-ring inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-caption font-medium leading-none text-fg-muted transition-colors duration-150;
-  }
-  .panel-chip:disabled {
-    @apply cursor-not-allowed opacity-50;
-  }
-
-  .panel-chip-row {
-    @apply flex h-9 flex-none items-center justify-end gap-1 border-b border-border-subtle/60 bg-bg-base px-3;
-  }
-
-  .panel-chip:hover {
-    @apply bg-bg-panel-alt text-fg-base;
-  }
-
-  .panel-chip-active {
-    background: var(--app-primary-soft);
-    color: var(--color-accent-fg);
-    border-color: var(--color-accent);
-  }
-
-  .panel-chip-badge {
-    @apply inline-flex min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-micro font-bold leading-none;
-    background: var(--color-accent);
-    color: white;
-    padding-block: 2px;
-  }
-
-  .panel-chip-active .panel-chip-badge {
-    background: color-mix(in srgb, var(--color-accent) 92%, white);
   }
 
   /* Rich dropdown — used by lang / mode / run pickers. Each row has
@@ -1969,15 +1956,6 @@
 
   .um-toolbar {
     @apply rounded-xl border border-border-subtle bg-bg-panel/55 p-2;
-  }
-
-  .unified-editor-canvas [data-panel-group] {
-    background: var(--color-editor-bg);
-  }
-
-  .unified-editor-canvas [data-panel-id='results-panel'] {
-    border-left: 1px solid color-mix(in srgb, var(--color-border-subtle) 78%, transparent);
-    background: var(--color-editor-bg);
   }
 
   .floating-variables-card {
@@ -2195,6 +2173,87 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Tab switches cross-fade the body; the tab strips only ease their colours.
+   Opacity only, so fixed popovers inside a body keep the viewport as their
+   containing block. */
+.editor-tab,
+.dock-tab {
+  transition:
+    color var(--duration-fast) var(--curve-ease-out),
+    background-color var(--duration-fast) var(--curve-ease-out),
+    border-color var(--duration-fast) var(--curve-ease-out);
+}
+
+.dock-tab-body {
+  animation: dock-tab-enter var(--duration-normal) var(--curve-ease-out);
+}
+
+@keyframes dock-tab-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* One accent sweep down the editor per completed run. */
+.run-sweep {
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 30;
+  height: 2px;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  animation: run-sweep var(--duration-slow) var(--curve-ease-out);
+}
+
+@keyframes run-sweep {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 0.6;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.run-history-bar[data-run-last='true'] {
+  transform-origin: bottom;
+  animation: run-bar-rise var(--duration-normal) var(--curve-spring);
+}
+
+@keyframes run-bar-rise {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock-tab-body,
+  .run-history-bar {
+    animation: none !important;
+  }
+
+  .run-sweep {
+    display: none;
+  }
+
+  .action-pill-run:not(:disabled):active {
+    transform: none;
   }
 }
 

@@ -39,7 +39,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
       data-testid="app-chrome"
       data-tour-id="app-chrome"
       className={cn(
-        'toolbar-drag-region surface-header relative z-20 flex h-9 shrink-0 items-center justify-between gap-2',
+        'toolbar-drag-region surface-header relative z-20 flex h-12 shrink-0 items-center justify-between gap-2',
         isWebBuild ? 'px-3' : 'pr-3'
       )}
     >
@@ -95,7 +95,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
  * Visible only on `status === 'downloaded'`; clicking routes the
  * user into Settings → Updates where they can hit Restart.
  */
-function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
+export function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
   const { t } = useTranslation();
   const status = useUpdateStore(state => state.status);
   if (status !== 'downloaded') return null;

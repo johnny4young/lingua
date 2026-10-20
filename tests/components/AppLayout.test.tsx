@@ -13,7 +13,6 @@ let compactShell = false;
 let editorTabs: unknown[] = [];
 let activeTabId: string | null = null;
 let workspaceCrashRegion: 'notebook' | 'sql' | 'http' | 'utilities' | null = null;
-const setTabCompareEnabledMock = vi.fn();
 const setTabVariableInspectorEnabledMock = vi.fn();
 const matchMediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 
@@ -134,10 +133,6 @@ vi.mock('../../src/renderer/components/Editor/EditorTabs', () => ({
   EditorTabs: () => <div data-testid="editor-tabs">Tabs</div>,
 }));
 
-vi.mock('../../src/renderer/components/Editor/ResultPanel', () => ({
-  ResultPanel: () => <div data-testid="result-panel">Results</div>,
-}));
-
 vi.mock('../../src/renderer/components/Console', () => ({
   ConsolePanel: () => <div data-testid="console-panel">Console</div>,
 }));
@@ -214,14 +209,12 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     selector?: (state: {
       tabs: unknown[];
       activeTabId: string | null;
-      setTabCompareEnabled: typeof setTabCompareEnabledMock;
       setTabVariableInspectorEnabled: typeof setTabVariableInspectorEnabledMock;
     }) => unknown
   ) => {
     const state = {
       tabs: editorTabs,
       activeTabId,
-      setTabCompareEnabled: setTabCompareEnabledMock,
       setTabVariableInspectorEnabled: setTabVariableInspectorEnabledMock,
     };
     return selector ? selector(state) : state;
@@ -247,7 +240,6 @@ describe('AppLayout responsive shell', () => {
     editorTabs = [];
     activeTabId = null;
     workspaceCrashRegion = null;
-    setTabCompareEnabledMock.mockReset();
     setTabVariableInspectorEnabledMock.mockReset();
     matchMediaListeners.clear();
     useResultStore.setState({ scopeSnapshot: null, snapshotRing: [] });
@@ -338,23 +330,37 @@ describe('AppLayout responsive shell', () => {
     expect(useUIStore.getState().sidebarVisible).toBe(true);
   });
 
-  it('keeps the editor panel above the results panel for Monaco overlays', async () => {
-    editorTabs = [{ id: 'tab-1' }];
+  it('gives the editor the full width and puts every output in one dock', async () => {
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
 
     await renderLayout();
 
-    const editorPanel = document.querySelector<HTMLElement>('[data-panel="editor-panel"]');
-    const resultsPanel = document.querySelector<HTMLElement>('[data-panel="results-panel"]');
-    const editorResultsGroup = editorPanel?.parentElement;
+    expect(document.querySelector('[data-panel="results-panel"]')).toBeNull();
+    expect(await screen.findByTestId('results-dock')).toBeTruthy();
+    expect(screen.getByTestId('bottom-panel-console-tab').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('console-panel')).toBeTruthy();
+  });
 
-    expect(editorResultsGroup?.className).toContain('relative');
-    expect(editorResultsGroup?.className).toContain('overflow-visible');
-    expect(editorPanel?.className).toContain('relative');
-    expect(editorPanel?.className).toContain('z-20');
-    expect(editorPanel?.className).toContain('overflow-visible');
-    expect(resultsPanel?.className).toContain('relative');
-    expect(resultsPanel?.className).toContain('z-10');
-    expect(resultsPanel?.className).toContain('overflow-hidden');
+  it('folds the dock to its tab row and reopens it from a tab', async () => {
+    const user = userEvent.setup();
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: false, activeBottomPanel: 'console' });
+
+    await renderLayout();
+
+    expect((await screen.findByTestId('results-dock')).getAttribute('data-expanded')).toBe('false');
+    expect(screen.queryByTestId('console-panel')).toBeNull();
+    expect(screen.getByTestId('bottom-panel-restore').getAttribute('aria-expanded')).toBe('false');
+    await user.click(screen.getByTestId('bottom-panel-console-tab'));
+    expect(useUIStore.getState().consoleVisible).toBe(true);
+    expect(await screen.findByTestId('console-panel')).toBeTruthy();
+
+    await user.click(screen.getByTestId('bottom-panel-hide'));
+    expect(useUIStore.getState().consoleVisible).toBe(false);
+    expect(await screen.findByTestId('bottom-panel-restore')).toBeTruthy();
   });
 
   it('shows the Browser preview panel for an active browser-preview tab even when console is closed', async () => {
@@ -390,7 +396,7 @@ describe('AppLayout responsive shell', () => {
     activeTabId = 'recipe-tab';
     useUIStore.setState({
       sidebarVisible: false,
-      consoleVisible: false,
+      consoleVisible: true,
       activeBottomPanel: 'recipe',
     });
 
@@ -428,7 +434,24 @@ describe('AppLayout responsive shell', () => {
     );
   });
 
-  it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {
+  it('keeps the editor mounted while the dock folds and opens', async () => {
+    editorTabs = [{ id: 'tab-1', language: 'javascript' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: true, activeBottomPanel: 'console' });
+
+    await renderLayout();
+    const editor = screen.getByTestId('code-editor');
+
+    act(() => useUIStore.getState().setConsoleVisible(false));
+    expect((await screen.findByTestId('results-dock')).getAttribute('data-expanded')).toBe('false');
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+
+    act(() => useUIStore.getState().setConsoleVisible(true));
+    expect(await screen.findByTestId('console-panel')).toBeTruthy();
+    expect(screen.getByTestId('code-editor')).toBe(editor);
+  });
+
+  it('lists Variables in the dock once a capture exists and opens it', async () => {
     const user = userEvent.setup();
     editorTabs = [
       {
@@ -459,9 +482,9 @@ describe('AppLayout responsive shell', () => {
     });
 
     await renderLayout();
-    await user.click(screen.getByTestId('panel-chip-variables'));
+    await user.click(await screen.findByTestId('bottom-panel-variables-tab'));
 
-    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith('tab-js', true);
+    expect(screen.getByTestId('bottom-panel-variables-count').textContent).toBe('1');
     expect(useUIStore.getState()).toMatchObject({
       activeBottomPanel: 'variables',
       consoleVisible: true,
@@ -640,7 +663,7 @@ describe('AppLayout responsive shell', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('shares one header row with the Utilities pills and folds the console on a utilities tab', async () => {
+  it('puts the Utilities pills in the tab strip and drops the dock on a utilities tab', async () => {
     editorTabs = [{ id: 'utilities-tab', kind: 'utilities', language: 'javascript' }];
     activeTabId = 'utilities-tab';
     useUIStore.getState().setConsoleVisible(true);
@@ -648,21 +671,16 @@ describe('AppLayout responsive shell', () => {
     render(<AppLayout />);
     await screen.findByTestId('developer-utilities-workspace');
 
-    // The Utilities pills join the SHARED editor chips row (no second
-    // workspace-local header row).
-    const chipsRow = screen.getByRole('toolbar', { name: 'Editor panels' });
+    const tabStrip = screen.getByTestId('editor-tab-strip');
     await waitFor(() => {
-      expect(chipsRow.textContent).toContain('Copy output');
-      expect(chipsRow.textContent).toMatch(/\d+ tools/u);
+      expect(tabStrip.textContent).toContain('Copy output');
+      expect(tabStrip.textContent).toMatch(/\d+ tools/u);
     });
 
-    // Utilities has no runtime output: activating the tab folds the
-    // console down to the restore strip without destroying its state.
-    await waitFor(() => {
-      expect(useUIStore.getState().consoleVisible).toBe(false);
-    });
-    expect(screen.queryByTestId('console-panel')).toBeNull();
-    expect(screen.getByTestId('bottom-panel-restore')).toBeTruthy();
+    // Utilities has no runtime output, so the dock leaves the screen
+    // without changing the user's dock preference.
+    expect(screen.queryByTestId('results-dock')).toBeNull();
+    expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
   it.each([

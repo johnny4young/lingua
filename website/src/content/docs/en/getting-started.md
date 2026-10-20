@@ -31,7 +31,7 @@ Open Lingua. The editor opens on a fresh JavaScript tab. Try this:
 const x = 1 + 2; console.log(x);
 ```
 
-Hit `Cmd/Ctrl+Enter`. The result panel updates inline.
+Hit `Cmd/Ctrl+Enter`. Values appear next to each line, and the output lands in the results dock below the editor.
 
 For an error-and-recovery exercise followed by a reviewed file handoff, follow
 the [reproducible run walkthrough](/docs/reproducible-run). This first example
@@ -39,7 +39,7 @@ needs no network request.
 
 ## Switch language
 
-Click the language chip in the floating action pill and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, Python, and Ruby work on every install — they're shipped runtimes inside Lingua.
+Click the language chip in the command bar and pick another language. Your tab is replaced with a real, runnable starter snippet for that language. JavaScript, TypeScript, Python, and Ruby work on every install — they're shipped runtimes inside Lingua.
 
 Go and Rust delegate to the toolchains you already have on your machine. If `go version` or `rustc --version` works in your terminal, Lingua will pick them up automatically.
 
@@ -67,7 +67,7 @@ A handful of shortcuts that make Lingua disappear:
 - `Cmd/Ctrl+Shift+P` — command palette
 - `Cmd/Ctrl+Enter` — run current tab
 - `Cmd/Ctrl+,` — settings
-- `Cmd/Ctrl+\` — toggle the console
+- `Cmd/Ctrl+\` — show or hide the results dock
 - `Cmd/Ctrl+K` — open Developer Utilities
 
 Vim mode is opt-in — turn it on under Settings → Editor.

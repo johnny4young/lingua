@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { clickRun, expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import { clickRun, expect, gotoApp, openConsole, seedSession, test } from './licenseWeb.helpers';
 
 async function replaceSource(page: Page, source: string): Promise<void> {
   await page.locator('.monaco-editor .view-lines').first().waitFor();
@@ -28,12 +28,7 @@ for (const language of ['en', 'es'] as const) {
       ].join('\n')
     );
     await clickRun(page);
-    await page
-      .getByRole('button', {
-        name: language === 'en' ? 'Show console panel' : 'Muestra el panel de consola',
-        exact: true,
-      })
-      .click();
+    await openConsole(page);
     const rows = page.getByTestId('console-entry-row');
     await expect(rows.filter({ hasText: language === 'en' ? 'Completed in' : 'Completado en' })).toBeVisible();
     await expect(

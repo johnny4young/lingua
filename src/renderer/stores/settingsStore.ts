@@ -59,8 +59,9 @@ export const useSettingsStore = create<SettingsState>()(
       // sanitizers still run after migrate. The 1->2 step
       // (restoreSession boolean -> restoreSessionMode enum) lives in
       // migrationRegistry; v3 enables live inline expressions for Scratchpad
-      // JS/TS/Python by default. Bump here in lockstep.
-      version: 3,
+      // JS/TS/Python by default; v4 moves Variables into the dock. Bump here
+      // in lockstep.
+      version: 4,
       migrate: createMigrate('lingua-settings'),
       partialize: settingsPartialize,
       merge: settingsMerge,

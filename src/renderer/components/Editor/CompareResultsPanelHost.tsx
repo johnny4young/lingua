@@ -8,8 +8,8 @@ type CompareResultsPanelComponent = ComponentType<CompareResultsPanelProps>;
 /**
  * Startup-safe activation boundary for the opt-in comparison surface.
  *
- * ResultPanel mounts this host only after a matching stable snapshot exists
- * and the user enables Compare. Until then the diff renderer, computed-diff
+ * The dock mounts this host only after a matching stable snapshot exists
+ * and the user opens Compare. Until then the diff renderer, computed-diff
  * hook, and worker client remain outside the initial workspace graph.
  */
 export function CompareResultsPanelHost({ language }: CompareResultsPanelProps) {

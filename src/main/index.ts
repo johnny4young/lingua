@@ -176,6 +176,8 @@ const createWindow = async () => {
     minHeight: 768,
     title: 'Lingua',
     titleBarStyle: 'hiddenInset',
+    // Centres the macOS traffic lights in the 48 px command bar.
+    trafficLightPosition: { x: 16, y: 16 },
     show: false, // Show only when content is ready to avoid white flash
     backgroundColor: '#0a0a0f',
     webPreferences: {

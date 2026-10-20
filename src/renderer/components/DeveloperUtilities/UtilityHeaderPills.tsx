@@ -10,7 +10,7 @@ import { cn } from '../../utils/cn';
  * The two compact status pills of the Utilities workspace — the
  * copy-output shortcut hint and the live tool counter. Extracted into
  * their own module (out of DeveloperUtilitiesModal.tsx) so the app shell
- * can lazy-load JUST the pills into the editor chips row when a Utilities
+ * can lazy-load JUST the pills into the editor tab strip when a Utilities
  * tab is active, without pulling the whole modal chunk into AppLayout.
  */
 

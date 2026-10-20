@@ -45,7 +45,6 @@ interface RendererCommandPayloadMap {
     readonly line: number;
     readonly durationMs?: number;
   };
-  'editor.scroll': { readonly scrollTop: number };
   /** Replace a tab with its disk copy, confirming before dirty edits are discarded. */
   'editor.reloadFromDisk': { readonly tabId: string };
   /** Toolbar Run / Mod+Enter on a SQL or HTTP workspace tab. */

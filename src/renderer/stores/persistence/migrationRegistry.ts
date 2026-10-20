@@ -107,6 +107,12 @@ export const migrationRegistry: Readonly<Record<PersistedStoreName, StoreMigrati
         python: true,
       },
     }),
+    // v3->v4 — Variables moved into the results dock. The floating card was
+    // the seeded default, so it moves too; the card stays one setting away.
+    4: (state) => ({
+      ...state,
+      variableInspectorSurface: 'bottom',
+    }),
   },
   // input-set fields are additive optional fields on each
   // saved tab. The identity step re-stamps the envelope without inventing

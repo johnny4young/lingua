@@ -146,7 +146,7 @@ What Rust-specific plumbing shipped:
   signature help when it is installed
 - Rust compile errors land as Monaco markers (line + span) instead of
   stderr blobs
-- Runtime stderr / stdout stream into the inline result panel so you
+- Runtime stderr / stdout stream into the results dock's Console tab so you
   see panics mapped back to the source
 
 Known limits:

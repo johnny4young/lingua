@@ -59,12 +59,10 @@ export const EditorTabItem = memo(function EditorTabItem({
         data-execution-state={tab.executionState ?? 'idle'}
         onContextMenu={event => onContextMenu(event, tab.id)}
         className={cn(
-          'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-body-sm transition-colors',
+          'editor-tab group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-b-2 border-r border-r-border/60 px-3 text-body-sm',
           isActive
-            ? // Active: panel bg + 2px top accent + matching bottom border so the
-              // tab visually merges with the editor surface below.
-              '-mb-px bg-background-elevated text-foreground border-t-2 border-t-primary'
-            : 'cursor-pointer border-t-2 border-t-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
+            ? 'border-b-accent bg-background-elevated text-foreground'
+            : 'cursor-pointer border-b-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
         )}
       >
         <div

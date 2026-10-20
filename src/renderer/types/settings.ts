@@ -178,11 +178,10 @@ export interface SettingsState {
    */
   showStatusBar: boolean;
   /**
-   * Controls whether the variable inspector renders as
-   * a draggable `<FloatingVariablesCard>` (default) or as a Variables
-   * tab inside the bottom panel. Per-tab `variableInspectorEnabled`
-   * still gates visibility on both surfaces; this picks where it
-   * appears when enabled.
+   * Where the variable inspector renders: the results dock's Variables
+   * tab (default), shown whenever a capture applies, or the draggable
+   * `<FloatingVariablesCard>`, which the per-tab `variableInspectorEnabled`
+   * flag shows and hides.
    */
   variableInspectorSurface: 'floating' | 'bottom';
   /**

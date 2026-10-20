@@ -57,10 +57,8 @@ export function FloatingVariablesCard({ activeTabId, scopeSnapshot }: FloatingVa
   const floatingPositionsResetRevision = useUIStore(state => state.floatingPositionsResetRevision);
   const wasDraggingRef = useRef(false);
 
-  // Default to right-aligned but below the action pill + panel chips
-  // so the card doesn't overlap them on first mount. y=180 keeps the
-  // card clear of: chrome (56) + action pill (44) + panel chips (36)
-  // + ~44px breathing room.
+  // Default to right-aligned below the command bar and the editor tab
+  // strip, so the card does not cover them on first mount.
   const defaultPosition = useMemo(() => {
     if (typeof window === 'undefined') return { x: 720, y: 196 };
     return {

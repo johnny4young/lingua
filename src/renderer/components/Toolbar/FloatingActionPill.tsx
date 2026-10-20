@@ -1,11 +1,7 @@
 /**
- * Floating, draggable action pill.
- *
- * Replaces the centre cluster of the chrome toolbar (Run+Debug split,
- * Workflow segment, Runtime selector, New-file menu) with a single
- * floating pill positioned over the editor. The user can drag it
- * anywhere; the position persists across reloads via `useDraggable`'s
- * localStorage backing.
+ * The run controls: docked inside the 48 px command bar by default, or a
+ * floating, draggable pill after Undock. The floating position persists
+ * across reloads via `useDraggable`'s localStorage backing.
  *
  * Segments (left → right):
  *
@@ -19,10 +15,10 @@
  *   4. Run button    — split: left fires run/debug/scratchpad; chevron
  *                      opens the workflow dropdown. Pulses with
  *                      `run-pulse` while `isRunning === true`.
- *   5. History dots  — last 5 runs from `executionHistoryStore`.
- *   6. Autosave dot  — static green indicator (Lingua saves on every
- *                      keystroke; the segment exists for design
- *                      parity until a real "autosave" setting lands).
+ *   5. Autosave dot  — static indicator (Lingua saves on every keystroke).
+ *
+ * On SQL, HTTP and Utilities tabs only the workspace chip stays: Run and
+ * Send live inside those tabs. The run history lives in the results dock.
  *
  * AppLayout mounts the pill as its only execution chrome. Toolbar.tsx
  * remains a standalone fallback for focused smoke coverage, but it is
@@ -34,12 +30,13 @@
  * `useFloatingActionPill`; this file wires them together.
  */
 
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, Settings as SettingsIcon } from 'lucide-react';
 import { Tooltip } from '../ui/chrome';
-import { RunHistoryDots } from '../ui/primitives';
 import { cn } from '../../utils/cn';
+import { useUIStore } from '../../stores/uiStore';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import { useFloatingActionPill } from './useFloatingActionPill';
 import { FloatingActionPillLanguageSegment } from './FloatingActionPillLanguageSegment';
@@ -66,6 +63,10 @@ interface FloatingActionPillProps {
    * lives in the chrome bar" alternative.
    */
   onOpenSettings?: () => void;
+  /** Render inline inside the command bar instead of as a floating portal. */
+  docked?: boolean;
+  /** Rendered just before the Settings cog (the license badge in the bar). */
+  beforeSettings?: ReactNode;
 }
 
 export function FloatingActionPill({
@@ -76,8 +77,11 @@ export function FloatingActionPill({
   onOpenRecipes,
   utilitiesOpen = false,
   onOpenSettings,
+  docked = false,
+  beforeSettings,
 }: FloatingActionPillProps) {
   const { t } = useTranslation();
+  const setCommandBarDocked = useUIStore(state => state.setCommandBarDocked);
   const saveCombo = useShortcutLabel('file-save');
   const settingsCombo = useShortcutLabel('overlay-settings');
   const {
@@ -110,8 +114,7 @@ export function FloatingActionPill({
     noActiveTab,
     ensureTabForLanguage,
     setTabWorkflowMode,
-    history,
-    lastRunMs,
+    workspaceTab,
     autoSaveEnabled,
   } = useFloatingActionPill(t);
 
@@ -119,35 +122,18 @@ export function FloatingActionPill({
     onOpenQuickOpen || onOpenPalette || onOpenSnippets || onOpenUtilities || onOpenRecipes
   );
 
-  // Render via portal so the pill is positioned relative to the viewport,
-  // not constrained to whatever ancestor establishes a containing block.
-  if (!container) return null;
-
-  return createPortal(
-    // Only the drag handle gets the grab cursor.
-    // The previous version applied `cursor-grab`/`cursor-grabbing` to
-    // the whole pill div, which made every chip (Lang, Workflow, Run,
-    // …) look draggable when only the leading handle is.
-    <div
-      ref={pillRef}
-      data-testid="floating-action-pill"
-      className={cn('action-pill fixed', isDragging && 'select-none')}
-      style={{
-        left: 'var(--floating-pill-x)',
-        top: 'var(--floating-pill-y)',
-        zIndex: 40,
-        ...cssVars,
-      }}
-    >
-      {/* Drag handle */}
-      <button
-        type="button"
-        aria-label={t('actionPill.dragHandle')}
-        className="action-pill-drag-handle ml-0.5 inline-flex items-center justify-center rounded-full text-fg-subtle hover:text-fg-base"
-        {...dragHandleProps}
-      >
-        <GripVertical size={14} aria-hidden />
-      </button>
+  const body = (
+    <>
+      {docked ? null : (
+        <button
+          type="button"
+          aria-label={t('actionPill.dragHandle')}
+          className="action-pill-drag-handle ml-0.5 inline-flex items-center justify-center rounded-full text-fg-subtle hover:text-fg-base"
+          {...dragHandleProps}
+        >
+          <GripVertical size={14} aria-hidden />
+        </button>
+      )}
 
       {/* Runtime control — language · runtime · run read as ONE
           structured segmented group (Signal-Slate RuntimeSelector
@@ -171,7 +157,7 @@ export function FloatingActionPill({
           addNotebookTab={addNotebookTab}
         />
 
-        <span className="action-pill-divider" />
+        {workspaceTab ? null : <span className="action-pill-divider" />}
 
         {/* Runtime chip stays separate (orthogonal to
             workflow). The old "Workflow" chip + separate "Run" split
@@ -181,7 +167,7 @@ export function FloatingActionPill({
         {/* 2. Runtime chip — "what engine": Worker / Node / Browser preview /
                 Deno / Bun. Only visible for languages that have runtime modes
                 (JS/TS). */}
-        {supportsRuntimeModes ? (
+        {supportsRuntimeModes && !workspaceTab ? (
           <FloatingActionPillRuntimeSegment
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
@@ -206,6 +192,7 @@ export function FloatingActionPill({
                 different workflow; selecting one switches the per-tab
                 workflow mode AND fires it immediately, so "switch and
                 run" stays a single click. */}
+        {workspaceTab ? null : (
         <FloatingActionPillRunGroup
           openMenu={openMenu}
           setOpenMenu={setOpenMenu}
@@ -224,23 +211,13 @@ export function FloatingActionPill({
           ensureTabForLanguage={ensureTabForLanguage}
           setTabWorkflowMode={setTabWorkflowMode}
         />
+        )}
       </div>
       {/* end runtime segmented group (language · runtime · run) */}
 
       <span className="action-pill-divider action-pill-meta-divider" />
 
-      {/* 4. History dots */}
-      <div className="action-pill-meta inline-flex items-center gap-2 pl-2 pr-3 text-eyebrow font-mono text-fg-subtle">
-        <span className="uppercase font-bold">{t('actionPill.runs')}</span>
-        <RunHistoryDots history={history} />
-        {lastRunMs !== null ? (
-          <span className="text-fg-base font-medium">{lastRunMs.toFixed(1)}ms</span>
-        ) : null}
-      </div>
-
-      <span className="action-pill-divider action-pill-meta-divider" />
-
-      {/* 5. Autosave dot — Lingua persists every keystroke locally, so
+      {/* 4. Autosave dot — Lingua persists every keystroke locally, so
               the chip is informational rather than a toggle. Surfaces
               a tooltip explaining the always-on behaviour. */}
       <Tooltip content={t('actionPill.autosaveTooltip', { combo: saveCombo })}>
@@ -271,13 +248,13 @@ export function FloatingActionPill({
           utilitiesOpen={utilitiesOpen}
           openMenu={openMenu}
           setOpenMenu={setOpenMenu}
+          dockToggle={{ docked, onToggle: () => setCommandBarDocked(!docked) }}
         />
       ) : null}
 
-      {/* Recipes badge button. Rendered as a
-              sibling component so the lessonProgressStore subscription
-              stays scoped (no parent re-render storms). */}
-      {/* 6. Settings cog — opens the Settings modal. Only mounted when
+      {beforeSettings}
+
+      {/* 5. Settings cog — opens the Settings modal. Only mounted when
               the consumer wired `onOpenSettings`. */}
       {onOpenSettings ? (
         <>
@@ -298,6 +275,33 @@ export function FloatingActionPill({
           </Tooltip>
         </>
       ) : null}
+    </>
+  );
+
+  if (docked) {
+    return (
+      <div ref={pillRef} data-testid="command-bar-controls" className="action-pill action-pill-docked">
+        {body}
+      </div>
+    );
+  }
+
+  // Portal so the floating pill is positioned relative to the viewport, not
+  // to whatever ancestor establishes a containing block.
+  if (!container) return null;
+  return createPortal(
+    <div
+      ref={pillRef}
+      data-testid="floating-action-pill"
+      className={cn('action-pill fixed', isDragging && 'select-none')}
+      style={{
+        left: 'var(--floating-pill-x)',
+        top: 'var(--floating-pill-y)',
+        zIndex: 40,
+        ...cssVars,
+      }}
+    >
+      {body}
     </div>,
     container,
   );

@@ -13,7 +13,7 @@ import {
 // Includes the effective CSS widths for 1024/1440px windows at 125% zoom.
 for (const width of [819, 1024, 1152, 1280, 1440]) {
   for (const language of ['en', 'es'] as const) {
-    test(`action pill leaves editor tabs usable at ${width}px in ${language}`, async ({ page }) => {
+    test(`command bar leaves editor tabs usable at ${width}px in ${language}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 768 });
       await seedSession(page, { language });
       await gotoApp(page);
@@ -22,12 +22,16 @@ for (const width of [819, 1024, 1152, 1280, 1440]) {
       await createAdditionalJavaScriptTab(page);
 
       const geometry = await page.evaluate(() => {
-        const pill = document.querySelector<HTMLElement>('[data-testid="floating-action-pill"]');
-        if (!pill) throw new Error('Action pill is missing');
+        const pill = document.querySelector<HTMLElement>('[data-testid="command-bar-controls"]');
+        if (!pill) throw new Error('Command bar controls are missing');
         const pillRect = pill.getBoundingClientRect();
+        const bar = document.querySelector<HTMLElement>('[data-testid="app-chrome"]');
+        const strip = document.querySelector<HTMLElement>('[data-testid="editor-tab-strip"]');
         const tabs = [...document.querySelectorAll<HTMLElement>('[data-tab-id]')];
         return {
           pill: { left: pillRect.left, right: pillRect.right, width: pillRect.width },
+          barHeight: bar?.getBoundingClientRect().height ?? 0,
+          stripTop: strip?.getBoundingClientRect().top ?? -1,
           viewportWidth: window.innerWidth,
           tabs: tabs.map(tab => {
             const activation = tab.querySelector<HTMLElement>(
@@ -44,6 +48,8 @@ for (const width of [819, 1024, 1152, 1280, 1440]) {
         };
       });
 
+      expect(geometry.barHeight).toBe(48);
+      expect(geometry.stripTop).toBe(48);
       expect(geometry.pill.left).toBeGreaterThanOrEqual(0);
       expect(geometry.pill.right).toBeLessThanOrEqual(geometry.viewportWidth);
       expect(geometry.tabs.length).toBeGreaterThanOrEqual(3);
@@ -80,17 +86,17 @@ for (const width of [819, 1024, 1152, 1280, 1440]) {
 // These CSS widths model a 1024/1280/1440px window at 200% browser zoom.
 for (const width of [512, 640, 720]) {
   for (const language of ['en', 'es'] as const) {
-    test(`action pill stays usable at narrow ${width}px in ${language}`, async ({ page }) => {
+    test(`command bar stays usable at narrow ${width}px in ${language}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 768 });
       await seedSession(page, { language });
       await gotoApp(page);
       await createJavaScriptTab(page);
 
-      const pill = page.getByTestId('floating-action-pill');
+      const pill = page.getByTestId('command-bar-controls');
       await expect(pill).toBeVisible();
       const box = await pill.boundingBox();
-      if (!box) throw new Error('Action pill is missing');
-      expect(box.x).toBeGreaterThanOrEqual(8);
+      if (!box) throw new Error('Command bar controls are missing');
+      expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
       await expect(page.getByTestId('action-pill-run')).toBeVisible();
       await expect(page.getByTestId('action-pill-quick-open')).toBeHidden();
@@ -113,7 +119,8 @@ for (const width of [512, 640, 720]) {
         path: test.info().outputPath(`action-overflow-${width}-${language}.png`),
       });
       const items = menu.locator('[role="menuitem"], [role="menuitemcheckbox"]');
-      await expect(items).toHaveCount(7);
+      await expect(items).toHaveCount(8);
+      await expect(page.getByTestId('action-pill-overflow-undock')).toBeVisible();
       await expect(page.getByTestId('action-pill-overflow-utilities')).toHaveAttribute(
         'role',
         'menuitemcheckbox'
@@ -152,6 +159,7 @@ test('restored and resized pill position clamps to its rendered width', async ({
   await gotoApp(page);
   await createJavaScriptTab(page);
   await page.evaluate(() => {
+    localStorage.setItem('lingua-ui:command-bar-docked', 'false');
     localStorage.setItem('lingua-ui:action-pill-pos:v4', JSON.stringify({ x: 850, y: 44 }));
   });
   await page.reload();
@@ -190,4 +198,27 @@ test('restored and resized pill position clamps to its rendered width', async ({
   expect(tooltipBox.width).toBeGreaterThan(120);
   expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(1016);
   await page.screenshot({ path: test.info().outputPath('restored-reclamped-after-resize.png') });
+});
+
+test('undocks the run controls into the floating pill and docks them back', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seedSession(page, { language: 'en' });
+  await gotoApp(page);
+  await createJavaScriptTab(page);
+
+  await page.getByTestId('action-pill-overflow').click();
+  await page.getByTestId('action-pill-overflow-undock').click();
+  const pill = page.getByTestId('floating-action-pill');
+  await expect(pill).toBeVisible();
+  await expect(page.getByTestId('command-bar-controls')).toHaveCount(0);
+  await expect(page.getByTestId('action-pill-reserved-row')).toBeVisible();
+
+  await page.reload();
+  await expect(pill).toBeVisible();
+
+  await page.getByTestId('action-pill-overflow').click();
+  await page.getByTestId('action-pill-overflow-dock').click();
+  await expect(page.getByTestId('command-bar-controls')).toBeVisible();
+  await expect(pill).toHaveCount(0);
+  await expect(page.getByTestId('action-pill-reserved-row')).toHaveCount(0);
 });

@@ -98,7 +98,7 @@ test.describe('stdin / input — JS + TS + Python ', () => {
     await expect(rows.last()).toContainText('5');
   });
 
-  test('2. The status pill mirrors the staged buffer line count', async ({
+  test('2. The Input tab counts the staged buffer lines', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -112,9 +112,22 @@ test.describe('stdin / input — JS + TS + Python ', () => {
     // Wait for the panel write to land in the store.
     await page.waitForTimeout(200);
 
-    const pill = page.locator('[data-result-kind="stdin-pill"]');
-    await expect(pill).toBeVisible();
-    await expect(pill).toContainText('3');
+    await expect(page.getByTestId('bottom-panel-stdin-count')).toHaveText('3');
+  });
+
+  test('2b. The Input drawer fits Arguments at the default window size', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await openStdinTab(page);
+
+    const panel = await page.getByTestId('stdin-panel').boundingBox();
+    const args = await page.getByTestId('stdin-input-args').locator('textarea').boundingBox();
+    expect(panel && args).toBeTruthy();
+    expect(args!.y + args!.height).toBeLessThanOrEqual(panel!.y + panel!.height);
+    expect(args!.height).toBeGreaterThanOrEqual(48);
   });
 
   test('3. Empty stdin buffer leaves prompt() returning null (native)', async ({
@@ -134,7 +147,9 @@ test.describe('stdin / input — JS + TS + Python ', () => {
       'try { prompt(); } catch (e) { console.error(e.message); }\n'
     );
 
-    const console = page.locator('text=prompt is not defined');
+    const console = page
+      .getByTestId('console-entry-row')
+      .filter({ hasText: 'prompt is not defined' });
     // jsdom workers don't ship `prompt`. The empty-buffer path
     // leaves the worker default in place, which throws — verifying
     // that we don't accidentally patch when the buffer is empty.

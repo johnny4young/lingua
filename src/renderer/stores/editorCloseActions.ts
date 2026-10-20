@@ -13,7 +13,6 @@ import type { EditorGet, EditorSet } from './editorStoreContext';
 import { runtimeModeForRestoredTab, workflowModeForRestoredTab } from './editorModeHelpers';
 import {
   dropAutoLogIfUnsupported,
-  dropCompareIfLanguageChanged,
   dropNextRunTimeoutOverride,
   dropRecipeBindingIfLanguageChanged,
   dropStdinIfUnsupported,
@@ -170,13 +169,10 @@ export function createCloseActions(
             // palette if they want to.
             return dropRecipeBindingIfLanguageChanged(
               dropVariableInspectorIfLanguageChanged(
-                dropCompareIfLanguageChanged(
-                  dropNextRunTimeoutOverride({
-                    ...renamed,
-                    autoLogEnabled: tab.autoLogEnabled,
-                  }),
-                  previousLanguage
-                ),
+                dropNextRunTimeoutOverride({
+                  ...renamed,
+                  autoLogEnabled: tab.autoLogEnabled,
+                }),
                 previousLanguage
               ),
               previousLanguage
@@ -184,11 +180,8 @@ export function createCloseActions(
           }
           return dropRecipeBindingIfLanguageChanged(
             dropVariableInspectorIfLanguageChanged(
-              dropCompareIfLanguageChanged(
-                dropNextRunTimeoutOverride(
-                  dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
-                ),
-                previousLanguage
+              dropNextRunTimeoutOverride(
+                dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
               ),
               previousLanguage
             ),

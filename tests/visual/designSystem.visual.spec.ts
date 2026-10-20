@@ -50,10 +50,20 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page).toHaveScreenshot(`workspace-empty-${theme}.png`);
     });
 
-    test('workspace with the action pill', async ({ page }) => {
+    test('command bar', async ({ page }) => {
       await boot(page, theme);
-      await expect(page.getByTestId('floating-action-pill')).toBeVisible();
-      await expect(page.getByTestId('floating-action-pill')).toHaveScreenshot(`action-pill-${theme}.png`);
+      await expect(page.getByTestId('command-bar-controls')).toBeVisible();
+      await expect(page.getByTestId('app-chrome')).toHaveScreenshot(`command-bar-${theme}.png`);
+    });
+
+    // The tab row only: console rows carry wall-clock times and run durations.
+    test('results dock tab row', async ({ page }) => {
+      await boot(page, theme);
+      await expect(page.getByTestId('bottom-panel-console-tab')).toBeVisible();
+      const row = page.getByTestId('results-dock').locator('> div').first();
+      await expect(row).toHaveScreenshot(`results-dock-${theme}.png`, {
+        mask: [page.getByTestId('dock-execution-time'), page.getByTestId('bottom-panel-console-count')],
+      });
     });
 
     test('command palette', async ({ page }) => {

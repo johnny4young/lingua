@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { syncVariableInspectorSurfaceAfterToggle } from '../../src/renderer/utils/variableInspectorSurface';
+import {
+  nextVariableInspectorEnabled,
+  syncVariableInspectorSurfaceAfterToggle,
+} from '../../src/renderer/utils/variableInspectorSurface';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
@@ -33,7 +36,7 @@ describe('syncVariableInspectorSurfaceAfterToggle', () => {
     });
   });
 
-  it('closes the Variables drawer when bottom mode is disabled', () => {
+  it('returns the dock to Console when Variables turns off', () => {
     useSettingsStore.setState({ variableInspectorSurface: 'bottom' }, false);
     useUIStore.setState({
       activeBottomPanel: 'variables',
@@ -43,8 +46,17 @@ describe('syncVariableInspectorSurfaceAfterToggle', () => {
     syncVariableInspectorSurfaceAfterToggle(false);
 
     expect(useUIStore.getState()).toMatchObject({
-      activeBottomPanel: 'variables',
-      consoleVisible: false,
+      activeBottomPanel: 'console',
+      consoleVisible: true,
     });
+  });
+
+  it('follows the dock tab in dock mode and the tab flag for the floating card', () => {
+    expect(nextVariableInspectorEnabled(true)).toBe(false);
+    useSettingsStore.setState({ variableInspectorSurface: 'bottom' }, false);
+    // A stale per-tab flag no longer decides: the dock is not showing Variables.
+    expect(nextVariableInspectorEnabled(true)).toBe(true);
+    useUIStore.setState({ activeBottomPanel: 'variables', consoleVisible: true });
+    expect(nextVariableInspectorEnabled(false)).toBe(false);
   });
 });

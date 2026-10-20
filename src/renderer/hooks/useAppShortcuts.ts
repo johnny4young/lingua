@@ -12,7 +12,11 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore';
 import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
-import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
+import { toggleCompareDock } from '../utils/compareDock';
+import {
+  nextVariableInspectorEnabled,
+  syncVariableInspectorSurfaceAfterToggle,
+} from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
 import { emitCommand } from '../stores/commandBus';
 import { type AppOverlay, useGlobalShortcuts } from './useGlobalShortcuts';
@@ -183,8 +187,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         pushInfoNotice('compare.toggle.shortcutUnavailable');
         return;
       }
-      const next = tab.compareWithSnapshotEnabled !== true;
-      editorState.setTabCompareEnabled(tab.id, next);
+      const next = toggleCompareDock();
       void trackEvent('runtime.compare_view_toggled', {
         language: tab.language,
         enabled: next,
@@ -208,7 +211,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         pushInfoNotice('variableInspector.toggle.shortcutUnavailable');
         return;
       }
-      const next = tab.variableInspectorEnabled !== true;
+      const next = nextVariableInspectorEnabled(tab.variableInspectorEnabled === true);
       editorState.setTabVariableInspectorEnabled(tab.id, next);
       syncVariableInspectorSurfaceAfterToggle(next);
       const bucket = scopeSnapshot ? bucketVariableCount(scopeSnapshot.variables.length) : '0';
@@ -222,7 +225,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
       // active tab. Gates on language (JS / TS / Python only), runtime
       // mode (no Browser preview), and the `showStdinPanel` user
       // setting. The state shape mirrors the panel chip click handler
-      // in AppLayout.PanelChipsRow so keystroke and click stay in sync.
+      // of the dock's Input tab so keystroke and click stay in sync.
       const editorState = useEditorStore.getState();
       const tab = getActiveTab(editorState);
       const settings = useSettingsStore.getState();
@@ -308,7 +311,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     // copy. Emits the same `share.trigger` command the command palette
     // uses so the always-mounted
     // `<ShareLinkController>` owns shortcut-triggered confirmation
-    // even when the result panel is hidden. Telemetry tags
+    // even when the results dock is hidden. Telemetry tags
     // `trigger: 'shortcut'`.
     copyShareLink: () => {
       emitCommand('share.trigger', { trigger: 'shortcut' });

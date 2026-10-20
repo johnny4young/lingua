@@ -80,8 +80,8 @@ export interface ResultSnapshot {
    */
   stickySourceLines?: Record<string, string>;
   /**
-   * Language id the snapshot belongs to. The Compare
-   * toggle in the result-panel header reads this to refuse rendering
+   * Language id the snapshot belongs to. The dock's Compare tab
+   * reads this to refuse rendering
    * a stale diff after a Save-As / rename that changed the language
    * (a JS scratchpad's snapshot must not surface as the comparator
    * for a Python run). Earlier builds captured snapshots without language

@@ -31,7 +31,7 @@ Abre Lingua. El editor inicia con una pestaña JavaScript nueva. Prueba esto:
 const x = 1 + 2; console.log(x);
 ```
 
-Presiona `Cmd/Ctrl+Enter`. El panel de resultados se actualiza inline.
+Presiona `Cmd/Ctrl+Enter`. Los valores aparecen junto a cada línea y la salida llega al panel de resultados bajo el editor.
 
 Si quieres provocar un error, recuperarte y entregar un archivo revisado,
 sigue el [recorrido de ejecución reproducible](/es/docs/reproducible-run).
@@ -39,7 +39,7 @@ Este primer ejemplo no necesita solicitudes de red.
 
 ## Cambiar lenguaje
 
-Haz clic en el chip de lenguaje de la barra de acciones flotante y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript, Python y Ruby funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
+Haz clic en el chip de lenguaje de la barra de comandos y elige otro lenguaje. La pestaña se reemplaza con un starter snippet real y ejecutable para ese lenguaje. JavaScript, TypeScript, Python y Ruby funcionan en cada instalación: sus runtimes vienen dentro de Lingua.
 
 Go y Rust delegan en las toolchains que ya tienes en tu máquina. Si `go version` o `rustc --version` funciona en tu terminal, Lingua las detectará automáticamente.
 
@@ -67,7 +67,7 @@ Unos pocos atajos para que Lingua desaparezca del camino:
 - `Cmd/Ctrl+Shift+P` — paleta de comandos.
 - `Cmd/Ctrl+Enter` — ejecutar pestaña actual.
 - `Cmd/Ctrl+,` — ajustes.
-- `Cmd/Ctrl+\` — mostrar u ocultar la consola.
+- `Cmd/Ctrl+\` — mostrar u ocultar el panel de resultados.
 - `Cmd/Ctrl+K` — abrir las utilidades para desarrolladores.
 
 Vim mode es opt-in: actívalo en Settings → Editor.

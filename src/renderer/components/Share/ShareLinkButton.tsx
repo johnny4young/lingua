@@ -11,7 +11,7 @@ const FEEDBACK_RESET_MS = 1000;
 /**
  * Startup-safe share affordance.
  *
- * The button remains immediately available beside the result panel, but it
+ * The button remains immediately available beside the results dock, but it
  * owns no encoding, clipboard, telemetry, or confirmation implementation.
  * Those concerns load through the single app-level ShareLinkController after
  * this component emits an explicit share.trigger command.

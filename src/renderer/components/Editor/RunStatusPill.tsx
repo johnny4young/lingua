@@ -5,8 +5,8 @@
  * `useResultStore.runTermination` set by `executeTabManually` and
  * `useAutoRun`.
  *
- * Visual language mirrors `<AutoLogStatusPill>` / `<StdinStatusPill>`
- * to keep the result-panel header consistent — italic chrome with a
+ * Visual language mirrors `<AutoLogStatusPill>`
+ * to keep the results dock header consistent — italic chrome with a
  * low-contrast palette, no border, no background fill, never
  * button-styled. The icon swaps per kind so the row is scannable
  * without reading the label.

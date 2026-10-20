@@ -165,18 +165,16 @@ export function createInitialSettingsState() {
     // via the platform probe; the merge function preserves a persisted
     // choice across reloads.
     showStatusBar: defaultShowStatusBar(),
-    // Variable inspector surface preference. Default
-    // 'floating' keeps backward-compatible behavior for users upgrading
-    // from earlier builds where only the FloatingVariablesCard
-    // existed. Persisted so the choice survives reloads.
-    variableInspectorSurface: 'floating',
+    // Variables live in the results dock; migration v4 moves existing
+    // installs once and the floating card stays one setting away.
+    variableInspectorSurface: 'bottom',
     // per-language run-time preset. Seed honors
     // the legacy hardcoded DEFAULT_TIMEOUT per runner
     // (JS / TS / Go = 30 s = `normal`; Python = 120 s = `long`).
     // Rust is intentionally absent — its desktop kill path is in
     // main and unchanged.
     runtimeTimeoutPresetByLanguage: defaultRuntimeTimeoutPresetSeed(),
-    // Countdown pill in the result panel
+    // Countdown pill in the results dock
     // header while a run is in flight. Default OFF so the panel
     // stays quiet by default.
     showTimeoutCountdown: false,
