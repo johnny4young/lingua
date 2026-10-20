@@ -2191,6 +2191,22 @@
   animation: dock-tab-enter var(--duration-normal) var(--curve-ease-out);
 }
 
+/* Launcher sheets fade in with an 8 px rise. */
+.modal-rise {
+  animation: modal-rise 160ms var(--curve-ease-out);
+}
+
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes dock-tab-enter {
   from {
     opacity: 0;
@@ -2244,7 +2260,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dock-tab-body,
-  .run-history-bar {
+  .run-history-bar,
+  .modal-rise {
     animation: none !important;
   }
 

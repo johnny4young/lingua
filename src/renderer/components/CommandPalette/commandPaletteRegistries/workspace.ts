@@ -1,4 +1,4 @@
-import { buildActionCommand, shortcutComboValues } from '../commandPaletteModelHelpers';
+import { buildActionCommand } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -21,10 +21,7 @@ export const buildWorkspaceCommands: CommandPaletteRegistry = ({ args, translate
           buildActionCommand(
             'action-run-active-tab',
             translate('commandPalette.action.runActiveTab.label'),
-            translate(
-              'commandPalette.action.runActiveTab.description',
-              shortcutComboValues(args, 'run-toggle')
-            ),
+            translate('commandPalette.action.runActiveTab.description'),
             ['run', 'execute', 'code', 'active tab', 'ejecutar', 'codigo', 'pestana'],
             () => {
               onRunActiveTab();

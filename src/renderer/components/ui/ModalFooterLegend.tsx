@@ -6,6 +6,7 @@ import { Kbd } from './ModalShell';
 const GLYPH_ARROWS = '↑↓'; // U+2191 / U+2193
 const GLYPH_RETURN = '↵'; // U+21B5
 const GLYPH_ESC = 'esc';
+const GLYPH_TAB = '⇥'; // U+21E5
 
 export interface ModalFooterLegendProps {
   /** ↑↓ navigate. */
@@ -14,6 +15,8 @@ export interface ModalFooterLegendProps {
   select?: boolean;
   /** ↵ open. */
   open?: boolean;
+  /** ⇥ next group. */
+  nextGroup?: boolean;
   /** esc close. */
   close?: boolean;
   /** Optional extra classes on the rail container. */
@@ -36,7 +39,7 @@ function LegendPair({ glyph, label }: LegendPairProps) {
 
 /**
  * Renders the selected legend pairs in the canonical order
- * (navigate → select → open → close). Defaults to the most common
+ * (navigate → select → open → next group → close). Defaults to the most common
  * combination (`navigate` + `select` + `close`) so a bare
  * `<ModalFooterLegend />` matches the shell's previous default rail.
  */
@@ -44,6 +47,7 @@ export function ModalFooterLegend({
   navigate = true,
   select = true,
   open = false,
+  nextGroup = false,
   close = true,
   className,
 }: ModalFooterLegendProps) {
@@ -54,6 +58,7 @@ export function ModalFooterLegend({
       {navigate ? <LegendPair glyph={GLYPH_ARROWS} label={t('modal.legend.navigate')} /> : null}
       {select ? <LegendPair glyph={GLYPH_RETURN} label={t('modal.legend.select')} /> : null}
       {open ? <LegendPair glyph={GLYPH_RETURN} label={t('modal.legend.open')} /> : null}
+      {nextGroup ? <LegendPair glyph={GLYPH_TAB} label={t('modal.legend.nextGroup')} /> : null}
       {close ? <LegendPair glyph={GLYPH_ESC} label={t('modal.legend.close')} /> : null}
     </div>
   );

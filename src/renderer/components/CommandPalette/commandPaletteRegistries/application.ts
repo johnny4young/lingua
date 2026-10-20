@@ -1,4 +1,4 @@
-import { buildActionCommand, shortcutComboValues } from '../commandPaletteModelHelpers';
+import { buildActionCommand } from '../commandPaletteModelHelpers';
 import type { CommandEntry, CommandPaletteRegistry } from '../commandPaletteModelTypes';
 
 export const buildApplicationCommands: CommandPaletteRegistry = ({ args, translate }) => {
@@ -128,10 +128,7 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
       buildActionCommand(
         'action-open-http-workspace',
         translate('commandPalette.action.openHttpWorkspace.label'),
-        translate(
-          'commandPalette.action.openHttpWorkspace.description',
-          shortcutComboValues(args, 'workspace-toggle-http')
-        ),
+        translate('commandPalette.action.openHttpWorkspace.description'),
         ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
         () => {
           onClose();
@@ -150,10 +147,7 @@ export const buildApplicationCommands: CommandPaletteRegistry = ({ args, transla
       buildActionCommand(
         'action-open-sql-workspace',
         translate('commandPalette.action.openSqlWorkspace.label'),
-        translate(
-          'commandPalette.action.openSqlWorkspace.description',
-          shortcutComboValues(args, 'workspace-toggle-sql')
-        ),
+        translate('commandPalette.action.openSqlWorkspace.description'),
         ['sql', 'query', 'duckdb', 'table', 'database', 'workspace'],
         () => {
           onClose();

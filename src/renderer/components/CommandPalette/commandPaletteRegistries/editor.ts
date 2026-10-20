@@ -259,16 +259,19 @@ export const buildEditorCommands: CommandPaletteRegistry = ({ args, translate })
     // (an editor is active). Closes the palette first, then pastes.
     ...(onPastePlainText
       ? [
-          buildActionCommand(
-            'action-paste-plain-text',
-            translate('commandPalette.action.pastePlainText.label'),
-            translate('commandPalette.action.pastePlainText.description', plainPasteComboValues()),
-            ['paste', 'plain', 'text', 'raw', 'literal', 'smart', 'bypass', 'pegar', 'texto'],
-            () => {
-              onClose();
-              onPastePlainText();
-            }
-          ),
+          {
+            ...buildActionCommand(
+              'action-paste-plain-text',
+              translate('commandPalette.action.pastePlainText.label'),
+              translate('commandPalette.action.pastePlainText.description'),
+              ['paste', 'plain', 'text', 'raw', 'literal', 'smart', 'bypass', 'pegar', 'texto'],
+              () => {
+                onClose();
+                onPastePlainText();
+              }
+            ),
+            shortcut: plainPasteComboValues().combo,
+          },
         ]
       : []),
     // Toggle the persistent status bar. Hidden when the

@@ -1,6 +1,9 @@
-import { Code, FileCode, Search, Zap } from 'lucide-react';
+import { AppWindow, Braces, FileCode, History, Search, Wrench, Zap } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSettingsStore } from '../../stores/settingsStore';
+import type { ShortcutOverrideMap } from '../../data/keyboardShortcuts';
+import { Kbd } from '../ui/ModalShell';
 import {
   languageBadgeClass,
   languageShortLabel,
@@ -8,38 +11,28 @@ import {
 import { cn } from '../../utils/cn';
 import { EmptyState } from '../ui/EmptyState';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import type { CommandCategory, CommandEntry } from './commandPaletteModel';
+import type { CommandEntry } from './commandPaletteModel';
+import {
+  COMMAND_GROUP_LABEL_KEY,
+  commandGroupFor,
+  commandShortcutLabel,
+  type CommandGroup,
+  type CommandGroupId,
+} from './commandPaletteGroups';
 
-const CATEGORY_ICON: Record<CommandCategory, ReactNode> = {
-  template: <FileCode size={14} aria-hidden="true" />,
-  snippet: <Code size={14} aria-hidden="true" />,
-  action: <Zap size={14} aria-hidden="true" />,
-};
-
-/**
- * Section order when the palette is showing the empty-query overview.
- * Actions go first because most palette traffic is system commands;
- * templates and snippets are creation flows that the user reaches for
- * less often. Recent runs ride along inside `action` (they are built
- * with `category: 'action'` in commandPaletteModel) so they stay
- * adjacent to the Re-run / layout actions in the eyebrow group.
- */
-const SECTION_ORDER: readonly CommandCategory[] = ['action', 'template', 'snippet'];
-
-const SECTION_LABEL_KEY: Record<CommandCategory, string> = {
-  action: 'commandPalette.scope.actions',
-  template: 'commandPalette.scope.templates',
-  snippet: 'commandPalette.scope.snippets',
+const GROUP_ICON: Record<CommandGroupId, ReactNode> = {
+  recent: <History size={14} aria-hidden="true" />,
+  workspaces: <AppWindow size={14} aria-hidden="true" />,
+  commands: <Zap size={14} aria-hidden="true" />,
+  utilities: <Wrench size={14} aria-hidden="true" />,
+  templates: <FileCode size={14} aria-hidden="true" />,
+  snippets: <Braces size={14} aria-hidden="true" />,
 };
 
 interface CommandPaletteResultsProps {
   commands: CommandEntry[];
-  /**
-   * The current query string. When empty we render a grouped view with
-   * eyebrow section headers so the palette behaves like a launcher; on
-   * any non-empty query we render a flat ranked list so search results
-   * are not split across sections.
-   */
+  /** The rows bucketed under eyebrows, in the same order as `commands`. Absent for the recent stack. */
+  groups?: CommandGroup[] | null;
   query: string;
   selectedIndex: number;
   listRef: RefObject<HTMLDivElement | null>;
@@ -59,6 +52,7 @@ interface CommandPaletteResultsProps {
 
 export function CommandPaletteResults({
   commands,
+  groups,
   query,
   selectedIndex,
   listRef,
@@ -70,7 +64,7 @@ export function CommandPaletteResults({
   const { t } = useTranslation();
   const paletteCombo = useShortcutLabel('overlay-command-palette');
   const quickOpenCombo = useShortcutLabel('nav-quick-open');
-  const isEmptyQuery = query.trim().length === 0;
+  const overrides = useSettingsStore(state => state.shortcutOverrides);
   const isRecentStack = recentTimestamps !== undefined;
 
   return (
@@ -99,19 +93,15 @@ export function CommandPaletteResults({
             }
           />
         </div>
-      ) : isRecentStack ? (
+      ) : isRecentStack || !groups ? (
         commands.map((command, index) =>
-          renderEntry(command, index, selectedIndex, onHoverIndex, optionId, {
+          renderEntry(command, index, selectedIndex, onHoverIndex, optionId, overrides, null, {
             slot: index + 1,
-            relativeTime: relativeTimeLabel(t, recentTimestamps.get(command.id)),
+            relativeTime: relativeTimeLabel(t, recentTimestamps?.get(command.id)),
           })
         )
-      ) : isEmptyQuery ? (
-        renderGrouped(commands, t, selectedIndex, onHoverIndex, optionId)
       ) : (
-        commands.map((command, index) =>
-          renderEntry(command, index, selectedIndex, onHoverIndex, optionId)
-        )
+        renderGrouped(groups, t, selectedIndex, onHoverIndex, optionId, overrides)
       )}
     </div>
   );
@@ -142,9 +132,12 @@ function renderEntry(
   selectedIndex: number,
   onHoverIndex: (index: number) => void,
   optionId: (index: number) => string,
+  overrides: ShortcutOverrideMap,
+  group: CommandGroupId | null,
   recentMeta?: { slot: number; relativeTime: string | null }
 ) {
   const isActive = index === selectedIndex;
+  const shortcut = commandShortcutLabel(command, overrides);
   return (
     <button
       key={command.id}
@@ -186,7 +179,7 @@ function renderEntry(
             isActive ? 'text-accent' : 'text-fg-muted'
           )}
         >
-          {CATEGORY_ICON[command.category]}
+          {GROUP_ICON[group ?? commandGroupFor(command)]}
         </span>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -205,50 +198,46 @@ function renderEntry(
           {recentMeta.relativeTime}
         </span>
       ) : null}
-      {command.language && (
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}
-        >
-          {languageShortLabel(command.language)}
-        </span>
-      )}
+      {/* Keycap column: the command's shortcut or its language, then ↵ on the active row. */}
+      <span className="flex shrink-0 items-center gap-1.5" data-testid="command-palette-keycaps">
+        {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+        {command.language ? (
+          <span
+            className={`rounded-full px-2 py-0.5 text-eyebrow font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}
+          >
+            {languageShortLabel(command.language)}
+          </span>
+        ) : null}
+        {isActive && !command.disabled ? (
+          <Kbd className="border-accent text-accent-fg">↵</Kbd>
+        ) : null}
+      </span>
     </button>
   );
 }
 
 function renderGrouped(
-  commands: CommandEntry[],
+  groups: readonly CommandGroup[],
   t: (key: string) => string,
   selectedIndex: number,
   onHoverIndex: (index: number) => void,
-  optionId: (index: number) => string
+  optionId: (index: number) => string,
+  overrides: ShortcutOverrideMap
 ) {
-  // Bucket commands by category while preserving the original index in
-  // the flat list so keyboard navigation (which is index-based on the
-  // unchanged filtered array) still highlights the right entry.
-  const buckets: Record<CommandCategory, Array<{ command: CommandEntry; index: number }>> = {
-    action: [],
-    template: [],
-    snippet: [],
-  };
-  commands.forEach((command, index) => {
-    buckets[command.category].push({ command, index });
-  });
-
-  return SECTION_ORDER.flatMap((category) => {
-    const bucket = buckets[category];
-    if (bucket.length === 0) return [];
-    return [
-      <p
-        key={`section-${category}`}
-        className="panel-title px-3 pt-3 pb-1.5"
-        role="presentation"
-      >
-        {t(SECTION_LABEL_KEY[category])}
-      </p>,
-      ...bucket.map(({ command, index }) =>
-        renderEntry(command, index, selectedIndex, onHoverIndex, optionId)
-      ),
-    ];
-  });
+  // Rows keep their index in the flat ordered list, so keyboard navigation
+  // (index-based) highlights the row the user sees.
+  let index = 0;
+  return groups.flatMap(group => [
+    <p
+      key={`section-${group.id}`}
+      data-testid={`command-palette-group-${group.id}`}
+      className="px-2.5 pb-1 pt-2 text-eyebrow font-semibold uppercase tracking-[0.16em] text-fg-subtle first:pt-1.5"
+      role="presentation"
+    >
+      {t(COMMAND_GROUP_LABEL_KEY[group.id])}
+    </p>,
+    ...group.commands.map(command =>
+      renderEntry(command, index++, selectedIndex, onHoverIndex, optionId, overrides, group.id)
+    ),
+  ]);
 }
