@@ -64,7 +64,7 @@ interface UseSqlImportArgs {
   /** Names of tables already in the database — used for the collision de-duper. */
   existingTableNames: ReadonlyArray<string>;
   /** Re-run the schema browser introspection after a successful import. */
-  onImported: () => void;
+  onImported: (table: { tableName: string; format: SqlImportFormat }) => void;
 }
 
 interface UseSqlImportReturn {
@@ -195,7 +195,7 @@ export function useSqlImport({
       pushSuccessNotice('sqlWorkspace.import.success', {
         values: { name: result.table, count: result.rowCount },
       });
-      onImported();
+      onImported({ tableName: result.table, format: current.format });
     } catch (err) {
       // The DDL threw — no table was created (the helper dropped the
       // virtual file). Keep the modal open so the user can adjust + retry.

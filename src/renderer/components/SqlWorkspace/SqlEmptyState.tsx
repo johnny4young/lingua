@@ -1,4 +1,4 @@
-import { Database, FilePlus2, Plus } from 'lucide-react';
+import { Database, FilePlus2, Plus, Sparkles } from 'lucide-react';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SQL_IMPORT_FILE_ACCEPT } from '../../../shared/sqlWorkspace';
@@ -17,9 +17,14 @@ import { EmptyState } from '../ui/EmptyState';
 export function SqlEmptyState({
   onCreate,
   onImportFile,
+  onTrySample,
+  isCreatingSample = false,
 }: {
   onCreate: () => void;
   onImportFile: (file: File) => void;
+  /** Creates the in-memory sample table and opens a SELECT over it. */
+  onTrySample?: () => void;
+  isCreatingSample?: boolean;
 }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -53,6 +58,18 @@ export function SqlEmptyState({
               <FilePlus2 size={13} aria-hidden="true" />
               {t('sqlWorkspace.import.button')}
             </button>
+            {onTrySample ? (
+              <button
+                type="button"
+                onClick={onTrySample}
+                disabled={isCreatingSample}
+                data-testid="sql-workspace-empty-sample"
+                className="focus-ring inline-flex items-center gap-2 rounded-md border border-border-subtle bg-bg-panel-alt px-3.5 py-2 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base disabled:opacity-40"
+              >
+                <Sparkles size={13} aria-hidden="true" />
+                {t('sqlWorkspace.sample.cta')}
+              </button>
+            ) : null}
             <input
               ref={inputRef}
               type="file"

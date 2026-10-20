@@ -3,8 +3,9 @@ import { toggleExplorerOrToolList } from '../../src/renderer/utils/explorerToggl
 import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useUtilityWorkspaceStore } from '../../src/renderer/stores/utilityWorkspaceStore';
+import { useWorkspaceSqlStore } from '../../src/renderer/stores/workspaceSqlStore';
 
-function activate(kind?: 'utilities') {
+function activate(kind?: 'utilities' | 'sql') {
   useEditorStore.setState({
     tabs: [{ id: 't', name: 'a', language: 'javascript', content: '', isDirty: false, ...(kind ? { kind } : {}) }] as never,
     activeTabId: 't',
@@ -14,6 +15,7 @@ function activate(kind?: 'utilities') {
 beforeEach(() => {
   useUIStore.setState({ sidebarVisible: false });
   useUtilityWorkspaceStore.setState({ toolListOpen: false });
+  useWorkspaceSqlStore.setState({ explorerFolded: false });
 });
 
 describe('Cmd/Ctrl+B', () => {
@@ -29,5 +31,12 @@ describe('Cmd/Ctrl+B', () => {
     toggleExplorerOrToolList();
     expect(useUIStore.getState().sidebarVisible).toBe(true);
     expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(false);
+  });
+
+  it('folds the SQL Explorer on the SQL tab and leaves the project explorer alone', async () => {
+    activate('sql');
+    await toggleExplorerOrToolList();
+    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(true);
+    expect(useUIStore.getState().sidebarVisible).toBe(false);
   });
 });

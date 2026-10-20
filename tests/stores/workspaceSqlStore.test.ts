@@ -198,4 +198,29 @@ describe('useWorkspaceSqlStore', () => {
     useWorkspaceSqlStore.getState().recordResponse('ghost', freshResponse());
     expect(useWorkspaceSqlStore.getState().responsesByQueryId['ghost']).toBeUndefined();
   });
+
+  it('remembers the folded Explorer and each table source, and prunes dropped tables', () => {
+    const store = useWorkspaceSqlStore.getState();
+    store.toggleExplorerFolded();
+    store.setTableSource('sales', 'csv');
+    store.setTableSource('events', 'parquet');
+    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(true);
+    useWorkspaceSqlStore.getState().pruneTableSources(['events']);
+    expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ events: 'parquet' });
+  });
+
+  it('persists the Explorer state and sanitizes it on rehydrate', async () => {
+    useWorkspaceSqlStore.getState().toggleExplorerFolded();
+    useWorkspaceSqlStore.getState().setTableSource('sales', 'csv');
+    const stored = JSON.parse(localStorage.getItem('lingua-workspace-sql-state') ?? '{}');
+    expect(stored.state.explorerFolded).toBe(true);
+    expect(stored.state.tableSources).toEqual({ sales: 'csv' });
+
+    stored.state.explorerFolded = 'yes';
+    stored.state.tableSources = { sales: 'csv', evil: 'exe', list: ['csv'] };
+    localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(stored));
+    await useWorkspaceSqlStore.persist.rehydrate();
+    expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(false);
+    expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales: 'csv' });
+  });
 });

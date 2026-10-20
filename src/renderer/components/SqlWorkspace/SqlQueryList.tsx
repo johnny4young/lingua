@@ -24,6 +24,8 @@ export interface SqlQueryListProps {
   onDelete: (id: string) => void;
   /** Clone the query under a fresh id + select it. */
   onDuplicate: (id: string) => void;
+  /** The Explorer filter: narrows the list by name or SQL text. */
+  filter?: string;
 }
 
 /**
@@ -46,8 +48,17 @@ export function SqlQueryList({
   onRename,
   onDelete,
   onDuplicate,
+  filter = '',
 }: SqlQueryListProps) {
   const { t } = useTranslation();
+  const needle = filter.trim().toLowerCase();
+  const visibleQueries =
+    needle.length === 0
+      ? queries
+      : queries.filter(
+          (q) =>
+            q.name.toLowerCase().includes(needle) || q.query.toLowerCase().includes(needle)
+        );
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -70,11 +81,14 @@ export function SqlQueryList({
   return (
     <div
       data-testid="sql-query-list"
-      className="flex h-full flex-col overflow-hidden bg-bg-panel"
+      className="flex flex-col border-t border-border-subtle bg-bg-panel"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-2.5 py-2">
-        <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
+      <header className="flex h-[26px] items-center gap-2 pl-2.5 pr-1.5">
+        <span className="font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
           {t('sqlWorkspace.queryList.label')}
+        </span>
+        <span data-testid="sql-query-list-count" className="font-mono text-micro tabular-nums text-fg-subtle">
+          {queries.length}
         </span>
         <button
           type="button"
@@ -82,22 +96,22 @@ export function SqlQueryList({
           aria-label={t('sqlWorkspace.queryList.newQuery')}
           title={t('sqlWorkspace.queryList.newQuery')}
           data-testid="sql-query-list-create"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-subtle bg-bg-panel-alt text-fg-subtle transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="ml-auto inline-flex h-[22px] w-[22px] items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
-          <Plus size={12} aria-hidden="true" />
+          <Plus size={11} aria-hidden="true" />
         </button>
       </header>
       <ul
         role="list"
-        className="flex-1 overflow-y-auto p-1.5"
+        className="px-1.5 pb-1.5"
         aria-label={t('sqlWorkspace.queryList.ariaLabel')}
       >
-        {queries.length === 0 ? (
-          <li className="px-2.5 py-4 text-body-sm text-fg-subtle">
-            {t('sqlWorkspace.queryList.empty')}
+        {visibleQueries.length === 0 ? (
+          <li className="px-2.5 py-2 text-caption text-fg-subtle">
+            {t(queries.length === 0 ? 'sqlWorkspace.queryList.empty' : 'sqlWorkspace.queryList.noMatch')}
           </li>
         ) : null}
-        {queries.map((q) => {
+        {visibleQueries.map((q) => {
           const isActive = q.id === activeQueryId;
           const isRenaming = renamingId === q.id;
           return (
@@ -110,7 +124,7 @@ export function SqlQueryList({
               tabIndex={isRenaming ? -1 : 0}
               aria-current={isActive ? 'true' : undefined}
               className={cn(
-                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group flex min-h-[23px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-0.5 text-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
                 isActive
                   ? 'border-l-accent bg-bg-inset text-fg-base'
                   : 'border-l-transparent text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base'

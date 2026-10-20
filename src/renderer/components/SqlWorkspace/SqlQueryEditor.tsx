@@ -43,7 +43,7 @@ import {
 } from '../../../shared/sqlWorkspace';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor } from './SqlMonacoEditor';
-import type { SqlSchemaTable } from './SqlSchemaBrowser';
+import type { SqlSchemaTable } from './sqlExplorerModel';
 
 export interface SqlQueryEditorProps {
   query: SqlQueryV1;

@@ -34,6 +34,7 @@ import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseSqlQuery,
   parseSqlResponse,
+  type SqlImportFormat,
   type SqlQueryV1,
   type SqlResponseV1,
   type SqlStorageMode,
@@ -82,6 +83,10 @@ interface WorkspaceSqlState {
    * "storage unavailable".
    */
   readonly storageRequestedMode: SqlStorageMode;
+  /** The Explorer is folded to its narrow rail (Cmd/Ctrl+B on the SQL tab). */
+  readonly explorerFolded: boolean;
+  /** File format each imported table came from, keyed by its Explorer name. */
+  readonly tableSources: Readonly<Record<string, SqlImportFormat>>;
 
   // -------- mutations ------------------------------------------------------
 
@@ -114,6 +119,11 @@ interface WorkspaceSqlState {
     mode: SqlStorageMode,
     requestedMode?: SqlStorageMode
   ) => void;
+  toggleExplorerFolded: () => void;
+  /** Remember the file a table was imported from. */
+  setTableSource: (tableName: string, format: SqlImportFormat) => void;
+  /** Forget sources of tables that no longer exist (dropped in SQL, say). */
+  pruneTableSources: (liveTableNames: ReadonlyArray<string>) => void;
 
   // -------- selectors (cheap derived data) ---------------------------------
 
@@ -136,6 +146,8 @@ function createInitialState(): Pick<
   | 'isExecutingActive'
   | 'storageMode'
   | 'storageRequestedMode'
+  | 'explorerFolded'
+  | 'tableSources'
 > {
   return {
     queries: [],
@@ -144,7 +156,23 @@ function createInitialState(): Pick<
     isExecutingActive: false,
     storageMode: 'memory',
     storageRequestedMode: 'memory',
+    explorerFolded: false,
+    tableSources: {},
   };
+}
+
+// Declared before the store: persist rehydrates synchronously when it is created.
+const IMPORT_FORMATS: ReadonlySet<string> = new Set(['csv', 'json', 'parquet']);
+
+function sanitizeTableSources(value: unknown): Record<string, SqlImportFormat> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, SqlImportFormat> = {};
+  for (const [name, format] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof format === 'string' && IMPORT_FORMATS.has(format)) {
+      out[name] = format as SqlImportFormat;
+    }
+  }
+  return out;
 }
 
 export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
@@ -270,6 +298,22 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           return { storageMode: mode, storageRequestedMode: nextRequestedMode };
         }),
 
+      toggleExplorerFolded: () =>
+        set((state) => ({ explorerFolded: !state.explorerFolded })),
+      setTableSource: (tableName, format) =>
+        set((state) => ({
+          tableSources: { ...state.tableSources, [tableName]: format },
+        })),
+      pruneTableSources: (liveTableNames) =>
+        set((state) => {
+          const live = new Set(liveTableNames);
+          const kept = Object.entries(state.tableSources).filter(([name]) =>
+            live.has(name)
+          );
+          if (kept.length === Object.keys(state.tableSources).length) return state;
+          return { tableSources: Object.fromEntries(kept) };
+        }),
+
       getQuery: (id) => get().queries.find((q) => q.id === id),
       getLatestResponse: (id) => get().responsesByQueryId[id]?.[0],
     }),
@@ -300,6 +344,8 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           queries: state.queries,
           responsesByQueryId: persistedResponses,
           activeQueryId: state.activeQueryId,
+          explorerFolded: state.explorerFolded,
+          tableSources: state.tableSources,
         };
       },
       // Sanitize on rehydrate — drop any invalid entry silently so a
@@ -351,6 +397,8 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           } else {
             merged.activeQueryId = null;
           }
+          merged.explorerFolded = p.explorerFolded === true;
+          merged.tableSources = sanitizeTableSources(p.tableSources);
         }
         // Always start with a clean execution flag (see field docs).
         merged.isExecutingActive = false;
