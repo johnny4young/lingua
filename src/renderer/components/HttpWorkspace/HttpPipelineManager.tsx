@@ -82,7 +82,7 @@ export function HttpPipelineManager({
         aria-modal="true"
         aria-labelledby="http-pipeline-title"
         data-testid="http-pipeline-manager"
-        className="flex h-[min(88vh,760px)] min-h-0 w-[min(96vw,1100px)] overflow-hidden rounded-xl border border-border-strong bg-bg-base shadow-2xl"
+        className="flex h-[min(88vh,760px)] min-h-0 w-[min(96vw,1100px)] overflow-hidden rounded-xl border border-border-strong bg-bg-base shadow-e3"
       >
         <aside className="flex w-56 shrink-0 flex-col border-r border-border-subtle bg-bg-panel">
           <header className="flex items-center justify-between border-b border-border-subtle px-3 py-2.5">
@@ -283,7 +283,7 @@ export function HttpPipelineManager({
                             updateSteps(next);
                           }}
                           aria-label={t('httpWorkspace.pipeline.moveUp')}
-                          className="focus-ring p-1 disabled:opacity-30"
+                          className="focus-ring p-1 disabled:opacity-40"
                         >
                           <ArrowUp size={12} aria-hidden="true" />
                         </button>
@@ -296,7 +296,7 @@ export function HttpPipelineManager({
                             updateSteps(next);
                           }}
                           aria-label={t('httpWorkspace.pipeline.moveDown')}
-                          className="focus-ring p-1 disabled:opacity-30"
+                          className="focus-ring p-1 disabled:opacity-40"
                         >
                           <ArrowDown size={12} aria-hidden="true" />
                         </button>
@@ -307,7 +307,7 @@ export function HttpPipelineManager({
                             updateSteps(active.steps.filter((entry) => entry.id !== step.id))
                           }
                           aria-label={t('httpWorkspace.pipeline.removeStep')}
-                          className="focus-ring p-1 text-error-fg disabled:opacity-30"
+                          className="focus-ring p-1 text-error-fg disabled:opacity-40"
                         >
                           <Trash2 size={12} aria-hidden="true" />
                         </button>

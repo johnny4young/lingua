@@ -95,7 +95,7 @@ function ShortcutComboPill({
     <kbd
       data-testid={comboId}
       aria-label={formatShortcutCombo(combo, platform)}
-      className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border/80 bg-surface-strong/85 px-2.5 py-1 font-sans text-body-sm font-medium text-foreground shadow-sm"
+      className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border/80 bg-surface-strong/85 px-2.5 py-1 font-sans text-body-sm font-medium text-foreground shadow-e1"
       style={{
         fontVariantLigatures: 'none',
         fontFeatureSettings: '"liga" 0, "calt" 0',
@@ -554,7 +554,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               onClick={() => void handleExport()}
               disabled={!hasOverrides}
               data-testid="shortcut-export"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download size={12} />
               {t('shortcuts.editor.export')}
@@ -573,7 +573,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               onClick={handleResetAll}
               disabled={!hasOverrides}
               data-testid="shortcut-reset-all"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
               <RotateCcw size={12} />
               {t('shortcuts.editor.resetAll')}

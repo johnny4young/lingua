@@ -273,7 +273,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
           role="menu"
           aria-label={t('console.rich.errorStackHeader')}
           style={{ position: 'fixed', top: menu.y + 4, left: menu.x + 4, zIndex: 50 }}
-          className="rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md"
+          className="rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-e2"
           data-testid="console-rich-error-frame-menu"
         >
           <button
@@ -282,7 +282,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
             }}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => {
               const frame = frames[menu.index];
               if (frame?.file && typeof frame.line === 'number') {
@@ -300,7 +300,7 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
             }}
             type="button"
             role="menuitem"
-            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+            className="block w-full px-2 py-1 text-left hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => {
               const frame = frames[menu.index];
               if (frame && isClickable(frame)) {

@@ -102,7 +102,7 @@ export function StatusNoticeBanner() {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusedId(null);
       }}
       className={cn(
-        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-2xl border px-4 py-3 shadow-lg backdrop-blur',
+        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-2xl border px-4 py-3 shadow-e3 backdrop-blur',
         toneClasses(notice.tone)
       )}
     >

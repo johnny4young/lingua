@@ -485,7 +485,7 @@ export function DependenciesPanel() {
               type="button"
               onClick={handleInstallAll}
               disabled={isInstalling}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-caption normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:hover:bg-surface/60"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-caption normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 disabled:hover:bg-surface/60"
               data-testid="dependencies-install-all"
             >
               <Download size={11} aria-hidden="true" />

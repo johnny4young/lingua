@@ -165,7 +165,7 @@ export function ExplainCodeDialog({
         aria-modal="true"
         aria-label={t('ai.explainCode.title')}
         data-testid="ai-explain-code-dialog"
-        className="flex max-h-[80vh] w-full max-w-[640px] flex-col overflow-hidden rounded-lg border border-border bg-bg-panel shadow-xl"
+        className="flex max-h-[80vh] w-full max-w-[640px] flex-col overflow-hidden rounded-lg border border-border bg-bg-panel shadow-e3"
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold">

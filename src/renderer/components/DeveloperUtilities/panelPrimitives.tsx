@@ -135,7 +135,7 @@ export function TimestampHoverValue({
       <span
         id={tooltipId}
         role="tooltip"
-        className="pointer-events-none absolute left-0 top-[calc(100%+0.45rem)] z-50 hidden w-max max-w-[20rem] rounded-xl border border-border-subtle bg-bg-panel px-3 py-2 text-left text-caption leading-5 text-fg-base shadow-xl group-hover:block group-focus-within:block"
+        className="pointer-events-none absolute left-0 top-[calc(100%+0.45rem)] z-50 hidden w-max max-w-[20rem] rounded-xl border border-border-subtle bg-bg-panel px-3 py-2 text-left text-caption leading-5 text-fg-base shadow-e3 group-hover:block group-focus-within:block"
       >
         <span className="block font-mono text-[0.68rem] font-bold uppercase tracking-[0.18em] text-fg-subtle">
           {t('utilities.timestampHover.local')}
@@ -323,7 +323,7 @@ export function UtilityToolbar({
         data-testid={applyTestId}
         aria-label={t(labelKey)}
         title={t(tooltipKey)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Zap size={12} aria-hidden="true" />
         {t(labelKey)}

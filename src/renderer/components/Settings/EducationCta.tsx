@@ -186,7 +186,7 @@ export function EducationCta({
             onClick={() => void handleStart()}
             disabled={busy || email.trim().length === 0}
             data-testid="education-start"
-            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? t('license.education.starting') : t('license.education.startCta')}
           </button>

@@ -699,7 +699,7 @@ export function HttpRequestEditor({
             aria-expanded={copyMenuOpen}
             aria-label={t('httpWorkspace.editor.copyAs.label')}
             title={t('httpWorkspace.editor.copyAs.label')}
-            className="focus-ring inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-8 items-center justify-center gap-0.5 rounded-md border border-border-subtle px-2 text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Copy size={14} aria-hidden="true" />
             <ChevronDown size={12} aria-hidden="true" />
@@ -708,7 +708,7 @@ export function HttpRequestEditor({
             <div
               role="menu"
               data-testid="http-request-editor-copy-menu-list"
-              className="absolute right-0 top-9 z-20 min-w-[180px] overflow-hidden rounded-md border border-border-subtle bg-bg-base py-1 shadow-lg"
+              className="absolute right-0 top-9 z-20 min-w-[180px] overflow-hidden rounded-md border border-border-subtle bg-bg-base py-1 shadow-e3"
             >
               {COPY_FORMATS.map(({ id, label }) => (
                 <button
@@ -755,7 +755,7 @@ export function HttpRequestEditor({
             data-testid="http-request-editor-send"
             aria-label={t('httpWorkspace.editor.send.label')}
             title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint', { combo: sendCombo })}`}
-            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SendHorizontal size={14} aria-hidden="true" />
             <span>{t('httpWorkspace.editor.send.label')}</span>

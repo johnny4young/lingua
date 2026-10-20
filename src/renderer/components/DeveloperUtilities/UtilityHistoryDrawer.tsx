@@ -123,7 +123,7 @@ export function UtilityHistoryDrawer({
             data-testid="utility-history-clear"
             onClick={handleClear}
             disabled={entries.length === 0}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/80 px-2 py-1 text-caption font-medium text-foreground transition-colors hover:border-danger/60 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border/80 px-2 py-1 text-caption font-medium text-foreground transition-colors hover:border-danger/60 hover:text-danger disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Trash2 size={11} aria-hidden="true" />
             {t('utilities.history.clear')}

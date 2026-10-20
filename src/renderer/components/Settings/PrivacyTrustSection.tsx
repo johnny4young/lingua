@@ -263,7 +263,7 @@ export function PrivacyTrustSection() {
                       type="button"
                       onClick={() => setConfirmKey(row.key)}
                       disabled={row.bytes === 0}
-                      className="inline-flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-error/10 hover:text-error disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+                      className="inline-flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
                       data-testid={`privacy-local-stores-clear-${row.key}`}
                       aria-label={t('settings.privacy.localStores.col.clear')}
                     >

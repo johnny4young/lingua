@@ -143,7 +143,7 @@ function FileRow({
             type="button"
             disabled={applying}
             onClick={() => onApply(result.relativePath)}
-            className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-caption text-foreground hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 disabled:cursor-not-allowed"
             data-testid={`project-replace-apply-file-${result.relativePath}`}
           >
             {t('projectReplace.applyToFile.button')}
@@ -499,7 +499,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
               type="button"
               disabled={installableFileCount === 0 || applyProgress !== null}
               onClick={() => setConfirmOpen(true)}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-primary/30 px-3 py-1 text-caption font-medium text-foreground hover:bg-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-primary/30 px-3 py-1 text-caption font-medium text-foreground hover:bg-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 disabled:cursor-not-allowed"
               data-testid="project-replace-apply-all"
             >
               {t('projectReplace.applyToAll.button')}

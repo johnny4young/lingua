@@ -145,7 +145,7 @@ export function SettingsSearch({
 
       {expanded ? (
         <div
-          className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 overflow-hidden rounded-lg border border-border bg-bg-panel shadow-2xl"
+          className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-50 overflow-hidden rounded-lg border border-border bg-bg-panel shadow-e3"
           data-testid="settings-search-popover"
         >
           <div

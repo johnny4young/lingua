@@ -304,7 +304,7 @@ export function HttpEnvironmentManager({
               onClick={handleConfirmImport}
               disabled={!importValue.trim()}
               data-testid="http-environment-import-confirm"
-              className="inline-flex h-6 items-center rounded-md border border-accent bg-accent px-2 text-caption font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+              className="inline-flex h-6 items-center rounded-md border border-accent bg-accent px-2 text-caption font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
               {t('httpWorkspace.environment.manager.importConfirm')}
             </button>

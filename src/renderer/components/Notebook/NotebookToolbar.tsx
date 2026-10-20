@@ -194,7 +194,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             disabled
               ? 'border-border/40 bg-surface/40 text-muted'
               : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
-            'disabled:cursor-not-allowed disabled:opacity-50'
+            'disabled:cursor-not-allowed disabled:opacity-40'
           )}
         >
           {isAnyCellRunning ? (
@@ -216,7 +216,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
             disabled={disabled}
             title={t('notebook.reactivity.refreshHint')}
             data-testid="notebook-toolbar-refresh-stale"
-            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-40"
           >
             <RefreshCw size={11} aria-hidden="true" />
             {t('notebook.reactivity.refreshButton', { count: staleCount })}
@@ -227,7 +227,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
           onClick={stop}
           disabled={!isAnyCellRunning}
           data-testid="notebook-toolbar-stop"
-          className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring inline-flex items-center gap-1 rounded-lg border border-warning-border bg-warning-bg px-2.5 py-1.5 text-caption font-medium text-warning-fg transition-colors duration-150 hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Square size={11} aria-hidden="true" />
           {t('notebook.toolbar.stop')}
@@ -274,7 +274,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
               role="menu"
               aria-label={t('notebook.toolbar.exportMenuLabel')}
               data-testid="notebook-export-menu"
-              className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-lg"
+              className="absolute right-0 top-9 z-20 w-60 rounded-md border border-border/60 bg-bg-elevated p-1 shadow-e3"
             >
               <button
                 type="button"
@@ -332,7 +332,7 @@ export function NotebookToolbar(props: NotebookToolbarProps) {
               role="dialog"
               aria-label={t('notebook.command.shortcutsTitle')}
               data-testid="notebook-shortcuts-legend"
-              className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
+              className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-e3"
             >
               <p className="mb-2 text-eyebrow font-semibold uppercase tracking-wider text-muted">
                 {t('notebook.command.shortcutsTitle')}

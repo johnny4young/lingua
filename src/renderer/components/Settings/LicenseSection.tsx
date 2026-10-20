@@ -395,7 +395,7 @@ export function LicenseSection() {
                   type="button"
                   onClick={() => setConfirmClear(true)}
                   disabled={isClearing || isApplying}
-                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
+                  className="focus-ring rounded-md border border-border-default px-2 py-0.5 text-caption text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40"
                   data-testid="license-clear"
                 >
                   {t('license.clear')}
@@ -504,7 +504,7 @@ export function LicenseSection() {
                 onClick={() => void handleApply()}
                 disabled={isApplying || isClearing || draft.trim().length === 0}
                 data-testid="license-apply"
-                className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+                className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isApplying ? t('license.applying') : t('license.apply')}
               </button>

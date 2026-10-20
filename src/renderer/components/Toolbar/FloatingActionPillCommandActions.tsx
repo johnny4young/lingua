@@ -49,7 +49,7 @@ function RecipesBadge({ testId = 'action-pill-recipes-badge' }: { testId?: strin
       data-testid={testId}
       data-passed-count={passedCount}
       aria-label={t('chrome.recipes.badgeAria', { count: passedCount })}
-      className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-nano font-bold leading-none text-fg-on-accent shadow-sm"
+      className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-nano font-bold leading-none text-fg-on-accent shadow-e1"
     >
       {passedCount > 99 ? '99+' : passedCount}
     </span>

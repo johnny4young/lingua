@@ -126,7 +126,7 @@ export function SqlImportPreviewModal({
             className={cn(
               'focus-ring inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-body-sm font-semibold text-fg-on-accent transition-colors',
               'hover:bg-accent-hover',
-              'disabled:cursor-not-allowed disabled:opacity-50'
+              'disabled:cursor-not-allowed disabled:opacity-40'
             )}
           >
             {isImporting ? (
@@ -144,7 +144,7 @@ export function SqlImportPreviewModal({
             className={cn(
               'focus-ring inline-flex items-center rounded-md border border-border-subtle bg-bg-panel-alt px-3 py-1.5 text-body-sm font-medium text-fg-muted transition-colors',
               'hover:border-border-strong hover:text-fg-base',
-              'disabled:cursor-not-allowed disabled:opacity-50'
+              'disabled:cursor-not-allowed disabled:opacity-40'
             )}
           >
             {t('sqlWorkspace.import.cancel')}

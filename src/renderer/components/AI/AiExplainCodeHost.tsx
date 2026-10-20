@@ -19,7 +19,7 @@ function AiExplainCodeLoadingDialog({ onClose }: { readonly onClose: () => void 
       aria-busy="true"
       data-testid="ai-explain-code-loading-dialog"
     >
-      <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-border bg-bg-panel shadow-xl">
+      <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-border bg-bg-panel shadow-e3">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <p className="text-sm font-semibold">{t('ai.explainCode.title')}</p>
           <button

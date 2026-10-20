@@ -245,7 +245,7 @@ export function RichValueChart({ payload }: RichValueChartProps) {
             role="menu"
             tabIndex={-1}
             onKeyDown={handleMenuKeyDown}
-            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-md outline-none"
+            className="absolute right-0 top-full mt-1 flex min-w-40 flex-col rounded-md border border-border/60 bg-bg-elevated p-1 text-caption shadow-e2 outline-none"
             data-testid="console-rich-chart-menu"
           >
             {canExportChart ? (

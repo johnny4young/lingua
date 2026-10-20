@@ -171,7 +171,7 @@ export function TrialCta({
             onClick={() => void handleStart()}
             disabled={busy || email.trim().length === 0}
             data-testid="trial-start"
-            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? t('license.trial.starting') : t('license.trial.startCta')}
           </button>

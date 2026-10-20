@@ -23,7 +23,7 @@ import { DebuggerBreakpointList } from './DebuggerBreakpointList';
 import { DebuggerWatchList } from './DebuggerWatchList';
 
 const debuggerButtonBase =
-  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-sm shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55';
+  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-body-sm font-medium shadow-e1 shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40';
 const debuggerActionButton =
   `${debuggerButtonBase} text-foreground hover:border-primary/50 hover:bg-surface-strong/65`;
 const debuggerDangerButton =

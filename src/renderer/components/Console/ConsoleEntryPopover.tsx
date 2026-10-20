@@ -113,7 +113,7 @@ export function ConsoleEntryPopover({ payload, onClose }: ConsoleEntryPopoverPro
       aria-label={t('console.rich.detailsDialogLabel')}
     >
       <div
-        className="relative w-[min(720px,90vw)] max-h-[min(80vh,720px)] overflow-hidden rounded-4xl border border-border-strong/80 bg-bg-panel shadow-xl"
+        className="relative w-[min(720px,90vw)] max-h-[min(80vh,720px)] overflow-hidden rounded-4xl border border-border-strong/80 bg-bg-panel shadow-e3"
       >
         <div className="flex items-center gap-1 border-b border-border-subtle/60 bg-bg-panel-alt px-3 py-2 text-caption">
           <Tooltip content={t('console.rich.previewShortcutTooltip')}>
