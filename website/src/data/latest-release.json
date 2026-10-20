@@ -1,111 +1,111 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-10-15T23:21:29.691Z",
+  "capturedAt": "2026-10-20T00:50:33.096Z",
   "release": {
-    "tag": "v1.6.1",
-    "publishedAt": "2026-10-15T23:21:11Z",
-    "htmlUrl": "https://github.com/johnny4young/lingua/releases/tag/v1.6.1",
+    "tag": "v1.6.2",
+    "publishedAt": "2026-10-20T00:50:13Z",
+    "htmlUrl": "https://github.com/johnny4young/lingua/releases/tag/v1.6.2",
     "draft": false,
     "prerelease": false,
     "assets": [
       {
         "name": "latest-linux.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/latest-linux.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/latest-linux.yml",
         "sizeBytes": 390
       },
       {
         "name": "latest-mac.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/latest-mac.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/latest-mac.yml",
         "sizeBytes": 814
       },
       {
         "name": "latest.yml",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/latest.yml",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/latest.yml",
         "sizeBytes": 345
       },
       {
-        "name": "Lingua-1.6.1-linux-x86_64.AppImage",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-linux-x86_64.AppImage",
-        "sizeBytes": 165697510
+        "name": "Lingua-1.6.2-linux-x86_64.AppImage",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-linux-x86_64.AppImage",
+        "sizeBytes": 165702165
       },
       {
-        "name": "Lingua-1.6.1-mac-arm64.dmg",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-arm64.dmg",
-        "sizeBytes": 166410577
+        "name": "Lingua-1.6.2-mac-arm64.dmg",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-arm64.dmg",
+        "sizeBytes": 166414182
       },
       {
-        "name": "Lingua-1.6.1-mac-arm64.dmg.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-arm64.dmg.blockmap",
-        "sizeBytes": 173528
+        "name": "Lingua-1.6.2-mac-arm64.dmg.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-arm64.dmg.blockmap",
+        "sizeBytes": 174861
       },
       {
-        "name": "Lingua-1.6.1-mac-arm64.zip",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-arm64.zip",
-        "sizeBytes": 165971139
+        "name": "Lingua-1.6.2-mac-arm64.zip",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-arm64.zip",
+        "sizeBytes": 165972389
       },
       {
-        "name": "Lingua-1.6.1-mac-arm64.zip.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-arm64.zip.blockmap",
-        "sizeBytes": 173723
+        "name": "Lingua-1.6.2-mac-arm64.zip.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-arm64.zip.blockmap",
+        "sizeBytes": 174562
       },
       {
-        "name": "Lingua-1.6.1-mac-x64.dmg",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-x64.dmg",
-        "sizeBytes": 173867943
+        "name": "Lingua-1.6.2-mac-x64.dmg",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-x64.dmg",
+        "sizeBytes": 173871985
       },
       {
-        "name": "Lingua-1.6.1-mac-x64.dmg.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-x64.dmg.blockmap",
-        "sizeBytes": 182081
+        "name": "Lingua-1.6.2-mac-x64.dmg.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-x64.dmg.blockmap",
+        "sizeBytes": 182242
       },
       {
-        "name": "Lingua-1.6.1-mac-x64.zip",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-x64.zip",
-        "sizeBytes": 173448068
+        "name": "Lingua-1.6.2-mac-x64.zip",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-x64.zip",
+        "sizeBytes": 173450718
       },
       {
-        "name": "Lingua-1.6.1-mac-x64.zip.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-mac-x64.zip.blockmap",
-        "sizeBytes": 181294
+        "name": "Lingua-1.6.2-mac-x64.zip.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-mac-x64.zip.blockmap",
+        "sizeBytes": 181561
       },
       {
-        "name": "Lingua-1.6.1-win-x64.exe",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-win-x64.exe",
-        "sizeBytes": 145092706
+        "name": "Lingua-1.6.2-win-x64.exe",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-win-x64.exe",
+        "sizeBytes": 145089411
       },
       {
-        "name": "Lingua-1.6.1-win-x64.exe.blockmap",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/Lingua-1.6.1-win-x64.exe.blockmap",
-        "sizeBytes": 151376
+        "name": "Lingua-1.6.2-win-x64.exe.blockmap",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/Lingua-1.6.2-win-x64.exe.blockmap",
+        "sizeBytes": 150819
       },
       {
-        "name": "lingua-cli-v1.6.1-linux-x64.tar.gz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/lingua-cli-v1.6.1-linux-x64.tar.gz",
-        "sizeBytes": 43430176
+        "name": "lingua-cli-v1.6.2-linux-x64.tar.gz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/lingua-cli-v1.6.2-linux-x64.tar.gz",
+        "sizeBytes": 43430173
       },
       {
-        "name": "lingua-cli-v1.6.1-windows-x64.tar.gz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/lingua-cli-v1.6.1-windows-x64.tar.gz",
-        "sizeBytes": 35085332
+        "name": "lingua-cli-v1.6.2-windows-x64.tar.gz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/lingua-cli-v1.6.2-windows-x64.tar.gz",
+        "sizeBytes": 35085755
       },
       {
         "name": "lingua-sbom.cyclonedx.json",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/lingua-sbom.cyclonedx.json",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/lingua-sbom.cyclonedx.json",
         "sizeBytes": 6219
       },
       {
-        "name": "linguacode-cli-1.6.1.tgz",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/linguacode-cli-1.6.1.tgz",
+        "name": "linguacode-cli-1.6.2.tgz",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/linguacode-cli-1.6.2.tgz",
         "sizeBytes": 96436
       },
       {
         "name": "SHA256SUMS.txt",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/SHA256SUMS.txt",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/SHA256SUMS.txt",
         "sizeBytes": 1789
       },
       {
         "name": "THIRD_PARTY_LICENSE_REPORT.md",
-        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.1/THIRD_PARTY_LICENSE_REPORT.md",
+        "downloadUrl": "https://github.com/johnny4young/lingua/releases/download/v1.6.2/THIRD_PARTY_LICENSE_REPORT.md",
         "sizeBytes": 2852
       }
     ]
