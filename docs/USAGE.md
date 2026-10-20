@@ -204,6 +204,14 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
 - Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
 
+## Network from running code (Labs)
+
+- Turn on **Settings › Labs › Network policy for running code** to add **Network from running code** to Settings › Privacy. It is off by default and, until you change it, the policy is **Allow**: nothing changes.
+- **Block** refuses network requests from code in the JavaScript/TypeScript worker, Pyodide and Ruby WASM while it runs: `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers fail with a message that names the host.
+- **Ask** shows a dialog the first time code in a tab requests a host with `fetch` (JavaScript, or Python `pyodide.http.pyfetch`). The run waits, with its timeout paused; **Allow in this tab** or **Block** holds for that host in the tab until you reload. Synchronous requests (Python `requests` or `open_url`, any Ruby request) cannot wait, so under Ask they only reach hosts the tab already allowed.
+- Blocked and allowed requests appear in Settings › Privacy › Recent activity with the host only.
+- It is a best-effort guard, not a sandbox. Node, Deno, Bun, Go and Rust run natively and fall under the native execution acknowledgement; the desktop app also limits network requests from the app to loopback hosts.
+
 ## Browser-only limitations
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message.

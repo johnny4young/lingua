@@ -95,6 +95,18 @@ runtime adapters are created once per worker so boot-global snapshots,
 notebook namespaces, installed Python packages, and Pyodide streams retain the
 same lifetime they had before the split.
 
+The network policy for running code (Labs flag `networkPolicy`) is enforced
+inside these workers by `networkGuard.ts`, which wraps `fetch`,
+`XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers. The wrappers
+stay installed for the worker's life and only enforce between the start and end
+of user code, so runtime loading passes: Pyodide installs them at worker start
+because `pyodide.http` captures `fetch` on import, and its index URL is always
+allowed. Under Ask, the worker posts `network-request` and awaits
+`network-decision`; the runner pauses its kill timer meanwhile and re-arms the
+full budget after the answer, as for a debugger pause. Ruby's synchronous eval
+cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
+it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
+
 The Python runner lets one execution reach that persistent worker at a time.
 A new `execute()` stops a run already in flight by terminating the worker, so
 the new call boots Pyodide again. A call still waiting for the boot holds no
