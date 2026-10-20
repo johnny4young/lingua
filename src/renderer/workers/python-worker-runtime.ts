@@ -54,7 +54,7 @@ function resolvePyodideIndexUrl(): string {
   return withTrailingSlash(configuredUrl || RAW_PYODIDE_INDEX_URL);
 }
 
-const PYODIDE_INDEX_URL = resolvePyodideIndexUrl();
+export const PYODIDE_INDEX_URL = resolvePyodideIndexUrl();
 
 /**
  * The pre-warm streams `pyodide.asm.wasm` once, purely to surface byte

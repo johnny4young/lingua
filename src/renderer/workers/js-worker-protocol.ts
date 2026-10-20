@@ -2,6 +2,7 @@ import type {
   DebuggerBreakpointPayload,
   DebuggerControlMessage,
 } from '../runtime/debuggerWorkerBridge';
+import type { NetworkDecisionMessage, NetworkRunPolicy } from '../../shared/networkPolicy';
 
 export interface JsWorkerExecuteMessage {
   type: 'execute';
@@ -57,6 +58,8 @@ export interface JsWorkerExecuteMessage {
    * so non-serializable leaves drop while serializable siblings survive.
    */
   captureStructuredResult?: boolean;
+  /** Network policy for this run; absent means unrestricted. */
+  network?: NetworkRunPolicy;
 }
 
 /**
@@ -68,4 +71,7 @@ export interface JsWorkerExecuteMessage {
  * per-branch casts, and an exhaustiveness `never` check flags any new
  * inbound variant that lacks a handler.
  */
-export type JsWorkerInboundMessage = JsWorkerExecuteMessage | DebuggerControlMessage;
+export type JsWorkerInboundMessage =
+  | JsWorkerExecuteMessage
+  | DebuggerControlMessage
+  | NetworkDecisionMessage;

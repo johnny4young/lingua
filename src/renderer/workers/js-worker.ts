@@ -43,4 +43,8 @@
 import { createJsWorkerMessageHandler } from './js-worker-execution';
 
 const ctx = self as unknown as Worker;
-ctx.addEventListener('message', createJsWorkerMessageHandler(ctx));
+const handleMessage = createJsWorkerMessageHandler(ctx);
+// Only the renderer's postMessage is trusted; running code can dispatch fake control messages.
+ctx.addEventListener('message', event =>
+  event.isTrusted ? handleMessage(event) : undefined
+);

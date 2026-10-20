@@ -2,6 +2,8 @@ import type { SettingsState } from '../types/settings';
 import { BASELINE_SENSITIVE_HEADERS_LC } from './settingsDefaults';
 import { syncConsentMirror } from './settingsPersistence';
 import type { SettingsSet } from './settingsStoreContext';
+import { FEATURE_FLAG_IDS } from '../../shared/featureFlags';
+import { isNetworkPolicy } from '../../shared/networkPolicy';
 
 /**
  * privacy/consent setter factory for the settings store.
@@ -24,6 +26,8 @@ export function createPrivacyActions(
   | 'addSensitiveHttpHeader'
   | 'removeSensitiveHttpHeader'
   | 'setHttpAllowPrivateHosts'
+  | 'setNetworkFromRunningCode'
+  | 'setFeatureFlag'
 > {
   return {
     toggleExecutionHistorySnapshot: () =>
@@ -53,6 +57,17 @@ export function createPrivacyActions(
       })),
     setHttpAllowPrivateHosts: (httpAllowPrivateHosts) =>
       set({ httpAllowPrivateHosts: httpAllowPrivateHosts === true }),
+    setNetworkFromRunningCode: (policy) => {
+      if (isNetworkPolicy(policy)) set({ networkFromRunningCode: policy });
+    },
+    setFeatureFlag: (id, enabled) =>
+      set((state) => {
+        if (!FEATURE_FLAG_IDS.includes(id)) return state;
+        const featureFlags = { ...state.featureFlags };
+        if (enabled === true) featureFlags[id] = true;
+        else delete featureFlags[id];
+        return { featureFlags };
+      }),
     addSensitiveHttpHeader: (name) =>
       set((state) => {
         if (typeof name !== 'string') return state;

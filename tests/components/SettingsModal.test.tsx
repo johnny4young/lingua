@@ -156,7 +156,7 @@ describe('SettingsModal', () => {
 
     expect(await inPanel().findByText('MIT')).toBeTruthy();
 
-    // Cmd+1-9 then Cmd+0 follow the rail top to bottom; Plugins has no number.
+    // Cmd+1-9 then Cmd+0 follow the rail top to bottom; Plugins and Labs have no number.
     const railOrder = [
       ['1', 'general'],
       ['2', 'appearance'],

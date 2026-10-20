@@ -40,8 +40,16 @@ import { consolePrinter, RubyVM } from '@ruby/wasm-wasi';
 import { File, OpenFile, PreopenDirectory, WASI } from '@bjorn3/browser_wasi_shim';
 import { responseWithBootstrapProgress } from './bootstrapProgress';
 import { compileWasmStreamingVerified } from '../runtime/wasmIntegrity';
+import { installNetworkGuard } from './networkGuard';
+import type { NetworkRunPolicy } from '../../shared/networkPolicy';
 
 const ctx = self as unknown as Worker;
+// Ruby's eval is synchronous and cannot wait for an answer, so Ask blocks any
+// host the tab has not allowed yet. The guard enforces only around user code.
+let networkRunId = '';
+const networkGuard = installNetworkGuard(globalThis, {
+  report: (host, verdict) => ctx.postMessage({ type: 'network-event', runId: networkRunId, host, verdict }),
+});
 
 function resolveRubyWasmUrl(): string {
   if (__LINGUA_RUBY_WASM_URL__) return __LINGUA_RUBY_WASM_URL__;
@@ -208,6 +216,8 @@ function parseRubyError(text: string): { line?: number; message: string } {
 }
 
 ctx.addEventListener('message', async (event) => {
+  // Only the renderer's postMessage is trusted; running code can dispatch fake control messages.
+  if (!event.isTrusted) return;
   const msg = event.data;
 
   if (msg.type === 'init') {
@@ -227,7 +237,11 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const { runId, code } = msg as { runId: string; code: string };
+    const { runId, code, network } = msg as {
+      runId: string;
+      code: string;
+      network?: NetworkRunPolicy;
+    };
     const startTime = performance.now();
     activeRunId = runId;
     // Reset stream buffers between runs — the persistent worker
@@ -243,6 +257,9 @@ ctx.addEventListener('message', async (event) => {
       }
 
       try {
+        // In force until the next run, so callbacks the code scheduled are checked too.
+        networkRunId = runId;
+        networkGuard.begin(network ?? { policy: 'allow', allowedHosts: [], blockedHosts: [] });
         runRubyCode(code);
       } catch (err) {
         // RbError surfaces as a regular Error with the formatted Ruby

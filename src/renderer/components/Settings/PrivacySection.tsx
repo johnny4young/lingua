@@ -9,10 +9,12 @@ import { trackEvent } from '../../utils/telemetry';
 import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpSensitiveHeaders';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
+import { AiSourceRow, NetworkFromRunningCodeRow } from './NetworkPolicyRows';
 
 /**
- * Privacy section — owns the telemetry consent toggle and the
- * native-execution acknowledgement reset. Three-state telemetry
+ * Privacy section: telemetry consent, the native-execution acknowledgement
+ * reset, the network and AI source rows, private hosts, sensitive headers and
+ * the Run Ledger. Three-state telemetry
  * consent: `unset` (default, treated as opt-out), `granted`, `declined`.
  * Flipping the toggle moves between `granted` and `declined`; we never
  * revert to `unset` from the UI so the future first-run prompt stays
@@ -99,8 +101,10 @@ export function PrivacySection() {
               </div>
             }
           />
+          <NetworkFromRunningCodeRow />
           <PrivateHostsRow />
           <SensitiveHeadersRow />
+          <AiSourceRow last />
         </SpecCard>
       </SettingsSection>
       <SettingsSection
@@ -315,7 +319,6 @@ function SensitiveHeadersRow() {
 
   return (
     <SpecRow
-      last
       label={t('settings.privacy.sensitiveHeaders.title')}
       description={t('settings.privacy.sensitiveHeaders.description')}
       control={

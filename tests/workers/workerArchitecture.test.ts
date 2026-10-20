@@ -27,13 +27,18 @@ const protocolProbe: [
   Assert<
     Equal<
       JsWorkerInboundMessage['type'],
-      'execute' | 'resume' | 'step' | 'set-breakpoints' | 'set-watches'
+      'execute' | 'resume' | 'step' | 'set-breakpoints' | 'set-watches' | 'network-decision'
     >
   >,
   Assert<
     Equal<
       PythonWorkerInboundMessage['type'],
-      'init' | 'reset-scope' | 'execute' | 'dependencies:list-loaded' | 'dependencies:install'
+      | 'init'
+      | 'reset-scope'
+      | 'execute'
+      | 'dependencies:list-loaded'
+      | 'dependencies:install'
+      | 'network-decision'
     >
   >,
   Assert<
@@ -115,6 +120,14 @@ describe('browser execution worker architecture', () => {
       expect(hasListener, filename).toBe(
         filename === 'js-worker.ts' || filename === 'python-worker.ts'
       );
+    }
+  });
+
+  it('drops message events that running code dispatches to its own worker', () => {
+    for (const filename of ['js-worker.ts', 'python-worker.ts', 'ruby-worker.ts']) {
+      const source = workerSource(filename);
+      const listener = source.slice(source.indexOf("addEventListener('message'"));
+      expect(listener.slice(0, 260), filename).toContain('isTrusted');
     }
   });
 

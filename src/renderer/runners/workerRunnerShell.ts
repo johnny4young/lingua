@@ -41,6 +41,12 @@ import {
 import { useDebuggerStore, type BreakpointMode } from '../stores/debuggerStore';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../utils/telemetry';
+import {
+  cancelNetworkQuestions,
+  createNetworkMessageRouter,
+  networkRunPolicyFor,
+  networkTabKey,
+} from './networkPolicyBridge';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import {
   appendCappedOutput,
@@ -178,6 +184,8 @@ export class WorkerRunnerShell {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const networkKey = networkTabKey(context ?? {});
+    const network = networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>(resolve => {
       // A new worker per execution, for clean state.
@@ -211,6 +219,7 @@ export class WorkerRunnerShell {
         if (resolved) return;
         resolved = true;
         clearDeadline();
+        if (network) cancelNetworkQuestions(networkKey);
         // Drop the runId so any latent worker reply is rejected.
         if (this.currentRunId === runId) {
           this.currentRunId = null;
@@ -226,11 +235,25 @@ export class WorkerRunnerShell {
       };
       this.cancelInFlight = cancelInFlight;
 
+      const routeNetworkMessage = createNetworkMessageRouter({
+        tabKey: networkKey,
+        network,
+        runtime: 'worker',
+        post: message => {
+          if (this.currentRunId === runId) worker.postMessage(message);
+        },
+        pauseDeadline: clearDeadline,
+        resumeDeadline: () => {
+          if (!resolved) armDeadline();
+        },
+      });
+
       worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
         // runId guard. Drop stale messages from terminated workers.
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
+        if (routeNetworkMessage(msg)) return;
 
         switch (msg.type) {
           case 'console': {
@@ -482,6 +505,7 @@ export class WorkerRunnerShell {
         scopeDepth: context?.scopeDepth,
         scopeLanguage: language,
         captureStructuredResult,
+        network,
       });
     });
   }

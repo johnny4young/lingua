@@ -188,6 +188,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`, `PlaygroundUrlImportForm.tsx`   | cURL, notebooks, Postman, Bruno file/folder, and bounded playground URL previews before opening workspace tabs; paste, file and drop are explicit (opening the overlay never reads the clipboard); directory reads live in `hooks/brunoDirectoryImport.ts` and URL policy lives in `shared/importers/playgroundUrlImport.ts` |
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
+| [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
 | [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
@@ -649,6 +650,22 @@ a load failure. Dismissal restores the launcher only when no newer overlay owns
 focus. Its task flow stays on the editor, Run action, and console; it must not open a
 second modal from inside a tour step.
 
+### Network policy for running code
+
+Behind the `networkPolicy` flag (`src/shared/featureFlags.ts`, toggled in
+Settings › Labs), Settings › Privacy chooses Allow, Ask or Block for code in the
+JS/TS worker, Pyodide and ruby.wasm. Each run carries a `NetworkRunPolicy` built
+by `networkAskStore.networkRunPolicyFor`; inside the worker,
+`workers/networkGuard.ts` wraps fetch, XMLHttpRequest, WebSocket, EventSource
+and nested workers; a run's policy holds until the next run, so work the code
+leaves scheduled is checked too. Under Ask, an unknown host on
+`fetch` posts `network-request`; the runner pauses its kill timer
+(`runners/networkPolicyBridge.ts`) while `NetworkAskDialog` waits for an answer,
+which then holds for that host in the tab. Synchronous APIs and Ruby cannot
+wait, so they only reach hosts the tab already allowed. Pyodide installs the
+guard at worker start, because `pyodide.http` captures `fetch` on import. It is
+a best-effort guard, not a sandbox, and native runtimes are not covered.
+
 ### Settings discovery
 
 Settings search uses the curated catalog in
@@ -656,7 +673,8 @@ Settings search uses the curated catalog in
 Settings tab is mounted at a time, so DOM search would silently miss controls
 in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
-switches tabs, scrolls to the target, and moves keyboard focus there.
+switches tabs, scrolls to the target, and moves keyboard focus there. An
+entry with `requiresFlag` stays out of results until that Labs flag is on.
 
 `SettingsSectionChips.tsx` reads the open tab's `SettingsSection`s from the
 panel (`data-settings-chip`, the eyebrow or a short `chip` label) and shows a
@@ -709,10 +727,11 @@ Use the closest store that already owns the product concept instead of adding cr
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
+| [networkAskStore.ts](stores/networkAskStore.ts) | session-only per-tab answers and open questions for the network policy |
 | [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
 | [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
 | [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags — thin `create(persist(...))` assembly point that composes the focused settings\* modules below |
-| settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
+| settings split — pure helpers: [settingsStoreContext.ts](stores/settingsStoreContext.ts) (shared `SettingsSet`/`SettingsGet` types), [settingsDefaults.ts](stores/settingsDefaults.ts) (seed consts + `createInitialSettingsState`), [settingsSanitizers.ts](stores/settingsSanitizers.ts) (rehydrate/runtime value narrowing + `sanitizeShortcutOverrides`), [settingsLabsSanitizer.ts](stores/settingsLabsSanitizer.ts) (Labs flags + network policy), [settingsPersistence.ts](stores/settingsPersistence.ts) (`partialize` + consent mirror), [settingsMerge.ts](stores/settingsMerge.ts) (the persist `merge` rehydrate sanitizer) | leaf helpers the assembly + consumers import; no store-cycle |
 | settings split — action factories: [settingsAppearanceActions.ts](stores/settingsAppearanceActions.ts) (theme/font/layout/keymap/shortcuts), [settingsRuntimeActions.ts](stores/settingsRuntimeActions.ts) (execution/runtime-mode/workflow/auto-log/timeout/ruby), [settingsPrivacyActions.ts](stores/settingsPrivacyActions.ts) (telemetry/clipboard consents + sensitive headers), [settingsSessionActions.ts](stores/settingsSessionActions.ts) (onboarding/tour/language/SQL workspace) | `(set[, get]) => Pick<SettingsState, …>` slices spread into `useSettingsStore` |
 | [telemetryConsentSource.ts](utils/telemetryConsentSource.ts) + [telemetryPolicy.ts](utils/telemetryPolicy.ts) | dependency-neutral consent reader registered after settings-store construction; fails closed during bootstrap and keeps telemetry out of the eager settings graph |
 | [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, results dock, command-bar docking, floating positions |

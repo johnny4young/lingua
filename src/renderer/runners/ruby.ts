@@ -23,6 +23,7 @@ import {
 } from './limits';
 import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
+import { createNetworkMessageRouter, networkRunPolicyFor, networkTabKey } from './networkPolicyBridge';
 import { pushMissingNativeToolchainNotice } from './nativeToolchainGuidance';
 import { splitOutputLines } from './outputLines';
 
@@ -282,6 +283,17 @@ class WasmRubyRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const networkKey = networkTabKey(context ?? {});
+    const network = networkRunPolicyFor(networkKey);
+    // Ruby never asks (its eval cannot wait); only the trust-log events arrive.
+    const routeNetworkMessage = createNetworkMessageRouter({
+      tabKey: networkKey,
+      network,
+      runtime: 'ruby',
+      post: () => undefined,
+      pauseDeadline: () => undefined,
+      resumeDeadline: () => undefined,
+    });
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -337,6 +349,7 @@ class WasmRubyRunner implements LanguageRunner {
         const msg = event.data;
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
+        if (routeNetworkMessage(msg)) return;
 
         switch (msg.type) {
           case 'bootstrap-progress':
@@ -416,6 +429,7 @@ class WasmRubyRunner implements LanguageRunner {
         runId,
         code,
         timeout,
+        network,
       });
     });
   }

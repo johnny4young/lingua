@@ -39,7 +39,7 @@ The overlay lists every other default binding (run history, capsules, utilities,
 
 The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
 
-On workspace tabs the command bar keeps only the workspace chip, because the run action lives in the tab: `Cmd/Ctrl+Enter` and the tab's own Send or Run button act on that workspace instead of a language runner. The HTTP workspace sends the active request, the SQL workspace runs the active query, and Developer Utilities applies the selected utility to its input. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`–`9` then `0` open the tabs in rail order: General 1, Appearance 2, Editor 3, Languages 4, Environment 5, Privacy 6, Account 7, Integrations 8, Shortcuts 9 and Recovery 0 (Plugins has no number). A tab with several sections shows chips under the search bar that jump to a section and follow the scroll.
+On workspace tabs the command bar keeps only the workspace chip, because the run action lives in the tab: `Cmd/Ctrl+Enter` and the tab's own Send or Run button act on that workspace instead of a language runner. The HTTP workspace sends the active request, the SQL workspace runs the active query, and Developer Utilities applies the selected utility to its input. Inside Settings, `Cmd/Ctrl+,` focuses the settings filter instead of closing the dialog, and `Cmd/Ctrl+1`–`9` then `0` open the tabs in rail order: General 1, Appearance 2, Editor 3, Languages 4, Environment 5, Privacy 6, Account 7, Integrations 8, Shortcuts 9 and Recovery 0 (Plugins and Labs have no number). A tab with several sections shows chips under the search bar that jump to a section and follow the scroll.
 
 Go to Symbol reads the active JavaScript or TypeScript file's declaration tree and lists functions, classes, methods, and other named declarations in source order. Other languages currently show the unsupported state instead of a partial outline.
 
@@ -203,6 +203,15 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - When the operating system reports that the app is offline, the status bar shows **Offline — everything keeps working**. The segment disappears automatically when connectivity returns and does not raise a toast.
 - Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
 - Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
+
+## Network from running code (Labs)
+
+- Turn on **Settings › Labs › Network policy for running code** to add **Network from running code** to Settings › Privacy. It is off by default and, until you change it, the policy is **Allow**: nothing changes.
+- **Block** refuses network requests from code in the JavaScript/TypeScript worker, Pyodide and Ruby WASM, including work the code leaves running after it finishes: `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`, `WebSocketStream` and `Cache.add` fail with a message that names the host. Block ignores hosts the tab allowed earlier under Ask, and a URL the guard cannot read is refused.
+- Under **Ask** or **Block**, code cannot create nested workers (`Worker`, `SharedWorker`), since they would start without the guard.
+- **Ask** shows a dialog the first time code in a tab requests a host with `fetch` (JavaScript, or Python `pyodide.http.pyfetch`). The run waits with its timeout paused, and the full timeout starts again once every open question is answered; **Allow in this tab** or **Block** holds for that host in the tab until you reload. Synchronous requests (Python `requests` or `open_url`, any Ruby request) cannot wait, so under Ask they only reach hosts the tab already allowed.
+- Every blocked request, and each host you allow from the Ask dialog, appears in Settings › Privacy › Recent activity with the runtime and host only.
+- It is a best-effort guard, not a sandbox: an API it does not wrap, such as a dynamic `import()` of a URL or a `FontFace` source, is not stopped, and on the web a rich-output image with a remote `src` still loads in the app window. Pyodide is shared across tabs, so a task code left running applies the next run's policy, and package installs Lingua starts may reach PyPI (`pypi.org`, `files.pythonhosted.org`) while they run. Node, Deno, Bun, Go, Rust and system Ruby on desktop run natively and fall under the native execution acknowledgement (Deno already runs without network access). Ruby is covered only when it runs on Ruby WASM (Settings › Languages › Ruby runtime).
 
 ## Browser-only limitations
 

@@ -5,6 +5,7 @@ import {
   formatShortcutLabel,
 } from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
+import type { FeatureFlagId } from '../../../shared/featureFlags';
 
 interface SettingsSearchEntry {
   id: string;
@@ -15,6 +16,8 @@ interface SettingsSearchEntry {
   descriptionValues?: () => Record<string, string>;
   targetId: string;
   keywords: readonly string[];
+  /** Hidden from search while this Labs flag is off, like the row itself. */
+  requiresFlag?: FeatureFlagId;
 }
 
 export interface SettingsSearchResult extends SettingsSearchEntry {
@@ -270,6 +273,15 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     ],
   },
   {
+    id: 'network-policy',
+    tab: 'privacy',
+    labelKey: 'settings.privacy.networkPolicy.label',
+    descriptionKey: 'settings.privacy.networkPolicy.hint',
+    targetId: 'privacy-network-policy',
+    keywords: ['network', 'fetch', 'internet', 'block', 'sandbox', 'red', 'bloquear'],
+    requiresFlag: 'networkPolicy',
+  },
+  {
     id: 'privacy-trust',
     tab: 'privacy',
     labelKey: 'settings.privacy.localStores.title',
@@ -348,6 +360,14 @@ const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords: ['plugin', 'extension', 'package', 'complemento', 'extension'],
   },
   {
+    id: 'labs',
+    tab: 'labs',
+    labelKey: 'settings.labs.title',
+    descriptionKey: 'settings.labs.description',
+    targetId: 'section-labs',
+    keywords: ['labs', 'experimental', 'flag', 'beta', 'laboratorio'],
+  },
+  {
     id: 'recovery',
     tab: 'recovery',
     labelKey: 'recovery.title',
@@ -373,8 +393,10 @@ export function searchSettings(
   if (!normalizedQuery) return [];
 
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  const flags = useSettingsStore.getState().featureFlags;
 
   return SETTINGS_SEARCH_ENTRIES.flatMap((entry, index) => {
+    if (entry.requiresFlag && flags[entry.requiresFlag] !== true) return [];
     const label = t(entry.labelKey);
     const description = entry.descriptionKey
       ? t(entry.descriptionKey, entry.descriptionValues?.())

@@ -5,6 +5,7 @@ import { DEFAULT_KEYMAP_PRESET_ID } from '../data/keymapPresets';
 import { DEFAULT_THEME_PACK_ID } from '../data/themePacks';
 import { defaultRuntimeTimeoutPresetSeed } from '../../shared/runtimeTimeoutPresets';
 import { DEFAULT_BROWSER_PREVIEW_REFRESH_INTERVAL } from '../../shared/browserPreviewRefresh';
+import { DEFAULT_NETWORK_POLICY } from '../../shared/networkPolicy';
 
 /**
  * Settings seed constants + the initial-state factory, extracted
@@ -225,6 +226,8 @@ export function createInitialSettingsState() {
     // HTTP headers.
     sensitiveHttpHeaders: [],
     httpAllowPrivateHosts: false,
+    networkFromRunningCode: DEFAULT_NETWORK_POLICY,
+    featureFlags: {},
     // SQL workspace preview cap + default timeout.
     // The runtime layer enforces `MAX_RESULT_ROWS` (10 000) +
     // `MAX_QUERY_TIMEOUT_MS` (5 min) regardless; these knobs live
