@@ -47,6 +47,27 @@ describe('SqlResultPreview', () => {
     });
   });
 
+  it('labels columns with DuckDB type names and keeps the Arrow name as a tooltip', () => {
+    render(
+      <SqlResultPreview
+        response={response({
+          rows: [{ city: 'Cali', revenue: '12.50' }],
+          columns: [
+            { name: 'city', type: 'Utf8' },
+            { name: 'revenue', type: 'Decimal[6e+2]' },
+          ],
+        })}
+        isExecuting={false}
+        rowDisplayLimit={1000}
+        knownTableNames={[]}
+        onShowTables={vi.fn()}
+      />
+    );
+    expect(screen.getByText('VARCHAR').getAttribute('title')).toBe('Utf8');
+    expect(screen.getByText('DECIMAL(6,2)').getAttribute('title')).toBe('Decimal[6e+2]');
+    expect(screen.queryByText('Utf8')).toBeNull();
+  });
+
   it('discloses when copy actions use a truncated preview', async () => {
     const user = userEvent.setup();
     render(
