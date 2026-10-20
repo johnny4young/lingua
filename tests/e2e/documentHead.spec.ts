@@ -44,6 +44,9 @@ test.describe('Document head — boot hints', () => {
       expect(html, filePath).toContain('https://updates.linguacode.dev');
       expect(html, filePath).toContain('./fonts/jetbrains-mono-latin-400-normal.woff2');
       expect(html, filePath).toContain('./fonts/jetbrains-mono-latin-700-normal.woff2');
+      for (const weight of [400, 500, 600]) {
+        expect(html, filePath).toContain(`./fonts/inter-latin-${weight}-normal.woff2`);
+      }
       expect(html, filePath).toContain('resolveEditorThemePolarity');
       expect(html, filePath).toContain('parsed?.state?.editorTheme');
       expect(html, filePath).toContain('#0c1017');
@@ -83,6 +86,8 @@ test.describe('Document head — boot hints', () => {
     expect(
       preloads.some((tag) => tag.includes('jetbrains-mono-latin-700-normal.woff2'))
     ).toBe(true);
+    expect(preloads.some((tag) => tag.includes('inter-latin-400-normal.woff2'))).toBe(true);
+    expect(preloads.some((tag) => tag.includes('inter-latin-500-normal.woff2'))).toBe(true);
     for (const tag of preloads) {
       expect(tag).toContain('crossorigin');
     }
@@ -117,6 +122,13 @@ test.describe('Document head — boot hints', () => {
       return faces.length > 0 && document.fonts.check("12px 'JetBrains Mono'", 'abc');
     });
     expect(fontLoaded).toBe(true);
+
+    const uiFontLoaded = await page.evaluate(async () => {
+      const weights = [400, 500, 600];
+      const loaded = await Promise.all(weights.map((w) => document.fonts.load(`${w} 13px Inter`, 'abc')));
+      return loaded.every((faces) => faces.length > 0);
+    });
+    expect(uiFontLoaded).toBe(true);
   });
 
   test('applies a persisted light editor theme before hydration (theme bootstrap)', async ({
