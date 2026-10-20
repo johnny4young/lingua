@@ -208,8 +208,11 @@ function renderEntry(
             {languageShortLabel(command.language)}
           </span>
         ) : null}
+        {/* Hidden from assistive tech so a row's name does not change with selection. */}
         {isActive && !command.disabled ? (
-          <Kbd className="border-accent text-accent-fg">↵</Kbd>
+          <span aria-hidden="true">
+            <Kbd className="border-accent text-accent-fg">↵</Kbd>
+          </span>
         ) : null}
       </span>
     </button>

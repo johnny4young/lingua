@@ -35,7 +35,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
 
-`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty.
+`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
 
 The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
 

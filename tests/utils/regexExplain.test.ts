@@ -37,7 +37,7 @@ describe('regex explainer', () => {
   });
 
   it('names lookarounds, named groups, backreferences and properties', () => {
-    expect(gloss('(?<year>\\d{4})(?=-)\\k<year>(?<!x)\\p{L}')).toEqual([
+    expect(gloss('(?<year>\\d{4})(?=-)\\k<year>(?<!x)\\p{L}', 'u')).toEqual([
       ['(?<year>\\d{4})', 'digit, exactly 4 → group year'],
       ['(?=-)', 'followed by literal'],
       ['\\k<year>', 'same text as group year'],
@@ -55,5 +55,25 @@ describe('regex explainer', () => {
 
   it('returns null for a pattern the engine rejects', () => {
     expect(explainRegex('(unclosed')).toBeNull();
+    expect(explainRegex('a', 'gx')).toBeNull();
+  });
+
+  it('reads \\p and \\k as plain letters where the engine does, without looping', () => {
+    expect(gloss('\\p{L', 'g')?.[0]).toEqual(['\\p', 'literal p']);
+    expect(gloss('\\k<a', 'g')?.[0]).toEqual(['\\k', 'literal k']);
+    expect(gloss('(\\k<a)', 'g')?.[0]?.[1]).toBe('literal k, literal → group 1');
+    expect(gloss('\\p{L}')?.[0]).toEqual(['\\p', 'literal p']);
+  });
+
+  it('names character codes and control escapes', () => {
+    expect(gloss('\\x41\\u0042\\cJ\\f\\v\\0')).toEqual([
+      ['\\x41', 'character A'],
+      ['\\u0042', 'character B'],
+      ['\\cJ', 'control character Ctrl-J'],
+      ['\\f', 'form feed'],
+      ['\\v', 'vertical tab'],
+      ['\\0', 'null character'],
+    ]);
+    expect(gloss('\\u{1F600}', 'u')?.[0]).toEqual(['\\u{1F600}', 'character 😀']);
   });
 });

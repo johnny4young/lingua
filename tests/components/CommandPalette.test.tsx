@@ -565,6 +565,9 @@ describe('CommandPalette', () => {
     const row = screen.getAllByRole('option').find(option => /Open settings/i.test(option.textContent ?? ''));
     expect(row).toBeTruthy();
     expect(row?.querySelector('[data-testid="command-palette-keycaps"] kbd')?.textContent).toMatch(/,/);
+    // The Enter keycap on the active row stays out of its accessible name.
+    const active = document.querySelector('[role="option"][aria-selected="true"]');
+    expect(active?.querySelector('[aria-hidden="true"] kbd')?.textContent).toBe('↵');
   });
 
   it('renders a hint alongside the empty state when a query has zero matches', () => {

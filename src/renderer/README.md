@@ -223,7 +223,9 @@ The command palette buckets ranked results with
 [`components/CommandPalette/commandPaletteGroups.ts`](components/CommandPalette/commandPaletteGroups.ts):
 group order, the command-to-shortcut map for the keycap column, and the Tab
 group jump. Keep shortcuts out of command descriptions; add the command id to
-that map instead, so the keycap follows the user's overrides.
+that map instead, so the keycap follows the user's overrides. A combo outside
+the remappable catalog (paste as plain text) sets `CommandEntry.shortcut`.
+While filtering, groups follow their best-ranked match so Enter runs the top hit.
 
 The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes

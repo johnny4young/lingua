@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeTimeLabel, utcDateLabel } from '../../src/renderer/utils/timeLabels';
+import { formatRelativeTime, utcDateLabel } from '../../src/renderer/utils/timeLabels';
 
 const NOW = Date.UTC(2026, 9, 17, 1, 0, 0);
 const HOUR = 3_600_000;
@@ -11,14 +11,14 @@ describe('time labels', () => {
   });
 
   it('keeps hours up to two days and switches to days after', () => {
-    expect(relativeTimeLabel(NOW + 23 * HOUR, NOW, 'en')).toBe('in 23 hr.');
-    expect(relativeTimeLabel(NOW + 47 * HOUR, NOW, 'en')).toBe('in 47 hr.');
-    expect(relativeTimeLabel(NOW + 72 * HOUR, NOW, 'en')).toBe('in 3 days');
-    expect(relativeTimeLabel(NOW - HOUR, NOW, 'en')).toBe('1 hr. ago');
-    expect(relativeTimeLabel(NOW - 5 * 60_000, NOW, 'en')).toBe('5 min. ago');
+    expect(formatRelativeTime(NOW + 23 * HOUR, NOW, 'en')).toBe('in 23 hr.');
+    expect(formatRelativeTime(NOW + 47 * HOUR, NOW, 'en')).toBe('in 47 hr.');
+    expect(formatRelativeTime(NOW + 72 * HOUR, NOW, 'en')).toBe('in 3 days');
+    expect(formatRelativeTime(NOW - HOUR, NOW, 'en')).toBe('1 hr. ago');
+    expect(formatRelativeTime(NOW - 5 * 60_000, NOW, 'en')).toBe('5 min. ago');
   });
 
   it('localizes the phrase', () => {
-    expect(relativeTimeLabel(NOW + 23 * HOUR, NOW, 'es')).toBe('dentro de 23 h');
+    expect(formatRelativeTime(NOW + 23 * HOUR, NOW, 'es')).toBe('dentro de 23 h');
   });
 });

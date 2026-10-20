@@ -77,7 +77,9 @@ export function CommandPalette(props: CommandPaletteProps) {
     () =>
       isRecentVariant
         ? null
-        : groupCommands(filtered, isEmptyQuery ? recentEntries.map(entry => entry.id) : []),
+        : isEmptyQuery
+          ? groupCommands(filtered, recentEntries.map(entry => entry.id))
+          : groupCommands(filtered, [], { ranked: true }),
     [filtered, isEmptyQuery, isRecentVariant, recentEntries]
   );
   const ordered = useMemo(

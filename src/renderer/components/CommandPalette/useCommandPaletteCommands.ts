@@ -157,7 +157,6 @@ export function useCommandPaletteCommands({
   // Gate the "Focus status bar" palette command on the bar's
   // current visibility so it never offers to focus a hidden bar.
   const showStatusBar = useSettingsStore(state => state.showStatusBar);
-  const shortcutOverrides = useSettingsStore(state => state.shortcutOverrides);
   // Gates the "Restore last session" palette command. When
   // ask-mode boot pinned a previous-session snapshot, prefer that in-memory
   // count over the auto-save store's current value so the palette fallback stays
@@ -692,7 +691,6 @@ export function useCommandPaletteCommands({
           });
       },
       t,
-      shortcutOverrides,
     });
     // Re-build when the active language changes so labels/descriptions
     // follow i18next. `t` itself has a stable identity in react-i18next,
@@ -750,7 +748,6 @@ export function useCommandPaletteCommands({
     latestCapsule,
     savedSessionTabCount,
     i18n.language,
-    shortcutOverrides,
     info,
     success,
     warning,

@@ -12,7 +12,7 @@ const DAY = 24 * HOUR;
  * "in 23 hr" / "1 hr ago" in the given locale. Hours run up to two days, so a
  * token that expires tomorrow reads in hours rather than "in 1 day".
  */
-export function relativeTimeLabel(targetMs: number, nowMs: number, locale: string): string {
+export function formatRelativeTime(targetMs: number, nowMs: number, locale: string): string {
   const delta = targetMs - nowMs;
   const absolute = Math.abs(delta);
   const [unit, size]: [Intl.RelativeTimeFormatUnit, number] =

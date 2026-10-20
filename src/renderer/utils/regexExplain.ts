@@ -9,6 +9,8 @@ type RegexPart =
   | { kind: 'any' }
   | { kind: 'escape'; name: EscapeName }
   | { kind: 'escapedChar'; char: string }
+  | { kind: 'codePoint'; char: string }
+  | { kind: 'control'; letter: string }
   | { kind: 'backref'; ref: string }
   | { kind: 'property'; negated: boolean; name: string }
   | { kind: 'class'; negated: boolean; body: string }
@@ -34,7 +36,10 @@ type EscapeName =
   | 'nonBoundary'
   | 'newline'
   | 'tab'
-  | 'return';
+  | 'return'
+  | 'formFeed'
+  | 'verticalTab'
+  | 'null';
 
 type GroupRole =
   | 'capture'
@@ -70,16 +75,24 @@ const ESCAPES: Record<string, EscapeName> = {
   n: 'newline',
   t: 'tab',
   r: 'return',
+  f: 'formFeed',
+  v: 'verticalTab',
 };
 
 /** Parses `pattern`; returns null when the engine itself rejects it. */
 export function explainRegex(pattern: string, flags = ''): RegexToken[] | null {
   try {
-    new RegExp(pattern, flags.replace(/[^dgimsuvy]/gu, ''));
+    new RegExp(pattern, flags);
   } catch {
     return null;
   }
-  const state = { pos: 0, group: 0, multiline: flags.includes('m') };
+  const state: ParseState = {
+    pos: 0,
+    group: 0,
+    multiline: flags.includes('m'),
+    unicode: /[uv]/u.test(flags),
+    namedGroups: /\(\?<(?![=!])/u.test(pattern),
+  };
   return parseSequence(pattern, state, false);
 }
 
@@ -87,6 +100,9 @@ interface ParseState {
   pos: number;
   group: number;
   multiline: boolean;
+  /** Without u or v, \p and \k are plain letters (\k also needs a named group). */
+  unicode: boolean;
+  namedGroups: boolean;
 }
 
 function parseSequence(source: string, state: ParseState, nested: boolean): RegexToken[] {
@@ -95,8 +111,14 @@ function parseSequence(source: string, state: ParseState, nested: boolean): Rege
     if (nested && source[state.pos] === ')') break;
     const start = state.pos;
     const part = parseAtom(source, state);
+    // Every atom consumes input, so a parse slip can never loop.
+    state.pos = Math.max(state.pos, start + 1);
     const quantifier = parseQuantifier(source, state);
-    const token: RegexToken = { source: source.slice(start, state.pos), part, ...(quantifier ? { quantifier } : {}) };
+    const token: RegexToken = {
+      source: source.slice(start, state.pos),
+      part,
+      ...(quantifier ? { quantifier } : {}),
+    };
     const previous = tokens[tokens.length - 1];
     // Runs of plain characters read as one literal, as long as neither is quantified.
     if (
@@ -142,6 +164,14 @@ function parseEscape(source: string, state: ParseState): RegexPart {
   state.pos += 1;
   const named = ESCAPES[char];
   if (named) return { kind: 'escape', name: named };
+  if (char === '0' && !/\d/u.test(source[state.pos] ?? '')) return { kind: 'escape', name: 'null' };
+  const code = parseCodePoint(source, state, char);
+  if (code !== null) return { kind: 'codePoint', char: code };
+  if (char === 'c' && /[A-Za-z]/u.test(source[state.pos] ?? '')) {
+    const letter = (source[state.pos] ?? '').toUpperCase();
+    state.pos += 1;
+    return { kind: 'control', letter };
+  }
   if (/[1-9]/u.test(char)) {
     let ref = char;
     while (/\d/u.test(source[state.pos] ?? '')) {
@@ -150,19 +180,38 @@ function parseEscape(source: string, state: ParseState): RegexPart {
     }
     return { kind: 'backref', ref };
   }
-  if (char === 'k' && source[state.pos] === '<') {
-    const close = source.indexOf('>', state.pos);
-    const ref = source.slice(state.pos + 1, close);
-    state.pos = close + 1;
+  const close = (end: string) => source.indexOf(end, state.pos);
+  const backrefsOn = state.unicode || state.namedGroups;
+  if (char === 'k' && backrefsOn && source[state.pos] === '<' && close('>') !== -1) {
+    const end = close('>');
+    const ref = source.slice(state.pos + 1, end);
+    state.pos = end + 1;
     return { kind: 'backref', ref };
   }
-  if ((char === 'p' || char === 'P') && source[state.pos] === '{') {
-    const close = source.indexOf('}', state.pos);
-    const name = source.slice(state.pos + 1, close);
-    state.pos = close + 1;
+  const isProperty = char === 'p' || char === 'P';
+  if (isProperty && state.unicode && source[state.pos] === '{' && close('}') !== -1) {
+    const end = close('}');
+    const name = source.slice(state.pos + 1, end);
+    state.pos = end + 1;
     return { kind: 'property', negated: char === 'P', name };
   }
   return { kind: 'escapedChar', char };
+}
+
+/** \xHH, \uHHHH and, with u or v, \u{H…}: the character they name, or null. */
+function parseCodePoint(source: string, state: ParseState, char: string): string | null {
+  const rest = source.slice(state.pos);
+  const match =
+    char === 'x'
+      ? /^[\da-fA-F]{2}/u.exec(rest)
+      : char === 'u'
+        ? (state.unicode ? /^\{([\da-fA-F]+)\}/u.exec(rest) : null) ?? /^[\da-fA-F]{4}/u.exec(rest)
+        : null;
+  if (!match) return null;
+  const value = Number.parseInt(match[1] ?? match[0], 16);
+  if (value > 0x10ffff) return null;
+  state.pos += match[0].length;
+  return String.fromCodePoint(value);
 }
 
 function parseClass(source: string, state: ParseState): RegexPart {
@@ -269,6 +318,10 @@ function describePart(part: RegexPart, t: Translate): string {
       return t(`${K}.escape.${part.name}`);
     case 'escapedChar':
       return t(`${K}.escapedChar`, { char: part.char });
+    case 'codePoint':
+      return t(`${K}.codePoint`, { char: part.char });
+    case 'control':
+      return t(`${K}.control`, { letter: part.letter });
     case 'backref':
       return t(`${K}.backref`, { ref: part.ref });
     case 'property':

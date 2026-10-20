@@ -41,6 +41,23 @@ describe('palette groups', () => {
     expect(groups.find(group => group.id === 'workspaces')).toBeUndefined();
   });
 
+  it('orders filtered groups by their best match so the top row stays the top hit', () => {
+    const ranked = [
+      entry('action-developer-utility-json'),
+      entry('snippet-1', 'snippet'),
+      entry('action-open-sql-workspace'),
+      entry('template-js', 'template'),
+    ];
+    const groups = groupCommands(ranked, [], { ranked: true });
+    expect(groups.map(group => group.id)).toEqual([
+      'utilities',
+      'snippets',
+      'workspaces',
+      'templates',
+    ]);
+    expect(groups[0]?.commands[0]?.id).toBe('action-developer-utility-json');
+  });
+
   it('jumps to the next and previous group start, wrapping around', () => {
     const groups = groupCommands(commands);
     expect(adjacentGroupStart(groups, 0, 1)).toBe(1);

@@ -12,7 +12,7 @@ import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutpu
 import { usePendingUtilityInput } from '../usePendingUtilityInput';
 import { CopyButton } from '../CopyButton';
 import { cn } from '../../../utils/cn';
-import { relativeTimeLabel } from '../../../utils/timeLabels';
+import { formatRelativeTime } from '../../../utils/timeLabels';
 import {
   JWT_SUPPORTED_ALGORITHMS,
   decodeJwt,
@@ -168,7 +168,8 @@ function JwtDecodeSection({
                 value={JSON.stringify(analysis.payload, null, 2)}
                 annotateTimestamps
               />
-              <JwtTimeClaims payload={analysis.payload} />
+              {/* Keyed by payload so each decoded token reads the clock afresh. */}
+              <JwtTimeClaims key={JSON.stringify(analysis.payload)} payload={analysis.payload} />
               <div className="flex justify-end">
                 <CopyButton
                   value={JSON.stringify(analysis.payload, null, 2)}
@@ -683,6 +684,8 @@ function signatureStatusLabelKey(state: JwtSignatureState): string {
 }
 
 const TIME_CLAIMS = ['exp', 'nbf', 'iat'] as const;
+/** The largest offset a JavaScript Date can hold. */
+const MAX_DATE_MS = 8.64e15;
 
 /** Relative badges for the registered time claims, so expiry reads at a glance. */
 function JwtTimeClaims({ payload }: { payload: Record<string, unknown> }) {
@@ -690,9 +693,8 @@ function JwtTimeClaims({ payload }: { payload: Record<string, unknown> }) {
   const [now] = useState(() => Date.now());
   const claims = TIME_CLAIMS.flatMap(claim => {
     const seconds = payload[claim];
-    return typeof seconds === 'number' && Number.isFinite(seconds)
-      ? [{ claim, at: seconds * 1000 }]
-      : [];
+    const at = typeof seconds === 'number' ? seconds * 1000 : Number.NaN;
+    return Math.abs(at) <= MAX_DATE_MS ? [{ claim, at }] : [];
   });
   if (claims.length === 0) return null;
   return (
@@ -724,7 +726,7 @@ function JwtTimeClaims({ payload }: { payload: Record<string, unknown> }) {
               tone
             )}
           >
-            {claim} {relativeTimeLabel(at, now, i18n.language)}
+            {claim} {formatRelativeTime(at, now, i18n.language)}
           </span>
         );
       })}

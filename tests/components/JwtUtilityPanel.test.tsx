@@ -93,6 +93,25 @@ describe('JwtUtilityPanel', () => {
       expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('ok');
       expect(screen.getByTestId('jwt-time-claim-iat').textContent).toBe('iat 1 hr. ago');
       expect(screen.getByTestId('jwt-time-claim-nbf').dataset.state).toBe('pending');
+
+      // A token decoded later is judged against the clock at that moment.
+      vi.setSystemTime(Date.UTC(2026, 9, 18, 2, 0, 0));
+      fireEvent.change(screen.getByTestId('jwt-decode-token'), {
+        target: {
+          value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ exp: 1792281600 })}.sig`,
+        },
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('jwt-time-claim-exp').dataset.state).toBe('expired')
+      );
+      expect(screen.getByTestId('jwt-time-claim-exp').textContent).toBe('exp 2 hr. ago');
+
+      // A claim past the Date range gets no badge instead of a crash.
+      fireEvent.change(screen.getByTestId('jwt-decode-token'), {
+        target: { value: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ exp: 1e308 })}.sig` },
+      });
+      await waitFor(() => expect(screen.queryByTestId('jwt-time-claim-exp')).toBeNull());
+      expect(screen.getByTestId('jwt-payload-output')).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }

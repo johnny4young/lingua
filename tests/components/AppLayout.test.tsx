@@ -680,6 +680,10 @@ describe('AppLayout responsive shell', () => {
     // without changing the user's dock preference.
     expect(screen.queryByTestId('results-dock')).toBeNull();
     expect(useUIStore.getState().consoleVisible).toBe(true);
+    // Mod+B folds the tool list here, so the explorer button names no combo.
+    expect(screen.getByTestId('editor-sidebar-toggle').getAttribute('aria-label')).toBe(
+      'Toggle the explorer'
+    );
   });
 
   it.each([

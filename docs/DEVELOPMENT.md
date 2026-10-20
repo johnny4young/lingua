@@ -470,7 +470,7 @@ Smoke-only environment knobs:
 - The desktop shell persists the resized widths for the sidebar, editor/results split, and editor/console split.
 - The explorer sidebar keeps a practical desktop width and uses a larger drag target so the separator remains easy to grab.
 - Below the compact shell breakpoint, the sidebar stops compressing the editor and opens as an overlay drawer instead.
-- `Cmd+B` / `Ctrl+B` toggles the same sidebar state; in compact mode that means open or close the drawer.
+- `Cmd+B` / `Ctrl+B` toggles the same sidebar state; in compact mode that means open or close the drawer. On a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail.
 - The compact drawer can also be dismissed by clicking the backdrop, pressing `Escape`, or using the close button.
 - Opening a file or switching to an existing tab from the compact explorer closes the drawer so the editor regains the viewport immediately.
 - When the compact drawer opens, focus moves to the close button and returns to the previous control after dismissal.

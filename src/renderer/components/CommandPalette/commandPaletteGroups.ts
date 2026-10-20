@@ -90,11 +90,13 @@ export interface CommandGroup {
 /**
  * Buckets ranked results into the palette's groups, keeping rank order inside
  * each group. Recent leads only on the empty query, and a command listed
- * there does not repeat in its own group.
+ * there does not repeat in its own group. With `ranked`, groups follow their
+ * best match, so the first row (what Enter runs) stays the top-ranked command.
  */
 export function groupCommands(
   commands: readonly CommandEntry[],
-  recentIds: readonly string[] = []
+  recentIds: readonly string[] = [],
+  { ranked = false }: { ranked?: boolean } = {}
 ): CommandGroup[] {
   const byId = new Map(commands.map(command => [command.id, command]));
   const recent = recentIds
@@ -107,9 +109,11 @@ export function groupCommands(
     const group = commandGroupFor(command);
     buckets.set(group, [...(buckets.get(group) ?? []), command]);
   }
-  return COMMAND_GROUP_ORDER.map(id => ({ id, commands: buckets.get(id) ?? [] })).filter(
-    group => group.commands.length > 0
-  );
+  // Buckets fill in rank order, so their insertion order is best match first.
+  const order = ranked ? [...buckets.keys()] : COMMAND_GROUP_ORDER;
+  return order
+    .map(id => ({ id, commands: buckets.get(id) ?? [] }))
+    .filter(group => group.commands.length > 0);
 }
 
 /** Index of the first row of the group after (or before) the one holding `index`. */
