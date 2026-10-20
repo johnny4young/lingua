@@ -10,6 +10,7 @@ import { useProjectBundle } from './hooks/useProjectBundle';
 import { claimCapsuleListSurface } from './components/CapsuleList/capsuleListSurface';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
+import { NetworkAskDialog } from './components/NetworkAsk/NetworkAskDialog';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { LiveAnnouncer } from './components/a11y/LiveAnnouncer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -382,6 +383,7 @@ function AppChrome({
       <LiveAnnouncer />
       <FirstRunConsentModal />
       <NativeExecutionWarning />
+      <NetworkAskDialog />
       <AiExplainCodeHost />
     </>
   );

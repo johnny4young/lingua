@@ -29,6 +29,7 @@ import { RecipesProgressResetSection } from './RecipesProgressResetSection';
 import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { ThemePresetControls } from './ThemePresetControls';
+import { LabsSection } from './LabsSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { ICON_GLYPH } from '../ui/iconScale';
@@ -70,7 +71,7 @@ import {
  * JSON tile renders at the bottom of each tab — the same view a runtime
  * would see.
  *
- * Tab inventory (11 rail items):
+ * Tab inventory (12 rail items):
  *
  *   Workspace
  *     1. general      → About + Updates
@@ -87,10 +88,11 @@ import {
  *                       modal (keeps the heavy table out of this
  *                       surface)
  *    10. plugins      → PluginsSection (was nested under "editor")
- *    11. recovery     → RecoverySection (was nested under "account")
+ *    11. labs         → LabsSection, the experimental feature flags
+ *    12. recovery     → RecoverySection (was nested under "account")
  *
- * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins has no digit)
- * and ⌘0 opens recovery; Esc closes. Ctrl/Cmd + , focuses the filter bar.
+ * Keyboard nav: ⌘1–⌘9 follow the rail order above (plugins and labs have no
+ * digit) and ⌘0 opens recovery; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
 interface SettingsModalProps {
   onClose: () => void;
@@ -204,15 +206,14 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   // renders an empty slice rather than misattributing editor state.
   languages: [],
   environment: ['envVars'],
-  // Privacy + Trust dashboard is a passive audit
-  // surface. The Clear actions remove localStorage keys directly;
-  // they don't mutate any settings store slice. Empty list keeps the
-  // effective-config tile honest about what this tab can change.
-  privacy: [],
+  // The Clear actions remove localStorage keys directly; the network
+  // policy is the one settings slice this tab writes.
+  privacy: ['networkFromRunningCode'],
   account: ['privacyTelemetryEnabled'],
   shortcuts: ['shortcutOverrides'],
   integrations: [],
   plugins: ['enabledPlugins', 'pluginRoots'],
+  labs: ['featureFlags'],
   recovery: [],
 };
 
@@ -607,6 +608,12 @@ export function SettingsModal({
         return (
           <SettingsSearchTarget id="section-plugins">
             <PluginsSection />
+          </SettingsSearchTarget>
+        );
+      case 'labs':
+        return (
+          <SettingsSearchTarget id="section-labs">
+            <LabsSection />
           </SettingsSearchTarget>
         );
       case 'integrations':

@@ -13,6 +13,7 @@
  * never echoed into any error message.
  */
 
+import { isLoopbackHostname } from '../utils/loopbackHost';
 import type { ChatMessage } from '../../shared/ai/explainError';
 import { utf8ByteLength } from '../../shared/utf8';
 import { readAiResponseBody, AiResponseError, AI_RESPONSE_LIMITS } from './aiResponseBody';
@@ -78,10 +79,6 @@ type NormalizedAiProviderConfig =
       readonly ok: false;
       readonly message: string;
     };
-
-function isLoopbackHostname(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-}
 
 /** Validate and normalize the endpoint/key/model before a network request. */
 function normalizeConfig(config: AiProviderConfig): NormalizedAiProviderConfig {

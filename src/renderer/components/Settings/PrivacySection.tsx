@@ -9,6 +9,7 @@ import { trackEvent } from '../../utils/telemetry';
 import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpSensitiveHeaders';
 import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 import { Toggle } from './shared';
+import { AiSourceRow, NetworkFromRunningCodeRow } from './NetworkPolicyRows';
 
 /**
  * Privacy section — owns the telemetry consent toggle and the
@@ -99,8 +100,10 @@ export function PrivacySection() {
               </div>
             }
           />
+          <NetworkFromRunningCodeRow />
           <PrivateHostsRow />
           <SensitiveHeadersRow />
+          <AiSourceRow last />
         </SpecCard>
       </SettingsSection>
       <SettingsSection
@@ -315,7 +318,6 @@ function SensitiveHeadersRow() {
 
   return (
     <SpecRow
-      last
       label={t('settings.privacy.sensitiveHeaders.title')}
       description={t('settings.privacy.sensitiveHeaders.description')}
       control={
