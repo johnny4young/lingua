@@ -9,8 +9,9 @@
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
-type BottomPanelTab =
+export type BottomPanelTab =
   | 'console'
+  | 'compare'
   | 'debugger'
   | 'browser-preview'
   | 'stdin'
@@ -128,6 +129,7 @@ export interface UIPosition {
 }
 
 const ACTION_PILL_POSITION_KEY = 'lingua-ui:action-pill-pos:v4';
+const COMMAND_BAR_DOCKED_KEY = 'lingua-ui:command-bar-docked';
 const VARIABLES_CARD_POSITION_KEY = 'lingua-ui:variables-card-pos:v2';
 const VARIABLES_CARD_COLLAPSED_KEY = 'lingua-ui:variables-card-collapsed';
 const VARIABLES_BOTTOM_VIEW_MODE_KEY = 'lingua-ui:variables-bottom-view-mode';
@@ -217,6 +219,8 @@ interface UIState {
    * means "use default position".
    */
   actionPillPosition: UIPosition | null;
+  /** The run controls sit in the 48 px command bar; false restores the draggable pill. */
+  commandBarDocked: boolean;
   /** Custom position for the floating Variables card. `null` = default. */
   variablesCardPosition: UIPosition | null;
   /** When true the Variables floating card shrinks to a pill chip. */
@@ -246,6 +250,7 @@ interface UIState {
    */
   dismissStatusNotice: (mode?: StatusNoticeDismissMode) => void;
   setActionPillPosition: (pos: UIPosition | null) => void;
+  setCommandBarDocked: (docked: boolean) => void;
   setVariablesCardPosition: (pos: UIPosition | null) => void;
   setVariablesCardCollapsed: (collapsed: boolean) => void;
   toggleVariablesCardCollapsed: () => void;
@@ -267,10 +272,11 @@ function priorityRank(priority: StatusNoticePriority): number {
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarVisible: false,
-  consoleVisible: false,
+  consoleVisible: true,
   activeBottomPanel: 'console',
   statusNotice: null,
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
+  commandBarDocked: readPersistedBoolean(COMMAND_BAR_DOCKED_KEY, true),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
   variablesCardCollapsed: readPersistedBoolean(VARIABLES_CARD_COLLAPSED_KEY, false),
   variablesBottomViewMode: readPersistedVariablesViewMode(),
@@ -361,6 +367,10 @@ export const useUIStore = create<UIState>((set) => ({
   setActionPillPosition: (pos) => {
     writePersisted(ACTION_PILL_POSITION_KEY, pos);
     set({ actionPillPosition: pos });
+  },
+  setCommandBarDocked: (docked) => {
+    writePersisted(COMMAND_BAR_DOCKED_KEY, docked ? 'true' : 'false');
+    set({ commandBarDocked: docked });
   },
   setVariablesCardPosition: (pos) => {
     writePersisted(VARIABLES_CARD_POSITION_KEY, pos);

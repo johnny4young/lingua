@@ -33,10 +33,8 @@ import { isWorkspaceTab } from '../../stores/editorTabUtils';
 import { useEmptyWorkspace } from '../../stores/workspaceRunReadyStore';
 import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
-import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggable } from '../../hooks/useDraggable';
-import type { RunHistoryEntry } from '../ui/primitives';
 import type { Language } from '../../types/language';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { languageCapabilityBadgeKey, languageLabel } from '../../utils/languageMeta';
@@ -99,7 +97,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
   const autoSaveEnabled = true;
-  const historyEntries = useExecutionHistoryStore((s) => s.entries);
   const effectiveTier = useEffectiveTier();
   const actionPillPosition = useUIStore((s) => s.actionPillPosition);
   const setActionPillPosition = useUIStore((s) => s.setActionPillPosition);
@@ -124,13 +121,14 @@ export function useFloatingActionPill(t: (k: string) => string) {
   const supportsRuntimeModes = languageHasRuntimeModes(language);
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const workspaceTab = activeTab ? isWorkspaceTab(activeTab) : false;
   const executionPolicy = resolveExecutionControlPolicy({
     language,
     runtimeMode: activeTab?.runtimeMode,
     effectiveTier,
     isWebBuild,
     isNotebookTab,
-    isWorkspaceTab: activeTab ? isWorkspaceTab(activeTab) : false,
+    isWorkspaceTab: workspaceTab,
     emptyWorkspace,
     enabledBreakpointCount,
   });
@@ -202,21 +200,6 @@ export function useFloatingActionPill(t: (k: string) => string) {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [openMenu]);
-
-  // History → last 5 runs (newest right).
-  const history = useMemo<readonly RunHistoryEntry[]>(() => {
-    const list = historyEntries
-      .slice(-5)
-      .map<RunHistoryEntry>((entry) => ({
-        status: entry.status === 'ok' ? 'ok' : 'err',
-        ms: entry.durationMs ?? undefined,
-      }));
-    while (list.length < 5) list.unshift({ status: 'pending' });
-    return list;
-  }, [historyEntries]);
-  const lastRunMs = historyEntries.length > 0
-    ? historyEntries[historyEntries.length - 1]?.durationMs ?? null
-    : null;
 
   // -------- Handlers
   const handleLanguagePick = (lang: Language) => {
@@ -323,8 +306,7 @@ export function useFloatingActionPill(t: (k: string) => string) {
     noActiveTab,
     ensureTabForLanguage,
     setTabWorkflowMode,
-    history,
-    lastRunMs,
+    workspaceTab,
     autoSaveEnabled,
   };
 }

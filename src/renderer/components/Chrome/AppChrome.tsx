@@ -95,7 +95,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
  * Visible only on `status === 'downloaded'`; clicking routes the
  * user into Settings → Updates where they can hit Restart.
  */
-function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
+export function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
   const { t } = useTranslation();
   const status = useUpdateStore(state => state.status);
   if (status !== 'downloaded') return null;

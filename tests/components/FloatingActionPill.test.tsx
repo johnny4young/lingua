@@ -614,4 +614,56 @@ describe('FloatingActionPill', () => {
       expect(pill.style.getPropertyValue('--floating-pill-x')).not.toBe('120px');
     });
   });
+
+  describe('docked in the command bar', () => {
+    it('renders inline without the drag handle or the run history', () => {
+      renderPill({ docked: true, onOpenSettings: vi.fn() });
+      const controls = screen.getByTestId('command-bar-controls');
+      expect(controls.className).toContain('action-pill-docked');
+      expect(screen.queryByTestId('floating-action-pill')).toBeNull();
+      expect(screen.queryByLabelText('Move the floating action pill')).toBeNull();
+      expect(controls.textContent).not.toContain('runs');
+      expect(screen.getByTestId('action-pill-run')).toBeTruthy();
+    });
+
+    it('undocks from the overflow menu and docks back from the floating pill', async () => {
+      const user = userEvent.setup();
+      useUIStore.getState().setCommandBarDocked(true);
+      const { unmount } = renderPill({ docked: true, onOpenSettings: vi.fn() });
+
+      await user.click(screen.getByTestId('action-pill-overflow'));
+      await user.click(screen.getByTestId('action-pill-overflow-undock'));
+      expect(useUIStore.getState().commandBarDocked).toBe(false);
+      expect(localStorage.getItem('lingua-ui:command-bar-docked')).toBe('false');
+      unmount();
+
+      renderPill({ onOpenSettings: vi.fn() });
+      await user.click(screen.getByTestId('action-pill-overflow'));
+      await user.click(screen.getByTestId('action-pill-overflow-dock'));
+      expect(useUIStore.getState().commandBarDocked).toBe(true);
+    });
+
+    it.each(['sql', 'http', 'utilities'] as const)(
+      'keeps only the workspace chip on a %s tab',
+      kind => {
+        useEditorStore.setState({
+          tabs: [
+            {
+              id: 'tab-ws',
+              name: kind,
+              language: kind === 'sql' ? 'sql' : 'javascript',
+              content: '',
+              isDirty: false,
+              kind,
+            },
+          ] as never,
+          activeTabId: 'tab-ws',
+        });
+        renderPill({ docked: true });
+        expect(screen.getByTestId('action-pill-lang')).toBeTruthy();
+        expect(screen.queryByTestId('action-pill-run')).toBeNull();
+        expect(screen.queryByTestId('action-pill-runtime')).toBeNull();
+      }
+    );
+  });
 });

@@ -10,6 +10,8 @@ import {
   FileSearch,
   GraduationCap,
   MoreHorizontal,
+  PanelTop,
+  PictureInPicture2,
   Wrench,
   Settings as SettingsIcon,
 } from 'lucide-react';
@@ -29,6 +31,8 @@ interface CommandActionsProps {
   utilitiesOpen: boolean;
   openMenu: ActionPillMenu | null;
   setOpenMenu: ActionPillMenuSetter;
+  /** Overflow-only action that moves the controls between the bar and a floating pill. */
+  dockToggle?: { docked: boolean; onToggle: () => void };
 }
 
 interface PillCommand {
@@ -67,6 +71,7 @@ export function FloatingActionPillCommandActions({
   utilitiesOpen,
   openMenu,
   setOpenMenu,
+  dockToggle,
 }: CommandActionsProps) {
   const { t } = useTranslation();
   const quickOpenCombo = useShortcutLabel('nav-quick-open');
@@ -143,6 +148,20 @@ export function FloatingActionPillCommandActions({
     });
   }
   const directCommands = commands.filter(command => command.id !== 'settings');
+  if (dockToggle) {
+    const label = t(dockToggle.docked ? 'actionPill.undock' : 'actionPill.dock');
+    commands.push({
+      id: dockToggle.docked ? 'undock' : 'dock',
+      label,
+      tooltip: label,
+      icon: dockToggle.docked ? (
+        <PictureInPicture2 size={16} aria-hidden />
+      ) : (
+        <PanelTop size={16} aria-hidden />
+      ),
+      activate: dockToggle.onToggle,
+    });
+  }
   const overflowOpen = openMenu === 'actions';
 
   useEffect(() => {

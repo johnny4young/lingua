@@ -57,6 +57,25 @@ describe('uiStore', () => {
     expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
+  it('opens the dock and docks the run controls on a fresh start', async () => {
+    vi.resetModules();
+    localStorage.removeItem('lingua-ui:command-bar-docked');
+    const fresh = await import('@/stores/uiStore');
+    expect(fresh.useUIStore.getState()).toMatchObject({
+      consoleVisible: true,
+      commandBarDocked: true,
+    });
+  });
+
+  it('remembers an undocked pill across reloads', async () => {
+    useUIStore.getState().setCommandBarDocked(false);
+    expect(localStorage.getItem('lingua-ui:command-bar-docked')).toBe('false');
+    vi.resetModules();
+    const fresh = await import('@/stores/uiStore');
+    expect(fresh.useUIStore.getState().commandBarDocked).toBe(false);
+    localStorage.removeItem('lingua-ui:command-bar-docked');
+  });
+
   it('persists floating action-pill position and resets to null', () => {
     const startRevision = useUIStore.getState().floatingPositionsResetRevision;
     useUIStore.setState({ actionPillPosition: null, variablesCardPosition: null });
