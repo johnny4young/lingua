@@ -42,69 +42,76 @@ export function PrivacySection() {
     : 'settings.nativeExecution.notAcknowledged';
 
   return (
-    <SettingsSection
-      eyebrow={t('privacy.title')}
-      description={t('privacy.description')}
-    >
-      {/* Affine privacy controls grouped into one inset card. */}
-      <SpecCard>
-        <SpecRow
-          searchTargetId="privacy-telemetry"
-          label={t('privacy.telemetry.label')}
-          description={t('privacy.telemetry.hint')}
-          control={
-            <div className="flex flex-col items-end gap-1">
-              <Toggle
-                value={telemetryConsent === 'granted'}
-                onChange={() =>
-                  setTelemetryConsent(telemetryConsent === 'granted' ? 'declined' : 'granted')
-                }
-                aria-label={t('privacy.telemetry.label')}
-              />
-              <span
-                data-testid="telemetry-status"
-                role="status"
-                aria-live="polite"
-                className="text-caption text-fg-subtle"
-              >
-                {t(statusKey)}
-              </span>
-            </div>
-          }
-        />
-        <SpecRow
-          label={t('settings.nativeExecution.title')}
-          description={t('settings.nativeExecution.description')}
-          control={
-            <div className="flex flex-col items-end gap-1">
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={() => setNativeExecutionAcknowledged(false)}
-                disabled={!nativeExecutionAcknowledged}
-                data-testid="native-execution-reset"
-              >
-                {t('settings.nativeExecution.reset')}
-              </button>
-              <span
-                data-testid="native-execution-status"
-                role="status"
-                aria-live="polite"
-                className="text-caption text-fg-subtle"
-              >
-                {t(nativeStatusKey)}
-              </span>
-            </div>
-          }
-        />
-        <PrivateHostsRow />
-        <SensitiveHeadersRow />
-      </SpecCard>
-      {/* The local Run Ledger card: opt-in, clear, export. */}
-      <SpecCard>
-        <RunLedgerRows />
-      </SpecCard>
-    </SettingsSection>
+    <div className="space-y-6">
+      <SettingsSection
+        eyebrow={t('settings.privacy.title')}
+        description={t('privacy.description')}
+        chip={t('privacy.title')}
+      >
+        {/* Affine privacy controls grouped into one inset card. */}
+        <SpecCard>
+          <SpecRow
+            searchTargetId="privacy-telemetry"
+            label={t('privacy.telemetry.label')}
+            description={t('privacy.telemetry.hint')}
+            control={
+              <div className="flex flex-col items-end gap-1">
+                <Toggle
+                  value={telemetryConsent === 'granted'}
+                  onChange={() =>
+                    setTelemetryConsent(telemetryConsent === 'granted' ? 'declined' : 'granted')
+                  }
+                  aria-label={t('privacy.telemetry.label')}
+                />
+                <span
+                  data-testid="telemetry-status"
+                  role="status"
+                  aria-live="polite"
+                  className="text-caption text-fg-subtle"
+                >
+                  {t(statusKey)}
+                </span>
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('settings.nativeExecution.title')}
+            description={t('settings.nativeExecution.description')}
+            control={
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setNativeExecutionAcknowledged(false)}
+                  disabled={!nativeExecutionAcknowledged}
+                  data-testid="native-execution-reset"
+                >
+                  {t('settings.nativeExecution.reset')}
+                </button>
+                <span
+                  data-testid="native-execution-status"
+                  role="status"
+                  aria-live="polite"
+                  className="text-caption text-fg-subtle"
+                >
+                  {t(nativeStatusKey)}
+                </span>
+              </div>
+            }
+          />
+          <PrivateHostsRow />
+          <SensitiveHeadersRow />
+        </SpecCard>
+      </SettingsSection>
+      <SettingsSection
+        eyebrow={t('settings.privacy.ledger.title')}
+        description={t('settings.privacy.ledger.hint')}
+      >
+        <SpecCard>
+          <RunLedgerRows />
+        </SpecCard>
+      </SettingsSection>
+    </div>
   );
 }
 

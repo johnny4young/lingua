@@ -70,10 +70,11 @@ test.describe('Settings — structural tour', () => {
     // Privacy controls + the trust dashboard share the Privacy tab (the
     // run-ledger slice moved PrivacySection out of Account).
     await openSettingsTab(page, 'privacy');
-    await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Privacy + Trust', exact: true })
     ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Run Ledger', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Local data', exact: true })).toBeAttached();
   });
 
   test('command-palette deep links survive the lazy Settings boundary', async ({ page }) => {

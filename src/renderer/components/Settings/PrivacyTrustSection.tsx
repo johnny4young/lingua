@@ -11,6 +11,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { SettingsSection } from '../ui/SpecRow';
 import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
+import { LocalDataSummary } from './LocalDataSummary';
 import { trackEvent } from '../../utils/telemetry';
 import {
   clearPrivacyDashboardSurfaceClaim,
@@ -189,7 +190,7 @@ export function PrivacyTrustSection() {
     return applyRedactionPreview(pasteInput);
   }, [pasteInput]);
 
-  const handleClear = (key: LinguaLocalStoreKey) => {
+  const clearStore = (key: LinguaLocalStoreKey) => {
     try {
       if (key === 'lingua-license') {
         void clearLicense();
@@ -202,6 +203,10 @@ export function PrivacyTrustSection() {
       // Quota / private-mode errors are silent — the row size will
       // simply not change.
     }
+  };
+
+  const handleClear = (key: LinguaLocalStoreKey) => {
+    clearStore(key);
     pushStatusNotice({
       tone: 'success',
       messageKey: 'settings.privacy.localStores.cleared',
@@ -214,84 +219,75 @@ export function PrivacyTrustSection() {
   return (
     <div className="space-y-7" data-testid="privacy-trust-section" data-surface={surface}>
       <SettingsSection
-        eyebrow={t('settings.privacy.title')}
-        description={t('settings.privacy.hint')}
-      >
-        {/* Redaction preview */}
-        <RedactionPreviewBlock input={pasteInput} result={previewResult} onChange={setPasteInput} />
-      </SettingsSection>
-
-      <SettingsSection
         eyebrow={t('settings.privacy.localStores.title')}
         description={t('settings.privacy.localStores.hint')}
       >
-        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
-          <table className="min-w-full text-body" data-testid="privacy-local-stores-table">
-            <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t('settings.privacy.localStores.col.key')}
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  {t('settings.privacy.localStores.col.purpose')}
-                </th>
-                <th className="px-3 py-2 text-right font-medium">
-                  {t('settings.privacy.localStores.col.size')}
-                </th>
-                <th className="px-3 py-2 text-right font-medium">
-                  {t('settings.privacy.localStores.col.clear')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {localRows.map(row => (
-                <tr
-                  key={row.key}
-                  className="border-t border-border-subtle"
-                  data-testid={`privacy-local-stores-row-${row.key}`}
-                >
-                  <td className="px-3 py-2 font-mono text-body-sm text-fg-base">{row.key}</td>
-                  <td className="px-3 py-2 text-body-sm text-fg-muted">{t(row.purposeKey)}</td>
-                  <td
-                    className="px-3 py-2 text-right font-mono text-body-sm text-fg-muted"
-                    data-testid={`privacy-local-stores-size-${row.key}`}
-                  >
-                    {formatBytes(row.bytes)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmKey(row.key)}
-                      disabled={row.bytes === 0}
-                      className="inline-flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
-                      data-testid={`privacy-local-stores-clear-${row.key}`}
-                      aria-label={t('settings.privacy.localStores.col.clear')}
-                    >
-                      <Trash2 size={13} aria-hidden="true" />
-                    </button>
-                  </td>
+        <div className="overflow-hidden rounded-[10px] border border-border-subtle bg-bg-panel">
+          <div className="px-4">
+            <LocalDataSummary
+              rows={localRows}
+              capsuleCount={capsulesRetained}
+              clearStore={clearStore}
+              onCleared={() => setRefreshTick(tick => tick + 1)}
+            />
+          </div>
+          <div className="overflow-x-auto border-t border-border-subtle">
+            <table className="min-w-full text-body" data-testid="privacy-local-stores-table">
+              <thead className="bg-bg-panel-alt text-eyebrow font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t('settings.privacy.localStores.col.key')}
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">
+                    {t('settings.privacy.localStores.col.purpose')}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t('settings.privacy.localStores.col.size')}
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {t('settings.privacy.localStores.col.clear')}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {localRows.map(row => (
+                  <tr
+                    key={row.key}
+                    className="border-t border-border-subtle"
+                    data-testid={`privacy-local-stores-row-${row.key}`}
+                  >
+                    <td className="px-3 py-2 font-mono text-body-sm text-fg-base">{row.key}</td>
+                    <td className="px-3 py-2 text-body-sm text-fg-muted">{t(row.purposeKey)}</td>
+                    <td
+                      className="px-3 py-2 text-right font-mono text-body-sm text-fg-muted"
+                      data-testid={`privacy-local-stores-size-${row.key}`}
+                    >
+                      {formatBytes(row.bytes)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmKey(row.key)}
+                        disabled={row.bytes === 0}
+                        className="inline-flex items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-error/10 hover:text-error disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
+                        data-testid={`privacy-local-stores-clear-${row.key}`}
+                        aria-label={t('settings.privacy.localStores.col.clear')}
+                      >
+                        <Trash2 size={13} aria-hidden="true" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        {/*
-         * Run capsules live in the in-memory
-         * execution-history ring, NOT in localStorage, so they are
-         * called out separately from the audit table above. The count
-         * makes the Pro-gated capsule browse retention transparent;
-         * the copy is explicit that a reload clears them.
-         */}
-        <p data-testid="privacy-capsules-retained" className="text-body-sm text-fg-subtle">
-          {t('settings.privacy.localStores.capsulesRetained', {
-            count: capsulesRetained,
-          })}
-        </p>
       </SettingsSection>
 
       <SettingsSection
         eyebrow={t('settings.privacy.network.title')}
         description={t('settings.privacy.network.hint')}
+        chip={t('settings.privacy.network.chip')}
       >
         <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
           <table className="min-w-full text-body" data-testid="privacy-network-activity-table">
@@ -392,6 +388,14 @@ export function PrivacyTrustSection() {
         )}
       </SettingsSection>
 
+      <SettingsSection
+        eyebrow={t('settings.privacy.redaction.title')}
+        description={t('settings.privacy.redaction.hint')}
+        chip={t('settings.privacy.redaction.chip')}
+      >
+        <RedactionPreviewBlock input={pasteInput} result={previewResult} onChange={setPasteInput} />
+      </SettingsSection>
+
       {confirmKey ? (
         <ClearConfirmationModal
           storageKey={confirmKey}
@@ -415,9 +419,6 @@ function RedactionPreviewBlock({
   const { t } = useTranslation();
   return (
     <div className="space-y-3" data-testid="privacy-redaction-preview">
-      <h3 className="text-body font-medium leading-tight text-fg-base">
-        {t('settings.privacy.redaction.title')}
-      </h3>
       <textarea
         value={input}
         onChange={event => onChange(event.target.value)}

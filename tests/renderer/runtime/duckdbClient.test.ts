@@ -20,6 +20,7 @@ import {
   flushAndReleaseDuckDbEngine,
   getDuckDbEngine,
   getResolvedSqlStorageMode,
+  persistedSqlDatabaseBytes,
   getResolvedSqlStorageRequestMode,
   importFileAsTable,
   isOpfsStorageAvailable,
@@ -565,6 +566,30 @@ describe('OPFS persistence ', () => {
 
   it('estimateOriginStorageBytes returns null when the API is absent', async () => {
     expect(await estimateOriginStorageBytes()).toBeNull();
+  });
+
+  it('persistedSqlDatabaseBytes sums the database and WAL files, 0 without them, null when locked', async () => {
+    const files: Record<string, number> = { 'lingua-sql.db': 4096, 'lingua-sql.db.wal': 512 };
+    const notFound = Object.assign(new Error('missing'), { name: 'NotFoundError' });
+    const directory = {
+      getFileHandle: async (name: string) => {
+        if (!(name in files)) throw notFound;
+        return { getFile: async () => ({ size: files[name] }) };
+      },
+    };
+    vi.stubGlobal('navigator', { storage: { getDirectory: async () => directory } });
+    try {
+      expect(await persistedSqlDatabaseBytes()).toBe(4608);
+      delete files['lingua-sql.db'];
+      delete files['lingua-sql.db.wal'];
+      expect(await persistedSqlDatabaseBytes()).toBe(0);
+      directory.getFileHandle = async () => {
+        throw Object.assign(new Error('locked'), { name: 'NoModificationAllowedError' });
+      };
+      expect(await persistedSqlDatabaseBytes()).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('configureDuckDbPersistence does not flip the resolved mode by itself', () => {

@@ -315,6 +315,30 @@ export async function clearPersistedSqlDatabase(): Promise<void> {
 }
 
 /**
+ * Size of the persisted SQL database files in OPFS, in bytes: 0 when there are
+ * none, null when the size cannot be read (no OPFS, or a live engine holds the
+ * file's exclusive handle).
+ */
+export async function persistedSqlDatabaseBytes(): Promise<number | null> {
+  if (!isOpfsStorageAvailable()) return 0;
+  try {
+    const root = await navigator.storage.getDirectory();
+    let total = 0;
+    for (const name of OPFS_SQL_DB_FILE_NAMES) {
+      try {
+        const handle = await root.getFileHandle(name);
+        total += (await handle.getFile()).size;
+      } catch (error) {
+        if ((error as { name?: string })?.name !== 'NotFoundError') return null;
+      }
+    }
+    return total;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Approximate origin storage in use, in bytes, via
  * `navigator.storage.estimate()`. This is ORIGIN-WIDE (OPFS + caches +
  * IndexedDB + localStorage), not the database file alone, so the UI
