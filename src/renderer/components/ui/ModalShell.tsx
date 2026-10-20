@@ -277,7 +277,7 @@ export function ModalShell({
         aria-labelledby={labelledById}
         tabIndex={-1}
         className={cn(
-          'mx-4 w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-lg',
+          'mx-4 w-full overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-e3',
           'animate-shell-fade outline-none',
           size
         )}

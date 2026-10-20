@@ -233,7 +233,7 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
               }}
               disabled={filtered.length === 0}
               data-testid="recipes-open"
-              className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-3 text-body-sm font-medium text-fg-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-3 text-body-sm font-medium text-fg-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {t('recipes.action.open')}
             </button>

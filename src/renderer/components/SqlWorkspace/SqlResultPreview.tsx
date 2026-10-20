@@ -453,7 +453,7 @@ export function SqlResultPreview({
                 <div
                   role="menu"
                   data-testid="sql-result-preview-export-menu"
-                  className="absolute right-0 top-[calc(100%+0.25rem)] z-50 min-w-[9rem] overflow-hidden rounded-md border border-border-default bg-bg-panel py-1 shadow-lg"
+                  className="absolute right-0 top-[calc(100%+0.25rem)] z-50 min-w-[9rem] overflow-hidden rounded-md border border-border-default bg-bg-panel py-1 shadow-e3"
                 >
                   {EXPORT_FORMATS.map((format) => (
                     <button

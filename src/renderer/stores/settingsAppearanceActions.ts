@@ -6,6 +6,7 @@ import { DEFAULT_KEYMAP_PRESET_ID, findKeymapPreset } from '../data/keymapPreset
 import { DEFAULT_THEME_PACK_ID, findThemePack } from '../data/themePacks';
 import { DEFAULT_EDITOR_FONT_FAMILY } from './settingsDefaults';
 import type { SettingsSet } from './settingsStoreContext';
+import { systemEditorTheme } from '../utils/appTheme';
 
 /**
  * Appearance setter factory for the settings store. Bundles the
@@ -42,7 +43,8 @@ export function createAppearanceActions(
     setTheme: (theme) =>
       set({
         theme,
-        editorTheme: theme === 'light' ? 'lingua-light' : 'lingua-dark',
+        editorTheme:
+          theme === 'system' ? systemEditorTheme() : theme === 'light' ? 'lingua-light' : 'lingua-dark',
         themePack: DEFAULT_THEME_PACK_ID,
       }),
     setEditorTheme: (editorTheme) =>

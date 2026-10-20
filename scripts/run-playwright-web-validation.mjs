@@ -43,7 +43,12 @@ const playwrightBin = path.join(
 const passthroughArgs = [];
 let skipBuild = false;
 let buildIfStale = true;
+let playwrightConfig = 'playwright.license-web.config.mts';
 for (const arg of process.argv.slice(2)) {
+  if (arg === '--visual') {
+    playwrightConfig = 'playwright.visual.config.mts';
+    continue;
+  }
   if (arg === '--no-rebuild') {
     skipBuild = true;
     continue;
@@ -205,7 +210,7 @@ if (needsRebuild) {
 
 const child = spawn(
   playwrightBin,
-  ['test', '-c', 'playwright.license-web.config.mts', ...passthroughArgs],
+  ['test', '-c', playwrightConfig, ...passthroughArgs],
   {
     cwd: repoRoot,
     stdio: 'inherit',

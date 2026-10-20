@@ -133,6 +133,7 @@ reference for what each command owns.
 | `check:deadcode:config`      | Negative configuration proof: creates one temporary unused source file inside each of the four package boundaries, requires Knip to report all four, and removes every probe in a `finally` block. |
 | `typecheck:tests`            | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only).                                                                         |
 | `test:e2e:web`               | Runs the Playwright web validation wrapper.                                                                                                                                                                                          |
+| `test:visual:web`            | Compares Playwright screenshots of shared surfaces (workspace, palette, Quick Open, stdin panel, Settings) in light and dark against the per-platform baselines in `tests/visual/__screenshots__`. Opt-in, not part of CI.             |
 | `test:smoke:web:license`     | Runs the web license smoke test.                                                                                                                                                                                                     |
 | `test:watch`                 | Starts Vitest watch mode.                                                                                                                                                                                                            |
 | `test:coverage`              | Runs the Vitest suite instrumented with the v8 coverage provider; reports land in `output/coverage/` and the ratcheted thresholds in `vitest.config.mts` fail the run when coverage drops below the last measured floor. |
@@ -521,6 +522,20 @@ top of the 14 MB esbuild WASM, the Monaco TypeScript worker and the raw
 job. The production-shape `pnpm run build:web` does not need it because the
 `__LINGUA_*_WASM_URL__` defines let rolldown drop the same-origin branch
 and never emit those assets.
+
+#### Visual snapshots
+
+`pnpm run test:visual:web` builds the same e2e bundle and runs
+`tests/visual/` with `playwright.visual.config.mts`. Baselines depend on the
+operating system's font rendering, so they live per platform under
+`tests/visual/__screenshots__/<platform>/` and the suite stays out of the CI
+e2e job. Run it before and after a change to shared tokens or components,
+read the diffs in `output/playwright/visual/`, and refresh the baselines with
+`--update-snapshots` once the change is intended:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=8192 pnpm run test:visual:web --update-snapshots
+```
 
 ## Automation and delivery
 

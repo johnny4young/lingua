@@ -160,7 +160,7 @@ export function UtilityPipelineLibrarySidebar() {
               aria-label={t('utilityPipeline.list.export')}
               title={t('utilityPipeline.list.export')}
               data-testid="utility-pipeline-list-export"
-              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download size={11} aria-hidden="true" />
             </button>
@@ -272,7 +272,7 @@ export function UtilityPipelineLibrarySidebar() {
                 onClick={handleImportConfirm}
                 disabled={!importTextareaValue.trim()}
                 data-testid="utility-pipeline-import-confirm"
-                className="focus-ring inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-eyebrow text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-eyebrow text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {t('utilityPipeline.import.confirm')}
               </button>

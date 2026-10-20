@@ -66,7 +66,7 @@ export function RecipesProgressResetSection() {
               onClick={handleReset}
               disabled={touchedCount === 0}
               data-testid="settings-recipes-reset"
-              className="button-secondary disabled:cursor-not-allowed disabled:opacity-50"
+              className="button-secondary disabled:cursor-not-allowed disabled:opacity-40"
             >
               {t('settings.recipes.resetButton')}
             </button>

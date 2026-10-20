@@ -23,7 +23,7 @@ export function ProjectTerminalE2eFixture() {
           {t('e2e.desktop.localFirst')}
         </span>
       </header>
-      <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border-strong shadow-2xl">
+      <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border-strong shadow-e3">
         <BottomPanel debuggerAvailable={false} />
       </section>
     </main>

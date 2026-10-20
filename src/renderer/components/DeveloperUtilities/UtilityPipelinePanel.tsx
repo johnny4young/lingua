@@ -419,7 +419,7 @@ function UtilityPipelinePanelUnlocked() {
                 onClick={handleAddStep}
                 disabled={activePipeline.steps.length >= PIPELINE_MAX_STEPS}
                 data-testid="utility-pipeline-editor-add-step"
-                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-caption font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Plus size={11} aria-hidden="true" />
                 <span>{t('utilityPipeline.editor.addStep')}</span>
@@ -432,7 +432,7 @@ function UtilityPipelinePanelUnlocked() {
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
-                className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
+                className="focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-caption font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <PlayCircle size={11} aria-hidden="true" />
                 <span>

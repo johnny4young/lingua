@@ -166,7 +166,7 @@ export function BrowserPreviewPanel() {
         {showRuntimeError ? (
           <div
             role="alert"
-            className="absolute inset-x-3 top-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-error/40 bg-background/95 px-3 py-2 text-body-sm text-foreground shadow-lg"
+            className="absolute inset-x-3 top-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-error/40 bg-background/95 px-3 py-2 text-body-sm text-foreground shadow-e3"
             data-testid="browser-preview-error-recovery"
           >
             <span>{t('browserPreview.errorRecovery')}</span>

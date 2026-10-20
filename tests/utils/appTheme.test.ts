@@ -3,18 +3,9 @@ import {
   APP_THEME_COLOR,
   applyAppTheme,
   ensureThemeColorMeta,
-  getStoredAppTheme,
 } from '@/utils/appTheme';
 
 describe('appTheme utilities', () => {
-  it('reads the persisted app theme from zustand payloads', () => {
-    expect(getStoredAppTheme(null)).toBeNull();
-    expect(getStoredAppTheme('{"theme":"light"}')).toBe('light');
-    expect(getStoredAppTheme('{"state":{"theme":"dark"},"version":0}')).toBe('dark');
-    expect(getStoredAppTheme('{"state":{"theme":"unknown"}}')).toBeNull();
-    expect(getStoredAppTheme('not-json')).toBeNull();
-  });
-
   it('creates and updates theme shell state on the document', () => {
     document.head.innerHTML = '';
     document.documentElement.className = '';

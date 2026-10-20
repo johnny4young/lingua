@@ -101,7 +101,7 @@ describe('AppearanceSection', () => {
 
     render(<AppearanceSection />);
 
-    const darkButton = screen.getByRole('button', { name: /Dark/i });
+    const darkButton = screen.getByRole('button', { name: /^Dark/i });
     const user = userEvent.setup();
     await user.click(darkButton);
 
@@ -116,10 +116,10 @@ describe('AppearanceSection', () => {
 
     render(<AppearanceSection />);
 
-    expect(screen.getByRole('button', { name: /Dark/i }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: /^Dark/i }).getAttribute('aria-pressed')).toBe(
       'true'
     );
-    expect(screen.getByRole('button', { name: /Light/i }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: /^Light/i }).getAttribute('aria-pressed')).toBe(
       'false'
     );
   });
@@ -129,12 +129,12 @@ describe('AppearanceSection', () => {
     const user = userEvent.setup();
     render(<AppearanceSection />);
 
-    await user.click(screen.getByRole('button', { name: /Light/i }));
+    await user.click(screen.getByRole('button', { name: /^Light/i }));
 
     const state = useSettingsStore.getState();
     expect(state.theme).toBe('light');
     expect(state.editorTheme).toBe('lingua-light');
-    expect(screen.getByRole('button', { name: /Light/i }).getAttribute('aria-pressed')).toBe(
+    expect(screen.getByRole('button', { name: /^Light/i }).getAttribute('aria-pressed')).toBe(
       'true'
     );
   });
@@ -148,5 +148,47 @@ describe('AppearanceSection', () => {
 
     expect(useSettingsStore.getState().themePack).toBe('default');
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
+
+  describe('System theme', () => {
+    function mockPrefersDark(dark: boolean) {
+      const listeners = new Set<() => void>();
+      const query = {
+        matches: dark,
+        addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+        removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+      };
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: vi.fn(() => query),
+      });
+      return query;
+    }
+
+    it('follows the OS preference with the Lingua editor themes', async () => {
+      mockPrefersDark(false);
+      const user = userEvent.setup();
+      render(<AppearanceSection />);
+      await user.click(screen.getByRole('button', { name: /^System/i }));
+      expect(useSettingsStore.getState().theme).toBe('system');
+      expect(useSettingsStore.getState().editorTheme).toBe('lingua-light');
+      expect(screen.getByRole('button', { name: /^System/i }).getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByRole('button', { name: /^Light/i }).getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('draws each card with its own theme colours', () => {
+      render(<AppearanceSection />);
+      const swatches = [...document.querySelectorAll('[data-theme-swatch]')].map((el) => ({
+        polarity: el.getAttribute('data-theme-swatch'),
+        scoped: el.classList.contains(el.getAttribute('data-theme-swatch')!),
+      }));
+      expect(swatches).toEqual([
+        { polarity: 'dark', scoped: true },
+        { polarity: 'light', scoped: true },
+        { polarity: 'light', scoped: true },
+        { polarity: 'dark', scoped: true },
+      ]);
+    });
   });
 });

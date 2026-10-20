@@ -32,7 +32,7 @@ export interface RuntimeSelectorProps {
 
 const SEGMENT_BASE =
   'inline-flex min-h-10 items-center text-body-sm transition-colors focus-visible:outline-none ' +
-  'focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-45';
+  'focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-40';
 
 export function RuntimeSelector({
   languageLabel,
@@ -88,7 +88,7 @@ export function RuntimeSelector({
         <ChevronDown size={12} className="text-fg-subtle" aria-hidden />
       </button>
 
-      {/* RUN segment — the one sanctioned green action. */}
+      {/* RUN segment — the surface's accent primary. */}
       <button
         type="button"
         onClick={onRun}
@@ -96,8 +96,8 @@ export function RuntimeSelector({
         data-running={running ? 'true' : 'false'}
         className={cn(
           SEGMENT_BASE,
-          'gap-[7px] bg-success-fg px-[14px] py-[7px] font-medium text-fg-on-accent',
-          running ? 'animate-glow-pulse' : 'hover:opacity-90'
+          'gap-[7px] bg-accent px-[14px] py-[7px] font-medium text-fg-on-accent',
+          running ? 'animate-glow-pulse' : 'hover:bg-accent-hover active:bg-accent-pressed'
         )}
       >
         {running ? <Square size={11} aria-hidden /> : <Play size={11} aria-hidden />}

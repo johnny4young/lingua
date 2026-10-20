@@ -452,7 +452,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                 disabled={!compareEnabled}
                 data-testid="capsule-compare-button"
                 aria-label={t('capsule.compare.action')}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption text-fg-muted transition-colors hover:border-border-strong hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-subtle disabled:hover:text-fg-muted"
               >
                 <GitCompare size={12} aria-hidden="true" />
                 {t('capsule.compare.action')}

@@ -63,7 +63,7 @@ export function CapsuleCliCommands({ available, savedFileName }: CapsuleCliComma
               <span className="text-caption font-medium text-fg-base">{label}</span>
               <button
                 type="button"
-                className="focus-ring shrink-0 rounded-md border border-border-default px-2 py-1 text-caption text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-50"
+                className="focus-ring shrink-0 rounded-md border border-border-default px-2 py-1 text-caption text-fg-base transition-colors hover:bg-bg-panel-alt disabled:opacity-40"
                 disabled={!available}
                 onClick={() => void copyCommand(command)}
                 data-testid={`capsule-cli-copy-${id}`}

@@ -139,7 +139,7 @@ export function AiSection({ fetchImpl }: AiSectionProps = {}) {
               onClick={() => void handleDetect()}
               disabled={detect.kind === 'detecting'}
               data-testid="ai-settings-detect"
-              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg disabled:opacity-60"
+              className="focus-ring rounded border border-border px-3 py-1.5 text-caption text-fg-muted hover:text-fg disabled:opacity-40"
             >
               {detect.kind === 'detecting'
                 ? t('ai.settings.detecting')

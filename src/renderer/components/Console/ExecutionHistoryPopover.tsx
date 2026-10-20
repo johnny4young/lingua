@@ -318,7 +318,7 @@ export function ExecutionHistoryPopover({
           data-testid="execution-history-popover"
           onKeyDown={handleDialogKeyDown}
           tabIndex={-1}
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-[var(--shadow-lg)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(22rem,90vw)] overflow-hidden rounded-2xl border border-border/80 bg-background-elevated/96 shadow-e3"
         >
           <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3">
             <span className="panel-title">{t('executionHistory.title')}</span>
@@ -384,7 +384,7 @@ export function ExecutionHistoryPopover({
                               ? t('executionHistory.compare.checkbox.disabledNoSnapshot')
                               : undefined
                           }
-                          className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-45"
+                          className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
                         />
                       </span>
                     ) : (
@@ -428,7 +428,7 @@ export function ExecutionHistoryPopover({
                         aria-label={t('executionHistory.rerun.aria', {
                           language: entry.language,
                         })}
-                        className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+                        className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border/80 disabled:hover:text-muted"
                       >
                         {t('executionHistory.rerun.label')}
                       </button>
@@ -457,7 +457,7 @@ export function ExecutionHistoryPopover({
                     ? t('executionHistory.compare.button.enabledAria')
                     : t(compareDisabledHintKey)
                 }
-                className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+                className="rounded-xl border border-border/80 px-3 py-1.5 text-body-sm text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border/80 disabled:hover:text-muted"
               >
                 {t('executionHistory.compare.button.label')}
               </button>

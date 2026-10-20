@@ -279,7 +279,7 @@ export function QrCodePanel() {
                     value={effectiveDark}
                     disabled={highContrast}
                     onChange={(event) => setDarkColor(event.target.value)}
-                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-40"
                   />
                   <span
                     className="font-mono text-caption text-foreground"
@@ -301,7 +301,7 @@ export function QrCodePanel() {
                     value={effectiveLight}
                     disabled={highContrast}
                     onChange={(event) => setLightColor(event.target.value)}
-                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-7 w-10 cursor-pointer rounded-lg border border-border/60 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-40"
                   />
                   <span
                     className="font-mono text-caption text-foreground"

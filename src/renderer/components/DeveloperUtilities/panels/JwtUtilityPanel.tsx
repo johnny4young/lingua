@@ -291,7 +291,7 @@ function JwtVerifySection({
           onClick={() => void handleVerify()}
           disabled={running}
           data-testid="jwt-verify-run"
-          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-40"
         >
           {t('utilities.tool.jwt.verify.action')}
         </button>
@@ -463,7 +463,7 @@ function JwtSignSection() {
           onClick={() => void handleSign()}
           disabled={running}
           data-testid="jwt-sign-run"
-          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-50"
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-border/80 bg-surface/60 px-3 py-2 text-body-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-surface/80 disabled:opacity-40"
         >
           {t('utilities.tool.jwt.sign.action')}
         </button>

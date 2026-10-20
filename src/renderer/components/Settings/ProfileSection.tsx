@@ -190,7 +190,7 @@ export function ProfileSection() {
             <button
               type="button"
               onClick={handleExport}
-              className="button-primary"
+              className="button-secondary"
               data-testid="profile-export-button"
             >
               <Download size={14} />

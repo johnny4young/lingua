@@ -32,7 +32,7 @@ export function UtilityPipelineResults({
           disabled={!canSaveCapsule}
           data-testid="pipeline-save-capsule"
           title={t('pipeline.capsule.saveAction')}
-          className="focus-ring ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-eyebrow font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="focus-ring ml-auto inline-flex h-6 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-eyebrow font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
         >
           <PackagePlus size={11} aria-hidden="true" />
           <span>{t('pipeline.capsule.saveAction')}</span>

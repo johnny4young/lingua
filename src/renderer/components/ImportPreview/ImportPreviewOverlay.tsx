@@ -521,7 +521,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           disabled={isReadingDirectory}
           aria-busy={isReadingDirectory}
           data-testid="import-preview-pick-bruno-directory"
-          className="flex min-h-11 items-center gap-3 rounded-md border border-border-default bg-bg-inset px-3 text-left transition-colors hover:border-border-strong disabled:cursor-wait disabled:opacity-70 md:col-span-2"
+          className="flex min-h-11 items-center gap-3 rounded-md border border-border-default bg-bg-inset px-3 text-left transition-colors hover:border-border-strong disabled:cursor-wait disabled:opacity-40 md:col-span-2"
         >
           <FolderOpen size={16} className="shrink-0 text-accent" aria-hidden="true" />
           <span className="min-w-0">

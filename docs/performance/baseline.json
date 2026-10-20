@@ -44,11 +44,11 @@
         "maxGzipBytes": 3516039
       },
       "other": {
-        "files": 11,
-        "baselineBytes": 282165,
-        "baselineGzipBytes": 196027,
-        "maxBytes": 310382,
-        "maxGzipBytes": 215630
+        "files": 16,
+        "baselineBytes": 364327,
+        "baselineGzipBytes": 271894,
+        "maxBytes": 400760,
+        "maxGzipBytes": 299084
       }
     },
     "renderer": {
@@ -88,11 +88,11 @@
         "maxGzipBytes": 3568707
       },
       "other": {
-        "files": 11,
-        "baselineBytes": 281368,
-        "baselineGzipBytes": 195734,
-        "maxBytes": 309505,
-        "maxGzipBytes": 215308
+        "files": 16,
+        "baselineBytes": 363643,
+        "baselineGzipBytes": 271636,
+        "maxBytes": 400008,
+        "maxGzipBytes": 298800
       }
     }
   }

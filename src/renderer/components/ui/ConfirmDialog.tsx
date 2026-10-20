@@ -201,7 +201,7 @@ export function ConfirmDialog({
         aria-describedby={bodyId}
         tabIndex={-1}
         className={cn(
-          'w-full max-w-md overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-lg',
+          'w-full max-w-md overflow-hidden rounded-lg border border-border-subtle bg-bg-panel shadow-e3',
           'animate-shell-fade outline-none'
         )}
         data-testid={testId}
@@ -228,7 +228,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className="button-danger"
+            className="button-danger-solid"
             data-testid={testId ? `${testId}-confirm` : undefined}
           >
             {confirmLabel}

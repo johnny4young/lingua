@@ -6,6 +6,17 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Changed
+- The interface now ships the Inter font it always declared, so text no longer falls back to the system font, including offline.
+- Appearance offers Dark, Light and System. System follows the operating system's light or dark setting, and each card's preview uses that theme's real shell and editor colours.
+- Buttons share one set of states: a small lift on hover, a pressed state, a two-pixel focus ring in the control's colour, and the same faded look when disabled. Run and the main action on each surface use the accent colour; destructive buttons stay red text until a confirmation asks for them. Settings switches are smaller (36 by 20 pixels).
+- Animations and transitions use the shared timing tokens and stop when the system asks to reduce motion.
+
+### Fixed
+- Language chips and labels in the light theme are readable (they were pale text on pale tints).
+- Disabled primary buttons such as Save set, Save Snippet and Start free trial keep readable text instead of white on pale blue.
+- Danger-coloured text that rendered without a colour now uses the error colour.
+
 ### Security
 - On desktop, the AI API key and HTTP environment values marked secret are encrypted with the system keychain instead of being stored in plain text. Existing values move on first launch, and a value stays where it was if the move fails. Without a system keyring, as on Linux sessions that report the basic_text backend, they stay in local storage as before and Settings says they are not encrypted. The web app keeps them in browser storage and now says so next to the field.
 

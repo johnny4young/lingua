@@ -54,6 +54,7 @@
     "check:deadcode:config": "node ./scripts/check-deadcode-package-boundaries.mjs",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "test:e2e:web": "PLAYWRIGHT_BROWSERS_PATH=0 node ./scripts/run-playwright-web-validation.mjs",
+    "test:visual:web": "PLAYWRIGHT_BROWSERS_PATH=0 node ./scripts/run-playwright-web-validation.mjs --visual",
     "test:smoke:web:license": "vitest run tests/smoke/licenseWebSmoke.test.tsx",
     "test:watch": "vitest",
     "lint": "oxlint && pnpm run check:telemetry-call-sites",

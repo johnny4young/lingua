@@ -56,7 +56,7 @@ export function PlaygroundUrlImportForm({
           disabled={isLoading}
           onChange={event => onChange(event.target.value)}
           placeholder={t('importPreview.playground.placeholder')}
-          className="min-h-10 min-w-0 flex-1 rounded-md border border-border-default bg-bg-panel px-3 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong disabled:cursor-wait disabled:opacity-70"
+          className="min-h-10 min-w-0 flex-1 rounded-md border border-border-default bg-bg-panel px-3 font-mono text-body-sm text-fg-base outline-none focus:border-border-strong disabled:cursor-wait disabled:opacity-40"
         />
         {isLoading ? (
           <button

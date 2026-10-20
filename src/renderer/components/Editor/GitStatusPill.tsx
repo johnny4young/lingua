@@ -279,7 +279,7 @@ export function GitStatusPill({
               aria-label={t('editor.git.contextMenu.ariaLabel')}
               data-testid="git-status-pill-menu"
               style={{ top: contextMenu.y, left: contextMenu.x }}
-              className="fixed z-[1000] min-w-[180px] rounded-md border border-border bg-surface shadow-lg py-1 text-body"
+              className="fixed z-[1000] min-w-[180px] rounded-md border border-border bg-surface shadow-e3 py-1 text-body"
             >
               <button
                 type="button"

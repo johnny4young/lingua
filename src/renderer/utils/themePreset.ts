@@ -49,7 +49,7 @@ export interface ThemePresetInputs {
 }
 
 const LAYOUT_PRESETS: readonly LayoutPreset[] = ['horizontal', 'vertical', 'editor-only'];
-const APPEARANCE_THEMES: readonly SettingsState['theme'][] = ['dark', 'light'];
+const APPEARANCE_THEMES: readonly SettingsState['theme'][] = ['dark', 'light', 'system'];
 const EDITOR_THEMES = [
   'lingua-dark',
   'lingua-light',

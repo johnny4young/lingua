@@ -153,7 +153,7 @@ export function FloatingActionPill({
           structured segmented group (Signal-Slate RuntimeSelector
           recipe): a single inset shell (rounded-lg border-border-subtle
           bg-bg-inset) with hairline `.action-pill-divider` separators
-          between segments and a GREEN run segment at the end. The shell
+          between segments and an accent run segment at the end. The shell
           is NOT `overflow-hidden` so the run group's resting glow + the
           `data-running` run-pulse box-shadow still escape its bounds.
           The drag handle, meta cluster, command actions, and settings
@@ -197,7 +197,7 @@ export function FloatingActionPill({
         {/* 3. Mode-aware action button .
                 Replaces the previous "Workflow chip + separate Run
                 split-button" pair. The main button:
-                  · Colours itself by the active workflow (green for run,
+                  · Colours itself by the active workflow (accent for run,
                     red-soft for debug, accent for scratchpad).
                   · Shows that workflow's label and icon, with a kbd hint.
                   · Fires the workflow on click. When `isRunning`, fires

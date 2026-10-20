@@ -125,7 +125,7 @@ export function RandomStringPanel() {
         )}
         <button
           type="button"
-          className="button-primary w-fit disabled:cursor-not-allowed disabled:opacity-50"
+          className="button-primary w-fit disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="random-string-generate"
           onClick={handleGenerate}
           disabled={charsetEmpty}

@@ -106,7 +106,7 @@ export function HttpCaptureTab({
                 )}
                 aria-label={t('httpWorkspace.editor.capture.pathAria')}
                 data-testid="http-request-editor-capture-path"
-                className="h-7 w-40 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-7 w-40 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
               />
               <span aria-hidden="true" className="text-caption text-fg-subtle">
                 →

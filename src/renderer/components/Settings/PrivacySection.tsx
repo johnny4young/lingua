@@ -372,7 +372,7 @@ function SensitiveHeadersRow() {
               onClick={commit}
               disabled={draft.trim().length === 0}
               data-testid="settings-sensitive-headers-add"
-              className="button-secondary text-body-sm disabled:cursor-not-allowed disabled:opacity-50"
+              className="button-secondary text-body-sm disabled:cursor-not-allowed disabled:opacity-40"
             >
               {t('settings.privacy.sensitiveHeaders.add')}
             </button>

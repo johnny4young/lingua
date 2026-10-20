@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { isDarkEditorTheme } from '../utils/editorThemeCatalog';
 import { useSettingsStore } from '../stores/settingsStore';
-import { applyAppTheme } from '../utils/appTheme';
+import { applyAppTheme, systemEditorTheme } from '../utils/appTheme';
+import type { ThemePreference } from '../types/settings';
 
 /**
  * Resolve the effective shell polarity. The
@@ -17,7 +18,7 @@ import { applyAppTheme } from '../utils/appTheme';
  * refactors can drop the parameter entirely once all callers update.
  */
 export function resolveEffectiveShellTheme(
-  _theme: 'dark' | 'light',
+  _theme: ThemePreference,
   editorTheme: string,
   _syncShellWithEditorTheme: boolean = true
 ): 'dark' | 'light' {
@@ -33,4 +34,19 @@ export function useAppTheme() {
   useEffect(() => {
     applyAppTheme(effectiveTheme);
   }, [effectiveTheme]);
+
+  // System keeps the Lingua editor theme in step with the OS preference.
+  useEffect(() => {
+    if (theme !== 'system' || typeof window.matchMedia !== 'function') return;
+    const sync = () => {
+      const next = systemEditorTheme();
+      if (useSettingsStore.getState().editorTheme !== next) {
+        useSettingsStore.setState({ editorTheme: next });
+      }
+    };
+    sync();
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, [theme]);
 }

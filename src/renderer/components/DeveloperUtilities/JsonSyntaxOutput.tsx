@@ -216,7 +216,7 @@ function addTimestampTooltips(
     tooltip.id = tooltipId;
     tooltip.setAttribute('role', 'tooltip');
     tooltip.className =
-      'pointer-events-none absolute left-0 top-[calc(100%+0.45rem)] z-50 hidden w-max max-w-[20rem] rounded-xl border border-border-subtle bg-bg-panel px-3 py-2 text-left text-caption leading-5 text-fg-base shadow-xl group-hover:block group-focus-within:block';
+      'pointer-events-none absolute left-0 top-[calc(100%+0.45rem)] z-50 hidden w-max max-w-[20rem] rounded-xl border border-border-subtle bg-bg-panel px-3 py-2 text-left text-caption leading-5 text-fg-base shadow-e3 group-hover:block group-focus-within:block';
     appendTooltipLine(
       tooltip,
       labels.localLabel,

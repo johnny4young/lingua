@@ -132,7 +132,7 @@ export function RecoveryCta({
             onClick={() => void handleResend()}
             disabled={busy || email.trim().length === 0}
             data-testid="recovery-start"
-            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? t('license.recovery.starting') : t('license.recovery.startCta')}
           </button>

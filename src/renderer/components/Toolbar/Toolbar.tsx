@@ -153,7 +153,7 @@ export function Toolbar() {
   const primaryActionClassName = cn(
     primaryActionIsDebug
       ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none'
-      : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none bg-success-fg text-fg-on-accent hover:opacity-90',
+      : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none',
     // Visible pulse around the run button while a task is
     // executing. The animation is declared in index.css under
     // @keyframes run-pulse and only applies when data-running="true".
@@ -300,10 +300,10 @@ export function Toolbar() {
                   aria-haspopup="menu"
                   aria-expanded={isRunMenuOpen}
                   className={cn(
-                    'inline-flex w-10 items-center justify-center border-l px-2 text-body-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45',
+                    'inline-flex w-10 items-center justify-center border-l px-2 text-body-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40',
                     primaryActionIsDebug
-                      ? 'border-error/20 bg-error/12 text-error hover:bg-error/18'
-                      : 'border-fg-on-accent/15 bg-success-fg text-fg-on-accent hover:opacity-90'
+                      ? 'border-error-fg/20 bg-transparent text-error-fg hover:bg-error-bg'
+                      : 'border-fg-on-accent/15 bg-accent text-fg-on-accent hover:bg-accent-hover disabled:border-border-default disabled:bg-bg-inset disabled:text-fg-muted disabled:opacity-100'
                   )}
                 >
                   <ChevronDown size={13} />
@@ -323,9 +323,9 @@ export function Toolbar() {
                   onClick={() => runFromMenu('run')}
                   disabled={actionDisabled}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                     selectedExecutionAction === 'run'
-                      ? 'bg-success-bg text-success-fg'
+                      ? 'bg-accent-tint text-accent-fg'
                       : 'text-fg-base hover:bg-bg-panel-alt'
                   )}
                 >
@@ -339,7 +339,7 @@ export function Toolbar() {
                   disabled={debugActionDisabled}
                   data-testid="toolbar-debug-button"
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                     selectedExecutionAction === 'debug'
                       ? 'bg-danger/12 text-danger'
                       : 'text-danger hover:bg-danger/10'
@@ -369,7 +369,7 @@ export function Toolbar() {
               data-running={isRunning ? 'true' : 'false'}
               aria-label={actionLabel}
               title={actionLabel}
-              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-lg bg-success-fg text-fg-on-accent hover:opacity-90 data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]"
+              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-lg data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]"
             >
               {isInitializing ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -402,7 +402,7 @@ export function Toolbar() {
         <div className="toolbar-divider" />
 
         <div ref={newFileMenuRef} className="relative shrink-0">
-          <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[var(--shadow-sm)]">
+          <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-e1">
             <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
               <button
                 onClick={() => handleNewFile(defaultNewFileLanguage)}

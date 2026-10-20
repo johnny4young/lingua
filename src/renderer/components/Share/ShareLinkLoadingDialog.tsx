@@ -17,7 +17,7 @@ export function ShareLinkLoadingDialog({ onClose }: { readonly onClose?: () => v
       aria-busy="true"
       data-testid="share-link-loading-dialog"
     >
-      <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-border bg-bg-panel shadow-xl">
+      <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-border bg-bg-panel shadow-e3">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <p className="text-sm font-semibold">{t('share.confirm.title')}</p>
           {onClose ? (

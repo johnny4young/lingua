@@ -129,7 +129,7 @@ export function HttpAssertionsTab({
                   )}
                   aria-label={t('httpWorkspace.editor.assert.pathAria', { index: i + 1 })}
                   data-testid="http-request-editor-assert-path"
-                  className="h-7 min-w-0 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-7 min-w-0 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                 />
                 <select
                   value={assertion.comparator}
@@ -158,7 +158,7 @@ export function HttpAssertionsTab({
                   placeholder={t('httpWorkspace.editor.assert.expected.placeholder')}
                   aria-label={t('httpWorkspace.editor.assert.expectedAria', { index: i + 1 })}
                   data-testid="http-request-editor-assert-expected"
-                  className="h-7 min-w-0 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-7 min-w-0 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                 />
               </div>
               <button

@@ -1,45 +1,18 @@
-import type { SettingsState } from '../types/settings';
-
-export type AppTheme = SettingsState['theme'];
+/** The polarity actually applied to the shell. */
+export type AppTheme = 'dark' | 'light';
 export const APP_THEME_COLOR: Record<AppTheme, string> = {
   dark: '#0c1017',
   light: '#f4efe7',
 };
 
-function isThemeRecord(value: unknown): value is Partial<Pick<SettingsState, 'theme'>> {
-  return typeof value === 'object' && value !== null && 'theme' in value;
+function systemPrefersDark(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function isAppTheme(value: unknown): value is AppTheme {
-  return value === 'dark' || value === 'light';
-}
-
-export function getStoredAppTheme(serializedState: string | null): AppTheme | null {
-  if (!serializedState) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(serializedState) as unknown;
-
-    if (isThemeRecord(parsed) && isAppTheme(parsed.theme)) {
-      return parsed.theme;
-    }
-
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'state' in parsed &&
-      isThemeRecord(parsed.state) &&
-      isAppTheme(parsed.state.theme)
-    ) {
-      return parsed.state.theme;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
+/** The Lingua editor theme that matches the OS preference. */
+export function systemEditorTheme(): 'lingua-dark' | 'lingua-light' {
+  return systemPrefersDark() ? 'lingua-dark' : 'lingua-light';
 }
 
 export function ensureThemeColorMeta(doc: Document): HTMLMetaElement {

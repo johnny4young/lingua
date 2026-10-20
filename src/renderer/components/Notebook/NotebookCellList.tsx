@@ -186,7 +186,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
             onClick={() => handleAddCode(preferredCodeLanguage)}
             disabled={disabled}
             data-testid="notebook-cells-append-code"
-            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           >
             <CodeXml size={11} aria-hidden="true" />
             {t('notebook.toolbar.addCode')}
@@ -196,7 +196,7 @@ export function NotebookCellList(props: NotebookCellListProps) {
             onClick={handleAddMarkdown}
             disabled={disabled}
             data-testid="notebook-cells-append-markdown"
-            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-caption text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           >
             <FileText size={11} aria-hidden="true" />
             {t('notebook.toolbar.addMarkdown')}

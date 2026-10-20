@@ -40,7 +40,7 @@ missing (fresh clone) or if the kit gains files:
    bundle, so only the `modal.*` and `ui.*` prefixes ship.
 5. `ln -sfn "$PWD/.design-sync/docs" .design-sync/pkgroot/docs`
 6. Symlink `pkgroot/styles.css` at the compiled web CSS (see below), and copy
-   the two JetBrains Mono woff2 from `public/fonts/` next to `pkgroot/fonts.css`.
+   the Inter and JetBrains Mono woff2 files from `public/fonts/` next to `pkgroot/fonts.css`.
 
 ## cssEntry points at a content-hashed file
 
@@ -68,10 +68,6 @@ were learned the hard way:
 
 ## Known render warns — expected, not new
 
-- `[FONT_MISSING] "Inter"` — **deliberate.** Lingua declares Inter only as the
-  head of a fallback stack and ships no file, so the product renders with
-  system-ui on most machines. Shipping Inter would make previews diverge from
-  the app. JetBrains Mono *is* shipped and *is* wired via `cfg.extraFonts`.
 - `Tooltip` cards show only their trigger. The bubble is hover-only and cannot
   be captured statically; faking one would violate the no-lookalike rule.
 - `TypePill` renders all eight `kind` values identically. This is product truth:

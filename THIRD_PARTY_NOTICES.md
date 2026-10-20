@@ -42,6 +42,13 @@ pnpm run compliance:release
 | `terser` | BSD-2-Clause |
 | `zustand` | MIT |
 
+## Bundled Fonts
+
+| Font | License | Files |
+| --- | --- | --- |
+| Inter (latin 400, 500, 600) | OFL-1.1 | `public/fonts/inter-latin-*-normal.woff2`, `public/fonts/Inter-OFL.txt` |
+| JetBrains Mono (latin 400, 700) | OFL-1.1 | `public/fonts/jetbrains-mono-latin-*-normal.woff2`, `public/fonts/OFL.txt` |
+
 ## Public-Release Notes
 
 The guided tour is implemented in-repo and does not ship a separate AGPL or
