@@ -161,6 +161,20 @@ describe('network guard', () => {
     await expect(scope.fetch('https://pypi.example/again')).rejects.toThrow(TypeError);
   });
 
+  it('ends overlapping exemptions in any order without leaving a host open', async () => {
+    const { scope } = fakeScope();
+    const guard = installNetworkGuard(scope);
+    guard.begin(policy('block'));
+    let releaseFirst!: () => void;
+    const first = guard.exempt(['pypi.example'], () => new Promise<void>(r => (releaseFirst = r)));
+    const second = guard.exempt(['pypi.example'], async () => {
+      releaseFirst();
+      await first;
+    });
+    await Promise.all([first, second]);
+    await expect(scope.fetch('https://pypi.example/')).rejects.toThrow(TypeError);
+  });
+
   it('checks the URL the platform will use, even from objects that stringify', async () => {
     const { scope, fetch } = fakeScope();
     installNetworkGuard(scope).begin(policy('block'));

@@ -88,7 +88,9 @@ export function installNetworkGuard(
   options: NetworkGuardOptions = {}
 ): NetworkGuard {
   let run: NetworkRunPolicy | null = null;
-  let exempted: readonly string[] = [];
+  // Per-host counts, so overlapping exemptions end independently of their order.
+  const exempted: Record<string, number> = Object.create(null);
+  const isExempt = (host: string) => (exempted[host] ?? 0) > 0;
   // Index view of the global scope for the constructors swapped below.
   const globals = scope as unknown as Record<string, unknown>;
 
@@ -162,7 +164,7 @@ export function installNetworkGuard(
     if (verdict.kind === 'refuse') block(verdict.label);
     if (
       verdict.kind === 'check' &&
-      !contains(exempted, verdict.host) &&
+      !isExempt(verdict.host) &&
       decideNetworkHost(run, verdict.host) !== 'allow'
     )
       block(verdict.host);
@@ -174,7 +176,7 @@ export function installNetworkGuard(
     if (verdict.kind === 'pass') return;
     if (verdict.kind === 'refuse') block(verdict.label);
     const host = (verdict as { host: string }).host;
-    if (contains(exempted, host)) return;
+    if (isExempt(host)) return;
     let decision = decideNetworkHost(run, host);
     if (decision === 'ask') {
       const ticket = { allow: false };
@@ -288,12 +290,13 @@ export function installNetworkGuard(
             };
     },
     exempt: async (hosts, task) => {
-      const previous = exempted;
-      exempted = [...previous, ...hosts];
+      for (let index = 0; index < hosts.length; index += 1)
+        exempted[hosts[index]!] = (exempted[hosts[index]!] ?? 0) + 1;
       try {
         return await task();
       } finally {
-        exempted = previous;
+        for (let index = 0; index < hosts.length; index += 1)
+          exempted[hosts[index]!] = (exempted[hosts[index]!] ?? 1) - 1;
       }
     },
   };
