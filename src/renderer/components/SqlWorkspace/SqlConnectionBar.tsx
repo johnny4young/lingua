@@ -32,6 +32,11 @@ export function SqlConnectionBar({ actions }: SqlConnectionBarProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pillRef = useRef<HTMLButtonElement | null>(null);
   const listId = useId();
+  const optionRef = useRef<HTMLLIElement | null>(null);
+  const choose = () => {
+    setOpen(false);
+    pillRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -91,6 +96,12 @@ export function SqlConnectionBar({ actions }: SqlConnectionBarProps) {
               autoFocus
               value={search}
               onChange={event => setSearch(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  optionRef.current?.focus();
+                }
+              }}
               placeholder={t('sqlWorkspace.connection.find')}
               aria-label={t('sqlWorkspace.connection.find')}
               data-testid="sql-connection-search"
@@ -102,16 +113,16 @@ export function SqlConnectionBar({ actions }: SqlConnectionBarProps) {
             <ul id={listId} role="listbox" aria-label={t('sqlWorkspace.connection.listAria')}>
               {localMatches ? (
                 <li
+                  ref={optionRef}
                   role="option"
                   aria-selected="true"
                   data-testid="sql-connection-option-local"
-                  tabIndex={0}
-                  onClick={() => setOpen(false)}
+                  tabIndex={-1}
+                  onClick={choose}
                   onKeyDown={event => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      setOpen(false);
-                      pillRef.current?.focus();
+                      choose();
                     }
                   }}
                   className="focus-ring flex h-8 cursor-pointer items-center gap-[7px] rounded-md bg-accent-tint px-2"

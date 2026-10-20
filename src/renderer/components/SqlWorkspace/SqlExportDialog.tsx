@@ -1,5 +1,5 @@
 import { Archive, Code2, Copy, Download, Loader2, Table2 } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
@@ -70,10 +70,6 @@ export function SqlExportDialog({
   const [savingTable, setSavingTable] = useState(false);
   const capsuleCombo = useShortcutLabel('run-export-capsule');
 
-  const content = useMemo(
-    () => serializeRows(format, columns, rows, options),
-    [format, columns, rows, options]
-  );
   const partial = totalRowCount > rows.length;
   const countLabel = partial
     ? t('sqlWorkspace.export.partialCount', {
@@ -89,8 +85,11 @@ export function SqlExportDialog({
     ) ?? false;
   const canSaveTable = isValidTableName(tableName) && !nameTaken && !savingTable;
 
+  // Serialized only when used: the dialog can hold every fetched row.
+  const content = () => serializeRows(format, columns, rows, options);
+
   const handleExport = () => {
-    downloadTextFile(content, buildExportFilename(format), exportMimeType(format));
+    downloadTextFile(content(), buildExportFilename(format), exportMimeType(format));
     useUIStore.getState().pushStatusNotice({
       tone: 'success',
       messageKey: 'sqlWorkspace.export.exported',
@@ -100,7 +99,7 @@ export function SqlExportDialog({
   };
 
   const handleCopy = () => {
-    copyToClipboard(content, {
+    copyToClipboard(content(), {
       messageKey: 'sqlWorkspace.export.copied',
       values: { format: formatLabel, count: rows.length },
     });

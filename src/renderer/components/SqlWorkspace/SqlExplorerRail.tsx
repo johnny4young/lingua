@@ -1,5 +1,4 @@
 import { Download, PanelLeftOpen, Plus } from 'lucide-react';
-import { Separator } from 'react-resizable-panels';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
@@ -63,23 +62,5 @@ export function SqlExplorerRail({
         <Download size={14} aria-hidden="true" />
       </button>
     </nav>
-  );
-}
-
-/** Drag handle between the SQL panes; the hit zone stays wide while the line stays thin. */
-export function SqlResizeHandle({ orientation }: { orientation: 'vertical' | 'horizontal' }) {
-  const isVertical = orientation === 'vertical';
-  return (
-    <Separator
-      className={`group relative z-10 flex items-center justify-center ${
-        isVertical ? '-mx-1 w-2 cursor-col-resize' : '-my-1 h-2 cursor-row-resize'
-      }`}
-    >
-      <div
-        className={`bg-transparent transition-colors group-hover:bg-border-strong ${
-          isVertical ? 'h-full w-px' : 'h-px w-full'
-        }`}
-      />
-    </Separator>
   );
 }

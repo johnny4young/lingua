@@ -7,7 +7,6 @@ import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 import {
   Group,
   Panel,
-  Separator,
   useDefaultLayout,
   type PanelImperativeHandle,
 } from 'react-resizable-panels';
@@ -19,6 +18,7 @@ import { StatusBar } from '../StatusBar/StatusBar';
 import { usePresenterModeStore } from '../../stores/presenterModeStore';
 import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
+import { ResizeHandle } from '../ui/ResizeHandle';
 import { ICON_GLYPH } from '../ui/iconScale';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -103,35 +103,6 @@ function useCompactShellLayout() {
   }, []);
 
   return isCompact;
-}
-
-function ResizeHandle({
-  orientation = 'vertical',
-  disabled = false,
-}: {
-  orientation?: 'vertical' | 'horizontal';
-  disabled?: boolean;
-}) {
-  const isVertical = orientation === 'vertical';
-  // Keep the inner divider transparent so the editor +
-  // results dock read as ONE canvas. The hit zone stays 3px wide
-  // so power users can still resize, and the bar fades in on hover.
-  return (
-    <Separator
-      disabled={disabled}
-      className={`group relative flex items-center justify-center transition-colors ${disabled ? 'pointer-events-none ' : ''}${
-        isVertical
-          ? '-mx-1 w-3 cursor-col-resize hover:bg-accent/5'
-          : '-my-1 h-3 cursor-row-resize hover:bg-accent/5'
-      }`}
-    >
-      <div
-        className={`rounded-full bg-transparent transition-colors group-hover:bg-border-strong ${
-          isVertical ? 'h-[78%] w-px' : 'h-px w-[78%]'
-        }`}
-      />
-    </Separator>
-  );
 }
 
 function EditorArea() {

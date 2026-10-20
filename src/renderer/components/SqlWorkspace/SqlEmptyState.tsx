@@ -11,8 +11,8 @@ import { EmptyState } from '../ui/EmptyState';
  * "New query" CTA alone dropped the user onto a query with nothing to
  * SELECT from. The real first move for most people is loading data, so
  * this surfaces a secondary "Import data" affordance (CSV / JSON /
- * Parquet) next to "New query" — the same import flow the toolbar
- * drives, reachable without hunting for it.
+ * Parquet) next to "New query" — the same import flow as Import data in
+ * the connection bar — plus Try a sample table.
  */
 export function SqlEmptyState({
   onCreate,

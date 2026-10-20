@@ -28,4 +28,15 @@ describe('SqlConnectionBar', () => {
     expect(screen.queryByTestId('sql-connection-picker')).toBeNull();
     expect(document.activeElement).toBe(screen.getByTestId('sql-connection-pill'));
   });
+
+  it('moves from the search into the option with ArrowDown and returns to the pill on pick', async () => {
+    const user = userEvent.setup();
+    render(<SqlConnectionBar />);
+    await user.click(screen.getByTestId('sql-connection-pill'));
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTestId('sql-connection-option-local'));
+    await user.click(screen.getByTestId('sql-connection-option-local'));
+    expect(screen.queryByTestId('sql-connection-picker')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByTestId('sql-connection-pill'));
+  });
 });

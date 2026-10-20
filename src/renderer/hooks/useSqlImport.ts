@@ -10,7 +10,7 @@
  *      a sanitized, de-collided suggested table name.
  *   2. The modal lets the user edit the name (validated live) and either
  *      Confirm → `confirmImport` (runs `importFileAsTable`, refreshes the
- *      schema browser, fires telemetry, pushes a success notice) or
+ *      Explorer, fires telemetry, pushes a success notice) or
  *      Cancel → `cancelImport` (drops the in-flight preview; no table).
  *
  * Every failure path pushes a SPECIFIC translated notice via the
@@ -63,7 +63,7 @@ interface SqlImportModalState {
 interface UseSqlImportArgs {
   /** Names of tables already in the database — used for the collision de-duper. */
   existingTableNames: ReadonlyArray<string>;
-  /** Re-run the schema browser introspection after a successful import. */
+  /** After a successful import: record the table's source format and refresh the Explorer. */
   onImported: (table: { tableName: string; format: SqlImportFormat }) => void;
 }
 

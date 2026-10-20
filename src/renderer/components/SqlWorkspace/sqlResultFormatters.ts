@@ -14,7 +14,7 @@ export function quoteSqlIdentifier(name: string): string {
 /** Quote a table reference segment-by-segment. A dotted display label such
  * as `lingua_ledger.runs` is two identifiers, not one identifier containing
  * a literal dot. Keeping this separate from `quoteSqlIdentifier` prevents
- * schema-browser suggestions from producing invalid SQL for non-main tables.
+ * Explorer table opens from producing invalid SQL for non-main tables.
  */
 export function quoteSqlTableReference(tableName: string, schemaName?: string): string {
   return schemaName === undefined
@@ -23,8 +23,8 @@ export function quoteSqlTableReference(tableName: string, schemaName?: string): 
 }
 
 /**
- * Build the runnable `SELECT * FROM <table> LIMIT 100;` starter the
- * schema browser inserts into the editor. The table name is quoted so
+ * Build the `SELECT * FROM <table> LIMIT 100;` that opening a table from
+ * the Explorer runs, and that Edit in editor takes into the query. The table name is quoted so
  * any identifier the engine reports (spaces, reserved words, mixed
  * case, special characters) round-trips into a valid, single statement.
  */

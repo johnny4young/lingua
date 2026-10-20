@@ -23,6 +23,9 @@ function acceptImportItem(item: File | DataTransferItem): boolean {
   return detectImportFormat('', item.type) !== null;
 }
 
+/** DuckDB's own catalog schema: an identifier, not copy. */
+const SYSTEM_SCHEMA = 'information_schema';
+
 const ICON_BUTTON =
   'focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-bg-panel-alt hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40';
 
@@ -60,6 +63,8 @@ function TreeRow({ depth, expanded, onToggle, label, trailing, testId, nodeName 
 export interface SqlExplorerProps {
   catalog: SqlCatalog;
   isLoading: boolean;
+  /** False until the first catalog read settles, so the empty state does not flash. */
+  hasLoaded?: boolean;
   onRefresh: () => void;
   onOpenTable: (table: SqlSchemaTable) => void;
   /** The table whose rows the results area shows, if any. */
@@ -81,6 +86,7 @@ export interface SqlExplorerProps {
 export function SqlExplorer({
   catalog,
   isLoading,
+  hasLoaded = true,
   onRefresh,
   onOpenTable,
   openedTableName = null,
@@ -403,8 +409,8 @@ export function SqlExplorer({
                     expanded={expanded.has('schema:information_schema')}
                     onToggle={() => toggle('schema:information_schema')}
                     testId="sql-explorer-schema"
-                    nodeName="information_schema"
-                    label={<span className="truncate">information_schema</span>}
+                    nodeName={SYSTEM_SCHEMA}
+                    label={<span className="truncate">{SYSTEM_SCHEMA}</span>}
                   />
                   {expanded.has('schema:information_schema') ? (
                     <ul role="list">
@@ -423,7 +429,7 @@ export function SqlExplorer({
               ) : null}
             </ul>
           ) : null}
-          {!hasUserObjects && !filtering && !isLoading ? (
+          {!hasUserObjects && !filtering && !isLoading && hasLoaded ? (
             <div
               data-testid="sql-explorer-empty"
               className="px-2.5 py-2 text-caption leading-relaxed text-fg-subtle"

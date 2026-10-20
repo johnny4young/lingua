@@ -1,5 +1,5 @@
 import { Download, Loader2 } from 'lucide-react';
-import { useRef } from 'react';
+import { useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SQL_IMPORT_FILE_ACCEPT } from '../../../shared/sqlWorkspace';
 
@@ -7,12 +7,20 @@ interface SqlImportButtonProps {
   isBusy: boolean;
   isPreviewing: boolean;
   onImportFile: (file: File) => void;
+  /** Lets another control (the folded rail) open the same picker. */
+  inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 /** Import data in the connection bar: the keyboard path into the import flow. */
-export function SqlImportButton({ isBusy, isPreviewing, onImportFile }: SqlImportButtonProps) {
+export function SqlImportButton({
+  isBusy,
+  isPreviewing,
+  onImportFile,
+  inputRef: externalRef,
+}: SqlImportButtonProps) {
   const { t } = useTranslation();
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const ownRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = externalRef ?? ownRef;
 
   return (
     <>

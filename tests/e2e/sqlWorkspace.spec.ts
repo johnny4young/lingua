@@ -63,7 +63,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
   });
 
   // Import a small CSV via the keyboard-accessible
-  // picker and assert the new table shows in the schema browser. Drives
+  // picker and assert the new table shows in the Explorer. Drives
   // the REAL bundled DuckDB-WASM engine end-to-end (read_csv_auto).
   test('imports a CSV via the picker and lists the new table (EN)', async ({
     page,
@@ -195,7 +195,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test('localizes the Column Explorer labels in Spanish', async ({ page }) => {
+  test('localizes the SQL tab and the Profile tab in Spanish', async ({ page }) => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await page.keyboard.press('ControlOrMeta+Alt+S');

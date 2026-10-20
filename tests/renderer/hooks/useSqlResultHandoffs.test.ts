@@ -38,11 +38,20 @@ const response: SqlResponseV1 = {
   recordedAt: '2026-10-20T00:00:00.000Z',
 };
 
-function handoffs(sql: string | undefined, onTableCreated = vi.fn()) {
+function handoffs(
+  sql: string | undefined,
+  onTableCreated = vi.fn(),
+  tableName?: string
+) {
   return renderHook(() =>
     useSqlResultHandoffs({
       response,
-      source: sql === undefined ? undefined : { origin: 'editor', sql },
+      source:
+        sql === undefined
+          ? undefined
+          : tableName !== undefined
+            ? { origin: 'table', sql, tableName }
+            : { origin: 'editor', sql },
       query: undefined,
       existingTableNames: ['cities', 'result'],
       timeoutMs: 1000,
@@ -97,5 +106,12 @@ describe('SQL result hand-offs', () => {
         'result-panel-export'
       )
     );
+  });
+
+  it('keeps a table name with line breaks inside the Python header comment', () => {
+    handoffs('SELECT 1', vi.fn(), 'x\nimport js\n#').onSendToPython!(response.rows);
+    const [header, second] = useEditorStore.getState().tabs[0]!.content.split('\n');
+    expect(header).toBe('# Rows from x import js #: 1 of 1');
+    expect(second).toBe('rows = [');
   });
 });

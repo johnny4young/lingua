@@ -72,7 +72,7 @@ describe('SQL result export', () => {
     const { source, included } = rowsToPythonSource(
       [...columns, { name: 'ok', type: 'Bool' }],
       [{ city: 'Lima', orders: '7', note: null, ok: false }],
-      '# header'
+      () => '# header'
     );
     expect(included).toBe(1);
     expect(source).toContain(
@@ -83,8 +83,19 @@ describe('SQL result export', () => {
 
   it('stops at the Python row cap', () => {
     const many = Array.from({ length: PYTHON_HANDOFF_ROW_CAP + 5 }, (_, i) => ({ id: i }));
-    expect(rowsToPythonSource([{ name: 'id', type: 'Int32' }], many, '#').included).toBe(
+    expect(rowsToPythonSource([{ name: 'id', type: 'Int32' }], many, () => '#').included).toBe(
       PYTHON_HANDOFF_ROW_CAP
     );
+  });
+
+  it('names in the header the rows the byte cap let in', () => {
+    const wide = Array.from({ length: 900 }, () => ({ text: 'x'.repeat(1024) }));
+    const { source, included } = rowsToPythonSource(
+      [{ name: 'text', type: 'Utf8' }],
+      wide,
+      (shown) => `# ${shown} rows`
+    );
+    expect(included).toBeLessThan(900);
+    expect(source.startsWith(`# ${included} rows\n`)).toBe(true);
   });
 });

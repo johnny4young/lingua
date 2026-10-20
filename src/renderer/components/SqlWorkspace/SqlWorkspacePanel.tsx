@@ -54,7 +54,8 @@ import { SqlQueryEditor } from './SqlQueryEditor';
 import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
 import { SqlExplorer } from './SqlExplorer';
-import { SqlExplorerRail, SqlResizeHandle } from './SqlExplorerRail';
+import { SqlExplorerRail } from './SqlExplorerRail';
+import { ResizeHandle } from '../ui/ResizeHandle';
 import { SqlConnectionBar } from './SqlConnectionBar';
 import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
@@ -142,6 +143,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState('');
   const [tablePreview, setTablePreview] = useState<TablePreview | null>(null);
+  // Bumped by every open, run and query switch so a late table result never lands over a newer view.
+  const previewTokenRef = useRef(0);
+  const showTablePreview = useCallback((preview: TablePreview | null) => {
+    previewTokenRef.current += 1;
+    setTablePreview(preview);
+  }, []);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [isCreatingSample, setIsCreatingSample] = useState(false);
   // Lets the run handler refresh the Explorer without a forward dependency.
   const refreshTablesRef = useRef<() => void>(() => {});
@@ -195,14 +203,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       .getState()
       .createQuery(createBlankSqlQuery({ id: crypto.randomUUID(), name, query: sql }));
     setSelectedResponseIndex(0);
-    setTablePreview(null);
-  }, []);
+    showTablePreview(null);
+  }, [showTablePreview]);
 
   const handleSelect = useCallback((id: string) => {
     useWorkspaceSqlStore.getState().setActiveQuery(id);
     setSelectedResponseIndex(0);
-    setTablePreview(null);
-  }, []);
+    showTablePreview(null);
+  }, [showTablePreview]);
 
   const handleRename = useCallback((id: string, name: string) => {
     useWorkspaceSqlStore.getState().updateQuery(id, { name });
@@ -233,22 +241,24 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const handleOpenTable = useCallback(
     async (table: SqlSchemaTable) => {
       const sql = buildSelectStarter(table.sqlName ?? table.name, table.schemaName);
+      previewTokenRef.current += 1;
+      const token = previewTokenRef.current;
       const outcome = await executeQuery(sql, { timeoutMs: queryTimeoutMs });
-      setTablePreview({ table, sql, response: toResponse(outcome) });
+      if (previewTokenRef.current === token) setTablePreview({ table, sql, response: toResponse(outcome) });
     },
     [queryTimeoutMs]
   );
 
   const handleEditInEditor = useCallback(
     (sql: string) => {
-      setTablePreview(null);
+      showTablePreview(null);
       if (useWorkspaceSqlStore.getState().activeQueryId === null) {
         handleCreate(sql);
         return;
       }
       setInsertSignal((prev) => ({ text: sql, nonce: (prev?.nonce ?? 0) + 1 }));
     },
-    [handleCreate]
+    [handleCreate, showTablePreview]
   );
 
   const handleSelectResponse = useCallback((index: number) => {
@@ -264,7 +274,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     async (queryToRun: SqlQueryV1) => {
       if (useWorkspaceSqlStore.getState().isExecutingActive) return;
       useWorkspaceSqlStore.getState().setIsExecutingActive(true);
-      setTablePreview(null);
+      showTablePreview(null);
       try {
         const outcome = await executeQuery(queryToRun.query, { timeoutMs: queryTimeoutMs });
         const response = toResponse(outcome);
@@ -324,7 +334,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         useWorkspaceSqlStore.getState().setIsExecutingActive(false);
       }
     },
-    [queryTimeoutMs, t, announce]
+    [queryTimeoutMs, t, announce, showTablePreview]
   );
 
   // A profile is secondary exploration, not a run: no response, history or ledger entry.
@@ -363,6 +373,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
       setIsLoadingTables(false);
+      setCatalogLoaded(true);
       return;
     }
     try {
@@ -382,6 +393,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         /* defensive */
       }
       setIsLoadingTables(false);
+      setCatalogLoaded(true);
     }
   }, []);
 
@@ -405,10 +417,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     },
     [sqlImport]
   );
-  const importInputRef = useRef<HTMLDivElement | null>(null);
-  const handlePickImport = useCallback(() => {
-    importInputRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
-  }, []);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const handlePickImport = useCallback(() => importInputRef.current?.click(), []);
 
   // Creates `cities` (or `cities_2`…) and opens a ready-to-run SELECT; it does not run it.
   const handleTrySample = useCallback(async () => {
@@ -483,7 +493,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         refreshTablesRef.current();
       })
       .catch(() => {
-        /* the Run path surfaces engine failures */
+        // The Run path surfaces engine failures; the Explorer stops waiting for a catalog.
+        setCatalogLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -520,6 +531,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     <SqlExplorer
       catalog={explorerCatalog}
       isLoading={isLoadingTables}
+      hasLoaded={catalogLoaded}
       onRefresh={() => void handleRefreshTables()}
       onOpenTable={(table) => void handleOpenTable(table)}
       openedTableName={tablePreview?.table.name ?? null}
@@ -581,7 +593,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         )}
       </Panel>
-      <SqlResizeHandle orientation="horizontal" />
+      <ResizeHandle orientation="horizontal" />
       <Panel id="sql-results-pane" defaultSize="60%" minSize={140}>
         <SqlResultPreview
           key={tablePreview ? `table:${tablePreview.table.name}` : (activeQuery?.id ?? 'none')}
@@ -615,13 +627,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     >
       <SqlConnectionBar
         actions={
-          <div ref={importInputRef} className="contents">
-            <SqlImportButton
-              isBusy={importBusy}
-              isPreviewing={sqlImport.isPreviewing}
-              onImportFile={(file) => handleStartImport(file, 'picker')}
-            />
-          </div>
+          <SqlImportButton
+            inputRef={importInputRef}
+            isBusy={importBusy}
+            isPreviewing={sqlImport.isPreviewing}
+            onImportFile={(file) => handleStartImport(file, 'picker')}
+          />
         }
       />
       <div className="flex min-h-0 flex-1">
@@ -646,7 +657,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             <Panel id="sql-explorer-pane" defaultSize="22%" minSize={200}>
               <div className="h-full border-r border-border-subtle">{explorer}</div>
             </Panel>
-            <SqlResizeHandle orientation="vertical" />
+            <ResizeHandle orientation="vertical" />
             <Panel id="sql-main-pane" minSize={360}>
               {main}
             </Panel>

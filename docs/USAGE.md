@@ -13,7 +13,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
 | Close active tab        | `Cmd+W`       | `Ctrl+W`        |
-| Explorer / tool list    | `Cmd+B`       | `Ctrl+B`        |
+| Explorer / tool list / SQL Explorer | `Cmd+B` | `Ctrl+B` |
 | Show or hide the dock   | `Cmd+\`       | `Ctrl+\`        |
 | Quick open (go to file) | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
@@ -35,7 +35,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
 
-`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
+`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width, and on the SQL tab it folds the SQL Explorer to its 44 px rail. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
 
 The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
 
@@ -210,7 +210,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - The **Explorer** on the left lists Local (in-memory for this session, or persistent when Settings › Editor › SQL workspace keeps tables), its schemas with Tables, Views and Macros, each table's row count and the format it was imported from, and each column's DuckDB type. `information_schema` sits collapsed at the bottom. **Filter objects** narrows the tree and the Queries list under it; **Collapse all** folds the tree. Dragging a CSV, Parquet or JSON file over the Explorer shows the drop target, and dropping it opens the same import preview. With no tables, **Try a sample table** creates `cities` (city, orders, revenue) and opens a ready-to-run SELECT.
 - `Cmd/Ctrl+B` on the SQL tab folds the Explorer to a 44 px rail (new query, import) and back.
 - Results sit under the editor. A strip names the SQL that produced them: *ran from the editor*, or *generated · opened from* a table you clicked in the Explorer, with **Edit in editor** to take that SELECT into the query. Table, JSON and Profile are tabs; Profile runs a DuckDB column summary of the newest result when you open it. Numbers align right, `null` reads in italics, and each header shows the DuckDB type (the Arrow type is in its tooltip). Click a row or move with the arrow keys, then `Cmd/Ctrl+C` copies that row as JSON.
-- **Export full result…** writes the rows this result fetched as CSV, TSV, JSON, Markdown or SQL INSERT, with header row, delimiter and NULL-as-empty options, to a file or the clipboard. When DuckDB returned more rows than it fetched, the dialog says how many it holds. Its Local hand-offs: **Save as table** re-runs a single read query as `CREATE TABLE … AS`, **Send to Python tab** opens a Python tab with up to 1,000 rows as dicts (it counts toward the Free tab limit), and **Save as run capsule** copies the run's capsule, like `Cmd/Ctrl+Shift+X`.
+- **Export full result…** writes the rows this result fetched as CSV, TSV, JSON, Markdown or SQL INSERT, with header row, delimiter and NULL-as-empty options, to a file or the clipboard. When DuckDB returned more rows than it fetched, the dialog says how many it holds. Its Local hand-offs: **Save as table** re-runs a single read query as `CREATE TABLE … AS`, **Send to Python tab** opens a Python tab with up to 1,000 rows as dicts (an ordinary tab: it counts toward the Free tab limit and is kept with your session), and **Save as run capsule** copies the run's capsule, like `Cmd/Ctrl+Shift+X`.
 
 ## Network from running code (Labs)
 

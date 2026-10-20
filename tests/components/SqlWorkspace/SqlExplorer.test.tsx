@@ -137,4 +137,9 @@ describe('SqlExplorer', () => {
     await user.click(screen.getByTestId('sql-explorer-fold'));
     expect(props.onFold).toHaveBeenCalledOnce();
   });
+
+  it('waits for the first catalog read before offering the empty state', () => {
+    renderExplorer({ catalog: { tables: [], macros: [], systemViews: [] }, hasLoaded: false });
+    expect(screen.queryByTestId('sql-explorer-empty')).toBeNull();
+  });
 });

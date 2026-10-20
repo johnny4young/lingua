@@ -211,7 +211,7 @@ const SHORTCUT_METADATA = {
   },
   'view-toggle-sidebar': {
     labelKey: 'shortcuts.item.toggleSidebar.label',
-    keywords: ['sidebar', 'explorer', 'toggle', 'utilities', 'tool list', 'rail'],
+    keywords: ['sidebar', 'explorer', 'toggle', 'utilities', 'tool list', 'rail', 'sql'],
   },
   'view-toggle-presenter': {
     labelKey: 'shortcuts.item.presenterMode.label',

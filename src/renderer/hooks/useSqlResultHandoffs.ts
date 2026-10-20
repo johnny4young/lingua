@@ -9,10 +9,7 @@ import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader
 import { useEditorStore } from '../stores/editorStore';
 import { useUIStore } from '../stores/uiStore';
 import { quoteSqlIdentifier } from '../components/SqlWorkspace/sqlResultFormatters';
-import {
-  PYTHON_HANDOFF_ROW_CAP,
-  rowsToPythonSource,
-} from '../components/SqlWorkspace/sqlResultExport';
+import { rowsToPythonSource } from '../components/SqlWorkspace/sqlResultExport';
 import type { SqlResultHandoffs } from '../components/SqlWorkspace/SqlExportDialog';
 import type { SqlResultSource } from '../components/SqlWorkspace/SqlResultPreview';
 
@@ -51,21 +48,20 @@ export function useSqlResultHandoffs({
       source !== undefined && buildColumnProfileQuery(source.sql) !== null
         ? source.sql.trim().replace(/;\s*$/, '')
         : null;
-    const label =
+    // Quoted identifiers may hold line breaks; one would end the Python comment the label sits in.
+    const label = (
       source?.origin === 'table'
         ? source.tableName
-        : query?.name.trim() || t('sqlWorkspace.queryList.renamePlaceholder');
+        : query?.name.trim() || t('sqlWorkspace.queryList.renamePlaceholder')
+    ).replace(/[\r\n\u2028\u2029]+/g, ' ');
 
     const handoffs: SqlResultHandoffs = {
       onSendToPython: rows => {
         const { source: code, included } = rowsToPythonSource(
           response.columns,
           rows,
-          t('sqlWorkspace.handoff.pythonHeader', {
-            name: label,
-            shown: Math.min(rows.length, PYTHON_HANDOFF_ROW_CAP),
-            total: response.rowCount,
-          })
+          (shown) =>
+            t('sqlWorkspace.handoff.pythonHeader', { name: label, shown, total: response.rowCount })
         );
         const id = crypto.randomUUID();
         useEditorStore

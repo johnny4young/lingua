@@ -176,12 +176,12 @@ function pythonLiteral(value: unknown, numeric: boolean): string {
 
 /**
  * `rows = [{...}, ...]` for a new Python tab. Stops at the row or byte cap;
- * `included` says how many rows made it in.
+ * the header receives the count that made it in.
  */
 export function rowsToPythonSource(
   columns: Columns,
   rows: Rows,
-  header: string
+  header: (included: number) => string
 ): { source: string; included: number } {
   const numeric = columns.map(col => isNumericSqlType(arrowTypeToDuckDb(col.type)));
   const lines: string[] = [];
@@ -198,7 +198,7 @@ export function rowsToPythonSource(
   }
   const body = lines.length > 0 ? `\n${lines.join('\n')}\n` : '';
   return {
-    source: `${header}\nrows = [${body}]\n\nprint(len(rows), "rows")\n`,
+    source: `${header(lines.length)}\nrows = [${body}]\n\nprint(len(rows), "rows")\n`,
     included: lines.length,
   };
 }

@@ -11,6 +11,7 @@ vi.mock('../../../src/renderer/utils/downloadTextFile', () => ({
 import { SqlResultPreview } from '../../../src/renderer/components/SqlWorkspace/SqlResultPreview';
 import type { SqlColumnProfileOutcome } from '../../../src/renderer/runtime/sqlColumnProfile';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
+import i18next from 'i18next';
 import type { SqlResponseV1 } from '../../../src/shared/sqlWorkspace';
 
 function response(overrides: Partial<SqlResponseV1> = {}): SqlResponseV1 {
@@ -334,6 +335,9 @@ describe('SqlResultPreview', () => {
         messageKey: 'sqlWorkspace.export.exported',
         values: { format: 'CSV', count: 2 },
       });
+      expect(i18next.t('sqlWorkspace.export.exported', { format: 'CSV', count: 1 })).toBe(
+        'Exported 1 row as CSV'
+      );
     });
 
     it('copies the chosen format to the clipboard', async () => {

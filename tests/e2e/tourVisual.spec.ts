@@ -180,7 +180,7 @@ test.describe('website tour evidence', () => {
       await expect(page.getByText('200 OK').first()).toBeVisible();
       await capture(page, `http-workspace-${language}.png`);
 
-      // SQL workspace: imported CSV, formatted aggregate query, column profile.
+      // SQL workspace: imported CSV, formatted aggregate query, Profile tab.
       await page.keyboard.press('ControlOrMeta+Alt+S');
       await hideConsole(page);
       await page.getByTestId('sql-workspace-empty-import-input').setInputFiles({

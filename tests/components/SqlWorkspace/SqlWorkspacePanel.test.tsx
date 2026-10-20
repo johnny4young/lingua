@@ -669,6 +669,67 @@ function csvFile(name = 'Sales Data.csv'): File {
   return new File(['id,label\n1,one\n2,two\n'], name, { type: 'text/csv' });
 }
 
+describe('SqlWorkspacePanel — opening tables from the Explorer', () => {
+  /** Lists `slow` and `fast`; reading `slow` waits until the test releases it. */
+  function tablesEngine(releaseSlow: Promise<void>): DuckDbEngineHandle {
+    return {
+      connect: async () => ({
+        query: async (sql: string) => {
+          if (/FROM information_schema\.tables/i.test(sql)) {
+            return mapArrowTable(
+              arrowTable(
+                [
+                  { name: 'table_schema', type: 'VARCHAR' },
+                  { name: 'table_name', type: 'VARCHAR' },
+                ],
+                [
+                  { table_schema: 'main', table_name: 'slow' },
+                  { table_schema: 'main', table_name: 'fast' },
+                ]
+              )
+            );
+          }
+          if (/"slow"/.test(sql)) {
+            await releaseSlow;
+            return mapArrowTable(arrowTable([{ name: 's', type: 'INTEGER' }], [{ s: 1 }]));
+          }
+          return mapArrowTable(arrowTable([{ name: 'f', type: 'INTEGER' }], [{ f: 2 }]));
+        },
+        close: async () => undefined,
+      }),
+      terminate: async () => undefined,
+    };
+  }
+
+  it('keeps the last table opened when an earlier open finishes later', async () => {
+    let release!: () => void;
+    const releaseSlow = new Promise<void>((resolve) => (release = resolve));
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(tablesEngine(releaseSlow)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-explorer-refresh'));
+    const slow = await screen.findByText('slow');
+    await user.click(slow);
+    await user.click(screen.getByText('fast'));
+    await waitFor(() =>
+      expect(screen.getByTestId('sql-result-strip-sql').textContent).toContain('"fast"')
+    );
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId('sql-result-strip-sql').textContent).toContain('"fast"');
+  });
+
+  it('opens the connection bar picker from the folded rail', async () => {
+    const user = userEvent.setup();
+    useWorkspaceSqlStore.setState({ explorerFolded: true });
+    render(<SqlWorkspacePanel />);
+    const input = screen.getByTestId('sql-workspace-import-input') as HTMLInputElement;
+    const click = vi.spyOn(input, 'click');
+    await user.click(screen.getByTestId('sql-explorer-rail-import'));
+    expect(click).toHaveBeenCalledOnce();
+  });
+});
+
 describe('SqlWorkspacePanel — file import', () => {
   it('keyboard path: Import button is a real focusable button with an aria-label', () => {
     render(<SqlWorkspacePanel />);

@@ -1,6 +1,6 @@
 /**
  * Arrow type strings (as `String(arrowType)` prints them) mapped to the
- * DuckDB names the profile and schema browser already use. Unknown shapes
+ * DuckDB names the profile and the Explorer already use. Unknown shapes
  * come back unchanged so nothing is ever hidden.
  */
 
