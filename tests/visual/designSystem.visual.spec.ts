@@ -28,6 +28,8 @@ async function boot(page: Page, theme: Theme): Promise<void> {
             hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
             restoreSessionMode: 'never',
+            // Tips rotate per load, so a baseline would change with each one.
+            contextualHintsEnabled: false,
           },
           version: 3,
         })
