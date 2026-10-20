@@ -730,7 +730,7 @@ export function HttpRequestEditor({
         </div>
         {/* Send is the SLATE accent primary per the proto
             (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
-            Green stays reserved for SQL Run / success states. Label +
+            SQL Run shares the same accent primary. Label +
             shortcut hint show inline. */}
         {isExecuting ? (
           // In-flight → the primary button becomes Stop (cancels the

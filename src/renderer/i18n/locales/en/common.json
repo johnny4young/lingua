@@ -268,8 +268,6 @@
   "editor.description": "Keep the Monaco surface aligned with how you read code and how aggressively you want automatic safeguards.",
   "editor.theme.label": "Editor theme",
   "editor.theme.hint": "Picks the Monaco theme. The shell follows its light or dark polarity.",
-  "editor.syncShellWithEditorTheme.label": "Match shell to editor theme",
-  "editor.syncShellWithEditorTheme.hint": "When on, picking a light editor theme flips the console and run-result panels to light. Turn off to keep the shell theme independent.",
   "editor.fontFamily.label": "Font family",
   "editor.fontFamily.hint": "Use a coding typeface that matches your workflow.",
   "editor.fontFamily.optionWithLigatures": "{{name}} (ligatures)",

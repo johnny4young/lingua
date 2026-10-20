@@ -4,7 +4,7 @@ category: forms
 
 # RuntimeSelector
 
-The workbench run control: language picker, mode picker and the Run/Stop button in one strip. `running` swaps Run for Stop. This is the only place green is used as a fill.
+The workbench run control: language picker, mode picker and the Run/Stop button in one strip. `running` swaps Run for Stop. The Run segment is the surface's primary control: accent fill, ink by contrast.
 
 ## Props
 

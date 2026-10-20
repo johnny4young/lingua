@@ -48,8 +48,9 @@ names, and do not hard-code hex values.
 
 Non-negotiables, in order of how often they get broken:
 
-1. **Green is reserved for Run and Success.** Never a generic accent. The one
-   green fill in the product is `RuntimeSelector`'s Run/Stop button.
+1. **Green is reserved for Success.** Never a generic accent. Run and the main
+   action on each surface use the accent fill with `text-fg-on-accent`, and a
+   surface has one saturated control.
 2. **One accent hue** — slate at hue 210. Multi-hue exists only for syntax
    highlighting and the four semantic status colors.
 3. **Icons are stroke-based Lucide-family SVGs**, 1.5–2 stroke width. **No

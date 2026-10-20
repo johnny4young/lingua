@@ -310,6 +310,25 @@ describe('Toolbar', () => {
     expect(screen.queryByRole('menu', { name: 'Execution options' })).toBeNull();
   });
 
+  it('keeps both halves of the Run split control on one style', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
+    render(<Toolbar />);
+
+    const chevron = screen.getByTestId('toolbar-run-menu-button');
+    expect(chevron.className).toContain('bg-accent');
+    expect(chevron.className).toContain('disabled:bg-bg-inset');
+    await user.click(chevron);
+    const runRow = screen.getByRole('menuitem', { name: /Run/ });
+    expect(runRow.className).toContain('bg-accent-tint');
+    expect(runRow.className).not.toContain('success');
+
+    await user.click(screen.getByTestId('toolbar-debug-button'));
+    expect(screen.getByTestId('toolbar-run-button').className).toContain('button-danger');
+    expect(chevron.className).toContain('bg-transparent');
+    expect(chevron.className).not.toContain('bg-error/12');
+  });
+
   it('closes an open Run menu when the primary action starts', async () => {
     const user = userEvent.setup();
     render(<Toolbar />);

@@ -302,8 +302,8 @@ export function Toolbar() {
                   className={cn(
                     'inline-flex w-10 items-center justify-center border-l px-2 text-body-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40',
                     primaryActionIsDebug
-                      ? 'border-error/20 bg-error/12 text-error hover:bg-error/18'
-                      : 'border-fg-on-accent/15 bg-accent text-fg-on-accent hover:bg-accent-hover'
+                      ? 'border-error-fg/20 bg-transparent text-error-fg hover:bg-error-bg'
+                      : 'border-fg-on-accent/15 bg-accent text-fg-on-accent hover:bg-accent-hover disabled:border-border-default disabled:bg-bg-inset disabled:text-fg-muted disabled:opacity-100'
                   )}
                 >
                   <ChevronDown size={13} />
@@ -325,7 +325,7 @@ export function Toolbar() {
                   className={cn(
                     'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                     selectedExecutionAction === 'run'
-                      ? 'bg-success-bg text-success-fg'
+                      ? 'bg-accent-tint text-accent-fg'
                       : 'text-fg-base hover:bg-bg-panel-alt'
                   )}
                 >

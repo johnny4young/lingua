@@ -11,6 +11,7 @@ The goal is to keep current automation and future coverage planning in one
 place:
 
 - Playwright Web through `pnpm run test:e2e:web`
+- opt-in visual snapshots through `pnpm run test:visual:web`
 - component/unit coverage through `pnpm test -- --run`
 - lightweight Electron Stagewright MCP desktop UI smoke through
   `pnpm run smoke:desktop:stagewright`
@@ -300,9 +301,10 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ✅ | `TC-041` | `BOTH` | `developer` | Open settings > appearance | Dark and light shell options are visible |
+| ✅ | `TC-041` | `BOTH` | `developer` | Open settings > appearance | Dark, Light and System shell options are visible |
 | ✅ | `TC-042` | `BOTH` | `developer` | Switch to light mode | Shell changes to light theme and persists |
 | ✅ | `TC-043` | `BOTH` | `developer` | Switch to dark mode | Shell changes to dark theme and persists |
+| ✅ | `TC-101` | `BOTH` | `developer` | Pick System, flip the OS color scheme | Shell and Lingua editor theme follow the OS live and on reload |
 | ✅ | `TC-044` | `BOTH` | `developer` | Change editor theme | Monaco theme changes |
 | ✅ | `TC-045` | `BOTH` | `developer` | Change font family | Monaco uses selected font |
 | ✅ | `TC-046` | `BOTH` | `developer` | Change font size | Monaco font size changes |

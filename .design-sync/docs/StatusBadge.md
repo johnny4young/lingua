@@ -4,7 +4,7 @@ category: core
 
 # StatusBadge
 
-Uppercase mono badge for a persistent state: license tier, save state, or a run outcome. `dot` prepends a 5px dot tinted to the tone. Green (`success`) is reserved for Run/Success — never as a generic accent.
+Uppercase mono badge for a persistent state: license tier, save state, or a run outcome. `dot` prepends a 5px dot tinted to the tone. Green (`success`) is reserved for Success — never as a generic accent.
 
 ## Props
 

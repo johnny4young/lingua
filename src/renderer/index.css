@@ -848,9 +848,6 @@
      keeps call sites on them. */
   .icon-button {
     @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-background;
-  }
-
-  .icon-button {
     transition:
       background-color var(--duration-fast) var(--curve-ease-out),
       border-color var(--duration-fast) var(--curve-ease-out),
@@ -929,9 +926,6 @@
 
   .field-shell {
     @apply w-full rounded-4xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-body-md text-foreground outline-none placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
-  }
-
-  .field-shell {
     transition:
       border-color var(--duration-normal) var(--curve-ease-out),
       background-color var(--duration-normal) var(--curve-ease-out),
@@ -1660,7 +1654,7 @@
      primitive uses (ResultHeader tabs, RuntimeSelector segments,
      ModalShell close, .icon-button) instead of the browser's default
      UA outline. `ring-inset` because the pill clips its children; the
-     run segment keeps its green glow alongside this ring. */
+     run segment keeps its accent glow alongside this ring. */
   .action-pill-segment:focus-visible,
   .action-pill-run:focus-visible,
   .action-pill-icon-button:focus-visible,
@@ -1808,18 +1802,6 @@
     font-size: 10px;
     font-weight: 700;
     line-height: 1;
-  }
-
-  /* No dark-theme fill override needed: --color-success-fg and
-     --color-fg-on-accent already swap to the dark ramp (light-green
-     fill + near-black label), matching how RuntimeSelector's run
-     segment flips. */
-
-  .action-pill-run:not(:disabled):hover {
-    /* Darken the fill on hover by mixing toward the deeper success
-       border token — stays on the single success ramp in both
-       themes instead of a one-off green. */
-    background: color-mix(in srgb, var(--color-success-fg) 82%, var(--color-success-border));
   }
 
   .action-pill-run[data-running='true'] {
@@ -2219,10 +2201,10 @@
 @keyframes run-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success-fg) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-success-fg) 14%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-accent) 14%, transparent);
   }
 }
 

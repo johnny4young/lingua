@@ -88,7 +88,7 @@ export function RuntimeSelector({
         <ChevronDown size={12} className="text-fg-subtle" aria-hidden />
       </button>
 
-      {/* RUN segment — the one sanctioned green action. */}
+      {/* RUN segment — the surface's accent primary. */}
       <button
         type="button"
         onClick={onRun}

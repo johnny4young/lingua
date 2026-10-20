@@ -1,5 +1,6 @@
 import type { SettingsState } from '../types/settings';
 import { currentEffectiveTier } from './licenseSelectors';
+import { systemEditorTheme } from '../utils/appTheme';
 import {
   DEFAULT_KEYMAP_PRESET_ID,
   findKeymapPreset,
@@ -251,6 +252,8 @@ export function settingsMerge(
       : 'ask';
   return {
     ...merged,
+    // Resync before first render so System never paints the last session's polarity.
+    ...(merged.theme === 'system' ? { editorTheme: systemEditorTheme() } : {}),
     restoreSessionMode,
     languageScorecardPlatform: sanitizeScorecardPlatform(merged.languageScorecardPlatform),
     hasCompletedOnboardingWelcome,

@@ -268,8 +268,6 @@
   "editor.description": "Mantén la superficie de Monaco alineada con tu forma de leer código y con el nivel de protección automática que quieres aplicar.",
   "editor.theme.label": "Tema del editor",
   "editor.theme.hint": "Elige el tema de Monaco. El shell sigue su polaridad clara u oscura.",
-  "editor.syncShellWithEditorTheme.label": "Sincronizar shell con el tema del editor",
-  "editor.syncShellWithEditorTheme.hint": "Cuando está activo, elegir un tema de editor claro pasa la consola y el panel de resultados a claro. Desactívalo para mantener el tema del shell independiente.",
   "editor.fontFamily.label": "Familia tipográfica",
   "editor.fontFamily.hint": "Usa una tipografía de programación que encaje con tu flujo.",
   "editor.fontFamily.optionWithLigatures": "{{name}} (con ligaduras)",

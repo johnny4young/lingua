@@ -26,6 +26,7 @@ const PAIRS: ReadonlyArray<readonly [string, string, string]> = [
   ['--color-error-fg', '--color-bg-panel', 'danger text'],
   ['--color-error-fg', '--color-error-bg', 'danger hover'],
   ['--color-fg-on-accent', '--color-error-fg', 'danger inside a confirmation'],
+  ['--color-fg-on-accent', '--color-error-border', 'confirmation danger hover'],
   ['--color-success-fg', '--color-success-bg', 'success pill'],
   ['--color-warning-fg', '--color-warning-bg', 'warning pill'],
   ['--color-info-fg', '--color-info-bg', 'info pill'],
@@ -58,6 +59,14 @@ describe('accent as text', () => {
     const accent = parseColor(resolveToken('--color-accent', dark, light));
     expect(contrastRatio(parseColor('#ffffff'), accent)).toBeLessThan(4.5);
     expect(ratio(dark, '--color-fg-on-accent', '--color-accent')).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('run pulse', () => {
+  it('rings the Run button in the accent, not the success hue', () => {
+    const keyframes = /@keyframes run-pulse\s*\{[\s\S]*?\n\}/.exec(css)?.[0] ?? '';
+    expect(keyframes).toContain('var(--color-accent)');
+    expect(keyframes).not.toContain('success');
   });
 });
 
