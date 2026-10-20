@@ -205,9 +205,18 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByTestId('utility-rail-crypto').getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByTestId('utility-rail-text').getAttribute('aria-pressed')).toBe('false');
 
-    await user.click(screen.getByTestId('utility-rail-time'));
-    expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(true);
-    expect(await screen.findByTestId('utility-category-time')).toBeTruthy();
+    // jsdom has no scrollIntoView; the rail scrolls the list to the picked category.
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      await user.click(screen.getByTestId('utility-rail-time'));
+      expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(true);
+      const timeHeading = await screen.findByTestId('utility-category-time');
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }));
+      expect(scrollIntoView.mock.contexts[0]).toBe(timeHeading);
+    } finally {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
 
     await user.click(screen.getByTestId('utility-list-collapse'));
     expect(useUtilityWorkspaceStore.getState().toolListOpen).toBe(false);
