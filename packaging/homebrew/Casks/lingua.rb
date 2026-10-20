@@ -1,9 +1,9 @@
 cask "lingua" do
   arch arm: "arm64", intel: "x64"
 
-  version "1.6.1"
-  sha256 arm:   "3acf2b4dad7d75b8077abfbfad3daff7f9976bfbfa66615bc33c43a4adbcfe7d",
-         intel: "6d26186d438912bb1034552435236504c47bb03abe561655437e9de4c5963a86"
+  version "1.6.2"
+  sha256 arm:   "a362dc2a56e01eed4138be1223049d0edb99ed26ff6944cca35d30789ff1a35c",
+         intel: "b171098a4635e116679944ab997112320d873aec294db7cd9b3aaa42df97a787"
 
   url "https://github.com/johnny4young/lingua/releases/download/v#{version}/Lingua-#{version}-mac-#{arch}.dmg"
   name "Lingua"
