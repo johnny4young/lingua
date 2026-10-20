@@ -6,7 +6,7 @@ import type { NetworkRunPolicy } from '@/../shared/networkPolicy';
 type Message = WorkerResponse | { type: string; [key: string]: unknown };
 
 /** Runs user code through the real JS worker handler with a stubbed network. */
-async function run(code: string, network?: NetworkRunPolicy, answer?: boolean) {
+async function run(code: string, network?: NetworkRunPolicy, answer?: boolean, checkLate = false) {
   vi.resetModules();
   const messages: Message[] = [];
   const upstream = vi.fn(async () => new Response('{"ok":true}'));
@@ -25,7 +25,14 @@ async function run(code: string, network?: NetworkRunPolicy, answer?: boolean) {
   const { createJsWorkerMessageHandler } = await import('@/workers/js-worker-execution');
   handler = createJsWorkerMessageHandler(globalThis as unknown as Worker);
   await handler({ data: { type: 'execute', runId: 'net', code, network } } as MessageEvent);
-  return { messages, upstream };
+  // Work the code scheduled runs after the handler returns, before the shell terminates the worker.
+  const late = checkLate
+    ? await globalThis.fetch('https://api.example/late').then(
+        () => 'fetched',
+        (error: Error) => error.message
+      )
+    : null;
+  return { messages, upstream, late };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -51,13 +58,19 @@ describe('JS worker network policy', () => {
     expect(logged(messages)).toContain('status 200');
   });
 
-  it('blocks user fetch under Block and reports the host', async () => {
-    const { messages, upstream } = await run(fetchCode, {
-      policy: 'block',
-      allowedHosts: [],
-      blockedHosts: [],
-    });
+  it('blocks user fetch under Block, also for work left behind, and reports the host', async () => {
+    const { messages, upstream, late } = await run(
+      fetchCode,
+      {
+        policy: 'block',
+        allowedHosts: [],
+        blockedHosts: [],
+      },
+      undefined,
+      true
+    );
     expect(upstream).not.toHaveBeenCalled();
+    expect(late).toMatch(/blocked a network request to api\.example/);
     expect(logged(messages).join('\n')).toMatch(
       /failed Lingua blocked a network request to api\.example/
     );

@@ -97,13 +97,21 @@ same lifetime they had before the split.
 
 The network policy for running code (Labs flag `networkPolicy`) is enforced
 inside these workers by `networkGuard.ts`, which wraps `fetch`,
-`XMLHttpRequest`, `WebSocket`, `EventSource` and nested workers. The wrappers
-stay installed for the worker's life and only enforce between the start and end
-of user code, so runtime loading passes: Pyodide installs them at worker start
-because `pyodide.http` captures `fetch` on import, and its index URL is always
-allowed. Under Ask, the worker posts `network-request` and awaits
-`network-decision`; the runner pauses its kill timer meanwhile and re-arms the
-full budget after the answer, as for a debugger pause. Ruby's synchronous eval
+`XMLHttpRequest`, `WebSocket`, `EventSource`, `WebTransport`,
+`WebSocketStream`, `Cache.add` and nested workers, leaving no prototype path
+back to the originals. It captures the built-ins it relies on (`URL`, the
+`Request.url` getter, string and array helpers) before user code runs, refuses
+any target it cannot classify, and the worker entries drop untrusted `message`
+events, so running code cannot forge a decision or a new policy. The renderer
+side validates every network message and caps open questions and log entries
+per run. The wrappers stay installed for the worker's life, and a run's policy
+stays in force until the next run starts, so work user code leaves scheduled is
+checked too. Runtime loading passes: Pyodide installs the guard at worker start
+because `pyodide.http` captures `fetch` on import, its index URL is always
+allowed, and package installs Lingua starts may reach PyPI's hosts through `exempt`. Under Ask, the
+worker posts `network-request` and awaits `network-decision`; the runner pauses
+its kill timer while any question is open and re-arms the full budget once the
+last is answered, as for a debugger pause. Ruby's synchronous eval
 cannot wait, so it never asks. The guard is best effort, not a sandbox: an API
 it does not wrap, such as a dynamic `import()` of a URL, is not stopped.
 

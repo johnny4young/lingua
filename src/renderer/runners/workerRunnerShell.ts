@@ -43,8 +43,8 @@ import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../utils/telemetry';
 import {
   cancelNetworkQuestions,
-  handleNetworkWorkerMessage,
-  networkPolicyForRun,
+  createNetworkMessageRouter,
+  networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
@@ -185,7 +185,7 @@ export class WorkerRunnerShell {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkPolicyForRun(context ?? {});
+    const network = networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>(resolve => {
       // A new worker per execution, for clean state.
@@ -235,26 +235,25 @@ export class WorkerRunnerShell {
       };
       this.cancelInFlight = cancelInFlight;
 
+      const routeNetworkMessage = createNetworkMessageRouter({
+        tabKey: networkKey,
+        network,
+        runtime: 'worker',
+        post: message => {
+          if (this.currentRunId === runId) worker.postMessage(message);
+        },
+        pauseDeadline: clearDeadline,
+        resumeDeadline: () => {
+          if (!resolved) armDeadline();
+        },
+      });
+
       worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
         // runId guard. Drop stale messages from terminated workers.
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
-        if (
-          handleNetworkWorkerMessage(msg, {
-            tabKey: networkKey,
-            runtime: 'worker',
-            post: message => {
-              if (this.currentRunId === runId) worker.postMessage(message);
-            },
-            pauseDeadline: clearDeadline,
-            resumeDeadline: () => {
-              if (!resolved) armDeadline();
-            },
-          })
-        ) {
-          return;
-        }
+        if (routeNetworkMessage(msg)) return;
 
         switch (msg.type) {
           case 'console': {

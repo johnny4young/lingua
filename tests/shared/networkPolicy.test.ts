@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { decideNetworkHost, isNetworkPolicy, networkHostOf } from '../../src/shared/networkPolicy';
+import { decideNetworkHost, isNetworkHost, isNetworkPolicy } from '../../src/shared/networkPolicy';
 import { sanitizeFeatureFlags } from '../../src/shared/featureFlags';
 
 describe('network policy helpers', () => {
-  it('reads the host of network URLs only', () => {
-    expect(networkHostOf('https://API.example:8443/x')).toBe('api.example:8443');
-    expect(networkHostOf('wss://socket.example/live')).toBe('socket.example');
-    expect(networkHostOf('/relative', 'https://app.example/w.js')).toBe('app.example');
-    expect(networkHostOf('data:text/plain,hi')).toBeNull();
-    expect(networkHostOf('blob:https://app.example/1')).toBeNull();
-    expect(networkHostOf('not a url')).toBeNull();
+  it('accepts host[:port] shapes only', () => {
+    expect(
+      ['api.example:8443', 'socket.example', '[::1]:8080', 'xn--bcher-kva.example'].every(
+        isNetworkHost
+      )
+    ).toBe(true);
+    expect(isNetworkHost({})).toBe(false);
+    expect(isNetworkHost('a.example/<img>')).toBe(false);
+    expect(isNetworkHost('x'.repeat(300))).toBe(false);
   });
 
   it('lets an earlier answer win over the policy', () => {
@@ -22,6 +24,7 @@ describe('network policy helpers', () => {
     expect(decideNetworkHost(run, 'b.example')).toBe('block');
     expect(decideNetworkHost(run, 'c.example')).toBe('ask');
     expect(decideNetworkHost({ ...run, policy: 'allow' }, 'b.example')).toBe('allow');
+    expect(decideNetworkHost({ ...run, policy: 'block' }, 'a.example')).toBe('block');
   });
 
   it('accepts only the three policies', () => {

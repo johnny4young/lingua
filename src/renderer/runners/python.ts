@@ -32,8 +32,8 @@ import {
 import { resolveUserEnvForRunner } from './env';
 import {
   cancelNetworkQuestions,
-  handleNetworkWorkerMessage,
-  networkPolicyForRun,
+  createNetworkMessageRouter,
+  networkRunPolicyFor,
   networkTabKey,
 } from './networkPolicyBridge';
 import {
@@ -328,7 +328,7 @@ export class PythonRunner implements LanguageRunner {
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
     const networkKey = networkTabKey(context ?? {});
-    const network = networkPolicyForRun(context ?? {});
+    const network = networkRunPolicyFor(networkKey);
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -385,6 +385,19 @@ export class PythonRunner implements LanguageRunner {
         });
       };
 
+      const routeNetworkMessage = createNetworkMessageRouter({
+        tabKey: networkKey,
+        network,
+        runtime: 'pyodide',
+        post: message => {
+          if (this.currentRunId === runId) worker.postMessage(message);
+        },
+        pauseDeadline: clearDeadline,
+        resumeDeadline: () => {
+          if (!resolved) armDeadline();
+        },
+      });
+
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
         // RunId guard. Drop buffered output from a previous,
@@ -392,21 +405,7 @@ export class PythonRunner implements LanguageRunner {
         // leak stale stdout / stderr into the next call.
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
-        if (
-          handleNetworkWorkerMessage(msg, {
-            tabKey: networkKey,
-            runtime: 'pyodide',
-            post: message => {
-              if (this.currentRunId === runId) worker.postMessage(message);
-            },
-            pauseDeadline: clearDeadline,
-            resumeDeadline: () => {
-              if (!resolved) armDeadline();
-            },
-          })
-        ) {
-          return;
-        }
+        if (routeNetworkMessage(msg)) return;
 
         switch (msg.type) {
           case 'bootstrap-progress':

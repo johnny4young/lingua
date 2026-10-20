@@ -7,7 +7,7 @@ import {
   useNetworkAskStore,
 } from '@/stores/networkAskStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { handleNetworkWorkerMessage } from '@/runners/networkPolicyBridge';
+import { createNetworkMessageRouter, networkTabKey } from '@/runners/networkPolicyBridge';
 import { useTrustEventStore } from '@/stores/trustEventStore';
 
 const initialSettings = useSettingsStore.getState();
@@ -64,20 +64,26 @@ describe('network ask store', () => {
   });
 });
 
+const ASK = { policy: 'ask' as const, allowedHosts: [], blockedHosts: [] };
+
 describe('runner bridge', () => {
   it('pauses the deadline while asking and posts the answer back', async () => {
     const hooks = {
       tabKey: 'tab-1',
+      network: ASK,
       runtime: 'worker' as const,
       post: vi.fn(),
       pauseDeadline: vi.fn(),
       resumeDeadline: vi.fn(),
     };
+    const route = createNetworkMessageRouter(hooks);
     expect(
-      handleNetworkWorkerMessage(
-        { type: 'network-request', runId: 'r', requestId: 'net-1', host: 'api.example' } as never,
-        hooks
-      )
+      route({
+        type: 'network-request',
+        runId: 'r',
+        requestId: 'net-1',
+        host: 'api.example',
+      } as never)
     ).toBe(true);
     expect(hooks.pauseDeadline).toHaveBeenCalledTimes(1);
     answerNetworkQuestion(useNetworkAskStore.getState().queue[0]!.id, false);
@@ -94,20 +100,107 @@ describe('runner bridge', () => {
   it('logs decided requests to the trust feed with the host only', () => {
     const hooks = {
       tabKey: 'tab-1',
+      network: { ...ASK, policy: 'block' as const },
       runtime: 'ruby' as const,
       post: vi.fn(),
       pauseDeadline: vi.fn(),
       resumeDeadline: vi.fn(),
     };
-    handleNetworkWorkerMessage(
-      { type: 'network-event', runId: 'r', host: 'api.example', verdict: 'blocked' } as never,
-      hooks
-    );
+    const route = createNetworkMessageRouter(hooks);
+    route({ type: 'network-event', runId: 'r', host: 'api.example', verdict: 'blocked' } as never);
     expect(useTrustEventStore.getState().events.at(-1)).toMatchObject({
       feature: 'network',
       action: 'blocked',
       summary: 'ruby: api.example',
     });
-    expect(handleNetworkWorkerMessage({ type: 'console' }, hooks)).toBe(false);
+    expect(route({ type: 'console' })).toBe(false);
+  });
+
+  it('keeps the deadline paused until every open question is answered', async () => {
+    const hooks = {
+      tabKey: 'tab-1',
+      network: ASK,
+      runtime: 'worker' as const,
+      post: vi.fn(),
+      pauseDeadline: vi.fn(),
+      resumeDeadline: vi.fn(),
+    };
+    const route = createNetworkMessageRouter(hooks);
+    route({ type: 'network-request', runId: 'r', requestId: 'a', host: 'a.example' } as never);
+    route({ type: 'network-request', runId: 'r', requestId: 'b', host: 'b.example' } as never);
+    expect(hooks.pauseDeadline).toHaveBeenCalledTimes(1);
+
+    answerNetworkQuestion(useNetworkAskStore.getState().queue[0]!.id, true);
+    await vi.waitFor(() => expect(hooks.post).toHaveBeenCalledTimes(1));
+    expect(hooks.resumeDeadline).not.toHaveBeenCalled();
+
+    answerNetworkQuestion(useNetworkAskStore.getState().queue[0]!.id, false);
+    await vi.waitFor(() => expect(hooks.resumeDeadline).toHaveBeenCalledTimes(1));
+  });
+
+  it('gives a run without a tab or notebook scope answers of its own', () => {
+    expect(networkTabKey({ tabId: 'tab-1' })).toBe('tab-1');
+    expect(networkTabKey({ scopeId: 'nb-1' })).toBe('nb-1');
+    expect(networkTabKey({})).not.toBe(networkTabKey({}));
+  });
+
+  it('answers Block without asking when the run cannot ask or the request is malformed', () => {
+    const post = vi.fn();
+    const base = { tabKey: 'tab-1', post, pauseDeadline: vi.fn(), resumeDeadline: vi.fn() };
+    const request = (host: unknown) =>
+      ({ type: 'network-request', runId: 'r', requestId: 'x', host }) as never;
+    createNetworkMessageRouter({ ...base, network: undefined, runtime: 'worker' })(
+      request('a.example')
+    );
+    createNetworkMessageRouter({ ...base, network: ASK, runtime: 'ruby' })(request('a.example'));
+    createNetworkMessageRouter({ ...base, network: ASK, runtime: 'worker' })(request({}));
+    createNetworkMessageRouter({ ...base, network: ASK, runtime: 'worker' })(
+      request('a.example/<img>')
+    );
+    expect(post).toHaveBeenCalledTimes(4);
+    expect(post.mock.calls.every(([message]) => message.allow === false)).toBe(true);
+    expect(useNetworkAskStore.getState().queue).toEqual([]);
+    expect(base.pauseDeadline).not.toHaveBeenCalled();
+  });
+
+  it('caps the questions one run can keep open', () => {
+    const post = vi.fn();
+    const route = createNetworkMessageRouter({
+      tabKey: 'tab-1',
+      network: ASK,
+      runtime: 'worker',
+      post,
+      pauseDeadline: vi.fn(),
+      resumeDeadline: vi.fn(),
+    });
+    for (let index = 0; index < 12; index += 1)
+      route({
+        type: 'network-request',
+        runId: 'r',
+        requestId: `q${index}`,
+        host: `h${index}.example`,
+      } as never);
+    expect(useNetworkAskStore.getState().queue).toHaveLength(8);
+    expect(post).toHaveBeenCalledTimes(4);
+  });
+
+  it('ignores activity a run without a policy reports, and records each host once', () => {
+    const before = useTrustEventStore.getState().events.length;
+    const event = (host: unknown, verdict: unknown) =>
+      ({ type: 'network-event', runId: 'r', host, verdict }) as never;
+    const hooks = {
+      tabKey: 'tab-1',
+      runtime: 'worker' as const,
+      post: vi.fn(),
+      pauseDeadline: vi.fn(),
+      resumeDeadline: vi.fn(),
+    };
+    createNetworkMessageRouter({ ...hooks, network: undefined })(event('a.example', 'blocked'));
+    const route = createNetworkMessageRouter({ ...hooks, network: ASK });
+    route(event('a.example', 'blocked'));
+    route(event('a.example', 'blocked'));
+    route(event('a.example', 'enabled'));
+    route(event({}, 'blocked'));
+    expect(useTrustEventStore.getState().events.length).toBe(before + 1);
   });
 });

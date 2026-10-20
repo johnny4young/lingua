@@ -123,6 +123,14 @@ describe('browser execution worker architecture', () => {
     }
   });
 
+  it('drops message events that running code dispatches to its own worker', () => {
+    for (const filename of ['js-worker.ts', 'python-worker.ts', 'ruby-worker.ts']) {
+      const source = workerSource(filename);
+      const listener = source.slice(source.indexOf("addEventListener('message'"));
+      expect(listener.slice(0, 260), filename).toContain('isTrusted');
+    }
+  });
+
   it('keeps responsibility modules within their review budgets', () => {
     for (const [filename, budget] of Object.entries(MODULE_BUDGETS)) {
       expect(lineCount(filename), `${filename} exceeds ${budget} lines`).toBeLessThanOrEqual(

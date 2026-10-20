@@ -12,8 +12,9 @@ import { Toggle } from './shared';
 import { AiSourceRow, NetworkFromRunningCodeRow } from './NetworkPolicyRows';
 
 /**
- * Privacy section — owns the telemetry consent toggle and the
- * native-execution acknowledgement reset. Three-state telemetry
+ * Privacy section: telemetry consent, the native-execution acknowledgement
+ * reset, the network and AI source rows, private hosts, sensitive headers and
+ * the Run Ledger. Three-state telemetry
  * consent: `unset` (default, treated as opt-out), `granted`, `declined`.
  * Flipping the toggle moves between `granted` and `declined`; we never
  * revert to `unset` from the UI so the future first-run prompt stays

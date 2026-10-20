@@ -25,14 +25,14 @@ async function executeJsWorkerCode(
   vi.resetModules();
   const messages: Array<Record<string, unknown>> = [];
   let messageHandler:
-    | ((event: { data: unknown }) => void | Promise<void>)
+    | ((event: { data: unknown; isTrusted?: boolean }) => void | Promise<void>)
     | null = null;
 
   vi.stubGlobal('self', {
     addEventListener: vi.fn(
       (
         type: string,
-        handler: (event: { data: unknown }) => void | Promise<void>
+        handler: (event: { data: unknown; isTrusted?: boolean }) => void | Promise<void>
       ) => {
         if (type === 'message') {
           messageHandler = handler;
@@ -48,6 +48,7 @@ async function executeJsWorkerCode(
   expect(messageHandler).not.toBeNull();
 
   await messageHandler!({
+    isTrusted: true,
     data: {
       type: 'execute',
       runId: 'run-1',
@@ -61,6 +62,24 @@ async function executeJsWorkerCode(
 }
 
 describe('js-worker module', () => {
+  it('ignores message events that running code dispatches itself', async () => {
+    vi.resetModules();
+    const postMessage = vi.fn();
+    let messageHandler: ((event: { data: unknown; isTrusted?: boolean }) => unknown) | null = null;
+    vi.stubGlobal('self', {
+      addEventListener: vi.fn((type: string, handler: typeof messageHandler) => {
+        if (type === 'message') messageHandler = handler;
+      }),
+      postMessage,
+    });
+    await import('@/workers/js-worker');
+    await messageHandler!({
+      isTrusted: false,
+      data: { type: 'execute', runId: 'forged', code: 'console.log(1)' },
+    });
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
   it('can be imported without throwing', async () => {
     // If this import throws, the stub above is incomplete
     await expect(import('@/workers/js-worker')).resolves.toBeDefined();
@@ -76,14 +95,14 @@ describe('js-worker module', () => {
     vi.resetModules();
     const messages: Array<Record<string, unknown>> = [];
     let messageHandler:
-      | ((event: { data: unknown }) => void | Promise<void>)
+      | ((event: { data: unknown; isTrusted?: boolean }) => void | Promise<void>)
       | null = null;
 
     vi.stubGlobal('self', {
       addEventListener: vi.fn(
         (
           type: string,
-          handler: (event: { data: unknown }) => void | Promise<void>
+          handler: (event: { data: unknown; isTrusted?: boolean }) => void | Promise<void>
         ) => {
           if (type === 'message') {
             messageHandler = handler;
@@ -99,6 +118,7 @@ describe('js-worker module', () => {
     expect(messageHandler).not.toBeNull();
 
     await messageHandler!({
+      isTrusted: true,
       data: {
         type: 'execute',
         runId: 'run-1',

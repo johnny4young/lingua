@@ -38,30 +38,24 @@ export interface NetworkDecisionMessage {
   allow: boolean;
 }
 
-const NETWORK_PROTOCOLS = new Set(['http:', 'https:', 'ws:', 'wss:']);
-
-/**
- * `host[:port]` of a network URL, resolved against `base` for relative ones.
- * Null for anything that never leaves the process (data:, blob:) or does not parse.
- */
-export function networkHostOf(url: string, base?: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(url, base);
-  } catch {
-    return null;
-  }
-  return NETWORK_PROTOCOLS.has(parsed.protocol) ? parsed.host.toLowerCase() : null;
-}
-
 export type NetworkVerdict = 'allow' | 'block' | 'ask';
 
-/** A host the tab already answered wins; otherwise the policy decides. */
+/** Block refuses every host; under Ask, a host the tab already answered wins. */
 export function decideNetworkHost(run: NetworkRunPolicy, host: string): NetworkVerdict {
-  if (run.policy === 'allow') return 'allow';
-  if (run.blockedHosts.includes(host)) return 'block';
-  if (run.allowedHosts.includes(host)) return 'allow';
-  return run.policy;
+  if (run.policy !== 'ask') return run.policy;
+  // Plain loops: the worker guard calls this next to user code that may replace Array methods.
+  for (let index = 0; index < run.blockedHosts.length; index += 1)
+    if (run.blockedHosts[index] === host) return 'block';
+  for (let index = 0; index < run.allowedHosts.length; index += 1)
+    if (run.allowedHosts[index] === host) return 'allow';
+  return 'ask';
+}
+
+const NETWORK_HOST = /^[a-z0-9._~%:[\]-]{1,262}$/i;
+
+/** A `host[:port]` as `networkHostOf` produces it; anything else from a worker is refused. */
+export function isNetworkHost(value: unknown): value is string {
+  return typeof value === 'string' && NETWORK_HOST.test(value);
 }
 
 export function networkBlockedMessage(host: string): string {

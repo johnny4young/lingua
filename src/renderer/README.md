@@ -657,7 +657,8 @@ Settings › Labs), Settings › Privacy chooses Allow, Ask or Block for code in
 JS/TS worker, Pyodide and ruby.wasm. Each run carries a `NetworkRunPolicy` built
 by `networkAskStore.networkRunPolicyFor`; inside the worker,
 `workers/networkGuard.ts` wraps fetch, XMLHttpRequest, WebSocket, EventSource
-and nested workers only while user code runs. Under Ask, an unknown host on
+and nested workers; a run's policy holds until the next run, so work the code
+leaves scheduled is checked too. Under Ask, an unknown host on
 `fetch` posts `network-request`; the runner pauses its kill timer
 (`runners/networkPolicyBridge.ts`) while `NetworkAskDialog` waits for an answer,
 which then holds for that host in the tab. Synchronous APIs and Ruby cannot
@@ -672,7 +673,8 @@ Settings search uses the curated catalog in
 Settings tab is mounted at a time, so DOM search would silently miss controls
 in every other tab. Catalog entries map localized labels, descriptions, and
 cross-language aliases to a tab plus a stable focus target. Selecting a result
-switches tabs, scrolls to the target, and moves keyboard focus there.
+switches tabs, scrolls to the target, and moves keyboard focus there. An
+entry with `requiresFlag` stays out of results until that Labs flag is on.
 
 `SettingsSectionChips.tsx` reads the open tab's `SettingsSection`s from the
 panel (`data-settings-chip`, the eyebrow or a short `chip` label) and shows a

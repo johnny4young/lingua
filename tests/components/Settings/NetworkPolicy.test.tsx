@@ -39,7 +39,7 @@ describe('Network from running code row', () => {
     expect(screen.getByRole('button', { name: 'Allow' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Block' }));
     expect(useSettingsStore.getState().networkFromRunningCode).toBe('block');
-    expect(screen.getByText(/Node, Deno, Bun, Go and Rust run natively/)).toBeTruthy();
+    expect(screen.getByText(/Node, Deno, Bun, Go, Rust and system Ruby on desktop run natively/)).toBeTruthy();
   });
 });
 

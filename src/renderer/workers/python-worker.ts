@@ -24,7 +24,11 @@ import { createPythonDependencyHandler } from './python-worker-dependencies';
 import { createPythonExecutionHandler } from './python-worker-execution';
 import type { PythonWorkerInboundMessage, PythonWorkerPort } from './python-worker-protocol';
 import { PYODIDE_INDEX_URL, createPythonRuntimeAdapter } from './python-worker-runtime';
-import { ensurePythonNetworkGuard, pythonNetworkAsker } from './python-worker-network';
+import {
+  ensurePythonNetworkGuard,
+  pythonNetworkAsker,
+  withPackageIndexAccess,
+} from './python-worker-network';
 
 // Before anything loads Pyodide, so `pyodide.http` captures the guarded fetch.
 ensurePythonNetworkGuard(PYODIDE_INDEX_URL);
@@ -36,6 +40,8 @@ const handleExecution = createPythonExecutionHandler(port, runtime);
 const handleDependencies = createPythonDependencyHandler(port, runtime);
 
 ctx.addEventListener('message', async (event: MessageEvent<unknown>) => {
+  // Only the renderer's postMessage is trusted; running code can dispatch fake control messages.
+  if (!event.isTrusted) return;
   const message = event.data as PythonWorkerInboundMessage;
 
   if (message.type === 'init' || message.type === 'reset-scope' || message.type === 'execute') {
@@ -44,7 +50,7 @@ ctx.addEventListener('message', async (event: MessageEvent<unknown>) => {
   }
 
   if (message.type === 'dependencies:list-loaded' || message.type === 'dependencies:install') {
-    await handleDependencies(message);
+    await withPackageIndexAccess(() => handleDependencies(message));
     return;
   }
 

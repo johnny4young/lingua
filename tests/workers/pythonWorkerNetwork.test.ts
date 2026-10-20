@@ -42,16 +42,22 @@ async function execute(network?: NetworkRunPolicy) {
     } as never
   );
   await handle({ type: 'execute', runId: 'py-net', code: 'user', network } as never);
-  // After the run, the guard no longer applies.
-  await fetch('https://api.example/after');
-  return { outcomes, upstream, posted };
+  // A package install Lingua starts may reach the package index, and nothing else.
+  const { withPackageIndexAccess } = await import('@/workers/python-worker-network');
+  await withPackageIndexAccess(() => fetch('https://files.pythonhosted.org/wheel.whl'));
+  // Anything else the code left behind still meets the run's policy.
+  const late = await fetch('https://api.example/late').then(
+    () => 'fetched',
+    (error: Error) => error.message
+  );
+  return { outcomes, upstream, posted, late };
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Pyodide worker network policy', () => {
-  it('blocks user requests under Block but never the runtime load or code after the run', async () => {
-    const { outcomes, upstream } = await execute({
+  it('blocks user requests under Block, after the run too, but never the runtime’s own loading', async () => {
+    const { outcomes, upstream, late } = await execute({
       policy: 'block',
       allowedHosts: [],
       blockedHosts: [],
@@ -59,8 +65,9 @@ describe('Pyodide worker network policy', () => {
     expect(outcomes[0]).toMatch(/blocked a network request to api\.example/);
     expect(upstream.mock.calls.map(([url]) => String(url))).toEqual([
       'https://cdn.example/pyodide/pyodide.asm.wasm',
-      'https://api.example/after',
+      'https://files.pythonhosted.org/wheel.whl',
     ]);
+    expect(late).toMatch(/blocked a network request to api\.example/);
   });
 
   it('lets user requests through without a policy', async () => {

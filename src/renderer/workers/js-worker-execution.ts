@@ -426,7 +426,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         }
         ctx.postMessage({ type: 'done', runId, executionTime });
       } finally {
-        networkGuard?.end();
+        // The guard stays on: this worker is single-shot, and work the code
+        // scheduled for later still runs until the shell terminates it.
         networkAsker.cancelAll();
         restoreJsWorkerConsole();
         // Restore the previous prompt / readline bindings even though

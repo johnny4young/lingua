@@ -45,7 +45,7 @@ export function NetworkAskDialog() {
         <div id="network-ask-body" className="space-y-2 px-5 py-5 text-body text-fg-muted">
           <p>{t('networkAsk.body', { runtime: t(`networkAsk.runtime.${question.runtime}`) })}</p>
           <p
-            className="rounded-md border border-border-subtle bg-bg-inset px-3 py-2 font-mono text-body-sm text-fg-base"
+            className="break-all rounded-md border border-border-subtle bg-bg-inset px-3 py-2 font-mono text-body-sm text-fg-base"
             data-testid="network-ask-host"
           >
             {question.host}

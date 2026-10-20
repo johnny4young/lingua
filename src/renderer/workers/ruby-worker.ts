@@ -216,6 +216,8 @@ function parseRubyError(text: string): { line?: number; message: string } {
 }
 
 ctx.addEventListener('message', async (event) => {
+  // Only the renderer's postMessage is trusted; running code can dispatch fake control messages.
+  if (!event.isTrusted) return;
   const msg = event.data;
 
   if (msg.type === 'init') {
@@ -255,10 +257,9 @@ ctx.addEventListener('message', async (event) => {
       }
 
       try {
-        if (network) {
-          networkRunId = runId;
-          networkGuard.begin(network);
-        }
+        // In force until the next run, so callbacks the code scheduled are checked too.
+        networkRunId = runId;
+        networkGuard.begin(network ?? { policy: 'allow', allowedHosts: [], blockedHosts: [] });
         runRubyCode(code);
       } catch (err) {
         // RbError surfaces as a regular Error with the formatted Ruby
@@ -332,7 +333,6 @@ ctx.addEventListener('message', async (event) => {
         executionTime: performance.now() - startTime,
       });
     } finally {
-      networkGuard.end();
       if (activeRunId === runId) activeRunId = null;
     }
   }
