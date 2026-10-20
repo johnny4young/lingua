@@ -7,6 +7,8 @@
  */
 
 import type { BrowserPreviewRefreshInterval } from '../../shared/browserPreviewRefresh';
+import type { FeatureFlagId, FeatureFlagState } from '../../shared/featureFlags';
+import type { NetworkPolicy } from '../../shared/networkPolicy';
 import type { ScorecardPlatform } from '../../shared/languageSupport';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
@@ -329,6 +331,10 @@ export interface SettingsState {
    * HTTP/SSE/WebSocket targets. The guarded proxy defaults this to false.
    */
   httpAllowPrivateHosts: boolean;
+  /** Network access for code in the sandboxed runtimes; enforced only with the networkPolicy flag on. */
+  networkFromRunningCode: NetworkPolicy;
+  /** Experimental features turned on in Settings › Labs. */
+  featureFlags: FeatureFlagState;
   /**
    * SQL workspace row preview cap. Sets the upper
    * bound on rows rendered in `<SqlResultPreview>`. The runtime
@@ -398,6 +404,8 @@ export interface SettingsState {
   /** Flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   setHttpAllowPrivateHosts: (enabled: boolean) => void;
+  setNetworkFromRunningCode: (policy: NetworkPolicy) => void;
+  setFeatureFlag: (id: FeatureFlagId, enabled: boolean) => void;
   /**
    * Three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut

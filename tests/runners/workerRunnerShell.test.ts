@@ -16,6 +16,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toFullOutput } from '@/utils/executionPresentation';
 import { WorkerRunnerShell, type WorkerRunSpec } from '@/runners/workerRunnerShell';
 import { useDebuggerStore } from '@/stores/debuggerStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { answerNetworkQuestion, useNetworkAskStore } from '@/stores/networkAskStore';
 
 class ControllableWorker {
   static latest: ControllableWorker | null = null;
@@ -513,5 +515,44 @@ describe('debugger stepping', () => {
 
     expect(worker.terminated).toBe(true);
     expect((await promise).timeoutMs).toBe(1_000);
+  });
+
+  it('sends the network policy and holds the deadline while the user answers a host', async () => {
+    vi.useFakeTimers();
+    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    try {
+      const { promise, worker } = startRun({ timeout: 1_000, context: { tabId: 'tab-net' } });
+      expect(worker.posted[0]?.['network']).toEqual({ policy: 'ask', allowedHosts: [], blockedHosts: [] });
+
+      worker.emitForRun({ type: 'network-request', requestId: 'net-1', host: 'api.example' });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(worker.terminated).toBe(false);
+      expect(useNetworkAskStore.getState().queue[0]).toMatchObject({ tabKey: 'tab-net', host: 'api.example' });
+
+      answerNetworkQuestion(useNetworkAskStore.getState().queue[0]!.id, true);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(worker.posted).toContainEqual({ type: 'network-decision', requestId: 'net-1', allow: true });
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(worker.terminated).toBe(true);
+      expect((await promise).timeoutMs).toBe(1_000);
+    } finally {
+      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+      useNetworkAskStore.setState({ answers: {}, queue: [] });
+    }
+  });
+
+  it('drops an unanswered network question when the run ends', async () => {
+    useSettingsStore.setState({ featureFlags: { networkPolicy: true }, networkFromRunningCode: 'ask' });
+    try {
+      const { shell, promise, worker } = startRun({ context: { tabId: 'tab-stop' } });
+      worker.emitForRun({ type: 'network-request', requestId: 'net-1', host: 'api.example' });
+      expect(useNetworkAskStore.getState().queue).toHaveLength(1);
+      shell.stop();
+      await promise;
+      expect(useNetworkAskStore.getState().queue).toHaveLength(0);
+    } finally {
+      useSettingsStore.setState({ featureFlags: {}, networkFromRunningCode: 'allow' });
+    }
   });
 });

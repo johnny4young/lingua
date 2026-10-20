@@ -29,7 +29,8 @@ export type TrustFeature =
   | 'share-link'
   | 'capsule-export'
   | 'run-ledger'
-  | 'ai';
+  | 'ai'
+  | 'network';
 
 export type TrustSensitivity = 'low' | 'medium' | 'high';
 
@@ -139,7 +140,9 @@ const VALID_FEATURES = new Set<TrustFeature>([
   'license',
   'share-link',
   'capsule-export',
+  'run-ledger',
   'ai',
+  'network',
 ]);
 
 const VALID_SENSITIVITIES = new Set<TrustSensitivity>([

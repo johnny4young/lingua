@@ -3,6 +3,7 @@ import type {
   DependencyInstallOutcome,
 } from '../../shared/dependencies/types';
 import type { WorkerResponse } from '../types/execution';
+import type { NetworkDecisionMessage, NetworkRunPolicy } from '../../shared/networkPolicy';
 
 export interface PythonWorkerInitMessage {
   type: 'init';
@@ -27,6 +28,8 @@ export interface PythonWorkerExecuteMessage {
   sourceMappingEnabled?: boolean;
   /** Capture every module-level expression in Python Scratchpad mode. */
   autoLog?: boolean;
+  /** Network policy for this run; absent means unrestricted. */
+  network?: NetworkRunPolicy;
 }
 
 export interface PythonWorkerListLoadedMessage {
@@ -52,7 +55,8 @@ export type PythonWorkerDependencyMessage =
 /** Every message accepted by the persistent Pyodide worker. */
 export type PythonWorkerInboundMessage =
   | PythonWorkerExecutionMessage
-  | PythonWorkerDependencyMessage;
+  | PythonWorkerDependencyMessage
+  | NetworkDecisionMessage;
 
 export type PythonInstallResultStatus = 'installed' | 'failed' | 'cancelled' | 'skipped-preflight';
 

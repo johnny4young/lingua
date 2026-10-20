@@ -26,6 +26,7 @@ import {
 import { buildLinguaWorkerBridge } from './js-worker-runtime';
 import { createJsWorkerSourceMapper } from './js-worker-source';
 import { createJsWorkerStdinReader } from './js-worker-stdin';
+import { createNetworkAsker, installNetworkGuard, type NetworkGuard } from './networkGuard';
 
 function evaluateWatchExpressions(
   watches: readonly string[],
@@ -44,6 +45,9 @@ function evaluateWatchExpressions(
 
 export function createJsWorkerMessageHandler(ctx: Worker) {
   let activeSession: JsWorkerDebuggerSession | null = null;
+  let networkRunId = '';
+  const networkAsker = createNetworkAsker(message => ctx.postMessage(message), () => networkRunId);
+  let networkGuard: NetworkGuard | null = null;
 
   return async (event: MessageEvent<unknown>): Promise<void> => {
     // One deliberate boundary assertion; `MessageEvent.data` is
@@ -51,6 +55,12 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
     // further casts, and the exhaustiveness guard after the last branch
     // makes an unhandled variant a compile error.
     const msg = event.data as JsWorkerInboundMessage;
+
+    // Answers to a network question arrive while the run awaits its fetch.
+    if (msg.type === 'network-decision') {
+      networkAsker.receive(msg);
+      return;
+    }
 
     // Debugger control messages from main. These
     // arrive WHILE a run is ongoing (the worker is paused awaiting a
@@ -133,6 +143,15 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
       // clean global scope (workers are single-shot today so this is
       // belt-and-braces, but if a future runner reuses the same
       // worker context the restoration keeps it honest).
+      if (exec.network && exec.network.policy !== 'allow') {
+        networkRunId = runId;
+        networkGuard ??= installNetworkGuard(self as unknown as typeof globalThis, {
+          ask: networkAsker.ask,
+          report: (host, verdict) => ctx.postMessage({ type: 'network-event', runId, host, verdict }),
+        });
+        networkGuard.begin(exec.network);
+      }
+
       const stdinReader = createJsWorkerStdinReader(exec.stdin);
       const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
       const prevReadline = (self as unknown as { readline?: unknown }).readline;
@@ -407,6 +426,8 @@ export function createJsWorkerMessageHandler(ctx: Worker) {
         }
         ctx.postMessage({ type: 'done', runId, executionTime });
       } finally {
+        networkGuard?.end();
+        networkAsker.cancelAll();
         restoreJsWorkerConsole();
         // Restore the previous prompt / readline bindings even though
         // the worker is single-shot — keeps the worker test harness

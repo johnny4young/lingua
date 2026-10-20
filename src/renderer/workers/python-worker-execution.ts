@@ -1,3 +1,4 @@
+import { beginPythonNetwork, endPythonNetwork } from './python-worker-network';
 import {
   PYTHON_EXECUTION_BOUNDARY_SOURCE,
   buildPythonBoundedExecutionSource,
@@ -78,6 +79,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
         captureScope,
         scopeDepth,
         scopeId,
+        network,
       } = msg;
       const marker =
         typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -93,6 +95,8 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
 
       try {
         const py = await runtime.loadPyodide();
+        // After loading, so Pyodide's own boot never meets the policy.
+        beginPythonNetwork(runId, network);
 
         // Install the stdin handler for EVERY run, not
         // only when the panel has lines. With an empty buffer the reader
@@ -360,6 +364,7 @@ export function createPythonExecutionHandler(ctx: PythonWorkerPort, runtime: Pyt
           executionTime: performance.now() - startTime,
         });
       } finally {
+        endPythonNetwork();
         runtime.setActiveRunId(null);
         // Restore Pyodide's stock stdin handler so
         // the next run starts on a clean baseline (the worker is

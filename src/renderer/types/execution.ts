@@ -9,6 +9,7 @@
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
+import type { NetworkWorkerMessage } from '../../shared/networkPolicy';
 import type { Language } from './language';
 
 export interface ExecutionContext {
@@ -344,6 +345,7 @@ export interface LanguageRunner {
  * it optional because they may fire before the first run.
  */
 export type WorkerResponse =
+  | NetworkWorkerMessage
   | {
       type: 'console';
       captureOrder?: number;

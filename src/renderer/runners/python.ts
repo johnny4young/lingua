@@ -31,6 +31,12 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { resolveUserEnvForRunner } from './env';
 import {
+  cancelNetworkQuestions,
+  handleNetworkWorkerMessage,
+  networkPolicyForRun,
+  networkTabKey,
+} from './networkPolicyBridge';
+import {
   appendCappedConsole,
   capStderrIfOverflowing,
   runnerStoppedResult,
@@ -321,18 +327,25 @@ export class PythonRunner implements LanguageRunner {
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
+    const networkKey = networkTabKey(context ?? {});
+    const network = networkPolicyForRun(context ?? {});
 
     return new Promise<ExecutionResult>((resolve) => {
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let resolved = false;
 
-      const finish = (value: ExecutionResult) => {
-        if (resolved) return;
-        resolved = true;
+      const clearDeadline = () => {
         if (timeoutHandle !== null) {
           clearTimeout(timeoutHandle);
           timeoutHandle = null;
         }
+      };
+
+      const finish = (value: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        clearDeadline();
+        if (network) cancelNetworkQuestions(networkKey);
         worker.removeEventListener('message', handler);
         worker.removeEventListener('error', crashHandler);
         if (this.currentRunId === runId) {
@@ -379,6 +392,21 @@ export class PythonRunner implements LanguageRunner {
         // leak stale stdout / stderr into the next call.
         if (!('runId' in msg) || msg.runId !== runId) return;
         if (this.currentRunId !== runId) return;
+        if (
+          handleNetworkWorkerMessage(msg, {
+            tabKey: networkKey,
+            runtime: 'pyodide',
+            post: message => {
+              if (this.currentRunId === runId) worker.postMessage(message);
+            },
+            pauseDeadline: clearDeadline,
+            resumeDeadline: () => {
+              if (!resolved) armDeadline();
+            },
+          })
+        ) {
+          return;
+        }
 
         switch (msg.type) {
           case 'bootstrap-progress':
@@ -561,21 +589,27 @@ export class PythonRunner implements LanguageRunner {
       worker.addEventListener('message', handler);
       worker.addEventListener('error', crashHandler);
 
+      // Re-armed with the full budget after a network question, like a debugger resume.
+      const armDeadline = () => {
+        clearDeadline();
+        timeoutHandle = setTimeout(() => {
+          worker.terminate();
+          if (this.worker === worker) {
+            this.worker = null;
+            this.pyodideLoaded = false;
+            this.loadingPromise = null;
+          }
+          finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
+        }, timeout);
+      };
+
       // parent-owned kill timer. Pyodide can't yield a
       // CPU-bound `while True: pass` from inside the worker, so the
       // only deterministic recovery is to terminate the worker and
       // recreate it on the next execute(). We clear `pyodideLoaded`
       // and `loadingPromise` so `ensurePyodide()` rebuilds from
       // scratch instead of returning a dead handle.
-      timeoutHandle = setTimeout(() => {
-        worker.terminate();
-        if (this.worker === worker) {
-          this.worker = null;
-          this.pyodideLoaded = false;
-          this.loadingPromise = null;
-        }
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
-      }, timeout);
+      armDeadline();
 
       // Pipe the resolved user env
       // into the Pyodide worker so user code's `os.environ` reflects
@@ -611,6 +645,7 @@ export class PythonRunner implements LanguageRunner {
         richConsoleEnabled: true,
         sourceMappingEnabled: true,
         autoLog: context?.autoLog === true,
+        network,
       });
     });
   }

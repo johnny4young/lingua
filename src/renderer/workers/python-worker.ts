@@ -23,7 +23,11 @@
 import { createPythonDependencyHandler } from './python-worker-dependencies';
 import { createPythonExecutionHandler } from './python-worker-execution';
 import type { PythonWorkerInboundMessage, PythonWorkerPort } from './python-worker-protocol';
-import { createPythonRuntimeAdapter } from './python-worker-runtime';
+import { PYODIDE_INDEX_URL, createPythonRuntimeAdapter } from './python-worker-runtime';
+import { ensurePythonNetworkGuard, pythonNetworkAsker } from './python-worker-network';
+
+// Before anything loads Pyodide, so `pyodide.http` captures the guarded fetch.
+ensurePythonNetworkGuard(PYODIDE_INDEX_URL);
 
 const ctx = self as unknown as Worker;
 const port = ctx as unknown as PythonWorkerPort;
@@ -41,6 +45,11 @@ ctx.addEventListener('message', async (event: MessageEvent<unknown>) => {
 
   if (message.type === 'dependencies:list-loaded' || message.type === 'dependencies:install') {
     await handleDependencies(message);
+    return;
+  }
+
+  if (message.type === 'network-decision') {
+    pythonNetworkAsker.receive(message);
     return;
   }
 

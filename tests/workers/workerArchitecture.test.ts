@@ -27,13 +27,18 @@ const protocolProbe: [
   Assert<
     Equal<
       JsWorkerInboundMessage['type'],
-      'execute' | 'resume' | 'step' | 'set-breakpoints' | 'set-watches'
+      'execute' | 'resume' | 'step' | 'set-breakpoints' | 'set-watches' | 'network-decision'
     >
   >,
   Assert<
     Equal<
       PythonWorkerInboundMessage['type'],
-      'init' | 'reset-scope' | 'execute' | 'dependencies:list-loaded' | 'dependencies:install'
+      | 'init'
+      | 'reset-scope'
+      | 'execute'
+      | 'dependencies:list-loaded'
+      | 'dependencies:install'
+      | 'network-decision'
     >
   >,
   Assert<
