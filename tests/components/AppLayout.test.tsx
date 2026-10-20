@@ -353,9 +353,14 @@ describe('AppLayout responsive shell', () => {
 
     expect((await screen.findByTestId('results-dock')).getAttribute('data-expanded')).toBe('false');
     expect(screen.queryByTestId('console-panel')).toBeNull();
+    expect(screen.getByTestId('bottom-panel-restore').getAttribute('aria-expanded')).toBe('false');
     await user.click(screen.getByTestId('bottom-panel-console-tab'));
     expect(useUIStore.getState().consoleVisible).toBe(true);
     expect(await screen.findByTestId('console-panel')).toBeTruthy();
+
+    await user.click(screen.getByTestId('bottom-panel-hide'));
+    expect(useUIStore.getState().consoleVisible).toBe(false);
+    expect(await screen.findByTestId('bottom-panel-restore')).toBeTruthy();
   });
 
   it('shows the Browser preview panel for an active browser-preview tab even when console is closed', async () => {

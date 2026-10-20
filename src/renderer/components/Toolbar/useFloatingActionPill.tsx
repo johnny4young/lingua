@@ -139,15 +139,15 @@ export function useFloatingActionPill(t: (k: string) => string) {
 
   // Default position computed synchronously so the pill renders in its
   // final slot on first paint (no flicker from a measure useEffect).
-  // Handoff position: AppChrome is 36px tall; 44px keeps the pill in
-  // the same visual row as editor details while leaving an 8px drag gap.
+  // Handoff position: the undocked AppChrome is 48px tall, the same row the
+  // macOS traffic lights are centred in; 56px leaves an 8px drag gap.
   const defaultPos = useMemo(() => {
-    if (typeof window === 'undefined') return { x: 16, y: 44 };
+    if (typeof window === 'undefined') return { x: 16, y: 56 };
     const centeredX = Math.floor((window.innerWidth - estimatedPillWidth) / 2);
     const rightSafeX = window.innerWidth - estimatedPillWidth - RIGHT_EDITOR_HEADER_RESERVE;
     return {
       x: Math.max(16, Math.min(centeredX, rightSafeX)),
-      y: 44,
+      y: 56,
     };
   }, [estimatedPillWidth]);
 

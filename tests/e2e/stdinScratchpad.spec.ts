@@ -115,6 +115,21 @@ test.describe('stdin / input — JS + TS + Python ', () => {
     await expect(page.getByTestId('bottom-panel-stdin-count')).toHaveText('3');
   });
 
+  test('2b. The Input drawer fits Arguments at the default window size', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    await createJavaScriptTab(page);
+    await openStdinTab(page);
+
+    const panel = await page.getByTestId('stdin-panel').boundingBox();
+    const args = await page.getByTestId('stdin-input-args').locator('textarea').boundingBox();
+    expect(panel && args).toBeTruthy();
+    expect(args!.y + args!.height).toBeLessThanOrEqual(panel!.y + panel!.height);
+    expect(args!.height).toBeGreaterThanOrEqual(48);
+  });
+
   test('3. Empty stdin buffer leaves prompt() returning null (native)', async ({
     page,
   }) => {

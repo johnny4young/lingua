@@ -67,7 +67,7 @@ A handful of shortcuts that make Lingua disappear:
 - `Cmd/Ctrl+Shift+P` — command palette
 - `Cmd/Ctrl+Enter` — run current tab
 - `Cmd/Ctrl+,` — settings
-- `Cmd/Ctrl+\` — toggle the console
+- `Cmd/Ctrl+\` — show or hide the results dock
 - `Cmd/Ctrl+K` — open Developer Utilities
 
 Vim mode is opt-in — turn it on under Settings → Editor.

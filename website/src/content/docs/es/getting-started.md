@@ -67,7 +67,7 @@ Unos pocos atajos para que Lingua desaparezca del camino:
 - `Cmd/Ctrl+Shift+P` — paleta de comandos.
 - `Cmd/Ctrl+Enter` — ejecutar pestaña actual.
 - `Cmd/Ctrl+,` — ajustes.
-- `Cmd/Ctrl+\` — mostrar u ocultar la consola.
+- `Cmd/Ctrl+\` — mostrar u ocultar el panel de resultados.
 - `Cmd/Ctrl+K` — abrir las utilidades para desarrolladores.
 
 Vim mode es opt-in: actívalo en Settings → Editor.

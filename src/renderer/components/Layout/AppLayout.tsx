@@ -19,7 +19,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types/settings';
-import { useLayoutAvailability } from '../../hooks/useLayoutAvailability';
+import { useDockShell } from '../../hooks/useLayoutAvailability';
 import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
 import { RunSweep } from './RunSweep';
 
@@ -102,7 +102,7 @@ function useCompactShellLayout() {
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
   // Keep the inner divider transparent so the editor +
-  // result panel read as ONE canvas. The hit zone stays 3px wide
+  // results dock read as ONE canvas. The hit zone stays 3px wide
   // so power users can still resize, and the bar fades in on hover.
   return (
     <Separator
@@ -421,7 +421,7 @@ export function AppLayout({
     panelIds: ['sidebar-panel', 'content-panel'],
     storage: localStorage,
   });
-  const { dockShown, dockExpanded } = useLayoutAvailability();
+  const { dockShown, dockExpanded } = useDockShell();
   const commandBarDocked = useUIStore(state => state.commandBarDocked);
   // Presenter mode hides the persistent chrome at render
   // time; the underlying sidebar preference is untouched, so leaving

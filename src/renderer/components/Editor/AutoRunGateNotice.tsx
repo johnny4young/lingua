@@ -6,7 +6,7 @@ import { useResultStore } from '../../stores/resultStore';
  * Ambient footer notice for the auto-run completion
  * gate.
  *
- * Renders inside the result panel header (next to the execution-time
+ * Renders inside the results dock header (next to the execution-time
  * pill) when `autoRunGateReason === 'incomplete'`. One line,
  * `text-caption text-muted`, no icon, no toast — intentionally quiet
  * so it doesn't fight the user's editing flow.

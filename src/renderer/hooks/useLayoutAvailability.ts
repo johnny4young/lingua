@@ -16,9 +16,7 @@ import { useDependenciesPanelAvailable } from '../components/Dependencies/useDep
 import { useGitDiffTabAvailable } from '../components/Editor/useGitDiffTabAvailable';
 import type { DockTabAvailability } from '../components/Layout/dockTabs';
 
-export interface LayoutAvailability {
-  /** Which dock tabs apply to the active tab. Console always applies. */
-  tabs: DockTabAvailability;
+export interface DockShell {
   /** False in the editor-only layout and on full-screen Utilities tabs. */
   dockShown: boolean;
   /** The dock body is open: the user opened it, or a live session claims it. */
@@ -27,22 +25,42 @@ export interface LayoutAvailability {
   debuggerLive: boolean;
 }
 
+export interface LayoutAvailability extends DockShell {
+  /** Which dock tabs apply to the active tab. Console always applies. */
+  tabs: DockTabAvailability;
+}
+
 /**
- * One source for every dock gate, read by the shell (whether the dock is
- * open) and by the dock (which tabs it lists). Primitive selectors keep a
- * keystroke from re-rendering the shell.
+ * Whether the dock shows and whether its body is open: the only gates the
+ * shell needs, so a tab gate flipping does not re-render the whole layout.
  */
-export function useLayoutAvailability(): LayoutAvailability {
+export function useDockShell(): DockShell {
   const layoutPreset = useSettingsStore(s => s.layoutPreset);
-  const showStdinPanel = useSettingsStore(s => s.showStdinPanel);
-  const variableInspectorSurface = useSettingsStore(s => s.variableInspectorSurface);
   const consoleVisible = useUIStore(s => s.consoleVisible);
   const activeTabId = useEditorStore(s => s.activeTabId);
   const activeKind = useEditorStore(s => getActiveTab(s)?.kind);
   const language = useEditorStore(s => getActiveTab(s)?.language);
   const runtimeMode = useEditorStore(s => getActiveTab(s)?.runtimeMode);
-  const recipeBindingId = useEditorStore(s => getActiveTab(s)?.recipeBindingId ?? null);
   const debuggerLive = useDebuggerStore(s => s.session !== null && s.session.tabId === activeTabId);
+  const browserPreview = languageHasRuntimeModes(language) && runtimeMode === 'browser-preview';
+  const dockShown = layoutPreset !== 'editor-only' && activeKind !== 'utilities';
+  const claimed = browserPreview || (debuggerLive && languageSupportsDebugger(language));
+  return {
+    dockShown,
+    dockExpanded: dockShown && (consoleVisible || claimed),
+    debuggerLive,
+  };
+}
+
+/** Every dock gate: the shell gates plus which tabs the dock lists. */
+export function useLayoutAvailability(): LayoutAvailability {
+  const shell = useDockShell();
+  const showStdinPanel = useSettingsStore(s => s.showStdinPanel);
+  const variableInspectorSurface = useSettingsStore(s => s.variableInspectorSurface);
+  const activeTabId = useEditorStore(s => s.activeTabId);
+  const language = useEditorStore(s => getActiveTab(s)?.language);
+  const runtimeMode = useEditorStore(s => getActiveTab(s)?.runtimeMode);
+  const recipeBindingId = useEditorStore(s => getActiveTab(s)?.recipeBindingId ?? null);
   const hasBreakpoints = useDebuggerStore(s =>
     activeTabId ? Object.values(s.breakpoints).some(bp => bp.tabId === activeTabId) : false
   );
@@ -53,8 +71,6 @@ export function useLayoutAvailability(): LayoutAvailability {
   const gitDiff = useGitDiffTabAvailable();
 
   const workerLanguage = isWorkerRunnerLanguage(language);
-  const browserPreview = languageHasRuntimeModes(language) && runtimeMode === 'browser-preview';
-  const debuggerTab = languageSupportsDebugger(language) && (debuggerLive || hasBreakpoints);
   const runMode = language !== undefined && executionModeForLanguage(language) === 'run';
   const tabs: DockTabAvailability = {
     stdin: showStdinPanel && runtimeMode !== 'browser-preview' && workerLanguage,
@@ -66,18 +82,12 @@ export function useLayoutAvailability(): LayoutAvailability {
       workerLanguage &&
       hasScope,
     'project-terminal': hasProject && window.lingua?.projectTerminal !== undefined,
-    debugger: debuggerTab,
-    'browser-preview': browserPreview,
+    debugger: languageSupportsDebugger(language) && (shell.debuggerLive || hasBreakpoints),
+    'browser-preview': languageHasRuntimeModes(language) && runtimeMode === 'browser-preview',
     dependencies,
     'git-diff': gitDiff,
     recipe: recipeBindingId !== null && isBundledRecipeId(recipeBindingId),
   };
-  const dockShown = layoutPreset !== 'editor-only' && activeKind !== 'utilities';
 
-  return {
-    tabs,
-    dockShown,
-    dockExpanded: dockShown && (consoleVisible || browserPreview || (debuggerTab && debuggerLive)),
-    debuggerLive,
-  };
+  return { tabs, ...shell };
 }

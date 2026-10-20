@@ -4,7 +4,7 @@ export type DockTabId = BottomPanelTab;
 
 export type DockTabAvailability = Readonly<Record<Exclude<DockTabId, 'console'>, boolean>>;
 
-/** Board order: the core tabs first, then the ones that appear only when they apply. */
+/** Board order. Console always shows; every other tab appears once it applies. */
 const DOCK_TAB_ORDER: readonly DockTabId[] = [
   'console',
   'stdin',

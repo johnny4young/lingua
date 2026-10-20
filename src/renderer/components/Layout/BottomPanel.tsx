@@ -176,7 +176,7 @@ export function BottomPanel({ expanded }: { expanded: boolean }) {
       <div className="flex h-[34px] shrink-0 items-stretch border-b border-border-subtle bg-bg-panel-alt">
         <div
           role="tablist"
-          aria-label={t('bottomPanel.tabs.label')}
+          aria-label={t('bottomPanel.tabs.listLabel')}
           className="flex min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden px-1.5"
         >
           {availableDockTabs(availability).map(id => {

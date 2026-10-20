@@ -5,7 +5,7 @@ order: 3
 section: reference
 ---
 
-Lingua ships the everyday panels that usually force a code-runner workflow into browser tabs. They run inside the app next to the editor and result panel.
+Lingua ships the everyday panels that usually force a code-runner workflow into browser tabs. They run inside the app, in the same window as the editor and the results dock.
 
 ## Data
 

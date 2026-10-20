@@ -55,7 +55,7 @@ console.log({ firstNumber, firstName });
 
    Try `pickFirstObject([1, 2, 3])` — the TypeScript service
    underlines the call with a diagnostic and you can read it in
-   the result panel.
+   the editor.
 
 3. **Default the type parameter** so old calls without an explicit
    type still work:

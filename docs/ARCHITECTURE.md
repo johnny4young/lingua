@@ -153,8 +153,8 @@ is not persisted in tabs, settings, history or `RunCapsuleV1`, so existing saved
 sessions remain compatible. Regression coverage exercises Stop → Run → late result,
 cancelled preparation, closed tabs and cancellation during capsule construction.
 
-The result store mirrors the active tab only. A current session writes the result
-panel, countdown and termination pill only while its tab is active; switching tabs
+The result store mirrors the active tab only. A current session writes inline
+results, the dock's run status, countdown and termination pill only while its tab is active; switching tabs
 mid-run still lets it log to the console, record history and set that tab's
 execution badge. A Scratchpad tab whose auto-run was skipped because a manual run
 held the runner is scheduled once the session releases. Auto-run keys on its run

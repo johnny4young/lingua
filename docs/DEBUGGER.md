@@ -15,11 +15,10 @@ The current implementation provides:
   an existing dot to remove it. The keyboard path is `Mod+Shift+B`
   (Cmd+Shift+B on macOS / Ctrl+Shift+B elsewhere) — toggles the
   breakpoint at the cursor line without leaving the editor.
-- A **Debugger** tab inside the existing resizable bottom panel. It
-  becomes available when the panel is open and the active tab has at
-  least one breakpoint, and Debug opens it automatically when a
-  session attaches. It shares the same bottom-panel splitter as
-  Console. The header carries Continue (F5), Step Over (F10), Step
+- A **Debugger** tab in the resizable results dock. It appears once
+  the active tab has a breakpoint or a live session, and Debug opens
+  it automatically when a session attaches. It shares the dock's
+  splitter with Console. The header carries Continue (F5), Step Over (F10), Step
   Into (F11), Step Out (Shift+F11), and Run to end buttons. The
   chevron at the top-left collapses/expands the debugger body; the
   choice persists across reloads.
@@ -47,8 +46,8 @@ The current implementation provides:
 1. Open or create a JavaScript, TypeScript, or (on desktop) Python, Go, or Rust tab.
 2. Click the gutter to the LEFT of the line number, OR move the
    cursor to the line and press `Mod+Shift+B`.
-3. The red dot appears in the gutter. Opening the bottom panel exposes
-   the Debugger tab, and pressing Debug switches to it automatically.
+3. The red dot appears in the gutter. The results dock lists the
+   Debugger tab, and pressing Debug switches to it automatically.
 
 Breakpoints are capped at 100 global (FIFO eviction of the oldest).
 A user who hits the cap sees the oldest breakpoint silently drop —
@@ -58,7 +57,7 @@ warn.
 
 ## Configuring breakpoint modes
 
-Open the bottom panel's **Debugger** tab after creating a breakpoint. Every
+Open the results dock's **Debugger** tab after creating a breakpoint. Every
 active-file row has three modes:
 
 - **Pause** — stop whenever execution reaches the line.
@@ -116,7 +115,7 @@ and expression length, but users must evaluate only expressions they trust.
    `paused` message is posted; the Debugger tab flips to the paused state
    with locals + call stack + evaluated watches, Monaco highlights
    the entire paused line in the danger color, and any console output
-   emitted before the pause is already visible in the result panel.
+   emitted before the pause is already visible in the dock's Console tab.
    The parent timeout is suspended until Continue / Step resumes the
    worker, so an intentional pause does not surface as a 30 s timeout.
 
@@ -271,12 +270,10 @@ If the Debugger tab is stuck in paused mode:
 
 ## Layout safety
 
-The Debugger surface is mounted by `BottomPanel`, as a sibling tab to
-Console. The bottom panel is already resizable through
-`react-resizable-panels`, so debugger height is adjustable without a
-second custom splitter. This placement keeps the editor/results group
-intact while paused and avoids the earlier drawer competing with the
-inline output column.
+The Debugger surface is mounted by `BottomPanel`, the results dock, as a
+sibling tab to Console under the full-width editor. The dock is resizable
+through `react-resizable-panels`, so debugger height is adjustable without a
+second custom splitter, and the editor keeps its full width while paused.
 
 ## Related files
 

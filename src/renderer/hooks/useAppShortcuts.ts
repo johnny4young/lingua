@@ -13,7 +13,10 @@ import { useDependencyDetectionStore } from '../stores/dependencyDetectionStore'
 import { pushInfoNotice, pushSuccessNotice, pushWarningNotice } from '../utils/statusNotice';
 import { trackEvent } from '../utils/telemetry';
 import { toggleCompareDock } from '../utils/compareDock';
-import { syncVariableInspectorSurfaceAfterToggle } from '../utils/variableInspectorSurface';
+import {
+  nextVariableInspectorEnabled,
+  syncVariableInspectorSurfaceAfterToggle,
+} from '../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../shared/scopeSnapshot';
 import { emitCommand } from '../stores/commandBus';
 import { type AppOverlay, useGlobalShortcuts } from './useGlobalShortcuts';
@@ -208,7 +211,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
         pushInfoNotice('variableInspector.toggle.shortcutUnavailable');
         return;
       }
-      const next = tab.variableInspectorEnabled !== true;
+      const next = nextVariableInspectorEnabled(tab.variableInspectorEnabled === true);
       editorState.setTabVariableInspectorEnabled(tab.id, next);
       syncVariableInspectorSurfaceAfterToggle(next);
       const bucket = scopeSnapshot ? bucketVariableCount(scopeSnapshot.variables.length) : '0';
@@ -308,7 +311,7 @@ export function useAppShortcuts(deps: AppShortcutDeps): void {
     // copy. Emits the same `share.trigger` command the command palette
     // uses so the always-mounted
     // `<ShareLinkController>` owns shortcut-triggered confirmation
-    // even when the result panel is hidden. Telemetry tags
+    // even when the results dock is hidden. Telemetry tags
     // `trigger: 'shortcut'`.
     copyShareLink: () => {
       emitCommand('share.trigger', { trigger: 'shortcut' });

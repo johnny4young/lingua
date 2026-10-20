@@ -7,7 +7,7 @@ import type { RunCapsuleExportButtonProps } from './runCapsuleExportLoader';
 
 /**
  * Primary surface for "Export latest run as
- * capsule". Icon-only button mounted in the result-panel header
+ * capsule". Icon-only button mounted in the results dock header
  * next to `RecentRunsPill` + the `hideUndefined` toggle so the
  * action lives ONE click from the result the user is looking at,
  * not buried in Settings → Account.

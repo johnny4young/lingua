@@ -212,6 +212,9 @@ remain JS/TS-only until a separate native-expression policy is accepted.
   chevron that persists the collapsed state (B); the
   `debugger.detached` event joins the ADR-named pair so dashboards
   can compute median session length (E).
+- **Layout note 2026-10-20.** The inline-results column this ADR keeps visible
+  was removed: the Debugger is a tab of the single results dock under a
+  full-width editor, and inline values stay in the editor.
 - **UX refinement shipped 2026-05-12.** The toolbar now groups
   **Run** and **Debug** into one split dropdown for JS/TS. Run ignores
   breakpoints; Debug is explicit, requires an enabled breakpoint,

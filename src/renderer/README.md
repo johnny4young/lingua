@@ -68,9 +68,9 @@ and whenever the element or viewport changes; the width hint only guards the
 first render before a DOM measurement exists.
 
 All output lives in one results dock (`Layout/BottomPanel.tsx`) below the
-full-width editor. Its tab row lists Console · Input · Compare · Variables ·
-Terminal, then Debugger, Browser preview, Dependencies, Git diff and Recipe only
-when they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
+full-width editor. Its tab row always lists Console; Input, Compare, Variables,
+Terminal (desktop, with a project open), Debugger, Browser preview,
+Dependencies, Git diff and Recipe join it once they apply (`Layout/dockTabs.ts`, gated by `hooks/useLayoutAvailability.ts`),
 and carries the run controls: auto-log, run status, recent runs, time, capsule
 export and share. Hiding the dock (`Cmd/Ctrl+\`) folds it to that row, so every
 output surface reopens from one place. Compare is a dock tab, not a per-tab flag:
@@ -159,13 +159,13 @@ The renderer is intentionally split by feature instead of by component type.
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`, `BottomPanel.tsx`, `dockTabs.ts`     | Owns shell composition, panel layout, sidebar/drawer behavior; the results dock stays behind a lazy boundary so its feature tree stays out of the initial bundle |
-| [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
+| [`components/Chrome/`](components/Chrome)                 | `CommandBar.tsx`, `AppChrome.tsx`                     | The 48 px command bar (default) and the undocked title row     |
 | [`components/a11y/`](components/a11y)                     | `LiveAnnouncer.tsx`                                   | Single polite `aria-live` region for screen-reader announcements |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `EditorTabContextMenuHost.tsx` | Owns Monaco, eager tab orchestration/rows, activation-scoped tab actions, inline result surface, completion providers |
 | [`components/ErrorBoundary.tsx`](components/ErrorBoundary.tsx) | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTreeHost.tsx`, `FileTree.tsx`, `FileTreeNode.tsx` | Owns the activation boundary, project explorer rendering, and inline tree interactions |
 | [`components/ProjectTerminal/`](components/ProjectTerminal) | `ProjectTerminalPanel.tsx`                            | Desktop-only, lazily loaded xterm surface for the owner-bound project PTY; retains only a bounded session transcript |
-| [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | AppLayout mounts the floating execution chrome only; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
+| [`components/Toolbar/`](components/Toolbar)               | `FloatingActionPill.tsx`, `Toolbar.tsx`, `executionControlPolicy.ts` | `FloatingActionPill` renders the run controls docked inside `CommandBar`, or floating after Undock; the standalone Toolbar supports focused fallback/smoke coverage and shares the same pure eligibility policy |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
 | [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `useCommandPaletteCommands.ts`, stable model facade plus domain registries | Thin combobox UI plus store-backed catalog orchestration and ordered pure model assembly |
 | [`components/ContextualHints/`](components/ContextualHints) | `ContextualHint.tsx` | Platform-aware guidance and persisted opt-out for empty product surfaces |

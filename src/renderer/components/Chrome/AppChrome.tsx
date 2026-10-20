@@ -39,7 +39,7 @@ export function AppChrome({ onOpenSettings }: AppChromeProps) {
       data-testid="app-chrome"
       data-tour-id="app-chrome"
       className={cn(
-        'toolbar-drag-region surface-header relative z-20 flex h-9 shrink-0 items-center justify-between gap-2',
+        'toolbar-drag-region surface-header relative z-20 flex h-12 shrink-0 items-center justify-between gap-2',
         isWebBuild ? 'px-3' : 'pr-3'
       )}
     >

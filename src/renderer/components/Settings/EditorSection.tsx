@@ -567,7 +567,7 @@ export function EditorSection() {
         />
 
         {/* Countdown pill toggle. Default OFF
-            so the result panel header stays quiet by default. */}
+            so the results dock header stays quiet by default. */}
         <SpecRow
           label={t('runtime.timeout.countdown.label')}
           description={t('runtime.timeout.countdown.hint')}

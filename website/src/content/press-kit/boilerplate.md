@@ -22,7 +22,7 @@ paid tiers unlock via offline-verified license keys.
 
 Lingua is a commercial multi-language desktop code runner. JavaScript,
 TypeScript, Python, Ruby, Go, and Rust are first-class citizens — each with
-its own runner, templates, and inline result panel — and they live
+its own runner, templates, and inline results — and they live
 inside the same offline-first Monaco-powered app. Developer utilities
 (JSON formatter, regex tester, Base64, UUID, hash, timestamp converter,
 JWT decoder, color converter, diff viewer) are built in, so the app

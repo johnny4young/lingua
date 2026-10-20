@@ -42,7 +42,10 @@ import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSu
 import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrustTelemetry';
 import { requestSettingsTab } from '../Settings/pendingSettingsTab';
 import { emitCommand } from '../../stores/commandBus';
-import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
+import {
+  nextVariableInspectorEnabled,
+  syncVariableInspectorSurfaceAfterToggle,
+} from '../../utils/variableInspectorSurface';
 import { isCompareDockOpen, toggleCompareDock } from '../../utils/compareDock';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types/language';
@@ -524,7 +527,7 @@ export function useCommandPaletteCommands({
       onToggleVariableInspector:
         activeTab && activeTabId
           ? () => {
-              const next = activeTab.variableInspectorEnabled !== true;
+              const next = nextVariableInspectorEnabled(activeTab.variableInspectorEnabled === true);
               useEditorStore.getState().setTabVariableInspectorEnabled(activeTabId, next);
               syncVariableInspectorSurfaceAfterToggle(next);
               const snapshot = useResultStore.getState().scopeSnapshot;
