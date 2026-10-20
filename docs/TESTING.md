@@ -318,6 +318,8 @@ Use this order when automating:
 | ✅ | `TC-105` | `BOTH` | `developer` | Settings → Privacy → Local data → `Clear everything…` | One confirmation lists the stores, the SQL database and the capsules; confirming clears them and keeps HTTP requests, notebooks and the session |
 | ✅ | `TC-106` | `BOTH` | `developer` | Settings › Labs: turn on the network policy, set Block, run a JS `fetch` | The request fails with a message naming the host, and Recent activity shows it |
 | ✅ | `TC-107` | `BOTH` | `developer` | Network policy Ask, run a JS `fetch` to a new host, choose Allow in this tab, run again | One dialog names the host while the run waits; the request goes through and the second run does not ask |
+| ✅ | `TC-108` | `BOTH` | `developer` | SQL tab: Try a sample table, Run, click the table in the Explorer, then `Cmd/Ctrl+B` twice | Six rows with revenue right-aligned under a *ran from the editor* strip; the table opens under a generated SELECT with Edit in editor; the Explorer folds to its rail and back |
+| ✅ | `TC-109` | `BOTH` | `developer` | SQL result: select a row and press `Cmd/Ctrl+C`; open Export full result…, pick TSV, Export… | The row lands on the clipboard as JSON; the dialog states the row count and downloads a `.tsv` |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |
 | ✅ | `TC-053` | `ELEC` | `developer` | Click `Check now` | Update flow starts without crash |

@@ -189,7 +189,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlResultPreview.tsx`, preview parts/actions | DuckDB SQL workspace, schema browser, result orchestration and focused table/export UI |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar, Explorer, results under the editor, export and Local hand-offs |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -628,7 +628,16 @@ collection state:
   store only after the user accepts the import action. A deferred-load failure
   keeps the pasted text and surfaces localized retry guidance.
 - The HTTP and SQL stores hydrate when their lazy workspace/import surface
-  activates; neither store belongs in the initial renderer graph.
+  activates; neither store belongs in the initial renderer graph. Cmd/Ctrl+B
+  on the SQL tab reaches the SQL store through a dynamic import for that reason.
+- The SQL tab puts the connection bar (Local · DuckDB) on top, the Explorer
+  beside the editor and the results under it. The Explorer reads its tree
+  through [`runtime/sqlExplorerCatalog.ts`](runtime/sqlExplorerCatalog.ts)
+  (tables, views, columns, row counts, macros); `lingua_ledger` stays out of
+  the tree but in editor completion. A table opened from the Explorer shows its
+  rows under a generated SQL strip without adding a run to history.
+  [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
+  Export dialog's Save as table, Send to Python tab and Save as run capsule.
 
 ## State ownership
 
@@ -723,7 +732,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace) or rejection (invalid, by reason code); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
-| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, schema/result state       |
+| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, results, folded Explorer, imported table sources |
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
