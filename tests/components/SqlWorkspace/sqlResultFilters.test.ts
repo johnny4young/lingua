@@ -80,6 +80,19 @@ describe('buildGridSql', () => {
   });
 });
 
+describe('buildGridSql with large integers', () => {
+  it('writes a numeric value as typed, so a BIGINT past 2^53 keeps every digit', () => {
+    const sql = buildGridSql('SELECT * FROM t', [cond('id', '=', ' 9007199254740993 ')], { column: null, direction: 'asc' }, columns, {
+      order: [],
+      hidden: [],
+    });
+    expect(sql).toContain('WHERE "id" = 9007199254740993');
+    expect(buildGridSql('SELECT * FROM t', [cond('id', '>', 'x')], { column: null, direction: 'asc' }, columns, { order: [], hidden: [] })).toContain(
+      `"id" > 'x'`
+    );
+  });
+});
+
 describe('buildGridSql with comments', () => {
   it('drops a comment after the semicolon so it cannot swallow the closing parenthesis', () => {
     const sql = buildGridSql('SELECT * FROM orders -- recent\n; -- trailing', [], { column: 'total', direction: 'asc' }, columns, {

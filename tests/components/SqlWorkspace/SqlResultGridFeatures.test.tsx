@@ -70,12 +70,26 @@ describe('virtualized grid', () => {
         response={response(rows.slice(0, 1_500), { rowCountIsLowerBound: true, tooLarge: true, rowCount: 1_500 })}
         isExecuting={false}
         rowDisplayLimit={1_000}
-        more={{ rows: rows.slice(1_500), canRead: false, loading: false }}
+        more={{ rows: rows.slice(1_500), canRead: false, complete: true, loading: false }}
         onLoadMore={onLoadMore}
       />
     );
     expect(screen.getByText(/^2,000 rows/)).toBeTruthy();
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+  });
+
+  it('keeps the total a lower bound when reading stopped at the cap instead of the end', () => {
+    render(
+      <SqlResultPreview
+        response={response(rows.slice(0, 1_500), { rowCountIsLowerBound: true, tooLarge: true, rowCount: 1_500 })}
+        isExecuting={false}
+        rowDisplayLimit={5_000}
+        more={{ rows: rows.slice(1_500), canRead: false, complete: false, loading: false }}
+        onLoadMore={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/^2,000 rows/)).toBeNull();
+    expect(screen.getByText(/^2,000 of ≥ 2,000 rows in view/)).toBeTruthy();
   });
 });
 

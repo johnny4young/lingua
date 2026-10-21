@@ -99,4 +99,24 @@ describe('buildImportStatements', () => {
     });
     expect(insert).toContain('SELECT "mood" FROM');
   });
+
+  it('inserts without a cast when a type would close the CAST early', () => {
+    const [, insert] = buildImportStatements({
+      format: 'csv',
+      file: 'f.csv',
+      target: {
+        mode: 'existing',
+        table: 't',
+        columns: [
+          { name: 'a', type: 'INTEGER) AS x FROM other UNION ALL SELECT CAST(1 AS INTEGER' },
+          { name: 'b', type: 'STRUCT(v INTEGER, w DECIMAL(18,3))' },
+        ],
+      },
+      mapping: [
+        { source: 'a', target: 'a' },
+        { source: 'b', target: 'b' },
+      ],
+    });
+    expect(insert).toContain('SELECT "a", CAST("b" AS STRUCT(v INTEGER, w DECIMAL(18,3))) FROM');
+  });
 });

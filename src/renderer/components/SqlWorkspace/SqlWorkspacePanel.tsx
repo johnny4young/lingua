@@ -488,7 +488,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const moreKey = activeQuery && activeResponse ? moreRowsKey(activeQuery.id, activeResponse.recordedAt) : null;
   const more =
     !tablePreview && !runSetResponse && safeResponseIndex === 0 && runner.more && runner.more.key === moreKey
-      ? { rows: runner.more.rows, canRead: !runner.more.done, loading: runner.more.loading }
+      ? { rows: runner.more.rows, canRead: !runner.more.done, complete: runner.more.complete, loading: runner.more.loading }
       : undefined;
   const handleLoadMore = () => {
     if (moreKey && activeResponse) {

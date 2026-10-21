@@ -99,7 +99,7 @@ describe('copyQueryToBytes', () => {
 });
 
 describe('streamQueryRows', () => {
-  function streamEngine(batches: number, size: number) {
+  function streamEngine(batches: number, size: number, failAt = Number.POSITIVE_INFINITY) {
     const state = { pulled: 0, cancelled: 0 };
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
@@ -113,6 +113,7 @@ describe('streamQueryRows', () => {
                 if (index >= batches) return null;
                 state.pulled += 1;
                 index += 1;
+                if (index >= failAt) throw new Error('Connection closed');
                 return batch((index - 1) * size, size);
               },
             };
@@ -146,6 +147,24 @@ describe('streamQueryRows', () => {
     expect(out.truncated).toBe(true);
     expect(state.pulled).toBeLessThan(40);
     expect(state.cancelled).toBe(1);
+  });
+
+  it('fails instead of returning a partial result when the stream breaks past the window', async () => {
+    streamEngine(40, 2_048, 9);
+    await expect(streamQueryRows('SELECT n FROM r', { cap: 1_000_000 })).rejects.toThrow('Connection closed');
+  });
+
+  it('stops at the cell and byte budgets and says the export holds fewer rows', async () => {
+    streamEngine(40, 2_048);
+    const byCells = await streamQueryRows('SELECT n FROM r', { cap: 1_000_000, maxCells: 15_000 });
+    expect(byCells.rows).toHaveLength(15_000);
+    expect(byCells.truncated).toBe(true);
+
+    streamEngine(40, 2_048);
+    const byBytes = await streamQueryRows('SELECT n FROM r', { cap: 1_000_000, maxBytes: 64 * 1024 });
+    expect(byBytes.truncated).toBe(true);
+    expect(byBytes.rows.length).toBeGreaterThan(10_000);
+    expect(byBytes.rows.length).toBeLessThan(20_000);
   });
 
   it('stops when the export is cancelled', async () => {

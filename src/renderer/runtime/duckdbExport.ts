@@ -53,21 +53,35 @@ export async function copyQueryToBytes(
  */
 export async function streamQueryRows(
   sql: string,
-  options: ExecuteQueryOptions & { cap: number; batchSize?: number; onProgress?: (rows: number) => void }
+  options: ExecuteQueryOptions & {
+    cap: number;
+    /** Rows times columns; a wide result stops sooner. */
+    maxCells?: number;
+    /** JSON size of every row read. */
+    maxBytes?: number;
+    batchSize?: number;
+    onProgress?: (rows: number) => void;
+  }
 ): Promise<{ columns: SqlColumnMetadata[]; rows: Array<Record<string, unknown>>; truncated: boolean }> {
-  const { cap, batchSize = 5_000, onProgress, ...query } = options;
+  const { batchSize = 5_000, onProgress, maxCells = Number.POSITIVE_INFINITY, maxBytes = Number.POSITIVE_INFINITY, ...rest } = options;
+  const { cap: rowCap, ...query } = rest;
   const outcome = await executeQuery(sql, { ...query, keepCursor: true });
   if (outcome.status !== 'success' && outcome.status !== 'too-large') throw failure(outcome);
+  const cap = Math.min(rowCap, Math.floor(maxCells / Math.max(1, outcome.columns.length)));
   let cursor = outcome.cursor;
   const rows = outcome.rows.slice(0, cap);
   let truncated = outcome.rows.length > cap;
+  let bytes = 0;
   try {
     while (cursor && rows.length < cap) {
       if (query.signal?.aborted) throw new SqlExportError('cancelled', 'Query cancelled');
       onProgress?.(rows.length);
-      const next = await cursor.next(Math.min(batchSize, cap - rows.length));
+      const next = await cursor.next(Math.min(batchSize, cap - rows.length), maxBytes - bytes);
       for (const row of next.rows) rows.push(row);
+      bytes += next.bytes;
       if (next.done) cursor = undefined;
+      // No rows without the end of the stream means the byte budget is spent.
+      else if (next.rows.length === 0) break;
     }
     if (cursor) truncated = true;
   } finally {

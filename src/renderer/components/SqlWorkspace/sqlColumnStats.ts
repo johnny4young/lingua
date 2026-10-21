@@ -5,6 +5,7 @@
  */
 
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
+import { quoteSqlIdentifier } from '../../../shared/sqlQuote';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 
 const BIN_COUNT = 8;
@@ -143,7 +144,7 @@ export function columnStats(
 }
 
 const SAFE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const sqlName = (name: string) => (SAFE_IDENTIFIER.test(name) ? name : `"${name.replaceAll('"', '""')}"`);
+const sqlName = (name: string) => (SAFE_IDENTIFIER.test(name) ? name : quoteSqlIdentifier(name));
 const sqlText = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 /** The predicate a rail click inserts; the editor decides between WHERE and AND. */

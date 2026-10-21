@@ -4,11 +4,8 @@
  * other tables declare against it ("Referenced by").
  */
 
+import { quoteSqlIdentifier, quoteSqlTableReference } from '../../shared/sqlQuote';
 import { executeQuery } from './duckdbClient';
-
-const quoteSqlIdentifier = (name: string) => `"${name.replaceAll('"', '""')}"`;
-const quoteSqlTableReference = (table: string, schema?: string) =>
-  schema === undefined ? quoteSqlIdentifier(table) : `${quoteSqlIdentifier(schema)}.${quoteSqlIdentifier(table)}`;
 
 export interface SqlForeignKey {
   /** The table holding the key column. */
@@ -71,7 +68,8 @@ export async function loadTableForeignKeys(table: string, schema = 'main'): Prom
       refColumn: refColumns[0]!,
     };
     if (key.table === table && key.schema === schema) keys.outgoing.push(key);
-    if (key.refTable === table) keys.incoming.push(key);
+    // DuckDB keys reference a table in their own schema, so another schema's table of this name is not this one.
+    if (key.refTable === table && key.schema === schema) keys.incoming.push(key);
   }
   return keys;
 }

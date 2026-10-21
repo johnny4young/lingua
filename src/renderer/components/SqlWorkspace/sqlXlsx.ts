@@ -46,7 +46,9 @@ function asText(value: unknown): string {
 }
 
 const fitsNumber = (text: string) =>
-  NUMBER.test(text) && text.replace(/[eE].*$/, '').replace(/[-.]/g, '').replace(/^0+(?=\d)/, '').length <= MAX_DIGITS;
+  NUMBER.test(text) &&
+  Number.isFinite(Number(text)) &&
+  text.replace(/[eE].*$/, '').replace(/[-.]/g, '').replace(/^0+(?=\d)/, '').length <= MAX_DIGITS;
 
 function cellXml(ref: string, value: unknown, numeric: boolean): string {
   if (value === null || value === undefined) return '';

@@ -7,6 +7,7 @@ import { redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
+  duckDbErrorDetail,
   executeSqlScript,
   restartDuckDbEngine,
   type DuckDbExecuteOutcome,
@@ -70,7 +71,12 @@ interface SqlMoreRows {
   /** `${queryId}:${recordedAt}` of the response they continue. */
   key: string;
   rows: Array<Record<string, unknown>>;
+  /** Nothing more to read: the stream ended, hit the session cap or failed. */
   done: boolean;
+  /** The stream ended, so the rows read are the whole result. */
+  complete: boolean;
+  /** JSON size of `rows`, counted against the session byte cap. */
+  bytes: number;
   loading: boolean;
 }
 
@@ -78,6 +84,8 @@ interface SqlMoreRows {
 export const SQL_SESSION_ROW_CAP = 100_000;
 /** A wide result holds fewer rows: about a gigabyte of heap per ten million cells. */
 const SQL_SESSION_CELL_CAP = 4_000_000;
+/** Large text or BLOB cells hit this before the cell cap does. */
+const SQL_SESSION_BYTE_CAP = 256 * 1024 * 1024;
 
 export const sessionRowCap = (columnCount: number) =>
   Math.min(SQL_SESSION_ROW_CAP, Math.floor(SQL_SESSION_CELL_CAP / Math.max(1, columnCount)));
@@ -204,7 +212,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const cursor = outcomes[outcomes.length - 1]?.cursor;
       const key = moreRowsKey(query.id, last.response.recordedAt);
       if (cursor) activeCursor = { key, cursor };
-      setRunState({ more: cursor ? { key, rows: [], done: false, loading: false } : null });
+      setRunState({ more: cursor ? { key, rows: [], done: false, complete: false, bytes: 0, loading: false } : null });
       setRunState(
         statements.length > 1
           ? {
@@ -294,17 +302,29 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     const room = sessionRowCap(columnCount) - windowRows - state.more.rows.length;
     setRunState({ more: { ...state.more, loading: true } });
     const { cursor } = activeCursor;
-    let batch: { rows: Array<Record<string, unknown>>; done: boolean };
+    let batch: { rows: Array<Record<string, unknown>>; done: boolean; bytes: number };
+    let failed = false;
     try {
-      batch = await cursor.next(Math.max(0, Math.min(limit, room)));
-    } catch {
-      batch = { rows: [], done: true };
+      batch = await cursor.next(Math.max(0, Math.min(limit, room)), SQL_SESSION_BYTE_CAP - state.more.bytes);
+    } catch (err) {
+      failed = true;
+      batch = { rows: [], done: true, bytes: 0 };
+      const detail = duckDbErrorDetail(err);
+      useUIStore.getState().pushStatusNotice({
+        tone: 'error',
+        messageKey: 'sqlWorkspace.grid.loadMoreFailed',
+        ...(detail ? { detail } : {}),
+      });
     }
-    const capped = batch.done || room - batch.rows.length <= 0;
-    if (capped && activeCursor?.key === key) dropCursor();
+    const complete = batch.done && !failed;
+    // No rows without the end of the stream means the byte cap is full.
+    const stopped = batch.done || room - batch.rows.length <= 0 || batch.rows.length === 0;
+    if (stopped && activeCursor?.key === key) dropCursor();
     const current = useSqlRunState.getState().more;
     if (current?.key !== key) return;
-    setRunState({ more: { key, rows: [...current.rows, ...batch.rows], done: capped, loading: false } });
+    setRunState({
+      more: { key, rows: [...current.rows, ...batch.rows], done: stopped, complete, bytes: current.bytes + batch.bytes, loading: false },
+    });
   }, []);
 
   // Mod+. cancels from anywhere in the SQL tab, not only from the editor.

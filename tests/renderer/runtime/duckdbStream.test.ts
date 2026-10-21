@@ -6,6 +6,7 @@ import {
   executeSqlScript,
   restartDuckDbEngine,
   getDuckDbEngine,
+  __setResolvedSqlStorageModeForTests,
   readResultStream,
   type ArrowTableLike,
   type DuckDbConnection,
@@ -293,6 +294,43 @@ describe('result cursor (Load more)', () => {
     expect(outcomes[1]?.cursor).toBeDefined();
     await outcomes[1]!.cursor!.close();
     expect(scriptClose).toHaveBeenCalledOnce();
+  });
+
+  it('stops a cursor read at its byte budget and keeps the rest for the next read', async () => {
+    engineWith({ stream: async () => stream(10, 2_048).result, cancel: async () => true });
+    const outcome = await executeQuery('SELECT * FROM range(100000)', { keepCursor: true });
+    const small = await outcome.cursor!.next(5_000, 200);
+    expect(small.rows.length).toBeGreaterThan(0);
+    expect(small.rows.length).toBeLessThan(50);
+    expect(small.bytes).toBeLessThanOrEqual(200);
+    expect(small.done).toBe(false);
+    const rest = await outcome.cursor!.next(1);
+    expect(rest.rows[0]).toEqual({ n: Number(outcome.rows.length) + small.rows.length });
+    await outcome.cursor!.close();
+  });
+
+  it('checkpoints what earlier statements wrote before the last one keeps its stream', async () => {
+    const ran: string[] = [];
+    engineWith({
+      query: async (sql: string) => {
+        ran.push(sql);
+        return { columns: [], rows: [], rowCount: 0, tooLarge: false };
+      },
+      stream: async (sql: string) => {
+        ran.push(sql);
+        return stream(10, 2_048).result;
+      },
+      cancel: async () => true,
+    });
+    __setResolvedSqlStorageModeForTests('opfs');
+    try {
+      const outcomes = await executeSqlScript(['INSERT INTO t VALUES (1)', 'SELECT * FROM big'], { keepCursor: true });
+      expect(outcomes[1]?.cursor).toBeDefined();
+      expect(ran).toEqual(['INSERT INTO t VALUES (1)', 'CHECKPOINT', 'SELECT * FROM big']);
+      await outcomes[1]!.cursor!.close();
+    } finally {
+      __setResolvedSqlStorageModeForTests('memory');
+    }
   });
 
   it('closes a window that arrives after the run was cancelled', async () => {

@@ -8,8 +8,10 @@ import {
   type SqlExportOptions,
 } from './sqlResultExport';
 
-/** Rows a streamed export holds in memory before it stops. */
+/** What a streamed export holds in memory before it stops and says so. */
 const FULL_EXPORT_ROW_CAP = 1_000_000;
+const FULL_EXPORT_CELL_CAP = 5_000_000;
+const FULL_EXPORT_BYTE_CAP = 512 * 1024 * 1024;
 
 export interface SqlFullExportResult {
   data: string | Uint8Array;
@@ -23,6 +25,8 @@ interface FullExportContext {
   timeoutMs?: number;
   onProgress?: (rows: number) => void;
 }
+
+const limits = { maxCells: FULL_EXPORT_CELL_CAP, maxBytes: FULL_EXPORT_BYTE_CAP };
 
 /** DuckDB writes these itself; the rest stream rows through the app's serializers. */
 function copyOptionsFor(format: SqlExportFormat, options: SqlExportOptions): string | null {
@@ -58,10 +62,10 @@ export async function exportFullResult(
   }
   if (format === 'xlsx') {
     const { XLSX_MAX_ROWS, rowsToXlsx } = await import('./sqlXlsx');
-    const read = await streamQueryRows(sql, { ...query, cap: Math.min(XLSX_MAX_ROWS, FULL_EXPORT_ROW_CAP), ...(onProgress ? { onProgress } : {}) });
+    const read = await streamQueryRows(sql, { ...query, ...limits, cap: Math.min(XLSX_MAX_ROWS, FULL_EXPORT_ROW_CAP), ...(onProgress ? { onProgress } : {}) });
     return { data: rowsToXlsx(read.columns, read.rows), rowCount: read.rows.length, truncated: read.truncated };
   }
-  const read = await streamQueryRows(sql, { ...query, cap: FULL_EXPORT_ROW_CAP, ...(onProgress ? { onProgress } : {}) });
+  const read = await streamQueryRows(sql, { ...query, ...limits, cap: FULL_EXPORT_ROW_CAP, ...(onProgress ? { onProgress } : {}) });
   const text = isTextExportFormat(format) ? serializeRows(format, read.columns, read.rows, options) : '';
   return { data: text, rowCount: read.rows.length, truncated: read.truncated };
 }

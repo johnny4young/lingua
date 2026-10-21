@@ -36,6 +36,15 @@ describe('loadTableForeignKeys', () => {
     expect(keys.incoming).toEqual([{ table: 'order_items', schema: 'main', column: 'order_id', refTable: 'orders', refColumn: 'id' }]);
   });
 
+  it('leaves out keys that point at a same-named table in another schema', async () => {
+    engine([
+      { schema_name: 'archive', table_name: 'items', constraint_column_names: ['order_id'], referenced_table: 'orders', referenced_column_names: ['id'] },
+      { schema_name: 'main', table_name: 'order_items', constraint_column_names: ['order_id'], referenced_table: 'orders', referenced_column_names: ['id'] },
+    ]);
+    const keys = await loadTableForeignKeys('orders');
+    expect(keys.incoming.map((key) => `${key.schema}.${key.table}`)).toEqual(['main.order_items']);
+  });
+
   it('quotes the table name it looks up', async () => {
     const seen: string[] = [];
     engine([], seen);

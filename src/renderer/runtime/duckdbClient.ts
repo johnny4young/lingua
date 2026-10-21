@@ -47,6 +47,7 @@ import {
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
+import { quoteSqlTableReference } from '../../shared/sqlQuote';
 import { splitSqlStatements } from '../../shared/sqlStatements';
 import {
   buildImportStatements,
@@ -728,6 +729,8 @@ function createRowAccumulator(
       return taken;
     },
     isFull: () => full,
+    /** Rows taken so far, measured as UTF-8 JSON. */
+    bytes: () => approxBytes,
   };
 }
 
@@ -755,8 +758,11 @@ export function mapArrowTable(table: ArrowTableLike): {
 
 /** Rows past the window of a result whose stream stays open, read on demand ("Load more"). */
 export interface SqlResultCursor {
-  /** Reads up to `limit` more rows; `done` once DuckDB has no more. */
-  next(limit: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean }>;
+  /**
+   * Reads up to `limit` more rows within `maxBytes` of JSON; `done` once DuckDB
+   * has no more. Fewer rows with `done` false means the byte budget filled.
+   */
+  next(limit: number, maxBytes?: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean; bytes: number }>;
   /** Stops the statement and releases its connection. Safe to call twice. */
   close(): Promise<void>;
 }
@@ -778,12 +784,13 @@ function createResultCursor(
     await release().catch(() => {});
   };
   return {
-    async next(limit) {
-      const accumulator = createRowAccumulator(fields, { maxRows: limit, maxBytes: Number.POSITIVE_INFINITY });
+    async next(limit, maxBytes = Number.POSITIVE_INFINITY) {
+      const accumulator = createRowAccumulator(fields, { maxRows: limit, maxBytes });
       while (!accumulator.isFull() && !closed) {
         if (buffered.length === 0) {
           if (done) break;
-          const batch = await stream.next().catch(() => null);
+          // A failed read throws to the caller: treating it as the end would pass a partial result off as whole.
+          const batch = await stream.next();
           if (batch === null) {
             done = true;
             break;
@@ -796,7 +803,7 @@ function createResultCursor(
       }
       const exhausted = done && buffered.length === 0;
       if (exhausted) await close();
-      return { rows: accumulator.rows, done: exhausted || closed };
+      return { rows: accumulator.rows, done: exhausted || closed, bytes: accumulator.bytes() };
     },
     close,
   };
@@ -911,7 +918,7 @@ function sanitiseValueForJson(value: unknown): unknown {
   if (ArrayBuffer.isView(value)) return Array.from(value as unknown as ArrayLike<number>, sanitiseValueForJson);
   if (valueType === 'object') {
     const obj = value as Record<string, unknown>;
-    // Arrow LIST, STRUCT and MAP cells are Vector / row objects; their toJSON is the plain value.
+    // Arrow LIST and STRUCT cells are Vector / row objects; their toJSON is the plain value.
     if (typeof obj.toJSON === 'function') return sanitiseValueForJson((obj.toJSON as () => unknown)());
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
@@ -1246,6 +1253,8 @@ export async function executeSqlScript(
     for (const [index, piece] of pieces.entries()) {
       // Only the last statement may keep its stream: the next one would invalidate it.
       const keepCursor = options.keepCursor === true && index === pieces.length - 1;
+      // A kept stream defers the closing checkpoint, so flush what the earlier statements wrote first.
+      if (keepCursor && index > 0) await checkpointIfPersistent(opened.connection);
       const outcome = await runOnConnection(opened.connection, piece, { ...options, keepCursor });
       outcomes.push(outcome);
       options.onStatement?.(index, outcome);
@@ -1440,9 +1449,7 @@ export async function importFileAsTable(args: {
       if (statement.startsWith('INSERT INTO')) inserted = readCountValue(result.rows[0]?.['Count']);
       if (statement === 'COMMIT') inTransaction = false;
     }
-    const ident = target.mode === 'existing' && target.schema
-      ? `"${target.schema.replace(/"/g, '""')}"."${target.table.replace(/"/g, '""')}"`
-      : `"${target.table.replace(/"/g, '""')}"`;
+    const ident = quoteSqlTableReference(target.table, target.mode === 'existing' ? target.schema : undefined);
     const rowCount =
       inserted ?? readCountValue((await connection.query(`SELECT count(*) AS n FROM ${ident}`)).rows[0]?.['n']);
     if (resolvedStorageMode === 'opfs') {

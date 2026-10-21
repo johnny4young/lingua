@@ -49,6 +49,8 @@ interface SqlResultMore {
   rows: ReadonlyArray<Record<string, unknown>>;
   /** The open stream can give more rows. */
   canRead: boolean;
+  /** The stream ended, so the loaded rows are the whole result. */
+  complete?: boolean;
   loading: boolean;
 }
 
@@ -214,10 +216,11 @@ export function SqlResultPreview({
   const columns = useMemo(() => (response ? response.columns : []), [response]);
   // Typing stays responsive while a large result is searched.
   const searchText = useDeferredValue(filter);
-  const filteredSortedRows = useMemo(() => {
-    if (loadedRows.length === 0) return [];
-    return sortRows(applyConditions(filterRows(loadedRows, searchText), conditions, columns), sort);
-  }, [loadedRows, searchText, conditions, columns, sort]);
+  const filteredRows = useMemo(
+    () => (loadedRows.length === 0 ? [] : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
+    [loadedRows, searchText, conditions, columns]
+  );
+  const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.
   const pageCount = pages.key === responseKey ? pages.count : 1;
   const pageSize = Math.max(1, rowDisplayLimit);
@@ -312,7 +315,7 @@ export function SqlResultPreview({
   const tone = toneForSqlStatus(response.status);
   const hasResultBody = response.status === 'success' || response.status === 'too-large';
   const knownTotal = Math.max(response.rowCount, loadedRows.length);
-  const totalIsLowerBound = response.rowCountIsLowerBound === true && more?.canRead !== false;
+  const totalIsLowerBound = response.rowCountIsLowerBound === true && more?.complete !== true;
   const meta = hasResultBody
     ? [
         displayRows.length < knownTotal || totalIsLowerBound
@@ -563,7 +566,8 @@ export function SqlResultPreview({
               onClose={() => setViewerOpen(false)}
             />
           ) : showGridChrome && showRail && displayRows.length > 0 ? (
-            <SqlColumnRail columns={shownColumns} rows={filteredSortedRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
+            // Load order, not the sort: a sort changes neither the stats nor which rows a sampled rail reads.
+            <SqlColumnRail columns={shownColumns} rows={filteredRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
           ) : null}
         </div>
       )}

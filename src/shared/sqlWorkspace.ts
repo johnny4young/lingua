@@ -72,12 +72,7 @@ export type SqlDurationBucket = (typeof SQL_DURATION_BUCKETS)[number];
 /** Hard cap on the query text. 256 KiB. */
 export const MAX_QUERY_BYTES = 256 * 1024;
 
-/**
- * Hard cap on the result preview row count. A 100k-row result blows
- * up the renderer; the 10k cap keeps Monaco + the table renderer
- * responsive while still being enough for visualization sanity
- * checks.
- */
+/** Rows in a result's first window and its persisted preview; Load more reads past it up to the session cap. */
 export const MAX_RESULT_ROWS = 10_000;
 
 /**

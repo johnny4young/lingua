@@ -316,8 +316,10 @@ cancels, checkpoints and closes). DuckDB invalidates a stream when the next
 query runs on its connection, so only the last statement of a script keeps
 one, and `useSqlRunner` holds one cursor at a time: a new run, an engine
 restart or the session cap (`sessionRowCap`, 100,000 rows or four million
-cells) closes it. Arrow LIST and STRUCT cells become arrays and objects through
-their `toJSON` before they reach the grid.
+cells, plus 256 MiB of JSON) closes it. A read that fails throws instead of
+ending the stream, so a partial result never passes for a whole one. Arrow
+LIST and STRUCT cells become arrays and objects through their `toJSON` before
+they reach the grid.
 
 Full-result export runs in `duckdbExport.ts`. CSV, TSV, JSON, NDJSON and
 Parquet go through `COPY (sql) TO` into a virtual file registered with

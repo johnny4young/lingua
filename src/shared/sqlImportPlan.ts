@@ -3,6 +3,7 @@
  * new table or an existing one, and insert in one transaction.
  */
 
+import { quoteSqlIdentifier as quote, quoteSqlTableReference } from './sqlQuote';
 import type { SqlImportFormat } from './sqlWorkspace';
 
 export const IMPORT_CSV_DELIMITERS = [',', ';', '\t', '|'] as const;
@@ -26,7 +27,16 @@ export type SqlImportTarget =
   | { mode: 'existing'; table: string; schema?: string; columns: ReadonlyArray<{ name: string; type: string }> };
 
 const SAFE_TYPE = /^[A-Za-z][A-Za-z0-9_ ,()[\]]*$/;
-const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+
+/** Parentheses that never close more than they opened, so a type cannot end the CAST early. */
+function balanced(type: string): boolean {
+  let depth = 0;
+  for (const ch of type) {
+    if (ch === '(') depth += 1;
+    else if (ch === ')' && --depth < 0) return false;
+  }
+  return depth === 0;
+}
 const text = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 export function readerSql(format: SqlImportFormat, file: string, csv: SqlImportCsvOptions = DEFAULT_IMPORT_CSV): string {
@@ -84,14 +94,14 @@ export function buildImportStatements(args: {
       : mapped.map((entry) => `${quote(entry.source)} AS ${quote(entry.target.trim())}`).join(', ');
     return [`CREATE TABLE ${quote(target.table)} AS SELECT ${select} FROM ${reader}`];
   }
-  const table = target.schema ? `${quote(target.schema)}.${quote(target.table)}` : quote(target.table);
+  const table = quoteSqlTableReference(target.table, target.schema);
   const typeOf = new Map(target.columns.map((column) => [column.name, column.type]));
   const columns = mapped.map((entry) => quote(entry.target)).join(', ');
   const values = mapped
     .map((entry) => {
       const type = typeOf.get(entry.target);
       // Types come from the catalog; anything outside plain type syntax inserts uncast instead.
-      return type && SAFE_TYPE.test(type) ? `CAST(${quote(entry.source)} AS ${type})` : quote(entry.source);
+      return type && SAFE_TYPE.test(type) && balanced(type) ? `CAST(${quote(entry.source)} AS ${type})` : quote(entry.source);
     })
     .join(', ');
   return ['BEGIN TRANSACTION', `INSERT INTO ${table} (${columns}) SELECT ${values} FROM ${reader}`, 'COMMIT'];

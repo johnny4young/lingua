@@ -228,11 +228,7 @@ export function createInitialSettingsState() {
     httpAllowPrivateHosts: false,
     networkFromRunningCode: DEFAULT_NETWORK_POLICY,
     featureFlags: {},
-    // SQL workspace preview cap + default timeout.
-    // The runtime layer enforces `MAX_RESULT_ROWS` (10 000) +
-    // `MAX_QUERY_TIMEOUT_MS` (5 min) regardless; these knobs live
-    // here so users can dial them down without losing the hard
-    // ceiling.
+    // SQL grid page size and default timeout; `MAX_QUERY_TIMEOUT_MS` (5 min) still bounds the timeout.
     sqlWorkspaceRowDisplayLimit: 1000,
     sqlWorkspaceQueryTimeoutMs: 30_000,
     // Off by default; the SQL workspace is

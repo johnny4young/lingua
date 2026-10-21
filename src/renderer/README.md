@@ -640,7 +640,9 @@ collection state:
   the tree but in editor completion. A table opened from the Explorer shows its
   rows under a generated SQL strip without adding a run to history.
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
-  Export dialog's Save as table, Send to Python tab and Save as run capsule.
+  Export dialog's Save as table, Send to Python tab and Save as run capsule;
+  [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
+  table previews, foreign-key follow and back, and Referenced by counts.
 
 ## State ownership
 

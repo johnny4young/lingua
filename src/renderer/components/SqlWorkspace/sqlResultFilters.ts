@@ -109,8 +109,11 @@ export function visibleColumns(
   return ordered.filter((name) => !layout.hidden.includes(name)).map((name) => byName.get(name)!);
 }
 
+const NUMBER_TEXT = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
+
+// The typed text goes in as written: a round trip through Number() would round BIGINT values.
 const sqlLiteral = (value: string, numeric: boolean) =>
-  numeric && asNumber(value) !== null ? String(asNumber(value)) : `'${value.replaceAll("'", "''")}'`;
+  numeric && NUMBER_TEXT.test(value.trim()) ? value.trim() : `'${value.replaceAll("'", "''")}'`;
 
 function conditionSql(condition: SqlFilterCondition, numeric: boolean): string {
   const column = quoteSqlIdentifier(condition.column);

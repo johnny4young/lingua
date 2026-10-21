@@ -42,6 +42,11 @@ describe('rowsToXlsx', () => {
     expect(xml).toContain('state="frozen"');
   });
 
+  it('keeps a number outside the double range as text', () => {
+    const { xml } = sheet([{ id: '1', total: '1e400', note: null, ok: null }]);
+    expect(xml).toContain('<c r="B2" t="inlineStr"><is><t xml:space="preserve">1e400</t></is></c>');
+  });
+
   it('names columns past Z the way a sheet does', () => {
     expect([0, 25, 26, 51, 52, 701, 702].map(columnLetter)).toEqual(['A', 'Z', 'AA', 'AZ', 'BA', 'ZZ', 'AAA']);
   });

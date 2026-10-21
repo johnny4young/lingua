@@ -390,7 +390,7 @@ describe('SQL history section', () => {
 
 describe('Load more', () => {
   /** A stream of `batches` batches of `size` rows numbered from 0; `cancelled` counts when it is let go. */
-  function streamingEngine(batches: number, size: number) {
+  function streamingEngine(batches: number, size: number, failAt = Number.POSITIVE_INFINITY) {
     const state = { closed: 0, cancelled: 0 };
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve(
@@ -402,6 +402,7 @@ describe('Load more', () => {
               next: async () => {
                 if (index >= batches) return null;
                 index += 1;
+                if (index >= failAt) throw new Error('Connection closed');
                 const from = (index - 1) * size;
                 return {
                   numRows: size,
@@ -472,6 +473,27 @@ describe('Load more', () => {
   it('holds fewer rows of a wide result', () => {
     expect(sessionRowCap(4)).toBe(SQL_SESSION_ROW_CAP);
     expect(sessionRowCap(100)).toBe(40_000);
+  });
+
+  it('says when reading more rows fails and keeps the total a lower bound', async () => {
+    const user = userEvent.setup();
+    useSettingsStore.setState({ sqlWorkspaceRowDisplayLimit: 5000 });
+    streamingEngine(20, 2_000, 8);
+    openQuery('SELECT * FROM big');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByText(/5,000 of ≥ 10,000 rows in view/);
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    await screen.findByText(/10,000 of ≥ 10,000 rows in view/);
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'sqlWorkspace.grid.loadMoreFailed',
+        detail: 'Connection closed',
+      })
+    );
+    expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+    expect(screen.getByText(/of ≥ 1\d,\d{3} rows in view/)).toBeTruthy();
   });
 
   it('lets the open stream go when another query runs', async () => {
