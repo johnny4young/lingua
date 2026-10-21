@@ -138,6 +138,10 @@ export interface DuckDbEngineHandle {
    * `AsyncDuckDB.dropFile`. Best-effort — a missing name resolves.
    */
   dropFile?: (name: string) => Promise<void>;
+  /** An empty virtual file that `COPY … TO` can write into. */
+  registerEmptyFile?: (name: string) => Promise<void>;
+  /** The bytes of a virtual file, after `COPY … TO` wrote it. */
+  readFile?: (name: string) => Promise<Uint8Array>;
 }
 
 /**
@@ -624,6 +628,10 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       dropFile: async (name: string) => {
         await db.dropFile(name);
       },
+      registerEmptyFile: async (name: string) => {
+        await db.registerEmptyFileBuffer(name);
+      },
+      readFile: (name: string) => db.copyFileToBuffer(name),
       terminate: async () => {
         try {
           await db.terminate();

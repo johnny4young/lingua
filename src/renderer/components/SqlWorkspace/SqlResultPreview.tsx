@@ -625,10 +625,11 @@ export function SqlResultPreview({
 
       {exportOpen ? (
         <SqlExportDialog
-          columns={response.columns}
+          columns={shownColumns}
           rows={filteredSortedRows}
           totalRowCount={response.rowCount}
           totalIsLowerBound={response.rowCountIsLowerBound === true}
+          {...(handoffs.fullResult ? { fullSql: gridSql ?? handoffs.fullResult.sql } : {})}
           handoffs={handoffs}
           onClose={() => setExportOpen(false)}
         />

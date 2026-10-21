@@ -75,6 +75,7 @@ export function useSqlResultHandoffs({
     };
 
     if (readSource !== null) {
+      handoffs.fullResult = { sql: readSource, timeoutMs };
       handoffs.saveAsTable = {
         suggestedName: dedupeTableName('result', existingTableNames),
         existingNames: existingTableNames,

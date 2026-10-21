@@ -334,9 +334,9 @@ describe('SqlResultPreview', () => {
       expect(useUIStore.getState().statusNotice).toMatchObject({
         tone: 'success',
         messageKey: 'sqlWorkspace.export.exported',
-        values: { format: 'CSV', count: 2 },
+        values: { format: 'CSV', count: 2, formatted: '2' },
       });
-      expect(i18next.t('sqlWorkspace.export.exported', { format: 'CSV', count: 1 })).toBe(
+      expect(i18next.t('sqlWorkspace.export.exported', { format: 'CSV', count: 1, formatted: '1' })).toBe(
         'Exported 1 row as CSV'
       );
     });

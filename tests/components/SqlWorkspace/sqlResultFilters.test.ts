@@ -80,6 +80,16 @@ describe('buildGridSql', () => {
   });
 });
 
+describe('buildGridSql with comments', () => {
+  it('drops a comment after the semicolon so it cannot swallow the closing parenthesis', () => {
+    const sql = buildGridSql('SELECT * FROM orders -- recent\n; -- trailing', [], { column: 'total', direction: 'asc' }, columns, {
+      order: [],
+      hidden: [],
+    });
+    expect(sql).toBe('SELECT *\nFROM (\nSELECT * FROM orders -- recent\n) AS result\nORDER BY "total" ASC');
+  });
+});
+
 describe('fixedRowWindow', () => {
   it('mounts the visible rows plus overscan and pads the rest', () => {
     expect(fixedRowWindow({ count: 100_000, rowHeight: 26, scrollTop: 26 * 500, viewportHeight: 260, overscan: 5 })).toEqual({

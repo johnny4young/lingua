@@ -3,6 +3,7 @@
  * that does the same in DuckDB, shown under the grid with Apply to query.
  */
 
+import { splitSqlStatements } from '../../../shared/sqlStatements';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { quoteSqlIdentifier } from './sqlResultFormatters';
@@ -146,7 +147,8 @@ export function buildGridSql(
   if (live.length === 0 && !sorted && !reshaped) return null;
   const numeric = numericColumns(columns);
   const select = reshaped ? shown.map((column) => quoteSqlIdentifier(column.name)).join(', ') : '*';
-  const body = baseSql.trim().replace(/;\s*$/, '');
+  // Without its semicolon or a trailing comment, which would end the subquery early.
+  const body = splitSqlStatements(baseSql)[0]?.text ?? baseSql.trim();
   const parts = [`SELECT ${select}\nFROM (\n${body}\n) AS result`];
   if (live.length > 0) {
     parts.push(`WHERE ${live.map((condition) => conditionSql(condition, numeric.has(condition.column))).join('\n  AND ')}`);

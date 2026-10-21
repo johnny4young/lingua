@@ -38,6 +38,16 @@ describe('SQL result export', () => {
     ).toBe('a,b;1;x');
   });
 
+  it('writes JSON and NDJSON with only the exported columns, in their order', () => {
+    const shown = [columns[1]!, columns[0]!];
+    expect(serializeRows('json', shown, rows.slice(0, 1), DEFAULT_EXPORT_OPTIONS)).toBe(
+      '[\n  {\n    "orders": "412",\n    "city": "Bogotá"\n  }\n]'
+    );
+    expect(serializeRows('ndjson', shown, rows, DEFAULT_EXPORT_OPTIONS)).toBe(
+      '{"orders":"412","city":"Bogotá"}\n{"orders":null,"city":null}'
+    );
+  });
+
   it('flattens tabs and newlines inside TSV cells', () => {
     expect(serializeRows('tsv', columns, rows, DEFAULT_EXPORT_OPTIONS).split('\n')).toEqual([
       'city\torders\tnote',
