@@ -200,6 +200,8 @@ const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)
  * of a prepared statement, or EXPLAIN ANALYZE (or ANALYSE), which runs it.
  */
 export function isWriteSqlStatement(statement: string): boolean {
+  // MySQL runs the inside of /*! … */ as code, and codeOnly reads it as a comment.
+  if (statement.includes('/*!')) return true;
   const code = codeOnly(statement);
   if (!REMOTE_READ_LEAD.test(code)) return true;
   return (

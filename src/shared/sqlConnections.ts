@@ -75,8 +75,10 @@ export const isValidConnectionId = (value: unknown): value is string =>
   typeof value === 'string' && CONNECTION_ID_RE.test(value);
 
 /** An absolute file path on any desktop platform. */
+/** A local absolute path; network shares and device paths (`\\server\share`, `\\?\`, `//host/share`) are refused. */
 function isAbsoluteFilePath(value: string): boolean {
-  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
+  if (/^[\\/]{2}/.test(value)) return false;
+  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value);
 }
 
 function text(value: unknown, max: number): string | undefined | null {

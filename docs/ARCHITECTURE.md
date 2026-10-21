@@ -340,8 +340,10 @@ forks `src/main/sqlHost/hostEntry.ts` (bundled to `.vite/build/sqlHost.js`
 by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`, `pg-native` and `mysql2`
 left external) as the `Lingua SQL host` utility process through
 `createSqlHostSupervisor`; a request pending when the host exits fails, and
-the next request forks a new host. The host holds one session per connection
-and serializes the requests on it.
+the next request forks a new host. It starts without the `PG*` and `MYSQL_*`
+environment variables, and Postgres never falls back to a `.pgpass` file, so a
+driver can only use the password main gives it. The host holds one session per
+connection and serializes the requests on it.
 
 Main owns everything the host must not decide. `sqlConnectionCatalog.ts`
 keeps the catalog in `userData/sql-connections.json` (mode 0600, written
@@ -354,8 +356,8 @@ typing the password again deletes the stored one. `sqlDbService.ts` re-checks
 the Free quota against the verified license tier inside the catalog's
 serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
-refuses a SQLite or certificate file in a protected folder (checked as given
-and after resolving symlinks), estimates only a single query or DML statement
+refuses a SQLite or certificate file on a network share or in a protected
+folder (checked as given and after resolving symlinks), estimates only a single query or DML statement
 (EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a

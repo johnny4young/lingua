@@ -158,6 +158,19 @@ for (const [engine, url] of [
       if (engine === 'postgres') expect(outcome).toMatchObject({ ok: false, error: { message: expect.stringMatching(/cancel/i) } });
     });
 
+    it.runIf(engine === 'postgres')('never takes a password from PGPASSWORD for a connection without one', async () => {
+      const saved = process.env.PGPASSWORD;
+      process.env.PGPASSWORD = config.password;
+      try {
+        const { password: _password, ...withoutPassword } = config;
+        const outcome = await send({ type: 'test', config: { ...withoutPassword, connectionId: 'pg-env' } });
+        expect(outcome).toMatchObject({ ok: false });
+      } finally {
+        if (saved === undefined) delete process.env.PGPASSWORD;
+        else process.env.PGPASSWORD = saved;
+      }
+    });
+
     it('names the auth step on a wrong password', async () => {
       const result = await send({ type: 'test', config: { ...config, connectionId: `${engine}-bad`, password: 'wrong' } });
       expect(result).toMatchObject({ ok: false, error: { step: 'auth', fix: 'auth' } });

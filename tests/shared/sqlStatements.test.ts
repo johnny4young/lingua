@@ -128,6 +128,7 @@ describe('isWriteSqlStatement', () => {
       'EXPLAIN ANALYSE DELETE FROM orders',
       'EXPLAIN (FORMAT JSON,\n ANALYZE) DELETE FROM orders',
       'EXECUTE wipe_orders',
+      'SELECT 1 /*!, (SELECT 1) */',
     ]) {
       expect(isWriteSqlStatement(sql)).toBe(true);
     }

@@ -72,7 +72,8 @@ function clientConfig(config: HostSessionConfig, ssl: ConnectionOptions | false)
     port: config.port ?? 5432,
     ...(config.database ? { database: config.database } : {}),
     ...(config.user ? { user: config.user } : {}),
-    ...(config.password !== undefined ? { password: config.password } : {}),
+    // A function keeps pg from falling back to PGPASSWORD or a .pgpass file for another host.
+    password: () => config.password ?? '',
     ssl,
     application_name: 'Lingua',
     connectionTimeoutMillis: 10_000,

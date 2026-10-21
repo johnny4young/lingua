@@ -72,6 +72,13 @@ describe('parseConnectionDraft', () => {
   it('rejects bad hosts, ports, relative SQLite paths and a SQLite password mode', () => {
     expect(parseConnectionDraft({ ...pg, host: 'db internal' })).toBeNull();
     expect(parseConnectionDraft({ ...pg, host: 'user@db' })).toBeNull();
+    // Network shares and device paths would make the OS authenticate to another machine.
+    for (const path of ['\\\\server\\share\\app.db', '\\\\?\\C:\\app.db', '//server/share/app.db']) {
+      expect(parseConnectionDraft({ name: 'f', engine: 'sqlite', path, readOnly: true, passwordMode: 'none' })).toBeNull();
+      expect(parseConnectionDraft({ ...pg, ssl: { mode: 'verify-full', caPath: path } })).toBeNull();
+    }
+    expect(parseConnectionUrl('sqlite://server/share/app.db')).toEqual({ error: 'relative-path' });
+    expect(parseConnectionDraft({ name: 'f', engine: 'sqlite', path: 'C:\\data\\app.db', readOnly: true, passwordMode: 'none' })).not.toBeNull();
     expect(parseConnectionDraft({ ...pg, port: 70_000 })).toBeNull();
     expect(parseConnectionDraft({ ...pg, ssl: { mode: 'verify-full', caPath: 'ca.pem' } })).toBeNull();
     expect(parseConnectionDraft({ name: 'f', engine: 'sqlite', path: 'app.db', readOnly: false, passwordMode: 'none' })).toBeNull();
