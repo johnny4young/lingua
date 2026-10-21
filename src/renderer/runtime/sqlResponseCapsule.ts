@@ -40,6 +40,7 @@ import type { SqlQueryV1, SqlResponseV1 } from '../../shared/sqlWorkspace';
 function mapSqlStatusToCapsule(status: SqlResponseV1['status']): RunCapsuleStatus {
   if (status === 'timeout') return 'timeout';
   if (status === 'success') return 'success';
+  if (status === 'cancelled') return 'stopped';
   // sql-error / too-large / engine-load-failed all surface as
   // 'error' from the capsule's POV — the raw SQL status is still
   // available on the wrapped response payload for any consumer

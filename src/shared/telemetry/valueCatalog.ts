@@ -426,7 +426,8 @@ export const HTTP_STATUS_BUCKETS_SET = new Set([
 // soft-timeout via Promise.race; `'too-large'` for results that
 // exceed MAX_RESULT_ROWS / MAX_RESULT_PREVIEW_BYTES; and
 // `'engine-load-failed'` for the rare case where DuckDB-WASM
-// itself can't boot (offline / CSP / blocked WASM). The renderer-
+// itself can't boot (offline / CSP / blocked WASM). `'cancelled'`
+// when the user stops a running query. The renderer-
 // side source of truth is `SQL_QUERY_STATUSES` in
 // `src/shared/sqlWorkspace.ts` — this Set is duplicated here so the
 // telemetry validator can live in shared code without importing
@@ -437,6 +438,7 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'timeout',
   'too-large',
   'engine-load-failed',
+  'cancelled',
 ]);
 // Closed enum for `mode` +
 // `requested` on `sql.storage_mode`. The renderer-side source of truth

@@ -31,7 +31,7 @@ export type SqlColumnProfileOutcome =
       tooLarge: boolean;
     }
   | {
-      status: 'not-profileable' | 'sql-error' | 'timeout' | 'engine-load-failed';
+      status: 'not-profileable' | 'sql-error' | 'timeout' | 'engine-load-failed' | 'cancelled';
       errorMessage?: string;
     };
 
