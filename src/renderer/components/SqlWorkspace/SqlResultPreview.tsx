@@ -439,7 +439,9 @@ export function SqlResultPreview({
 
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
-      response.status === 'engine-load-failed' ? (
+      response.status === 'engine-load-failed' ||
+      response.status === 'connection-failed' ||
+      response.status === 'blocked-target' ? (
         <ErrorBand
           status={response.status}
           message={response.errorMessage}

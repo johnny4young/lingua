@@ -4,6 +4,7 @@ import {
   parseConnection,
   parseConnectionDraft,
   parseConnectionUrl,
+  withoutUrlPassword,
 } from '../../src/shared/sqlConnections';
 import { dbConnectionCeilingForTier, withinDbConnectionBudget } from '../../src/shared/entitlements';
 
@@ -95,5 +96,18 @@ describe('saved connection quota', () => {
     expect(withinDbConnectionBudget('free', 3)).toBe(true);
     expect(withinDbConnectionBudget('free', 4)).toBe(false);
     expect(withinDbConnectionBudget('pro', 400)).toBe(true);
+  });
+});
+
+describe('withoutUrlPassword', () => {
+  it('drops the password and keeps the user, host and options', () => {
+    expect(withoutUrlPassword('postgres://app:s3cr:et@db:5432/orders?sslmode=disable')).toBe('postgres://app@db:5432/orders?sslmode=disable');
+    expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('  mysql://root@127.0.0.1/billing');
+  });
+
+  it('leaves a URL without a password as it was', () => {
+    expect(withoutUrlPassword('postgres://app@db/orders')).toBe('postgres://app@db/orders');
+    expect(withoutUrlPassword('sqlite:/tmp/a@b.db')).toBe('sqlite:/tmp/a@b.db');
+    expect(withoutUrlPassword('postgres://db/orders?user=a@b')).toBe('postgres://db/orders?user=a@b');
   });
 });
