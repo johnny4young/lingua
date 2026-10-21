@@ -24,6 +24,18 @@ describe('renderer locale bundle boundary', () => {
     );
   });
 
+  it('keeps the database connection copy out of the English boot catalog', () => {
+    const bootCatalog = JSON.parse(
+      readFileSync(resolve(__dirname, '../../src/renderer/i18n/locales/en/common.json'), 'utf8')
+    ) as Record<string, string>;
+    expect(Object.keys(bootCatalog).filter((key) => /^sqlWorkspace\.(connection|guard)\./u.test(key))).toEqual([]);
+    expect(rendererI18n).not.toContain("locales/en/sqlConnections.json");
+    // Spanish stays complete: its connection copy loads with the lazy Spanish catalog.
+    expect(rendererI18n).toContain("import('./locales/es/sqlConnections.json')");
+    const registration = readFileSync(resolve(__dirname, '../../src/renderer/i18n/sqlConnectionsCatalog.ts'), 'utf8');
+    expect(registration).toContain("import en from './locales/en/sqlConnections.json'");
+  });
+
   it('keeps language selection metadata free of catalog imports', () => {
     expect(languageMetadata).not.toMatch(/common\.json/u);
   });

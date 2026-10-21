@@ -38,6 +38,7 @@
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
  * with a parity test.
  */
+import type { SqlEngineKind } from './sqlConnections';
 import { utf8ByteLength } from './utf8';
 
 export const SQL_QUERY_STATUSES = [
@@ -47,6 +48,8 @@ export const SQL_QUERY_STATUSES = [
   'too-large',
   'engine-load-failed',
   'cancelled',
+  'connection-failed',
+  'blocked-target',
 ] as const;
 export type SqlQueryStatus = (typeof SQL_QUERY_STATUSES)[number];
 
@@ -389,6 +392,8 @@ export interface SqlQueryV1 {
   kind?: 'scratch';
   /** Saved-queries folder; absent means unfiled. */
   folder?: string;
+  /** Saved database connection the query runs on; absent means Local DuckDB. */
+  connectionId?: string;
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
@@ -445,6 +450,8 @@ export interface SqlResponseV1 {
    * Absent on `success` (where rows + rowCount carry the signal).
    */
   errorMessage?: string;
+  /** Engine that produced the response; absent means Local DuckDB. */
+  engine?: SqlEngineKind;
 }
 
 // ---------------------------------------------------------------------------
@@ -512,6 +519,9 @@ export function parseSqlQuery(value: unknown): SqlQueryV1 | null {
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     ...(value.kind === 'scratch' ? { kind: 'scratch' as const } : {}),
     ...(folder !== undefined ? { folder } : {}),
+    ...(typeof value.connectionId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value.connectionId)
+      ? { connectionId: value.connectionId }
+      : {}),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
@@ -591,6 +601,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     statementCount: value.statementCount,
     recordedAt: value.recordedAt,
     ...(errorMessage !== undefined ? { errorMessage } : {}),
+    ...(value.engine === 'postgres' || value.engine === 'mysql' || value.engine === 'sqlite' ? { engine: value.engine } : {}),
   };
 }
 

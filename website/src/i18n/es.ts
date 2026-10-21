@@ -393,6 +393,7 @@ export const es = {
           features: [
             '3 pestañas abiertas a la vez',
             'Hasta 5 snippets guardados',
+            '3 conexiones de base de datos guardadas (escritorio, Labs)',
             'Runners de JavaScript, TypeScript, Python y Ruby',
             'Todas las utilidades de una sola acción',
             'Editor Monaco + resaltado de sintaxis',
@@ -408,7 +409,7 @@ export const es = {
           bestFor: 'Developers con trabajo multi-lenguaje real',
           features: [
             'Todo lo de Free',
-            'Pestañas y snippets ilimitados',
+            'Pestañas, snippets y conexiones de base de datos guardadas ilimitados',
             'Runners de Go y Rust',
             'Notebooks de TypeScript, Python y SQL',
             'IA local-first con tu propio endpoint y clave',

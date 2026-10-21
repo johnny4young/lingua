@@ -8,6 +8,10 @@ export const FEATURE_FLAGS = {
     labelKey: 'settings.labs.flag.networkPolicy.label',
     descriptionKey: 'settings.labs.flag.networkPolicy.description',
   },
+  dbClient: {
+    labelKey: 'settings.labs.flag.dbClient.label',
+    descriptionKey: 'settings.labs.flag.dbClient.description',
+  },
 } as const;
 
 export type FeatureFlagId = keyof typeof FEATURE_FLAGS;

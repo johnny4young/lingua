@@ -393,6 +393,7 @@ export const en = {
           features: [
             '3 open tabs at a time',
             'Up to 5 saved snippets',
+            '3 saved database connections (desktop, Labs)',
             'JavaScript, TypeScript, Python, Ruby runners',
             'All single-shot developer utilities',
             'Monaco editor + syntax highlighting',
@@ -408,7 +409,7 @@ export const en = {
           bestFor: 'Developers running real multi-language work',
           features: [
             'Everything in Free',
-            'Unlimited tabs and snippets',
+            'Unlimited tabs, snippets and saved database connections',
             'Go and Rust runners',
             'TypeScript, Python, and SQL notebooks',
             'Local-first AI with your own endpoint and key',

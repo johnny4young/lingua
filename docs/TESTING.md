@@ -202,6 +202,13 @@ The independent-projects job tests and typechecks both Workers and runs Wrangler
 The update Worker also runs a workerd startup/health/404 integration test: a
 successful dry-run bundle alone does not validate its exported entrypoints.
 
+The `sql-engines` job starts throwaway Postgres 16 and MySQL 8.4 service
+containers and runs `tests/integration/sqlHostEngines.test.ts` against them:
+the row window and paging, value types, server-side read-only, the EXPLAIN
+estimate, cancel and auth failures. Without `LINGUA_TEST_PG_URL` and
+`LINGUA_TEST_MYSQL_URL` the test skips, so locally point them at Docker
+containers to run it.
+
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
 filesystem permission regression, it executes the real
 `cmd.exe /d /c npm.cmd` dependency-install boundary against a deterministic
@@ -329,6 +336,9 @@ Use this order when automating:
 | ✅ | `TC-116` | `BOTH` | `developer` | SQL: sort a windowed result, Export full result… as CSV and as XLSX, then cancel a Markdown export | Every row downloads in the grid order; the XLSX is a workbook; Cancel shows *Export cancelled* and keeps the dialog |
 | ✅ | `TC-117` | `BOTH` | `developer` | SQL (ES): import a semicolon CSV into an existing table with a mapping, then a file with a bad row | *Se agregaron 2 filas*; the bad file adds nothing and the preview stays open |
 | ✅ | `TC-118` | `WEB` | `developer` | SQL: 100,000 rows by 100 columns in the grid (`SqlResultGridScale.test.tsx`) and in a browser | A screenful of rows is mounted; the rail summarizes the first 10,000 rows and says so; Load more stops at 40,000 rows for 100 columns |
+| ✅ | `TC-119` | `ELEC` | `developer` | Labs › Database connections on: paste a Postgres URL into New connection, Test connection, Save, run a 25,000-row SELECT, Load more, then Cancel a `pg_sleep` | The URL field loses the password; every step reads ok with its time; the grid loads past the window from the host and Cancel stops the server backend |
+| ✅ | `TC-120` | `ELEC` | `developer` | Move that connection to prod, run an UPDATE, type the name; add a MySQL connection with Ask each session and a SQLite file, then a fourth | Read-only turns on and a red band shows; the confirm shows the EXPLAIN estimate and the write answers with a Count row; after a restart MySQL asks for its password and again after a wrong one; the fourth offers Open without saving |
+| ✅ | `TC-121` | `WEB` | `developer` | Labs › Database connections on, open the connection picker | Local and a DESKTOP ONLY row with its reason; no saved connections or New connection |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |
 | ✅ | `TC-053` | `ELEC` | `developer` | Click `Check now` | Update flow starts without crash |

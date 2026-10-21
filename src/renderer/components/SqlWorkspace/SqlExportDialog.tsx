@@ -37,6 +37,8 @@ export interface SqlResultHandoffs {
   onSaveCapsule?: () => void;
   /** Present when the result can be read again in full: the source is one read statement. */
   fullResult?: { sql: string; timeoutMs: number };
+  /** The result came from a saved connection, so nothing re-runs it on Local. */
+  remote?: true;
 }
 
 interface SqlExportDialogProps {
@@ -433,7 +435,7 @@ export function SqlExportDialog({
                 data-testid="sql-export-save-table-unavailable"
                 className="text-caption text-fg-subtle"
               >
-                {t('sqlWorkspace.export.saveAsTableUnavailable')}
+                {handoffs.remote ? t('sqlWorkspace.export.saveAsTableRemote') : t('sqlWorkspace.export.saveAsTableUnavailable')}
               </span>
             )}
           </div>

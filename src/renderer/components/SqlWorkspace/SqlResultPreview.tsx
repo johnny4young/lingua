@@ -178,9 +178,11 @@ export function SqlResultPreview({
     () => profileQuerySource !== undefined && buildColumnProfileQuery(profileQuerySource) !== null,
     [profileQuerySource]
   );
+  // The profile re-runs the source on Local DuckDB, so a saved connection's result has none.
   const canProfile =
     response !== null &&
     response.status === 'success' &&
+    response.engine === undefined &&
     selectedResponseIndex === 0 &&
     onProfileQuery !== undefined &&
     isProfileableSource;
@@ -439,10 +441,13 @@ export function SqlResultPreview({
 
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
-      response.status === 'engine-load-failed' ? (
+      response.status === 'engine-load-failed' ||
+      response.status === 'connection-failed' ||
+      response.status === 'blocked-target' ? (
         <ErrorBand
           status={response.status}
           message={response.errorMessage}
+          {...(response.engine ? { engine: response.engine } : {})}
           // Only the newest run can be matched to the editor text.
           querySource={selectedResponseIndex === 0 ? querySource : undefined}
           onApplyFix={selectedResponseIndex === 0 ? onApplyFix : undefined}

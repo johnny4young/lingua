@@ -97,6 +97,8 @@ interface ModalShellBaseProps {
    * shell does not double-pad the two-column layout.
    */
   bodyClassName?: string;
+  /** Caps the scrolling body; long forms can ask for more of a tall window. */
+  bodyMaxHeightClassName?: string;
   /**
    * `veil` keeps the app readable behind a 55 % veil and rises the sheet 8 px,
    * for launcher-style overlays such as the command palette.
@@ -177,6 +179,7 @@ export function ModalShell({
   headerClose = 'esc',
   closeLabel,
   bodyClassName,
+  bodyMaxHeightClassName = 'max-h-[min(60vh,420px)]',
   scrim = 'blur',
 }: ModalShellProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -330,7 +333,8 @@ export function ModalShell({
             // Shared focus-ring utility + inset so the ring hugs the inside
             // of the scroll region instead of being clipped by the shell's
             // rounded overflow-hidden container.
-            'focus-ring max-h-[min(60vh,420px)] overflow-y-auto focus-visible:ring-inset',
+            'focus-ring overflow-y-auto focus-visible:ring-inset',
+            bodyMaxHeightClassName,
             bodyClassName ?? 'px-3 py-[10px]'
           )}
         >

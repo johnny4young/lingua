@@ -439,6 +439,8 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'too-large',
   'engine-load-failed',
   'cancelled',
+  'connection-failed',
+  'blocked-target',
 ]);
 // Closed enum for `mode` +
 // `requested` on `sql.storage_mode`. The renderer-side source of truth
@@ -451,6 +453,14 @@ export const SQL_STORAGE_MODES_SET = new Set(['opfs', 'memory']);
 // by shape (fast / slow / very-slow) without leaking the exact
 // timing. Mirrored on update-server with parity test.
 export const SQL_DURATION_BUCKETS_SET = new Set(['<10ms', '<100ms', '<1s', '<5s', '<30s', '>=30s']);
+// Closed enum for `engine` on `sql.query_executed` and
+// `sql.connection_tested`: Local DuckDB or the desktop engine of a saved
+// connection. Mirrored on update-server with parity test.
+export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite']);
+// Closed enum for `failedStep` on `sql.connection_tested`: the first step
+// that failed, or `none`. Source of truth is `SQL_DB_TEST_STEPS` in
+// `src/shared/sqlDb.ts`. Mirrored on update-server with parity test.
+export const SQL_CONNECTION_TEST_STEPS_SET = new Set(['none', 'resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server']);
 // Closed enum for `format` on
 // `sql.table_imported`. The renderer-side source of truth is
 // `SUPPORTED_IMPORT_FORMATS` in `src/shared/sqlWorkspace.ts`; duplicated

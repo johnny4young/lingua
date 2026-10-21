@@ -6,6 +6,9 @@ The format follows Keep a Changelog and groups changes by release.
 
 ## [Unreleased]
 
+### Added
+- Database connections (Labs, desktop): the SQL tab can run queries on Postgres, MySQL and SQLite. The connection pill lists Local, your saved connections and session-only ones; New connection takes a pasted URL or the fields, SSL mode and files, and Test connection checks resolve, policy, TCP, TLS, auth and the server step by step, with a copyable report that hides the host, user, database and file. Passwords stay in the system keychain or, if you choose, in memory for the session, and never in files, logs or capsules. Free keeps 3 saved connections and can open more for the session only. A production connection opens read-only behind a red band and asks you to type its name, with an EXPLAIN row estimate, before any write; the server enforces read-only too. On the web the picker explains that these engines need the desktop app.
+
 ### Changed
 - The interface now ships the Inter font it always declared, so text no longer falls back to the system font, including offline.
 - Appearance offers Dark, Light and System. System follows the operating system's light or dark setting, and each card's preview uses that theme's real shell and editor colours.

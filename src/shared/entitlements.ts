@@ -40,6 +40,8 @@ export const FREE_TIER_LIMITS = {
   // workflows before the unlimited-tabs upgrade becomes relevant.
   maxOpenTabs: 3,
   maxSnippets: 5,
+  // Saved external database connections on desktop; Local DuckDB never counts.
+  savedDbConnections: 3,
   // Ruby (@ruby/wasm-wasi) joins the Free set with
   // the same posture as Python (Pyodide): pure browser WASM, no host
   // binary, no proprietary toolchain. Go / Rust stay Pro because they
@@ -54,6 +56,10 @@ export function tabCeilingForTier(tier: LicenseTier): number {
 
 export function snippetCeilingForTier(tier: LicenseTier): number {
   return tier === 'free' ? FREE_TIER_LIMITS.maxSnippets : Number.POSITIVE_INFINITY;
+}
+
+export function dbConnectionCeilingForTier(tier: LicenseTier): number {
+  return tier === 'free' ? FREE_TIER_LIMITS.savedDbConnections : Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -90,6 +96,10 @@ export function withinTabBudget(tier: LicenseTier, proposedCount: number): boole
 
 export function withinSnippetBudget(tier: LicenseTier, proposedCount: number): boolean {
   return proposedCount <= snippetCeilingForTier(tier);
+}
+
+export function withinDbConnectionBudget(tier: LicenseTier, proposedCount: number): boolean {
+  return proposedCount <= dbConnectionCeilingForTier(tier);
 }
 
 export function isLanguageAllowed(tier: LicenseTier, language: string): boolean {

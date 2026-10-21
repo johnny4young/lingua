@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isReadOnlySqlStatement,
+  isWriteSqlStatement,
   redactSqlSecrets,
   splitSqlStatements,
   statementAtOffset,
@@ -104,3 +105,33 @@ describe('redactSqlSecrets', () => {
     expect(redactSqlSecrets(sql)).toBe(sql);
   });
 });
+
+describe('isWriteSqlStatement', () => {
+  it('treats plain reads as reads', () => {
+    for (const sql of ['SELECT * FROM orders', 'with x as (select 1) select * from x', 'SHOW TABLES', 'EXPLAIN SELECT 1', "SELECT 'delete' AS word -- update"]) {
+      expect(isWriteSqlStatement(sql)).toBe(false);
+    }
+  });
+
+  it('flags writes, hidden writes and anything it cannot place', () => {
+    for (const sql of [
+      'DELETE FROM orders',
+      'with d as (delete from orders returning *) select * from d',
+      'SELECT * INTO backup FROM orders',
+      'SELECT * FROM orders FOR UPDATE',
+      'EXPLAIN ANALYZE DELETE FROM orders',
+      'EXPLAIN (ANALYZE, FORMAT JSON) SELECT 1',
+      'SET search_path = x',
+      'CALL refresh()',
+      'VACUUM',
+      'GRANT SELECT ON t TO u',
+      'EXPLAIN ANALYSE DELETE FROM orders',
+      'EXPLAIN (FORMAT JSON,\n ANALYZE) DELETE FROM orders',
+      'EXECUTE wipe_orders',
+      'SELECT 1 /*!, (SELECT 1) */',
+    ]) {
+      expect(isWriteSqlStatement(sql)).toBe(true);
+    }
+  });
+});
+

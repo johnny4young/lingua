@@ -14,6 +14,7 @@ import {
   type SqlCatalog,
   type SqlSchemaTable,
 } from './sqlExplorerModel';
+import '../../i18n/sqlConnectionsCatalog';
 
 /** Accept predicate for drag-drop; mirrors the picker's detection. */
 function acceptImportItem(item: File | DataTransferItem): boolean {

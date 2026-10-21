@@ -12,6 +12,7 @@
         // Electron process entries (scripts/lib/desktopViteConfig.mjs). The
         // renderer/web entries are picked up by Knip's Vite plugin.
         "src/main/index.ts",
+        "src/main/sqlHost/hostEntry.ts",
         "src/preload/index.ts",
         // Web-only alias target invisible to static import scanning.
         "src/web/plugin-catalog.ts",
@@ -24,6 +25,7 @@
         "scripts/**/*.mjs",
         "vite.main.config.mts",
         "vite.preload.config.mts",
+        "vite.sqlhost.config.mts",
         "vite.renderer.config.mts",
         "playwright.license-web.config.mts",
         "tests/**/*.{ts,tsx}"

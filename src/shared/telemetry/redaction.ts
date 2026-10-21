@@ -73,7 +73,9 @@ import {
   SHARE_OPEN_STATUSES,
   SHARE_SIZE_BUCKETS_SET,
   SMART_PASTE_HANDLERS,
+  SQL_CONNECTION_TEST_STEPS_SET,
   SQL_DURATION_BUCKETS_SET,
+  SQL_ENGINES_SET,
   SQL_IMPORT_FORMATS_SET,
   SQL_IMPORT_SOURCES_SET,
   SQL_QUERY_STATUSES_SET,
@@ -453,8 +455,14 @@ function isAllowedValue(
         return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value);
       if (key === 'durationBucket')
         return typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value);
+      if (key === 'engine') return typeof value === 'string' && SQL_ENGINES_SET.has(value);
       return false;
     case 'sql.profile_opened':
+      return false;
+    case 'sql.connection_tested':
+      if (key === 'engine') return typeof value === 'string' && SQL_ENGINES_SET.has(value);
+      if (key === 'failedStep') return typeof value === 'string' && SQL_CONNECTION_TEST_STEPS_SET.has(value);
+      if (key === 'durationBucket') return typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value);
       return false;
     case 'sql.storage_mode':
       // Both keys share the same closed enum.

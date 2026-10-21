@@ -328,9 +328,65 @@ dropped; Markdown, SQL INSERT and XLSX read rows through the same cursor up to
 a cap and use the app's writers (`sqlXlsx.ts` zips the sheet with `fflate`,
 loaded on demand). Foreign keys for tables opened from the Explorer come from
 `duckdb_constraints()` in `sqlForeignKeys.ts`, single-column keys only.
+
 An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts`:
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.
+
+### Database connections and the SQL host (desktop)
+
+Saved Postgres, MySQL and SQLite connections run outside the renderer. Main
+forks `src/main/sqlHost/hostEntry.ts` (bundled to `.vite/build/sqlHost.js`
+by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`, `pg-native` and `mysql2`
+left external) as the `Lingua SQL host` utility process through
+`createSqlHostSupervisor`; a request pending when the host exits fails, and
+the next request forks a new host. It starts without the `PG*` and `MYSQL_*`
+environment variables, and Postgres never falls back to a `.pgpass` file, so a
+driver can only use the password main gives it. The host holds one session per
+connection and serializes the requests on it.
+
+Main owns everything the host must not decide. `sqlConnectionCatalog.ts`
+keeps the catalog in `userData/sql-connections.json` (mode 0600, written
+atomically, never a password). Passwords live in the secret store under the
+`db.` namespace, which the `secrets:*` channels refuse, or in main's memory
+for connections that ask each session; they reach the host per run and never
+the renderer. A saved password belongs to its target: saving a connection
+with another engine, host, port, database, user, file or TLS mode without
+typing the password again deletes the stored one. `sqlDbService.ts` re-checks
+the Free quota against the verified license tier inside the catalog's
+serialized write, caps session-only connections, resolves the host name and
+passes the pinned address with the host name for TLS identity and SNI,
+refuses a SQLite or certificate file on a network share or in a protected
+folder (checked as given and after resolving symlinks), estimates only a single query or DML statement
+(EXPLAIN inside a transaction that is always rolled back), and refuses
+a write to a production connection without the typed connection name
+(`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
+renderer that knows the name can pass it. The twelve `sql-db:*` channels in
+`ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
+
+Read-only is enforced by the server, per run, not only by the classifier:
+on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`
+transaction and every MySQL run sets `SET SESSION TRANSACTION READ ONLY` and
+opens `START TRANSACTION READ ONLY`, both rolled back when the run closes, so
+a statement that changes the session default cannot make the next run
+writable. SQLite opens the file read-only. A confirmed write runs read-write
+for that run only: one extended-protocol statement in its own transaction on
+Postgres, the session switched for the statement on MySQL (the next run sets
+read-only again), and its own handle on SQLite. A role that can only read is
+still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
+`VACUUM INTO`, so a query cannot reach a file main did not check.
+
+A result comes back like Local's: a first window under the same row and byte
+caps, then pages read by run id through `sql-db:fetch`. Wide numbers, dates
+and JSON arrive as text and bytes as base64. Cancel uses `pg_cancel_backend`
+from a side connection on Postgres and `KILL QUERY` on MySQL, which also stops
+the server when a result is closed unread; SQLite cannot be interrupted and
+blocks the host while it runs, so a cancel the host does not answer within
+three seconds restarts it. Reading a run that a newer run on the same
+connection closed is an error, not an empty end. In the renderer,
+`sqlRemote.ts` runs the statements one at a time and wraps the pages in a
+`SqlResultCursor`; `window.lingua.db` exists only on desktop, so the web build
+keeps Local alone.
 
 ### UTF-8 text budgets
 
@@ -1252,14 +1308,17 @@ deterministic next-step boundary.
 
 ### Encrypted secret vault
 
-The HTTP workspace's secret environment values and the AI API key live in the
-desktop secret vault, not in localStorage. `src/main/secretStore.ts` encrypts
+The HTTP workspace's secret environment values, the AI API key and saved
+database connection passwords live in the desktop secret vault, not in
+localStorage. `src/main/secretStore.ts` encrypts
 each value with Electron `safeStorage` and writes one file per id under
 `userData/secrets` (atomic tmp + rename, mode 0600). Ids are namespaced
-(`ai.api-key`, `http-env.<environment>.<variable>`) and limited to a
+(`ai.api-key`, `http-env.<environment>.<variable>`, `db.<connection id>`) and limited to a
 filename-safe charset by `src/shared/secretVault.ts`; the `secrets:*` handlers
 in `src/main/ipc/secrets.ts` validate every id, prefix and value size before
-touching the store.
+touching the store. `db.` ids are main-only: the `secrets:*` channels refuse
+them, and `sqlDbService.ts` hands the password to the SQL host, never to the
+renderer (see Database connections and the SQL host).
 
 When the OS offers no real keyring (encryption unavailable, or Linux reports a
 backend other than libsecret or KWallet, such as `basic_text`) the store
@@ -1267,7 +1326,9 @@ reports `session` mode and would keep values in memory only. The AI and HTTP
 stores do not use the vault in that mode, so their values keep today's
 localStorage storage and nothing saved earlier is lost on restart. Settings ›
 AI and the HTTP environment manager say so with the "No system keyring
-available" note.
+available" note. Database passwords are never stored in that mode: the
+connection sheet offers only Ask each session, which keeps the password in
+main's memory until quit.
 
 The renderer still decrypts the value into memory to send a request, because
 the AI client and HTTP interpolation run in the renderer today; the vault

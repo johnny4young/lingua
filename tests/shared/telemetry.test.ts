@@ -299,6 +299,7 @@ describe('TELEMETRY_EVENTS', () => {
       // `SQL_DURATION_BUCKETS_SET`. Sorts between `share.opened` (sh)
       // and `template_project_applied` (te) alphabetically.
       // A privacy-safe interaction counter with no payload.
+      'sql.connection_tested',
       'sql.profile_opened',
       'sql.query_executed',
       // SQL workspace storage backing.
@@ -541,6 +542,21 @@ describe('redactForTelemetry', () => {
     const { event: redacted, droppedKeys } = redactForTelemetry(event);
     expect(redacted.properties).toEqual({});
     expect(droppedKeys).toContain('sourceCode');
+  });
+});
+
+describe('database connection telemetry', () => {
+  it('keeps engine, failed step and duration, and drops anything off the closed enums', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'sql.connection_tested',
+        properties: { engine: 'postgres', failedStep: 'auth', durationBucket: '<1s', host: 'db.internal' } as unknown as Record<string, string | number | boolean>,
+      })
+    );
+    expect(event.properties).toEqual({ engine: 'postgres', failedStep: 'auth', durationBucket: '<1s' });
+    expect(droppedKeys).toContain('host');
+    const unknownEngine = redactForTelemetry(buildEvent({ event: 'sql.query_executed', properties: { status: 'success', engine: 'oracle' } }));
+    expect(unknownEngine.event.properties).toEqual({ status: 'success' });
   });
 });
 

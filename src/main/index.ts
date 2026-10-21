@@ -20,6 +20,12 @@ import {
 } from './ipc/consent';
 import { registerSecretHandlers } from './ipc/secrets';
 import { createSecretStore, resolveSecretsDir } from './secretStore';
+import { registerSqlDbHandlers } from './ipc/sqlDb';
+import { createSqlDbService } from './sqlDbService';
+import { createConnectionCatalog, resolveConnectionCatalogPath } from './sqlConnectionCatalog';
+import { disposeSqlHost, sqlHost } from './sqlHostProcess';
+import { licenseTier } from './licenseTier';
+import { blockedPathFamily } from './ipc/permissions';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
@@ -135,6 +141,7 @@ function disposeMainResources() {
     disposePythonDebuggerSessions,
     disposeGoDebuggerSessions,
     disposeRustDebuggerSessions,
+    disposeSqlHost,
   ]) {
     try {
       void Promise.resolve(dispose()).catch(() => console.warn('[lingua] shutdown cleanup failed'));
@@ -366,8 +373,17 @@ function registerPrimaryInstance() {
         publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
       });
       registerLicenseHandlers(licenseRuntime);
-      registerSecretHandlers(
-        createSecretStore({ dir: resolveSecretsDir(userDataDir), safeStorage })
+      const secretStore = createSecretStore({ dir: resolveSecretsDir(userDataDir), safeStorage });
+      registerSecretHandlers(secretStore);
+      registerSqlDbHandlers(
+        createSqlDbService({
+          catalog: createConnectionCatalog(resolveConnectionCatalogPath(userDataDir)),
+          secrets: secretStore,
+          host: sqlHost,
+          tier: async () => licenseTier((await licenseRuntime).getSnapshot()),
+          blockedPath: blockedPathFamily,
+        }),
+        blockedPathFamily
       );
 
       registerProtocolClient(userDataProfile);

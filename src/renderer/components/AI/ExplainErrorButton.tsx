@@ -36,6 +36,8 @@ export interface ExplainErrorButtonProps {
    * matches notebook cells and fresh tabs.
    */
   readonly runtimeMode?: RuntimeMode;
+  /** A SQL error from a saved connection names its engine instead of Local DuckDB. */
+  readonly sqlEngine?: 'postgres' | 'mysql' | 'sqlite';
   /**
    * Apply-&-re-run seam forwarded to the dialog: replace the surface's code
    * with the AI suggestion and re-run. Omit on surfaces with nothing to
@@ -56,6 +58,7 @@ export function ExplainErrorButton({
   language,
   filename,
   runtimeMode,
+  sqlEngine,
   onApplyFix,
   testId,
   className,
@@ -70,6 +73,7 @@ export function ExplainErrorButton({
     language,
     platform: currentPlatform(),
     ...(runtimeMode ? { runtimeMode } : {}),
+    ...(sqlEngine ? { sqlEngine } : {}),
   });
 
   // No entitlement → the feature does not exist for this user. Returning null

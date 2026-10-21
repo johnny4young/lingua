@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
-import { redactSqlSecrets } from '../../shared/sqlStatements';
+import { isWriteSqlStatement, redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -21,6 +21,9 @@ import {
   type SqlPlan,
 } from '../runtime/sqlExplainPlan';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
+import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
+import { dbClientEnabled, findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
+import type { SqlDbConnectionView } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
@@ -29,6 +32,7 @@ import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
 import { appPlatform } from '../utils/appPlatform';
+import '../i18n/sqlConnectionsCatalog';
 
 export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
   return {
@@ -43,6 +47,7 @@ export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
     statementCount: outcome.statementCount,
     recordedAt: new Date().toISOString(),
     ...(outcome.errorMessage !== undefined ? { errorMessage: outcome.errorMessage } : {}),
+    ...('engine' in outcome && typeof outcome.engine === 'string' ? { engine: outcome.engine as SqlResponseV1['engine'] } : {}),
   };
 }
 
@@ -93,8 +98,22 @@ export const sessionRowCap = (columnCount: number) =>
 
 export const moreRowsKey = (queryId: string, recordedAt: string) => `${queryId}:${recordedAt}`;
 
+/** A write to a production connection waiting for the typed connection name. */
+export interface SqlWriteConfirm {
+  connectionName: string;
+  /** Every statement of the run that writes; the typed name lets all of them through. */
+  statements: string[];
+  /** Rows EXPLAIN expects it to touch; `undefined` while it loads, `null` when unknown. */
+  estimate?: number | null;
+  readOnly: boolean;
+}
+
 interface SqlRunState {
   runningQueryId: string | null;
+  confirm: SqlWriteConfirm | null;
+  /** A connection that keeps its password for the session and does not have it yet. */
+  /** `refused` is set when the password just typed was turned down. */
+  passwordPrompt: { connectionId: string; connectionName: string; refused: boolean } | null;
   more: SqlMoreRows | null;
   runSet: SqlRunSet | null;
   plan: SqlPlanResult | null;
@@ -106,6 +125,8 @@ interface SqlRunState {
 /** Module-level so a run outlives the panel, which unmounts whenever another editor tab is active. */
 const useSqlRunState = create<SqlRunState>(() => ({
   runningQueryId: null,
+  confirm: null,
+  passwordPrompt: null,
   more: null,
   runSet: null,
   plan: null,
@@ -114,6 +135,26 @@ const useSqlRunState = create<SqlRunState>(() => ({
   isRestarting: false,
 }));
 let activeController: AbortController | null = null;
+let confirmResolve: ((name: string | null) => void) | null = null;
+let pendingPasswordRun: SqlRunRequest | null = null;
+let passwordJustSubmitted = false;
+
+/** Opens the production write card and waits for the typed name, or null on cancel. */
+function requestWriteConfirm(connection: SqlDbConnectionView, writes: string[]): Promise<string | null> {
+  const db = sqlDbBridge();
+  const pending: SqlWriteConfirm = { connectionName: connection.name, statements: writes, readOnly: connection.readOnly };
+  setRunState({ confirm: pending });
+  void db?.estimate(connection.id, writes[0] ?? '').then((estimate) => {
+    if (useSqlRunState.getState().confirm?.statements === writes) setRunState({ confirm: { ...pending, estimate } });
+  });
+  return new Promise((resolve) => {
+    confirmResolve = (name) => {
+      confirmResolve = null;
+      setRunState({ confirm: null });
+      resolve(name);
+    };
+  });
+}
 // One open result stream at a time: the newest run's, until Load more drains it or something replaces it.
 let activeCursor: { key: string; cursor: SqlResultCursor } | null = null;
 
@@ -156,7 +197,7 @@ interface UseSqlRunnerOptions {
 export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSqlRunnerOptions) {
   const { t } = useTranslation();
   const announce = useAnnounce();
-  const { runningQueryId, more, runSet, plan, view, stuck, isRestarting } = useSqlRunState();
+  const { runningQueryId, more, runSet, plan, view, stuck, isRestarting, confirm, passwordPrompt } = useSqlRunState();
 
   const runExplain = useCallback(
     async (query: SqlQueryV1, statement: string, signal: AbortSignal) => {
@@ -185,18 +226,34 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
   );
 
   const runStatements = useCallback(
-    async (query: SqlQueryV1, statements: string[], signal: AbortSignal) => {
+    async (
+      query: SqlQueryV1,
+      statements: string[],
+      signal: AbortSignal,
+      remote?: { connection: SqlDbConnectionView; confirmName?: string }
+    ) => {
       const results: SqlRunSet['results'] = [];
-      const outcomes = await executeSqlScript(statements, {
-        timeoutMs,
-        signal,
-        keepCursor: true,
-        onStatement: (index, outcome) => {
-          const response = toSqlResponse(outcome);
-          results.push({ sql: statements[index] ?? '', response });
-          recordRun(query.id, statements[index] ?? '', response);
-        },
-      });
+      const onStatement = (index: number, outcome: DuckDbExecuteOutcome) => {
+        const response = toSqlResponse(outcome);
+        results.push({ sql: statements[index] ?? '', response });
+        recordRun(query.id, statements[index] ?? '', response);
+      };
+      const db = sqlDbBridge();
+      const outcomes: DuckDbExecuteOutcome[] =
+        remote && db
+          ? await executeRemoteScript(db, remote.connection.id, statements, {
+              timeoutMs,
+              signal,
+              keepCursor: true,
+              ...(remote.confirmName !== undefined ? { confirmName: remote.confirmName } : {}),
+              onStatement,
+            })
+          : await executeSqlScript(statements, { timeoutMs, signal, keepCursor: true, onStatement });
+      const refused = passwordJustSubmitted;
+      passwordJustSubmitted = false;
+      if (remote && (outcomes[0] as { fix?: string } | undefined)?.fix === 'password-needed') {
+        setRunState({ passwordPrompt: { connectionId: remote.connection.id, connectionName: remote.connection.name, refused } });
+      }
       // An engine that fails to load reports once, before any statement.
       if (results.length === 0 && outcomes[0]) {
         const response = toSqlResponse(outcomes[0]);
@@ -222,7 +279,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
             }
           : { runSet: null, view: null }
       );
-      if (results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
+      if (!remote && results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
         onSchemaChanged();
       }
       announce(
@@ -255,15 +312,40 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
   );
 
   const run = useCallback(
-    async ({ query, mode, statements }: SqlRunRequest) => {
-      if (activeController !== null || statements.length === 0) return;
+    async (request: SqlRunRequest) => {
+      const { query, mode, statements } = request;
+      if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
+      const enabled = dbClientEnabled();
+      // Right after launch the catalog may not have arrived yet; a missing connection needs it.
+      if (enabled && query.connectionId && useSqlConnectionsStore.getState().catalog === null) {
+        await useSqlConnectionsStore.getState().refresh();
+      }
+      const connection = enabled ? findConnection(query.connectionId) : undefined;
+      if (enabled && query.connectionId && !connection) {
+        useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.missing' });
+        return;
+      }
+      // Remote engines explain through their own EXPLAIN, shown as rows.
+      const toRun = connection && mode === 'explain' ? [`EXPLAIN ${statements[0]}`] : statements;
+      let confirmName: string | undefined;
+      if (connection?.env === 'prod') {
+        const writes = toRun.filter(isWriteSqlStatement);
+        if (writes.length > 0) {
+          const typed = await requestWriteConfirm(connection, writes);
+          if (typed === null) return;
+          confirmName = typed;
+        }
+      }
+      pendingPasswordRun = request;
       const controller = new AbortController();
       activeController = controller;
       dropCursor();
       setRunState({ runningQueryId: query.id });
       onBeforeRun();
       try {
-        if (mode === 'explain') await runExplain(query, statements[0]!, controller.signal);
+        if (connection) {
+          await runStatements(query, toRun, controller.signal, { connection, ...(confirmName !== undefined ? { confirmName } : {}) });
+        } else if (mode === 'explain') await runExplain(query, statements[0]!, controller.signal);
         else await runStatements(query, statements, controller.signal);
       } catch (err) {
         // The engine calls settle; this is defensive.
@@ -351,6 +433,20 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     setView,
     more,
     loadMore,
+    confirm,
+    resolveConfirm: (name: string | null) => confirmResolve?.(name),
+    passwordPrompt,
+    submitPassword: async (password: string) => {
+      const prompt = useSqlRunState.getState().passwordPrompt;
+      const db = sqlDbBridge();
+      setRunState({ passwordPrompt: null });
+      if (!prompt || !db) return;
+      await db.sessionPassword(prompt.connectionId, password);
+      const retry = pendingPasswordRun;
+      passwordJustSubmitted = retry !== null;
+      if (retry) void run(retry);
+    },
+    dismissPassword: () => setRunState({ passwordPrompt: null }),
     stuck,
     isRestarting,
     restartEngine,
@@ -361,5 +457,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
 export function resetSqlRunStateForTests(): void {
   activeController = null;
   activeCursor = null;
+  confirmResolve = null;
+  pendingPasswordRun = null;
+  passwordJustSubmitted = false;
   useSqlRunState.setState(useSqlRunState.getInitialState());
 }

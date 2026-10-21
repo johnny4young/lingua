@@ -18,6 +18,7 @@ export function SqlSaveQueryPopover({
   folders,
   onSave,
   onCancel,
+  connectionLabel,
 }: {
   /** The editor pane; the popover pins to its top-right corner. */
   anchor: RefObject<HTMLElement | null>;
@@ -27,6 +28,8 @@ export function SqlSaveQueryPopover({
   folders: ReadonlyArray<string>;
   onSave: (options: { name: string; folder?: string }) => void;
   onCancel: () => void;
+  /** The saved connection the query runs on; Local when absent. */
+  connectionLabel?: string;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initialName);
@@ -113,7 +116,7 @@ export function SqlSaveQueryPopover({
         <div>
           <span className={LABEL}>{t('sqlWorkspace.save.connection')}</span>
           <p data-testid="sql-save-connection" className="text-body-sm text-fg-muted">
-            {t('sqlWorkspace.save.connectionLocal')}
+            {connectionLabel ?? t('sqlWorkspace.save.connectionLocal')}
           </p>
         </div>
         <div className="flex justify-end gap-2 pt-1">

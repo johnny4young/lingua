@@ -8,9 +8,10 @@
  *   - `tab.language = 'sql'` — distinguishes SQL capsules from
  *     `'javascript'` / `'python'` / `'http'` so the consumer can
  *     render them with the right surface.
- *   - `tab.runtimeMode = 'duckdb-wasm'` +
- *     `environment.runner = 'duckdb-wasm'` — reserved literal that
- *     the existing capsule shape allows.
+ *   - `tab.runtimeMode` and `environment.runner` are `'duckdb-wasm'`
+ *     for Local, or `sql-postgres` / `sql-mysql` / `sql-sqlite` for a
+ *     saved connection. The connection itself (host, user, database,
+ *     file) is never recorded.
  *   - `source.content` carries the user-authored query text verbatim.
  *     The content-hash on that string lets the consumer dedup
  *     repeated runs.
@@ -18,7 +19,9 @@
  *     `success` → `'success'`, `timeout` → `'timeout'`,
  *     everything else → `'error'`.
  *   - `result.stdout` carries the result row preview as JSON.
- *   - `result.stderr` carries the error message (when present).
+ *   - `result.stderr` carries the error message (when present); a
+ *     connection failure keeps only the engine, since the server's
+ *     message names the host and the user.
  *   - `result.durationMs` mirrors the SQL response's duration.
  *
  * The existing capsule sanitiser (`sanitizeRunCapsule`) handles
@@ -84,12 +87,16 @@ export async function buildSqlResponseCapsule(
 ): Promise<RunCapsuleV1> {
   const status = mapSqlStatusToCapsule(input.response.status);
   const stdout = serializeRowsForStdout(input.response);
+  const engine = input.response.engine;
+  const runner = engine ? `sql-${engine}` : 'duckdb-wasm';
+  const unreachable = input.response.status === 'connection-failed' || input.response.status === 'blocked-target';
+  const stderr = unreachable && engine ? `Could not connect to the ${engine} connection.` : input.response.errorMessage;
   return buildRunCapsule({
     appVersion: input.appVersion,
     tab: {
       name: input.query.name.length > 0 ? input.query.name : 'SQL query',
       language: 'sql',
-      runtimeMode: 'duckdb-wasm',
+      runtimeMode: runner,
       workflowMode: 'run',
     },
     source: { content: input.query.query },
@@ -97,13 +104,11 @@ export async function buildSqlResponseCapsule(
       status,
       durationMs: Math.max(0, input.response.durationMs),
       ...(stdout.length > 0 ? { stdout } : {}),
-      ...(input.response.errorMessage !== undefined
-        ? { stderr: input.response.errorMessage }
-        : {}),
+      ...(stderr !== undefined ? { stderr } : {}),
     },
     environment: {
       platform: input.platform,
-      runner: 'duckdb-wasm',
+      runner,
     },
   });
 }

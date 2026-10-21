@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   __resetSqlStorageModeTelemetryForTests,
+  sqlConnectionTestedPayload,
   trackSqlProfileOpened,
+  trackSqlQueryExecuted,
   trackSqlStorageMode,
   trackSqlTableImported,
 } from '../../../src/renderer/hooks/sqlWorkspaceTelemetry';
@@ -53,5 +55,26 @@ describe('sqlWorkspaceTelemetry', () => {
     trackSqlProfileOpened();
 
     expect(trackEventMock).toHaveBeenCalledWith('sql.profile_opened', {});
+  });
+
+  it('tags each query with its engine, Local when the response names none', () => {
+    const base = { version: 1, status: 'success', rows: [], columns: [], rowCount: 3, durationMs: 40, tooLarge: false, statementCount: 1, recordedAt: '' } as const;
+    trackSqlQueryExecuted(base);
+    trackSqlQueryExecuted({ ...base, engine: 'mysql' });
+    expect(trackEventMock).toHaveBeenNthCalledWith(1, 'sql.query_executed', { status: 'success', rowCountBucket: '2-5', durationBucket: '<100ms', engine: 'duckdb' });
+    expect(trackEventMock.mock.calls[1]?.[1]).toMatchObject({ engine: 'mysql' });
+  });
+
+  it('reports a connection test by engine, first failed step and duration only', () => {
+    const payload = sqlConnectionTestedPayload('postgres', {
+      ok: false,
+      totalMs: 1_200,
+      steps: [
+        { id: 'resolve', status: 'ok', ms: 1, detail: 'db.internal → 10.0.4.12' },
+        { id: 'tcp', status: 'failed', ms: 1_000, detail: '10.0.4.12:5432 refused', fix: 'unreachable' },
+      ],
+    });
+    expect(payload).toEqual({ engine: 'postgres', failedStep: 'tcp', durationBucket: '<5s' });
+    expect(sqlConnectionTestedPayload('sqlite', { ok: true, totalMs: 4, steps: [{ id: 'file', status: 'ok' }] }).failedStep).toBe('none');
   });
 });

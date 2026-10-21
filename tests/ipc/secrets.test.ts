@@ -47,6 +47,15 @@ describe('secrets IPC handlers', () => {
     ]);
   });
 
+  it('keeps database passwords out of the renderer\'s reach', async () => {
+    await store.set('db.conn_1', 'hunter2');
+    expect(await invoke('secrets:get', 'db.conn_1')).toBeNull();
+    expect(await invoke('secrets:set', 'db.conn_1', 'x')).toEqual({ ok: false, reason: 'invalid-id' });
+    expect(await invoke('secrets:delete', 'db.conn_1')).toEqual({ ok: false });
+    expect(await invoke('secrets:list', 'db.')).toEqual([]);
+    expect(await store.get('db.conn_1')).toBe('hunter2');
+  });
+
   it('rejects non-string arguments before reaching the store', async () => {
     expect(await invoke('secrets:set', 42, 'x')).toEqual({ ok: false, reason: 'invalid-id' });
     expect(await invoke('secrets:set', 'ai.api-key', { value: 'x' })).toEqual({

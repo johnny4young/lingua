@@ -191,6 +191,40 @@ export function isReadOnlySqlStatement(statement: string): boolean {
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
 }
 
+const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)\b/i;
+
+/**
+ * True when a statement may change data or the session on a database
+ * connection: anything that does not lead with a read keyword, a write word
+ * anywhere in the code (a CTE that deletes, FOR UPDATE), SELECT … INTO, EXECUTE
+ * of a prepared statement, or EXPLAIN ANALYZE (or ANALYSE), which runs it.
+ */
+export function isWriteSqlStatement(statement: string): boolean {
+  // MySQL runs the inside of /*! … */ as code, and codeOnly reads it as a comment.
+  if (statement.includes('/*!')) return true;
+  const code = codeOnly(statement);
+  if (!REMOTE_READ_LEAD.test(code)) return true;
+  return (
+    WRITE_WORD.test(code) ||
+    /\b(into|execute)\b/i.test(code) ||
+    /^explain\s*(\([\s\S]*\banaly[sz]e\b|analy[sz]e\b)/i.test(code)
+  );
+}
+
+const ESTIMABLE_LEAD = /^(select|with|values|table|insert|update|delete|merge|replace)\b/i;
+
+/**
+ * True for one statement EXPLAIN can plan without running anything. The raw
+ * text must start with a query or DML keyword, with no comment in front: the
+ * engines disagree on where comments end (MySQL does not nest them), and a
+ * comment there could turn `EXPLAIN …` into `EXPLAIN ANALYZE …`. A MySQL
+ * executable comment anywhere is refused, since MySQL runs it as code.
+ */
+export function isEstimableSqlStatement(statement: string): boolean {
+  if (statement.includes('/*!')) return false;
+  return splitSqlStatements(statement).length === 1 && ESTIMABLE_LEAD.test(statement.trimStart());
+}
+
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
 const SECRET_STATEMENT = /\b(secret|attach)\b|^\s*(set|reset|pragma)\b/i;
 const SECRET_LITERAL =

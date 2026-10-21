@@ -52,10 +52,15 @@ import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlEx
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlQueryTabs } from './SqlQueryTabs';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
+import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
 import { SqlPlanView } from './SqlPlanView';
 import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { SqlConnectionSheet, type SqlConnectionSheetMode } from './SqlConnectionSheet';
+import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
+import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
+import { sqlDbBridge } from '../../runtime/sqlRemote';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
 function formatApproxStorage(bytes: number): string {
@@ -221,6 +226,30 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     onBeforeRun: handleBeforeRun,
     onSchemaChanged: handleSchemaChanged,
   });
+  // Database connections (Labs): desktop runs them; web lists Local and says why.
+  const dbFlag = useSettingsStore((state) => state.featureFlags.dbClient === true);
+  const dbDesktop = sqlDbBridge() !== null;
+  const connectionsCatalog = useSqlConnectionsStore((state) => state.catalog);
+  const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
+  useEffect(() => {
+    if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
+  }, [dbFlag, dbDesktop]);
+  const activeConnection =
+    dbFlag && activeQuery?.connectionId
+      ? [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === activeQuery.connectionId)
+      : undefined;
+  const selectConnection = useCallback(
+    (connectionId: string | undefined) => {
+      let id = useWorkspaceSqlStore.getState().activeQueryId;
+      if (!id) {
+        handleCreate();
+        id = useWorkspaceSqlStore.getState().activeQueryId;
+      }
+      if (id) useWorkspaceSqlStore.getState().updateQuery(id, { connectionId });
+    },
+    [handleCreate]
+  );
+
   const runWhole = useCallback(
     (query: SqlQueryV1) =>
       void runner.run({
@@ -565,6 +594,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           folders={folders}
           onSave={tabActions.confirmSave}
           onCancel={tabActions.cancelSave}
+          {...(activeConnection ? { connectionLabel: `${activeConnection.name} · ${ENGINE_LABEL[activeConnection.engine]}` } : {})}
         />
       ) : null}
     </div>
@@ -628,6 +658,22 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
       <SqlConnectionBar
+        {...(dbFlag
+          ? {
+              remote: {
+                desktop: dbDesktop,
+                catalog: connectionsCatalog,
+                activeId: activeQuery?.connectionId,
+                onSelect: selectConnection,
+                onNew: () => setConnectionSheet({ kind: 'new' }),
+                onOpenUrl: () => setConnectionSheet({ kind: 'url' }),
+                onEdit: (id: string) => {
+                  const connection = [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === id);
+                  if (connection) setConnectionSheet({ kind: 'edit', connection });
+                },
+              },
+            }
+          : {})}
         actions={
           <SqlImportButton
             inputRef={importInputRef}
@@ -637,6 +683,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         }
       />
+      {activeConnection?.env === 'prod' ? <SqlProdBanner name={activeConnection.name} readOnly={activeConnection.readOnly} /> : null}
       <div className="flex min-h-0 flex-1">
         {explorerFolded ? (
           <>
@@ -688,6 +735,25 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onCsvChange={(csv) => void sqlImport.setCsv(csv)}
           onConfirm={() => void sqlImport.confirmImport()}
           onCancel={sqlImport.cancelImport}
+        />
+      ) : null}
+      {connectionSheet ? (
+        <SqlConnectionSheet
+          mode={connectionSheet}
+          onClose={() => setConnectionSheet(null)}
+          onDone={(connection) => {
+            setConnectionSheet(null);
+            selectConnection(connection.id);
+          }}
+        />
+      ) : null}
+      {runner.confirm ? <SqlWriteConfirmDialog confirm={runner.confirm} onResolve={runner.resolveConfirm} /> : null}
+      {runner.passwordPrompt ? (
+        <SqlPasswordPrompt
+          name={runner.passwordPrompt.connectionName}
+          refused={runner.passwordPrompt.refused}
+          onSubmit={(password) => void runner.submitPassword(password)}
+          onCancel={runner.dismissPassword}
         />
       ) : null}
       {closePrompt ? (

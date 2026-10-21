@@ -9,7 +9,9 @@ export function ErrorBand({
   message,
   querySource,
   onApplyFix,
+  engine,
 }: {
+  engine?: SqlResponseV1['engine'];
   status: SqlResponseV1['status'];
   message: string | undefined;
   querySource?: string;
@@ -21,7 +23,11 @@ export function ErrorBand({
       ? 'sqlWorkspace.response.timeoutBand'
       : status === 'engine-load-failed'
         ? 'sqlWorkspace.response.engineLoadFailedBand'
-        : 'sqlWorkspace.response.errorBand';
+        : status === 'connection-failed'
+          ? 'sqlWorkspace.response.connectionFailedBand'
+          : status === 'blocked-target'
+            ? 'sqlWorkspace.response.blockedTargetBand'
+            : 'sqlWorkspace.response.errorBand';
   const hintKey =
     status === 'engine-load-failed'
       ? 'sqlWorkspace.response.engineLoadFailedHint'
@@ -55,6 +61,7 @@ export function ErrorBand({
                 errorMessage={message}
                 code={querySource}
                 language="sql"
+                {...(engine && engine !== 'duckdb' ? { sqlEngine: engine } : {})}
                 {...(onApplyFix ? { onApplyFix } : {})}
                 testId="sql-explain-error"
               />

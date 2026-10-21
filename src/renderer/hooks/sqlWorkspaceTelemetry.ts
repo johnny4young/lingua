@@ -20,6 +20,8 @@ import {
   type SqlResponseV1,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
+import type { SqlRemoteEngine } from '../../shared/sqlConnections';
+import type { SqlDbTestResult } from '../../shared/sqlDb';
 import { trackEvent } from '../utils/telemetry';
 
 /**
@@ -45,7 +47,17 @@ export function trackSqlQueryExecuted(response: SqlResponseV1): void {
     status: response.status,
     rowCountBucket: bucketCount(response.rowCount),
     durationBucket: bucketSqlDuration(response.durationMs),
+    engine: response.engine ?? 'duckdb',
   });
+}
+
+/** `sql.connection_tested`: the engine, the first failed step and a duration bucket; nothing about the target. */
+export function sqlConnectionTestedPayload(engine: SqlRemoteEngine, result: SqlDbTestResult) {
+  return {
+    engine,
+    failedStep: result.steps.find((step) => step.status === 'failed')?.id ?? 'none',
+    durationBucket: bucketSqlDuration(result.totalMs),
+  };
 }
 
 /**

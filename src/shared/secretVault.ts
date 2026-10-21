@@ -2,7 +2,8 @@
  * Contract for the desktop secret vault: values encrypted with Electron
  * `safeStorage` in main, one blob per id under `userData/secrets`.
  *
- * Ids are namespaced (`ai.api-key`, `http-env.<env>.<var>`) and restricted to
+ * Ids are namespaced (`ai.api-key`, `http-env.<env>.<var>`, and the main-only
+ * `db.<connection id>`) and restricted to
  * a filename-safe charset so main can map them to files without escaping.
  */
 
@@ -31,8 +32,8 @@ export interface SecretVaultBridge {
 export const MAX_SECRET_VALUE_LENGTH = 64 * 1024;
 
 const SEGMENT = '[A-Za-z0-9_-]{1,80}';
-/** Known namespaces only, so a renderer cannot mint files in new ones. */
-const NAMESPACE = '(?:ai|http-env)';
+/** Known namespaces only, so a renderer cannot mint files in new ones. `db` is main-only. */
+const NAMESPACE = '(?:ai|http-env|db)';
 const SECRET_ID_RE = new RegExp(`^${NAMESPACE}(?:\\.${SEGMENT}){1,3}$`);
 const SECRET_PREFIX_RE = new RegExp(`^${NAMESPACE}\\.(?:${SEGMENT}\\.){0,2}$`);
 

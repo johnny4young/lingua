@@ -3,6 +3,7 @@ import type { LspBridge, LspNotification } from '../shared/lspBridge';
 import { contextBridge } from 'electron';
 import type { HttpDesktopAPI } from '../shared/httpWorkspaceSchema';
 import type { SecretVaultBridge } from '../shared/secretVault';
+import type { SqlDbBridge } from '../shared/sqlDb';
 import type {
   ProjectTerminalBridge,
   ProjectTerminalDataEvent,
@@ -244,6 +245,22 @@ contextBridge.exposeInMainWorld('lingua', {
     delete: (id: string) => typedInvoke('secrets:delete', id),
     list: (prefix: string) => typedInvoke('secrets:list', prefix),
   } satisfies SecretVaultBridge,
+
+  // Desktop database client; passwords go to main and never come back.
+  db: {
+    catalog: () => typedInvoke('sql-db:catalog'),
+    save: (draft, id, password) => typedInvoke('sql-db:save', draft, id, password),
+    delete: (id) => typedInvoke('sql-db:delete', id),
+    openAdhoc: (draft, password) => typedInvoke('sql-db:open-adhoc', draft, password),
+    sessionPassword: (id, password) => typedInvoke('sql-db:session-password', id, password),
+    test: (target) => typedInvoke('sql-db:test', target),
+    execute: (runId, connectionId, sql, options) => typedInvoke('sql-db:execute', runId, connectionId, sql, options),
+    fetch: (runId, limit, maxBytes) => typedInvoke('sql-db:fetch', runId, limit, maxBytes),
+    cancel: (runId) => typedInvoke('sql-db:cancel', runId),
+    closeRun: (runId) => typedInvoke('sql-db:close-run', runId),
+    estimate: (connectionId, sql) => typedInvoke('sql-db:estimate', connectionId, sql),
+    pickFile: (kind) => typedInvoke('sql-db:pick-file', kind),
+  } satisfies SqlDbBridge,
 
   // Env-snapshot bridge . Intentionally returns an empty
   // record today: host `process.env` stays in main until runner integration
