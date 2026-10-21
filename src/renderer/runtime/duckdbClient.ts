@@ -68,6 +68,8 @@ export interface DuckDbExecuteOutcome {
   rowCountIsLowerBound?: boolean;
   /** Set on `cancelled` or `timeout`: DuckDB had not stopped within the settle window. */
   stillRunning?: boolean;
+  /** With `keepCursor`, the open stream past the window; the caller must close it. */
+  cursor?: SqlResultCursor;
   statementCount: number;
   errorMessage?: string;
 }
@@ -656,7 +658,10 @@ export interface ArrowTableLike {
  * Collects preview rows under the row and byte caps. `add` returns false once
  * the window is full, so a streaming reader knows when to stop.
  */
-function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
+function createRowAccumulator(
+  fields: ArrowTableLike['schema']['fields'],
+  caps: { maxRows: number; maxBytes: number } = { maxRows: MAX_RESULT_ROWS, maxBytes: MAX_RESULT_PREVIEW_BYTES }
+) {
   const columns: SqlColumnMetadata[] = fields.map((field) => ({
     name: field.name,
     type: stringifyArrowType(field.type),
@@ -680,7 +685,7 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
       let taken = 0;
       for (const raw of batch) {
         if (full) break;
-        if (rows.length >= MAX_RESULT_ROWS) {
+        if (rows.length >= caps.maxRows) {
           full = true;
           break;
         }
@@ -696,7 +701,7 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
           if (typeof cell === 'number') safeRow[name] = format(cell);
         }
         const rowBytes = utf8ByteLength(JSON.stringify(safeRow));
-        if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
+        if (approxBytes + rowBytes > caps.maxBytes) {
           full = true;
           taken -= 1;
           break;
@@ -704,7 +709,7 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
         approxBytes += rowBytes;
         rows.push(safeRow);
       }
-      if (rows.length >= MAX_RESULT_ROWS) full = true;
+      if (rows.length >= caps.maxRows) full = true;
       return taken;
     },
     isFull: () => full,
@@ -733,42 +738,107 @@ export function mapArrowTable(table: ArrowTableLike): {
   };
 }
 
+/** Rows past the window of a result whose stream stays open, read on demand ("Load more"). */
+export interface SqlResultCursor {
+  /** Reads up to `limit` more rows; `done` once DuckDB has no more. */
+  next(limit: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean }>;
+  /** Stops the statement and releases its connection. Safe to call twice. */
+  close(): Promise<void>;
+}
+
+function createResultCursor(
+  fields: ArrowTableLike['schema']['fields'],
+  pending: Array<Record<string, unknown>>,
+  stream: DuckDbResultStream,
+  release: () => Promise<void>
+): SqlResultCursor {
+  let buffered = pending;
+  let done = false;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    done = true;
+    buffered = [];
+    await release().catch(() => {});
+  };
+  return {
+    async next(limit) {
+      const accumulator = createRowAccumulator(fields, { maxRows: limit, maxBytes: Number.POSITIVE_INFINITY });
+      while (!accumulator.isFull() && !closed) {
+        if (buffered.length === 0) {
+          if (done) break;
+          const batch = await stream.next().catch(() => null);
+          if (batch === null) {
+            done = true;
+            break;
+          }
+          buffered = batch.toArray();
+          continue;
+        }
+        const taken = accumulator.add(buffered);
+        buffered = buffered.slice(taken);
+      }
+      const exhausted = done && buffered.length === 0;
+      if (exhausted) await close();
+      return { rows: accumulator.rows, done: exhausted || closed };
+    },
+    close,
+  };
+}
+
 /**
  * Reads a streamed result until it ends or the window fills. On a full
- * window it cancels the rest, and the row count becomes a lower bound.
+ * window it cancels the rest and the row count becomes a lower bound;
+ * with `keepOpen` it hands back a cursor over the rest instead.
  */
 export async function readResultStream(
   stream: DuckDbResultStream,
-  cancel?: () => Promise<boolean>
+  cancel?: () => Promise<boolean>,
+  options: { keepOpen?: () => Promise<void> } = {}
 ): Promise<{
   columns: SqlColumnMetadata[];
   rows: Array<Record<string, unknown>>;
   rowCount: number;
   tooLarge: boolean;
   rowCountIsLowerBound: boolean;
+  cursor?: SqlResultCursor;
 }> {
   let accumulator: ReturnType<typeof createRowAccumulator> | null = null;
   let seen = 0;
   let stoppedEarly = false;
+  // Raw rows read past the window: the rest of the last batch, then the peeked one.
+  let pending: Array<Record<string, unknown>> = [];
   for (let batch = await stream.next(); batch !== null; batch = await stream.next()) {
     accumulator ??= createRowAccumulator(batch.schema.fields);
     const rows = batch.toArray();
     seen += rows.length;
     const taken = accumulator.add(rows);
     if (accumulator.isFull()) {
+      pending = rows.slice(taken);
       // Rows left in this batch, or any later batch, mean the total is unknown.
-      stoppedEarly = taken < rows.length || (await stream.next().catch(() => true)) !== null;
+      const peek = taken < rows.length ? null : await stream.next().catch(() => true as const);
+      if (peek !== null && peek !== true) pending = peek.toArray();
+      stoppedEarly = taken < rows.length || peek !== null;
       break;
     }
   }
-  if (stoppedEarly) {
+  accumulator ??= createRowAccumulator(stream.fields());
+  const keepOpen = options.keepOpen;
+  const cursor =
+    stoppedEarly && keepOpen
+      ? createResultCursor(stream.fields(), pending, stream, async () => {
+          await cancel?.().catch(() => false);
+          await keepOpen();
+        })
+      : undefined;
+  if (stoppedEarly && !cursor) {
     try {
       await cancel?.();
     } catch {
       /* the window is already read; a failed cancel only wastes engine time */
     }
   }
-  accumulator ??= createRowAccumulator(stream.fields());
   const rowCount = stoppedEarly ? Math.max(seen, accumulator.rows.length) : seen;
   return {
     columns: accumulator.columns,
@@ -776,6 +846,7 @@ export async function readResultStream(
     rowCount,
     tooLarge: stoppedEarly || accumulator.rows.length < rowCount,
     rowCountIsLowerBound: stoppedEarly,
+    ...(cursor ? { cursor } : {}),
   };
 }
 
@@ -822,8 +893,11 @@ function sanitiseValueForJson(value: unknown): unknown {
     return binary;
   }
   if (Array.isArray(value)) return value.map(sanitiseValueForJson);
+  if (ArrayBuffer.isView(value)) return Array.from(value as unknown as ArrayLike<number>, sanitiseValueForJson);
   if (valueType === 'object') {
     const obj = value as Record<string, unknown>;
+    // Arrow LIST, STRUCT and MAP cells are Vector / row objects; their toJSON is the plain value.
+    if (typeof obj.toJSON === 'function') return sanitiseValueForJson((obj.toJSON as () => unknown)());
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
       out[key] = sanitiseValueForJson(obj[key]);
@@ -903,6 +977,8 @@ export interface ExecuteQueryOptions {
   timeoutMs?: number;
   /** Aborting asks DuckDB to stop and resolves `cancelled`. */
   signal?: AbortSignal;
+  /** Keep a windowed result's stream open as `outcome.cursor` instead of cancelling it. */
+  keepCursor?: boolean;
 }
 
 /** How long a cancelled or timed-out query gets to actually stop before the outcome reports it still running. */
@@ -1004,6 +1080,12 @@ async function checkpointIfPersistent(connection: DuckDbConnection): Promise<voi
 const isResultStatus = (status: DuckDbExecuteOutcome['status']) =>
   status === 'success' || status === 'too-large';
 
+/** Closing a cursor checkpoints what the run wrote, then frees the connection it kept. */
+const releaseCursor = (connection: DuckDbConnection) => async () => {
+  await checkpointIfPersistent(connection);
+  await closeQuietly(connection, true);
+};
+
 /** Runs one piece of SQL on an open connection, racing the timeout and the abort signal. */
 async function runOnConnection(
   connection: DuckDbConnection,
@@ -1046,14 +1128,19 @@ async function runOnConnection(
       rowCount: number;
       tooLarge: boolean;
       rowCountIsLowerBound?: boolean;
+      cursor?: SqlResultCursor;
     }> = stream
-      ? stream(trimmed).then((result) => readResultStream(result, connection.cancel))
+      ? stream(trimmed).then((result) =>
+          readResultStream(result, connection.cancel, options.keepCursor ? { keepOpen: releaseCursor(connection) } : {})
+        )
       : connection.query(trimmed);
     // The connection closes after the caller is done, so a query that loses the race rejects late.
     void queryPromise.catch(() => {});
     const raceResult = await Promise.race([queryPromise, timeoutPromise, abortPromise]);
     if (isTimeoutSentinel(raceResult) || raceResult === 'aborted') {
       const status = raceResult === 'aborted' ? 'cancelled' : 'timeout';
+      // A window that arrives after the stop has nobody to read it.
+      void queryPromise.then((late) => late.cursor?.close(), () => {});
       // A timeout stops the statement like Cancel does, then waits to learn whether DuckDB stopped.
       await connection.cancel?.().catch(() => false);
       const settled = await Promise.race([
@@ -1076,6 +1163,7 @@ async function runOnConnection(
       durationMs: Math.round(performance.now() - start),
       tooLarge,
       ...(raceResult.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
+      ...(raceResult.cursor ? { cursor: raceResult.cursor } : {}),
       statementCount,
     };
   } catch (err) {
@@ -1107,10 +1195,12 @@ export async function executeQuery(
   let outcome: DuckDbExecuteOutcome | undefined;
   try {
     outcome = await runOnConnection(opened.connection, trimmed, options);
+    // An open cursor still reads on this connection; it checkpoints and closes it later.
+    if (outcome.cursor) return outcome;
     if (isResultStatus(outcome.status)) await checkpointIfPersistent(opened.connection);
     return outcome;
   } finally {
-    await closeQuietly(opened.connection, !mayStillRun(outcome));
+    if (!outcome?.cursor) await closeQuietly(opened.connection, !mayStillRun(outcome));
   }
 }
 
@@ -1133,18 +1223,23 @@ export async function executeSqlScript(
   const outcomes: DuckDbExecuteOutcome[] = [];
   try {
     for (const [index, piece] of pieces.entries()) {
-      const outcome = await runOnConnection(opened.connection, piece, options);
+      // Only the last statement may keep its stream: the next one would invalidate it.
+      const keepCursor = options.keepCursor === true && index === pieces.length - 1;
+      const outcome = await runOnConnection(opened.connection, piece, { ...options, keepCursor });
       outcomes.push(outcome);
       options.onStatement?.(index, outcome);
       if (!isResultStatus(outcome.status)) break;
     }
     const last = outcomes[outcomes.length - 1];
+    if (last?.cursor) return outcomes;
     if (!mayStillRun(last) && outcomes.some((outcome) => isResultStatus(outcome.status))) {
       await checkpointIfPersistent(opened.connection);
     }
     return outcomes;
   } finally {
-    await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
+    if (!outcomes[outcomes.length - 1]?.cursor) {
+      await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
+    }
   }
 }
 

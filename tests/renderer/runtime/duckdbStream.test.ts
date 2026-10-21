@@ -249,3 +249,71 @@ describe('restartDuckDbEngine', () => {
     expect(factory).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('result cursor (Load more)', () => {
+  it('keeps the stream open past the window and continues from the next row', async () => {
+    const { result } = stream(10, 2_048);
+    const cancel = vi.fn(async () => true);
+    const release = vi.fn(async () => undefined);
+    const out = await readResultStream(result, cancel, { keepOpen: release });
+    expect(out.rows).toHaveLength(MAX_RESULT_ROWS);
+    expect(out.cursor).toBeDefined();
+    expect(cancel).not.toHaveBeenCalled();
+    const more = await out.cursor!.next(1_000);
+    expect(more.rows.map((row) => row.n)).toEqual(Array.from({ length: 1_000 }, (_, i) => MAX_RESULT_ROWS + i));
+    expect(more.done).toBe(false);
+  });
+
+  it('reports done at the end and releases the connection once', async () => {
+    const { result } = stream(5, 2_100);
+    const cancel = vi.fn(async () => true);
+    const release = vi.fn(async () => undefined);
+    const out = await readResultStream(result, cancel, { keepOpen: release });
+    const rest = await out.cursor!.next(5_000);
+    expect(rest).toMatchObject({ done: true });
+    expect(rest.rows).toHaveLength(5 * 2_100 - MAX_RESULT_ROWS);
+    await out.cursor!.close();
+    expect(release).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it('holds the connection until the cursor closes, and only the last statement keeps one', async () => {
+    const close = vi.fn(async () => undefined);
+    engineWith({ stream: async () => stream(10, 2_048).result, cancel: async () => true, close });
+    const outcome = await executeQuery('SELECT * FROM range(100000)', { keepCursor: true });
+    expect(outcome.cursor).toBeDefined();
+    expect(close).not.toHaveBeenCalled();
+    await outcome.cursor!.close();
+    expect(close).toHaveBeenCalledOnce();
+
+    const scriptClose = vi.fn(async () => undefined);
+    engineWith({ stream: async () => stream(10, 2_048).result, cancel: async () => true, close: scriptClose });
+    const outcomes = await executeSqlScript(['SELECT * FROM a', 'SELECT * FROM b'], { keepCursor: true });
+    expect(outcomes[0]?.cursor).toBeUndefined();
+    expect(outcomes[1]?.cursor).toBeDefined();
+    await outcomes[1]!.cursor!.close();
+    expect(scriptClose).toHaveBeenCalledOnce();
+  });
+
+  it('closes a window that arrives after the run was cancelled', async () => {
+    let releaseWindow: () => void = () => {};
+    const close = vi.fn(async () => undefined);
+    engineWith({
+      stream: () =>
+        new Promise<DuckDbResultStream>((resolve) => {
+          releaseWindow = () => resolve(stream(10, 2_048).result);
+        }),
+      cancel: async () => {
+        releaseWindow();
+        return true;
+      },
+      close,
+    });
+    const controller = new AbortController();
+    const pending = executeQuery('SELECT * FROM big', { keepCursor: true, signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort();
+    expect(await pending).toMatchObject({ status: 'cancelled' });
+    await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(2));
+  });
+});
