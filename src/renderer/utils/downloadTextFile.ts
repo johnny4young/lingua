@@ -12,7 +12,16 @@ export function downloadTextFile(
   filename: string,
   mimeType: string
 ): void {
-  const blob = new Blob([content], { type: mimeType });
+  downloadFile(content, filename, mimeType);
+}
+
+/** Same download path for text or bytes (XLSX, Parquet). */
+export function downloadFile(
+  content: string | Uint8Array,
+  filename: string,
+  mimeType: string
+): void {
+  const blob = new Blob([content as BlobPart], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

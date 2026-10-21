@@ -26,6 +26,8 @@ export const sqlMonacoHarness: {
   commands: Map<number, () => void>;
   selectedRangeText: string | null;
   cursorOffset: number;
+  /** Text the host inserted at the cursor through executeEdits. */
+  edits: string[];
   /** Model text ahead of React, as right after a paste; null mirrors the rendered value. */
   modelValue: string | null;
   onCursor: Listener | null;
@@ -41,6 +43,7 @@ export const sqlMonacoHarness: {
   commands: new Map(),
   selectedRangeText: null,
   cursorOffset: 0,
+  edits: [],
   modelValue: null,
   onCursor: null,
   completionProvider: null,
@@ -50,6 +53,7 @@ export function resetSqlMonacoHarness(): void {
   sqlMonacoHarness.commands = new Map();
   sqlMonacoHarness.selectedRangeText = null;
   sqlMonacoHarness.cursorOffset = 0;
+  sqlMonacoHarness.edits = [];
   sqlMonacoHarness.modelValue = null;
   sqlMonacoHarness.onCursor = null;
   sqlMonacoHarness.completionProvider = null;
@@ -85,7 +89,12 @@ function MonacoEditor({
 }) {
   const disposable = { dispose: () => {} };
   const editor = {
-    getSelection: () => (sqlMonacoHarness.selectedRangeText !== null ? { __selection: true } : null),
+    getSelection: () => ({ __selection: true }),
+    executeEdits: (_source: string, edits: Array<{ text: string }>) => {
+      sqlMonacoHarness.edits.push(...edits.map((edit) => edit.text));
+      return true;
+    },
+    focus: () => {},
     getPosition: () => ({ lineNumber: 1, column: 1 }),
     getModel: () => ({
       getValueInRange: () => sqlMonacoHarness.selectedRangeText ?? '',

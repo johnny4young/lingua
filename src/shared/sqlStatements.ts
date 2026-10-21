@@ -220,3 +220,8 @@ export function redactSqlSecrets(sql: string): string {
   }
   return out;
 }
+
+/** True when the code (outside strings and comments) already has a WHERE clause. */
+export function hasWhereClause(sql: string): boolean {
+  return /\bwhere\b/i.test(codeOnly(sql));
+}

@@ -49,6 +49,9 @@ queries and persistence policy. Its small
 [`runtime/duckdbEngineLifecycle.ts`](runtime/duckdbEngineLifecycle.ts) helper
 owns only engine generations and serialized release; keep OPFS cleanup inside
 that release transition so a new engine cannot reopen partially cleared data.
+Full-result export (`COPY … TO` a virtual file, or rows through the result
+cursor) lives in [`runtime/duckdbExport.ts`](runtime/duckdbExport.ts), and
+foreign-key metadata in [`runtime/sqlForeignKeys.ts`](runtime/sqlForeignKeys.ts).
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
 and keeps its `app-chrome` landmarks: brand and file on the left, then
@@ -189,7 +192,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar, Explorer, results under the editor, export and Local hand-offs |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar, Explorer, results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -637,7 +640,9 @@ collection state:
   the tree but in editor completion. A table opened from the Explorer shows its
   rows under a generated SQL strip without adding a run to history.
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
-  Export dialog's Save as table, Send to Python tab and Save as run capsule.
+  Export dialog's Save as table, Send to Python tab and Save as run capsule;
+  [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
+  table previews, foreign-key follow and back, and Referenced by counts.
 
 ## State ownership
 

@@ -1,11 +1,12 @@
 /**
  * Results below the SQL editor: status + Table / JSON / Profile, the SQL
- * strip naming what produced the rows, a typed grid where a click selects a
- * row and Cmd/Ctrl+C copies it as JSON, and Export full result… in the footer.
+ * strip naming what produced the rows, a virtualized typed grid with filter
+ * chips, a cell menu and Load more, the column rail or the value viewer on
+ * the right, and Export full result… in the footer.
  */
 
-import { AlertTriangle, Bookmark, Download, Hash, Loader2, Search, X } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { AlertTriangle, ArrowLeft, Bookmark, Columns3, Download, Hash, Loader2 } from 'lucide-react';
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   buildColumnProfileQuery,
@@ -16,21 +17,54 @@ import {
   formatShortcutCombo,
 } from '../../data/keyboardShortcuts';
 import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
+import { arrowTypeToDuckDb } from '../../../shared/sqlTypeNames';
+import type { SqlForeignKey } from '../../runtime/sqlForeignKeys';
+import { cn } from '../../utils/cn';
+import { formatNumber } from '../../i18n/formatNumber';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader } from '../ui/ResultHeader';
 import { StatusBadge } from '../ui/StatusBadge';
 import { toneForSqlStatus } from './sqlStatusTone';
 import { SqlRunHistory } from './SqlRunHistory';
 import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
-import { ErrorBand, JsonView, ResultTable } from './SqlResultPreviewParts';
+import { ErrorBand, JsonView } from './SqlResultPreviewParts';
 import { SqlExportDialog, type SqlResultHandoffs } from './SqlExportDialog';
 import { copyToClipboard } from './sqlResultActions';
 import { filterRows, nextSortState, sortRows, type SqlSortState } from './sqlResultGrid';
+import { applyConditions, buildGridSql, visibleColumns, type SqlColumnLayout, type SqlFilterCondition } from './sqlResultFilters';
+import { SqlVirtualGrid, type SqlCellAction, type SqlGridCell } from './SqlVirtualGrid';
+import { renderCell } from './sqlResultFormatters';
+import { SqlResultToolbar } from './SqlResultToolbar';
+import { SqlColumnRail } from './SqlColumnRail';
+import { SqlValueViewer } from './SqlValueViewer';
+import { DEFAULT_EXPORT_OPTIONS, serializeRows } from './sqlResultExport';
 
 /** Where the rows on screen came from: an editor run, or a table opened from the Explorer. */
 export type SqlResultSource =
   | { origin: 'editor'; sql: string }
-  | { origin: 'table'; sql: string; tableName: string };
+  | { origin: 'table'; sql: string; tableName: string; backTo?: string };
+
+/** Rows Load more read past the window, and whether the stream has more. */
+interface SqlResultMore {
+  rows: ReadonlyArray<Record<string, unknown>>;
+  /** The open stream can give more rows. */
+  canRead: boolean;
+  /** The stream ended, so the loaded rows are the whole result. */
+  complete?: boolean;
+  loading: boolean;
+}
+
+/** Foreign keys of an Explorer table: its own key cells link, and other tables point at its rows. */
+export interface SqlResultForeignKeys {
+  outgoing: ReadonlyArray<SqlForeignKey>;
+  incoming: ReadonlyArray<SqlForeignKey>;
+  onFollow: (key: SqlForeignKey, value: unknown) => void;
+  onOpenReference: (key: SqlForeignKey, value: unknown) => void;
+  countReferences: (key: SqlForeignKey, value: unknown) => Promise<number | null>;
+}
+
+// Session-wide: the rail stays as the user left it across results.
+let railShown = true;
 
 export interface SqlResultPreviewProps {
   /** The response on screen; `null` before the first run. */
@@ -59,7 +93,16 @@ export interface SqlResultPreviewProps {
   /** Shown in the SQL strip above the grid. */
   source?: SqlResultSource;
   onEditInEditor?: (sql: string) => void;
+  /** Back to the table a foreign-key link came from. */
+  onBack?: () => void;
   handoffs?: SqlResultHandoffs;
+  more?: SqlResultMore;
+  onLoadMore?: () => void;
+  foreignKeys?: SqlResultForeignKeys;
+  /** Inserts a rail predicate at the editor cursor. */
+  onInsertPredicate?: (predicate: string) => void;
+  /** Puts the grid's filters, sort and columns into the editor as SQL. */
+  onApplySql?: (sql: string) => void;
 }
 
 type ResultBodyTab = 'table' | 'json' | 'profile';
@@ -85,15 +128,27 @@ export function SqlResultPreview({
   onApplyFix,
   source,
   onEditInEditor,
+  onBack,
   handoffs = {},
+  more,
+  onLoadMore,
+  foreignKeys,
+  onInsertPredicate,
+  onApplySql,
 }: SqlResultPreviewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const num = (value: number) => formatNumber(value, i18n.language);
   // The picked view survives re-runs: the user's last view is the one they want next.
   const [bodyTab, setBodyTab] = useState<ResultBodyTab>('table');
   // Sort and filter work on the fetched rows; they never re-run the query.
   const [sort, setSort] = useState<SqlSortState>({ column: null, direction: 'asc' });
   const [filter, setFilter] = useState<string>('');
-  const [selection, setSelection] = useState<{ key: string; index: number } | null>(null);
+  const [conditions, setConditions] = useState<SqlFilterCondition[]>([]);
+  const [layout, setLayout] = useState<SqlColumnLayout>({ order: [], hidden: [] });
+  const [pages, setPages] = useState({ key: '', count: 1 });
+  const [selection, setSelection] = useState<{ key: string; cell: SqlGridCell } | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [showRail, setShowRail] = useState(railShown);
   const [exportOpen, setExportOpen] = useState(false);
   const profileRequestIdRef = useRef(0);
   const [profileState, setProfileState] = useState<{
@@ -107,10 +162,10 @@ export function SqlResultPreview({
     responseKey !== null && profileState?.responseKey === responseKey ? profileState : null;
 
   // A selection belongs to one view of one response; a new run, filter or sort clears it.
-  const selectionKey = `${responseKey}|${filter}|${sort.column}:${sort.direction}`;
-  const selectedRow = selection?.key === selectionKey ? selection.index : null;
-  const setSelectedRow = useCallback(
-    (index: number | null) => setSelection(index === null ? null : { key: selectionKey, index }),
+  const selectionKey = `${responseKey}|${filter}|${JSON.stringify(conditions)}|${sort.column}:${sort.direction}`;
+  const selected = selection?.key === selectionKey ? selection.cell : null;
+  const setSelected = useCallback(
+    (cell: SqlGridCell | null) => setSelection(cell === null ? null : { key: selectionKey, cell }),
     [selectionKey]
   );
 
@@ -153,39 +208,72 @@ export function SqlResultPreview({
   const activeTab: ResultBodyTab =
     bodyTab === 'profile' ? (canProfile && visibleProfile !== null ? 'profile' : 'table') : bodyTab;
 
-  const filteredSortedRows = useMemo(() => {
-    if (!response || response.rows.length === 0) return [];
-    return sortRows(filterRows(response.rows, filter), sort);
-  }, [response, filter, sort]);
+  // The window, plus what Load more read past it.
+  const loadedRows = useMemo(
+    () => (!response ? [] : more && more.rows.length > 0 ? [...response.rows, ...more.rows] : response.rows),
+    [response, more]
+  );
+  const columns = useMemo(() => (response ? response.columns : []), [response]);
+  // Typing stays responsive while a large result is searched.
+  const searchText = useDeferredValue(filter);
+  const filteredRows = useMemo(
+    () => (loadedRows.length === 0 ? [] : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
+    [loadedRows, searchText, conditions, columns]
+  );
+  const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
+  // Rows on screen grow by one page per Load more; a new response starts over.
+  const pageCount = pages.key === responseKey ? pages.count : 1;
+  const pageSize = Math.max(1, rowDisplayLimit);
   const displayRows = useMemo(
-    () => filteredSortedRows.slice(0, Math.max(1, rowDisplayLimit)),
-    [filteredSortedRows, rowDisplayLimit]
+    () => filteredSortedRows.slice(0, pageSize * pageCount),
+    [filteredSortedRows, pageSize, pageCount]
   );
   const filteredCount = filteredSortedRows.length;
+  const shownColumns = useMemo(() => visibleColumns(columns, layout), [columns, layout]);
+  const gridSql = useMemo(
+    () => (source ? buildGridSql(source.sql, conditions, sort, columns, layout) : null),
+    [source, conditions, sort, columns, layout]
+  );
+  const canShowMore = displayRows.length < filteredCount || (more?.canRead === true && !more.loading);
+  const handleLoadMore = () => {
+    setPages({ key: responseKey ?? '', count: pageCount + 1 });
+    // Read from the stream once the loaded rows run out.
+    if (pageSize * (pageCount + 1) > filteredCount && more?.canRead) onLoadMore?.();
+  };
+  const outgoingByColumn = useMemo(
+    () => new Map((foreignKeys?.outgoing ?? []).map((key) => [key.column, key])),
+    [foreignKeys]
+  );
+  const linkedColumns = useMemo(() => new Set(outgoingByColumn.keys()), [outgoingByColumn]);
 
-  const copySelectedRow = useCallback(() => {
-    const row = selectedRow === null ? undefined : displayRows[selectedRow];
-    if (!row) return false;
-    copyToClipboard(JSON.stringify(row, jsonReplacer, 2), {
-      messageKey: 'sqlWorkspace.grid.rowCopied',
-    });
-    return true;
-  }, [displayRows, selectedRow]);
+  const copyRow = useCallback(
+    (index: number) => {
+      const row = displayRows[index];
+      if (!row) return;
+      copyToClipboard(JSON.stringify(row, jsonReplacer, 2), { messageKey: 'sqlWorkspace.grid.rowCopied' });
+    },
+    [displayRows]
+  );
 
-  const handleGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (displayRows.length === 0) return;
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      setSelectedRow(
-        Math.min(displayRows.length - 1, Math.max(0, (selectedRow ?? (step > 0 ? -1 : 1)) + step))
-      );
-      return;
-    }
-    const isCopy = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c';
-    // A text selection in the grid copies as text, the platform default.
-    if (isCopy && (window.getSelection()?.toString() ?? '') === '' && copySelectedRow()) {
-      event.preventDefault();
+  const handleCellAction = (action: SqlCellAction, cell: SqlGridCell) => {
+    const row = displayRows[cell.row];
+    if (!row) return;
+    const value = row[cell.column];
+    const isNull = value === null || value === undefined;
+    if (action === 'filter' || action === 'exclude') {
+      const op = action === 'filter' ? (isNull ? 'is-null' : '=') : isNull ? 'not-null' : '!=';
+      setConditions((current) => [...current, { id: crypto.randomUUID(), column: cell.column, op, value: isNull ? '' : renderCell(value) }]);
+    } else if (action === 'copy-value') {
+      copyToClipboard(renderCell(value), { messageKey: 'sqlWorkspace.grid.valueCopied' });
+    } else if (action === 'copy-row') {
+      copyRow(cell.row);
+    } else if (action === 'copy-insert') {
+      copyToClipboard(serializeRows('sql-insert', shownColumns, [row], DEFAULT_EXPORT_OPTIONS), {
+        messageKey: 'sqlWorkspace.grid.insertCopied',
+      });
+    } else {
+      setSelected(cell);
+      setViewerOpen(true);
     }
   };
 
@@ -226,11 +314,17 @@ export function SqlResultPreview({
 
   const tone = toneForSqlStatus(response.status);
   const hasResultBody = response.status === 'success' || response.status === 'too-large';
+  const knownTotal = Math.max(response.rowCount, loadedRows.length);
+  const totalIsLowerBound = response.rowCountIsLowerBound === true && more?.complete !== true;
   const meta = hasResultBody
     ? [
-        t(response.rowCountIsLowerBound ? 'sqlWorkspace.response.rowCountAtLeast' : 'sqlWorkspace.response.rowCount', {
-          count: response.rowCount,
-        }),
+        displayRows.length < knownTotal || totalIsLowerBound
+          ? t(totalIsLowerBound ? 'sqlWorkspace.response.inViewAtLeast' : 'sqlWorkspace.response.inView', {
+              shown: num(displayRows.length),
+              total: num(knownTotal),
+              count: knownTotal,
+            })
+          : t('sqlWorkspace.response.rowCount', { count: knownTotal, formatted: num(knownTotal) }),
         `${Math.max(0, Math.round(response.durationMs))} ms`,
       ].join(' · ')
     : undefined;
@@ -249,7 +343,8 @@ export function SqlResultPreview({
     <div
       data-testid="sql-result-preview"
       data-state={response.status}
-      className="relative flex h-full min-w-0 flex-col bg-bg-base"
+      // A short pane scrolls as a whole rather than letting the bands cover the grid.
+      className="relative flex h-full min-w-0 flex-col overflow-y-auto bg-bg-base"
     >
       <ResultHeader
         status={
@@ -267,14 +362,35 @@ export function SqlResultPreview({
           if (id === 'profile' && visibleProfile === null) void handleProfile();
         }}
         trailing={
-          showStatementCount ? (
-            <span
-              data-testid="sql-result-preview-statement-count"
-              className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
-            >
-              {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
-            </span>
-          ) : undefined
+          <>
+            {showStatementCount ? (
+              <span
+                data-testid="sql-result-preview-statement-count"
+                className="rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-eyebrow font-medium text-fg-muted"
+              >
+                {t('sqlWorkspace.response.statementCount', { count: response.statementCount })}
+              </span>
+            ) : null}
+            {showGridChrome && response.rows.length > 0 ? (
+              <button
+                type="button"
+                aria-pressed={showRail}
+                onClick={() => {
+                  railShown = !showRail;
+                  setShowRail(railShown);
+                }}
+                data-testid="sql-column-rail-toggle"
+                title={t('sqlWorkspace.rail.toggle')}
+                className={cn(
+                  'focus-ring inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-caption transition-colors',
+                  showRail ? 'bg-bg-panel-alt text-fg-base' : 'text-fg-muted hover:text-fg-base'
+                )}
+              >
+                <Columns3 size={12} aria-hidden="true" />
+                {t('sqlWorkspace.rail.label')}
+              </button>
+            ) : null}
+          </>
         }
       />
 
@@ -297,6 +413,17 @@ export function SqlResultPreview({
               ? t('sqlWorkspace.strip.fromTable', { name: source.tableName })
               : t('sqlWorkspace.strip.fromEditor')}
           </span>
+          {source.origin === 'table' && source.backTo && onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              data-testid="sql-result-strip-back"
+              className="focus-ring inline-flex h-[22px] shrink-0 items-center gap-1 rounded-md border border-border-default bg-bg-panel-alt px-2 text-caption font-medium text-fg-base transition-colors hover:border-border-strong"
+            >
+              <ArrowLeft size={11} aria-hidden="true" />
+              {t('sqlWorkspace.strip.backTo', { name: source.backTo })}
+            </button>
+          ) : null}
           {source.origin === 'table' && onEditInEditor ? (
             <button
               type="button"
@@ -346,7 +473,7 @@ export function SqlResultPreview({
                   response.rowCountIsLowerBound
                     ? 'sqlWorkspace.response.tooLargeBandAtLeast'
                     : 'sqlWorkspace.response.tooLargeBand',
-                  { shown: displayRows.length, total: response.rowCount }
+                  { shown: num(displayRows.length), total: num(knownTotal) }
                 )}
               </p>
               <p className="mt-0.5 text-eyebrow text-warning-fg/80">
@@ -358,43 +485,24 @@ export function SqlResultPreview({
       ) : null}
 
       {showGridChrome && response.rows.length > 0 ? (
-        <div className="flex items-center gap-2 px-2.5 py-1.5">
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-default bg-bg-inset px-2 py-1 focus-within:border-border-strong">
-            <Search size={11} aria-hidden="true" className="shrink-0 text-fg-subtle" />
-            <input
-              type="text"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              data-testid="sql-result-preview-filter"
-              placeholder={t('sqlWorkspace.grid.filterPlaceholder')}
-              aria-label={t('sqlWorkspace.grid.filterAria')}
-              className="min-w-0 flex-1 bg-transparent font-mono text-caption text-fg-base placeholder:text-fg-subtle focus:outline-none"
-            />
-            {filter.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => setFilter('')}
-                aria-label={t('sqlWorkspace.grid.filterClear')}
-                title={t('sqlWorkspace.grid.filterClear')}
-                data-testid="sql-result-preview-filter-clear"
-                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              >
-                <X size={10} aria-hidden="true" />
-              </button>
-            ) : null}
-          </span>
-          {filter.trim().length > 0 ? (
-            <span
-              data-testid="sql-result-preview-filter-count"
-              className="shrink-0 font-mono text-eyebrow tabular-nums text-fg-subtle"
-            >
-              {t('sqlWorkspace.grid.filterMatches', {
-                shown: filteredCount,
-                total: response.rows.length,
-              })}
-            </span>
-          ) : null}
-        </div>
+        <SqlResultToolbar
+          columns={columns}
+          search={filter}
+          onSearchChange={setFilter}
+          searchCount={
+            filter.trim().length > 0 || conditions.length > 0
+              ? t('sqlWorkspace.grid.filterMatches', { shown: num(filteredCount), total: num(loadedRows.length) })
+              : null
+          }
+          conditions={conditions}
+          onConditionsChange={setConditions}
+          sort={sort}
+          onSortChange={setSort}
+          layout={layout}
+          onLayoutChange={setLayout}
+          gridSql={gridSql}
+          {...(onApplySql ? { onApplySql } : {})}
+        />
       ) : null}
 
       {activeTab === 'profile' ? (
@@ -406,37 +514,60 @@ export function SqlResultPreview({
           />
         </div>
       ) : (
-        <div
-          data-testid="sql-result-preview-table-container"
-          tabIndex={displayRows.length > 0 && activeTab === 'table' ? 0 : undefined}
-          aria-label={activeTab === 'table' ? t('sqlWorkspace.grid.ariaLabel') : undefined}
-          onKeyDown={activeTab === 'table' ? handleGridKeyDown : undefined}
-          className="min-h-[6.5rem] flex-1 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
-        >
-          {displayRows.length > 0 ? (
-            activeTab === 'json' ? (
-              <JsonView rows={displayRows} />
-            ) : (
-              <ResultTable
-                columns={response.columns}
-                rows={displayRows}
-                sort={sort}
-                onSort={handleSort}
-                selectedRowIndex={selectedRow}
-                onSelectRow={setSelectedRow}
-              />
-            )
-          ) : hasResultBody && response.rows.length > 0 && filter.trim().length > 0 ? (
-            <div
-              data-testid="sql-result-preview-filter-empty"
-              className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
-            >
-              {t('sqlWorkspace.grid.filterEmpty')}
-            </div>
-          ) : response.status === 'success' ? (
-            <div className="grid h-full place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
-              {t('sqlWorkspace.response.noRows')}
-            </div>
+        <div className="flex min-h-[9.5rem] flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {displayRows.length > 0 ? (
+              activeTab === 'json' ? (
+                <div className="min-h-[6.5rem] flex-1 overflow-auto">
+                  <JsonView rows={displayRows} />
+                </div>
+              ) : (
+                <SqlVirtualGrid
+                  columns={shownColumns}
+                  rows={displayRows}
+                  sort={sort}
+                  onSort={handleSort}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onCellAction={handleCellAction}
+                  onCopyRow={copyRow}
+                  linkedColumns={linkedColumns}
+                  {...(foreignKeys
+                    ? { onFollowLink: (column: string, value: unknown) => foreignKeys.onFollow(outgoingByColumn.get(column)!, value) }
+                    : {})}
+                />
+              )
+            ) : hasResultBody && loadedRows.length > 0 && filteredCount === 0 ? (
+              <div
+                data-testid="sql-result-preview-filter-empty"
+                className="grid min-h-[6.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle"
+              >
+                {t('sqlWorkspace.grid.filterEmpty')}
+              </div>
+            ) : response.status === 'success' ? (
+              <div className="grid min-h-[6.5rem] flex-1 place-items-center px-4 py-6 text-center text-body-sm text-fg-subtle">
+                {t('sqlWorkspace.response.noRows')}
+              </div>
+            ) : null}
+          </div>
+          {activeTab === 'table' && viewerOpen && selected && displayRows[selected.row] ? (
+            <SqlValueViewer
+              column={selected.column}
+              duckType={arrowTypeToDuckDb((selected ? shownColumns.find((column) => column.name === selected.column) : undefined)?.type ?? '')}
+              value={displayRows[selected.row]![selected.column]}
+              row={displayRows[selected.row]!}
+              {...(foreignKeys
+                ? {
+                    incoming: foreignKeys.incoming,
+                    countReferences: foreignKeys.countReferences,
+                    onOpenReference: foreignKeys.onOpenReference,
+                  }
+                : {})}
+              onClose={() => setViewerOpen(false)}
+            />
+          ) : showGridChrome && showRail && displayRows.length > 0 ? (
+            // Load order, not the sort: a sort changes neither the stats nor which rows a sampled rail reads.
+            <SqlColumnRail columns={shownColumns} rows={filteredRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
           ) : null}
         </div>
       )}
@@ -454,6 +585,21 @@ export function SqlResultPreview({
           data-testid="sql-result-footer"
           className="flex h-10 shrink-0 items-center gap-2 border-t border-border-subtle px-2.5"
         >
+          {canShowMore ? (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              data-testid="sql-result-load-more"
+              className="focus-ring inline-flex h-[26px] shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt"
+            >
+              {t('sqlWorkspace.grid.loadMore', { count: num(pageSize) })}
+            </button>
+          ) : more?.loading ? (
+            <span data-testid="sql-result-loading-more" className="inline-flex shrink-0 items-center gap-1.5 text-caption text-fg-muted">
+              <Loader2 size={12} aria-hidden="true" className="animate-spin" />
+              {t('sqlWorkspace.grid.loadingMore')}
+            </span>
+          ) : null}
           <kbd className="inline-flex h-[18px] items-center rounded border border-border-default px-1 font-mono text-micro text-fg-muted">
             {formatShortcutCombo(COPY_ROW_COMBO, currentShortcutDisplayPlatform())}
           </kbd>
@@ -486,10 +632,11 @@ export function SqlResultPreview({
 
       {exportOpen ? (
         <SqlExportDialog
-          columns={response.columns}
+          columns={shownColumns}
           rows={filteredSortedRows}
           totalRowCount={response.rowCount}
           totalIsLowerBound={response.rowCountIsLowerBound === true}
+          {...(handoffs.fullResult ? { fullSql: gridSql ?? handoffs.fullResult.sql } : {})}
           handoffs={handoffs}
           onClose={() => setExportOpen(false)}
         />

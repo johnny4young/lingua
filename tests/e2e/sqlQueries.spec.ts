@@ -69,7 +69,7 @@ test.describe('SQL queries', () => {
     await expect(page.getByTestId('sql-status-pill')).toHaveAttribute('data-status', 'too-large', {
       timeout: 30_000,
     });
-    await expect(page.getByTestId('sql-result-preview-too-large')).toContainText(/of ≥ \d{5,} rows/);
+    await expect(page.getByTestId('sql-result-preview-too-large')).toContainText(/of ≥ \d{1,3}(,\d{3})+ rows/);
 
     await typeSql(page, 'SELECT count(*) FROM range(1000000000) a, range(1000) b WHERE a.range % 7 = b.range');
     await page.getByTestId('sql-query-editor-run').click();

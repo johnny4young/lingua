@@ -308,6 +308,30 @@ lexer (`$` and non-ASCII continue identifiers, `--` ends at `\r` or `\n`) so
 a statement cannot hide behind a quote DuckDB does not see. History masks
 credential-bearing string literals with `redactSqlSecrets` before keeping SQL.
 
+With `keepCursor`, a windowed single statement keeps its stream instead of
+cancelling it: the outcome carries a `SqlResultCursor` over the rows left in
+the last batch, the peeked batch and the rest of the stream, and the
+connection stays open until the cursor is drained or closed (closing it
+cancels, checkpoints and closes). DuckDB invalidates a stream when the next
+query runs on its connection, so only the last statement of a script keeps
+one, and `useSqlRunner` holds one cursor at a time: a new run, an engine
+restart or the session cap (`sessionRowCap`, 100,000 rows or four million
+cells, plus 256 MiB of JSON) closes it. A read that fails throws instead of
+ending the stream, so a partial result never passes for a whole one. Arrow
+LIST and STRUCT cells become arrays and objects through their `toJSON` before
+they reach the grid.
+
+Full-result export runs in `duckdbExport.ts`. CSV, TSV, JSON, NDJSON and
+Parquet go through `COPY (sql) TO` into a virtual file registered with
+`registerEmptyFileBuffer` and read back with `copyFileToBuffer`, then
+dropped; Markdown, SQL INSERT and XLSX read rows through the same cursor up to
+a cap and use the app's writers (`sqlXlsx.ts` zips the sheet with `fflate`,
+loaded on demand). Foreign keys for tables opened from the Explorer come from
+`duckdb_constraints()` in `sqlForeignKeys.ts`, single-column keys only.
+An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts`:
+`INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
+a `ROLLBACK` when any row fails.
+
 ### UTF-8 text budgets
 
 `shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for

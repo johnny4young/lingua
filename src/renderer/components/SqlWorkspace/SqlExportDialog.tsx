@@ -1,19 +1,24 @@
 import { Archive, Code2, Copy, Download, Loader2, Table2 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
-import { downloadTextFile } from '../../utils/downloadTextFile';
+import { downloadFile, downloadTextFile } from '../../utils/downloadTextFile';
+import { duckDbErrorDetail } from '../../runtime/duckdbClient';
+import { SqlExportError } from '../../runtime/duckdbExport';
+import { exportFullResult, exportLoadedRows } from './sqlFullExport';
 import { isValidTableName, type SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { ModalShell } from '../ui/ModalShell';
 import { copyToClipboard } from './sqlResultActions';
 import {
+  CLIPBOARD_ROW_CAP,
   CSV_DELIMITERS,
   DEFAULT_EXPORT_OPTIONS,
   SQL_EXPORT_FORMATS,
   buildExportFilename,
   exportMimeType,
+  isTextExportFormat,
   serializeRows,
   type SqlExportFormat,
   type SqlExportOptions,
@@ -30,6 +35,8 @@ export interface SqlResultHandoffs {
   /** Receives the rows the dialog would export. */
   onSendToPython?: (rows: ReadonlyArray<Record<string, unknown>>) => void;
   onSaveCapsule?: () => void;
+  /** Present when the result can be read again in full: the source is one read statement. */
+  fullResult?: { sql: string; timeoutMs: number };
 }
 
 interface SqlExportDialogProps {
@@ -40,6 +47,8 @@ interface SqlExportDialogProps {
   totalRowCount: number;
   /** The total is only what DuckDB sent before the row window stopped the result. */
   totalIsLowerBound?: boolean;
+  /** The query for every row, with the grid's conditions, sort and columns applied. */
+  fullSql?: string;
   handoffs: SqlResultHandoffs;
   onClose: () => void;
 }
@@ -62,6 +71,7 @@ export function SqlExportDialog({
   rows,
   totalRowCount,
   totalIsLowerBound = false,
+  fullSql,
   handoffs,
   onClose,
 }: SqlExportDialogProps) {
@@ -74,13 +84,35 @@ export function SqlExportDialog({
   const capsuleCombo = useShortcutLabel('run-export-capsule');
 
   const partial = totalIsLowerBound || totalRowCount > rows.length;
-  const countLabel = partial
-    ? t(totalIsLowerBound ? 'sqlWorkspace.export.partialCountAtLeast' : 'sqlWorkspace.export.partialCount', {
-        shown: formatNumber(rows.length, i18n.language),
-        total: formatNumber(totalRowCount, i18n.language),
+  const canReadFull = fullSql !== undefined;
+  const [scope, setScope] = useState<'loaded' | 'full'>(canReadFull && partial ? 'full' : 'loaded');
+  // Parquet is written by DuckDB, so it always reads the query again.
+  const full = canReadFull && (scope === 'full' || format === 'parquet');
+  const [progress, setProgress] = useState<number | null>(null);
+  const jobRef = useRef<AbortController | null>(null);
+  useEffect(() => () => jobRef.current?.abort(), []);
+  const exporting = progress !== null;
+
+  const countLabel = full
+    ? t(totalIsLowerBound ? 'sqlWorkspace.export.fullCountAtLeast' : 'sqlWorkspace.export.fullCount', {
+        count: totalRowCount,
+        formatted: formatNumber(totalRowCount, i18n.language),
       })
-    : t('sqlWorkspace.export.count', { count: rows.length });
+    : partial
+      ? t(totalIsLowerBound ? 'sqlWorkspace.export.partialCountAtLeast' : 'sqlWorkspace.export.partialCount', {
+          shown: formatNumber(rows.length, i18n.language),
+          total: formatNumber(totalRowCount, i18n.language),
+        })
+      : t('sqlWorkspace.export.count', { count: rows.length });
   const formatLabel = SQL_EXPORT_FORMATS.find(entry => entry.id === format)?.label ?? format;
+  const downloadBlocked = format === 'parquet' && !canReadFull ? t('sqlWorkspace.export.parquetNeedsQuery') : null;
+  const copyBlocked = !isTextExportFormat(format)
+    ? t('sqlWorkspace.export.fileOnly')
+    : full
+      ? t('sqlWorkspace.export.copyLoadedOnly')
+      : rows.length > CLIPBOARD_ROW_CAP
+        ? t('sqlWorkspace.export.copyTooMany', { limit: formatNumber(CLIPBOARD_ROW_CAP, i18n.language) })
+        : null;
 
   const nameTaken =
     handoffs.saveAsTable?.existingNames.some(
@@ -88,23 +120,60 @@ export function SqlExportDialog({
     ) ?? false;
   const canSaveTable = isValidTableName(tableName) && !nameTaken && !savingTable;
 
-  // Serialized only when used: the dialog can hold every fetched row.
-  const content = () => serializeRows(format, columns, rows, options);
-
-  const handleExport = () => {
-    downloadTextFile(content(), buildExportFilename(format), exportMimeType(format));
-    useUIStore.getState().pushStatusNotice({
-      tone: 'success',
-      messageKey: 'sqlWorkspace.export.exported',
-      values: { format: formatLabel, count: rows.length },
-    });
+  const finish = (data: string | Uint8Array, count: number, truncated: boolean) => {
+    const filename = buildExportFilename(format);
+    if (typeof data === 'string') downloadTextFile(data, filename, exportMimeType(format));
+    else downloadFile(data, filename, exportMimeType(format));
+    const values = { format: formatLabel, count, formatted: formatNumber(count, i18n.language) };
+    useUIStore.getState().pushStatusNotice(
+      truncated
+        ? { tone: 'warning', messageKey: 'sqlWorkspace.export.truncated', values }
+        : { tone: 'success', messageKey: 'sqlWorkspace.export.exported', values }
+    );
     onClose();
   };
 
+  const handleExport = async () => {
+    if (!full || fullSql === undefined) {
+      // Text is serialized only when used: the dialog can hold every fetched row.
+      const data = isTextExportFormat(format)
+        ? serializeRows(format, columns, rows, options)
+        : await exportLoadedRows(format, columns, rows, options);
+      finish(data, rows.length, false);
+      return;
+    }
+    const controller = new AbortController();
+    jobRef.current = controller;
+    setProgress(0);
+    try {
+      const result = await exportFullResult(fullSql, format, options, {
+        signal: controller.signal,
+        onProgress: setProgress,
+        ...(handoffs.fullResult ? { timeoutMs: handoffs.fullResult.timeoutMs } : {}),
+      });
+      if (!controller.signal.aborted) finish(result.data, result.rowCount, result.truncated);
+    } catch (err) {
+      const cancelled = controller.signal.aborted || (err instanceof SqlExportError && err.status === 'cancelled');
+      const detail = cancelled ? undefined : duckDbErrorDetail(err);
+      useUIStore.getState().pushStatusNotice({
+        tone: cancelled ? 'info' : 'error',
+        messageKey: cancelled ? 'sqlWorkspace.export.cancelled' : 'sqlWorkspace.export.failed',
+        values: { format: formatLabel },
+        ...(detail ? { detail } : {}),
+      });
+    } finally {
+      if (jobRef.current === controller) {
+        jobRef.current = null;
+        setProgress(null);
+      }
+    }
+  };
+
   const handleCopy = () => {
-    copyToClipboard(content(), {
+    if (!isTextExportFormat(format)) return;
+    copyToClipboard(serializeRows(format, columns, rows, options), {
       messageKey: 'sqlWorkspace.export.copied',
-      values: { format: formatLabel, count: rows.length },
+      values: { format: formatLabel, count: rows.length, formatted: formatNumber(rows.length, i18n.language) },
     });
   };
 
@@ -156,9 +225,10 @@ export function SqlExportDialog({
               role="radio"
               aria-checked={format === entry.id}
               data-testid={`sql-export-format-${entry.id}`}
+              disabled={exporting}
               onClick={() => setFormat(entry.id)}
               className={cn(
-                'focus-ring h-6 rounded-[5px] px-2 text-caption transition-colors',
+                'focus-ring h-6 rounded-[5px] px-2 text-caption transition-colors disabled:opacity-40',
                 format === entry.id
                   ? 'bg-bg-panel text-fg-base shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
                   : 'text-fg-muted hover:text-fg-base'
@@ -168,6 +238,43 @@ export function SqlExportDialog({
             </button>
           ))}
         </div>
+
+        {canReadFull && partial ? (
+          <div className="flex flex-col gap-1">
+            <div
+              role="radiogroup"
+              aria-label={t('sqlWorkspace.export.scopeAria')}
+              className="flex w-fit rounded-[7px] border border-border-subtle bg-bg-inset p-0.5"
+            >
+              {(['loaded', 'full'] as const).map(entry => (
+                <button
+                  key={entry}
+                  type="button"
+                  role="radio"
+                  aria-checked={(entry === 'full') === full}
+                  data-testid={`sql-export-scope-${entry}`}
+                  disabled={exporting || (entry === 'loaded' && format === 'parquet')}
+                  onClick={() => setScope(entry)}
+                  className={cn(
+                    'focus-ring h-6 rounded-[5px] px-2 text-caption transition-colors disabled:opacity-40',
+                    (entry === 'full') === full
+                      ? 'bg-bg-panel text-fg-base shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
+                      : 'text-fg-muted hover:text-fg-base'
+                  )}
+                >
+                  {entry === 'loaded'
+                    ? t('sqlWorkspace.export.scopeLoaded', { formatted: formatNumber(rows.length, i18n.language) })
+                    : t('sqlWorkspace.export.scopeFull')}
+                </button>
+              ))}
+            </div>
+            {full ? (
+              <p data-testid="sql-export-scope-hint" className="text-caption text-fg-subtle">
+                {t('sqlWorkspace.export.scopeFullHint')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-1.5">
           {usesHeader ? (
@@ -224,27 +331,60 @@ export function SqlExportDialog({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={rows.length === 0}
-            data-testid="sql-export-download"
-            className="focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
-          >
-            <Download size={12} aria-hidden="true" />
-            {t('sqlWorkspace.export.download')}
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            disabled={rows.length === 0}
-            data-testid="sql-export-copy"
-            className={BUTTON}
-          >
-            <Copy size={12} aria-hidden="true" />
-            {t('sqlWorkspace.export.copy')}
-          </button>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting || downloadBlocked !== null || (!full && rows.length === 0)}
+              data-testid="sql-export-download"
+              className="focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:opacity-40"
+            >
+              {exporting ? (
+                <Loader2 size={12} aria-hidden="true" className="animate-spin" />
+              ) : (
+                <Download size={12} aria-hidden="true" />
+              )}
+              {t('sqlWorkspace.export.download')}
+            </button>
+            {exporting ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => jobRef.current?.abort()}
+                  data-testid="sql-export-cancel"
+                  className={BUTTON}
+                >
+                  {t('sqlWorkspace.export.cancel')}
+                </button>
+                <span data-testid="sql-export-progress" role="status" className="truncate font-mono text-caption text-fg-muted">
+                  {progress && progress > 0
+                    ? t('sqlWorkspace.export.progressRows', {
+                        count: progress,
+                        formatted: formatNumber(progress, i18n.language),
+                      })
+                    : t('sqlWorkspace.export.progress')}
+                </span>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={copyBlocked !== null || rows.length === 0}
+                title={copyBlocked ?? undefined}
+                data-testid="sql-export-copy"
+                className={BUTTON}
+              >
+                <Copy size={12} aria-hidden="true" />
+                {t('sqlWorkspace.export.copy')}
+              </button>
+            )}
+          </div>
+          {!exporting && (downloadBlocked ?? copyBlocked) ? (
+            <p data-testid="sql-export-blocked" className="text-caption text-fg-subtle">
+              {downloadBlocked ?? copyBlocked}
+            </p>
+          ) : null}
         </div>
 
         <section

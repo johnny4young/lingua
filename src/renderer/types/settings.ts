@@ -335,13 +335,7 @@ export interface SettingsState {
   networkFromRunningCode: NetworkPolicy;
   /** Experimental features turned on in Settings › Labs. */
   featureFlags: FeatureFlagState;
-  /**
-   * SQL workspace row preview cap. Sets the upper
-   * bound on rows rendered in `<SqlResultPreview>`. The runtime
-   * also caps at `MAX_RESULT_ROWS` (10 000) regardless; this knob
-   * lets users dial the panel further down (100 / 500 / 1000 /
-   * 5000) for smaller screens. Default 1000.
-   */
+  /** Rows the SQL grid shows first and each Load more adds; the session cap is `sessionRowCap` in useSqlRunner. */
   sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
   /**
    * SQL query default timeout. DuckDB-WASM has no

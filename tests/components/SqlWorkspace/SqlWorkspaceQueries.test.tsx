@@ -3,7 +3,12 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
-import { resetSqlRunStateForTests, sessionRunSources } from '../../../src/renderer/hooks/useSqlRunner';
+import {
+  SQL_SESSION_ROW_CAP,
+  sessionRowCap,
+  resetSqlRunStateForTests,
+  sessionRunSources,
+} from '../../../src/renderer/hooks/useSqlRunner';
 import {
   CANCEL_SETTLE_MS,
   __setDuckDbEngineFactoryForTests,
@@ -380,5 +385,125 @@ describe('SQL history section', () => {
     const opened = state.getQuery(state.activeQueryId!);
     expect(opened).toMatchObject({ kind: 'scratch', query: 'SELECT * FROM orders' });
     expect(ran.filter((sql) => sql === 'SELECT * FROM orders')).toEqual([]);
+  });
+});
+
+describe('Load more', () => {
+  /** A stream of `batches` batches of `size` rows numbered from 0; `cancelled` counts when it is let go. */
+  function streamingEngine(batches: number, size: number, failAt = Number.POSITIVE_INFINITY) {
+    const state = { closed: 0, cancelled: 0 };
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(
+        scriptEngine(ran, {
+          stream: async () => {
+            let index = 0;
+            return {
+              fields: () => [{ name: 'n', type: { toString: () => 'Int64' } }],
+              next: async () => {
+                if (index >= batches) return null;
+                index += 1;
+                if (index >= failAt) throw new Error('Connection closed');
+                const from = (index - 1) * size;
+                return {
+                  numRows: size,
+                  schema: { fields: [{ name: 'n', type: { toString: () => 'Int64' } }] },
+                  toArray: () => Array.from({ length: size }, (_, i) => ({ n: from + i })),
+                };
+              },
+            };
+          },
+          cancel: async () => {
+            state.cancelled += 1;
+            return true;
+          },
+          close: async () => {
+            state.closed += 1;
+          },
+        })
+      )
+    );
+    return state;
+  }
+
+  it('pages through the window, then keeps reading the open stream', async () => {
+    const user = userEvent.setup();
+    useSettingsStore.setState({ sqlWorkspaceRowDisplayLimit: 5000 });
+    const stream = streamingEngine(20, 2_000);
+    openQuery('SELECT * FROM big');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    const header = await screen.findByText(/5,000 of ≥ 10,000 rows in view/);
+    expect(header).toBeTruthy();
+    expect(stream.cancelled).toBe(0);
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    expect(await screen.findByText(/10,000 of ≥ 10,000 rows in view/)).toBeTruthy();
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    expect(await screen.findByText(/15,000 of ≥ 15,000 rows in view/)).toBeTruthy();
+    // The first rows of the stream follow the window without a gap.
+    expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('15,000');
+    while (screen.queryByTestId('sql-result-load-more')) {
+      await user.click(screen.getByTestId('sql-result-load-more'));
+      await waitFor(() => expect(screen.queryByTestId('sql-result-loading-more')).toBeNull());
+    }
+    // Once the stream is drained the total is exact.
+    expect(await screen.findByText(/^40,000 rows/)).toBeTruthy();
+    await waitFor(() => expect(stream.cancelled).toBe(1));
+    expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+  });
+
+  it('stops reading at the session cap and lets the stream go', async () => {
+    const user = userEvent.setup();
+    useSettingsStore.setState({ sqlWorkspaceRowDisplayLimit: 5000 });
+    const stream = streamingEngine(1_000, 2_000);
+    openQuery('SELECT * FROM huge');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-result-load-more');
+    for (let page = 0; page < SQL_SESSION_ROW_CAP / 5000 + 2; page += 1) {
+      const more = screen.queryByTestId('sql-result-load-more');
+      if (!more) break;
+      await user.click(more);
+      await waitFor(() => expect(screen.queryByTestId('sql-result-loading-more')).toBeNull());
+    }
+    expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+    expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('100,000');
+    await waitFor(() => expect(stream.cancelled).toBe(1));
+  });
+
+  it('holds fewer rows of a wide result', () => {
+    expect(sessionRowCap(4)).toBe(SQL_SESSION_ROW_CAP);
+    expect(sessionRowCap(100)).toBe(40_000);
+  });
+
+  it('says when reading more rows fails and keeps the total a lower bound', async () => {
+    const user = userEvent.setup();
+    useSettingsStore.setState({ sqlWorkspaceRowDisplayLimit: 5000 });
+    streamingEngine(20, 2_000, 8);
+    openQuery('SELECT * FROM big');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByText(/5,000 of ≥ 10,000 rows in view/);
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    await screen.findByText(/10,000 of ≥ 10,000 rows in view/);
+    await user.click(screen.getByTestId('sql-result-load-more'));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'sqlWorkspace.grid.loadMoreFailed',
+        detail: 'Connection closed',
+      })
+    );
+    expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
+    expect(screen.getByText(/of ≥ 1\d,\d{3} rows in view/)).toBeTruthy();
+  });
+
+  it('lets the open stream go when another query runs', async () => {
+    const stream = streamingEngine(20, 2_000);
+    openQuery('SELECT * FROM big');
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-result-load-more');
+    expect(stream.cancelled).toBe(0);
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(stream.cancelled).toBeGreaterThanOrEqual(1));
   });
 });

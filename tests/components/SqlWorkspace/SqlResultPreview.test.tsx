@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,8 +62,9 @@ describe('SqlResultPreview', () => {
         rowDisplayLimit={1000}
       />
     );
-    expect(screen.getByText('VARCHAR').getAttribute('title')).toBe('Arrow type: Utf8');
-    expect(screen.getByText('DECIMAL(6,2)').getAttribute('title')).toBe('Arrow type: Decimal[6e+2]');
+    const header = within(screen.getByTestId('sql-result-preview-table'));
+    expect(header.getByText('VARCHAR').getAttribute('title')).toBe('Arrow type: Utf8');
+    expect(header.getByText('DECIMAL(6,2)').getAttribute('title')).toBe('Arrow type: Decimal[6e+2]');
     expect(screen.queryByText('Utf8')).toBeNull();
   });
 
@@ -333,9 +334,9 @@ describe('SqlResultPreview', () => {
       expect(useUIStore.getState().statusNotice).toMatchObject({
         tone: 'success',
         messageKey: 'sqlWorkspace.export.exported',
-        values: { format: 'CSV', count: 2 },
+        values: { format: 'CSV', count: 2, formatted: '2' },
       });
-      expect(i18next.t('sqlWorkspace.export.exported', { format: 'CSV', count: 1 })).toBe(
+      expect(i18next.t('sqlWorkspace.export.exported', { format: 'CSV', count: 1, formatted: '1' })).toBe(
         'Exported 1 row as CSV'
       );
     });

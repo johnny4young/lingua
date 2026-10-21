@@ -184,6 +184,23 @@ describe('mapArrowTable', () => {
     expect(out.tooLarge).toBe(false);
   });
 
+  it('turns Arrow LIST, STRUCT and typed-array cells into plain values', () => {
+    // Arrow vectors carry internal fields; only their toJSON value is the cell.
+    const list = { _offsets: [0, 1], data: [{ values: 'Y3VzdA==' }], toJSON: () => ['customer_id'] };
+    const struct = { toJSON: () => ({ sku: 'LG-PRO', qty: 1n }) };
+    const out = mapArrowTable(
+      arrowTableFrom(
+        [
+          { name: 'cols', type: 'List<Utf8>' },
+          { name: 'item', type: 'Struct<{sku:Utf8, qty:Int64}>' },
+          { name: 'ints', type: 'List<Int32>' },
+        ],
+        [{ cols: list, item: struct, ints: new Int32Array([1, 2]) }]
+      )
+    );
+    expect(out.rows[0]).toEqual({ cols: ['customer_id'], item: { sku: 'LG-PRO', qty: '1' }, ints: [1, 2] });
+  });
+
   it('renders Arrow date and timestamp cells as ISO text', () => {
     const day = Date.UTC(2026, 8, 29);
     const out = mapArrowTable(
@@ -731,8 +748,8 @@ describe('previewImportFile', () => {
     // BIGINT count comes back stringified by mapArrowTable → parsed to 42.
     expect(preview.rowCount).toBe(42);
     expect(log.registered).toHaveLength(1);
-    // The reader call uses read_csv_auto against the registered name.
-    expect(log.queries.some((q) => q.includes('read_csv_auto'))).toBe(true);
+    // The reader call uses read_csv with type detection against the registered name.
+    expect(log.queries.some((q) => q.includes('read_csv(') && q.includes('auto_detect = true'))).toBe(true);
     // The virtual file is dropped on settle — no leak after a preview.
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
@@ -816,7 +833,7 @@ describe('importFileAsTable', () => {
     expect(result).toEqual({ table: 'my_sales', rowCount: 7 });
     const createStmt = log.queries.find((q) => /CREATE TABLE/i.test(q));
     expect(createStmt).toContain('"my_sales"');
-    expect(createStmt).toContain('read_csv_auto');
+    expect(createStmt).toContain('read_csv(');
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
 

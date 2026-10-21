@@ -2,15 +2,34 @@ import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 import { quoteSqlIdentifier } from './sqlResultFormatters';
 
-export type SqlExportFormat = 'csv' | 'tsv' | 'json' | 'markdown' | 'sql-insert';
+export type SqlExportFormat =
+  | 'csv'
+  | 'tsv'
+  | 'json'
+  | 'ndjson'
+  | 'markdown'
+  | 'sql-insert'
+  | 'xlsx'
+  | 'parquet';
+/** Formats written as text, which Copy can also put on the clipboard. */
+export type SqlTextExportFormat = Exclude<SqlExportFormat, 'xlsx' | 'parquet'>;
 
 export const SQL_EXPORT_FORMATS: ReadonlyArray<{ id: SqlExportFormat; label: string }> = [
   { id: 'csv', label: 'CSV' },
   { id: 'tsv', label: 'TSV' },
   { id: 'json', label: 'JSON' },
+  { id: 'ndjson', label: 'NDJSON' },
   { id: 'markdown', label: 'Markdown' },
   { id: 'sql-insert', label: 'SQL INSERT' },
+  { id: 'xlsx', label: 'XLSX' },
+  { id: 'parquet', label: 'Parquet' },
 ];
+
+export const isTextExportFormat = (format: SqlExportFormat): format is SqlTextExportFormat =>
+  format !== 'xlsx' && format !== 'parquet';
+
+/** Copy stops here; a larger result is a file. */
+export const CLIPBOARD_ROW_CAP = 10_000;
 
 export const CSV_DELIMITERS = [',', ';', '|'] as const;
 type CsvDelimiter = (typeof CSV_DELIMITERS)[number];
@@ -34,19 +53,26 @@ const MIME: Record<SqlExportFormat, string> = {
   csv: 'text/csv;charset=utf-8',
   tsv: 'text/tab-separated-values;charset=utf-8',
   json: 'application/json;charset=utf-8',
+  ndjson: 'application/x-ndjson;charset=utf-8',
   markdown: 'text/markdown;charset=utf-8',
   'sql-insert': 'application/sql;charset=utf-8',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  parquet: 'application/vnd.apache.parquet',
 };
 
 const EXTENSION: Record<SqlExportFormat, string> = {
   csv: 'csv',
   tsv: 'tsv',
   json: 'json',
+  ndjson: 'ndjson',
   markdown: 'md',
   'sql-insert': 'sql',
+  xlsx: 'xlsx',
+  parquet: 'parquet',
 };
 
 export const exportMimeType = (format: SqlExportFormat) => MIME[format];
+export const exportExtension = (format: SqlExportFormat) => EXTENSION[format];
 
 export function buildExportFilename(format: SqlExportFormat, now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -131,8 +157,12 @@ export function rowsToSqlInsert(columns: Columns, rows: Rows, tableName: string)
 const jsonReplacer = (_key: string, value: unknown) =>
   typeof value === 'bigint' ? value.toString() : value;
 
+/** Each row with only the exported columns, in their order. */
+const pick = (columns: Columns, rows: Rows) =>
+  rows.map(row => Object.fromEntries(columns.map(col => [col.name, row[col.name]])));
+
 export function serializeRows(
-  format: SqlExportFormat,
+  format: SqlTextExportFormat,
   columns: Columns,
   rows: Rows,
   options: SqlExportOptions
@@ -143,7 +173,11 @@ export function serializeRows(
     case 'tsv':
       return rowsToDelimited(columns, rows, { ...options, delimiter: '\t' });
     case 'json':
-      return JSON.stringify(rows, jsonReplacer, 2);
+      return JSON.stringify(pick(columns, rows), jsonReplacer, 2);
+    case 'ndjson':
+      return pick(columns, rows)
+        .map(row => JSON.stringify(row, jsonReplacer))
+        .join('\n');
     case 'markdown':
       return rowsToMarkdownTable(columns, rows, options.nullAsEmpty);
     case 'sql-insert':

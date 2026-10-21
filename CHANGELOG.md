@@ -35,8 +35,14 @@ The format follows Keep a Changelog and groups changes by release.
 - Cancel (Cmd/Ctrl+.) stops a running SQL statement with a new Cancelled status, and a statement past the time limit is stopped the same way; if DuckDB keeps running after 5 seconds, Restart the SQL engine stops it. Results stream up to the 10,000-row window and show the total as at least that many instead of reading every row.
 - Explain opens a Plan tab with the operator tree, a time bar and row count per operator, the slowest one highlighted, the total time and Copy plan as text. Anything other than a single SELECT, including statements that write, gets the estimated plan, since the analyzed one would run them.
 - The SQL Explorer keeps a History of the last 200 runs on this device (status, time, duration and the SQL with credentials masked, never the rows), with Search SQL, Clear history and a click that opens a run's SQL in a new scratch.
+- The SQL result grid mounts only the rows on screen and adds Load more, which pages through the result and then keeps reading the same stream without running the query again, up to 100,000 rows, four million cells or 256 MB for the session. Filter rows, column conditions, a sort chip and a column picker work on the loaded rows, and the strip below shows the same view as SQL with Apply to query.
+- Right-clicking a SQL cell filters by it, excludes it, copies the value, the row as JSON or the row as INSERT, or opens the value viewer, which pretty-prints JSON and shows a BLOB's size, an image preview and its hex. Foreign-key cells of a table opened from the Explorer link to the referenced row, with back to the table and Referenced by counts.
+- A column rail beside the SQL grid summarizes each column from the loaded rows (null share, distinct count, range, a histogram or the top values), and a click inserts that value or range as a condition at the editor cursor.
+- Export full result… adds NDJSON, XLSX and Parquet, and can write every row of a windowed result by running its query again with the grid's conditions, sort and columns, with progress and Cancel. Copy to clipboard takes up to 10,000 loaded rows in a text format.
+- Import data can add a file's rows to an existing table, mapping each column onto one of its columns or skipping it, and a CSV chooses its header row and delimiter. The rows go in one transaction, so a row that does not fit adds nothing.
 
 ### Fixed
+- SQL results show LIST and STRUCT columns as arrays and objects instead of Arrow internals.
 - Run Ledger toggle, export and clear events now appear in Privacy › Recent activity; they were dropped before they reached the feed.
 - Language chips and labels in the light theme are readable (they were pale text on pale tints).
 - The Cron Parser's schedule field is no longer cut off at narrow window widths, since the tool list folds to a rail.

@@ -7,9 +7,11 @@ import { redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
+  duckDbErrorDetail,
   executeSqlScript,
   restartDuckDbEngine,
   type DuckDbExecuteOutcome,
+  type SqlResultCursor,
 } from '../runtime/duckdbClient';
 import {
   buildExplainSql,
@@ -64,8 +66,35 @@ export type SqlResultView = { kind: 'result'; index: number } | { kind: 'message
 /** The SQL behind each query's newest response, so Profile and the strip use exactly what ran. */
 export const sessionRunSources = new Map<string, { recordedAt: string; query: string }>();
 
+/** Rows read past the window with Load more, for one response; session only. */
+interface SqlMoreRows {
+  /** `${queryId}:${recordedAt}` of the response they continue. */
+  key: string;
+  rows: Array<Record<string, unknown>>;
+  /** Nothing more to read: the stream ended, hit the session cap or failed. */
+  done: boolean;
+  /** The stream ended, so the rows read are the whole result. */
+  complete: boolean;
+  /** JSON size of `rows`, counted against the session byte cap. */
+  bytes: number;
+  loading: boolean;
+}
+
+/** Window plus Load more never holds more than this many rows in memory. */
+export const SQL_SESSION_ROW_CAP = 100_000;
+/** A wide result holds fewer rows: about a gigabyte of heap per ten million cells. */
+const SQL_SESSION_CELL_CAP = 4_000_000;
+/** Large text or BLOB cells hit this before the cell cap does. */
+const SQL_SESSION_BYTE_CAP = 256 * 1024 * 1024;
+
+export const sessionRowCap = (columnCount: number) =>
+  Math.min(SQL_SESSION_ROW_CAP, Math.floor(SQL_SESSION_CELL_CAP / Math.max(1, columnCount)));
+
+export const moreRowsKey = (queryId: string, recordedAt: string) => `${queryId}:${recordedAt}`;
+
 interface SqlRunState {
   runningQueryId: string | null;
+  more: SqlMoreRows | null;
   runSet: SqlRunSet | null;
   plan: SqlPlanResult | null;
   view: SqlResultView | null;
@@ -76,6 +105,7 @@ interface SqlRunState {
 /** Module-level so a run outlives the panel, which unmounts whenever another editor tab is active. */
 const useSqlRunState = create<SqlRunState>(() => ({
   runningQueryId: null,
+  more: null,
   runSet: null,
   plan: null,
   view: null,
@@ -83,6 +113,14 @@ const useSqlRunState = create<SqlRunState>(() => ({
   isRestarting: false,
 }));
 let activeController: AbortController | null = null;
+// One open result stream at a time: the newest run's, until Load more drains it or something replaces it.
+let activeCursor: { key: string; cursor: SqlResultCursor } | null = null;
+
+function dropCursor(): void {
+  const open = activeCursor;
+  activeCursor = null;
+  void open?.cursor.close();
+}
 const setRunState = (patch: Partial<SqlRunState>) => useSqlRunState.setState(patch);
 
 const isResult = (status: SqlResponseV1['status']) => status === 'success' || status === 'too-large';
@@ -117,7 +155,7 @@ interface UseSqlRunnerOptions {
 export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSqlRunnerOptions) {
   const { t } = useTranslation();
   const announce = useAnnounce();
-  const { runningQueryId, runSet, plan, view, stuck, isRestarting } = useSqlRunState();
+  const { runningQueryId, more, runSet, plan, view, stuck, isRestarting } = useSqlRunState();
 
   const runExplain = useCallback(
     async (query: SqlQueryV1, statement: string, signal: AbortSignal) => {
@@ -151,6 +189,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const outcomes = await executeSqlScript(statements, {
         timeoutMs,
         signal,
+        keepCursor: true,
         onStatement: (index, outcome) => {
           const response = toSqlResponse(outcome);
           results.push({ sql: statements[index] ?? '', response });
@@ -170,6 +209,10 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
       sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
+      const cursor = outcomes[outcomes.length - 1]?.cursor;
+      const key = moreRowsKey(query.id, last.response.recordedAt);
+      if (cursor) activeCursor = { key, cursor };
+      setRunState({ more: cursor ? { key, rows: [], done: false, complete: false, bytes: 0, loading: false } : null });
       setRunState(
         statements.length > 1
           ? {
@@ -215,6 +258,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       if (activeController !== null || statements.length === 0) return;
       const controller = new AbortController();
       activeController = controller;
+      dropCursor();
       setRunState({ runningQueryId: query.id });
       onBeforeRun();
       try {
@@ -240,6 +284,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
   const restartEngine = useCallback(async () => {
     setRunState({ isRestarting: true });
     try {
+      dropCursor();
+      setRunState({ more: null });
       await restartDuckDbEngine();
       setRunState({ stuck: false });
       onSchemaChanged();
@@ -248,6 +294,38 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     }
   }, [onSchemaChanged]);
   const setView = useCallback((next: SqlResultView | null) => setRunState({ view: next }), []);
+
+  // Reads the next rows of the open stream; the window already read counts toward the session cap.
+  const loadMore = useCallback(async (key: string, limit: number, windowRows: number, columnCount: number) => {
+    const state = useSqlRunState.getState();
+    if (!activeCursor || activeCursor.key !== key || state.more?.key !== key || state.more.loading) return;
+    const room = sessionRowCap(columnCount) - windowRows - state.more.rows.length;
+    setRunState({ more: { ...state.more, loading: true } });
+    const { cursor } = activeCursor;
+    let batch: { rows: Array<Record<string, unknown>>; done: boolean; bytes: number };
+    let failed = false;
+    try {
+      batch = await cursor.next(Math.max(0, Math.min(limit, room)), SQL_SESSION_BYTE_CAP - state.more.bytes);
+    } catch (err) {
+      failed = true;
+      batch = { rows: [], done: true, bytes: 0 };
+      const detail = duckDbErrorDetail(err);
+      useUIStore.getState().pushStatusNotice({
+        tone: 'error',
+        messageKey: 'sqlWorkspace.grid.loadMoreFailed',
+        ...(detail ? { detail } : {}),
+      });
+    }
+    const complete = batch.done && !failed;
+    // No rows without the end of the stream means the byte cap is full.
+    const stopped = batch.done || room - batch.rows.length <= 0 || batch.rows.length === 0;
+    if (stopped && activeCursor?.key === key) dropCursor();
+    const current = useSqlRunState.getState().more;
+    if (current?.key !== key) return;
+    setRunState({
+      more: { key, rows: [...current.rows, ...batch.rows], done: stopped, complete, bytes: current.bytes + batch.bytes, loading: false },
+    });
+  }, []);
 
   // Mod+. cancels from anywhere in the SQL tab, not only from the editor.
   useEffect(() => {
@@ -270,6 +348,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     plan,
     view,
     setView,
+    more,
+    loadMore,
     stuck,
     isRestarting,
     restartEngine,
@@ -279,5 +359,6 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
 /** Clears the module-level run state between tests. */
 export function resetSqlRunStateForTests(): void {
   activeController = null;
+  activeCursor = null;
   useSqlRunState.setState(useSqlRunState.getInitialState());
 }

@@ -125,6 +125,12 @@ describe('filterRows', () => {
     ]);
   });
 
+  it('takes the needle literally, so regex characters match only themselves', () => {
+    const odd = [{ v: 'a.b (x)' }, { v: 'axb x' }];
+    expect(filterRows(odd, 'a.b')).toEqual([{ v: 'a.b (x)' }]);
+    expect(filterRows(odd, '(X)')).toEqual([{ v: 'a.b (x)' }]);
+  });
+
   it('matches numeric and boolean cells via their rendered form', () => {
     const mixed = [
       { a: 42, ok: true },

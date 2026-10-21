@@ -47,7 +47,15 @@ import {
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
+import { quoteSqlTableReference } from '../../shared/sqlQuote';
 import { splitSqlStatements } from '../../shared/sqlStatements';
+import {
+  buildImportStatements,
+  readerSql,
+  type SqlImportColumnMap,
+  type SqlImportCsvOptions,
+  type SqlImportTarget,
+} from '../../shared/sqlImportPlan';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.
@@ -68,6 +76,8 @@ export interface DuckDbExecuteOutcome {
   rowCountIsLowerBound?: boolean;
   /** Set on `cancelled` or `timeout`: DuckDB had not stopped within the settle window. */
   stillRunning?: boolean;
+  /** With `keepCursor`, the open stream past the window; the caller must close it. */
+  cursor?: SqlResultCursor;
   statementCount: number;
   errorMessage?: string;
 }
@@ -129,6 +139,10 @@ export interface DuckDbEngineHandle {
    * `AsyncDuckDB.dropFile`. Best-effort — a missing name resolves.
    */
   dropFile?: (name: string) => Promise<void>;
+  /** An empty virtual file that `COPY … TO` can write into. */
+  registerEmptyFile?: (name: string) => Promise<void>;
+  /** The bytes of a virtual file, after `COPY … TO` wrote it. */
+  readFile?: (name: string) => Promise<Uint8Array>;
 }
 
 /**
@@ -615,6 +629,10 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
       dropFile: async (name: string) => {
         await db.dropFile(name);
       },
+      registerEmptyFile: async (name: string) => {
+        await db.registerEmptyFileBuffer(name);
+      },
+      readFile: (name: string) => db.copyFileToBuffer(name),
       terminate: async () => {
         try {
           await db.terminate();
@@ -656,7 +674,10 @@ export interface ArrowTableLike {
  * Collects preview rows under the row and byte caps. `add` returns false once
  * the window is full, so a streaming reader knows when to stop.
  */
-function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
+function createRowAccumulator(
+  fields: ArrowTableLike['schema']['fields'],
+  caps: { maxRows: number; maxBytes: number } = { maxRows: MAX_RESULT_ROWS, maxBytes: MAX_RESULT_PREVIEW_BYTES }
+) {
   const columns: SqlColumnMetadata[] = fields.map((field) => ({
     name: field.name,
     type: stringifyArrowType(field.type),
@@ -680,7 +701,7 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
       let taken = 0;
       for (const raw of batch) {
         if (full) break;
-        if (rows.length >= MAX_RESULT_ROWS) {
+        if (rows.length >= caps.maxRows) {
           full = true;
           break;
         }
@@ -696,7 +717,7 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
           if (typeof cell === 'number') safeRow[name] = format(cell);
         }
         const rowBytes = utf8ByteLength(JSON.stringify(safeRow));
-        if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
+        if (approxBytes + rowBytes > caps.maxBytes) {
           full = true;
           taken -= 1;
           break;
@@ -704,10 +725,12 @@ function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
         approxBytes += rowBytes;
         rows.push(safeRow);
       }
-      if (rows.length >= MAX_RESULT_ROWS) full = true;
+      if (rows.length >= caps.maxRows) full = true;
       return taken;
     },
     isFull: () => full,
+    /** Rows taken so far, measured as UTF-8 JSON. */
+    bytes: () => approxBytes,
   };
 }
 
@@ -733,42 +756,111 @@ export function mapArrowTable(table: ArrowTableLike): {
   };
 }
 
+/** Rows past the window of a result whose stream stays open, read on demand ("Load more"). */
+export interface SqlResultCursor {
+  /**
+   * Reads up to `limit` more rows within `maxBytes` of JSON; `done` once DuckDB
+   * has no more. Fewer rows with `done` false means the byte budget filled.
+   */
+  next(limit: number, maxBytes?: number): Promise<{ rows: Array<Record<string, unknown>>; done: boolean; bytes: number }>;
+  /** Stops the statement and releases its connection. Safe to call twice. */
+  close(): Promise<void>;
+}
+
+function createResultCursor(
+  fields: ArrowTableLike['schema']['fields'],
+  pending: Array<Record<string, unknown>>,
+  stream: DuckDbResultStream,
+  release: () => Promise<void>
+): SqlResultCursor {
+  let buffered = pending;
+  let done = false;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    done = true;
+    buffered = [];
+    await release().catch(() => {});
+  };
+  return {
+    async next(limit, maxBytes = Number.POSITIVE_INFINITY) {
+      const accumulator = createRowAccumulator(fields, { maxRows: limit, maxBytes });
+      while (!accumulator.isFull() && !closed) {
+        if (buffered.length === 0) {
+          if (done) break;
+          // A failed read throws to the caller: treating it as the end would pass a partial result off as whole.
+          const batch = await stream.next();
+          if (batch === null) {
+            done = true;
+            break;
+          }
+          buffered = batch.toArray();
+          continue;
+        }
+        const taken = accumulator.add(buffered);
+        buffered = buffered.slice(taken);
+      }
+      const exhausted = done && buffered.length === 0;
+      if (exhausted) await close();
+      return { rows: accumulator.rows, done: exhausted || closed, bytes: accumulator.bytes() };
+    },
+    close,
+  };
+}
+
 /**
  * Reads a streamed result until it ends or the window fills. On a full
- * window it cancels the rest, and the row count becomes a lower bound.
+ * window it cancels the rest and the row count becomes a lower bound;
+ * with `keepOpen` it hands back a cursor over the rest instead.
  */
 export async function readResultStream(
   stream: DuckDbResultStream,
-  cancel?: () => Promise<boolean>
+  cancel?: () => Promise<boolean>,
+  options: { keepOpen?: () => Promise<void> } = {}
 ): Promise<{
   columns: SqlColumnMetadata[];
   rows: Array<Record<string, unknown>>;
   rowCount: number;
   tooLarge: boolean;
   rowCountIsLowerBound: boolean;
+  cursor?: SqlResultCursor;
 }> {
   let accumulator: ReturnType<typeof createRowAccumulator> | null = null;
   let seen = 0;
   let stoppedEarly = false;
+  // Raw rows read past the window: the rest of the last batch, then the peeked one.
+  let pending: Array<Record<string, unknown>> = [];
   for (let batch = await stream.next(); batch !== null; batch = await stream.next()) {
     accumulator ??= createRowAccumulator(batch.schema.fields);
     const rows = batch.toArray();
     seen += rows.length;
     const taken = accumulator.add(rows);
     if (accumulator.isFull()) {
+      pending = rows.slice(taken);
       // Rows left in this batch, or any later batch, mean the total is unknown.
-      stoppedEarly = taken < rows.length || (await stream.next().catch(() => true)) !== null;
+      const peek = taken < rows.length ? null : await stream.next().catch(() => true as const);
+      if (peek !== null && peek !== true) pending = peek.toArray();
+      stoppedEarly = taken < rows.length || peek !== null;
       break;
     }
   }
-  if (stoppedEarly) {
+  accumulator ??= createRowAccumulator(stream.fields());
+  const keepOpen = options.keepOpen;
+  const cursor =
+    stoppedEarly && keepOpen
+      ? createResultCursor(stream.fields(), pending, stream, async () => {
+          await cancel?.().catch(() => false);
+          await keepOpen();
+        })
+      : undefined;
+  if (stoppedEarly && !cursor) {
     try {
       await cancel?.();
     } catch {
       /* the window is already read; a failed cancel only wastes engine time */
     }
   }
-  accumulator ??= createRowAccumulator(stream.fields());
   const rowCount = stoppedEarly ? Math.max(seen, accumulator.rows.length) : seen;
   return {
     columns: accumulator.columns,
@@ -776,6 +868,7 @@ export async function readResultStream(
     rowCount,
     tooLarge: stoppedEarly || accumulator.rows.length < rowCount,
     rowCountIsLowerBound: stoppedEarly,
+    ...(cursor ? { cursor } : {}),
   };
 }
 
@@ -822,8 +915,11 @@ function sanitiseValueForJson(value: unknown): unknown {
     return binary;
   }
   if (Array.isArray(value)) return value.map(sanitiseValueForJson);
+  if (ArrayBuffer.isView(value)) return Array.from(value as unknown as ArrayLike<number>, sanitiseValueForJson);
   if (valueType === 'object') {
     const obj = value as Record<string, unknown>;
+    // Arrow LIST and STRUCT cells are Vector / row objects; their toJSON is the plain value.
+    if (typeof obj.toJSON === 'function') return sanitiseValueForJson((obj.toJSON as () => unknown)());
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(obj)) {
       out[key] = sanitiseValueForJson(obj[key]);
@@ -903,6 +999,8 @@ export interface ExecuteQueryOptions {
   timeoutMs?: number;
   /** Aborting asks DuckDB to stop and resolves `cancelled`. */
   signal?: AbortSignal;
+  /** Keep a windowed result's stream open as `outcome.cursor` instead of cancelling it. */
+  keepCursor?: boolean;
 }
 
 /** How long a cancelled or timed-out query gets to actually stop before the outcome reports it still running. */
@@ -934,6 +1032,12 @@ function errorMessageForUser(err: unknown, fallback: string): string {
     return DUCKDB_WASM_INTERNAL_ERROR_MESSAGE;
   }
   return raw;
+}
+
+/** DuckDB's own reason for a failure, or undefined when the wasm build lost it. */
+export function duckDbErrorDetail(err: unknown): string | undefined {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  return raw.trim() === '' || DUCKDB_WASM_INTERNAL_ERROR.test(raw) ? undefined : raw;
 }
 
 /** Statement count for the UX badge and the stream decision, from the shared splitter. */
@@ -1004,6 +1108,12 @@ async function checkpointIfPersistent(connection: DuckDbConnection): Promise<voi
 const isResultStatus = (status: DuckDbExecuteOutcome['status']) =>
   status === 'success' || status === 'too-large';
 
+/** Closing a cursor checkpoints what the run wrote, then frees the connection it kept. */
+const releaseCursor = (connection: DuckDbConnection) => async () => {
+  await checkpointIfPersistent(connection);
+  await closeQuietly(connection, true);
+};
+
 /** Runs one piece of SQL on an open connection, racing the timeout and the abort signal. */
 async function runOnConnection(
   connection: DuckDbConnection,
@@ -1046,14 +1156,19 @@ async function runOnConnection(
       rowCount: number;
       tooLarge: boolean;
       rowCountIsLowerBound?: boolean;
+      cursor?: SqlResultCursor;
     }> = stream
-      ? stream(trimmed).then((result) => readResultStream(result, connection.cancel))
+      ? stream(trimmed).then((result) =>
+          readResultStream(result, connection.cancel, options.keepCursor ? { keepOpen: releaseCursor(connection) } : {})
+        )
       : connection.query(trimmed);
     // The connection closes after the caller is done, so a query that loses the race rejects late.
     void queryPromise.catch(() => {});
     const raceResult = await Promise.race([queryPromise, timeoutPromise, abortPromise]);
     if (isTimeoutSentinel(raceResult) || raceResult === 'aborted') {
       const status = raceResult === 'aborted' ? 'cancelled' : 'timeout';
+      // A window that arrives after the stop has nobody to read it.
+      void queryPromise.then((late) => late.cursor?.close(), () => {});
       // A timeout stops the statement like Cancel does, then waits to learn whether DuckDB stopped.
       await connection.cancel?.().catch(() => false);
       const settled = await Promise.race([
@@ -1076,6 +1191,7 @@ async function runOnConnection(
       durationMs: Math.round(performance.now() - start),
       tooLarge,
       ...(raceResult.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
+      ...(raceResult.cursor ? { cursor: raceResult.cursor } : {}),
       statementCount,
     };
   } catch (err) {
@@ -1107,10 +1223,12 @@ export async function executeQuery(
   let outcome: DuckDbExecuteOutcome | undefined;
   try {
     outcome = await runOnConnection(opened.connection, trimmed, options);
+    // An open cursor still reads on this connection; it checkpoints and closes it later.
+    if (outcome.cursor) return outcome;
     if (isResultStatus(outcome.status)) await checkpointIfPersistent(opened.connection);
     return outcome;
   } finally {
-    await closeQuietly(opened.connection, !mayStillRun(outcome));
+    if (!outcome?.cursor) await closeQuietly(opened.connection, !mayStillRun(outcome));
   }
 }
 
@@ -1133,18 +1251,25 @@ export async function executeSqlScript(
   const outcomes: DuckDbExecuteOutcome[] = [];
   try {
     for (const [index, piece] of pieces.entries()) {
-      const outcome = await runOnConnection(opened.connection, piece, options);
+      // Only the last statement may keep its stream: the next one would invalidate it.
+      const keepCursor = options.keepCursor === true && index === pieces.length - 1;
+      // A kept stream defers the closing checkpoint, so flush what the earlier statements wrote first.
+      if (keepCursor && index > 0) await checkpointIfPersistent(opened.connection);
+      const outcome = await runOnConnection(opened.connection, piece, { ...options, keepCursor });
       outcomes.push(outcome);
       options.onStatement?.(index, outcome);
       if (!isResultStatus(outcome.status)) break;
     }
     const last = outcomes[outcomes.length - 1];
+    if (last?.cursor) return outcomes;
     if (!mayStillRun(last) && outcomes.some((outcome) => isResultStatus(outcome.status))) {
       await checkpointIfPersistent(opened.connection);
     }
     return outcomes;
   } finally {
-    await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
+    if (!outcomes[outcomes.length - 1]?.cursor) {
+      await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
+    }
   }
 }
 
@@ -1176,18 +1301,6 @@ const IMPORT_PREVIEW_SAMPLE_ROWS = 10;
  * virtual file `name`. The name is single-quote-escaped because it is
  * spliced into a SQL string literal (the file name, NOT an identifier).
  */
-function readerExpression(format: SqlImportFormat, name: string): string {
-  const escaped = name.replace(/'/g, "''");
-  switch (format) {
-    case 'csv':
-      return `read_csv_auto('${escaped}')`;
-    case 'json':
-      return `read_json_auto('${escaped}')`;
-    case 'parquet':
-      return `read_parquet('${escaped}')`;
-  }
-}
-
 /**
  * Register a defensive COPY of the bytes. `AsyncDuckDB.registerFileBuffer`
  * postMessages the buffer to the worker with the underlying ArrayBuffer as
@@ -1225,6 +1338,8 @@ function virtualFileName(format: SqlImportFormat): string {
 export interface ImportPreview {
   /** Column names in result order. */
   columns: string[];
+  /** Arrow type of each column, as DuckDB read it. */
+  types: string[];
   /** Up to {@link IMPORT_PREVIEW_SAMPLE_ROWS} sample rows, column-ordered. */
   sampleRows: unknown[][];
   /** Total row count in the source file (NOT just the sample). */
@@ -1250,6 +1365,7 @@ export async function previewImportFile(args: {
   fileName: string;
   format: SqlImportFormat;
   bytes: Uint8Array;
+  csv?: SqlImportCsvOptions;
 }): Promise<ImportPreview> {
   const engine = await getDuckDbEngine();
   if (typeof engine.registerFile !== 'function') {
@@ -1259,7 +1375,7 @@ export async function previewImportFile(args: {
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
   try {
-    const reader = readerExpression(args.format, name);
+    const reader = readerSql(args.format, name, args.csv);
     const sample = await connection.query(
       `SELECT * FROM ${reader} LIMIT ${IMPORT_PREVIEW_SAMPLE_ROWS}`
     );
@@ -1271,7 +1387,7 @@ export async function previewImportFile(args: {
       columns.map((column) => row[column] ?? null)
     );
     const rowCount = readCountValue(countResult.rows[0]?.['n']);
-    return { columns, sampleRows, rowCount };
+    return { columns, types: sample.columns.map((column) => column.type), sampleRows, rowCount };
   } finally {
     try {
       await connection.close();
@@ -1302,9 +1418,14 @@ export async function previewImportFile(args: {
  */
 export async function importFileAsTable(args: {
   fileName: string;
+  /** A new table's name; ignored when `target` names an existing table. */
   tableName: string;
   format: SqlImportFormat;
   bytes: Uint8Array;
+  csv?: SqlImportCsvOptions;
+  /** Defaults to a new table named `tableName` with every column as read. */
+  target?: SqlImportTarget;
+  mapping?: ReadonlyArray<SqlImportColumnMap>;
 }): Promise<ImportResult> {
   const engine = await getDuckDbEngine();
   if (typeof engine.registerFile !== 'function') {
@@ -1313,16 +1434,24 @@ export async function importFileAsTable(args: {
   const name = virtualFileName(args.format);
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
-  // Double-quote-escape the validated identifier so a reserved word or
-  // mixed-case name still produces valid DDL.
-  const ident = `"${args.tableName.replace(/"/g, '""')}"`;
+  const target: SqlImportTarget = args.target ?? { mode: 'new', table: args.tableName };
+  let inTransaction = false;
   try {
-    const reader = readerExpression(args.format, name);
-    await connection.query(`CREATE TABLE ${ident} AS SELECT * FROM ${reader}`);
-    const countResult = await connection.query(
-      `SELECT count(*) AS n FROM ${ident}`
-    );
-    const rowCount = readCountValue(countResult.rows[0]?.['n']);
+    let mapping = args.mapping;
+    if (!mapping) {
+      const probe = await connection.query(`SELECT * FROM ${readerSql(args.format, name, args.csv)} LIMIT 0`);
+      mapping = probe.columns.map((column) => ({ source: column.name, target: column.name }));
+    }
+    let inserted: number | null = null;
+    for (const statement of buildImportStatements({ format: args.format, file: name, csv: args.csv, target, mapping })) {
+      if (statement === 'BEGIN TRANSACTION') inTransaction = true;
+      const result = await connection.query(statement);
+      if (statement.startsWith('INSERT INTO')) inserted = readCountValue(result.rows[0]?.['Count']);
+      if (statement === 'COMMIT') inTransaction = false;
+    }
+    const ident = quoteSqlTableReference(target.table, target.mode === 'existing' ? target.schema : undefined);
+    const rowCount =
+      inserted ?? readCountValue((await connection.query(`SELECT count(*) AS n FROM ${ident}`)).rows[0]?.['n']);
     if (resolvedStorageMode === 'opfs') {
       try {
         await connection.query('CHECKPOINT');
@@ -1330,7 +1459,11 @@ export async function importFileAsTable(args: {
         /* durability is best-effort; the table already exists */
       }
     }
-    return { table: args.tableName, rowCount };
+    return { table: target.table, rowCount };
+  } catch (err) {
+    // A failed row leaves an existing table as it was.
+    if (inTransaction) await connection.query('ROLLBACK').catch(() => undefined);
+    throw err;
   } finally {
     try {
       await connection.close();

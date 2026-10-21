@@ -32,12 +32,12 @@ import { loadSqlCatalog } from '../../runtime/sqlExplorerCatalog';
 import { profileSqlQuery } from '../../runtime/sqlColumnProfile';
 import { trackSqlProfileOpened, trackSqlStorageMode } from '../../hooks/sqlWorkspaceTelemetry';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
-import { sessionRunSources, toSqlResponse, useSqlRunner } from '../../hooks/useSqlRunner';
+import { moreRowsKey, sessionRunSources, useSqlRunner } from '../../hooks/useSqlRunner';
+import { useSqlTablePreview } from '../../hooks/useSqlTablePreview';
 import { useSqlQueryTabActions } from '../../hooks/useSqlQueryTabActions';
 import { useSqlImport } from '../../hooks/useSqlImport';
 import { useSqlResultHandoffs } from '../../hooks/useSqlResultHandoffs';
 import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
-import { buildSelectStarter } from './sqlResultFormatters';
 import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
@@ -72,13 +72,6 @@ export interface SqlWorkspacePanelProps {
    * the panel binds to the store's `activeQueryId`, not to this id.
    */
   tabId?: string;
-}
-
-/** A table opened from the Explorer: its rows on screen, never a saved run. */
-interface TablePreview {
-  table: SqlSchemaTable;
-  sql: string;
-  response: SqlResponseV1;
 }
 
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
@@ -123,13 +116,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [catalog, setCatalog] = useState<SqlCatalog>(EMPTY_SQL_CATALOG);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [explorerFilter, setExplorerFilter] = useState('');
-  const [tablePreview, setTablePreview] = useState<TablePreview | null>(null);
-  // Bumped by every open, run and query switch so a late table result never lands over a newer view.
-  const previewTokenRef = useRef(0);
-  const showTablePreview = useCallback((preview: TablePreview | null) => {
-    previewTokenRef.current += 1;
-    setTablePreview(preview);
-  }, []);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [isCreatingSample, setIsCreatingSample] = useState(false);
   // Lets the run handler refresh the Explorer without a forward dependency.
@@ -137,6 +123,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
   // The nonce makes the editor append even when the text repeats.
   const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
+  const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
@@ -149,6 +136,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [catalog.tables, tableSources]
   );
   const explorerCatalog = useMemo(() => ({ ...catalog, tables: schemaTables }), [catalog, schemaTables]);
+  const tables = useSqlTablePreview(queryTimeoutMs, schemaTables);
+  const { preview: tablePreview, show: showTablePreview } = tables;
 
   const activeQuery: SqlQueryV1 | undefined = useMemo(
     () => queries.find((q) => q.id === activeQueryId),
@@ -184,7 +173,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const shownResponse = tablePreview?.response ?? activeResponse;
   const resultSource = useMemo<SqlResultSource | undefined>(() => {
     if (tablePreview) {
-      return { origin: 'table', sql: tablePreview.sql, tableName: tablePreview.table.name };
+      return {
+        origin: 'table',
+        sql: tablePreview.sql,
+        tableName: tablePreview.table.name,
+        ...(tablePreview.back ? { backTo: tablePreview.back.table.name } : {}),
+      };
     }
     return editorSourceSql !== undefined ? { origin: 'editor', sql: editorSourceSql } : undefined;
   }, [tablePreview, editorSourceSql]);
@@ -195,18 +189,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   }, [showTablePreview]);
   const tabActions = useSqlQueryTabActions(resetView);
   const { create: handleCreate, select: handleSelect, saveDialog } = tabActions;
-
-  // Opening a table shows its rows under a generated SQL strip; nothing is saved or added to history.
-  const handleOpenTable = useCallback(
-    async (table: SqlSchemaTable) => {
-      const sql = buildSelectStarter(table.sqlName ?? table.name, table.schemaName);
-      previewTokenRef.current += 1;
-      const token = previewTokenRef.current;
-      const outcome = await executeQuery(sql, { timeoutMs: queryTimeoutMs });
-      if (previewTokenRef.current === token) setTablePreview({ table, sql, response: toSqlResponse(outcome) });
-    },
-    [queryTimeoutMs]
-  );
 
   const handleEditInEditor = useCallback(
     (sql: string) => {
@@ -309,15 +291,20 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     }
   }, []);
 
+  const invalidateForeignKeys = tables.invalidate;
   useEffect(() => {
-    refreshTablesRef.current = () => void handleRefreshTables();
-  }, [handleRefreshTables]);
+    refreshTablesRef.current = () => {
+      invalidateForeignKeys();
+      void handleRefreshTables();
+    };
+  }, [handleRefreshTables, invalidateForeignKeys]);
 
   const existingTableNames = useMemo(() => schemaTables.map((table) => table.name), [schemaTables]);
   const sqlImport = useSqlImport({
     existingTableNames,
-    onImported: ({ tableName, format }) => {
-      useWorkspaceSqlStore.getState().setTableSource(tableName, format);
+    tables: schemaTables,
+    onImported: ({ tableName, format, created }) => {
+      if (created) useWorkspaceSqlStore.getState().setTableSource(tableName, format);
       void handleRefreshTables();
     },
   });
@@ -445,7 +432,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       isLoading={isLoadingTables}
       hasLoaded={catalogLoaded}
       onRefresh={() => void handleRefreshTables()}
-      onOpenTable={(table) => void handleOpenTable(table)}
+      onOpenTable={(table) => void tables.open(table)}
       openedTableName={tablePreview?.table.name ?? null}
       onFold={toggleFolded}
       onImportFile={handleStartImport}
@@ -497,6 +484,19 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       ? runSet.results[view.index]?.response
       : undefined;
   const isExecuting = activeQuery !== undefined && runner.runningQueryId === activeQuery.id;
+  // Load more continues the open stream of the newest run of this query only.
+  const moreKey = activeQuery && activeResponse ? moreRowsKey(activeQuery.id, activeResponse.recordedAt) : null;
+  const more =
+    !tablePreview && !runSetResponse && safeResponseIndex === 0 && runner.more && runner.more.key === moreKey
+      ? { rows: runner.more.rows, canRead: !runner.more.done, complete: runner.more.complete, loading: runner.more.loading }
+      : undefined;
+  const handleLoadMore = () => {
+    if (moreKey && activeResponse) {
+      void runner.loadMore(moreKey, rowDisplayLimit, activeResponse.rows.length, activeResponse.columns.length);
+    }
+  };
+  const handleInsertPredicate = (predicate: string) =>
+    setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
 
   const resultBody =
     showResultTabs && view.kind === 'plan' && plan ? (
@@ -521,7 +521,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSaveSnippet={activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined}
         {...(resultSource !== undefined && !runSetResponse ? { source: resultSource } : {})}
         onEditInEditor={handleEditInEditor}
+        {...(tablePreview?.back ? { onBack: () => showTablePreview(tablePreview.back!) } : {})}
         handoffs={handoffs}
+        {...(more ? { more, onLoadMore: handleLoadMore } : {})}
+        {...(tablePreview && tables.foreignKeys ? { foreignKeys: tables.foreignKeys } : {})}
+        {...(activeQuery ? { onInsertPredicate: handleInsertPredicate } : {})}
+        {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
       />
     );
 
@@ -537,6 +542,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         isBusy={runner.runningQueryId !== null && !isExecuting}
         tables={schemaTables}
         {...(insertSignal !== null ? { insertSignal } : {})}
+        {...(predicateSignal !== null ? { predicateSignal } : {})}
         headerExtra={
           <AskSqlButton
             tables={schemaTables}
@@ -670,8 +676,16 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           preview={sqlImport.modal.preview}
           tableName={sqlImport.modal.tableName}
           existingTableNames={existingTableNames}
+          tables={schemaTables}
+          target={sqlImport.modal.target}
+          mapping={sqlImport.modal.mapping}
+          csv={sqlImport.modal.csv}
           isImporting={sqlImport.isImporting}
+          isPreviewing={sqlImport.isPreviewing}
           onTableNameChange={sqlImport.setTableName}
+          onTargetChange={sqlImport.setTarget}
+          onMappingChange={sqlImport.setMapping}
+          onCsvChange={(csv) => void sqlImport.setCsv(csv)}
           onConfirm={() => void sqlImport.confirmImport()}
           onCancel={sqlImport.cancelImport}
         />
