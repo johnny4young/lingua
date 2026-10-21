@@ -8,6 +8,8 @@ import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
 import { useTelemetry } from './useTelemetry';
 
 export interface SqlSaveDialogState {
+  /** The query the dialog was opened for; it closes when that tab is no longer active. */
+  queryId: string;
   mode: 'save' | 'saveAs';
   /** Close the tab once saved (the Save choice when closing a scratch). */
   closeAfter?: boolean;
@@ -41,6 +43,7 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
       store.createQuery(
         createBlankSqlQuery({ id: crypto.randomUUID(), name: scratchName, query: sql, kind: 'scratch' })
       );
+      setSaveDialog(null);
       onViewReset();
     },
     [admit, onViewReset, t]
@@ -51,6 +54,7 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
       const store = useWorkspaceSqlStore.getState();
       if (!store.openQueryIds.includes(id) && !admit()) return;
       store.openQueryTab(id);
+      setSaveDialog((dialog) => (dialog?.queryId === id ? dialog : null));
       onViewReset();
     },
     [admit, onViewReset]
@@ -103,14 +107,14 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
       useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'sqlWorkspace.save.alreadySaved' });
       return;
     }
-    setSaveDialog({ mode: as && query.kind !== 'scratch' ? 'saveAs' : 'save' });
+    setSaveDialog({ queryId: query.id, mode: as && query.kind !== 'scratch' ? 'saveAs' : 'save' });
   }, []);
 
   const confirmSave = useCallback(
     (options: { name: string; folder?: string }) => {
       const store = useWorkspaceSqlStore.getState();
-      const id = store.activeQueryId;
-      if (id === null || saveDialog === null) return;
+      if (saveDialog === null) return;
+      const id = saveDialog.queryId;
       if (saveDialog.mode === 'saveAs') store.saveQueryAs(id, { id: crypto.randomUUID(), ...options });
       else store.saveQuery(id, options);
       if (saveDialog.closeAfter) store.closeQueryTab(id);
@@ -123,7 +127,7 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
   const saveBeforeClose = useCallback((id: string) => {
     setClosePromptId(null);
     useWorkspaceSqlStore.getState().openQueryTab(id);
-    setSaveDialog({ mode: 'save', closeAfter: true });
+    setSaveDialog({ queryId: id, mode: 'save', closeAfter: true });
   }, []);
 
   const discard = useCallback((id: string) => {

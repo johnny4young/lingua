@@ -4,19 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { filterSqlHistory, type SqlHistoryEntryV1 } from '../../../shared/sqlHistory';
 import { cn } from '../../utils/cn';
 import { toneForSqlStatus } from './sqlStatusTone';
+import { formatClock } from './sqlResultFormatters';
 
 const DOT_CLASS: Partial<Record<ReturnType<typeof toneForSqlStatus>, string>> = {
   success: 'bg-success-fg',
   error: 'bg-error-fg',
   warning: 'bg-warning-fg',
 };
-
-function clock(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
 
 /** Every run, newest first; a click opens its SQL in a new scratch without running it. */
 export function SqlHistorySection({
@@ -108,7 +102,7 @@ export function SqlHistorySection({
                   </span>
                   <span className="truncate pl-3 font-mono text-micro tabular-nums text-fg-subtle">
                     {t('sqlWorkspace.history.meta', {
-                      time: clock(entry.recordedAt),
+                      time: formatClock(entry.recordedAt),
                       duration: Math.round(entry.durationMs),
                       status: t(`sqlWorkspace.statusPill.${entry.status}`),
                       count: entry.rowCount,

@@ -17,21 +17,7 @@ import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
 import { toneForSqlStatus } from './sqlStatusTone';
-
-/**
- * Format an ISO timestamp into a short `HH:MM:SS` clock for the
- * history row. Locale-aware via `toLocaleTimeString`; falls back to
- * the raw ISO string if parsing fails.
- */
-function formatClock(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
+import { formatClock } from './sqlResultFormatters';
 
 export interface SqlRunHistoryProps {
   /** Per-query response LRU, newest-first. */

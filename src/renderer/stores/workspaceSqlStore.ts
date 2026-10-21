@@ -1,17 +1,16 @@
 /**
  * SQL workspace persisted store.
  *
- * Owns the list of user-created SQL queries + their response history.
+ * Owns the user's SQL queries (scratches and saved, by folder), their
+ * response history, the open query tabs and the cross-query run History.
  * Isolated on its own localStorage key (`lingua-workspace-sql-state`)
  * per the convention so a Settings reset doesn't wipe saved
  * queries.
  *
- * Shape parity with `workspaceToolStore`: identical CRUD names +
- * LRU=10 + active id + sanitize-on-rehydrate boundary. Run state lives
- * with the SQL runner, since a run can outlive a tab switch. Utility Pipelines will iterate over
- * both stores uniformly via this matching surface; never extend the
- * SQL store with shape that diverges from the HTTP store without
- * mirroring the change there too.
+ * Shape parity with `workspaceToolStore` covers the CRUD names, LRU=10,
+ * active id and sanitize-on-rehydrate boundary that Utility Pipelines
+ * iterate; keep that surface matched. Query tabs and History are SQL-only.
+ * Run state lives with the SQL runner, since a run can outlive a tab switch.
  *
  * Privacy posture:
  *
@@ -413,7 +412,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
       migrate: createMigrate('lingua-workspace-sql-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
-        // Transient runtime failures (`timeout` / `engine-load-failed`)
+        // Transient outcomes (`timeout` / `engine-load-failed` / `cancelled`)
         // live in the session for immediate feedback but persisting
         // them across reloads creates ghost rows the user has no way
         // to clear. Filter the persisted slice so only successful +

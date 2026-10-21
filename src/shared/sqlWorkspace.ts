@@ -390,7 +390,7 @@ export interface SqlQueryV1 {
   query: string;
   /** Optional per-query timeout override. Capped at `MAX_QUERY_TIMEOUT_MS`. */
   timeoutMs?: number;
-  /** `scratch` for an autosaved Untitled query; absent for a saved one. */
+  /** `scratch` for an unsaved scratch (Scratch N); absent for a saved query. */
   kind?: 'scratch';
   /** Saved-queries folder; absent means unfiled. */
   folder?: string;
@@ -422,10 +422,9 @@ export interface SqlResponseV1 {
   /** Column metadata for the result set. Empty for DDL / 0-row results. */
   columns: ReadonlyArray<SqlColumnMetadata>;
   /**
-   * Total row count from DuckDB. Equals `rows.length` for results
-   * under the cap; exceeds it when `tooLarge: true`. The full row
-   * set is NOT in `rows` — DuckDB knows the count even when we
-   * trimmed the preview.
+   * Row count from DuckDB. Equals `rows.length` for results under the
+   * cap; exceeds it when `tooLarge: true`. It is the exact total, or a
+   * lower bound when `rowCountIsLowerBound` is set.
    */
   rowCount: number;
   /** Wall-clock duration from execute call to settle, in ms. */
@@ -438,10 +437,9 @@ export interface SqlResponseV1 {
    */
   rowCountIsLowerBound?: boolean;
   /**
-   * Count of statements executed when the user submitted a
-   * multi-statement query (`SELECT 1; SELECT 2;`). DuckDB returns
-   * only the LAST statement's result, but we surface the count so
-   * the UI can render the "N statements executed" badge.
+   * Statements in the piece of SQL that produced this response. The
+   * workspace now runs statements one at a time (1); responses saved
+   * before that may hold several, shown as the "N statements executed" badge.
    */
   statementCount: number;
   /** ISO timestamp the response was recorded. */

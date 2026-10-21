@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
+import { resetSqlRunStateForTests, sessionRunSources } from '../../../src/renderer/hooks/useSqlRunner';
 import {
   CANCEL_SETTLE_MS,
   __setDuckDbEngineFactoryForTests,
@@ -84,6 +85,7 @@ let ran: string[] = [];
 beforeEach(() => {
   localStorage.clear();
   resetWorkspaceSqlStoreForTests();
+  resetSqlRunStateForTests();
   useEditorStore.setState({ tabs: [], activeTabId: null });
   useUIStore.setState({ statusNotice: null });
   useSettingsStore.setState({ sqlWorkspaceQueryTimeoutMs: 30_000, sqlWorkspacePersistTables: false });
@@ -145,6 +147,20 @@ describe('SQL query tabs and the Free budget', () => {
     expect(useWorkspaceSqlStore.getState().getQuery('q1')).toMatchObject({ name: 'Orders by city', folder: 'Reports' });
     expect(useWorkspaceSqlStore.getState().getQuery('q1')?.kind).toBeUndefined();
     expect(screen.getByTestId('sql-query-folder').textContent).toContain('Reports');
+  });
+
+  it('closes the save popover when another tab becomes active, so it never saves that one', async () => {
+    const user = userEvent.setup();
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'saved', name: 'Report', query: 'SELECT 9' }));
+    openQuery('SELECT 1', { kind: 'scratch', name: 'Scratch 1' });
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('save'));
+    expect(screen.getByTestId('sql-save-popover')).toBeTruthy();
+    await user.click(screen.getAllByRole('tab', { name: 'Report' })[0]!);
+    expect(screen.queryByTestId('sql-save-popover')).toBeNull();
+    await user.click(screen.getAllByRole('tab', { name: /Scratch 1/ })[0]!);
+    expect(screen.queryByTestId('sql-save-popover')).toBeNull();
+    expect(useWorkspaceSqlStore.getState().getQuery('saved')).toMatchObject({ name: 'Report' });
   });
 
   it('saves a copy with Save as from the app shortcut', async () => {
@@ -245,6 +261,43 @@ describe('SQL run modes', () => {
     await screen.findByTestId('sql-query-editor-run');
     act(() => pressSqlChord('statement'));
     await waitFor(() => expect(useWorkspaceSqlStore.getState().history[0]?.status).toBe('success'));
+  });
+
+  it('keeps a running query cancellable after the SQL tab unmounts and comes back', async () => {
+    let release: () => void = () => {};
+    __setDuckDbEngineFactoryForTests(() =>
+      Promise.resolve(
+        scriptEngine(ran, {
+          stream: async () => ({
+            fields: () => [],
+            next: () => new Promise<null>((resolve) => (release = () => resolve(null))),
+          }),
+          cancel: async () => {
+            release();
+            return true;
+          },
+        })
+      )
+    );
+    openQuery('SELECT * FROM slow');
+    const first = render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-query-editor-cancel');
+    first.unmount();
+    render(<SqlWorkspacePanel />);
+    fireEvent.click(await screen.findByTestId('sql-query-editor-cancel'));
+    await screen.findByTestId('sql-result-preview-cancelled');
+    expect(useWorkspaceSqlStore.getState().history[0]?.status).toBe('cancelled');
+  });
+
+  it('forgets the run source of a query that no longer exists', async () => {
+    openQuery('SELECT 1');
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'q2', name: 'Other', query: 'SELECT 2' }));
+    sessionRunSources.set('gone', { recordedAt: 'x', query: 'SELECT 0' });
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(sessionRunSources.has('q2')).toBe(true));
+    expect(sessionRunSources.has('gone')).toBe(false);
   });
 
   it('offers to restart the engine when a query ignores Cancel', async () => {

@@ -757,7 +757,7 @@ export async function readResultStream(
     const taken = accumulator.add(rows);
     if (accumulator.isFull()) {
       // Rows left in this batch, or any later batch, mean the total is unknown.
-      stoppedEarly = taken < rows.length || (await stream.next()) !== null;
+      stoppedEarly = taken < rows.length || (await stream.next().catch(() => true)) !== null;
       break;
     }
   }

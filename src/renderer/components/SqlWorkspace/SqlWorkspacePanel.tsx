@@ -545,7 +545,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           />
         }
       />
-      {saveDialog !== null ? (
+      {saveDialog !== null && saveDialog.queryId === activeQuery.id ? (
         <SqlSaveQueryPopover
           key={`${activeQuery.id}:${saveDialog.mode}`}
           anchor={editorPaneRef}

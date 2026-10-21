@@ -78,6 +78,22 @@ describe('readResultStream', () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it('keeps a full window when the peek past it fails', async () => {
+    let calls = 0;
+    const failing: DuckDbResultStream = {
+      fields: () => fields,
+      next: async () => {
+        calls += 1;
+        // Five batches fill the window exactly, so only the peek can tell there is more.
+        if (calls > 5) throw new Error('interrupted');
+        return batch((calls - 1) * 2_000, 2_000);
+      },
+    };
+    const out = await readResultStream(failing);
+    expect(out.rows).toHaveLength(MAX_RESULT_ROWS);
+    expect(out.rowCountIsLowerBound).toBe(true);
+  });
+
   it('keeps the columns of an empty result', async () => {
     const out = await readResultStream(stream(0, 0).result);
     expect(out.columns).toEqual([{ name: 'n', type: 'Int32' }]);

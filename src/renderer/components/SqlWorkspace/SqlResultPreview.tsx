@@ -489,6 +489,7 @@ export function SqlResultPreview({
           columns={response.columns}
           rows={filteredSortedRows}
           totalRowCount={response.rowCount}
+          totalIsLowerBound={response.rowCountIsLowerBound === true}
           handoffs={handoffs}
           onClose={() => setExportOpen(false)}
         />

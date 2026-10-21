@@ -369,6 +369,20 @@ describe('SqlResultPreview', () => {
       expect(screen.getByTestId('sql-export-count').textContent).toContain('first 1 of 20');
     });
 
+    it('calls a windowed total a lower bound', async () => {
+      const user = userEvent.setup();
+      render(
+        <SqlResultPreview
+          response={response({ status: 'too-large', rowCount: 20, tooLarge: true, rowCountIsLowerBound: true })}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+        />
+      );
+      expect(screen.getByTestId('sql-result-preview-too-large').textContent).toContain('of ≥ 20 rows');
+      await user.click(screen.getByTestId('sql-result-preview-export'));
+      expect(screen.getByTestId('sql-export-count').textContent).toContain('first 1 of at least 20');
+    });
+
     it('offers Save as table only with a known source', async () => {
       const user = userEvent.setup();
       const onSave = vi.fn().mockResolvedValue(true);

@@ -3895,6 +3895,7 @@
   "sqlWorkspace.export.count_one": "{{count}} fila de este resultado",
   "sqlWorkspace.export.count_other": "{{count}} filas de este resultado",
   "sqlWorkspace.export.partialCount": "Las primeras {{shown}} de {{total}} filas: las que trajo este resultado",
+  "sqlWorkspace.export.partialCountAtLeast": "Las primeras {{shown}} de al menos {{total}} filas: las que trajo este resultado",
   "sqlWorkspace.export.formatAria": "Formato de exportación",
   "sqlWorkspace.export.headerRow": "fila de encabezado",
   "sqlWorkspace.export.delimiter": "separador {{delimiter}}",

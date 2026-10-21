@@ -3868,6 +3868,7 @@
   "sqlWorkspace.export.count_one": "{{count}} row from this result",
   "sqlWorkspace.export.count_other": "{{count}} rows from this result",
   "sqlWorkspace.export.partialCount": "The first {{shown}} of {{total}} rows: the rows this result fetched",
+  "sqlWorkspace.export.partialCountAtLeast": "The first {{shown}} of at least {{total}} rows: the rows this result fetched",
   "sqlWorkspace.export.formatAria": "Export format",
   "sqlWorkspace.export.headerRow": "header row",
   "sqlWorkspace.export.delimiter": "{{delimiter}} delimiter",

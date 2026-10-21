@@ -11,6 +11,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
+import { resetSqlRunStateForTests } from '../../../src/renderer/hooks/useSqlRunner';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import {
   resetWorkspaceSqlStoreForTests,
@@ -88,6 +89,7 @@ vi.mock('@monaco-editor/react', async () => (await import('../../__fixtures__/sq
 beforeEach(() => {
   localStorage.clear();
   resetWorkspaceSqlStoreForTests();
+  resetSqlRunStateForTests();
   useExecutionHistoryStore.getState().clear();
   useSettingsStore.setState({
     sqlWorkspaceRowDisplayLimit: 1000,

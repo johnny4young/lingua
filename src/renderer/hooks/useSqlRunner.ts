@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect } from 'react';
+import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
@@ -56,6 +57,27 @@ export type SqlResultView = { kind: 'result'; index: number } | { kind: 'message
 /** The SQL behind each query's newest response, so Profile and the strip use exactly what ran. */
 export const sessionRunSources = new Map<string, { recordedAt: string; query: string }>();
 
+interface SqlRunState {
+  runningQueryId: string | null;
+  runSet: SqlRunSet | null;
+  plan: SqlPlanResult | null;
+  view: SqlResultView | null;
+  stuck: boolean;
+  isRestarting: boolean;
+}
+
+/** Module-level so a run outlives the panel, which unmounts whenever another editor tab is active. */
+const useSqlRunState = create<SqlRunState>(() => ({
+  runningQueryId: null,
+  runSet: null,
+  plan: null,
+  view: null,
+  stuck: false,
+  isRestarting: false,
+}));
+let activeController: AbortController | null = null;
+const setRunState = (patch: Partial<SqlRunState>) => useSqlRunState.setState(patch);
+
 const isResult = (status: SqlResponseV1['status']) => status === 'success' || status === 'too-large';
 
 function recordRun(queryId: string, sql: string, response: SqlResponseV1): void {
@@ -88,30 +110,26 @@ interface UseSqlRunnerOptions {
 export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSqlRunnerOptions) {
   const { t } = useTranslation();
   const announce = useAnnounce();
-  const [runningQueryId, setRunningQueryId] = useState<string | null>(null);
-  const [runSet, setRunSet] = useState<SqlRunSet | null>(null);
-  const [plan, setPlan] = useState<SqlPlanResult | null>(null);
-  const [view, setView] = useState<SqlResultView | null>(null);
-  const [stuck, setStuck] = useState(false);
-  const [isRestarting, setIsRestarting] = useState(false);
-  const controllerRef = useRef<AbortController | null>(null);
+  const { runningQueryId, runSet, plan, view, stuck, isRestarting } = useSqlRunState();
 
   const runExplain = useCallback(
     async (query: SqlQueryV1, statement: string, signal: AbortSignal) => {
       const { sql, analyzed } = buildExplainSql(statement);
       const outcome = await executeQuery(sql, { timeoutMs, signal });
-      if (outcome.stillRunning) setStuck(true);
+      if (outcome.stillRunning) setRunState({ stuck: true });
       const parsed = isResult(outcome.status) ? parseExplainRows(outcome.rows, analyzed) : null;
-      setPlan({
-        queryId: query.id,
-        sql: statement,
-        analyzed,
-        plan: parsed,
-        ...(parsed === null
-          ? { errorMessage: outcome.errorMessage ?? t('sqlWorkspace.plan.unreadable') }
-          : {}),
+      setRunState({
+        plan: {
+          queryId: query.id,
+          sql: statement,
+          analyzed,
+          plan: parsed,
+          ...(parsed === null
+            ? { errorMessage: outcome.errorMessage ?? t('sqlWorkspace.plan.unreadable') }
+            : {}),
+        },
+        view: { kind: 'plan' },
       });
-      setView({ kind: 'plan' });
     },
     [timeoutMs, t]
   );
@@ -136,16 +154,19 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       }
       const last = results[results.length - 1];
       if (!last) return;
-      if (outcomes.some((outcome) => outcome.stillRunning)) setStuck(true);
+      if (outcomes.some((outcome) => outcome.stillRunning)) setRunState({ stuck: true });
+      const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
+      for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
       sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
-      if (statements.length > 1) {
-        setRunSet({ queryId: query.id, results, notRun: statements.slice(results.length) });
-        setView({ kind: 'result', index: results.length - 1 });
-      } else {
-        setRunSet(null);
-        setView(null);
-      }
+      setRunState(
+        statements.length > 1
+          ? {
+              runSet: { queryId: query.id, results, notRun: statements.slice(results.length) },
+              view: { kind: 'result', index: results.length - 1 },
+            }
+          : { runSet: null, view: null }
+      );
       if (results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
         onSchemaChanged();
       }
@@ -180,10 +201,10 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
 
   const run = useCallback(
     async ({ query, mode, statements }: SqlRunRequest) => {
-      if (controllerRef.current !== null || statements.length === 0) return;
+      if (activeController !== null || statements.length === 0) return;
       const controller = new AbortController();
-      controllerRef.current = controller;
-      setRunningQueryId(query.id);
+      activeController = controller;
+      setRunState({ runningQueryId: query.id });
       onBeforeRun();
       try {
         if (mode === 'explain') await runExplain(query, statements[0]!, controller.signal);
@@ -196,25 +217,26 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
           detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
         });
       } finally {
-        controllerRef.current = null;
-        setRunningQueryId(null);
+        activeController = null;
+        setRunState({ runningQueryId: null });
       }
     },
     [onBeforeRun, runExplain, runStatements]
   );
 
-  const cancel = useCallback(() => controllerRef.current?.abort(), []);
+  const cancel = useCallback(() => activeController?.abort(), []);
 
   const restartEngine = useCallback(async () => {
-    setIsRestarting(true);
+    setRunState({ isRestarting: true });
     try {
       await restartDuckDbEngine();
-      setStuck(false);
+      setRunState({ stuck: false });
       onSchemaChanged();
     } finally {
-      setIsRestarting(false);
+      setRunState({ isRestarting: false });
     }
   }, [onSchemaChanged]);
+  const setView = useCallback((next: SqlResultView | null) => setRunState({ view: next }), []);
 
   // Mod+. cancels from anywhere in the SQL tab, not only from the editor.
   useEffect(() => {
@@ -241,4 +263,10 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
     isRestarting,
     restartEngine,
   };
+}
+
+/** Clears the module-level run state between tests. */
+export function resetSqlRunStateForTests(): void {
+  activeController = null;
+  useSqlRunState.setState(useSqlRunState.getInitialState());
 }
