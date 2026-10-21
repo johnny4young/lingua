@@ -340,7 +340,8 @@ export function SqlResultPreview({
     <div
       data-testid="sql-result-preview"
       data-state={response.status}
-      className="relative flex h-full min-w-0 flex-col bg-bg-base"
+      // A short pane scrolls as a whole rather than letting the bands cover the grid.
+      className="relative flex h-full min-w-0 flex-col overflow-y-auto bg-bg-base"
     >
       <ResultHeader
         status={
@@ -510,7 +511,7 @@ export function SqlResultPreview({
           />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-[9.5rem] flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {displayRows.length > 0 ? (
               activeTab === 'json' ? (
