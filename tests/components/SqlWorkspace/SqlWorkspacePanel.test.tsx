@@ -168,10 +168,11 @@ afterEach(() => {
 });
 
 describe('SqlWorkspacePanel', () => {
-  it('renders the empty state when no query is selected', () => {
+  it('gives the empty state the whole area when there is no query or opened table', () => {
     render(<SqlWorkspacePanel />);
-    expect(screen.getByTestId('sql-workspace-panel')).toBeTruthy();
-    // No active query → empty title in the editor slot.
+    expect(screen.getByTestId('sql-workspace-empty')).toBeTruthy();
+    expect(screen.queryByTestId('sql-result-preview')).toBeNull();
+    expect(screen.queryByTestId('sql-query-editor')).toBeNull();
     expect(screen.getByTestId('sql-query-list')).toBeTruthy();
   });
 
@@ -700,6 +701,16 @@ describe('SqlWorkspacePanel — opening tables from the Explorer', () => {
       terminate: async () => undefined,
     };
   }
+
+  it('shows the results of a table opened before any query exists', async () => {
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(tablesEngine(Promise.resolve())));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.click(screen.getByTestId('sql-explorer-refresh'));
+    await user.click(await screen.findByText('fast'));
+    await waitFor(() => expect(screen.getByTestId('sql-result-strip')).toBeTruthy());
+    expect(screen.getByTestId('sql-workspace-empty')).toBeTruthy();
+  });
 
   it('keeps the last table opened when an earlier open finishes later', async () => {
     let release!: () => void;

@@ -559,7 +559,19 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     </SqlExplorer>
   );
 
-  const main = (
+  const emptyState = (
+    <SqlEmptyState
+      onCreate={() => handleCreate()}
+      onImportFile={(file) => handleStartImport(file, 'picker')}
+      onTrySample={() => void handleTrySample()}
+      isCreatingSample={isCreatingSample}
+    />
+  );
+
+  // With nothing to edit or show, the empty state gets the whole area instead of a split.
+  const main = !activeQuery && !tablePreview ? (
+    emptyState
+  ) : (
     <Group
       orientation="vertical"
       defaultLayout={mainLayout.defaultLayout}
@@ -585,12 +597,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             }
           />
         ) : (
-          <SqlEmptyState
-            onCreate={() => handleCreate()}
-            onImportFile={(file) => handleStartImport(file, 'picker')}
-            onTrySample={() => void handleTrySample()}
-            isCreatingSample={isCreatingSample}
-          />
+          emptyState
         )}
       </Panel>
       <ResizeHandle orientation="horizontal" />
