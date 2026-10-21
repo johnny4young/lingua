@@ -191,13 +191,14 @@ export function isReadOnlySqlStatement(statement: string): boolean {
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
 }
 
-const SECRET_STATEMENT =
-  /\b(secret|attach)\b|\b(set|reset)\s+(global\s+|session\s+|local\s+)?\w*(secret|key|token|password|credential)\w*/i;
-const SECRET_LITERAL = /:\/\/[^\s'/]*@|[?&](token|key|sig|signature|password|access_token|x-amz-[a-z-]+)=/i;
+// Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
+const SECRET_STATEMENT = /\b(secret|attach)\b|^\s*(set|reset|pragma)\b/i;
+const SECRET_LITERAL =
+  /:\/\/[^\s'/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=/i;
 
 /**
  * Masks string literals that may hold credentials before SQL is kept in the
- * run History: every literal of a SECRET, ATTACH or secret-setting statement,
+ * run History: every literal of a SECRET, ATTACH, SET, RESET or PRAGMA statement,
  * and any URL literal with user info or a token-like query parameter.
  */
 export function redactSqlSecrets(sql: string): string {
