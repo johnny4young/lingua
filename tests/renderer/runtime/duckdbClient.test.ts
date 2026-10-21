@@ -8,6 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  CANCEL_SETTLE_MS,
   __setDuckDbEngineFactoryForTests,
   __setResolvedSqlStorageModeForTests,
   applyDuckDbPersistence,
@@ -317,6 +318,7 @@ describe('executeQuery', () => {
   });
 
   it('returns timeout when the query exceeds the soft timeout', async () => {
+    vi.useFakeTimers();
     __setDuckDbEngineFactoryForTests(() =>
       Promise.resolve({
         connect: async () => ({
@@ -329,8 +331,11 @@ describe('executeQuery', () => {
         terminate: async () => undefined,
       })
     );
-    const outcome = await executeQuery('SELECT pg_sleep(60)', { timeoutMs: 50 });
-    expect(outcome.status).toBe('timeout');
+    const pending = executeQuery('SELECT pg_sleep(60)', { timeoutMs: 50 });
+    await vi.advanceTimersByTimeAsync(50 + CANCEL_SETTLE_MS);
+    // Nothing could stop it, so the outcome says the statement still holds the engine.
+    expect(await pending).toMatchObject({ status: 'timeout', stillRunning: true });
+    vi.useRealTimers();
   });
 
   it('returns engine-load-failed when the engine factory rejects', async () => {

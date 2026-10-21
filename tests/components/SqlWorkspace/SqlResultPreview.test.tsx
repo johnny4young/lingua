@@ -369,6 +369,19 @@ describe('SqlResultPreview', () => {
       expect(screen.getByTestId('sql-export-count').textContent).toContain('first 1 of 20');
     });
 
+    it('shows only the localized band for a timeout', () => {
+      render(
+        <SqlResultPreview
+          response={response({ status: 'timeout', rows: [], rowCount: 0, errorMessage: 'Query exceeded timeout' })}
+          isExecuting={false}
+          rowDisplayLimit={1000}
+        />
+      );
+      const band = screen.getByTestId('sql-result-preview-error-timeout');
+      expect(band.textContent).toContain('ran past its time limit');
+      expect(band.textContent).not.toContain('Query exceeded timeout');
+    });
+
     it('calls a windowed total a lower bound', async () => {
       const user = userEvent.setup();
       render(

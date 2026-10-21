@@ -10,6 +10,8 @@ import {
 import { useUIStore } from '@/stores/uiStore';
 import { useSnippetsStore } from '@/stores/snippetsStore';
 import { useUtilityHistoryStore } from '@/stores/utilityHistoryStore';
+import { useWorkspaceSqlStore } from '@/stores/workspaceSqlStore';
+import { createBlankSqlQuery } from '@/../shared/sqlWorkspace';
 import type { RunCapsuleV1 } from '@/../shared/runCapsule';
 
 const { sqlBytesMock, clearSqlMock } = vi.hoisted(() => ({
@@ -69,7 +71,7 @@ describe('Local data summary', () => {
     const total = screen.getByTestId('privacy-local-data-total');
     await waitFor(() => expect(total.textContent).toContain(formatBytes(storesBytes + 2048)));
     expect(total.textContent).toContain(`SQL database ${formatBytes(2048)}`);
-    expect(total.textContent).toContain(`5 stores ${formatBytes(storesBytes)}`);
+    expect(total.textContent).toContain(`6 stores ${formatBytes(storesBytes)}`);
     expect(screen.getByTestId('privacy-capsules-retained').textContent).toBe(
       '2 capsules in memory (cleared on reload)'
     );
@@ -138,6 +140,31 @@ describe('Local data summary', () => {
     useSnippetsStore.setState({ snippets: [] });
     expect(window.localStorage.getItem('lingua-snippets') ?? '').not.toContain('secret');
     expect(window.localStorage.getItem('lingua-utility-state') ?? '').not.toContain('jwt');
+  });
+
+  it('clears the SQL queries and the run History with the rest', async () => {
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'q1', query: 'SELECT secret_column' }));
+    useWorkspaceSqlStore.getState().recordHistory({
+      version: 1,
+      id: 'h1',
+      sql: 'SELECT secret_column',
+      status: 'success',
+      durationMs: 1,
+      rowCount: 1,
+      recordedAt: '2026-10-21T00:00:00.000Z',
+    });
+    render(<PrivacyTrustSection />);
+    await waitFor(() => expect(sqlBytesMock).toHaveBeenCalled());
+    expect(screen.getByTestId('privacy-local-stores-row-lingua-workspace-sql-state')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('privacy-local-data-clear-all'));
+    expect(screen.getByTestId('privacy-clear-all-items').textContent).toContain('lingua-workspace-sql-state');
+    fireEvent.click(screen.getByTestId('privacy-clear-all-confirm'));
+    await waitFor(() => expect(screen.queryByTestId('privacy-clear-all-modal')).toBeNull());
+
+    expect(useWorkspaceSqlStore.getState().queries).toEqual([]);
+    expect(useWorkspaceSqlStore.getState().history).toEqual([]);
+    expect(window.localStorage.getItem('lingua-workspace-sql-state') ?? '').not.toContain('secret_column');
   });
 
   it('waits for the SQL size before offering Clear everything', async () => {

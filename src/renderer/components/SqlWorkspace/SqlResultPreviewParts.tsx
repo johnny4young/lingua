@@ -45,7 +45,8 @@ export function ErrorBand({
         />
         <div>
           <p className="font-semibold">{t(bandKey)}</p>
-          {message ? (
+          {/* A timeout's message is our own English text; the band already says it. */}
+          {message && status !== 'timeout' ? (
             <pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded bg-error-bg p-2 font-mono text-eyebrow text-error-fg">
               {message}
             </pre>

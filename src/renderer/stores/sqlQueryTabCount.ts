@@ -1,11 +1,22 @@
 /**
- * Open SQL query tabs count toward the Free tab budget. The SQL store is
- * lazy, so until it loads the count comes from its persisted slice.
+ * Handles on the lazy SQL store for code that must not load it: the Free
+ * tab budget counts its open query tabs (from the persisted slice until
+ * it loads), and Clear everything resets its live copy.
  */
 
-const SQL_STORE_KEY = 'lingua-workspace-sql-state';
+export const SQL_WORKSPACE_STORAGE_KEY = 'lingua-workspace-sql-state';
 
 let liveCounter: (() => number) | null = null;
+let liveClear: (() => void) | null = null;
+
+export function registerSqlStoreClear(clear: (() => void) | null): void {
+  liveClear = clear;
+}
+
+/** Resets the loaded SQL store before its key is removed, so it cannot write the data back. */
+export function clearLiveSqlStore(): void {
+  liveClear?.();
+}
 
 export function registerSqlQueryTabCounter(counter: (() => number) | null): void {
   liveCounter = counter;
@@ -13,7 +24,7 @@ export function registerSqlQueryTabCounter(counter: (() => number) | null): void
 
 function persistedCount(): number {
   try {
-    const raw = localStorage.getItem(SQL_STORE_KEY);
+    const raw = localStorage.getItem(SQL_WORKSPACE_STORAGE_KEY);
     if (!raw) return 0;
     const state = (JSON.parse(raw) as { state?: { openQueryIds?: unknown; activeQueryId?: unknown } })
       .state;

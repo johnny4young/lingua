@@ -11,6 +11,7 @@ import { useLicenseStore } from '../../stores/licenseStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import { TRUST_EVENT_STORAGE_KEY, useTrustEventStore } from '../../stores/trustEventStore';
+import { SQL_WORKSPACE_STORAGE_KEY, clearLiveSqlStore } from '../../stores/sqlQueryTabCount';
 import { useUIStore } from '../../stores/uiStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { SettingsSection } from '../ui/SpecRow';
@@ -205,6 +206,7 @@ export function PrivacyTrustSection() {
       if (key === 'lingua-utility-state') {
         useUtilityHistoryStore.setState({ history: {}, persistEnabled: {}, favorites: [] });
       }
+      if (key === SQL_WORKSPACE_STORAGE_KEY) clearLiveSqlStore();
       window.localStorage.removeItem(key);
     } catch {
       // Quota / private-mode errors are silent — the row size will

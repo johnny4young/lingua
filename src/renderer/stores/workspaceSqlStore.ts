@@ -30,7 +30,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
-import { registerSqlQueryTabCounter } from './sqlQueryTabCount';
+import {
+  SQL_WORKSPACE_STORAGE_KEY,
+  registerSqlQueryTabCounter,
+  registerSqlStoreClear,
+} from './sqlQueryTabCount';
 import {
   parseSqlQuery,
   parseSqlResponse,
@@ -407,7 +411,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
       getLatestResponse: (id) => get().responsesByQueryId[id]?.[0],
     }),
     {
-      name: 'lingua-workspace-sql-state',
+      name: SQL_WORKSPACE_STORAGE_KEY,
       version: 1,
       migrate: createMigrate('lingua-workspace-sql-state'),
       storage: createJSONStorage(() => localStorage),
@@ -516,6 +520,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
 );
 
 registerSqlQueryTabCounter(() => useWorkspaceSqlStore.getState().openQueryIds.length);
+registerSqlStoreClear(() => useWorkspaceSqlStore.setState(createInitialState()));
 
 /**
  * Test seam — reset the store to its initial state. Persisted to

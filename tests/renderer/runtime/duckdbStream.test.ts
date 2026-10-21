@@ -158,6 +158,25 @@ describe('executeQuery streaming and cancel', () => {
     expect(outcome).toMatchObject({ status: 'cancelled', stillRunning: true });
   });
 
+  it('times out like a cancel: stops the statement and settles when DuckDB obeys', async () => {
+    let release: () => void = () => {};
+    const cancel = vi.fn(async () => {
+      release();
+      return true;
+    });
+    engineWith({
+      stream: async () => ({
+        fields: () => fields,
+        next: () => new Promise<null>((resolve) => (release = () => resolve(null))),
+      }),
+      cancel,
+    });
+    const outcome = await executeQuery('SELECT * FROM big', { timeoutMs: 20 });
+    expect(outcome.status).toBe('timeout');
+    expect(outcome.stillRunning).toBeUndefined();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
   it('does not wait on the close of a query DuckDB is still running', async () => {
     vi.useFakeTimers();
     engineWith({

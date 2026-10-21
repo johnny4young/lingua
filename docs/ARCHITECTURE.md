@@ -295,8 +295,9 @@ not return a result. A single statement streams through
 `connection.send(sql, true)`: `readResultStream` reads Arrow batches until the
 `MAX_RESULT_ROWS` window fills, peeks one batch more, and calls
 `cancelSent()` when there is more, so the total is a lower bound
-(`rowCountIsLowerBound`). Cancel is cooperative: the abort signal calls
-`cancelSent()` and waits `CANCEL_SETTLE_MS` for the statement to settle;
+(`rowCountIsLowerBound`). Cancel is cooperative, and a timeout takes the
+same path: the abort signal or the timer calls `cancelSent()` and waits
+`CANCEL_SETTLE_MS` for the statement to settle;
 past that the outcome carries `stillRunning`, the client skips the
 checkpoint and does not await the close (a busy worker answers neither), and
 the panel offers `restartDuckDbEngine`, which terminates the worker without a

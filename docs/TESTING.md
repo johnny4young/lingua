@@ -315,7 +315,7 @@ Use this order when automating:
 | ✅ | `TC-049` | `BOTH` | `developer` | Toggle minimap | Monaco minimap updates |
 | ✅ | `TC-050` | `BOTH` | `developer` | Change layout horizontal/vertical/editor-only | Shell panels rearrange correctly |
 | ✅ | `TC-104` | `BOTH` | `developer` | In Settings press `Cmd/Ctrl+1`–`9` and `0`, then click a section chip on the Editor tab | Tabs open in rail order (Plugins and Labs have no number); the chip scrolls to its section and stays pressed while that section is in view |
-| ✅ | `TC-105` | `BOTH` | `developer` | Settings → Privacy → Local data → `Clear everything…` | One confirmation lists the stores, the SQL database and the capsules; confirming clears them and keeps HTTP requests, notebooks and the session |
+| ✅ | `TC-105` | `BOTH` | `developer` | Settings → Privacy → Local data → `Clear everything…` | One confirmation lists the stores (SQL queries and History included), the SQL database and the capsules; confirming clears them and keeps HTTP requests, notebooks and the session |
 | ✅ | `TC-106` | `BOTH` | `developer` | Settings › Labs: turn on the network policy, set Block, run a JS `fetch` | The request fails with a message naming the host, and Recent activity shows it |
 | ✅ | `TC-107` | `BOTH` | `developer` | Network policy Ask, run a JS `fetch` to a new host, choose Allow in this tab, run again | One dialog names the host while the run waits; the request goes through and the second run does not ask |
 | ✅ | `TC-108` | `BOTH` | `developer` | SQL tab: Try a sample table, Run, click the table in the Explorer, then `Cmd/Ctrl+B` twice | Six rows with revenue right-aligned under a *ran from the editor* strip; the table opens under a generated SELECT with Edit in editor; the Explorer folds to its rail and back |

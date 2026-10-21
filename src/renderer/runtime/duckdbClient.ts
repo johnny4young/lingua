@@ -66,7 +66,7 @@ export interface DuckDbExecuteOutcome {
   tooLarge: boolean;
   /** Reading stopped at the row window, so `rowCount` is a lower bound. */
   rowCountIsLowerBound?: boolean;
-  /** Set on `cancelled`: DuckDB had not stopped within the settle window. */
+  /** Set on `cancelled` or `timeout`: DuckDB had not stopped within the settle window. */
   stillRunning?: boolean;
   statementCount: number;
   errorMessage?: string;
@@ -978,8 +978,7 @@ async function openConnection(
 }
 
 /** A query DuckDB may still be running blocks the worker, so its close is not awaited. */
-const mayStillRun = (outcome: DuckDbExecuteOutcome | undefined) =>
-  outcome?.status === 'timeout' || outcome?.stillRunning === true;
+const mayStillRun = (outcome: DuckDbExecuteOutcome | undefined) => outcome?.stillRunning === true;
 
 async function closeQuietly(connection: DuckDbConnection, wait: boolean): Promise<void> {
   const closing = connection.close().catch(() => {
@@ -1036,7 +1035,7 @@ async function runOnConnection(
       statementCount,
       status === 'timeout' ? 'Query exceeded timeout' : 'Query cancelled'
     ),
-    ...(status === 'cancelled' && stillRunning ? { stillRunning } : {}),
+    ...(stillRunning ? { stillRunning } : {}),
   });
   try {
     // One statement streams, so it can stop at the row window and be cancelled.
@@ -1055,10 +1054,8 @@ async function runOnConnection(
     const raceResult = await Promise.race([queryPromise, timeoutPromise, abortPromise]);
     if (isTimeoutSentinel(raceResult) || raceResult === 'aborted') {
       const status = raceResult === 'aborted' ? 'cancelled' : 'timeout';
-      const cancelled = connection.cancel?.().catch(() => false);
-      // A timeout returns at once, as before; a user Cancel waits to learn whether DuckDB stopped.
-      if (status === 'timeout') return stopped(status, false);
-      await cancelled;
+      // A timeout stops the statement like Cancel does, then waits to learn whether DuckDB stopped.
+      await connection.cancel?.().catch(() => false);
       const settled = await Promise.race([
         queryPromise.then(
           () => true,
