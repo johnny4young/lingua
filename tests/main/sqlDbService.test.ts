@@ -131,6 +131,21 @@ describe('running statements', () => {
     expect(await svc.execute(1, 'r2', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
   });
 
+  it('forgets a session password the server refused, so the next run asks again', async () => {
+    let refuse = true;
+    const { svc } = service(() => {
+      if (refuse) throw new SqlHostError({ message: 'Access denied', step: 'auth', fix: 'auth' });
+      return ok;
+    });
+    const id = ((await svc.save({ ...pg, passwordMode: 'session' }, undefined, undefined)) as { connection: { id: string } }).connection.id;
+    await svc.sessionPassword(id, 'wrong');
+    expect(await svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'connection-failed', fix: 'password-needed', errorMessage: 'Access denied' });
+    refuse = false;
+    expect(await svc.execute(1, 'r2', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ fix: 'password-needed' });
+    await svc.sessionPassword(id, 'right');
+    expect(await svc.execute(1, 'r3', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+  });
+
   it('guards production: a write needs the typed name, and lifting read-only always does', async () => {
     const { svc, sent } = service(() => ok);
     const prod = ((await svc.save({ ...pg, name: 'orders-prod', env: 'prod', readOnly: true }, undefined, 'pw')) as { connection: { id: string } }).connection.id;

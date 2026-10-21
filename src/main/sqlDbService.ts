@@ -317,6 +317,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (timedOut) return fail('timeout', 'Query exceeded timeout');
         const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
         if (/cancel|interrupt|query execution was interrupted/i.test(detail.message)) return fail('cancelled', detail.message);
+        // A refused session password is forgotten, so the next run asks again.
+        if (detail.fix === 'auth' && entry.passwordMode === 'session') {
+          sessionPasswords.delete(entry.id);
+          return fail('connection-failed', detail.message, 'password-needed');
+        }
         return fail(detail.step ? 'connection-failed' : 'sql-error', detail.message, detail.fix);
       }
     },

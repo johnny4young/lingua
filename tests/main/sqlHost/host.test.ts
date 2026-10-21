@@ -43,7 +43,8 @@ const pgConfig = (overrides: Partial<HostSessionConfig> = {}): HostSessionConfig
 });
 
 let id = 0;
-const req = <T extends Omit<HostRequest, 'id'>>(body: T) => ({ id: ++id, ...body }) as HostRequest;
+type HostRequestBody = HostRequest extends infer R ? (R extends unknown ? Omit<R, 'id'> : never) : never;
+const req = (body: HostRequestBody) => ({ id: ++id, ...body }) as HostRequest;
 
 describe('SQL host', () => {
   it('reads a window, keeps the run open for more rows, and maps bigints to text', async () => {

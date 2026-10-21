@@ -19,6 +19,7 @@ const esbuildBin = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuil
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const builtMainPath = path.join(repoRoot, '.vite', 'build', 'main.js');
 const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
+const builtSqlHostPath = path.join(repoRoot, '.vite', 'build', 'sqlHost.js');
 const artifactDir = path.join(repoRoot, 'output', 'stagewright', 'desktop-smoke');
 const smokeUserDataDir = path.join(artifactDir, 'user-data');
 const defaultRendererUrl = 'http://localhost:5174';
@@ -217,7 +218,12 @@ async function runEsbuild(args) {
 }
 
 async function ensureMainArtifacts(rendererUrl, syncMain) {
-  if (!syncMain && (await exists(builtMainPath)) && (await exists(builtPreloadPath))) {
+  if (
+    !syncMain &&
+    (await exists(builtMainPath)) &&
+    (await exists(builtPreloadPath)) &&
+    (await exists(builtSqlHostPath))
+  ) {
     return;
   }
 
@@ -241,6 +247,20 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
           process.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ??
           ''
       ),
+  ]);
+
+  await runEsbuild([
+    path.join(repoRoot, 'src', 'main', 'sqlHost', 'hostEntry.ts'),
+    '--bundle',
+    '--platform=node',
+    '--format=cjs',
+    '--sourcemap',
+    '--outfile=.vite/build/sqlHost.js',
+    '--external:electron',
+    '--external:pg',
+    '--external:pg-cursor',
+    '--external:pg-native',
+    '--external:mysql2',
   ]);
 
   await runEsbuild([
