@@ -212,13 +212,15 @@ export function isWriteSqlStatement(statement: string): boolean {
 const ESTIMABLE_LEAD = /^(select|with|values|table|insert|update|delete|merge|replace)\b/i;
 
 /**
- * True for one statement EXPLAIN can plan without running anything: it leads
- * with a query or DML keyword once comments are gone (so no ANALYZE), and it
- * holds no MySQL executable comment, which MySQL runs as code.
+ * True for one statement EXPLAIN can plan without running anything. The raw
+ * text must start with a query or DML keyword, with no comment in front: the
+ * engines disagree on where comments end (MySQL does not nest them), and a
+ * comment there could turn `EXPLAIN …` into `EXPLAIN ANALYZE …`. A MySQL
+ * executable comment anywhere is refused, since MySQL runs it as code.
  */
 export function isEstimableSqlStatement(statement: string): boolean {
   if (statement.includes('/*!')) return false;
-  return splitSqlStatements(statement).length === 1 && ESTIMABLE_LEAD.test(codeOnly(statement));
+  return splitSqlStatements(statement).length === 1 && ESTIMABLE_LEAD.test(statement.trimStart());
 }
 
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.

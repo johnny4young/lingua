@@ -252,7 +252,10 @@ describe('estimates and cancel', () => {
     expect(await svc.estimate(id, 'ANALYZE customers')).toBeNull();
     expect(await svc.estimate(id, '/* hidden */ ANALYZE DELETE FROM t')).toBeNull();
     expect(await svc.estimate(id, 'DELETE /*!ANALYZE*/ FROM t')).toBeNull();
-    expect(sent.filter((body) => body.type === 'estimate')).toHaveLength(1);
+    // MySQL ends this comment at the first */ and would read ANALYZE DELETE.
+    expect(await svc.estimate(id, '/* /* */ ANALYZE DELETE FROM t */ DELETE FROM t')).toBeNull();
+    expect(await svc.estimate(id, '  update t set a = 1')).toBe(7);
+    expect(sent.filter((body) => body.type === 'estimate')).toHaveLength(2);
   });
 
   it('restarts a host that does not answer a cancel', async () => {
