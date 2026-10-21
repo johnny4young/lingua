@@ -64,7 +64,7 @@ export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key';
 export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
 
 export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server'] as const;
-export type SqlDbTestStepId = (typeof SQL_DB_TEST_STEPS)[number];
+type SqlDbTestStepId = (typeof SQL_DB_TEST_STEPS)[number];
 
 export interface SqlDbTestStep {
   id: SqlDbTestStepId;
@@ -77,7 +77,7 @@ export interface SqlDbTestStep {
   fix?: SqlDbFixHint;
 }
 
-export const SQL_DB_FIX_HINTS = [
+const SQL_DB_FIX_HINTS = [
   'dns',
   'blocked-host',
   'unreachable',

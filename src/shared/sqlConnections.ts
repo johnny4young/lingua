@@ -5,7 +5,7 @@
  * a connection; they live in the secret store or in the host's memory.
  */
 
-export const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite'] as const;
+const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite'] as const;
 export type SqlRemoteEngine = (typeof SQL_REMOTE_ENGINES)[number];
 /** `duckdb` is the Local engine in the renderer; the rest run in the SQL host. */
 export type SqlEngineKind = 'duckdb' | SqlRemoteEngine;
@@ -16,11 +16,11 @@ export type SqlSslMode = (typeof SQL_SSL_MODES)[number];
 export const SQL_CONNECTION_ENVS = ['dev', 'staging', 'prod'] as const;
 export type SqlConnectionEnv = (typeof SQL_CONNECTION_ENVS)[number];
 
-/** `keychain` keeps it in the secret store, `session` asks once and keeps it in host memory. */
-export const SQL_PASSWORD_MODES = ['keychain', 'session', 'none'] as const;
-export type SqlPasswordMode = (typeof SQL_PASSWORD_MODES)[number];
+/** `keychain` keeps it in the secret store, `session` asks once and keeps it in main's memory. */
+const SQL_PASSWORD_MODES = ['keychain', 'session', 'none'] as const;
+type SqlPasswordMode = (typeof SQL_PASSWORD_MODES)[number];
 
-export interface SqlConnectionSsl {
+interface SqlConnectionSsl {
   mode: SqlSslMode;
   caPath?: string;
   certPath?: string;
@@ -56,7 +56,7 @@ export const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, 
   mysql: 3306,
 };
 
-export const MAX_CONNECTION_NAME = 80;
+const MAX_CONNECTION_NAME = 80;
 const MAX_HOST = 253;
 const MAX_IDENT = 128;
 const MAX_PATH = 4096;
@@ -75,7 +75,7 @@ export const isValidConnectionId = (value: unknown): value is string =>
   typeof value === 'string' && CONNECTION_ID_RE.test(value);
 
 /** An absolute file path on any desktop platform. */
-export function isAbsoluteFilePath(value: string): boolean {
+function isAbsoluteFilePath(value: string): boolean {
   return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\');
 }
 

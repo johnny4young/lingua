@@ -60,11 +60,6 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
 /** Database connections are on: the Labs flag, on a desktop build. */
 export const dbClientEnabled = () => useSettingsStore.getState().featureFlags.dbClient === true && sqlDbBridge() !== null;
 
-export function useDbClientEnabled(): boolean {
-  const flag = useSettingsStore((state) => state.featureFlags.dbClient === true);
-  return flag && sqlDbBridge() !== null;
-}
-
 /** A saved or session connection by id, from the last catalog read. */
 export function findConnection(id: string | undefined): SqlDbConnectionView | undefined {
   if (!id) return undefined;

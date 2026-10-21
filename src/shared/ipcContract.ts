@@ -52,6 +52,17 @@ import type {
 } from './rustDebugger';
 
 import type { DocumentWriteResult } from './documentWrite';
+import type {
+  SqlDbCatalogView,
+  SqlDbFetchResult,
+  SqlDbFileKind,
+  SqlDbPickResult,
+  SqlDbRunOptions,
+  SqlDbRunResult,
+  SqlDbSaveResult,
+  SqlDbTarget,
+  SqlDbTestResult,
+} from './sqlDb';
 
 interface IpcInvokeContract {
   // ---------------------------------------------------------------- app
@@ -236,27 +247,27 @@ interface IpcInvokeContract {
   'secrets:list': { args: [prefix: string]; result: readonly string[] };
 
   // ------------------------------------------------------ desktop database client
-  'sql-db:catalog': { args: []; result: import('./sqlDb').SqlDbCatalogView };
+  'sql-db:catalog': { args: []; result: SqlDbCatalogView };
   'sql-db:save': {
     args: [draft: import('./sqlConnections').SqlConnectionDraft, id: string | undefined, password: string | undefined];
-    result: import('./sqlDb').SqlDbSaveResult;
+    result: SqlDbSaveResult;
   };
   'sql-db:delete': { args: [id: string]; result: { ok: boolean } };
   'sql-db:open-adhoc': {
     args: [draft: import('./sqlConnections').SqlConnectionDraft, password: string | undefined];
-    result: import('./sqlDb').SqlDbSaveResult;
+    result: SqlDbSaveResult;
   };
   'sql-db:session-password': { args: [id: string, password: string]; result: { ok: boolean } };
-  'sql-db:test': { args: [target: import('./sqlDb').SqlDbTarget]; result: import('./sqlDb').SqlDbTestResult };
+  'sql-db:test': { args: [target: SqlDbTarget]; result: SqlDbTestResult };
   'sql-db:execute': {
-    args: [runId: string, connectionId: string, sql: string, options: import('./sqlDb').SqlDbRunOptions];
-    result: import('./sqlDb').SqlDbRunResult;
+    args: [runId: string, connectionId: string, sql: string, options: SqlDbRunOptions];
+    result: SqlDbRunResult;
   };
-  'sql-db:fetch': { args: [runId: string, limit: number, maxBytes: number]; result: import('./sqlDb').SqlDbFetchResult };
+  'sql-db:fetch': { args: [runId: string, limit: number, maxBytes: number]; result: SqlDbFetchResult };
   'sql-db:cancel': { args: [runId: string]; result: { cancelled: boolean } };
   'sql-db:close-run': { args: [runId: string]; result: { ok: true } };
   'sql-db:estimate': { args: [connectionId: string, sql: string]; result: number | null };
-  'sql-db:pick-file': { args: [kind: import('./sqlDb').SqlDbFileKind]; result: import('./sqlDb').SqlDbPickResult };
+  'sql-db:pick-file': { args: [kind: SqlDbFileKind]; result: SqlDbPickResult };
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };

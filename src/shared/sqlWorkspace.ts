@@ -38,6 +38,7 @@
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
  * with a parity test.
  */
+import type { SqlEngineKind } from './sqlConnections';
 import { utf8ByteLength } from './utf8';
 
 export const SQL_QUERY_STATUSES = [
@@ -450,7 +451,7 @@ export interface SqlResponseV1 {
    */
   errorMessage?: string;
   /** Engine that produced the response; absent means Local DuckDB. */
-  engine?: import('./sqlConnections').SqlEngineKind;
+  engine?: SqlEngineKind;
 }
 
 // ---------------------------------------------------------------------------

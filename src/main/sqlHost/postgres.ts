@@ -52,7 +52,7 @@ function columnType(field: FieldDef): string {
   return TYPE_NAMES[field.dataTypeID] ?? `OID ${field.dataTypeID}`;
 }
 
-export function pgSsl(config: HostSessionConfig): ConnectionOptions | false {
+function pgSsl(config: HostSessionConfig): ConnectionOptions | false {
   const ssl = config.ssl ?? { mode: 'verify-full' as const };
   if (ssl.mode === 'disable') return false;
   const files: ConnectionOptions = {

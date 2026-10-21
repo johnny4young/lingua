@@ -25,7 +25,7 @@ export interface HostSessionConfig {
   readOnly: boolean;
 }
 
-export interface HostWindow {
+interface HostWindow {
   maxRows: number;
   maxBytes: number;
 }
