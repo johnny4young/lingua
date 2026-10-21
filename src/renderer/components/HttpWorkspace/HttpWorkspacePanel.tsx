@@ -47,6 +47,7 @@ import { HttpResponsePreview } from './HttpResponsePreview';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
+import { appPlatform } from '../../utils/appPlatform';
 
 export interface HttpWorkspacePanelProps {
   /**
@@ -394,10 +395,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
         let capsule;
         try {
           const appInfo = getBundledAppInfo();
-          const platform: 'web' | 'desktop' =
-            typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
-              ? 'desktop'
-              : 'web';
+          const platform = appPlatform();
           // Capsule-safe request: non-secret vars resolved (replay
           // fidelity), secret vars kept as `{{key}}` placeholders.
           const capsuleSafe = maskSecretsForCapsule(requestToSend, env);

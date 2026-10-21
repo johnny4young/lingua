@@ -14,6 +14,7 @@ import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { FileTab } from '../../types/editor';
 import type { ConsoleOutput, ExecutionResult } from '../../types/execution';
+import { appPlatform } from '../../utils/appPlatform';
 
 export type GitSnapshot = { branch?: string; commit?: string };
 
@@ -119,11 +120,7 @@ async function tryBuildCapsule(args: {
 }): Promise<RunCapsuleV1 | null> {
   try {
     const appInfo = getBundledAppInfo();
-    const platform: 'web' | 'desktop' =
-      typeof window !== 'undefined' &&
-      (window as { lingua?: { platform?: string } }).lingua?.platform === 'desktop'
-        ? 'desktop'
-        : 'web';
+    const platform = appPlatform();
     return await buildRunCapsule({
       appVersion: appInfo.version,
       tab: {

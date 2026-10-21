@@ -448,6 +448,31 @@ describe('UtilityPipelinePanel', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('pipeline.capsule.saved');
   });
 
+  it('labels the pipeline capsule desktop when the preload reports an OS platform', async () => {
+    const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
+    pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));
+    useUtilityPipelineStore.getState().createPipeline(pipeline);
+    useUtilityPipelineStore.getState().setPipelineInput('p1', '{"a":1}');
+    (window as unknown as { lingua?: unknown }).lingua = { platform: 'linux' };
+    try {
+      const user = userEvent.setup();
+      render(<UtilityPipelinePanel />);
+      await user.click(screen.getByTestId('utility-pipeline-editor-run'));
+      await waitFor(() => {
+        const saveBtn = screen.getByTestId('pipeline-save-capsule') as HTMLButtonElement;
+        expect(saveBtn.disabled).toBe(false);
+      });
+      await user.click(screen.getByTestId('pipeline-save-capsule'));
+      await waitFor(() => {
+        expect(
+          useExecutionHistoryStore.getState().latestCapsule()?.environment.platform
+        ).toBe('desktop');
+      });
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
+  });
+
   it('saves the exact settled run as a capsule even after the input changes', async () => {
     const pipeline = createBlankPipeline({ id: 'p1', name: 'demo' });
     pipeline.steps.push(createBlankStep({ id: 's1', utilityId: 'json-format' }));

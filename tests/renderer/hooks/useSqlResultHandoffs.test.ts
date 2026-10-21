@@ -13,8 +13,9 @@ vi.mock('../../../src/renderer/components/Editor/runCapsuleExportLoader', () => 
   loadCapsuleExporter: async () => ({ exportCapsuleToClipboard }),
 }));
 vi.mock('../../../src/renderer/runtime/sqlResponseCapsule', () => ({
-  buildSqlResponseCapsule: async (input: { query: { query: string } }) => ({
+  buildSqlResponseCapsule: async (input: { query: { query: string }; platform: string }) => ({
     sql: input.query.query,
+    platform: input.platform,
   }),
 }));
 
@@ -102,10 +103,26 @@ describe('SQL result hand-offs', () => {
     handoffs('SELECT city FROM cities').onSaveCapsule!();
     await waitFor(() =>
       expect(exportCapsuleToClipboard).toHaveBeenCalledWith(
-        { sql: 'SELECT city FROM cities' },
+        { sql: 'SELECT city FROM cities', platform: 'web' },
         'result-panel-export'
       )
     );
+  });
+
+  it('labels the copied capsule desktop when the preload reports an OS platform', async () => {
+    exportCapsuleToClipboard.mockResolvedValue({ ok: true });
+    (window as unknown as { lingua?: unknown }).lingua = { platform: 'darwin' };
+    try {
+      handoffs('SELECT 1').onSaveCapsule!();
+      await waitFor(() =>
+        expect(exportCapsuleToClipboard).toHaveBeenCalledWith(
+          { sql: 'SELECT 1', platform: 'desktop' },
+          'result-panel-export'
+        )
+      );
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
   });
 
   it('keeps a table name with line breaks inside the Python header comment', () => {

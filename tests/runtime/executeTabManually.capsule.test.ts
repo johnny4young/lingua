@@ -224,6 +224,37 @@ describe('executeTabManually — capsule attach ', () => {
     });
   });
 
+  it('labels the capsule desktop when the preload reports an OS platform', async () => {
+    (window as unknown as { lingua?: unknown }).lingua = { platform: 'darwin' };
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 3,
+          error: undefined,
+        }),
+      },
+      initialized: false,
+    });
+
+    try {
+      await executeTabManually({
+        id: 'tab-desktop',
+        name: 'desktop.js',
+        language: 'javascript',
+        content: 'console.log("desktop")',
+        isDirty: false,
+      });
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
+
+    const entry = useExecutionHistoryStore.getState().entries[0]!;
+    expect(entry.lastCapsule?.environment.platform).toBe('desktop');
+  });
+
   // `outputSourceMappingEnabled` was removed; origin
   // metadata is always passed through. The "OFF state strips origin"
   // case no longer applies; per-file `// @origin off` directive

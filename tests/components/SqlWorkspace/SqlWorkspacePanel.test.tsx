@@ -179,6 +179,27 @@ describe('SqlWorkspacePanel', () => {
     expect(useAnnouncerStore.getState().message).toMatch(/returned/i);
   });
 
+  it('labels the SQL capsule desktop when the preload reports an OS platform', async () => {
+    (window as unknown as { lingua?: unknown }).lingua = { platform: 'win32' };
+    try {
+      const user = userEvent.setup();
+      render(<SqlWorkspacePanel />);
+      await user.click(screen.getByTestId('sql-query-list-create'));
+      await user.type(
+        screen.getByTestId('sql-query-editor-textarea') as HTMLTextAreaElement,
+        'SELECT 1'
+      );
+      await user.click(screen.getByTestId('sql-query-editor-run'));
+      await waitFor(() => {
+        expect(
+          useExecutionHistoryStore.getState().latestCapsule()?.environment.platform
+        ).toBe('desktop');
+      });
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
+  });
+
   it('renders the result table after a successful run', async () => {
     const user = userEvent.setup();
     render(<SqlWorkspacePanel />);

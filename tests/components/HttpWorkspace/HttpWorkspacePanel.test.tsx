@@ -291,6 +291,27 @@ describe('HttpWorkspacePanel', () => {
     expect(useAnnouncerStore.getState().message).toMatch(/Response 200/i);
   });
 
+  it('labels the HTTP capsule desktop when the preload reports an OS platform', async () => {
+    (window as unknown as { lingua?: unknown }).lingua = { platform: 'darwin' };
+    try {
+      const user = userEvent.setup();
+      render(<HttpWorkspacePanel />);
+      await user.click(screen.getByTestId('http-request-list-create'));
+      await user.type(
+        screen.getByTestId('http-request-editor-url'),
+        'https://api.example.com/users'
+      );
+      await user.click(screen.getByTestId('http-request-editor-send'));
+      await waitFor(() => {
+        expect(
+          useExecutionHistoryStore.getState().latestCapsule()?.environment.platform
+        ).toBe('desktop');
+      });
+    } finally {
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    }
+  });
+
   it('announces non-2xx HTTP responses with their status code (accessibility pass)', async () => {
     const user = userEvent.setup();
     executeHttpRequestMock.mockResolvedValue(

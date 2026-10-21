@@ -28,6 +28,7 @@ import { e2eFixedDurationMs } from '../testing/e2eDurations';
 import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
+import { appPlatform } from '../utils/appPlatform';
 
 export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
   return {
@@ -238,7 +239,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
           appVersion: getBundledAppInfo().version,
           query: { ...query, query: last.sql },
           response: last.response,
-          platform: window.lingua?.platform === 'desktop' ? 'desktop' : 'web',
+          platform: appPlatform(),
         });
       } catch {
         capsule = undefined;
