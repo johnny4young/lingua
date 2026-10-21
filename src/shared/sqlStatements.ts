@@ -17,15 +17,19 @@ export interface SqlStatement {
   startLine: number;
 }
 
-const DOLLAR_TAG = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/;
+const DOLLAR_TAG = /\$([A-Za-z_\u0080-\uFFFF][A-Za-z0-9_\u0080-\uFFFF]*)?\$/y;
+// DuckDB continues an identifier through `$` and any non-ASCII character.
+const IDENTIFIER_CHAR = /[A-Za-z0-9_$\u0080-\uFFFF]/;
 
 /** Offset where the token that starts at `index` ends, or -1 when it is not a quoted or comment token. */
 function skipToken(sql: string, index: number): number {
   const ch = sql[index];
   const next = sql[index + 1];
   if (ch === '-' && next === '-') {
-    const newline = sql.indexOf('\n', index + 2);
-    return newline === -1 ? sql.length : newline;
+    // DuckDB ends a line comment at either line break character.
+    let end = index + 2;
+    while (end < sql.length && sql[end] !== '\n' && sql[end] !== '\r') end += 1;
+    return end;
   }
   if (ch === '/' && next === '*') {
     let depth = 1;
@@ -43,7 +47,7 @@ function skipToken(sql: string, index: number): number {
     }
     return i;
   }
-  if (ch === "'" || ((ch === 'E' || ch === 'e') && next === "'" && !/[A-Za-z0-9_]/.test(sql[index - 1] ?? ''))) {
+  if (ch === "'" || ((ch === 'E' || ch === 'e') && next === "'" && !IDENTIFIER_CHAR.test(sql[index - 1] ?? ''))) {
     const backslash = ch !== "'";
     let i = index + (backslash ? 2 : 1);
     while (i < sql.length) {
@@ -76,8 +80,9 @@ function skipToken(sql: string, index: number): number {
     }
     return sql.length;
   }
-  if (ch === '$' && !/[A-Za-z0-9_]/.test(sql[index - 1] ?? '')) {
-    const tag = DOLLAR_TAG.exec(sql.slice(index))?.[0];
+  if (ch === '$' && !IDENTIFIER_CHAR.test(sql[index - 1] ?? '')) {
+    DOLLAR_TAG.lastIndex = index;
+    const tag = DOLLAR_TAG.exec(sql)?.[0];
     if (tag) {
       const close = sql.indexOf(tag, index + tag.length);
       return close === -1 ? sql.length : close + tag.length;
@@ -184,4 +189,33 @@ function codeOnly(sql: string): string {
 export function isReadOnlySqlStatement(statement: string): boolean {
   const code = codeOnly(statement);
   return READ_LEAD.test(code) && !WRITE_WORD.test(code);
+}
+
+const SECRET_STATEMENT =
+  /\b(secret|attach)\b|\b(set|reset)\s+(global\s+|session\s+|local\s+)?\w*(secret|key|token|password|credential)\w*/i;
+const SECRET_LITERAL = /:\/\/[^\s'/]*@|[?&](token|key|sig|signature|password|access_token|x-amz-[a-z-]+)=/i;
+
+/**
+ * Masks string literals that may hold credentials before SQL is kept in the
+ * run History: every literal of a SECRET, ATTACH or secret-setting statement,
+ * and any URL literal with user info or a token-like query parameter.
+ */
+export function redactSqlSecrets(sql: string): string {
+  const secretStatement = SECRET_STATEMENT.test(codeOnly(sql));
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    const end = skipToken(sql, i);
+    if (end === -1) {
+      out += sql[i];
+      i += 1;
+      continue;
+    }
+    const token = sql.slice(i, end);
+    const ch = sql[i];
+    const isLiteral = ch === "'" || ch === '$' || ((ch === 'E' || ch === 'e') && sql[i + 1] === "'");
+    out += isLiteral && (secretStatement || SECRET_LITERAL.test(token)) ? "'•••'" : token;
+    i = end;
+  }
+  return out;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildExplainSql,
+  buildSingleSelectCheckSql,
+  isSingleSelect,
   flattenPlan,
   parseExplainRows,
   planToText,
@@ -55,9 +57,25 @@ const plainJson = [
 const rows = (json: unknown, key: string) => [{ explain_key: key, explain_value: JSON.stringify(json) }];
 
 describe('buildExplainSql', () => {
-  it('analyzes reads and only plans writes', () => {
-    expect(buildExplainSql('SELECT 1;')).toEqual({ sql: 'EXPLAIN (ANALYZE, FORMAT JSON) SELECT 1', analyzed: true });
-    expect(buildExplainSql('DELETE FROM t')).toEqual({ sql: 'EXPLAIN (FORMAT JSON) DELETE FROM t', analyzed: false });
+  it('analyzes only a single SELECT that reads, and only plans the rest', () => {
+    expect(buildExplainSql('SELECT 1;', true)).toEqual({ sql: 'EXPLAIN (ANALYZE, FORMAT JSON) SELECT 1', analyzed: true });
+    expect(buildExplainSql('SELECT 1', false)).toEqual({ sql: 'EXPLAIN (FORMAT JSON) SELECT 1', analyzed: false });
+    expect(buildExplainSql('DELETE FROM t', true)).toEqual({ sql: 'EXPLAIN (FORMAT JSON) DELETE FROM t', analyzed: false });
+  });
+});
+
+describe('the single-SELECT check', () => {
+  it('quotes the statement as one string literal', () => {
+    expect(buildSingleSelectCheckSql("SELECT 'it''s'")).toBe("SELECT json_serialize_sql('SELECT ''it''''s''') AS j");
+  });
+
+  it.each([
+    ['{"error":false,"statements":[{}]}', true],
+    ['{"error":false,"statements":[{},{}]}', false],
+    ['{"error":true,"error_message":"Only SELECT statements can be serialized to json!"}', false],
+    ['not json', false],
+  ])('reads %s as %s', (json, expected) => {
+    expect(isSingleSelect([{ j: json }])).toBe(expected);
   });
 });
 

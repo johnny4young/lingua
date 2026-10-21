@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
+import { redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -10,7 +11,13 @@ import {
   restartDuckDbEngine,
   type DuckDbExecuteOutcome,
 } from '../runtime/duckdbClient';
-import { buildExplainSql, parseExplainRows, type SqlPlan } from '../runtime/sqlExplainPlan';
+import {
+  buildExplainSql,
+  buildSingleSelectCheckSql,
+  isSingleSelect,
+  parseExplainRows,
+  type SqlPlan,
+} from '../runtime/sqlExplainPlan';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
@@ -81,7 +88,7 @@ const setRunState = (patch: Partial<SqlRunState>) => useSqlRunState.setState(pat
 const isResult = (status: SqlResponseV1['status']) => status === 'success' || status === 'too-large';
 
 function recordRun(queryId: string, sql: string, response: SqlResponseV1): void {
-  const capped = capHistorySql(sql);
+  const capped = capHistorySql(redactSqlSecrets(sql));
   useWorkspaceSqlStore.getState().recordHistory({
     version: 1,
     id: crypto.randomUUID(),
@@ -114,7 +121,11 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
 
   const runExplain = useCallback(
     async (query: SqlQueryV1, statement: string, signal: AbortSignal) => {
-      const { sql, analyzed } = buildExplainSql(statement);
+      const check = await executeQuery(buildSingleSelectCheckSql(statement), { timeoutMs, signal });
+      const { sql, analyzed } = buildExplainSql(
+        statement,
+        isResult(check.status) && isSingleSelect(check.rows)
+      );
       const outcome = await executeQuery(sql, { timeoutMs, signal });
       if (outcome.stillRunning) setRunState({ stuck: true });
       const parsed = isResult(outcome.status) ? parseExplainRows(outcome.rows, analyzed) : null;

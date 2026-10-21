@@ -300,8 +300,12 @@ not return a result. A single statement streams through
 past that the outcome carries `stillRunning`, the client skips the
 checkpoint and does not await the close (a busy worker answers neither), and
 the panel offers `restartDuckDbEngine`, which terminates the worker without a
-checkpoint. Explain uses `EXPLAIN (ANALYZE, FORMAT JSON)` only when
-`isReadOnlySqlStatement` holds, since ANALYZE executes the statement.
+checkpoint. Explain uses `EXPLAIN (ANALYZE, FORMAT JSON)` only when DuckDB's
+`json_serialize_sql` sees exactly one SELECT and `isReadOnlySqlStatement`
+holds, since ANALYZE executes the statement. The splitter follows DuckDB's
+lexer (`$` and non-ASCII continue identifiers, `--` ends at `\r` or `\n`) so
+a statement cannot hide behind a quote DuckDB does not see. History masks
+credential-bearing string literals with `redactSqlSecrets` before keeping SQL.
 
 ### UTF-8 text budgets
 

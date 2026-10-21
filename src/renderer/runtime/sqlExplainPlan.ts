@@ -19,10 +19,24 @@ export interface SqlPlan {
   peakMemoryBytes?: number;
 }
 
-/** ANALYZE executes the statement, so writes only get the estimated plan. */
-export function buildExplainSql(statement: string): { sql: string; analyzed: boolean } {
+/** Asks DuckDB's own parser whether the text is exactly one SELECT, so no hidden statement rides along. */
+export function buildSingleSelectCheckSql(statement: string): string {
+  return `SELECT json_serialize_sql('${statement.replaceAll("'", "''")}') AS j`;
+}
+
+export function isSingleSelect(rows: ReadonlyArray<Record<string, unknown>>): boolean {
+  try {
+    const parsed: unknown = JSON.parse(String(rows[0]?.['j']));
+    return isRecord(parsed) && parsed['error'] === false && Array.isArray(parsed['statements']) && parsed['statements'].length === 1;
+  } catch {
+    return false;
+  }
+}
+
+/** ANALYZE executes the statement, so it needs DuckDB's single-SELECT check and the read-only check. */
+export function buildExplainSql(statement: string, singleSelect: boolean): { sql: string; analyzed: boolean } {
   const body = statement.trim().replace(/;\s*$/, '');
-  const analyzed = isReadOnlySqlStatement(body);
+  const analyzed = singleSelect && isReadOnlySqlStatement(body);
   return { sql: `EXPLAIN (${analyzed ? 'ANALYZE, ' : ''}FORMAT JSON) ${body}`, analyzed };
 }
 

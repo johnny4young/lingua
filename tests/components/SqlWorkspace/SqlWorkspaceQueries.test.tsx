@@ -59,6 +59,10 @@ function scriptEngine(ran: string[], overrides: Partial<DuckDbConnection> = {}):
     connect: async () => ({
       query: async (sql: string) => {
         ran.push(sql);
+        if (sql.startsWith('SELECT json_serialize_sql')) {
+          const statements = sql.includes('smuggled') ? [{}, {}] : [{}];
+          return { columns: [], rows: [{ j: JSON.stringify({ error: false, statements }) }], rowCount: 1, tooLarge: false };
+        }
         if (sql.startsWith('EXPLAIN')) {
           return { columns: [], rows: [{ explain_key: 'analyzed_plan', explain_value: PLAN }], rowCount: 1, tooLarge: false };
         }
@@ -215,6 +219,24 @@ describe('SQL run modes', () => {
     expect(screen.getByTestId('sql-plan-total').textContent).toBe('Total 3.00 ms');
     expect(useWorkspaceSqlStore.getState().getQuery('q1')?.query).toBe('SELECT city, count(*) FROM t GROUP BY 1');
     expect(useWorkspaceSqlStore.getState().history).toEqual([]);
+  });
+
+  it('only plans a statement DuckDB reads as more than one SELECT', async () => {
+    openQuery('SELECT 1 AS smuggled');
+    render(<SqlWorkspacePanel />);
+    fireEvent.click(screen.getByTestId('sql-query-editor-run-menu'));
+    fireEvent.click(screen.getByTestId('sql-run-menu-explain'));
+    await screen.findByTestId('sql-plan-view');
+    expect(ran).toContain('EXPLAIN (FORMAT JSON) SELECT 1 AS smuggled');
+    expect(ran.some((sql) => sql.startsWith('EXPLAIN (ANALYZE'))).toBe(false);
+  });
+
+  it('masks credentials before a run reaches History', async () => {
+    openQuery("CREATE SECRET s (TYPE S3, KEY_ID 'AKIA1', SECRET 'shh')");
+    render(<SqlWorkspacePanel />);
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(useWorkspaceSqlStore.getState().history).toHaveLength(1));
+    expect(useWorkspaceSqlStore.getState().history[0]?.sql).toBe("CREATE SECRET s (TYPE S3, KEY_ID '•••', SECRET '•••')");
   });
 
   it('runs the statement under the cursor and the gutter-free default is the first one', async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isReadOnlySqlStatement,
+  redactSqlSecrets,
   splitSqlStatements,
   statementAtOffset,
 } from '../../src/shared/sqlStatements';
@@ -33,6 +34,16 @@ describe('splitSqlStatements', () => {
 
   it('does not read $ inside identifiers or a column ref as a dollar quote', () => {
     expect(texts('SELECT price$usd; SELECT $1')).toEqual(['SELECT price$usd', 'SELECT $1']);
+  });
+
+  // DuckDB splits each of these into separate statements; hiding one would let it run unseen.
+  it.each([
+    ['SELECT 1 AS x$$$; DROP TABLE t; SELECT 1 AS y$$$', 3],
+    ['SELECT 1 AS é$$; DROP TABLE t; SELECT 1 AS ó$$', 3],
+    ['SELECT 1 --note\r; DROP TABLE t', 2],
+    ['SELECT $é$ a;b $é$; SELECT 2', 2],
+  ])('matches DuckDB on %j', (sql, count) => {
+    expect(splitSqlStatements(sql)).toHaveLength(count);
   });
 });
 
@@ -69,5 +80,23 @@ describe('isReadOnlySqlStatement', () => {
     ['SET threads = 1', false],
   ])('%j reads only: %s', (sql, expected) => {
     expect(isReadOnlySqlStatement(sql)).toBe(expected);
+  });
+});
+
+describe('redactSqlSecrets', () => {
+  it.each([
+    ["CREATE SECRET s3 (TYPE S3, KEY_ID 'AKIA1', SECRET 'shh')", "CREATE SECRET s3 (TYPE S3, KEY_ID '•••', SECRET '•••')"],
+    ["create or replace persistent secret (type http, bearer_token 'tok')", "create or replace persistent secret (type http, bearer_token '•••')"],
+    ["SET s3_secret_access_key = 'shh'", "SET s3_secret_access_key = '•••'"],
+    ["ATTACH 'md:db?motherduck_token=abc' AS md", "ATTACH '•••' AS md"],
+    ["SELECT * FROM read_csv('https://user:pw@host/x.csv')", "SELECT * FROM read_csv('•••')"],
+    ["SELECT * FROM read_parquet('https://b.s3.amazonaws.com/x?X-Amz-Signature=abc')", "SELECT * FROM read_parquet('•••')"],
+  ])('masks %j', (sql, expected) => {
+    expect(redactSqlSecrets(sql)).toBe(expected);
+  });
+
+  it('keeps ordinary SQL, including strings that only look nearby', () => {
+    const sql = "SELECT 'secret garden' AS title, 'https://example.com/a' AS url -- key=1";
+    expect(redactSqlSecrets(sql)).toBe(sql);
   });
 });
