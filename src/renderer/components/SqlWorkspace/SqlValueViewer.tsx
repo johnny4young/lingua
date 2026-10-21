@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { SqlForeignKey } from '../../runtime/sqlForeignKeys';
 import { formatNumber } from '../../i18n/formatNumber';
 import { formatByteSize, hexDump, toDataUrl, viewCell } from './sqlCellValue';
+import { renderCell } from './sqlResultFormatters';
 
 const LABEL = 'font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle';
 
@@ -110,7 +111,7 @@ export function SqlValueViewer({
       </header>
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5">
         {view.kind === 'null' ? (
-          <p className="font-mono text-body-sm italic text-fg-subtle">null</p>
+          <p className="font-mono text-body-sm italic text-fg-subtle">{renderCell(null)}</p>
         ) : view.kind === 'json' ? (
           <pre data-testid="sql-value-json" className="whitespace-pre-wrap break-words font-mono text-caption leading-[19px] text-fg-base">
             {view.pretty}
