@@ -63,7 +63,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
   });
 
   // Import a small CSV via the keyboard-accessible
-  // picker and assert the new table shows in the schema browser. Drives
+  // picker and assert the new table shows in the Explorer. Drives
   // the REAL bundled DuckDB-WASM engine end-to-end (read_csv_auto).
   test('imports a CSV via the picker and lists the new table (EN)', async ({
     page,
@@ -95,10 +95,63 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await page.getByTestId('sql-import-modal-confirm').click();
     await expect(dialog).toBeHidden();
 
-    // The new table appears in the schema browser.
+    // The new table appears in the Explorer with its row count and source file.
+    const people = page.locator('[data-testid="sql-explorer-table"][data-table-name="people"]');
+    await expect(people).toBeVisible();
+    const row = people.locator('..');
+    await expect(row.getByTestId('sql-explorer-row-count')).toHaveText('2');
+    await expect(row.getByTestId('sql-explorer-source')).toHaveText('csv');
+  });
+
+  test('a sample table opens in the Explorer, runs, and exports (EN)', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await page.getByTestId('sql-explorer-try-sample').click();
     await expect(
-      page.locator('[data-testid="sql-schema-browser-table"][data-table-name="people"]')
+      page.locator('[data-testid="sql-explorer-table"][data-table-name="cities"]')
     ).toBeVisible();
+
+    // The sample query is ready, not run.
+    await expect(page.getByTestId('sql-result-preview')).toHaveAttribute('data-state', 'empty');
+    await page.getByTestId('sql-query-editor-run').click();
+    await expect(page.getByTestId('sql-result-preview-row')).toHaveCount(6);
+    await expect(page.getByTestId('sql-result-strip')).toContainText('ran from the editor');
+    const revenue = page.getByTestId('sql-result-preview-row').first().locator('td').nth(2);
+    await expect(revenue).toHaveText('28770.90');
+    await expect(revenue).toHaveClass(/text-right/);
+
+    // Opening the table from the Explorer shows its rows under a generated strip.
+    await page.locator('[data-testid="sql-explorer-table"][data-table-name="cities"]').click();
+    await expect(page.getByTestId('sql-result-strip')).toHaveAttribute('data-origin', 'table');
+    await expect(page.getByTestId('sql-result-strip-sql')).toHaveText(
+      'SELECT * FROM "cities" LIMIT 100;'
+    );
+
+    await page.getByTestId('sql-result-preview-export').click();
+    await expect(page.getByTestId('sql-export-count')).toHaveText('6 rows from this result');
+    await page.getByTestId('sql-export-format-tsv').click();
+    const download = page.waitForEvent('download');
+    await page.getByTestId('sql-export-download').click();
+    expect((await download).suggestedFilename()).toMatch(/^lingua-sql-\d{8}-\d{6}\.tsv$/);
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('folds the Explorer to its rail with Cmd/Ctrl+B', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await page.keyboard.press('ControlOrMeta+Alt+S');
+    await expect(page.getByTestId('sql-explorer')).toBeVisible();
+    await page.getByTestId('sql-explorer-refresh').focus();
+    await page.keyboard.press('ControlOrMeta+B');
+    await expect(page.getByTestId('sql-explorer-rail')).toBeVisible();
+    await expect(page.getByTestId('sql-explorer')).toHaveCount(0);
+    await page.getByTestId('sql-explorer-unfold').click();
+    await expect(page.getByTestId('sql-explorer')).toBeVisible();
   });
 
   test('profiles a successful read query only after an explicit click (EN)', async ({
@@ -121,8 +174,8 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     );
     await page.getByTestId('sql-query-editor-run').click();
 
-    await expect(page.getByTestId('sql-result-preview-profile')).toBeVisible();
-    await page.getByTestId('sql-result-preview-profile').click();
+    await expect(page.getByRole('button', { name: 'Profile' })).toBeVisible();
+    await page.getByRole('button', { name: 'Profile' }).click();
     await expect(page.getByTestId('sql-column-profile-panel')).toBeVisible();
     await expect(page.getByTestId('sql-column-profile-panel')).toContainText('id');
     await expect(page.getByTestId('sql-column-profile-panel')).toContainText('name');
@@ -142,7 +195,7 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test('localizes the Column Explorer labels in Spanish', async ({ page }) => {
+  test('localizes the SQL tab and the Profile tab in Spanish', async ({ page }) => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await page.keyboard.press('ControlOrMeta+Alt+S');
@@ -150,11 +203,16 @@ test.describe('SQL workspace — Mod+Alt+S binding', () => {
     await replaceSqlEditorText(page, 'SELECT 1 AS valor');
     await page.getByTestId('sql-query-editor-run').click();
 
-    await expect(page.getByTestId('sql-result-preview-profile')).toHaveAttribute(
+    await expect(page.getByRole('button', { name: 'Perfil' })).toBeVisible();
+    await expect(page.getByTestId('sql-connection-pill')).toHaveAttribute(
       'aria-label',
-      'Analizar columnas'
+      'Conexión: Local DuckDB'
     );
-    await page.getByTestId('sql-result-preview-profile').click();
+    await expect(page.getByTestId('sql-explorer-filter')).toHaveAttribute(
+      'placeholder',
+      'Filtrar objetos'
+    );
+    await page.getByRole('button', { name: 'Perfil' }).click();
     await expect(page.getByTestId('sql-column-profile-panel')).toHaveAttribute(
       'aria-label',
       'Perfil de columnas'

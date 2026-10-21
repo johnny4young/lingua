@@ -25,7 +25,7 @@ import { trackEvent } from '../utils/telemetry';
 /**
  * Where the import was initiated:
  *
- *   - `'drop'`   — file dragged onto the schema-browser drop zone.
+ *   - `'drop'`   — file dropped on the Explorer.
  *   - `'picker'` — the keyboard-accessible Import button → native dialog.
  */
 export type SqlImportSource = 'drop' | 'picker';
@@ -49,7 +49,7 @@ export function trackSqlQueryExecuted(response: SqlResponseV1): void {
 }
 
 /**
- * Count explicit Column Explorer opens without exposing any SQL or
+ * Count explicit Profile tab opens without exposing any SQL or
  * data shape. The empty payload is deliberate and mirrored on update-server.
  */
 export function trackSqlProfileOpened(): void {

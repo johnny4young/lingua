@@ -7,32 +7,7 @@ import type {
 } from '../../../shared/sqlWorkspace';
 import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import type { SqlSortState } from './sqlResultGrid';
-import { arrowTypeToDuckDb } from '../../../shared/sqlTypeNames';
-
-export function CopyButton({
-  onClick,
-  testId,
-  label,
-  icon,
-}: {
-  onClick: () => void;
-  testId: string;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid={testId}
-      title={label}
-      aria-label={label}
-      className="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-default bg-bg-panel-alt text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base"
-    >
-      {icon}
-    </button>
-  );
-}
+import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
 
 export function ErrorBand({
   status,
@@ -100,18 +75,37 @@ interface ResultTableProps {
   rows: ReadonlyArray<Record<string, unknown>>;
   sort: SqlSortState;
   onSort: (column: string) => void;
+  selectedRowIndex?: number | null;
+  onSelectRow?: (index: number) => void;
 }
 
-export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
+export function ResultTable({
+  columns,
+  rows,
+  sort,
+  onSort,
+  selectedRowIndex = null,
+  onSelectRow,
+}: ResultTableProps) {
   const { t } = useTranslation();
+  const typed = useMemo(
+    () =>
+      columns.map((col) => {
+        const duckType = arrowTypeToDuckDb(col.type);
+        return { col, duckType, numeric: isNumericSqlType(duckType) };
+      }),
+    [columns]
+  );
   return (
     <table
       data-testid="sql-result-preview-table"
-      className="w-full min-w-max table-fixed border-collapse font-mono text-body-sm"
+      role="grid"
+      aria-rowcount={rows.length + 1}
+      className="w-max border-collapse font-mono text-caption"
     >
-      <thead className="sticky top-0 z-10 bg-bg-base/95 backdrop-blur">
+      <thead className="sticky top-0 z-10 bg-bg-panel">
         <tr>
-          {columns.map((col) => {
+          {typed.map(({ col, duckType, numeric }) => {
             const isSorted = sort.column === col.name;
             const ariaSort = isSorted
               ? sort.direction === 'asc'
@@ -123,7 +117,7 @@ export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
                 key={col.name}
                 scope="col"
                 aria-sort={ariaSort}
-                className="whitespace-nowrap border-b border-border-subtle p-0 text-left"
+                className={`h-7 whitespace-nowrap border-b border-border-subtle p-0 font-normal ${numeric ? 'min-w-[8.125rem]' : 'min-w-[12.5rem]'}`}
               >
                 <button
                   type="button"
@@ -132,30 +126,21 @@ export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
                   data-column={col.name}
                   data-sort={isSorted ? sort.direction : 'none'}
                   title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
-                  className="flex w-full items-center gap-1.5 overflow-hidden px-3 py-2 text-left transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+                  className={`flex w-full items-center gap-1.5 overflow-hidden px-2.5 py-1.5 transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 ${numeric ? 'justify-end text-right' : 'text-left'}`}
                 >
-                  <span className="shrink-0 text-eyebrow uppercase tracking-[0.08em] text-fg-muted">
-                    {col.name}
-                  </span>
+                  <span className="shrink-0 text-fg-subtle">{col.name}</span>
                   <span
-                    className="min-w-0 truncate text-micro tracking-[0.04em] text-accent"
-                    title={col.type}
+                    data-testid="sql-result-preview-type"
+                    className="min-w-0 truncate text-micro tracking-[0.04em] text-fg-subtle/70"
+                    title={t('sqlWorkspace.grid.arrowType', { type: col.type })}
                   >
-                    {arrowTypeToDuckDb(col.type)}
+                    {duckType}
                   </span>
                   {isSorted ? (
                     sort.direction === 'asc' ? (
-                      <ArrowUp
-                        size={10}
-                        aria-hidden="true"
-                        className="ml-auto shrink-0 text-fg-base"
-                      />
+                      <ArrowUp size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
                     ) : (
-                      <ArrowDown
-                        size={10}
-                        aria-hidden="true"
-                        className="ml-auto shrink-0 text-fg-base"
-                      />
+                      <ArrowDown size={10} aria-hidden="true" className="shrink-0 text-fg-base" />
                     )
                   ) : null}
                 </button>
@@ -165,39 +150,47 @@ export function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((row, idx) => (
-          <tr
-            key={idx}
-            data-testid="sql-result-preview-row"
-            className="border-b border-border-subtle hover:bg-bg-panel-alt/60"
-          >
-            {columns.map((col) => (
-              <td
-                key={col.name}
-                className={cellClass(row[col.name])}
-              >
-                {renderCell(row[col.name])}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {rows.map((row, idx) => {
+          const selected = selectedRowIndex === idx;
+          return (
+            <tr
+              key={idx}
+              data-testid="sql-result-preview-row"
+              aria-selected={selected}
+              data-selected={selected ? 'true' : undefined}
+              onClick={() => onSelectRow?.(idx)}
+              className={`h-[26px] border-b border-border-subtle ${selected ? 'bg-editor-line-hl' : 'hover:bg-bg-panel-alt/60'}`}
+            >
+              {typed.map(({ col, numeric }) => {
+                const value = row[col.name];
+                const isNull = value === null || value === undefined;
+                return (
+                  <td
+                    key={col.name}
+                    role="gridcell"
+                    data-null={isNull ? 'true' : undefined}
+                    className={cellClass(value, numeric)}
+                  >
+                    {renderCell(value)}
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 
-/**
- * Token-only typed-column tinting — mirrors the prototype's per-type
- * color (string → syntax-string, boolean → syntax-keyword, numeric →
- * syntax-number, null → fg-subtle, fallback → fg-base).
- */
-function cellClass(value: unknown): string {
-  const base = 'break-all px-3 py-2 align-top';
-  if (value === null || value === undefined) return `${base} text-fg-subtle`;
-  if (typeof value === 'string') return `${base} text-syntax-string`;
+/** Numbers right-aligned in the number color, null italic and subtle, the rest in the base text color. */
+function cellClass(value: unknown, numeric: boolean): string {
+  const base = 'max-w-[32rem] truncate px-2.5 align-middle';
+  if (value === null || value === undefined) {
+    return `${base} italic text-fg-subtle ${numeric ? 'text-right' : ''}`;
+  }
+  if (numeric) return `${base} text-right tabular-nums text-syntax-number`;
   if (typeof value === 'boolean') return `${base} text-syntax-keyword`;
-  if (typeof value === 'number' || typeof value === 'bigint')
-    return `${base} text-syntax-number`;
   return `${base} text-fg-base`;
 }
 
@@ -230,7 +223,7 @@ function jsonReplacer(_key: string, value: unknown): unknown {
 }
 
 function renderCell(value: unknown): string {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return 'null';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean')
     return String(value);

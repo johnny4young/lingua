@@ -1,6 +1,6 @@
 /**
  * Arrow type strings (as `String(arrowType)` prints them) mapped to the
- * DuckDB names the profile and schema browser already use. Unknown shapes
+ * DuckDB names the profile and the Explorer already use. Unknown shapes
  * come back unchanged so nothing is ever hidden.
  */
 
@@ -98,4 +98,12 @@ export function arrowTypeToDuckDb(arrowType: string): string {
     return key && value && parsed?.length === 2 ? `MAP(${key[1]}, ${value[1]})` : type;
   }
   return type;
+}
+
+const NUMERIC_TYPE =
+  /^(U?(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT)|UHUGEINT|FLOAT|DOUBLE|REAL|DECIMAL(\(.*\))?)$/;
+
+/** True for DuckDB numeric types. BIGINT and DECIMAL arrive as strings, so the type decides. */
+export function isNumericSqlType(duckDbType: string): boolean {
+  return NUMERIC_TYPE.test(duckDbType.trim().toUpperCase());
 }

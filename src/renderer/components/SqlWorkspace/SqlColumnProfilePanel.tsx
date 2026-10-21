@@ -1,4 +1,4 @@
-import { BarChart3, Loader2, RotateCcw, X } from 'lucide-react';
+import { Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   SqlColumnProfile,
@@ -8,7 +8,6 @@ import type {
 interface SqlColumnProfilePanelProps {
   outcome: SqlColumnProfileOutcome | null;
   isLoading: boolean;
-  onClose: () => void;
   onRetry: () => void;
 }
 
@@ -28,9 +27,8 @@ const PROFILE_METRICS: ReadonlyArray<{
 ];
 
 /**
- * The SQL result column doubles as a lightweight column-explorer drawer. It
- * keeps profile data local and ephemeral so a profile cannot be confused with
- * a saved SQL run or a replayable history item.
+ * The Profile tab of SQL results. Profile data stays local and ephemeral so it
+ * cannot be confused with a saved SQL run or a replayable history item.
  */
 /** Long float aggregates (average, std. deviation) read better at 4 decimals. */
 function formatProfileValue(value: unknown): string {
@@ -42,7 +40,6 @@ function formatProfileValue(value: unknown): string {
 export function SqlColumnProfilePanel({
   outcome,
   isLoading,
-  onClose,
   onRetry,
 }: SqlColumnProfilePanelProps) {
   const { t } = useTranslation();
@@ -64,22 +61,6 @@ export function SqlColumnProfilePanel({
       aria-busy={isLoading}
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-bg-base"
     >
-      <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
-        <BarChart3 size={15} aria-hidden="true" className="text-accent" />
-        <h3 className="min-w-0 flex-1 truncate text-body-sm font-semibold text-fg-base">
-          {t('sqlWorkspace.profile.title')}
-        </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          data-testid="sql-column-profile-close"
-          aria-label={t('sqlWorkspace.profile.close')}
-          title={t('sqlWorkspace.profile.close')}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      </header>
 
       {isLoading ? (
         <div

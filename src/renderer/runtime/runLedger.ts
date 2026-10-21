@@ -10,9 +10,9 @@ import { useSettingsStore } from '../stores/settingsStore';
  * user's MANUAL runs, stored in the SAME DuckDB database the SQL
  * workspace uses (schema `lingua_ledger`), so it inherits the existing
  * OPFS persistence opt-in (`sqlWorkspacePersistTables` →
- * `configureDuckDbPersistence`) and — deliberately — shows up in the SQL
- * workspace's schema browser: the user can query their own run history
- * with the product's own SQL surface.
+ * `configureDuckDbPersistence`) and autocompletes in the SQL editor (the
+ * Explorer hides the `lingua_ledger` schema): the user can query their own
+ * run history with the product's own SQL surface.
  *
  * Privacy posture (non-negotiable):
  * - Everything is OFF by default (`runLedgerEnabled`, default false).

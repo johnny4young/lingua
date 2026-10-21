@@ -16,7 +16,7 @@
  *
  *   - **Controlled value contract.** `value` is the single source of
  *     truth, owned by the parent. `@monaco-editor/react` reconciles the
- *     model when `value` changes externally (e.g. schema-browser insert,
+ *     model when `value` changes externally (e.g. Edit-in-editor insert,
  *     format result) and does NOT re-fire `onChange` for that
  *     library-driven update, so there is no echo loop. We never call
  *     `editor.setValue` on every render — the library owns model sync.

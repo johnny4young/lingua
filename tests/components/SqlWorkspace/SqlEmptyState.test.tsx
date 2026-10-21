@@ -62,4 +62,14 @@ describe('SqlEmptyState', () => {
     expect(onImportFile).toHaveBeenCalledWith(file);
     expect(input.value).toBe('');
   });
+
+  it('offers a sample table when the caller wires it', async () => {
+    const user = userEvent.setup();
+    const onTrySample = vi.fn();
+    const { rerender } = render(<SqlEmptyState onCreate={vi.fn()} onImportFile={vi.fn()} />);
+    expect(screen.queryByTestId('sql-workspace-empty-sample')).toBeNull();
+    rerender(<SqlEmptyState onCreate={vi.fn()} onImportFile={vi.fn()} onTrySample={onTrySample} />);
+    await user.click(screen.getByTestId('sql-workspace-empty-sample'));
+    expect(onTrySample).toHaveBeenCalledOnce();
+  });
 });

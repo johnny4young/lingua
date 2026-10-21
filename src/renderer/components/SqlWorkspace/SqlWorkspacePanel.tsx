@@ -1,15 +1,11 @@
 /**
- * Root component of the SQL workspace editor tab.
- * Three-column layout (query list | editor | result).
+ * Root of the SQL workspace tab. Local (DuckDB) is the connection in the
+ * bar on top; below it the Explorer (or its 44 px rail, Cmd/Ctrl+B) sits
+ * beside the editor, with the results under the editor.
  *
- * Mirror of `<HttpWorkspacePanel>`. Wires the workspaceSqlStore,
- * the DuckDB execution path, the capsule builder (capsule
- * auto-attach on success), and the telemetry emit.
- *
- * Connection lifecycle: a single DuckDB engine instance is shared
- * per browser session via the `duckdbClient` module's cached
- * promise. Connections are opened per-call from `executeQuery` and
- * closed on settle.
+ * Wires the workspaceSqlStore, the DuckDB execution path, the capsule
+ * builder (capsule auto-attach on success), and the telemetry emit. A single
+ * DuckDB engine is shared per session; connections open per call.
  */
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
@@ -28,6 +24,7 @@ import {
   type SqlQueryV1,
   type SqlResponseV1,
 } from '../../../shared/sqlWorkspace';
+import { buildSampleTable } from '../../../shared/sqlSampleTable';
 import {
   executeQuery,
   getDuckDbEngine,
@@ -38,6 +35,7 @@ import {
   estimateOriginStorageBytes,
   type DuckDbEngineHandle,
 } from '../../runtime/duckdbClient';
+import { loadSqlCatalog } from '../../runtime/sqlExplorerCatalog';
 import { profileSqlQuery } from '../../runtime/sqlColumnProfile';
 import { buildSqlResponseCapsule } from '../../runtime/sqlResponseCapsule';
 import { useAnnounce } from '../../hooks/useAnnounce';
@@ -47,26 +45,23 @@ import {
   trackSqlStorageMode,
 } from '../../hooks/sqlWorkspaceTelemetry';
 import { useSqlImport } from '../../hooks/useSqlImport';
+import { useSqlResultHandoffs } from '../../hooks/useSqlResultHandoffs';
 import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
 import { buildSelectStarter } from './sqlResultFormatters';
 import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
 import { SqlQueryEditor } from './SqlQueryEditor';
-import { SqlResultPreview } from './SqlResultPreview';
+import { SqlResultPreview, type SqlResultSource } from './SqlResultPreview';
 import { AskSqlButton } from './AskSqlButton';
-import {
-  SqlSchemaBrowser,
-  type SqlSchemaColumn,
-  type SqlSchemaTable,
-} from './SqlSchemaBrowser';
+import { SqlExplorer } from './SqlExplorer';
+import { SqlExplorerRail } from './SqlExplorerRail';
+import { ResizeHandle } from '../ui/ResizeHandle';
+import { SqlConnectionBar } from './SqlConnectionBar';
+import { SqlImportButton } from './SqlImportButton';
+import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
-import { SqlWorkspaceImportToolbar } from './SqlWorkspaceImportToolbar';
 
-/**
- * Compact, locale-agnostic byte
- * label (`~5 MB`). Origin-wide storage estimate, hence the leading `~`.
- * Numbers only; the surrounding copy is translated.
- */
+/** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
 function formatApproxStorage(bytes: number): string {
   if (bytes < 1024) return `~${bytes} B`;
   if (bytes < 1024 * 1024) return `~${(bytes / 1024).toFixed(0)} KB`;
@@ -75,16 +70,34 @@ function formatApproxStorage(bytes: number): string {
   return `~${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+function toResponse(outcome: Awaited<ReturnType<typeof executeQuery>>): SqlResponseV1 {
+  return {
+    version: 1,
+    status: outcome.status,
+    rows: outcome.rows,
+    columns: outcome.columns,
+    rowCount: outcome.rowCount,
+    durationMs: e2eFixedDurationMs(outcome.durationMs),
+    tooLarge: outcome.tooLarge,
+    statementCount: outcome.statementCount,
+    recordedAt: new Date().toISOString(),
+    ...(outcome.errorMessage !== undefined ? { errorMessage: outcome.errorMessage } : {}),
+  };
+}
+
 export interface SqlWorkspacePanelProps {
   /**
-   * SQL/HTTP MODEL rework — the SQL surface is a single COLLECTION
-   * workspace tab, not one tab per query. `tabId` (the stable workspace
-   * tab id) is accepted for the AppLayout / view mount but is NOT a
-   * query binding: the editor + result columns bind to the STORE's
-   * `activeQueryId`, driven entirely by the in-panel rail. Retained only
-   * for call-site compatibility; the panel ignores it for selection.
+   * The stable workspace tab id. The SQL surface is one collection tab, so
+   * the panel binds to the store's `activeQueryId`, not to this id.
    */
   tabId?: string;
+}
+
+/** A table opened from the Explorer: its rows on screen, never a saved run. */
+interface TablePreview {
+  table: SqlSchemaTable;
+  sql: string;
+  response: SqlResponseV1;
 }
 
 const sessionProfileSources = new Map<string, { recordedAt: string; query: string }>();
@@ -92,22 +105,22 @@ const sessionProfileSources = new Map<string, { recordedAt: string; query: strin
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
   const announce = useAnnounce();
-  // Persisted layout. Storage key isolated to this surface so it
-  // does not clobber the HTTP workspace's layout.
-  const layout = useDefaultLayout({
-    id: 'lingua-sql-workspace-layout',
-    panelIds: ['sql-query-list', 'sql-query-editor', 'sql-result-preview'],
+  const sidebarLayout = useDefaultLayout({
+    id: 'lingua-sql-workspace-sidebar-layout',
+    panelIds: ['sql-explorer-pane', 'sql-main-pane'],
+    storage: localStorage,
+  });
+  const mainLayout = useDefaultLayout({
+    id: 'lingua-sql-workspace-editor-results-layout',
+    panelIds: ['sql-editor-pane', 'sql-results-pane'],
     storage: localStorage,
   });
   const queries = useWorkspaceSqlStore((state) => state.queries);
   const activeQueryId = useWorkspaceSqlStore((state) => state.activeQueryId);
+  const explorerFolded = useWorkspaceSqlStore((state) => state.explorerFolded);
+  const tableSources = useWorkspaceSqlStore((state) => state.tableSources);
 
-  // SQL/HTTP MODEL rework — the rail is the single source of collection
-  // navigation. On mount (and whenever the active id is cleared while
-  // queries remain — e.g. after a delete that left an empty active),
-  // auto-select the first query so the editor is never blank when the
-  // collection is non-empty. Selecting first matches TablePlus reopening
-  // onto the top query.
+  // The editor is never blank while the collection has queries.
   useEffect(() => {
     const store = useWorkspaceSqlStore.getState();
     if (store.activeQueryId !== null) return;
@@ -115,118 +128,94 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     if (first) store.setActiveQuery(first.id);
   }, [queries.length, activeQueryId]);
   const isExecuting = useWorkspaceSqlStore((state) => state.isExecutingActive);
-  const responsesByQueryId = useWorkspaceSqlStore(
-    (state) => state.responsesByQueryId
-  );
-  const rowDisplayLimit = useSettingsStore(
-    (state) => state.sqlWorkspaceRowDisplayLimit
-  );
-  const queryTimeoutMs = useSettingsStore(
-    (state) => state.sqlWorkspaceQueryTimeoutMs
-  );
-  // The user's persistence preference,
-  // applied to the DuckDB engine on mount (before the eager-load).
-  const persistTables = useSettingsStore(
-    (state) => state.sqlWorkspacePersistTables
-  );
+  const responsesByQueryId = useWorkspaceSqlStore((state) => state.responsesByQueryId);
+  const rowDisplayLimit = useSettingsStore((state) => state.sqlWorkspaceRowDisplayLimit);
+  const queryTimeoutMs = useSettingsStore((state) => state.sqlWorkspaceQueryTimeoutMs);
+  // Applied to the engine on mount, before the eager load.
+  const persistTables = useSettingsStore((state) => state.sqlWorkspacePersistTables);
 
-  // The RESOLVED storage backing lives in
-  // the store so the chip stays live when Settings "Reconnect now"
-  // re-resolves the engine. The approximate origin-storage label
-  // is panel-local and recomputed when the mode flips.
+  // The resolved backing lives in the store so Settings "Reconnect now" keeps the label live.
   const storageMode = useWorkspaceSqlStore((state) => state.storageMode);
-  const storageRequestedMode = useWorkspaceSqlStore(
-    (state) => state.storageRequestedMode
-  );
-  const [storageUsageLabel, setStorageUsageLabel] = useState<string | null>(
-    null
-  );
+  const storageRequestedMode = useWorkspaceSqlStore((state) => state.storageRequestedMode);
+  const [storageUsageLabel, setStorageUsageLabel] = useState<string | null>(null);
 
-  // Schema/table browser — session-scoped DuckDB table introspection.
-  // Populated by a SHOW TABLES probe (+ a cheap per-table column-count
-  // pass). Survives query switches because the in-memory DuckDB database
-  // is shared per session, not per query.
-  const [schemaTables, setSchemaTables] = useState<SqlSchemaTable[]>([]);
+  const [catalog, setCatalog] = useState<SqlCatalog>(EMPTY_SQL_CATALOG);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
-  // Stable indirection to handleRefreshTables (defined below) so the
-  // run handler + mount effect can trigger a schema refresh without
-  // depending on a callback declared later in the component body.
+  const [explorerFilter, setExplorerFilter] = useState('');
+  const [tablePreview, setTablePreview] = useState<TablePreview | null>(null);
+  // Bumped by every open, run and query switch so a late table result never lands over a newer view.
+  const previewTokenRef = useRef(0);
+  const showTablePreview = useCallback((preview: TablePreview | null) => {
+    previewTokenRef.current += 1;
+    setTablePreview(preview);
+  }, []);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [isCreatingSample, setIsCreatingSample] = useState(false);
+  // Lets the run handler refresh the Explorer without a forward dependency.
   const refreshTablesRef = useRef<() => void>(() => {});
-  // Profiles must use the exact SQL that produced a response, not subsequent
-  // editor drafts. This in-memory map deliberately does not survive reload:
-  // persisted responses do not retain their SQL source and profiling a guessed
-  // source would misrepresent the visible result. It lives at module level so
-  // layout remounts (toggling the bottom panel) keep it; the tick re-renders.
+  // Profiles must use the exact SQL behind a response; this session map does not
+  // survive reload because persisted responses do not keep their SQL.
   const [, setProfileSourcesVersion] = useState(0);
-  // Run-history selection — index into the active query's response LRU
-  // (0 = newest). A fresh run / query switch resets to 0.
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
-  // Schema-browser → editor insert signal. Incrementing the nonce makes
-  // the editor append the table starter even when the text is identical
-  // to the previous insert.
-  const [insertSignal, setInsertSignal] = useState<{
-    text: string;
-    nonce: number;
-  } | null>(null);
+  // The nonce makes the editor append even when the text repeats.
+  const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
 
-  // SQL/HTTP MODEL rework — the editor + result columns bind to the
-  // store's `activeQueryId`, the single source of collection navigation
-  // driven by the rail. The container tab owns the whole collection, not
-  // one query, so there is no per-tab pin.
+  const schemaTables = useMemo<SqlSchemaTable[]>(
+    () =>
+      catalog.tables.map((table) => {
+        const format = tableSources[table.name];
+        return format ? { ...table, source: format } : table;
+      }),
+    [catalog.tables, tableSources]
+  );
+  const explorerCatalog = useMemo(() => ({ ...catalog, tables: schemaTables }), [catalog, schemaTables]);
+
   const activeQuery: SqlQueryV1 | undefined = useMemo(
     () => queries.find((q) => q.id === activeQueryId),
     [queries, activeQueryId]
   );
-  // Per-query response history LRU (newest-first). Drives both the
-  // result grid (selected entry) and the run-history list.
   const activeResponses: ReadonlyArray<SqlResponseV1> = activeQuery
     ? (responsesByQueryId[activeQuery.id] ?? [])
     : [];
-  // The response currently shown in the grid. Clamp the selected index
-  // so a shrinking history (LRU eviction / clear) never points past the
-  // end.
+  // Clamped so a shrinking history never points past the end.
   const safeResponseIndex =
-    activeResponses.length === 0
-      ? 0
-      : Math.min(selectedResponseIndex, activeResponses.length - 1);
-  const activeResponse: SqlResponseV1 | null =
-    activeResponses[safeResponseIndex] ?? null;
+    activeResponses.length === 0 ? 0 : Math.min(selectedResponseIndex, activeResponses.length - 1);
+  const activeResponse: SqlResponseV1 | null = activeResponses[safeResponseIndex] ?? null;
   const profileSource =
-    activeQuery !== undefined &&
-    activeResponse !== null &&
-    safeResponseIndex === 0
+    activeQuery !== undefined && activeResponse !== null && safeResponseIndex === 0
       ? sessionProfileSources.get(activeQuery.id)
       : undefined;
+  const editorSourceSql =
+    profileSource !== undefined && profileSource.recordedAt === activeResponse?.recordedAt
+      ? profileSource.query
+      : undefined;
 
-  // SQL/HTTP MODEL rework — a new query is a row in the collection, NOT a
-  // new editor tab. `createQuery` appends it to the store and selects it
-  // (the store sets `activeQueryId` to the new id); the rail re-renders
-  // and the editor binds to it.
-  const handleCreate = useCallback(() => {
-    const q = createBlankSqlQuery({
-      id: crypto.randomUUID(),
-      name: '',
-      query: '',
-    });
-    useWorkspaceSqlStore.getState().createQuery(q);
-    setSelectedResponseIndex(0); // fresh query has no history
-  }, []);
+  const shownResponse = tablePreview?.response ?? activeResponse;
+  const resultSource = useMemo<SqlResultSource | undefined>(() => {
+    if (tablePreview) {
+      return { origin: 'table', sql: tablePreview.sql, tableName: tablePreview.table.name };
+    }
+    return editorSourceSql !== undefined ? { origin: 'editor', sql: editorSourceSql } : undefined;
+  }, [tablePreview, editorSourceSql]);
 
-  // SQL/HTTP MODEL rework — selecting a rail row moves the store's active
-  // query. The rail is the single source of collection navigation; there
-  // is no per-query FileTab to focus.
+  const handleCreate = useCallback((sql = '', name = '') => {
+    useWorkspaceSqlStore
+      .getState()
+      .createQuery(createBlankSqlQuery({ id: crypto.randomUUID(), name, query: sql }));
+    setSelectedResponseIndex(0);
+    showTablePreview(null);
+  }, [showTablePreview]);
+
   const handleSelect = useCallback((id: string) => {
     useWorkspaceSqlStore.getState().setActiveQuery(id);
-    setSelectedResponseIndex(0); // show the newest run for the switched-to query
-  }, []);
+    setSelectedResponseIndex(0);
+    showTablePreview(null);
+  }, [showTablePreview]);
 
   const handleRename = useCallback((id: string, name: string) => {
     useWorkspaceSqlStore.getState().updateQuery(id, { name });
   }, []);
 
-  // Rail ergonomics — clone the query under a fresh id. The store sets
-  // the clone active; the clone starts unrun (no history) so reset the
-  // grid selection.
   const handleDuplicate = useCallback(
     (id: string) => {
       const source = useWorkspaceSqlStore.getState().getQuery(id);
@@ -243,66 +232,52 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [t]
   );
 
-  // SQL/HTTP MODEL rework — deleting a rail row removes the query from
-  // the collection. `deleteQuery` drops it + its response history and
-  // re-points `activeQueryId` to the next surviving query (or null). The
-  // workspace tab is unaffected — closing the tab is a separate gesture
-  // that leaves the collection intact.
   const handleDelete = useCallback((id: string) => {
     useWorkspaceSqlStore.getState().deleteQuery(id);
-    setSelectedResponseIndex(0); // surviving query: show its newest run
+    setSelectedResponseIndex(0);
   }, []);
 
-  // Schema browser → editor insert. Build a runnable starter for the
-  // table and signal the editor to append it. Schema + table are quoted
-  // segment-by-segment so names with spaces, reserved words, mixed case,
-  // special characters, or a non-main schema produce one valid statement.
-  const handleInsertTable = useCallback((name: string, schemaName?: string) => {
-    setInsertSignal((prev) => ({
-      text: buildSelectStarter(name, schemaName),
-      nonce: (prev?.nonce ?? 0) + 1,
-    }));
-  }, []);
+  // Opening a table shows its rows under a generated SQL strip; nothing is saved or added to history.
+  const handleOpenTable = useCallback(
+    async (table: SqlSchemaTable) => {
+      const sql = buildSelectStarter(table.sqlName ?? table.name, table.schemaName);
+      previewTokenRef.current += 1;
+      const token = previewTokenRef.current;
+      const outcome = await executeQuery(sql, { timeoutMs: queryTimeoutMs });
+      if (previewTokenRef.current === token) setTablePreview({ table, sql, response: toResponse(outcome) });
+    },
+    [queryTimeoutMs]
+  );
 
-  // Run-history selection — view an older snapshot in the grid.
+  const handleEditInEditor = useCallback(
+    (sql: string) => {
+      showTablePreview(null);
+      if (useWorkspaceSqlStore.getState().activeQueryId === null) {
+        handleCreate(sql);
+        return;
+      }
+      setInsertSignal((prev) => ({ text: sql, nonce: (prev?.nonce ?? 0) + 1 }));
+    },
+    [handleCreate, showTablePreview]
+  );
+
   const handleSelectResponse = useCallback((index: number) => {
     setSelectedResponseIndex(index);
   }, []);
 
-  // Patch the query the editor names explicitly, never a
-  // closed-over `activeQuery` that may have switched during the
-  // editor's debounce quiet window. `updateQuery` no-ops on an unknown
-  // id, so a flush for a just-deleted query is harmless.
-  const handlePatch = useCallback(
-    (queryId: string, patch: Partial<SqlQueryV1>) => {
-      useWorkspaceSqlStore.getState().updateQuery(queryId, patch);
-    },
-    []
-  );
-
+  // Patch the query the editor names, not a closed-over one that may have switched mid-debounce.
+  const handlePatch = useCallback((queryId: string, patch: Partial<SqlQueryV1>) => {
+    useWorkspaceSqlStore.getState().updateQuery(queryId, patch);
+  }, []);
 
   const handleRun = useCallback(
     async (queryToRun: SqlQueryV1) => {
       if (useWorkspaceSqlStore.getState().isExecutingActive) return;
       useWorkspaceSqlStore.getState().setIsExecutingActive(true);
+      showTablePreview(null);
       try {
-        const outcome = await executeQuery(queryToRun.query, {
-          timeoutMs: queryTimeoutMs,
-        });
-        const response: SqlResponseV1 = {
-          version: 1,
-          status: outcome.status,
-          rows: outcome.rows,
-          columns: outcome.columns,
-          rowCount: outcome.rowCount,
-          durationMs: e2eFixedDurationMs(outcome.durationMs),
-          tooLarge: outcome.tooLarge,
-          statementCount: outcome.statementCount,
-          recordedAt: new Date().toISOString(),
-          ...(outcome.errorMessage !== undefined
-            ? { errorMessage: outcome.errorMessage }
-            : {}),
-        };
+        const outcome = await executeQuery(queryToRun.query, { timeoutMs: queryTimeoutMs });
+        const response = toResponse(outcome);
         const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
         for (const id of sessionProfileSources.keys()) {
           if (!liveIds.has(id)) sessionProfileSources.delete(id);
@@ -313,27 +288,19 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         });
         setProfileSourcesVersion((version) => version + 1);
         useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);
-        // A fresh run is always the newest entry — show it in the grid.
         setSelectedResponseIndex(0);
         trackSqlQueryExecuted(response);
-        // A successful DDL statement (CREATE/DROP/ALTER/ATTACH...) changed
-        // the schema — refresh the table browser + autocomplete so the
-        // sidebar never lies about what exists. Routed through a ref so
-        // handleRun does not depend on handleRefreshTables (defined below).
+        // DDL changed the schema: refresh so the Explorer never lies about what exists.
         if (response.status === 'success' && queryChangesSchema(queryToRun.query)) {
           refreshTablesRef.current();
         }
-        // accessibility pass — announce the outcome to screen readers; the result
-        // grid only conveys it visually.
         announce(
           response.status === 'success'
             ? t('sqlWorkspace.run.announce', { count: response.rowCount })
             : t('sqlWorkspace.run.announceError')
         );
 
-        // Capsule auto-attach. Build a RunCapsuleV1 for the
-        // execution and stash it on the ExecutionHistoryEntry so the
-        // existing Mod+Shift+X export pathway picks it up uniformly.
+        // Capsule auto-attach: the Mod+Shift+X export picks it up from history.
         let capsule;
         try {
           const appInfo = getBundledAppInfo();
@@ -367,12 +334,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         useWorkspaceSqlStore.getState().setIsExecutingActive(false);
       }
     },
-    [queryTimeoutMs, t, announce]
+    [queryTimeoutMs, t, announce, showTablePreview]
   );
 
-  // A profile is deliberate secondary exploration, not another run:
-  // it must not add a response/history/ledger entry. Reuse the same user
-  // timeout as the query that produced the visible result.
+  // A profile is secondary exploration, not a run: no response, history or ledger entry.
   const handleProfileQuery = useCallback(
     async (query: string) => {
       trackSqlProfileOpened();
@@ -381,46 +346,25 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [queryTimeoutMs]
   );
 
-  // Apply-&-re-run: write the AI-suggested SQL into the active query,
-  // then run the FRESH store object (not a closed-over `activeQuery`, whose
-  // `query` field predates the patch).
+  // Apply-&-re-run: run the fresh store object, not the closed-over query.
   const handleApplyFix = useCallback(
     (sql: string) => {
       const store = useWorkspaceSqlStore.getState();
       const id = store.activeQueryId;
       if (id === null) return;
       store.updateQuery(id, { query: sql });
-      const updated = useWorkspaceSqlStore
-        .getState()
-        .queries.find((q) => q.id === id);
+      const updated = useWorkspaceSqlStore.getState().queries.find((q) => q.id === id);
       if (updated) void handleRun(updated);
     },
     [handleRun]
   );
 
-  // Schema/table browser — `SHOW TABLES` introspection plus a SINGLE
-  // `information_schema.columns` probe that yields every table's column
-  // names + SQL types in one round-trip (replacing the old N-per-table
-  // `PRAGMA table_info` loop). The columns drive the count chip, the
-  // expandable column list, AND the editor's column-name autocomplete.
-  // Uses the same lazy engine singleton; opens a single connection, runs
-  // the probes, closes. Failures push a notice but never crash the panel.
   const handleRefreshTables = useCallback(async () => {
     setIsLoadingTables(true);
     let engine: DuckDbEngineHandle;
-    try {
-      engine = await getDuckDbEngine();
-    } catch (err) {
-      useUIStore.getState().pushStatusNotice({
-        tone: 'warning',
-        messageKey: 'sqlWorkspace.response.engineLoadFailedBand',
-        detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
-      });
-      setIsLoadingTables(false);
-      return;
-    }
     let connection;
     try {
+      engine = await getDuckDbEngine();
       connection = await engine.connect();
     } catch (err) {
       useUIStore.getState().pushStatusNotice({
@@ -429,83 +373,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
       setIsLoadingTables(false);
+      setCatalogLoaded(true);
       return;
     }
     try {
-      // schema-qualified table listing (replacing `SHOW TABLES`,
-      // which only sees the current schema). User tables in `main` keep
-      // their bare names; tables in any other schema — notably the Run
-      // Ledger's `lingua_ledger.runs` / `.capsules` / `.daily_activity` —
-      // list under their qualified name, which is also exactly what a
-      // query must reference, so autocomplete stays truthful.
-      const { rows } = await connection.query(
-        'SELECT table_schema, table_name FROM information_schema.tables ' +
-          "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
-          'ORDER BY table_schema, table_name'
-      );
-      const tablesByDisplayName = new Map<
-        string,
-        { sqlName: string; schemaName?: string }
-      >();
-      for (const row of rows) {
-        const schema = row['table_schema'];
-        const table = row['table_name'];
-        if (typeof table !== 'string') continue;
-        if (typeof schema === 'string' && schema !== 'main') {
-          tablesByDisplayName.set(`${schema}.${table}`, {
-            sqlName: table,
-            schemaName: schema,
-          });
-        } else {
-          tablesByDisplayName.set(table, { sqlName: table });
-        }
-      }
-      // Single-round-trip column introspection. `information_schema.columns`
-      // returns one row per (table, column); grouping in JS by `table_name`
-      // (ordered by `ordinal_position`) rebuilds each table's column list
-      // without an N-query PRAGMA loop. A failure here leaves every table's
-      // columns undefined rather than aborting the whole refresh — the
-      // table names still render, just without the count chip / autocomplete.
-      const columnsByTable = new Map<string, SqlSchemaColumn[]>();
-      try {
-        const columnRows = await connection.query(
-          'SELECT table_schema, table_name, column_name, data_type ' +
-            'FROM information_schema.columns ' +
-            "WHERE table_schema NOT IN ('information_schema', 'pg_catalog') " +
-            'ORDER BY table_schema, table_name, ordinal_position'
-        );
-        for (const row of columnRows.rows) {
-          const schemaName = row['table_schema'];
-          const bareTableName = row['table_name'];
-          const columnName = row['column_name'];
-          const dataType = row['data_type'];
-          if (typeof bareTableName !== 'string' || typeof columnName !== 'string') {
-            continue;
-          }
-          // Key columns by the SAME display name the table list
-          // uses (qualified outside `main`), so the count chip and the
-          // autocomplete line up for ledger tables.
-          const tableName =
-            typeof schemaName === 'string' && schemaName !== 'main'
-              ? `${schemaName}.${bareTableName}`
-              : bareTableName;
-          const list = columnsByTable.get(tableName) ?? [];
-          list.push({
-            name: columnName,
-            type: typeof dataType === 'string' ? dataType : 'UNKNOWN',
-          });
-          columnsByTable.set(tableName, list);
-        }
-      } catch {
-        // Leave the map empty — tables render name-only.
-      }
-      const tables: SqlSchemaTable[] = Array.from(tablesByDisplayName, ([name, identifiers]) => {
-        const columns = columnsByTable.get(name);
-        return columns !== undefined
-          ? { name, ...identifiers, columns }
-          : { name, ...identifiers };
-      });
-      setSchemaTables(tables);
+      const next = await loadSqlCatalog(connection);
+      setCatalog(next);
+      useWorkspaceSqlStore.getState().pruneTableSources(next.tables.map((table) => table.name));
     } catch (err) {
       useUIStore.getState().pushStatusNotice({
         tone: 'warning',
@@ -519,29 +393,23 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         /* defensive */
       }
       setIsLoadingTables(false);
+      setCatalogLoaded(true);
     }
   }, []);
 
-  // Keep the ref pointed at the latest handleRefreshTables so callers
-  // above (handleRun) can trigger it without a forward dependency.
   useEffect(() => {
     refreshTablesRef.current = () => void handleRefreshTables();
   }, [handleRefreshTables]);
 
-  // Orchestration hook. Owns the validate → read →
-  // preview → confirm → import flow + every notice + the import telemetry.
-  // `existingTableNames` feeds the name collision de-duper; a successful
-  // import refreshes the schema browser so the new table shows up.
-  const existingTableNames = useMemo(
-    () => schemaTables.map((table) => table.name),
-    [schemaTables]
-  );
+  const existingTableNames = useMemo(() => schemaTables.map((table) => table.name), [schemaTables]);
   const sqlImport = useSqlImport({
     existingTableNames,
-    onImported: () => void handleRefreshTables(),
+    onImported: ({ tableName, format }) => {
+      useWorkspaceSqlStore.getState().setTableSource(tableName, format);
+      void handleRefreshTables();
+    },
   });
-  const importBusy =
-    sqlImport.isPreviewing || sqlImport.isImporting || sqlImport.modal !== null;
+  const importBusy = sqlImport.isPreviewing || sqlImport.isImporting || sqlImport.modal !== null;
 
   const handleStartImport = useCallback(
     (file: File, source: SqlImportSource) => {
@@ -549,20 +417,44 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     },
     [sqlImport]
   );
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const handlePickImport = useCallback(() => importInputRef.current?.click(), []);
 
-  // Save-as-snippet nudge. After a first successful run the
-  // result surface offers to stash the query in the snippet library so
-  // it survives the workspace. `addSnippet` already enforces the
-  // Free-tier ceiling (returns null + pushes an upsell); on success we
-  // confirm with a status notice. The snippet language is tagged `sql`
-  // (Language accepts arbitrary ids) so it round-trips into the library
-  // filter cleanly.
+  // Creates `cities` (or `cities_2`…) and opens a ready-to-run SELECT; it does not run it.
+  const handleTrySample = useCallback(async () => {
+    setIsCreatingSample(true);
+    try {
+      const sample = buildSampleTable(existingTableNames);
+      const outcome = await executeQuery(sample.createSql, { timeoutMs: queryTimeoutMs });
+      if (outcome.status !== 'success') {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'error',
+          messageKey: 'sqlWorkspace.sample.failed',
+          detail: outcome.errorMessage ?? outcome.status,
+        });
+        return;
+      }
+      handleCreate(sample.selectSql, t('sqlWorkspace.sample.queryName', { name: sample.tableName }));
+      await handleRefreshTables();
+    } finally {
+      setIsCreatingSample(false);
+    }
+  }, [existingTableNames, handleCreate, handleRefreshTables, queryTimeoutMs, t]);
+
+  const handoffs = useSqlResultHandoffs({
+    response: shownResponse,
+    source: safeResponseIndex === 0 || tablePreview ? resultSource : undefined,
+    query: tablePreview ? undefined : activeQuery,
+    existingTableNames,
+    timeoutMs: queryTimeoutMs,
+    onTableCreated: () => refreshTablesRef.current(),
+  });
+
+  // Stash the query in the snippet library; `addSnippet` enforces the Free ceiling.
   const handleSaveSnippet = useCallback(
     (query: SqlQueryV1) => {
       const label =
-        query.name.trim().length > 0
-          ? query.name.trim()
-          : t('sqlWorkspace.snippet.defaultLabel');
+        query.name.trim().length > 0 ? query.name.trim() : t('sqlWorkspace.snippet.defaultLabel');
       const id = useSnippetsStore.getState().addSnippet({
         language: 'sql',
         label,
@@ -579,19 +471,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     [t]
   );
 
-  // First-time mount eager-load nudge: kick off the DuckDB engine
-  // load in the background so the user's first Run isn't a 7 MiB
-  // cold-boot wait. Fire-and-forget; failures surface on the Run
-  // path. Only fires once per session.
-  //
-  // Capture the persistence preference
-  // BEFORE the engine instantiates so the factory opens the `opfs://`
-  // database when requested. After it resolves, reflect the actual
-  // backing in the chip, fire the storage-mode telemetry once,
-  // surface a notice if persistence was requested but unavailable
-  //, and compute the approximate storage label.
-  // `persistTables` is read once at mount; flipping the toggle takes
-  // effect on the next reload or via Settings "Reconnect now".
+  // Load DuckDB in the background on first mount so the first Run is not a cold boot.
+  // `persistTables` is read once here; a change applies on reload or "Reconnect now".
   useEffect(() => {
     configureDuckDbPersistence(persistTables);
     let cancelled = false;
@@ -608,47 +489,32 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
             messageKey: 'sqlWorkspace.storage.unavailableNotice',
           });
         }
-        // Populate the table browser + autocomplete on open. With OPFS
-        // persistence, tables from a previous session exist in the engine
-        // but were invisible until the user pressed Refresh manually.
+        // With OPFS persistence, tables from a previous session exist before any refresh.
         refreshTablesRef.current();
       })
       .catch(() => {
-        /* swallow — user-visible retry happens via Run path */
+        // The Run path surfaces engine failures; the Explorer stops waiting for a catalog.
+        setCatalogLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-    // Mount-once: the engine is a session singleton and `persistTables`
-    // is intentionally captured at mount (see comment above).
+    // Mount-once: the engine is a session singleton.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recompute the approximate
-  // origin-storage label whenever the resolved backing becomes
-  // persistent (including after a Settings "Reconnect now"). Origin-wide
-  // estimate, hence approximate. No synchronous reset on the non-opfs
-  // branch: the chip only renders the label while `storageMode === 'opfs'`,
-  // so a stale value is never visible, and the recompute refreshes it the
-  // next time the engine resolves to OPFS.
   useEffect(() => {
     if (storageMode !== 'opfs') return;
     let cancelled = false;
     void estimateOriginStorageBytes().then((bytes) => {
-      if (!cancelled) {
-        setStorageUsageLabel(bytes === null ? null : formatApproxStorage(bytes));
-      }
+      if (!cancelled) setStorageUsageLabel(bytes === null ? null : formatApproxStorage(bytes));
     });
     return () => {
       cancelled = true;
     };
   }, [storageMode]);
 
-  // Flush + release the engine on
-  // page teardown so OPFS sync-access handles release cleanly and the
-  // next session/tab re-opens without a stale-lock fallback. Durability
-  // does not depend on this (every write checkpoints); this is
-  // hygiene. `pagehide` fires on tab close + bfcache navigation.
+  // Release OPFS sync-access handles on teardown so the next session opens cleanly.
   useEffect(() => {
     const handlePageHide = () => {
       void flushAndReleaseDuckDbEngine();
@@ -659,108 +525,152 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     };
   }, []);
 
+  const toggleFolded = () => useWorkspaceSqlStore.getState().toggleExplorerFolded();
+
+  const explorer = (
+    <SqlExplorer
+      catalog={explorerCatalog}
+      isLoading={isLoadingTables}
+      hasLoaded={catalogLoaded}
+      onRefresh={() => void handleRefreshTables()}
+      onOpenTable={(table) => void handleOpenTable(table)}
+      openedTableName={tablePreview?.table.name ?? null}
+      onFold={toggleFolded}
+      onImportFile={handleStartImport}
+      isImportBusy={importBusy}
+      onTrySample={() => void handleTrySample()}
+      isCreatingSample={isCreatingSample}
+      storageMode={storageMode}
+      persistRequested={storageRequestedMode === 'opfs'}
+      storageUsageLabel={storageUsageLabel}
+      filter={explorerFilter}
+      onFilterChange={setExplorerFilter}
+    >
+      <SqlQueryList
+        queries={queries}
+        activeQueryId={activeQueryId}
+        onSelect={handleSelect}
+        onCreate={() => handleCreate()}
+        onRename={handleRename}
+        onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
+        filter={explorerFilter}
+      />
+    </SqlExplorer>
+  );
+
+  const emptyState = (
+    <SqlEmptyState
+      onCreate={() => handleCreate()}
+      onImportFile={(file) => handleStartImport(file, 'picker')}
+      onTrySample={() => void handleTrySample()}
+      isCreatingSample={isCreatingSample}
+    />
+  );
+
+  // With nothing to edit or show, the empty state gets the whole area instead of a split.
+  const main = !activeQuery && !tablePreview ? (
+    emptyState
+  ) : (
+    <Group
+      orientation="vertical"
+      defaultLayout={mainLayout.defaultLayout}
+      onLayoutChanged={mainLayout.onLayoutChanged}
+      resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
+      className="h-full min-h-0"
+    >
+      <Panel id="sql-editor-pane" defaultSize="40%" minSize={140}>
+        {activeQuery ? (
+          <SqlQueryEditor
+            query={activeQuery}
+            onPatch={handlePatch}
+            onRun={handleRun}
+            isExecuting={isExecuting}
+            tables={schemaTables}
+            {...(insertSignal !== null ? { insertSignal } : {})}
+            headerExtra={
+              <AskSqlButton
+                tables={schemaTables}
+                // Insert-only: generated SQL lands in the editor for review, never auto-runs.
+                onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
+              />
+            }
+          />
+        ) : (
+          emptyState
+        )}
+      </Panel>
+      <ResizeHandle orientation="horizontal" />
+      <Panel id="sql-results-pane" defaultSize="60%" minSize={140}>
+        <SqlResultPreview
+          key={tablePreview ? `table:${tablePreview.table.name}` : (activeQuery?.id ?? 'none')}
+          response={shownResponse}
+          isExecuting={isExecuting}
+          rowDisplayLimit={rowDisplayLimit}
+          responses={tablePreview ? undefined : activeResponses}
+          selectedResponseIndex={tablePreview ? 0 : safeResponseIndex}
+          onSelectResponse={handleSelectResponse}
+          querySource={tablePreview ? undefined : activeQuery?.query}
+          profileQuerySource={tablePreview ? tablePreview.sql : editorSourceSql}
+          onApplyFix={handleApplyFix}
+          onProfileQuery={handleProfileQuery}
+          canRun={activeQuery !== undefined}
+          onRun={activeQuery ? () => void handleRun(activeQuery) : undefined}
+          onSaveSnippet={
+            activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined
+          }
+          {...(resultSource !== undefined ? { source: resultSource } : {})}
+          onEditInEditor={handleEditInEditor}
+          handoffs={handoffs}
+        />
+      </Panel>
+    </Group>
+  );
+
   return (
     <div
       data-testid="sql-workspace-panel"
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
-      <SqlWorkspaceImportToolbar
-        isBusy={importBusy}
-        isPreviewing={sqlImport.isPreviewing}
-        onImportFile={(file) => handleStartImport(file, 'picker')}
+      <SqlConnectionBar
+        actions={
+          <SqlImportButton
+            inputRef={importInputRef}
+            isBusy={importBusy}
+            isPreviewing={sqlImport.isPreviewing}
+            onImportFile={(file) => handleStartImport(file, 'picker')}
+          />
+        }
       />
-      <Group
-        orientation="horizontal"
-        defaultLayout={layout.defaultLayout}
-        onLayoutChanged={layout.onLayoutChanged}
-        resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
-        className="min-h-0 flex-1"
-      >
-        <Panel id="sql-query-list" defaultSize="20%" minSize={180}>
-          <div className="flex h-full min-h-0 flex-col border-r border-border-subtle bg-bg-panel">
-            <div className="min-h-0 flex-1">
-              <SqlQueryList
-                queries={queries}
-                activeQueryId={activeQueryId}
-                onSelect={handleSelect}
-                onCreate={handleCreate}
-                onRename={handleRename}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-              />
-            </div>
-            <SqlSchemaBrowser
-              tables={schemaTables}
-              isLoading={isLoadingTables}
-              onRefresh={() => void handleRefreshTables()}
-              onInsertTable={handleInsertTable}
-              canInsert={activeQuery !== undefined}
-              storageMode={storageMode}
-              persistRequested={storageRequestedMode === 'opfs'}
-              storageUsageLabel={storageUsageLabel}
-              onImportFile={handleStartImport}
+      <div className="flex min-h-0 flex-1">
+        {explorerFolded ? (
+          <>
+            <SqlExplorerRail
+              onUnfold={toggleFolded}
+              onCreate={() => handleCreate()}
+              onImport={handlePickImport}
               isImportBusy={importBusy}
             />
-          </div>
-        </Panel>
-        <Panel id="sql-query-editor" defaultSize="45%" minSize={280}>
-          {activeQuery ? (
-            <SqlQueryEditor
-              query={activeQuery}
-              onPatch={handlePatch}
-              onRun={handleRun}
-              isExecuting={isExecuting}
-              tables={schemaTables}
-              {...(insertSignal !== null ? { insertSignal } : {})}
-              headerExtra={
-                <AskSqlButton
-                  tables={schemaTables}
-                  // Insert-only by design: generated SQL lands in the editor
-                  // for the user to review and run — it never auto-runs.
-                  onInsert={(sql) =>
-                    handlePatch(activeQuery.id, { query: sql })
-                  }
-                />
-              }
-            />
-          ) : (
-            <SqlEmptyState
-              onCreate={handleCreate}
-              onImportFile={(file) => handleStartImport(file, 'picker')}
-            />
-          )}
-        </Panel>
-        <Panel id="sql-result-preview" defaultSize="35%" minSize={220}>
-          <SqlResultPreview
-            key={activeQuery?.id ?? 'none'}
-            response={activeResponse}
-            isExecuting={isExecuting}
-            rowDisplayLimit={rowDisplayLimit}
-            responses={activeResponses}
-            selectedResponseIndex={safeResponseIndex}
-            onSelectResponse={handleSelectResponse}
-            querySource={activeQuery?.query}
-            profileQuerySource={
-              profileSource !== undefined &&
-              profileSource.recordedAt === activeResponse?.recordedAt
-                ? profileSource.query
-                : undefined
-            }
-            onApplyFix={handleApplyFix}
-            onProfileQuery={handleProfileQuery}
-            canRun={activeQuery !== undefined}
-            onRun={
-              activeQuery ? () => void handleRun(activeQuery) : undefined
-            }
-            onSaveSnippet={
-              activeQuery ? () => handleSaveSnippet(activeQuery) : undefined
-            }
-          />
-        </Panel>
-      </Group>
-      {/* The preview modal. Renders only
-          while an import is in flight; ModalShell owns focus-trap, Esc,
-          scrim-close, and focus-restore-to-trigger. */}
+            <div className="min-w-0 flex-1">{main}</div>
+          </>
+        ) : (
+          <Group
+            orientation="horizontal"
+            defaultLayout={sidebarLayout.defaultLayout}
+            onLayoutChanged={sidebarLayout.onLayoutChanged}
+            resizeTargetMinimumSize={{ coarse: 24, fine: 24 }}
+            className="min-h-0 flex-1"
+          >
+            <Panel id="sql-explorer-pane" defaultSize="22%" minSize={200}>
+              <div className="h-full border-r border-border-subtle">{explorer}</div>
+            </Panel>
+            <ResizeHandle orientation="vertical" />
+            <Panel id="sql-main-pane" minSize={360}>
+              {main}
+            </Panel>
+          </Group>
+        )}
+      </div>
       {sqlImport.modal !== null ? (
         <SqlImportPreviewModal
           format={sqlImport.modal.format}

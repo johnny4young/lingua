@@ -65,7 +65,7 @@ describe('deep-review maintainability boundaries', () => {
       ['src/renderer/components/Settings/settingsRailModel.ts', 250],
       ['src/renderer/components/Console/ConsoleEntryRow.tsx', 250],
       [
-        'src/renderer/components/SqlWorkspace/SqlWorkspaceImportToolbar.tsx',
+        'src/renderer/components/SqlWorkspace/SqlImportButton.tsx',
         150,
       ],
     ] as const) {

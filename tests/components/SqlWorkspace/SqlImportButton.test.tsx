@@ -1,14 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { SqlWorkspaceImportToolbar } from '../../../src/renderer/components/SqlWorkspace/SqlWorkspaceImportToolbar';
+import { SqlImportButton } from '../../../src/renderer/components/SqlWorkspace/SqlImportButton';
 import { SQL_IMPORT_FILE_ACCEPT } from '../../../src/shared/sqlWorkspace';
 
-describe('SqlWorkspaceImportToolbar', () => {
+describe('SqlImportButton', () => {
   it('opens the accepted-file picker from its keyboard-operable button', async () => {
     const user = userEvent.setup();
     render(
-      <SqlWorkspaceImportToolbar
+      <SqlImportButton
         isBusy={false}
         isPreviewing={false}
         onImportFile={vi.fn()}
@@ -31,7 +31,7 @@ describe('SqlWorkspaceImportToolbar', () => {
     const user = userEvent.setup();
     const onImportFile = vi.fn();
     render(
-      <SqlWorkspaceImportToolbar
+      <SqlImportButton
         isBusy={false}
         isPreviewing={false}
         onImportFile={onImportFile}
@@ -52,7 +52,7 @@ describe('SqlWorkspaceImportToolbar', () => {
 
   it('disables both controls while import work is busy', () => {
     render(
-      <SqlWorkspaceImportToolbar
+      <SqlImportButton
         isBusy
         isPreviewing
         onImportFile={vi.fn()}

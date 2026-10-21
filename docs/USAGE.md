@@ -13,7 +13,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 | Save as                 | `Cmd+Shift+S` | `Ctrl+Shift+S`  |
 | Open file               | `Cmd+O`       | `Ctrl+O`        |
 | Close active tab        | `Cmd+W`       | `Ctrl+W`        |
-| Explorer / tool list    | `Cmd+B`       | `Ctrl+B`        |
+| Explorer / tool list / SQL Explorer | `Cmd+B` | `Ctrl+B` |
 | Show or hide the dock   | `Cmd+\`       | `Ctrl+\`        |
 | Quick open (go to file) | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
@@ -35,7 +35,7 @@ The Keyboard Shortcuts overlay (Command Palette → `Open keyboard shortcuts`) s
 
 The overlay lists every other default binding (run history, capsules, utilities, and more).
 
-`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
+`Cmd/Ctrl+B` toggles the project explorer; on a Utilities tab it opens and closes the tool list, which otherwise folds to a 56 px icon rail so the open tool gets the width, and on the SQL tab it folds the SQL Explorer to its 44 px rail. `Cmd/Ctrl+K` opens the tool list with its search focused. In the command palette every result shows its shortcut on the right, `Tab` and `Shift+Tab` jump between groups, and Recent leads the list while the search is empty; while filtering, groups follow their best match.
 
 The run controls sit in the 48 px command bar. **Undock** in its More actions menu turns them into a draggable pill, and **Dock** in the pill's menu puts them back. Hiding the results dock folds it to its tab row; any tab, or `Cmd/Ctrl+\`, opens it again.
 
@@ -204,6 +204,14 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Hover the segment for the honest boundary: local and cached runtimes keep working, while updates, remote AI, and runtime downloads that are not already cached remain unavailable.
 - Lingua's desktop offline smoke validates the bundled JavaScript, TypeScript, and Python paths with non-loopback network access blocked.
 
+## SQL workspace
+
+- `Cmd/Ctrl+Alt+S` opens the SQL tab. The connection bar shows **Local · DuckDB**, the engine that runs in this window; its picker lists Local under This device. **Import data** at the right of the bar reads a CSV, Parquet or JSON file into a new table.
+- The **Explorer** on the left lists Local (in-memory for this session, or persistent when Settings › Editor › SQL workspace keeps tables), its schemas with Tables, Views and Macros, each table's row count and the format it was imported from, and each column's DuckDB type. `information_schema` sits collapsed at the bottom. **Filter objects** narrows the tree and the Queries list under it; **Collapse all** folds the tree. Dragging a CSV, Parquet or JSON file over the Explorer shows the drop target, and dropping it opens the same import preview. With no tables, **Try a sample table** creates `cities` (city, orders, revenue) and opens a ready-to-run SELECT.
+- `Cmd/Ctrl+B` on the SQL tab folds the Explorer to a 44 px rail (new query, import) and back.
+- Results sit under the editor. A strip names the SQL that produced them: *ran from the editor*, or *generated · opened from* a table you clicked in the Explorer, with **Edit in editor** to take that SELECT into the query. Table, JSON and Profile are tabs; Profile runs a DuckDB column summary of the newest result when you open it. Numbers align right, `null` reads in italics, and each header shows the DuckDB type (the Arrow type is in its tooltip). Click a row or move with the arrow keys, then `Cmd/Ctrl+C` copies that row as JSON.
+- **Export full result…** writes the rows this result fetched as CSV, TSV, JSON, Markdown or SQL INSERT, with header row, delimiter and NULL-as-empty options, to a file or the clipboard. When DuckDB returned more rows than it fetched, the dialog says how many it holds. Its Local hand-offs: **Save as table** re-runs a single read query as `CREATE TABLE … AS`, **Send to Python tab** opens a Python tab with up to 1,000 rows as dicts (an ordinary tab: it counts toward the Free tab limit and is kept with your session), and **Save as run capsule** copies the run's capsule, like `Cmd/Ctrl+Shift+X`.
+
 ## Network from running code (Labs)
 
 - Turn on **Settings › Labs › Network policy for running code** to add **Network from running code** to Settings › Privacy. It is off by default and, until you change it, the policy is **Allow**: nothing changes.
@@ -253,7 +261,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
   `SELECT language, count(*) AS runs, avg(duration_ms) AS avg_ms FROM lingua_ledger.runs GROUP BY 1 ORDER BY 2 DESC;`
 
-  The `lingua_ledger.runs`, `lingua_ledger.capsules`, and `lingua_ledger.daily_activity` tables appear in the schema browser under their qualified names. They are your data: querying, editing, or dropping them is fine — the ledger recreates its schema on the next recorded run.
+  The `lingua_ledger.runs`, `lingua_ledger.capsules`, and `lingua_ledger.daily_activity` tables autocomplete in the SQL editor under their qualified names; the Explorer does not list the `lingua_ledger` schema. They are your data: querying, editing, or dropping them is fine — the ledger recreates its schema on the next recorded run.
 - Durability follows the SQL workspace's OPFS persistence opt-in (Settings → Editor → SQL workspace). Without it, the ledger lives for the current session only; with it, history survives reloads.
 - Retention: the Free tier keeps 7 days of runs (pruned lazily); paid tiers keep everything. `daily_activity` keeps only per-day counters and is never pruned.
 - The Run Ledger section in Settings → Privacy also offers Export JSON (downloads every table) and Clear history (drops the whole schema). Settings → Privacy → Local data → Clear everything… also deletes the persisted SQL database, `lingua_ledger` included. Both actions, plus the toggle itself, are logged to the Privacy trust feed.

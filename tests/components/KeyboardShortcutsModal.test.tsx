@@ -59,7 +59,7 @@ describe('KeyboardShortcutsModal', () => {
 
     await user.type(screen.getByLabelText('Search shortcuts'), 'sidebar');
 
-    expect(screen.getByText('Toggle the explorer (the tool list on a Utilities tab)')).toBeTruthy();
+    expect(screen.getByText('Toggle the explorer (the tool list on a Utilities tab, the SQL Explorer on the SQL tab)')).toBeTruthy();
     // "Save" should not be visible any longer
     expect(screen.queryByText('Save')).toBeNull();
   });

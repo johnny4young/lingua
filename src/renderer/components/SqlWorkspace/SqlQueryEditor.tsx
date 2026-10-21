@@ -18,7 +18,7 @@
  *
  * `<SqlMonacoEditor>` replaced the original `<textarea>` (features
  * A/B/C/E live in that host). The auto-save debounce, id-pinning,
- * byte-cap, and schema-browser insert (via the controlled `value`) are
+ * byte-cap, and Edit-in-editor insert (via the controlled `value`) are
  * preserved exactly — the editor's `text` state stays the source of
  * truth and the Monaco host is fully controlled by it.
  */
@@ -43,7 +43,7 @@ import {
 } from '../../../shared/sqlWorkspace';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor } from './SqlMonacoEditor';
-import type { SqlSchemaTable } from './SqlSchemaBrowser';
+import type { SqlSchemaTable } from './sqlExplorerModel';
 
 export interface SqlQueryEditorProps {
   query: SqlQueryV1;
@@ -58,7 +58,7 @@ export interface SqlQueryEditorProps {
   onRun: (query: SqlQueryV1) => void;
   isExecuting: boolean;
   /**
-   * Schema-browser insert signal. When `nonce` increments the editor
+   * Edit-in-editor insert signal. When `nonce` increments the editor
    * appends `text` to the current draft (on its own line when the draft
    * is non-empty) and schedules the usual debounced auto-save. A signal
    * object (rather than a bare string) lets the same table be inserted
@@ -67,8 +67,8 @@ export interface SqlQueryEditorProps {
   insertSignal?: { text: string; nonce: number };
   /**
    * Live session tables, threaded from the panel's
-   * schema browser. Fed to the Monaco completion provider so table names
-   * autocomplete. Empty until the user runs a `SHOW TABLES` refresh.
+   * Explorer catalog. Fed to the Monaco completion provider so table names
+   * autocomplete; empty until the first catalog refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
   /**
@@ -135,7 +135,7 @@ export function SqlQueryEditor({
     latestOnPatchRef.current = onPatch;
   }, [onPatch]);
 
-  // Schema-browser insert. Keyed on the signal nonce so re-inserting
+  // Edit-in-editor insert. Keyed on the signal nonce so re-inserting
   // the same table (identical text) still fires. Appends on a fresh
   // line when the draft already has content. The append flows through
   // `setText` → the controlled `value` prop → Monaco reconciles its
@@ -146,7 +146,7 @@ export function SqlQueryEditor({
     if (insertSignal.nonce === lastInsertNonceRef.current) return;
     lastInsertNonceRef.current = insertSignal.nonce;
     if (insertSignal.text.length === 0) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the Edit-in-editor insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
     setText((current) => {
       const trimmed = current.replace(/\s+$/, '');
       return trimmed.length === 0
