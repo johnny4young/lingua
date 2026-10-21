@@ -120,11 +120,14 @@ export function filterRows<T extends Record<string, unknown>>(
   rows: ReadonlyArray<T>,
   needle: string
 ): T[] {
-  const trimmed = needle.trim().toLowerCase();
+  const trimmed = needle.trim();
   if (trimmed.length === 0) return [...rows];
-  return rows.filter((row) =>
-    Object.values(row).some((value) =>
-      stringifyForCompare(value).toLowerCase().includes(trimmed)
-    )
-  );
+  // One case-insensitive pattern instead of lower-casing every cell.
+  const pattern = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  return rows.filter((row) => {
+    for (const key in row) {
+      if (pattern.test(stringifyForCompare(row[key]))) return true;
+    }
+    return false;
+  });
 }

@@ -76,6 +76,11 @@ interface SqlMoreRows {
 
 /** Window plus Load more never holds more than this many rows in memory. */
 export const SQL_SESSION_ROW_CAP = 100_000;
+/** A wide result holds fewer rows: about a gigabyte of heap per ten million cells. */
+const SQL_SESSION_CELL_CAP = 4_000_000;
+
+export const sessionRowCap = (columnCount: number) =>
+  Math.min(SQL_SESSION_ROW_CAP, Math.floor(SQL_SESSION_CELL_CAP / Math.max(1, columnCount)));
 
 export const moreRowsKey = (queryId: string, recordedAt: string) => `${queryId}:${recordedAt}`;
 
@@ -283,10 +288,10 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
   const setView = useCallback((next: SqlResultView | null) => setRunState({ view: next }), []);
 
   // Reads the next rows of the open stream; the window already read counts toward the session cap.
-  const loadMore = useCallback(async (key: string, limit: number, windowRows: number) => {
+  const loadMore = useCallback(async (key: string, limit: number, windowRows: number, columnCount: number) => {
     const state = useSqlRunState.getState();
     if (!activeCursor || activeCursor.key !== key || state.more?.key !== key || state.more.loading) return;
-    const room = SQL_SESSION_ROW_CAP - windowRows - state.more.rows.length;
+    const room = sessionRowCap(columnCount) - windowRows - state.more.rows.length;
     setRunState({ more: { ...state.more, loading: true } });
     const { cursor } = activeCursor;
     let batch: { rows: Array<Record<string, unknown>>; done: boolean };

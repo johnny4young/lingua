@@ -7,6 +7,7 @@ import {
   betweenPredicate,
   columnStats,
   equalsPredicate,
+  statsRowLimit,
   type SqlColumnStats,
 } from './sqlColumnStats';
 
@@ -63,6 +64,7 @@ export function SqlColumnRail({
 }) {
   const { t, i18n } = useTranslation();
   const stats = useMemo(() => columnStats(columns, rows), [columns, rows]);
+  const sampled = Math.min(rows.length, statsRowLimit(columns.length));
   return (
     <aside
       data-testid="sql-column-rail"
@@ -72,7 +74,13 @@ export function SqlColumnRail({
       <header className="flex h-[34px] shrink-0 items-center gap-2 border-b border-border-subtle px-3">
         <span className="font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">{t('sqlWorkspace.rail.label')}</span>
         <span data-testid="sql-column-rail-sample" className="min-w-0 truncate font-mono text-micro text-fg-subtle">
-          {t('sqlWorkspace.rail.sample', { count: rows.length, formatted: formatNumber(rows.length, i18n.language) })}
+          {rows.length > sampled
+            ? t('sqlWorkspace.rail.sampleFirst', {
+                count: sampled,
+                formatted: formatNumber(sampled, i18n.language),
+                total: formatNumber(rows.length, i18n.language),
+              })
+            : t('sqlWorkspace.rail.sample', { count: rows.length, formatted: formatNumber(rows.length, i18n.language) })}
         </span>
       </header>
       <ul className="min-h-0 flex-1 overflow-auto">
@@ -90,7 +98,12 @@ export function SqlColumnRail({
               <span className={cn(column.nullShare > 0 && 'text-warning-fg')}>
                 {t('sqlWorkspace.rail.nulls', { share: Math.round(column.nullShare * 100) })}
               </span>
-              <span>{t('sqlWorkspace.rail.distinct', { count: column.distinct, formatted: formatNumber(column.distinct, i18n.language) })}</span>
+              <span>
+                {t(column.distinctCapped ? 'sqlWorkspace.rail.distinctAtLeast' : 'sqlWorkspace.rail.distinct', {
+                  count: column.distinct,
+                  formatted: formatNumber(column.distinct, i18n.language),
+                })}
+              </span>
               <span className="flex-1" />
               {column.range ? (
                 <span className="min-w-0 truncate" title={`${column.range.low} – ${column.range.high}`}>

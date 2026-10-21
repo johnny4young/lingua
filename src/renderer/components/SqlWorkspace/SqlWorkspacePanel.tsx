@@ -491,7 +491,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       ? { rows: runner.more.rows, canRead: !runner.more.done, loading: runner.more.loading }
       : undefined;
   const handleLoadMore = () => {
-    if (moreKey && activeResponse) void runner.loadMore(moreKey, rowDisplayLimit, activeResponse.rows.length);
+    if (moreKey && activeResponse) {
+      void runner.loadMore(moreKey, rowDisplayLimit, activeResponse.rows.length, activeResponse.columns.length);
+    }
   };
   const handleInsertPredicate = (predicate: string) =>
     setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));

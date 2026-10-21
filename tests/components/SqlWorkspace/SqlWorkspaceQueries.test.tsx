@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
 import {
   SQL_SESSION_ROW_CAP,
+  sessionRowCap,
   resetSqlRunStateForTests,
   sessionRunSources,
 } from '../../../src/renderer/hooks/useSqlRunner';
@@ -466,6 +467,11 @@ describe('Load more', () => {
     expect(screen.queryByTestId('sql-result-load-more')).toBeNull();
     expect(screen.getByTestId('sql-column-rail-sample').textContent).toContain('100,000');
     await waitFor(() => expect(stream.cancelled).toBe(1));
+  });
+
+  it('holds fewer rows of a wide result', () => {
+    expect(sessionRowCap(4)).toBe(SQL_SESSION_ROW_CAP);
+    expect(sessionRowCap(100)).toBe(40_000);
   });
 
   it('lets the open stream go when another query runs', async () => {

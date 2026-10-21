@@ -9,6 +9,10 @@ import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeName
 
 const BIN_COUNT = 8;
 const TOP_COUNT = 5;
+/** Past this many distinct values a column reports a lower bound and stops tracking new ones. */
+export const DISTINCT_CAP = 10_000;
+/** Cells the rail reads; a wider or longer result is summarized from its first rows. */
+const CELL_BUDGET = 1_000_000;
 
 export interface SqlHistogramBin {
   /** Inclusive bounds in the column's own scale (epoch ms for dates). */
@@ -23,6 +27,8 @@ export interface SqlColumnStats {
   kind: 'number' | 'date' | 'text';
   nullShare: number;
   distinct: number;
+  /** More distinct values than {@link DISTINCT_CAP}; `distinct` is the cap. */
+  distinctCapped: boolean;
   /** Smallest and largest value as shown; null when every value is null. */
   range: { low: string; high: string } | null;
   bins: SqlHistogramBin[];
@@ -63,14 +69,20 @@ function binsOf(values: number[]): SqlHistogramBin[] {
   return bins;
 }
 
+/** How many leading rows the rail summarizes for this many columns. */
+export const statsRowLimit = (columnCount: number) => Math.max(1_000, Math.floor(CELL_BUDGET / Math.max(1, columnCount)));
+
 export function columnStats(
   columns: ReadonlyArray<SqlColumnMetadata>,
-  rows: ReadonlyArray<Record<string, unknown>>
+  allRows: ReadonlyArray<Record<string, unknown>>
 ): SqlColumnStats[] {
+  const limit = statsRowLimit(columns.length);
+  const rows = allRows.length > limit ? allRows.slice(0, limit) : allRows;
   return columns.map((column) => {
     const duckType = arrowTypeToDuckDb(column.type);
     const kind: SqlColumnStats['kind'] = isNumericSqlType(duckType) ? 'number' : isTemporal(duckType) ? 'date' : 'text';
     let nulls = 0;
+    let capped = false;
     const counts = new Map<string, number>();
     const scale: number[] = [];
     let low: string | null = null;
@@ -83,8 +95,11 @@ export function columnStats(
         nulls += 1;
         continue;
       }
-      const text = textOf(value);
-      counts.set(text, (counts.get(text) ?? 0) + 1);
+      const text = typeof value === 'string' ? value : textOf(value);
+      const seen = counts.get(text);
+      if (seen !== undefined) counts.set(text, seen + 1);
+      else if (counts.size < DISTINCT_CAP) counts.set(text, 1);
+      else capped = true;
       if (kind === 'number') {
         const n = numberOf(value);
         if (n === null) continue;
@@ -119,6 +134,7 @@ export function columnStats(
       kind,
       nullShare: rows.length === 0 ? 0 : nulls / rows.length,
       distinct: counts.size,
+      distinctCapped: capped,
       range: low !== null && high !== null ? { low, high } : null,
       bins: kind === 'text' ? [] : binsOf(scale),
       top,

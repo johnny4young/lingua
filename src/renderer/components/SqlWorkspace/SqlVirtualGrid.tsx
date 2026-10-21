@@ -5,7 +5,7 @@
  */
 
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
@@ -42,6 +42,83 @@ function cellClass(value: unknown, numeric: boolean): string {
   if (typeof value === 'boolean') return `${base} text-syntax-keyword`;
   return `${base} text-fg-base`;
 }
+
+type TypedColumn = { col: SqlColumnMetadata; duckType: string; numeric: boolean };
+
+interface RowActions {
+  select: (event: MouseEvent, index: number) => void;
+  open: (index: number, column: string) => void;
+  menu: (event: MouseEvent, cell: SqlGridCell) => void;
+  follow: (column: string, value: unknown) => void;
+}
+
+/** One grid row; memoized so scrolling renders only the rows that enter the window. */
+const GridRow = memo(function GridRow({
+  row,
+  index,
+  typed,
+  selectedColumn,
+  linkedColumns,
+  canFollow,
+  actions,
+}: {
+  row: Record<string, unknown>;
+  index: number;
+  typed: ReadonlyArray<TypedColumn>;
+  /** The selected column when this row holds the selection, else null. */
+  selectedColumn: string | null;
+  linkedColumns: ReadonlySet<string> | undefined;
+  canFollow: boolean;
+  actions: RowActions;
+}) {
+  const rowSelected = selectedColumn !== null;
+  return (
+    <tr
+      aria-rowindex={index + 2}
+      data-testid="sql-result-preview-row"
+      aria-selected={rowSelected}
+      data-selected={rowSelected ? 'true' : undefined}
+      onClick={(event) => actions.select(event, index)}
+      className={`h-[26px] border-b border-border-subtle ${rowSelected ? 'bg-editor-line-hl' : 'hover:bg-bg-panel-alt/60'}`}
+    >
+      {typed.map(({ col, numeric }) => {
+        const value = row[col.name];
+        const isNull = value === null || value === undefined;
+        const cellSelected = selectedColumn === col.name;
+        const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
+        return (
+          <td
+            key={col.name}
+            role="gridcell"
+            aria-selected={cellSelected}
+            data-column={col.name}
+            data-null={isNull ? 'true' : undefined}
+            onDoubleClick={() => actions.open(index, col.name)}
+            onContextMenu={(event) => actions.menu(event, { row: index, column: col.name })}
+            className={cn(cellClass(value, numeric), cellSelected && 'outline outline-1 -outline-offset-1 outline-accent')}
+          >
+            {linked ? (
+              <button
+                type="button"
+                tabIndex={-1}
+                data-testid="sql-result-fk-link"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  actions.follow(col.name, value);
+                }}
+                className="text-accent-fg underline underline-offset-2 hover:text-accent"
+              >
+                {renderCell(value)} →
+              </button>
+            ) : (
+              renderCell(value)
+            )}
+          </td>
+        );
+      })}
+    </tr>
+  );
+});
 
 export function SqlVirtualGrid({
   columns,
@@ -159,6 +236,25 @@ export function SqlVirtualGrid({
     setMenu({ cell, x: event.clientX, y: event.clientY });
   };
 
+  // Rows get one stable set of handlers that read the latest props, so a re-render skips them.
+  const latest = useRef({ onSelect, onCellAction, onFollowLink, openMenu, selected, typed });
+  useLayoutEffect(() => {
+    latest.current = { onSelect, onCellAction, onFollowLink, openMenu, selected, typed };
+  });
+  const rowActions = useMemo<RowActions>(
+    () => ({
+      select: (event, index) => {
+        const { selected: current, typed: shown } = latest.current;
+        const column = (event.target as HTMLElement).closest('td')?.dataset.column ?? current?.column ?? shown[0]?.col.name;
+        if (column) latest.current.onSelect({ row: index, column });
+      },
+      open: (index, column) => latest.current.onCellAction('open-value', { row: index, column }),
+      menu: (event, cell) => latest.current.openMenu(event, cell),
+      follow: (column, value) => latest.current.onFollowLink?.(column, value),
+    }),
+    []
+  );
+
   return (
     <div
       ref={scrollRef}
@@ -221,57 +317,17 @@ export function SqlVirtualGrid({
           {slice.top > 0 ? <tr aria-hidden="true" style={{ height: slice.top }} /> : null}
           {rows.slice(slice.start, slice.end + 1).map((row, offset) => {
             const index = slice.start + offset;
-            const rowSelected = selected?.row === index;
             return (
-              <tr
+              <GridRow
                 key={index}
-                aria-rowindex={index + 2}
-                data-testid="sql-result-preview-row"
-                aria-selected={rowSelected}
-                data-selected={rowSelected ? 'true' : undefined}
-                onClick={(event) => {
-                  const column =
-                    (event.target as HTMLElement).closest('td')?.dataset.column ?? selected?.column ?? typed[0]?.col.name;
-                  if (column) onSelect({ row: index, column });
-                }}
-                className={`h-[26px] border-b border-border-subtle ${rowSelected ? 'bg-editor-line-hl' : 'hover:bg-bg-panel-alt/60'}`}
-              >
-                {typed.map(({ col, numeric }) => {
-                  const value = row[col.name];
-                  const isNull = value === null || value === undefined;
-                  const cellSelected = rowSelected && selected?.column === col.name;
-                  const linked = !isNull && linkedColumns?.has(col.name) === true && onFollowLink !== undefined;
-                  return (
-                    <td
-                      key={col.name}
-                      role="gridcell"
-                      aria-selected={cellSelected}
-                      data-column={col.name}
-                      data-null={isNull ? 'true' : undefined}
-                      onDoubleClick={() => onCellAction('open-value', { row: index, column: col.name })}
-                      onContextMenu={(event) => openMenu(event, { row: index, column: col.name })}
-                      className={cn(cellClass(value, numeric), cellSelected && 'outline outline-1 -outline-offset-1 outline-accent')}
-                    >
-                      {linked ? (
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          data-testid="sql-result-fk-link"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onFollowLink(col.name, value);
-                          }}
-                          className="text-accent-fg underline underline-offset-2 hover:text-accent"
-                        >
-                          {renderCell(value)} →
-                        </button>
-                      ) : (
-                        renderCell(value)
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
+                row={row}
+                index={index}
+                typed={typed}
+                selectedColumn={selected?.row === index ? selected.column : null}
+                linkedColumns={linkedColumns}
+                canFollow={onFollowLink !== undefined}
+                actions={rowActions}
+              />
             );
           })}
           {slice.bottom > 0 ? <tr aria-hidden="true" style={{ height: slice.bottom }} /> : null}

@@ -6,7 +6,7 @@
  */
 
 import { AlertTriangle, ArrowLeft, Bookmark, Columns3, Download, Hash, Loader2 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   buildColumnProfileQuery,
@@ -212,10 +212,12 @@ export function SqlResultPreview({
     [response, more]
   );
   const columns = useMemo(() => (response ? response.columns : []), [response]);
+  // Typing stays responsive while a large result is searched.
+  const searchText = useDeferredValue(filter);
   const filteredSortedRows = useMemo(() => {
     if (loadedRows.length === 0) return [];
-    return sortRows(applyConditions(filterRows(loadedRows, filter), conditions, columns), sort);
-  }, [loadedRows, filter, conditions, columns, sort]);
+    return sortRows(applyConditions(filterRows(loadedRows, searchText), conditions, columns), sort);
+  }, [loadedRows, searchText, conditions, columns, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.
   const pageCount = pages.key === responseKey ? pages.count : 1;
   const pageSize = Math.max(1, rowDisplayLimit);

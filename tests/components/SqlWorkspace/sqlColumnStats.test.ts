@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DISTINCT_CAP,
   betweenPredicate,
   columnStats,
   equalsPredicate,
@@ -42,6 +43,21 @@ describe('columnStats', () => {
 
   it('handles an empty result', () => {
     expect(columnStats(columns, [])[0]).toMatchObject({ nullShare: 0, distinct: 0, range: null, bins: [] });
+  });
+});
+
+describe('wide and long results', () => {
+  it('stops tracking new values past the distinct cap and reads only the first rows of a wide result', () => {
+    const wide = Array.from({ length: 200 }, (_, i) => ({ name: `c${i}`, type: 'Utf8' }));
+    const many = Array.from({ length: 12_000 }, (_, i) => {
+      const row: Record<string, unknown> = { c0: `v${i}` };
+      return row;
+    });
+    const [first] = columnStats(wide, many);
+    // 200 columns leave room for 5,000 rows inside the cell budget.
+    expect(first).toMatchObject({ distinct: 5_000, distinctCapped: false });
+    const [narrow] = columnStats([{ name: 'c0', type: 'Utf8' }], many);
+    expect(narrow).toMatchObject({ distinct: DISTINCT_CAP, distinctCapped: true });
   });
 });
 
