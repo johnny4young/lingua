@@ -232,6 +232,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     <ModalShell
       onClose={() => !busy && onClose()}
       size="max-w-[720px]"
+      bodyMaxHeightClassName="max-h-[min(74vh,680px)]"
       labelledById={titleId}
       headerClose="button"
       closeLabel={t('sqlWorkspace.connection.cancel')}
@@ -374,7 +375,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                 <input value={draft.database ?? ''} onChange={(event) => patch({ database: event.target.value })} spellCheck={false} data-testid="sql-connection-database" className={INPUT} />
               </label>
             </div>
-            <div className="grid grid-cols-[1fr_1fr_1fr] items-end gap-2.5">
+            <div className="grid grid-cols-[1fr_1fr_1fr] items-start gap-2.5">
               <label>
                 <span className={LABEL}>{t('sqlWorkspace.connection.user')}</span>
                 <input value={draft.user ?? ''} onChange={(event) => patch({ user: event.target.value })} spellCheck={false} autoComplete="off" data-testid="sql-connection-user" className={INPUT} />
