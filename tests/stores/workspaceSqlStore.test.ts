@@ -2,8 +2,7 @@
  * workspaceSqlStore tests.
  *
  * Mirror coverage of `tests/stores/workspaceToolStore.test.ts` for
- * the SQL workspace persisted store. CRUD + LRU + active-id reset
- * + isExecuting reset on switch.
+ * the SQL workspace persisted store. CRUD + LRU + active-id reset.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -37,7 +36,6 @@ describe('useWorkspaceSqlStore', () => {
     const state = useWorkspaceSqlStore.getState();
     expect(state.queries).toEqual([]);
     expect(state.activeQueryId).toBeNull();
-    expect(state.isExecutingActive).toBe(false);
     expect(state.storageMode).toBe('memory');
     expect(state.storageRequestedMode).toBe('memory');
   });
@@ -147,15 +145,6 @@ describe('useWorkspaceSqlStore', () => {
     expect(state.activeQueryId).toBe('a');
   });
 
-  it('setActiveQuery resets isExecutingActive on switch', () => {
-    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'a' }));
-    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'b' }));
-    useWorkspaceSqlStore.getState().setIsExecutingActive(true);
-    expect(useWorkspaceSqlStore.getState().isExecutingActive).toBe(true);
-    useWorkspaceSqlStore.getState().setActiveQuery('a');
-    expect(useWorkspaceSqlStore.getState().isExecutingActive).toBe(false);
-  });
-
   it('recordResponse strips rows from previous entries', () => {
     useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'a' }));
     useWorkspaceSqlStore
@@ -222,5 +211,97 @@ describe('useWorkspaceSqlStore', () => {
     await useWorkspaceSqlStore.persist.rehydrate();
     expect(useWorkspaceSqlStore.getState().explorerFolded).toBe(false);
     expect(useWorkspaceSqlStore.getState().tableSources).toEqual({ sales: 'csv' });
+  });
+
+  describe('query tabs, saving and history', () => {
+    const q = (id: string, extra: Partial<Parameters<typeof createBlankSqlQuery>[0]> = {}) =>
+      createBlankSqlQuery({ id, query: `SELECT '${id}'`, ...extra });
+
+    it('opens created queries as tabs and focuses the neighbour when one closes', () => {
+      const store = useWorkspaceSqlStore.getState();
+      store.createQuery(q('a'));
+      store.createQuery(q('b'));
+      store.createQuery(q('c'));
+      expect(useWorkspaceSqlStore.getState().openQueryIds).toEqual(['a', 'b', 'c']);
+      useWorkspaceSqlStore.getState().setActiveQuery('b');
+      useWorkspaceSqlStore.getState().closeQueryTab('b');
+      const state = useWorkspaceSqlStore.getState();
+      expect(state.openQueryIds).toEqual(['a', 'c']);
+      expect(state.activeQueryId).toBe('c');
+      // A saved query closes but stays in Saved queries.
+      expect(state.queries.map((query) => query.id)).toContain('b');
+    });
+
+    it('discards a scratch with its tab, and saving turns it into a filed query', () => {
+      const store = useWorkspaceSqlStore.getState();
+      store.createQuery(q('s1', { kind: 'scratch' }));
+      store.createQuery(q('s2', { kind: 'scratch' }));
+      useWorkspaceSqlStore.getState().closeQueryTab('s1');
+      expect(useWorkspaceSqlStore.getState().getQuery('s1')).toBeUndefined();
+      useWorkspaceSqlStore.getState().saveQuery('s2', { name: ' Orders by city ', folder: ' Reports ' });
+      expect(useWorkspaceSqlStore.getState().getQuery('s2')).toMatchObject({
+        name: 'Orders by city',
+        folder: 'Reports',
+      });
+      expect(useWorkspaceSqlStore.getState().getQuery('s2')?.kind).toBeUndefined();
+    });
+
+    it('reopens a closed saved query as a tab without duplicating it', () => {
+      const store = useWorkspaceSqlStore.getState();
+      store.createQuery(q('a'));
+      useWorkspaceSqlStore.getState().closeQueryTab('a');
+      useWorkspaceSqlStore.getState().openQueryTab('a');
+      useWorkspaceSqlStore.getState().openQueryTab('a');
+      expect(useWorkspaceSqlStore.getState().openQueryIds).toEqual(['a']);
+      expect(useWorkspaceSqlStore.getState().activeQueryId).toBe('a');
+    });
+
+    it('saves a copy into the source tab with Save as', () => {
+      const store = useWorkspaceSqlStore.getState();
+      store.createQuery(q('a'));
+      store.createQuery(q('b'));
+      useWorkspaceSqlStore.getState().saveQueryAs('a', { id: 'a2', name: ' Copy ', folder: 'Reports' });
+      const state = useWorkspaceSqlStore.getState();
+      expect(state.openQueryIds).toEqual(['a2', 'b']);
+      expect(state.activeQueryId).toBe('a2');
+      expect(state.getQuery('a2')).toMatchObject({ name: 'Copy', folder: 'Reports', query: "SELECT 'a'" });
+      expect(state.getQuery('a')).toBeDefined();
+    });
+
+    it('keeps the newest 200 history entries', () => {
+      for (let i = 0; i < 205; i += 1) {
+        useWorkspaceSqlStore.getState().recordHistory({
+          version: 1,
+          id: `h${i}`,
+          sql: `SELECT ${i}`,
+          status: 'success',
+          durationMs: 1,
+          rowCount: 1,
+          recordedAt: '2026-10-20T00:00:00.000Z',
+        });
+      }
+      const { history } = useWorkspaceSqlStore.getState();
+      expect(history).toHaveLength(200);
+      expect(history[0]?.id).toBe('h204');
+      useWorkspaceSqlStore.getState().clearSqlHistory();
+      expect(useWorkspaceSqlStore.getState().history).toEqual([]);
+    });
+
+    it('opens only the active query as a tab when rehydrating a store from before tabs', async () => {
+      const legacy = {
+        state: {
+          queries: [q('old1'), q('old2', { name: 'Named' })],
+          responsesByQueryId: {},
+          activeQueryId: 'old2',
+        },
+        version: 1,
+      };
+      localStorage.setItem('lingua-workspace-sql-state', JSON.stringify(legacy));
+      await useWorkspaceSqlStore.persist.rehydrate();
+      const state = useWorkspaceSqlStore.getState();
+      expect(state.openQueryIds).toEqual(['old2']);
+      expect(state.queries.every((query) => query.kind === undefined)).toBe(true);
+      expect(state.history).toEqual([]);
+    });
   });
 });

@@ -13,19 +13,10 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import type {
-  SqlQueryStatus,
-  SqlResponseV1,
-} from '../../../shared/sqlWorkspace';
+import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
-import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
-
-function toneForStatus(status: SqlQueryStatus): StatusBadgeTone {
-  if (status === 'success') return 'success';
-  if (status === 'sql-error') return 'error';
-  if (status === 'timeout' || status === 'too-large') return 'warning';
-  return 'neutral';
-}
+import { StatusBadge } from '../ui/StatusBadge';
+import { toneForSqlStatus } from './sqlStatusTone';
 
 /**
  * Format an ISO timestamp into a short `HH:MM:SS` clock for the
@@ -77,7 +68,7 @@ export function SqlRunHistory({
         aria-label={t('sqlWorkspace.history.ariaLabel')}
       >
         {responses.map((entry, index) => {
-          const tone = toneForStatus(entry.status);
+          const tone = toneForSqlStatus(entry.status);
           const isActive = index === selectedIndex;
           const hasRows =
             entry.status === 'success' || entry.status === 'too-large';

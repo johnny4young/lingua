@@ -60,6 +60,8 @@ export interface ConfirmDialogProps {
    * `-cancel`) when provided.
    */
   readonly testId?: string;
+  /** A non-destructive alternative shown between Cancel and confirm (`-alternative` testid). */
+  readonly alternative?: { readonly label: string; readonly onSelect: () => void };
 }
 
 const FOCUSABLE_SELECTOR = [
@@ -90,6 +92,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   testId,
+  alternative,
 }: ConfirmDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -225,6 +228,16 @@ export function ConfirmDialog({
           >
             {cancelLabel}
           </button>
+          {alternative ? (
+            <button
+              type="button"
+              onClick={alternative.onSelect}
+              className="button-secondary"
+              data-testid={testId ? `${testId}-alternative` : undefined}
+            >
+              {alternative.label}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onConfirm}

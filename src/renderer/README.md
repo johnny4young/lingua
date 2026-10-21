@@ -732,7 +732,8 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace) or rejection (invalid, by reason code); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
-| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace drafts, results, folded Explorer, imported table sources |
+| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace queries (scratch and saved), open query tabs, results, run history, folded Explorer, imported table sources |
+| [sqlQueryTabCount.ts](stores/sqlQueryTabCount.ts) | leaf counter of open SQL query tabs for the Free tab budget; reads the persisted slice until the lazy SQL store registers |
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
 | [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |

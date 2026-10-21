@@ -1,30 +1,23 @@
 /**
  * Root of the SQL workspace tab. Local (DuckDB) is the connection in the
  * bar on top; below it the Explorer (or its 44 px rail, Cmd/Ctrl+B) sits
- * beside the editor, with the results under the editor.
+ * beside the query tabs and editor, with the results under the editor.
  *
- * Wires the workspaceSqlStore, the DuckDB execution path, the capsule
- * builder (capsule auto-attach on success), and the telemetry emit. A single
- * DuckDB engine is shared per session; connections open per call.
+ * Runs go through `useSqlRunner`; query tabs share the Free tab budget
+ * (`admitSqlQueryTab`). A single DuckDB engine is shared per session;
+ * connections open per call.
  */
 
 import { Group, Panel, useDefaultLayout } from 'react-resizable-panels';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { e2eFixedDurationMs } from '../../testing/e2eDurations';
 import { useWorkspaceSqlStore } from '../../stores/workspaceSqlStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
-import { getBundledAppInfo } from '../../../shared/appInfo';
-import {
-  createBlankSqlQuery,
-  queryChangesSchema,
-  type SqlQueryV1,
-  type SqlResponseV1,
-} from '../../../shared/sqlWorkspace';
+import type { SqlQueryV1, SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { buildSampleTable } from '../../../shared/sqlSampleTable';
+import { splitSqlStatements } from '../../../shared/sqlStatements';
 import {
   executeQuery,
   getDuckDbEngine,
@@ -37,13 +30,10 @@ import {
 } from '../../runtime/duckdbClient';
 import { loadSqlCatalog } from '../../runtime/sqlExplorerCatalog';
 import { profileSqlQuery } from '../../runtime/sqlColumnProfile';
-import { buildSqlResponseCapsule } from '../../runtime/sqlResponseCapsule';
-import { useAnnounce } from '../../hooks/useAnnounce';
-import {
-  trackSqlQueryExecuted,
-  trackSqlProfileOpened,
-  trackSqlStorageMode,
-} from '../../hooks/sqlWorkspaceTelemetry';
+import { trackSqlProfileOpened, trackSqlStorageMode } from '../../hooks/sqlWorkspaceTelemetry';
+import { useEffectiveTier } from '../../hooks/useEntitlement';
+import { sessionRunSources, toSqlResponse, useSqlRunner } from '../../hooks/useSqlRunner';
+import { useSqlQueryTabActions } from '../../hooks/useSqlQueryTabActions';
 import { useSqlImport } from '../../hooks/useSqlImport';
 import { useSqlResultHandoffs } from '../../hooks/useSqlResultHandoffs';
 import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
@@ -60,6 +50,12 @@ import { SqlConnectionBar } from './SqlConnectionBar';
 import { SqlImportButton } from './SqlImportButton';
 import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlExplorerModel';
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
+import { SqlQueryTabs } from './SqlQueryTabs';
+import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
+import { SqlHistorySection } from './SqlHistorySection';
+import { SqlPlanView } from './SqlPlanView';
+import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
 function formatApproxStorage(bytes: number): string {
@@ -68,21 +64,6 @@ function formatApproxStorage(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024)
     return `~${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `~${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function toResponse(outcome: Awaited<ReturnType<typeof executeQuery>>): SqlResponseV1 {
-  return {
-    version: 1,
-    status: outcome.status,
-    rows: outcome.rows,
-    columns: outcome.columns,
-    rowCount: outcome.rowCount,
-    durationMs: e2eFixedDurationMs(outcome.durationMs),
-    tooLarge: outcome.tooLarge,
-    statementCount: outcome.statementCount,
-    recordedAt: new Date().toISOString(),
-    ...(outcome.errorMessage !== undefined ? { errorMessage: outcome.errorMessage } : {}),
-  };
 }
 
 export interface SqlWorkspacePanelProps {
@@ -100,11 +81,9 @@ interface TablePreview {
   response: SqlResponseV1;
 }
 
-const sessionProfileSources = new Map<string, { recordedAt: string; query: string }>();
-
 export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const { t } = useTranslation();
-  const announce = useAnnounce();
+  const tier = useEffectiveTier();
   const sidebarLayout = useDefaultLayout({
     id: 'lingua-sql-workspace-sidebar-layout',
     panelIds: ['sql-explorer-pane', 'sql-main-pane'],
@@ -119,15 +98,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const activeQueryId = useWorkspaceSqlStore((state) => state.activeQueryId);
   const explorerFolded = useWorkspaceSqlStore((state) => state.explorerFolded);
   const tableSources = useWorkspaceSqlStore((state) => state.tableSources);
+  const openQueryIds = useWorkspaceSqlStore((state) => state.openQueryIds);
+  const history = useWorkspaceSqlStore((state) => state.history);
 
-  // The editor is never blank while the collection has queries.
+  // The editor is never blank while a query tab is open.
   useEffect(() => {
     const store = useWorkspaceSqlStore.getState();
-    if (store.activeQueryId !== null) return;
-    const first = store.queries[0];
-    if (first) store.setActiveQuery(first.id);
-  }, [queries.length, activeQueryId]);
-  const isExecuting = useWorkspaceSqlStore((state) => state.isExecutingActive);
+    if (store.activeQueryId !== null && store.openQueryIds.includes(store.activeQueryId)) return;
+    const first = store.openQueryIds[0];
+    if (first) store.setActiveQuery(first);
+    else if (store.activeQueryId !== null) store.setActiveQuery(null);
+  }, [openQueryIds, activeQueryId]);
   const responsesByQueryId = useWorkspaceSqlStore((state) => state.responsesByQueryId);
   const rowDisplayLimit = useSettingsStore((state) => state.sqlWorkspaceRowDisplayLimit);
   const queryTimeoutMs = useSettingsStore((state) => state.sqlWorkspaceQueryTimeoutMs);
@@ -153,12 +134,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [isCreatingSample, setIsCreatingSample] = useState(false);
   // Lets the run handler refresh the Explorer without a forward dependency.
   const refreshTablesRef = useRef<() => void>(() => {});
-  // Profiles must use the exact SQL behind a response; this session map does not
-  // survive reload because persisted responses do not keep their SQL.
-  const [, setProfileSourcesVersion] = useState(0);
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
   // The nonce makes the editor append even when the text repeats.
   const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   const schemaTables = useMemo<SqlSchemaTable[]>(
     () =>
@@ -174,6 +154,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     () => queries.find((q) => q.id === activeQueryId),
     [queries, activeQueryId]
   );
+  const openQueries = useMemo(
+    () =>
+      openQueryIds
+        .map((id) => queries.find((q) => q.id === id))
+        .filter((q): q is SqlQueryV1 => q !== undefined),
+    [openQueryIds, queries]
+  );
+  const folders = useMemo(
+    () => [...new Set(queries.flatMap((q) => (q.folder !== undefined ? [q.folder] : [])))].sort(),
+    [queries]
+  );
   const activeResponses: ReadonlyArray<SqlResponseV1> = activeQuery
     ? (responsesByQueryId[activeQuery.id] ?? [])
     : [];
@@ -183,7 +174,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const activeResponse: SqlResponseV1 | null = activeResponses[safeResponseIndex] ?? null;
   const profileSource =
     activeQuery !== undefined && activeResponse !== null && safeResponseIndex === 0
-      ? sessionProfileSources.get(activeQuery.id)
+      ? sessionRunSources.get(activeQuery.id)
       : undefined;
   const editorSourceSql =
     profileSource !== undefined && profileSource.recordedAt === activeResponse?.recordedAt
@@ -198,44 +189,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     return editorSourceSql !== undefined ? { origin: 'editor', sql: editorSourceSql } : undefined;
   }, [tablePreview, editorSourceSql]);
 
-  const handleCreate = useCallback((sql = '', name = '') => {
-    useWorkspaceSqlStore
-      .getState()
-      .createQuery(createBlankSqlQuery({ id: crypto.randomUUID(), name, query: sql }));
+  const resetView = useCallback(() => {
     setSelectedResponseIndex(0);
     showTablePreview(null);
   }, [showTablePreview]);
-
-  const handleSelect = useCallback((id: string) => {
-    useWorkspaceSqlStore.getState().setActiveQuery(id);
-    setSelectedResponseIndex(0);
-    showTablePreview(null);
-  }, [showTablePreview]);
-
-  const handleRename = useCallback((id: string, name: string) => {
-    useWorkspaceSqlStore.getState().updateQuery(id, { name });
-  }, []);
-
-  const handleDuplicate = useCallback(
-    (id: string) => {
-      const source = useWorkspaceSqlStore.getState().getQuery(id);
-      const baseName =
-        source && source.name.trim().length > 0
-          ? source.name.trim()
-          : t('sqlWorkspace.queryList.renamePlaceholder');
-      useWorkspaceSqlStore.getState().duplicateQuery(id, {
-        id: crypto.randomUUID(),
-        name: t('sqlWorkspace.queryList.duplicateName', { name: baseName }),
-      });
-      setSelectedResponseIndex(0);
-    },
-    [t]
-  );
-
-  const handleDelete = useCallback((id: string) => {
-    useWorkspaceSqlStore.getState().deleteQuery(id);
-    setSelectedResponseIndex(0);
-  }, []);
+  const tabActions = useSqlQueryTabActions(resetView);
+  const { create: handleCreate, select: handleSelect, saveDialog } = tabActions;
 
   // Opening a table shows its rows under a generated SQL strip; nothing is saved or added to history.
   const handleOpenTable = useCallback(
@@ -244,7 +203,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       previewTokenRef.current += 1;
       const token = previewTokenRef.current;
       const outcome = await executeQuery(sql, { timeoutMs: queryTimeoutMs });
-      if (previewTokenRef.current === token) setTablePreview({ table, sql, response: toResponse(outcome) });
+      if (previewTokenRef.current === token) setTablePreview({ table, sql, response: toSqlResponse(outcome) });
     },
     [queryTimeoutMs]
   );
@@ -270,71 +229,24 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     useWorkspaceSqlStore.getState().updateQuery(queryId, patch);
   }, []);
 
-  const handleRun = useCallback(
-    async (queryToRun: SqlQueryV1) => {
-      if (useWorkspaceSqlStore.getState().isExecutingActive) return;
-      useWorkspaceSqlStore.getState().setIsExecutingActive(true);
-      showTablePreview(null);
-      try {
-        const outcome = await executeQuery(queryToRun.query, { timeoutMs: queryTimeoutMs });
-        const response = toResponse(outcome);
-        const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
-        for (const id of sessionProfileSources.keys()) {
-          if (!liveIds.has(id)) sessionProfileSources.delete(id);
-        }
-        sessionProfileSources.set(queryToRun.id, {
-          recordedAt: response.recordedAt,
-          query: queryToRun.query,
-        });
-        setProfileSourcesVersion((version) => version + 1);
-        useWorkspaceSqlStore.getState().recordResponse(queryToRun.id, response);
-        setSelectedResponseIndex(0);
-        trackSqlQueryExecuted(response);
-        // DDL changed the schema: refresh so the Explorer never lies about what exists.
-        if (response.status === 'success' && queryChangesSchema(queryToRun.query)) {
-          refreshTablesRef.current();
-        }
-        announce(
-          response.status === 'success'
-            ? t('sqlWorkspace.run.announce', { count: response.rowCount })
-            : t('sqlWorkspace.run.announceError')
-        );
-
-        // Capsule auto-attach: the Mod+Shift+X export picks it up from history.
-        let capsule;
-        try {
-          const appInfo = getBundledAppInfo();
-          const platform: 'web' | 'desktop' =
-            typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
-              ? 'desktop'
-              : 'web';
-          capsule = await buildSqlResponseCapsule({
-            appVersion: appInfo.version,
-            query: queryToRun,
-            response,
-            platform,
-          });
-        } catch {
-          capsule = undefined;
-        }
-        useExecutionHistoryStore.getState().record({
-          language: 'sql',
-          status: outcome.status === 'success' ? 'ok' : 'error',
-          durationMs: response.durationMs,
-          ...(capsule !== undefined ? { lastCapsule: capsule } : {}),
-        });
-      } catch (err) {
-        // `executeQuery` always settles; this catch is defensive.
-        useUIStore.getState().pushStatusNotice({
-          tone: 'error',
-          messageKey: 'sqlWorkspace.response.errorBand',
-          detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
-        });
-      } finally {
-        useWorkspaceSqlStore.getState().setIsExecutingActive(false);
-      }
-    },
-    [queryTimeoutMs, t, announce, showTablePreview]
+  const handleBeforeRun = useCallback(() => {
+    showTablePreview(null);
+    setSelectedResponseIndex(0);
+  }, [showTablePreview]);
+  const handleSchemaChanged = useCallback(() => refreshTablesRef.current(), []);
+  const runner = useSqlRunner({
+    timeoutMs: queryTimeoutMs,
+    onBeforeRun: handleBeforeRun,
+    onSchemaChanged: handleSchemaChanged,
+  });
+  const runWhole = useCallback(
+    (query: SqlQueryV1) =>
+      void runner.run({
+        query,
+        mode: 'all',
+        statements: splitSqlStatements(query.query).map((statement) => statement.text),
+      }),
+    [runner]
   );
 
   // A profile is secondary exploration, not a run: no response, history or ledger entry.
@@ -354,9 +266,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       if (id === null) return;
       store.updateQuery(id, { query: sql });
       const updated = useWorkspaceSqlStore.getState().queries.find((q) => q.id === id);
-      if (updated) void handleRun(updated);
+      if (updated) runWhole(updated);
     },
-    [handleRun]
+    [runWhole]
   );
 
   const handleRefreshTables = useCallback(async () => {
@@ -551,10 +463,17 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         activeQueryId={activeQueryId}
         onSelect={handleSelect}
         onCreate={() => handleCreate()}
-        onRename={handleRename}
-        onDelete={handleDelete}
-        onDuplicate={handleDuplicate}
+        onRename={tabActions.rename}
+        onDelete={tabActions.remove}
+        onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
+      />
+      <SqlHistorySection
+        entries={history}
+        open={historyOpen}
+        onToggle={() => setHistoryOpen((open) => !open)}
+        onOpenEntry={tabActions.openHistoryEntry}
+        onClear={() => useWorkspaceSqlStore.getState().clearSqlHistory()}
       />
     </SqlExplorer>
   );
@@ -568,8 +487,87 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     />
   );
 
+  const runSet = runner.runSet?.queryId === activeQuery?.id ? runner.runSet : null;
+  const plan = runner.plan?.queryId === activeQuery?.id ? runner.plan : null;
+  const lastResult = runSet ? runSet.results.length - 1 : 0;
+  const view = runner.view ?? { kind: 'result' as const, index: lastResult };
+  const showResultTabs = !tablePreview && (runSet !== null || plan !== null);
+  const runSetResponse =
+    !tablePreview && runSet && view.kind === 'result' && view.index < lastResult
+      ? runSet.results[view.index]?.response
+      : undefined;
+  const isExecuting = activeQuery !== undefined && runner.runningQueryId === activeQuery.id;
+
+  const resultBody =
+    showResultTabs && view.kind === 'plan' && plan ? (
+      <SqlPlanView result={plan} />
+    ) : showResultTabs && view.kind === 'messages' && runSet ? (
+      <SqlRunMessages runSet={runSet} />
+    ) : (
+      <SqlResultPreview
+        key={tablePreview ? `table:${tablePreview.table.name}` : (activeQuery?.id ?? 'none')}
+        response={runSetResponse ?? shownResponse}
+        isExecuting={isExecuting}
+        rowDisplayLimit={rowDisplayLimit}
+        responses={tablePreview || runSetResponse ? undefined : activeResponses}
+        selectedResponseIndex={tablePreview ? 0 : safeResponseIndex}
+        onSelectResponse={handleSelectResponse}
+        querySource={tablePreview || runSetResponse ? undefined : activeQuery?.query}
+        profileQuerySource={tablePreview ? tablePreview.sql : editorSourceSql}
+        onApplyFix={handleApplyFix}
+        onProfileQuery={handleProfileQuery}
+        canRun={activeQuery !== undefined && runner.runningQueryId === null}
+        onRun={activeQuery ? () => runWhole(activeQuery) : undefined}
+        onSaveSnippet={activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined}
+        {...(resultSource !== undefined && !runSetResponse ? { source: resultSource } : {})}
+        onEditInEditor={handleEditInEditor}
+        handoffs={handoffs}
+      />
+    );
+
+  const editorPane = activeQuery ? (
+    <div ref={editorPaneRef} className="relative flex h-full min-h-0 flex-col">
+      <SqlQueryEditor
+        query={activeQuery}
+        onPatch={handlePatch}
+        onRun={(request) => void runner.run(request)}
+        onCancel={runner.cancel}
+        onSave={tabActions.save}
+        isExecuting={isExecuting}
+        isBusy={runner.runningQueryId !== null && !isExecuting}
+        tables={schemaTables}
+        {...(insertSignal !== null ? { insertSignal } : {})}
+        headerExtra={
+          <AskSqlButton
+            tables={schemaTables}
+            // Insert-only: generated SQL lands in the editor for review, never auto-runs.
+            onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
+          />
+        }
+      />
+      {saveDialog !== null ? (
+        <SqlSaveQueryPopover
+          key={`${activeQuery.id}:${saveDialog.mode}`}
+          anchor={editorPaneRef}
+          mode={saveDialog.mode}
+          initialName={
+            saveDialog.mode === 'saveAs'
+              ? t('sqlWorkspace.queryList.duplicateName', { name: activeQuery.name })
+              : activeQuery.name
+          }
+          {...(activeQuery.folder !== undefined ? { initialFolder: activeQuery.folder } : {})}
+          folders={folders}
+          onSave={tabActions.confirmSave}
+          onCancel={tabActions.cancelSave}
+        />
+      ) : null}
+    </div>
+  ) : (
+    emptyState
+  );
+
   // With nothing to edit or show, the empty state gets the whole area instead of a split.
-  const main = !activeQuery && !tablePreview ? (
+  const split = !activeQuery && !tablePreview ? (
     emptyState
   ) : (
     <Group
@@ -580,52 +578,43 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="h-full min-h-0"
     >
       <Panel id="sql-editor-pane" defaultSize="40%" minSize={140}>
-        {activeQuery ? (
-          <SqlQueryEditor
-            query={activeQuery}
-            onPatch={handlePatch}
-            onRun={handleRun}
-            isExecuting={isExecuting}
-            tables={schemaTables}
-            {...(insertSignal !== null ? { insertSignal } : {})}
-            headerExtra={
-              <AskSqlButton
-                tables={schemaTables}
-                // Insert-only: generated SQL lands in the editor for review, never auto-runs.
-                onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
-              />
-            }
-          />
-        ) : (
-          emptyState
-        )}
+        {editorPane}
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="sql-results-pane" defaultSize="60%" minSize={140}>
-        <SqlResultPreview
-          key={tablePreview ? `table:${tablePreview.table.name}` : (activeQuery?.id ?? 'none')}
-          response={shownResponse}
-          isExecuting={isExecuting}
-          rowDisplayLimit={rowDisplayLimit}
-          responses={tablePreview ? undefined : activeResponses}
-          selectedResponseIndex={tablePreview ? 0 : safeResponseIndex}
-          onSelectResponse={handleSelectResponse}
-          querySource={tablePreview ? undefined : activeQuery?.query}
-          profileQuerySource={tablePreview ? tablePreview.sql : editorSourceSql}
-          onApplyFix={handleApplyFix}
-          onProfileQuery={handleProfileQuery}
-          canRun={activeQuery !== undefined}
-          onRun={activeQuery ? () => void handleRun(activeQuery) : undefined}
-          onSaveSnippet={
-            activeQuery && !tablePreview ? () => handleSaveSnippet(activeQuery) : undefined
-          }
-          {...(resultSource !== undefined ? { source: resultSource } : {})}
-          onEditInEditor={handleEditInEditor}
-          handoffs={handoffs}
-        />
+        <div className="flex h-full min-h-0 flex-col">
+          {runner.stuck ? (
+            <SqlStuckQueryBand onRestart={() => void runner.restartEngine()} isRestarting={runner.isRestarting} />
+          ) : null}
+          {showResultTabs ? (
+            <SqlResultTabs runSet={runSet} hasPlan={plan !== null} view={view} onSelect={runner.setView} />
+          ) : null}
+          <div className="min-h-0 flex-1">{resultBody}</div>
+        </div>
       </Panel>
     </Group>
   );
+
+  const main = (
+    <div className="flex h-full min-h-0 flex-col">
+      {openQueries.length > 0 ? (
+        <SqlQueryTabs
+          tabs={openQueries}
+          activeId={activeQueryId}
+          runningId={runner.runningQueryId}
+          onSelect={handleSelect}
+          onClose={tabActions.close}
+          onCreate={() => handleCreate()}
+          freeHint={tier === 'free' ? t('sqlWorkspace.tabs.freeHint') : null}
+        />
+      ) : null}
+      <div className="min-h-0 flex-1">{split}</div>
+    </div>
+  );
+
+  const closePrompt = tabActions.closePromptId
+    ? queries.find((q) => q.id === tabActions.closePromptId)
+    : undefined;
 
   return (
     <div
@@ -649,6 +638,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
               onUnfold={toggleFolded}
               onCreate={() => handleCreate()}
               onImport={handlePickImport}
+              onShowHistory={() => {
+                setHistoryOpen(true);
+                toggleFolded();
+              }}
               isImportBusy={importBusy}
             />
             <div className="min-w-0 flex-1">{main}</div>
@@ -681,6 +674,21 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onTableNameChange={sqlImport.setTableName}
           onConfirm={() => void sqlImport.confirmImport()}
           onCancel={sqlImport.cancelImport}
+        />
+      ) : null}
+      {closePrompt ? (
+        <ConfirmDialog
+          title={t('sqlWorkspace.tabs.closeTitle', { name: closePrompt.name })}
+          body={t('sqlWorkspace.tabs.closeBody')}
+          confirmLabel={t('sqlWorkspace.tabs.discard')}
+          cancelLabel={t('sqlWorkspace.save.cancel')}
+          testId="sql-close-scratch"
+          alternative={{
+            label: t('sqlWorkspace.tabs.saveFirst'),
+            onSelect: () => tabActions.saveBeforeClose(closePrompt.id),
+          }}
+          onConfirm={() => tabActions.discard(closePrompt.id)}
+          onCancel={tabActions.cancelClose}
         />
       ) : null}
     </div>

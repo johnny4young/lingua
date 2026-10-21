@@ -1,38 +1,24 @@
 /**
- * Center column: edit the active SQL query
- * (Monaco editor on the `sql` language, Run, format) with
- * auto-save + Cmd+Enter run shortcut.
+ * Center column: edit the active SQL query (Monaco on the `sql` language),
+ * with the split Run, Cancel, format and a 500 ms debounced auto-save.
  *
- * Features here:
- *
- *   - **A** : Cmd/Ctrl+Enter fires the Run handler. It
- *     runs the SELECTION when non-empty, else
- *     the full query. Mirrors the HTTP workspace `Cmd+Enter` muscle
- *     memory + the scratchpad run shortcut.
- *   - **B**: pretty-print SQL via `sql-formatter` (lazy-imported so
- *     the formatter ~30 KB chunk lands separately). Triggered by a
- *     toolbar button OR Shift+Alt+F inside the editor.
- *     Reformat on save would be too aggressive — explicit action only.
- *   - **D-mirror**: every keystroke debounced 500 ms auto-saves via
- *     `onPatch` — no explicit Save button. Mirrors the HTTP workspace.
- *
- * `<SqlMonacoEditor>` replaced the original `<textarea>` (features
- * A/B/C/E live in that host). The auto-save debounce, id-pinning,
- * byte-cap, and Edit-in-editor insert (via the controlled `value`) are
- * preserved exactly — the editor's `text` state stays the source of
- * truth and the Monaco host is fully controlled by it.
+ * Runs resolve here into a list of statements: the statement under the
+ * cursor (Mod+Enter, toolbar Run, gutter Run), the selection
+ * (Mod+Alt+Enter), every statement (Mod+Shift+Enter), or Explain. The
+ * auto-save always persists the FULL buffer, never the part that ran.
  */
 
-import { Loader2, Play, Wand2 } from 'lucide-react';
+import { Wand2 } from 'lucide-react';
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShortcutLabel } from '../../hooks/useShortcutLabel';
+import { useCommandListener } from '../../hooks/useCommandListener';
 import { useWorkspaceRunTarget } from '../../hooks/useWorkspaceRunTarget';
 import { formatNumber } from '../../i18n/formatNumber';
 import { useUIStore } from '../../stores/uiStore';
@@ -41,9 +27,17 @@ import {
   utf8ByteLength,
   type SqlQueryV1,
 } from '../../../shared/sqlWorkspace';
+import { splitSqlStatements, statementAtOffset } from '../../../shared/sqlStatements';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
-import { SqlMonacoEditor } from './SqlMonacoEditor';
+import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
+import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
 import type { SqlSchemaTable } from './sqlExplorerModel';
+
+export interface SqlRunRequest {
+  query: SqlQueryV1;
+  mode: SqlRunMenuMode;
+  statements: string[];
+}
 
 export interface SqlQueryEditorProps {
   query: SqlQueryV1;
@@ -54,9 +48,15 @@ export interface SqlQueryEditorProps {
    * the debounce quiet window.
    */
   onPatch: (queryId: string, patch: Partial<SqlQueryV1>) => void;
-  /** Run the current query. Caller disables during in-flight. */
-  onRun: (query: SqlQueryV1) => void;
+  /** Run `statements` from `query` (which carries the full buffer). */
+  onRun: (request: SqlRunRequest) => void;
+  onCancel: () => void;
+  /** Mod+S, or Mod+Shift+S when `as`. */
+  onSave: (as: boolean) => void;
+  /** This query is running. */
   isExecuting: boolean;
+  /** Another query is running, so Run waits. */
+  isBusy?: boolean;
   /**
    * Edit-in-editor insert signal. When `nonce` increments the editor
    * appends `text` to the current draft (on its own line when the draft
@@ -82,7 +82,10 @@ export function SqlQueryEditor({
   query,
   onPatch,
   onRun,
+  onCancel,
+  onSave,
   isExecuting,
+  isBusy = false,
   insertSignal,
   tables,
   headerExtra,
@@ -102,6 +105,10 @@ export function SqlQueryEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
+  const statements = useMemo(() => splitSqlStatements(text), [text]);
+  const [cursor, setCursor] = useState<SqlEditorCursor>({ offset: 0, selectionStart: 0, selectionEnd: 0 });
+  const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
+  const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
 
   const flushPendingDraft = useCallback(() => {
     if (debounceRef.current !== null) {
@@ -182,51 +189,45 @@ export function SqlQueryEditor({
   // The query-id cleanup above flushes pending drafts on both unmount
   // and active-query switches, before the new query state is synced.
 
-  const handleRun = useCallback(() => {
-    if (isExecuting) return;
-    if (overCap) return;
-    // Flush any pending auto-save synchronously so the Run sees the
-    // latest text (the user might press Cmd+Enter <500 ms after the
-    // last keystroke).
-    if (debounceRef.current !== null) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    if (text !== lastSavedRef.current) {
-      lastSavedRef.current = text;
-      onPatch(query.id, { query: text });
-    }
-    onRun({ ...query, query: text });
-  }, [isExecuting, overCap, text, query, onPatch, onRun]);
-  useWorkspaceRunTarget('sql', handleRun);
-
-  // Cmd/Ctrl+Enter inside the editor runs the SELECTION
-  // when it is non-empty, else the full query. The auto-save always
-  // flushes (and persists) the FULL `text` — never the selection — so a
-  // partial run never truncates the saved query. The toolbar Run button
-  // keeps calling `handleRun` (full query) unchanged.
-  const handleRunWithSelection = useCallback(
-    ({ selectedText }: { selectedText: string | null }) => {
-      if (isExecuting) return;
-      if (overCap) return;
-      // Flush the pending auto-save of the FULL text synchronously so the
-      // persisted query stays the whole buffer even on a selection run.
+  const runMode = useCallback(
+    (mode: SqlRunMenuMode, context: SqlRunContext) => {
+      if (isExecuting || isBusy || overCap) return;
+      const buffer = context.value ?? text;
+      const bufferStatements = buffer === text ? statements : splitSqlStatements(buffer);
+      let pieces: string[];
+      if (mode === 'all') pieces = bufferStatements.map((statement) => statement.text);
+      else if (mode === 'selection') {
+        pieces = context.selectedText ? splitSqlStatements(context.selectedText).map((s) => s.text) : [];
+      } else {
+        const picked = statementAtOffset(bufferStatements, context.offset);
+        pieces = picked ? [picked.statement.text] : [];
+      }
+      if (pieces.length === 0) return;
+      // Flush the pending auto-save so the run and the store see the same full buffer.
       if (debounceRef.current !== null) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
-      if (text !== lastSavedRef.current) {
-        lastSavedRef.current = text;
-        onPatch(query.id, { query: text });
+      if (buffer !== lastSavedRef.current) {
+        lastSavedRef.current = buffer;
+        onPatch(query.id, { query: buffer });
       }
-      const runText =
-        selectedText !== null && selectedText.trim().length > 0
-          ? selectedText
-          : text;
-      onRun({ ...query, query: runText });
+      onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
-    [isExecuting, overCap, text, query, onPatch, onRun]
+    [isExecuting, isBusy, overCap, statements, text, query, onPatch, onRun]
   );
+  const selectedText = useCallback(() => {
+    const raw = text.slice(cursor.selectionStart, cursor.selectionEnd);
+    return raw.trim().length > 0 ? raw : null;
+  }, [text, cursor]);
+  const runFromToolbar = useCallback(
+    (mode: SqlRunMenuMode) => runMode(mode, { offset: cursor.offset, selectedText: selectedText() }),
+    [runMode, cursor.offset, selectedText]
+  );
+  useWorkspaceRunTarget('sql', () => runFromToolbar('statement'));
+  useCommandListener('workspace.save', (payload) => {
+    if (payload.kind === 'sql') onSave(payload.as);
+  });
 
   // pretty-print via sql-formatter. Lazy-import keeps the
   // formatter out of the main chunk. The dialect default `'duckdb'`
@@ -253,8 +254,6 @@ export function SqlQueryEditor({
     }
   }, [text, overCap]);
 
-  const runShortcutHint = useShortcutLabel('run-toggle');
-
   return (
     <div
       data-testid="sql-query-editor"
@@ -264,8 +263,19 @@ export function SqlQueryEditor({
         <span className="font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.editor.queryLabel')}
         </span>
+        {statements.length > 0 ? (
+          <span
+            data-testid="sql-query-editor-statements"
+            className="truncate font-mono text-eyebrow tabular-nums text-fg-subtle"
+          >
+            {t('sqlWorkspace.editor.statementInfo', {
+              count: statements.length,
+              index: Math.min(cursorIndex + 1, statements.length),
+            })}
+          </span>
+        ) : null}
         <span
-          className={`ml-auto font-mono text-eyebrow tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
+          className={`ml-auto shrink-0 font-mono text-eyebrow tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
           data-testid="sql-query-editor-size"
           aria-live="polite"
         >
@@ -285,34 +295,28 @@ export function SqlQueryEditor({
           data-testid="sql-query-editor-format"
           aria-label={t('sqlWorkspace.editor.format')}
           title={t('sqlWorkspace.editor.format')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Wand2 size={11} aria-hidden="true" />
           <span>{t('sqlWorkspace.editor.format')}</span>
         </button>
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={isExecuting || overCap || text.trim().length === 0}
-          data-testid="sql-query-editor-run"
-          aria-label={t('sqlWorkspace.editor.run')}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover hover:border-accent-hover active:bg-accent-pressed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-fg focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isExecuting ? (
-            <Loader2 size={11} aria-hidden="true" className="animate-spin" />
-          ) : (
-            <Play size={11} aria-hidden="true" />
-          )}
-          <span>{t('sqlWorkspace.editor.run')}</span>
-          <span className="ml-1 hidden font-mono text-eyebrow opacity-80 sm:inline">
-            {runShortcutHint}
-          </span>
-        </button>
+        <SqlRunMenu
+          onRun={runFromToolbar}
+          onCancel={onCancel}
+          isExecuting={isExecuting}
+          disabled={isBusy || overCap || statements.length === 0}
+          hasSelection={hasSelection}
+        />
       </header>
       <SqlMonacoEditor
         value={text}
         onChange={setText}
-        onRunShortcut={handleRunWithSelection}
+        onRunCommand={runMode}
+        onCancelShortcut={onCancel}
+        onSaveShortcut={onSave}
+        onCursorChange={setCursor}
+        statements={statements}
+        runGlyphLabel={t('sqlWorkspace.run.statement')}
         onFormatShortcut={handleFormat}
         tables={tables}
         ariaLabel={t('sqlWorkspace.editor.ariaLabel')}

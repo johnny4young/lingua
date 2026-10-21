@@ -7,8 +7,8 @@
  * queries.
  *
  * Shape parity with `workspaceToolStore`: identical CRUD names +
- * LRU=10 + active id + isExecuting flag + sanitize-on-rehydrate
- * boundary. Utility Pipelines will iterate over
+ * LRU=10 + active id + sanitize-on-rehydrate boundary. Run state lives
+ * with the SQL runner, since a run can outlive a tab switch. Utility Pipelines will iterate over
  * both stores uniformly via this matching surface; never extend the
  * SQL store with shape that diverges from the HTTP store without
  * mirroring the change there too.
@@ -31,6 +31,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { createMigrate } from './persistence/migrationRegistry';
+import { registerSqlQueryTabCounter } from './sqlQueryTabCount';
 import {
   parseSqlQuery,
   parseSqlResponse,
@@ -39,6 +40,11 @@ import {
   type SqlResponseV1,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
+import {
+  MAX_SQL_HISTORY_ENTRIES,
+  parseSqlHistoryEntry,
+  type SqlHistoryEntryV1,
+} from '../../shared/sqlHistory';
 
 /**
  * Per-query response history LRU. 10 entries keep recent runs
@@ -60,14 +66,6 @@ interface WorkspaceSqlState {
   /** Currently-active query id; null when none. */
   readonly activeQueryId: string | null;
   /**
-   * Flips true when the in-flight execution of `activeQueryId`
-   * starts; back to false on settle. Used to disable the Run
-   * button + suppress concurrent Cmd+Enter triggers. NOT persisted
-   * — a crash mid-execution should leave the next session with a
-   * clean "no run in flight" state.
-   */
-  readonly isExecutingActive: boolean;
-  /**
    * The RESOLVED storage backing of the live
    * DuckDB engine (`'opfs'` persistent / `'memory'` ephemeral). Held in
    * the store (not local panel state) so the SQL panel chip stays live
@@ -87,6 +85,10 @@ interface WorkspaceSqlState {
   readonly explorerFolded: boolean;
   /** File format each imported table came from, keyed by its Explorer name. */
   readonly tableSources: Readonly<Record<string, SqlImportFormat>>;
+  /** Queries open as tabs in the SQL tab, in tab order. */
+  readonly openQueryIds: ReadonlyArray<string>;
+  /** Runs across every query, newest first, capped at `MAX_SQL_HISTORY_ENTRIES`. */
+  readonly history: ReadonlyArray<SqlHistoryEntryV1>;
 
   // -------- mutations ------------------------------------------------------
 
@@ -108,12 +110,20 @@ interface WorkspaceSqlState {
   deleteQuery: (id: string) => void;
   /** Set the active query (UI-driven). */
   setActiveQuery: (id: string | null) => void;
+  /** Open a query as a tab (or focus its tab). The caller checks the Free tab budget. */
+  openQueryTab: (id: string) => void;
+  /** Close a query tab; a scratch is discarded with it, a saved query stays in Saved queries. */
+  closeQueryTab: (id: string) => void;
+  /** Name a query and file it: a scratch becomes a saved query. */
+  saveQuery: (id: string, options: { name: string; folder?: string }) => void;
+  /** Save a copy as a new saved query that takes the source's tab. */
+  saveQueryAs: (sourceId: string, options: { id: string; name: string; folder?: string }) => void;
+  recordHistory: (entry: SqlHistoryEntryV1) => void;
+  clearSqlHistory: () => void;
   /** Record a response under a query; applies the LRU cap. */
   recordResponse: (queryId: string, response: SqlResponseV1) => void;
   /** Clear the history for a single query. */
   clearHistory: (queryId: string) => void;
-  /** Flip the execution flag (called by the panel layer). */
-  setIsExecutingActive: (value: boolean) => void;
   /** Record resolved + requested storage backing. */
   setStorageMode: (
     mode: SqlStorageMode,
@@ -143,22 +153,32 @@ function createInitialState(): Pick<
   | 'queries'
   | 'responsesByQueryId'
   | 'activeQueryId'
-  | 'isExecutingActive'
   | 'storageMode'
   | 'storageRequestedMode'
   | 'explorerFolded'
   | 'tableSources'
+  | 'openQueryIds'
+  | 'history'
 > {
   return {
     queries: [],
     responsesByQueryId: {},
     activeQueryId: null,
-    isExecutingActive: false,
     storageMode: 'memory',
     storageRequestedMode: 'memory',
     explorerFolded: false,
     tableSources: {},
+    openQueryIds: [],
+    history: [],
   };
+}
+
+/** The tab to focus when `closingId` closes: its right neighbour, else its left one. */
+function neighbourTab(openIds: ReadonlyArray<string>, closingId: string): string | null {
+  const index = openIds.indexOf(closingId);
+  const rest = openIds.filter((id) => id !== closingId);
+  if (rest.length === 0) return null;
+  return rest[Math.min(Math.max(index, 0), rest.length - 1)] ?? null;
 }
 
 // Declared before the store: persist rehydrates synchronously when it is created.
@@ -184,6 +204,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
         set((state) => ({
           queries: [query, ...state.queries],
           activeQueryId: query.id,
+          openQueryIds: [...state.openQueryIds.filter((id) => id !== query.id), query.id],
         })),
 
       duplicateQuery: (sourceId, options) =>
@@ -206,6 +227,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           return {
             queries: [clone, ...state.queries],
             activeQueryId: clone.id,
+            openQueryIds: [...state.openQueryIds, clone.id],
           };
         }),
 
@@ -236,18 +258,90 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           delete responsesByQueryId[id];
           const activeQueryId =
             state.activeQueryId === id
-              ? (queries[0]?.id ?? null)
+              ? neighbourTab(state.openQueryIds, id)
               : state.activeQueryId;
-          return { queries, responsesByQueryId, activeQueryId };
+          return {
+            queries,
+            responsesByQueryId,
+            activeQueryId,
+            openQueryIds: state.openQueryIds.filter((openId) => openId !== id),
+          };
         }),
 
       setActiveQuery: (id) =>
+        set((state) => (state.activeQueryId === id ? state : { activeQueryId: id })),
+
+      openQueryTab: (id) =>
         set((state) => {
-          if (state.activeQueryId === id) return state;
-          // Reset the executing flag when switching away from an
-          // in-flight query — mirrors workspaceToolStore.
-          return { activeQueryId: id, isExecutingActive: false };
+          if (!state.queries.some((q) => q.id === id)) return state;
+          return {
+            activeQueryId: id,
+            openQueryIds: state.openQueryIds.includes(id)
+              ? state.openQueryIds
+              : [...state.openQueryIds, id],
+          };
         }),
+
+      closeQueryTab: (id) => {
+        const query = get().queries.find((q) => q.id === id);
+        if (query?.kind === 'scratch') {
+          get().deleteQuery(id);
+          return;
+        }
+        set((state) => ({
+          openQueryIds: state.openQueryIds.filter((openId) => openId !== id),
+          activeQueryId:
+            state.activeQueryId === id ? neighbourTab(state.openQueryIds, id) : state.activeQueryId,
+        }));
+      },
+
+      saveQuery: (id, { name, folder }) =>
+        set((state) => ({
+          queries: state.queries.map((q) => {
+            if (q.id !== id) return q;
+            const rest: SqlQueryV1 = { ...q };
+            delete rest.kind;
+            delete rest.folder;
+            const trimmedFolder = folder?.trim();
+            return {
+              ...rest,
+              name: name.trim(),
+              ...(trimmedFolder ? { folder: trimmedFolder } : {}),
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        })),
+
+      saveQueryAs: (sourceId, { id, name, folder }) =>
+        set((state) => {
+          const source = state.queries.find((q) => q.id === sourceId);
+          if (!source) return state;
+          const now = new Date().toISOString();
+          const trimmedFolder = folder?.trim();
+          const copy: SqlQueryV1 = {
+            version: 1,
+            id,
+            name: name.trim(),
+            query: source.query,
+            ...(source.timeoutMs !== undefined ? { timeoutMs: source.timeoutMs } : {}),
+            ...(trimmedFolder ? { folder: trimmedFolder } : {}),
+            createdAt: now,
+            updatedAt: now,
+          };
+          const slot = state.openQueryIds.indexOf(sourceId);
+          const openQueryIds =
+            slot === -1
+              ? [...state.openQueryIds, id]
+              : state.openQueryIds.map((openId) => (openId === sourceId ? id : openId));
+          return { queries: [copy, ...state.queries], activeQueryId: id, openQueryIds };
+        }),
+
+      recordHistory: (entry) =>
+        set((state) => ({
+          history: [entry, ...state.history].slice(0, MAX_SQL_HISTORY_ENTRIES),
+        })),
+
+      clearSqlHistory: () => set((state) => (state.history.length === 0 ? state : { history: [] })),
 
       recordResponse: (queryId, response) =>
         set((state) => {
@@ -282,10 +376,6 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           return { responsesByQueryId };
         }),
 
-      setIsExecutingActive: (value) =>
-        set((state) =>
-          state.isExecutingActive === value ? state : { isExecutingActive: value }
-        ),
       setStorageMode: (mode, requestedMode) =>
         set((state) => {
           const nextRequestedMode = requestedMode ?? state.storageRequestedMode;
@@ -336,7 +426,9 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
         for (const [qid, list] of Object.entries(state.responsesByQueryId)) {
           const surviving = list.filter(
             (entry) =>
-              entry.status !== 'timeout' && entry.status !== 'engine-load-failed'
+              entry.status !== 'timeout' &&
+              entry.status !== 'engine-load-failed' &&
+              entry.status !== 'cancelled'
           );
           if (surviving.length > 0) persistedResponses[qid] = surviving;
         }
@@ -346,6 +438,8 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           activeQueryId: state.activeQueryId,
           explorerFolded: state.explorerFolded,
           tableSources: state.tableSources,
+          openQueryIds: state.openQueryIds,
+          history: state.history,
         };
       },
       // Sanitize on rehydrate — drop any invalid entry silently so a
@@ -399,14 +493,30 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           }
           merged.explorerFolded = p.explorerFolded === true;
           merged.tableSources = sanitizeTableSources(p.tableSources);
+          const liveIds = new Set(merged.queries.map((q) => q.id));
+          // Stores from before query tabs open only the query that was active.
+          merged.openQueryIds = Array.isArray(p.openQueryIds)
+            ? [...new Set(p.openQueryIds.filter((id): id is string => typeof id === 'string' && liveIds.has(id)))]
+            : merged.activeQueryId !== null
+              ? [merged.activeQueryId]
+              : [];
+          if (merged.activeQueryId !== null && !merged.openQueryIds.includes(merged.activeQueryId)) {
+            merged.activeQueryId = merged.openQueryIds[0] ?? null;
+          }
+          merged.history = Array.isArray(p.history)
+            ? p.history
+                .map(parseSqlHistoryEntry)
+                .filter((entry): entry is SqlHistoryEntryV1 => entry !== null)
+                .slice(0, MAX_SQL_HISTORY_ENTRIES)
+            : [];
         }
-        // Always start with a clean execution flag (see field docs).
-        merged.isExecutingActive = false;
         return merged;
       },
     }
   )
 );
+
+registerSqlQueryTabCounter(() => useWorkspaceSqlStore.getState().openQueryIds.length);
 
 /**
  * Test seam — reset the store to its initial state. Persisted to

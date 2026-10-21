@@ -1,4 +1,4 @@
-import { Download, PanelLeftOpen, Plus } from 'lucide-react';
+import { Download, History, PanelLeftOpen, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
 
@@ -9,6 +9,7 @@ interface SqlExplorerRailProps {
   onUnfold: () => void;
   onCreate: () => void;
   onImport: () => void;
+  onShowHistory: () => void;
   isImportBusy: boolean;
 }
 
@@ -17,6 +18,7 @@ export function SqlExplorerRail({
   onUnfold,
   onCreate,
   onImport,
+  onShowHistory,
   isImportBusy,
 }: SqlExplorerRailProps) {
   const { t } = useTranslation();
@@ -60,6 +62,16 @@ export function SqlExplorerRail({
         className={RAIL_BUTTON}
       >
         <Download size={14} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        onClick={onShowHistory}
+        aria-label={t('sqlWorkspace.history.show')}
+        title={t('sqlWorkspace.history.show')}
+        data-testid="sql-explorer-rail-history"
+        className={RAIL_BUTTON}
+      >
+        <History size={14} aria-hidden="true" />
       </button>
     </nav>
   );

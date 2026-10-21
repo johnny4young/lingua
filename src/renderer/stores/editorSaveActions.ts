@@ -3,6 +3,10 @@ import { notebookDocumentSnapshot } from './notebookDocumentPersistence';
 import { withDocumentWriteLock } from '../../shared/documentWrite';
 import type { EditorState } from '../types/editor';
 import type { EditorGet, EditorSet } from './editorStoreContext';
+import { emitCommand } from './commandBus';
+
+// The SQL tab saves its active query into Saved queries instead of a file.
+const isSqlTab = (get: EditorGet, id: string) => get().tabs.find(t => t.id === id)?.kind === 'sql';
 
 /** Dispatch explicit file gestures without loading document actions during cold start. */
 export function createSaveActions(
@@ -26,12 +30,20 @@ export function createSaveActions(
     saveActiveTab: async () => {
       const { activeTabId, saveTabById } = get();
       if (!activeTabId) return;
+      if (isSqlTab(get, activeTabId)) {
+        emitCommand('workspace.save', { kind: 'sql', as: false });
+        return;
+      }
       await saveTabById(activeTabId);
     },
 
     saveActiveTabAs: async () => {
       const { activeTabId, saveTabById } = get();
       if (!activeTabId) return;
+      if (isSqlTab(get, activeTabId)) {
+        emitCommand('workspace.save', { kind: 'sql', as: true });
+        return;
+      }
       await saveTabById(activeTabId, true);
     },
 
