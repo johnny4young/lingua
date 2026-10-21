@@ -4,7 +4,7 @@
  */
 
 import { accessSync, constants } from 'node:fs';
-import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { constants as sqlite, DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { DriverRows, DriverSession } from './driver';
 import type { HostSessionConfig } from './protocol';
 
@@ -19,7 +19,15 @@ function columnType(declared: string | null | undefined): string {
   return type;
 }
 
-const open = (path: string, readOnly: boolean) => new DatabaseSync(path, { readOnly });
+/**
+ * Opens one file and nothing else: ATTACH, and VACUUM INTO which goes
+ * through it, could reach files outside the path main checked.
+ */
+function open(path: string, readOnly: boolean): DatabaseSync {
+  const db = new DatabaseSync(path, { readOnly });
+  db.setAuthorizer((action) => (action === sqlite.SQLITE_ATTACH ? sqlite.SQLITE_DENY : sqlite.SQLITE_OK));
+  return db;
+}
 
 function rowsOf(statement: StatementSync): DriverRows {
   statement.setReadBigInts(true);

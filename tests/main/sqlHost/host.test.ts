@@ -135,6 +135,7 @@ describe('SQLite driver (node:sqlite)', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const sqliteConfig = (readOnly: boolean): HostSessionConfig => ({ connectionId: 's1', engine: 'sqlite', path: file, readOnly });
+  const createSqlHostSupervisorless = () => createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
 
   it('reads rows with types the grid knows and keeps large integers exact', async () => {
     const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
@@ -165,6 +166,15 @@ describe('SQLite driver (node:sqlite)', () => {
     expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/readonly/i) } });
     const lifted = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w2', sql: "UPDATE t SET name = 'z'", readWrite: true, window }));
     expect(lifted).toMatchObject({ ok: true, result: { affectedRows: 2, columns: [] } });
+    await host.dispose();
+  });
+
+  it('refuses ATTACH and VACUUM INTO, which could reach other files', async () => {
+    const host = createSqlHostSupervisorless();
+    for (const sql of [`ATTACH '${path.join(dir, 'other.db')}' AS other`, `VACUUM INTO '${path.join(dir, 'copy.db')}'`]) {
+      const result = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'a', sql, readWrite: false, window }));
+      expect(result).toMatchObject({ ok: false, error: { message: expect.stringMatching(/not authorized|authorization denied/) } });
+    }
     await host.dispose();
   });
 
