@@ -50,6 +50,8 @@ interface RendererCommandPayloadMap {
   'editor.reloadFromDisk': { readonly tabId: string };
   /** Toolbar Run / Mod+Enter on a SQL or HTTP workspace tab. */
   'workspace.run': { readonly kind: 'sql' | 'http' };
+  /** Mod+S / Mod+Shift+S on the SQL workspace tab. */
+  'workspace.save': { readonly kind: 'sql'; readonly as: boolean };
 }
 
 export type RendererCommandName = keyof RendererCommandPayloadMap;

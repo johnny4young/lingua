@@ -944,6 +944,7 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'timeout',
   'too-large',
   'engine-load-failed',
+  'cancelled',
 ]);
 // implementation note — mirror of SQL_DURATION_BUCKETS_SET.
 export const SQL_DURATION_BUCKETS_SET = new Set([

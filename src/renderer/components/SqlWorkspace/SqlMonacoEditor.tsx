@@ -35,8 +35,9 @@
  *   - **B**: tuned editor options (line numbers on, no minimap, no word
  *     wrap, 2-space tabs, line highlight, no overview ruler).
  *   - **C**: Shift+Alt+F → `onFormatShortcut()`.
- *   - **E**: Cmd/Ctrl+Enter → `onRunShortcut({ selectedText })` where
- *     `selectedText` is the current non-empty selection text or null.
+ *   - **E**: run commands — Mod+Enter (statement at the cursor),
+ *     Mod+Alt+Enter (selection), Mod+Shift+Enter (all), Mod+. (cancel),
+ *     Mod+S / Mod+Shift+S (save), and a gutter Run on each statement.
  */
 
 import MonacoEditor, {
@@ -44,6 +45,7 @@ import MonacoEditor, {
   type OnMount,
 } from '@monaco-editor/react';
 import { useCallback, useEffect, useRef } from 'react';
+import type { SqlStatement } from '../../../shared/sqlStatements';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { configureMonaco } from '../../monaco';
 import { defineCustomThemes } from '../Editor/editorThemes';
@@ -110,6 +112,21 @@ const SQL_KEYWORD_SUGGESTIONS: readonly string[] = [
  */
 const SAFE_BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+export type SqlEditorRunMode = 'statement' | 'selection' | 'all';
+
+/** `value` is the model text at the gesture, which can be ahead of the last render. */
+export interface SqlRunContext {
+  offset: number;
+  selectedText: string | null;
+  value?: string;
+}
+
+export interface SqlEditorCursor {
+  offset: number;
+  selectionStart: number;
+  selectionEnd: number;
+}
+
 export interface SqlMonacoEditorProps {
   /**
    * Controlled buffer text. The parent owns this; the editor reconciles
@@ -119,12 +136,15 @@ export interface SqlMonacoEditorProps {
   value: string;
   /** Fired on every user edit with the full buffer text. */
   onChange: (value: string) => void;
-  /**
-   * Cmd/Ctrl+Enter. `selectedText` is the current non-empty
-   * selection text, or `null` when there is no selection — the parent
-   * decides whether to run the selection or the full buffer.
-   */
-  onRunShortcut: (opts: { selectedText: string | null }) => void;
+  /** A run gesture; `offset` is the cursor (or the gutter statement's start). */
+  onRunCommand: (mode: SqlEditorRunMode, context: SqlRunContext) => void;
+  onCancelShortcut: () => void;
+  onSaveShortcut: (as: boolean) => void;
+  /** Cursor and selection offsets, on every cursor move. */
+  onCursorChange: (cursor: SqlEditorCursor) => void;
+  /** Statements of `value`; each gets a gutter Run button on its first line. */
+  statements: ReadonlyArray<SqlStatement>;
+  runGlyphLabel: string;
   /** Shift+Alt+F — pretty-print the SQL. */
   onFormatShortcut: () => void;
   /**
@@ -146,8 +166,13 @@ export interface SqlMonacoEditorProps {
 export function SqlMonacoEditor({
   value,
   onChange,
-  onRunShortcut,
+  onRunCommand,
+  onCancelShortcut,
+  onSaveShortcut,
+  onCursorChange,
   onFormatShortcut,
+  statements,
+  runGlyphLabel,
   tables,
   ariaLabel,
 }: SqlMonacoEditorProps) {
@@ -175,16 +200,40 @@ export function SqlMonacoEditor({
     tablesRef.current = tables;
   }, [tables]);
 
-  // Latest-callback refs so the keybinding commands (also registered once
-  // in onMount) always call the current handlers without re-mounting.
-  const onRunShortcutRef = useRef(onRunShortcut);
-  const onFormatShortcutRef = useRef(onFormatShortcut);
+  // Latest-value refs so the commands registered once in onMount call the current handlers.
+  const handlersRef = useRef({ onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut });
   useEffect(() => {
-    onRunShortcutRef.current = onRunShortcut;
-  }, [onRunShortcut]);
+    handlersRef.current = { onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut };
+  }, [onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut]);
+  // Text replaced from outside (Format, Edit in editor) keeps Monaco's old horizontal scroll,
+  // which can hide every short line; start those at the left edge.
+  const typedValueRef = useRef(value);
   useEffect(() => {
-    onFormatShortcutRef.current = onFormatShortcut;
-  }, [onFormatShortcut]);
+    if (value === typedValueRef.current) return;
+    typedValueRef.current = value;
+    editorRef.current?.setScrollLeft(0);
+  }, [value]);
+  const statementsRef = useRef(statements);
+  const glyphsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+
+  const paintRunGlyphs = useCallback(() => {
+    const monaco = monacoRef.current;
+    if (!monaco || !glyphsRef.current) return;
+    glyphsRef.current.set(
+      statementsRef.current.map((statement) => ({
+        range: new monaco.Range(statement.startLine, 1, statement.startLine, 1),
+        options: {
+          glyphMarginClassName: 'lingua-sql-run-glyph',
+          glyphMarginHoverMessage: { value: runGlyphLabel },
+        },
+      }))
+    );
+  }, [runGlyphLabel]);
+  useEffect(() => {
+    statementsRef.current = statements;
+    paintRunGlyphs();
+  }, [statements, paintRunGlyphs]);
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
     editorRef.current = editor;
@@ -193,24 +242,57 @@ export function SqlMonacoEditor({
 
     const disposables: { dispose: () => void }[] = [];
 
-    // Cmd/Ctrl+Enter runs the selection (when non-empty) or the
-    // full buffer. addCommand returns a binding id string, not a
-    // disposable, so the command is torn down with the editor itself.
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+    monacoRef.current = monaco;
+    glyphsRef.current = editor.createDecorationsCollection();
+    paintRunGlyphs();
+    const cursorOffset = () => {
+      const model = editor.getModel();
+      const position = editor.getPosition();
+      return model && position ? model.getOffsetAt(position) : 0;
+    };
+    const selectedText = () => {
       const selection = editor.getSelection();
       const model = editor.getModel();
-      const raw =
-        selection && model ? model.getValueInRange(selection) : '';
-      const selectedText = raw.trim().length > 0 ? raw : null;
-      onRunShortcutRef.current({ selectedText });
-    });
+      const raw = selection && model ? model.getValueInRange(selection) : '';
+      return raw.trim().length > 0 ? raw : null;
+    };
+    const run = (mode: SqlEditorRunMode) =>
+      handlersRef.current.onRunCommand(mode, {
+        offset: cursorOffset(),
+        selectedText: selectedText(),
+        value: editor.getModel()?.getValue(),
+      });
 
-    // Shift+Alt+F formats.
-    editor.addCommand(
-      monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
-      () => {
-        onFormatShortcutRef.current();
-      }
+    // addCommand returns a binding id, not a disposable; the commands go with the editor.
+    const { KeyMod, KeyCode } = monaco;
+    editor.addCommand(KeyMod.CtrlCmd | KeyCode.Enter, () => run('statement'));
+    editor.addCommand(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Enter, () => run('selection'));
+    editor.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter, () => run('all'));
+    editor.addCommand(KeyMod.CtrlCmd | KeyCode.Period, () => handlersRef.current.onCancelShortcut());
+    editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyS, () => handlersRef.current.onSaveShortcut(false));
+    editor.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyS, () =>
+      handlersRef.current.onSaveShortcut(true)
+    );
+    editor.addCommand(KeyMod.Shift | KeyMod.Alt | KeyCode.KeyF, () =>
+      handlersRef.current.onFormatShortcut()
+    );
+
+    disposables.push(
+      editor.onDidChangeCursorSelection((event) => {
+        const model = editor.getModel();
+        if (!model) return;
+        handlersRef.current.onCursorChange({
+          offset: model.getOffsetAt(event.selection.getPosition()),
+          selectionStart: model.getOffsetAt(event.selection.getStartPosition()),
+          selectionEnd: model.getOffsetAt(event.selection.getEndPosition()),
+        });
+      }),
+      editor.onMouseDown((event) => {
+        if (event.target.type !== monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) return;
+        const line = event.target.position?.lineNumber;
+        const statement = statementsRef.current.find((candidate) => candidate.startLine === line);
+        if (statement) handlersRef.current.onRunCommand('statement', { offset: statement.start, selectedText: null });
+      })
     );
 
     // `sql` completion provider: live table names + common
@@ -301,8 +383,9 @@ export function SqlMonacoEditor({
         disposable.dispose();
       }
       editorRef.current = null;
+      glyphsRef.current = null;
     });
-  }, []);
+  }, [paintRunGlyphs]);
 
   return (
     <div className="min-h-0 flex-1" data-testid="sql-query-editor-monaco">
@@ -313,10 +396,12 @@ export function SqlMonacoEditor({
         theme={editorTheme}
         beforeMount={handleBeforeMount}
         onChange={(next) => {
-          if (next !== undefined) onChange(next);
+          if (next === undefined) return;
+          typedValueRef.current = next;
+          onChange(next);
         }}
         onMount={handleMount}
-        options={getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel })}
+        options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }), glyphMargin: true }}
       />
     </div>
   );

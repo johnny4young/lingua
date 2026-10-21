@@ -158,4 +158,22 @@ describe('ConfirmDialog', () => {
     expect(screen.getByTestId('my-confirm-confirm')).toBeTruthy();
     expect(screen.getByTestId('my-confirm-cancel')).toBeTruthy();
   });
+
+  it('offers an alternative between Cancel and confirm without confirming', () => {
+    const onConfirm = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ConfirmDialog
+        {...baseProps}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+        alternative={{ label: 'Save', onSelect }}
+      />
+    );
+    const labels = screen.getAllByRole('button').map((button) => button.textContent);
+    expect(labels).toEqual(['Cancel', 'Save', 'Delete']);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

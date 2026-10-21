@@ -82,21 +82,27 @@ test('Local data clears the audited stores after one confirmation', async ({ pag
   await gotoApp(page);
   await page.evaluate(() => {
     window.localStorage.setItem('lingua-snippets', JSON.stringify({ state: { snippets: [] } }));
+    window.localStorage.setItem(
+      'lingua-workspace-sql-state',
+      JSON.stringify({ state: { queries: [], history: [] }, version: 1 })
+    );
   });
   await openSettings(page);
   await openSettingsTab(page, 'privacy');
 
   await page.getByRole('button', { name: 'Local data', exact: true }).click();
-  await expect(page.getByTestId('privacy-local-data-total')).toContainText('5 stores');
+  await expect(page.getByTestId('privacy-local-data-total')).toContainText('6 stores');
   await expect(page.getByTestId('privacy-local-data-reveal')).toHaveCount(0);
 
   await page.getByTestId('privacy-local-data-clear-all').click();
   const dialog = page.getByTestId('privacy-clear-all-modal');
   await expect(dialog).toContainText('lingua-snippets');
+  await expect(dialog).toContainText('lingua-workspace-sql-state');
   await expect(dialog).toContainText('notebooks and the open session stay');
   await page.getByTestId('privacy-clear-all-confirm').click();
   await expect(dialog).toHaveCount(0);
 
   expect(await page.evaluate(() => window.localStorage.getItem('lingua-snippets'))).toBeNull();
+  expect(await page.evaluate(() => window.localStorage.getItem('lingua-workspace-sql-state'))).toBeNull();
   await expect(page.getByTestId('privacy-local-stores-size-lingua-snippets')).toHaveText('0 B');
 });

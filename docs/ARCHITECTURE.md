@@ -286,6 +286,28 @@ evict its own generation, never a newer one. Failed best-effort checkpoints do
 not prevent termination; failed generations remain retryable without changing
 the public SQL client API or persisted workspace data.
 
+### SQL runs, cancel and the row window
+
+`useSqlRunner` resolves a run into statements with the shared splitter
+(`src/shared/sqlStatements.ts`) and hands them to `executeSqlScript`, which
+opens one connection, runs them in order and stops at the first one that does
+not return a result. A single statement streams through
+`connection.send(sql, true)`: `readResultStream` reads Arrow batches until the
+`MAX_RESULT_ROWS` window fills, peeks one batch more, and calls
+`cancelSent()` when there is more, so the total is a lower bound
+(`rowCountIsLowerBound`). Cancel is cooperative, and a timeout takes the
+same path: the abort signal or the timer calls `cancelSent()` and waits
+`CANCEL_SETTLE_MS` for the statement to settle;
+past that the outcome carries `stillRunning`, the client skips the
+checkpoint and does not await the close (a busy worker answers neither), and
+the panel offers `restartDuckDbEngine`, which terminates the worker without a
+checkpoint. Explain uses `EXPLAIN (ANALYZE, FORMAT JSON)` only when DuckDB's
+`json_serialize_sql` sees exactly one SELECT and `isReadOnlySqlStatement`
+holds, since ANALYZE executes the statement. The splitter follows DuckDB's
+lexer (`$` and non-ASCII continue identifiers, `--` ends at `\r` or `\n`) so
+a statement cannot hide behind a quote DuckDB does not see. History masks
+credential-bearing string literals with `redactSqlSecrets` before keeping SQL.
+
 ### UTF-8 text budgets
 
 `shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for

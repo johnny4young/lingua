@@ -22,6 +22,7 @@ const LINGUA_LOCAL_STORE_KEYS = [
   'lingua-snippets',
   'lingua-utility-state',
   'lingua-trust-events',
+  'lingua-workspace-sql-state',
 ] as const;
 
 export type LinguaLocalStoreKey = (typeof LINGUA_LOCAL_STORE_KEYS)[number];

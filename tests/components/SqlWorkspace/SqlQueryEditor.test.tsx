@@ -3,134 +3,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlQueryEditor } from '../../../src/renderer/components/SqlWorkspace/SqlQueryEditor';
 import { getSqlQueryAutoSaveDebounceMs } from '../../../src/renderer/components/SqlWorkspace/sqlQueryEditorTiming';
 import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
+import { emitCommand } from '../../../src/renderer/stores/commandBus';
+import {
+  moveSqlCursor,
+  pressSqlChord,
+  resetSqlMonacoHarness,
+  sqlMonacoHarness,
+} from '../../__fixtures__/sqlMonacoMock';
 
-// ---------------------------------------------------------------------------
-// Monaco mock
-// ---------------------------------------------------------------------------
-//
-// The editor swapped the textarea for `<SqlMonacoEditor>`, which renders
-// `@monaco-editor/react`'s `<MonacoEditor>`. The mock renders a stand-in
-// `<textarea>` (keeping the original `sql-query-editor-textarea` testid so the
-// auto-save / insert / byte-cap assertions are unchanged) wired to `onChange`,
-// and invokes `onMount` with a fake editor + monaco exposing the surface the
-// host uses: addCommand, getSelection, getModel().getValueInRange,
-// onDidDispose, and the completion-provider registry.
-//
-// `monacoHarness` captures the registered keybinding callbacks + the configured
-// selection so a test can fire Cmd+Enter and assert the selection-vs-
-// full-buffer run.
-
-interface FakeKeybindingCommands {
-  run?: () => void;
-  format?: () => void;
-}
-
-const monacoHarness: {
-  commands: FakeKeybindingCommands;
-  selectedRangeText: string | null;
-  completionProvider:
-    | {
-        provideCompletionItems: (
-          model: unknown,
-          position: unknown
-        ) => {
-          suggestions: Array<{ label: string; kind: number; insertText: string }>;
-        };
-      }
-    | null;
-  disposeCount: number;
-} = {
-  commands: {},
-  selectedRangeText: null,
-  completionProvider: null,
-  disposeCount: 0,
-};
-
-// Mirror the Monaco KeyMod / KeyCode bit layout closely enough that the two
-// distinct chords (CtrlCmd|Enter vs Shift|Alt|KeyF) map to different keybinding
-// ids so the host's two addCommand calls are told apart.
-const FAKE_KEYMOD = { CtrlCmd: 1 << 11, Shift: 1 << 10, Alt: 1 << 9 };
-const FAKE_KEYCODE = { Enter: 3, KeyF: 36 };
-const RUN_CHORD = FAKE_KEYMOD.CtrlCmd | FAKE_KEYCODE.Enter;
-const FORMAT_CHORD = FAKE_KEYMOD.Shift | FAKE_KEYMOD.Alt | FAKE_KEYCODE.KeyF;
-
-vi.mock('@monaco-editor/react', () => {
-  const MonacoEditor = ({
-    value,
-    onChange,
-    onMount,
-    options,
-  }: {
-    value: string;
-    onChange?: (value: string | undefined) => void;
-    onMount?: (editor: unknown, monaco: unknown) => void;
-    options?: { ariaLabel?: string };
-  }) => {
-    let disposeCb: (() => void) | null = null;
-    const editor = {
-      getSelection: () =>
-        monacoHarness.selectedRangeText !== null ? { __selection: true } : null,
-      getModel: () => ({
-        getValueInRange: () => monacoHarness.selectedRangeText ?? '',
-      }),
-      addCommand: (chord: number, callback: () => void) => {
-        if (chord === RUN_CHORD) monacoHarness.commands.run = callback;
-        else if (chord === FORMAT_CHORD) monacoHarness.commands.format = callback;
-      },
-      onDidDispose: (cb: () => void) => {
-        disposeCb = cb;
-      },
-    };
-    const monaco = {
-      KeyMod: FAKE_KEYMOD,
-      KeyCode: FAKE_KEYCODE,
-      languages: {
-        CompletionItemKind: { Struct: 5, Keyword: 17 },
-        registerCompletionItemProvider: (
-          _language: string,
-          provider: (typeof monacoHarness)['completionProvider']
-        ) => {
-          monacoHarness.completionProvider = provider;
-          return {
-            dispose: () => {
-              monacoHarness.disposeCount += 1;
-            },
-          };
-        },
-      },
-    };
-    onMount?.(editor, monaco);
-    // Surface a dispose hook the React unmount can trigger via cleanup. The
-    // stand-in textarea unmount alone won't call Monaco's onDidDispose, so we
-    // expose a no-op effect-free node — disposal is asserted only where the
-    // host explicitly tears down (the dispose path is exercised via the
-    // SqlMonacoEditor unit test).
-    void disposeCb;
-    return (
-      <textarea
-        data-testid="sql-query-editor-textarea"
-        aria-label={options?.ariaLabel}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-      />
-    );
-  };
-  // `monaco.ts` (pulled in transitively by SqlMonacoEditor → configureMonaco)
-  // calls `loader.config({ monaco })`, so the mock must expose a no-op loader.
-  return { default: MonacoEditor, loader: { config: () => {} } };
-});
-
-function resetHarness() {
-  monacoHarness.commands = {};
-  monacoHarness.selectedRangeText = null;
-  monacoHarness.completionProvider = null;
-  monacoHarness.disposeCount = 0;
-}
+vi.mock('@monaco-editor/react', async () => (await import('../../__fixtures__/sqlMonacoMock')).sqlMonacoModule);
 
 describe('SqlQueryEditor', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    resetHarness();
+    resetSqlMonacoHarness();
   });
 
   afterEach(() => {
@@ -149,6 +35,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -178,6 +66,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -208,6 +98,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
         insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 1 }}
@@ -223,6 +115,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
         insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 2 }}
@@ -251,6 +145,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={vi.fn()}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
         insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 0 }}
@@ -261,6 +157,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={vi.fn()}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
         insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 1 }}
@@ -290,6 +188,8 @@ describe('SqlQueryEditor', () => {
         query={firstQuery}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -304,6 +204,8 @@ describe('SqlQueryEditor', () => {
         query={secondQuery}
         onPatch={onPatch}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -324,32 +226,6 @@ describe('SqlQueryEditor', () => {
     expect(onPatch.mock.calls.some(([id]) => id === 'q2')).toBe(false);
   });
 
-  it('runs the full query via the toolbar Run button', () => {
-    const query = createBlankSqlQuery({
-      id: 'q1',
-      query: 'SELECT 1; SELECT 2;',
-      now: '2026-05-26T00:00:00.000Z',
-    });
-    const onRun = vi.fn();
-
-    render(
-      <SqlQueryEditor
-        query={query}
-        onPatch={vi.fn()}
-        onRun={onRun}
-        isExecuting={false}
-        tables={[]}
-      />
-    );
-
-    fireEvent.click(screen.getByTestId('sql-query-editor-run'));
-
-    expect(onRun).toHaveBeenCalledTimes(1);
-    expect(onRun.mock.calls[0]?.[0]).toMatchObject({
-      query: 'SELECT 1; SELECT 2;',
-    });
-  });
-
   it('formats the buffer and updates the editor value', async () => {
     vi.useRealTimers();
     const query = createBlankSqlQuery({
@@ -363,6 +239,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={vi.fn()}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -396,6 +274,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={vi.fn()}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[]}
       />
@@ -410,101 +290,101 @@ describe('SqlQueryEditor', () => {
     ).toBe(true);
   });
 
-  it('Cmd+Enter runs the selection when the editor reports a non-empty selection', () => {
-    const query = createBlankSqlQuery({
-      id: 'q1',
-      query: 'SELECT 1;\nSELECT 2;',
-      now: '2026-05-26T00:00:00.000Z',
-    });
-    const onRun = vi.fn();
-    const onPatch = vi.fn();
+  const renderEditor = (sql: string, props: Partial<Parameters<typeof SqlQueryEditor>[0]> = {}) => {
+    const handlers = { onRun: vi.fn(), onPatch: vi.fn(), onCancel: vi.fn(), onSave: vi.fn() };
+    const query = createBlankSqlQuery({ id: 'q1', query: sql, now: '2026-05-26T00:00:00.000Z' });
+    render(<SqlQueryEditor query={query} isExecuting={false} tables={[]} {...handlers} {...props} />);
+    return handlers;
+  };
+  const SCRIPT = 'SELECT 1;\nSELECT 2;';
 
-    render(
-      <SqlQueryEditor
-        query={query}
-        onPatch={onPatch}
-        onRun={onRun}
-        isExecuting={false}
-        tables={[]}
-      />
-    );
-
-    // Simulate the user selecting only the second statement.
-    monacoHarness.selectedRangeText = 'SELECT 2;';
+  it('runs the statement under the cursor from the toolbar, Mod+Enter and the command bar', () => {
+    const { onRun } = renderEditor(SCRIPT);
+    fireEvent.click(screen.getByTestId('sql-query-editor-run'));
+    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ mode: 'statement', statements: ['SELECT 1'] });
+    expect(onRun.mock.calls[0]?.[0].query.query).toBe(SCRIPT);
+    act(() => moveSqlCursor(SCRIPT.indexOf('SELECT 2') + 3));
+    act(() => pressSqlChord('statement'));
+    expect(onRun.mock.calls[1]?.[0]).toMatchObject({ mode: 'statement', statements: ['SELECT 2'] });
     act(() => {
-      monacoHarness.commands.run?.();
+      emitCommand('workspace.run', { kind: 'sql' });
     });
-
-    expect(onRun).toHaveBeenCalledTimes(1);
-    // The RUN uses the selection…
-    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ query: 'SELECT 2;' });
+    expect(onRun.mock.calls[2]?.[0]).toMatchObject({ statements: ['SELECT 2'] });
   });
 
-  it('Cmd+Enter runs the full query when there is no selection, and the auto-save still persists the full text', () => {
-    const query = createBlankSqlQuery({
-      id: 'q1',
-      query: 'SELECT 1;\nSELECT 2;',
-      now: '2026-05-26T00:00:00.000Z',
-    });
-    const onRun = vi.fn();
-    const onPatch = vi.fn();
-
-    render(
-      <SqlQueryEditor
-        query={query}
-        onPatch={onPatch}
-        onRun={onRun}
-        isExecuting={false}
-        tables={[]}
-      />
-    );
-
-    // No selection → full buffer runs.
-    monacoHarness.selectedRangeText = null;
-    act(() => {
-      monacoHarness.commands.run?.();
-    });
-
-    expect(onRun).toHaveBeenCalledTimes(1);
-    expect(onRun.mock.calls[0]?.[0]).toMatchObject({
-      query: 'SELECT 1;\nSELECT 2;',
-    });
+  it('shows how many statements there are and which one holds the cursor', () => {
+    renderEditor(SCRIPT);
+    expect(screen.getByTestId('sql-query-editor-statements').textContent).toContain('cursor in 1');
+    act(() => moveSqlCursor(SCRIPT.length));
+    expect(screen.getByTestId('sql-query-editor-statements').textContent).toMatch(/2 statements.*cursor in 2/);
   });
 
-  it('the auto-save persists the FULL buffer even on a selection run', () => {
-    const query = createBlankSqlQuery({
-      id: 'q1',
-      query: 'SELECT 1;',
-      now: '2026-05-26T00:00:00.000Z',
-    });
-    const onRun = vi.fn();
-    const onPatch = vi.fn();
+  it('runs every statement with Mod+Shift+Enter and from the menu', () => {
+    const { onRun } = renderEditor(SCRIPT);
+    act(() => pressSqlChord('all'));
+    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ mode: 'all', statements: ['SELECT 1', 'SELECT 2'] });
+    fireEvent.click(screen.getByTestId('sql-query-editor-run-menu'));
+    fireEvent.click(screen.getByTestId('sql-run-menu-explain'));
+    expect(onRun.mock.calls[1]?.[0]).toMatchObject({ mode: 'explain', statements: ['SELECT 1'] });
+  });
 
-    render(
-      <SqlQueryEditor
-        query={query}
-        onPatch={onPatch}
-        onRun={onRun}
-        isExecuting={false}
-        tables={[]}
-      />
-    );
+  it('runs only the selection, and keeps Run selection disabled without one', () => {
+    const { onRun } = renderEditor(SCRIPT);
+    fireEvent.click(screen.getByTestId('sql-query-editor-run-menu'));
+    expect((screen.getByTestId('sql-run-menu-selection') as HTMLButtonElement).disabled).toBe(true);
+    act(() => moveSqlCursor(SCRIPT.length, { start: SCRIPT.indexOf('SELECT 2'), end: SCRIPT.length }));
+    expect((screen.getByTestId('sql-run-menu-selection') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId('sql-run-menu-selection'));
+    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ mode: 'selection', statements: ['SELECT 2'] });
+    sqlMonacoHarness.selectedRangeText = 'SELECT 1;';
+    act(() => pressSqlChord('selection'));
+    expect(onRun.mock.calls[1]?.[0]).toMatchObject({ statements: ['SELECT 1'] });
+  });
 
-    // Type a longer buffer, then run only a selection of it.
+  it('auto-saves the FULL buffer even when only a selection runs', () => {
+    const { onRun, onPatch } = renderEditor('SELECT 1;');
     fireEvent.change(screen.getByTestId('sql-query-editor-textarea'), {
       target: { value: 'SELECT 1;\nSELECT 99;' },
     });
-    monacoHarness.selectedRangeText = 'SELECT 99;';
-    act(() => {
-      monacoHarness.commands.run?.();
-    });
+    sqlMonacoHarness.selectedRangeText = 'SELECT 99;';
+    act(() => pressSqlChord('selection'));
+    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ statements: ['SELECT 99'] });
+    expect(onPatch).toHaveBeenLastCalledWith('q1', { query: 'SELECT 1;\nSELECT 99;' });
+  });
 
-    // The selection runs…
-    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ query: 'SELECT 99;' });
-    // …but the flushed auto-save persisted the FULL text, never the selection.
-    expect(onPatch).toHaveBeenLastCalledWith('q1', {
-      query: 'SELECT 1;\nSELECT 99;',
+  it('runs the text Monaco holds when React has not caught up yet', () => {
+    const { onRun, onPatch } = renderEditor('SELECT old;');
+    sqlMonacoHarness.modelValue = 'SELECT new_1;\nSELECT new_2;';
+    act(() => pressSqlChord('all'));
+    expect(onRun.mock.calls[0]?.[0]).toMatchObject({ statements: ['SELECT new_1', 'SELECT new_2'] });
+    expect(onPatch).toHaveBeenLastCalledWith('q1', { query: 'SELECT new_1;\nSELECT new_2;' });
+  });
+
+  it('turns Run into Cancel while the query runs, and Mod+. cancels', () => {
+    const { onCancel, onRun } = renderEditor(SCRIPT, { isExecuting: true });
+    expect(screen.queryByTestId('sql-query-editor-run')).toBeNull();
+    fireEvent.click(screen.getByTestId('sql-query-editor-cancel'));
+    act(() => pressSqlChord('cancel'));
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    act(() => pressSqlChord('statement'));
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it('waits while another query runs', () => {
+    const { onRun } = renderEditor(SCRIPT, { isBusy: true });
+    expect((screen.getByTestId('sql-query-editor-run') as HTMLButtonElement).disabled).toBe(true);
+    act(() => pressSqlChord('statement'));
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it('routes Mod+S and Mod+Shift+S from the editor and the app to onSave', () => {
+    const { onSave } = renderEditor(SCRIPT);
+    act(() => pressSqlChord('save'));
+    act(() => pressSqlChord('saveAs'));
+    act(() => {
+      emitCommand('workspace.save', { kind: 'sql', as: true });
     });
+    expect(onSave.mock.calls).toEqual([[false], [true], [true]]);
   });
 
   it('registers a sql completion provider that returns the table names', () => {
@@ -518,6 +398,8 @@ describe('SqlQueryEditor', () => {
         query={query}
         onPatch={vi.fn()}
         onRun={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
         isExecuting={false}
         tables={[
           { name: 'orders' },
@@ -527,8 +409,8 @@ describe('SqlQueryEditor', () => {
       />
     );
 
-    expect(monacoHarness.completionProvider).not.toBeNull();
-    const result = monacoHarness.completionProvider?.provideCompletionItems(
+    expect(sqlMonacoHarness.completionProvider).not.toBeNull();
+    const result = sqlMonacoHarness.completionProvider?.provideCompletionItems(
       { getWordUntilPosition: () => ({ startColumn: 1, endColumn: 1 }) },
       { lineNumber: 1, column: 1 }
     );

@@ -3,6 +3,7 @@ import type { Language } from '../types/language';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
 import { isWorkerRunnerLanguage } from '../../shared/languageFamilies';
+import { sqlQueryTabCount } from './sqlQueryTabCount';
 
 /**
  * Pure tab helpers extracted verbatim from `editorStore.ts`.
@@ -209,11 +210,13 @@ export function isWorkspaceTab(tab: Pick<FileTab, 'kind'>): boolean {
 
 /**
  * Count only the tabs that consume the Free tab budget — workspace
- * tabs (SQL / HTTP / Utilities) are exempt. Callers add the proposed new tab
- * themselves before comparing against `withinTabBudget`.
+ * tabs (SQL / HTTP / Utilities) are exempt, but the query tabs open inside
+ * an open SQL tab count. Callers add the proposed new tab themselves
+ * before comparing against `withinTabBudget`.
  */
 export function budgetedTabCount(tabs: ReadonlyArray<FileTab>): number {
-  return tabs.reduce((acc, tab) => (isWorkspaceTab(tab) ? acc : acc + 1), 0);
+  const documents = tabs.reduce((acc, tab) => (isWorkspaceTab(tab) ? acc : acc + 1), 0);
+  return tabs.some((tab) => tab.kind === 'sql') ? documents + sqlQueryTabCount() : documents;
 }
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {

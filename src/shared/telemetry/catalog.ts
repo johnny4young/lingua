@@ -445,10 +445,10 @@ export const TELEMETRY_EVENTS = [
   // bucketed counts. Mirrored on update-server with parity test.
   'import.postman_variables_resolved',
   // SQL workspace query execution. Fires
-  // once per Run / Cmd+Enter against the DuckDB-WASM engine.
+  // once per statement a Run executes against the DuckDB-WASM engine.
   // Closed-enum `{ status, rowCountBucket, durationBucket }` where
   // `status` ∈ SQL_QUERY_STATUSES_SET (`'success' / 'sql-error' /
-  // 'timeout' / 'too-large' / 'engine-load-failed'`), `rowCountBucket`
+  // 'timeout' / 'too-large' / 'engine-load-failed' / 'cancelled'`), `rowCountBucket`
   // reuses DEPENDENCY_COUNT_BUCKETS_SET (`'0' / '1' / '2-5' / '6-10' /
   // '>10'`), and `durationBucket` ∈ SQL_DURATION_BUCKETS_SET
   // (`'<10ms' / '<100ms' / '<1s' / '<5s' / '<30s' / '>=30s'`). NO query

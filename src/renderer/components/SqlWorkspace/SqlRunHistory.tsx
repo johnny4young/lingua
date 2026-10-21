@@ -13,34 +13,11 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import type {
-  SqlQueryStatus,
-  SqlResponseV1,
-} from '../../../shared/sqlWorkspace';
+import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { cn } from '../../utils/cn';
-import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
-
-function toneForStatus(status: SqlQueryStatus): StatusBadgeTone {
-  if (status === 'success') return 'success';
-  if (status === 'sql-error') return 'error';
-  if (status === 'timeout' || status === 'too-large') return 'warning';
-  return 'neutral';
-}
-
-/**
- * Format an ISO timestamp into a short `HH:MM:SS` clock for the
- * history row. Locale-aware via `toLocaleTimeString`; falls back to
- * the raw ISO string if parsing fails.
- */
-function formatClock(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
+import { StatusBadge } from '../ui/StatusBadge';
+import { toneForSqlStatus } from './sqlStatusTone';
+import { formatClock } from './sqlResultFormatters';
 
 export interface SqlRunHistoryProps {
   /** Per-query response LRU, newest-first. */
@@ -77,7 +54,7 @@ export function SqlRunHistory({
         aria-label={t('sqlWorkspace.history.ariaLabel')}
       >
         {responses.map((entry, index) => {
-          const tone = toneForStatus(entry.status);
+          const tone = toneForSqlStatus(entry.status);
           const isActive = index === selectedIndex;
           const hasRows =
             entry.status === 'success' || entry.status === 'too-large';

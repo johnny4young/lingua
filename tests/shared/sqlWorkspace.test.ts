@@ -55,8 +55,9 @@ function validResponse(): SqlResponseV1 {
 }
 
 describe('SQL_QUERY_STATUSES', () => {
-  it('is a closed five-status enum', () => {
+  it('is a closed six-status enum', () => {
     expect([...SQL_QUERY_STATUSES].sort()).toEqual([
+      'cancelled',
       'engine-load-failed',
       'sql-error',
       'success',

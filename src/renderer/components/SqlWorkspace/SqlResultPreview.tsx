@@ -15,10 +15,11 @@ import {
   currentShortcutDisplayPlatform,
   formatShortcutCombo,
 } from '../../data/keyboardShortcuts';
-import type { SqlQueryStatus, SqlResponseV1 } from '../../../shared/sqlWorkspace';
+import type { SqlResponseV1 } from '../../../shared/sqlWorkspace';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader } from '../ui/ResultHeader';
-import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
+import { StatusBadge } from '../ui/StatusBadge';
+import { toneForSqlStatus } from './sqlStatusTone';
 import { SqlRunHistory } from './SqlRunHistory';
 import { SqlColumnProfilePanel } from './SqlColumnProfilePanel';
 import { ErrorBand, JsonView, ResultTable } from './SqlResultPreviewParts';
@@ -62,14 +63,6 @@ export interface SqlResultPreviewProps {
 }
 
 type ResultBodyTab = 'table' | 'json' | 'profile';
-
-/** DuckDB status → StatusBadge tone. */
-function toneForStatus(status: SqlQueryStatus): StatusBadgeTone {
-  if (status === 'success') return 'success';
-  if (status === 'sql-error') return 'error';
-  if (status === 'timeout' || status === 'too-large') return 'warning';
-  return 'neutral';
-}
 
 const jsonReplacer = (_key: string, value: unknown) =>
   typeof value === 'bigint' ? value.toString() : value;
@@ -231,11 +224,13 @@ export function SqlResultPreview({
     );
   }
 
-  const tone = toneForStatus(response.status);
+  const tone = toneForSqlStatus(response.status);
   const hasResultBody = response.status === 'success' || response.status === 'too-large';
   const meta = hasResultBody
     ? [
-        t('sqlWorkspace.response.rowCount', { count: response.rowCount }),
+        t(response.rowCountIsLowerBound ? 'sqlWorkspace.response.rowCountAtLeast' : 'sqlWorkspace.response.rowCount', {
+          count: response.rowCount,
+        }),
         `${Math.max(0, Math.round(response.durationMs))} ms`,
       ].join(' · ')
     : undefined;
@@ -327,6 +322,16 @@ export function SqlResultPreview({
         />
       ) : null}
 
+      {response.status === 'cancelled' ? (
+        <div
+          role="status"
+          data-testid="sql-result-preview-cancelled"
+          className="border-b border-border-subtle bg-bg-panel-alt px-3 py-2 text-caption text-fg-muted"
+        >
+          {t('sqlWorkspace.response.cancelledBand')}
+        </div>
+      ) : null}
+
       {response.tooLarge && activeTab !== 'profile' ? (
         <div
           role="alert"
@@ -337,10 +342,12 @@ export function SqlResultPreview({
             <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-semibold">
-                {t('sqlWorkspace.response.tooLargeBand', {
-                  shown: displayRows.length,
-                  total: response.rowCount,
-                })}
+                {t(
+                  response.rowCountIsLowerBound
+                    ? 'sqlWorkspace.response.tooLargeBandAtLeast'
+                    : 'sqlWorkspace.response.tooLargeBand',
+                  { shown: displayRows.length, total: response.rowCount }
+                )}
               </p>
               <p className="mt-0.5 text-eyebrow text-warning-fg/80">
                 {t('sqlWorkspace.response.tooLargeHint')}
@@ -482,6 +489,7 @@ export function SqlResultPreview({
           columns={response.columns}
           rows={filteredSortedRows}
           totalRowCount={response.rowCount}
+          totalIsLowerBound={response.rowCountIsLowerBound === true}
           handoffs={handoffs}
           onClose={() => setExportOpen(false)}
         />

@@ -46,6 +46,7 @@ export const SQL_QUERY_STATUSES = [
   'timeout',
   'too-large',
   'engine-load-failed',
+  'cancelled',
 ] as const;
 export type SqlQueryStatus = (typeof SQL_QUERY_STATUSES)[number];
 
@@ -389,10 +390,17 @@ export interface SqlQueryV1 {
   query: string;
   /** Optional per-query timeout override. Capped at `MAX_QUERY_TIMEOUT_MS`. */
   timeoutMs?: number;
+  /** `scratch` for an unsaved scratch (Scratch N); absent for a saved query. */
+  kind?: 'scratch';
+  /** Saved-queries folder; absent means unfiled. */
+  folder?: string;
   /** ISO timestamp (millisecond precision). */
   createdAt: string;
   updatedAt: string;
 }
+
+/** Longest folder name a saved query may carry. */
+export const MAX_SQL_FOLDER_LENGTH = 64;
 
 /**
  * The execution result. Mirrors `HttpResponseV1` shape; the
@@ -414,10 +422,9 @@ export interface SqlResponseV1 {
   /** Column metadata for the result set. Empty for DDL / 0-row results. */
   columns: ReadonlyArray<SqlColumnMetadata>;
   /**
-   * Total row count from DuckDB. Equals `rows.length` for results
-   * under the cap; exceeds it when `tooLarge: true`. The full row
-   * set is NOT in `rows` — DuckDB knows the count even when we
-   * trimmed the preview.
+   * Row count from DuckDB. Equals `rows.length` for results under the
+   * cap; exceeds it when `tooLarge: true`. It is the exact total, or a
+   * lower bound when `rowCountIsLowerBound` is set.
    */
   rowCount: number;
   /** Wall-clock duration from execute call to settle, in ms. */
@@ -425,10 +432,14 @@ export interface SqlResponseV1 {
   /** Set when the result hit `MAX_RESULT_ROWS` or `MAX_RESULT_PREVIEW_BYTES`. */
   tooLarge: boolean;
   /**
-   * Count of statements executed when the user submitted a
-   * multi-statement query (`SELECT 1; SELECT 2;`). DuckDB returns
-   * only the LAST statement's result, but we surface the count so
-   * the UI can render the "N statements executed" badge.
+   * Set when reading stopped at the row window, so `rowCount` is a lower
+   * bound ("≥ N") rather than the exact total.
+   */
+  rowCountIsLowerBound?: boolean;
+  /**
+   * Statements in the piece of SQL that produced this response. The
+   * workspace now runs statements one at a time (1); responses saved
+   * before that may hold several, shown as the "N statements executed" badge.
    */
   statementCount: number;
   /** ISO timestamp the response was recorded. */
@@ -493,12 +504,19 @@ export function parseSqlQuery(value: unknown): SqlQueryV1 | null {
     if (value.timeoutMs <= 0) return null;
     timeoutMs = Math.min(value.timeoutMs, MAX_QUERY_TIMEOUT_MS);
   }
+  // Unknown kinds and malformed folders fall back to a plain saved query.
+  const folder =
+    typeof value.folder === 'string' && value.folder.trim().length > 0
+      ? value.folder.trim().slice(0, MAX_SQL_FOLDER_LENGTH)
+      : undefined;
   return {
     version: 1,
     id: value.id,
     name: value.name,
     query: value.query,
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    ...(value.kind === 'scratch' ? { kind: 'scratch' as const } : {}),
+    ...(folder !== undefined ? { folder } : {}),
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
@@ -552,6 +570,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     return null;
   }
   if (typeof value.tooLarge !== 'boolean') return null;
+  const rowCountIsLowerBound = value.rowCountIsLowerBound === true;
   if (
     typeof value.statementCount !== 'number' ||
     !Number.isFinite(value.statementCount) ||
@@ -573,6 +592,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     rowCount: value.rowCount,
     durationMs: value.durationMs,
     tooLarge: value.tooLarge,
+    ...(rowCountIsLowerBound ? { rowCountIsLowerBound } : {}),
     statementCount: value.statementCount,
     recordedAt: value.recordedAt,
     ...(errorMessage !== undefined ? { errorMessage } : {}),
@@ -588,6 +608,7 @@ export function createBlankSqlQuery(options: {
   name?: string;
   query?: string;
   now?: string;
+  kind?: 'scratch';
 }): SqlQueryV1 {
   const now = options.now ?? new Date().toISOString();
   return {
@@ -595,6 +616,7 @@ export function createBlankSqlQuery(options: {
     id: options.id,
     name: options.name ?? '',
     query: options.query ?? '',
+    ...(options.kind ? { kind: options.kind } : {}),
     createdAt: now,
     updatedAt: now,
   };

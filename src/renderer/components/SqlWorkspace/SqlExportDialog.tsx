@@ -38,6 +38,8 @@ interface SqlExportDialogProps {
   rows: ReadonlyArray<Record<string, unknown>>;
   /** Rows the query produced, which can exceed what was fetched. */
   totalRowCount: number;
+  /** The total is only what DuckDB sent before the row window stopped the result. */
+  totalIsLowerBound?: boolean;
   handoffs: SqlResultHandoffs;
   onClose: () => void;
 }
@@ -59,6 +61,7 @@ export function SqlExportDialog({
   columns,
   rows,
   totalRowCount,
+  totalIsLowerBound = false,
   handoffs,
   onClose,
 }: SqlExportDialogProps) {
@@ -70,9 +73,9 @@ export function SqlExportDialog({
   const [savingTable, setSavingTable] = useState(false);
   const capsuleCombo = useShortcutLabel('run-export-capsule');
 
-  const partial = totalRowCount > rows.length;
+  const partial = totalIsLowerBound || totalRowCount > rows.length;
   const countLabel = partial
-    ? t('sqlWorkspace.export.partialCount', {
+    ? t(totalIsLowerBound ? 'sqlWorkspace.export.partialCountAtLeast' : 'sqlWorkspace.export.partialCount', {
         shown: formatNumber(rows.length, i18n.language),
         total: formatNumber(totalRowCount, i18n.language),
       })

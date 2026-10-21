@@ -47,6 +47,7 @@ import {
   type SqlQueryStatus,
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
+import { splitSqlStatements } from '../../shared/sqlStatements';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.
@@ -63,6 +64,10 @@ export interface DuckDbExecuteOutcome {
   rowCount: number;
   durationMs: number;
   tooLarge: boolean;
+  /** Reading stopped at the row window, so `rowCount` is a lower bound. */
+  rowCountIsLowerBound?: boolean;
+  /** Set on `cancelled` or `timeout`: DuckDB had not stopped within the settle window. */
+  stillRunning?: boolean;
   statementCount: number;
   errorMessage?: string;
 }
@@ -72,6 +77,13 @@ export interface DuckDbExecuteOutcome {
  * lifetime; `close()` on unmount releases the DuckDB connection back
  * to the engine.
  */
+/** A single statement's result, read one Arrow batch at a time. */
+export interface DuckDbResultStream {
+  fields: () => ArrowTableLike['schema']['fields'];
+  /** The next batch, or null once the result is exhausted. */
+  next: () => Promise<ArrowTableLike | null>;
+}
+
 export interface DuckDbConnection {
   query: (sql: string) => Promise<{
     columns: SqlColumnMetadata[];
@@ -79,6 +91,10 @@ export interface DuckDbConnection {
     rowCount: number;
     tooLarge: boolean;
   }>;
+  /** Streams one statement so reading can stop at the row window; absent on engines that cannot. */
+  stream?: (sql: string) => Promise<DuckDbResultStream>;
+  /** Asks DuckDB to stop the streamed query; cooperative, so a long operator may finish first. */
+  cancel?: () => Promise<boolean>;
   close: () => Promise<void>;
 }
 
@@ -571,6 +587,18 @@ async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
             const arrowTable = await connection.query(sql);
             return mapArrowTable(arrowTable);
           },
+          stream: async (sql: string) => {
+            const reader = await connection.send(sql, true);
+            await reader.open();
+            return {
+              fields: () => reader.schema?.fields ?? [],
+              next: async () => {
+                const step = await reader.next();
+                return step.done ? null : (step.value as unknown as ArrowTableLike);
+              },
+            };
+          },
+          cancel: () => connection.cancelSent(),
           close: async () => {
             await connection.close();
           },
@@ -625,16 +653,11 @@ export interface ArrowTableLike {
 }
 
 /**
- * Convert an Arrow Table to the JSON-serialisable preview row set
- * with the row + byte caps applied. Pure function — no side effects.
+ * Collects preview rows under the row and byte caps. `add` returns false once
+ * the window is full, so a streaming reader knows when to stop.
  */
-export function mapArrowTable(table: ArrowTableLike): {
-  columns: SqlColumnMetadata[];
-  rows: Array<Record<string, unknown>>;
-  rowCount: number;
-  tooLarge: boolean;
-} {
-  const columns: SqlColumnMetadata[] = table.schema.fields.map((field) => ({
+function createRowAccumulator(fields: ArrowTableLike['schema']['fields']) {
+  const columns: SqlColumnMetadata[] = fields.map((field) => ({
     name: field.name,
     type: stringifyArrowType(field.type),
   }));
@@ -646,35 +669,114 @@ export function mapArrowTable(table: ArrowTableLike): {
     const scale = decimalScale(column.type);
     return scale === null ? [] : [[column.name, scale] as const];
   });
-  const allRows = table.toArray();
-  const rowCount = allRows.length;
   const rows: Array<Record<string, unknown>> = [];
   let approxBytes = 0;
-  let tooLarge = false;
-  const cap = Math.min(MAX_RESULT_ROWS, allRows.length);
-  for (let i = 0; i < cap; i += 1) {
-    const raw = allRows[i];
-    if (raw === undefined || raw === null) continue;
-    const safeRow = sanitiseRowForJson(raw);
-    for (const [name, scale] of decimals) {
-      const text = formatArrowDecimal(raw[name], scale);
-      if (text !== null) safeRow[name] = text;
-    }
-    for (const [name, format] of temporal) {
-      const cell = safeRow[name];
-      if (typeof cell === 'number') safeRow[name] = format(cell);
-    }
-    const serialised = JSON.stringify(safeRow);
-    const rowBytes = utf8ByteLength(serialised);
-    if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
-      tooLarge = true;
+  let full = false;
+  return {
+    columns,
+    rows,
+    /** Adds rows until the window fills; returns how many it took. */
+    add(batch: Array<Record<string, unknown>>): number {
+      let taken = 0;
+      for (const raw of batch) {
+        if (full) break;
+        if (rows.length >= MAX_RESULT_ROWS) {
+          full = true;
+          break;
+        }
+        taken += 1;
+        if (raw === undefined || raw === null) continue;
+        const safeRow = sanitiseRowForJson(raw);
+        for (const [name, scale] of decimals) {
+          const text = formatArrowDecimal(raw[name], scale);
+          if (text !== null) safeRow[name] = text;
+        }
+        for (const [name, format] of temporal) {
+          const cell = safeRow[name];
+          if (typeof cell === 'number') safeRow[name] = format(cell);
+        }
+        const rowBytes = utf8ByteLength(JSON.stringify(safeRow));
+        if (approxBytes + rowBytes > MAX_RESULT_PREVIEW_BYTES) {
+          full = true;
+          taken -= 1;
+          break;
+        }
+        approxBytes += rowBytes;
+        rows.push(safeRow);
+      }
+      if (rows.length >= MAX_RESULT_ROWS) full = true;
+      return taken;
+    },
+    isFull: () => full,
+  };
+}
+
+/**
+ * Convert an Arrow Table to the JSON-serialisable preview row set
+ * with the row + byte caps applied. Pure function — no side effects.
+ */
+export function mapArrowTable(table: ArrowTableLike): {
+  columns: SqlColumnMetadata[];
+  rows: Array<Record<string, unknown>>;
+  rowCount: number;
+  tooLarge: boolean;
+} {
+  const accumulator = createRowAccumulator(table.schema.fields);
+  const allRows = table.toArray();
+  accumulator.add(allRows);
+  const rowCount = allRows.length;
+  return {
+    columns: accumulator.columns,
+    rows: accumulator.rows,
+    rowCount,
+    tooLarge: accumulator.isFull() && accumulator.rows.length < rowCount,
+  };
+}
+
+/**
+ * Reads a streamed result until it ends or the window fills. On a full
+ * window it cancels the rest, and the row count becomes a lower bound.
+ */
+export async function readResultStream(
+  stream: DuckDbResultStream,
+  cancel?: () => Promise<boolean>
+): Promise<{
+  columns: SqlColumnMetadata[];
+  rows: Array<Record<string, unknown>>;
+  rowCount: number;
+  tooLarge: boolean;
+  rowCountIsLowerBound: boolean;
+}> {
+  let accumulator: ReturnType<typeof createRowAccumulator> | null = null;
+  let seen = 0;
+  let stoppedEarly = false;
+  for (let batch = await stream.next(); batch !== null; batch = await stream.next()) {
+    accumulator ??= createRowAccumulator(batch.schema.fields);
+    const rows = batch.toArray();
+    seen += rows.length;
+    const taken = accumulator.add(rows);
+    if (accumulator.isFull()) {
+      // Rows left in this batch, or any later batch, mean the total is unknown.
+      stoppedEarly = taken < rows.length || (await stream.next().catch(() => true)) !== null;
       break;
     }
-    approxBytes += rowBytes;
-    rows.push(safeRow);
   }
-  if (cap < rowCount) tooLarge = true;
-  return { columns, rows, rowCount, tooLarge };
+  if (stoppedEarly) {
+    try {
+      await cancel?.();
+    } catch {
+      /* the window is already read; a failed cancel only wastes engine time */
+    }
+  }
+  accumulator ??= createRowAccumulator(stream.fields());
+  const rowCount = stoppedEarly ? Math.max(seen, accumulator.rows.length) : seen;
+  return {
+    columns: accumulator.columns,
+    rows: accumulator.rows,
+    rowCount,
+    tooLarge: stoppedEarly || accumulator.rows.length < rowCount,
+    rowCountIsLowerBound: stoppedEarly,
+  };
 }
 
 /**
@@ -799,7 +901,12 @@ function stringifyArrowType(type: { toString(): string }): string {
 export interface ExecuteQueryOptions {
   /** Per-call timeout override. Capped at `MAX_QUERY_TIMEOUT_MS`. */
   timeoutMs?: number;
+  /** Aborting asks DuckDB to stop and resolves `cancelled`. */
+  signal?: AbortSignal;
 }
+
+/** How long a cancelled or timed-out query gets to actually stop before the outcome reports it still running. */
+export const CANCEL_SETTLE_MS = 5_000;
 
 interface QueryTimeoutSentinel {
   readonly __sqlWorkspaceTimeout: true;
@@ -829,30 +936,155 @@ function errorMessageForUser(err: unknown, fallback: string): string {
   return raw;
 }
 
-/**
- * Count the number of statements in a multi-statement query. This is a UX badge,
- * not a SQL parser: it tracks simple single- and double-quoted strings so
- * `';' AS sep` stays one statement, but intentionally ignores comments,
- * PostgreSQL dollar-quoted strings, and dialect-specific escaping.
- */
+/** Statement count for the UX badge and the stream decision, from the shared splitter. */
 export function countSqlStatements(query: string): number {
-  let count = 0;
-  let depthSingle = false;
-  let depthDouble = false;
-  let buffer = '';
-  for (let i = 0; i < query.length; i += 1) {
-    const ch = query[i];
-    if (ch === "'" && !depthDouble) depthSingle = !depthSingle;
-    else if (ch === '"' && !depthSingle) depthDouble = !depthDouble;
-    if (ch === ';' && !depthSingle && !depthDouble) {
-      if (buffer.trim().length > 0) count += 1;
-      buffer = '';
-    } else {
-      buffer += ch;
-    }
+  return splitSqlStatements(query).length;
+}
+
+function emptyOutcome(
+  status: DuckDbExecuteOutcome['status'],
+  start: number,
+  statementCount: number,
+  errorMessage?: string
+): DuckDbExecuteOutcome {
+  return {
+    status,
+    rows: [],
+    columns: [],
+    rowCount: 0,
+    durationMs: Math.round(performance.now() - start),
+    tooLarge: false,
+    statementCount,
+    ...(errorMessage !== undefined ? { errorMessage } : {}),
+  };
+}
+
+async function openConnection(
+  start: number
+): Promise<{ connection: DuckDbConnection } | { failure: DuckDbExecuteOutcome }> {
+  let engine: DuckDbEngineHandle;
+  try {
+    engine = await getDuckDbEngine();
+  } catch (err) {
+    return { failure: emptyOutcome('engine-load-failed', start, 0, errorMessageForUser(err, 'unknown')) };
   }
-  if (buffer.trim().length > 0) count += 1;
-  return count;
+  try {
+    return { connection: await engine.connect() };
+  } catch (err) {
+    return {
+      failure: emptyOutcome('engine-load-failed', start, 0, errorMessageForUser(err, 'connect failed')),
+    };
+  }
+}
+
+/** A query DuckDB may still be running blocks the worker, so its close is not awaited. */
+const mayStillRun = (outcome: DuckDbExecuteOutcome | undefined) => outcome?.stillRunning === true;
+
+async function closeQuietly(connection: DuckDbConnection, wait: boolean): Promise<void> {
+  const closing = connection.close().catch(() => {
+    /* defensive: closing twice should not propagate */
+  });
+  if (wait) await closing;
+}
+
+/**
+ * Flush the WAL to the OPFS database file so a hard reload or crash does
+ * not lose the writes. Best-effort: a failed CHECKPOINT never turns a
+ * successful query into an error, and it is a cheap no-op on a read.
+ */
+async function checkpointIfPersistent(connection: DuckDbConnection): Promise<void> {
+  if (resolvedStorageMode !== 'opfs') return;
+  try {
+    await connection.query('CHECKPOINT');
+  } catch {
+    /* durability is best-effort; the query already succeeded */
+  }
+}
+
+const isResultStatus = (status: DuckDbExecuteOutcome['status']) =>
+  status === 'success' || status === 'too-large';
+
+/** Runs one piece of SQL on an open connection, racing the timeout and the abort signal. */
+async function runOnConnection(
+  connection: DuckDbConnection,
+  trimmed: string,
+  options: ExecuteQueryOptions
+): Promise<DuckDbExecuteOutcome> {
+  const start = performance.now();
+  const statementCount = countSqlStatements(trimmed);
+  const timeoutMs = Math.min(options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS, MAX_QUERY_TIMEOUT_MS);
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  let settleHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<QueryTimeoutSentinel>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeoutMs);
+  });
+  let removeAbortListener = () => {};
+  const abortPromise = new Promise<'aborted'>((resolve) => {
+    if (options.signal?.aborted) {
+      resolve('aborted');
+      return;
+    }
+    const onAbort = () => resolve('aborted');
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
+  });
+  const stopped = (status: 'timeout' | 'cancelled', stillRunning: boolean): DuckDbExecuteOutcome => ({
+    ...emptyOutcome(
+      status,
+      start,
+      statementCount,
+      status === 'timeout' ? 'Query exceeded timeout' : 'Query cancelled'
+    ),
+    ...(stillRunning ? { stillRunning } : {}),
+  });
+  try {
+    // One statement streams, so it can stop at the row window and be cancelled.
+    const stream = statementCount === 1 ? connection.stream : undefined;
+    const queryPromise: Promise<{
+      columns: SqlColumnMetadata[];
+      rows: Array<Record<string, unknown>>;
+      rowCount: number;
+      tooLarge: boolean;
+      rowCountIsLowerBound?: boolean;
+    }> = stream
+      ? stream(trimmed).then((result) => readResultStream(result, connection.cancel))
+      : connection.query(trimmed);
+    // The connection closes after the caller is done, so a query that loses the race rejects late.
+    void queryPromise.catch(() => {});
+    const raceResult = await Promise.race([queryPromise, timeoutPromise, abortPromise]);
+    if (isTimeoutSentinel(raceResult) || raceResult === 'aborted') {
+      const status = raceResult === 'aborted' ? 'cancelled' : 'timeout';
+      // A timeout stops the statement like Cancel does, then waits to learn whether DuckDB stopped.
+      await connection.cancel?.().catch(() => false);
+      const settled = await Promise.race([
+        queryPromise.then(
+          () => true,
+          () => true
+        ),
+        new Promise<false>((resolve) => {
+          settleHandle = setTimeout(() => resolve(false), CANCEL_SETTLE_MS);
+        }),
+      ]);
+      return stopped(status, !settled);
+    }
+    const { columns, rows, rowCount, tooLarge } = raceResult;
+    return {
+      status: tooLarge ? 'too-large' : 'success',
+      rows,
+      columns,
+      rowCount,
+      durationMs: Math.round(performance.now() - start),
+      tooLarge,
+      ...(raceResult.rowCountIsLowerBound ? { rowCountIsLowerBound: true } : {}),
+      statementCount,
+    };
+  } catch (err) {
+    return emptyOutcome('sql-error', start, statementCount, errorMessageForUser(err, 'sql failed'));
+  } finally {
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+    if (settleHandle !== null) clearTimeout(settleHandle);
+    removeAbortListener();
+  }
 }
 
 /**
@@ -862,131 +1094,66 @@ export function countSqlStatements(query: string): number {
  *
  * Connection lifecycle: a fresh connection is opened per call and
  * closed on settle. DuckDB's `connect` is cheap (~ms) so we don't
- * hold one open between user-driven runs; that keeps the abort path
- * honest (closing the engine drops the connection).
+ * hold one open between user-driven runs.
  */
 export async function executeQuery(
   query: string,
   options: ExecuteQueryOptions = {}
 ): Promise<DuckDbExecuteOutcome> {
-  const start = performance.now();
   const trimmed = query.trim();
-  if (trimmed.length === 0) {
-    return {
-      status: 'success',
-      rows: [],
-      columns: [],
-      rowCount: 0,
-      durationMs: 0,
-      tooLarge: false,
-      statementCount: 0,
-    };
-  }
-  let engine: DuckDbEngineHandle;
+  if (trimmed.length === 0) return { ...emptyOutcome('success', performance.now(), 0), durationMs: 0 };
+  const opened = await openConnection(performance.now());
+  if ('failure' in opened) return opened.failure;
+  let outcome: DuckDbExecuteOutcome | undefined;
   try {
-    engine = await getDuckDbEngine();
-  } catch (err) {
-    return {
-      status: 'engine-load-failed',
-      rows: [],
-      columns: [],
-      rowCount: 0,
-      durationMs: Math.round(performance.now() - start),
-      tooLarge: false,
-      statementCount: 0,
-      errorMessage: errorMessageForUser(err, 'unknown'),
-    };
-  }
-  let connection: DuckDbConnection;
-  try {
-    connection = await engine.connect();
-  } catch (err) {
-    return {
-      status: 'engine-load-failed',
-      rows: [],
-      columns: [],
-      rowCount: 0,
-      durationMs: Math.round(performance.now() - start),
-      tooLarge: false,
-      statementCount: 0,
-      errorMessage: errorMessageForUser(err, 'connect failed'),
-    };
-  }
-  const timeoutMs = Math.min(
-    options.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS,
-    MAX_QUERY_TIMEOUT_MS
-  );
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<QueryTimeoutSentinel>((resolve) => {
-    timeoutHandle = setTimeout(() => resolve(TIMEOUT_SENTINEL), timeoutMs);
-  });
-  try {
-    // Reviewer pass (HIGH-2) — defensive against late rejection on
-    // the timeout path. If `timeoutPromise` wins the race, the
-    // underlying `connection.query` is left pending; the subsequent
-    // `connection.close()` in `finally` invalidates the connection
-    // and the query rejects after we've already returned. While
-    // `Promise.race` does itself attach handlers, an explicit
-    // no-op catch on the query promise insulates us from engine /
-    // polyfill variance in unhandled-rejection detection.
-    const queryPromise = connection.query(trimmed);
-    void queryPromise.catch(() => {
-      /* swallow late rejection after timeout race resolved */
-    });
-    const raceResult = await Promise.race([queryPromise, timeoutPromise]);
-    if (isTimeoutSentinel(raceResult)) {
-      return {
-        status: 'timeout',
-        rows: [],
-        columns: [],
-        rowCount: 0,
-        durationMs: Math.round(performance.now() - start),
-        tooLarge: false,
-        statementCount: countSqlStatements(trimmed),
-        errorMessage: 'Query exceeded timeout',
-      };
-    }
-    const { columns, rows, rowCount, tooLarge } = raceResult;
-    // Flush the WAL to the OPFS database file so a hard reload
-    // or crash does not lose the writes from this statement. Best-effort
-    // on the same connection before it closes: a failed CHECKPOINT must
-    // never turn a successful query into an error, and it is a cheap
-    // no-op on a read-only (SELECT) session.
-    if (resolvedStorageMode === 'opfs') {
-      try {
-        await connection.query('CHECKPOINT');
-      } catch {
-        /* durability is best-effort; the query already succeeded */
-      }
-    }
-    return {
-      status: tooLarge ? 'too-large' : 'success',
-      rows,
-      columns,
-      rowCount,
-      durationMs: Math.round(performance.now() - start),
-      tooLarge,
-      statementCount: countSqlStatements(trimmed),
-    };
-  } catch (err) {
-    return {
-      status: 'sql-error',
-      rows: [],
-      columns: [],
-      rowCount: 0,
-      durationMs: Math.round(performance.now() - start),
-      tooLarge: false,
-      statementCount: countSqlStatements(trimmed),
-      errorMessage: errorMessageForUser(err, 'sql failed'),
-    };
+    outcome = await runOnConnection(opened.connection, trimmed, options);
+    if (isResultStatus(outcome.status)) await checkpointIfPersistent(opened.connection);
+    return outcome;
   } finally {
-    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
-    try {
-      await connection.close();
-    } catch {
-      /* defensive: closing twice should not propagate */
-    }
+    await closeQuietly(opened.connection, !mayStillRun(outcome));
   }
+}
+
+/**
+ * Runs statements one by one on a single connection, so temp tables,
+ * settings and transactions carry from one to the next. Stops at the
+ * first statement that does not return a result; the outcomes cover
+ * only the statements that ran.
+ */
+export async function executeSqlScript(
+  statements: ReadonlyArray<string>,
+  options: ExecuteQueryOptions & {
+    onStatement?: (index: number, outcome: DuckDbExecuteOutcome) => void;
+  } = {}
+): Promise<DuckDbExecuteOutcome[]> {
+  const pieces = statements.map((statement) => statement.trim()).filter((s) => s.length > 0);
+  if (pieces.length === 0) return [];
+  const opened = await openConnection(performance.now());
+  if ('failure' in opened) return [opened.failure];
+  const outcomes: DuckDbExecuteOutcome[] = [];
+  try {
+    for (const [index, piece] of pieces.entries()) {
+      const outcome = await runOnConnection(opened.connection, piece, options);
+      outcomes.push(outcome);
+      options.onStatement?.(index, outcome);
+      if (!isResultStatus(outcome.status)) break;
+    }
+    const last = outcomes[outcomes.length - 1];
+    if (!mayStillRun(last) && outcomes.some((outcome) => isResultStatus(outcome.status))) {
+      await checkpointIfPersistent(opened.connection);
+    }
+    return outcomes;
+  } finally {
+    await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
+  }
+}
+
+/**
+ * Drops the engine without a checkpoint, for a query that ignored Cancel.
+ * In-memory tables are lost; the next run starts a fresh engine.
+ */
+export async function restartDuckDbEngine(): Promise<void> {
+  await engineLifecycle.release({ afterTerminate: async () => resetResolvedStorageMode() });
 }
 
 // ---------------------------------------------------------------------------

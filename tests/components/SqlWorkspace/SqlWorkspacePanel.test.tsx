@@ -11,6 +11,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
+import { resetSqlRunStateForTests } from '../../../src/renderer/hooks/useSqlRunner';
 import { useExecutionHistoryStore } from '../../../src/renderer/stores/executionHistoryStore';
 import {
   resetWorkspaceSqlStoreForTests,
@@ -82,70 +83,13 @@ vi.mock('react-resizable-panels', () => ({
   }),
 }));
 
-// The SQL editor renders Monaco, which cannot mount in jsdom
-// (it touches `CSS.escape` + a real theme service). Stand in a controlled
-// `<textarea>` that keeps the `sql-query-editor-textarea` testid the panel
-// tests query, and routes a real Cmd/Ctrl+Enter keypress to the run command
-// captured from the host's `editor.addCommand`, so `{Meta>}{Enter}` still runs
-// the query through the same `onRunShortcut` path the production keybinding uses.
-vi.mock('@monaco-editor/react', () => {
-  // Bit layout that distinguishes the host's two chords (CtrlCmd|Enter vs
-  // Shift|Alt|KeyF). Only the values' uniqueness matters here.
-  const KeyMod = { CtrlCmd: 1 << 11, Shift: 1 << 10, Alt: 1 << 9 };
-  const KeyCode = { Enter: 3, KeyF: 36 };
-  const RUN_CHORD = KeyMod.CtrlCmd | KeyCode.Enter;
-
-  const MonacoEditor = ({
-    value,
-    onChange,
-    onMount,
-    options,
-  }: {
-    value: string;
-    onChange?: (value: string | undefined) => void;
-    onMount?: (editor: unknown, monaco: unknown) => void;
-    options?: { ariaLabel?: string };
-  }) => {
-    let runCommand: (() => void) | null = null;
-    const editor = {
-      getSelection: () => null,
-      getModel: () => ({ getValueInRange: () => '' }),
-      addCommand: (chord: number, callback: () => void) => {
-        if (chord === RUN_CHORD) runCommand = callback;
-      },
-      onDidDispose: () => {},
-    };
-    const monaco = {
-      KeyMod,
-      KeyCode,
-      editor: { defineTheme: () => {} },
-      languages: {
-        CompletionItemKind: { Struct: 5, Keyword: 17 },
-        registerCompletionItemProvider: () => ({ dispose: () => {} }),
-      },
-    };
-    onMount?.(editor, monaco);
-    return (
-      <textarea
-        data-testid="sql-query-editor-textarea"
-        aria-label={options?.ariaLabel}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        onKeyDown={(event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-            event.preventDefault();
-            runCommand?.();
-          }
-        }}
-      />
-    );
-  };
-  return { default: MonacoEditor, loader: { config: () => {} } };
-});
+// Monaco cannot mount in jsdom; the shared stand-in routes Cmd/Ctrl+Enter to the host's run command.
+vi.mock('@monaco-editor/react', async () => (await import('../../__fixtures__/sqlMonacoMock')).sqlMonacoModule);
 
 beforeEach(() => {
   localStorage.clear();
   resetWorkspaceSqlStoreForTests();
+  resetSqlRunStateForTests();
   useExecutionHistoryStore.getState().clear();
   useSettingsStore.setState({
     sqlWorkspaceRowDisplayLimit: 1000,
@@ -313,10 +257,10 @@ describe('SqlWorkspacePanel', () => {
     expect(factory.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renames a query via double-click input', async () => {
+  it('renames a saved query via double-click input', async () => {
     const user = userEvent.setup();
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'saved', name: 'saved' }));
     render(<SqlWorkspacePanel />);
-    await user.click(screen.getByTestId('sql-query-list-create'));
     const row = screen.getByTestId('sql-query-list-row');
     // Double-click on the name span (the truncate span inside the row).
     // userEvent.dblClick on the row triggers the inline rename input.
@@ -529,11 +473,11 @@ describe('SqlWorkspacePanel — collection workspace (rail-driven)', () => {
   it('duplicating a rail row clones the query in the store and selects the clone', async () => {
     const user = userEvent.setup();
     useEditorStore.getState().addSqlTab();
+    // A saved query with some text (scratches are not duplicated).
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'source' }));
+    const sourceId = 'source';
     render(<SqlWorkspacePanel />);
 
-    // Create + name a query, then give it some text.
-    await user.click(screen.getByTestId('sql-query-list-create'));
-    const sourceId = useWorkspaceSqlStore.getState().queries[0]!.id;
     useWorkspaceSqlStore.getState().updateQuery(sourceId, {
       name: 'source',
       query: 'SELECT clone_me;',

@@ -1180,14 +1180,13 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
     // Closed-enum parity for `sql.query_executed.status`. The
     // canonical source of truth is `SQL_QUERY_STATUSES` in
     // `src/shared/sqlWorkspace.ts`; both telemetry copies mirror
-    // the same five-status list. Adding a new status (e.g. when a
-    // future work surfaces `cancelled` for user-initiated abort)
-    // requires touching BOTH copies — this guard fails CI when
-    // only one side drifts.
+    // the same status list. Adding a status requires touching BOTH
+    // copies — this guard fails CI when only one side drifts.
     expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual(
       [...RENDERER_SQL_QUERY_STATUSES_SET].sort()
     );
     expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual([
+      'cancelled',
       'engine-load-failed',
       'sql-error',
       'success',

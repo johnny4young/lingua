@@ -1385,6 +1385,25 @@
     box-shadow: inset 0 0 0 1.5px var(--app-warning, #d99a32);
   }
 
+  /* SQL editor: a Run triangle on the first line of each statement. */
+  .monaco-editor .lingua-sql-run-glyph {
+    cursor: pointer;
+  }
+  .monaco-editor .lingua-sql-run-glyph::before {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    margin: 0.3rem 0 0 0.4rem;
+    border-left: 0.45rem solid var(--color-accent);
+    border-top: 0.3rem solid transparent;
+    border-bottom: 0.3rem solid transparent;
+    opacity: 0.55;
+  }
+  .monaco-editor .lingua-sql-run-glyph:hover::before {
+    opacity: 1;
+  }
+
   /* Make the breakpoint gutter
      discoverable on hover. Without this, the glyph-margin column
      reads as inert black space until the user happens to click in
