@@ -86,14 +86,20 @@ function connect(opts: ConnectionOptions): Promise<Connection> {
 const query = <T>(connection: Connection, sql: string): Promise<T> =>
   new Promise((resolve, reject) => connection.query(sql, (err, rows) => (err ? reject(err) : resolve(rows as T))));
 
-/** Streams one statement; the socket pauses whenever a page is full. */
-function stream(connection: Connection, sql: string): Promise<DriverRows> {
+const queryWithFields = (connection: Connection, sql: string): Promise<{ rows: unknown; fields: FieldPacket[] | undefined }> =>
+  new Promise((resolve, reject) =>
+    connection.query(sql, (err, rows, fields) => (err ? reject(err) : resolve({ rows, fields: fields as FieldPacket[] | undefined })))
+  );
+
+/** Streams one statement; the socket pauses whenever a page is full. `kill` stops the server side early. */
+function stream(connection: Connection, sql: string, kill: () => Promise<boolean>): Promise<DriverRows> {
   return new Promise((resolve, reject) => {
     const q: Query = connection.query(sql);
     let columns: SqlColumnMetadata[] = [];
     let affectedRows: number | undefined;
     let buffer: Array<Record<string, unknown>> = [];
     let ended = false;
+    let discarding = false;
     let failure: Error | null = null;
     let want = 1;
     let wake: (() => void) | null = null;
@@ -124,9 +130,11 @@ function stream(connection: Connection, sql: string): Promise<DriverRows> {
         },
         async close() {
           if (ended || failure) return;
-          // Drain what is left so the session can run the next statement.
+          // Stop the server, then drop whatever is still in flight so the session can run the next statement.
+          discarding = true;
           want = Number.POSITIVE_INFINITY;
           buffer = [];
+          await kill().catch(() => false);
           const drained = new Promise<void>((done) => {
             const check = () => (ended || failure ? done() : (wake = check));
             wake = check;
@@ -147,6 +155,7 @@ function stream(connection: Connection, sql: string): Promise<DriverRows> {
         affectedRows = Number(record.affectedRows ?? 0);
         return;
       }
+      if (discarding) return;
       buffer.push(record);
       if (buffer.length >= want) connection.pause();
       begin();
@@ -177,6 +186,19 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
   }
   if (config.readOnly) await query(connection, 'SET SESSION TRANSACTION READ ONLY');
 
+  async function killQuery(): Promise<boolean> {
+    const side = await connect(options(config, ssl)).catch(() => null);
+    if (!side) return false;
+    try {
+      await query(side, `KILL QUERY ${Number(connection.threadId)}`);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      side.destroy();
+    }
+  }
+
   return {
     async version() {
       const rows = await query<Array<{ v: string }>>(connection, 'SELECT VERSION() AS v');
@@ -188,27 +210,34 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
       if (readWrite && config.readOnly) {
         await query(connection, 'SET SESSION TRANSACTION READ WRITE');
         try {
-          const rows = await query<unknown>(connection, sql);
-          return whole(rows);
+          const { rows, fields } = await queryWithFields(connection, sql);
+          return whole(rows, fields);
         } finally {
           await query(connection, 'SET SESSION TRANSACTION READ ONLY').catch(() => undefined);
         }
       }
-      return stream(connection, sql);
+      if (!config.readOnly) return stream(connection, sql, killQuery);
+      // Read-only holds per run: the session default is set again and the run gets its own
+      // read-only transaction, so an earlier statement cannot have made the session writable.
+      await query(connection, 'SET SESSION TRANSACTION READ ONLY');
+      await query(connection, 'START TRANSACTION READ ONLY');
+      let rows: DriverRows;
+      try {
+        rows = await stream(connection, sql, killQuery);
+      } catch (err) {
+        await query(connection, 'ROLLBACK').catch(() => undefined);
+        throw err;
+      }
+      return {
+        ...rows,
+        async close() {
+          await rows.close();
+          await query(connection, 'ROLLBACK').catch(() => undefined);
+        },
+      };
     },
 
-    async cancel() {
-      const side = await connect(options(config, ssl)).catch(() => null);
-      if (!side) return false;
-      try {
-        await query(side, `KILL QUERY ${Number(connection.threadId)}`);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        side.destroy();
-      }
-    },
+    cancel: killQuery,
 
     async estimateRows(sql) {
       // MySQL refuses EXPLAIN of a write in a read-only session, though EXPLAIN runs nothing.
@@ -228,13 +257,13 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
   };
 }
 
-function whole(result: unknown): DriverRows {
+function whole(result: unknown, fields: FieldPacket[] | undefined): DriverRows {
   if (!Array.isArray(result)) {
     const affected = Number((result as { affectedRows?: unknown } | null)?.affectedRows ?? 0);
     return { columns: [], affectedRows: affected, next: async () => ({ rows: [], done: true }), close: async () => undefined };
   }
   let rows = result as Array<Record<string, unknown>>;
-  const columns = rows[0] ? Object.keys(rows[0]).map((name) => ({ name, type: 'VARCHAR' })) : [];
+  const columns = (fields ?? []).map((field) => ({ name: field.name, type: columnType(field) }));
   return {
     columns,
     async next(limit) {

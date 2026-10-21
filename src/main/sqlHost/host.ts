@@ -106,10 +106,11 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     return next;
   }
 
+  /** Closes a run's rows even when fully read: a read-only run ends its transaction there. */
   async function closeRun(runId: string): Promise<void> {
     const run = runs.get(runId);
     runs.delete(runId);
-    if (run && !run.done) await run.rows.close().catch(() => undefined);
+    if (run) await run.rows.close().catch(() => undefined);
   }
 
   /** Fills a page within `maxRows` and `maxBytes`, keeping what did not fit for the next one. */
@@ -177,7 +178,8 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
 
   async function fetch(request: Extract<HostRequest, { type: 'fetch' }>): Promise<HostFetchResult> {
     const run = runs.get(request.runId);
-    if (!run) return { rows: [], done: true, bytes: 0 };
+    // A newer run on the connection closed it; an empty page would pass for the end of the result.
+    if (!run) throw new HostRequestError({ message: 'This result was closed by a newer run on the same connection.' });
     const page = await readPage(run, request.limit, request.maxBytes);
     if (page.done) await closeRun(request.runId);
     return page;

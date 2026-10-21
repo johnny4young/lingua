@@ -196,13 +196,17 @@ const REMOTE_READ_LEAD = /^(select|with|values|table|show|describe|desc|explain)
 /**
  * True when a statement may change data or the session on a database
  * connection: anything that does not lead with a read keyword, a write word
- * anywhere in the code (a CTE that deletes, FOR UPDATE), SELECT … INTO, or
- * EXPLAIN ANALYZE, which runs the statement.
+ * anywhere in the code (a CTE that deletes, FOR UPDATE), SELECT … INTO, EXECUTE
+ * of a prepared statement, or EXPLAIN ANALYZE (or ANALYSE), which runs it.
  */
 export function isWriteSqlStatement(statement: string): boolean {
   const code = codeOnly(statement);
   if (!REMOTE_READ_LEAD.test(code)) return true;
-  return WRITE_WORD.test(code) || /\binto\b/i.test(code) || /^explain\s*(\(.*\banalyze\b|analyze\b)/i.test(code);
+  return (
+    WRITE_WORD.test(code) ||
+    /\b(into|execute)\b/i.test(code) ||
+    /^explain\s*(\([\s\S]*\banaly[sz]e\b|analy[sz]e\b)/i.test(code)
+  );
 }
 
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.

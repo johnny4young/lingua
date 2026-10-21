@@ -3945,6 +3945,8 @@
   "sqlWorkspace.guard.noEstimate": "No row estimate for this statement.",
   "sqlWorkspace.guard.estimate_one": "Estimated rows: {{formatted}} (EXPLAIN).",
   "sqlWorkspace.guard.estimate_other": "Estimated rows: {{formatted}} (EXPLAIN).",
+  "sqlWorkspace.guard.manyWrites_one": "This run has {{count}} statement that writes; the estimate is for the first.",
+  "sqlWorkspace.guard.manyWrites_other": "This run has {{count}} statements that write; the estimate is for the first.",
   "sqlWorkspace.guard.typeAria": "Type the connection name to confirm",
   "sqlWorkspace.guard.typePlaceholder": "type {{name}} to confirm",
   "sqlWorkspace.guard.run": "Run",

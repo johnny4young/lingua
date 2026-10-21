@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,6 +108,52 @@ describe('saving connections', () => {
   });
 });
 
+describe('passwords that belong to a target', () => {
+  it('drops the stored password when the host, user or TLS mode changes without a new one', async () => {
+    const { svc, secrets } = service();
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    // A rename keeps the password: same server, same user.
+    expect(await svc.save({ ...pg, name: 'orders' }, id, undefined)).toMatchObject({ connection: { hasPassword: true } });
+    expect(await svc.save({ ...pg, host: 'attacker.example' }, id, undefined)).toMatchObject({ connection: { hasPassword: false } });
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+    await svc.save(pg, id, 'pw');
+    expect(await svc.save({ ...pg, ssl: { mode: 'disable' } }, id, undefined)).toMatchObject({ connection: { hasPassword: false } });
+    // With a new password the change is the user's choice.
+    expect(await svc.save({ ...pg, user: 'admin' }, id, 'other')).toMatchObject({ connection: { hasPassword: true } });
+  });
+
+  it('removes the keychain copy when a connection switches to Ask each session', async () => {
+    const { svc, secrets } = service();
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    await svc.save({ ...pg, passwordMode: 'session' }, id, undefined);
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+
+  it('caps session-only connections', async () => {
+    const { svc } = service();
+    for (let i = 0; i < 20; i++) expect((await svc.openAdhoc({ ...pg, name: `a${i}` }, undefined)).ok).toBe(true);
+    expect(await svc.openAdhoc({ ...pg, name: 'one-more' }, undefined)).toEqual({ ok: false, reason: 'quota' });
+  });
+
+  it('refuses a SQLite path that links into a protected folder', async () => {
+    const blocked = path.join(realpathSync(dir), 'protected');
+    mkdirSync(blocked);
+    writeFileSync(path.join(blocked, 'app.db'), '');
+    symlinkSync(path.join(blocked, 'app.db'), path.join(dir, 'innocent.db'));
+    const svc = createSqlDbService({
+      catalog: createConnectionCatalog(path.join(dir, 'c.json')),
+      secrets: memorySecrets(),
+      host: fakeHost().host,
+      tier: async () => 'free',
+      blockedPath: (file) => (file.startsWith(blocked) ? 'lingua-data' : null),
+    });
+    expect(await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'innocent.db'), readOnly: true, passwordMode: 'none' }, undefined, undefined)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+  });
+});
+
 describe('running statements', () => {
   const ok = { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false };
 
@@ -184,6 +230,42 @@ describe('running statements', () => {
     expect(host.restart).toHaveBeenCalledOnce();
     release();
     await running;
+  });
+});
+
+describe('estimates and cancel', () => {
+  it('estimates one statement only, never a script or an ANALYZE', async () => {
+    const { svc, sent } = service(() => 7);
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.estimate(id, 'DELETE FROM t WHERE id = 1')).toBe(7);
+    expect(await svc.estimate(id, 'SELECT 1; DELETE FROM customers')).toBeNull();
+    expect(await svc.estimate(id, 'ANALYZE customers')).toBeNull();
+    expect(sent.filter((body) => body.type === 'estimate')).toHaveLength(1);
+  });
+
+  it('restarts a host that does not answer a cancel', async () => {
+    vi.useFakeTimers();
+    try {
+      const { svc, host } = service((body) =>
+        body.type === 'cancel' || body.type === 'execute' ? new Promise(() => undefined) : { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }
+      );
+      (host.request as ReturnType<typeof vi.fn>).mockImplementation((body: Record<string, unknown>, timeoutMs?: number) =>
+        body.type === 'cancel' || body.type === 'execute'
+          ? new Promise((_, reject) => (timeoutMs ? setTimeout(() => reject(new Error('timed out')), timeoutMs) : undefined))
+          : Promise.resolve(undefined)
+      );
+      const id = ((await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'x.db'), readOnly: false, passwordMode: 'none' }, undefined, undefined)) as {
+        connection: { id: string };
+      }).connection.id;
+      void svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 60_000 });
+      await vi.advanceTimersByTimeAsync(0);
+      const cancelled = svc.cancel(1, 'r1');
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(await cancelled).toEqual({ cancelled: true });
+      expect(host.restart).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

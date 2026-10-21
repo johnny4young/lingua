@@ -2,7 +2,7 @@
  * Saved database connections for the desktop SQL host: the catalog model
  * main persists in userData, the URL paste parser and the strict parser
  * main runs on every renderer-supplied value. Passwords are never part of
- * a connection; they live in the secret store or in the host's memory.
+ * a connection; they live in the secret store or in main's memory.
  */
 
 const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite'] as const;
@@ -179,7 +179,6 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
   verify_identity: 'verify-full',
 };
 
-/** postgres://, postgresql://, mysql:// or sqlite:/absolute/path into a draft. */
 /**
  * The URL with its password removed, so the field that showed it can keep
  * showing the rest. Uses the same parser as `parseConnectionUrl`, so both
@@ -196,6 +195,7 @@ export function withoutUrlPassword(raw: string): string {
   }
 }
 
+/** postgres://, postgresql://, mysql:// or sqlite:/absolute/path into a draft. */
 export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
   const input = raw.trim();
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(input)?.[1]?.toLowerCase();

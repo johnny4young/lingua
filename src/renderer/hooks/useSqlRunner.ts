@@ -22,7 +22,7 @@ import {
 } from '../runtime/sqlExplainPlan';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
-import { dbClientEnabled, findConnection } from '../stores/sqlConnectionsStore';
+import { dbClientEnabled, findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
 import type { SqlDbConnectionView } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
@@ -99,8 +99,8 @@ export const moreRowsKey = (queryId: string, recordedAt: string) => `${queryId}:
 /** A write to a production connection waiting for the typed connection name. */
 export interface SqlWriteConfirm {
   connectionName: string;
-  /** The first statement that writes, for the card. */
-  statement: string;
+  /** Every statement of the run that writes; the typed name lets all of them through. */
+  statements: string[];
   /** Rows EXPLAIN expects it to touch; `undefined` while it loads, `null` when unknown. */
   estimate?: number | null;
   readOnly: boolean;
@@ -140,11 +140,10 @@ let passwordJustSubmitted = false;
 /** Opens the production write card and waits for the typed name, or null on cancel. */
 function requestWriteConfirm(connection: SqlDbConnectionView, writes: string[]): Promise<string | null> {
   const db = sqlDbBridge();
-  const statement = writes[0] ?? '';
-  setRunState({ confirm: { connectionName: connection.name, statement, readOnly: connection.readOnly } });
-  void db?.estimate(connection.id, statement).then((estimate) => {
-    const current = useSqlRunState.getState().confirm;
-    if (current?.statement === statement) setRunState({ confirm: { ...current, estimate } });
+  const pending: SqlWriteConfirm = { connectionName: connection.name, statements: writes, readOnly: connection.readOnly };
+  setRunState({ confirm: pending });
+  void db?.estimate(connection.id, writes[0] ?? '').then((estimate) => {
+    if (useSqlRunState.getState().confirm?.statements === writes) setRunState({ confirm: { ...pending, estimate } });
   });
   return new Promise((resolve) => {
     confirmResolve = (name) => {
@@ -315,6 +314,10 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const { query, mode, statements } = request;
       if (activeController !== null || statements.length === 0 || confirmResolve !== null) return;
       const enabled = dbClientEnabled();
+      // Right after launch the catalog may not have arrived yet; a missing connection needs it.
+      if (enabled && query.connectionId && useSqlConnectionsStore.getState().catalog === null) {
+        await useSqlConnectionsStore.getState().refresh();
+      }
       const connection = enabled ? findConnection(query.connectionId) : undefined;
       if (enabled && query.connectionId && !connection) {
         useUIStore.getState().pushStatusNotice({ tone: 'warning', messageKey: 'sqlWorkspace.connection.missing' });

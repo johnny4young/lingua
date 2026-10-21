@@ -9,7 +9,9 @@ export function ErrorBand({
   message,
   querySource,
   onApplyFix,
+  engine,
 }: {
+  engine?: SqlResponseV1['engine'];
   status: SqlResponseV1['status'];
   message: string | undefined;
   querySource?: string;
@@ -59,6 +61,7 @@ export function ErrorBand({
                 errorMessage={message}
                 code={querySource}
                 language="sql"
+                {...(engine && engine !== 'duckdb' ? { sqlEngine: engine } : {})}
                 {...(onApplyFix ? { onApplyFix } : {})}
                 testId="sql-explain-error"
               />

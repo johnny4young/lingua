@@ -20,7 +20,8 @@ release checklist.
 - Confirm the `sql-db:*` channels validate every argument in main, that the
   `secrets:*` channels still refuse `db.` ids, that database passwords never
   reach the renderer, `sql-connections.json`, logs or capsules, and that SQLite
-  files in protected folders are refused (`tests/ipc/sqlDb.test.ts`,
+  files in protected folders are refused, symlinks included
+  (`tests/ipc/secrets.test.ts`, `tests/ipc/sqlDb.test.ts`,
   `tests/main/sqlDbService.test.ts`).
 
 ## Runners

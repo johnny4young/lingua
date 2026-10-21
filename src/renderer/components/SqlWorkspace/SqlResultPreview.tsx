@@ -447,6 +447,7 @@ export function SqlResultPreview({
         <ErrorBand
           status={response.status}
           message={response.errorMessage}
+          {...(response.engine ? { engine: response.engine } : {})}
           // Only the newest run can be matched to the editor text.
           querySource={selectedResponseIndex === 0 ? querySource : undefined}
           onApplyFix={selectedResponseIndex === 0 ? onApplyFix : undefined}

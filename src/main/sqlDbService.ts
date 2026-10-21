@@ -7,8 +7,9 @@
 
 import { randomUUID } from 'node:crypto';
 import { promises as dns } from 'node:dns';
+import { realpathSync } from 'node:fs';
 import type { LicenseTier } from '../shared/license';
-import { dbConnectionCeilingForTier, withinDbConnectionBudget } from '../shared/entitlements';
+import { dbConnectionCeilingForTier } from '../shared/entitlements';
 import { connectionSecretId, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
 import type {
   SqlDbCatalogView,
@@ -21,7 +22,7 @@ import type {
   SqlDbTestResult,
   SqlDbTestStep,
 } from '../shared/sqlDb';
-import { isWriteSqlStatement } from '../shared/sqlStatements';
+import { isWriteSqlStatement, splitSqlStatements } from '../shared/sqlStatements';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
@@ -53,6 +54,32 @@ class GuardError extends Error {
 
 const defaultLookup: LookupImpl = async (hostname) => dns.lookup(hostname, { all: true, verbatim: true });
 
+const MAX_ADHOC = 20;
+const CANCEL_TIMEOUT_MS = 3_000;
+
+/** The resolved file, so a symlink cannot point a checked path into a protected folder. */
+function realFile(file: string): string {
+  try {
+    return realpathSync(file);
+  } catch {
+    return file;
+  }
+}
+
+/** A saved password belongs to one target; another host, user or TLS mode must be given it again. */
+function sameTarget(a: SqlConnectionV1, b: SqlConnectionV1): boolean {
+  return (
+    a.engine === b.engine &&
+    a.host === b.host &&
+    a.port === b.port &&
+    a.database === b.database &&
+    a.user === b.user &&
+    a.path === b.path &&
+    a.ssl?.mode === b.ssl?.mode &&
+    a.ssl?.caPath === b.ssl?.caPath
+  );
+}
+
 export function createSqlDbService(deps: SqlDbServiceDeps) {
   const lookup = deps.lookup ?? defaultLookup;
   /** Passwords asked once per session, and those of URL connections nobody saved. */
@@ -75,7 +102,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   function pathProblem(draft: SqlConnectionDraft): boolean {
     const files = [draft.path, draft.ssl?.caPath, draft.ssl?.certPath, draft.ssl?.keyPath];
-    return files.some((file) => file !== undefined && deps.blockedPath(file) !== null);
+    return files.some((file) => file !== undefined && (deps.blockedPath(file) !== null || deps.blockedPath(realFile(file)) !== null));
   }
 
   async function password(entry: SqlConnectionV1, explicit?: string): Promise<string | undefined> {
@@ -110,7 +137,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       engine: entry.engine,
       readOnly: entry.readOnly,
       ...(entry.engine === 'sqlite'
-        ? { path: entry.path! }
+        ? { path: realFile(entry.path!) }
         : {
             address: resolved!.address,
             servername: entry.host!,
@@ -143,7 +170,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       await deps.secrets.delete(id);
       return true;
     }
-    if (value === undefined) return true;
+    if (value === undefined) {
+      // Ask each session keeps nothing on disk, even a password saved earlier.
+      if (entry.passwordMode === 'session') await deps.secrets.delete(id);
+      return true;
+    }
     if (entry.passwordMode === 'session') {
       sessionPasswords.set(entry.id, value);
       await deps.secrets.delete(id);
@@ -158,13 +189,17 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined): Promise<SqlDbSaveResult> {
       if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
-      if (id === undefined) {
-        const used = (await deps.catalog.list()).length;
-        if (!withinDbConnectionBudget(await deps.tier(), used + 1)) return { ok: false, reason: 'quota' };
-      }
-      const saved = await deps.catalog.save(draft, id);
+      const before = id === undefined ? null : await deps.catalog.get(id);
+      if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
+      const ceiling = dbConnectionCeilingForTier(await deps.tier());
+      const saved = await deps.catalog.save(draft, id, Number.isFinite(ceiling) ? ceiling : undefined);
+      if (saved === 'quota') return { ok: false, reason: 'quota' };
       if (!saved) return { ok: false, reason: 'not-found' };
       await deps.host.request({ type: 'disconnect', connectionId: saved.id }).catch(() => undefined);
+      if (before && secret === undefined && !sameTarget(before, saved)) {
+        sessionPasswords.delete(saved.id);
+        await deps.secrets.delete(connectionSecretId(saved.id));
+      }
       if (!(await keepPassword(saved, secret))) return { ok: false, reason: 'secret-failed' };
       return { ok: true, connection: await view(saved) };
     },
@@ -180,6 +215,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     /** A connection for this session only, at any quota; its password stays in memory. */
     async openAdhoc(draft: SqlConnectionDraft, secret: string | undefined): Promise<SqlDbSaveResult> {
       if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
+      if (adhoc.size >= MAX_ADHOC) return { ok: false, reason: 'quota' };
       const stamp = new Date().toISOString();
       const entry: SqlConnectionV1 = {
         version: 1,
@@ -239,9 +275,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         } else {
           if (result.tcpMs !== undefined) steps.push({ id: 'tcp', status: 'ok', ms: result.tcpMs, detail: `${resolved!.address}:${entry.port}` });
           const tls = entry.ssl?.mode ?? 'verify-full';
+          // Postgres reports no certificate when prefer fell back to plain TCP.
+          const plain = tls === 'disable' || (tls === 'prefer' && entry.engine === 'postgres' && !result.tls);
           steps.push(
-            tls === 'disable'
-              ? { id: 'tls', status: 'skipped', detail: 'disable' }
+            plain
+              ? { id: 'tls', status: 'skipped', detail: tls }
               : { id: 'tls', status: 'ok', detail: [tls, result.tls?.subject && `CN ${result.tls.subject}`, result.tls?.validTo && `expires ${result.tls.validTo}`].filter(Boolean).join(' · ') }
           );
           steps.push({ id: 'auth', status: 'ok', ms: result.connectMs, detail: entry.user ?? '' });
@@ -342,7 +380,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     async cancel(owner: number, runId: string): Promise<{ cancelled: boolean }> {
       const key = hostRunId(owner, runId);
       if (!runs.has(key)) return { cancelled: false };
-      const result = await deps.host.request<HostCancelResult>({ type: 'cancel', runId: key }).catch(() => ({ cancelled: false, restart: true }));
+      // A host busy in a SQLite statement cannot even read the cancel, so silence restarts it too.
+      const result = await deps.host
+        .request<HostCancelResult>({ type: 'cancel', runId: key }, CANCEL_TIMEOUT_MS)
+        .catch(() => ({ cancelled: false, restart: true }));
       // An engine that cannot stop a statement gets a new host; its sessions reconnect on the next run.
       if (result.restart) deps.host.restart();
       runs.delete(key);
@@ -357,7 +398,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async estimate(connectionId: string, sql: string): Promise<number | null> {
       const entry = await connection(connectionId);
-      if (!entry) return null;
+      // EXPLAIN takes one statement; anything else is not estimated.
+      if (!entry || splitSqlStatements(sql).length !== 1 || /^\s*analy[sz]e\b/i.test(sql)) return null;
       try {
         const { config } = await configFor(entry);
         return await deps.host.request<number | null>({ type: 'estimate', config, sql }, 15_000);

@@ -3972,6 +3972,8 @@
   "sqlWorkspace.guard.noEstimate": "No hay estimación de filas para esta sentencia.",
   "sqlWorkspace.guard.estimate_one": "Filas estimadas: {{formatted}} (EXPLAIN).",
   "sqlWorkspace.guard.estimate_other": "Filas estimadas: {{formatted}} (EXPLAIN).",
+  "sqlWorkspace.guard.manyWrites_one": "Esta ejecución tiene {{count}} sentencia que escribe; la estimación es de la primera.",
+  "sqlWorkspace.guard.manyWrites_other": "Esta ejecución tiene {{count}} sentencias que escriben; la estimación es de la primera.",
   "sqlWorkspace.guard.typeAria": "Escribe el nombre de la conexión para confirmar",
   "sqlWorkspace.guard.typePlaceholder": "escribe {{name}} para confirmar",
   "sqlWorkspace.guard.run": "Ejecutar",

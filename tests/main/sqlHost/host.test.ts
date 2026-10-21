@@ -57,8 +57,24 @@ describe('SQL host', () => {
     const more = await host.handle(req({ type: 'fetch', runId: 'r1', limit: 15_000, maxBytes: Number.MAX_SAFE_INTEGER }));
     expect(more).toMatchObject({ ok: true, result: { done: true } });
     expect((more as { result: { rows: Array<{ n: string }> } }).result.rows.at(-1)).toEqual({ n: '24999' });
-    // The finished run is gone.
-    expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 1, maxBytes: 1 }))).toMatchObject({ result: { rows: [], done: true } });
+    // The finished run is gone, and reading it again is an error rather than an empty end.
+    expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 1, maxBytes: 1 }))).toMatchObject({ ok: false });
+  });
+
+  it('closes a fully read run too, so a read-only run ends its transaction', async () => {
+    const closes: Array<ReturnType<typeof vi.fn>> = [];
+    const { open, session } = fakeDriver(10);
+    const run = session.run.bind(session);
+    session.run = async (sql, options) => {
+      const rows = await run(sql, options);
+      closes.push(rows.close as ReturnType<typeof vi.fn>);
+      return rows;
+    };
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    expect(await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }))).toMatchObject({
+      result: { hasMore: false },
+    });
+    expect(closes[0]).toHaveBeenCalledOnce();
   });
 
   it('stops a page at the byte budget and keeps the rest', async () => {
@@ -79,7 +95,11 @@ describe('SQL host', () => {
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r2', sql: 'SELECT 2', readWrite: false, window }));
     expect(open).toHaveBeenCalledOnce();
     expect(calls).toEqual(['SELECT 1', 'SELECT 2']);
-    expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 5, maxBytes: 1e9 }))).toMatchObject({ result: { done: true, rows: [] } });
+    // r1 was replaced: its reader gets an error, so a cut-off result never passes for a whole one.
+    expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 5, maxBytes: 1e9 }))).toMatchObject({
+      ok: false,
+      error: { message: 'This result was closed by a newer run on the same connection.' },
+    });
     // A changed config (a new password) opens a new session.
     await host.handle(req({ type: 'execute', config: pgConfig({ password: 'new' }), runId: 'r3', sql: 'SELECT 3', readWrite: false, window }));
     expect(open).toHaveBeenCalledTimes(2);

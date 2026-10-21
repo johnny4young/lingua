@@ -32,7 +32,11 @@ export interface RuntimeNoteInput {
    * fresh tabs and notebook JS cells.
    */
   readonly runtimeMode?: RuntimeMode;
+  /** The saved connection's engine for a SQL query that did not run on Local DuckDB. */
+  readonly sqlEngine?: 'postgres' | 'mysql' | 'sqlite';
 }
+
+const SQL_ENGINE_NAMES = { postgres: 'PostgreSQL', mysql: 'MySQL', sqlite: 'SQLite' } as const;
 
 const JS_NOTES: Readonly<Record<RuntimeMode, string>> = {
   worker:
@@ -78,6 +82,10 @@ export function runtimeNoteFor(input: RuntimeNoteInput): string | undefined {
         'pip packages with native extensions are unavailable).'
       );
     case 'sql':
+      if (input.sqlEngine) {
+        const engine = SQL_ENGINE_NAMES[input.sqlEngine];
+        return `The query ran on a ${engine} database through a saved connection in the desktop app: ${engine} SQL dialect, and the tables live in that database.`;
+      }
       return (
         'The query runs on DuckDB (WebAssembly) locally: DuckDB SQL ' +
         'dialect, tables come from locally registered data, and external ' +

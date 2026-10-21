@@ -45,6 +45,12 @@ describe('runtimeNoteFor', () => {
     expect(note).toContain('external database connections are not available');
   });
 
+  it('names the saved connection engine for SQL that did not run on DuckDB', () => {
+    const note = runtimeNoteFor({ language: 'sql', platform: 'desktop', sqlEngine: 'postgres' });
+    expect(note).toContain('PostgreSQL SQL dialect');
+    expect(note).not.toContain('DuckDB');
+  });
+
   it('mentions CORS for HTTP on web but not on desktop', () => {
     expect(runtimeNoteFor({ language: 'http', platform: 'web' })).toContain(
       'CORS'

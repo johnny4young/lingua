@@ -20,7 +20,7 @@ export async function getDesktopBuildConfigs(root) {
       MAIN_WINDOW_VITE_DEV_SERVER_URL: 'undefined',
     },
     build: {
-      // Main and preload share an output directory; neither may erase the other.
+      // Main, preload and the SQL host share an output directory; none may erase the others.
       emptyOutDir: false,
       outDir: '.vite/build',
       copyPublicDir: false,

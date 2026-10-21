@@ -37,7 +37,7 @@ chunk.
 The desktop resolver in `scripts/lib/desktopViteConfig.mjs` keeps the existing
 main/preload CommonJS entries, Node externals and main resolution conditions,
 unsplit preload, relative renderer asset URLs and `main_window` directory.
-It loads all three repository configs in production mode, including their
+It loads all four repository configs (main, preload, renderer, SQL host) in production mode, including their
 repository-root environment handling. Main and preload must not erase each
 other's outputs. The managed development launcher is unchanged.
 

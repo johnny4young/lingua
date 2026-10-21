@@ -2,7 +2,8 @@
  * Contract for the desktop secret vault: values encrypted with Electron
  * `safeStorage` in main, one blob per id under `userData/secrets`.
  *
- * Ids are namespaced (`ai.api-key`, `http-env.<env>.<var>`) and restricted to
+ * Ids are namespaced (`ai.api-key`, `http-env.<env>.<var>`, and the main-only
+ * `db.<connection id>`) and restricted to
  * a filename-safe charset so main can map them to files without escaping.
  */
 

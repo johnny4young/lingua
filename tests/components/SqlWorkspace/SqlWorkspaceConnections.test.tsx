@@ -194,6 +194,25 @@ describe('SQL workspace on a saved connection', () => {
     await waitFor(() => expect(screen.queryByTestId('sql-password-input')).toBeNull());
   });
 
+  it('shows every write of a production run in the confirm, not just the first', async () => {
+    openQuery("UPDATE a SET x = 1;\nDELETE FROM b;\nSELECT 1", 'c_prod');
+    await renderPanel();
+    act(() => pressSqlChord('all'));
+    const card = await screen.findByTestId('sql-write-confirm');
+    expect(card.textContent).toContain('UPDATE a SET x = 1');
+    expect(card.textContent).toContain('DELETE FROM b');
+    expect(screen.getByTestId('sql-write-confirm-many').textContent).toContain('2 statements that write');
+  });
+
+  it('waits for the catalog instead of calling a just-launched connection missing', async () => {
+    openQuery('SELECT 1', 'c_dev');
+    render(<SqlWorkspacePanel />);
+    useSqlConnectionsStore.setState({ catalog: null });
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(1));
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe('sqlWorkspace.connection.missing');
+  });
+
   it('refuses to run on a connection that no longer exists', async () => {
     openQuery('SELECT 1', 'c_gone');
     await renderPanel();

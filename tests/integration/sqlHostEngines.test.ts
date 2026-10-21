@@ -108,6 +108,44 @@ for (const [engine, url] of [
       expect(await send({ type: 'execute', config: readOnly, runId: 'w3', sql: `DELETE FROM ${table} WHERE id = 2`, readWrite: false, window })).toMatchObject({ ok: false });
     });
 
+    it('keeps read-only per run, so a statement that changes the session default cannot open writes', async () => {
+      const flip =
+        engine === 'postgres' ? 'SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE' : 'SET SESSION TRANSACTION READ WRITE';
+      await send({ type: 'execute', config: readOnly, runId: 'flip', sql: flip, readWrite: false, window });
+      expect(await send({ type: 'execute', config: readOnly, runId: 'after', sql: `DELETE FROM ${table} WHERE id = 3`, readWrite: false, window })).toMatchObject({
+        ok: false,
+        error: { message: expect.stringMatching(/read.only/i) },
+      });
+      const begin = engine === 'postgres' ? 'BEGIN READ WRITE' : 'START TRANSACTION READ WRITE';
+      await send({ type: 'execute', config: readOnly, runId: 'begin', sql: begin, readWrite: false, window });
+      expect(await send({ type: 'execute', config: readOnly, runId: 'after2', sql: `DELETE FROM ${table} WHERE id = 3`, readWrite: false, window })).toMatchObject({
+        ok: false,
+      });
+      const kept = await ok<{ rows: Array<{ n: unknown }> }>({ type: 'execute', config, runId: 'count3', sql: `SELECT COUNT(*) AS n FROM ${table} WHERE id = 3`, readWrite: false, window });
+      expect(Number(kept.rows[0]?.n)).toBe(1);
+    });
+
+    it('estimates one statement and never runs a second one hidden behind it', async () => {
+      const before = await ok<{ rows: Array<{ n: unknown }> }>({ type: 'execute', config, runId: 'c1', sql: `SELECT COUNT(*) AS n FROM ${table}`, readWrite: false, window });
+      expect(await ok<number | null>({ type: 'estimate', config, sql: `SELECT 1; DELETE FROM ${table}` })).toBeNull();
+      const after = await ok<{ rows: Array<{ n: unknown }> }>({ type: 'execute', config, runId: 'c2', sql: `SELECT COUNT(*) AS n FROM ${table}`, readWrite: false, window });
+      expect(Number(after.rows[0]?.n)).toBe(Number(before.rows[0]?.n));
+    });
+
+    it('stops the server when a result is closed unread, instead of reading the rest', async () => {
+      // About 10 s of rows: closing must not wait for them.
+      const big =
+        engine === 'postgres'
+          ? 'SELECT g, pg_sleep(0.004) AS s FROM generate_series(1, 2500) g'
+          : // Rows wider than the server's 16 KB net buffer reach the client as they are made.
+            `SELECT id, REPEAT('x', 20000) AS pad, SLEEP(0.004) AS s FROM ${table}`;
+      await ok({ type: 'execute', config, runId: 'big', sql: big, readWrite: false, window: { maxRows: 100, maxBytes: 256 * 1024 } });
+      const started = performance.now();
+      const next = await ok<{ rows: Array<{ one: unknown }> }>({ type: 'execute', config, runId: 'next', sql: 'SELECT 1 AS one', readWrite: false, window });
+      expect(Number(next.rows[0]?.one)).toBe(1);
+      expect(performance.now() - started).toBeLessThan(5_000);
+    });
+
     it('cancels a long statement from a side connection', async () => {
       const sleep = engine === 'postgres' ? 'SELECT pg_sleep(30)' : 'SELECT SLEEP(30)';
       const running = send({ type: 'execute', config, runId: 'long', sql: sleep, readWrite: false, window });

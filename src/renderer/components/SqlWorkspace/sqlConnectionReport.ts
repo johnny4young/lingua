@@ -39,5 +39,9 @@ export function buildTestReport(
         .join(' · ')
     ),
   ];
-  return scrub(lines.join('\n'), secrets);
+  // Server messages can name the client address, and a certificate can name another host.
+  return scrub(lines.join('\n'), secrets)
+    .replace(/\bCN [^\s·]+/g, 'CN <name>')
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, '<address>')
+    .replace(/(?<![\w:])[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}(?![\w:])/gi, (match) => (/[0-9a-f]/i.test(match) ? '<address>' : match));
 }

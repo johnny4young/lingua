@@ -65,7 +65,7 @@ export function SqlWriteConfirmDialog({ confirm, onResolve }: { confirm: SqlWrit
     >
       <div data-testid="sql-write-confirm" className="flex flex-col gap-2.5 py-1 text-body-sm">
         <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-md [font-variant-ligatures:none] border border-border-subtle bg-bg-inset px-2.5 py-1.5 font-mono text-caption text-fg-base">
-          {confirm.statement}
+          {confirm.statements.join(';\n\n')}
         </pre>
         <p className="leading-relaxed text-fg-muted">
           {confirm.readOnly ? t('sqlWorkspace.guard.bodyReadOnly', { name: confirm.connectionName }) : t('sqlWorkspace.guard.body', { name: confirm.connectionName })}{' '}
@@ -76,6 +76,9 @@ export function SqlWriteConfirmDialog({ confirm, onResolve }: { confirm: SqlWrit
                 ? t('sqlWorkspace.guard.noEstimate')
                 : t('sqlWorkspace.guard.estimate', { count: confirm.estimate, formatted: formatNumber(confirm.estimate, i18n.language) })}
           </span>
+          {confirm.statements.length > 1 ? (
+            <span data-testid="sql-write-confirm-many"> {t('sqlWorkspace.guard.manyWrites', { count: confirm.statements.length })}</span>
+          ) : null}
         </p>
         <input
           autoFocus

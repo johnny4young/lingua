@@ -639,7 +639,7 @@ collection state:
 - The HTTP and SQL stores hydrate when their lazy workspace/import surface
   activates; neither store belongs in the initial renderer graph. Cmd/Ctrl+B
   on the SQL tab reaches the SQL store through a dynamic import for that reason.
-- The SQL tab puts the connection bar (Local · DuckDB) on top, the Explorer
+- The SQL tab puts the connection bar (Local · DuckDB, or the query's saved connection) on top, the Explorer
   beside the editor and the results under it. The Explorer reads its tree
   through [`runtime/sqlExplorerCatalog.ts`](runtime/sqlExplorerCatalog.ts)
   (tables, views, columns, row counts, macros); `lingua_ledger` stays out of

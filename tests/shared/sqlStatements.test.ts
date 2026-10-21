@@ -125,6 +125,9 @@ describe('isWriteSqlStatement', () => {
       'CALL refresh()',
       'VACUUM',
       'GRANT SELECT ON t TO u',
+      'EXPLAIN ANALYSE DELETE FROM orders',
+      'EXPLAIN (FORMAT JSON,\n ANALYZE) DELETE FROM orders',
+      'EXECUTE wipe_orders',
     ]) {
       expect(isWriteSqlStatement(sql)).toBe(true);
     }

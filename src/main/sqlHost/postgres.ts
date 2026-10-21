@@ -80,6 +80,9 @@ function clientConfig(config: HostSessionConfig, ssl: ConnectionOptions | false)
   };
 }
 
+/** One statement over the extended protocol, which refuses a string holding several; `queryMode` is missing from the pg typings. */
+const oneStatement = (text: string): pg.QueryConfig => ({ text, queryMode: 'extended' }) as pg.QueryConfig;
+
 function readPage(cursor: Cursor, limit: number): Promise<{ rows: Array<Record<string, unknown>>; result: QueryResult }> {
   return new Promise((resolve, reject) => {
     cursor.read(limit, (err, rows, result) => (err ? reject(err) : resolve({ rows, result })));
@@ -109,10 +112,10 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
 
     async run(sql, { readWrite }) {
       if (readWrite && config.readOnly) {
-        // One read-write transaction for this run; the session stays read-only.
+        // One read-write transaction for this run; the extended protocol keeps it to one statement.
         await client.query('BEGIN READ WRITE');
         try {
-          const result = await client.query(sql);
+          const result = await client.query(oneStatement(sql));
           await client.query('COMMIT');
           return wholeResult(result);
         } catch (err) {
@@ -120,12 +123,18 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
           throw err;
         }
       }
+      // Every run on a read-only connection gets its own read-only transaction, so a statement
+      // that changes the session default cannot make the next one writable.
+      const guarded = config.readOnly;
+      if (guarded) await client.query('BEGIN READ ONLY');
+      const end = () => (guarded ? client.query('ROLLBACK').then(() => undefined, () => undefined) : Promise.resolve());
       const cursor = client.query(new Cursor(sql, undefined, { types }));
       let first: { rows: Array<Record<string, unknown>>; result: QueryResult };
       try {
         first = await readPage(cursor, 1);
       } catch (err) {
         await cursor.close().catch(() => undefined);
+        await end();
         throw err;
       }
       const columns = (first.result.fields ?? []).map((field) => ({ name: field.name, type: columnType(field) }));
@@ -144,7 +153,10 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
           }
           return { rows, done: done && pending.length === 0 };
         },
-        close: () => cursor.close(),
+        async close() {
+          await cursor.close().catch(() => undefined);
+          await end();
+        },
       };
     },
 
@@ -164,7 +176,7 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
 
     async estimateRows(sql) {
       try {
-        const result = await client.query(`EXPLAIN (FORMAT JSON) ${sql}`);
+        const result = await client.query(oneStatement(`EXPLAIN (FORMAT JSON) ${sql}`));
         const plan = (result.rows[0] as Record<string, unknown> | undefined)?.['QUERY PLAN'];
         const parsed = typeof plan === 'string' ? JSON.parse(plan) : plan;
         const plan0 = Array.isArray(parsed) ? parsed[0]?.Plan : undefined;
@@ -178,6 +190,7 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
     },
 
     tls() {
+      if (ssl === false) return undefined;
       const socket = (client as unknown as { connection?: { stream?: { getPeerCertificate?: () => { subject?: { CN?: string }; valid_to?: string } } } }).connection?.stream;
       const cert = socket?.getPeerCertificate?.();
       if (!cert || !cert.subject) return undefined;

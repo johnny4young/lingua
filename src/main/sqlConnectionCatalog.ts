@@ -57,12 +57,13 @@ export function createConnectionCatalog(filePath: string, now: () => Date = () =
       return (await load()).find((entry) => entry.id === id) ?? null;
     },
 
-    /** Creates when `id` is absent; returns null for an unknown id. */
-    save(draft: SqlConnectionDraft, id?: string): Promise<SqlConnectionV1 | null> {
+    /** Creates when `id` is absent; null for an unknown id, `quota` when a new one would pass `limit`. */
+    save(draft: SqlConnectionDraft, id?: string, limit?: number): Promise<SqlConnectionV1 | null | 'quota'> {
       return serialized(async () => {
         const list = await load();
         const stamp = now().toISOString();
         if (id === undefined) {
+          if (limit !== undefined && list.length >= limit) return 'quota';
           const created: SqlConnectionV1 = { version: 1, id: `c_${randomUUID().replaceAll('-', '')}`, ...draft, createdAt: stamp, updatedAt: stamp };
           await persist([...list, created]);
           return created;
