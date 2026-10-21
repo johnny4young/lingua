@@ -70,6 +70,7 @@ import { PipelineTemplateGallery } from './PipelineTemplateGallery';
 import { UtilityPipelineLibrarySidebar } from './UtilityPipelineLibrarySidebar';
 import { UtilityPipelineResults } from './UtilityPipelineResults';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { appPlatform } from '../../utils/appPlatform';
 
 const DEFAULT_FIRST_STEP_UTILITY: UtilityAdapterId = 'json-format';
 
@@ -338,10 +339,7 @@ function UtilityPipelinePanelUnlocked() {
       return;
     }
     const appInfo = getBundledAppInfo();
-    const platform: 'web' | 'desktop' =
-      typeof window !== 'undefined' && window.lingua?.platform === 'desktop'
-        ? 'desktop'
-        : 'web';
+    const platform = appPlatform();
     let capsule;
     try {
       capsule = await buildPipelineCapsule({

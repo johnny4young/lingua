@@ -12,6 +12,7 @@ import { quoteSqlIdentifier } from '../components/SqlWorkspace/sqlResultFormatte
 import { rowsToPythonSource } from '../components/SqlWorkspace/sqlResultExport';
 import type { SqlResultHandoffs } from '../components/SqlWorkspace/SqlExportDialog';
 import type { SqlResultSource } from '../components/SqlWorkspace/SqlResultPreview';
+import { appPlatform } from '../utils/appPlatform';
 
 interface HandoffInput {
   response: SqlResponseV1 | null;
@@ -118,7 +119,7 @@ export function useSqlResultHandoffs({
               appVersion: getBundledAppInfo().version,
               query: capsuleQuery,
               response,
-              platform: window.lingua?.platform === 'desktop' ? 'desktop' : 'web',
+              platform: appPlatform(),
             });
             const { exportCapsuleToClipboard } = await loadCapsuleExporter();
             const result = await exportCapsuleToClipboard(capsule, 'result-panel-export');

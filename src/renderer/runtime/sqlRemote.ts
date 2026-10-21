@@ -7,12 +7,12 @@
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbBridge, SqlDbFixHint, SqlDbRunResult } from '../../shared/sqlDb';
 import type { DuckDbExecuteOutcome, SqlResultCursor } from './duckdbClient';
+import { appPlatform } from '../utils/appPlatform';
 
 export type RemoteOutcome = DuckDbExecuteOutcome & { engine: SqlRemoteEngine; fix?: SqlDbFixHint; affectedRows?: number };
 
-/** The bridge on desktop builds; null on web, where only Local runs. Desktop reports its OS as the platform. */
-export const sqlDbBridge = (): SqlDbBridge | null =>
-  typeof window !== 'undefined' && window.lingua && window.lingua.platform !== 'web' ? (window.lingua.db ?? null) : null;
+/** The bridge on desktop builds; null on web, where only Local runs. */
+export const sqlDbBridge = (): SqlDbBridge | null => (appPlatform() === 'desktop' ? (window.lingua?.db ?? null) : null);
 
 const PAGE_BYTES = 64 * 1024 * 1024;
 
