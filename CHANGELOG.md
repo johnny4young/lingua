@@ -40,6 +40,7 @@ The format follows Keep a Changelog and groups changes by release.
 - Settings selects given a custom width, such as the execution timeout ones, keep their styling instead of rendering as plain browser selects.
 
 ### Security
+- The desktop local MCP server moves to the patched @modelcontextprotocol packages (server 2.3.1, node 2.1.1), which fix one HTTP client's messages reaching another on a shared transport and a request that could exhaust memory during validation.
 - On desktop, the AI API key and HTTP environment values marked secret are encrypted with the system keychain instead of being stored in plain text. Existing values move on first launch, and a value stays where it was if the move fails. Without a system keyring, as on Linux sessions that report the basic_text backend, they stay in local storage as before and Settings says they are not encrypted. The web app keeps them in browser storage and now says so next to the field.
 
 ### Fixed
