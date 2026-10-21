@@ -47,6 +47,15 @@ class HostRequestError extends Error {
   }
 }
 
+function fileError(err: unknown): HostError {
+  const code = (err as { code?: string }).code;
+  return {
+    message: err instanceof Error ? err.message : String(err),
+    step: 'file',
+    fix: code === 'ENOENT' ? 'file-missing' : 'file-unreadable',
+  };
+}
+
 function probeTcp(address: string, port: number): Promise<number> {
   const start = performance.now();
   return new Promise((resolve, reject) => {
@@ -130,7 +139,13 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     for (const [id, run] of runs) if (run.connectionId === config.connectionId) await closeRun(id);
     const session = sessionFor(config);
     return serialize(session, async () => {
-      const driver = await session.ready;
+      let driver: DriverSession;
+      try {
+        driver = await session.ready;
+      } catch (err) {
+        // A failed connect names its step, so the renderer can tell it from a SQL error.
+        throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+      }
       inflight.set(runId, driver);
       let rows: DriverRows;
       try {
@@ -189,15 +204,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     try {
       driver = await drivers[config.engine](config);
     } catch (err) {
-      if (config.engine === 'sqlite') {
-        const code = (err as { code?: string }).code;
-        throw new HostRequestError({
-          message: err instanceof Error ? err.message : String(err),
-          step: 'file',
-          fix: code === 'ENOENT' ? 'file-missing' : 'file-unreadable',
-        });
-      }
-      throw new HostRequestError(classifyConnectError(err));
+      throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
     }
     const connectMs = Math.round(performance.now() - start);
     try {

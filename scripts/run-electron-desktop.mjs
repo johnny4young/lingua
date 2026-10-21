@@ -35,6 +35,7 @@ const viteBin = path.join(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 const esbuildBin = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuild');
 const builtMainPath = path.join(repoRoot, '.vite', 'build', 'main.js');
 const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
+const builtSqlHostPath = path.join(repoRoot, '.vite', 'build', 'sqlHost.js');
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const defaultRendererUrl = 'http://localhost:5174';
 const serverReadyTimeoutMs = 30_000;
@@ -267,7 +268,8 @@ async function runEsbuild(args) {
 async function ensureMainArtifacts(rendererUrl, syncMain) {
   const mainExists = await fileExists(builtMainPath);
   const preloadExists = await fileExists(builtPreloadPath);
-  const needsBootstrap = !mainExists || !preloadExists;
+  const sqlHostExists = await fileExists(builtSqlHostPath);
+  const needsBootstrap = !mainExists || !preloadExists || !sqlHostExists;
 
   if (!needsBootstrap && !syncMain) {
     return;
@@ -295,6 +297,20 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
         process.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ??
         '',
     ),
+  ]);
+
+  await runEsbuild([
+    path.join(repoRoot, 'src', 'main', 'sqlHost', 'hostEntry.ts'),
+    '--bundle',
+    '--platform=node',
+    '--format=cjs',
+    '--sourcemap',
+    '--outfile=.vite/build/sqlHost.js',
+    '--external:electron',
+    '--external:pg',
+    '--external:pg-cursor',
+    '--external:pg-native',
+    '--external:mysql2',
   ]);
 
   await runEsbuild([

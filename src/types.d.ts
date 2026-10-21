@@ -551,6 +551,7 @@ interface LinguaAPI {
   http?: import('./shared/httpWorkspaceSchema').HttpDesktopAPI;
   /** Desktop-only encrypted secret vault; absent on web. */
   secrets?: import('./shared/secretVault').SecretVaultBridge;
+  db?: import('./shared/sqlDb').SqlDbBridge;
   pythonDebugger?: import('./shared/pythonDebugger').PythonDebuggerBridge;
   goDebugger?: import('./shared/goDebugger').GoDebuggerBridge;
   rustDebugger?: import('./shared/rustDebugger').RustDebuggerBridge;

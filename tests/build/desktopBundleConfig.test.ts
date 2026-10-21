@@ -8,13 +8,15 @@ type DesktopConfig = Awaited<ReturnType<typeof getDesktopBuildConfigs>>[number];
 let main: DesktopConfig;
 let preload: DesktopConfig;
 let renderer: DesktopConfig;
+let sqlHost: DesktopConfig;
 
 beforeAll(async () => {
   const configs = await getDesktopBuildConfigs(root);
-  const [mainConfig, preloadConfig, rendererConfig] = configs;
-  if (!mainConfig || !preloadConfig || !rendererConfig) {
-    throw new Error(`expected main, preload and renderer configs, got ${configs.length}`);
+  const [mainConfig, preloadConfig, rendererConfig, sqlHostConfig] = configs;
+  if (!mainConfig || !preloadConfig || !rendererConfig || !sqlHostConfig) {
+    throw new Error(`expected main, preload, renderer and SQL host configs, got ${configs.length}`);
   }
+  sqlHost = sqlHostConfig;
   main = mainConfig;
   preload = preloadConfig;
   renderer = rendererConfig;
@@ -73,6 +75,13 @@ describe('production desktop bundle contract', () => {
       output: { format: 'cjs', inlineDynamicImports: true, entryFileNames: 'preload.js' },
     });
     expect(preload.build.lib).toBeUndefined();
+  });
+
+  it('builds the SQL host beside main with its drivers left to node_modules', () => {
+    expect(sqlHost.build.lib).toMatchObject({ entry: 'src/main/sqlHost/hostEntry.ts', formats: ['cjs'] });
+    expect(sqlHost.build.outDir).toBe('.vite/build');
+    expect(sqlHost.build.rollupOptions.output).toMatchObject({ format: 'cjs', entryFileNames: 'sqlHost.js' });
+    expect(sqlHost.build.rollupOptions.external).toEqual(expect.arrayContaining(['pg', 'pg-cursor', 'mysql2', 'node:sqlite']));
   });
 
   it('preserves file-protocol renderer assets and repository environment defines', () => {

@@ -49,6 +49,8 @@ export interface SqlDbRunResult {
   /** Rows a write touched, when the server says. */
   affectedRows?: number;
   errorMessage?: string;
+  /** Why it failed, when the renderer can act on it (ask for a password, confirm a write). */
+  fix?: SqlDbFixHint;
 }
 
 export interface SqlDbFetchResult {
@@ -57,6 +59,9 @@ export interface SqlDbFetchResult {
   bytes: number;
   errorMessage?: string;
 }
+
+export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key';
+export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
 
 export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server'] as const;
 export type SqlDbTestStepId = (typeof SQL_DB_TEST_STEPS)[number];
@@ -84,6 +89,8 @@ export const SQL_DB_FIX_HINTS = [
   'database',
   'file-missing',
   'file-unreadable',
+  'blocked-path',
+  'confirm-needed',
   'unknown',
 ] as const;
 export type SqlDbFixHint = (typeof SQL_DB_FIX_HINTS)[number];
@@ -95,3 +102,20 @@ export interface SqlDbTestResult {
   /** `PostgreSQL 16.4`, `MySQL 8.4.2`, `SQLite 3.53.4`. */
   serverVersion?: string;
 }
+
+/** `window.lingua.db` on desktop; absent on the web build. */
+export interface SqlDbBridge {
+  catalog(): Promise<SqlDbCatalogView>;
+  save(draft: SqlConnectionDraft, id?: string, password?: string): Promise<SqlDbSaveResult>;
+  delete(id: string): Promise<{ ok: boolean }>;
+  openAdhoc(draft: SqlConnectionDraft, password?: string): Promise<SqlDbSaveResult>;
+  sessionPassword(id: string, password: string): Promise<{ ok: boolean }>;
+  test(target: SqlDbTarget): Promise<SqlDbTestResult>;
+  execute(runId: string, connectionId: string, sql: string, options: SqlDbRunOptions): Promise<SqlDbRunResult>;
+  fetch(runId: string, limit: number, maxBytes: number): Promise<SqlDbFetchResult>;
+  cancel(runId: string): Promise<{ cancelled: boolean }>;
+  closeRun(runId: string): Promise<{ ok: true }>;
+  estimate(connectionId: string, sql: string): Promise<number | null>;
+  pickFile(kind: SqlDbFileKind): Promise<SqlDbPickResult>;
+}
+

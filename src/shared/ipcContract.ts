@@ -235,6 +235,29 @@ interface IpcInvokeContract {
   'secrets:delete': { args: [id: string]; result: { ok: boolean } };
   'secrets:list': { args: [prefix: string]; result: readonly string[] };
 
+  // ------------------------------------------------------ desktop database client
+  'sql-db:catalog': { args: []; result: import('./sqlDb').SqlDbCatalogView };
+  'sql-db:save': {
+    args: [draft: import('./sqlConnections').SqlConnectionDraft, id: string | undefined, password: string | undefined];
+    result: import('./sqlDb').SqlDbSaveResult;
+  };
+  'sql-db:delete': { args: [id: string]; result: { ok: boolean } };
+  'sql-db:open-adhoc': {
+    args: [draft: import('./sqlConnections').SqlConnectionDraft, password: string | undefined];
+    result: import('./sqlDb').SqlDbSaveResult;
+  };
+  'sql-db:session-password': { args: [id: string, password: string]; result: { ok: boolean } };
+  'sql-db:test': { args: [target: import('./sqlDb').SqlDbTarget]; result: import('./sqlDb').SqlDbTestResult };
+  'sql-db:execute': {
+    args: [runId: string, connectionId: string, sql: string, options: import('./sqlDb').SqlDbRunOptions];
+    result: import('./sqlDb').SqlDbRunResult;
+  };
+  'sql-db:fetch': { args: [runId: string, limit: number, maxBytes: number]; result: import('./sqlDb').SqlDbFetchResult };
+  'sql-db:cancel': { args: [runId: string]; result: { cancelled: boolean } };
+  'sql-db:close-run': { args: [runId: string]; result: { ok: true } };
+  'sql-db:estimate': { args: [connectionId: string, sql: string]; result: number | null };
+  'sql-db:pick-file': { args: [kind: import('./sqlDb').SqlDbFileKind]; result: import('./sqlDb').SqlDbPickResult };
+
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
 
@@ -673,6 +696,18 @@ export const IPC_INVOKE_CHANNELS = [
   'secrets:get',
   'secrets:delete',
   'secrets:list',
+  'sql-db:catalog',
+  'sql-db:save',
+  'sql-db:delete',
+  'sql-db:open-adhoc',
+  'sql-db:session-password',
+  'sql-db:test',
+  'sql-db:execute',
+  'sql-db:fetch',
+  'sql-db:cancel',
+  'sql-db:close-run',
+  'sql-db:estimate',
+  'sql-db:pick-file',
   'env:snapshot',
   'http:execute',
   'http:cancel',
