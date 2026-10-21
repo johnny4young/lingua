@@ -17,6 +17,11 @@ release checklist.
   absolute paths.
 - Confirm protected paths and symlink containment are covered by tests.
 - Confirm watcher ids are opaque and do not expose local filesystem paths.
+- Confirm the `sql-db:*` channels validate every argument in main, that the
+  `secrets:*` channels still refuse `db.` ids, that database passwords never
+  reach the renderer, `sql-connections.json`, logs or capsules, and that SQLite
+  files in protected folders are refused (`tests/ipc/sqlDb.test.ts`,
+  `tests/main/sqlDbService.test.ts`).
 
 ## Runners
 
@@ -286,8 +291,10 @@ pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
 cannot see, and is wired as a blocking step into both `ci.yml` and
 `release.yml`.
 
-**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — five
-packages in this repository. But Vite *bundles* the main and preload graphs, so
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — eight
+packages in this repository, including the database drivers `pg`, `pg-cursor`
+and `mysql2`, which stay external to the SQL host bundle and load from
+`node_modules` in the packaged app. But Vite *bundles* the main and preload graphs, so
 any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
 ships to users regardless of how it is declared. Two such packages are
 devDependencies today:

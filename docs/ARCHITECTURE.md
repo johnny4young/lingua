@@ -328,6 +328,44 @@ dropped; Markdown, SQL INSERT and XLSX read rows through the same cursor up to
 a cap and use the app's writers (`sqlXlsx.ts` zips the sheet with `fflate`,
 loaded on demand). Foreign keys for tables opened from the Explorer come from
 `duckdb_constraints()` in `sqlForeignKeys.ts`, single-column keys only.
+
+### Database connections and the SQL host (desktop)
+
+Saved Postgres, MySQL and SQLite connections run outside the renderer. Main
+forks `src/main/sqlHost/hostEntry.ts` (bundled to `.vite/build/sqlHost.js`
+by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor` and `mysql2` left
+external) as the `Lingua SQL host` utility process through
+`createSqlHostSupervisor`; a request pending when the host exits fails, and
+the next request forks a new host. The host holds one session per connection
+and serializes the requests on it.
+
+Main owns everything the host must not decide. `sqlConnectionCatalog.ts`
+keeps the catalog in `userData/sql-connections.json` (mode 0600, written
+atomically, never a password). Passwords live in the secret store under the
+`db.` namespace, which the `secrets:*` channels refuse, or in main's memory
+for connections that ask each session; they reach the host per run and never
+the renderer. `sqlDbService.ts` re-checks the Free quota against the verified
+license tier, resolves the host name and passes the pinned address with the
+host name for TLS identity and SNI, refuses a SQLite file in a protected
+folder, and refuses a write to a production connection without the typed
+connection name (`isWriteSqlStatement`). The twelve `sql-db:*` channels in
+`ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
+
+Read-only is enforced by the server, not only by the classifier: Postgres
+opens the session with `SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY`,
+MySQL with `SET SESSION TRANSACTION READ ONLY`, SQLite with a read-only
+handle, and a confirmed write runs in its own read-write transaction or
+handle for that run only. SQLite connections deny `ATTACH`, which also blocks
+`VACUUM INTO`, so a query cannot reach a file main did not check.
+
+A result comes back like Local's: a first window under the same row and byte
+caps, then pages read by run id through `sql-db:fetch`. Wide numbers, dates
+and JSON arrive as text and bytes as base64. Cancel uses `pg_cancel_backend`
+from a side connection on Postgres and `KILL QUERY` on MySQL; SQLite cannot
+be interrupted, so cancelling it restarts the host. In the renderer,
+`sqlRemote.ts` runs the statements one at a time and wraps the pages in a
+`SqlResultCursor`; `window.lingua.db` exists only on desktop, so the web build
+keeps Local alone.
 An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts`:
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.

@@ -3757,7 +3757,7 @@
   "settings.labs.flag.networkPolicy.label": "Network policy for running code",
   "settings.labs.flag.networkPolicy.description": "Adds Network from running code to Settings › Privacy, where you choose whether code in the Worker, Pyodide and Ruby WASM runtimes may reach the network.",
   "settings.labs.flag.dbClient.label": "Database connections",
-  "settings.labs.flag.dbClient.description": "Connect the SQL tab to Postgres, MySQL and SQLite files on this computer. Desktop only; Local DuckDB stays the default.",
+  "settings.labs.flag.dbClient.description": "Connect the SQL tab to Postgres and MySQL servers and to SQLite files. Desktop only; Local DuckDB stays the default.",
   "networkAsk.title": "Allow this network request?",
   "networkAsk.body": "Code running in {{runtime}} in this tab wants to reach:",
   "networkAsk.scope": "Your answer holds for this host in this tab until you reload. Change the policy in Settings › Privacy.",

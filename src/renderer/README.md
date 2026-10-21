@@ -52,6 +52,12 @@ that release transition so a new engine cannot reopen partially cleared data.
 Full-result export (`COPY … TO` a virtual file, or rows through the result
 cursor) lives in [`runtime/duckdbExport.ts`](runtime/duckdbExport.ts), and
 foreign-key metadata in [`runtime/sqlForeignKeys.ts`](runtime/sqlForeignKeys.ts).
+Saved database connections run through
+[`runtime/sqlRemote.ts`](runtime/sqlRemote.ts), which sends one statement at a
+time to the desktop SQL host over `window.lingua.db` and pages the rest of a
+result through the same `SqlResultCursor`; the bridge is absent on web. Anything
+that re-runs a result on DuckDB (Profile, Save as table, full export) checks the
+response's `engine` first.
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
 and keeps its `app-chrome` landmarks: brand and file on the left, then
@@ -192,7 +198,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar, Explorer, results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar and picker, new-connection sheet and production dialogs (`SqlConnection*.tsx`), Explorer, results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -1037,7 +1043,7 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | Project terminal lifecycle              | `tests/main/projectTerminal.test.ts`, `tests/stores/projectTerminalStore.test.ts`, `tests/components/ProjectTerminal/ProjectTerminalPanel.test.tsx`, `tests/components/AppLayout.test.tsx` |
 | Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, results dock tests |
 | Notebook behavior                       | `tests/stores/notebookStore.test.ts`, `tests/renderer/runtime/notebookSession.test.ts`, `tests/hooks/useNotebookRun.test.ts`, `tests/components/Notebook/*` |
-| HTTP / SQL workspaces                   | `tests/renderer/runtime/httpClient.test.ts`, `tests/renderer/runtime/duckdbClient.test.ts`, workspace component tests |
+| HTTP / SQL workspaces                   | `tests/renderer/runtime/httpClient.test.ts`, `tests/renderer/runtime/duckdbClient.test.ts`, `tests/renderer/runtime/sqlRemote.test.ts`, workspace component tests |
 | Language intelligence                   | `tests/languageIntelligence/*.test.ts`, `tests/languageSupportRegistry.test.ts` |
 | Licensing / server services             | `tests/services/*.test.ts`, license section/device component tests            |
 | i18n copy plumbing                      | `pnpm run check:i18n` and `pnpm run check:i18n:copy`                          |
