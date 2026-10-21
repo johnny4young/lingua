@@ -22,6 +22,8 @@ import {
   type SqlSslMode,
 } from '../../../shared/sqlConnections';
 import type { SqlDbConnectionView, SqlDbFileKind, SqlDbTestResult } from '../../../shared/sqlDb';
+import { sqlConnectionTestedPayload } from '../../hooks/sqlWorkspaceTelemetry';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import { sqlDbBridge } from '../../runtime/sqlRemote';
 import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
 import { cn } from '../../utils/cn';
@@ -93,8 +95,8 @@ function Segmented<T extends string>({
 export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
+  const { track } = useTelemetry();
   const catalog = useSqlConnectionsStore((state) => state.catalog);
-  const store = useSqlConnectionsStore();
   const editing = mode.kind === 'edit' ? mode.connection : null;
   const [draft, setDraft] = useState<SqlConnectionDraft>(() => {
     // The strict parser keeps the draft fields and drops the saved-record ones.
@@ -107,6 +109,8 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const [touchedReadOnly, setTouchedReadOnly] = useState(false);
   const [test, setTest] = useState<SqlDbTestResult | 'running' | null>(null);
   const [busy, setBusy] = useState(false);
+  // Deleting also drops the stored password, so it takes a second click.
+  const [armedDelete, setArmedDelete] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
 
@@ -180,14 +184,16 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     if (!db || !valid) return;
     setTest('running');
     const keptPassword = editing && !secret && editing.hasPassword;
-    setTest(await db.test(keptPassword ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}) }));
+    const result = await db.test(keptPassword ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}) });
+    setTest(result);
+    track('sql.connection_tested', sqlConnectionTestedPayload(named.engine, result));
   };
 
   const save = async () => {
     if (!valid) return;
     setBusy(true);
     setError(null);
-    const result = mode.kind === 'url' || (atLimit && !editing) ? await store.openAdhoc(named, secret) : await store.save(named, editing?.id, secret);
+    const result = mode.kind === 'url' || (atLimit && !editing) ? await useSqlConnectionsStore.getState().openAdhoc(named, secret) : await useSqlConnectionsStore.getState().save(named, editing?.id, secret);
     setBusy(false);
     if (!result.ok) {
       setError(t(`sqlWorkspace.connection.saveError.${result.reason}`));
@@ -199,8 +205,12 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
 
   const remove = async () => {
     if (!editing) return;
+    if (armedDelete !== editing.id) {
+      setArmedDelete(editing.id);
+      return;
+    }
     setBusy(true);
-    await store.remove(editing.id);
+    await useSqlConnectionsStore.getState().remove(editing.id);
     setBusy(false);
     onClose();
   };
@@ -243,7 +253,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
           </button>
           {editing ? (
             <button type="button" data-testid="sql-connection-delete" onClick={() => void remove()} disabled={busy} className={cn(BUTTON, 'text-error-fg')}>
-              {t('sqlWorkspace.connection.delete')}
+              {armedDelete === editing.id ? t('sqlWorkspace.connection.deleteConfirm') : t('sqlWorkspace.connection.delete')}
             </button>
           ) : null}
         </div>
@@ -279,8 +289,16 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                     <span className={cn('h-[7px] w-[7px] rounded-full', CONNECTION_TONE[entry.env ?? 'none'].dot)} aria-hidden="true" />
                     <span className="truncate">{entry.name}</span>
                     <span className="font-mono text-caption text-fg-muted">{ENGINE_LABEL[entry.engine]}</span>
-                    <button type="button" onClick={() => void store.remove(entry.id)} className={cn(BUTTON, 'ml-auto h-6 text-error-fg')}>
-                      {t('sqlWorkspace.connection.delete')}
+                    <button
+                      type="button"
+                      data-testid="sql-connection-replace-delete"
+                      onClick={() => {
+                        if (armedDelete !== entry.id) setArmedDelete(entry.id);
+                        else void useSqlConnectionsStore.getState().remove(entry.id).then(() => setArmedDelete(null));
+                      }}
+                      className={cn(BUTTON, 'ml-auto h-6 text-error-fg')}
+                    >
+                      {armedDelete === entry.id ? t('sqlWorkspace.connection.deleteConfirm') : t('sqlWorkspace.connection.delete')}
                     </button>
                   </li>
                 ))}

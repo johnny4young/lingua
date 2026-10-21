@@ -17,6 +17,11 @@
  *     the failure mode this test guards.
  */
 
+import { SQL_DB_TEST_STEPS } from '../../src/shared/sqlDb';
+import {
+  SQL_CONNECTION_TEST_STEPS_SET as RENDERER_SQL_CONNECTION_TEST_STEPS_SET,
+  SQL_ENGINES_SET as RENDERER_SQL_ENGINES_SET,
+} from '../../src/shared/telemetry/valueCatalog';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import worker, { type Env } from '../src/index';
 import {
@@ -34,6 +39,8 @@ import {
   SQL_QUERY_STATUSES_SET as WORKER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
   SQL_STORAGE_MODES_SET as WORKER_SQL_STORAGE_MODES_SET,
+  SQL_ENGINES_SET as WORKER_SQL_ENGINES_SET,
+  SQL_CONNECTION_TEST_STEPS_SET as WORKER_SQL_CONNECTION_TEST_STEPS_SET,
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
   PIPELINE_TEMPLATE_IDS_SET as WORKER_PIPELINE_TEMPLATE_IDS_SET,
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
@@ -1195,6 +1202,13 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       'timeout',
       'too-large',
     ]);
+  });
+
+  it('SQL engines and connection test steps stay in sync', () => {
+    expect([...WORKER_SQL_ENGINES_SET].sort()).toEqual([...RENDERER_SQL_ENGINES_SET].sort());
+    expect([...WORKER_SQL_ENGINES_SET].sort()).toEqual(['duckdb', 'mysql', 'postgres', 'sqlite']);
+    expect([...WORKER_SQL_CONNECTION_TEST_STEPS_SET].sort()).toEqual([...RENDERER_SQL_CONNECTION_TEST_STEPS_SET].sort());
+    expect([...RENDERER_SQL_CONNECTION_TEST_STEPS_SET].filter((step) => step !== 'none').sort()).toEqual([...SQL_DB_TEST_STEPS].sort());
   });
 
   it('SQL duration buckets stay in sync (implementation note)', () => {

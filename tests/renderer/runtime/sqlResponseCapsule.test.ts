@@ -49,6 +49,36 @@ describe('buildSqlResponseCapsule', () => {
     expect(capsule.environment.runner).toBe('duckdb-wasm');
   });
 
+  it('names the engine of a saved connection and nothing about where it points', async () => {
+    const capsule = await buildSqlResponseCapsule({
+      appVersion: 'test',
+      platform: 'desktop',
+      query: fixtureQuery({ connectionId: 'c_0123456789abcdef' }),
+      response: fixtureResponse({ engine: 'postgres' }),
+    });
+    expect(capsule.tab.runtimeMode).toBe('sql-postgres');
+    expect(capsule.environment.runner).toBe('sql-postgres');
+    expect(JSON.stringify(capsule)).not.toContain('c_0123456789abcdef');
+  });
+
+  it('keeps the server message of a connection failure out of the capsule', async () => {
+    const capsule = await buildSqlResponseCapsule({
+      appVersion: 'test',
+      platform: 'desktop',
+      query: fixtureQuery(),
+      response: fixtureResponse({
+        status: 'connection-failed',
+        engine: 'mysql',
+        rows: [],
+        rowCount: 0,
+        errorMessage: "Access denied for user 'root'@'10.0.4.12' (using password: YES)",
+      }),
+    });
+    expect(capsule.result.status).toBe('error');
+    expect(capsule.result.stderr).toBe('Could not connect to the mysql connection.');
+    expect(JSON.stringify(capsule)).not.toMatch(/root|10\.0\.4\.12/);
+  });
+
   it('maps success status to success', async () => {
     const capsule = await buildSqlResponseCapsule({
       appVersion: 'test',

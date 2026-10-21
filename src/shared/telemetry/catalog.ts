@@ -458,6 +458,11 @@ export const TELEMETRY_EVENTS = [
   // Explicit request to inspect aggregate column statistics. The
   // event deliberately carries no query, schema, column, or result data.
   'sql.profile_opened',
+  // Test connection in the database connection sheet. `engine` ∈
+  // SQL_ENGINES_SET, `failedStep` ∈ SQL_CONNECTION_TEST_STEPS_SET,
+  // `durationBucket` ∈ SQL_DURATION_BUCKETS_SET. No host, user, database,
+  // path or server message on the wire. Mirrored on update-server.
+  'sql.connection_tested',
   // SQL workspace storage backing.
   // Fires once per session when the DuckDB engine first resolves its
   // backing. Closed-enum `{ mode, requested }` where both ∈
@@ -857,9 +862,10 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   // `rowCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `durationBucket`
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
   // values on the wire.
-  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket', 'engine'],
   // Pure interaction counter; profile data never leaves the device.
   'sql.profile_opened': [],
+  'sql.connection_tested': ['engine', 'failedStep', 'durationBucket'],
   // `mode` + `requested` ∈
   // SQL_STORAGE_MODES_SET. No database content on the wire.
   'sql.storage_mode': ['mode', 'requested'],

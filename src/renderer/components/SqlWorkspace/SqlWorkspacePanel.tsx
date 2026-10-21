@@ -52,6 +52,7 @@ import { EMPTY_SQL_CATALOG, type SqlCatalog, type SqlSchemaTable } from './sqlEx
 import { SqlImportPreviewModal } from './SqlImportPreviewModal';
 import { SqlQueryTabs } from './SqlQueryTabs';
 import { SqlSaveQueryPopover } from './SqlSaveQueryPopover';
+import { ENGINE_LABEL } from './sqlConnectionStyle';
 import { SqlHistorySection } from './SqlHistorySection';
 import { SqlPlanView } from './SqlPlanView';
 import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
@@ -593,6 +594,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           folders={folders}
           onSave={tabActions.confirmSave}
           onCancel={tabActions.cancelSave}
+          {...(activeConnection ? { connectionLabel: `${activeConnection.name} · ${ENGINE_LABEL[activeConnection.engine]}` } : {})}
         />
       ) : null}
     </div>

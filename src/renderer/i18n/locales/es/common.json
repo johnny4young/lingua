@@ -3882,6 +3882,7 @@
   "sqlWorkspace.connection.openWithoutSaving": "Abrir sin guardar",
   "sqlWorkspace.connection.test": "Probar conexión",
   "sqlWorkspace.connection.delete": "Eliminar",
+  "sqlWorkspace.connection.deleteConfirm": "Eliminar definitivamente",
   "sqlWorkspace.connection.limitReached": "{{used}} de {{limit}} guardadas · límite alcanzado",
   "sqlWorkspace.connection.unlimited": "ilimitadas",
   "sqlWorkspace.connection.limitBody": "Igual puedes abrirla ahora sin guardarla: dura solo esta sesión.",

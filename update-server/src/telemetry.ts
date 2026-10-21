@@ -237,6 +237,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'sql.query_executed',
   // internal — Column Explorer opened. Deliberately has no payload.
   'sql.profile_opened',
+  'sql.connection_tested',
   // implementation (SQL OPFS) implementation note — SQL workspace storage backing.
   // Closed-enum `{ mode, requested }` (both ∈ SQL_STORAGE_MODES_SET)
   // mirrored from src/shared/telemetry.ts. Parity test cross-imports
@@ -450,8 +451,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
   'import.postman_variables_resolved': ['resolvedBucket', 'unresolvedBucket'],
   // implementation note — mirror of src/shared/telemetry.ts.
-  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket', 'engine'],
   'sql.profile_opened': [],
+  'sql.connection_tested': ['engine', 'failedStep', 'durationBucket'],
   // implementation (SQL OPFS) implementation note — mirror of src/shared/telemetry.ts.
   'sql.storage_mode': ['mode', 'requested'],
   // implementation (SQL import) implementation note — mirror of src/shared/telemetry.ts.
@@ -956,6 +958,19 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<5s',
   '<30s',
   '>=30s',
+]);
+// Mirror of SQL_ENGINES_SET; parity test cross-imports the renderer set.
+export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite']);
+// Mirror of SQL_CONNECTION_TEST_STEPS_SET; parity test cross-imports it.
+export const SQL_CONNECTION_TEST_STEPS_SET = new Set([
+  'none',
+  'resolve',
+  'policy',
+  'file',
+  'tcp',
+  'tls',
+  'auth',
+  'server',
 ]);
 // implementation (SQL OPFS) implementation note — mirror of SQL_STORAGE_MODES_SET.
 // Source of truth is `SQL_STORAGE_MODES` in
@@ -1668,8 +1683,23 @@ function isAllowedValue(
         return (
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
+      if (key === 'engine')
+        return typeof value === 'string' && SQL_ENGINES_SET.has(value);
       return false;
     case 'sql.profile_opened':
+      return false;
+    case 'sql.connection_tested':
+      if (key === 'engine')
+        return typeof value === 'string' && SQL_ENGINES_SET.has(value);
+      if (key === 'failedStep')
+        return (
+          typeof value === 'string' &&
+          SQL_CONNECTION_TEST_STEPS_SET.has(value)
+        );
+      if (key === 'durationBucket')
+        return (
+          typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
+        );
       return false;
     case 'sql.storage_mode':
       return (

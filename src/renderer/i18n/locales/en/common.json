@@ -3855,6 +3855,7 @@
   "sqlWorkspace.connection.openWithoutSaving": "Open without saving",
   "sqlWorkspace.connection.test": "Test connection",
   "sqlWorkspace.connection.delete": "Delete",
+  "sqlWorkspace.connection.deleteConfirm": "Delete for good",
   "sqlWorkspace.connection.limitReached": "{{used}} of {{limit}} saved · limit reached",
   "sqlWorkspace.connection.unlimited": "unlimited",
   "sqlWorkspace.connection.limitBody": "You can still open this one now without saving it: it lasts for this session only.",
