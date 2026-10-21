@@ -360,6 +360,22 @@ describe('SqlQueryEditor', () => {
     expect(onPatch).toHaveBeenLastCalledWith('q1', { query: 'SELECT new_1;\nSELECT new_2;' });
   });
 
+  it('inserts a rail predicate at the cursor as WHERE, or AND after an existing WHERE', () => {
+    const sql = 'SELECT * FROM t;\nSELECT * FROM u WHERE a = 1';
+    const query = createBlankSqlQuery({ id: 'q1', query: sql, now: '2026-05-26T00:00:00.000Z' });
+    const props = { query, isExecuting: false, tables: [], onRun: vi.fn(), onPatch: vi.fn(), onCancel: vi.fn(), onSave: vi.fn() };
+    const { rerender } = render(<SqlQueryEditor {...props} />);
+    act(() => moveSqlCursor('SELECT * FROM t'.length));
+    rerender(<SqlQueryEditor {...props} predicateSignal={{ text: "city = 'Cali'", nonce: 1 }} />);
+    expect(sqlMonacoHarness.edits.at(-1)).toBe(" WHERE city = 'Cali'");
+    act(() => moveSqlCursor(sql.length));
+    rerender(<SqlQueryEditor {...props} predicateSignal={{ text: 'n BETWEEN 1 AND 5', nonce: 2 }} />);
+    expect(sqlMonacoHarness.edits.at(-1)).toBe(' AND n BETWEEN 1 AND 5');
+    // The same signal again does not insert twice.
+    rerender(<SqlQueryEditor {...props} predicateSignal={{ text: 'n BETWEEN 1 AND 5', nonce: 2 }} />);
+    expect(sqlMonacoHarness.edits).toHaveLength(2);
+  });
+
   it('turns Run into Cancel while the query runs, and Mod+. cancels', () => {
     const { onCancel, onRun } = renderEditor(SCRIPT, { isExecuting: true });
     expect(screen.queryByTestId('sql-query-editor-run')).toBeNull();
