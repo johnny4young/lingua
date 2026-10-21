@@ -4026,6 +4026,7 @@
   "sqlWorkspace.export.saveAsTable": "Save as table",
   "sqlWorkspace.export.saveAsTableName": "New table name",
   "sqlWorkspace.export.saveAsTableUnavailable": "Needs a single read query run in this session.",
+  "sqlWorkspace.export.saveAsTableRemote": "Runs on Local only; this result came from a saved connection.",
   "sqlWorkspace.export.create": "Create",
   "sqlWorkspace.export.sendToPython": "Send to Python tab",
   "sqlWorkspace.export.sendToPythonHint": "rows as dicts, up to 1,000",

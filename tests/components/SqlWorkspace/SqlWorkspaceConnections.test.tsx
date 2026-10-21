@@ -137,6 +137,19 @@ describe('SQL workspace on a saved connection', () => {
     expect(useWorkspaceSqlStore.getState().history[0]).toMatchObject({ status: 'success' });
   });
 
+  it('keeps Profile, Save as table and the full export, which re-run on Local, off a remote result', async () => {
+    db.execute.mockResolvedValueOnce(result({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), rowCount: 1000, hasMore: true, rowCountIsLowerBound: true }));
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    fireEvent.click(await screen.findByTestId('sql-result-preview-export'));
+    expect(screen.queryByRole('tab', { name: 'Profile' })).toBeNull();
+    expect(screen.queryByTestId('sql-export-scope-full')).toBeNull();
+    expect(screen.queryByTestId('sql-export-save-table')).toBeNull();
+    expect(screen.getByTestId('sql-export-save-table-unavailable').textContent).toBe('Runs on Local only; this result came from a saved connection.');
+    expect(screen.getByTestId('sql-export-send-python')).toBeTruthy();
+  });
+
   it('asks for the typed name with an estimate before a production write, and Cancel sends nothing', async () => {
     openQuery("UPDATE customers SET plan = 'pro' WHERE id <= 10", 'c_prod');
     await renderPanel();

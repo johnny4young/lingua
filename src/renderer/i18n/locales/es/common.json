@@ -4053,6 +4053,7 @@
   "sqlWorkspace.export.saveAsTable": "Guardar como tabla",
   "sqlWorkspace.export.saveAsTableName": "Nombre de la tabla nueva",
   "sqlWorkspace.export.saveAsTableUnavailable": "Necesita una sola consulta de lectura ejecutada en esta sesión.",
+  "sqlWorkspace.export.saveAsTableRemote": "Solo funciona en Local; este resultado viene de una conexión guardada.",
   "sqlWorkspace.export.create": "Crear",
   "sqlWorkspace.export.sendToPython": "Enviar a una pestaña de Python",
   "sqlWorkspace.export.sendToPythonHint": "filas como dicts, hasta 1.000",

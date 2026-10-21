@@ -178,9 +178,11 @@ export function SqlResultPreview({
     () => profileQuerySource !== undefined && buildColumnProfileQuery(profileQuerySource) !== null,
     [profileQuerySource]
   );
+  // The profile re-runs the source on Local DuckDB, so a saved connection's result has none.
   const canProfile =
     response !== null &&
     response.status === 'success' &&
+    response.engine === undefined &&
     selectedResponseIndex === 0 &&
     onProfileQuery !== undefined &&
     isProfileableSource;
