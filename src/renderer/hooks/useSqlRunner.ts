@@ -31,6 +31,7 @@ import { e2eFixedDurationMs } from '../testing/e2eDurations';
 import type { SqlRunRequest } from '../components/SqlWorkspace/SqlQueryEditor';
 import { useAnnounce } from './useAnnounce';
 import { trackSqlQueryExecuted } from './sqlWorkspaceTelemetry';
+import '../i18n/sqlConnectionsCatalog';
 
 export function toSqlResponse(outcome: DuckDbExecuteOutcome): SqlResponseV1 {
   return {

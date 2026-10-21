@@ -5,6 +5,7 @@ import type { SqlWriteConfirm } from '../../hooks/useSqlRunner';
 import { formatNumber } from '../../i18n/formatNumber';
 import { cn } from '../../utils/cn';
 import { ModalShell } from '../ui/ModalShell';
+import '../../i18n/sqlConnectionsCatalog';
 
 const BUTTON = 'focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40';
 

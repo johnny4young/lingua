@@ -33,6 +33,7 @@ import { ModalShell } from '../ui/ModalShell';
 import { copyToClipboard } from './sqlResultActions';
 import { CONNECTION_TONE, ENGINE_LABEL } from './sqlConnectionStyle';
 import { buildTestReport } from './sqlConnectionReport';
+import '../../i18n/sqlConnectionsCatalog';
 
 export type SqlConnectionSheetMode = { kind: 'new' } | { kind: 'url' } | { kind: 'edit'; connection: SqlDbConnectionView };
 
