@@ -27,7 +27,7 @@ import {
   utf8ByteLength,
   type SqlQueryV1,
 } from '../../../shared/sqlWorkspace';
-import { splitSqlStatements, statementAtOffset } from '../../../shared/sqlStatements';
+import { hasWhereClause, splitSqlStatements, statementAtOffset } from '../../../shared/sqlStatements';
 import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
@@ -65,6 +65,8 @@ export interface SqlQueryEditorProps {
    * twice in a row — the changing nonce is what the effect keys on.
    */
   insertSignal?: { text: string; nonce: number };
+  /** A column-rail predicate to insert at the cursor, as WHERE or AND depending on the statement. */
+  predicateSignal?: { text: string; nonce: number };
   /**
    * Live session tables, threaded from the panel's
    * Explorer catalog. Fed to the Monaco completion provider so table names
@@ -87,6 +89,7 @@ export function SqlQueryEditor({
   isExecuting,
   isBusy = false,
   insertSignal,
+  predicateSignal,
   tables,
   headerExtra,
 }: SqlQueryEditorProps) {
@@ -106,6 +109,7 @@ export function SqlQueryEditor({
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
   const statements = useMemo(() => splitSqlStatements(text), [text]);
+  const [cursorInsert, setCursorInsert] = useState<{ text: string; nonce: number } | null>(null);
   const [cursor, setCursor] = useState<SqlEditorCursor>({ offset: 0, selectionStart: 0, selectionEnd: 0 });
   const cursorIndex = statementAtOffset(statements, cursor.offset)?.index ?? 0;
   const hasSelection = text.slice(cursor.selectionStart, cursor.selectionEnd).trim().length > 0;
@@ -229,6 +233,21 @@ export function SqlQueryEditor({
     if (payload.kind === 'sql') onSave(payload.as);
   });
 
+  // A rail predicate joins the statement under the cursor: AND after its WHERE, else WHERE.
+  const lastPredicateNonceRef = useRef(predicateSignal?.nonce ?? 0);
+  useEffect(() => {
+    if (!predicateSignal || predicateSignal.nonce === lastPredicateNonceRef.current) return;
+    lastPredicateNonceRef.current = predicateSignal.nonce;
+    const picked = statementAtOffset(splitSqlStatements(latestTextRef.current), cursor.offset);
+    const before = picked
+      ? latestTextRef.current.slice(picked.statement.start, Math.min(cursor.offset, picked.statement.end))
+      : '';
+    const joiner = hasWhereClause(before) ? 'AND' : 'WHERE';
+    const spacer = /\s$/.test(latestTextRef.current.slice(0, cursor.offset)) || cursor.offset === 0 ? '' : ' ';
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Folds an external insert signal into the editor, like insertSignal above.
+    setCursorInsert({ text: `${spacer}${joiner} ${predicateSignal.text}`, nonce: predicateSignal.nonce });
+  }, [predicateSignal, cursor.offset]);
+
   // pretty-print via sql-formatter. Lazy-import keeps the
   // formatter out of the main chunk. The dialect default `'duckdb'`
   // exists since sql-formatter 13; older versions fall back to
@@ -318,6 +337,7 @@ export function SqlQueryEditor({
         statements={statements}
         runGlyphLabel={t('sqlWorkspace.run.statement')}
         onFormatShortcut={handleFormat}
+        {...(cursorInsert ? { insertAtCursor: cursorInsert } : {})}
         tables={tables}
         ariaLabel={t('sqlWorkspace.editor.ariaLabel')}
       />

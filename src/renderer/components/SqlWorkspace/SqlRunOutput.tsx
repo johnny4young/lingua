@@ -2,6 +2,7 @@ import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SqlResultView, SqlRunSet } from '../../hooks/useSqlRunner';
 import { cn } from '../../utils/cn';
+import { formatNumber } from '../../i18n/formatNumber';
 import { StatusBadge } from '../ui/StatusBadge';
 import { toneForSqlStatus } from './sqlStatusTone';
 
@@ -20,7 +21,7 @@ export function SqlResultTabs({
   view: SqlResultView;
   onSelect: (view: SqlResultView) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const items: Array<{ id: string; label: string; target: SqlResultView }> = runSet
     ? [
         ...runSet.results.map(({ response }, index) => ({
@@ -30,6 +31,7 @@ export function SqlResultTabs({
               ? t('sqlWorkspace.results.resultRows', {
                   n: index + 1,
                   count: response.rowCount,
+                  formatted: formatNumber(response.rowCount, i18n.language),
                   atLeast: response.rowCountIsLowerBound ? '≥ ' : '',
                 })
               : t('sqlWorkspace.results.resultStatus', {

@@ -18,6 +18,7 @@ import { cn } from '../../utils/cn';
 import { StatusBadge } from '../ui/StatusBadge';
 import { toneForSqlStatus } from './sqlStatusTone';
 import { formatClock } from './sqlResultFormatters';
+import { formatNumber } from '../../i18n/formatNumber';
 
 export interface SqlRunHistoryProps {
   /** Per-query response LRU, newest-first. */
@@ -35,7 +36,7 @@ export function SqlRunHistory({
   selectedIndex,
   onSelect,
 }: SqlRunHistoryProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (responses.length <= 1) return null;
 
   return (
@@ -80,6 +81,7 @@ export function SqlRunHistory({
                   <span className="font-mono tabular-nums text-fg-subtle">
                     {t('sqlWorkspace.response.rowCount', {
                       count: entry.rowCount,
+                      formatted: formatNumber(entry.rowCount, i18n.language),
                     })}
                   </span>
                 ) : null}

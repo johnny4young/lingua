@@ -145,6 +145,8 @@ export interface SqlMonacoEditorProps {
   /** Statements of `value`; each gets a gutter Run button on its first line. */
   statements: ReadonlyArray<SqlStatement>;
   runGlyphLabel: string;
+  /** Text to insert at the cursor; a new nonce inserts again. */
+  insertAtCursor?: { text: string; nonce: number };
   /** Shift+Alt+F — pretty-print the SQL. */
   onFormatShortcut: () => void;
   /**
@@ -173,6 +175,7 @@ export function SqlMonacoEditor({
   onFormatShortcut,
   statements,
   runGlyphLabel,
+  insertAtCursor,
   tables,
   ariaLabel,
 }: SqlMonacoEditorProps) {
@@ -213,6 +216,16 @@ export function SqlMonacoEditor({
     typedValueRef.current = value;
     editorRef.current?.setScrollLeft(0);
   }, [value]);
+  const insertedNonceRef = useRef(insertAtCursor?.nonce ?? 0);
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || !insertAtCursor || insertAtCursor.nonce === insertedNonceRef.current) return;
+    insertedNonceRef.current = insertAtCursor.nonce;
+    const selection = editor.getSelection();
+    if (!selection) return;
+    editor.executeEdits('sql-rail', [{ range: selection, text: insertAtCursor.text, forceMoveMarkers: true }]);
+    editor.focus();
+  }, [insertAtCursor]);
   const statementsRef = useRef(statements);
   const glyphsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
