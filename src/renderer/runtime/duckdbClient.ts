@@ -48,6 +48,13 @@ import {
   type SqlStorageMode,
 } from '../../shared/sqlWorkspace';
 import { splitSqlStatements } from '../../shared/sqlStatements';
+import {
+  buildImportStatements,
+  readerSql,
+  type SqlImportColumnMap,
+  type SqlImportCsvOptions,
+  type SqlImportTarget,
+} from '../../shared/sqlImportPlan';
 
 // ---------------------------------------------------------------------------
 // Public types — what the panel + tests consume.
@@ -1012,6 +1019,12 @@ function errorMessageForUser(err: unknown, fallback: string): string {
   return raw;
 }
 
+/** DuckDB's own reason for a failure, or undefined when the wasm build lost it. */
+export function duckDbErrorDetail(err: unknown): string | undefined {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  return raw.trim() === '' || DUCKDB_WASM_INTERNAL_ERROR.test(raw) ? undefined : raw;
+}
+
 /** Statement count for the UX badge and the stream decision, from the shared splitter. */
 export function countSqlStatements(query: string): number {
   return splitSqlStatements(query).length;
@@ -1271,18 +1284,6 @@ const IMPORT_PREVIEW_SAMPLE_ROWS = 10;
  * virtual file `name`. The name is single-quote-escaped because it is
  * spliced into a SQL string literal (the file name, NOT an identifier).
  */
-function readerExpression(format: SqlImportFormat, name: string): string {
-  const escaped = name.replace(/'/g, "''");
-  switch (format) {
-    case 'csv':
-      return `read_csv_auto('${escaped}')`;
-    case 'json':
-      return `read_json_auto('${escaped}')`;
-    case 'parquet':
-      return `read_parquet('${escaped}')`;
-  }
-}
-
 /**
  * Register a defensive COPY of the bytes. `AsyncDuckDB.registerFileBuffer`
  * postMessages the buffer to the worker with the underlying ArrayBuffer as
@@ -1320,6 +1321,8 @@ function virtualFileName(format: SqlImportFormat): string {
 export interface ImportPreview {
   /** Column names in result order. */
   columns: string[];
+  /** Arrow type of each column, as DuckDB read it. */
+  types: string[];
   /** Up to {@link IMPORT_PREVIEW_SAMPLE_ROWS} sample rows, column-ordered. */
   sampleRows: unknown[][];
   /** Total row count in the source file (NOT just the sample). */
@@ -1345,6 +1348,7 @@ export async function previewImportFile(args: {
   fileName: string;
   format: SqlImportFormat;
   bytes: Uint8Array;
+  csv?: SqlImportCsvOptions;
 }): Promise<ImportPreview> {
   const engine = await getDuckDbEngine();
   if (typeof engine.registerFile !== 'function') {
@@ -1354,7 +1358,7 @@ export async function previewImportFile(args: {
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
   try {
-    const reader = readerExpression(args.format, name);
+    const reader = readerSql(args.format, name, args.csv);
     const sample = await connection.query(
       `SELECT * FROM ${reader} LIMIT ${IMPORT_PREVIEW_SAMPLE_ROWS}`
     );
@@ -1366,7 +1370,7 @@ export async function previewImportFile(args: {
       columns.map((column) => row[column] ?? null)
     );
     const rowCount = readCountValue(countResult.rows[0]?.['n']);
-    return { columns, sampleRows, rowCount };
+    return { columns, types: sample.columns.map((column) => column.type), sampleRows, rowCount };
   } finally {
     try {
       await connection.close();
@@ -1397,9 +1401,14 @@ export async function previewImportFile(args: {
  */
 export async function importFileAsTable(args: {
   fileName: string;
+  /** A new table's name; ignored when `target` names an existing table. */
   tableName: string;
   format: SqlImportFormat;
   bytes: Uint8Array;
+  csv?: SqlImportCsvOptions;
+  /** Defaults to a new table named `tableName` with every column as read. */
+  target?: SqlImportTarget;
+  mapping?: ReadonlyArray<SqlImportColumnMap>;
 }): Promise<ImportResult> {
   const engine = await getDuckDbEngine();
   if (typeof engine.registerFile !== 'function') {
@@ -1408,16 +1417,26 @@ export async function importFileAsTable(args: {
   const name = virtualFileName(args.format);
   await registerFileCopy(engine, name, args.bytes);
   const connection = await engine.connect();
-  // Double-quote-escape the validated identifier so a reserved word or
-  // mixed-case name still produces valid DDL.
-  const ident = `"${args.tableName.replace(/"/g, '""')}"`;
+  const target: SqlImportTarget = args.target ?? { mode: 'new', table: args.tableName };
+  let inTransaction = false;
   try {
-    const reader = readerExpression(args.format, name);
-    await connection.query(`CREATE TABLE ${ident} AS SELECT * FROM ${reader}`);
-    const countResult = await connection.query(
-      `SELECT count(*) AS n FROM ${ident}`
-    );
-    const rowCount = readCountValue(countResult.rows[0]?.['n']);
+    let mapping = args.mapping;
+    if (!mapping) {
+      const probe = await connection.query(`SELECT * FROM ${readerSql(args.format, name, args.csv)} LIMIT 0`);
+      mapping = probe.columns.map((column) => ({ source: column.name, target: column.name }));
+    }
+    let inserted: number | null = null;
+    for (const statement of buildImportStatements({ format: args.format, file: name, csv: args.csv, target, mapping })) {
+      if (statement === 'BEGIN TRANSACTION') inTransaction = true;
+      const result = await connection.query(statement);
+      if (statement.startsWith('INSERT INTO')) inserted = readCountValue(result.rows[0]?.['Count']);
+      if (statement === 'COMMIT') inTransaction = false;
+    }
+    const ident = target.mode === 'existing' && target.schema
+      ? `"${target.schema.replace(/"/g, '""')}"."${target.table.replace(/"/g, '""')}"`
+      : `"${target.table.replace(/"/g, '""')}"`;
+    const rowCount =
+      inserted ?? readCountValue((await connection.query(`SELECT count(*) AS n FROM ${ident}`)).rows[0]?.['n']);
     if (resolvedStorageMode === 'opfs') {
       try {
         await connection.query('CHECKPOINT');
@@ -1425,7 +1444,11 @@ export async function importFileAsTable(args: {
         /* durability is best-effort; the table already exists */
       }
     }
-    return { table: args.tableName, rowCount };
+    return { table: target.table, rowCount };
+  } catch (err) {
+    // A failed row leaves an existing table as it was.
+    if (inTransaction) await connection.query('ROLLBACK').catch(() => undefined);
+    throw err;
   } finally {
     try {
       await connection.close();

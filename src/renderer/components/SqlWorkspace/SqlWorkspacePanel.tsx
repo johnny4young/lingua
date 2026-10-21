@@ -302,8 +302,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const existingTableNames = useMemo(() => schemaTables.map((table) => table.name), [schemaTables]);
   const sqlImport = useSqlImport({
     existingTableNames,
-    onImported: ({ tableName, format }) => {
-      useWorkspaceSqlStore.getState().setTableSource(tableName, format);
+    tables: schemaTables,
+    onImported: ({ tableName, format, created }) => {
+      if (created) useWorkspaceSqlStore.getState().setTableSource(tableName, format);
       void handleRefreshTables();
     },
   });
@@ -673,8 +674,16 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           preview={sqlImport.modal.preview}
           tableName={sqlImport.modal.tableName}
           existingTableNames={existingTableNames}
+          tables={schemaTables}
+          target={sqlImport.modal.target}
+          mapping={sqlImport.modal.mapping}
+          csv={sqlImport.modal.csv}
           isImporting={sqlImport.isImporting}
+          isPreviewing={sqlImport.isPreviewing}
           onTableNameChange={sqlImport.setTableName}
+          onTargetChange={sqlImport.setTarget}
+          onMappingChange={sqlImport.setMapping}
+          onCsvChange={(csv) => void sqlImport.setCsv(csv)}
           onConfirm={() => void sqlImport.confirmImport()}
           onCancel={sqlImport.cancelImport}
         />

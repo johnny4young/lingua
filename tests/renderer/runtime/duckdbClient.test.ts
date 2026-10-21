@@ -748,8 +748,8 @@ describe('previewImportFile', () => {
     // BIGINT count comes back stringified by mapArrowTable → parsed to 42.
     expect(preview.rowCount).toBe(42);
     expect(log.registered).toHaveLength(1);
-    // The reader call uses read_csv_auto against the registered name.
-    expect(log.queries.some((q) => q.includes('read_csv_auto'))).toBe(true);
+    // The reader call uses read_csv with type detection against the registered name.
+    expect(log.queries.some((q) => q.includes('read_csv(') && q.includes('auto_detect = true'))).toBe(true);
     // The virtual file is dropped on settle — no leak after a preview.
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
@@ -833,7 +833,7 @@ describe('importFileAsTable', () => {
     expect(result).toEqual({ table: 'my_sales', rowCount: 7 });
     const createStmt = log.queries.find((q) => /CREATE TABLE/i.test(q));
     expect(createStmt).toContain('"my_sales"');
-    expect(createStmt).toContain('read_csv_auto');
+    expect(createStmt).toContain('read_csv(');
     expect(log.dropped).toEqual([log.registered[0]!.name]);
   });
 

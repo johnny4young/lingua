@@ -895,6 +895,166 @@ describe('SqlWorkspacePanel — file import', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  /** Lists an `orders` table with columns; the INSERT fails when `failInsert` is set. */
+  function existingTableEngine(queries: string[], failInsert = false): DuckDbEngineHandle {
+    return {
+      registerFile: async () => undefined,
+      dropFile: async () => undefined,
+      connect: async () => ({
+        query: async (sql: string) => {
+          queries.push(sql);
+          if (/FROM information_schema\.tables/i.test(sql)) {
+            return mapArrowTable(
+              arrowTable(
+                [
+                  { name: 'table_schema', type: 'VARCHAR' },
+                  { name: 'table_name', type: 'VARCHAR' },
+                ],
+                [{ table_schema: 'main', table_name: 'orders' }]
+              )
+            );
+          }
+          if (/FROM information_schema\.columns/i.test(sql)) {
+            return mapArrowTable(
+              arrowTable(
+                [
+                  { name: 'table_schema', type: 'VARCHAR' },
+                  { name: 'table_name', type: 'VARCHAR' },
+                  { name: 'column_name', type: 'VARCHAR' },
+                  { name: 'data_type', type: 'VARCHAR' },
+                ],
+                [
+                  { table_schema: 'main', table_name: 'orders', column_name: 'id', data_type: 'INTEGER' },
+                  { table_schema: 'main', table_name: 'orders', column_name: 'note', data_type: 'VARCHAR' },
+                ]
+              )
+            );
+          }
+          if (/^INSERT INTO/i.test(sql)) {
+            if (failInsert) throw new Error('Conversion Error: Could not convert string to INT32');
+            return mapArrowTable(arrowTable([{ name: 'Count', type: 'BIGINT' }], [{ Count: 2n }]));
+          }
+          if (/count\(\*\)/i.test(sql)) {
+            return mapArrowTable(arrowTable([{ name: 'n', type: 'BIGINT' }], [{ n: 2n }]));
+          }
+          if (/read_csv/i.test(sql)) {
+            return mapArrowTable(
+              arrowTable(
+                [
+                  { name: 'id', type: 'INTEGER' },
+                  { name: 'label', type: 'VARCHAR' },
+                ],
+                [
+                  { id: 1, label: 'one' },
+                  { id: 2, label: 'two' },
+                ]
+              )
+            );
+          }
+          return mapArrowTable(arrowTable([], []));
+        },
+        close: async () => undefined,
+      }),
+      terminate: async () => undefined,
+    };
+  }
+
+  it('adds rows to an existing table through the column mapping, in one transaction', async () => {
+    const queries: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(existingTableEngine(queries)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await screen.findByText('orders');
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile('orders.csv'));
+    await screen.findByRole('dialog');
+
+    await user.click(screen.getByTestId('sql-import-target-existing'));
+    expect((screen.getByTestId('sql-import-modal-table') as HTMLSelectElement).value).toBe('orders');
+    const targets = screen.getAllByTestId('sql-import-map-target') as HTMLSelectElement[];
+    expect(targets.map((select) => select.value)).toEqual(['id', '']);
+    expect(screen.getByTestId('sql-import-modal-summary').textContent).toBe('Add 2 rows to orders · 1 of 2 columns');
+    await user.selectOptions(targets[1]!, 'note');
+
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const insert = queries.findIndex((sql) => sql.startsWith('INSERT INTO'));
+    expect(queries[insert - 1]).toBe('BEGIN TRANSACTION');
+    expect(queries[insert]).toMatch(
+      /^INSERT INTO "orders" \("id", "note"\) SELECT CAST\("id" AS INTEGER\), CAST\("label" AS VARCHAR\) FROM read_csv\('lingua_import_[\w-]+\.csv', header = true, delim = ',', auto_detect = true\)$/
+    );
+    expect(queries[insert + 1]).toBe('COMMIT');
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      messageKey: 'sqlWorkspace.import.successInto',
+      values: { name: 'orders', count: 2 },
+    });
+    expect(useWorkspaceSqlStore.getState().tableSources).toEqual({});
+  });
+
+  it('rolls back a failed insert, keeps the modal open and says nothing changed', async () => {
+    const queries: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(existingTableEngine(queries, true)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await screen.findByText('orders');
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile('orders.csv'));
+    await screen.findByRole('dialog');
+    await user.click(screen.getByTestId('sql-import-target-existing'));
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'sqlWorkspace.import.errorInsert',
+        values: { name: 'orders' },
+        detail: expect.stringContaining('Could not convert'),
+      })
+    );
+    expect(queries).toContain('ROLLBACK');
+    expect(queries).not.toContain('COMMIT');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('leaves out the detail when the wasm build lost DuckDB\'s reason', async () => {
+    const queries: string[] = [];
+    const engine = existingTableEngine(queries);
+    const connect = engine.connect;
+    engine.connect = async () => {
+      const connection = await connect();
+      return {
+        ...connection,
+        query: async (sql: string) => {
+          if (/^INSERT INTO/i.test(sql)) throw new ReferenceError('_setThrew is not defined');
+          return connection.query(sql);
+        },
+      };
+    };
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(engine));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await screen.findByText('orders');
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile('orders.csv'));
+    await screen.findByRole('dialog');
+    await user.click(screen.getByTestId('sql-import-target-existing'));
+    await user.click(screen.getByTestId('sql-import-modal-confirm'));
+    await waitFor(() => expect(useUIStore.getState().statusNotice?.messageKey).toBe('sqlWorkspace.import.errorInsert'));
+    expect(useUIStore.getState().statusNotice?.detail).toBeUndefined();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('reads a CSV again with the chosen delimiter and blocks an empty mapping', async () => {
+    const queries: string[] = [];
+    __setDuckDbEngineFactoryForTests(() => Promise.resolve(existingTableEngine(queries)));
+    const user = userEvent.setup();
+    render(<SqlWorkspacePanel />);
+    await user.upload(screen.getByTestId('sql-workspace-import-input'), csvFile('orders.csv'));
+    await screen.findByRole('dialog');
+
+    await user.selectOptions(screen.getByTestId('sql-import-csv-delimiter'), ';');
+    await waitFor(() => expect(queries.some((sql) => sql.includes("delim = ';'"))).toBe(true));
+    for (const include of screen.getAllByTestId('sql-import-map-include')) await user.click(include);
+    expect(screen.getByTestId('sql-import-modal-summary').textContent).toBe('Map at least one column to import.');
+    expect((screen.getByTestId('sql-import-modal-confirm') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('records the source format of an imported table for the Explorer tag', async () => {
     const createCalls: string[] = [];
     __setDuckDbEngineFactoryForTests(() => Promise.resolve(importEngine(createCalls)));
