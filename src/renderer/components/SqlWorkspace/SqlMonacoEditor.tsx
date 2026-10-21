@@ -205,6 +205,14 @@ export function SqlMonacoEditor({
   useEffect(() => {
     handlersRef.current = { onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut };
   }, [onRunCommand, onCancelShortcut, onSaveShortcut, onCursorChange, onFormatShortcut]);
+  // Text replaced from outside (Format, Edit in editor) keeps Monaco's old horizontal scroll,
+  // which can hide every short line; start those at the left edge.
+  const typedValueRef = useRef(value);
+  useEffect(() => {
+    if (value === typedValueRef.current) return;
+    typedValueRef.current = value;
+    editorRef.current?.setScrollLeft(0);
+  }, [value]);
   const statementsRef = useRef(statements);
   const glyphsRef = useRef<ReturnType<EditorInstance['createDecorationsCollection']> | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -388,7 +396,9 @@ export function SqlMonacoEditor({
         theme={editorTheme}
         beforeMount={handleBeforeMount}
         onChange={(next) => {
-          if (next !== undefined) onChange(next);
+          if (next === undefined) return;
+          typedValueRef.current = next;
+          onChange(next);
         }}
         onMount={handleMount}
         options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }), glyphMargin: true }}

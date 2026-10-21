@@ -22,6 +22,7 @@ interface Harness {
   commands: Map<number, () => void>;
   selectedRangeText: string | null;
   cursorOffset: number;
+  scrollLeftResets: number;
   glyphs: Array<{ range: { startLineNumber: number }; options: { glyphMarginClassName: string } }>;
   onCursor: ((event: unknown) => void) | null;
   onMouseDown: ((event: unknown) => void) | null;
@@ -36,6 +37,7 @@ const harness: Harness = {
   commands: new Map(),
   selectedRangeText: null,
   cursorOffset: 0,
+  scrollLeftResets: 0,
   glyphs: [],
   onCursor: null,
   onMouseDown: null,
@@ -80,6 +82,9 @@ vi.mock('@monaco-editor/react', () => {
       }),
       addCommand: (key: number, callback: () => void) => {
         harness.commands.set(key, callback);
+      },
+      setScrollLeft: () => {
+        harness.scrollLeftResets += 1;
       },
       createDecorationsCollection: () => ({
         set: (glyphs: Harness['glyphs']) => {
@@ -136,6 +141,7 @@ function resetHarness() {
   harness.commands = new Map();
   harness.selectedRangeText = null;
   harness.cursorOffset = 0;
+  harness.scrollLeftResets = 0;
   harness.glyphs = [];
   harness.onCursor = null;
   harness.onMouseDown = null;
@@ -240,6 +246,44 @@ describe('SqlMonacoEditor', () => {
     expect(onRunCommand).toHaveBeenCalledWith('statement', { offset: value.indexOf('SELECT 2'), selectedText: null });
     act(() => harness.onMouseDown?.({ target: { type: 1, position: { lineNumber: 3 } } }));
     expect(onRunCommand).toHaveBeenCalledOnce();
+  });
+
+  it('scrolls back to the left edge only when the text is replaced from outside', () => {
+    const { rerender, onChange } = renderHost({ value: 'SELECT 1;' });
+    fireEvent.change(screen.getByTestId('sql-monaco-textarea'), { target: { value: 'SELECT 12;' } });
+    expect(onChange).toHaveBeenCalledWith('SELECT 12;');
+    rerender(
+      <SqlMonacoEditor
+        value="SELECT 12;"
+        statements={splitSqlStatements('SELECT 12;')}
+        runGlyphLabel="Run statement"
+        tables={[]}
+        ariaLabel="SQL query editor"
+        onChange={onChange}
+        onRunCommand={vi.fn()}
+        onCancelShortcut={vi.fn()}
+        onSaveShortcut={vi.fn()}
+        onCursorChange={vi.fn()}
+        onFormatShortcut={vi.fn()}
+      />
+    );
+    expect(harness.scrollLeftResets).toBe(0);
+    rerender(
+      <SqlMonacoEditor
+        value={'SELECT\n  12;'}
+        statements={splitSqlStatements('SELECT\n  12;')}
+        runGlyphLabel="Run statement"
+        tables={[]}
+        ariaLabel="SQL query editor"
+        onChange={onChange}
+        onRunCommand={vi.fn()}
+        onCancelShortcut={vi.fn()}
+        onSaveShortcut={vi.fn()}
+        onCursorChange={vi.fn()}
+        onFormatShortcut={vi.fn()}
+      />
+    );
+    expect(harness.scrollLeftResets).toBe(1);
   });
 
   it('offers table, column, and keyword completions', () => {
