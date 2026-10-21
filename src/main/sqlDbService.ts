@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import { promises as dns } from 'node:dns';
 import { realpathSync } from 'node:fs';
+import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
 import { connectionSecretId, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
@@ -22,7 +23,7 @@ import type {
   SqlDbTestResult,
   SqlDbTestStep,
 } from '../shared/sqlDb';
-import { isWriteSqlStatement, splitSqlStatements } from '../shared/sqlStatements';
+import { isEstimableSqlStatement, isWriteSqlStatement } from '../shared/sqlStatements';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
@@ -57,17 +58,21 @@ const defaultLookup: LookupImpl = async (hostname) => dns.lookup(hostname, { all
 const MAX_ADHOC = 20;
 const CANCEL_TIMEOUT_MS = 3_000;
 
-/** The resolved file, so a symlink cannot point a checked path into a protected folder. */
+/** The resolved file, so a symlink cannot point a checked path into a protected folder; a missing file resolves through its folder. */
 function realFile(file: string): string {
   try {
     return realpathSync(file);
   } catch {
-    return file;
+    try {
+      return path.join(realpathSync(path.dirname(file)), path.basename(file));
+    } catch {
+      return file;
+    }
   }
 }
 
 /** A saved password belongs to one target; another host, user or TLS mode must be given it again. */
-function sameTarget(a: SqlConnectionV1, b: SqlConnectionV1): boolean {
+function sameTarget(a: SqlConnectionDraft, b: SqlConnectionDraft): boolean {
   return (
     a.engine === b.engine &&
     a.host === b.host &&
@@ -191,15 +196,16 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
       const before = id === undefined ? null : await deps.catalog.get(id);
       if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
+      // The old password goes before the new target is saved, so no run can pair the two.
+      if (before && secret === undefined && !sameTarget(before, draft)) {
+        sessionPasswords.delete(before.id);
+        await deps.secrets.delete(connectionSecretId(before.id));
+      }
       const ceiling = dbConnectionCeilingForTier(await deps.tier());
       const saved = await deps.catalog.save(draft, id, Number.isFinite(ceiling) ? ceiling : undefined);
       if (saved === 'quota') return { ok: false, reason: 'quota' };
       if (!saved) return { ok: false, reason: 'not-found' };
       await deps.host.request({ type: 'disconnect', connectionId: saved.id }).catch(() => undefined);
-      if (before && secret === undefined && !sameTarget(before, saved)) {
-        sessionPasswords.delete(saved.id);
-        await deps.secrets.delete(connectionSecretId(saved.id));
-      }
       if (!(await keepPassword(saved, secret))) return { ok: false, reason: 'secret-failed' };
       return { ok: true, connection: await view(saved) };
     },
@@ -399,7 +405,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     async estimate(connectionId: string, sql: string): Promise<number | null> {
       const entry = await connection(connectionId);
       // EXPLAIN takes one statement; anything else is not estimated.
-      if (!entry || splitSqlStatements(sql).length !== 1 || /^\s*analy[sz]e\b/i.test(sql)) return null;
+      if (!entry || !isEstimableSqlStatement(sql)) return null;
       try {
         const { config } = await configFor(entry);
         return await deps.host.request<number | null>({ type: 'estimate', config, sql }, 15_000);

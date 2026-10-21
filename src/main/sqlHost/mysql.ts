@@ -240,16 +240,17 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
     cancel: killQuery,
 
     async estimateRows(sql) {
-      // MySQL refuses EXPLAIN of a write in a read-only session, though EXPLAIN runs nothing.
-      if (config.readOnly) await query(connection, 'SET SESSION TRANSACTION READ WRITE').catch(() => undefined);
+      // MySQL refuses EXPLAIN of a write in a read-only transaction, though EXPLAIN runs nothing; a
+      // transaction that is always rolled back leaves the session default alone and undoes anything.
       try {
+        await query(connection, 'START TRANSACTION READ WRITE');
         const rows = await query<Array<{ rows?: unknown }>>(connection, `EXPLAIN ${sql}`);
         const counts = rows.map((row) => Number(row.rows)).filter(Number.isFinite);
         return counts.length > 0 ? Math.max(...counts) : null;
       } catch {
         return null;
       } finally {
-        if (config.readOnly) await query(connection, 'SET SESSION TRANSACTION READ ONLY').catch(() => undefined);
+        await query(connection, 'ROLLBACK').catch(() => undefined);
       }
     },
 

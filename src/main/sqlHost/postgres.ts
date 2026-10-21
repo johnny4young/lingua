@@ -176,6 +176,8 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
 
     async estimateRows(sql) {
       try {
+        // A read-only transaction that is rolled back: the plan is all this may produce.
+        await client.query('BEGIN READ ONLY');
         const result = await client.query(oneStatement(`EXPLAIN (FORMAT JSON) ${sql}`));
         const plan = (result.rows[0] as Record<string, unknown> | undefined)?.['QUERY PLAN'];
         const parsed = typeof plan === 'string' ? JSON.parse(plan) : plan;
@@ -186,6 +188,8 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
         return typeof rows === 'number' ? rows : null;
       } catch {
         return null;
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
       }
     },
 

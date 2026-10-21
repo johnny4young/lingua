@@ -118,6 +118,10 @@ describe('passwords that belong to a target', () => {
     expect(await secrets.get(`db.${id}`)).toBeNull();
     await svc.save(pg, id, 'pw');
     expect(await svc.save({ ...pg, ssl: { mode: 'disable' } }, id, undefined)).toMatchObject({ connection: { hasPassword: false } });
+    // Clearing the user is a change of target too.
+    await svc.save(pg, id, 'pw');
+    const { user: _user, ...withoutUser } = pg;
+    expect(await svc.save(withoutUser, id, undefined)).toMatchObject({ connection: { hasPassword: false } });
     // With a new password the change is the user's choice.
     expect(await svc.save({ ...pg, user: 'admin' }, id, 'other')).toMatchObject({ connection: { hasPassword: true } });
   });
@@ -148,6 +152,12 @@ describe('passwords that belong to a target', () => {
       blockedPath: (file) => (file.startsWith(blocked) ? 'lingua-data' : null),
     });
     expect(await svc.save({ name: 'f', engine: 'sqlite', path: path.join(dir, 'innocent.db'), readOnly: true, passwordMode: 'none' }, undefined, undefined)).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    // A file that does not exist yet resolves through its folder.
+    symlinkSync(blocked, path.join(dir, 'innocent-folder'));
+    expect(await svc.save({ name: 'g', engine: 'sqlite', path: path.join(dir, 'innocent-folder', 'new.db'), readOnly: true, passwordMode: 'none' }, undefined, undefined)).toEqual({
       ok: false,
       reason: 'invalid',
     });
@@ -240,6 +250,8 @@ describe('estimates and cancel', () => {
     expect(await svc.estimate(id, 'DELETE FROM t WHERE id = 1')).toBe(7);
     expect(await svc.estimate(id, 'SELECT 1; DELETE FROM customers')).toBeNull();
     expect(await svc.estimate(id, 'ANALYZE customers')).toBeNull();
+    expect(await svc.estimate(id, '/* hidden */ ANALYZE DELETE FROM t')).toBeNull();
+    expect(await svc.estimate(id, 'DELETE /*!ANALYZE*/ FROM t')).toBeNull();
     expect(sent.filter((body) => body.type === 'estimate')).toHaveLength(1);
   });
 

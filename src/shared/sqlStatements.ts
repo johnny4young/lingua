@@ -209,6 +209,18 @@ export function isWriteSqlStatement(statement: string): boolean {
   );
 }
 
+const ESTIMABLE_LEAD = /^(select|with|values|table|insert|update|delete|merge|replace)\b/i;
+
+/**
+ * True for one statement EXPLAIN can plan without running anything: it leads
+ * with a query or DML keyword once comments are gone (so no ANALYZE), and it
+ * holds no MySQL executable comment, which MySQL runs as code.
+ */
+export function isEstimableSqlStatement(statement: string): boolean {
+  if (statement.includes('/*!')) return false;
+  return splitSqlStatements(statement).length === 1 && ESTIMABLE_LEAD.test(codeOnly(statement));
+}
+
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
 const SECRET_STATEMENT = /\b(secret|attach)\b|^\s*(set|reset|pragma)\b/i;
 const SECRET_LITERAL =

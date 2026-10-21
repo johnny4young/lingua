@@ -355,7 +355,8 @@ the Free quota against the verified license tier inside the catalog's
 serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
 refuses a SQLite or certificate file in a protected folder (checked as given
-and after resolving symlinks), estimates only a single statement, and refuses
+and after resolving symlinks), estimates only a single query or DML statement
+(EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The twelve `sql-db:*` channels in
