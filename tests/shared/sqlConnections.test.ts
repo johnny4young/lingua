@@ -102,7 +102,15 @@ describe('saved connection quota', () => {
 describe('withoutUrlPassword', () => {
   it('drops the password and keeps the user, host and options', () => {
     expect(withoutUrlPassword('postgres://app:s3cr:et@db:5432/orders?sslmode=disable')).toBe('postgres://app@db:5432/orders?sslmode=disable');
-    expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('  mysql://root@127.0.0.1/billing');
+    expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('mysql://root@127.0.0.1/billing');
+  });
+
+  it('splits at the same @ as the URL parser when the password holds one', () => {
+    const raw = 'postgres://app:p@ss@db.internal:5432/orders';
+    expect(parseConnectionUrl(raw)).toMatchObject({ password: 'p@ss', draft: { host: 'db.internal' } });
+    const shown = withoutUrlPassword(raw);
+    expect(shown).toBe('postgres://app@db.internal:5432/orders');
+    expect(shown).not.toContain('ss');
   });
 
   it('leaves a URL without a password as it was', () => {

@@ -180,12 +180,20 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
 };
 
 /** postgres://, postgresql://, mysql:// or sqlite:/absolute/path into a draft. */
-/** The URL with its password removed, so the field that showed it can keep showing the rest. */
+/**
+ * The URL with its password removed, so the field that showed it can keep
+ * showing the rest. Uses the same parser as `parseConnectionUrl`, so both
+ * agree on where the password ends.
+ */
 export function withoutUrlPassword(raw: string): string {
-  return raw.replace(/^(\s*[a-z][a-z0-9+.-]*:\/\/)([^@/?#]*)@/i, (_, head: string, userinfo: string) => {
-    const colon = userinfo.indexOf(':');
-    return colon === -1 ? `${head}${userinfo}@` : `${head}${userinfo.slice(0, colon)}@`;
-  });
+  try {
+    const url = new URL(raw.trim());
+    if (!url.password) return raw;
+    url.password = '';
+    return url.toString();
+  } catch {
+    return raw;
+  }
 }
 
 export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
