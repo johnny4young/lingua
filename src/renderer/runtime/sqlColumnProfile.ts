@@ -11,7 +11,7 @@ import {
   countSqlStatements,
   executeQuery,
 } from './duckdbClient';
-import { MAX_QUERY_BYTES, utf8ByteLength } from '../../shared/sqlWorkspace';
+import { MAX_QUERY_BYTES, utf8ByteLength, type SqlQueryStatus } from '../../shared/sqlWorkspace';
 
 export interface SqlColumnProfile {
   columnName: string;
@@ -31,7 +31,7 @@ export type SqlColumnProfileOutcome =
       tooLarge: boolean;
     }
   | {
-      status: 'not-profileable' | 'sql-error' | 'timeout' | 'engine-load-failed' | 'cancelled';
+      status: 'not-profileable' | Exclude<SqlQueryStatus, 'success' | 'too-large'>;
       errorMessage?: string;
     };
 

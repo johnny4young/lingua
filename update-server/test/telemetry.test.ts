@@ -1186,7 +1186,9 @@ describe('implementation note — allowlist parity vs src/shared/telemetry.ts', 
       [...RENDERER_SQL_QUERY_STATUSES_SET].sort()
     );
     expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual([
+      'blocked-target',
       'cancelled',
+      'connection-failed',
       'engine-load-failed',
       'sql-error',
       'success',

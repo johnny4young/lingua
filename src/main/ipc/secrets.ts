@@ -9,24 +9,28 @@ import { typedHandle } from './typedHandle';
 import type { SecretStore } from '../secretStore';
 import { isValidSecretId, isValidSecretPrefix } from '../../shared/secretVault';
 
+// Database passwords go to the SQL host from main; the renderer can neither read nor write them.
+const MAIN_ONLY = 'db.';
+const rendererId = (id: unknown): id is string => isValidSecretId(id) && !id.startsWith(MAIN_ONLY);
+
 export function registerSecretHandlers(store: SecretStore): void {
   typedHandle('secrets:status', () => store.status());
 
   typedHandle('secrets:set', (_event, id: unknown, value: unknown) =>
-    typeof id === 'string' && typeof value === 'string'
+    rendererId(id) && typeof value === 'string'
       ? store.set(id, value)
-      : { ok: false as const, reason: typeof id === 'string' ? 'invalid-value' as const : 'invalid-id' as const }
+      : { ok: false as const, reason: rendererId(id) ? 'invalid-value' as const : 'invalid-id' as const }
   );
 
   typedHandle('secrets:get', (_event, id: unknown) =>
-    isValidSecretId(id) ? store.get(id) : null
+    rendererId(id) ? store.get(id) : null
   );
 
   typedHandle('secrets:delete', async (_event, id: unknown) => ({
-    ok: isValidSecretId(id) ? await store.delete(id) : false,
+    ok: rendererId(id) ? await store.delete(id) : false,
   }));
 
   typedHandle('secrets:list', (_event, prefix: unknown) =>
-    isValidSecretPrefix(prefix) ? store.list(prefix) : []
+    isValidSecretPrefix(prefix) && !prefix.startsWith(MAIN_ONLY) ? store.list(prefix) : []
   );
 }

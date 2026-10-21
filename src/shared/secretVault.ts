@@ -31,8 +31,8 @@ export interface SecretVaultBridge {
 export const MAX_SECRET_VALUE_LENGTH = 64 * 1024;
 
 const SEGMENT = '[A-Za-z0-9_-]{1,80}';
-/** Known namespaces only, so a renderer cannot mint files in new ones. */
-const NAMESPACE = '(?:ai|http-env)';
+/** Known namespaces only, so a renderer cannot mint files in new ones. `db` is main-only. */
+const NAMESPACE = '(?:ai|http-env|db)';
 const SECRET_ID_RE = new RegExp(`^${NAMESPACE}(?:\\.${SEGMENT}){1,3}$`);
 const SECRET_PREFIX_RE = new RegExp(`^${NAMESPACE}\\.(?:${SEGMENT}\\.){0,2}$`);
 

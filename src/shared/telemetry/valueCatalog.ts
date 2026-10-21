@@ -439,6 +439,8 @@ export const SQL_QUERY_STATUSES_SET = new Set([
   'too-large',
   'engine-load-failed',
   'cancelled',
+  'connection-failed',
+  'blocked-target',
 ]);
 // Closed enum for `mode` +
 // `requested` on `sql.storage_mode`. The renderer-side source of truth
