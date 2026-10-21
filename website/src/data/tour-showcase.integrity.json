@@ -27,12 +27,12 @@
       "sha256": "e96c128f6a72444b19b594079e64caea584bfaf02d58dae043ddc13d802b576c"
     },
     "sql-workspace/en": {
-      "bytes": 110878,
-      "sha256": "1c8a2ebca9a09b0485342eac6e6c3bc527a6d04727bb67bed1519b0d05269369"
+      "bytes": 117074,
+      "sha256": "06575bc32ed3791c0201a28b9aec327656cb7f96780d64ac9503a1ada8b4c21d"
     },
     "sql-workspace/es": {
-      "bytes": 117185,
-      "sha256": "14480f39314a47f60438487a0fb61b4204a6e0ba6cf8e05c3254e7096cbee572"
+      "bytes": 125397,
+      "sha256": "d900522730a028e28c4aa3b2dab8f451f72a1aedacbf9a6fbfa793544c3021c0"
     },
     "utilities/en": {
       "bytes": 128931,
