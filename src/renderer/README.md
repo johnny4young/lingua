@@ -654,6 +654,10 @@ collection state:
   Export dialog's Save as table, Send to Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
   table previews, foreign-key follow and back, and Referenced by counts.
+  On a database connection,
+  [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
+  owns the picker and connection sheet, the catalog tree, object detail in the
+  results area, completion tables and the tab's Quick Open rows.
 
 ## State ownership
 

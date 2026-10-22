@@ -57,19 +57,9 @@ import { SqlHistorySection } from './SqlHistorySection';
 import { SqlPlanView } from './SqlPlanView';
 import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { SqlConnectionSheet, type SqlConnectionSheetMode } from './SqlConnectionSheet';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
-import { findConnection, useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
-import { useSqlRemoteCatalogStore, type SqlObjectRef } from '../../stores/sqlRemoteCatalogStore';
-import { sqlDbBridge } from '../../runtime/sqlRemote';
-import { SqlRemoteTree } from './SqlRemoteTree';
-import { SqlObjectDetail, type SqlObjectTab } from './SqlObjectDetail';
-import { QUERYABLE_KINDS } from './sqlRemoteTreeModel';
-import { buildSelectStarter } from './sqlResultFormatters';
-import { useSqlRemoteCompletion } from '../../hooks/useSqlRemoteCompletion';
-import { buildSqlQuickOpenItems, type SqlQuickOpenSources } from './sqlQuickOpenScope';
-import { setQuickOpenScope } from '../../utils/quickOpenScope';
-import { resolveShortcutDisplayPlatform } from '../../data/keyboardShortcuts';
+import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
+import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
 import { sqlDialect } from '../../../shared/sqlDialect';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
@@ -141,8 +131,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number; raw?: boolean } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   // A connection's object in the results area, and the connection whose catalog waits for a password.
-  const [objectView, setObjectView] = useState<{ connectionId: string; object: SqlObjectRef; tab: SqlObjectTab } | null>(null);
-  const [catalogPasswordFor, setCatalogPasswordFor] = useState<string | null>(null);
+  const [objectView, setObjectView] = useState<SqlObjectView | null>(null);
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   const schemaTables = useMemo<SqlSchemaTable[]>(
@@ -244,62 +233,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     onBeforeRun: handleBeforeRun,
     onSchemaChanged: handleSchemaChanged,
   });
-  // Database connections (Labs): desktop runs them; web lists Local and says why.
-  const dbFlag = useSettingsStore((state) => state.featureFlags.dbClient === true);
-  const dbDesktop = sqlDbBridge() !== null;
-  const connectionsCatalog = useSqlConnectionsStore((state) => state.catalog);
-  const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
-  useEffect(() => {
-    if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
-  }, [dbFlag, dbDesktop]);
-  const activeConnection =
-    dbFlag && activeQuery?.connectionId
-      ? [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === activeQuery.connectionId)
-      : undefined;
-  const remoteCompletion = useSqlRemoteCompletion(activeConnection?.id);
-  const editorTables = activeConnection ? remoteCompletion.tables : schemaTables;
-  const remoteLoading = useSqlRemoteCatalogStore(
-    (state) => activeConnection !== undefined && state.catalogs[activeConnection.id]?.schemas?.status === 'loading'
-  );
-  // Another connection's object or rows never stay on screen.
-  const activeConnectionId = activeConnection?.id;
-  useEffect(() => {
-    setObjectView((view) => (view && view.connectionId !== activeConnectionId ? null : view));
-    const preview = tables.preview;
-    if (preview?.connectionId && preview.connectionId !== activeConnectionId) showTablePreview(null);
-    // Only a connection switch clears the view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConnectionId]);
-  const showObject = useCallback(
-    (connectionId: string, object: SqlObjectRef, tab: SqlObjectTab) => {
-      setObjectView({ connectionId, object, tab });
-      const connection = findConnection(connectionId);
-      if (tab === 'data' && connection && QUERYABLE_KINDS.has(object.kind)) {
-        const table = { name: `${object.schema}.${object.name}`, sqlName: object.name, schemaName: object.schema };
-        void tables.open(table, undefined, undefined, { connectionId, engine: connection.engine });
-      } else {
-        showTablePreview(null);
-      }
-    },
-    [tables, showTablePreview]
-  );
-  /** A password typed for a run also unblocks a catalog that was waiting for it. */
-  const retryCatalogAfterPassword = useCallback((connectionId: string) => {
-    const level = useSqlRemoteCatalogStore.getState().catalogs[connectionId]?.schemas;
-    if (level?.status === 'error' && level.passwordNeeded) useSqlRemoteCatalogStore.getState().refresh(connectionId);
-  }, []);
-  const selectConnection = useCallback(
-    (connectionId: string | undefined) => {
-      let id = useWorkspaceSqlStore.getState().activeQueryId;
-      if (!id) {
-        handleCreate();
-        id = useWorkspaceSqlStore.getState().activeQueryId;
-      }
-      if (id) useWorkspaceSqlStore.getState().updateQuery(id, { connectionId });
-    },
-    [handleCreate]
-  );
-
   const runWhole = useCallback(
     (query: SqlQueryV1) =>
       void runner.run({
@@ -505,15 +438,27 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const toggleFolded = () => useWorkspaceSqlStore.getState().toggleExplorerFolded();
 
+  const remote = useSqlConnectionObjects({
+    activeQuery,
+    objectView,
+    setObjectView,
+    tables,
+    localTables: schemaTables,
+    queries,
+    explorerFilter,
+    createQuery: handleCreate,
+    selectQuery: handleSelect,
+    insertAtCursor: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
+    insertSql: handleEditInEditor,
+  });
+  const { activeConnection, dbFlag } = remote;
+
   const explorer = (
     <SqlExplorer
       catalog={explorerCatalog}
-      isLoading={activeConnection ? remoteLoading : isLoadingTables}
+      isLoading={activeConnection ? remote.loading : isLoadingTables}
       hasLoaded={catalogLoaded}
-      onRefresh={() => {
-        if (activeConnection) useSqlRemoteCatalogStore.getState().refresh(activeConnection.id);
-        else void handleRefreshTables();
-      }}
+      onRefresh={() => (activeConnection ? remote.refreshCatalog() : void handleRefreshTables())}
       onOpenTable={(table) => void tables.open(table)}
       openedTableName={tablePreview?.table.name ?? null}
       onFold={toggleFolded}
@@ -526,21 +471,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       storageUsageLabel={storageUsageLabel}
       filter={explorerFilter}
       onFilterChange={setExplorerFilter}
-      {...(activeConnection
-        ? {
-            renderRemoteTree: (collapseSignal: number) => (
-              <SqlRemoteTree
-                key={activeConnection.id}
-                connection={activeConnection}
-                filter={explorerFilter}
-                selected={objectView?.connectionId === activeConnection.id ? objectView.object : null}
-                onOpenObject={(object) => showObject(activeConnection.id, object, QUERYABLE_KINDS.has(object.kind) ? 'columns' : 'ddl')}
-                onEnterPassword={() => setCatalogPasswordFor(activeConnection.id)}
-                collapseSignal={collapseSignal}
-              />
-            ),
-          }
-        : {})}
+      {...(remote.renderRemoteTree ? { renderRemoteTree: remote.renderRemoteTree } : {})}
     >
       <SqlQueryList
         queries={queries}
@@ -551,16 +482,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDelete={tabActions.remove}
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
-        {...(dbFlag
-          ? {
-              connectionLabel: (id: string | undefined) => {
-                if (!id) return t('sqlWorkspace.connection.localName');
-                const connection = findConnection(id);
-                if (!connection) return t('sqlWorkspace.remote.missingConnection');
-                return connection.readOnly ? t('sqlWorkspace.remote.readOnlyName', { name: connection.name }) : connection.name;
-              },
-            }
-          : {})}
+        {...(remote.connectionLabel ? { connectionLabel: remote.connectionLabel } : {})}
       />
       <SqlHistorySection
         entries={history}
@@ -607,50 +529,6 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const handleInsertPredicate = (predicate: string) =>
     setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
 
-  // Quick Open on this tab lists the catalog's objects and the saved queries first.
-  const quickOpenRef = useRef<Omit<SqlQuickOpenSources, 't' | 'catalogs'> | null>(null);
-  useEffect(() => {
-    quickOpenRef.current = {
-      localTables: schemaTables,
-      queries,
-      connection: (id) => (dbFlag ? findConnection(id) : undefined),
-      showRemote: (connectionId, object, tab) => {
-        const store = useWorkspaceSqlStore.getState();
-        if (store.queries.find((q) => q.id === store.activeQueryId)?.connectionId !== connectionId) {
-          // Another connection's object opens in a new query on that connection.
-          const before = store.activeQueryId;
-          handleCreate('', '', connectionId);
-          // The Free tab budget can refuse the new query.
-          if (useWorkspaceSqlStore.getState().activeQueryId === before) return;
-        }
-        showObject(connectionId, object, tab);
-      },
-      openLocal: (table) => {
-        setObjectView(null);
-        void tables.open(table);
-      },
-      openQuery: handleSelect,
-      insert: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
-    };
-  });
-  useEffect(() => {
-    const mac = resolveShortcutDisplayPlatform(window.lingua?.platform ?? 'web', navigator.platform) === 'darwin';
-    return setQuickOpenScope({
-      title: t('sqlWorkspace.remote.quickOpen.title'),
-      legend: [
-        [mac ? '↵' : 'Enter', t('sqlWorkspace.remote.quickOpen.openData')],
-        [mac ? '⌘↵' : 'Ctrl+Enter', t('sqlWorkspace.remote.quickOpen.structure')],
-        [mac ? '⌥↵' : 'Alt+Enter', t('sqlWorkspace.remote.quickOpen.insertName')],
-      ],
-      note: t('sqlWorkspace.remote.quickOpen.note'),
-      countLabel: (count) => t('sqlWorkspace.remote.quickOpen.count', { count }),
-      items: () =>
-        quickOpenRef.current
-          ? buildSqlQuickOpenItems({ t, catalogs: useSqlRemoteCatalogStore.getState().catalogs, ...quickOpenRef.current })
-          : [],
-    });
-  }, [t]);
-
   const runBody =
     showResultTabs && view.kind === 'plan' && plan ? (
       <SqlPlanView result={plan} />
@@ -683,20 +561,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       />
     );
 
-  const resultBody =
-    objectView && activeConnection ? (
-      <SqlObjectDetail
-        connectionId={objectView.connectionId}
-        object={objectView.object}
-        tab={objectView.tab}
-        onTab={(tab) => showObject(objectView.connectionId, objectView.object, tab)}
-        onInsertSelect={() => handleEditInEditor(buildSelectStarter(objectView.object.name, objectView.object.schema, activeConnection.engine))}
-        onEnterPassword={() => setCatalogPasswordFor(objectView.connectionId)}
-        data={runBody}
-      />
-    ) : (
-      runBody
-    );
+  const resultBody = remote.renderObjectDetail(runBody);
 
   const editorPane = activeQuery ? (
     <div ref={editorPaneRef} className="relative flex h-full min-h-0 flex-col">
@@ -708,13 +573,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSave={tabActions.save}
         isExecuting={isExecuting}
         isBusy={runner.runningQueryId !== null && !isExecuting}
-        tables={editorTables}
-        {...(activeConnection ? { engine: activeConnection.engine, functions: remoteCompletion.functions } : {})}
+        tables={remote.editorTables}
+        {...(activeConnection ? { engine: activeConnection.engine, functions: remote.functions } : {})}
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
         headerExtra={
           <AskSqlButton
-            tables={editorTables}
+            tables={remote.editorTables}
             {...(activeConnection ? { dialect: sqlDialect(activeConnection.engine).label } : {})}
             // Insert-only: generated SQL lands in the editor for review, never auto-runs.
             onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
@@ -799,22 +664,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
       <SqlConnectionBar
-        {...(dbFlag
-          ? {
-              remote: {
-                desktop: dbDesktop,
-                catalog: connectionsCatalog,
-                activeId: activeQuery?.connectionId,
-                onSelect: selectConnection,
-                onNew: () => setConnectionSheet({ kind: 'new' }),
-                onOpenUrl: () => setConnectionSheet({ kind: 'url' }),
-                onEdit: (id: string) => {
-                  const connection = [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === id);
-                  if (connection) setConnectionSheet({ kind: 'edit', connection });
-                },
-              },
-            }
-          : {})}
+        {...(remote.barRemote ? { remote: remote.barRemote } : {})}
         actions={
           <SqlImportButton
             inputRef={importInputRef}
@@ -878,16 +728,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onCancel={sqlImport.cancelImport}
         />
       ) : null}
-      {connectionSheet ? (
-        <SqlConnectionSheet
-          mode={connectionSheet}
-          onClose={() => setConnectionSheet(null)}
-          onDone={(connection) => {
-            setConnectionSheet(null);
-            selectConnection(connection.id);
-          }}
-        />
-      ) : null}
+      {remote.connectionSheetElement}
       {runner.confirm ? <SqlWriteConfirmDialog confirm={runner.confirm} onResolve={runner.resolveConfirm} /> : null}
       {runner.passwordPrompt ? (
         <SqlPasswordPrompt
@@ -896,26 +737,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onSubmit={(password) => {
             const connectionId = runner.passwordPrompt?.connectionId;
             void runner.submitPassword(password).then(() => {
-              if (connectionId) retryCatalogAfterPassword(connectionId);
+              if (connectionId) remote.retryCatalogAfterPassword(connectionId);
             });
           }}
           onCancel={runner.dismissPassword}
         />
       ) : null}
-      {catalogPasswordFor ? (
-        <SqlPasswordPrompt
-          name={findConnection(catalogPasswordFor)?.name ?? ''}
-          refused={false}
-          onSubmit={(password) => {
-            const connectionId = catalogPasswordFor;
-            setCatalogPasswordFor(null);
-            void sqlDbBridge()
-              ?.sessionPassword(connectionId, password)
-              .then(() => useSqlRemoteCatalogStore.getState().refresh(connectionId));
-          }}
-          onCancel={() => setCatalogPasswordFor(null)}
-        />
-      ) : null}
+      {remote.catalogPasswordPrompt}
       {closePrompt ? (
         <ConfirmDialog
           title={t('sqlWorkspace.tabs.closeTitle', { name: closePrompt.name })}

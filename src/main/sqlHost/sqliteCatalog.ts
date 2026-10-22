@@ -46,7 +46,7 @@ export async function introspectSqlite(query: CatalogQuery, request: SqlDbIntros
       const { name, kind } = request;
       const [master] = await query('SELECT sql FROM sqlite_master WHERE name = ?', [name]);
       const columnRows = await query('SELECT name, type, "notnull" AS not_null, dflt_value AS dflt, pk FROM pragma_table_info(?) ORDER BY cid', [name]);
-      const keyRows = await query('SELECT "from" AS col, "table" AS ref_table, "to" AS ref_column FROM pragma_foreign_key_list(?)', [name]);
+      const keyRows = await query('SELECT [from] AS col, [table] AS ref_table, [to] AS ref_column FROM pragma_foreign_key_list(?)', [name]);
       const indexRows = await query(
         'SELECT l.name AS name, l."unique" AS uniq, l.origin AS origin, i.name AS col FROM pragma_index_list(?) l JOIN pragma_index_info(l.name) i ORDER BY l.name, i.seqno',
         [name]
