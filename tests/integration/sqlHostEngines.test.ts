@@ -166,6 +166,36 @@ for (const [engine, url] of [
       expect((await ask({ level: 'objects', schema })).objects).toEqual(expect.arrayContaining([expect.objectContaining({ name: parent })]));
     });
 
+    it.runIf(engine === 'mysql')('keeps catalog names out of the SQL when backslashes are not escapes', async () => {
+      await ok({ type: 'execute', config, runId: 'mode', sql: "SET SESSION sql_mode = CONCAT(@@sql_mode, ',NO_BACKSLASH_ESCAPES')", readWrite: false, window });
+      try {
+        const started = performance.now();
+        const response = await send({
+          type: 'introspect',
+          config,
+          request: { level: 'detail', schema: config.database!, name: "x' OR SLEEP(0.5) #", kind: 'table' },
+        });
+        expect(response).toMatchObject({ ok: true, result: { detail: { columns: [] } } });
+        expect(performance.now() - started).toBeLessThan(400);
+      } finally {
+        await ok({ type: 'execute', config, runId: 'mode2', sql: "SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '')", readWrite: false, window });
+      }
+    });
+
+    it.runIf(engine === 'postgres')('reads the catalog with pg_catalog functions only, read-only, whatever the search path holds', async () => {
+      const planted = `CREATE OR REPLACE FUNCTION public.format(text, text, text) RETURNS text LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''hijacked''; END'`;
+      await ok({ type: 'execute', config, runId: 'plant', sql: planted, readWrite: false, window });
+      try {
+        const response = await send({ type: 'introspect', config, request: { level: 'detail', schema: 'public', name: `${table}_child`, kind: 'table' } });
+        expect(response).toMatchObject({ ok: true, result: { detail: { name: `${table}_child` } } });
+        // Nothing stays open: the next run starts outside any transaction.
+        const state = await ok<{ rows: Array<{ s: unknown }> }>({ type: 'execute', config, runId: 'txn', sql: "SELECT current_setting('search_path') AS s", readWrite: false, window });
+        expect(String(state.rows[0]?.s)).not.toBe('pg_catalog, pg_temp');
+      } finally {
+        await ok({ type: 'execute', config, runId: 'unplant', sql: 'DROP FUNCTION IF EXISTS public.format(text, text, text)', readWrite: false, window });
+      }
+    });
+
     it('refuses a write on a read-only connection on the server side, and lifts it for one run', async () => {
       const refused = await send({ type: 'execute', config: readOnly, runId: 'w', sql: `DELETE FROM ${table} WHERE id = 1`, readWrite: false, window });
       expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/read.only/i) } });

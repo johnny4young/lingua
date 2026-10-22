@@ -391,8 +391,13 @@ keeps Local alone.
 The catalog is read one level at a time through `sql-db:introspect`: the
 schemas, one schema's objects, one schema's columns, or one object's detail
 (columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite}Catalog.ts`
-pass names as bind parameters, or quoted for MySQL's `SHOW CREATE`, and cap a
-level at 5,000 objects or 20,000 columns, saying when it was cut. Main checks
+pass names as bind parameters (server-side prepared statements on MySQL, so
+`NO_BACKSLASH_ESCAPES` cannot turn a name into SQL), or quoted for MySQL's
+`SHOW CREATE`, and cap a level at 5,000 schemas or objects or 20,000 columns,
+saying when it was cut. Each level reads inside a read-only transaction that is
+rolled back, stops after 25 seconds, and on Postgres pins `search_path` to
+`pg_catalog, pg_temp`, so a function of the same name elsewhere on the path
+never runs; the host first closes the connection's open result. Main checks
 the level, the names (up to 256 characters), the kind and the routine
 signature before the host sees them. The renderer keeps what it read in
 `sqlRemoteCatalogStore`, in memory and per connection, with a generation

@@ -1,7 +1,7 @@
 /**
- * MySQL catalog levels from information_schema. Names travel as bind
- * parameters; SHOW CREATE, which takes no parameters, gets them quoted with
- * backticks doubled.
+ * MySQL catalog levels from information_schema. Names travel as prepared
+ * statement values; SHOW CREATE, which takes no parameters, gets them quoted
+ * with backticks doubled. Each SELECT stops after 25 seconds.
  */
 
 import {
@@ -17,18 +17,19 @@ import type { CatalogQuery } from './postgresCatalog';
 
 const quote = (name: string) => `\`${name.replace(/`/g, '``')}\``;
 const count = (value: unknown) => (value === null || value === undefined ? undefined : Number(value));
+const HINT = '/*+ MAX_EXECUTION_TIME(25000) */';
 const SYSTEM_SCHEMAS = "('mysql','information_schema','performance_schema','sys')";
 
 const SCHEMAS = `
-SELECT s.SCHEMA_NAME AS name,
+SELECT ${HINT} s.SCHEMA_NAME AS name,
   (SELECT COUNT(*) FROM information_schema.TABLES t WHERE t.TABLE_SCHEMA = s.SCHEMA_NAME)
   + (SELECT COUNT(*) FROM information_schema.ROUTINES r WHERE r.ROUTINE_SCHEMA = s.SCHEMA_NAME) AS objects
 FROM information_schema.SCHEMATA s
 WHERE s.SCHEMA_NAME NOT IN ${SYSTEM_SCHEMAS}
-ORDER BY s.SCHEMA_NAME = DATABASE() DESC, s.SCHEMA_NAME`;
+ORDER BY s.SCHEMA_NAME = DATABASE() DESC, s.SCHEMA_NAME LIMIT ${MAX_INTROSPECT_OBJECTS + 1}`;
 
 const OBJECTS = `
-SELECT * FROM (
+SELECT ${HINT} * FROM (
   SELECT IF(t.TABLE_TYPE = 'VIEW', 'view', 'table') AS kind, t.TABLE_NAME AS name,
     IF(t.TABLE_TYPE = 'VIEW', NULL, t.TABLE_ROWS) AS est_rows, NULL AS signature
   FROM information_schema.TABLES t WHERE t.TABLE_SCHEMA = ?
@@ -37,24 +38,24 @@ SELECT * FROM (
 ) objects ORDER BY kind, name LIMIT ${MAX_INTROSPECT_OBJECTS + 1}`;
 
 const COLUMNS = `
-SELECT TABLE_NAME AS tbl, COLUMN_NAME AS name, COLUMN_TYPE AS type FROM information_schema.COLUMNS
+SELECT ${HINT} TABLE_NAME AS tbl, COLUMN_NAME AS name, COLUMN_TYPE AS type FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION LIMIT ${MAX_INTROSPECT_COLUMNS + 1}`;
 
 const DETAIL_COLUMNS = `
-SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS dflt, COLUMN_KEY AS col_key
+SELECT ${HINT} COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS dflt, COLUMN_KEY AS col_key
 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`;
 
 const DETAIL_REFERENCES = `
-SELECT COLUMN_NAME AS col, REFERENCED_TABLE_SCHEMA AS ref_schema, REFERENCED_TABLE_NAME AS ref_table, REFERENCED_COLUMN_NAME AS ref_column
+SELECT ${HINT} COLUMN_NAME AS col, REFERENCED_TABLE_SCHEMA AS ref_schema, REFERENCED_TABLE_NAME AS ref_table, REFERENCED_COLUMN_NAME AS ref_column
 FROM information_schema.KEY_COLUMN_USAGE
 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL`;
 
 const DETAIL_INDEXES = `
-SELECT INDEX_NAME AS name, COLUMN_NAME AS col, NON_UNIQUE AS non_unique
+SELECT ${HINT} INDEX_NAME AS name, COLUMN_NAME AS col, NON_UNIQUE AS non_unique
 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME = 'PRIMARY' DESC, INDEX_NAME, SEQ_IN_INDEX`;
 
 const DETAIL_SIZE = `
-SELECT TABLE_ROWS AS est_rows, DATA_LENGTH + INDEX_LENGTH AS size FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`;
+SELECT ${HINT} TABLE_ROWS AS est_rows, DATA_LENGTH + INDEX_LENGTH AS size FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`;
 
 const SHOW_CREATE: Partial<Record<SqlDbObjectKind, { statement: string; column: string }>> = {
   table: { statement: 'SHOW CREATE TABLE', column: 'Create Table' },
@@ -125,7 +126,10 @@ export async function introspectMysql(query: CatalogQuery, request: SqlDbIntrosp
   switch (request.level) {
     case 'schemas': {
       const rows = await query(SCHEMAS, []);
-      return { schemas: rows.map((row) => ({ name: String(row.name), objects: Number(row.objects) })) };
+      return {
+        schemas: rows.slice(0, MAX_INTROSPECT_OBJECTS).map((row) => ({ name: String(row.name), objects: Number(row.objects) })),
+        truncated: rows.length > MAX_INTROSPECT_OBJECTS,
+      };
     }
     case 'objects': {
       const rows = await query(OBJECTS, [request.schema, request.schema]);

@@ -232,6 +232,8 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
   }
 
   async function introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
+    // An open result holds the connection; the catalog reads in its own transaction.
+    for (const [id, run] of runs) if (run.connectionId === config.connectionId) await closeRun(id);
     const session = sessionFor(config);
     return serialize(session, async () => {
       let driver: DriverSession;

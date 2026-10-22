@@ -87,6 +87,10 @@ function connect(opts: ConnectionOptions): Promise<Connection> {
 const query = <T>(connection: Connection, sql: string, values: unknown[] = []): Promise<T> =>
   new Promise((resolve, reject) => connection.query(sql, values, (err, rows) => (err ? reject(err) : resolve(rows as T))));
 
+/** A server-side prepared statement: values never pass through client-side escaping, whatever sql_mode says. */
+const prepared = <T>(connection: Connection, sql: string, values: unknown[]): Promise<T> =>
+  new Promise((resolve, reject) => connection.execute({ sql, values }, (err, rows) => (err ? reject(err) : resolve(rows as T))));
+
 const queryWithFields = (connection: Connection, sql: string): Promise<{ rows: unknown; fields: FieldPacket[] | undefined }> =>
   new Promise((resolve, reject) =>
     connection.query(sql, (err, rows, fields) => (err ? reject(err) : resolve({ rows, fields: fields as FieldPacket[] | undefined })))
@@ -255,7 +259,17 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
       }
     },
 
-    introspect: (request) => introspectMysql((sql, values) => query<Array<Record<string, unknown>>>(connection, sql, values), request),
+    async introspect(request) {
+      await query(connection, 'START TRANSACTION READ ONLY');
+      try {
+        return await introspectMysql(
+          (sql, values) => (values.length > 0 ? prepared(connection, sql, values) : query(connection, sql)) as Promise<Array<Record<string, unknown>>>,
+          request
+        );
+      } finally {
+        await query(connection, 'ROLLBACK').catch(() => undefined);
+      }
+    },
 
     close: () => new Promise<void>((resolve) => connection.end(() => resolve())),
   };

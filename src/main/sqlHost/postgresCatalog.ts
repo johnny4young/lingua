@@ -27,7 +27,7 @@ SELECT n.nspname AS name,
        AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')) AS objects
 FROM pg_namespace n
 WHERE n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema' AND has_schema_privilege(n.oid, 'USAGE')
-ORDER BY n.nspname = 'public' DESC, n.nspname`;
+ORDER BY n.nspname = 'public' DESC, n.nspname LIMIT ${MAX_INTROSPECT_OBJECTS + 1}`;
 
 const OBJECTS = `
 SELECT * FROM (
@@ -174,7 +174,10 @@ export async function introspectPostgres(query: CatalogQuery, request: SqlDbIntr
   switch (request.level) {
     case 'schemas': {
       const rows = await query(SCHEMAS, []);
-      return { schemas: rows.map((row) => ({ name: String(row.name), objects: Number(row.objects) })) };
+      return {
+        schemas: rows.slice(0, MAX_INTROSPECT_OBJECTS).map((row) => ({ name: String(row.name), objects: Number(row.objects) })),
+        truncated: rows.length > MAX_INTROSPECT_OBJECTS,
+      };
     }
     case 'objects': {
       const rows = await query(OBJECTS, [request.schema]);
