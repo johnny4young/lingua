@@ -361,7 +361,7 @@ folder (checked as given and after resolving symlinks), estimates only a single 
 (EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
-renderer that knows the name can pass it. The fifteen `sql-db:*` channels in
+renderer that knows the name can pass it. The eighteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
 
 SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
@@ -391,6 +391,22 @@ it, and any change to the tunnel forgets the database password. `sql-db:ssh-info
 `~/.ssh/config` says about an alias and how many keys the agent holds, never a
 file's content. Confirm every write applies the production typed confirm to
 any connection, and Allow private host off refuses a private first address.
+
+Imports (`sqlImport/`) read only a file the user picked in a native dialog,
+capped at 4 MiB and refused in a protected folder, plus the file beside it that
+completes it: TablePlus' `ConnectionGroups.plist` and DataGrip's
+`dataSources.local.xml`. Each parser maps hosts, ports, databases, users,
+groups, environments, SSL and SSH settings and drops every password, including
+one embedded in a URL; DBeaver's credentials file and other apps' keychain
+entries are never opened. `sql-db:import-env` reads the `.env` files at the
+open project's root through its `rootId` capability. Candidates go back to the
+renderer, which saves the ones the user keeps through `sql-db:save`, so the
+quota and every check of a save apply. A key path an imported file names is
+allowed as if picked, as `~/.ssh/config` names are. `sql-db:export` writes the
+catalog as drafts (no ids, timestamps or secrets) to a file the user names,
+with mode 0600. A password asked at connect time for a keychain connection
+moves to the secret store after its first successful sign-in; until then a
+refusal forgets it, as for ask-each-session connections.
 
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`
