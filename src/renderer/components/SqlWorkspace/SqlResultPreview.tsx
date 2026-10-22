@@ -232,9 +232,10 @@ export function SqlResultPreview({
   );
   const filteredCount = filteredSortedRows.length;
   const shownColumns = useMemo(() => visibleColumns(columns, layout), [columns, layout]);
+  const engine = response?.engine;
   const gridSql = useMemo(
-    () => (source ? buildGridSql(source.sql, conditions, sort, columns, layout) : null),
-    [source, conditions, sort, columns, layout]
+    () => (source ? buildGridSql(source.sql, conditions, sort, columns, layout, engine) : null),
+    [source, conditions, sort, columns, layout, engine]
   );
   const canShowMore = displayRows.length < filteredCount || (more?.canRead === true && !more.loading);
   const handleLoadMore = () => {
