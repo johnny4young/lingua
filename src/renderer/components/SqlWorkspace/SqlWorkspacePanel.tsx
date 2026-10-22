@@ -59,8 +59,13 @@ import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SqlConnectionSheet, type SqlConnectionSheetMode } from './SqlConnectionSheet';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
-import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
+import { findConnection, useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
+import { useSqlRemoteCatalogStore, type SqlObjectRef } from '../../stores/sqlRemoteCatalogStore';
 import { sqlDbBridge } from '../../runtime/sqlRemote';
+import { SqlRemoteTree } from './SqlRemoteTree';
+import { SqlObjectDetail, type SqlObjectTab } from './SqlObjectDetail';
+import { QUERYABLE_KINDS } from './sqlRemoteTreeModel';
+import { buildSelectStarter } from './sqlResultFormatters';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
 function formatApproxStorage(bytes: number): string {
@@ -130,6 +135,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
   const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // A connection's object in the results area, and the connection whose catalog waits for a password.
+  const [objectView, setObjectView] = useState<{ connectionId: string; object: SqlObjectRef; tab: SqlObjectTab } | null>(null);
+  const [catalogPasswordFor, setCatalogPasswordFor] = useState<string | null>(null);
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   const schemaTables = useMemo<SqlSchemaTable[]>(
@@ -190,6 +198,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const resetView = useCallback(() => {
     setSelectedResponseIndex(0);
+    setObjectView(null);
     showTablePreview(null);
   }, [showTablePreview]);
   const tabActions = useSqlQueryTabActions(resetView);
@@ -218,9 +227,13 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const handleBeforeRun = useCallback(() => {
     showTablePreview(null);
+    setObjectView(null);
     setSelectedResponseIndex(0);
   }, [showTablePreview]);
-  const handleSchemaChanged = useCallback(() => refreshTablesRef.current(), []);
+  const handleSchemaChanged = useCallback((connectionId?: string) => {
+    if (connectionId) useSqlRemoteCatalogStore.getState().refresh(connectionId);
+    else refreshTablesRef.current();
+  }, []);
   const runner = useSqlRunner({
     timeoutMs: queryTimeoutMs,
     onBeforeRun: handleBeforeRun,
@@ -238,6 +251,36 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     dbFlag && activeQuery?.connectionId
       ? [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === activeQuery.connectionId)
       : undefined;
+  const remoteLoading = useSqlRemoteCatalogStore(
+    (state) => activeConnection !== undefined && state.catalogs[activeConnection.id]?.schemas?.status === 'loading'
+  );
+  // Another connection's object or rows never stay on screen.
+  const activeConnectionId = activeConnection?.id;
+  useEffect(() => {
+    setObjectView((view) => (view && view.connectionId !== activeConnectionId ? null : view));
+    const preview = tables.preview;
+    if (preview?.connectionId && preview.connectionId !== activeConnectionId) showTablePreview(null);
+    // Only a connection switch clears the view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConnectionId]);
+  const showObject = useCallback(
+    (connectionId: string, object: SqlObjectRef, tab: SqlObjectTab) => {
+      setObjectView({ connectionId, object, tab });
+      const connection = findConnection(connectionId);
+      if (tab === 'data' && connection && QUERYABLE_KINDS.has(object.kind)) {
+        const table = { name: `${object.schema}.${object.name}`, sqlName: object.name, schemaName: object.schema };
+        void tables.open(table, undefined, undefined, { connectionId, engine: connection.engine });
+      } else {
+        showTablePreview(null);
+      }
+    },
+    [tables, showTablePreview]
+  );
+  /** A password typed for a run also unblocks a catalog that was waiting for it. */
+  const retryCatalogAfterPassword = useCallback((connectionId: string) => {
+    const level = useSqlRemoteCatalogStore.getState().catalogs[connectionId]?.schemas;
+    if (level?.status === 'error' && level.passwordNeeded) useSqlRemoteCatalogStore.getState().refresh(connectionId);
+  }, []);
   const selectConnection = useCallback(
     (connectionId: string | undefined) => {
       let id = useWorkspaceSqlStore.getState().activeQueryId;
@@ -458,9 +501,12 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const explorer = (
     <SqlExplorer
       catalog={explorerCatalog}
-      isLoading={isLoadingTables}
+      isLoading={activeConnection ? remoteLoading : isLoadingTables}
       hasLoaded={catalogLoaded}
-      onRefresh={() => void handleRefreshTables()}
+      onRefresh={() => {
+        if (activeConnection) useSqlRemoteCatalogStore.getState().refresh(activeConnection.id);
+        else void handleRefreshTables();
+      }}
       onOpenTable={(table) => void tables.open(table)}
       openedTableName={tablePreview?.table.name ?? null}
       onFold={toggleFolded}
@@ -473,6 +519,21 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       storageUsageLabel={storageUsageLabel}
       filter={explorerFilter}
       onFilterChange={setExplorerFilter}
+      {...(activeConnection
+        ? {
+            renderRemoteTree: (collapseSignal: number) => (
+              <SqlRemoteTree
+                key={activeConnection.id}
+                connection={activeConnection}
+                filter={explorerFilter}
+                selected={objectView?.connectionId === activeConnection.id ? objectView.object : null}
+                onOpenObject={(object) => showObject(activeConnection.id, object, QUERYABLE_KINDS.has(object.kind) ? 'columns' : 'ddl')}
+                onEnterPassword={() => setCatalogPasswordFor(activeConnection.id)}
+                collapseSignal={collapseSignal}
+              />
+            ),
+          }
+        : {})}
     >
       <SqlQueryList
         queries={queries}
@@ -507,7 +568,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const plan = runner.plan?.queryId === activeQuery?.id ? runner.plan : null;
   const lastResult = runSet ? runSet.results.length - 1 : 0;
   const view = runner.view ?? { kind: 'result' as const, index: lastResult };
-  const showResultTabs = !tablePreview && (runSet !== null || plan !== null);
+  const showResultTabs = !tablePreview && !objectView && (runSet !== null || plan !== null);
   const runSetResponse =
     !tablePreview && runSet && view.kind === 'result' && view.index < lastResult
       ? runSet.results[view.index]?.response
@@ -527,7 +588,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const handleInsertPredicate = (predicate: string) =>
     setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
 
-  const resultBody =
+  const runBody =
     showResultTabs && view.kind === 'plan' && plan ? (
       <SqlPlanView result={plan} />
     ) : showResultTabs && view.kind === 'messages' && runSet ? (
@@ -557,6 +618,21 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(activeQuery ? { onInsertPredicate: handleInsertPredicate } : {})}
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
       />
+    );
+
+  const resultBody =
+    objectView && activeConnection ? (
+      <SqlObjectDetail
+        connectionId={objectView.connectionId}
+        object={objectView.object}
+        tab={objectView.tab}
+        onTab={(tab) => showObject(objectView.connectionId, objectView.object, tab)}
+        onInsertSelect={() => handleEditInEditor(buildSelectStarter(objectView.object.name, objectView.object.schema, activeConnection.engine))}
+        onEnterPassword={() => setCatalogPasswordFor(objectView.connectionId)}
+        data={runBody}
+      />
+    ) : (
+      runBody
     );
 
   const editorPane = activeQuery ? (
@@ -603,7 +679,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   );
 
   // With nothing to edit or show, the empty state gets the whole area instead of a split.
-  const split = !activeQuery && !tablePreview ? (
+  const split = !activeQuery && !tablePreview && !objectView ? (
     emptyState
   ) : (
     <Group
@@ -752,8 +828,27 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         <SqlPasswordPrompt
           name={runner.passwordPrompt.connectionName}
           refused={runner.passwordPrompt.refused}
-          onSubmit={(password) => void runner.submitPassword(password)}
+          onSubmit={(password) => {
+            const connectionId = runner.passwordPrompt?.connectionId;
+            void runner.submitPassword(password).then(() => {
+              if (connectionId) retryCatalogAfterPassword(connectionId);
+            });
+          }}
           onCancel={runner.dismissPassword}
+        />
+      ) : null}
+      {catalogPasswordFor ? (
+        <SqlPasswordPrompt
+          name={findConnection(catalogPasswordFor)?.name ?? ''}
+          refused={false}
+          onSubmit={(password) => {
+            const connectionId = catalogPasswordFor;
+            setCatalogPasswordFor(null);
+            void sqlDbBridge()
+              ?.sessionPassword(connectionId, password)
+              .then(() => useSqlRemoteCatalogStore.getState().refresh(connectionId));
+          }}
+          onCancel={() => setCatalogPasswordFor(null)}
         />
       ) : null}
       {closePrompt ? (

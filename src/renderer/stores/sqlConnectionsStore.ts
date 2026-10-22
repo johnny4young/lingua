@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import type { SqlConnectionDraft } from '../../shared/sqlConnections';
 import type { SqlDbCatalogView, SqlDbConnectionView, SqlDbSaveResult } from '../../shared/sqlDb';
 import { sqlDbBridge } from '../runtime/sqlRemote';
+import { useSqlRemoteCatalogStore } from './sqlRemoteCatalogStore';
 import { useSettingsStore } from './settingsStore';
 
 interface SqlConnectionsState {
@@ -38,6 +39,8 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
     const db = sqlDbBridge();
     if (!db) return unavailable;
     const result = await db.save(draft, id, password);
+    // An edit can point the connection somewhere else.
+    if (result.ok && id) useSqlRemoteCatalogStore.getState().refresh(id);
     if (result.ok) await get().refresh();
     return result;
   },
@@ -45,6 +48,7 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
     const db = sqlDbBridge();
     if (!db) return false;
     const { ok } = await db.delete(id);
+    useSqlRemoteCatalogStore.getState().refresh(id);
     await get().refresh();
     return ok;
   },

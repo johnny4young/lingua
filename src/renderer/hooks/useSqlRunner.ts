@@ -186,7 +186,8 @@ function recordRun(queryId: string, sql: string, response: SqlResponseV1): void 
 interface UseSqlRunnerOptions {
   timeoutMs: number;
   onBeforeRun: () => void;
-  onSchemaChanged: () => void;
+  /** A run created, altered or dropped something; `connectionId` is unset for Local. */
+  onSchemaChanged: (connectionId?: string) => void;
 }
 
 /**
@@ -279,8 +280,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
             }
           : { runSet: null, view: null }
       );
-      if (!remote && results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
-        onSchemaChanged();
+      if (results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
+        onSchemaChanged(remote?.connection.id);
       }
       announce(
         isResult(last.response.status)

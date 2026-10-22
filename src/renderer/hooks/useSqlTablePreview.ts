@@ -3,7 +3,9 @@ import type { SqlResponseV1 } from '../../shared/sqlWorkspace';
 import type { SqlSchemaTable } from '../components/SqlWorkspace/sqlExplorerModel';
 import type { SqlResultForeignKeys } from '../components/SqlWorkspace/SqlResultPreview';
 import { buildSelectStarter } from '../components/SqlWorkspace/sqlResultFormatters';
+import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import { executeQuery } from '../runtime/duckdbClient';
+import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
 import {
   buildLookupSql,
   countReferences,
@@ -20,6 +22,13 @@ export interface SqlTablePreview {
   response: SqlResponseV1;
   /** The preview a link was followed from, for the back chip. */
   back?: SqlTablePreview;
+  /** Set when the rows come from a database connection rather than Local. */
+  connectionId?: string;
+}
+
+export interface SqlRemoteTableTarget {
+  connectionId: string;
+  engine: SqlRemoteEngine;
 }
 
 const keyCache = new Map<string, Promise<SqlTableForeignKeys>>();
@@ -40,18 +49,28 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
   }, []);
 
   const open = useCallback(
-    async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview) => {
-      const statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName);
+    async (table: SqlSchemaTable, sql?: string, back?: SqlTablePreview, remote?: SqlRemoteTableTarget) => {
+      const statement = sql ?? buildSelectStarter(table.sqlName ?? table.name, table.schemaName, remote?.engine);
       tokenRef.current += 1;
       const token = tokenRef.current;
-      const outcome = await executeQuery(statement, { timeoutMs });
-      if (tokenRef.current !== token) return;
-      setPreview({ table, sql: statement, response: toSqlResponse(outcome), ...(back ? { back } : {}) });
+      const db = remote ? sqlDbBridge() : null;
+      // A connection's SQL never falls back to Local.
+      if (remote && !db) return;
+      const outcome = remote && db ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0] : await executeQuery(statement, { timeoutMs });
+      if (tokenRef.current !== token || !outcome) return;
+      setPreview({
+        table,
+        sql: statement,
+        response: toSqlResponse(outcome),
+        ...(back ? { back } : {}),
+        ...(remote ? { connectionId: remote.connectionId } : {}),
+      });
     },
     [timeoutMs]
   );
 
-  const tableName = preview?.table.sqlName ?? preview?.table.name ?? null;
+  // Foreign keys are read from Local's catalog; a connection's keys show in its object detail.
+  const tableName = preview && !preview.connectionId ? (preview.table.sqlName ?? preview.table.name) : null;
   const schemaName = preview?.table.schemaName ?? 'main';
   useEffect(() => {
     if (tableName === null) return;
