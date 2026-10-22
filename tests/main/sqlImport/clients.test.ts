@@ -80,7 +80,46 @@ describe('TablePlus import', () => {
   });
 });
 
+/** A bplist00 whose arrays each hold two references to the one before: 2^depth leaves if shared objects were copied. */
+function sharedRefsPlist(depth: number): Buffer {
+  const objects: Buffer[] = [Buffer.from([0x51, 0x78])]; // "x"
+  for (let i = 1; i <= depth; i++) objects.push(Buffer.from([0xa2, i - 1, i - 1]));
+  const offsets: number[] = [];
+  let body = Buffer.from('bplist00', 'latin1');
+  for (const object of objects) {
+    offsets.push(body.length);
+    body = Buffer.concat([body, object]);
+  }
+  const tableAt = body.length;
+  const table = Buffer.alloc(offsets.length * 2);
+  offsets.forEach((offset, index) => table.writeUInt16BE(offset, index * 2));
+  const trailer = Buffer.alloc(32);
+  trailer[6] = 2;
+  trailer[7] = 1;
+  trailer.writeBigUInt64BE(BigInt(objects.length), 8);
+  trailer.writeBigUInt64BE(BigInt(depth), 16);
+  trailer.writeBigUInt64BE(BigInt(tableAt), 24);
+  return Buffer.concat([body, table, trailer]);
+}
+
 describe('plist reader', () => {
+  it('builds a shared object once instead of copying it at every reference', () => {
+    const started = performance.now();
+    const parsed = parsePlist(sharedRefsPlist(40)) as unknown[];
+    expect(Array.isArray(parsed) && parsed.length).toBe(2);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it('refuses a length past the end of the data and stays linear on unclosed tags', () => {
+    // The top object becomes a string whose two-byte length (0xff00) runs past the end.
+    const bogus = sharedRefsPlist(2);
+    bogus.set([0x5f, 0x11, 0xff], 13);
+    expect(parsePlist(bogus)).toBeUndefined();
+    const started = performance.now();
+    expect(parsePlist(Buffer.from(`<plist>${'<a '.repeat(200_000)}`))).toBeUndefined();
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
   it('reads entities, numbers and empty elements, and refuses a broken document', () => {
     expect(parsePlist(Buffer.from('<plist><dict><key>a&lt;b</key><integer>-3</integer><key>c</key><array/><key>d</key><string/></dict></plist>'))).toEqual({ 'a<b': -3, c: [], d: '' });
     expect(parsePlist(Buffer.from('<plist><dict><key>a</key></dict></plist>'))).toBeUndefined();
@@ -191,6 +230,15 @@ describe('DataGrip import', () => {
   it('leaves out a project-relative SQLite file when the project is unknown, and refuses other XML', () => {
     expect(dataGripCandidates(xml, null, { home: HOME })!.found.map((candidate) => candidate.draft.name)).toEqual(['shop', 'maria', 'behind bastion']);
     expect(dataGripCandidates('<project/>', null, { home: HOME })).toBeNull();
+  });
+
+  it('stays linear on elements that never close', () => {
+    const started = performance.now();
+    const valid = '<data-source name="a" uuid="u1"><jdbc-url>jdbc:postgresql://db/a</jdbc-url></data-source>';
+    const xml = `<component name="DataSourceManagerImpl">${valid}${'<data-source name="b">'.repeat(100_000)}`;
+    const local = `<data-source uuid="u1">${'<user-name>'.repeat(100_000)}</data-source>`;
+    expect(dataGripCandidates(xml, local, { home: HOME })?.found.map((candidate) => candidate.draft.name)).toEqual(['a']);
+    expect(performance.now() - started).toBeLessThan(1_000);
   });
 
   it('keeps the first host of a failover URL and refuses other engines', () => {

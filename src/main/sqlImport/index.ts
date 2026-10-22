@@ -11,6 +11,8 @@ import { linguaCandidates } from './linguaExport';
 import { tablePlusCandidates } from './tablePlus';
 
 export const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+/** More than any real client list; the rest are counted as left out. */
+const MAX_IMPORT_CONNECTIONS = 500;
 
 /** The file next to the picked one that completes it: TablePlus' groups, DataGrip's per-machine settings. */
 export function siblingFile(source: SqlDbImportSource, picked: string): string | null {
@@ -44,5 +46,7 @@ const PARSERS: Readonly<Record<SqlDbImportSource, (data: Buffer, context: Import
 export function importCandidates(source: SqlDbImportSource, data: Buffer | null, context: ImportContext): SqlDbImportResult {
   if (!data) return { canceled: false, found: [], skipped: 0, error: 'unreadable' };
   const parsed = PARSERS[source](data, context);
-  return parsed ? { canceled: false, ...parsed } : { canceled: false, found: [], skipped: 0, error: 'unrecognized' };
+  if (!parsed) return { canceled: false, found: [], skipped: 0, error: 'unrecognized' };
+  const extra = Math.max(0, parsed.found.length - MAX_IMPORT_CONNECTIONS);
+  return { canceled: false, found: parsed.found.slice(0, MAX_IMPORT_CONNECTIONS), skipped: parsed.skipped + extra };
 }

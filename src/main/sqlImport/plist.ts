@@ -10,7 +10,7 @@ const unescape = (text: string) =>
   );
 
 function parseXml(text: string): PlistValue | undefined {
-  const tokens = [...text.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([a-z]+)(?:\s[^>]*?)?\s*(\/?)>|([^<]+)/gi)];
+  const tokens = [...text.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([a-z]+)(?:\s[^<>]*?)?\s*(\/?)>|([^<]+)/gi)];
   let index = tokens.findIndex((token) => token[2] === 'plist' && !token[1]) + 1;
   if (index === 0) return undefined;
   const skipText = () => {
@@ -64,38 +64,48 @@ function parseBinary(data: Buffer): PlistValue | undefined {
   const readInt = (at: number, size: number) => (size === 8 ? Number(data.readBigUInt64BE(at)) : data.readUIntBE(at, size));
   const offset = (ref: number) => readInt(tableAt + ref * offsetSize, offsetSize);
   const seen = new Set<number>();
+  // An object several containers point at is built once, so shared references cannot multiply the work.
+  const built = new Map<number, PlistValue>();
   const object = (ref: number): PlistValue => {
-    if (seen.has(ref) || ref >= count) throw new Error('plist');
+    if (built.has(ref)) return built.get(ref)!;
+    if (seen.has(ref) || ref >= count || seen.size > 64) throw new Error('plist');
     seen.add(ref);
     try {
-      let at = offset(ref);
-      const marker = data[at]!;
-      const kind = marker >> 4;
-      let length = marker & 0x0f;
-      at += 1;
-      if (kind === 0) return marker === 0x09 ? true : marker === 0x08 ? false : null;
-      if (kind === 1) return readInt(at, 1 << length);
-      if (kind === 2) return length === 3 ? data.readDoubleBE(at) : data.readFloatBE(at);
-      if (length === 0x0f && kind >= 4) {
-        const size = 1 << (data[at]! & 0x0f);
-        length = readInt(at + 1, size);
-        at += 1 + size;
-      }
-      if (kind === 5) return data.toString('latin1', at, at + length);
-      if (kind === 6) return Buffer.from(data.subarray(at, at + length * 2)).swap16().toString('utf16le');
-      if (kind === 10) return Array.from({ length }, (_, i) => object(readInt(at + i * refSize, refSize)));
-      if (kind === 13) {
-        const dict: Record<string, PlistValue> = {};
-        for (let i = 0; i < length; i++) {
-          const key = object(readInt(at + i * refSize, refSize));
-          if (typeof key === 'string') dict[key] = object(readInt(at + (length + i) * refSize, refSize));
-        }
-        return dict;
-      }
-      return null;
+      const value = read(ref);
+      built.set(ref, value);
+      return value;
     } finally {
       seen.delete(ref);
     }
+  };
+  const read = (ref: number): PlistValue => {
+    let at = offset(ref);
+    const marker = data[at]!;
+    const kind = marker >> 4;
+    let length = marker & 0x0f;
+    at += 1;
+    if (kind === 0) return marker === 0x09 ? true : marker === 0x08 ? false : null;
+    if (kind === 1) return readInt(at, 1 << length);
+    if (kind === 2) return length === 3 ? data.readDoubleBE(at) : data.readFloatBE(at);
+    if (length === 0x0f && kind >= 4) {
+      const size = 1 << (data[at]! & 0x0f);
+      length = readInt(at + 1, size);
+      at += 1 + size;
+    }
+    const width = kind === 6 ? 2 : kind === 10 ? refSize : kind === 13 ? refSize * 2 : 1;
+    if (at + length * width > data.length) throw new Error('plist');
+    if (kind === 5) return data.toString('latin1', at, at + length);
+    if (kind === 6) return Buffer.from(data.subarray(at, at + length * 2)).swap16().toString('utf16le');
+    if (kind === 10) return Array.from({ length }, (_, i) => object(readInt(at + i * refSize, refSize)));
+    if (kind === 13) {
+      const dict: Record<string, PlistValue> = {};
+      for (let i = 0; i < length; i++) {
+        const key = object(readInt(at + i * refSize, refSize));
+        if (typeof key === 'string') dict[key] = object(readInt(at + (length + i) * refSize, refSize));
+      }
+      return dict;
+    }
+    return null;
   };
   return object(top);
 }
