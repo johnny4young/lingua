@@ -51,14 +51,16 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
     if (!preview || !target || stagedCount(edits) === 0) return;
     const changes = changeSet(edits);
     const connection = preview.connectionId ? findConnection(preview.connectionId) : undefined;
-    if (connection?.confirmWrites && confirmName === undefined) {
+    const askName = () =>
       setConfirm({
-        connectionName: connection.name,
+        connectionName: connection?.name ?? '',
         statements: rowEditStatements(target, changes, true).map(({ sql }) => sql),
         estimate: null,
         readOnly: false,
         production: false,
       });
+    if (connection?.confirmWrites && confirmName === undefined) {
+      askName();
       return;
     }
     setBusy(true);
@@ -73,6 +75,9 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
       reload(preview);
     } else if ('errorMessage' in result) {
       setNotice({ tone: 'error', text: result.errorMessage });
+    } else if (!result.ok && result.reason === 'confirm-needed' && confirmName === undefined && connection) {
+      // Main knows the switch is on even when this copy of the catalog does not yet.
+      askName();
     } else if (!result.ok) {
       setNotice({ tone: 'error', text: failure(result) });
     }

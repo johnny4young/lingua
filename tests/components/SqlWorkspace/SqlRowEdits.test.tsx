@@ -105,6 +105,8 @@ describe('staged row edits', () => {
     await user.click(screen.getByTestId('sql-edit-add'));
     expect(screen.getAllByTestId('sql-result-preview-row')).toHaveLength(4);
     expect(cell(2, 'city').dataset.edit).toBe('inserted');
+    expect(cell(3, 'total').textContent).toBe('default');
+    expect(screen.getByTestId('sql-column-rail-sample').textContent).toBe('of the 2 rows loaded');
     expect(screen.getByTestId('sql-edit-count').textContent).toBe('4 staged changes');
     await user.click(screen.getByTestId('sql-edit-review'));
     expect(screen.getByTestId('sql-edit-review-panel').textContent).toContain(`DELETE FROM "orders" WHERE "id" = '10402';`);
@@ -121,6 +123,27 @@ describe('staged row edits', () => {
     expect(screen.queryByTestId('sql-edit-bar')).toBeNull();
     await user.dblClick(cell(0, 'city'));
     expect(screen.queryByTestId('sql-cell-editor')).toBeNull();
+  });
+
+  it('asks the typed name when main says the connection needs it, even before this catalog copy knows', async () => {
+    const user = userEvent.setup();
+    const connection = { id: 'c_1', name: 'orders-dev', engine: 'postgres' } as SqlDbConnectionView;
+    useSqlConnectionsStore.setState({ catalog: { connections: [connection], adhoc: [], used: 1, limit: 3, vault: 'encrypted' } });
+    const applyEdits = vi.fn().mockResolvedValueOnce({ ok: false, reason: 'confirm-needed' }).mockResolvedValueOnce({ ok: true, applied: 1 });
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin', db: { applyEdits } };
+    const remote: SqlTablePreview = {
+      ...localPreview,
+      connectionId: 'c_1',
+      edit: { table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city', 'total'], key: { kind: 'pk', columns: ['id'] } } },
+    };
+    render(<Harness preview={remote} reload={vi.fn()} />);
+    fireEvent.contextMenu(cell(0, 'city'));
+    await user.click(screen.getByTestId('sql-cell-menu-set-null'));
+    await user.click(screen.getByTestId('sql-edit-commit'));
+    expect(await screen.findByTestId('sql-write-confirm')).toBeTruthy();
+    await user.type(screen.getByTestId('sql-write-confirm-input'), 'orders-dev');
+    await user.click(screen.getByTestId('sql-write-confirm-run'));
+    await waitFor(() => expect(applyEdits).toHaveBeenLastCalledWith('c_1', { schema: 'public', name: 'orders' }, expect.anything(), 'orders-dev'));
   });
 
   it('asks the typed name before committing on a connection with Confirm every write, and keeps the change on a refusal', async () => {

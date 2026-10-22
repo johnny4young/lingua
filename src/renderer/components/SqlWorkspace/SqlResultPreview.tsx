@@ -235,6 +235,11 @@ export function SqlResultPreview({
     () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText), conditions, columns)),
     [shownRows, searchText, conditions, columns]
   );
+  // The rail describes the rows as read, not the staged changes.
+  const railRows = useMemo(
+    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
+    [shownRows, loadedRows, filteredRows, searchText, conditions, columns]
+  );
   const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.
   const pageCount = pages.key === responseKey ? pages.count : 1;
@@ -613,7 +618,7 @@ export function SqlResultPreview({
             />
           ) : showGridChrome && showRail && displayRows.length > 0 ? (
             // Load order, not the sort: a sort changes neither the stats nor which rows a sampled rail reads.
-            <SqlColumnRail columns={shownColumns} rows={filteredRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
+            <SqlColumnRail columns={shownColumns} rows={railRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
           ) : null}
         </div>
       )}

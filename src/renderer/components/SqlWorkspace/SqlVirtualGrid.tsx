@@ -55,6 +55,9 @@ const CELL_ACTIONS: ReadonlyArray<{ id: SqlCellAction; labelKey: string }> = [
   { id: 'open-value', labelKey: 'sqlWorkspace.grid.menu.openValue' },
 ];
 
+/** A new row's column left unset, which the table fills with its default. */
+const UNSET_CELL = 'default';
+
 /** Numbers right-aligned in the number color, null italic and subtle, the rest in the base text color. */
 function cellClass(value: unknown, numeric: boolean): string {
   const base = 'max-w-[32rem] truncate px-2.5 align-middle';
@@ -161,6 +164,8 @@ const GridRow = memo(function GridRow({
               >
                 {renderCell(value)} →
               </button>
+            ) : tone === 'inserted' && value === undefined ? (
+              UNSET_CELL
             ) : (
               renderCell(value)
             )}
