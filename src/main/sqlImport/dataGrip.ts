@@ -43,8 +43,9 @@ function dataSources(xml: string): Source[] {
     if (headEnd < 0) return sources;
     const head = xml.slice(start + OPEN.length, headEnd);
     // <data-sources> and the like are other elements; a real head is a few attributes long.
+    // Either way the scan resumes after this tag, so openers inside a long head are not searched again.
     if ((head && !/^[\s/]/.test(head)) || head.length > MAX_HEAD) {
-      from = start + OPEN.length;
+      from = headEnd + 1;
       continue;
     }
     const close = head.endsWith('/') ? headEnd : xml.indexOf('</data-source>', headEnd);

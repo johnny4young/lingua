@@ -15,6 +15,8 @@ interface Token {
   close?: boolean;
   empty?: boolean;
   text?: string;
+  /** CDATA text, taken as written. */
+  raw?: boolean;
 }
 
 /** Tags and text found with indexOf, so no input can make the scan quadratic. */
@@ -25,6 +27,13 @@ function tokenize(text: string): Token[] {
     if (open !== at) {
       tokens.push({ text: text.slice(at, open < 0 ? text.length : open) });
       if (open < 0) break;
+    }
+    if (text.startsWith('<![CDATA[', open)) {
+      const end = text.indexOf(']]>', open + 9);
+      if (end < 0) throw new Error('plist');
+      tokens.push({ text: text.slice(open + 9, end), raw: true });
+      at = end + 3;
+      continue;
     }
     const isComment = text.startsWith('<!--', open);
     const end = isComment ? text.indexOf('-->', open + 4) : text.indexOf('>', open);
@@ -77,11 +86,13 @@ function parseXml(text: string): PlistValue | undefined {
         }
       }
     }
-    let content = '';
-    while (tokens[index]?.text !== undefined) content += tokens[index++]!.text;
+    let text = '';
+    while (tokens[index]?.text !== undefined) {
+      const part = tokens[index++]!;
+      text += part.raw ? part.text : unescape(part.text!);
+    }
     const close = tokens[index++];
     if (!close?.close || close.name !== tag) throw new Error('plist');
-    const text = unescape(content);
     if (tag === 'string' || tag === 'key') return text;
     if (tag === 'integer' || tag === 'real') return Number(text.trim());
     return null;

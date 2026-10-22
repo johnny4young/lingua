@@ -17,6 +17,9 @@ import '../../i18n/sqlConnectionsCatalog';
 interface Props {
   /** The open project, whose .env files the .env import reads. */
   project: { rootId: string; name: string } | null;
+  /** The search, kept by the caller so it survives the sheet the manager opens. */
+  query: string;
+  onQuery: (query: string) => void;
   onClose: () => void;
   onNew: () => void;
   onEdit: (connection: SqlDbConnectionView) => void;
@@ -33,12 +36,11 @@ type Editing = { kind: 'move'; id: string; value: string } | { kind: 'rename'; g
 type ImportView = { label: string; result: Extract<SqlDbImportResult, { canceled: false }> };
 
 /** Saved connections by group, with search, row actions, imports and a JSON export without secrets. */
-export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props) {
+export function SqlConnectionManager({ project, query, onQuery, onClose, onNew, onEdit }: Props) {
   const { t } = useTranslation();
   const titleId = useId();
   const groupsId = useId();
   const catalog = useSqlConnectionsStore((state) => state.catalog);
-  const [query, setQuery] = useState('');
   const [menu, setMenu] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
@@ -92,7 +94,8 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
       const draft = duplicateDraft(connection, t('sqlWorkspace.connection.manager.copySuffix'));
       if (!draft) return t('sqlWorkspace.connection.saveError.invalid');
       const result = await useSqlConnectionsStore.getState().save(draft);
-      return result.ok ? null : t(`sqlWorkspace.connection.saveError.${result.reason}`);
+      if (result.ok) return null;
+      return t(result.reason === 'quota' ? 'sqlWorkspace.connection.manager.quota' : `sqlWorkspace.connection.saveError.${result.reason}`, { limit: catalog?.limit });
     });
 
   const remove = (connection: SqlDbConnectionView) => {
@@ -161,7 +164,19 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
   const row = (connection: SqlDbConnectionView) => {
     const moving = editing?.kind === 'move' && editing.id === connection.id;
     return (
-      <li key={connection.id} data-testid="sql-manager-row" data-connection-id={connection.id} className="relative flex h-[34px] items-center gap-2 border-b border-border-subtle px-1">
+      <li
+        key={connection.id}
+        data-testid="sql-manager-row"
+        data-connection-id={connection.id}
+        // Escape closes an open menu, not the whole dialog.
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && menu === connection.id) {
+            event.stopPropagation();
+            setMenu(null);
+          }
+        }}
+        className="relative flex h-[34px] items-center gap-2 border-b border-border-subtle px-1"
+      >
         {moving ? (
           groupInput(editing.value, 'sql-manager-move-input', t('sqlWorkspace.connection.manager.move'))
         ) : (
@@ -298,7 +313,7 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
               <input
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => onQuery(event.target.value)}
                 aria-label={t('sqlWorkspace.connection.manager.searchAria')}
                 placeholder={t('sqlWorkspace.connection.manager.search')}
                 data-testid="sql-manager-search"

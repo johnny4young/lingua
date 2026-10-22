@@ -72,6 +72,7 @@ export function useSqlConnectionObjects({
   const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
   // The manager stays open under the sheet it opened, and shows again when the sheet closes.
   const [managerOpen, setManagerOpen] = useState(false);
+  const [managerQuery, setManagerQuery] = useState('');
   const project = useProjectStore((state) => state.currentProject);
   useEffect(() => {
     if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
@@ -245,6 +246,8 @@ export function useSqlConnectionObjects({
   ) : managerOpen ? (
     <SqlConnectionManager
       project={project ? { rootId: project.rootId, name: project.name } : null}
+      query={managerQuery}
+      onQuery={setManagerQuery}
       onClose={() => setManagerOpen(false)}
       onNew={() => setConnectionSheet({ kind: 'new' })}
       onEdit={(connection) => setConnectionSheet({ kind: 'edit', connection })}

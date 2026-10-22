@@ -277,5 +277,6 @@
   "sqlWorkspace.connection.manager.imported_other": "Se importaron {{count}} conexiones. Las que inician sesión con contraseña la piden la primera vez que se conectan.",
   "sqlWorkspace.connection.manager.importFailed_one": "{{count}} no se pudo guardar.",
   "sqlWorkspace.connection.manager.importFailed_other": "{{count}} no se pudieron guardar.",
+  "sqlWorkspace.connection.manager.quota": "Free guarda {{limit}} conexiones. Borra una para hacer espacio, o mira Pro.",
   "sqlWorkspace.connection.passwordPromptKeychainHint": "Se guarda en el llavero cuando se conecta."
 }

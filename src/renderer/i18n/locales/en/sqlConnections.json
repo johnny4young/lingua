@@ -277,5 +277,6 @@
   "sqlWorkspace.connection.manager.imported_other": "Imported {{count}} connections. Those that sign in with a password ask for it the first time they connect.",
   "sqlWorkspace.connection.manager.importFailed_one": "{{count}} could not be saved.",
   "sqlWorkspace.connection.manager.importFailed_other": "{{count}} could not be saved.",
+  "sqlWorkspace.connection.manager.quota": "Free keeps {{limit}} saved connections. Delete one to make room, or see Pro.",
   "sqlWorkspace.connection.passwordPromptKeychainHint": "Saved to the keychain once it connects."
 }

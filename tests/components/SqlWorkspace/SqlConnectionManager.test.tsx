@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState, type ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlConnectionManager } from '../../../src/renderer/components/SqlWorkspace/SqlConnectionManager';
 import { useSqlConnectionsStore } from '../../../src/renderer/stores/sqlConnectionsStore';
@@ -32,9 +33,14 @@ function setCatalog(overrides: Partial<SqlDbCatalogView> = {}) {
   useSqlConnectionsStore.setState({ catalog });
 }
 
+function Harness(props: Omit<ComponentProps<typeof SqlConnectionManager>, 'query' | 'onQuery'>) {
+  const [query, setQuery] = useState('');
+  return <SqlConnectionManager {...props} query={query} onQuery={setQuery} />;
+}
+
 function renderManager(project: { rootId: string; name: string } | null = null) {
   const props = { onClose: vi.fn(), onNew: vi.fn(), onEdit: vi.fn() };
-  render(<SqlConnectionManager project={project} {...props} />);
+  render(<Harness project={project} {...props} />);
   return props;
 }
 
@@ -144,7 +150,7 @@ describe('SqlConnectionManager', () => {
 
   it('reads the open project for .env, says when there is none, and reports an unrecognized file', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<SqlConnectionManager project={null} onClose={vi.fn()} onNew={vi.fn()} onEdit={vi.fn()} />);
+    const { unmount } = render(<Harness project={null} onClose={vi.fn()} onNew={vi.fn()} onEdit={vi.fn()} />);
     expect((screen.getByTestId('sql-manager-import-env') as HTMLButtonElement).disabled).toBe(true);
     unmount();
     db.importEnv!.mockResolvedValue({ canceled: false, found: [], skipped: 0 });
@@ -166,4 +172,36 @@ describe('SqlConnectionManager', () => {
     await user.click(screen.getByTestId('sql-manager-export'));
     expect((await screen.findByTestId('sql-manager-notice')).textContent).toBe('Exported 3 connections, without passwords.');
   });
+
+  it('puts the old group back on Escape or when the field loses focus, and closes only the menu on Escape', async () => {
+    const user = userEvent.setup();
+    setCatalog({ connections: list, used: 3, limit: null });
+    const { onClose } = renderManager();
+    const scratch = () => screen.getAllByTestId('sql-manager-row').find((row) => row.dataset.connectionId === 'c')!;
+    await user.click(within(scratch()).getByTestId('sql-manager-row-menu'));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(within(scratch()).getByTestId('sql-manager-row-menu'));
+    await user.click(screen.getByTestId('sql-manager-move'));
+    await user.type(screen.getByTestId('sql-manager-move-input'), 'Typed{Escape}');
+    expect(screen.queryByTestId('sql-manager-move-input')).toBeNull();
+    await user.click(screen.getAllByTestId('sql-manager-rename')[0]!);
+    await user.type(screen.getByTestId('sql-manager-rename-input'), 'X');
+    await user.click(screen.getByTestId('sql-manager-search'));
+    expect(screen.queryByTestId('sql-manager-rename-input')).toBeNull();
+    expect(db.save).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('says how to make room when a duplicate passes Free', async () => {
+    const user = userEvent.setup();
+    setCatalog({ connections: list, used: 3, limit: 3 });
+    db.save!.mockResolvedValue({ ok: false, reason: 'quota' });
+    renderManager();
+    await user.click(within(screen.getAllByTestId('sql-manager-row')[0]!).getByTestId('sql-manager-row-menu'));
+    await user.click(screen.getByTestId('sql-manager-duplicate'));
+    expect((await screen.findByTestId('sql-manager-notice')).textContent).toBe('Free keeps 3 saved connections. Delete one to make room, or see Pro.');
+  });
 });
+

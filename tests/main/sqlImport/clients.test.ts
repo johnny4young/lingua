@@ -130,6 +130,10 @@ describe('plist reader', () => {
     expect(performance.now() - started).toBeLessThan(1_000);
   });
 
+  it('reads CDATA text as written', () => {
+    expect(parsePlist(Buffer.from('<plist><dict><key>a</key><string>x <![CDATA[db>1 &amp;]]> y</string></dict></plist>'))).toEqual({ a: 'x db>1 &amp; y' });
+  });
+
   it('reads entities, numbers and empty elements, and refuses a broken document', () => {
     expect(parsePlist(Buffer.from('<plist><dict><key>a&lt;b</key><integer>-3</integer><key>c</key><array/><key>d</key><string/></dict></plist>'))).toEqual({ 'a<b': -3, c: [], d: '' });
     expect(parsePlist(Buffer.from('<plist><dict><key>a</key></dict></plist>'))).toBeUndefined();
@@ -260,6 +264,13 @@ describe('DataGrip import', () => {
     expect(draftFromJdbcUrl('jdbc:mysql://address=(host=db.example.com)(port=3306)(user=app)(password=S3cret)/shop')).toBeNull();
     expect(draftFromJdbcUrl('jdbc:mysql://h/db;password=S3cret')).toMatchObject({ host: 'h', database: 'db' });
     expect(JSON.stringify(draftFromJdbcUrl('jdbc:mysql://h/db;password=S3cret'))).not.toContain('S3cret');
+  });
+
+  it('does not search one long head again for each opener inside it', () => {
+    const started = performance.now();
+    const xml = `<component name="DataSourceManagerImpl">${'<data-source a'.repeat(300_000)}>`;
+    expect(dataGripCandidates(xml, null, { home: HOME })).toEqual({ found: [], skipped: 0 });
+    expect(performance.now() - started).toBeLessThan(1_000);
   });
 
   it('skips a huge element head without scanning it for attributes', () => {

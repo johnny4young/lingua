@@ -306,11 +306,13 @@ describe('SQL workspace on a saved connection', () => {
     fireEvent.click(screen.getByTestId('sql-connection-pill'));
     fireEvent.click(await screen.findByTestId('sql-connection-manage'));
     const manager = await screen.findByTestId('sql-connection-manager');
+    fireEvent.change(within(manager).getByTestId('sql-manager-search'), { target: { value: 'orders' } });
     fireEvent.click(within(manager).getByRole('button', { name: 'Edit orders-dev' }));
     expect(await screen.findByTestId('sql-connection-sheet')).toBeTruthy();
     expect(screen.queryByTestId('sql-connection-manager')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(await screen.findByTestId('sql-connection-manager')).toBeTruthy();
+    expect((screen.getByTestId('sql-manager-search') as HTMLInputElement).value).toBe('orders');
   });
 
   it('says a password typed for a keychain connection is saved there once it connects', async () => {
