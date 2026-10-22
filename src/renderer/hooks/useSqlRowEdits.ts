@@ -65,11 +65,17 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
     }
     setBusy(true);
     const db = preview.connectionId ? sqlDbBridge() : null;
-    const result: SqlDbApplyResult | { applied: number } | { errorMessage: string } =
-      preview.connectionId && db
-        ? await db.applyEdits(preview.connectionId, { schema: target.schema ?? '', name: target.name }, changes, confirmName)
-        : await applyLocalEdits(target, changes);
-    setBusy(false);
+    let result: SqlDbApplyResult | { applied: number } | { errorMessage: string };
+    try {
+      result =
+        preview.connectionId && db
+          ? await db.applyEdits(preview.connectionId, { schema: target.schema ?? '', name: target.name }, changes, confirmName)
+          : await applyLocalEdits(target, changes);
+    } catch {
+      result = { errorMessage: t('sqlWorkspace.edits.failed') };
+    } finally {
+      setBusy(false);
+    }
     if ('applied' in result) {
       setNotice({ tone: 'ok', text: t('sqlWorkspace.edits.committed', { count: result.applied }) });
       reload(preview);

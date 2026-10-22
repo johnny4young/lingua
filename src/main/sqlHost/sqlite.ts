@@ -101,7 +101,8 @@ export async function openSqlite(config: HostSessionConfig): Promise<DriverSessi
         for (const [index, statement] of statements.entries()) expectOneRow(index, Number(db.prepare(statement.sql).run(...statement.params).changes));
         db.exec('COMMIT');
       } catch (err) {
-        db.exec('ROLLBACK');
+        // SQLite may already have rolled back after a full disk or an I/O error.
+        if (db.isTransaction) db.exec('ROLLBACK');
         throw err;
       }
     },

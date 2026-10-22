@@ -6,7 +6,7 @@ import net from 'node:net';
 import mysql from 'mysql2';
 import type { Connection, ConnectionOptions, FieldPacket, Query } from 'mysql2';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { expectOneRow, type DriverRows, type DriverSession } from './driver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from './driver';
 import { introspectMysql } from './mysqlCatalog';
 import type { HostSessionConfig } from './protocol';
 
@@ -249,11 +249,16 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
     cancel: killQuery,
 
     async applyEdits(statements) {
+      const inTime = editDeadline();
+      // A blocked statement fails on the server, so the transaction can never commit late.
+      await query(connection, `SET SESSION innodb_lock_wait_timeout = ${EDIT_LOCK_WAIT_S}, lock_wait_timeout = ${EDIT_LOCK_WAIT_S}`);
       await query(connection, 'START TRANSACTION');
       try {
         for (const [index, statement] of statements.entries()) {
+          inTime();
           expectOneRow(index, (await prepared<{ affectedRows?: number }>(connection, statement.sql, statement.params)).affectedRows);
         }
+        inTime();
         await query(connection, 'COMMIT');
       } catch (err) {
         await query(connection, 'ROLLBACK').catch(() => undefined);

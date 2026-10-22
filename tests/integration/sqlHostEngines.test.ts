@@ -248,6 +248,28 @@ for (const [engine, url] of [
       await run(`DROP TABLE ${edits}`);
     });
 
+    it('rolls an edit back when another session holds its row, well before main stops waiting', async () => {
+      const locked = `lingua_it_${engine}_locked`;
+      const run = (sql: string) => ok({ type: 'execute', config, runId: `l-${sql.length}`, sql, readWrite: false, window });
+      await run(`DROP TABLE IF EXISTS ${locked}`);
+      await run(`CREATE TABLE ${locked} (id INTEGER PRIMARY KEY, city VARCHAR(40))`);
+      await run(`INSERT INTO ${locked} (id, city) VALUES (1, 'Envigado')`);
+      await run(engine === 'mysql' ? 'START TRANSACTION' : 'BEGIN');
+      await run(`UPDATE ${locked} SET city = 'held' WHERE id = 1`);
+      try {
+        const table: RowEditTable = { engine, name: locked, columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } };
+        const statements = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { city: 'mine' } }], deletes: [], inserts: [] }, false);
+        const started = Date.now();
+        expect(await send({ type: 'apply-edits', config, statements })).toMatchObject({ ok: false });
+        expect(Date.now() - started).toBeLessThan(20_000);
+      } finally {
+        await run('ROLLBACK');
+      }
+      const after = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'l-read', sql: `SELECT city FROM ${locked} WHERE id = 1`, readWrite: false, window });
+      expect(after.rows[0]?.city).toBe('Envigado');
+      await run(`DROP TABLE ${locked}`);
+    }, 30_000);
+
     it('refuses a write on a read-only connection on the server side, and lifts it for one run', async () => {
       const refused = await send({ type: 'execute', config: readOnly, runId: 'w', sql: `DELETE FROM ${table} WHERE id = 1`, readWrite: false, window });
       expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/read.only/i) } });

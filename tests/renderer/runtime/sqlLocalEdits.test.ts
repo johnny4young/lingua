@@ -39,9 +39,13 @@ describe('Local edit targets', () => {
     expect(await loadLocalEditTable('sales', 'staging')).toEqual({ engine: 'duckdb', schema: 'staging', name: 'sales', columns: ['id', 'city'], key: { kind: 'rowid' } });
   });
 
-  it('does not edit a view', async () => {
+  it('names a view, and offers nothing for a temporary table or a table it cannot read', async () => {
     engine(catalog('VIEW', undefined));
-    expect(await loadLocalEditTable('v')).toBeNull();
+    expect(await loadLocalEditTable('v')).toBe('view');
+    engine(catalog('LOCAL TEMPORARY', undefined));
+    expect(await loadLocalEditTable('scratch')).toBeNull();
+    engine(() => []);
+    expect(await loadLocalEditTable('gone')).toBeNull();
   });
 });
 

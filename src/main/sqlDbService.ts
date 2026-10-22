@@ -37,7 +37,7 @@ import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
-import { rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -670,7 +670,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (primaryKey.length === 0) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         const table: RowEditTable = { engine: entry.engine, schema: target.schema, name: target.name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
-        const result = await deps.host.request<{ applied: number }>({ type: 'apply-edits', config, statements: rowEditStatements(table, changes, false) }, 60_000);
+        const result = await deps.host.request<{ applied: number }>({ type: 'apply-edits', config, statements: rowEditStatements(table, changes, false) }, ROW_EDIT_BUDGET_MS * 2);
         await keepAsked(entry, config);
         return { ok: true, applied: result.applied };
       } catch (err) {

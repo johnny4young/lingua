@@ -6,8 +6,9 @@ import type { ConnectionOptions } from 'node:tls';
 import pg from 'pg';
 import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
+import { ROW_EDIT_BUDGET_MS } from '../../shared/sqlRowEdits';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { expectOneRow, type DriverRows, type DriverSession } from './driver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from './driver';
 import { introspectPostgres } from './postgresCatalog';
 import type { HostSessionConfig } from './protocol';
 
@@ -118,9 +119,17 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
     },
 
     async applyEdits(statements) {
+      const inTime = editDeadline();
       await client.query('BEGIN');
       try {
-        for (const [index, statement] of statements.entries()) expectOneRow(index, (await client.query(statement.sql, statement.params)).rowCount);
+        // A blocked or slow statement fails on the server, so the transaction can never commit late.
+        await client.query(`SET LOCAL lock_timeout = '${EDIT_LOCK_WAIT_S}s'`);
+        await client.query(`SET LOCAL statement_timeout = '${ROW_EDIT_BUDGET_MS / 2}ms'`);
+        for (const [index, statement] of statements.entries()) {
+          inTime();
+          expectOneRow(index, (await client.query(statement.sql, statement.params)).rowCount);
+        }
+        inTime();
         await client.query('COMMIT');
       } catch (err) {
         await client.query('ROLLBACK').catch(() => undefined);

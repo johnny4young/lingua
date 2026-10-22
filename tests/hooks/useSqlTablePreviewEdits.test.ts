@@ -41,6 +41,16 @@ describe('opening a table for editing', () => {
     expect(result.current.preview?.edit).toBeUndefined();
   });
 
+  it('names a Local view, and offers nothing for a table it cannot edit', async () => {
+    const { result } = renderHook(() => useSqlTablePreview(1000, []));
+    loadLocalEditTable.mockResolvedValueOnce('view');
+    await act(() => result.current.open({ name: 'v' }));
+    expect(result.current.preview?.edit).toEqual({ reason: 'view' });
+    loadLocalEditTable.mockResolvedValueOnce(null);
+    await act(() => result.current.open({ name: 'scratch' }));
+    expect(result.current.preview?.edit).toBeUndefined();
+  });
+
   it('takes a connection table key from its catalog, and says why read-only, production and views are not edited', async () => {
     const connection = (overrides: Partial<SqlDbConnectionView>) => ({ id: 'c_1', name: 'orders', engine: 'postgres', readOnly: false, ...overrides }) as SqlDbConnectionView;
     const introspect = vi.fn(async () => ({ detail: { columns: [{ name: 'id', type: 'int', nullable: false, primaryKey: true }, { name: 'city', type: 'text', nullable: true }] } }));

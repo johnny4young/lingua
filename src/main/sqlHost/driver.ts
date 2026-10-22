@@ -3,7 +3,7 @@
 import type { Duplex } from 'node:stream';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { RowEditStatement } from '../../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, type RowEditStatement } from '../../shared/sqlRowEdits';
 import type { HostError, HostSessionConfig } from './protocol';
 
 /** A staged change that would touch no row or several, so nothing was saved. */
@@ -14,6 +14,17 @@ class EditConflictError extends Error {
   ) {
     super(`Change ${index + 1} would touch ${touched} rows instead of one: the table changed since it was read, so nothing was saved.`);
   }
+}
+
+/** Seconds an edit waits on another session's lock before its transaction rolls back. */
+export const EDIT_LOCK_WAIT_S = 10;
+
+/** Throws once an edit transaction runs past its budget, so it rolls back instead of committing after main gave up. */
+export function editDeadline(now: () => number = Date.now): () => void {
+  const end = now() + ROW_EDIT_BUDGET_MS;
+  return () => {
+    if (now() > end) throw new Error('Applying the changes took too long, so nothing was saved.');
+  };
 }
 
 /** Checks one statement's row count inside an edit transaction. */

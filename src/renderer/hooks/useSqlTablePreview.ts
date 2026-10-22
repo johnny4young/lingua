@@ -88,8 +88,11 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
         if (remote) edit = await remoteEdit(table, remote);
         else {
           const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main');
-          edit = local ? { table: local } : { reason: 'view' };
-          if (local?.key.kind === 'rowid') statement = withRowid(statement);
+          if (local === 'view') edit = { reason: 'view' };
+          else if (local) {
+            edit = { table: local };
+            if (local.key.kind === 'rowid') statement = withRowid(statement);
+          }
         }
       }
       const outcome = remote && db ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0] : await executeQuery(statement, { timeoutMs });

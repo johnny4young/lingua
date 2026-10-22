@@ -41,6 +41,11 @@ export interface RowEditStatement {
 
 const MAX_ROW_EDITS = 1000;
 const MAX_VALUE_LENGTH = 1024 * 1024;
+/** Characters across every name and value of one change set. */
+const MAX_CHANGE_SET_LENGTH = 16 * 1024 * 1024;
+
+/** How long one edit transaction may run in the SQL host; main waits twice that. */
+export const ROW_EDIT_BUDGET_MS = 60_000;
 
 const ROWID = 'rowid';
 
@@ -118,13 +123,15 @@ export function rowEditReview(table: RowEditTable, changes: RowEditChanges): str
 
 const MAX_NAME = 256;
 
-function parseValues(value: unknown): Values | null {
+function parseValues(value: unknown, budget: { left: number }): Values | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const entries = Object.entries(value);
   if (entries.length > 512) return null;
   const out: Values = {};
   for (const [name, item] of entries) {
     if (name.length === 0 || name.length > MAX_NAME || name === '__proto__' || !isValue(item)) return null;
+    budget.left -= name.length + (item?.length ?? 0);
+    if (budget.left < 0) return null;
     out[name] = item;
   }
   return out;
@@ -138,21 +145,22 @@ export function parseRowEditChanges(value: unknown): RowEditChanges | null {
   const updates = list(record.updates);
   const deletes = list(record.deletes);
   const inserts = list(record.inserts);
-  if (!updates || !deletes || !inserts) return null;
+  if (!updates || !deletes || !inserts || updates.length + deletes.length + inserts.length > MAX_ROW_EDITS) return null;
+  const budget = { left: MAX_CHANGE_SET_LENGTH };
   const out: RowEditChanges = { updates: [], deletes: [], inserts: [] };
   for (const item of updates) {
-    const key = parseValues((item as { key?: unknown })?.key);
-    const values = parseValues((item as { values?: unknown })?.values);
+    const key = parseValues((item as { key?: unknown })?.key, budget);
+    const values = parseValues((item as { values?: unknown })?.values, budget);
     if (!key || !values) return null;
     out.updates.push({ key, values });
   }
   for (const item of deletes) {
-    const key = parseValues((item as { key?: unknown })?.key);
+    const key = parseValues((item as { key?: unknown })?.key, budget);
     if (!key) return null;
     out.deletes.push({ key });
   }
   for (const item of inserts) {
-    const values = parseValues((item as { values?: unknown })?.values);
+    const values = parseValues((item as { values?: unknown })?.values, budget);
     if (!values) return null;
     out.inserts.push({ values });
   }

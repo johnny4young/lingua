@@ -657,7 +657,8 @@ collection state:
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
   Export dialog's Save as table, Send to Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
-  table previews (on a connection too), and on Local foreign-key follow and
+  table previews (on a connection too), with Edit table rows on the table's
+  edit target or why it is read-only, and on Local foreign-key follow and
   back and Referenced by counts.
   [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
   owns the picker, the connection sheet and the Connections manager (the

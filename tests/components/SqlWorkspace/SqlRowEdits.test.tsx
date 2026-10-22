@@ -146,6 +146,23 @@ describe('staged row edits', () => {
     await waitFor(() => expect(applyEdits).toHaveBeenLastCalledWith('c_1', { schema: 'public', name: 'orders' }, expect.anything(), 'orders-dev'));
   });
 
+  it('says the changes were not saved when the call itself fails, and lets the user commit again', async () => {
+    const user = userEvent.setup();
+    useSqlConnectionsStore.setState({ catalog: { connections: [{ id: 'c_1', name: 'orders-dev', engine: 'postgres' } as SqlDbConnectionView], adhoc: [], used: 1, limit: 3, vault: 'encrypted' } });
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin', db: { applyEdits: vi.fn().mockRejectedValue(new Error('Invalid')) } };
+    const remote: SqlTablePreview = {
+      ...localPreview,
+      connectionId: 'c_1',
+      edit: { table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city', 'total'], key: { kind: 'pk', columns: ['id'] } } },
+    };
+    render(<Harness preview={remote} reload={vi.fn()} />);
+    fireEvent.contextMenu(cell(0, 'city'));
+    await user.click(screen.getByTestId('sql-cell-menu-set-null'));
+    await user.click(screen.getByTestId('sql-edit-commit'));
+    expect((await screen.findByTestId('sql-edit-notice')).textContent).toBe('The changes could not be saved.');
+    expect((screen.getByTestId('sql-edit-commit') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('asks the typed name before committing on a connection with Confirm every write, and keeps the change on a refusal', async () => {
     const user = userEvent.setup();
     const connection = { id: 'c_1', name: 'orders-dev', engine: 'postgres', confirmWrites: true } as SqlDbConnectionView;

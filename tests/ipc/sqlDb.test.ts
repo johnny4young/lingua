@@ -110,6 +110,8 @@ describe('sql-db IPC handlers', () => {
       { ...changes, updates: [{ key: { id: 1 }, values: {} }] },
       { ...changes, updates: [{ key: JSON.parse('{"__proto__": "x"}'), values: {} }] },
       { ...changes, deletes: Array.from({ length: 1001 }, () => ({ key: { id: '1' } })) },
+      { updates: [], deletes: Array.from({ length: 600 }, () => ({ key: { id: '1' } })), inserts: Array.from({ length: 401 }, () => ({ values: {} })) },
+      { updates: [], deletes: [], inserts: Array.from({ length: 17 }, () => ({ values: { note: 'x'.repeat(1024 * 1024) } })) },
       { updates: [], deletes: [] },
       null,
     ]) {

@@ -424,14 +424,17 @@ bind it to another host.
 
 Staged row edits (Labs flag `editRows`, `src/shared/sqlRowEdits.ts`) cross IPC
 as a structured change set, never as SQL: `sql-db:apply-edits` takes the
-schema, the table and keyed values, at most 1,000 changes of 1 MiB per value.
+schema, the table and keyed values, at most 1,000 changes, 1,048,576 characters per value and 16 Mi characters in all.
 Main refuses a read-only or production connection and, with Confirm every
 write, a commit without the typed name; it reads the table's columns and
 primary key through the host's own introspection, rejects a key or column the
 table does not have, and builds the statements itself with bound parameters.
 The host runs them in one transaction on a session of its own
 (`<connectionId>#edits`, dropped with the connection), and every statement must
-report exactly one affected row or the whole transaction rolls back. Local
+report exactly one affected row or the whole transaction rolls back. The
+server bounds lock waits to 10 s and each statement, and the host the whole
+transaction, below the 120 s main waits, so an edit another session blocks
+rolls back instead of committing after main reported a failure. Local
 tables follow the same shape in the renderer (`runtime/sqlLocalEdits.ts`): a
 table without a primary key is keyed by DuckDB's `rowid`, which the Explorer's
 preview reads (`SELECT rowid, *`), and `runEditTransaction` keeps one DuckDB
