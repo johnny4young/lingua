@@ -35,14 +35,15 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
   const [closePromptId, setClosePromptId] = useState<string | null>(null);
 
   const create = useCallback(
-    (sql = '', name = '') => {
+    (sql = '', name = '', connectionId?: string) => {
       if (!admit()) return;
       const store = useWorkspaceSqlStore.getState();
       const label = (n: number) => t('sqlWorkspace.scratch.name', { n });
       const scratchName = name || label(nextScratchNumber(store.queries, label));
-      store.createQuery(
-        createBlankSqlQuery({ id: crypto.randomUUID(), name: scratchName, query: sql, kind: 'scratch' })
-      );
+      store.createQuery({
+        ...createBlankSqlQuery({ id: crypto.randomUUID(), name: scratchName, query: sql, kind: 'scratch' }),
+        ...(connectionId ? { connectionId } : {}),
+      });
       setSaveDialog(null);
       onViewReset();
     },
@@ -135,7 +136,8 @@ export function useSqlQueryTabActions(onViewReset: () => void) {
     useWorkspaceSqlStore.getState().closeQueryTab(id);
   }, []);
 
-  const openHistoryEntry = useCallback((entry: SqlHistoryEntryV1) => create(entry.sql), [create]);
+  // The scratch runs where the entry ran.
+  const openHistoryEntry = useCallback((entry: SqlHistoryEntryV1) => create(entry.sql, '', entry.connectionId), [create]);
 
   return {
     create,

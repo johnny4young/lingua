@@ -287,6 +287,27 @@ describe('useWorkspaceSqlStore', () => {
       expect(useWorkspaceSqlStore.getState().history).toEqual([]);
     });
 
+    it('clears the history of one connection, or of Local, and keeps the rest', () => {
+      const run = (id: string, connectionId?: string) =>
+        useWorkspaceSqlStore.getState().recordHistory({
+          version: 1,
+          id,
+          ...(connectionId ? { connectionId } : {}),
+          sql: 'SELECT 1',
+          status: 'success',
+          durationMs: 1,
+          rowCount: 1,
+          recordedAt: '2026-10-20T00:00:00.000Z',
+        });
+      run('local');
+      run('dev', 'c_dev');
+      run('prod', 'c_prod');
+      useWorkspaceSqlStore.getState().clearSqlHistory('c_dev');
+      expect(useWorkspaceSqlStore.getState().history.map((entry) => entry.id)).toEqual(['prod', 'local']);
+      useWorkspaceSqlStore.getState().clearSqlHistory(null);
+      expect(useWorkspaceSqlStore.getState().history.map((entry) => entry.id)).toEqual(['prod']);
+    });
+
     it('opens only the active query as a tab when rehydrating a store from before tabs', async () => {
       const legacy = {
         state: {

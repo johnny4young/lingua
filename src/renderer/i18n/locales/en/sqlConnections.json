@@ -181,5 +181,7 @@
   "sqlWorkspace.remote.quickOpen.badge.procedure": "Proc",
   "sqlWorkspace.remote.quickOpen.badge.query": "Query",
   "sqlWorkspace.remote.quickOpen.saved": "saved",
-  "sqlWorkspace.remote.quickOpen.savedIn": "saved · {{folder}}"
+  "sqlWorkspace.remote.quickOpen.savedIn": "saved · {{folder}}",
+  "sqlWorkspace.remote.missingConnection": "connection removed",
+  "sqlWorkspace.remote.readOnlyName": "{{name}} · RO"
 }

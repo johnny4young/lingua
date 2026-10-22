@@ -289,6 +289,30 @@ describe('SQL workspace on a saved connection', () => {
   });
 });
 
+describe('History and saved queries per connection', () => {
+  it('records the connection a run used and shows each connection its own runs', async () => {
+    openQuery('SELECT id FROM orders', 'c_dev');
+    useWorkspaceSqlStore.getState().recordHistory({ version: 1, id: 'old', sql: 'SELECT 42', status: 'success', durationMs: 1, rowCount: 1, recordedAt: '2026-10-20T00:00:00.000Z' });
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(useWorkspaceSqlStore.getState().history[0]).toMatchObject({ connectionId: 'c_dev', sql: 'SELECT id FROM orders' }));
+    fireEvent.click(screen.getByTestId('sql-history-toggle'));
+    expect(screen.getByTestId('sql-history-connection').textContent).toBe('· orders-dev');
+    expect(screen.getAllByTestId('sql-history-row').map((row) => row.getAttribute('title'))).toEqual(['SELECT id FROM orders']);
+    // Opening a run makes a scratch on the connection it ran on.
+    fireEvent.click(screen.getByTestId('sql-history-row'));
+    const store = useWorkspaceSqlStore.getState();
+    expect(store.queries.find((query) => query.id === store.activeQueryId)).toMatchObject({ kind: 'scratch', connectionId: 'c_dev', query: 'SELECT id FROM orders' });
+  });
+
+  it('names the connection of each saved query, Local for those from before connections', async () => {
+    useWorkspaceSqlStore.getState().createQuery({ ...createBlankSqlQuery({ id: 'saved-local', name: 'Refunds by month', query: 'SELECT 1' }) });
+    useWorkspaceSqlStore.getState().createQuery({ ...createBlankSqlQuery({ id: 'saved-prod', name: 'Signups today', query: 'SELECT 1' }), connectionId: 'c_prod' });
+    await renderPanel();
+    expect(screen.getAllByTestId('sql-query-list-connection').map((label) => label.textContent).sort()).toEqual(['Local', 'orders-prod · RO']);
+  });
+});
+
 describe('Explorer on a saved connection', () => {
   it('reads the schemas, opens the first on its tables, and reads another schema only when it opens', async () => {
     openQuery('SELECT 1', 'c_dev');

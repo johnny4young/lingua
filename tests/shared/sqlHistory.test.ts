@@ -61,4 +61,16 @@ describe('filterSqlHistory', () => {
     expect(filterSqlHistory(entries, ' orders ').map((item) => item.id)).toEqual(['a']);
     expect(filterSqlHistory(entries, '')).toHaveLength(2);
   });
+
+  it('keeps the runs of one connection, counting entries without one as Local', () => {
+    const entries = [entry({ id: 'local' }), entry({ id: 'dev', connectionId: 'c_dev' }), entry({ id: 'prod', connectionId: 'c_prod' })];
+    expect(filterSqlHistory(entries, '').map((item) => item.id)).toEqual(['local']);
+    expect(filterSqlHistory(entries, 'select', 'c_dev').map((item) => item.id)).toEqual(['dev']);
+  });
+
+  it('keeps a well-formed connection id from the store and drops any other', () => {
+    expect(parseSqlHistoryEntry(entry({ connectionId: 'c_dev' }))?.connectionId).toBe('c_dev');
+    expect(parseSqlHistoryEntry({ ...entry(), connectionId: '../c' })).not.toHaveProperty('connectionId');
+    expect(parseSqlHistoryEntry({ ...entry(), connectionId: 7 })).not.toHaveProperty('connectionId');
+  });
 });

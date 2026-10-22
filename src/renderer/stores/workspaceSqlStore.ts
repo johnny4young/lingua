@@ -122,7 +122,8 @@ interface WorkspaceSqlState {
   /** Save a copy as a new saved query that takes the source's tab. */
   saveQueryAs: (sourceId: string, options: { id: string; name: string; folder?: string }) => void;
   recordHistory: (entry: SqlHistoryEntryV1) => void;
-  clearSqlHistory: () => void;
+  /** Clears every run, or only those of one connection (`null` for Local). */
+  clearSqlHistory: (connectionId?: string | null) => void;
   /** Record a response under a query; applies the LRU cap. */
   recordResponse: (queryId: string, response: SqlResponseV1) => void;
   /** Clear the history for a single query. */
@@ -344,7 +345,12 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           history: [entry, ...state.history].slice(0, MAX_SQL_HISTORY_ENTRIES),
         })),
 
-      clearSqlHistory: () => set((state) => (state.history.length === 0 ? state : { history: [] })),
+      clearSqlHistory: (connectionId) =>
+        set((state) => {
+          if (state.history.length === 0) return state;
+          if (connectionId === undefined) return { history: [] };
+          return { history: state.history.filter((entry) => (entry.connectionId ?? null) !== connectionId) };
+        }),
 
       recordResponse: (queryId, response) =>
         set((state) => {

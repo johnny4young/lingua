@@ -551,13 +551,25 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDelete={tabActions.remove}
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
+        {...(dbFlag
+          ? {
+              connectionLabel: (id: string | undefined) => {
+                if (!id) return t('sqlWorkspace.connection.localName');
+                const connection = findConnection(id);
+                if (!connection) return t('sqlWorkspace.remote.missingConnection');
+                return connection.readOnly ? t('sqlWorkspace.remote.readOnlyName', { name: connection.name }) : connection.name;
+              },
+            }
+          : {})}
       />
       <SqlHistorySection
         entries={history}
+        {...(activeConnection ? { connectionId: activeConnection.id } : {})}
+        {...(dbFlag ? { connectionLabel: activeConnection?.name ?? t('sqlWorkspace.connection.localName') } : {})}
         open={historyOpen}
         onToggle={() => setHistoryOpen((open) => !open)}
         onOpenEntry={tabActions.openHistoryEntry}
-        onClear={() => useWorkspaceSqlStore.getState().clearSqlHistory()}
+        onClear={() => useWorkspaceSqlStore.getState().clearSqlHistory(activeConnection?.id ?? null)}
       />
     </SqlExplorer>
   );
@@ -607,10 +619,9 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         if (store.queries.find((q) => q.id === store.activeQueryId)?.connectionId !== connectionId) {
           // Another connection's object opens in a new query on that connection.
           const before = store.activeQueryId;
-          handleCreate();
-          const created = useWorkspaceSqlStore.getState().activeQueryId;
-          if (!created || created === before) return;
-          useWorkspaceSqlStore.getState().updateQuery(created, { connectionId });
+          handleCreate('', '', connectionId);
+          // The Free tab budget can refuse the new query.
+          if (useWorkspaceSqlStore.getState().activeQueryId === before) return;
         }
         showObject(connectionId, object, tab);
       },
