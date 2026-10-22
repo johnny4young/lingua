@@ -14,6 +14,7 @@ import type { runChatCompletion } from '../../runtime/aiClient';
 
 export interface AskSqlButtonProps {
   readonly tables: ReadonlyArray<NlToSqlTable>;
+  readonly dialect?: string;
   readonly onInsert: (sql: string) => void;
   /** Test seam forwarded to the dialog. */
   readonly runChatCompletionImpl?: typeof runChatCompletion;
@@ -21,6 +22,7 @@ export interface AskSqlButtonProps {
 
 export function AskSqlButton({
   tables,
+  dialect,
   onInsert,
   runChatCompletionImpl,
 }: AskSqlButtonProps) {
@@ -46,6 +48,7 @@ export function AskSqlButton({
       {open ? (
         <AskSqlDialog
           tables={tables}
+          {...(dialect ? { dialect } : {})}
           onInsert={onInsert}
           {...(runChatCompletionImpl ? { runChatCompletionImpl } : {})}
           onClose={() => setOpen(false)}

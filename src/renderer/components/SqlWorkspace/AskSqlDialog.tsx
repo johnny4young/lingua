@@ -38,6 +38,8 @@ import { firstCodeBlock } from '../AI/answerCode';
 
 export interface AskSqlDialogProps {
   readonly tables: ReadonlyArray<NlToSqlTable>;
+  /** The engine the query runs on, as the prompt names it. */
+  readonly dialect?: string;
   /** Insert the generated SQL into the active query editor. */
   readonly onInsert: (sql: string) => void;
   readonly onClose: () => void;
@@ -53,6 +55,7 @@ type Phase =
 
 export function AskSqlDialog({
   tables,
+  dialect,
   onInsert,
   onClose,
   runChatCompletionImpl,
@@ -73,8 +76,9 @@ export function AskSqlDialog({
         question,
         schemaText,
         ...(model ? { model } : {}),
+        ...(dialect ? { dialect } : {}),
       }),
-    [question, schemaText, model]
+    [question, schemaText, model, dialect]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });

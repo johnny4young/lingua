@@ -12,7 +12,7 @@ import { resetWorkspaceSqlStoreForTests, useWorkspaceSqlStore } from '../../../s
 import type { SqlDbCatalogView, SqlDbConnectionView, SqlDbIntrospect, SqlDbIntrospectResult, SqlDbRunResult } from '../../../src/shared/sqlDb';
 import { useSqlRemoteCatalogStore } from '../../../src/renderer/stores/sqlRemoteCatalogStore';
 import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
-import { pressSqlChord } from '../../__fixtures__/sqlMonacoMock';
+import { pressSqlChord, sqlMonacoHarness } from '../../__fixtures__/sqlMonacoMock';
 
 vi.mock('react-resizable-panels', () => ({
   Group: ({ children, className }: PropsWithChildren<{ className?: string }>) => <div className={className}>{children}</div>,
@@ -340,6 +340,21 @@ describe('Explorer on a saved connection', () => {
     // MySQL keeps its functions and procedures under Routines.
     expect(await screen.findByTestId('sql-remote-group-tables')).toBeTruthy();
     expect(screen.queryByTestId('sql-remote-group-matviews')).toBeNull();
+  });
+
+  it('completes the connection tables and columns in its dialect, with the Explorer folded', async () => {
+    useWorkspaceSqlStore.setState({ explorerFolded: true });
+    db.catalog.mockResolvedValue({ ...catalog, connections: [connection({ engine: 'mysql' })] });
+    openQuery('SELECT 1', 'c_dev');
+    await renderPanel();
+    const labels = () => {
+      const model = { getWordUntilPosition: () => ({ startColumn: 1, endColumn: 1 }) };
+      return sqlMonacoHarness.completionProvider?.provideCompletionItems(model, { lineNumber: 1, column: 1 }).suggestions ?? [];
+    };
+    await waitFor(() => expect(labels().find((item) => item.label === 'orders')?.insertText).toBe('`public`.`orders`'));
+    expect(labels().find((item) => item.label === 'id')).toBeTruthy();
+    expect(labels().find((item) => item.label === 'order_total')).toMatchObject({ kind: 1 });
+    expect(labels().find((item) => item.label === 'billing.invoices')).toBeUndefined();
   });
 
   it('keeps Local and its tree when the query runs on Local', async () => {

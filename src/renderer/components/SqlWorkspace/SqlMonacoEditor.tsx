@@ -51,6 +51,8 @@ import { configureMonaco } from '../../monaco';
 import { defineCustomThemes } from '../Editor/editorThemes';
 import { getSatelliteEditorOptions } from '../Editor/editorOptions';
 import { quoteSqlIdentifier, quoteSqlTableReference } from './sqlResultFormatters';
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { sqlDialect } from '../../../shared/sqlDialect';
 
 // Ensure the worker environment + the `sql` contribution are registered
 // before any editor mounts (idempotent; shared with `<CodeEditor>`).
@@ -163,6 +165,10 @@ export interface SqlMonacoEditorProps {
   }>;
   /** Accessible name for the editor textarea. */
   ariaLabel: string;
+  /** The engine the query runs on: quoting and extra keywords follow it. Local when unset. */
+  engine?: SqlEngineKind;
+  /** Function names from a connection's catalog. */
+  functions?: ReadonlyArray<string>;
 }
 
 export function SqlMonacoEditor({
@@ -178,6 +184,8 @@ export function SqlMonacoEditor({
   insertAtCursor,
   tables,
   ariaLabel,
+  engine,
+  functions,
 }: SqlMonacoEditorProps) {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
   const fontSize = useSettingsStore((state) => state.fontSize);
@@ -199,6 +207,10 @@ export function SqlMonacoEditor({
   // onMount) always reads the current `tables` prop. Updating the ref is
   // cheap and never re-registers the provider.
   const tablesRef = useRef(tables);
+  const dialectRef = useRef({ engine, functions });
+  useEffect(() => {
+    dialectRef.current = { engine, functions };
+  }, [engine, functions]);
   useEffect(() => {
     tablesRef.current = tables;
   }, [tables]);
@@ -326,7 +338,7 @@ export function SqlMonacoEditor({
         const tableSuggestions = tablesRef.current.map((table) => ({
           label: table.name,
           kind: monaco.languages.CompletionItemKind.Struct,
-          insertText: quoteSqlTableReference(table.sqlName ?? table.name, table.schemaName),
+          insertText: quoteSqlTableReference(table.sqlName ?? table.name, table.schemaName, dialectRef.current.engine),
           detail: 'table',
           range,
         }));
@@ -362,7 +374,7 @@ export function SqlMonacoEditor({
             kind: monaco.languages.CompletionItemKind.Field,
             insertText: SAFE_BARE_IDENTIFIER.test(column.label)
               ? column.label
-              : quoteSqlIdentifier(column.label),
+              : quoteSqlIdentifier(column.label, dialectRef.current.engine),
             detail:
               column.tables.length > 1
                 ? `${column.type} · ${column.tables.join(', ')}`
@@ -370,7 +382,15 @@ export function SqlMonacoEditor({
             range,
           })
         );
-        const keywordSuggestions = SQL_KEYWORD_SUGGESTIONS.map((keyword) => ({
+        const functionSuggestions = (dialectRef.current.functions ?? []).map((name) => ({
+          label: name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertText: name,
+          detail: 'function',
+          range,
+        }));
+        const keywords = [...new Set([...SQL_KEYWORD_SUGGESTIONS, ...sqlDialect(dialectRef.current.engine).keywords])];
+        const keywordSuggestions = keywords.map((keyword) => ({
           label: keyword,
           kind: monaco.languages.CompletionItemKind.Keyword,
           insertText: keyword,
@@ -380,6 +400,7 @@ export function SqlMonacoEditor({
           suggestions: [
             ...tableSuggestions,
             ...columnSuggestions,
+            ...functionSuggestions,
             ...keywordSuggestions,
           ],
         };

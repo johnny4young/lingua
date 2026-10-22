@@ -32,6 +32,8 @@ import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
 import type { SqlSchemaTable } from './sqlExplorerModel';
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { sqlDialect } from '../../../shared/sqlDialect';
 
 export interface SqlRunRequest {
   query: SqlQueryV1;
@@ -73,6 +75,10 @@ export interface SqlQueryEditorProps {
    * autocomplete; empty until the first catalog refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
+  /** The engine the query runs on; the formatter and completion follow it. Local when unset. */
+  engine?: SqlEngineKind;
+  /** Function names from a connection's catalog, for completion. */
+  functions?: ReadonlyArray<string>;
   /**
    * Optional extra header control (the Ask-AI trigger). A slot
    * rather than a baked-in button so the editor stays AI-agnostic.
@@ -91,6 +97,8 @@ export function SqlQueryEditor({
   insertSignal,
   predicateSignal,
   tables,
+  engine,
+  functions,
   headerExtra,
 }: SqlQueryEditorProps) {
   const { t, i18n } = useTranslation();
@@ -257,7 +265,7 @@ export function SqlQueryEditor({
     try {
       const mod = await import('sql-formatter');
       const formatted = mod.format(text, {
-        language: 'duckdb',
+        language: sqlDialect(engine).formatter,
         keywordCase: 'upper',
         tabWidth: 2,
       });
@@ -271,7 +279,7 @@ export function SqlQueryEditor({
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
     }
-  }, [text, overCap]);
+  }, [text, overCap, engine]);
 
   return (
     <div
@@ -339,6 +347,8 @@ export function SqlQueryEditor({
         onFormatShortcut={handleFormat}
         {...(cursorInsert ? { insertAtCursor: cursorInsert } : {})}
         tables={tables}
+        {...(engine ? { engine } : {})}
+        {...(functions ? { functions } : {})}
         ariaLabel={t('sqlWorkspace.editor.ariaLabel')}
       />
     </div>

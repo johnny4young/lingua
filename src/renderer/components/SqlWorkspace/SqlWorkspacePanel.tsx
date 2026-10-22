@@ -66,6 +66,8 @@ import { SqlRemoteTree } from './SqlRemoteTree';
 import { SqlObjectDetail, type SqlObjectTab } from './SqlObjectDetail';
 import { QUERYABLE_KINDS } from './sqlRemoteTreeModel';
 import { buildSelectStarter } from './sqlResultFormatters';
+import { useSqlRemoteCompletion } from '../../hooks/useSqlRemoteCompletion';
+import { sqlDialect } from '../../../shared/sqlDialect';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
 function formatApproxStorage(bytes: number): string {
@@ -251,6 +253,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     dbFlag && activeQuery?.connectionId
       ? [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === activeQuery.connectionId)
       : undefined;
+  const remoteCompletion = useSqlRemoteCompletion(activeConnection?.id);
+  const editorTables = activeConnection ? remoteCompletion.tables : schemaTables;
   const remoteLoading = useSqlRemoteCatalogStore(
     (state) => activeConnection !== undefined && state.catalogs[activeConnection.id]?.schemas?.status === 'loading'
   );
@@ -645,12 +649,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSave={tabActions.save}
         isExecuting={isExecuting}
         isBusy={runner.runningQueryId !== null && !isExecuting}
-        tables={schemaTables}
+        tables={editorTables}
+        {...(activeConnection ? { engine: activeConnection.engine, functions: remoteCompletion.functions } : {})}
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
         headerExtra={
           <AskSqlButton
-            tables={schemaTables}
+            tables={editorTables}
+            {...(activeConnection ? { dialect: sqlDialect(activeConnection.engine).label } : {})}
             // Insert-only: generated SQL lands in the editor for review, never auto-runs.
             onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
           />
