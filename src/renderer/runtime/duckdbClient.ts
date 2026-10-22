@@ -1274,6 +1274,31 @@ export async function executeSqlScript(
 }
 
 /**
+ * Staged edits on one connection inside one transaction: each statement must
+ * touch exactly one row, or everything is rolled back and nothing changes.
+ */
+export async function runEditTransaction(statements: ReadonlyArray<string>): Promise<{ applied: number } | { errorMessage: string }> {
+  const opened = await openConnection(performance.now());
+  if ('failure' in opened) return { errorMessage: opened.failure.errorMessage ?? 'The SQL engine could not start.' };
+  const { connection } = opened;
+  try {
+    await connection.query('BEGIN TRANSACTION');
+    for (const [index, statement] of statements.entries()) {
+      const touched = readCountValue((await connection.query(statement)).rows[0]?.['Count']);
+      if (touched !== 1) throw new Error(`Change ${index + 1} would touch ${touched} rows instead of one: the table changed since it was read, so nothing was saved.`);
+    }
+    await connection.query('COMMIT');
+    await checkpointIfPersistent(connection);
+    return { applied: statements.length };
+  } catch (err) {
+    await connection.query('ROLLBACK').catch(() => undefined);
+    return { errorMessage: errorMessageForUser(err, 'unknown') };
+  } finally {
+    await closeQuietly(connection, true);
+  }
+}
+
+/**
  * Drops the engine without a checkpoint, for a query that ignored Cancel.
  * In-memory tables are lost; the next run starts a fresh engine.
  */
