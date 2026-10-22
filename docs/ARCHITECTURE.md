@@ -372,16 +372,18 @@ macOS and Linux, and the Windows OpenSSH agent pipe
 resolves and checks only the first hop, since the bastion resolves the database
 host, and sends each hop's trusted keys: those `~/.ssh/known_hosts` lists and
 those the user trusted in Lingua (`userData/sql-ssh-host-keys.json`, mode 0600).
-A key is refused when it is revoked or when a known key of its type differs. An
-unknown key comes back with its fingerprint, and `sql-db:trust-host-key`
+A key is refused when it is revoked or when the hop has known keys and none
+matches, and the handshake asks only for the known key types. An unknown key
+comes back with its fingerprint, and `sql-db:trust-host-key`
 trusts only the key that hop presented in its last failed sign-in. The tunnel
 hands each driver connection its own forwarded channel through a socket-shaped
 stream, so no local port exists for another process to reach. Tunnels are
 shared by identical configs and close with their last session or when the SSH
 connection drops. `sqlSsh/` reads `~/.ssh` in main, the one exception to the
-protected credentials folders: a tunnel key may be any file inside `~/.ssh`
-(checked as given and after resolving symlinks) or a file outside the protected
-folders. `known_hosts` lines marked `@cert-authority`, and `Include` and `Match`
+protected credentials folders: a tunnel key inside `~/.ssh` (checked as given
+and after resolving symlinks) must be picked in the file dialog, named by
+`IdentityFile` in the ssh config, or already saved with the connection; a key
+outside the protected folders needs none of that. `known_hosts` lines marked `@cert-authority`, and `Include` and `Match`
 in the ssh config, are skipped. The SSH secret is kept under `db.<id>.ssh`; a
 changed bastion host or port, user, sign-in method, key or jump chain forgets
 it, and any change to the tunnel forgets the database password. `sql-db:ssh-info` returns what
