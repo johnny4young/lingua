@@ -262,7 +262,14 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
  */
 export function withoutUrlPassword(raw: string): string {
   // SQL Server's `;password=` properties are not part of a URL's user info.
-  if (/^\s*(sqlserver|mssql):\/\/[^;]*;/i.test(raw)) return raw.replace(/;\s*(password|pwd)\s*=[^;]*/gi, '');
+  if (/^\s*(sqlserver|mssql):\/\/[^;]*;/i.test(raw)) {
+    const split = splitSqlServerProperties(raw.slice(raw.indexOf('://') + 3));
+    const head = raw.slice(0, raw.indexOf('://') + 3);
+    // A value that never closes cannot be told apart from the password, so nothing after the host is kept.
+    if (!split) return `${head}${raw.slice(raw.indexOf('://') + 3).split(';')[0]}`;
+    const kept = split.pairs.filter(({ key }) => !PASSWORD_KEYS.has(key)).map(({ raw: text }) => text);
+    return `${head}${[split.authority, ...kept].join(';')}`;
+  }
   try {
     const url = new URL(raw.trim());
     if (!url.password) return raw;
@@ -289,13 +296,61 @@ function sqlServerSsl(encrypt: string | undefined, trust: string | undefined): S
 }
 
 /** `sqlserver://host:port;database=db;user=u;password=p;encrypt=true`, the form Prisma and many .env files use. */
-function parseSqlServerProperties(input: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
-  const [authority = '', ...pairs] = input.slice(input.indexOf('://') + 3).split(';');
-  const props = new Map<string, string>();
-  for (const pair of pairs) {
-    const at = pair.indexOf('=');
-    if (at > 0) props.set(pair.slice(0, at).trim().toLowerCase(), pair.slice(at + 1).trim());
+const PASSWORD_KEYS: ReadonlySet<string> = new Set(['password', 'pwd']);
+
+/**
+ * `host:port;key=value;…` with Prisma's `{…}` values, where a brace keeps `;`
+ * inside and `}}` stands for `}`; null when a brace never closes.
+ */
+function splitSqlServerProperties(rest: string): { authority: string; pairs: Array<{ key: string; value: string; raw: string }> } | null {
+  const first = rest.indexOf(';');
+  const authority = first < 0 ? rest : rest.slice(0, first);
+  const pairs: Array<{ key: string; value: string; raw: string }> = [];
+  let i = first < 0 ? rest.length : first + 1;
+  while (i < rest.length) {
+    const start = i;
+    const equals = rest.indexOf('=', i);
+    const semi = rest.indexOf(';', i);
+    if (equals < 0 || (semi >= 0 && semi < equals)) {
+      i = semi < 0 ? rest.length : semi + 1;
+      continue;
+    }
+    const key = rest.slice(i, equals).trim().toLowerCase();
+    let j = equals + 1;
+    while (rest[j] === ' ') j += 1;
+    let value = '';
+    if (rest[j] === '{') {
+      j += 1;
+      for (;;) {
+        const close = rest.indexOf('}', j);
+        if (close < 0) return null;
+        value += rest.slice(j, close);
+        if (rest[close + 1] === '}') {
+          value += '}';
+          j = close + 2;
+        } else {
+          j = close + 1;
+          break;
+        }
+      }
+      const end = rest.indexOf(';', j);
+      i = end < 0 ? rest.length : end + 1;
+      pairs.push({ key, value, raw: rest.slice(start, end < 0 ? rest.length : end) });
+    } else {
+      const end = rest.indexOf(';', j);
+      value = rest.slice(j, end < 0 ? rest.length : end).trim();
+      i = end < 0 ? rest.length : end + 1;
+      pairs.push({ key, value, raw: rest.slice(start, end < 0 ? rest.length : end) });
+    }
   }
+  return { authority, pairs };
+}
+
+function parseSqlServerProperties(input: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
+  const split = splitSqlServerProperties(input.slice(input.indexOf('://') + 3));
+  if (!split) return { error: 'invalid-url' };
+  const authority = split.authority;
+  const props = new Map(split.pairs.map(({ key, value }) => [key, value]));
   const match = /^(\[[^\]]+\]|[^:/\\]+)(?::(\d+))?(?:\\.*)?$/.exec(authority.trim());
   if (!match) return { error: authority.trim() ? 'invalid-url' : 'missing-host' };
   const host = match[1]!.replace(/^\[|\]$/g, '');

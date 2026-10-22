@@ -65,6 +65,8 @@ describe('parseConnectionUrl', () => {
       password: 'p',
     });
     expect(parseConnectionUrl('sqlserver://sql.internal;initial catalog=hr')).toMatchObject({ draft: { database: 'hr', ssl: { mode: 'verify-full' }, passwordMode: 'none' } });
+    expect(parseConnectionUrl('sqlserver://sql.internal;database={my;db};password={pa;ss}}w}')).toMatchObject({ draft: { database: 'my;db', name: 'my;db' }, password: 'pa;ss}w' });
+    expect(parseConnectionUrl('sqlserver://sql.internal;password={unclosed')).toEqual({ error: 'invalid-url' });
     expect(parseConnectionUrl('sqlserver://;database=x')).toEqual({ error: 'missing-host' });
   });
 
@@ -175,8 +177,11 @@ describe('saved connection quota', () => {
 
 describe('withoutUrlPassword', () => {
   it('drops the password and keeps the user, host and options', () => {
-    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password=S3;cret;user=app')).toBe('sqlserver://sql:1433;database=erp;cret;user=app');
+    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password=S3;cret;user=app')).toBe('sqlserver://sql:1433;database=erp;user=app');
     expect(withoutUrlPassword('mssql://sql;Pwd=S3cret;encrypt=true')).toBe('mssql://sql;encrypt=true');
+    // A braced value keeps its semicolons and doubled braces; an unclosed one keeps nothing after the host.
+    expect(withoutUrlPassword('sqlserver://sql:1433;user=app;password={pa;ss}}w;rd};encrypt=true')).toBe('sqlserver://sql:1433;user=app;encrypt=true');
+    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password={pa;ss')).toBe('sqlserver://sql:1433');
     expect(withoutUrlPassword('postgres://app:s3cr:et@db:5432/orders?sslmode=disable')).toBe('postgres://app@db:5432/orders?sslmode=disable');
     expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('mysql://root@127.0.0.1/billing');
   });
