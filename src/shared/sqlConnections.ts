@@ -32,7 +32,7 @@ export interface SqlSshHop {
 /** The bastion in front of the database, reached through `jumps` in order. */
 export interface SqlConnectionSsh extends SqlSshHop {
   auth: SqlSshAuth;
-  /** Private key file, for `key`; only a file directly under ~/.ssh or outside protected folders. */
+  /** Private key file, for `key`: inside ~/.ssh or outside the protected folders. */
   keyPath?: string;
   /** Where the SSH password or key passphrase is kept; `none` for the agent or a key without one. */
   secretMode: SqlPasswordMode;

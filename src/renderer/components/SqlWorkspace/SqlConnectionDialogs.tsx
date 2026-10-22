@@ -30,7 +30,7 @@ export function SqlProdBanner({ name, readOnly }: { name: string; readOnly: bool
   );
 }
 
-/** The typed-name confirmation before a statement writes to production. */
+/** The typed-name confirmation before a statement writes to production or to a connection that confirms every write. */
 export function SqlWriteConfirmDialog({ confirm, onResolve }: { confirm: SqlWriteConfirm; onResolve: (name: string | null) => void }) {
   const { t, i18n } = useTranslation();
   const titleId = useId();

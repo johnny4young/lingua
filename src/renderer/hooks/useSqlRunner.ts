@@ -141,7 +141,7 @@ let confirmResolve: ((name: string | null) => void) | null = null;
 let pendingPasswordRun: SqlRunRequest | null = null;
 let passwordJustSubmitted = false;
 
-/** Opens the production write card and waits for the typed name, or null on cancel. */
+/** Opens the write card (production or Confirm every write) and waits for the typed name, or null on cancel. */
 function requestWriteConfirm(connection: SqlDbConnectionView, writes: string[]): Promise<string | null> {
   const db = sqlDbBridge();
   const pending: SqlWriteConfirm = { connectionName: connection.name, statements: writes, readOnly: connection.readOnly, production: connection.env === 'prod' };

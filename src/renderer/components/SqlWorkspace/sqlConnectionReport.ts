@@ -4,7 +4,8 @@ import type { SqlDbTestResult } from '../../../shared/sqlDb';
 /** Replaces every occurrence of each secret-ish value with a placeholder. */
 function scrub(text: string, values: Array<[string | undefined, string]>): string {
   let out = text;
-  for (const [value, label] of values) {
+  // Longest first, so a host inside another name (db in db-bastion) does not leave the rest behind.
+  for (const [value, label] of [...values].sort((a, b) => (b[0]?.length ?? 0) - (a[0]?.length ?? 0))) {
     if (value && value.length >= 2) out = out.split(value).join(label);
   }
   return out;

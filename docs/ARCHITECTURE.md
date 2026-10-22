@@ -351,8 +351,8 @@ atomically, never a password). Passwords live in the secret store under the
 `db.` namespace, which the `secrets:*` channels refuse, or in main's memory
 for connections that ask each session; they reach the host per run and never
 the renderer. A saved password belongs to its target: saving a connection
-with another engine, host, port, database, user, file or TLS mode without
-typing the password again deletes the stored one. `sqlDbService.ts` re-checks
+with another engine, host, port, database, user, file, TLS mode or SSH tunnel
+without typing the password again deletes the stored one. `sqlDbService.ts` re-checks
 the Free quota against the verified license tier inside the catalog's
 serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
@@ -364,8 +364,11 @@ a write to a production connection without the typed connection name
 renderer that knows the name can pass it. The fifteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
 
-SSH tunnels (`sqlHost/tunnel.ts`) sign in through up to three jump hosts and
-the bastion with a password, a key and its passphrase, or the agent. Main
+SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
+key and its passphrase, or the agent, through up to three jump hosts that sign
+in with the key or the agent. The agent is `SSH_AUTH_SOCK` as main sees it on
+macOS and Linux, and the Windows OpenSSH agent pipe
+(`\\.\pipe\openssh-ssh-agent`) on Windows; Pageant is not supported. Main
 resolves and checks only the first hop, since the bastion resolves the database
 host, and sends each hop's trusted keys: those `~/.ssh/known_hosts` lists and
 those the user trusted in Lingua (`userData/sql-ssh-host-keys.json`, mode 0600).
@@ -376,10 +379,12 @@ hands each driver connection its own forwarded channel through a socket-shaped
 stream, so no local port exists for another process to reach. Tunnels are
 shared by identical configs and close with their last session or when the SSH
 connection drops. `sqlSsh/` reads `~/.ssh` in main, the one exception to the
-protected credentials folders, and only a key file directly under `~/.ssh`. The
-SSH secret is kept under `db.<id>.ssh`. Like the database password, a changed
-bastion, user, key or jump chain forgets it, and any change to the tunnel
-forgets the database password. `sql-db:ssh-info` returns what
+protected credentials folders: a tunnel key may be any file inside `~/.ssh`
+(checked as given and after resolving symlinks) or a file outside the protected
+folders. `known_hosts` lines marked `@cert-authority`, and `Include` and `Match`
+in the ssh config, are skipped. The SSH secret is kept under `db.<id>.ssh`; a
+changed bastion host or port, user, sign-in method, key or jump chain forgets
+it, and any change to the tunnel forgets the database password. `sql-db:ssh-info` returns what
 `~/.ssh/config` says about an alias and how many keys the agent holds, never a
 file's content. Confirm every write applies the production typed confirm to
 any connection, and Allow private host off refuses a private first address.

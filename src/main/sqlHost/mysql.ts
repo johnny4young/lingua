@@ -61,7 +61,7 @@ function options(config: HostSessionConfig, ssl: ConnectionOptions['ssl'], socke
   const port = config.port ?? 3306;
   const host = config.servername ?? config.address ?? 'localhost';
   return {
-    // The hostname drives SNI and the identity check; the socket goes to the pinned address.
+    // The hostname drives SNI and the identity check; the socket goes to the pinned address, or is a tunnel channel.
     host,
     port,
     ...(socket ? { stream: socket } : config.address ? { stream: () => net.connect({ host: config.address!, port }) } : {}),

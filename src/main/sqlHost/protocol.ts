@@ -47,7 +47,7 @@ export interface HostSessionConfig {
   ssl?: { mode: SqlSslMode; caPath?: string; certPath?: string; keyPath?: string };
   /** SQLite file. */
   path?: string;
-  /** Tunnel to the database; the driver then connects to its local end. */
+  /** Tunnel to the database; each driver socket is then one of its channels. */
   ssh?: HostSshConfig;
   readOnly: boolean;
 }

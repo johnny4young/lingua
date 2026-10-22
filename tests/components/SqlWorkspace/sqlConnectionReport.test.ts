@@ -48,5 +48,15 @@ describe('buildTestReport', () => {
     expect(report).toContain('<ssh host> refused the sign-in for <ssh user> using <file>');
     expect(report).not.toMatch(/bastion|jump\.example|deploy|id_ed25519|203\.0/);
   });
+
+  it('replaces a longer name whole when a shorter one sits inside it', () => {
+    const report = buildTestReport(
+      { ok: false, totalMs: 1, steps: [{ id: 'ssh', status: 'failed', detail: 'db-bastion.corp refused db', fix: 'ssh-auth' }] },
+      { name: 'x', engine: 'postgres', host: 'db', readOnly: false, passwordMode: 'keychain', ssh: { host: 'db-bastion.corp', port: 22, user: 'u', auth: 'agent', secretMode: 'none' } },
+      (id) => id,
+      (status) => status
+    );
+    expect(report).toContain('<ssh host> refused <host>');
+  });
 });
 

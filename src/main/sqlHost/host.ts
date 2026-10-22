@@ -108,7 +108,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     }
   }
 
-  /** A driver on the tunnel's local end, which it lets go of when the driver cannot start. */
+  /** A driver whose sockets are the tunnel's channels; the tunnel is let go when the driver cannot start. */
   async function throughTunnel(config: HostSessionConfig): Promise<{ driver: DriverSession; tunnel: Tunnel }> {
     const tunnel = await tunnels.acquire(config.ssh!);
     try {

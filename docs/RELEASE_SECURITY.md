@@ -23,6 +23,12 @@ release checklist.
   files in protected folders are refused, symlinks included
   (`tests/ipc/secrets.test.ts`, `tests/ipc/sqlDb.test.ts`,
   `tests/main/sqlDbService.test.ts`).
+- Confirm SSH passwords and key passphrases (`db.<id>.ssh`) never reach the
+  renderer, private key contents go only to the SQL host, the `~/.ssh`
+  exception covers only tunnel keys, `sql-db:trust-host-key` trusts only the
+  key a hop presented in its last failed sign-in, and a tunnel opens no local
+  port (`tests/main/sqlSsh/sshTrust.test.ts`,
+  `tests/main/sqlSsh/sshTargets.test.ts`, `tests/main/sqlHost/tunnel.test.ts`).
 
 ## Runners
 

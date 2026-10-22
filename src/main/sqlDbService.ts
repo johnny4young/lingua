@@ -1,8 +1,9 @@
 /**
  * Main's side of the desktop database client. The renderer names a
  * connection by id; main owns the catalog, reads the password from the
- * secret store, resolves and checks the host, re-checks the saved-connection
- * quota against the verified license tier, and enforces the production guard.
+ * secret store, resolves and checks the host (the first SSH hop through a
+ * tunnel), re-checks the saved-connection quota against the verified license
+ * tier, and enforces the production and Confirm every write guards.
  */
 
 import { randomUUID } from 'node:crypto';
