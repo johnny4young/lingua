@@ -395,6 +395,12 @@ describe('testing a connection', () => {
     expect(result.serverVersion).toBe('PostgreSQL 16.4');
   });
 
+  it('shows TLS as skipped whenever the driver reports a plain session, whatever the engine', async () => {
+    const { svc } = service((body) => (body.type === 'test' ? { tcpMs: 2, connectMs: 5, serverMs: 1, serverVersion: 'ClickHouse 24.8', encrypted: false } : {}));
+    const result = await svc.test({ draft: { ...pg, engine: 'clickhouse', port: 8123, ssl: { mode: 'prefer' } }, password: 'pw' });
+    expect(result.steps.find((step) => step.id === 'tls')).toMatchObject({ status: 'skipped', detail: 'prefer' });
+  });
+
   it('names the step that failed and the fix', async () => {
     const { svc } = service(() => {
       throw new SqlHostError({ message: 'self-signed certificate in certificate chain', step: 'tls', fix: 'tls-untrusted' });

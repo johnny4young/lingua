@@ -85,6 +85,8 @@ export interface HostTestResult {
   serverMs: number;
   serverVersion: string;
   tls?: { subject?: string; validTo?: string };
+  /** False when the session runs without TLS. */
+  encrypted?: boolean;
 }
 
 export interface HostExecuteResult {

@@ -123,7 +123,11 @@ function clientFor(config: HostSessionConfig, point: Endpoint): ClickHouseClient
   });
 }
 
-const isTlsMismatch = (err: unknown) => /wrong version number|EPROTO|ECONNRESET|packet length too long|socket hang up/i.test(String((err as { code?: string })?.code ?? err));
+/** The server answered our TLS hello in plain HTTP; a reset or hang-up proves nothing and never downgrades. */
+const isPlainHttpReply = (err: unknown) => {
+  const record = err as { code?: unknown; message?: unknown } | null;
+  return record?.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || /wrong version number|packet length too long/i.test(String(record?.message ?? ''));
+};
 
 /** Reads one query's rows from the stream, a page at a time; `stop` ends the server side early. */
 async function streamRows(
@@ -179,7 +183,7 @@ export async function openClickHouse(config: HostSessionConfig, socket?: () => D
   } catch (err) {
     await client.close().catch(() => undefined);
     // prefer: fall back to plain HTTP on the same port when it does not speak TLS.
-    if (config.ssl?.mode !== 'prefer' || !isTlsMismatch(err)) throw err;
+    if (config.ssl?.mode !== 'prefer' || !isPlainHttpReply(err)) throw err;
     point = endpoint(config, false, socket);
     client = clientFor(config, point);
     await client.query({ query: 'SELECT 1', format: 'JSONEachRow' }).then((result) => result.text());
@@ -238,6 +242,8 @@ export async function openClickHouse(config: HostSessionConfig, socket?: () => D
         return null;
       }
     },
+
+    encrypted: () => point.secure,
 
     tls() {
       const cert = point.peer();

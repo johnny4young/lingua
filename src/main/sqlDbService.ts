@@ -493,8 +493,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
             steps.push({ id: 'ssh', status: 'ok', ms: result.sshMs ?? 0, detail: [...chain, `${entry.host}:${entry.port}`].join(' → ') });
           }
           const tls = entry.ssl?.mode ?? 'verify-full';
-          // Postgres reports no certificate when prefer fell back to plain TCP.
-          const plain = tls === 'disable' || (tls === 'prefer' && entry.engine === 'postgres' && !result.tls);
+          // prefer may have fallen back to a plain session; the driver says so.
+          const plain = tls === 'disable' || result.encrypted === false;
           steps.push(
             plain
               ? { id: 'tls', status: 'skipped', detail: tls }

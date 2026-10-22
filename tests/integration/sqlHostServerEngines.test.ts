@@ -4,6 +4,7 @@
  * servers (Docker locally, service containers in CI); skipped otherwise.
  */
 
+import net, { type AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openClickHouse } from '../../src/main/sqlHost/clickhouse';
 import { createSqlHost } from '../../src/main/sqlHost/host';
@@ -74,9 +75,10 @@ describe.skipIf(!mssql)('sqlserver host', () => {
   }, 60_000);
 
   it('tests the connection with every step timed and the server version', async () => {
-    const result = await ok<{ serverVersion: string; tcpMs: number; connectMs: number }>({ type: 'test', config });
+    const result = await ok<{ serverVersion: string; tcpMs: number; connectMs: number; encrypted?: boolean }>({ type: 'test', config });
     expect(result.serverVersion).toMatch(/^SQL Server \d+\./);
     expect(result.tcpMs).toBeGreaterThanOrEqual(0);
+    expect(result.encrypted).toBe(true);
   });
 
   it('reads a window, pages through the rest, and keeps types and text as the server holds them', async () => {
@@ -284,6 +286,30 @@ describe.skipIf(!clickhouse)('clickhouse host', () => {
     expect(await ok({ type: 'cancel', runId: 'c-slow' })).toEqual({ cancelled: true });
     await slow;
   }, 30_000);
+
+  it('under prefer, falls back to plain HTTP only when the server answers in plain HTTP, never on a reset', async () => {
+    const plain = await ok<{ encrypted?: boolean }>({ type: 'test', config: { ...config, connectionId: 'ch-prefer', ssl: { mode: 'prefer' } } });
+    expect(plain.encrypted).toBe(false);
+    // A man in the middle that resets every TLS hello and passes plain HTTP through to the server.
+    const downgrading = net.createServer((socket) =>
+      socket.once('data', (first) => {
+        if (first[0] === 0x16) return socket.destroy();
+        const upstream = net.connect(config.port!, config.address!, () => {
+          upstream.write(first);
+          socket.pipe(upstream).pipe(socket);
+        });
+        upstream.on('error', () => socket.destroy());
+      })
+    );
+    await new Promise<void>((resolve) => downgrading.listen(0, '127.0.0.1', resolve));
+    try {
+      const port = (downgrading.address() as AddressInfo).port;
+      const reset = await send({ type: 'test', config: { ...config, connectionId: 'ch-reset', port, ssl: { mode: 'prefer' } } });
+      expect(reset).toMatchObject({ ok: false });
+    } finally {
+      downgrading.close();
+    }
+  });
 
   it('never edits rows on ClickHouse', async () => {
     const table: RowEditTable = { engine: 'clickhouse', name: 'lingua_it_events', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } };

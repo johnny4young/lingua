@@ -248,6 +248,8 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
 
     cancel: killQuery,
 
+    encrypted: () => ssl !== undefined,
+
     async applyEdits(statements) {
       const inTime = editDeadline();
       // A blocked statement fails on the server, so the transaction can never commit late.

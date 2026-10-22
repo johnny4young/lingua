@@ -50,6 +50,8 @@ export interface DriverSession {
   /** Rows the planner expects a statement to touch, or null. Never executes it. */
   estimateRows(sql: string): Promise<number | null>;
   tls?(): { subject?: string; validTo?: string } | undefined;
+  /** False when the session ended up without TLS, as prefer allows. */
+  encrypted?(): boolean;
   /** One level of the catalog, read with the engine's own catalog queries. */
   introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
   /** Runs every statement in one transaction; each must touch exactly one row, or all of them roll back. */

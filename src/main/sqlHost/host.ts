@@ -281,6 +281,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       const serverStart = performance.now();
       const serverVersion = await driver.version();
       const tls = driver.tls?.();
+      const encrypted = driver.encrypted?.();
       return {
         ...(tcpMs !== undefined ? { tcpMs } : {}),
         ...(sshMs !== undefined ? { sshMs } : {}),
@@ -288,6 +289,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
         serverMs: Math.round(performance.now() - serverStart),
         serverVersion,
         ...(tls ? { tls } : {}),
+        ...(encrypted !== undefined ? { encrypted } : {}),
       };
     } finally {
       await driver.close().catch(() => undefined);
