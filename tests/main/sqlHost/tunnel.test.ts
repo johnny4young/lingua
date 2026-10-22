@@ -1,4 +1,5 @@
 import net, { type AddressInfo } from 'node:net';
+import type { Duplex } from 'node:stream';
 import { Server, utils, type Connection } from 'ssh2';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { sshFingerprint } from '../../../src/main/sqlSsh/knownHosts';
@@ -74,10 +75,12 @@ const config = (overrides: Partial<HostSshConfig> = {}): HostSshConfig => ({
   ...overrides,
 });
 
-function roundTrip(port: number, text: string): Promise<string> {
+/** One exchange over a tunnel socket, the way a driver uses it: connect, write, read. */
+function roundTrip(socket: Duplex & { connect?: () => unknown }, text: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const socket = net.connect(port, '127.0.0.1', () => socket.write(text));
-    socket.once('data', (data) => {
+    socket.connect?.();
+    socket.once('connect', () => socket.write(text));
+    socket.once('data', (data: Buffer) => {
       resolve(data.toString());
       socket.end();
     });
@@ -91,19 +94,18 @@ const until = async (check: () => boolean) => {
 };
 
 describe('SSH tunnel pool', () => {
-  it('forwards a local 127.0.0.1 port to the database through the bastion, shared by identical configs', async () => {
+  it('gives each driver connection its own forwarded channel to the database, one tunnel for identical configs', async () => {
     const pool = createTunnelPool();
     const first = await pool.acquire(config());
     const second = await pool.acquire(config());
-    expect(second.port).toBe(first.port);
-    expect(await roundTrip(first.port, 'SELECT 1')).toBe('SELECT 1');
+    expect(await roundTrip(first.socket(), 'SELECT 1')).toBe('SELECT 1');
     expect(forwarded).toEqual([`127.0.0.1:${echoPort}`]);
     await first.release();
-    expect(await roundTrip(second.port, 'still open')).toBe('still open');
+    expect(await roundTrip(second.socket(), 'still open')).toBe('still open');
     await second.release();
     await until(() => connections.size === 0);
     expect(connections.size).toBe(0);
-    await expect(roundTrip(first.port, 'closed')).rejects.toThrow();
+    await expect(roundTrip(first.socket(), 'closed')).rejects.toThrow();
   });
 
   it('signs in with a key and its passphrase, and through a jump host', async () => {
@@ -111,7 +113,7 @@ describe('SSH tunnel pool', () => {
     const tunnel = await pool.acquire(
       config({ auth: 'key', password: undefined, privateKey: userKey.private, passphrase: 'open sesame', hops: [hop({ label: { host: 'jump.test', port: sshPort } }), hop()] })
     );
-    expect(await roundTrip(tunnel.port, 'via jump')).toBe('via jump');
+    expect(await roundTrip(tunnel.socket(), 'via jump')).toBe('via jump');
     // The jump forwarded to the bastion, which forwarded to the database.
     expect(forwarded).toEqual([`127.0.0.1:${sshPort}`, `127.0.0.1:${echoPort}`]);
     await tunnel.release();
@@ -129,10 +131,10 @@ describe('SSH tunnel pool', () => {
       detail: { fix: 'ssh-host-changed' },
     });
     await expect(pool.acquire(config({ password: 'nope' }))).rejects.toMatchObject({ detail: { step: 'ssh', fix: 'ssh-auth' } });
-    await expect(pool.acquire(config({ target: { host: '127.0.0.1', port: 1 } })).then((t) => roundTrip(t.port, 'x'))).rejects.toThrow();
+    await expect(pool.acquire(config({ target: { host: '127.0.0.1', port: 1 } })).then((t) => roundTrip(t.socket(), 'x'))).rejects.toThrow();
     // A failed open is not kept: the same config tries again.
     const ok = await pool.acquire(config());
-    expect(await roundTrip(ok.port, 'again')).toBe('again');
+    expect(await roundTrip(ok.socket(), 'again')).toBe('again');
     await ok.release();
   });
 
@@ -143,8 +145,9 @@ describe('SSH tunnel pool', () => {
     await until(() => connections.size === 0);
     await new Promise((resolve) => setTimeout(resolve, 50));
     const next = await pool.acquire(config());
-    expect(next.port).not.toBe(tunnel.port);
-    expect(await roundTrip(next.port, 'reopened')).toBe('reopened');
+    // The old tunnel's sockets fail; the new one connects.
+    await expect(roundTrip(tunnel.socket(), 'dead')).rejects.toThrow();
+    expect(await roundTrip(next.socket(), 'reopened')).toBe('reopened');
     await next.release();
     await tunnel.release();
     pool.dispose();

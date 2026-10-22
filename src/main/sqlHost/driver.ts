@@ -1,5 +1,6 @@
 /** What every engine adapter gives the host, plus cell mapping and error classification. */
 
+import type { Duplex } from 'node:stream';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { HostError, HostSessionConfig } from './protocol';
@@ -26,7 +27,8 @@ export interface DriverSession {
   close(): Promise<void>;
 }
 
-export type DriverFactory = (config: HostSessionConfig) => Promise<DriverSession>;
+/** `connect`, when given, makes each socket the driver opens; a tunnel hands it in. */
+export type DriverFactory = (config: HostSessionConfig, connect?: () => Duplex) => Promise<DriverSession>;
 
 /** A cell as the grid takes it: text for wide numbers and dates, base64 for bytes. */
 export function toJsonCell(value: unknown): unknown {

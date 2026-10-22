@@ -1,14 +1,14 @@
 /**
- * SSH tunnels for the SQL host. A tunnel signs in through every hop, checks
- * each host key against the keys main sent, and listens on a 127.0.0.1 port
- * the driver connects to; each connection there becomes one forwarded
- * channel to the database. Tunnels are shared by identical configs and
- * closed when the last session lets go, or when their SSH connection drops.
+ * SSH tunnels for the SQL host. A tunnel signs in through every hop and
+ * checks each host key against the keys main sent. Each driver connection
+ * gets a socket that is its own forwarded channel to the database, so no
+ * local port exists for another process to use. Tunnels are shared by
+ * identical configs and closed when the last session lets go, or when their
+ * SSH connection drops.
  */
 
 import { createHash } from 'node:crypto';
-import net, { type AddressInfo } from 'node:net';
-import type { Duplex } from 'node:stream';
+import { Duplex } from 'node:stream';
 import { Client, utils, type ConnectConfig } from 'ssh2';
 import { judgeHostKey, sshFingerprint, sshKeyType, type HostKeyVerdict } from '../sqlSsh/knownHosts';
 import type { HostError, HostSshConfig, HostSshHop } from './protocol';
@@ -23,14 +23,84 @@ export class TunnelError extends Error {
 }
 
 export interface Tunnel {
-  port: number;
+  /** A new connection to the database through the tunnel, for a driver's `stream` option. */
+  socket: () => Duplex;
   release: () => Promise<void>;
 }
 
 interface Open {
-  server: net.Server;
   clients: Client[];
-  port: number;
+}
+
+/**
+ * A socket-shaped stream over one forwarded channel. It opens as soon as it
+ * is made; `connect()` is what pg calls, and the `connect` event fires once
+ * the channel is up. Writes before that wait for it.
+ */
+class TunnelSocket extends Duplex {
+  private channel: Duplex | null = null;
+  private readonly queued: Array<{ chunk: Buffer; callback: (error?: Error | null) => void }> = [];
+
+  constructor(open: () => Promise<Duplex>) {
+    super();
+    open().then(
+      (channel) => {
+        if (this.destroyed) {
+          channel.destroy();
+          return;
+        }
+        this.channel = channel;
+        channel.on('data', (data: Buffer) => {
+          if (!this.push(data)) channel.pause();
+        });
+        channel.once('end', () => this.push(null));
+        channel.once('error', (error: Error) => this.destroy(error));
+        channel.once('close', () => this.destroy());
+        for (const { chunk, callback } of this.queued.splice(0)) channel.write(chunk, callback);
+        this.emit('connect');
+      },
+      (error: Error) => this.destroy(error)
+    );
+  }
+
+  connect(): this {
+    return this;
+  }
+  setNoDelay(): this {
+    return this;
+  }
+  setKeepAlive(): this {
+    return this;
+  }
+  setTimeout(): this {
+    return this;
+  }
+  ref(): this {
+    return this;
+  }
+  unref(): this {
+    return this;
+  }
+
+  override _read(): void {
+    this.channel?.resume();
+  }
+
+  override _write(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    if (this.channel) this.channel.write(chunk, callback);
+    else this.queued.push({ chunk, callback });
+  }
+
+  override _final(callback: (error?: Error | null) => void): void {
+    if (this.channel) this.channel.end(callback);
+    else callback();
+  }
+
+  override _destroy(error: Error | null, callback: (error?: Error | null) => void): void {
+    this.channel?.destroy();
+    for (const { callback: pending } of this.queued.splice(0)) pending(error ?? new Error('The tunnel closed.'));
+    callback(error);
+  }
 }
 
 const label = (hop: HostSshHop) => (hop.label.port === 22 ? hop.label.host : `${hop.label.host}:${hop.label.port}`);
@@ -108,34 +178,15 @@ async function open(ssh: HostSshConfig, onDrop: () => void): Promise<Open> {
       const next = ssh.hops[index + 1];
       if (next) sock = await forward(client, next.host, next.port, hop);
     }
-    const bastion = clients.at(-1)!;
-    const server = net.createServer((socket) => {
-      bastion.forwardOut('127.0.0.1', socket.remotePort ?? 0, ssh.target.host, ssh.target.port, (err, stream) => {
-        if (err) {
-          socket.destroy();
-          return;
-        }
-        socket.pipe(stream).pipe(socket);
-        socket.once('error', () => stream.destroy());
-        stream.once('error', () => socket.destroy());
-        socket.once('close', () => stream.destroy());
-        stream.once('close', () => socket.destroy());
-      });
-    });
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(0, '127.0.0.1', () => resolve());
-    });
     for (const client of clients) client.once('close', onDrop);
-    return { server, clients, port: (server.address() as AddressInfo).port };
+    return { clients };
   } catch (err) {
     for (const client of clients.reverse()) client.end();
     throw err;
   }
 }
 
-function close({ server, clients }: Open): void {
-  server.close();
+function close({ clients }: Open): void {
   for (const client of [...clients].reverse()) client.end();
 }
 
@@ -169,8 +220,9 @@ export function createTunnelPool() {
         throw err;
       }
       let released = false;
+      const bastion = opened.clients.at(-1)!;
       return {
-        port: opened.port,
+        socket: () => new TunnelSocket(() => forward(bastion, ssh.target.host, ssh.target.port, ssh.hops.at(-1)!)),
         release: async () => {
           if (released) return;
           released = true;

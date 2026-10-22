@@ -78,10 +78,11 @@ function probeTcp(address: string, port: number): Promise<number> {
 
 const catalogSessionId = (connectionId: string) => `${connectionId}#catalog`;
 
-/** The config a driver gets on a tunnel's local end. */
-function atTunnelEnd(config: HostSessionConfig, port: number): HostSessionConfig {
-  const direct: HostSessionConfig = { ...config, address: '127.0.0.1', port };
+/** The config a driver gets behind a tunnel: no SSH settings and no address, since the tunnel makes its sockets. */
+function behindTunnel(config: HostSessionConfig): HostSessionConfig {
+  const direct: HostSessionConfig = { ...config };
   delete direct.ssh;
+  delete direct.address;
   return direct;
 }
 
@@ -111,7 +112,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
   async function throughTunnel(config: HostSessionConfig): Promise<{ driver: DriverSession; tunnel: Tunnel }> {
     const tunnel = await tunnels.acquire(config.ssh!);
     try {
-      return { driver: await drivers[config.engine](atTunnelEnd(config, tunnel.port)), tunnel };
+      return { driver: await drivers[config.engine](behindTunnel(config), tunnel.socket), tunnel };
     } catch (err) {
       await tunnel.release();
       throw err;
@@ -254,12 +255,12 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
         throw new HostRequestError(connectError(config, err));
       }
       sshMs = Math.round(performance.now() - sshStart);
-      driverConfig = atTunnelEnd(config, tunnel.port);
+      driverConfig = behindTunnel(config);
     }
     const start = performance.now();
     let driver: DriverSession;
     try {
-      driver = await drivers[config.engine](driverConfig);
+      driver = await drivers[config.engine](driverConfig, tunnel?.socket);
     } catch (err) {
       await tunnel?.release();
       throw new HostRequestError(connectError(config, err));

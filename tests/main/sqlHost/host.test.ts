@@ -119,20 +119,25 @@ describe('SQL host', () => {
     expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: false, restart: true } });
   });
 
-  it('connects the driver to the tunnel end without the SSH settings, and lets the tunnel go with the session', async () => {
+  it('hands the driver the tunnel sockets without the SSH settings, and lets the tunnel go with the session', async () => {
     const seen: HostSessionConfig[] = [];
     const { session } = fakeDriver(1);
     const release = vi.fn(async () => undefined);
-    const pool = { acquire: vi.fn(async () => ({ port: 40123, release })), dispose: vi.fn() };
-    const open = vi.fn(async (config: HostSessionConfig) => {
+    const socket = vi.fn();
+    const pool = { acquire: vi.fn(async () => ({ socket, release })), dispose: vi.fn() };
+    const connectors: unknown[] = [];
+    const open = vi.fn(async (config: HostSessionConfig, connect?: unknown) => {
       seen.push(config);
+      connectors.push(connect);
       return session;
     });
     const host = createSqlHost({ postgres: open, mysql: open, sqlite: open }, pool);
     const ssh = { hops: [], auth: 'agent' as const, agent: '/tmp/agent.sock', target: { host: 'db.internal', port: 5432 } };
     await host.handle(req({ type: 'execute', config: pgConfig({ address: '10.0.0.9', port: 5432, ssh }), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
-    expect(seen[0]).toMatchObject({ address: '127.0.0.1', port: 40123 });
+    expect(seen[0]).toMatchObject({ port: 5432 });
     expect(seen[0]).not.toHaveProperty('ssh');
+    expect(seen[0]).not.toHaveProperty('address');
+    expect(connectors[0]).toBe(socket);
     await host.handle(req({ type: 'disconnect', connectionId: 'c1' }));
     expect(release).toHaveBeenCalledOnce();
     // A tunnel that fails keeps its step and fix.
