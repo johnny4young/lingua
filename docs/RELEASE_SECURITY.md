@@ -38,6 +38,12 @@ release checklist.
   export holds no secret, is written 0600 and refuses symlinks and protected
   folders
   (`tests/main/sqlImport/`, `tests/ipc/sqlDb.test.ts`).
+- Confirm SQL Server and ClickHouse names stay names (bracket and backslash
+  quoting, catalog names as parameters), that read-only holds on the server
+  (rolled-back transaction on SQL Server, `readonly = 2` on ClickHouse), that
+  `prefer` falls back to plain text only when the server says it cannot do
+  TLS, and that the packaged app loads both drivers
+  (`tests/integration/sqlHostServerEngines.test.ts`, `tests/shared/sqlDialect.test.ts`).
 - Confirm staged row edits reach main as a change set, not SQL; that main
   refuses read-only and production connections and an unconfirmed commit with
   Confirm every write, checks every key and column against its own read of the
