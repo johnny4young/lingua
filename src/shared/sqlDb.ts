@@ -10,6 +10,24 @@ import type { SecretStorageMode } from './secretVault';
 /** A connection as the renderer sees it: never a password, only whether one is kept. */
 export interface SqlDbConnectionView extends SqlConnectionV1 {
   hasPassword: boolean;
+  /** Set for a tunnel that signs in with a password or key passphrase: whether one is kept. */
+  hasSshSecret?: boolean;
+}
+
+/** Which secret a session-only prompt answers. */
+export type SqlDbSecretKind = 'database' | 'ssh';
+
+/** What the sheet may learn about an SSH alias: ~/.ssh/config settings and whether an agent answers. */
+export interface SqlDbSshInfo {
+  config: {
+    alias: string;
+    hostName?: string;
+    user?: string;
+    port?: number;
+    identityFile?: string;
+    proxyJump?: Array<{ host: string; user?: string; port?: number }>;
+  } | null;
+  agent: { available: boolean; keys?: number };
 }
 
 export interface SqlDbCatalogView {
@@ -27,7 +45,7 @@ export type SqlDbSaveResult =
   | { ok: false; reason: 'invalid' | 'quota' | 'not-found' | 'secret-failed' };
 
 /** A run target: a saved or ad-hoc connection id, or a draft being tested before save. */
-export type SqlDbTarget = { connectionId: string } | { draft: SqlConnectionDraft; password?: string };
+export type SqlDbTarget = { connectionId: string } | { draft: SqlConnectionDraft; password?: string; sshPassword?: string };
 
 export interface SqlDbRunOptions {
   timeoutMs: number;
@@ -60,10 +78,10 @@ export interface SqlDbFetchResult {
   errorMessage?: string;
 }
 
-export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key';
+export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key' | 'ssh-key';
 export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
 
-export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server'] as const;
+export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'ssh', 'tls', 'auth', 'server'] as const;
 type SqlDbTestStepId = (typeof SQL_DB_TEST_STEPS)[number];
 
 export interface SqlDbTestStep {
@@ -75,6 +93,15 @@ export interface SqlDbTestStep {
   detail?: string;
   /** Stable hint key for a failed step. */
   fix?: SqlDbFixHint;
+  /** An SSH host key no one trusts yet, offered to trust once. */
+  hostKey?: SqlDbHostKey;
+}
+
+export interface SqlDbHostKey {
+  host: string;
+  port: number;
+  /** `SHA256:` and the unpadded base64 digest, as ssh-keygen prints it. */
+  fingerprint: string;
 }
 
 const SQL_DB_FIX_HINTS = [
@@ -91,6 +118,12 @@ const SQL_DB_FIX_HINTS = [
   'file-unreadable',
   'blocked-path',
   'confirm-needed',
+  'ssh-unreachable',
+  'ssh-auth',
+  'ssh-key',
+  'ssh-password-needed',
+  'ssh-host-unknown',
+  'ssh-host-changed',
   'unknown',
 ] as const;
 export type SqlDbFixHint = (typeof SQL_DB_FIX_HINTS)[number];
@@ -174,10 +207,12 @@ export interface SqlDbIntrospectResult {
 /** `window.lingua.db` on desktop; absent on the web build. */
 export interface SqlDbBridge {
   catalog(): Promise<SqlDbCatalogView>;
-  save(draft: SqlConnectionDraft, id?: string, password?: string): Promise<SqlDbSaveResult>;
+  save(draft: SqlConnectionDraft, id?: string, password?: string, sshPassword?: string): Promise<SqlDbSaveResult>;
   delete(id: string): Promise<{ ok: boolean }>;
-  openAdhoc(draft: SqlConnectionDraft, password?: string): Promise<SqlDbSaveResult>;
-  sessionPassword(id: string, password: string): Promise<{ ok: boolean }>;
+  openAdhoc(draft: SqlConnectionDraft, password?: string, sshPassword?: string): Promise<SqlDbSaveResult>;
+  sessionPassword(id: string, password: string, kind?: SqlDbSecretKind): Promise<{ ok: boolean }>;
+  trustHostKey(host: string, port: number, fingerprint: string): Promise<{ ok: boolean }>;
+  sshInfo(alias: string): Promise<SqlDbSshInfo>;
   test(target: SqlDbTarget): Promise<SqlDbTestResult>;
   execute(runId: string, connectionId: string, sql: string, options: SqlDbRunOptions): Promise<SqlDbRunResult>;
   fetch(runId: string, limit: number, maxBytes: number): Promise<SqlDbFetchResult>;

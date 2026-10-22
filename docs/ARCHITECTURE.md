@@ -337,8 +337,8 @@ a `ROLLBACK` when any row fails.
 
 Saved Postgres, MySQL and SQLite connections run outside the renderer. Main
 forks `src/main/sqlHost/hostEntry.ts` (bundled to `.vite/build/sqlHost.js`
-by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`, `pg-native` and `mysql2`
-left external) as the `Lingua SQL host` utility process through
+by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`, `pg-native`, `mysql2` and
+`ssh2` left external) as the `Lingua SQL host` utility process through
 `createSqlHostSupervisor`; a request pending when the host exits fails, and
 the next request forks a new host. It starts without the `PG*` and `MYSQL_*`
 environment variables, and Postgres never falls back to a `.pgpass` file, so a
@@ -351,8 +351,8 @@ atomically, never a password). Passwords live in the secret store under the
 `db.` namespace, which the `secrets:*` channels refuse, or in main's memory
 for connections that ask each session; they reach the host per run and never
 the renderer. A saved password belongs to its target: saving a connection
-with another engine, host, port, database, user, file or TLS mode without
-typing the password again deletes the stored one. `sqlDbService.ts` re-checks
+with another engine, host, port, database, user, file, TLS mode or SSH tunnel
+without typing the password again deletes the stored one. `sqlDbService.ts` re-checks
 the Free quota against the verified license tier inside the catalog's
 serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
@@ -361,8 +361,36 @@ folder (checked as given and after resolving symlinks), estimates only a single 
 (EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
-renderer that knows the name can pass it. The thirteen `sql-db:*` channels in
+renderer that knows the name can pass it. The fifteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
+
+SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
+key and its passphrase, or the agent, through up to three jump hosts that sign
+in with the key or the agent. The agent is `SSH_AUTH_SOCK` as main sees it on
+macOS and Linux, and the Windows OpenSSH agent pipe
+(`\\.\pipe\openssh-ssh-agent`) on Windows; Pageant is not supported. Main
+resolves and checks only the first hop, since the bastion resolves the database
+host, and sends each hop's trusted keys: those `~/.ssh/known_hosts` lists and
+those the user trusted in Lingua (`userData/sql-ssh-host-keys.json`, mode 0600).
+A key is refused when it is revoked or when the hop has known keys and none
+matches, and the handshake asks only for the known key types. An unknown key
+comes back with its fingerprint, and `sql-db:trust-host-key`
+trusts only the key that hop presented in its last failed sign-in. The tunnel
+hands each driver connection its own forwarded channel through a socket-shaped
+stream, so no local port exists for another process to reach. Tunnels are
+shared by identical configs and close with their last session or when the SSH
+connection drops; a session whose connection drops is let go, so the next
+request connects again. `sqlSsh/` reads `~/.ssh` in main, the one exception to the
+protected credentials folders: a tunnel key inside `~/.ssh` (checked as given
+and after resolving symlinks) must be picked in the file dialog, named by
+`IdentityFile` in the ssh config, or already saved with the connection; a key
+outside the protected folders needs none of that. `known_hosts` lines marked `@cert-authority`, and `Include` and `Match`
+in the ssh config, are skipped. The SSH secret is kept under `db.<id>.ssh`; a
+changed bastion host or port, user, sign-in method, key or jump chain forgets
+it, and any change to the tunnel forgets the database password. `sql-db:ssh-info` returns what
+`~/.ssh/config` says about an alias and how many keys the agent holds, never a
+file's content. Confirm every write applies the production typed confirm to
+any connection, and Allow private host off refuses a private first address.
 
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`

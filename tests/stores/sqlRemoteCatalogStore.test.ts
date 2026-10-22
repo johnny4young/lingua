@@ -25,7 +25,7 @@ describe('remote catalog store', () => {
   it('keeps an error with its password hint and reads again when asked', async () => {
     introspect.mockResolvedValueOnce({ errorMessage: 'This connection needs its password.', fix: 'password-needed' });
     await store().loadSchemas('c1');
-    expect(store().catalogs.c1?.schemas).toEqual({ status: 'error', message: 'This connection needs its password.', passwordNeeded: true });
+    expect(store().catalogs.c1?.schemas).toEqual({ status: 'error', message: 'This connection needs its password.', passwordNeeded: 'database' });
     await store().loadSchemas('c1');
     expect(store().catalogs.c1?.schemas?.status).toBe('ready');
   });

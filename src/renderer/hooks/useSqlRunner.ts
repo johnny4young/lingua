@@ -23,7 +23,7 @@ import {
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { executeRemoteScript, sqlDbBridge } from '../runtime/sqlRemote';
 import { dbClientEnabled, findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
-import type { SqlDbConnectionView } from '../../shared/sqlDb';
+import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
@@ -106,14 +106,16 @@ export interface SqlWriteConfirm {
   /** Rows EXPLAIN expects it to touch; `undefined` while it loads, `null` when unknown. */
   estimate?: number | null;
   readOnly: boolean;
+  /** False when the confirm comes from Confirm every write rather than the production tag. */
+  production: boolean;
 }
 
 interface SqlRunState {
   runningQueryId: string | null;
   confirm: SqlWriteConfirm | null;
   /** A connection that keeps its password for the session and does not have it yet. */
-  /** `refused` is set when the password just typed was turned down. */
-  passwordPrompt: { connectionId: string; connectionName: string; refused: boolean } | null;
+  /** `refused` is set when the password just typed was turned down; `kind` says which secret it is. */
+  passwordPrompt: { connectionId: string; connectionName: string; refused: boolean; kind: SqlDbSecretKind } | null;
   more: SqlMoreRows | null;
   runSet: SqlRunSet | null;
   plan: SqlPlanResult | null;
@@ -139,10 +141,10 @@ let confirmResolve: ((name: string | null) => void) | null = null;
 let pendingPasswordRun: SqlRunRequest | null = null;
 let passwordJustSubmitted = false;
 
-/** Opens the production write card and waits for the typed name, or null on cancel. */
+/** Opens the write card (production or Confirm every write) and waits for the typed name, or null on cancel. */
 function requestWriteConfirm(connection: SqlDbConnectionView, writes: string[]): Promise<string | null> {
   const db = sqlDbBridge();
-  const pending: SqlWriteConfirm = { connectionName: connection.name, statements: writes, readOnly: connection.readOnly };
+  const pending: SqlWriteConfirm = { connectionName: connection.name, statements: writes, readOnly: connection.readOnly, production: connection.env === 'prod' };
   setRunState({ confirm: pending });
   void db?.estimate(connection.id, writes[0] ?? '').then((estimate) => {
     if (useSqlRunState.getState().confirm?.statements === writes) setRunState({ confirm: { ...pending, estimate } });
@@ -253,8 +255,11 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
           : await executeSqlScript(statements, { timeoutMs, signal, keepCursor: true, onStatement });
       const refused = passwordJustSubmitted;
       passwordJustSubmitted = false;
-      if (remote && (outcomes[0] as { fix?: string } | undefined)?.fix === 'password-needed') {
-        setRunState({ passwordPrompt: { connectionId: remote.connection.id, connectionName: remote.connection.name, refused } });
+      const needed = (outcomes[0] as { fix?: string } | undefined)?.fix;
+      if (remote && (needed === 'password-needed' || needed === 'ssh-password-needed')) {
+        setRunState({
+          passwordPrompt: { connectionId: remote.connection.id, connectionName: remote.connection.name, refused, kind: needed === 'ssh-password-needed' ? 'ssh' : 'database' },
+        });
       }
       // An engine that fails to load reports once, before any statement.
       if (results.length === 0 && outcomes[0]) {
@@ -330,7 +335,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       // Remote engines explain through their own EXPLAIN, shown as rows.
       const toRun = connection && mode === 'explain' ? [`EXPLAIN ${statements[0]}`] : statements;
       let confirmName: string | undefined;
-      if (connection?.env === 'prod') {
+      if (connection?.env === 'prod' || connection?.confirmWrites) {
         const writes = toRun.filter(isWriteSqlStatement);
         if (writes.length > 0) {
           const typed = await requestWriteConfirm(connection, writes);
@@ -443,7 +448,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const db = sqlDbBridge();
       setRunState({ passwordPrompt: null });
       if (!prompt || !db) return;
-      await db.sessionPassword(prompt.connectionId, password);
+      await db.sessionPassword(prompt.connectionId, password, prompt.kind);
       const retry = pendingPasswordRun;
       passwordJustSubmitted = retry !== null;
       if (retry) void run(retry);

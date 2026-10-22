@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DriverSession } from '../../../src/main/sqlHost/driver';
 import { classifyConnectError, toJsonCell } from '../../../src/main/sqlHost/driver';
 import { createSqlHost } from '../../../src/main/sqlHost/host';
+import { TunnelError } from '../../../src/main/sqlHost/tunnel';
 import type { HostRequest, HostSessionConfig } from '../../../src/main/sqlHost/protocol';
 import type { SqlDbIntrospectResult } from '../../../src/shared/sqlDb';
 import { openSqlite } from '../../../src/main/sqlHost/sqlite';
@@ -63,6 +64,21 @@ describe('SQL host', () => {
     expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 1, maxBytes: 1 }))).toMatchObject({ ok: false });
   });
 
+  it('connects again after the driver reports its connection dropped', async () => {
+    const { open, session } = fakeDriver(1);
+    let drop: (() => void) | undefined;
+    session.onLost = (listener) => {
+      drop = listener;
+    };
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
+    expect(open).toHaveBeenCalledOnce();
+    drop!();
+    await vi.waitFor(() => expect(session.close).toHaveBeenCalled());
+    await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r2', sql: 'SELECT n', readWrite: false, window }));
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
   it('closes a fully read run too, so a read-only run ends its transaction', async () => {
     const closes: Array<ReturnType<typeof vi.fn>> = [];
     const { open, session } = fakeDriver(10);
@@ -116,6 +132,32 @@ describe('SQL host', () => {
     expect(session.cancel).toHaveBeenCalledOnce();
     vi.mocked(session.cancel).mockResolvedValueOnce(false);
     expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: false, restart: true } });
+  });
+
+  it('hands the driver the tunnel sockets without the SSH settings, and lets the tunnel go with the session', async () => {
+    const seen: HostSessionConfig[] = [];
+    const { session } = fakeDriver(1);
+    const release = vi.fn(async () => undefined);
+    const socket = vi.fn();
+    const pool = { acquire: vi.fn(async () => ({ socket, release })), dispose: vi.fn() };
+    const connectors: unknown[] = [];
+    const open = vi.fn(async (config: HostSessionConfig, connect?: unknown) => {
+      seen.push(config);
+      connectors.push(connect);
+      return session;
+    });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open }, pool);
+    const ssh = { hops: [], auth: 'agent' as const, agent: '/tmp/agent.sock', target: { host: 'db.internal', port: 5432 } };
+    await host.handle(req({ type: 'execute', config: pgConfig({ address: '10.0.0.9', port: 5432, ssh }), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
+    expect(seen[0]).toMatchObject({ port: 5432 });
+    expect(seen[0]).not.toHaveProperty('ssh');
+    expect(seen[0]).not.toHaveProperty('address');
+    expect(connectors[0]).toBe(socket);
+    await host.handle(req({ type: 'disconnect', connectionId: 'c1' }));
+    expect(release).toHaveBeenCalledOnce();
+    // A tunnel that fails keeps its step and fix.
+    pool.acquire.mockRejectedValueOnce(new TunnelError({ step: 'ssh', fix: 'ssh-auth', message: 'refused' }));
+    expect(await host.handle(req({ type: 'test', config: pgConfig({ connectionId: 'c2', ssh }) }))).toMatchObject({ ok: false, error: { step: 'ssh', fix: 'ssh-auth' } });
   });
 
   it('names the failed step of a connection test', async () => {

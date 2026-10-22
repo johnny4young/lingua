@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SqlDbConnectionView } from '../../shared/sqlDb';
+import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import type { SqlQueryV1 } from '../../shared/sqlWorkspace';
 import { SqlPasswordPrompt } from '../components/SqlWorkspace/SqlConnectionDialogs';
 import { SqlConnectionSheet, type SqlConnectionSheetMode } from '../components/SqlWorkspace/SqlConnectionSheet';
@@ -85,8 +85,8 @@ export function useSqlConnectionObjects({
     },
     [createQuery]
   );
-  const [catalogPassword, setCatalogPassword] = useState<{ connectionId: string; refused: boolean } | null>(null);
-  const setCatalogPasswordFor = (connectionId: string) => setCatalogPassword({ connectionId, refused: false });
+  const [catalogPassword, setCatalogPassword] = useState<{ connectionId: string; kind: SqlDbSecretKind; refused: boolean } | null>(null);
+  const setCatalogPasswordFor = (connectionId: string, kind: SqlDbSecretKind) => setCatalogPassword({ connectionId, kind, refused: false });
   const completion = useSqlRemoteCompletion(activeConnection?.id);
   const loading = useSqlRemoteCatalogStore(
     (state) => activeConnection !== undefined && state.catalogs[activeConnection.id]?.schemas?.status === 'loading'
@@ -175,7 +175,7 @@ export function useSqlConnectionObjects({
           filter={explorerFilter}
           selected={objectView?.connectionId === activeConnection.id ? objectView.object : null}
           onOpenObject={(object) => showObject(activeConnection.id, object, QUERYABLE_KINDS.has(object.kind) ? 'columns' : 'ddl')}
-          onEnterPassword={() => setCatalogPasswordFor(activeConnection.id)}
+          onEnterPassword={(kind) => setCatalogPasswordFor(activeConnection.id, kind)}
           collapseSignal={collapseSignal}
         />
       )
@@ -195,15 +195,16 @@ export function useSqlConnectionObjects({
     <SqlPasswordPrompt
       name={findConnection(catalogPassword.connectionId)?.name ?? ''}
       refused={catalogPassword.refused}
+      kind={catalogPassword.kind}
       onSubmit={(password) => {
-        const { connectionId } = catalogPassword;
+        const { connectionId, kind } = catalogPassword;
         void (async () => {
-          await sqlDbBridge()?.sessionPassword(connectionId, password);
+          await sqlDbBridge()?.sessionPassword(connectionId, password, kind);
           const store = useSqlRemoteCatalogStore.getState();
           store.refresh(connectionId);
           await store.loadSchemas(connectionId);
           const level = useSqlRemoteCatalogStore.getState().catalogs[connectionId]?.schemas;
-          setCatalogPassword(level?.status === 'error' && level.passwordNeeded ? { connectionId, refused: true } : null);
+          setCatalogPassword(level?.status === 'error' && level.passwordNeeded ? { connectionId, kind: level.passwordNeeded, refused: true } : null);
         })();
       }}
       onCancel={() => setCatalogPassword(null)}
@@ -246,7 +247,7 @@ export function useSqlConnectionObjects({
         tab={objectView.tab}
         onTab={(tab) => showObject(objectView.connectionId, objectView.object, tab)}
         onInsertSelect={() => insertSql(buildSelectStarter(objectView.object.name, objectView.object.schema, activeConnection.engine))}
-        onEnterPassword={() => setCatalogPasswordFor(objectView.connectionId)}
+        onEnterPassword={(kind) => setCatalogPasswordFor(objectView.connectionId, kind)}
         data={
           preview?.connectionId === objectView.connectionId && preview.table.name === `${objectView.object.schema}.${objectView.object.name}` ? (
             data

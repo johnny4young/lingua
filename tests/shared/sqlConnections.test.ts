@@ -4,6 +4,7 @@ import {
   parseConnection,
   parseConnectionDraft,
   parseConnectionUrl,
+  sameSshTarget,
   withoutUrlPassword,
 } from '../../src/shared/sqlConnections';
 import { dbConnectionCeilingForTier, withinDbConnectionBudget } from '../../src/shared/entitlements';
@@ -85,6 +86,44 @@ describe('parseConnectionDraft', () => {
     expect(parseConnectionDraft({ name: 'f', engine: 'sqlite', path: '/a.db', readOnly: false, passwordMode: 'keychain' })).toBeNull();
   });
 
+  it('takes an SSH tunnel with jump hosts and the per-connection safety switches', () => {
+    const ssh = {
+      host: 'bastion.example.net',
+      user: 'deploy',
+      auth: 'key',
+      keyPath: '/Users/me/.ssh/id_ed25519',
+      secretMode: 'session',
+      jumps: [{ host: 'jump.example.net', port: 2222, user: 'deploy' }],
+    };
+    expect(parseConnectionDraft({ ...pg, ssh, confirmWrites: true, allowPrivateHost: false })).toEqual({
+      ...pg,
+      ssh: { ...ssh, port: 22 },
+      confirmWrites: true,
+      allowPrivateHost: false,
+    });
+    // Defaults stay off the stored draft.
+    expect(parseConnectionDraft({ ...pg, confirmWrites: false, allowPrivateHost: true })).toEqual(pg);
+  });
+
+  it('refuses an SSH tunnel whose auth and secret do not fit together', () => {
+    const base = { host: 'bastion', user: 'deploy', port: 22 };
+    for (const ssh of [
+      { ...base, auth: 'key', secretMode: 'none' },
+      { ...base, auth: 'password', secretMode: 'none' },
+      { ...base, auth: 'agent', secretMode: 'keychain' },
+      { ...base, auth: 'password', secretMode: 'session', jumps: [{ host: 'jump', user: 'u' }] },
+      { ...base, auth: 'agent', secretMode: 'none', jumps: Array.from({ length: 4 }, () => ({ host: 'jump', user: 'u' })) },
+      { ...base, auth: 'agent', secretMode: 'none', jumps: [{ host: 'jump', user: '' }] },
+      { ...base, host: 'user@bastion', auth: 'agent', secretMode: 'none' },
+      { ...base, auth: 'key', keyPath: 'id_rsa', secretMode: 'none' },
+      { ...base, port: 0, auth: 'agent', secretMode: 'none' },
+    ]) {
+      expect(parseConnectionDraft({ ...pg, ssh })).toBeNull();
+    }
+    expect(parseConnectionDraft({ ...pg, confirmWrites: 'yes' })).toBeNull();
+    expect(parseConnectionDraft({ ...pg, ssh: { ...base, auth: 'agent', secretMode: 'none' } })).toMatchObject({ ssh: { auth: 'agent' } });
+  });
+
   it('parses a stored connection only with a safe id', () => {
     const stored = { version: 1, id: 'c_1', ...pg, createdAt: 'a', updatedAt: 'b' };
     expect(parseConnection(stored)).toMatchObject({ id: 'c_1', host: 'db.internal' });
@@ -124,5 +163,18 @@ describe('withoutUrlPassword', () => {
     expect(withoutUrlPassword('postgres://app@db/orders')).toBe('postgres://app@db/orders');
     expect(withoutUrlPassword('sqlite:/tmp/a@b.db')).toBe('sqlite:/tmp/a@b.db');
     expect(withoutUrlPassword('postgres://db/orders?user=a@b')).toBe('postgres://db/orders?user=a@b');
+  });
+});
+
+describe('sameSshTarget', () => {
+  const ssh = { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/k', secretMode: 'keychain' as const, jumps: [{ host: 'jump', port: 22, user: 'deploy' }] };
+
+  it('matches the same tunnel and nothing else', () => {
+    expect(sameSshTarget(undefined, undefined)).toBe(true);
+    expect(sameSshTarget(ssh, { ...ssh, secretMode: 'session' })).toBe(true);
+    expect(sameSshTarget(ssh, undefined)).toBe(false);
+    for (const change of [{ host: 'other' }, { port: 2222 }, { user: 'root' }, { auth: 'agent' as const }, { keyPath: '/other' }, { jumps: [] }, { jumps: [{ host: 'jump', port: 22, user: 'root' }] }]) {
+      expect(sameSshTarget(ssh, { ...ssh, ...change }), JSON.stringify(change)).toBe(false);
+    }
   });
 });

@@ -20,6 +20,28 @@ export type SqlConnectionEnv = (typeof SQL_CONNECTION_ENVS)[number];
 const SQL_PASSWORD_MODES = ['keychain', 'session', 'none'] as const;
 type SqlPasswordMode = (typeof SQL_PASSWORD_MODES)[number];
 
+export const SQL_SSH_AUTHS = ['password', 'key', 'agent'] as const;
+export type SqlSshAuth = (typeof SQL_SSH_AUTHS)[number];
+
+export interface SqlSshHop {
+  host: string;
+  port: number;
+  user: string;
+}
+
+/** The bastion in front of the database, reached through `jumps` in order. */
+export interface SqlConnectionSsh extends SqlSshHop {
+  auth: SqlSshAuth;
+  /** Private key file, for `key`: inside ~/.ssh or outside the protected folders. */
+  keyPath?: string;
+  /** Where the SSH password or key passphrase is kept; `none` for the agent or a key without one. */
+  secretMode: SqlPasswordMode;
+  /** Hops before the bastion; each signs in with the same key or agent. */
+  jumps?: SqlSshHop[];
+}
+
+export const MAX_SSH_JUMPS = 3;
+
 interface SqlConnectionSsl {
   mode: SqlSslMode;
   caPath?: string;
@@ -40,8 +62,14 @@ export interface SqlConnectionV1 {
   ssl?: SqlConnectionSsl;
   /** SQLite: absolute path of the database file. */
   path?: string;
+  /** Postgres and MySQL through an SSH tunnel; the database host is resolved by the bastion. */
+  ssh?: SqlConnectionSsh;
   env?: SqlConnectionEnv;
   readOnly: boolean;
+  /** Every write asks for the typed connection name, as production does. */
+  confirmWrites?: boolean;
+  /** False refuses a private or loopback address (the first SSH hop when tunnelled). Absent means allowed. */
+  allowPrivateHost?: boolean;
   group?: string;
   passwordMode: SqlPasswordMode;
   createdAt: string;
@@ -96,6 +124,36 @@ function filePath(value: unknown): string | undefined | null {
   return isAbsoluteFilePath(parsed) && !/[\u0000-\u001f]/.test(parsed) ? parsed : null;
 }
 
+function parseHop(value: unknown): SqlSshHop | null {
+  if (!isRecord(value)) return null;
+  const host = text(value.host, MAX_HOST);
+  const user = text(value.user, MAX_IDENT);
+  const port = value.port === undefined ? 22 : value.port;
+  if (!host || !HOST_RE.test(host) || !user) return null;
+  if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65_535) return null;
+  return { host, port, user };
+}
+
+function parseSsh(value: unknown): SqlConnectionSsh | null {
+  if (!isRecord(value) || !oneOf(SQL_SSH_AUTHS, value.auth) || !oneOf(SQL_PASSWORD_MODES, value.secretMode)) return null;
+  const hop = parseHop(value);
+  const keyPath = filePath(value.keyPath);
+  if (!hop || keyPath === null) return null;
+  const { auth, secretMode } = value;
+  if (auth === 'key' && !keyPath) return null;
+  if (auth === 'password' && secretMode === 'none') return null;
+  if (auth === 'agent' && secretMode !== 'none') return null;
+  let jumps: SqlSshHop[] | undefined;
+  if (value.jumps !== undefined) {
+    if (!Array.isArray(value.jumps) || value.jumps.length > MAX_SSH_JUMPS) return null;
+    const parsed = value.jumps.map(parseHop);
+    // A password belongs to one host; jumps sign in with the key or the agent.
+    if (parsed.some((jump) => jump === null) || (parsed.length > 0 && auth === 'password')) return null;
+    if (parsed.length > 0) jumps = parsed as SqlSshHop[];
+  }
+  return { ...hop, auth, secretMode, ...(auth === 'key' ? { keyPath: keyPath! } : {}), ...(jumps ? { jumps } : {}) };
+}
+
 function parseSsl(value: unknown): SqlConnectionSsl | null {
   if (!isRecord(value) || !oneOf(SQL_SSL_MODES, value.mode)) return null;
   const ca = filePath(value.caPath);
@@ -117,6 +175,10 @@ export function parseConnectionDraft(value: unknown): SqlConnectionDraft | null 
   const env = value.env === undefined ? undefined : oneOf(SQL_CONNECTION_ENVS, value.env) ? value.env : null;
   const group = text(value.group, MAX_GROUP);
   if (env === null || group === null) return null;
+  const flag = (field: unknown) => (field === undefined ? undefined : typeof field === 'boolean' ? field : null);
+  const confirmWrites = flag(value.confirmWrites);
+  const allowPrivateHost = flag(value.allowPrivateHost);
+  if (confirmWrites === null || allowPrivateHost === null) return null;
   const base = {
     name,
     engine: value.engine,
@@ -124,6 +186,8 @@ export function parseConnectionDraft(value: unknown): SqlConnectionDraft | null 
     passwordMode: value.passwordMode,
     ...(env ? { env } : {}),
     ...(group ? { group } : {}),
+    ...(confirmWrites ? { confirmWrites } : {}),
+    ...(allowPrivateHost === false ? { allowPrivateHost } : {}),
   };
   if (value.engine === 'sqlite') {
     const path = filePath(value.path);
@@ -140,7 +204,9 @@ export function parseConnectionDraft(value: unknown): SqlConnectionDraft | null 
   if (database === null || user === null) return null;
   const ssl = value.ssl === undefined ? { mode: 'verify-full' as const } : parseSsl(value.ssl);
   if (!ssl) return null;
-  return { ...base, host, port, ...(database ? { database } : {}), ...(user ? { user } : {}), ssl };
+  const ssh = value.ssh === undefined ? undefined : parseSsh(value.ssh);
+  if (ssh === null) return null;
+  return { ...base, host, port, ...(database ? { database } : {}), ...(user ? { user } : {}), ssl, ...(ssh ? { ssh } : {}) };
 }
 
 export function parseConnection(value: unknown): SqlConnectionV1 | null {
@@ -236,6 +302,15 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
     passwordMode: password ? 'keychain' : 'none',
   };
   return password ? { draft, password } : { draft };
+}
+
+const sameHops = (a: SqlSshHop[] = [], b: SqlSshHop[] = []) =>
+  a.length === b.length && a.every((hop, index) => hop.host === b[index]!.host && hop.port === b[index]!.port && hop.user === b[index]!.user);
+
+/** The tunnel a saved SSH secret belongs to; another bastion, user, key or jump chain must be given it again. */
+export function sameSshTarget(a: SqlConnectionDraft['ssh'], b: SqlConnectionDraft['ssh']): boolean {
+  if (!a || !b) return !a && !b;
+  return a.host === b.host && a.port === b.port && a.user === b.user && a.auth === b.auth && a.keyPath === b.keyPath && sameHops(a.jumps, b.jumps);
 }
 
 /** Secret-store id of a connection's password; only main reads it. */

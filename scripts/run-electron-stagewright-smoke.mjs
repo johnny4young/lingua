@@ -261,6 +261,7 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
     '--external:pg-cursor',
     '--external:pg-native',
     '--external:mysql2',
+    '--external:ssh2',
   ]);
 
   await runEsbuild([

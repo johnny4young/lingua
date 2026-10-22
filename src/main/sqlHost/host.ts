@@ -8,6 +8,7 @@ import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import { classifyConnectError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
+import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
 import type {
   HostCancelResult,
   HostError,
@@ -25,6 +26,8 @@ const TCP_PROBE_MS = 10_000;
 interface Session {
   fingerprint: string;
   ready: Promise<DriverSession>;
+  /** Lets go of the session's tunnel, if it has one. */
+  release: () => Promise<void>;
   /** Statements on one connection run one after another. */
   queue: Promise<unknown>;
 }
@@ -75,7 +78,21 @@ function probeTcp(address: string, port: number): Promise<number> {
 
 const catalogSessionId = (connectionId: string) => `${connectionId}#catalog`;
 
-export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
+/** The config a driver gets behind a tunnel: no SSH settings and no address, since the tunnel makes its sockets. */
+function behindTunnel(config: HostSessionConfig): HostSessionConfig {
+  const direct: HostSessionConfig = { ...config };
+  delete direct.ssh;
+  delete direct.address;
+  return direct;
+}
+
+/** A connect failure as the renderer sees it: the tunnel's own step, the file, or the driver's classification. */
+function connectError(config: HostSessionConfig, err: unknown): HostError {
+  if (err instanceof TunnelError) return err.detail;
+  return config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err);
+}
+
+export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, tunnels: TunnelPool = createTunnelPool()) {
   const sessions = new Map<string, Session>();
   const runs = new Map<string, Run>();
   /** Statements still waiting for their first page, so Cancel can reach them. */
@@ -85,7 +102,21 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     const session = sessions.get(connectionId);
     sessions.delete(connectionId);
     for (const [runId, run] of runs) if (run.connectionId === connectionId) runs.delete(runId);
-    if (session) await session.ready.then((s) => s.close()).catch(() => undefined);
+    if (session) {
+      await session.ready.then((s) => s.close()).catch(() => undefined);
+      await session.release();
+    }
+  }
+
+  /** A driver whose sockets are the tunnel's channels; the tunnel is let go when the driver cannot start. */
+  async function throughTunnel(config: HostSessionConfig): Promise<{ driver: DriverSession; tunnel: Tunnel }> {
+    const tunnel = await tunnels.acquire(config.ssh!);
+    try {
+      return { driver: await drivers[config.engine](behindTunnel(config), tunnel.socket), tunnel };
+    } catch (err) {
+      await tunnel.release();
+      throw err;
+    }
   }
 
   function sessionFor(config: HostSessionConfig): Session {
@@ -93,13 +124,27 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     const current = sessions.get(config.connectionId);
     if (current && current.fingerprint === fingerprint) return current;
     if (current) void dropSession(config.connectionId);
-    const ready = drivers[config.engine](config);
+    let tunnel: Tunnel | undefined;
+    const ready = config.ssh
+      ? throughTunnel(config).then((opened) => {
+          tunnel = opened.tunnel;
+          return opened.driver;
+        })
+      : drivers[config.engine](config);
     // A failed connect is retried by the next request.
     ready.catch(() => {
       if (sessions.get(config.connectionId)?.ready === ready) sessions.delete(config.connectionId);
     });
-    const session: Session = { fingerprint, ready, queue: Promise.resolve() };
+    const session: Session = { fingerprint, ready, queue: Promise.resolve(), release: async () => tunnel?.release() };
     sessions.set(config.connectionId, session);
+    // A dropped connection is let go, so the next request connects again.
+    void ready.then(
+      (driver) =>
+        driver.onLost?.(() => {
+          if (sessions.get(config.connectionId) === session) void dropSession(config.connectionId);
+        }),
+      () => undefined
+    );
     return session;
   }
 
@@ -148,7 +193,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
         driver = await session.ready;
       } catch (err) {
         // A failed connect names its step, so the renderer can tell it from a SQL error.
-        throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+        throw new HostRequestError(connectError(config, err));
       }
       inflight.set(runId, driver);
       let rows: DriverRows;
@@ -197,19 +242,36 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
 
   async function test(config: HostSessionConfig): Promise<HostTestResult> {
     let tcpMs: number | undefined;
-    if (config.engine !== 'sqlite' && config.address) {
+    // Through a tunnel, the first hop is what this machine reaches.
+    const first = config.ssh?.hops[0];
+    const probe = first ? { address: first.host, port: first.port } : config.address ? { address: config.address, port: config.port ?? 0 } : null;
+    if (config.engine !== 'sqlite' && probe) {
       try {
-        tcpMs = await probeTcp(config.address, config.port ?? 0);
+        tcpMs = await probeTcp(probe.address, probe.port);
       } catch (err) {
-        throw new HostRequestError({ ...classifyConnectError(err), step: 'tcp', fix: 'unreachable' });
+        throw new HostRequestError({ ...classifyConnectError(err), step: 'tcp', fix: first ? 'ssh-unreachable' : 'unreachable' });
       }
+    }
+    let sshMs: number | undefined;
+    let tunnel: Tunnel | undefined;
+    let driverConfig = config;
+    if (config.ssh) {
+      const sshStart = performance.now();
+      try {
+        tunnel = await tunnels.acquire(config.ssh);
+      } catch (err) {
+        throw new HostRequestError(connectError(config, err));
+      }
+      sshMs = Math.round(performance.now() - sshStart);
+      driverConfig = behindTunnel(config);
     }
     const start = performance.now();
     let driver: DriverSession;
     try {
-      driver = await drivers[config.engine](config);
+      driver = await drivers[config.engine](driverConfig, tunnel?.socket);
     } catch (err) {
-      throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+      await tunnel?.release();
+      throw new HostRequestError(connectError(config, err));
     }
     const connectMs = Math.round(performance.now() - start);
     try {
@@ -218,6 +280,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
       const tls = driver.tls?.();
       return {
         ...(tcpMs !== undefined ? { tcpMs } : {}),
+        ...(sshMs !== undefined ? { sshMs } : {}),
         connectMs,
         serverMs: Math.round(performance.now() - serverStart),
         serverVersion,
@@ -225,6 +288,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
       };
     } finally {
       await driver.close().catch(() => undefined);
+      await tunnel?.release();
     }
   }
 
@@ -241,7 +305,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
       try {
         driver = await session.ready;
       } catch (err) {
-        throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+        throw new HostRequestError(connectError(config, err));
       }
       return driver.introspect(request);
     });
@@ -289,6 +353,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
 
   async function dispose(): Promise<void> {
     await Promise.all([...sessions.keys()].map(dropSession));
+    tunnels.dispose();
   }
 
   return { handle, dispose };

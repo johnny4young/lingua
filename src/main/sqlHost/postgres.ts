@@ -1,5 +1,6 @@
 /** Postgres through `pg` and `pg-cursor`: rows stream in pages from a server-side portal. */
 
+import type { Duplex } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import type { ConnectionOptions } from 'node:tls';
 import pg from 'pg';
@@ -67,8 +68,9 @@ function pgSsl(config: HostSessionConfig): ConnectionOptions | false {
   return ssl.mode === 'verify-ca' ? { ...files, rejectUnauthorized: true, checkServerIdentity: () => undefined } : { ...files, rejectUnauthorized: true };
 }
 
-function clientConfig(config: HostSessionConfig, ssl: ConnectionOptions | false): pg.ClientConfig {
+function clientConfig(config: HostSessionConfig, ssl: ConnectionOptions | false, connect?: () => Duplex): pg.ClientConfig {
   return {
+    ...(connect ? { stream: connect } : {}),
     host: config.address ?? config.servername ?? 'localhost',
     port: config.port ?? 5432,
     ...(config.database ? { database: config.database } : {}),
@@ -91,18 +93,21 @@ function readPage(cursor: Cursor, limit: number): Promise<{ rows: Array<Record<s
   });
 }
 
-export async function openPostgres(config: HostSessionConfig): Promise<DriverSession> {
+export async function openPostgres(config: HostSessionConfig, connect?: () => Duplex): Promise<DriverSession> {
   let ssl = pgSsl(config);
-  let client = new pg.Client(clientConfig(config, ssl));
+  let client = new pg.Client(clientConfig(config, ssl, connect));
   try {
     await client.connect();
   } catch (err) {
     // prefer: fall back to plain TCP when the server has no TLS.
     if (config.ssl?.mode !== 'prefer' || !/does not support SSL/i.test(String(err))) throw err;
     ssl = false;
-    client = new pg.Client(clientConfig(config, ssl));
+    client = new pg.Client(clientConfig(config, ssl, connect));
     await client.connect();
   }
+  let lost: (() => void) | undefined;
+  // An idle client whose socket drops emits 'error'; unheard, that would end the host.
+  client.on('error', () => lost?.());
   if (config.readOnly) await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
   const processId = (client as unknown as { processID?: number }).processID;
 
@@ -164,7 +169,7 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
 
     async cancel() {
       if (!processId) return false;
-      const side = new pg.Client(clientConfig(config, ssl));
+      const side = new pg.Client(clientConfig(config, ssl, connect));
       try {
         await side.connect();
         await side.query('SELECT pg_cancel_backend($1)', [processId]);
@@ -174,6 +179,10 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
       } finally {
         await side.end().catch(() => undefined);
       }
+    },
+
+    onLost(listener) {
+      lost = listener;
     },
 
     async estimateRows(sql) {

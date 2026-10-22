@@ -235,7 +235,7 @@ describe('SQL workspace on a saved connection', () => {
     expect(screen.queryByTestId('sql-password-refused')).toBeNull();
     fireEvent.click(screen.getByTestId('sql-password-connect'));
     await screen.findByTestId('sql-password-refused');
-    expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'wrong');
+    expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'wrong', 'database');
     expect(screen.getByTestId('sql-result-preview-error-connection-failed').textContent).toContain('Access denied');
     fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'right' } });
     fireEvent.click(screen.getByTestId('sql-password-connect'));
@@ -279,6 +279,34 @@ describe('SQL workspace on a saved connection', () => {
     await waitFor(() => expect(useWorkspaceSqlStore.getState().history).toHaveLength(1));
     expect(db.execute).not.toHaveBeenCalled();
     expect(duckRan).toContain('SELECT 1');
+  });
+
+  it('asks for the SSH password when the tunnel needs it', async () => {
+    db.catalog.mockResolvedValue({
+      ...catalog,
+      connections: [connection({ ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'password', secretMode: 'session' } })],
+    });
+    db.execute
+      .mockResolvedValueOnce(result({ status: 'connection-failed', columns: [], rows: [], rowCount: 0, fix: 'ssh-password-needed', errorMessage: 'The SSH sign-in needs its password.' }))
+      .mockResolvedValue(result());
+    openQuery('SELECT 1', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    expect(await screen.findByText('SSH password or key passphrase for orders-dev')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'tunnel' } });
+    fireEvent.click(screen.getByTestId('sql-password-connect'));
+    await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_dev', 'tunnel', 'ssh'));
+    await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(2));
+  });
+
+  it('asks for the typed name before a write when Confirm every write is on, outside production too', async () => {
+    db.catalog.mockResolvedValue({ ...catalog, connections: [connection({ confirmWrites: true })] });
+    openQuery('DELETE FROM orders WHERE id = 1', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    expect((await screen.findByTestId('sql-write-confirm')).textContent).toContain('Type orders-dev to run it.');
+    expect(screen.getByText('This statement writes to orders-dev')).toBeTruthy();
+    expect(db.execute).not.toHaveBeenCalled();
   });
 
   it('names the saved connection in the save popover', async () => {
@@ -369,7 +397,7 @@ describe('Explorer on a saved connection', () => {
     await screen.findByTestId('sql-password-refused');
     fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByTestId('sql-password-connect'));
-    await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'pw'));
+    await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'pw', 'database'));
     await waitFor(() => expect(screen.queryByTestId('sql-password-input')).toBeNull());
     expect(introspected('schemas')).toHaveLength(3);
     // MySQL keeps its functions and procedures under Routines.

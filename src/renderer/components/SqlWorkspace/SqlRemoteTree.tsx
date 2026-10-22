@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SqlDbConnectionView, SqlDbObjectInfo, SqlDbSchemaInfo } from '../../../shared/sqlDb';
+import type { SqlDbConnectionView, SqlDbObjectInfo, SqlDbSchemaInfo, SqlDbSecretKind } from '../../../shared/sqlDb';
 import { formatCompactNumber, formatNumber } from '../../i18n/formatNumber';
 import {
   objectKey,
@@ -23,7 +23,7 @@ export interface SqlRemoteTreeProps {
   /** The object the results area shows, if any. */
   selected?: SqlObjectRef | null;
   onOpenObject: (ref: SqlObjectRef) => void;
-  onEnterPassword: () => void;
+  onEnterPassword: (kind: SqlDbSecretKind) => void;
   /** Changes when the Explorer's Collapse all is pressed. */
   collapseSignal?: number;
 }
@@ -82,7 +82,7 @@ export function SqlRemoteTree({ connection, filter, selected, onOpenObject, onEn
         </p>
         <button
           type="button"
-          onClick={level.passwordNeeded ? onEnterPassword : retry}
+          onClick={level.passwordNeeded ? () => onEnterPassword(level.passwordNeeded!) : retry}
           data-testid={level.passwordNeeded ? 'sql-remote-enter-password' : 'sql-remote-retry'}
           className="focus-ring mt-1 rounded text-caption font-medium text-accent-fg hover:underline"
         >

@@ -460,7 +460,7 @@ export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite']
 // Closed enum for `failedStep` on `sql.connection_tested`: the first step
 // that failed, or `none`. Source of truth is `SQL_DB_TEST_STEPS` in
 // `src/shared/sqlDb.ts`. Mirrored on update-server with parity test.
-export const SQL_CONNECTION_TEST_STEPS_SET = new Set(['none', 'resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server']);
+export const SQL_CONNECTION_TEST_STEPS_SET = new Set(['none', 'resolve', 'policy', 'file', 'tcp', 'ssh', 'tls', 'auth', 'server']);
 // Closed enum for `format` on
 // `sql.table_imported`. The renderer-side source of truth is
 // `SUPPORTED_IMPORT_FORMATS` in `src/shared/sqlWorkspace.ts`; duplicated

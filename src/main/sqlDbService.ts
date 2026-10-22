@@ -1,8 +1,9 @@
 /**
  * Main's side of the desktop database client. The renderer names a
  * connection by id; main owns the catalog, reads the password from the
- * secret store, resolves and checks the host, re-checks the saved-connection
- * quota against the verified license tier, and enforces the production guard.
+ * secret store, resolves and checks the host (the first SSH hop through a
+ * tunnel), re-checks the saved-connection quota against the verified license
+ * tier, and enforces the production and Confirm every write guards.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -11,7 +12,7 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
-import { connectionSecretId, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
+import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
 import type {
   SqlDbCatalogView,
   SqlDbConnectionView,
@@ -21,6 +22,7 @@ import type {
   SqlDbRunOptions,
   SqlDbRunResult,
   SqlDbSaveResult,
+  SqlDbSecretKind,
   SqlDbTarget,
   SqlDbTestResult,
   SqlDbTestStep,
@@ -30,7 +32,8 @@ import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspac
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
 import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
-import type { HostCancelResult, HostExecuteResult, HostFetchResult, HostSessionConfig, HostTestResult } from './sqlHost/protocol';
+import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
+import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -42,7 +45,13 @@ export interface SqlDbServiceDeps {
   /** Protected path family (Lingua data, keychains, SSH keys) a file must not live in. */
   blockedPath: (filePath: string) => string | null;
   lookup?: LookupImpl;
+  /** SSH tunnels; a connection with one fails without it. */
+  ssh?: SshTargets;
 }
+
+/** The SSH password or key passphrase, next to the database password. */
+const sshSecretId = (connectionId: string) => `${connectionSecretId(connectionId)}.ssh`;
+
 
 /** Failures main detects before the host runs anything. */
 class GuardError extends Error {
@@ -83,7 +92,9 @@ function sameTarget(a: SqlConnectionDraft, b: SqlConnectionDraft): boolean {
     a.user === b.user &&
     a.path === b.path &&
     a.ssl?.mode === b.ssl?.mode &&
-    a.ssl?.caPath === b.ssl?.caPath
+    a.ssl?.caPath === b.ssl?.caPath &&
+    // A tunnel decides which machine answers for the database host.
+    sameSshTarget(a.ssh, b.ssh)
   );
 }
 
@@ -91,6 +102,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
   const lookup = deps.lookup ?? defaultLookup;
   /** Passwords asked once per session, and those of URL connections nobody saved. */
   const sessionPasswords = new Map<string, string>();
+  const sshSessionSecrets = new Map<string, string>();
   const adhoc = new Map<string, SqlConnectionV1>();
   const runs = new Map<string, { owner: number; connectionId: string }>();
 
@@ -104,7 +116,9 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     const hasPassword =
       sessionPasswords.has(entry.id) ||
       (entry.passwordMode === 'keychain' && (await deps.secrets.get(connectionSecretId(entry.id))) !== null);
-    return { ...entry, hasPassword };
+    const mode = entry.ssh?.secretMode;
+    const hasSshSecret = sshSessionSecrets.has(entry.id) || (mode === 'keychain' && (await deps.secrets.get(sshSecretId(entry.id))) !== null);
+    return { ...entry, hasPassword, ...(entry.ssh && mode !== 'none' ? { hasSshSecret } : {}) };
   }
 
   function pathProblem(draft: SqlConnectionDraft): boolean {
@@ -120,25 +134,61 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return kept;
   }
 
-  /** Resolves the host once and pins the address the driver connects to. */
-  async function resolve(entry: SqlConnectionV1 | SqlConnectionDraft): Promise<{ address: string; ms: number; isPrivate: boolean } | null> {
+  async function sshSecret(entry: SqlConnectionV1, explicit?: string): Promise<string | undefined> {
+    const mode = entry.ssh?.secretMode;
+    if (!mode || mode === 'none') return undefined;
+    if (explicit !== undefined) return explicit;
+    const kept = sshSessionSecrets.get(entry.id) ?? (mode === 'keychain' ? await deps.secrets.get(sshSecretId(entry.id)) : null);
+    if (kept === null || kept === undefined) throw new GuardError('connection-failed', 'ssh-password-needed', 'The SSH sign-in needs its password or key passphrase.');
+    return kept;
+  }
+
+  /** The host this machine connects to first: the first SSH hop, or the database itself. */
+  const firstHost = (entry: SqlConnectionV1 | SqlConnectionDraft): { host: string; port: number } | null => {
     if (entry.engine === 'sqlite' || !entry.host) return null;
+    const hop = entry.ssh ? (entry.ssh.jumps?.[0] ?? entry.ssh) : null;
+    return hop ? { host: hop.host, port: hop.port } : { host: entry.host, port: entry.port! };
+  };
+
+  /** Resolves the first host once and pins the address this machine connects to. */
+  async function resolve(entry: SqlConnectionV1 | SqlConnectionDraft): Promise<{ address: string; ms: number; isPrivate: boolean } | null> {
+    const target = firstHost(entry);
+    if (!target) return null;
     const start = performance.now();
     let addresses: Awaited<ReturnType<LookupImpl>>;
     try {
-      addresses = await lookup(entry.host);
+      addresses = await lookup(target.host);
     } catch (err) {
-      throw new GuardError('connection-failed', 'dns', `Could not resolve ${entry.host}: ${err instanceof Error ? err.message : String(err)}`);
+      throw new GuardError('connection-failed', 'dns', `Could not resolve ${target.host}: ${err instanceof Error ? err.message : String(err)}`);
     }
     const first = addresses[0];
-    if (!first) throw new GuardError('connection-failed', 'dns', `${entry.host} has no address.`);
-    return { address: first.address, ms: Math.round(performance.now() - start), isPrivate: isPrivateAddress(first.address) };
+    if (!first) throw new GuardError('connection-failed', 'dns', `${target.host} has no address.`);
+    const isPrivate = isPrivateAddress(first.address);
+    if (isPrivate && entry.allowPrivateHost === false) {
+      throw new GuardError('blocked-target', 'blocked-host', `${target.host} is a private or local address, which this connection does not allow.`);
+    }
+    return { address: first.address, ms: Math.round(performance.now() - start), isPrivate };
   }
 
-  async function configFor(entry: SqlConnectionV1, explicitPassword?: string): Promise<{ config: HostSessionConfig; resolved: Awaited<ReturnType<typeof resolve>> }> {
+  async function tunnelFor(entry: SqlConnectionV1, firstAddress: string, explicitSsh?: string): Promise<HostSshConfig> {
+    if (!deps.ssh) throw new GuardError('connection-failed', 'ssh-unreachable', 'SSH tunnels are not available.');
+    try {
+      return await deps.ssh.configFor(entry, firstAddress, await sshSecret(entry, explicitSsh));
+    } catch (err) {
+      if (err instanceof SshGuardError) throw new GuardError('connection-failed', err.fix, err.message);
+      throw err;
+    }
+  }
+
+  async function configFor(
+    entry: SqlConnectionV1,
+    explicitPassword?: string,
+    explicitSsh?: string
+  ): Promise<{ config: HostSessionConfig; resolved: Awaited<ReturnType<typeof resolve>> }> {
     if (pathProblem(entry)) throw new GuardError('blocked-target', 'blocked-path', 'This file is in a protected folder.');
     const resolved = await resolve(entry);
     const secret = await password(entry, explicitPassword);
+    const ssh = entry.ssh ? await tunnelFor(entry, resolved!.address, explicitSsh) : undefined;
     const config: HostSessionConfig = {
       connectionId: entry.id,
       engine: entry.engine,
@@ -146,7 +196,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       ...(entry.engine === 'sqlite'
         ? { path: realFile(entry.path!) }
         : {
-            address: resolved!.address,
+            // Through a tunnel, the bastion resolves the database host.
+            ...(ssh ? { ssh } : { address: resolved!.address }),
             servername: entry.host!,
             ...(entry.port !== undefined ? { port: entry.port } : {}),
             ...(entry.database ? { database: entry.database } : {}),
@@ -156,6 +207,27 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       ...(secret !== undefined ? { password: secret } : {}),
     };
     return { config, resolved };
+  }
+
+  /** A tunnel key inside ~/.ssh must be one the user chose or one already saved. */
+  async function keyRefused(draft: SqlConnectionDraft): Promise<boolean> {
+    const keyPath = draft.ssh?.keyPath;
+    if (!keyPath) return false;
+    if (!deps.ssh) return true;
+    const saved = (await deps.catalog.list()).flatMap((entry) => (entry.ssh?.keyPath ? [entry.ssh.keyPath] : []));
+    return !deps.ssh.keyAllowed(keyPath, saved);
+  }
+
+  /** Keeps a host key to trust once, and drops a session SSH secret the bastion refused. */
+  function sshFailure(entry: SqlConnectionV1, detail: HostError): SqlDbRunResult['fix'] | undefined {
+    deps.ssh?.remember(detail);
+    if (detail.fix === 'ssh-auth' || detail.fix === 'ssh-key') {
+      if (entry.ssh?.secretMode === 'session') {
+        sshSessionSecrets.delete(entry.id);
+        return 'ssh-password-needed';
+      }
+    }
+    return undefined;
   }
 
   async function catalogView(): Promise<SqlDbCatalogView> {
@@ -191,11 +263,32 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return (await deps.secrets.set(id, value)).ok;
   }
 
+  async function keepSshSecret(entry: SqlConnectionV1, value: string | undefined): Promise<boolean> {
+    const id = sshSecretId(entry.id);
+    const mode = entry.ssh?.secretMode ?? 'none';
+    if (mode === 'none') {
+      sshSessionSecrets.delete(entry.id);
+      await deps.secrets.delete(id);
+      return true;
+    }
+    if (value === undefined) {
+      if (mode === 'session') await deps.secrets.delete(id);
+      return true;
+    }
+    if (mode === 'session') {
+      sshSessionSecrets.set(entry.id, value);
+      await deps.secrets.delete(id);
+      return true;
+    }
+    sshSessionSecrets.delete(entry.id);
+    return (await deps.secrets.set(id, value)).ok;
+  }
+
   const service = {
     catalog: catalogView,
 
-    async save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined): Promise<SqlDbSaveResult> {
-      if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
+    async save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
+      if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
       const before = id === undefined ? null : await deps.catalog.get(id);
       if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
       // The old password goes before the new target is saved, so no run can pair the two.
@@ -203,26 +296,32 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         sessionPasswords.delete(before.id);
         await deps.secrets.delete(connectionSecretId(before.id));
       }
+      if (before && sshSecretValue === undefined && !sameSshTarget(before.ssh, draft.ssh)) {
+        sshSessionSecrets.delete(before.id);
+        await deps.secrets.delete(sshSecretId(before.id));
+      }
       const ceiling = dbConnectionCeilingForTier(await deps.tier());
       const saved = await deps.catalog.save(draft, id, Number.isFinite(ceiling) ? ceiling : undefined);
       if (saved === 'quota') return { ok: false, reason: 'quota' };
       if (!saved) return { ok: false, reason: 'not-found' };
       await deps.host.request({ type: 'disconnect', connectionId: saved.id }).catch(() => undefined);
-      if (!(await keepPassword(saved, secret))) return { ok: false, reason: 'secret-failed' };
+      if (!(await keepPassword(saved, secret)) || !(await keepSshSecret(saved, sshSecretValue))) return { ok: false, reason: 'secret-failed' };
       return { ok: true, connection: await view(saved) };
     },
 
     async remove(id: string): Promise<{ ok: boolean }> {
       adhoc.delete(id);
       sessionPasswords.delete(id);
+      sshSessionSecrets.delete(id);
       await deps.secrets.delete(connectionSecretId(id));
+      await deps.secrets.delete(sshSecretId(id));
       if (deps.host.isRunning()) await deps.host.request({ type: 'disconnect', connectionId: id }).catch(() => undefined);
       return { ok: await deps.catalog.remove(id) };
     },
 
     /** A connection for this session only, at any quota; its password stays in memory. */
-    async openAdhoc(draft: SqlConnectionDraft, secret: string | undefined): Promise<SqlDbSaveResult> {
-      if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
+    async openAdhoc(draft: SqlConnectionDraft, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
+      if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
       if (adhoc.size >= MAX_ADHOC) return { ok: false, reason: 'quota' };
       const stamp = new Date().toISOString();
       const entry: SqlConnectionV1 = {
@@ -230,19 +329,37 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         id: `adhoc_${randomUUID().replaceAll('-', '')}`,
         ...draft,
         passwordMode: draft.passwordMode === 'none' ? 'none' : 'session',
+        ...(draft.ssh ? { ssh: { ...draft.ssh, secretMode: draft.ssh.secretMode === 'none' ? 'none' : 'session' } } : {}),
         createdAt: stamp,
         updatedAt: stamp,
       };
       adhoc.set(entry.id, entry);
       if (secret !== undefined && entry.passwordMode === 'session') sessionPasswords.set(entry.id, secret);
+      if (sshSecretValue !== undefined && entry.ssh?.secretMode === 'session') sshSessionSecrets.set(entry.id, sshSecretValue);
       return { ok: true, connection: await view(entry) };
     },
 
     /** The password asked for a connection that keeps it only for the session. */
-    async sessionPassword(id: string, secret: string): Promise<{ ok: boolean }> {
-      if (!(await connection(id))) return { ok: false };
-      sessionPasswords.set(id, secret);
+    async sessionPassword(id: string, secret: string, kind: SqlDbSecretKind = 'database'): Promise<{ ok: boolean }> {
+      const entry = await connection(id);
+      if (!entry || (kind === 'ssh' && !entry.ssh)) return { ok: false };
+      (kind === 'ssh' ? sshSessionSecrets : sessionPasswords).set(id, secret);
       return { ok: true };
+    },
+
+    /** Trusts the key a hop presented in its last failed sign-in, and only that key. */
+    trustHostKey(host: string, port: number, fingerprint: string): Promise<boolean> {
+      return deps.ssh ? deps.ssh.trust(host, port, fingerprint) : Promise.resolve(false);
+    },
+
+    /** Lets a draft name a key the user just picked inside ~/.ssh. */
+    chooseSshKey(keyPath: string): void {
+      deps.ssh?.chooseKey(keyPath);
+    },
+
+    /** What ~/.ssh/config says about an alias and whether an agent answers; never a file's content. */
+    sshInfo(alias: string): Promise<SshInfo> {
+      return deps.ssh ? deps.ssh.info(alias) : Promise.resolve({ config: null, agent: { available: false } });
     },
 
     async test(target: SqlDbTarget): Promise<SqlDbTestResult> {
@@ -262,18 +379,34 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         steps.push({ id: 'server', status: 'failed', detail: 'Unknown connection.', fix: 'unknown' });
         return done(false);
       }
+      if ('draft' in target && (await keyRefused(target.draft))) {
+        steps.push({ id: 'ssh', status: 'failed', detail: 'Choose the key file again with Choose key.', fix: 'ssh-key' });
+        return done(false);
+      }
       let built: Awaited<ReturnType<typeof configFor>>;
       try {
-        built = await configFor(entry, 'draft' in target ? target.password : undefined);
+        built = 'draft' in target ? await configFor(entry, target.password, target.sshPassword) : await configFor(entry);
       } catch (err) {
         const guard = err instanceof GuardError ? err : new GuardError('connection-failed', 'unknown', String(err));
-        const id = guard.fix === 'dns' ? 'resolve' : guard.fix === 'blocked-path' ? (entry.engine === 'sqlite' ? 'file' : 'policy') : 'auth';
+        const id =
+          guard.fix === 'dns'
+            ? 'resolve'
+            : guard.fix === 'blocked-host'
+              ? 'policy'
+              : guard.fix === 'blocked-path'
+                ? entry.engine === 'sqlite'
+                  ? 'file'
+                  : 'policy'
+                : guard.fix?.startsWith('ssh-')
+                  ? 'ssh'
+                  : 'auth';
         steps.push({ id, status: 'failed', detail: guard.message, ...(guard.fix ? { fix: guard.fix } : {}) });
         return done(false);
       }
       const { config, resolved } = built;
+      const first = firstHost(entry);
       if (resolved) {
-        steps.push({ id: 'resolve', status: 'ok', ms: resolved.ms, detail: `${entry.host} → ${resolved.address}` });
+        steps.push({ id: 'resolve', status: 'ok', ms: resolved.ms, detail: `${first!.host} → ${resolved.address}` });
         steps.push({ id: 'policy', status: 'ok', ms: 0, detail: resolved.isPrivate ? 'private' : 'public' });
       }
       try {
@@ -281,7 +414,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (entry.engine === 'sqlite') {
           steps.push({ id: 'file', status: 'ok', ms: result.connectMs, detail: entry.path! });
         } else {
-          if (result.tcpMs !== undefined) steps.push({ id: 'tcp', status: 'ok', ms: result.tcpMs, detail: `${resolved!.address}:${entry.port}` });
+          if (result.tcpMs !== undefined) steps.push({ id: 'tcp', status: 'ok', ms: result.tcpMs, detail: `${resolved!.address}:${first!.port}` });
+          if (entry.ssh) {
+            const chain = [...(entry.ssh.jumps ?? []), entry.ssh].map((hop) => hop.host);
+            steps.push({ id: 'ssh', status: 'ok', ms: result.sshMs ?? 0, detail: [...chain, `${entry.host}:${entry.port}`].join(' → ') });
+          }
           const tls = entry.ssl?.mode ?? 'verify-full';
           // Postgres reports no certificate when prefer fell back to plain TCP.
           const plain = tls === 'disable' || (tls === 'prefer' && entry.engine === 'postgres' && !result.tls);
@@ -295,8 +432,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         steps.push({ id: 'server', status: 'ok', ms: result.serverMs, detail: `${result.serverVersion}${entry.readOnly ? ' · read-only' : ''}` });
         return done(true, result.serverVersion);
       } catch (err) {
-        const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
-        steps.push({ id: detail.step ?? 'server', status: 'failed', detail: detail.message, fix: detail.fix ?? 'unknown' });
+        const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        sshFailure(entry, detail);
+        const hostKey = detail.hostKey ? { host: detail.hostKey.host, port: detail.hostKey.port, fingerprint: detail.hostKey.fingerprint } : undefined;
+        steps.push({ id: detail.step ?? 'server', status: 'failed', detail: detail.message, fix: detail.fix ?? 'unknown', ...(hostKey ? { hostKey } : {}) });
         return done(false);
       }
     },
@@ -322,6 +461,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       // Production asks for the typed name before any write; lifting read-only always does.
       const confirmed = options.readWrite?.confirmName === entry.name;
       if (writes && entry.env === 'prod' && !confirmed) return fail('sql-error', 'Writes to production need the typed connection name.', 'confirm-needed');
+      if (writes && entry.confirmWrites && !confirmed) return fail('sql-error', 'Writes on this connection need the typed connection name.', 'confirm-needed');
       if (options.readWrite && !confirmed) return fail('sql-error', 'Type the connection name to run it read-write.', 'confirm-needed');
       const key = hostRunId(owner, runId);
       for (const [other, run] of runs) if (run.owner === owner && run.connectionId === connectionId) runs.delete(other);
@@ -363,6 +503,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (timedOut) return fail('timeout', 'Query exceeded timeout');
         const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
         if (/cancel|interrupt|query execution was interrupted/i.test(detail.message)) return fail('cancelled', detail.message);
+        const sshFix = sshFailure(entry, detail);
+        if (sshFix) return fail('connection-failed', detail.message, sshFix);
         // A refused session password is forgotten, so the next run asks again.
         if (detail.fix === 'auth' && entry.passwordMode === 'session') {
           sessionPasswords.delete(entry.id);
@@ -425,7 +567,9 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         return await deps.host.request<SqlDbIntrospectResult>({ type: 'introspect', config, request }, 30_000);
       } catch (err) {
         if (err instanceof GuardError) return { errorMessage: err.message, ...(err.fix ? { fix: err.fix } : {}) };
-        const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        const sshFix = sshFailure(entry, detail);
+        if (sshFix) return { errorMessage: detail.message, fix: sshFix };
         if (detail.fix === 'auth' && entry.passwordMode === 'session') {
           sessionPasswords.delete(entry.id);
           return { errorMessage: detail.message, fix: 'password-needed' };

@@ -23,6 +23,13 @@ release checklist.
   files in protected folders are refused, symlinks included
   (`tests/ipc/secrets.test.ts`, `tests/ipc/sqlDb.test.ts`,
   `tests/main/sqlDbService.test.ts`).
+- Confirm SSH passwords and key passphrases (`db.<id>.ssh`) never reach the
+  renderer, private key contents go only to the SQL host, the `~/.ssh`
+  exception covers only tunnel keys the user picked, the ssh config names or
+  a saved connection holds, a host key of another type than a known one is
+  refused, `sql-db:trust-host-key` trusts only the key a hop presented in its
+  last failed sign-in, and a tunnel opens no local port (`tests/main/sqlSsh/sshTrust.test.ts`,
+  `tests/main/sqlSsh/sshTargets.test.ts`, `tests/main/sqlHost/tunnel.test.ts`).
 
 ## Runners
 
@@ -292,9 +299,9 @@ pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
 cannot see, and is wired as a blocking step into both `ci.yml` and
 `release.yml`.
 
-**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — eight
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — nine
 packages in this repository, including the database drivers `pg`, `pg-cursor`
-and `mysql2`, which stay external to the SQL host bundle and load from
+and `mysql2` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
 `node_modules` in the packaged app. But Vite *bundles* the main and preload graphs, so
 any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
 ships to users regardless of how it is declared. Two such packages are

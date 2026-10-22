@@ -1,5 +1,6 @@
 /** MySQL and MariaDB through `mysql2`: one streamed query, paused between pages. */
 
+import type { Duplex } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import net from 'node:net';
 import mysql from 'mysql2';
@@ -56,14 +57,14 @@ function sslOptions(config: HostSessionConfig): ConnectionOptions['ssl'] {
   return { ...files, rejectUnauthorized: true, verifyIdentity: ssl.mode === 'verify-full' };
 }
 
-function options(config: HostSessionConfig, ssl: ConnectionOptions['ssl']): ConnectionOptions {
+function options(config: HostSessionConfig, ssl: ConnectionOptions['ssl'], socket?: () => Duplex): ConnectionOptions {
   const port = config.port ?? 3306;
   const host = config.servername ?? config.address ?? 'localhost';
   return {
-    // The hostname drives SNI and the identity check; the socket goes to the pinned address.
+    // The hostname drives SNI and the identity check; the socket goes to the pinned address, or is a tunnel channel.
     host,
     port,
-    ...(config.address ? { stream: () => net.connect({ host: config.address!, port }) } : {}),
+    ...(socket ? { stream: socket } : config.address ? { stream: () => net.connect({ host: config.address!, port }) } : {}),
     ...(config.database ? { database: config.database } : {}),
     ...(config.user ? { user: config.user } : {}),
     ...(config.password !== undefined ? { password: config.password } : {}),
@@ -179,20 +180,23 @@ function stream(connection: Connection, sql: string, kill: () => Promise<boolean
   });
 }
 
-export async function openMysql(config: HostSessionConfig): Promise<DriverSession> {
+export async function openMysql(config: HostSessionConfig, socket?: () => Duplex): Promise<DriverSession> {
   let ssl = sslOptions(config);
   let connection: Connection;
   try {
-    connection = await connect(options(config, ssl));
+    connection = await connect(options(config, ssl, socket));
   } catch (err) {
     if (config.ssl?.mode !== 'prefer' || !/does not support secure connection/i.test(String(err))) throw err;
     ssl = undefined;
-    connection = await connect(options(config, ssl));
+    connection = await connect(options(config, ssl, socket));
   }
+  let lost: (() => void) | undefined;
+  // A fatal error with no command waiting is emitted; unheard, that would end the host.
+  connection.on('error', () => lost?.());
   if (config.readOnly) await query(connection, 'SET SESSION TRANSACTION READ ONLY');
 
   async function killQuery(): Promise<boolean> {
-    const side = await connect(options(config, ssl)).catch(() => null);
+    const side = await connect(options(config, ssl, socket)).catch(() => null);
     if (!side) return false;
     try {
       await query(side, `KILL QUERY ${Number(connection.threadId)}`);
@@ -243,6 +247,10 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
     },
 
     cancel: killQuery,
+
+    onLost(listener) {
+      lost = listener;
+    },
 
     async estimateRows(sql) {
       // MySQL refuses EXPLAIN of a write in a read-only transaction, though EXPLAIN runs nothing; a

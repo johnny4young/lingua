@@ -4,7 +4,8 @@ import type { SqlDbTestResult } from '../../../shared/sqlDb';
 /** Replaces every occurrence of each secret-ish value with a placeholder. */
 function scrub(text: string, values: Array<[string | undefined, string]>): string {
   let out = text;
-  for (const [value, label] of values) {
+  // Longest first, so a host inside another name (db in db-bastion) does not leave the rest behind.
+  for (const [value, label] of [...values].sort((a, b) => (b[0]?.length ?? 0) - (a[0]?.length ?? 0))) {
     if (value && value.length >= 2) out = out.split(value).join(label);
   }
   return out;
@@ -12,7 +13,8 @@ function scrub(text: string, values: Array<[string | undefined, string]>): strin
 
 /**
  * The plain-text diagnostics Copy puts on the clipboard: every step with its
- * timing and detail, with host, address, user, database and file path replaced.
+ * timing and detail, with hosts, addresses, users, database and file paths
+ * replaced, the SSH tunnel's included.
  */
 export function buildTestReport(
   result: SqlDbTestResult,
@@ -29,6 +31,13 @@ export function buildTestReport(
     [draft.user, '<user>'],
     [draft.database, '<database>'],
     [draft.path, '<file>'],
+    [draft.ssh?.keyPath, '<file>'],
+    [draft.ssh?.host, '<ssh host>'],
+    [draft.ssh?.user, '<ssh user>'],
+    ...(draft.ssh?.jumps ?? []).flatMap((hop): Array<[string, string]> => [
+      [hop.host, '<jump host>'],
+      [hop.user, '<ssh user>'],
+    ]),
   ];
   const lines = [
     `Lingua · ${draft.engine} · ${result.ok ? 'connected' : 'failed'} · ${result.totalMs} ms`,

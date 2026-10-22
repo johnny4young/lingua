@@ -23,6 +23,7 @@ import { createSecretStore, resolveSecretsDir } from './secretStore';
 import { registerSqlDbHandlers } from './ipc/sqlDb';
 import { createSqlDbService } from './sqlDbService';
 import { createConnectionCatalog, resolveConnectionCatalogPath } from './sqlConnectionCatalog';
+import { createSystemSshTargets } from './sqlSsh/sshTargets';
 import { disposeSqlHost, sqlHost } from './sqlHostProcess';
 import { licenseTier } from './licenseTier';
 import { blockedPathFamily } from './ipc/permissions';
@@ -382,6 +383,7 @@ function registerPrimaryInstance() {
           host: sqlHost,
           tier: async () => licenseTier((await licenseRuntime).getSnapshot()),
           blockedPath: blockedPathFamily,
+          ssh: createSystemSshTargets(userDataDir, blockedPathFamily),
         }),
         blockedPathFamily
       );

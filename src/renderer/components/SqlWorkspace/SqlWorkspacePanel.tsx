@@ -729,6 +729,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         <SqlPasswordPrompt
           name={runner.passwordPrompt.connectionName}
           refused={runner.passwordPrompt.refused}
+          kind={runner.passwordPrompt.kind}
           onSubmit={(password) => {
             const connectionId = runner.passwordPrompt?.connectionId;
             void runner.submitPassword(password).then(() => {

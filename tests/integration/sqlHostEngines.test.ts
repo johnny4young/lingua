@@ -4,13 +4,16 @@
  * (Docker locally, service containers in CI); skipped otherwise.
  */
 
-import { afterAll, describe, expect, it } from 'vitest';
+import net, { type AddressInfo } from 'node:net';
+import { Server, utils } from 'ssh2';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createSqlHost } from '../../src/main/sqlHost/host';
 import { openMysql } from '../../src/main/sqlHost/mysql';
 import { openPostgres } from '../../src/main/sqlHost/postgres';
 import type { HostRequest, HostSessionConfig } from '../../src/main/sqlHost/protocol';
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
 import type { SqlDbIntrospectResult } from '../../src/shared/sqlDb';
+import { sshFingerprint } from '../../src/main/sqlSsh/knownHosts';
 
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite });
 afterAll(() => host.dispose());
@@ -291,3 +294,80 @@ for (const [engine, url] of [
     });
   });
 }
+
+/** The same servers behind an in-process SSH bastion, as a tunnelled connection reaches them. */
+describe.skipIf(!process.env.LINGUA_TEST_PG_URL && !process.env.LINGUA_TEST_MYSQL_URL)('through an SSH tunnel', () => {
+  const hostKey = utils.generateKeyPairSync('ed25519');
+  const fingerprint = sshFingerprint(Buffer.from(hostKey.public.split(' ')[1]!, 'base64'));
+  let sshPort = 0;
+  let bastion: Server;
+  const forwarded: string[] = [];
+  const signedIn = new Set<{ end: () => void }>();
+
+  beforeAll(async () => {
+    bastion = new Server({ hostKeys: [hostKey.private] }, (client) => {
+      client.on('error', () => undefined);
+      signedIn.add(client);
+      client.on('close', () => signedIn.delete(client));
+      client.on('authentication', (ctx) => (ctx.method === 'password' && ctx.password === 'tunnel' ? ctx.accept() : ctx.reject(['password'])));
+      client.on('ready', () =>
+        client.on('tcpip', (accept, reject, info) => {
+          forwarded.push(`${info.destIP}:${info.destPort}`);
+          const upstream = net.connect(info.destPort, info.destIP);
+          upstream.once('error', () => reject?.());
+          upstream.once('connect', () => {
+            const channel = accept();
+            channel.pipe(upstream).pipe(channel);
+          });
+        })
+      );
+    });
+    await new Promise<void>((resolve) => bastion.listen(0, '127.0.0.1', resolve));
+    sshPort = (bastion.address() as AddressInfo).port;
+  });
+  afterAll(() => bastion.close());
+
+  for (const [engine, url] of [
+    ['postgres', process.env.LINGUA_TEST_PG_URL],
+    ['mysql', process.env.LINGUA_TEST_MYSQL_URL],
+  ] as const) {
+    it.runIf(Boolean(url))(`${engine}: tests, runs and pages a result through the bastion`, async () => {
+      forwarded.length = 0;
+      const direct = configFrom(url, engine, `${engine}-tunnel`)!;
+      const { address: _address, ...rest } = direct;
+      const config: HostSessionConfig = {
+        ...rest,
+        servername: 'db.behind.bastion',
+        ssh: {
+          hops: [{ host: '127.0.0.1', port: sshPort, user: 'deploy', known: [{ type: 'ssh-ed25519', fingerprint }], label: { host: 'bastion.test', port: sshPort } }],
+          auth: 'password',
+          password: 'tunnel',
+          target: { host: direct.address!, port: direct.port! },
+        },
+      };
+      const tested = await ok<{ tcpMs: number; sshMs: number; serverVersion: string }>({ type: 'test', config });
+      expect(tested.sshMs).toBeGreaterThanOrEqual(0);
+      const first = await ok<{ rows: unknown[]; hasMore: boolean }>({
+        type: 'execute',
+        config,
+        runId: `${engine}-t1`,
+        sql: engine === 'postgres' ? 'SELECT g FROM generate_series(1, 50) g' : 'WITH RECURSIVE g(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM g WHERE n < 50) SELECT n FROM g',
+        readWrite: false,
+        window: { maxRows: 20, maxBytes: 256 * 1024 },
+      });
+      expect(first.rows).toHaveLength(20);
+      expect(first.hasMore).toBe(true);
+      expect((await ok<{ rows: unknown[] }>({ type: 'fetch', runId: `${engine}-t1`, limit: 100, maxBytes: 1e9 })).rows).toHaveLength(30);
+      await ok({ type: 'introspect', config, request: { level: 'schemas' } });
+      expect(forwarded.every((target) => target === `${direct.address}:${direct.port}`)).toBe(true);
+      // The bastion drops an idle session: the host lives on and the next run signs in again.
+      for (const client of signedIn) client.end();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const again = await ok<{ rows: unknown[] }>({ type: 'execute', config, runId: `${engine}-t2`, sql: 'SELECT 1 AS one', readWrite: false, window: { maxRows: 5, maxBytes: 1e6 } });
+      expect(again.rows).toHaveLength(1);
+      expect(await send({ type: 'test', config: { ...config, ssh: { ...config.ssh!, password: 'wrong' } } })).toMatchObject({ ok: false, error: { step: 'ssh', fix: 'ssh-auth' } });
+      await ok({ type: 'disconnect', connectionId: `${engine}-tunnel` });
+    });
+  }
+});
+
