@@ -7,7 +7,7 @@
 
 import type { SqlEngineKind } from './sqlConnections';
 
-export type SqlFormatterLanguage = 'duckdb' | 'postgresql' | 'mysql' | 'sqlite';
+type SqlFormatterLanguage = 'duckdb' | 'postgresql' | 'mysql' | 'sqlite';
 
 export interface SqlDialect {
   readonly engine: SqlEngineKind;

@@ -1,7 +1,7 @@
 import type { SqlRemoteEngine } from '../../../shared/sqlConnections';
 import type { SqlDbObjectInfo, SqlDbObjectKind } from '../../../shared/sqlDb';
 
-export type SqlRemoteGroupId = 'tables' | 'views' | 'matviews' | 'functions' | 'routines' | 'sequences' | 'extensions';
+type SqlRemoteGroupId = 'tables' | 'views' | 'matviews' | 'functions' | 'routines' | 'sequences' | 'extensions';
 
 /** The groups each engine has, in tree order. MySQL calls its functions and procedures routines. */
 const ENGINE_GROUPS: Readonly<Record<SqlRemoteEngine, ReadonlyArray<{ id: SqlRemoteGroupId; kinds: ReadonlyArray<SqlDbObjectKind> }>>> = {
