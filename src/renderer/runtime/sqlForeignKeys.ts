@@ -24,7 +24,8 @@ export interface SqlTableForeignKeys {
 const sqlText = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 /** Lists arrive as arrays, Arrow vectors or JSON text depending on the path. */
-function stringList(value: unknown): string[] {
+/** A DuckDB list column as strings, whichever shape the engine returned it in. */
+export function stringList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String);
   if (value && typeof value === 'object' && 'toArray' in value && typeof value.toArray === 'function') {
     return Array.from(value.toArray() as Iterable<unknown>, String);

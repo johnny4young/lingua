@@ -3,7 +3,35 @@
 import type { Duplex } from 'node:stream';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
+import { ROW_EDIT_BUDGET_MS, type RowEditFailure, type RowEditStatement } from '../../shared/sqlRowEdits';
 import type { HostError, HostSessionConfig } from './protocol';
+
+/** An edit transaction that rolled back: a change that would touch no row or several, or one past its budget. */
+export class EditFailedError extends Error {
+  constructor(readonly failure: RowEditFailure) {
+    super(
+      failure.kind === 'conflict'
+        ? `Change ${failure.change} would touch ${failure.touched} rows instead of one: the table changed since it was read, so nothing was saved.`
+        : 'Applying the changes took too long, so nothing was saved.'
+    );
+  }
+}
+
+/** Seconds an edit waits on another session's lock before its transaction rolls back. */
+export const EDIT_LOCK_WAIT_S = 10;
+
+/** Throws once an edit transaction runs past its budget, so it rolls back instead of committing after main gave up. */
+export function editDeadline(now: () => number = Date.now): () => void {
+  const end = now() + ROW_EDIT_BUDGET_MS;
+  return () => {
+    if (now() > end) throw new EditFailedError({ kind: 'too-slow' });
+  };
+}
+
+/** Checks one statement's row count inside an edit transaction. */
+export function expectOneRow(index: number, touched: number | null | undefined): void {
+  if (touched !== 1) throw new EditFailedError({ kind: 'conflict', change: index + 1, touched: Number(touched ?? 0) });
+}
 
 export interface DriverRows {
   columns: SqlColumnMetadata[];
@@ -24,6 +52,8 @@ export interface DriverSession {
   tls?(): { subject?: string; validTo?: string } | undefined;
   /** One level of the catalog, read with the engine's own catalog queries. */
   introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
+  /** Runs every statement in one transaction; each must touch exactly one row, or all of them roll back. */
+  applyEdits(statements: ReadonlyArray<RowEditStatement>): Promise<void>;
   /** Calls `listener` when the connection drops on its own, as when its tunnel closes. */
   onLost?(listener: () => void): void;
   close(): Promise<void>;

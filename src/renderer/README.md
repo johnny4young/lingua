@@ -57,7 +57,11 @@ Saved database connections run through
 time to the desktop SQL host over `window.lingua.db` and pages the rest of a
 result through the same `SqlResultCursor`; the bridge is absent on web. Anything
 that re-runs a result on DuckDB (Profile, Save as table, full export) checks the
-response's `engine` first.
+response's `engine` first. Staged row edits on an Explorer table (Labs) keep
+their state in [`hooks/useSqlRowEdits.ts`](hooks/useSqlRowEdits.ts), with the
+overlay rows and change set in `components/SqlWorkspace/sqlRowEditModel.ts`;
+Commit goes through `window.lingua.db.applyEdits` on a connection and
+[`runtime/sqlLocalEdits.ts`](runtime/sqlLocalEdits.ts) on Local.
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`
 and keeps its `app-chrome` landmarks: brand and file on the left, then
@@ -653,7 +657,8 @@ collection state:
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
   Export dialog's Save as table, Send to Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
-  table previews (on a connection too), and on Local foreign-key follow and
+  table previews (on a connection too), with Edit table rows on the table's
+  edit target or why it is read-only, and on Local foreign-key follow and
   back and Referenced by counts.
   [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
   owns the picker, the connection sheet and the Connections manager (the

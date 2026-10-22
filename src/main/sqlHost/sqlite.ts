@@ -5,7 +5,7 @@
 
 import { accessSync, constants } from 'node:fs';
 import { constants as sqlite, DatabaseSync, type StatementSync } from 'node:sqlite';
-import type { DriverRows, DriverSession } from './driver';
+import { expectOneRow, type DriverRows, type DriverSession } from './driver';
 import type { HostSessionConfig } from './protocol';
 import { introspectSqlite } from './sqliteCatalog';
 
@@ -94,6 +94,18 @@ export async function openSqlite(config: HostSessionConfig): Promise<DriverSessi
     },
 
     cancel: async () => false,
+
+    async applyEdits(statements) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        for (const [index, statement] of statements.entries()) expectOneRow(index, Number(db.prepare(statement.sql).run(...statement.params).changes));
+        db.exec('COMMIT');
+      } catch (err) {
+        // SQLite may already have rolled back after a full disk or an I/O error.
+        if (db.isTransaction) db.exec('ROLLBACK');
+        throw err;
+      }
+    },
 
     async estimateRows() {
       return null;

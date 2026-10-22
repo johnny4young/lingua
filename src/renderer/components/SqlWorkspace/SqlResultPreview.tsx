@@ -32,7 +32,10 @@ import { SqlExportDialog, type SqlResultHandoffs } from './SqlExportDialog';
 import { copyToClipboard } from './sqlResultActions';
 import { filterRows, nextSortState, sortRows, type SqlSortState } from './sqlResultGrid';
 import { applyConditions, buildGridSql, visibleColumns, type SqlColumnLayout, type SqlFilterCondition } from './sqlResultFilters';
-import { SqlVirtualGrid, type SqlCellAction, type SqlGridCell } from './SqlVirtualGrid';
+import { SqlVirtualGrid, type SqlCellAction, type SqlGridCell, type SqlGridEditing } from './SqlVirtualGrid';
+import { SqlRowEditBar } from './SqlRowEditBar';
+import { addRow, canEditCell, overlayRows, stageCell, toggleDelete } from './sqlRowEditModel';
+import type { SqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { renderCell } from './sqlResultFormatters';
 import { SqlResultToolbar } from './SqlResultToolbar';
 import { SqlColumnRail } from './SqlColumnRail';
@@ -103,6 +106,8 @@ export interface SqlResultPreviewProps {
   onInsertPredicate?: (predicate: string) => void;
   /** Puts the grid's filters, sort and columns into the editor as SQL. */
   onApplySql?: (sql: string) => void;
+  /** Staged edits on an Explorer table, when Edit table rows is on. */
+  rowEdits?: SqlRowEdits;
 }
 
 type ResultBodyTab = 'table' | 'json' | 'profile';
@@ -135,6 +140,7 @@ export function SqlResultPreview({
   foreignKeys,
   onInsertPredicate,
   onApplySql,
+  rowEdits,
 }: SqlResultPreviewProps) {
   const { t, i18n } = useTranslation();
   const num = (value: number) => formatNumber(value, i18n.language);
@@ -216,11 +222,23 @@ export function SqlResultPreview({
     [response, more]
   );
   const columns = useMemo(() => (response ? response.columns : []), [response]);
+  const editTarget = rowEdits?.target ?? null;
+  const stagedEdits = rowEdits?.edits;
+  // Staged changes sit on top of the rows read; new rows come last.
+  const shownRows = useMemo(
+    () => (editTarget && stagedEdits ? overlayRows(loadedRows, editTarget, stagedEdits) : loadedRows),
+    [loadedRows, editTarget, stagedEdits]
+  );
   // Typing stays responsive while a large result is searched.
   const searchText = useDeferredValue(filter);
   const filteredRows = useMemo(
-    () => (loadedRows.length === 0 ? [] : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
-    [loadedRows, searchText, conditions, columns]
+    () => (shownRows.length === 0 ? [] : applyConditions(filterRows(shownRows, searchText), conditions, columns)),
+    [shownRows, searchText, conditions, columns]
+  );
+  // The rail describes the rows as read, not the staged changes.
+  const railRows = useMemo(
+    () => (shownRows === loadedRows ? filteredRows : applyConditions(filterRows(loadedRows, searchText), conditions, columns)),
+    [shownRows, loadedRows, filteredRows, searchText, conditions, columns]
   );
   const filteredSortedRows = useMemo(() => sortRows(filteredRows, sort), [filteredRows, sort]);
   // Rows on screen grow by one page per Load more; a new response starts over.
@@ -258,9 +276,30 @@ export function SqlResultPreview({
     [displayRows]
   );
 
+  const gridEditing = useMemo<SqlGridEditing | undefined>(
+    () =>
+      editTarget && rowEdits
+        ? {
+            canEdit: (row, column) => canEditCell(editTarget, row, column),
+            onEditCell: (row, column, value) => rowEdits.update((current) => stageCell(current, editTarget, row, column, value)),
+          }
+        : undefined,
+    [editTarget, rowEdits]
+  );
+
   const handleCellAction = (action: SqlCellAction, cell: SqlGridCell) => {
     const row = displayRows[cell.row];
     if (!row) return;
+    if (editTarget && rowEdits && (action === 'set-null' || action === 'delete-row' || action === 'duplicate-row')) {
+      rowEdits.update((current) =>
+        action === 'set-null'
+          ? stageCell(current, editTarget, row, cell.column, null)
+          : action === 'delete-row'
+            ? toggleDelete(current, editTarget, row)
+            : addRow(current, editTarget, row)
+      );
+      return;
+    }
     const value = row[cell.column];
     const isNull = value === null || value === undefined;
     if (action === 'filter' || action === 'exclude') {
@@ -440,6 +479,8 @@ export function SqlResultPreview({
         </div>
       ) : null}
 
+      {rowEdits && source?.origin === 'table' && response.status === 'success' ? <SqlRowEditBar edits={rowEdits} /> : null}
+
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
       response.status === 'engine-load-failed' ||
@@ -541,6 +582,7 @@ export function SqlResultPreview({
                   {...(foreignKeys
                     ? { onFollowLink: (column: string, value: unknown) => foreignKeys.onFollow(outgoingByColumn.get(column)!, value) }
                     : {})}
+                  {...(gridEditing ? { editing: gridEditing } : {})}
                 />
               )
             ) : hasResultBody && loadedRows.length > 0 && filteredCount === 0 ? (
@@ -573,7 +615,7 @@ export function SqlResultPreview({
             />
           ) : showGridChrome && showRail && displayRows.length > 0 ? (
             // Load order, not the sort: a sort changes neither the stats nor which rows a sampled rail reads.
-            <SqlColumnRail columns={shownColumns} rows={filteredRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
+            <SqlColumnRail columns={shownColumns} rows={railRows} {...(onInsertPredicate ? { onInsert: onInsertPredicate } : {})} />
           ) : null}
         </div>
       )}

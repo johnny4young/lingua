@@ -15,7 +15,9 @@ import { dbConnectionCeilingForTier } from '../shared/entitlements';
 import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
 import type {
   SqlDbCatalogView,
+  SqlDbApplyResult,
   SqlDbConnectionView,
+  SqlDbEditTable,
   SqlDbFetchResult,
   SqlDbIntrospect,
   SqlDbIntrospectResult,
@@ -35,6 +37,7 @@ import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
+import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -642,6 +645,41 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (sshFix) return { errorMessage: detail.message, fix: sshFix };
         if (passwordRefused(entry, detail)) return { errorMessage: detail.message, fix: 'password-needed' };
         return { errorMessage: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
+      }
+    },
+
+    /**
+     * Staged edits on one table, in one transaction on their own connection.
+     * Main reads the table's columns and primary key itself and builds the SQL
+     * from the change set, so the renderer chooses values, never statements.
+     */
+    async applyEdits(connectionId: string, target: SqlDbEditTable, changes: RowEditChanges, confirmName?: string): Promise<SqlDbApplyResult> {
+      const entry = await connection(connectionId);
+      if (!entry) return { ok: false, reason: 'failed', message: 'Unknown connection.' };
+      if (entry.readOnly) return { ok: false, reason: 'read-only' };
+      if (entry.env === 'prod') return { ok: false, reason: 'production' };
+      if (entry.confirmWrites && confirmName !== entry.name) return { ok: false, reason: 'confirm-needed' };
+      try {
+        const { config } = await configFor(entry);
+        const detail = await deps.host.request<SqlDbIntrospectResult>(
+          { type: 'introspect', config, request: { level: 'detail', schema: target.schema, name: target.name, kind: 'table' } },
+          30_000
+        );
+        const columns = detail.detail?.columns ?? [];
+        const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
+        if (primaryKey.length === 0) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
+        const table: RowEditTable = { engine: entry.engine, schema: target.schema, name: target.name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } };
+        if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
+        const result = await deps.host.request<{ applied: number }>({ type: 'apply-edits', config, statements: rowEditStatements(table, changes, false) }, ROW_EDIT_BUDGET_MS * 2);
+        await keepAsked(entry, config);
+        return { ok: true, applied: result.applied };
+      } catch (err) {
+        if (err instanceof GuardError) return { ok: false, reason: 'failed', message: err.message, ...(err.fix ? { fix: err.fix } : {}) };
+        const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        const sshFix = sshFailure(entry, detail);
+        if (sshFix) return { ok: false, reason: 'failed', message: detail.message, fix: sshFix };
+        if (passwordRefused(entry, detail)) return { ok: false, reason: 'failed', message: detail.message, fix: 'password-needed' };
+        return { ok: false, reason: 'failed', message: detail.message, ...(detail.fix ? { fix: detail.fix } : {}), ...(detail.edit ? { edit: detail.edit } : {}) };
       }
     },
 

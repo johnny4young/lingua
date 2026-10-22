@@ -28,14 +28,14 @@ describe('sql-db IPC handlers', () => {
   beforeEach(() => {
     handlers.clear();
     service = Object.fromEntries(
-      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner', 'chooseSshKey', 'exportCatalog', 'offerImportedTunnels'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
+      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner', 'chooseSshKey', 'exportCatalog', 'offerImportedTunnels', 'applyEdits'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
     );
     registerSqlDbHandlers(service as unknown as SqlDbService, (file) => (file.includes('/.ssh/') ? 'ssh' : null));
   });
 
   it('registers every channel', () => {
     expect([...handlers.keys()].sort()).toEqual(
-      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'introspect', 'trust-host-key', 'ssh-info', 'pick-file', 'import-file', 'import-env', 'export'].map((name) => `sql-db:${name}`).sort()
+      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'introspect', 'trust-host-key', 'ssh-info', 'pick-file', 'import-file', 'import-env', 'export', 'apply-edits'].map((name) => `sql-db:${name}`).sort()
     );
   });
 
@@ -100,6 +100,26 @@ describe('sql-db IPC handlers', () => {
     await expect(invoke('sql-db:ssh-info', '../../etc/passwd')).rejects.toThrow('Invalid');
     await invoke('sql-db:ssh-info', 'bastion');
     expect(service.sshInfo).toHaveBeenCalledWith('bastion');
+  });
+
+  it('passes a parsed change set for staged edits and refuses anything else', async () => {
+    const changes = { updates: [{ key: { id: '1' }, values: { city: null } }], deletes: [], inserts: [] };
+    await invoke('sql-db:apply-edits', 'c_1', { schema: 'public', name: 'orders', extra: 1 }, { ...changes, sql: 'DROP TABLE x' }, 'orders-prod');
+    expect(service.applyEdits).toHaveBeenCalledWith('c_1', { schema: 'public', name: 'orders' }, changes, 'orders-prod');
+    for (const bad of [
+      { ...changes, updates: [{ key: { id: 1 }, values: {} }] },
+      { ...changes, updates: [{ key: JSON.parse('{"__proto__": "x"}'), values: {} }] },
+      { ...changes, deletes: Array.from({ length: 1001 }, () => ({ key: { id: '1' } })) },
+      { updates: [], deletes: Array.from({ length: 600 }, () => ({ key: { id: '1' } })), inserts: Array.from({ length: 401 }, () => ({ values: {} })) },
+      { updates: [], deletes: [], inserts: Array.from({ length: 17 }, () => ({ values: { note: 'x'.repeat(1024 * 1024) } })) },
+      { updates: [], deletes: [] },
+      null,
+    ]) {
+      await expect(invoke('sql-db:apply-edits', 'c_1', { schema: 'public', name: 'orders' }, bad)).rejects.toThrow('Invalid');
+    }
+    await expect(invoke('sql-db:apply-edits', 'c_1', { schema: '', name: 'orders' }, changes)).rejects.toThrow('Invalid');
+    await expect(invoke('sql-db:apply-edits', '../c', { schema: 'public', name: 'orders' }, changes)).rejects.toThrow('Invalid');
+    expect(service.applyEdits).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a picked file in a protected folder', async () => {

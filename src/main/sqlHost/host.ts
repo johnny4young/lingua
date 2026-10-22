@@ -7,7 +7,8 @@
 import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
-import { classifyConnectError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
+import type { RowEditStatement } from '../../shared/sqlRowEdits';
+import { classifyConnectError, EditFailedError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
 import type {
   HostCancelResult,
@@ -77,6 +78,8 @@ function probeTcp(address: string, port: number): Promise<number> {
 }
 
 const catalogSessionId = (connectionId: string) => `${connectionId}#catalog`;
+/** Staged edits run on their own connection, so they never join a transaction the user opened in the editor. */
+const editsSessionId = (connectionId: string) => `${connectionId}#edits`;
 
 /** The config a driver gets behind a tunnel: no SSH settings and no address, since the tunnel makes its sockets. */
 function behindTunnel(config: HostSessionConfig): HostSessionConfig {
@@ -311,6 +314,25 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     });
   }
 
+  async function applyEdits(config: HostSessionConfig, statements: RowEditStatement[]): Promise<{ applied: number }> {
+    const session = sessionFor({ ...config, connectionId: editsSessionId(config.connectionId) });
+    return serialize(session, async () => {
+      let driver: DriverSession;
+      try {
+        driver = await session.ready;
+      } catch (err) {
+        throw new HostRequestError(connectError(config, err));
+      }
+      try {
+        await driver.applyEdits(statements);
+      } catch (err) {
+        if (err instanceof EditFailedError) throw new HostRequestError({ message: err.message, edit: err.failure });
+        throw err;
+      }
+      return { applied: statements.length };
+    });
+  }
+
   async function handle(request: HostRequest): Promise<HostResponse> {
     try {
       let result: unknown;
@@ -337,9 +359,13 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
         case 'introspect':
           result = await introspect(request.config, request.request);
           break;
+        case 'apply-edits':
+          result = await applyEdits(request.config, request.statements);
+          break;
         case 'disconnect':
           await dropSession(request.connectionId);
           await dropSession(catalogSessionId(request.connectionId));
+          await dropSession(editsSessionId(request.connectionId));
           result = { disconnected: true };
           break;
       }

@@ -114,7 +114,7 @@ export function useSqlConnectionObjects({
       setObjectView({ connectionId, object, tab });
       const connection = findConnection(connectionId);
       if (tab === 'data' && connection && QUERYABLE_KINDS.has(object.kind)) {
-        const table = { name: `${object.schema}.${object.name}`, sqlName: object.name, schemaName: object.schema };
+        const table = { name: `${object.schema}.${object.name}`, sqlName: object.name, schemaName: object.schema, kind: object.kind === 'table' ? ('table' as const) : ('view' as const) };
         void tables.open(table, undefined, undefined, { connectionId, engine: connection.engine });
       } else {
         showTablePreview(null);

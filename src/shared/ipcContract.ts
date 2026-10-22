@@ -276,6 +276,10 @@ interface IpcInvokeContract {
   'sql-db:import-file': { args: [source: import('./sqlDb').SqlDbImportSource]; result: import('./sqlDb').SqlDbImportResult };
   'sql-db:import-env': { args: [rootId: string]; result: import('./sqlDb').SqlDbImportResult };
   'sql-db:export': { args: []; result: Awaited<ReturnType<import('./sqlDb').SqlDbBridge['exportCatalog']>> };
+  'sql-db:apply-edits': {
+    args: [connectionId: string, table: import('./sqlDb').SqlDbEditTable, changes: import('./sqlRowEdits').RowEditChanges, confirmName?: string];
+    result: import('./sqlDb').SqlDbApplyResult;
+  };
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
@@ -733,6 +737,7 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-db:import-file',
   'sql-db:import-env',
   'sql-db:export',
+  'sql-db:apply-edits',
   'env:snapshot',
   'http:execute',
   'http:cancel',

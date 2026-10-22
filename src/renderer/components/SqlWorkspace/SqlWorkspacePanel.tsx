@@ -59,7 +59,8 @@ import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
 import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
-import { keepsAskedSecret } from '../../stores/sqlConnectionsStore';
+import { findConnection, keepsAskedSecret } from '../../stores/sqlConnectionsStore';
+import { useSqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
 import { formatByteSize } from '../../i18n/formatNumber';
 import { sqlDialect } from '../../../shared/sqlDialect';
@@ -141,6 +142,11 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const explorerCatalog = useMemo(() => ({ ...catalog, tables: schemaTables }), [catalog, schemaTables]);
   const tables = useSqlTablePreview(queryTimeoutMs, schemaTables);
   const { preview: tablePreview, show: showTablePreview } = tables;
+  // After a commit the table is read again, from the same SQL, so its rows show what the database holds.
+  const rowEdits = useSqlRowEdits(tablePreview, (shown) => {
+    const engine = shown.connectionId ? findConnection(shown.connectionId)?.engine : undefined;
+    void tables.open(shown.table, shown.sql, shown.back, shown.connectionId && engine ? { connectionId: shown.connectionId, engine } : undefined);
+  });
 
   const activeQuery: SqlQueryV1 | undefined = useMemo(
     () => queries.find((q) => q.id === activeQueryId),
@@ -554,6 +560,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         {...(tablePreview && tables.foreignKeys ? { foreignKeys: tables.foreignKeys } : {})}
         {...(activeQuery ? { onInsertPredicate: handleInsertPredicate } : {})}
         {...((tablePreview || (!runSetResponse && safeResponseIndex === 0)) ? { onApplySql: handleEditInEditor } : {})}
+        {...(tablePreview?.edit ? { rowEdits } : {})}
       />
     );
 
@@ -726,6 +733,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       ) : null}
       {remote.connectionSheetElement}
       {runner.confirm ? <SqlWriteConfirmDialog confirm={runner.confirm} onResolve={runner.resolveConfirm} /> : null}
+      {rowEdits.confirm ? <SqlWriteConfirmDialog confirm={rowEdits.confirm} onResolve={rowEdits.resolveConfirm} /> : null}
       {runner.passwordPrompt ? (
         <SqlPasswordPrompt
           name={runner.passwordPrompt.connectionName}

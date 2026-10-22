@@ -38,6 +38,13 @@ release checklist.
   export holds no secret, is written 0600 and refuses symlinks and protected
   folders
   (`tests/main/sqlImport/`, `tests/ipc/sqlDb.test.ts`).
+- Confirm staged row edits reach main as a change set, not SQL; that main
+  refuses read-only and production connections and an unconfirmed commit with
+  Confirm every write, checks every key and column against its own read of the
+  table, binds every value, and that one statement touching any number of rows
+  but one rolls back the whole transaction (`tests/main/sqlDbService.test.ts`,
+  `tests/ipc/sqlDb.test.ts`, `tests/main/sqlHost/host.test.ts`,
+  `tests/shared/sqlRowEdits.test.ts`).
 
 ## Runners
 

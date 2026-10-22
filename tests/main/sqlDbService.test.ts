@@ -511,3 +511,57 @@ describe('SSH tunnels and safety switches', () => {
   });
 });
 
+
+describe('staged edits', () => {
+  const detail = (primaryKey: boolean) => ({
+    detail: {
+      columns: [
+        { name: 'id', type: 'integer', nullable: false, primaryKey },
+        { name: 'city', type: 'text', nullable: true },
+      ],
+    },
+  });
+  const changes = { updates: [{ key: { id: '7' }, values: { city: "O'Hare" } }], deletes: [], inserts: [] };
+  const respond = (primaryKey = true) => (body: Record<string, unknown>) => (body.type === 'introspect' ? detail(primaryKey) : body.type === 'apply-edits' ? { applied: 1 } : {});
+
+  it('builds the SQL in main from its own read of the primary key and applies it on its own request', async () => {
+    const { svc, sent } = service(respond());
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: true, applied: 1 });
+    expect(sent.find((body) => body.type === 'introspect')).toMatchObject({ request: { level: 'detail', schema: 'public', name: 'orders', kind: 'table' } });
+    expect(sent.find((body) => body.type === 'apply-edits')).toMatchObject({
+      statements: [{ sql: 'UPDATE "public"."orders" SET "city" = $1 WHERE "id" = $2', params: ["O'Hare", '7'] }],
+      config: { password: 'pw' },
+    });
+  });
+
+  it('never edits read-only or production connections, and asks the typed name when every write must be confirmed', async () => {
+    const { svc, sent } = service(respond());
+    const save = async (draft: typeof pg) => ((await svc.save(draft, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(await save({ ...pg, readOnly: true }), { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'read-only' });
+    expect(await svc.applyEdits(await save({ ...pg, name: 'p', env: 'prod' }), { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'production' });
+    const careful = await save({ ...pg, name: 'careful', confirmWrites: true });
+    expect(await svc.applyEdits(careful, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'confirm-needed' });
+    expect(sent.some((body) => body.type === 'apply-edits')).toBe(false);
+    expect(await svc.applyEdits(careful, { schema: 'public', name: 'orders' }, changes, 'careful')).toEqual({ ok: true, applied: 1 });
+  });
+
+  it('refuses a table without a primary key and a change keyed by anything but the whole key', async () => {
+    const keyless = service(respond(false));
+    const id = ((await keyless.svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await keyless.svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toEqual({ ok: false, reason: 'not-editable' });
+    const keyed = service(respond());
+    const other = ((await keyed.svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await keyed.svc.applyEdits(other, { schema: 'public', name: 'orders' }, { ...changes, updates: [{ key: { city: 'x' }, values: { city: 'y' } }] })).toEqual({ ok: false, reason: 'invalid' });
+    expect(keyed.sent.some((body) => body.type === 'apply-edits')).toBe(false);
+  });
+
+  it('says why when the transaction rolled back', async () => {
+    const { svc } = service((body) => {
+      if (body.type === 'introspect') return detail(true);
+      throw new SqlHostError({ message: 'Change 1 would touch 0 rows instead of one.', edit: { kind: 'conflict', change: 1, touched: 0 } });
+    });
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toMatchObject({ ok: false, reason: 'failed', edit: { kind: 'conflict', change: 1, touched: 0 } });
+  });
+});

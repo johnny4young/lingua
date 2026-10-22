@@ -49,6 +49,7 @@ import {
 } from '../../shared/sqlWorkspace';
 import { quoteSqlTableReference } from '../../shared/sqlQuote';
 import { splitSqlStatements } from '../../shared/sqlStatements';
+import type { RowEditFailure } from '../../shared/sqlRowEdits';
 import {
   buildImportStatements,
   readerSql,
@@ -1270,6 +1271,34 @@ export async function executeSqlScript(
     if (!outcomes[outcomes.length - 1]?.cursor) {
       await closeQuietly(opened.connection, !mayStillRun(outcomes[outcomes.length - 1]));
     }
+  }
+}
+
+/**
+ * Staged edits on one connection inside one transaction: each statement must
+ * touch exactly one row, or everything is rolled back and nothing changes.
+ */
+export async function runEditTransaction(statements: ReadonlyArray<string>): Promise<{ applied: number } | { errorMessage: string } | { edit: RowEditFailure }> {
+  const opened = await openConnection(performance.now());
+  if ('failure' in opened) return { errorMessage: opened.failure.errorMessage ?? 'The SQL engine could not start.' };
+  const { connection } = opened;
+  try {
+    await connection.query('BEGIN TRANSACTION');
+    for (const [index, statement] of statements.entries()) {
+      const touched = readCountValue((await connection.query(statement)).rows[0]?.['Count']);
+      if (touched !== 1) {
+        await connection.query('ROLLBACK').catch(() => undefined);
+        return { edit: { kind: 'conflict', change: index + 1, touched } };
+      }
+    }
+    await connection.query('COMMIT');
+    await checkpointIfPersistent(connection);
+    return { applied: statements.length };
+  } catch (err) {
+    await connection.query('ROLLBACK').catch(() => undefined);
+    return { errorMessage: errorMessageForUser(err, 'unknown') };
+  } finally {
+    await closeQuietly(connection, true);
   }
 }
 
