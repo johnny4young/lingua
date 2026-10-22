@@ -81,7 +81,7 @@ describe('production desktop bundle contract', () => {
     expect(sqlHost.build.lib).toMatchObject({ entry: 'src/main/sqlHost/hostEntry.ts', formats: ['cjs'] });
     expect(sqlHost.build.outDir).toBe('.vite/build');
     expect(sqlHost.build.rollupOptions.output).toMatchObject({ format: 'cjs', entryFileNames: 'sqlHost.js' });
-    expect(sqlHost.build.rollupOptions.external).toEqual(expect.arrayContaining(['pg', 'pg-cursor', 'mysql2', 'ssh2', 'node:sqlite']));
+    expect(sqlHost.build.rollupOptions.external).toEqual(expect.arrayContaining(['pg', 'pg-cursor', 'mysql2', 'ssh2', 'tedious', '@clickhouse/client', 'node:sqlite']));
   });
 
   it('preserves file-protocol renderer assets and repository environment defines', () => {

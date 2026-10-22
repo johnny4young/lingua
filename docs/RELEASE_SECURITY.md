@@ -42,8 +42,10 @@ release checklist.
   quoting, catalog names as parameters), that read-only holds on the server
   (rolled-back transaction on SQL Server, `readonly = 2` on ClickHouse), that
   `prefer` falls back to plain text only when the server says it cannot do
-  TLS, and that the packaged app loads both drivers
-  (`tests/integration/sqlHostServerEngines.test.ts`, `tests/shared/sqlDialect.test.ts`).
+  TLS (`tests/integration/sqlHostServerEngines.test.ts`,
+  `tests/main/sqlHost/driver.test.ts`, `tests/shared/sqlDialect.test.ts`). By
+  hand: a packaged build connects to each engine, since Electron's BoringSSL
+  words TLS errors differently from Node's OpenSSL.
 - Confirm staged row edits reach main as a change set, not SQL; that main
   refuses read-only and production connections and an unconfirmed commit with
   Confirm every write, checks every key and column against its own read of the
@@ -320,9 +322,9 @@ pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
 cannot see, and is wired as a blocking step into both `ci.yml` and
 `release.yml`.
 
-**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — nine
-packages in this repository, including the database drivers `pg`, `pg-cursor`
-and `mysql2` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — eleven
+packages in this repository, including the database drivers `pg`, `pg-cursor`,
+`mysql2`, `tedious` and `@clickhouse/client` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
 `node_modules` in the packaged app. But Vite *bundles* the main and preload graphs, so
 any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
 ships to users regardless of how it is declared. Two such packages are

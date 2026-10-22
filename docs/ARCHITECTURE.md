@@ -360,7 +360,8 @@ serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
 refuses a SQLite or certificate file on a network share or in a protected
 folder (checked as given and after resolving symlinks), estimates only a single query or DML statement
-(EXPLAIN inside a transaction that is always rolled back), and refuses
+(EXPLAIN inside a transaction that is always rolled back; SHOWPLAN on SQL
+Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
@@ -477,9 +478,11 @@ server enforces. A role that can only read is still the only hard guarantee. SQL
 
 A result comes back like Local's: a first window under the same row and byte
 caps, then pages read by run id through `sql-db:fetch`. Wide numbers, dates
-and JSON arrive as text and bytes as base64. Cancel uses `pg_cancel_backend`
-from a side connection on Postgres and `KILL QUERY` on MySQL, which also stops
-the server when a result is closed unread; SQLite cannot be interrupted and
+and JSON arrive as text and bytes as base64, except SQL Server decimals, which
+tedious hands over as numbers. Cancel uses `pg_cancel_backend` from a side
+connection on Postgres, `KILL QUERY` on MySQL, a TDS cancel on the SQL Server
+session and the dropped request plus `KILL QUERY` on ClickHouse, which also
+stops the server when a result is closed unread; SQLite cannot be interrupted and
 blocks the host while it runs, so a cancel the host does not answer within
 three seconds restarts it. Reading a run that a newer run on the same
 connection closed is an error, not an empty end. In the renderer,
@@ -489,12 +492,13 @@ keeps Local alone.
 
 The catalog is read one level at a time through `sql-db:introspect`: the
 schemas, one schema's objects, one schema's columns, or one object's detail
-(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite}Catalog.ts`
-pass names as bind parameters (server-side prepared statements on MySQL, so
+(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite,sqlserver,clickhouse}Catalog.ts`
+pass names as bind parameters (`@p1` on SQL Server, `{p1:String}` on ClickHouse) (server-side prepared statements on MySQL, so
 `NO_BACKSLASH_ESCAPES` cannot turn a name into SQL), or quoted for MySQL's
 `SHOW CREATE`, and cap a level at 5,000 schemas or objects or 20,000 columns,
 saying when it was cut. Each level reads inside a read-only transaction that is
-rolled back, stops after 25 seconds, and on Postgres pins `search_path` to
+rolled back (SQL Server bounds lock waits to 10 s instead, and ClickHouse reads
+with `readonly = 2` and `max_execution_time`), stops after 25 seconds, and on Postgres pins `search_path` to
 `pg_catalog, pg_temp`, so a function of the same name elsewhere on the path
 never runs; the host first closes the connection's open result. Main checks
 the level, the names (up to 256 characters), the kind and the routine

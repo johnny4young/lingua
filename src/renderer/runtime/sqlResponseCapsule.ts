@@ -9,7 +9,7 @@
  *     `'javascript'` / `'python'` / `'http'` so the consumer can
  *     render them with the right surface.
  *   - `tab.runtimeMode` and `environment.runner` are `'duckdb-wasm'`
- *     for Local, or `sql-postgres` / `sql-mysql` / `sql-sqlite` for a
+ *     for Local, or `sql-<engine>` (`sql-postgres`, `sql-sqlserver`…) for a
  *     saved connection. The connection itself (host, user, database,
  *     file) is never recorded.
  *   - `source.content` carries the user-authored query text verbatim.

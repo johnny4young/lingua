@@ -10,7 +10,7 @@
   "sqlWorkspace.connection.edit": "Editar {{name}}",
   "sqlWorkspace.connection.missingName": "Conexión no encontrada",
   "sqlWorkspace.connection.missing": "La conexión de esta consulta ya no existe. Elige una conexión en el selector para ejecutarla.",
-  "sqlWorkspace.connection.desktopEngines": "Postgres, MySQL, SQLite",
+  "sqlWorkspace.connection.desktopEngines": "Postgres, MySQL, SQL Server, ClickHouse, SQLite",
   "sqlWorkspace.connection.desktopOnly": "Solo escritorio",
   "sqlWorkspace.connection.desktopOnlyReason": "Los navegadores no pueden abrir una conexión a un servidor o archivo de base de datos. Usa Lingua Desktop para conectarte; Local DuckDB sigue funcionando aquí.",
   "sqlWorkspace.connection.savedUnlimited_one": "Guardadas · {{count}}",

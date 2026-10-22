@@ -30,6 +30,14 @@ describe('.env import', () => {
     expect(envCandidates(keys, '.env').found.map((candidate) => candidate.origin)).toEqual(['DIRECT_URL · .env', 'POSTGRES_URL_NON_POOLING · .env', 'HEROKU_POSTGRESQL_RED_URL · .env', 'PG_URI · .env']);
   });
 
+  it('reads SQL Server and ClickHouse URLs under their own key names', () => {
+    const text = ['MSSQL_URL=sqlserver://sql.internal;database=erp', 'CLICKHOUSE_URL=clickhouse://ch.internal:8123/events', 'CACHE_URL=redis://cache'].join('\n');
+    expect(envCandidates(text, '.env').found.map((candidate) => [candidate.origin, candidate.draft.engine, candidate.draft.port])).toEqual([
+      ['MSSQL_URL · .env', 'sqlserver', 1433],
+      ['CLICKHOUSE_URL · .env', 'clickhouse', 8123],
+    ]);
+  });
+
   it('names the environment from the file and leaves it unset for a plain .env', () => {
     expect(envCandidates('DATABASE_URL=postgres://db/a', '.env.development').found[0]!.draft.env).toBe('dev');
     expect(envCandidates('DATABASE_URL=postgres://db/a', '.env.staging').found[0]!.draft.env).toBe('staging');

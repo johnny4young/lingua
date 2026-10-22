@@ -202,12 +202,16 @@ The independent-projects job tests and typechecks both Workers and runs Wrangler
 The update Worker also runs a workerd startup/health/404 integration test: a
 successful dry-run bundle alone does not validate its exported entrypoints.
 
-The `sql-engines` job starts throwaway Postgres 16 and MySQL 8.4 service
-containers and runs `tests/integration/sqlHostEngines.test.ts` against them:
-the row window and paging, value types, server-side read-only, the EXPLAIN
-estimate, cancel and auth failures. Without `LINGUA_TEST_PG_URL` and
-`LINGUA_TEST_MYSQL_URL` the test skips, so locally point them at Docker
-containers to run it.
+The `sql-engines` job starts throwaway Postgres 16, MySQL 8.4, SQL Server
+2022 and ClickHouse 24.8 service containers and runs
+`tests/integration/sqlHostEngines.test.ts` and
+`tests/integration/sqlHostServerEngines.test.ts` against them: the row window
+and paging, value types, server-side read-only (a rolled-back transaction on
+SQL Server, `readonly = 2` on ClickHouse), the EXPLAIN estimate and SQL
+Server's plan, cancel, staged edits, SSH tunnels, the `prefer` fallback and
+auth failures. Without `LINGUA_TEST_PG_URL`, `LINGUA_TEST_MYSQL_URL`,
+`LINGUA_TEST_MSSQL_URL` and `LINGUA_TEST_CLICKHOUSE_URL` the tests skip, so
+locally point them at Docker containers to run them.
 
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
 filesystem permission regression, it executes the real
@@ -348,8 +352,8 @@ Use this order when automating:
 | ✅ | `TC-129` | `ELEC` | `developer` | Import a DBeaver `data-sources.json` and the `.env` of an open project; keep the defaults and Import; run a query on one | Connections already saved are marked and unchecked; Free stops at its limit; nothing shows a password; the first run asks for the password, and after it signs in a Keychain connection no longer asks |
 | ✅ | `TC-130` | `ELEC` | `developer` | With Edit table rows on, open a Postgres table with a primary key from the Explorer; edit a cell, delete a row, add one, Review SQL and Commit; then stage an edit on a row, delete that row outside the app, and Commit | The review lists one transaction: UPDATE and DELETE by the key, then the INSERT; Commit reports the count and reads the table again; the second Commit saves nothing, names the change that touched 0 rows and keeps the changes staged |
 | ✅ | `TC-131` | `ELEC` | `developer` | Open a Local table without a primary key, a view, and a table on a read-only connection; then turn on Confirm every write and Commit an edit | The Local table edits by rowid; the view and the read-only table say why they are read-only and offer no editing; Commit asks for the typed name before writing |
-| ✅ | `TC-132` | `ELEC` | `developer` | Save a SQL Server connection, open a table from the Explorer, edit a cell, Review SQL and Commit, then Explain a SELECT | The tree lists Tables, Views, Functions and Sequences under dbo; Data reads `SELECT TOP (100)`; the review binds the change in one transaction and Commit reads the table again; Explain shows the estimated plan without running the statement |
-| ✅ | `TC-133` | `ELEC` | `developer` | Save a ClickHouse connection on port 8123 with SSL off, open a table, then run an INSERT on it while it is read-only | Databases show as schemas with tables, views and materialized views; the grid shows wide integers as text and says the table is not edited row by row; the INSERT is refused by the server and allowed once confirmed |
+| ✅ | `TC-132` | `ELEC` | `developer` | With Edit table rows on, save a SQL Server connection, open a table from the Explorer, edit a cell, Review SQL and Commit, then Explain a SELECT | The tree lists Tables, Views, Functions and Sequences under dbo; Data reads `SELECT TOP (100)`; the review binds the change in one transaction and Commit reads the table again; Explain shows the estimated plan without running the statement |
+| ✅ | `TC-133` | `ELEC` | `developer` | With Edit table rows on, save a ClickHouse connection on port 8123 with SSL off, open a table, then run an INSERT on it while it is read-only | Databases show as schemas with tables, views and materialized views; the grid shows wide integers as text and says the table is not edited row by row; the INSERT is refused by the server and allowed once confirmed |
 | ✅ | `TC-124` | `ELEC` | `developer` | Run a query on a connection, open History, switch the query to Local, then save a query on each | History names the connection and lists only its runs; Local lists only its own; saved queries show their connection, RO for a read-only one; Format and completion follow the engine |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |
