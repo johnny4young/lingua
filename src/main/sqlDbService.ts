@@ -679,7 +679,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         const sshFix = sshFailure(entry, detail);
         if (sshFix) return { ok: false, reason: 'failed', message: detail.message, fix: sshFix };
         if (passwordRefused(entry, detail)) return { ok: false, reason: 'failed', message: detail.message, fix: 'password-needed' };
-        return { ok: false, reason: 'failed', message: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
+        return { ok: false, reason: 'failed', message: detail.message, ...(detail.fix ? { fix: detail.fix } : {}), ...(detail.edit ? { edit: detail.edit } : {}) };
       }
     },
 

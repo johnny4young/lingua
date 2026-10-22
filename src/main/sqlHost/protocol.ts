@@ -7,7 +7,7 @@
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbFixHint, SqlDbHostKey, SqlDbIntrospect } from '../../shared/sqlDb';
-import type { RowEditStatement } from '../../shared/sqlRowEdits';
+import type { RowEditFailure, RowEditStatement } from '../../shared/sqlRowEdits';
 import type { KnownHostKey } from '../sqlSsh/knownHosts';
 
 export interface HostSshHop {
@@ -117,6 +117,8 @@ export interface HostError {
   /** The key a hop presented that no one trusts yet. */
   hostKey?: SqlDbHostKey & { type: string };
   cancelled?: boolean;
+  /** Why staged edits rolled back. */
+  edit?: RowEditFailure;
 }
 
 export type HostResponse = { id: number; ok: true; result: unknown } | { id: number; ok: false; error: HostError };

@@ -242,7 +242,7 @@ for (const [engine, url] of [
         ['4', 'Bogota', 40],
       ]);
       const conflict = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { city: 'changed' } }], deletes: [{ key: { id: '99' } }], inserts: [] }, false);
-      expect(await send({ type: 'apply-edits', config, statements: conflict })).toMatchObject({ ok: false, error: { message: expect.stringMatching(/Change 2 would touch 0 rows/) } });
+      expect(await send({ type: 'apply-edits', config, statements: conflict })).toMatchObject({ ok: false, error: { message: expect.stringMatching(/Change 2 would touch 0 rows/), edit: { kind: 'conflict', change: 2, touched: 0 } } });
       const kept = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'e-kept', sql: `SELECT city FROM ${edits} WHERE id = 1`, readWrite: false, window });
       expect(kept.rows[0]?.city).toBe('Envigado');
       await run(`DROP TABLE ${edits}`);

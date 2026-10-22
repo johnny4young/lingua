@@ -30,7 +30,8 @@ export type SqlCellAction = 'filter' | 'exclude' | 'copy-value' | 'copy-row' | '
 /** Staged editing of an Explorer table's rows. */
 export interface SqlGridEditing {
   canEdit: (row: Record<string, unknown>, column: string) => boolean;
-  onEditCell: (row: number, column: string, value: string) => void;
+  /** The row as it was when the editor opened, so a reorder underneath cannot move the value. */
+  onEditCell: (row: Record<string, unknown>, column: string, value: string) => void;
 }
 
 const EDIT_ACTIONS: ReadonlyArray<{ id: SqlCellAction | 'edit-cell'; labelKey: string }> = [
@@ -211,7 +212,7 @@ export function SqlVirtualGrid({
   editing?: SqlGridEditing;
 }) {
   const { t } = useTranslation();
-  const [editor, setEditor] = useState<{ row: number; column: string; value: string } | null>(null);
+  const [editor, setEditor] = useState<{ row: number; column: string; value: string; target: Record<string, unknown>; wasEmpty: boolean } | null>(null);
   const editorRef = useRef(editor);
   useLayoutEffect(() => {
     editorRef.current = editor;
@@ -219,8 +220,10 @@ export function SqlVirtualGrid({
   /** Double-click and Enter edit a cell that can be edited, and open the value otherwise. */
   const openCell = (cell: SqlGridCell) => {
     const row = rows[cell.row];
-    if (editing && row && editing.canEdit(row, cell.column)) setEditor({ ...cell, value: cellText(row[cell.column]) ?? '' });
-    else onCellAction('open-value', cell);
+    if (editing && row && editing.canEdit(row, cell.column)) {
+      const text = cellText(row[cell.column]);
+      setEditor({ ...cell, value: text ?? '', target: row, wasEmpty: text === null });
+    } else onCellAction('open-value', cell);
   };
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
@@ -334,7 +337,8 @@ export function SqlVirtualGrid({
         if (!current) return;
         editorRef.current = null;
         setEditor(null);
-        latest.current.editing?.onEditCell(current.row, current.column, current.value);
+        // A NULL or default cell left empty stays as it was, not an empty string.
+        if (!(current.wasEmpty && current.value === '')) latest.current.editing?.onEditCell(current.target, current.column, current.value);
         scrollRef.current?.focus();
       },
       cancel: () => {

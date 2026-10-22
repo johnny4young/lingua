@@ -35,8 +35,8 @@ export interface SqlTablePreview {
   edit?: SqlTableEdit;
 }
 
-/** The edit target of a connection's table, from its own catalog read; main checks the key again on commit. */
-async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): Promise<SqlTableEdit> {
+/** The edit target of a connection's table, from its own catalog read; main checks the key again on commit. None when that read fails. */
+async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): Promise<SqlTableEdit | undefined> {
   const connection = findConnection(remote.connectionId);
   if (connection?.readOnly) return { reason: 'read-only' };
   if (connection?.env === 'prod') return { reason: 'production' };
@@ -44,7 +44,8 @@ async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): 
   const name = table.sqlName ?? table.name;
   const schema = table.schemaName ?? '';
   const read = await sqlDbBridge()?.introspect(remote.connectionId, { level: 'detail', schema, name, kind: 'table' });
-  const columns = read?.detail?.columns ?? [];
+  if (!read?.detail) return undefined;
+  const columns = read.detail.columns;
   const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
   if (primaryKey.length === 0) return { reason: 'no-key' };
   return { table: { engine: remote.engine, schema, name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } } };
@@ -84,8 +85,10 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
       // A connection's SQL never falls back to Local.
       if (remote && !db) return;
       let edit: SqlTableEdit | undefined;
+      let remoteTarget: Promise<SqlTableEdit | undefined> | undefined;
       if (useSettingsStore.getState().featureFlags.editRows === true) {
-        if (remote) edit = await remoteEdit(table, remote);
+        // A connection's key read runs beside its data read; a Local one decides the SELECT, so it goes first.
+        if (remote) remoteTarget = remoteEdit(table, remote).catch(() => undefined);
         else {
           const local = await loadLocalEditTable(table.sqlName ?? table.name, table.schemaName ?? 'main');
           if (local === 'view') edit = { reason: 'view' };
@@ -96,6 +99,7 @@ export function useSqlTablePreview(timeoutMs: number, tables: ReadonlyArray<SqlS
         }
       }
       const outcome = remote && db ? (await executeRemoteScript(db, remote.connectionId, [statement], { timeoutMs }))[0] : await executeQuery(statement, { timeoutMs });
+      if (remoteTarget) edit = await remoteTarget;
       if (tokenRef.current !== token || !outcome) return;
       setPreview({
         table,

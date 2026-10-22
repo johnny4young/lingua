@@ -3,16 +3,17 @@
 import type { Duplex } from 'node:stream';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { ROW_EDIT_BUDGET_MS, type RowEditStatement } from '../../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, type RowEditFailure, type RowEditStatement } from '../../shared/sqlRowEdits';
 import type { HostError, HostSessionConfig } from './protocol';
 
-/** A staged change that would touch no row or several, so nothing was saved. */
-class EditConflictError extends Error {
-  constructor(
-    readonly index: number,
-    readonly touched: number
-  ) {
-    super(`Change ${index + 1} would touch ${touched} rows instead of one: the table changed since it was read, so nothing was saved.`);
+/** An edit transaction that rolled back: a change that would touch no row or several, or one past its budget. */
+export class EditFailedError extends Error {
+  constructor(readonly failure: RowEditFailure) {
+    super(
+      failure.kind === 'conflict'
+        ? `Change ${failure.change} would touch ${failure.touched} rows instead of one: the table changed since it was read, so nothing was saved.`
+        : 'Applying the changes took too long, so nothing was saved.'
+    );
   }
 }
 
@@ -23,13 +24,13 @@ export const EDIT_LOCK_WAIT_S = 10;
 export function editDeadline(now: () => number = Date.now): () => void {
   const end = now() + ROW_EDIT_BUDGET_MS;
   return () => {
-    if (now() > end) throw new Error('Applying the changes took too long, so nothing was saved.');
+    if (now() > end) throw new EditFailedError({ kind: 'too-slow' });
   };
 }
 
 /** Checks one statement's row count inside an edit transaction. */
 export function expectOneRow(index: number, touched: number | null | undefined): void {
-  if (touched !== 1) throw new EditConflictError(index, Number(touched ?? 0));
+  if (touched !== 1) throw new EditFailedError({ kind: 'conflict', change: index + 1, touched: Number(touched ?? 0) });
 }
 
 export interface DriverRows {

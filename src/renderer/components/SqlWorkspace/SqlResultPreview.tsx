@@ -281,13 +281,10 @@ export function SqlResultPreview({
       editTarget && rowEdits
         ? {
             canEdit: (row, column) => canEditCell(editTarget, row, column),
-            onEditCell: (index, column, value) => {
-              const row = displayRows[index];
-              if (row) rowEdits.update((current) => stageCell(current, editTarget, row, column, value));
-            },
+            onEditCell: (row, column, value) => rowEdits.update((current) => stageCell(current, editTarget, row, column, value)),
           }
         : undefined,
-    [editTarget, rowEdits, displayRows]
+    [editTarget, rowEdits]
   );
 
   const handleCellAction = (action: SqlCellAction, cell: SqlGridCell) => {

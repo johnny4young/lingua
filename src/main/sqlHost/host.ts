@@ -8,7 +8,7 @@ import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { RowEditStatement } from '../../shared/sqlRowEdits';
-import { classifyConnectError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
+import { classifyConnectError, EditFailedError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
 import { createTunnelPool, TunnelError, type Tunnel, type TunnelPool } from './tunnel';
 import type {
   HostCancelResult,
@@ -323,7 +323,12 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
       } catch (err) {
         throw new HostRequestError(connectError(config, err));
       }
-      await driver.applyEdits(statements);
+      try {
+        await driver.applyEdits(statements);
+      } catch (err) {
+        if (err instanceof EditFailedError) throw new HostRequestError({ message: err.message, edit: err.failure });
+        throw err;
+      }
       return { applied: statements.length };
     });
   }

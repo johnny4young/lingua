@@ -49,6 +49,7 @@ import {
 } from '../../shared/sqlWorkspace';
 import { quoteSqlTableReference } from '../../shared/sqlQuote';
 import { splitSqlStatements } from '../../shared/sqlStatements';
+import type { RowEditFailure } from '../../shared/sqlRowEdits';
 import {
   buildImportStatements,
   readerSql,
@@ -1277,7 +1278,7 @@ export async function executeSqlScript(
  * Staged edits on one connection inside one transaction: each statement must
  * touch exactly one row, or everything is rolled back and nothing changes.
  */
-export async function runEditTransaction(statements: ReadonlyArray<string>): Promise<{ applied: number } | { errorMessage: string }> {
+export async function runEditTransaction(statements: ReadonlyArray<string>): Promise<{ applied: number } | { errorMessage: string } | { edit: RowEditFailure }> {
   const opened = await openConnection(performance.now());
   if ('failure' in opened) return { errorMessage: opened.failure.errorMessage ?? 'The SQL engine could not start.' };
   const { connection } = opened;
@@ -1285,7 +1286,10 @@ export async function runEditTransaction(statements: ReadonlyArray<string>): Pro
     await connection.query('BEGIN TRANSACTION');
     for (const [index, statement] of statements.entries()) {
       const touched = readCountValue((await connection.query(statement)).rows[0]?.['Count']);
-      if (touched !== 1) throw new Error(`Change ${index + 1} would touch ${touched} rows instead of one: the table changed since it was read, so nothing was saved.`);
+      if (touched !== 1) {
+        await connection.query('ROLLBACK').catch(() => undefined);
+        return { edit: { kind: 'conflict', change: index + 1, touched } };
+      }
     }
     await connection.query('COMMIT');
     await checkpointIfPersistent(connection);

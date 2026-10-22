@@ -33,6 +33,9 @@ export interface RowEditChanges {
   inserts: Array<{ values: Values }>;
 }
 
+/** Why an edit transaction rolled back, for the renderer to say in the user's language. */
+export type RowEditFailure = { kind: 'conflict'; change: number; touched: number } | { kind: 'too-slow' };
+
 export interface RowEditStatement {
   sql: string;
   /** Bound in order; empty when the values are written into `sql`. */

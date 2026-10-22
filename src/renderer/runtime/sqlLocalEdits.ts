@@ -1,10 +1,11 @@
 /** Staged edits on a Local DuckDB table: which rows it can find, and applying them in one transaction. */
 
-import { rowEditStatements, type RowEditChanges, type RowEditTable } from '../../shared/sqlRowEdits';
+import { rowEditStatements, type RowEditChanges, type RowEditFailure, type RowEditTable } from '../../shared/sqlRowEdits';
+import { sqlDialect } from '../../shared/sqlDialect';
 import { executeQuery, runEditTransaction } from './duckdbClient';
 import { stringList } from './sqlForeignKeys';
 
-const sqlText = (value: string) => `'${value.replaceAll("'", "''")}'`;
+const sqlText = sqlDialect('duckdb').stringLiteral;
 
 /**
  * The edit target for a Local table: its whole primary key, or DuckDB's
@@ -35,6 +36,6 @@ export async function loadLocalEditTable(name: string, schema = 'main'): Promise
   };
 }
 
-export async function applyLocalEdits(table: RowEditTable, changes: RowEditChanges): Promise<{ applied: number } | { errorMessage: string }> {
+export async function applyLocalEdits(table: RowEditTable, changes: RowEditChanges): Promise<{ applied: number } | { errorMessage: string } | { edit: RowEditFailure }> {
   return runEditTransaction(rowEditStatements(table, changes, true).map(({ sql }) => sql));
 }

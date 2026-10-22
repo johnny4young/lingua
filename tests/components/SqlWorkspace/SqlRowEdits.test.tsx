@@ -116,6 +116,47 @@ describe('staged row edits', () => {
     expect(screen.getAllByTestId('sql-result-preview-row')).toHaveLength(2);
   });
 
+  it('leaves a NULL or default cell alone when its editor closes empty', async () => {
+    const user = userEvent.setup();
+    const withNull: SqlTablePreview = { ...localPreview, response: { ...response, rows: [{ id: '10401', city: null, total: '3410.00' }] } };
+    render(<Harness preview={withNull} reload={vi.fn()} />);
+    await user.dblClick(cell(0, 'city'));
+    await user.keyboard('{Enter}');
+    expect(screen.queryByTestId('sql-edit-count')).toBeNull();
+    await user.click(screen.getByTestId('sql-edit-add'));
+    await user.dblClick(cell(1, 'total'));
+    await user.keyboard('{Enter}');
+    expect(cell(1, 'total').textContent).toBe('default');
+    expect(screen.getByTestId('sql-edit-count').textContent).toBe('1 staged change');
+  });
+
+  it('saves an open editor to the row it was opened on, even when the rows move underneath', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness preview={localPreview} reload={vi.fn()} />);
+    await user.dblClick(cell(0, 'city'));
+    rerender(<Harness preview={{ ...localPreview, response: { ...response, rows: [...response.rows].reverse() } }} reload={vi.fn()} />);
+    await user.type(screen.getByTestId('sql-cell-editor'), '!{Enter}');
+    expect(cell(1, 'city').textContent).toBe('Medellin!');
+    expect(cell(0, 'city').textContent).toBe('Bogota');
+  });
+
+  it('keeps a notice to its table, and refuses a connection commit without the desktop bridge', async () => {
+    const user = userEvent.setup();
+    const remote: SqlTablePreview = {
+      ...localPreview,
+      connectionId: 'c_1',
+      edit: { table: { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city', 'total'], key: { kind: 'pk', columns: ['id'] } } },
+    };
+    const { rerender } = render(<Harness preview={remote} reload={vi.fn()} />);
+    fireEvent.contextMenu(cell(0, 'city'));
+    await user.click(screen.getByTestId('sql-cell-menu-set-null'));
+    await user.click(screen.getByTestId('sql-edit-commit'));
+    expect(screen.getByTestId('sql-edit-notice').textContent).toBe('The changes could not be saved.');
+    expect(applyLocalEdits).not.toHaveBeenCalled();
+    rerender(<Harness preview={{ ...localPreview, table: { name: 'customers' } }} reload={vi.fn()} />);
+    expect(screen.queryByTestId('sql-edit-notice')).toBeNull();
+  });
+
   it('says why a table is read-only and offers no editing', async () => {
     const user = userEvent.setup();
     render(<Harness preview={{ ...localPreview, edit: { reason: 'production' } }} reload={vi.fn()} />);
@@ -167,7 +208,7 @@ describe('staged row edits', () => {
     const user = userEvent.setup();
     const connection = { id: 'c_1', name: 'orders-dev', engine: 'postgres', confirmWrites: true } as SqlDbConnectionView;
     useSqlConnectionsStore.setState({ catalog: { connections: [connection], adhoc: [], used: 1, limit: 3, vault: 'encrypted' } });
-    const applyEdits = vi.fn().mockResolvedValueOnce({ ok: false, reason: 'failed', message: 'Change 1 would touch 0 rows instead of one.' }).mockResolvedValueOnce({ ok: true, applied: 1 });
+    const applyEdits = vi.fn().mockResolvedValueOnce({ ok: false, reason: 'failed', message: 'raw', edit: { kind: 'conflict', change: 1, touched: 0 } }).mockResolvedValueOnce({ ok: true, applied: 1 });
     (window as { lingua?: unknown }).lingua = { platform: 'darwin', db: { applyEdits } };
     const remote: SqlTablePreview = {
       ...localPreview,
@@ -184,7 +225,7 @@ describe('staged row edits', () => {
     await user.click(screen.getByTestId('sql-write-confirm-run'));
     await waitFor(() => expect(applyEdits).toHaveBeenCalledTimes(1));
     expect(applyEdits).toHaveBeenCalledWith('c_1', { schema: 'public', name: 'orders' }, { updates: [{ key: { id: '10402' }, values: { city: 'Bogota!' } }], deletes: [], inserts: [] }, 'orders-dev');
-    expect((await screen.findByTestId('sql-edit-notice')).textContent).toBe('Change 1 would touch 0 rows instead of one.');
+    expect((await screen.findByTestId('sql-edit-notice')).textContent).toBe('Change 1 would touch 0 rows instead of one: the table changed since it was read, so nothing was saved.');
     expect(screen.getByTestId('sql-edit-count').textContent).toBe('1 staged change');
   });
 });

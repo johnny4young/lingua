@@ -5,7 +5,7 @@
 
 import type { SqlColumnMetadata, SqlQueryStatus } from './sqlWorkspace';
 import type { SqlConnectionDraft, SqlConnectionV1, SqlRemoteEngine } from './sqlConnections';
-import type { RowEditChanges } from './sqlRowEdits';
+import type { RowEditChanges, RowEditFailure } from './sqlRowEdits';
 import type { SecretStorageMode } from './secretVault';
 
 /** A connection as the renderer sees it: never a password, only whether one is kept. */
@@ -242,6 +242,7 @@ export type SqlDbApplyResult =
       reason: 'read-only' | 'production' | 'confirm-needed' | 'not-editable' | 'invalid' | 'failed';
       message?: string;
       fix?: SqlDbFixHint;
+      edit?: RowEditFailure;
     };
 
 /** `window.lingua.db` on desktop; absent on the web build. */

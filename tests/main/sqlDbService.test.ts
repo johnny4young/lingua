@@ -559,9 +559,9 @@ describe('staged edits', () => {
   it('says why when the transaction rolled back', async () => {
     const { svc } = service((body) => {
       if (body.type === 'introspect') return detail(true);
-      throw new SqlHostError({ message: 'Change 1 would touch 0 rows instead of one: the table changed since it was read, so nothing was saved.' });
+      throw new SqlHostError({ message: 'Change 1 would touch 0 rows instead of one.', edit: { kind: 'conflict', change: 1, touched: 0 } });
     });
     const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
-    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toMatchObject({ ok: false, reason: 'failed', message: expect.stringMatching(/touch 0 rows/) });
+    expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toMatchObject({ ok: false, reason: 'failed', edit: { kind: 'conflict', change: 1, touched: 0 } });
   });
 });

@@ -61,7 +61,7 @@ describe('applying Local edits', () => {
   it('rolls everything back when a change touches no row', async () => {
     const seen = engine((sql) => (sql.startsWith('UPDATE') ? [{ Count: 1 }] : sql.startsWith('DELETE') ? [{ Count: 0 }] : []));
     const result = await applyLocalEdits(table, { updates: [{ key: { rowid: '3' }, values: { region: 'x' } }], deletes: [{ key: { rowid: '9' } }], inserts: [] });
-    expect(result).toEqual({ errorMessage: expect.stringMatching(/Change 2 would touch 0 rows/) });
+    expect(result).toEqual({ edit: { kind: 'conflict', change: 2, touched: 0 } });
     expect(seen.at(-1)).toBe('ROLLBACK');
     expect(seen).not.toContain('COMMIT');
   });

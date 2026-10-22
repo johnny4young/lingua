@@ -7,7 +7,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SqlDbApplyResult } from '../../shared/sqlDb';
-import { rowEditReview, rowEditStatements } from '../../shared/sqlRowEdits';
+import { rowEditReview, rowEditStatements, type RowEditFailure } from '../../shared/sqlRowEdits';
 import { changeSet, NO_EDITS, stagedCount, type StagedEdits } from '../components/SqlWorkspace/sqlRowEditModel';
 import { applyLocalEdits } from '../runtime/sqlLocalEdits';
 import { sqlDbBridge } from '../runtime/sqlRemote';
@@ -28,20 +28,29 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
   const readKey = preview ? `${preview.connectionId ?? 'local'}|${preview.sql}|${preview.response.recordedAt}` : '';
   const [state, setState] = useState<{ key: string; edits: StagedEdits }>({ key: '', edits: NO_EDITS });
   const edits = state.key === readKey ? state.edits : NO_EDITS;
-  const [notice, setNotice] = useState<SqlRowEditNotice | null>(null);
+  // A notice outlives the read a commit replaces, but not the table.
+  const tableKey = preview ? `${preview.connectionId ?? 'local'}|${preview.table.name}` : '';
+  const [shownNotice, setShownNotice] = useState<{ key: string; notice: SqlRowEditNotice | null }>({ key: '', notice: null });
+  const notice = shownNotice.key === tableKey ? shownNotice.notice : null;
+  const setNotice = (next: SqlRowEditNotice | null) => setShownNotice({ key: tableKey, notice: next });
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<SqlWriteConfirm | null>(null);
 
   const update = useCallback(
     (next: (current: StagedEdits) => StagedEdits) => {
-      setNotice(null);
+      setShownNotice({ key: tableKey, notice: null });
       setState((current) => ({ key: readKey, edits: next(current.key === readKey ? current.edits : NO_EDITS) }));
     },
-    [readKey]
+    [readKey, tableKey]
   );
 
+  const editFailure = (edit: RowEditFailure) =>
+    edit.kind === 'conflict' ? t('sqlWorkspace.edits.conflict', { change: edit.change, count: edit.touched }) : t('sqlWorkspace.edits.tooSlow');
+
   const failure = (result: Extract<SqlDbApplyResult, { ok: false }>) =>
-    result.reason === 'failed'
+    result.edit
+      ? editFailure(result.edit)
+      : result.reason === 'failed'
       ? result.fix === 'password-needed' || result.fix === 'ssh-password-needed'
         ? t('sqlWorkspace.edits.needsPassword')
         : (result.message ?? t('sqlWorkspace.edits.failed'))
@@ -63,12 +72,16 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
       askName();
       return;
     }
-    setBusy(true);
     const db = preview.connectionId ? sqlDbBridge() : null;
-    let result: SqlDbApplyResult | { applied: number } | { errorMessage: string };
+    if (preview.connectionId && !db) {
+      setNotice({ tone: 'error', text: t('sqlWorkspace.edits.failed') });
+      return;
+    }
+    setBusy(true);
+    let result: SqlDbApplyResult | { applied: number } | { errorMessage: string } | { edit: RowEditFailure };
     try {
       result =
-        preview.connectionId && db
+        db && preview.connectionId
           ? await db.applyEdits(preview.connectionId, { schema: target.schema ?? '', name: target.name }, changes, confirmName)
           : await applyLocalEdits(target, changes);
     } catch {
@@ -81,6 +94,8 @@ export function useSqlRowEdits(preview: SqlTablePreview | null, reload: (preview
       reload(preview);
     } else if ('errorMessage' in result) {
       setNotice({ tone: 'error', text: result.errorMessage });
+    } else if (!('ok' in result)) {
+      setNotice({ tone: 'error', text: editFailure(result.edit) });
     } else if (!result.ok && result.reason === 'confirm-needed' && confirmName === undefined && connection) {
       // Main knows the switch is on even when this copy of the catalog does not yet.
       askName();
