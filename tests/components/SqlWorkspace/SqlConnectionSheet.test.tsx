@@ -260,6 +260,15 @@ describe('SqlConnectionSheet', () => {
       expect(await screen.findByTestId('sql-connection-test-badge')).toBeTruthy();
     });
 
+    it('says a tunnel secret is kept only while the tunnel signs in the same way', async () => {
+      const user = userEvent.setup();
+      renderSheet({ kind: 'edit', connection: saved({ hasSshSecret: true, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'password', secretMode: 'keychain' } }) });
+      expect(screen.getByTestId('sql-connection-ssh-secret').getAttribute('placeholder')).toBe('kept · type to replace');
+      await user.click(screen.getByTestId('sql-connection-ssh-auth-key'));
+      await user.click(screen.getByTestId('sql-connection-ssh-passphrase-mode-keychain'));
+      expect(screen.getByTestId('sql-connection-ssh-secret').getAttribute('placeholder')).toBe('');
+    });
+
     it('saves Confirm every write and Allow private host off', async () => {
       const user = userEvent.setup();
       renderSheet();

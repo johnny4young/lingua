@@ -48,6 +48,10 @@ interface Props {
 
 const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlite'];
 
+/** Main keeps a saved SSH secret only while the tunnel signs in to the same place the same way. */
+const sameTunnel = (a: SqlConnectionDraft['ssh'], b: SqlConnectionDraft['ssh']) =>
+  !!a && !!b && a.host === b.host && a.port === b.port && a.user === b.user && a.auth === b.auth && a.keyPath === b.keyPath && JSON.stringify(a.jumps ?? []) === JSON.stringify(b.jumps ?? []);
+
 function blankDraft(engine: SqlRemoteEngine): SqlConnectionDraft {
   return engine === 'sqlite'
     ? { name: '', engine, path: '', readOnly: false, passwordMode: 'none' }
@@ -456,7 +460,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                 setSshSecretInput(value);
                 setTest(null);
               }}
-              secretKept={editing?.hasSshSecret === true}
+              secretKept={editing?.hasSshSecret === true && sameTunnel(editing.ssh, draft.ssh)}
               sessionOnly={vaultSession}
               onPickKey={() => void pick('ssh-key')}
             />

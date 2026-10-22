@@ -12,7 +12,8 @@ function scrub(text: string, values: Array<[string | undefined, string]>): strin
 
 /**
  * The plain-text diagnostics Copy puts on the clipboard: every step with its
- * timing and detail, with host, address, user, database and file path replaced.
+ * timing and detail, with hosts, addresses, users, database and file paths
+ * replaced, the SSH tunnel's included.
  */
 export function buildTestReport(
   result: SqlDbTestResult,
@@ -29,6 +30,13 @@ export function buildTestReport(
     [draft.user, '<user>'],
     [draft.database, '<database>'],
     [draft.path, '<file>'],
+    [draft.ssh?.keyPath, '<file>'],
+    [draft.ssh?.host, '<ssh host>'],
+    [draft.ssh?.user, '<ssh user>'],
+    ...(draft.ssh?.jumps ?? []).flatMap((hop): Array<[string, string]> => [
+      [hop.host, '<jump host>'],
+      [hop.user, '<ssh user>'],
+    ]),
   ];
   const lines = [
     `Lingua · ${draft.engine} · ${result.ok ? 'connected' : 'failed'} · ${result.totalMs} ms`,
