@@ -968,6 +968,7 @@ export const SQL_CONNECTION_TEST_STEPS_SET = new Set([
   'policy',
   'file',
   'tcp',
+  'ssh',
   'tls',
   'auth',
   'server',

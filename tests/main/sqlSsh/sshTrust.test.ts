@@ -5,7 +5,7 @@ import path from 'node:path';
 import { utils } from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createHostKeyStore } from '../../../src/main/sqlSsh/hostKeyStore';
-import { judgeHostKey, knownHostKeys, sshFingerprint, sshKeyType } from '../../../src/main/sqlSsh/knownHosts';
+import { hostKeyAlgorithms, judgeHostKey, knownHostKeys, sshFingerprint, sshKeyType } from '../../../src/main/sqlSsh/knownHosts';
 import { resolveSshConfig } from '../../../src/main/sqlSsh/sshConfig';
 
 const publicLine = (type: 'ed25519' | 'ecdsa') => utils.generateKeyPairSync(type, type === 'ecdsa' ? { bits: 256 } : {}).public;
@@ -45,12 +45,25 @@ describe('known_hosts', () => {
     expect(knownHostKeys(text, 'broken.example.net', 22)).toEqual([]);
   });
 
-  it('calls a key changed only when another key of its type is known', () => {
+  it('offers a key for trust only when no key at all is known for the host', () => {
     const known = [{ type: 'ssh-ed25519', fingerprint: 'SHA256:a' }];
-    expect(judgeHostKey(known, 'ssh-ed25519', 'SHA256:a')).toBe('trusted');
-    expect(judgeHostKey(known, 'ssh-ed25519', 'SHA256:b')).toBe('changed');
-    expect(judgeHostKey(known, 'ecdsa-sha2-nistp256', 'SHA256:c')).toBe('unknown');
-    expect(judgeHostKey([{ ...known[0]!, revoked: true }], 'ssh-ed25519', 'SHA256:a')).toBe('revoked');
+    expect(judgeHostKey(known, 'SHA256:a')).toBe('trusted');
+    expect(judgeHostKey(known, 'SHA256:b')).toBe('changed');
+    // Another type than the known one is not new: a machine in the middle would offer just that.
+    expect(judgeHostKey(known, 'SHA256:c')).toBe('changed');
+    expect(judgeHostKey([], 'SHA256:c')).toBe('unknown');
+    expect(judgeHostKey([{ ...known[0]!, revoked: true }], 'SHA256:a')).toBe('revoked');
+    expect(judgeHostKey([{ ...known[0]!, revoked: true }], 'SHA256:d')).toBe('unknown');
+  });
+
+  it('asks the server for the known key types only', () => {
+    expect(hostKeyAlgorithms([])).toBeUndefined();
+    expect(hostKeyAlgorithms([{ type: 'ssh-rsa', fingerprint: 'x' }, { type: 'ssh-ed25519', fingerprint: 'y' }, { type: 'ecdsa-sha2-nistp256', fingerprint: 'z', revoked: true }])).toEqual([
+      'rsa-sha2-512',
+      'rsa-sha2-256',
+      'ssh-rsa',
+      'ssh-ed25519',
+    ]);
   });
 });
 
@@ -103,5 +116,28 @@ describe('host key store', () => {
     expect(await createHostKeyStore(file).list('bastion', 22)).toEqual([]);
     expect(JSON.parse(readFileSync(file, 'utf-8')).keys).toHaveProperty(['[bastion]:2222']);
     if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe('telemetry step names', () => {
+  it('lists every Test connection step, so a failed SSH step is not dropped', async () => {
+    const { SQL_DB_TEST_STEPS } = await import('../../../src/shared/sqlDb');
+    const { SQL_CONNECTION_TEST_STEPS_SET } = await import('../../../src/shared/telemetry/valueCatalog');
+    expect([...SQL_CONNECTION_TEST_STEPS_SET].sort()).toEqual(['none', ...SQL_DB_TEST_STEPS].sort());
+  });
+});
+
+describe('host key store with odd host names', () => {
+  it('treats constructor and __proto__ as ordinary hosts', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'lingua-hostkeys-'));
+    try {
+      const store = createHostKeyStore(path.join(dir, 'keys.json'));
+      expect(await store.list('constructor', 22)).toEqual([]);
+      expect(await store.list('__proto__', 22)).toEqual([]);
+      expect(await store.trust('constructor', 22, { type: 'ssh-ed25519', fingerprint: `SHA256:${'c'.repeat(43)}` })).toBe(true);
+      expect(await createHostKeyStore(path.join(dir, 'keys.json')).list('constructor', 22)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

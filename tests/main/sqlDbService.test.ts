@@ -70,7 +70,7 @@ function service(respond?: (body: Record<string, unknown>) => unknown, extra: { 
       hostKeys: createHostKeyStore(path.join(dir, 'sql-ssh-host-keys.json')),
       home: '/home/me',
       readText: async () => null,
-      blockedPath: () => null,
+      blockedPath: (file) => (file.startsWith('/home/me/.ssh/') ? 'credentials' : null),
       agentSocket: () => '/tmp/agent.sock',
     }),
     catalog: createConnectionCatalog(catalogPath),
@@ -400,6 +400,7 @@ describe('SSH tunnels and safety switches', () => {
     await svc.save(tunnelled, direct, undefined, 'ssh-pw');
     expect(await secrets.get(`db.${direct}`)).toBeNull();
     const keyed = { ...pg, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/home/me/.ssh/id_ed25519', secretMode: 'keychain' as const, jumps: [{ host: 'jump-a', port: 22, user: 'deploy' }] } };
+    svc.chooseSshKey('/home/me/.ssh/id_ed25519');
     const id = ((await svc.save(keyed, undefined, 'pw', 'passphrase')) as { connection: { id: string } }).connection.id;
     await svc.save({ ...keyed, ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, 'pw');
     expect(await secrets.get(`db.${id}.ssh`)).toBeNull();
@@ -430,6 +431,22 @@ describe('SSH tunnels and safety switches', () => {
     expect(result.steps.at(-1)).toEqual({ id: 'ssh', status: 'failed', detail: 'unknown key', fix: 'ssh-host-unknown', hostKey: { host: 'bastion.example.net', port: 22, fingerprint } });
     expect(await svc.trustHostKey('bastion.example.net', 22, `SHA256:${'x'.repeat(43)}`)).toBe(false);
     expect(await svc.trustHostKey('bastion.example.net', 22, fingerprint)).toBe(true);
+  });
+
+  it('takes a key inside ~/.ssh only once the user chose it, and keeps one already saved', async () => {
+    const { svc, sent } = service();
+    const keyed = { ...pg, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/home/me/.ssh/id_work', secretMode: 'none' as const } };
+    expect(await svc.save(keyed, undefined, 'pw')).toEqual({ ok: false, reason: 'invalid' });
+    const test = await svc.test({ draft: keyed });
+    expect(test.steps).toEqual([{ id: 'ssh', status: 'failed', detail: 'Choose the key file again with Choose key.', fix: 'ssh-key' }]);
+    expect(sent.filter((body) => body.type === 'test')).toHaveLength(0);
+    svc.chooseSshKey('/home/me/.ssh/id_work');
+    const saved = (await svc.save(keyed, undefined, 'pw')) as { ok: boolean; connection: { id: string } };
+    expect(saved.ok).toBe(true);
+    // The next launch still takes the saved key, and not another one inside ~/.ssh.
+    const later = service();
+    expect(await later.svc.save(keyed, undefined, 'pw')).toMatchObject({ ok: true });
+    expect(await later.svc.save({ ...keyed, ssh: { ...keyed.ssh, keyPath: '/home/me/.ssh/id_other' } }, undefined, 'pw')).toEqual({ ok: false, reason: 'invalid' });
   });
 });
 

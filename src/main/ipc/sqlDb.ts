@@ -237,6 +237,7 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
       if (picked.canceled || !chosen) return { canceled: true } as const;
       const blocked = blockedPath(chosen);
       if (blocked && !(kind === 'ssh-key' && blocked === 'credentials' && isSshFolderFile(chosen))) return { canceled: true, blocked: true } as const;
+      if (kind === 'ssh-key') service.chooseSshKey(chosen);
       return { canceled: false, path: chosen } as const;
     }
   );

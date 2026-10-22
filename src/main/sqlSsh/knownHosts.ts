@@ -67,9 +67,22 @@ export function knownHostKeys(text: string, host: string, port: number): KnownHo
 
 export type HostKeyVerdict = 'trusted' | 'unknown' | 'changed' | 'revoked';
 
-/** `changed` only when a key of the same type is known with another fingerprint. */
-export function judgeHostKey(known: ReadonlyArray<KnownHostKey>, type: string, fingerprint: string): HostKeyVerdict {
+/**
+ * `unknown` only when no key at all is known for the host: a key of another
+ * type than the known one could be a machine in the middle, so it counts as
+ * changed and is never offered for trust.
+ */
+export function judgeHostKey(known: ReadonlyArray<KnownHostKey>, fingerprint: string): HostKeyVerdict {
   if (known.some((key) => key.revoked && key.fingerprint === fingerprint)) return 'revoked';
   if (known.some((key) => !key.revoked && key.fingerprint === fingerprint)) return 'trusted';
-  return known.some((key) => !key.revoked && key.type === type) ? 'changed' : 'unknown';
+  return known.some((key) => !key.revoked) ? 'changed' : 'unknown';
+}
+
+const RSA_SIGNATURES = ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'];
+
+/** The host key algorithms to ask for, so a server holding several keys presents a known one. */
+export function hostKeyAlgorithms(known: ReadonlyArray<KnownHostKey>): string[] | undefined {
+  const types = [...new Set(known.filter((key) => !key.revoked).map((key) => key.type))];
+  if (types.length === 0) return undefined;
+  return types.flatMap((type) => (type === 'ssh-rsa' ? RSA_SIGNATURES : [type]));
 }

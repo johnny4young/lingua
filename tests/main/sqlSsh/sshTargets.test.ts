@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { HostKeyStore } from '../../../src/main/sqlSsh/hostKeyStore';
-import { createSshTargets, SshGuardError } from '../../../src/main/sqlSsh/sshTargets';
+import { createSshTargets, readSmallText, SshGuardError } from '../../../src/main/sqlSsh/sshTargets';
 import type { SqlConnectionV1 } from '../../../src/shared/sqlConnections';
 
 const HOME = '/home/me';
@@ -84,6 +85,27 @@ describe('SSH targets', () => {
     await expect(targets().configFor(entry({ host: 'b', port: 22, user: 'u', auth: 'agent', secretMode: 'none' }), '198.51.100.1', undefined)).rejects.toMatchObject({ fix: 'ssh-auth' });
   });
 
+  it('lets a draft name a key inside ~/.ssh only once the user chose it or ~/.ssh/config named it', async () => {
+    const ssh = targets();
+    const key = `${HOME}/.ssh/id_work`;
+    expect(ssh.keyAllowed(key, [])).toBe(false);
+    expect(ssh.keyAllowed(key, [key])).toBe(true);
+    expect(ssh.keyAllowed('/opt/keys/deploy', [])).toBe(true);
+    expect(ssh.keyAllowed(`${HOME}/.aws/key`, [])).toBe(false);
+    ssh.chooseKey(key);
+    expect(ssh.keyAllowed(key, [])).toBe(true);
+    files[`${HOME}/.ssh/config`] = `Host bastion\n  IdentityFile ~/.ssh/id_config\n`;
+    await ssh.info('bastion');
+    expect(ssh.keyAllowed(`${HOME}/.ssh/id_config`, [])).toBe(true);
+  });
+
+  it('refuses to trust a pending key once another key became known for the host', async () => {
+    const ssh = targets();
+    ssh.remember({ message: 'unknown', fix: 'ssh-host-unknown', hostKey: { host: 'bastion', port: 22, type: 'ssh-ed25519', fingerprint: FP('a') } });
+    await store.trust('bastion', 22, { type: 'ssh-rsa', fingerprint: FP('r') });
+    expect(await ssh.trust('bastion', 22, FP('a'))).toBe(false);
+  });
+
   it('trusts only the key a hop presented in its last failed sign-in', async () => {
     const ssh = targets();
     expect(await ssh.trust('bastion', 22, FP('a'))).toBe(false);
@@ -124,4 +146,26 @@ describe('SSH targets', () => {
       expect((await targets().info('nope')).agent).toEqual({ available: false });
     });
   });
+
+  describe('reading small files', () => {
+    let dir: string;
+    beforeEach(() => {
+      dir = mkdtempSync(path.join(tmpdir(), 'lingua-read-'));
+    });
+    afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+    it('reads a regular file within the cap and refuses folders, larger files and FIFOs without blocking', async () => {
+      writeFileSync(path.join(dir, 'small'), 'Host x');
+      writeFileSync(path.join(dir, 'large'), 'x'.repeat(65));
+      expect(await readSmallText(path.join(dir, 'small'), 64)).toBe('Host x');
+      expect(await readSmallText(path.join(dir, 'large'), 64)).toBeNull();
+      expect(await readSmallText(dir, 64)).toBeNull();
+      expect(await readSmallText(path.join(dir, 'missing'), 64)).toBeNull();
+      if (process.platform !== 'win32') {
+        execFileSync('mkfifo', [path.join(dir, 'fifo')]);
+        expect(await readSmallText(path.join(dir, 'fifo'), 64)).toBeNull();
+      }
+    });
+  });
 });
+

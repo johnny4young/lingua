@@ -6,7 +6,7 @@
  * main except to the SQL host.
  */
 
-import { realpathSync } from 'node:fs';
+import { constants, realpathSync } from 'node:fs';
 import { open } from 'node:fs/promises';
 import net from 'node:net';
 import { homedir } from 'node:os';
@@ -15,7 +15,7 @@ import type { SqlConnectionV1 } from '../../shared/sqlConnections';
 import type { SqlDbFixHint } from '../../shared/sqlDb';
 import type { HostError, HostSshConfig } from '../sqlHost/protocol';
 import { createHostKeyStore, resolveHostKeyStorePath, type HostKeyStore } from './hostKeyStore';
-import { knownHostKeys, knownHostToken, type KnownHostKey } from './knownHosts';
+import { judgeHostKey, knownHostKeys, knownHostToken, type KnownHostKey } from './knownHosts';
 import { resolveSshConfig, type SshConfigHost } from './sshConfig';
 import { isSshFolderFile } from './sshKeyPath';
 
@@ -80,6 +80,19 @@ function agentKeyCount(socket: string): Promise<number | null> {
 export function createSshTargets(deps: SshTargetDeps) {
   /** The last key each hop presented that no one trusted, the only key Trust may add. */
   const pending = new Map<string, KnownHostKey>();
+  /** Keys inside ~/.ssh the user chose in the file dialog or ~/.ssh/config named, by real path. */
+  const chosenKeys = new Set<string>();
+
+  /** Whether a key file sits in a protected folder; ~/.ssh counts only as the tunnel key exception. */
+  const keyFamily = (keyPath: string): 'free' | 'ssh' | 'blocked' => {
+    const families = [deps.blockedPath(keyPath), deps.blockedPath(real(keyPath))];
+    if (families.every((family) => family === null)) return 'free';
+    return families.every((family) => family === null || family === 'credentials') && isSshFolderFile(keyPath, deps.home) ? 'ssh' : 'blocked';
+  };
+
+  const chooseKey = (keyPath: string) => {
+    if (keyFamily(keyPath) === 'ssh') chosenKeys.add(real(keyPath));
+  };
 
   async function knownKeys(host: string, port: number): Promise<KnownHostKey[]> {
     const text = await deps.readText(path.join(deps.home, '.ssh', 'known_hosts'), MAX_KNOWN_HOSTS_BYTES);
@@ -87,9 +100,7 @@ export function createSshTargets(deps: SshTargetDeps) {
   }
 
   async function privateKey(keyPath: string): Promise<string> {
-    const families = [deps.blockedPath(keyPath), deps.blockedPath(real(keyPath))];
-    const allowed = families.every((family) => family === null || (family === 'credentials' && isSshFolderFile(keyPath, deps.home)));
-    if (!allowed) throw new SshGuardError('ssh-key', 'The key file is in a protected folder Lingua does not open.');
+    if (keyFamily(keyPath) === 'blocked') throw new SshGuardError('ssh-key', 'The key file is in a protected folder Lingua does not open.');
     const text = await deps.readText(keyPath, MAX_KEY_BYTES);
     if (text === null) throw new SshGuardError('ssh-key', 'The key file cannot be read.');
     return text;
@@ -127,15 +138,33 @@ export function createSshTargets(deps: SshTargetDeps) {
       const key = pending.get(token);
       if (!key || key.fingerprint !== fingerprint) return false;
       pending.delete(token);
+      // A key someone came to know since the prompt (ssh in a terminal, say) wins over the pending one.
+      if (judgeHostKey(await knownKeys(host, port), key.fingerprint) !== 'unknown') return false;
       return deps.hostKeys.trust(host, port, key);
+    },
+
+    /** A key the user picked in the file dialog. */
+    chooseKey,
+
+    /**
+     * Whether a draft may name this key: anything outside the protected
+     * folders, and inside ~/.ssh only a key the user chose or one already saved.
+     */
+    keyAllowed(keyPath: string, saved: ReadonlyArray<string>): boolean {
+      const family = keyFamily(keyPath);
+      if (family !== 'ssh') return family === 'free';
+      return chosenKeys.has(real(keyPath)) || saved.some((file) => real(file) === real(keyPath));
     },
 
     async info(alias: string): Promise<SshInfo> {
       const text = await deps.readText(path.join(deps.home, '.ssh', 'config'), MAX_CONFIG_BYTES);
       const socket = deps.agentSocket();
       const keys = socket ? await agentKeyCount(socket) : null;
+      const config = text ? resolveSshConfig(text, alias, deps.home) : null;
+      // Use its settings fills this key in; naming it in ~/.ssh/config is the user's choice.
+      if (config?.identityFile) chooseKey(config.identityFile);
       return {
-        config: text ? resolveSshConfig(text, alias, deps.home) : null,
+        config,
         agent: keys === null ? { available: false } : { available: true, keys },
       };
     },
@@ -144,12 +173,15 @@ export function createSshTargets(deps: SshTargetDeps) {
 
 export type SshTargets = ReturnType<typeof createSshTargets>;
 
-async function readSmallText(file: string, maxBytes: number): Promise<string | null> {
+/** A regular file of at most `maxBytes`; a FIFO or device never blocks, and growth past the cap is refused. */
+export async function readSmallText(file: string, maxBytes: number): Promise<string | null> {
   try {
-    const handle = await open(file, 'r');
+    const handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
-      if ((await handle.stat()).size > maxBytes) return null;
-      return await handle.readFile('utf-8');
+      if (!(await handle.stat()).isFile()) return null;
+      const buffer = Buffer.alloc(maxBytes + 1);
+      const { bytesRead } = await handle.read(buffer, 0, maxBytes + 1, 0);
+      return bytesRead > maxBytes ? null : buffer.subarray(0, bytesRead).toString('utf-8');
     } finally {
       await handle.close();
     }

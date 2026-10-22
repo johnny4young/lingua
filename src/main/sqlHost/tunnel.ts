@@ -10,7 +10,7 @@
 import { createHash } from 'node:crypto';
 import { Duplex } from 'node:stream';
 import { Client, utils, type ConnectConfig } from 'ssh2';
-import { judgeHostKey, sshFingerprint, sshKeyType, type HostKeyVerdict } from '../sqlSsh/knownHosts';
+import { hostKeyAlgorithms, judgeHostKey, sshFingerprint, sshKeyType, type HostKeyVerdict } from '../sqlSsh/knownHosts';
 import type { HostError, HostSshConfig, HostSshHop } from './protocol';
 
 const READY_TIMEOUT_MS = 15_000;
@@ -125,45 +125,61 @@ function hopError(err: unknown, hop: HostSshHop, seen: { verdict: HostKeyVerdict
     return {
       step: 'ssh',
       fix: 'ssh-host-changed',
-      message: `${name} presented ${seen.fingerprint}, which ${seen.verdict === 'revoked' ? 'is revoked' : 'is not the key known for it'}; the tunnel was not opened.`,
+      message: `${name} presented ${seen.type} ${seen.fingerprint}, which ${seen.verdict === 'revoked' ? 'is revoked' : 'is not the key known for it'}; the tunnel was not opened.`,
     };
   }
   const level = (err as { level?: string }).level;
   const message = err instanceof Error ? err.message : String(err);
+  // Asked only for the known key types, a server with none of them fails the handshake before any key is seen.
+  if (!seen && hop.known.some((key) => !key.revoked) && /host ?key/i.test(message)) {
+    return { step: 'ssh', fix: 'ssh-host-changed', message: `${name} has no key of the type known for it; the tunnel was not opened.` };
+  }
   if (level === 'client-authentication') return { step: 'ssh', fix: 'ssh-auth', message: `${name} refused the sign-in: ${message}` };
   return { step: 'ssh', fix: 'ssh-unreachable', message: `${name}: ${message}` };
 }
 
-function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: Duplex | undefined): Promise<void> {
+function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: Duplex | undefined, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
     let seen: { verdict: HostKeyVerdict; type: string; fingerprint: string } | null = null;
-    client.once('ready', () => resolve());
+    client.once('ready', () => {
+      // Errors after sign-in end the connection, which drops the tunnel; they must not crash the host.
+      client.on('error', () => client.end());
+      resolve();
+    });
     client.once('error', (err) => reject(new TunnelError(hopError(err, hop, seen))));
     client.connect({
       ...(sock ? { sock } : { host: hop.host, port: hop.port }),
       username: hop.user,
-      readyTimeout: READY_TIMEOUT_MS,
+      readyTimeout: timeoutMs,
       keepaliveInterval: KEEPALIVE_MS,
+      ...(hostKeyAlgorithms(hop.known) ? { algorithms: { serverHostKey: hostKeyAlgorithms(hop.known) as never } } : {}),
       ...authOf(ssh),
       hostVerifier: (key: Buffer) => {
         const type = sshKeyType(key) ?? '';
         const fingerprint = sshFingerprint(key);
-        seen = { verdict: judgeHostKey(hop.known, type, fingerprint), type, fingerprint };
+        seen = { verdict: judgeHostKey(hop.known, fingerprint), type, fingerprint };
         return seen.verdict === 'trusted';
       },
     });
   });
 }
 
-function forward(client: Client, host: string, port: number, from: HostSshHop): Promise<Duplex> {
-  return new Promise((resolve, reject) =>
-    client.forwardOut('127.0.0.1', 0, host, port, (err, stream) =>
-      err ? reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} could not reach ${host}:${port}: ${err.message}` })) : resolve(stream)
-    )
-  );
+function forward(client: Client, host: string, port: number, from: HostSshHop, timeoutMs = READY_TIMEOUT_MS): Promise<Duplex> {
+  return new Promise((resolve, reject) => {
+    // A hop that signs in but never opens the channel must not hold the tunnel forever.
+    const timer = setTimeout(() => {
+      reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} did not open a channel to ${host}:${port} in time.` }));
+      client.end();
+    }, timeoutMs);
+    client.forwardOut('127.0.0.1', 0, host, port, (err, stream) => {
+      clearTimeout(timer);
+      if (err) reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} could not reach ${host}:${port}: ${err.message}` }));
+      else resolve(stream);
+    });
+  });
 }
 
-async function open(ssh: HostSshConfig, onDrop: () => void): Promise<Open> {
+async function open(ssh: HostSshConfig, onDrop: () => void, timeoutMs: number): Promise<Open> {
   if (ssh.auth === 'key') {
     const parsed = utils.parseKey(ssh.privateKey ?? '', ssh.passphrase);
     if (parsed instanceof Error) throw new TunnelError({ step: 'ssh', fix: 'ssh-key', message: `The private key cannot be used: ${parsed.message}` });
@@ -174,9 +190,9 @@ async function open(ssh: HostSshConfig, onDrop: () => void): Promise<Open> {
     for (const [index, hop] of ssh.hops.entries()) {
       const client = new Client();
       clients.push(client);
-      await connectHop(client, hop, ssh, sock);
+      await connectHop(client, hop, ssh, sock, timeoutMs);
       const next = ssh.hops[index + 1];
-      if (next) sock = await forward(client, next.host, next.port, hop);
+      if (next) sock = await forward(client, next.host, next.port, hop, timeoutMs);
     }
     for (const client of clients) client.once('close', onDrop);
     return { clients };
@@ -190,7 +206,8 @@ function close({ clients }: Open): void {
   for (const client of [...clients].reverse()) client.end();
 }
 
-export function createTunnelPool() {
+/** `timeoutMs` bounds each sign-in and each channel between hops. */
+export function createTunnelPool({ timeoutMs = READY_TIMEOUT_MS }: { timeoutMs?: number } = {}) {
   const tunnels = new Map<string, { refs: number; ready: Promise<Open> }>();
 
   return {
@@ -199,11 +216,15 @@ export function createTunnelPool() {
       let entry = tunnels.get(key);
       if (!entry) {
         const created: { refs: number; ready: Promise<Open> } = { refs: 0, ready: Promise.resolve(null as never) };
-        created.ready = open(ssh, () => {
-          // A dropped SSH connection closes the tunnel; the next session opens a new one.
-          if (tunnels.get(key) === created) tunnels.delete(key);
-          void created.ready.then(close, () => undefined);
-        });
+        created.ready = open(
+          ssh,
+          () => {
+            // A dropped SSH connection closes the tunnel; the next session opens a new one.
+            if (tunnels.get(key) === created) tunnels.delete(key);
+            void created.ready.then(close, () => undefined);
+          },
+          timeoutMs
+        );
         created.ready.catch(() => {
           if (tunnels.get(key) === created) tunnels.delete(key);
         });

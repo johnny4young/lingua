@@ -37,6 +37,8 @@ beforeAll(async () => {
     client.on('ready', () =>
       client.on('tcpip', (accept, reject, info) => {
         forwarded.push(`${info.destIP}:${info.destPort}`);
+        // Port 9 plays a hop that signs in but never opens the channel.
+        if (info.destPort === 9) return;
         const upstream = net.connect(info.destPort, info.destIP);
         upstream.once('error', () => reject?.());
         upstream.once('connect', () => {
@@ -131,6 +133,10 @@ describe('SSH tunnel pool', () => {
       detail: { fix: 'ssh-host-changed' },
     });
     await expect(pool.acquire(config({ password: 'nope' }))).rejects.toMatchObject({ detail: { step: 'ssh', fix: 'ssh-auth' } });
+    // Only an ECDSA key is known, and the server has only ed25519: never offered for trust.
+    const otherType = await pool.acquire(config({ hops: [hop({ known: [{ type: 'ecdsa-sha2-nistp256', fingerprint: `SHA256:${'e'.repeat(43)}` }] })] })).catch((error: unknown) => error);
+    expect(otherType).toMatchObject({ detail: { fix: 'ssh-host-changed' } });
+    expect((otherType as { detail: { hostKey?: unknown } }).detail.hostKey).toBeUndefined();
     await expect(pool.acquire(config({ target: { host: '127.0.0.1', port: 1 } })).then((t) => roundTrip(t.socket(), 'x'))).rejects.toThrow();
     // A failed open is not kept: the same config tries again.
     const ok = await pool.acquire(config());
@@ -152,4 +158,14 @@ describe('SSH tunnel pool', () => {
     await tunnel.release();
     pool.dispose();
   });
+
+  it('gives up on a hop that signs in but never opens the next channel, and tries again later', async () => {
+    const pool = createTunnelPool({ timeoutMs: 300 });
+    const stalled = config({ auth: 'key', password: undefined, privateKey: userKey.private, passphrase: 'open sesame', hops: [hop(), hop({ port: 9 })] });
+    await expect(pool.acquire(stalled)).rejects.toMatchObject({ detail: { step: 'ssh', fix: 'ssh-unreachable' } });
+    // The failed entry is gone, so the next attempt runs again instead of waiting on the first.
+    await expect(pool.acquire(stalled)).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
+    expect(forwarded.filter((target) => target.endsWith(':9'))).toHaveLength(2);
+  });
 });
+

@@ -217,6 +217,15 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return { config, resolved };
   }
 
+  /** A tunnel key inside ~/.ssh must be one the user chose or one already saved. */
+  async function keyRefused(draft: SqlConnectionDraft): Promise<boolean> {
+    const keyPath = draft.ssh?.keyPath;
+    if (!keyPath) return false;
+    if (!deps.ssh) return true;
+    const saved = (await deps.catalog.list()).flatMap((entry) => (entry.ssh?.keyPath ? [entry.ssh.keyPath] : []));
+    return !deps.ssh.keyAllowed(keyPath, saved);
+  }
+
   /** Keeps a host key to trust once, and drops a session SSH secret the bastion refused. */
   function sshFailure(entry: SqlConnectionV1, detail: HostError): SqlDbRunResult['fix'] | undefined {
     deps.ssh?.remember(detail);
@@ -287,7 +296,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     catalog: catalogView,
 
     async save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
-      if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
+      if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
       const before = id === undefined ? null : await deps.catalog.get(id);
       if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
       // The old password goes before the new target is saved, so no run can pair the two.
@@ -320,7 +329,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     /** A connection for this session only, at any quota; its password stays in memory. */
     async openAdhoc(draft: SqlConnectionDraft, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
-      if (pathProblem(draft)) return { ok: false, reason: 'invalid' };
+      if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
       if (adhoc.size >= MAX_ADHOC) return { ok: false, reason: 'quota' };
       const stamp = new Date().toISOString();
       const entry: SqlConnectionV1 = {
@@ -352,6 +361,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     },
 
     /** What ~/.ssh/config says about an alias and whether an agent answers; never a file's content. */
+    /** Lets a draft name a key the user just picked inside ~/.ssh. */
+    chooseSshKey(keyPath: string): void {
+      deps.ssh?.chooseKey(keyPath);
+    },
+
     sshInfo(alias: string): Promise<SshInfo> {
       return deps.ssh ? deps.ssh.info(alias) : Promise.resolve({ config: null, agent: { available: false } });
     },
@@ -371,6 +385,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           : { version: 1, id: `test_${randomUUID().replaceAll('-', '')}`, ...target.draft, createdAt: '', updatedAt: '' };
       if (!entry) {
         steps.push({ id: 'server', status: 'failed', detail: 'Unknown connection.', fix: 'unknown' });
+        return done(false);
+      }
+      if ('draft' in target && (await keyRefused(target.draft))) {
+        steps.push({ id: 'ssh', status: 'failed', detail: 'Choose the key file again with Choose key.', fix: 'ssh-key' });
         return done(false);
       }
       let built: Awaited<ReturnType<typeof configFor>>;

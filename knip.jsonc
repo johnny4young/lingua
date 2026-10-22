@@ -40,10 +40,11 @@
       },
       "ignoreBinaries": [
         // Host capabilities intentionally spawned by packaging, process-tree,
-        // completion, release-readiness, and benchmark checks.
+        // completion, release-readiness, benchmark and FIFO-read checks.
         "ditto",
         "file",
         "fish",
+        "mkfifo",
         "ruby"
       ],
       "ignoreDependencies": [
