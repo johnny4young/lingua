@@ -362,7 +362,7 @@ folder (checked as given and after resolving symlinks), estimates only a single 
 (EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
-renderer that knows the name can pass it. The eighteen `sql-db:*` channels in
+renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
 
 SSH tunnels (`sqlHost/tunnel.ts`) sign in to the bastion with a password, a
@@ -421,6 +421,21 @@ ask-each-session connections. Secret writes for one connection go through one
 queue, and the move stores only the value that signed in and only while the
 catalog still points the connection at that target, so a concurrent edit cannot
 bind it to another host.
+
+Staged row edits (Labs flag `editRows`, `src/shared/sqlRowEdits.ts`) cross IPC
+as a structured change set, never as SQL: `sql-db:apply-edits` takes the
+schema, the table and keyed values, at most 1,000 changes of 1 MiB per value.
+Main refuses a read-only or production connection and, with Confirm every
+write, a commit without the typed name; it reads the table's columns and
+primary key through the host's own introspection, rejects a key or column the
+table does not have, and builds the statements itself with bound parameters.
+The host runs them in one transaction on a session of its own
+(`<connectionId>#edits`, dropped with the connection), and every statement must
+report exactly one affected row or the whole transaction rolls back. Local
+tables follow the same shape in the renderer (`runtime/sqlLocalEdits.ts`): a
+table without a primary key is keyed by DuckDB's `rowid`, which the Explorer's
+preview reads (`SELECT rowid, *`), and `runEditTransaction` keeps one DuckDB
+connection for `BEGIN`, the statements and `COMMIT`, then checkpoints.
 
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`

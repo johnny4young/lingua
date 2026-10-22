@@ -250,6 +250,13 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - History shows the runs of the query's connection (runs from before connections count as Local), names it in its header, clears only those runs, and opens a run as a scratch on the connection it ran on. Saved queries show their connection, *RO* when it is read-only.
 - With **Database connections** off in Labs, every query runs on Local, including queries saved against a connection.
 
+## Edit table rows (Labs)
+
+- Turn on **Settings › Labs › Edit table rows** to edit the rows of a table opened from the SQL Explorer, on Local (web and desktop) and on a saved connection. It is off by default and free. Only a table the Explorer opened is editable, never the result of a query you wrote.
+- A bar above the grid names the table and how its rows are found: **PK** and the primary key columns, or **rows by rowid** for a Local table without a primary key. Double-click a cell to edit it (Enter or leaving the cell keeps the change, Escape cancels); the cell menu adds **Edit value**, **Set to NULL**, **Duplicate row**, **Delete row** and, on a row marked for delete, **Restore row**. **Add row** adds an empty row whose columns show *default* until you type in them, since the table fills them. Changed cells turn amber, deleted rows are struck through and new rows are tinted; the column rail keeps describing the rows as read.
+- Nothing is written until **Commit**. **Review SQL** shows the transaction that will run, and **Discard** drops every change. Commit runs every change in one transaction: updates, then deletes, then inserts, each one finding its row by the whole primary key (or rowid). If a statement touches any number of rows but one, because the row changed or was deleted since you read it, nothing is saved, the changes stay staged and the message says which change failed. After a Commit the table is read again.
+- A view, a connection's table without a primary key, and every table on a read-only or production connection stay read-only, with the reason above the grid. A connection with **Confirm every write** asks you to type its name, listing the statements, before Commit.
+
 ## Network from running code (Labs)
 
 - Turn on **Settings › Labs › Network policy for running code** to add **Network from running code** to Settings › Privacy. It is off by default and, until you change it, the policy is **Allow**: nothing changes.
