@@ -1,4 +1,4 @@
-import type { SqlConnectionEnv, SqlRemoteEngine } from '../../../shared/sqlConnections';
+import type { SqlConnectionDraft, SqlConnectionEnv, SqlRemoteEngine } from '../../../shared/sqlConnections';
 
 export type SqlConnectionTone = 'local' | SqlConnectionEnv | 'none';
 
@@ -18,3 +18,7 @@ export const ENGINE_LABEL: Readonly<Record<SqlRemoteEngine, string>> = {
   mysql: 'MySQL',
   sqlite: 'SQLite',
 };
+
+/** The engine, and RO when the connection is read-only. */
+export const engineDetail = (connection: Pick<SqlConnectionDraft, 'engine' | 'readOnly'>, readOnlyLabel: string) =>
+  `${ENGINE_LABEL[connection.engine]}${connection.readOnly ? ` · ${readOnlyLabel}` : ''}`;

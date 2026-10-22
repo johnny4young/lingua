@@ -3,8 +3,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useTranslation } from 'react-i18next';
 import type { SqlDbCatalogView, SqlDbConnectionView } from '../../../shared/sqlDb';
 import { cn } from '../../utils/cn';
-import { ChipContent as Chip, ConnectionChip, engineDetail as detailOf } from './SqlConnectionChip';
-import { CONNECTION_TONE, ENGINE_LABEL, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
+import { ChipContent as Chip, ConnectionChip } from './SqlConnectionChip';
+import { CONNECTION_TONE, ENGINE_LABEL, engineDetail as detailOf, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
 import '../../i18n/sqlConnectionsCatalog';
 
 /** Saved connections in the picker; absent while the Database connections flag is off. */

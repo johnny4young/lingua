@@ -1,6 +1,6 @@
 import type { SqlConnectionDraft } from '../../../shared/sqlConnections';
 import { cn } from '../../utils/cn';
-import { CONNECTION_TONE, ENGINE_LABEL, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
+import { CONNECTION_TONE, engineDetail, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
 
 /** The environment dot, the name and a mono detail, as every connection row shows them. */
 export function ChipContent({ tone, name, detail }: { tone: SqlConnectionTone; name: string; detail: string }) {
@@ -12,9 +12,6 @@ export function ChipContent({ tone, name, detail }: { tone: SqlConnectionTone; n
     </>
   );
 }
-
-export const engineDetail = (connection: Pick<SqlConnectionDraft, 'engine' | 'readOnly'>, readOnlyLabel: string) =>
-  `${ENGINE_LABEL[connection.engine]}${connection.readOnly ? ` · ${readOnlyLabel}` : ''}`;
 
 /** A connection in its environment's colour. */
 export function ConnectionChip({ connection, readOnlyLabel }: { connection: Pick<SqlConnectionDraft, 'name' | 'engine' | 'readOnly' | 'env'>; readOnlyLabel: string }) {
