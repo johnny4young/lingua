@@ -10,7 +10,7 @@ import { AlertTriangle, Check, Copy, Database, Loader2, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  DEFAULT_PORTS,
+  defaultPort,
   SQL_CONNECTION_ENVS,
   SQL_SSL_MODES,
   parseConnectionDraft,
@@ -47,12 +47,12 @@ interface Props {
   onDone: (connection: SqlDbConnectionView) => void;
 }
 
-const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlite'];
+const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlserver', 'clickhouse', 'sqlite'];
 
 function blankDraft(engine: SqlRemoteEngine): SqlConnectionDraft {
   return engine === 'sqlite'
     ? { name: '', engine, path: '', readOnly: false, passwordMode: 'none' }
-    : { name: '', engine, host: '', port: DEFAULT_PORTS[engine], ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
+    : { name: '', engine, host: '', port: defaultPort(engine), ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
 }
 
 export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
@@ -420,7 +420,12 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
               <Segmented
                 value={draft.ssl?.mode ?? 'verify-full'}
                 options={SQL_SSL_MODES}
-                onChange={(next: SqlSslMode) => patch({ ssl: { ...(draft.ssl ?? {}), mode: next } })}
+                onChange={(next: SqlSslMode) => {
+                  const mode = draft.ssl?.mode ?? 'verify-full';
+                  // ClickHouse serves TLS and plain HTTP on different ports, so a default port follows the switch.
+                  const port = draft.engine === 'clickhouse' && draft.port === defaultPort('clickhouse', mode) ? { port: defaultPort('clickhouse', next) } : {};
+                  patch({ ssl: { ...(draft.ssl ?? {}), mode: next }, ...port } as Partial<SqlConnectionDraft>);
+                }}
                 label={t('sqlWorkspace.connection.sslMode')}
                 testId="sql-connection-ssl"
                 render={(option) => option}
@@ -435,7 +440,9 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                   );
                 })}
                 <span className="text-caption text-fg-muted" data-testid="sql-connection-ssl-hint">
-                  {t(`sqlWorkspace.connection.sslHint.${draft.ssl?.mode ?? 'verify-full'}`)}
+                  {draft.engine === 'sqlserver' && draft.ssl?.mode === 'verify-ca'
+                    ? t('sqlWorkspace.connection.sslHintSqlServerVerifyCa')
+                    : t(`sqlWorkspace.connection.sslHint.${draft.ssl?.mode ?? 'verify-full'}`)}
                 </span>
               </div>
             </div>

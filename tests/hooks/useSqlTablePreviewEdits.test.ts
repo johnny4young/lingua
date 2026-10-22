@@ -72,6 +72,17 @@ describe('opening a table for editing', () => {
     introspect.mockResolvedValueOnce({ detail: { columns: [{ name: 'city', type: 'text', nullable: true }] } } as never);
     expect(await openWith({})).toEqual({ reason: 'no-key' });
   });
+
+  it('says a ClickHouse table is not edited row by row, without reading its key', async () => {
+    useSqlConnectionsStore.setState({ catalog: { connections: [{ id: 'c_2', name: 'events', engine: 'clickhouse', readOnly: false } as SqlDbConnectionView], adhoc: [], used: 1, limit: 3, vault: 'encrypted' } });
+    const introspect = vi.fn();
+    const execute = vi.fn(async () => ({ status: 'success', engine: 'clickhouse', columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false, durationMs: 1 }));
+    (window as { lingua?: unknown }).lingua = { platform: 'darwin', db: { introspect, execute } };
+    const { result } = renderHook(() => useSqlTablePreview(1000, []));
+    await act(() => result.current.open({ name: 'analytics.events', sqlName: 'events', schemaName: 'analytics', kind: 'table' }, undefined, undefined, { connectionId: 'c_2', engine: 'clickhouse' }));
+    expect(result.current.preview?.edit).toEqual({ reason: 'engine' });
+    expect(introspect).not.toHaveBeenCalled();
+  });
   it('reads a connection table key beside its rows, and offers no editing when that read fails', async () => {
     useSqlConnectionsStore.setState({ catalog: { connections: [{ id: 'c_1', name: 'orders', engine: 'postgres', readOnly: false } as SqlDbConnectionView], adhoc: [], used: 1, limit: 3, vault: 'encrypted' } });
     let answer: (value: unknown) => void = () => undefined;

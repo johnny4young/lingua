@@ -15,7 +15,7 @@ const BUTTON =
 const TH = 'py-1 pr-4 text-left font-normal text-fg-subtle';
 const TD = 'border-t border-border-subtle py-[5px] pr-4 align-top';
 /** SQL syntax shown as is in every language. */
-const SQL_TOKEN = { select: 'SELECT * LIMIT 100', primaryKey: 'PRIMARY KEY', foreignKey: 'FOREIGN KEY', unique: 'UNIQUE' } as const;
+const SQL_TOKEN = { select: 'SELECT * LIMIT 100', selectTop: 'SELECT TOP 100 *', primaryKey: 'PRIMARY KEY', foreignKey: 'FOREIGN KEY', unique: 'UNIQUE' } as const;
 
 export interface SqlObjectDetailProps {
   connectionId: string;
@@ -24,13 +24,15 @@ export interface SqlObjectDetailProps {
   onTab: (tab: SqlObjectTab) => void;
   /** Puts `SELECT * … LIMIT 100` in the editor. */
   onInsertSelect: () => void;
+  /** SQL Server writes the first rows as `SELECT TOP`. */
+  selectTop?: boolean;
   onEnterPassword: (kind: SqlDbSecretKind) => void;
   /** The object's rows, shown on the Data tab. */
   data: ReactNode;
 }
 
 /** A remote object's structure in the results area: columns, keys, indexes, DDL, and its rows. */
-export function SqlObjectDetail({ connectionId, object, tab, onTab, onInsertSelect, onEnterPassword, data }: SqlObjectDetailProps) {
+export function SqlObjectDetail({ connectionId, object, tab, onTab, onInsertSelect, selectTop, onEnterPassword, data }: SqlObjectDetailProps) {
   const { t, i18n } = useTranslation();
   const key = objectKey(object);
   const level = useSqlRemoteCatalogStore(state => state.catalogs[connectionId]?.details[key]);
@@ -136,7 +138,7 @@ export function SqlObjectDetail({ connectionId, object, tab, onTab, onInsertSele
                     </button>
                     <button type="button" onClick={onInsertSelect} data-testid="sql-object-insert-select" className={cn(BUTTON, 'font-mono')}>
                       <TextCursorInput size={12} aria-hidden="true" />
-                      {SQL_TOKEN.select}
+                      {selectTop ? SQL_TOKEN.selectTop : SQL_TOKEN.select}
                     </button>
                   </>
                 ) : null}

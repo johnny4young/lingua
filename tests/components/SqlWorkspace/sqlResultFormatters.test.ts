@@ -57,6 +57,11 @@ describe('buildSelectStarter', () => {
     );
   });
 
+  it('takes the first rows with TOP on SQL Server, where LIMIT does not exist', () => {
+    expect(buildSelectStarter('orders', 'dbo', 'sqlserver')).toBe('SELECT TOP (100) * FROM [dbo].[orders];');
+    expect(buildSelectStarter('events', 'analytics', 'clickhouse')).toBe('SELECT * FROM `analytics`.`events` LIMIT 100;');
+  });
+
   it('quotes schema and table separately for a non-main table', () => {
     expect(quoteSqlTableReference('runs', 'lingua_ledger')).toBe(
       '"lingua_ledger"."runs"'
