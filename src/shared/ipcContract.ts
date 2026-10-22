@@ -251,15 +251,17 @@ interface IpcInvokeContract {
   // ------------------------------------------------------ desktop database client
   'sql-db:catalog': { args: []; result: SqlDbCatalogView };
   'sql-db:save': {
-    args: [draft: import('./sqlConnections').SqlConnectionDraft, id: string | undefined, password: string | undefined];
+    args: [draft: import('./sqlConnections').SqlConnectionDraft, id: string | undefined, password: string | undefined, sshPassword?: string];
     result: SqlDbSaveResult;
   };
   'sql-db:delete': { args: [id: string]; result: { ok: boolean } };
   'sql-db:open-adhoc': {
-    args: [draft: import('./sqlConnections').SqlConnectionDraft, password: string | undefined];
+    args: [draft: import('./sqlConnections').SqlConnectionDraft, password: string | undefined, sshPassword?: string];
     result: SqlDbSaveResult;
   };
-  'sql-db:session-password': { args: [id: string, password: string]; result: { ok: boolean } };
+  'sql-db:session-password': { args: [id: string, password: string, kind?: import('./sqlDb').SqlDbSecretKind]; result: { ok: boolean } };
+  'sql-db:trust-host-key': { args: [host: string, port: number, fingerprint: string]; result: { ok: boolean } };
+  'sql-db:ssh-info': { args: [alias: string]; result: import('./sqlDb').SqlDbSshInfo };
   'sql-db:test': { args: [target: SqlDbTarget]; result: SqlDbTestResult };
   'sql-db:execute': {
     args: [runId: string, connectionId: string, sql: string, options: SqlDbRunOptions];
@@ -715,6 +717,8 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-db:delete',
   'sql-db:open-adhoc',
   'sql-db:session-password',
+  'sql-db:trust-host-key',
+  'sql-db:ssh-info',
   'sql-db:test',
   'sql-db:execute',
   'sql-db:fetch',

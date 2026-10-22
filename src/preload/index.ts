@@ -249,10 +249,12 @@ contextBridge.exposeInMainWorld('lingua', {
   // Desktop database client; passwords go to main and never come back.
   db: {
     catalog: () => typedInvoke('sql-db:catalog'),
-    save: (draft, id, password) => typedInvoke('sql-db:save', draft, id, password),
+    save: (draft, id, password, sshPassword) => typedInvoke('sql-db:save', draft, id, password, sshPassword),
     delete: (id) => typedInvoke('sql-db:delete', id),
-    openAdhoc: (draft, password) => typedInvoke('sql-db:open-adhoc', draft, password),
-    sessionPassword: (id, password) => typedInvoke('sql-db:session-password', id, password),
+    openAdhoc: (draft, password, sshPassword) => typedInvoke('sql-db:open-adhoc', draft, password, sshPassword),
+    sessionPassword: (id, password, kind) => typedInvoke('sql-db:session-password', id, password, kind),
+    trustHostKey: (host, port, fingerprint) => typedInvoke('sql-db:trust-host-key', host, port, fingerprint),
+    sshInfo: (alias) => typedInvoke('sql-db:ssh-info', alias),
     test: (target) => typedInvoke('sql-db:test', target),
     execute: (runId, connectionId, sql, options) => typedInvoke('sql-db:execute', runId, connectionId, sql, options),
     fetch: (runId, limit, maxBytes) => typedInvoke('sql-db:fetch', runId, limit, maxBytes),

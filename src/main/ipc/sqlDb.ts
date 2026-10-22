@@ -9,7 +9,7 @@ import path from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 import { isValidConnectionId, parseConnectionDraft, type SqlConnectionDraft } from '../../shared/sqlConnections';
 import { isSshFolderFile } from '../sqlSsh/sshKeyPath';
-import { SQL_DB_OBJECT_KINDS, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
+import { SQL_DB_OBJECT_KINDS, type SqlDbSecretKind, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
 import { MAX_QUERY_BYTES, MAX_QUERY_TIMEOUT_MS } from '../../shared/sqlWorkspace';
 import { onOwnerReset } from '../runners/ownerReset';
 import type { SqlDbService } from '../sqlDbService';
@@ -35,6 +35,15 @@ const secret = (value: unknown, channel: string): string | undefined => {
 
 const draft = (value: unknown, channel: string): SqlConnectionDraft => parseConnectionDraft(value) ?? fail(channel);
 
+const hostName = (value: unknown, channel: string): string =>
+  typeof value === 'string' && value.length <= 253 && /^[A-Za-z0-9._:%-]+$/.test(value) ? value : fail(channel);
+
+const port = (value: unknown, channel: string): number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 65_535 ? value : fail(channel);
+
+const fingerprint = (value: unknown, channel: string): string =>
+  typeof value === 'string' && /^SHA256:[A-Za-z0-9+/]{43}$/.test(value) ? value : fail(channel);
+
 const sql = (value: unknown, channel: string): string =>
   typeof value === 'string' && value.trim().length > 0 && Buffer.byteLength(value) <= MAX_QUERY_BYTES ? value : fail(channel);
 
@@ -46,7 +55,8 @@ function target(value: unknown, channel: string): SqlDbTarget {
   const record = value as Record<string, unknown>;
   if ('connectionId' in record) return { connectionId: connectionId(record.connectionId, channel) };
   const password = secret(record.password, channel);
-  return { draft: draft(record.draft, channel), ...(password !== undefined ? { password } : {}) };
+  const sshPassword = secret(record.sshPassword, channel);
+  return { draft: draft(record.draft, channel), ...(password !== undefined ? { password } : {}), ...(sshPassword !== undefined ? { sshPassword } : {}) };
 }
 
 function runOptions(value: unknown, channel: string): SqlDbRunOptions {
@@ -119,24 +129,50 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
     'sql-db:save',
     (args) => {
       const id = args[1] === undefined || args[1] === null ? undefined : connectionId(args[1], 'sql-db:save');
-      return [draft(args[0], 'sql-db:save'), id, secret(args[2], 'sql-db:save')] as [SqlConnectionDraft, string | undefined, string | undefined];
+      return [draft(args[0], 'sql-db:save'), id, secret(args[2], 'sql-db:save'), secret(args[3], 'sql-db:save')] as [
+        SqlConnectionDraft,
+        string | undefined,
+        string | undefined,
+        string | undefined,
+      ];
     },
-    (_event, value, id, password) => service.save(value, id, password)
+    (_event, value, id, password, sshPassword) => service.save(value, id, password, sshPassword)
   );
 
   validatedHandle('sql-db:delete', (args) => [connectionId(args[0], 'sql-db:delete')] as [string], (_event, id) => service.remove(id));
 
   validatedHandle(
     'sql-db:open-adhoc',
-    (args) => [draft(args[0], 'sql-db:open-adhoc'), secret(args[1], 'sql-db:open-adhoc')] as [SqlConnectionDraft, string | undefined],
-    (_event, value, password) => service.openAdhoc(value, password)
+    (args) =>
+      [draft(args[0], 'sql-db:open-adhoc'), secret(args[1], 'sql-db:open-adhoc'), secret(args[2], 'sql-db:open-adhoc')] as [
+        SqlConnectionDraft,
+        string | undefined,
+        string | undefined,
+      ],
+    (_event, value, password, sshPassword) => service.openAdhoc(value, password, sshPassword)
   );
 
   validatedHandle(
     'sql-db:session-password',
-    (args) => [connectionId(args[0], 'sql-db:session-password'), secret(args[1], 'sql-db:session-password') ?? fail('sql-db:session-password')] as [string, string],
-    (_event, id, password) => service.sessionPassword(id, password)
+    (args) => {
+      const kind = args[2] === undefined ? 'database' : args[2] === 'database' || args[2] === 'ssh' ? args[2] : fail('sql-db:session-password');
+      return [connectionId(args[0], 'sql-db:session-password'), secret(args[1], 'sql-db:session-password') ?? fail('sql-db:session-password'), kind] as [
+        string,
+        string,
+        SqlDbSecretKind,
+      ];
+    },
+    (_event, id, password, kind) => service.sessionPassword(id, password, kind)
   );
+
+  validatedHandle(
+    'sql-db:trust-host-key',
+    (args) =>
+      [hostName(args[0], 'sql-db:trust-host-key'), port(args[1], 'sql-db:trust-host-key'), fingerprint(args[2], 'sql-db:trust-host-key')] as [string, number, string],
+    async (_event, host, sshPort, value) => ({ ok: await service.trustHostKey(host, sshPort, value) })
+  );
+
+  validatedHandle('sql-db:ssh-info', (args) => [hostName(args[0], 'sql-db:ssh-info')] as [string], (_event, alias) => service.sshInfo(alias));
 
   validatedHandle('sql-db:test', (args) => [target(args[0], 'sql-db:test')] as [SqlDbTarget], (_event, value) => service.test(value));
 
