@@ -3,7 +3,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { useTranslation } from 'react-i18next';
 import type { SqlDbCatalogView, SqlDbConnectionView } from '../../../shared/sqlDb';
 import { cn } from '../../utils/cn';
-import { CONNECTION_TONE, ENGINE_LABEL, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
+import { ChipContent as Chip, ConnectionChip } from './SqlConnectionChip';
+import { CONNECTION_TONE, ENGINE_LABEL, engineDetail as detailOf, toneOf, type SqlConnectionTone } from './sqlConnectionStyle';
 import '../../i18n/sqlConnectionsCatalog';
 
 /** Saved connections in the picker; absent while the Database connections flag is off. */
@@ -17,6 +18,7 @@ export interface SqlConnectionPickerRemote {
   onNew: () => void;
   onOpenUrl: () => void;
   onEdit: (connectionId: string) => void;
+  onManage: () => void;
 }
 
 interface SqlConnectionBarProps {
@@ -27,18 +29,6 @@ interface SqlConnectionBarProps {
 
 const LOCAL_ENGINE = 'DuckDB';
 
-function Chip({ tone, name, detail }: { tone: SqlConnectionTone; name: string; detail: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className={cn('h-[7px] w-[7px] shrink-0 rounded-full', CONNECTION_TONE[tone].dot)} />
-      <span className="max-w-[12rem] truncate text-body-sm text-fg-base">{name}</span>
-      <span className="truncate font-mono text-caption text-fg-muted">{detail}</span>
-    </>
-  );
-}
-
-const detailOf = (connection: SqlDbConnectionView, readOnlyLabel: string) =>
-  `${ENGINE_LABEL[connection.engine]}${connection.readOnly ? ` · ${readOnlyLabel}` : ''}`;
 
 /**
  * Connection toolbar of the SQL tab. Local (DuckDB) is first and the default;
@@ -127,9 +117,7 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
         connection.id === remote?.activeId && 'bg-accent-tint'
       )}
     >
-      <span className={cn('inline-flex h-[22px] min-w-0 items-center gap-[7px] rounded-[7px] border px-[7px]', CONNECTION_TONE[toneOf(connection.env)].chip)}>
-        <Chip tone={toneOf(connection.env)} name={connection.name} detail={detailOf(connection, readOnly)} />
-      </span>
+      <ConnectionChip connection={connection} readOnlyLabel={readOnly} />
       <span className="ml-auto truncate font-mono text-caption text-fg-subtle">{connection.group ?? ''}</span>
       <button
         type="button"
@@ -270,6 +258,17 @@ export function SqlConnectionBar({ actions, remote }: SqlConnectionBarProps) {
                   className="focus-ring flex h-[30px] w-full items-center rounded-md px-2 text-body-sm text-fg-base hover:bg-bg-panel-alt"
                 >
                   {t('sqlWorkspace.connection.openUrl')}
+                </button>
+                <button
+                  type="button"
+                  data-testid="sql-connection-manage"
+                  onClick={() => {
+                    setOpen(false);
+                    remote?.onManage();
+                  }}
+                  className="focus-ring flex h-[30px] w-full items-center rounded-md px-2 text-body-sm text-fg-base hover:bg-bg-panel-alt"
+                >
+                  {t('sqlWorkspace.connection.manager.manage')}
                 </button>
               </div>
             ) : null}

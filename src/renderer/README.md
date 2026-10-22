@@ -198,7 +198,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | SQL workspace (Local DuckDB and database connections): connection bar and picker, new-connection sheet and production dialogs (`SqlConnection*.tsx`, with the SSH tunnel and Safety sections and the shared `sqlConnectionForm.tsx`), Explorer with a connection's tree and object detail (`SqlRemoteTree.tsx`, `SqlObjectDetail.tsx`), results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | SQL workspace (Local DuckDB and database connections): connection bar and picker, new-connection sheet, Connections manager with imports, and production dialogs (`SqlConnection*.tsx`, with the SSH tunnel and Safety sections, the shared `sqlConnectionForm.tsx` and `SqlConnectionChip.tsx`, and `sqlConnectionManagerModel.ts`), Explorer with a connection's tree and object detail (`SqlRemoteTree.tsx`, `SqlObjectDetail.tsx`), results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -656,7 +656,8 @@ collection state:
   table previews (on a connection too), and on Local foreign-key follow and
   back and Referenced by counts.
   [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
-  owns the picker and connection sheet, a connection's catalog tree
+  owns the picker, the connection sheet and the Connections manager (the
+  sheet opens over it and returns to it), a connection's catalog tree
   (`SqlRemoteTree.tsx`) and object detail in the results area
   (`SqlObjectDetail.tsx`), completion tables, and the tab's Quick Open rows
   (Local tables and saved queries always, connection objects when read).

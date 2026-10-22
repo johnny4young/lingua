@@ -1,15 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SqlDbService } from '../../src/main/sqlDbService';
 
 const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) => handlers.set(channel, handler) },
   BrowserWindow: { fromWebContents: () => null },
-  dialog: { showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: ['/Users/me/.ssh/id_rsa'] })) },
+  dialog: {
+    showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: ['/Users/me/.ssh/id_rsa'] })),
+    showSaveDialog: vi.fn(async () => ({ canceled: true })),
+  },
 }));
 vi.mock('../../src/main/runners/ownerReset', () => ({ onOwnerReset: vi.fn(() => () => undefined) }));
 
 const { registerSqlDbHandlers } = await import('../../src/main/ipc/sqlDb');
+const { dialog } = await import('electron');
+const { mintRootCapability } = await import('../../src/main/ipc/projectCapabilities');
 
 const event = { sender: { id: 7, isDestroyed: () => false, once: () => undefined } };
 const invoke = (channel: string, ...args: unknown[]) => Promise.resolve().then(() => handlers.get(channel)!(event, ...args));
@@ -21,14 +28,14 @@ describe('sql-db IPC handlers', () => {
   beforeEach(() => {
     handlers.clear();
     service = Object.fromEntries(
-      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
+      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner', 'chooseSshKey', 'exportCatalog', 'offerImportedTunnels'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
     );
     registerSqlDbHandlers(service as unknown as SqlDbService, (file) => (file.includes('/.ssh/') ? 'ssh' : null));
   });
 
   it('registers every channel', () => {
     expect([...handlers.keys()].sort()).toEqual(
-      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'introspect', 'trust-host-key', 'ssh-info', 'pick-file'].map((name) => `sql-db:${name}`).sort()
+      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'introspect', 'trust-host-key', 'ssh-info', 'pick-file', 'import-file', 'import-env', 'export'].map((name) => `sql-db:${name}`).sort()
     );
   });
 
@@ -97,5 +104,74 @@ describe('sql-db IPC handlers', () => {
 
   it('refuses a picked file in a protected folder', async () => {
     expect(await invoke('sql-db:pick-file', 'key')).toEqual({ canceled: true, blocked: true });
+  });
+
+  describe('imports and export', () => {
+    let dir: string;
+    beforeEach(() => {
+      // The project sandbox refuses temp folders as roots, as the file-system tests note.
+      dir = mkdtempSync(path.join(process.cwd(), '.tmp-lingua-sqlimport-'));
+    });
+    afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+    it('reads the picked client file without passwords, and offers only its exact tunnels for their keys', async () => {
+      await expect(invoke('sql-db:import-file', 'navicat')).rejects.toThrow('Invalid');
+      const file = path.join(dir, 'data-sources.json');
+      const keyPath = path.join(dir, 'id_ed25519');
+      writeFileSync(
+        file,
+        JSON.stringify({
+          connections: {
+            a: {
+              provider: 'postgresql',
+              name: 'Shop',
+              configuration: { host: 'db', user: 'app', password: 'never-read', handlers: { ssh_tunnel: { enabled: true, user: 'u', properties: { host: 'b', authType: 'PUBLIC_KEY', keyPath } } } },
+            },
+          },
+        })
+      );
+      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: false, filePaths: [file] });
+      const result = await invoke('sql-db:import-file', 'dbeaver');
+      expect(result).toMatchObject({ canceled: false, skipped: 0, found: [{ draft: { name: 'Shop', host: 'db', user: 'app', ssh: { keyPath } } }] });
+      expect(JSON.stringify(result)).not.toContain('never-read');
+      expect(service.chooseSshKey).not.toHaveBeenCalled();
+      expect(service.offerImportedTunnels).toHaveBeenCalledWith([expect.objectContaining({ host: 'b', user: 'u', keyPath })]);
+      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: false, filePaths: ['/Users/me/.ssh/config'] });
+      expect(await invoke('sql-db:import-file', 'dbeaver')).toEqual({ canceled: false, found: [], skipped: 0, error: 'unreadable' });
+    });
+
+    it('scans only the open project root for .env database URLs', async () => {
+      writeFileSync(path.join(dir, '.env'), 'DATABASE_URL=postgres://app:s3cret@db.internal/orders\n');
+      writeFileSync(path.join(dir, '.env.production'), 'POSTGRES_URL=postgres://app@prod.internal/orders\n');
+      const { rootId } = mintRootCapability(dir);
+      const result = await invoke('sql-db:import-env', rootId);
+      expect(result).toMatchObject({ canceled: false, skipped: 0, found: [{ draft: { host: 'db.internal' } }, { draft: { host: 'prod.internal', env: 'prod' } }] });
+      expect(JSON.stringify(result)).not.toContain('s3cret');
+      expect(await invoke('sql-db:import-env', 'not-a-root')).toMatchObject({ error: 'unreadable' });
+      await expect(invoke('sql-db:import-env', '')).rejects.toThrow('Invalid');
+    });
+
+    it('writes the export where the user chose, private to the user, and never into a protected folder', async () => {
+      service.exportCatalog!.mockResolvedValue({ text: '{"format":"lingua.sql-connections"}\n', count: 2 });
+      const target = path.join(dir, 'out.json');
+      // An existing file the user overwrites becomes private too.
+      writeFileSync(target, 'old', { mode: 0o644 });
+      vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: target });
+      expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: true, count: 2 });
+      expect(readFileSync(target, 'utf-8')).toContain('lingua.sql-connections');
+      if (process.platform !== 'win32') expect(statSync(target).mode & 0o777).toBe(0o600);
+      const protectedFolder = path.join(dir, '.ssh');
+      mkdirSync(protectedFolder);
+      vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: path.join(protectedFolder, 'out.json') });
+      expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: false, count: 2 });
+      expect(existsSync(path.join(protectedFolder, 'out.json'))).toBe(false);
+      const elsewhere = path.join(dir, 'elsewhere.json');
+      writeFileSync(elsewhere, 'keep');
+      symlinkSync(elsewhere, path.join(dir, 'link.json'));
+      vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: path.join(dir, 'link.json') });
+      expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: false, count: 2 });
+      expect(readFileSync(elsewhere, 'utf-8')).toBe('keep');
+      await expect(invoke('sql-db:export', 'extra')).rejects.toThrow('Invalid');
+    });
   });
 });

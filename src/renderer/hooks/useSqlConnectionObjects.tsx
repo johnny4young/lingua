@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { SqlDbConnectionView, SqlDbSecretKind } from '../../shared/sqlDb';
 import type { SqlQueryV1 } from '../../shared/sqlWorkspace';
 import { SqlPasswordPrompt } from '../components/SqlWorkspace/SqlConnectionDialogs';
+import { SqlConnectionManager } from '../components/SqlWorkspace/SqlConnectionManager';
 import { SqlConnectionSheet, type SqlConnectionSheetMode } from '../components/SqlWorkspace/SqlConnectionSheet';
 import { SqlObjectDetail } from '../components/SqlWorkspace/SqlObjectDetail';
 import { buildSelectStarter } from '../components/SqlWorkspace/sqlResultFormatters';
@@ -20,7 +21,8 @@ import { SqlRemoteTree } from '../components/SqlWorkspace/SqlRemoteTree';
 import { QUERYABLE_KINDS } from '../components/SqlWorkspace/sqlRemoteTreeModel';
 import { resolveShortcutDisplayPlatform } from '../data/keyboardShortcuts';
 import { sqlDbBridge } from '../runtime/sqlRemote';
-import { findConnection, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
+import { useProjectStore } from '../stores/projectStore';
+import { findConnection, keepsAskedSecret, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSqlRemoteCatalogStore, type SqlObjectRef } from '../stores/sqlRemoteCatalogStore';
 import { useWorkspaceSqlStore } from '../stores/workspaceSqlStore';
@@ -68,6 +70,10 @@ export function useSqlConnectionObjects({
   const dbDesktop = sqlDbBridge() !== null;
   const catalog = useSqlConnectionsStore((state) => state.catalog);
   const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
+  // The manager stays open under the sheet it opened, and shows again when the sheet closes.
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [managerQuery, setManagerQuery] = useState('');
+  const project = useProjectStore((state) => state.currentProject);
   useEffect(() => {
     if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
   }, [dbFlag, dbDesktop]);
@@ -196,6 +202,7 @@ export function useSqlConnectionObjects({
       name={findConnection(catalogPassword.connectionId)?.name ?? ''}
       refused={catalogPassword.refused}
       kind={catalogPassword.kind}
+      keepsInKeychain={keepsAskedSecret(catalogPassword.connectionId, catalogPassword.kind)}
       onSubmit={(password) => {
         const { connectionId, kind } = catalogPassword;
         void (async () => {
@@ -223,6 +230,7 @@ export function useSqlConnectionObjects({
           const connection = listed(id);
           if (connection) setConnectionSheet({ kind: 'edit', connection });
         },
+        onManage: () => setManagerOpen(true),
       }
     : undefined;
 
@@ -232,8 +240,17 @@ export function useSqlConnectionObjects({
       onClose={() => setConnectionSheet(null)}
       onDone={(connection) => {
         setConnectionSheet(null);
-        selectConnection(connection.id);
+        if (!managerOpen) selectConnection(connection.id);
       }}
+    />
+  ) : managerOpen ? (
+    <SqlConnectionManager
+      project={project ? { rootId: project.rootId, name: project.name } : null}
+      query={managerQuery}
+      onQuery={setManagerQuery}
+      onClose={() => setManagerOpen(false)}
+      onNew={() => setConnectionSheet({ kind: 'new' })}
+      onEdit={(connection) => setConnectionSheet({ kind: 'edit', connection })}
     />
   ) : null;
 

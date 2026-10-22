@@ -273,6 +273,9 @@ interface IpcInvokeContract {
   'sql-db:estimate': { args: [connectionId: string, sql: string]; result: number | null };
   'sql-db:pick-file': { args: [kind: SqlDbFileKind]; result: SqlDbPickResult };
   'sql-db:introspect': { args: [connectionId: string, request: SqlDbIntrospect]; result: SqlDbIntrospectResult };
+  'sql-db:import-file': { args: [source: import('./sqlDb').SqlDbImportSource]; result: import('./sqlDb').SqlDbImportResult };
+  'sql-db:import-env': { args: [rootId: string]; result: import('./sqlDb').SqlDbImportResult };
+  'sql-db:export': { args: []; result: Awaited<ReturnType<import('./sqlDb').SqlDbBridge['exportCatalog']>> };
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
@@ -727,6 +730,9 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-db:estimate',
   'sql-db:pick-file',
   'sql-db:introspect',
+  'sql-db:import-file',
+  'sql-db:import-env',
+  'sql-db:export',
   'env:snapshot',
   'http:execute',
   'http:cancel',

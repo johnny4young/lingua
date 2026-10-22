@@ -93,16 +93,29 @@ describe('SSH targets', () => {
 
   it('lets a draft name a key inside ~/.ssh only once the user chose it or ~/.ssh/config named it', async () => {
     const ssh = targets();
+    const tunnel = (keyPath: string) => ({ host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath, secretMode: 'none' as const });
     const key = `${HOME}/.ssh/id_work`;
-    expect(ssh.keyAllowed(key, [])).toBe(false);
-    expect(ssh.keyAllowed(key, [key])).toBe(true);
-    expect(ssh.keyAllowed('/opt/keys/deploy', [])).toBe(true);
-    expect(ssh.keyAllowed(`${HOME}/.aws/key`, [])).toBe(false);
+    expect(ssh.keyAllowed(tunnel(key), [])).toBe(false);
+    expect(ssh.keyAllowed(tunnel(key), [key])).toBe(true);
+    expect(ssh.keyAllowed(tunnel('/opt/keys/deploy'), [])).toBe(true);
+    expect(ssh.keyAllowed(tunnel(`${HOME}/.aws/key`), [])).toBe(false);
     ssh.chooseKey(key);
-    expect(ssh.keyAllowed(key, [])).toBe(true);
+    expect(ssh.keyAllowed(tunnel(key), [])).toBe(true);
     files[`${HOME}/.ssh/config`] = `Host bastion\n  IdentityFile ~/.ssh/id_config\n`;
     await ssh.info('bastion');
-    expect(ssh.keyAllowed(`${HOME}/.ssh/id_config`, [])).toBe(true);
+    expect(ssh.keyAllowed(tunnel(`${HOME}/.ssh/id_config`), [])).toBe(true);
+  });
+
+  it('lets an imported tunnel use its ~/.ssh key only as listed, and only until the next import', () => {
+    const ssh = targets();
+    const imported = { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: `${HOME}/.ssh/id_team`, secretMode: 'none' as const };
+    expect(ssh.keyAllowed(imported, [])).toBe(false);
+    ssh.offerImported([imported]);
+    expect(ssh.keyAllowed(imported, [])).toBe(true);
+    expect(ssh.keyAllowed({ ...imported, host: 'attacker.example' }, [])).toBe(false);
+    expect(ssh.keyAllowed({ ...imported, user: 'root' }, [])).toBe(false);
+    ssh.offerImported([]);
+    expect(ssh.keyAllowed(imported, [])).toBe(false);
   });
 
   it('refuses to trust a pending key once another key became known for the host', async () => {

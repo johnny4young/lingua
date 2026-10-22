@@ -11,7 +11,7 @@ import { open } from 'node:fs/promises';
 import net from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import type { SqlConnectionV1 } from '../../shared/sqlConnections';
+import type { SqlConnectionSsh, SqlConnectionV1 } from '../../shared/sqlConnections';
 import type { SqlDbFixHint } from '../../shared/sqlDb';
 import type { HostError, HostSshConfig } from '../sqlHost/protocol';
 import { createHostKeyStore, resolveHostKeyStorePath, type HostKeyStore } from './hostKeyStore';
@@ -82,6 +82,9 @@ export function createSshTargets(deps: SshTargetDeps) {
   const pending = new Map<string, KnownHostKey>();
   /** Keys inside ~/.ssh the user chose in the file dialog or ~/.ssh/config named, by real path. */
   const chosenKeys = new Set<string>();
+  /** The exact tunnels the last import offered; a key is allowed only for the same tunnel. */
+  let importedTunnels = new Set<string>();
+  const tunnelKey = (ssh: SqlConnectionSsh) => JSON.stringify([ssh.host, ssh.port, ssh.user, ssh.keyPath ? real(ssh.keyPath) : '', (ssh.jumps ?? []).map((hop) => [hop.host, hop.port, hop.user])]);
 
   /** Whether a key file sits in a protected folder; ~/.ssh counts only as the tunnel key exception. */
   const keyFamily = (keyPath: string): 'free' | 'ssh' | 'blocked' => {
@@ -149,14 +152,22 @@ export function createSshTargets(deps: SshTargetDeps) {
     /** A key the user picked in the file dialog. */
     chooseKey,
 
+    /** Tunnels an import listed, so saving one of them may use its ~/.ssh key without picking it again. */
+    offerImported(tunnels: ReadonlyArray<SqlConnectionSsh>): void {
+      importedTunnels = new Set(tunnels.map(tunnelKey));
+    },
+
     /**
-     * Whether a draft may name this key: anything outside the protected
-     * folders, and inside ~/.ssh only a key the user chose or one already saved.
+     * Whether a draft's tunnel may name its key: anything outside the protected
+     * folders, and inside ~/.ssh only a key the user chose, one already saved,
+     * or the same tunnel the last import offered.
      */
-    keyAllowed(keyPath: string, saved: ReadonlyArray<string>): boolean {
+    keyAllowed(ssh: SqlConnectionSsh, saved: ReadonlyArray<string>): boolean {
+      const keyPath = ssh.keyPath;
+      if (!keyPath) return true;
       const family = keyFamily(keyPath);
       if (family !== 'ssh') return family === 'free';
-      return chosenKeys.has(real(keyPath)) || saved.some((file) => real(file) === real(keyPath));
+      return chosenKeys.has(real(keyPath)) || saved.some((file) => real(file) === real(keyPath)) || importedTunnels.has(tunnelKey(ssh));
     },
 
     async info(alias: string): Promise<SshInfo> {
@@ -177,14 +188,14 @@ export function createSshTargets(deps: SshTargetDeps) {
 export type SshTargets = ReturnType<typeof createSshTargets>;
 
 /** A regular file of at most `maxBytes`; a FIFO or device never blocks, and growth past the cap is refused. */
-export async function readSmallText(file: string, maxBytes: number): Promise<string | null> {
+export async function readSmallFile(file: string, maxBytes: number): Promise<Buffer | null> {
   try {
     const handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
       if (!(await handle.stat()).isFile()) return null;
       const buffer = Buffer.alloc(maxBytes + 1);
       const { bytesRead } = await handle.read(buffer, 0, maxBytes + 1, 0);
-      return bytesRead > maxBytes ? null : buffer.subarray(0, bytesRead).toString('utf-8');
+      return bytesRead > maxBytes ? null : buffer.subarray(0, bytesRead);
     } finally {
       await handle.close();
     }
@@ -192,6 +203,8 @@ export async function readSmallText(file: string, maxBytes: number): Promise<str
     return null;
   }
 }
+
+export const readSmallText = async (file: string, maxBytes: number): Promise<string | null> => (await readSmallFile(file, maxBytes))?.toString('utf-8') ?? null;
 
 /** SSH targets on this machine: the user's ~/.ssh, Lingua's host key file and the agent this process sees. */
 export function createSystemSshTargets(userDataDir: string, blockedPath: (file: string) => string | null): SshTargets {

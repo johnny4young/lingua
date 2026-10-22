@@ -30,6 +30,14 @@ release checklist.
   refused, `sql-db:trust-host-key` trusts only the key a hop presented in its
   last failed sign-in, and a tunnel opens no local port (`tests/main/sqlSsh/sshTrust.test.ts`,
   `tests/main/sqlSsh/sshTargets.test.ts`, `tests/main/sqlHost/tunnel.test.ts`).
+- Confirm connection imports read only the picked file and the one beside it
+  (in app-data folders only the clients' own files), drop every password (URLs
+  and JDBC properties included), stay linear on hostile files, never open
+  DBeaver's credentials file, read `.env` only through a project capability,
+  allow an imported `~/.ssh` key only for the exact tunnel saved, and that the
+  export holds no secret, is written 0600 and refuses symlinks and protected
+  folders
+  (`tests/main/sqlImport/`, `tests/ipc/sqlDb.test.ts`).
 
 ## Runners
 

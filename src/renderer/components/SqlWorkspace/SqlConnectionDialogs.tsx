@@ -106,11 +106,14 @@ export function SqlPasswordPrompt({
   name,
   refused,
   kind = 'database',
+  keepsInKeychain = false,
   onSubmit,
   onCancel,
 }: {
   name: string;
   refused: boolean;
+  /** The connection keeps its password in the keychain, so the one typed here is saved once it signs in. */
+  keepsInKeychain?: boolean;
   /** `ssh` asks for the tunnel's password or key passphrase. */
   kind?: SqlDbSecretKind;
   onSubmit: (password: string) => void;
@@ -167,7 +170,9 @@ export function SqlPasswordPrompt({
             {t('sqlWorkspace.connection.passwordRefused')}
           </span>
         ) : null}
-        <span className="text-caption text-fg-muted">{t('sqlWorkspace.connection.passwordPromptHint')}</span>
+        <span className="text-caption text-fg-muted">
+          {t(keepsInKeychain ? 'sqlWorkspace.connection.passwordPromptKeychainHint' : 'sqlWorkspace.connection.passwordPromptHint')}
+        </span>
       </div>
     </ModalShell>
   );

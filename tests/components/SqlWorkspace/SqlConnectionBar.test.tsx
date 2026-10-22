@@ -30,7 +30,7 @@ const catalog: SqlDbCatalogView = {
 };
 
 function remote(overrides: Partial<SqlConnectionPickerRemote> = {}): SqlConnectionPickerRemote {
-  return { desktop: true, catalog, activeId: undefined, onSelect: vi.fn(), onNew: vi.fn(), onOpenUrl: vi.fn(), onEdit: vi.fn(), ...overrides };
+  return { desktop: true, catalog, activeId: undefined, onSelect: vi.fn(), onNew: vi.fn(), onOpenUrl: vi.fn(), onEdit: vi.fn(), onManage: vi.fn(), ...overrides };
 }
 
 describe('SqlConnectionBar', () => {
@@ -108,6 +108,9 @@ describe('SqlConnectionBar', () => {
     await user.click(screen.getByTestId('sql-connection-pill'));
     await user.click(screen.getAllByTestId('sql-connection-edit')[0]!);
     expect(props.onEdit).toHaveBeenCalledWith('c_1');
+    await user.click(screen.getByTestId('sql-connection-pill'));
+    await user.click(screen.getByTestId('sql-connection-manage'));
+    expect(props.onManage).toHaveBeenCalledTimes(1);
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
