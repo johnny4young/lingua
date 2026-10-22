@@ -14,6 +14,8 @@ const BUTTON =
   'focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-caption text-fg-base transition-colors hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40';
 const TH = 'py-1 pr-4 text-left font-normal text-fg-subtle';
 const TD = 'border-t border-border-subtle py-[5px] pr-4 align-top';
+/** SQL syntax shown as is in every language. */
+const SQL_TOKEN = { select: 'SELECT * LIMIT 100', primaryKey: 'PRIMARY KEY', foreignKey: 'FOREIGN KEY', unique: 'UNIQUE' } as const;
 
 export interface SqlObjectDetailProps {
   connectionId: string;
@@ -130,7 +132,7 @@ export function SqlObjectDetail({ connectionId, object, tab, onTab, onInsertSele
                     </button>
                     <button type="button" onClick={onInsertSelect} data-testid="sql-object-insert-select" className={cn(BUTTON, 'font-mono')}>
                       <TextCursorInput size={12} aria-hidden="true" />
-                      SELECT * LIMIT 100
+                      {SQL_TOKEN.select}
                     </button>
                   </>
                 ) : null}
@@ -191,12 +193,12 @@ function KeysList({ detail }: { detail: SqlDbObjectDetail }) {
     <ul data-testid="sql-object-keys" className="space-y-1 font-mono text-caption text-fg-muted">
       {primary.length > 0 ? (
         <li>
-          <span className="text-fg-base">PRIMARY KEY</span> ({primary.join(', ')})
+          <span className="text-fg-base">{SQL_TOKEN.primaryKey}</span> ({primary.join(', ')})
         </li>
       ) : null}
       {foreign.map(column => (
         <li key={column.name}>
-          <span className="text-fg-base">FOREIGN KEY</span> ({column.name}) → {column.references!.schema}.{column.references!.table} ({column.references!.column})
+          <span className="text-fg-base">{SQL_TOKEN.foreignKey}</span> ({column.name}) → {column.references!.schema}.{column.references!.table} ({column.references!.column})
         </li>
       ))}
     </ul>
@@ -212,7 +214,7 @@ function IndexesList({ detail }: { detail: SqlDbObjectDetail }) {
         <li key={index.name} className="flex flex-wrap items-center gap-2">
           <span className="text-fg-base">{index.name}</span>
           <span>({index.columns.join(', ')})</span>
-          {index.primary ? <span className="text-micro uppercase text-fg-subtle">PK</span> : index.unique ? <span className="text-micro uppercase text-fg-subtle">UNIQUE</span> : null}
+          {index.primary ? <span className="text-micro uppercase text-fg-subtle">PK</span> : index.unique ? <span className="text-micro uppercase text-fg-subtle">{SQL_TOKEN.unique}</span> : null}
         </li>
       ))}
     </ul>
