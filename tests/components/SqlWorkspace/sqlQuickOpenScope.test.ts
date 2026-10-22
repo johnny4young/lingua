@@ -22,8 +22,8 @@ function sources(overrides: Partial<SqlQuickOpenSources> = {}): SqlQuickOpenSour
           public: {
             status: 'ready',
             value: [
-              { kind: 'table', name: 'order items' },
               { kind: 'function', name: 'order_total', signature: 'bigint' },
+              { kind: 'table', name: 'order items' },
               { kind: 'sequence', name: 'orders_id_seq' },
             ],
           },
@@ -43,7 +43,7 @@ function sources(overrides: Partial<SqlQuickOpenSources> = {}): SqlQuickOpenSour
 }
 
 describe('buildSqlQuickOpenItems', () => {
-  it('lists remote objects, Local tables and saved queries, leaving out sequences, scratches and the ledger', () => {
+  it('lists remote tables before functions, then Local tables and saved queries, leaving out sequences, scratches and the ledger', () => {
     const items = buildSqlQuickOpenItems(sources());
     expect(items.map((item) => [item.badge, item.name, item.detail])).toEqual([
       ['sqlWorkspace.remote.quickOpen.badge.table', 'public.order items', 'orders-dev'],

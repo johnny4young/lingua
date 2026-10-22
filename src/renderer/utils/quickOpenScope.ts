@@ -26,6 +26,8 @@ export interface QuickOpenScope {
   legend: ReadonlyArray<readonly [string, string]>;
   /** Footer note after the hints. */
   note?: string;
+  /** The result count, which then counts more than files. */
+  countLabel: (count: number) => string;
   items: () => QuickOpenScopeItem[];
 }
 

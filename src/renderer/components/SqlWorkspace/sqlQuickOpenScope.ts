@@ -10,8 +10,8 @@ import { QUERYABLE_KINDS } from './sqlRemoteTreeModel';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-/** Kinds Quick Open lists; sequences and extensions stay in the Explorer. */
-const LISTED: ReadonlySet<SqlDbObjectKind> = new Set(['table', 'view', 'matview', 'function', 'procedure']);
+/** Kinds Quick Open lists, in its order; sequences and extensions stay in the Explorer. */
+const LISTED: ReadonlyArray<SqlDbObjectKind> = ['table', 'view', 'matview', 'function', 'procedure'];
 const HIDDEN_LOCAL_SCHEMAS: ReadonlySet<string> = new Set(['lingua_ledger']);
 
 export interface SqlQuickOpenSources {
@@ -30,17 +30,19 @@ export interface SqlQuickOpenSources {
 /** Tables, views and functions of every connection read so far and of Local, then saved queries. */
 export function buildSqlQuickOpenItems(sources: SqlQuickOpenSources): QuickOpenScopeItem[] {
   const { t } = sources;
-  const items: QuickOpenScopeItem[] = [];
+  const items: Array<QuickOpenScopeItem & { rank: number }> = [];
   for (const [connectionId, catalog] of Object.entries(sources.catalogs)) {
     const connection = sources.connection(connectionId);
     if (!connection) continue;
     for (const [schema, level] of Object.entries(catalog.objects)) {
       if (level.status !== 'ready') continue;
       for (const object of level.value) {
-        if (!LISTED.has(object.kind)) continue;
+        const rank = LISTED.indexOf(object.kind);
+        if (rank < 0) continue;
         const ref: SqlObjectRef = { schema, name: object.name, kind: object.kind, ...(object.signature !== undefined ? { signature: object.signature } : {}) };
         const queryable = QUERYABLE_KINDS.has(object.kind);
         items.push({
+          rank,
           id: `${connectionId}:${object.kind}:${schema}.${object.name}(${object.signature ?? ''})`,
           badge: t(`sqlWorkspace.remote.quickOpen.badge.${object.kind}`),
           name: `${schema}.${object.name}${object.signature !== undefined && !queryable ? `(${object.signature})` : ''}`,
@@ -52,10 +54,12 @@ export function buildSqlQuickOpenItems(sources: SqlQuickOpenSources): QuickOpenS
       }
     }
   }
+  const remote: QuickOpenScopeItem[] = items.sort((a, b) => a.rank - b.rank).map(({ rank: _rank, ...item }) => item);
   const local = t('sqlWorkspace.connection.localName');
+  const rest: QuickOpenScopeItem[] = [];
   for (const table of sources.localTables) {
     if (HIDDEN_LOCAL_SCHEMAS.has(table.schemaName ?? 'main')) continue;
-    items.push({
+    rest.push({
       id: `local:${table.name}`,
       badge: t(`sqlWorkspace.remote.quickOpen.badge.${table.kind === 'view' ? 'view' : 'table'}`),
       name: table.name,
@@ -66,7 +70,7 @@ export function buildSqlQuickOpenItems(sources: SqlQuickOpenSources): QuickOpenS
   }
   for (const query of sources.queries) {
     if (query.kind === 'scratch') continue;
-    items.push({
+    rest.push({
       id: `query:${query.id}`,
       badge: t('sqlWorkspace.remote.quickOpen.badge.query'),
       name: query.name,
@@ -74,5 +78,5 @@ export function buildSqlQuickOpenItems(sources: SqlQuickOpenSources): QuickOpenS
       open: () => sources.openQuery(query.id),
     });
   }
-  return items;
+  return [...remote, ...rest];
 }

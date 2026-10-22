@@ -643,6 +643,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         [mac ? '⌥↵' : 'Alt+Enter', t('sqlWorkspace.remote.quickOpen.insertName')],
       ],
       note: t('sqlWorkspace.remote.quickOpen.note'),
+      countLabel: (count) => t('sqlWorkspace.remote.quickOpen.count', { count }),
       items: () =>
         quickOpenRef.current
           ? buildSqlQuickOpenItems({ t, catalogs: useSqlRemoteCatalogStore.getState().catalogs, ...quickOpenRef.current })

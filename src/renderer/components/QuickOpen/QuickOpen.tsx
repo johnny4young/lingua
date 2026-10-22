@@ -321,7 +321,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
                 {label}
               </span>
             ))}
-            {scope.note ? <span className="ml-auto truncate">{scope.note}</span> : null}
+            {scope.note ? <span className="ml-auto truncate pr-4">{scope.note}</span> : null}
           </div>
         ) : (
           <ModalFooterLegend navigate open select={false} close={false} />
@@ -337,7 +337,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
           data-testid="quick-open-result-count"
           className="font-mono text-caption text-fg-subtle"
         >
-          {t('quickOpen.count', { count: rows.length })}
+          {scope ? scope.countLabel(rows.length) : t('quickOpen.count', { count: rows.length })}
         </span>
       }
     >

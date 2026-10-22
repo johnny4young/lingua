@@ -183,5 +183,7 @@
   "sqlWorkspace.remote.quickOpen.saved": "saved",
   "sqlWorkspace.remote.quickOpen.savedIn": "saved · {{folder}}",
   "sqlWorkspace.remote.missingConnection": "connection removed",
-  "sqlWorkspace.remote.readOnlyName": "{{name}} · RO"
+  "sqlWorkspace.remote.readOnlyName": "{{name}} · RO",
+  "sqlWorkspace.remote.quickOpen.count_one": "{{count}} result",
+  "sqlWorkspace.remote.quickOpen.count_other": "{{count}} results"
 }

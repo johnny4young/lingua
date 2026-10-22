@@ -379,13 +379,20 @@ describe('QuickOpen', () => {
 
     it('lists the workspace rows ahead of files and matches every term', () => {
       const items = [scoped(), scoped({ id: 'q', badge: 'QUERY', name: 'Order items per city', detail: 'saved · Reports' }), scoped({ id: 'c', name: 'public.customers' })];
-      release = setQuickOpenScope({ title: 'Database objects', legend: [['↵', 'open data']], note: 'across all connected sources', items: () => items });
+      release = setQuickOpenScope({
+        title: 'Database objects',
+        legend: [['↵', 'open data']],
+        note: 'across all connected sources',
+        countLabel: (count) => `${count} results`,
+        items: () => items,
+      });
       render(<QuickOpen onClose={vi.fn()} />);
       expect(screen.getByText('Database objects')).toBeTruthy();
       const rows = screen.getAllByRole('option');
       expect(rows[0]?.getAttribute('data-testid')).toBe('quick-open-object');
       expect(rows.at(-1)?.textContent).toContain('tree-only.ts');
       expect(screen.getByTestId('quick-open-scope-legend').textContent).toBe('↵open dataacross all connected sources');
+      expect(screen.getByTestId('quick-open-result-count').textContent).toBe('4 results');
       fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ord ite' } });
       expect(screen.getAllByTestId('quick-open-object').map((row) => row.textContent)).toEqual([
         'TABLEpublic.order_itemsorders-dev',
@@ -395,7 +402,7 @@ describe('QuickOpen', () => {
 
     it('opens on Enter, shows the structure on Cmd+Enter and inserts the name on Alt+Enter, closing first', () => {
       const item = scoped();
-      release = setQuickOpenScope({ title: 'Database objects', legend: [], items: () => [item] });
+      release = setQuickOpenScope({ title: 'Database objects', legend: [], countLabel: String, items: () => [item] });
       const onClose = vi.fn();
       const { unmount } = render(<QuickOpen onClose={onClose} />);
       const input = screen.getByRole('combobox');
