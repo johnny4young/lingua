@@ -1,6 +1,6 @@
 /**
  * Grid filters, sort and column layout over the loaded rows, plus the SQL
- * that does the same in DuckDB, shown under the grid with Apply to query.
+ * that does the same in the result's engine dialect, shown under the grid with Apply to query.
  */
 
 import type { SqlEngineKind } from '../../../shared/sqlConnections';

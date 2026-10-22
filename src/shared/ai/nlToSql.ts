@@ -1,8 +1,8 @@
 /**
  * Natural-language → SQL request builder (pure core).
  *
- * The SQL workspace already knows the live DuckDB schema (the single
- * `information_schema.columns` probe that feeds the browser + autocomplete).
+ * The SQL workspace already knows the live schema: Local's catalog probe or a
+ * connection's cached catalog, which also feed the Explorer and autocomplete.
  * This builds a chat request whose ONLY context is that schema — table and
  * column names + SQL types. **No rows, no data values, ever** — the schema
  * is the entire payload, and the consent preview shows it verbatim so the

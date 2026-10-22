@@ -29,9 +29,9 @@
  * Features here:
  *   - **A**: `sql` completion provider over the live table names, their
  *     column names (with the SQL type shown as the completion detail),
- *     and a small common-keyword set. The columns arrive from the panel's
- *     single `information_schema.columns` probe; the same latest-value ref
- *     that keeps table names fresh keeps columns fresh too.
+ *     shared keywords plus the engine's, and a connection's functions.
+ *     Columns come from Local's catalog probe or a connection's cached
+ *     catalog; latest-value refs keep them fresh without re-registering.
  *   - **B**: tuned editor options (line numbers on, no minimap, no word
  *     wrap, 2-space tabs, line highlight, no overview ruler).
  *   - **C**: Shift+Alt+F → `onFormatShortcut()`.
@@ -320,9 +320,8 @@ export function SqlMonacoEditor({
       })
     );
 
-    // `sql` completion provider: live table names + common
-    // keywords. Disposed on unmount via onDidDispose below. (Column-name
-    // completion is out of scope — see file header.)
+    // `sql` completion provider: tables, columns, functions and keywords.
+    // Disposed on unmount via onDidDispose below.
     const completionProvider: SqlCompletionProvider = {
       provideCompletionItems: (
         completionModel: SqlCompletionModel,

@@ -261,10 +261,8 @@ export function SqlQueryEditor({
     setCursorInsert({ text: `${spacer}${joiner} ${predicateSignal.text}`, nonce: predicateSignal.nonce });
   }, [predicateSignal, cursor.offset]);
 
-  // pretty-print via sql-formatter. Lazy-import keeps the
-  // formatter out of the main chunk. The dialect default `'duckdb'`
-  // exists since sql-formatter 13; older versions fall back to
-  // `'sql'` (no DuckDB-specific keywords but acceptable).
+  // Pretty-print via sql-formatter in the engine's language. Lazy-import
+  // keeps the formatter out of the main chunk.
   const handleFormat = useCallback(async () => {
     if (overCap) return;
     try {

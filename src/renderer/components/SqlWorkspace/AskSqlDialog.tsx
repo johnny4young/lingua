@@ -1,6 +1,6 @@
 /**
  * "Ask AI" for the SQL workspace: natural language → SQL
- * over the LIVE DuckDB schema.
+ * over the live schema of the engine the query runs on.
  *
  * Consent model (same contract as ExplainErrorDialog): the payload preview
  * renders LIVE under the question as the user types — schema + question is
