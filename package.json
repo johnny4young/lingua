@@ -116,6 +116,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/spark-md5": "^3.0.5",
+    "@types/ssh2": "1.15.6",
     "@types/ws": "8.18.1",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "5.0.0",
@@ -179,6 +180,7 @@
     "node-pty": "1.1.0",
     "pg": "8.23.1",
     "pg-cursor": "2.22.1",
+    "ssh2": "1.17.0",
     "zod": "^4.4.3"
   },
   "engines": {

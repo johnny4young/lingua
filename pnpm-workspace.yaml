@@ -37,6 +37,10 @@ allowBuilds:
   sharp: true
   workerd: true
   node-pty: true
+  # ssh2 (SQL host tunnels) and its cpu-features dependency only compile an
+  # optional native crypto binding; denied, ssh2 runs on its JS crypto.
+  cpu-features: false
+  ssh2: false
 
 # Reject git/tarball subdependencies; all tooling resolves from the registry.
 blockExoticSubdeps: true

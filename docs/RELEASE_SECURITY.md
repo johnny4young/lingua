@@ -292,9 +292,9 @@ pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
 cannot see, and is wired as a blocking step into both `ci.yml` and
 `release.yml`.
 
-**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — eight
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — nine
 packages in this repository, including the database drivers `pg`, `pg-cursor`
-and `mysql2`, which stay external to the SQL host bundle and load from
+and `mysql2` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
 `node_modules` in the packaged app. But Vite *bundles* the main and preload graphs, so
 any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
 ships to users regardless of how it is declared. Two such packages are

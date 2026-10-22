@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 54.
+Packages reviewed: 61.
 Policy result: pass.
 
 ## License Summary
@@ -12,9 +12,11 @@ Policy result: pass.
 | --- | ---: |
 | `Apache-2.0` | 4 |
 | `BlueOak-1.0.0` | 1 |
+| `BSD-3-Clause` | 1 |
 | `ISC` | 4 |
-| `MIT` | 44 |
+| `MIT` | 49 |
 | `Python-2.0` | 1 |
+| `Unlicense` | 1 |
 
 ## License Policy
 
@@ -48,8 +50,12 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@types/node` | `25.9.6` | `MIT` | `node_modules/@types/node` |
 | `@vscode/ripgrep` | `1.18.0` | `MIT` | `extraResources/ripgrep` |
 | `argparse` | `2.0.1` | `Python-2.0` | `node_modules/argparse` |
+| `asn1` | `0.2.6` | `MIT` | `node_modules/asn1` |
 | `aws-ssl-profiles` | `1.1.2` | `MIT` | `node_modules/aws-ssl-profiles` |
+| `bcrypt-pbkdf` | `1.0.2` | `BSD-3-Clause` | `node_modules/bcrypt-pbkdf` |
+| `buildcheck` | `0.0.7` | `MIT` | `node_modules/buildcheck` |
 | `builder-util-runtime` | `9.7.0` | `MIT` | `node_modules/builder-util-runtime` |
+| `cpu-features` | `0.0.10` | `MIT` | `node_modules/cpu-features` |
 | `debug` | `4.4.3` | `MIT` | `node_modules/debug` |
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |
@@ -68,6 +74,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `ms` | `2.1.3` | `MIT` | `node_modules/ms` |
 | `mysql2` | `3.24.6` | `MIT` | `node_modules/mysql2` |
 | `named-placeholders` | `1.1.6` | `MIT` | `node_modules/named-placeholders` |
+| `nan` | `2.30.0` | `MIT` | `node_modules/nan` |
 | `node-addon-api` | `7.1.1` | `MIT` | `node_modules/node-addon-api` |
 | `node-pty` | `1.1.0` | `MIT` | `node_modules/node-pty` |
 | `pg` | `8.23.1` | `MIT` | `node_modules/pg` |
@@ -88,7 +95,9 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `semver` | `7.7.4` | `ISC` | `node_modules/semver` |
 | `split2` | `4.2.0` | `ISC` | `node_modules/split2` |
 | `sql-escaper` | `1.5.2` | `MIT` | `node_modules/sql-escaper` |
+| `ssh2` | `1.17.0` | `MIT` | `node_modules/ssh2` |
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |
+| `tweetnacl` | `0.14.5` | `Unlicense` | `node_modules/tweetnacl` |
 | `undici` | `8.10.2` | `MIT` | `.vite/build/main.js` |
 | `undici-types` | `7.24.6` | `MIT` | `node_modules/undici-types` |
 | `universalify` | `2.0.1` | `MIT` | `node_modules/universalify` |
