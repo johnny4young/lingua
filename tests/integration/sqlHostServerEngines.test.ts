@@ -266,6 +266,10 @@ describe.skipIf(!clickhouse)('clickhouse host', () => {
     const readOnly = clickhouseReadOnly!;
     const refused = await send({ type: 'execute', config: readOnly, runId: 'c-ro', sql: 'INSERT INTO lingua_it_events VALUES (9001, \'x\', 1, now())', readWrite: false, window });
     expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/readonly/i) } });
+    // The statement cannot lift readonly itself.
+    for (const sql of ["INSERT INTO lingua_it_events SETTINGS readonly = 0 VALUES (9002, 'x', 1, now())", 'SET readonly = 0', 'SELECT 1 SETTINGS readonly = 0']) {
+      expect(await send({ type: 'execute', config: readOnly, runId: `c-ro-${sql.length}`, sql, readWrite: false, window })).toMatchObject({ ok: false });
+    }
     const allowed = await ok<Rows>({ type: 'execute', config: readOnly, runId: 'c-rw', sql: "INSERT INTO lingua_it_events VALUES (9001, 'x', 1, now())", readWrite: true, window });
     expect(allowed.affectedRows).toBe(1);
   });

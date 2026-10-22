@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
 import { capHistorySql } from '../../shared/sqlHistory';
-import { isWriteSqlStatement, redactSqlSecrets } from '../../shared/sqlStatements';
+import { isWriteSqlStatementOn, redactSqlSecrets } from '../../shared/sqlStatements';
 import { queryChangesSchema, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
 import {
   executeQuery,
@@ -335,8 +335,9 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       // Remote engines explain through their own EXPLAIN, shown as rows.
       const toRun = connection && mode === 'explain' ? [`EXPLAIN ${statements[0]}`] : statements;
       let confirmName: string | undefined;
-      if (connection?.env === 'prod' || connection?.confirmWrites) {
-        const writes = toRun.filter(isWriteSqlStatement);
+      // A read-only SQL Server connection cannot refuse a write on the server, so it asks too.
+      if (connection?.env === 'prod' || connection?.confirmWrites || (connection?.readOnly && connection.engine === 'sqlserver')) {
+        const writes = toRun.filter((statement) => isWriteSqlStatementOn(connection.engine, statement));
         if (writes.length > 0) {
           const typed = await requestWriteConfirm(connection, writes);
           if (typed === null) return;

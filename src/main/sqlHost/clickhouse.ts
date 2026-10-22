@@ -96,7 +96,8 @@ function endpoint(config: HostSessionConfig, secure: boolean, socket?: () => Dup
   const options = secure ? tlsOptions(config) : undefined;
   const make = (): Duplex => {
     if (!options) return raw();
-    const wrapped = tls.connect({ ...options, socket: raw(), ...(net.isIP(host) ? {} : { servername: host }) });
+    // `host` is what the certificate is checked against; without it an IP-literal host would be checked as localhost.
+    const wrapped = tls.connect({ ...options, socket: raw(), host, ...(net.isIP(host) ? {} : { servername: host }) });
     wrapped.once('secureConnect', () => (peer = wrapped.getPeerCertificate()));
     return wrapped;
   };
@@ -129,7 +130,8 @@ function clientFor(config: HostSessionConfig, point: Endpoint): ClickHouseClient
  */
 export const isPlainHttpReply = (err: unknown) => {
   const record = err as { code?: unknown; message?: unknown } | null;
-  return record?.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || /wrong[ _]version[ _]number|packet[ _]length[ _]too[ _]long/i.test(String(record?.message ?? ''));
+  const tlsLayer = record?.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || record?.code === 'EPROTO';
+  return tlsLayer && /wrong[ _]version[ _]number|packet[ _]length[ _]too[ _]long/i.test(String(record?.message ?? ''));
 };
 
 /** Reads one query's rows from the stream, a page at a time; `stop` ends the server side early. */

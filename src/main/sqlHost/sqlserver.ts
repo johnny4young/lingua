@@ -250,7 +250,8 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
     connection = await open(lib, config, tls, socket);
   } catch (err) {
     // prefer: fall back to a plain session only when the server itself says it cannot encrypt.
-    if (config.ssl?.mode !== 'prefer' || !/did not negotiate encryption/i.test(String(err))) throw err;
+    const code = (err as { code?: unknown }).code;
+    if (config.ssl?.mode !== 'prefer' || code !== 'EENCRYPT' || !/did not negotiate encryption/i.test(String(err))) throw err;
     tls = { encrypt: false, trustServerCertificate: true };
     connection = await open(lib, config, tls, socket);
   }

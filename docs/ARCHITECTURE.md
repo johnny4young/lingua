@@ -470,9 +470,13 @@ a statement that changes the session default cannot make the next run
 writable. SQLite opens the file read-only. A confirmed write runs read-write
 for that run only: one extended-protocol statement in its own transaction on
 Postgres, the session switched for the statement on MySQL (the next run sets
-read-only again), and its own handle on SQLite. SQL Server, which has no
-read-only transaction, runs each read-only statement inside a transaction that
-is always rolled back, and ClickHouse runs with `readonly = 2`, which its
+read-only again), and its own handle on SQLite. SQL Server has no read-only
+transaction and runs a whole batch without semicolons, so main classifies its
+batches with `isSqlServerReadBatch`, which fails closed: only one `SELECT` or
+`WITH` query with no statement keyword outside strings, `[names]` and comments
+counts as a read, and anything else needs the typed name on a read-only,
+production or Confirm every write connection. A proven read on a read-only
+connection still runs inside a transaction that is always rolled back, and ClickHouse runs with `readonly = 2`, which its
 server enforces. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
 `VACUUM INTO`, so a query cannot reach a file main did not check.
 

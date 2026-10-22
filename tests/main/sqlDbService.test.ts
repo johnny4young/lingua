@@ -288,6 +288,18 @@ describe('running statements', () => {
     expect(await svc.execute(1, 'r4', prod, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
   });
 
+  it('on SQL Server runs only a proven single query without the typed name, since its batches need no semicolons', async () => {
+    const { svc, sent } = service(() => ok);
+    const prod = ((await svc.save({ ...pg, name: 'erp-prod', engine: 'sqlserver', port: 1433, env: 'prod', readOnly: true }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.execute(1, 's1', prod, 'SELECT 1 COMMIT EXEC dbo.purge', { timeoutMs: 1_000 })).toMatchObject({ status: 'sql-error', fix: 'confirm-needed' });
+    const readOnly = ((await svc.save({ ...pg, name: 'erp-ro', engine: 'sqlserver', port: 1433, readOnly: true }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.execute(1, 's2', readOnly, "SELECT 1 AS [a']; DELETE FROM t; --']", { timeoutMs: 1_000 })).toMatchObject({ status: 'sql-error', fix: 'confirm-needed' });
+    expect(sent.some((body) => body.type === 'execute')).toBe(false);
+    expect(await svc.execute(1, 's3', readOnly, 'SELECT TOP (5) * FROM dbo.orders', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+    expect(await svc.execute(1, 's4', readOnly, 'DELETE FROM dbo.orders WHERE id = 1', { timeoutMs: 1_000, readWrite: { confirmName: 'erp-ro' } })).toMatchObject({ status: 'success' });
+    expect(sent.filter((body) => body.type === 'execute').map((body) => body.readWrite)).toEqual([false, true]);
+  });
+
   it('turns a connect failure into connection-failed with the fix, and a statement error into sql-error', async () => {
     let fail: unknown = new SqlHostError({ message: 'password authentication failed', step: 'auth', fix: 'auth' });
     const { svc } = service(() => {

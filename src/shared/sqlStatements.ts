@@ -6,6 +6,8 @@
  * comments, and dollar-quoted bodies ($$ or $tag$).
  */
 
+import type { SqlEngineKind } from './sqlConnections';
+
 export interface SqlStatement {
   /** Statement text without the trailing semicolon, trimmed of surrounding whitespace. */
   text: string;
@@ -162,7 +164,7 @@ export function statementAtOffset(
 
 const READ_LEAD = /^(select|from|values|table|with|summarize|describe|show|pivot|unpivot)\b/i;
 const WRITE_WORD =
-  /\b(insert|update|delete|merge|create|drop|alter|attach|detach|copy|truncate|rename|install|load|checkpoint|vacuum|set|reset|call|export|import|use)\b/i;
+  /\b(insert|update|delete|merge|create|drop|alter|attach|detach|copy|truncate|rename|install|load|checkpoint|vacuum|set|reset|call|export|import|use|exec)\b/i;
 
 /** Blanks out strings, quoted identifiers and comments so keyword checks see only code. */
 function codeOnly(sql: string): string {
@@ -211,6 +213,76 @@ export function isWriteSqlStatement(statement: string): boolean {
   );
 }
 
+/**
+ * Code of a T-SQL batch with strings, `[names]`, `"names"` and comments
+ * blanked; null when one never closes. T-SQL nests block comments and has no
+ * backslash escapes.
+ */
+function tsqlCode(sql: string): string | null {
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    if (ch === '-' && sql[i + 1] === '-') {
+      const end = sql.indexOf('\n', i);
+      i = end < 0 ? sql.length : end;
+      out += ' ';
+    } else if (ch === '/' && sql[i + 1] === '*') {
+      let depth = 1;
+      i += 2;
+      while (i < sql.length && depth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') {
+          depth += 1;
+          i += 2;
+        } else if (sql[i] === '*' && sql[i + 1] === '/') {
+          depth -= 1;
+          i += 2;
+        } else i += 1;
+      }
+      if (depth > 0) return null;
+      out += ' ';
+    } else if (ch === "'" || ch === '[' || ch === '"') {
+      const close = ch === '[' ? ']' : ch;
+      i += 1;
+      for (;;) {
+        const at = sql.indexOf(close, i);
+        if (at < 0) return null;
+        i = at + 1;
+        // A doubled closer stays inside: 'it''s', [a]]b].
+        if (sql[i] === close) i += 1;
+        else break;
+      }
+      out += ch === "'" ? " '' " : ' x ';
+    } else {
+      out += ch;
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/** Any keyword that starts a T-SQL statement other than a query, or reaches outside the database. */
+const TSQL_STATEMENT =
+  /\b(insert|update|delete|merge|exec|execute|create|drop|alter|truncate|grant|revoke|deny|kill|shutdown|backup|restore|dbcc|commit|rollback|save|begin|declare|set|use|waitfor|reconfigure|checkpoint|bulk|into|receive|send|openquery|openrowset|opendatasource|openxml|writetext|updatetext)\b/i;
+
+/**
+ * True only for a SQL Server batch that is one SELECT or WITH query and
+ * nothing else. SQL Server runs a whole batch without semicolons and has no
+ * read-only transaction, so anything this cannot vouch for counts as a write.
+ */
+export function isSqlServerReadBatch(sql: string): boolean {
+  const code = tsqlCode(sql);
+  if (code === null) return false;
+  const body = code.trim().replace(/;\s*$/, '');
+  return /^(select|with)\b/i.test(body) && !body.includes(';') && !TSQL_STATEMENT.test(body);
+}
+
+/** Whether a statement may write on `engine`: SQL Server gets its own fail-closed check; Explain there plans without running. */
+export function isWriteSqlStatementOn(engine: SqlEngineKind | undefined, statement: string): boolean {
+  if (engine === 'sqlserver') return !/^\s*explain\s/i.test(statement) && !isSqlServerReadBatch(statement);
+  return isWriteSqlStatement(statement);
+}
+
 const ESTIMABLE_LEAD = /^(select|with|values|table|insert|update|delete|merge|replace)\b/i;
 
 /**
@@ -226,7 +298,9 @@ export function isEstimableSqlStatement(statement: string): boolean {
 }
 
 // Settings can carry credentials under any name (connection strings included), so every SET, RESET or PRAGMA is masked.
-const SECRET_STATEMENT = /\b(secret|attach)\b|^\s*(set|reset|pragma)\b/i;
+// So can logins (PASSWORD =, IDENTIFIED BY) and ClickHouse table functions that take a remote user and password.
+const SECRET_STATEMENT =
+  /\b(secret|attach)\b|^\s*(set|reset|pragma)\b|\bpassword\s*=|\bidentified\b|\b(remote|remoteSecure|mysql|postgresql|s3|s3Cluster|gcs|azureBlobStorage|mongodb|redis|jdbc|odbc)\s*\(/i;
 const SECRET_LITERAL =
   /:\/\/[^\s'/]*@|[?&;](token|key|sig|signature|password|access_token|accountkey|sharedaccesssignature|x-amz-[a-z-]+)=/i;
 

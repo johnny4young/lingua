@@ -261,6 +261,8 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
  * agree on where the password ends.
  */
 export function withoutUrlPassword(raw: string): string {
+  // SQL Server's `;password=` properties are not part of a URL's user info.
+  if (/^\s*(sqlserver|mssql):\/\/[^;]*;/i.test(raw)) return raw.replace(/;\s*(password|pwd)\s*=[^;]*/gi, '');
   try {
     const url = new URL(raw.trim());
     if (!url.password) return raw;

@@ -29,7 +29,7 @@ import type {
   SqlDbTestResult,
   SqlDbTestStep,
 } from '../shared/sqlDb';
-import { isEstimableSqlStatement, isWriteSqlStatement } from '../shared/sqlStatements';
+import { isEstimableSqlStatement, isWriteSqlStatementOn } from '../shared/sqlStatements';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
@@ -531,9 +531,13 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       });
       const entry = await connection(connectionId);
       if (!entry) return fail('connection-failed', 'Unknown connection.');
-      const writes = isWriteSqlStatement(sql);
+      const writes = isWriteSqlStatementOn(entry.engine, sql);
       // Production asks for the typed name before any write; lifting read-only always does.
       const confirmed = options.readWrite?.confirmName === entry.name;
+      // SQL Server has no read-only transaction to refuse a write, so a read-only connection runs only batches proven to read.
+      if (writes && entry.engine === 'sqlserver' && entry.readOnly && !(options.readWrite && confirmed)) {
+        return fail('sql-error', 'This connection is read-only, and on SQL Server it runs one SELECT or WITH query at a time; anything else needs the typed connection name.', 'confirm-needed');
+      }
       if (writes && entry.env === 'prod' && !confirmed) return fail('sql-error', 'Writes to production need the typed connection name.', 'confirm-needed');
       if (writes && entry.confirmWrites && !confirmed) return fail('sql-error', 'Writes on this connection need the typed connection name.', 'confirm-needed');
       if (options.readWrite && !confirmed) return fail('sql-error', 'Type the connection name to run it read-write.', 'confirm-needed');

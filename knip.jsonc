@@ -40,11 +40,13 @@
       },
       "ignoreBinaries": [
         // Host capabilities intentionally spawned by packaging, process-tree,
-        // completion, release-readiness, benchmark and FIFO-read checks.
+        // completion, release-readiness, benchmark and FIFO-read checks, and
+        // the certificate a TLS identity test makes.
         "ditto",
         "file",
         "fish",
         "mkfifo",
+        "openssl",
         "ruby"
       ],
       "ignoreDependencies": [

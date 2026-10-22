@@ -175,6 +175,8 @@ describe('saved connection quota', () => {
 
 describe('withoutUrlPassword', () => {
   it('drops the password and keeps the user, host and options', () => {
+    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password=S3;cret;user=app')).toBe('sqlserver://sql:1433;database=erp;cret;user=app');
+    expect(withoutUrlPassword('mssql://sql;Pwd=S3cret;encrypt=true')).toBe('mssql://sql;encrypt=true');
     expect(withoutUrlPassword('postgres://app:s3cr:et@db:5432/orders?sslmode=disable')).toBe('postgres://app@db:5432/orders?sslmode=disable');
     expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('mysql://root@127.0.0.1/billing');
   });
