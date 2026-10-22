@@ -6,6 +6,7 @@ import type { SqlDbConnectionView, SqlDbImportResult, SqlDbImportSource } from '
 import { sqlDbBridge } from '../../runtime/sqlRemote';
 import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
 import { cn } from '../../utils/cn';
+import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { ModalShell } from '../ui/ModalShell';
 import { ConnectionChip } from './SqlConnectionChip';
 import { SqlConnectionImport } from './SqlConnectionImport';
@@ -238,8 +239,10 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
       onClick={onClick}
       className="focus-ring mt-1.5 flex w-full items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-panel px-2.5 py-2 text-left text-body-sm text-fg-base hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-50"
     >
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      <span className="truncate font-mono text-caption text-fg-muted">{file}</span>
+      <span className="shrink-0">{name}</span>
+      <span title={file} className="min-w-0 flex-1 truncate text-right font-mono text-caption text-fg-muted">
+        {file}
+      </span>
     </button>
   );
 
@@ -257,6 +260,7 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
       headerClose="button"
       closeLabel={t('sqlWorkspace.connection.manager.close')}
       icon={<Database size={16} aria-hidden="true" />}
+      footerLegend={<ModalFooterLegend navigate={false} select={false} close />}
       header={
         <div className="flex min-w-0 items-baseline gap-2">
           <h2 id={titleId} className="truncate text-body-lg font-semibold text-fg-base">
@@ -298,7 +302,7 @@ export function SqlConnectionManager({ project, onClose, onNew, onEdit }: Props)
                 aria-label={t('sqlWorkspace.connection.manager.searchAria')}
                 placeholder={t('sqlWorkspace.connection.manager.search')}
                 data-testid="sql-manager-search"
-                className={cn(INPUT, 'mt-0 max-w-[260px]')}
+                className={cn(INPUT, 'mt-0 min-w-0 max-w-[320px] flex-1')}
               />
               <button type="button" data-testid="sql-manager-new" onClick={onNew} className={cn(BUTTON, 'ml-auto')}>
                 <Plus size={12} aria-hidden="true" />
