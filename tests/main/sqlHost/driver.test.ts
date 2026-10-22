@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clickhouseType } from '../../../src/main/sqlHost/clickhouse';
+import { clickhouseType, isPlainHttpReply } from '../../../src/main/sqlHost/clickhouse';
 import { editDeadline, expectOneRow } from '../../../src/main/sqlHost/driver';
 import { ROW_EDIT_BUDGET_MS } from '../../../src/shared/sqlRowEdits';
 
@@ -32,5 +32,14 @@ describe('ClickHouse types', () => {
       'DOUBLE[]',
       'Map(String, UInt8)',
     ]);
+  });
+});
+
+describe('ClickHouse TLS fallback', () => {
+  it('reads a plain HTTP reply in OpenSSL and BoringSSL wording, and never a reset', () => {
+    expect(isPlainHttpReply({ code: 'EPROTO', message: 'ssl3_get_record:wrong version number' })).toBe(true);
+    expect(isPlainHttpReply({ code: 'EPROTO', message: 'write EPROTO error:100000f7:SSL routines:OPENSSL_internal:WRONG_VERSION_NUMBER' })).toBe(true);
+    expect(isPlainHttpReply({ code: 'ECONNRESET', message: 'socket hang up' })).toBe(false);
+    expect(isPlainHttpReply({ code: 'EPROTO', message: 'write EPROTO' })).toBe(false);
   });
 });

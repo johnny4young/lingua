@@ -123,10 +123,13 @@ function clientFor(config: HostSessionConfig, point: Endpoint): ClickHouseClient
   });
 }
 
-/** The server answered our TLS hello in plain HTTP; a reset or hang-up proves nothing and never downgrades. */
-const isPlainHttpReply = (err: unknown) => {
+/**
+ * The server answered our TLS hello in plain HTTP; a reset or hang-up proves nothing and never downgrades.
+ * OpenSSL spells the reason with spaces, Electron's BoringSSL with underscores.
+ */
+export const isPlainHttpReply = (err: unknown) => {
   const record = err as { code?: unknown; message?: unknown } | null;
-  return record?.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || /wrong version number|packet length too long/i.test(String(record?.message ?? ''));
+  return record?.code === 'ERR_SSL_WRONG_VERSION_NUMBER' || /wrong[ _]version[ _]number|packet[ _]length[ _]too[ _]long/i.test(String(record?.message ?? ''));
 };
 
 /** Reads one query's rows from the stream, a page at a time; `stop` ends the server side early. */
