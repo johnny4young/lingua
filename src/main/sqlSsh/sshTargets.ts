@@ -177,14 +177,14 @@ export function createSshTargets(deps: SshTargetDeps) {
 export type SshTargets = ReturnType<typeof createSshTargets>;
 
 /** A regular file of at most `maxBytes`; a FIFO or device never blocks, and growth past the cap is refused. */
-export async function readSmallText(file: string, maxBytes: number): Promise<string | null> {
+export async function readSmallFile(file: string, maxBytes: number): Promise<Buffer | null> {
   try {
     const handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
       if (!(await handle.stat()).isFile()) return null;
       const buffer = Buffer.alloc(maxBytes + 1);
       const { bytesRead } = await handle.read(buffer, 0, maxBytes + 1, 0);
-      return bytesRead > maxBytes ? null : buffer.subarray(0, bytesRead).toString('utf-8');
+      return bytesRead > maxBytes ? null : buffer.subarray(0, bytesRead);
     } finally {
       await handle.close();
     }
@@ -192,6 +192,8 @@ export async function readSmallText(file: string, maxBytes: number): Promise<str
     return null;
   }
 }
+
+export const readSmallText = async (file: string, maxBytes: number): Promise<string | null> => (await readSmallFile(file, maxBytes))?.toString('utf-8') ?? null;
 
 /** SSH targets on this machine: the user's ~/.ssh, Lingua's host key file and the agent this process sees. */
 export function createSystemSshTargets(userDataDir: string, blockedPath: (file: string) => string | null): SshTargets {

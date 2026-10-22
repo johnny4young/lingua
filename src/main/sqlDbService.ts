@@ -34,6 +34,7 @@ import type { ConnectionCatalog } from './sqlConnectionCatalog';
 import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
+import { exportText } from './sqlImport/linguaExport';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -103,6 +104,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
   /** Passwords asked once per session, and those of URL connections nobody saved. */
   const sessionPasswords = new Map<string, string>();
   const sshSessionSecrets = new Map<string, string>();
+  /** Secrets asked for a keychain connection that had none, kept there once they sign in. */
+  const keepOnSuccess = new Set<string>();
   const adhoc = new Map<string, SqlConnectionV1>();
   const runs = new Map<string, { owner: number; connectionId: string }>();
 
@@ -218,16 +221,36 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return !deps.ssh.keyAllowed(keyPath, saved);
   }
 
-  /** Keeps a host key to trust once, and drops a session SSH secret the bastion refused. */
+  /** Keeps a host key to trust once, and drops an asked SSH secret the bastion refused. */
   function sshFailure(entry: SqlConnectionV1, detail: HostError): SqlDbRunResult['fix'] | undefined {
     deps.ssh?.remember(detail);
     if (detail.fix === 'ssh-auth' || detail.fix === 'ssh-key') {
-      if (entry.ssh?.secretMode === 'session') {
+      if (entry.ssh?.secretMode === 'session' || keepOnSuccess.delete(sshSecretId(entry.id))) {
         sshSessionSecrets.delete(entry.id);
         return 'ssh-password-needed';
       }
     }
     return undefined;
+  }
+
+  /** A refused password asked this session is forgotten, so the next run asks again. */
+  function passwordRefused(entry: SqlConnectionV1, detail: HostError): boolean {
+    if (detail.fix !== 'auth' || !(entry.passwordMode === 'session' || keepOnSuccess.delete(connectionSecretId(entry.id)))) return false;
+    sessionPasswords.delete(entry.id);
+    return true;
+  }
+
+  /** Moves secrets asked for a keychain connection into the keychain after they signed in. */
+  async function keepAsked(entry: SqlConnectionV1): Promise<void> {
+    for (const [id, memory] of [
+      [connectionSecretId(entry.id), sessionPasswords],
+      [sshSecretId(entry.id), sshSessionSecrets],
+    ] as const) {
+      const value = memory.get(entry.id);
+      if (!keepOnSuccess.has(id) || value === undefined) continue;
+      keepOnSuccess.delete(id);
+      if ((await deps.secrets.set(id, value)).ok) memory.delete(entry.id);
+    }
   }
 
   async function catalogView(): Promise<SqlDbCatalogView> {
@@ -244,6 +267,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   async function keepPassword(entry: SqlConnectionV1, value: string | undefined): Promise<boolean> {
     const id = connectionSecretId(entry.id);
+    keepOnSuccess.delete(id);
     if (entry.passwordMode === 'none') {
       sessionPasswords.delete(entry.id);
       await deps.secrets.delete(id);
@@ -265,6 +289,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   async function keepSshSecret(entry: SqlConnectionV1, value: string | undefined): Promise<boolean> {
     const id = sshSecretId(entry.id);
+    keepOnSuccess.delete(id);
     const mode = entry.ssh?.secretMode ?? 'none';
     if (mode === 'none') {
       sshSessionSecrets.delete(entry.id);
@@ -313,6 +338,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       adhoc.delete(id);
       sessionPasswords.delete(id);
       sshSessionSecrets.delete(id);
+      keepOnSuccess.delete(connectionSecretId(id));
+      keepOnSuccess.delete(sshSecretId(id));
       await deps.secrets.delete(connectionSecretId(id));
       await deps.secrets.delete(sshSecretId(id));
       if (deps.host.isRunning()) await deps.host.request({ type: 'disconnect', connectionId: id }).catch(() => undefined);
@@ -339,11 +366,15 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       return { ok: true, connection: await view(entry) };
     },
 
-    /** The password asked for a connection that keeps it only for the session. */
+    /** A password asked at connect time: kept for the session, or in the keychain once it signs in for a keychain connection. */
     async sessionPassword(id: string, secret: string, kind: SqlDbSecretKind = 'database'): Promise<{ ok: boolean }> {
       const entry = await connection(id);
       if (!entry || (kind === 'ssh' && !entry.ssh)) return { ok: false };
       (kind === 'ssh' ? sshSessionSecrets : sessionPasswords).set(id, secret);
+      const mode = kind === 'ssh' ? entry.ssh?.secretMode : entry.passwordMode;
+      const secretId = kind === 'ssh' ? sshSecretId(id) : connectionSecretId(id);
+      if (mode === 'keychain' && !adhoc.has(id)) keepOnSuccess.add(secretId);
+      else keepOnSuccess.delete(secretId);
       return { ok: true };
     },
 
@@ -355,6 +386,12 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     /** Lets a draft name a key the user just picked inside ~/.ssh. */
     chooseSshKey(keyPath: string): void {
       deps.ssh?.chooseKey(keyPath);
+    },
+
+    /** Every saved connection as Lingua's export; it holds no secret. */
+    async exportCatalog(): Promise<{ text: string; count: number }> {
+      const list = await deps.catalog.list();
+      return { text: exportText(list, new Date()), count: list.length };
     },
 
     /** What ~/.ssh/config says about an alias and whether an agent answers; never a file's content. */
@@ -430,6 +467,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           steps.push({ id: 'auth', status: 'ok', ms: result.connectMs, detail: entry.user ?? '' });
         }
         steps.push({ id: 'server', status: 'ok', ms: result.serverMs, detail: `${result.serverVersion}${entry.readOnly ? ' · read-only' : ''}` });
+        if ('connectionId' in target) await keepAsked(entry);
         return done(true, result.serverVersion);
       } catch (err) {
         const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
@@ -485,6 +523,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           clearTimeout(timer);
         }
         if (!result.hasMore) runs.delete(key);
+        await keepAsked(entry);
         return {
           status: result.tooLarge ? 'too-large' : 'success',
           engine: entry.engine,
@@ -505,11 +544,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         if (/cancel|interrupt|query execution was interrupted/i.test(detail.message)) return fail('cancelled', detail.message);
         const sshFix = sshFailure(entry, detail);
         if (sshFix) return fail('connection-failed', detail.message, sshFix);
-        // A refused session password is forgotten, so the next run asks again.
-        if (detail.fix === 'auth' && entry.passwordMode === 'session') {
-          sessionPasswords.delete(entry.id);
-          return fail('connection-failed', detail.message, 'password-needed');
-        }
+        if (passwordRefused(entry, detail)) return fail('connection-failed', detail.message, 'password-needed');
         return fail(detail.step ? 'connection-failed' : 'sql-error', detail.message, detail.fix);
       }
     },
@@ -564,16 +599,15 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (!entry) return { errorMessage: 'Unknown connection.' };
       try {
         const { config } = await configFor(entry);
-        return await deps.host.request<SqlDbIntrospectResult>({ type: 'introspect', config, request }, 30_000);
+        const result = await deps.host.request<SqlDbIntrospectResult>({ type: 'introspect', config, request }, 30_000);
+        await keepAsked(entry);
+        return result;
       } catch (err) {
         if (err instanceof GuardError) return { errorMessage: err.message, ...(err.fix ? { fix: err.fix } : {}) };
         const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
         const sshFix = sshFailure(entry, detail);
         if (sshFix) return { errorMessage: detail.message, fix: sshFix };
-        if (detail.fix === 'auth' && entry.passwordMode === 'session') {
-          sessionPasswords.delete(entry.id);
-          return { errorMessage: detail.message, fix: 'password-needed' };
-        }
+        if (passwordRefused(entry, detail)) return { errorMessage: detail.message, fix: 'password-needed' };
         return { errorMessage: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
       }
     },

@@ -204,6 +204,29 @@ export interface SqlDbIntrospectResult {
   fix?: SqlDbFixHint;
 }
 
+/** Where an import reads connections from; `lingua` is Lingua's own export. */
+export const SQL_DB_IMPORT_SOURCES = ['tableplus', 'dbeaver', 'datagrip', 'lingua'] as const;
+export type SqlDbImportSource = (typeof SQL_DB_IMPORT_SOURCES)[number];
+
+/** A connection an import found, never with a password. */
+export interface SqlDbImportCandidate {
+  draft: SqlConnectionDraft;
+  /** Where in the file it came from when the name alone does not say, e.g. the .env key. */
+  origin?: string;
+}
+
+export type SqlDbImportResult =
+  | { canceled: true }
+  | {
+      canceled: false;
+      found: SqlDbImportCandidate[];
+      /** Entries left out: engines Lingua does not connect to yet, or entries missing a host or file. */
+      skipped: number;
+      error?: 'unreadable' | 'unrecognized';
+    };
+
+type SqlDbExportResult = { canceled: true } | { canceled: false; ok: boolean; count: number };
+
 /** `window.lingua.db` on desktop; absent on the web build. */
 export interface SqlDbBridge {
   catalog(): Promise<SqlDbCatalogView>;
@@ -221,5 +244,11 @@ export interface SqlDbBridge {
   estimate(connectionId: string, sql: string): Promise<number | null>;
   pickFile(kind: SqlDbFileKind): Promise<SqlDbPickResult>;
   introspect(connectionId: string, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
+  /** Asks for another client's file in a native dialog and lists what it holds. */
+  importFile(source: SqlDbImportSource): Promise<SqlDbImportResult>;
+  /** Database URLs in the open project's .env files, without their passwords. */
+  importEnv(rootId: string): Promise<SqlDbImportResult>;
+  /** Writes every saved connection, without secrets, to a JSON file the user names. */
+  exportCatalog(): Promise<SqlDbExportResult>;
 }
 

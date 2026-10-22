@@ -263,6 +263,9 @@ contextBridge.exposeInMainWorld('lingua', {
     estimate: (connectionId, sql) => typedInvoke('sql-db:estimate', connectionId, sql),
     pickFile: (kind) => typedInvoke('sql-db:pick-file', kind),
     introspect: (connectionId, request) => typedInvoke('sql-db:introspect', connectionId, request),
+    importFile: (source) => typedInvoke('sql-db:import-file', source),
+    importEnv: (rootId) => typedInvoke('sql-db:import-env', rootId),
+    exportCatalog: () => typedInvoke('sql-db:export'),
   } satisfies SqlDbBridge,
 
   // Env-snapshot bridge . Intentionally returns an empty
