@@ -9,7 +9,7 @@ import type { SqlEngineKind } from './sqlConnections';
 import { sqlDialect } from './sqlDialect';
 
 /** How a row is found: its whole primary key, or DuckDB's rowid for a Local table without one. */
-export type RowEditKey = { kind: 'pk'; columns: string[] } | { kind: 'rowid' };
+type RowEditKey = { kind: 'pk'; columns: string[] } | { kind: 'rowid' };
 
 export interface RowEditTable {
   engine: SqlEngineKind;
@@ -39,14 +39,12 @@ export interface RowEditStatement {
   params: RowEditValue[];
 }
 
-export const MAX_ROW_EDITS = 1000;
+const MAX_ROW_EDITS = 1000;
 const MAX_VALUE_LENGTH = 1024 * 1024;
 
 const ROWID = 'rowid';
 
 export const keyColumns = (table: RowEditTable): string[] => (table.key.kind === 'pk' ? table.key.columns : [ROWID]);
-
-export const isEmptyChangeSet = (changes: RowEditChanges) => changes.updates.length + changes.deletes.length + changes.inserts.length === 0;
 
 const isValue = (value: unknown): value is RowEditValue => value === null || (typeof value === 'string' && value.length <= MAX_VALUE_LENGTH);
 

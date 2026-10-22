@@ -14,6 +14,8 @@ import { cn } from '../../utils/cn';
 import { fixedRowWindow } from './sqlResultFilters';
 import { renderCell } from './sqlResultFormatters';
 import type { SqlSortState } from './sqlResultGrid';
+import { cellText, cellTone, DELETED, type CellTone, type ShownRow } from './sqlRowEditModel';
+import '../../i18n/sqlConnectionsCatalog';
 
 const ROW_HEIGHT = 26;
 const OVERSCAN = 12;
@@ -23,7 +25,26 @@ export interface SqlGridCell {
   column: string;
 }
 
-export type SqlCellAction = 'filter' | 'exclude' | 'copy-value' | 'copy-row' | 'copy-insert' | 'open-value';
+export type SqlCellAction = 'filter' | 'exclude' | 'copy-value' | 'copy-row' | 'copy-insert' | 'open-value' | 'set-null' | 'delete-row' | 'duplicate-row';
+
+/** Staged editing of an Explorer table's rows. */
+export interface SqlGridEditing {
+  canEdit: (row: Record<string, unknown>, column: string) => boolean;
+  onEditCell: (row: number, column: string, value: string) => void;
+}
+
+const EDIT_ACTIONS: ReadonlyArray<{ id: SqlCellAction | 'edit-cell'; labelKey: string }> = [
+  { id: 'edit-cell', labelKey: 'sqlWorkspace.edits.menu.edit' },
+  { id: 'set-null', labelKey: 'sqlWorkspace.edits.menu.setNull' },
+  { id: 'duplicate-row', labelKey: 'sqlWorkspace.edits.menu.duplicate' },
+  { id: 'delete-row', labelKey: 'sqlWorkspace.edits.menu.delete' },
+];
+
+const TONE_CLASS: Readonly<Record<CellTone, string>> = {
+  edited: 'bg-warning-bg text-warning-fg',
+  deleted: 'text-error-fg line-through',
+  inserted: 'bg-accent-tint',
+};
 
 const CELL_ACTIONS: ReadonlyArray<{ id: SqlCellAction; labelKey: string }> = [
   { id: 'filter', labelKey: 'sqlWorkspace.grid.menu.filter' },
@@ -50,6 +71,10 @@ interface RowActions {
   open: (index: number, column: string) => void;
   menu: (event: MouseEvent, cell: SqlGridCell) => void;
   follow: (column: string, value: unknown) => void;
+  /** The inline editor: its text changes, Enter or leaving saves, Escape cancels. */
+  draft: (value: string) => void;
+  save: () => void;
+  cancel: () => void;
 }
 
 /** One grid row; memoized so scrolling renders only the rows that enter the window. */
@@ -61,6 +86,7 @@ const GridRow = memo(function GridRow({
   linkedColumns,
   canFollow,
   actions,
+  editor,
 }: {
   row: Record<string, unknown>;
   index: number;
@@ -70,6 +96,8 @@ const GridRow = memo(function GridRow({
   linkedColumns: ReadonlySet<string> | undefined;
   canFollow: boolean;
   actions: RowActions;
+  /** The cell being edited in this row, with its text. */
+  editor: { column: string; value: string } | null;
 }) {
   const rowSelected = selectedColumn !== null;
   return (
@@ -86,6 +114,28 @@ const GridRow = memo(function GridRow({
         const isNull = value === null || value === undefined;
         const cellSelected = selectedColumn === col.name;
         const linked = !isNull && canFollow && linkedColumns?.has(col.name) === true;
+        const tone = cellTone(row, col.name);
+        if (editor?.column === col.name) {
+          return (
+            <td key={col.name} role="gridcell" data-column={col.name} className="p-0">
+              <input
+                autoFocus
+                data-testid="sql-cell-editor"
+                aria-label={col.name}
+                value={editor.value}
+                placeholder={isNull ? 'NULL' : undefined}
+                onChange={(event) => actions.draft(event.target.value)}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === 'Enter') actions.save();
+                  if (event.key === 'Escape') actions.cancel();
+                }}
+                onBlur={actions.save}
+                className="h-[25px] w-full min-w-[8rem] bg-bg-inset px-2.5 font-mono text-caption text-fg-base outline outline-1 -outline-offset-1 outline-accent"
+              />
+            </td>
+          );
+        }
         return (
           <td
             key={col.name}
@@ -93,9 +143,10 @@ const GridRow = memo(function GridRow({
             aria-selected={cellSelected}
             data-column={col.name}
             data-null={isNull ? 'true' : undefined}
+            data-edit={tone}
             onDoubleClick={() => actions.open(index, col.name)}
             onContextMenu={(event) => actions.menu(event, { row: index, column: col.name })}
-            className={cn(cellClass(value, numeric), cellSelected && 'outline outline-1 -outline-offset-1 outline-accent')}
+            className={cn(cellClass(value, numeric), tone && TONE_CLASS[tone], cellSelected && 'outline outline-1 -outline-offset-1 outline-accent')}
           >
             {linked ? (
               <button
@@ -120,6 +171,14 @@ const GridRow = memo(function GridRow({
   );
 });
 
+/** The edit items a cell's menu starts with: edit and NULL for an editable cell, then duplicate and delete or restore. */
+function editActionsFor(editing: SqlGridEditing, row: Record<string, unknown>, column: string) {
+  const deleted = (row as ShownRow)[DELETED] === true;
+  return EDIT_ACTIONS.filter(({ id }) => (id === 'edit-cell' || id === 'set-null' ? editing.canEdit(row, column) : !(deleted && id === 'duplicate-row'))).map((action) =>
+    action.id === 'delete-row' && deleted ? { ...action, labelKey: 'sqlWorkspace.edits.menu.restore' } : action
+  );
+}
+
 export function SqlVirtualGrid({
   columns,
   rows,
@@ -131,6 +190,7 @@ export function SqlVirtualGrid({
   onCopyRow,
   linkedColumns,
   onFollowLink,
+  editing,
 }: {
   columns: ReadonlyArray<SqlColumnMetadata>;
   rows: ReadonlyArray<Record<string, unknown>>;
@@ -143,8 +203,20 @@ export function SqlVirtualGrid({
   /** Foreign-key columns; their non-null cells link to the referenced row. */
   linkedColumns?: ReadonlySet<string>;
   onFollowLink?: (column: string, value: unknown) => void;
+  editing?: SqlGridEditing;
 }) {
   const { t } = useTranslation();
+  const [editor, setEditor] = useState<{ row: number; column: string; value: string } | null>(null);
+  const editorRef = useRef(editor);
+  useLayoutEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
+  /** Double-click and Enter edit a cell that can be edited, and open the value otherwise. */
+  const openCell = (cell: SqlGridCell) => {
+    const row = rows[cell.row];
+    if (editing && row && editing.canEdit(row, cell.column)) setEditor({ ...cell, value: cellText(row[cell.column]) ?? '' });
+    else onCellAction('open-value', cell);
+  };
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
   const [menu, setMenu] = useState<{ cell: SqlGridCell; x: number; y: number } | null>(null);
@@ -217,7 +289,7 @@ export function SqlVirtualGrid({
     else if (event.key === 'ArrowUp') move(current.row < 0 ? 0 : current.row - 1, colIndex);
     else if (event.key === 'ArrowRight' && selected) move(current.row, colIndex + 1);
     else if (event.key === 'ArrowLeft' && selected) move(current.row, colIndex - 1);
-    else if (event.key === 'Enter' && selected) onCellAction('open-value', selected);
+    else if (event.key === 'Enter' && selected) openCell(selected);
     else if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && selected) {
       const rect = scrollRef.current?.getBoundingClientRect();
       setMenu({ cell: selected, x: (rect?.left ?? 0) + 40, y: (rect?.top ?? 0) + 40 });
@@ -237,9 +309,9 @@ export function SqlVirtualGrid({
   };
 
   // Rows get one stable set of handlers that read the latest props, so a re-render skips them.
-  const latest = useRef({ onSelect, onCellAction, onFollowLink, openMenu, selected, typed });
+  const latest = useRef({ onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing });
   useLayoutEffect(() => {
-    latest.current = { onSelect, onCellAction, onFollowLink, openMenu, selected, typed };
+    latest.current = { onSelect, onCellAction, onFollowLink, openMenu, selected, typed, openCell, editing };
   });
   const rowActions = useMemo<RowActions>(
     () => ({
@@ -248,9 +320,23 @@ export function SqlVirtualGrid({
         const column = (event.target as HTMLElement).closest('td')?.dataset.column ?? current?.column ?? shown[0]?.col.name;
         if (column) latest.current.onSelect({ row: index, column });
       },
-      open: (index, column) => latest.current.onCellAction('open-value', { row: index, column }),
+      open: (index, column) => latest.current.openCell({ row: index, column }),
       menu: (event, cell) => latest.current.openMenu(event, cell),
       follow: (column, value) => latest.current.onFollowLink?.(column, value),
+      draft: (value) => setEditor((current) => (current ? { ...current, value } : current)),
+      save: () => {
+        const current = editorRef.current;
+        if (!current) return;
+        editorRef.current = null;
+        setEditor(null);
+        latest.current.editing?.onEditCell(current.row, current.column, current.value);
+        scrollRef.current?.focus();
+      },
+      cancel: () => {
+        editorRef.current = null;
+        setEditor(null);
+        scrollRef.current?.focus();
+      },
     }),
     []
   );
@@ -327,6 +413,7 @@ export function SqlVirtualGrid({
                 linkedColumns={linkedColumns}
                 canFollow={onFollowLink !== undefined}
                 actions={rowActions}
+                editor={editor?.row === index ? { column: editor.column, value: editor.value } : null}
               />
             );
           })}
@@ -339,10 +426,10 @@ export function SqlVirtualGrid({
               ref={menuRef}
               role="menu"
               data-testid="sql-cell-menu"
-              style={{ position: 'fixed', left: Math.min(menu.x, globalThis.innerWidth - 220), top: Math.min(menu.y, globalThis.innerHeight - 190) }}
+              style={{ position: 'fixed', left: Math.min(menu.x, globalThis.innerWidth - 220), top: Math.min(menu.y, globalThis.innerHeight - (editing ? 300 : 190)) }}
               className="z-50 w-[210px] rounded-lg border border-border-default bg-bg-panel p-1 text-body-sm shadow-lg"
             >
-              {CELL_ACTIONS.map(({ id, labelKey }) => (
+              {[...(editing && rows[menu.cell.row] ? editActionsFor(editing, rows[menu.cell.row]!, menu.cell.column) : []), ...CELL_ACTIONS].map(({ id, labelKey }) => (
                 <button
                   key={id}
                   type="button"
@@ -350,7 +437,8 @@ export function SqlVirtualGrid({
                   data-testid={`sql-cell-menu-${id}`}
                   onClick={() => {
                     setMenu(null);
-                    onCellAction(id, menu.cell);
+                    if (id === 'edit-cell') openCell(menu.cell);
+                    else onCellAction(id, menu.cell);
                   }}
                   className="flex h-[26px] w-full items-center rounded px-2 text-left text-fg-base hover:bg-bg-panel-alt focus-visible:bg-bg-panel-alt focus-visible:outline-none"
                 >

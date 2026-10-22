@@ -34,6 +34,7 @@ function fakeDriver(count: number, calls: string[] = []) {
     cancel: vi.fn(async () => true),
     estimateRows: async () => 42,
     introspect: async () => ({ schemas: [] }),
+    applyEdits: vi.fn(async () => undefined),
     close: vi.fn(async () => undefined),
   };
   return { session, open: vi.fn(async () => session) };

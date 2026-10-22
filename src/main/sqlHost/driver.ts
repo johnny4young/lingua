@@ -7,7 +7,7 @@ import type { RowEditStatement } from '../../shared/sqlRowEdits';
 import type { HostError, HostSessionConfig } from './protocol';
 
 /** A staged change that would touch no row or several, so nothing was saved. */
-export class EditConflictError extends Error {
+class EditConflictError extends Error {
   constructor(
     readonly index: number,
     readonly touched: number

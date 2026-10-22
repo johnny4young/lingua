@@ -12,6 +12,10 @@ export const FEATURE_FLAGS = {
     labelKey: 'settings.labs.flag.dbClient.label',
     descriptionKey: 'settings.labs.flag.dbClient.description',
   },
+  editRows: {
+    labelKey: 'settings.labs.flag.editRows.label',
+    descriptionKey: 'settings.labs.flag.editRows.description',
+  },
 } as const;
 
 export type FeatureFlagId = keyof typeof FEATURE_FLAGS;
