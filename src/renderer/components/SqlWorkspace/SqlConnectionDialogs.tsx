@@ -1,3 +1,4 @@
+import type { SqlDbSecretKind } from '../../../shared/sqlDb';
 import { AlertTriangle, KeyRound, Shield } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +45,7 @@ export function SqlWriteConfirmDialog({ confirm, onResolve }: { confirm: SqlWrit
       icon={<AlertTriangle size={16} aria-hidden="true" className="text-error-fg" />}
       header={
         <h2 id={titleId} className="truncate text-body-lg font-semibold text-fg-base">
-          {t('sqlWorkspace.guard.title')}
+          {confirm.production ? t('sqlWorkspace.guard.title') : t('sqlWorkspace.guard.titleConfirm', { name: confirm.connectionName })}
         </h2>
       }
       footerLegend={
@@ -104,11 +105,14 @@ export function SqlWriteConfirmDialog({ confirm, onResolve }: { confirm: SqlWrit
 export function SqlPasswordPrompt({
   name,
   refused,
+  kind = 'database',
   onSubmit,
   onCancel,
 }: {
   name: string;
   refused: boolean;
+  /** `ssh` asks for the tunnel's password or key passphrase. */
+  kind?: SqlDbSecretKind;
   onSubmit: (password: string) => void;
   onCancel: () => void;
 }) {
@@ -124,7 +128,7 @@ export function SqlPasswordPrompt({
       icon={<KeyRound size={16} aria-hidden="true" />}
       header={
         <h2 id={titleId} className="truncate text-body-lg font-semibold text-fg-base">
-          {t('sqlWorkspace.connection.passwordPromptTitle', { name })}
+          {t(kind === 'ssh' ? 'sqlWorkspace.connection.sshPasswordPromptTitle' : 'sqlWorkspace.connection.passwordPromptTitle', { name })}
         </h2>
       }
       footerLegend={

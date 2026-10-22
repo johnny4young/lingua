@@ -12,13 +12,15 @@ import type {
   SqlDbObjectInfo,
   SqlDbObjectKind,
   SqlDbSchemaInfo,
+  SqlDbSecretKind,
 } from '../../shared/sqlDb';
 import { sqlDbBridge } from '../runtime/sqlRemote';
 
 export type SqlCatalogLevel<T> =
   | { status: 'loading' }
   | { status: 'ready'; value: T; truncated?: boolean }
-  | { status: 'error'; message: string; passwordNeeded?: boolean };
+  /** `passwordNeeded` names the secret a session connection still needs. */
+  | { status: 'error'; message: string; passwordNeeded?: SqlDbSecretKind };
 
 export type SqlRemoteColumn = NonNullable<SqlDbIntrospectResult['columns']>[number];
 
@@ -83,7 +85,11 @@ export const useSqlRemoteCatalogStore = create<SqlRemoteCatalogState>((set, get)
     const value = pick(result);
     const level: SqlCatalogLevel<T> =
       result.errorMessage !== undefined || value === undefined
-        ? { status: 'error', message: result.errorMessage ?? '', ...(result.fix === 'password-needed' ? { passwordNeeded: true } : {}) }
+        ? {
+            status: 'error',
+            message: result.errorMessage ?? '',
+            ...(result.fix === 'password-needed' ? { passwordNeeded: 'database' as const } : result.fix === 'ssh-password-needed' ? { passwordNeeded: 'ssh' as const } : {}),
+          }
         : { status: 'ready', value, ...(result.truncated ? { truncated: true } : {}) };
     patch(connectionId, generation, (catalog) => store(catalog, level));
   }

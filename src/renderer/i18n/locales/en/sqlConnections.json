@@ -185,5 +185,7 @@
   "sqlWorkspace.remote.missingConnection": "connection removed",
   "sqlWorkspace.remote.readOnlyName": "{{name}} · RO",
   "sqlWorkspace.remote.quickOpen.count_one": "{{count}} result",
-  "sqlWorkspace.remote.quickOpen.count_other": "{{count}} results"
+  "sqlWorkspace.remote.quickOpen.count_other": "{{count}} results",
+  "sqlWorkspace.guard.titleConfirm": "This statement writes to {{name}}",
+  "sqlWorkspace.connection.sshPasswordPromptTitle": "SSH password or key passphrase for {{name}}"
 }

@@ -185,5 +185,7 @@
   "sqlWorkspace.remote.missingConnection": "conexión eliminada",
   "sqlWorkspace.remote.readOnlyName": "{{name}} · RO",
   "sqlWorkspace.remote.quickOpen.count_one": "{{count}} resultado",
-  "sqlWorkspace.remote.quickOpen.count_other": "{{count}} resultados"
+  "sqlWorkspace.remote.quickOpen.count_other": "{{count}} resultados",
+  "sqlWorkspace.guard.titleConfirm": "Esta sentencia escribe en {{name}}",
+  "sqlWorkspace.connection.sshPasswordPromptTitle": "Contraseña SSH o frase de la llave de {{name}}"
 }

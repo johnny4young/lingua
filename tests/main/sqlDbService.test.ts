@@ -386,11 +386,27 @@ describe('SSH tunnels and safety switches', () => {
     expect(await svc.execute(1, 'r3', id, 'SELECT 1', { timeoutMs: 1000 })).toMatchObject({ errorMessage: expect.stringMatching(/SSH sign-in needs/) });
   });
 
-  it('forgets the SSH secret when the bastion changes without a new one', async () => {
+  it('forgets both secrets when the bastion changes without new ones, since another machine answers for the database', async () => {
     const { svc, secrets } = service();
     const id = ((await svc.save(tunnelled, undefined, 'pw', 'ssh-pw')) as { connection: { id: string } }).connection.id;
     await svc.save({ ...tunnelled, ssh: { ...tunnelled.ssh!, host: 'other-bastion' } }, id, undefined);
     expect(await secrets.get(`db.${id}.ssh`)).toBeNull();
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+
+  it('forgets the database password when a tunnel is added, and the SSH secret when the jump chain changes', async () => {
+    const { svc, secrets } = service();
+    const direct = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    await svc.save(tunnelled, direct, undefined, 'ssh-pw');
+    expect(await secrets.get(`db.${direct}`)).toBeNull();
+    const keyed = { ...pg, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/home/me/.ssh/id_ed25519', secretMode: 'keychain' as const, jumps: [{ host: 'jump-a', port: 22, user: 'deploy' }] } };
+    const id = ((await svc.save(keyed, undefined, 'pw', 'passphrase')) as { connection: { id: string } }).connection.id;
+    await svc.save({ ...keyed, ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, 'pw');
+    expect(await secrets.get(`db.${id}.ssh`)).toBeNull();
+    // Same chain, nothing forgotten.
+    await svc.save({ ...keyed, ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, undefined, 'passphrase');
+    await svc.save({ ...keyed, name: 'renamed', ssh: { ...keyed.ssh, jumps: [{ host: 'jump-b', port: 22, user: 'deploy' }] } }, id, undefined);
+    expect(await secrets.get(`db.${id}.ssh`)).toBe('passphrase');
     expect(await secrets.get(`db.${id}`)).toBe('pw');
   });
 

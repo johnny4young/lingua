@@ -1,7 +1,7 @@
 import { Copy, Play, TextCursorInput } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SqlDbObjectDetail } from '../../../shared/sqlDb';
+import type { SqlDbObjectDetail, SqlDbSecretKind } from '../../../shared/sqlDb';
 import { formatByteSize, formatCompactNumber } from '../../i18n/formatNumber';
 import { objectKey, useSqlRemoteCatalogStore, type SqlObjectRef } from '../../stores/sqlRemoteCatalogStore';
 import { cn } from '../../utils/cn';
@@ -24,7 +24,7 @@ export interface SqlObjectDetailProps {
   onTab: (tab: SqlObjectTab) => void;
   /** Puts `SELECT * … LIMIT 100` in the editor. */
   onInsertSelect: () => void;
-  onEnterPassword: () => void;
+  onEnterPassword: (kind: SqlDbSecretKind) => void;
   /** The object's rows, shown on the Data tab. */
   data: ReactNode;
 }
@@ -101,7 +101,11 @@ export function SqlObjectDetail({ connectionId, object, tab, onTab, onInsertSele
               <p className="break-words text-error-fg">{level.passwordNeeded ? t('sqlWorkspace.remote.needsPassword') : level.message || t('sqlWorkspace.remote.failed')}</p>
               <button
                 type="button"
-                onClick={level.passwordNeeded ? onEnterPassword : () => void useSqlRemoteCatalogStore.getState().loadDetail(connectionId, object)}
+                onClick={
+                  level.passwordNeeded
+                    ? () => onEnterPassword(level.passwordNeeded!)
+                    : () => void useSqlRemoteCatalogStore.getState().loadDetail(connectionId, object)
+                }
                 className="focus-ring mt-1 rounded font-medium text-accent-fg hover:underline"
               >
                 {t(level.passwordNeeded ? 'sqlWorkspace.remote.enterPassword' : 'sqlWorkspace.remote.retry')}
