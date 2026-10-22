@@ -7,7 +7,7 @@ import pg from 'pg';
 import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { DriverRows, DriverSession } from './driver';
+import { expectOneRow, type DriverRows, type DriverSession } from './driver';
 import { introspectPostgres } from './postgresCatalog';
 import type { HostSessionConfig } from './protocol';
 
@@ -115,6 +115,17 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
     async version() {
       const result = await client.query<{ server_version: string }>('SHOW server_version');
       return `PostgreSQL ${String(result.rows[0]?.server_version ?? '').split(' ')[0]}`;
+    },
+
+    async applyEdits(statements) {
+      await client.query('BEGIN');
+      try {
+        for (const [index, statement] of statements.entries()) expectOneRow(index, (await client.query(statement.sql, statement.params)).rowCount);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw err;
+      }
     },
 
     async run(sql, { readWrite }) {

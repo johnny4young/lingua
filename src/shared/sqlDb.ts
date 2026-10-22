@@ -5,6 +5,7 @@
 
 import type { SqlColumnMetadata, SqlQueryStatus } from './sqlWorkspace';
 import type { SqlConnectionDraft, SqlConnectionV1, SqlRemoteEngine } from './sqlConnections';
+import type { RowEditChanges } from './sqlRowEdits';
 import type { SecretStorageMode } from './secretVault';
 
 /** A connection as the renderer sees it: never a password, only whether one is kept. */
@@ -227,6 +228,22 @@ export type SqlDbImportResult =
 
 type SqlDbExportResult = { canceled: true } | { canceled: false; ok: boolean; count: number };
 
+/** The table staged edits apply to, as the Explorer opened it. */
+export interface SqlDbEditTable {
+  schema: string;
+  name: string;
+}
+
+export type SqlDbApplyResult =
+  | { ok: true; applied: number }
+  | {
+      ok: false;
+      /** read-only and production connections are never edited; not-editable: no whole primary key. */
+      reason: 'read-only' | 'production' | 'confirm-needed' | 'not-editable' | 'invalid' | 'failed';
+      message?: string;
+      fix?: SqlDbFixHint;
+    };
+
 /** `window.lingua.db` on desktop; absent on the web build. */
 export interface SqlDbBridge {
   catalog(): Promise<SqlDbCatalogView>;
@@ -250,5 +267,7 @@ export interface SqlDbBridge {
   importEnv(rootId: string): Promise<SqlDbImportResult>;
   /** Writes every saved connection, without secrets, to a JSON file the user names. */
   exportCatalog(): Promise<SqlDbExportResult>;
+  /** Applies staged edits to one table in one transaction; main rebuilds the SQL and checks the primary key itself. */
+  applyEdits(connectionId: string, table: SqlDbEditTable, changes: RowEditChanges, confirmName?: string): Promise<SqlDbApplyResult>;
 }
 

@@ -14,6 +14,7 @@ import type { HostRequest, HostSessionConfig } from '../../src/main/sqlHost/prot
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
 import type { SqlDbIntrospectResult } from '../../src/shared/sqlDb';
 import { sshFingerprint } from '../../src/main/sqlSsh/knownHosts';
+import { rowEditStatements, type RowEditTable } from '../../src/shared/sqlRowEdits';
 
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite });
 afterAll(() => host.dispose());
@@ -212,6 +213,39 @@ for (const [engine, url] of [
       } finally {
         await ok({ type: 'execute', config, runId: 'unplant', sql: 'DROP FUNCTION IF EXISTS public.format(text, text, text)', readWrite: false, window });
       }
+    });
+
+    it('applies staged edits in one transaction, and rolls all of them back when one touches no row', async () => {
+      const edits = `lingua_it_${engine}_edits`;
+      const run = (sql: string) => ok({ type: 'execute', config, runId: `e-${sql.length}`, sql, readWrite: false, window });
+      await run(`DROP TABLE IF EXISTS ${edits}`);
+      await run(`CREATE TABLE ${edits} (id INTEGER PRIMARY KEY, city VARCHAR(40), total DECIMAL(10,2))`);
+      await run(`INSERT INTO ${edits} (id, city, total) VALUES (1, 'Envigado', 10.50), (2, 'Medellin', 20.00), (3, 'Cali', 30.00)`);
+      const table: RowEditTable = { engine, name: edits, columns: ['id', 'city', 'total'], key: { kind: 'pk', columns: ['id'] } };
+      const statements = rowEditStatements(
+        table,
+        {
+          updates: [
+            { key: { id: '1' }, values: { total: '10.50' } },
+            { key: { id: '2' }, values: { city: "O'Brien", total: null } },
+          ],
+          deletes: [{ key: { id: '3' } }],
+          inserts: [{ values: { id: '4', city: 'Bogota', total: '40' } }],
+        },
+        false
+      );
+      expect(await ok({ type: 'apply-edits', config, statements })).toEqual({ applied: 4 });
+      const after = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'e-read', sql: `SELECT id, city, total FROM ${edits} ORDER BY id`, readWrite: false, window });
+      expect(after.rows.map((row) => [String(row.id), row.city, row.total === null ? null : Number(row.total)])).toEqual([
+        ['1', 'Envigado', 10.5],
+        ['2', "O'Brien", null],
+        ['4', 'Bogota', 40],
+      ]);
+      const conflict = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { city: 'changed' } }], deletes: [{ key: { id: '99' } }], inserts: [] }, false);
+      expect(await send({ type: 'apply-edits', config, statements: conflict })).toMatchObject({ ok: false, error: { message: expect.stringMatching(/Change 2 would touch 0 rows/) } });
+      const kept = await ok<{ rows: Array<Record<string, unknown>> }>({ type: 'execute', config, runId: 'e-kept', sql: `SELECT city FROM ${edits} WHERE id = 1`, readWrite: false, window });
+      expect(kept.rows[0]?.city).toBe('Envigado');
+      await run(`DROP TABLE ${edits}`);
     });
 
     it('refuses a write on a read-only connection on the server side, and lifts it for one run', async () => {

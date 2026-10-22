@@ -16,7 +16,8 @@ import { checkedCandidates, importCandidates, MAX_IMPORT_BYTES, siblingFile } fr
 import { isClientFile } from '../sqlImport/clientFiles';
 import { ENV_FILES, envCandidates } from '../sqlImport/envFile';
 import { resolveCapabilityPath } from './projectCapabilities';
-import { SQL_DB_IMPORT_SOURCES, SQL_DB_OBJECT_KINDS, type SqlDbImportCandidate, type SqlDbImportSource, type SqlDbSecretKind, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
+import { parseRowEditChanges, type RowEditChanges } from '../../shared/sqlRowEdits';
+import { SQL_DB_IMPORT_SOURCES, SQL_DB_OBJECT_KINDS, type SqlDbEditTable, type SqlDbImportCandidate, type SqlDbImportSource, type SqlDbSecretKind, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
 import { MAX_QUERY_BYTES, MAX_QUERY_TIMEOUT_MS } from '../../shared/sqlWorkspace';
 import { onOwnerReset } from '../runners/ownerReset';
 import type { SqlDbService } from '../sqlDbService';
@@ -356,5 +357,20 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
         return { canceled: false, ok: false, count } as const;
       }
     }
+  );
+
+  validatedHandle(
+    'sql-db:apply-edits',
+    (args) => {
+      const target = args[1] as Record<string, unknown> | null;
+      const table =
+        target && typeof target === 'object'
+          ? { schema: bounded(target.schema, MAX_NAME, 'sql-db:apply-edits'), name: bounded(target.name, MAX_NAME, 'sql-db:apply-edits') }
+          : fail('sql-db:apply-edits');
+      const changes = parseRowEditChanges(args[2]) ?? fail('sql-db:apply-edits');
+      const confirmName = args[3] === undefined || args[3] === null ? undefined : bounded(args[3], 200, 'sql-db:apply-edits');
+      return [connectionId(args[0], 'sql-db:apply-edits'), table, changes, confirmName] as [string, SqlDbEditTable, RowEditChanges, string | undefined];
+    },
+    (_event, id, table, changes, confirmName) => service.applyEdits(id, table, changes, confirmName)
   );
 }

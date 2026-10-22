@@ -3,7 +3,23 @@
 import type { Duplex } from 'node:stream';
 import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
+import type { RowEditStatement } from '../../shared/sqlRowEdits';
 import type { HostError, HostSessionConfig } from './protocol';
+
+/** A staged change that would touch no row or several, so nothing was saved. */
+export class EditConflictError extends Error {
+  constructor(
+    readonly index: number,
+    readonly touched: number
+  ) {
+    super(`Change ${index + 1} would touch ${touched} rows instead of one: the table changed since it was read, so nothing was saved.`);
+  }
+}
+
+/** Checks one statement's row count inside an edit transaction. */
+export function expectOneRow(index: number, touched: number | null | undefined): void {
+  if (touched !== 1) throw new EditConflictError(index, Number(touched ?? 0));
+}
 
 export interface DriverRows {
   columns: SqlColumnMetadata[];
@@ -24,6 +40,8 @@ export interface DriverSession {
   tls?(): { subject?: string; validTo?: string } | undefined;
   /** One level of the catalog, read with the engine's own catalog queries. */
   introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
+  /** Runs every statement in one transaction; each must touch exactly one row, or all of them roll back. */
+  applyEdits(statements: ReadonlyArray<RowEditStatement>): Promise<void>;
   /** Calls `listener` when the connection drops on its own, as when its tunnel closes. */
   onLost?(listener: () => void): void;
   close(): Promise<void>;

@@ -10,6 +10,7 @@ import { TunnelError } from '../../../src/main/sqlHost/tunnel';
 import type { HostRequest, HostSessionConfig } from '../../../src/main/sqlHost/protocol';
 import type { SqlDbIntrospectResult } from '../../../src/shared/sqlDb';
 import { openSqlite } from '../../../src/main/sqlHost/sqlite';
+import { rowEditStatements, type RowEditTable } from '../../../src/shared/sqlRowEdits';
 
 const window = { maxRows: 10_000, maxBytes: 256 * 1024 };
 
@@ -222,6 +223,18 @@ describe('SQLite driver (node:sqlite)', () => {
         hasMore: false,
       },
     });
+    await host.dispose();
+  });
+
+  it('applies staged edits in one transaction on their own connection, and rolls back a change that touches no row', async () => {
+    const host = createSqlHostSupervisorless();
+    const table: RowEditTable = { engine: 'sqlite', name: 't', columns: ['id', 'name', 'price'], key: { kind: 'pk', columns: ['id'] } };
+    const edits = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { name: "O'Hare" } }], deletes: [{ key: { id: '2' } }], inserts: [{ values: { id: '3', name: 'c' } }] }, false);
+    expect(await host.handle(req({ type: 'apply-edits', config: sqliteConfig(false), statements: edits }))).toEqual({ id: expect.any(Number), ok: true, result: { applied: 3 } });
+    const conflict = rowEditStatements(table, { updates: [{ key: { id: '1' }, values: { name: 'lost' } }], deletes: [{ key: { id: '42' } }], inserts: [] }, false);
+    expect(await host.handle(req({ type: 'apply-edits', config: sqliteConfig(false), statements: conflict }))).toMatchObject({ ok: false, error: { message: expect.stringMatching(/Change 2 would touch 0 rows/) } });
+    const rows = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'r', sql: 'SELECT id, name FROM t ORDER BY id', readWrite: false, window }));
+    expect(rows).toMatchObject({ result: { rows: [{ id: '1', name: "O'Hare" }, { id: '3', name: 'c' }] } });
     await host.dispose();
   });
 
