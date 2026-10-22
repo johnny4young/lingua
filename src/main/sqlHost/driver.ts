@@ -24,6 +24,8 @@ export interface DriverSession {
   tls?(): { subject?: string; validTo?: string } | undefined;
   /** One level of the catalog, read with the engine's own catalog queries. */
   introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
+  /** Calls `listener` when the connection drops on its own, as when its tunnel closes. */
+  onLost?(listener: () => void): void;
   close(): Promise<void>;
 }
 

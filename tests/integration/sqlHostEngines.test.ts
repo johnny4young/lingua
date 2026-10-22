@@ -302,10 +302,13 @@ describe.skipIf(!process.env.LINGUA_TEST_PG_URL && !process.env.LINGUA_TEST_MYSQ
   let sshPort = 0;
   let bastion: Server;
   const forwarded: string[] = [];
+  const signedIn = new Set<{ end: () => void }>();
 
   beforeAll(async () => {
     bastion = new Server({ hostKeys: [hostKey.private] }, (client) => {
       client.on('error', () => undefined);
+      signedIn.add(client);
+      client.on('close', () => signedIn.delete(client));
       client.on('authentication', (ctx) => (ctx.method === 'password' && ctx.password === 'tunnel' ? ctx.accept() : ctx.reject(['password'])));
       client.on('ready', () =>
         client.on('tcpip', (accept, reject, info) => {
@@ -357,6 +360,11 @@ describe.skipIf(!process.env.LINGUA_TEST_PG_URL && !process.env.LINGUA_TEST_MYSQ
       expect((await ok<{ rows: unknown[] }>({ type: 'fetch', runId: `${engine}-t1`, limit: 100, maxBytes: 1e9 })).rows).toHaveLength(30);
       await ok({ type: 'introspect', config, request: { level: 'schemas' } });
       expect(forwarded.every((target) => target === `${direct.address}:${direct.port}`)).toBe(true);
+      // The bastion drops an idle session: the host lives on and the next run signs in again.
+      for (const client of signedIn) client.end();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const again = await ok<{ rows: unknown[] }>({ type: 'execute', config, runId: `${engine}-t2`, sql: 'SELECT 1 AS one', readWrite: false, window: { maxRows: 5, maxBytes: 1e6 } });
+      expect(again.rows).toHaveLength(1);
       expect(await send({ type: 'test', config: { ...config, ssh: { ...config.ssh!, password: 'wrong' } } })).toMatchObject({ ok: false, error: { step: 'ssh', fix: 'ssh-auth' } });
       await ok({ type: 'disconnect', connectionId: `${engine}-tunnel` });
     });

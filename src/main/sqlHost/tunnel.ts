@@ -141,6 +141,7 @@ function hopError(err: unknown, hop: HostSshHop, seen: { verdict: HostKeyVerdict
 function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: Duplex | undefined, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
     let seen: { verdict: HostKeyVerdict; type: string; fingerprint: string } | null = null;
+    const serverHostKey = hostKeyAlgorithms(hop.known);
     client.once('ready', () => {
       // Errors after sign-in end the connection, which drops the tunnel; they must not crash the host.
       client.on('error', () => client.end());
@@ -152,7 +153,7 @@ function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: D
       username: hop.user,
       readyTimeout: timeoutMs,
       keepaliveInterval: KEEPALIVE_MS,
-      ...(hostKeyAlgorithms(hop.known) ? { algorithms: { serverHostKey: hostKeyAlgorithms(hop.known) as never } } : {}),
+      ...(serverHostKey ? { algorithms: { serverHostKey: serverHostKey as never } } : {}),
       ...authOf(ssh),
       hostVerifier: (key: Buffer) => {
         const type = sshKeyType(key) ?? '';
@@ -164,16 +165,18 @@ function connectHop(client: Client, hop: HostSshHop, ssh: HostSshConfig, sock: D
   });
 }
 
-function forward(client: Client, host: string, port: number, from: HostSshHop, timeoutMs = READY_TIMEOUT_MS): Promise<Duplex> {
+/** One channel through `client`; a late channel is closed, and the client stays up for the tunnel's other channels. */
+function forward(client: Client, host: string, port: number, from: HostSshHop, timeoutMs: number): Promise<Duplex> {
   return new Promise((resolve, reject) => {
-    // A hop that signs in but never opens the channel must not hold the tunnel forever.
+    let late = false;
     const timer = setTimeout(() => {
+      late = true;
       reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} did not open a channel to ${host}:${port} in time.` }));
-      client.end();
     }, timeoutMs);
     client.forwardOut('127.0.0.1', 0, host, port, (err, stream) => {
       clearTimeout(timer);
-      if (err) reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} could not reach ${host}:${port}: ${err.message}` }));
+      if (late) stream?.destroy();
+      else if (err) reject(new TunnelError({ step: 'ssh', fix: 'ssh-unreachable', message: `${label(from)} could not reach ${host}:${port}: ${err.message}` }));
       else resolve(stream);
     });
   });
@@ -206,7 +209,7 @@ function close({ clients }: Open): void {
   for (const client of [...clients].reverse()) client.end();
 }
 
-/** `timeoutMs` bounds each sign-in and each channel between hops. */
+/** `timeoutMs` bounds each sign-in and each channel, between hops and to the database. */
 export function createTunnelPool({ timeoutMs = READY_TIMEOUT_MS }: { timeoutMs?: number } = {}) {
   const tunnels = new Map<string, { refs: number; ready: Promise<Open> }>();
 
@@ -243,7 +246,7 @@ export function createTunnelPool({ timeoutMs = READY_TIMEOUT_MS }: { timeoutMs?:
       let released = false;
       const bastion = opened.clients.at(-1)!;
       return {
-        socket: () => new TunnelSocket(() => forward(bastion, ssh.target.host, ssh.target.port, ssh.hops.at(-1)!)),
+        socket: () => new TunnelSocket(() => forward(bastion, ssh.target.host, ssh.target.port, ssh.hops.at(-1)!, timeoutMs)),
         release: async () => {
           if (released) return;
           released = true;

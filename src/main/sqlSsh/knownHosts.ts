@@ -78,11 +78,23 @@ export function judgeHostKey(known: ReadonlyArray<KnownHostKey>, fingerprint: st
   return known.some((key) => !key.revoked) ? 'changed' : 'unknown';
 }
 
-const RSA_SIGNATURES = ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'];
+/** Host key types ssh2 can check, with the signature algorithms each is asked for by. */
+const SIGNATURES: Readonly<Record<string, string[]>> = {
+  'ssh-ed25519': ['ssh-ed25519'],
+  'ecdsa-sha2-nistp256': ['ecdsa-sha2-nistp256'],
+  'ecdsa-sha2-nistp384': ['ecdsa-sha2-nistp384'],
+  'ecdsa-sha2-nistp521': ['ecdsa-sha2-nistp521'],
+  'ssh-rsa': ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'],
+  'ssh-dss': ['ssh-dss'],
+};
 
-/** The host key algorithms to ask for, so a server holding several keys presents a known one. */
+/**
+ * The host key algorithms to ask for, so a server holding several keys
+ * presents a known one. Types ssh2 cannot check (security-key host keys) are
+ * left out, since ssh2 refuses to start with them.
+ */
 export function hostKeyAlgorithms(known: ReadonlyArray<KnownHostKey>): string[] | undefined {
   const types = [...new Set(known.filter((key) => !key.revoked).map((key) => key.type))];
-  if (types.length === 0) return undefined;
-  return types.flatMap((type) => (type === 'ssh-rsa' ? RSA_SIGNATURES : [type]));
+  const algorithms = types.flatMap((type) => SIGNATURES[type] ?? []);
+  return algorithms.length > 0 ? algorithms : undefined;
 }

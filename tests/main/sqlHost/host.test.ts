@@ -64,6 +64,21 @@ describe('SQL host', () => {
     expect(await host.handle(req({ type: 'fetch', runId: 'r1', limit: 1, maxBytes: 1 }))).toMatchObject({ ok: false });
   });
 
+  it('connects again after the driver reports its connection dropped', async () => {
+    const { open, session } = fakeDriver(1);
+    let drop: (() => void) | undefined;
+    session.onLost = (listener) => {
+      drop = listener;
+    };
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
+    expect(open).toHaveBeenCalledOnce();
+    drop!();
+    await vi.waitFor(() => expect(session.close).toHaveBeenCalled());
+    await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r2', sql: 'SELECT n', readWrite: false, window }));
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
   it('closes a fully read run too, so a read-only run ends its transaction', async () => {
     const closes: Array<ReturnType<typeof vi.fn>> = [];
     const { open, session } = fakeDriver(10);

@@ -12,7 +12,7 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
-import { connectionSecretId, type SqlConnectionDraft, type SqlConnectionV1, type SqlSshHop } from '../shared/sqlConnections';
+import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
 import type {
   SqlDbCatalogView,
   SqlDbConnectionView,
@@ -52,14 +52,6 @@ export interface SqlDbServiceDeps {
 /** The SSH password or key passphrase, next to the database password. */
 const sshSecretId = (connectionId: string) => `${connectionSecretId(connectionId)}.ssh`;
 
-const sameHops = (a: SqlSshHop[] = [], b: SqlSshHop[] = []) =>
-  a.length === b.length && a.every((hop, index) => hop.host === b[index]!.host && hop.port === b[index]!.port && hop.user === b[index]!.user);
-
-/** The tunnel a saved SSH secret belongs to; another bastion, user, key or jump chain must be given it again. */
-function sameSshTarget(a: SqlConnectionDraft['ssh'], b: SqlConnectionDraft['ssh']): boolean {
-  if (!a || !b) return !a && !b;
-  return a.host === b.host && a.port === b.port && a.user === b.user && a.auth === b.auth && a.keyPath === b.keyPath && sameHops(a.jumps, b.jumps);
-}
 
 /** Failures main detects before the host runs anything. */
 class GuardError extends Error {
@@ -360,12 +352,12 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       return deps.ssh ? deps.ssh.trust(host, port, fingerprint) : Promise.resolve(false);
     },
 
-    /** What ~/.ssh/config says about an alias and whether an agent answers; never a file's content. */
     /** Lets a draft name a key the user just picked inside ~/.ssh. */
     chooseSshKey(keyPath: string): void {
       deps.ssh?.chooseKey(keyPath);
     },
 
+    /** What ~/.ssh/config says about an alias and whether an agent answers; never a file's content. */
     sshInfo(alias: string): Promise<SshInfo> {
       return deps.ssh ? deps.ssh.info(alias) : Promise.resolve({ config: null, agent: { available: false } });
     },

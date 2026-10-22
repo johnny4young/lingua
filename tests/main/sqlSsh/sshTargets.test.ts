@@ -40,11 +40,15 @@ describe('SSH targets', () => {
   let files: Record<string, string>;
   let store: HostKeyStore;
   let agent: string | undefined;
+  let reads: string[];
   const targets = () =>
     createSshTargets({
       hostKeys: store,
       home: HOME,
-      readText: async (file) => files[file] ?? null,
+      readText: async (file) => {
+        reads.push(file);
+        return files[file] ?? null;
+      },
       blockedPath: (file) => (file.startsWith(`${HOME}/.ssh/`) || file.startsWith(`${HOME}/.aws/`) ? 'credentials' : null),
       agentSocket: () => agent,
     });
@@ -53,6 +57,7 @@ describe('SSH targets', () => {
     files = {};
     store = memoryStore();
     agent = undefined;
+    reads = [];
   });
 
   it('builds the hops from the pinned first address, with keys from known_hosts and Lingua', async () => {
@@ -73,6 +78,7 @@ describe('SSH targets', () => {
       agent: '/tmp/agent.sock',
       target: { host: 'db.internal', port: 5432 },
     });
+    expect(reads.filter((file) => file.endsWith('known_hosts'))).toHaveLength(1);
   });
 
   it('reads a key under ~/.ssh with its passphrase, refuses other protected folders, and needs an agent for agent sign-in', async () => {

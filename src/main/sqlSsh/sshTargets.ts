@@ -94,9 +94,11 @@ export function createSshTargets(deps: SshTargetDeps) {
     if (keyFamily(keyPath) === 'ssh') chosenKeys.add(real(keyPath));
   };
 
-  async function knownKeys(host: string, port: number): Promise<KnownHostKey[]> {
-    const text = await deps.readText(path.join(deps.home, '.ssh', 'known_hosts'), MAX_KNOWN_HOSTS_BYTES);
-    return [...(text ? knownHostKeys(text, host, port) : []), ...(await deps.hostKeys.list(host, port))];
+  const knownHostsText = () => deps.readText(path.join(deps.home, '.ssh', 'known_hosts'), MAX_KNOWN_HOSTS_BYTES);
+
+  async function knownKeys(host: string, port: number, text = knownHostsText()): Promise<KnownHostKey[]> {
+    const known = await text;
+    return [...(known ? knownHostKeys(known, host, port) : []), ...(await deps.hostKeys.list(host, port))];
   }
 
   async function privateKey(keyPath: string): Promise<string> {
@@ -111,12 +113,13 @@ export function createSshTargets(deps: SshTargetDeps) {
     async configFor(entry: SqlConnectionV1, firstAddress: string, secret: string | undefined): Promise<HostSshConfig> {
       const ssh = entry.ssh!;
       const named = [...(ssh.jumps ?? []), ssh];
+      const text = knownHostsText();
       const hops = await Promise.all(
         named.map(async (hop, index) => ({
           host: index === 0 ? firstAddress : hop.host,
           port: hop.port,
           user: hop.user,
-          known: await knownKeys(hop.host, hop.port),
+          known: await knownKeys(hop.host, hop.port, text),
           label: { host: hop.host, port: hop.port },
         }))
       );

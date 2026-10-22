@@ -190,6 +190,9 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
     ssl = undefined;
     connection = await connect(options(config, ssl, socket));
   }
+  let lost: (() => void) | undefined;
+  // A fatal error with no command waiting is emitted; unheard, that would end the host.
+  connection.on('error', () => lost?.());
   if (config.readOnly) await query(connection, 'SET SESSION TRANSACTION READ ONLY');
 
   async function killQuery(): Promise<boolean> {
@@ -244,6 +247,10 @@ export async function openMysql(config: HostSessionConfig, socket?: () => Duplex
     },
 
     cancel: killQuery,
+
+    onLost(listener) {
+      lost = listener;
+    },
 
     async estimateRows(sql) {
       // MySQL refuses EXPLAIN of a write in a read-only transaction, though EXPLAIN runs nothing; a

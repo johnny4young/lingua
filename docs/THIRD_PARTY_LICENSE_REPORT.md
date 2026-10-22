@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 61.
+Packages reviewed: 59.
 Policy result: pass.
 
 ## License Summary
@@ -14,7 +14,7 @@ Policy result: pass.
 | `BlueOak-1.0.0` | 1 |
 | `BSD-3-Clause` | 1 |
 | `ISC` | 4 |
-| `MIT` | 49 |
+| `MIT` | 47 |
 | `Python-2.0` | 1 |
 | `Unlicense` | 1 |
 
@@ -53,9 +53,7 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `asn1` | `0.2.6` | `MIT` | `node_modules/asn1` |
 | `aws-ssl-profiles` | `1.1.2` | `MIT` | `node_modules/aws-ssl-profiles` |
 | `bcrypt-pbkdf` | `1.0.2` | `BSD-3-Clause` | `node_modules/bcrypt-pbkdf` |
-| `buildcheck` | `0.0.7` | `MIT` | `node_modules/buildcheck` |
 | `builder-util-runtime` | `9.7.0` | `MIT` | `node_modules/builder-util-runtime` |
-| `cpu-features` | `0.0.10` | `MIT` | `node_modules/cpu-features` |
 | `debug` | `4.4.3` | `MIT` | `node_modules/debug` |
 | `electron-updater` | `6.8.9` | `MIT` | `node_modules/electron-updater` |
 | `fs-extra` | `10.1.0` | `MIT` | `node_modules/fs-extra` |

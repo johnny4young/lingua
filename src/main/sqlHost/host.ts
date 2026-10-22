@@ -137,6 +137,14 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>, t
     });
     const session: Session = { fingerprint, ready, queue: Promise.resolve(), release: async () => tunnel?.release() };
     sessions.set(config.connectionId, session);
+    // A dropped connection is let go, so the next request connects again.
+    void ready.then(
+      (driver) =>
+        driver.onLost?.(() => {
+          if (sessions.get(config.connectionId) === session) void dropSession(config.connectionId);
+        }),
+      () => undefined
+    );
     return session;
   }
 

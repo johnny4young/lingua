@@ -37,9 +37,8 @@ allowBuilds:
   sharp: true
   workerd: true
   node-pty: true
-  # ssh2 (SQL host tunnels) and its cpu-features dependency only compile an
-  # optional native crypto binding; denied, ssh2 runs on its JS crypto.
-  cpu-features: false
+  # ssh2 (SQL host tunnels) only compiles an optional native crypto binding;
+  # denied, ssh2 runs on its JS crypto.
   ssh2: false
 
 # Reject git/tarball subdependencies; all tooling resolves from the registry.
@@ -56,6 +55,9 @@ blockExoticSubdeps: true
 # asserted by the depFreshness test).
 overrides:
   "monaco-editor>dompurify": "^3.4.16"
+  # ssh2 only probes CPU features for cipher order when cpu-features loads; without
+  # it, packaging no longer tries to compile the addon for Electron.
+  "ssh2>cpu-features": "-"
   # Security patch pins. Keep each brace-expansion override inside its
   # existing major so legacy Electron tooling does not receive a breaking
   # transitive upgrade. The remaining pins are patch/minor-compatible with

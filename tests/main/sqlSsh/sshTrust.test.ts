@@ -64,6 +64,10 @@ describe('known_hosts', () => {
       'ssh-rsa',
       'ssh-ed25519',
     ]);
+    // ssh2 refuses to start when asked for a type it cannot check.
+    const sk = { type: 'sk-ssh-ed25519@openssh.com', fingerprint: 'w' };
+    expect(hostKeyAlgorithms([sk])).toBeUndefined();
+    expect(hostKeyAlgorithms([sk, { type: 'ssh-ed25519', fingerprint: 'y' }])).toEqual(['ssh-ed25519']);
   });
 });
 

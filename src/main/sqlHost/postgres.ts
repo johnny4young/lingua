@@ -105,6 +105,9 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
     client = new pg.Client(clientConfig(config, ssl, connect));
     await client.connect();
   }
+  let lost: (() => void) | undefined;
+  // An idle client whose socket drops emits 'error'; unheard, that would end the host.
+  client.on('error', () => lost?.());
   if (config.readOnly) await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
   const processId = (client as unknown as { processID?: number }).processID;
 
@@ -176,6 +179,10 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
       } finally {
         await side.end().catch(() => undefined);
       }
+    },
+
+    onLost(listener) {
+      lost = listener;
     },
 
     async estimateRows(sql) {

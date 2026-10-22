@@ -379,7 +379,8 @@ trusts only the key that hop presented in its last failed sign-in. The tunnel
 hands each driver connection its own forwarded channel through a socket-shaped
 stream, so no local port exists for another process to reach. Tunnels are
 shared by identical configs and close with their last session or when the SSH
-connection drops. `sqlSsh/` reads `~/.ssh` in main, the one exception to the
+connection drops; a session whose connection drops is let go, so the next
+request connects again. `sqlSsh/` reads `~/.ssh` in main, the one exception to the
 protected credentials folders: a tunnel key inside `~/.ssh` (checked as given
 and after resolving symlinks) must be picked in the file dialog, named by
 `IdentityFile` in the ssh config, or already saved with the connection; a key

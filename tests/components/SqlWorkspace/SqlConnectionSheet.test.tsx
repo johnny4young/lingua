@@ -260,6 +260,14 @@ describe('SqlConnectionSheet', () => {
       expect(await screen.findByTestId('sql-connection-test-badge')).toBeTruthy();
     });
 
+    it('tests an unchanged connection with the SSH secret main keeps, even with no database password', async () => {
+      const user = userEvent.setup();
+      const ssh = { host: 'bastion', port: 22, user: 'deploy', auth: 'password' as const, secretMode: 'keychain' as const };
+      renderSheet({ kind: 'edit', connection: saved({ passwordMode: 'none', hasPassword: false, hasSshSecret: true, ssh }) });
+      await user.click(screen.getByTestId('sql-connection-test'));
+      expect(db.test).toHaveBeenCalledWith({ connectionId: 'c_1' });
+    });
+
     it('says a tunnel secret is kept only while the tunnel signs in the same way', async () => {
       const user = userEvent.setup();
       renderSheet({ kind: 'edit', connection: saved({ hasSshSecret: true, ssh: { host: 'bastion', port: 22, user: 'deploy', auth: 'password', secretMode: 'keychain' } }) });

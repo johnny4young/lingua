@@ -7,7 +7,7 @@ import type { HostSshConfig, HostSshHop } from '../../../src/main/sqlHost/protoc
 import { createTunnelPool } from '../../../src/main/sqlHost/tunnel';
 
 const hostKey = utils.generateKeyPairSync('ed25519');
-const userKey = utils.generateKeyPairSync('ed25519', { passphrase: 'open sesame', cipher: 'aes256-ctr', rounds: 16 });
+const userKey = utils.generateKeyPairSync('ed25519', { passphrase: 'open sesame', cipher: 'aes256-ctr', rounds: 1 });
 const hostFingerprint = sshFingerprint(Buffer.from(hostKey.public.split(' ')[1]!, 'base64'));
 const userPublic = utils.parseKey(userKey.public);
 
@@ -110,6 +110,14 @@ describe('SSH tunnel pool', () => {
     await expect(roundTrip(first.socket(), 'closed')).rejects.toThrow();
   });
 
+  it('signs in when known_hosts also lists a key type ssh2 cannot check', async () => {
+    const pool = createTunnelPool();
+    const sk = { type: 'sk-ssh-ed25519@openssh.com', fingerprint: `SHA256:${'s'.repeat(43)}` };
+    const tunnel = await pool.acquire(config({ hops: [hop({ known: [sk, { type: 'ssh-ed25519', fingerprint: hostFingerprint }] })] }));
+    expect(await roundTrip(tunnel.socket(), 'SELECT 1')).toBe('SELECT 1');
+    await tunnel.release();
+  });
+
   it('signs in with a key and its passphrase, and through a jump host', async () => {
     const pool = createTunnelPool();
     const tunnel = await pool.acquire(
@@ -166,6 +174,16 @@ describe('SSH tunnel pool', () => {
     // The failed entry is gone, so the next attempt runs again instead of waiting on the first.
     await expect(pool.acquire(stalled)).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
     expect(forwarded.filter((target) => target.endsWith(':9'))).toHaveLength(2);
+  });
+
+  it('fails one database channel that never opens without closing the tunnel under the others', async () => {
+    const pool = createTunnelPool({ timeoutMs: 300 });
+    await until(() => connections.size === 0);
+    const tunnel = await pool.acquire(config({ target: { host: '127.0.0.1', port: 9 } }));
+    await expect(roundTrip(tunnel.socket(), 'SELECT 1')).rejects.toMatchObject({ detail: { fix: 'ssh-unreachable' } });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(connections.size).toBe(1);
+    await tunnel.release();
   });
 });
 

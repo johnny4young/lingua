@@ -4,6 +4,7 @@ import {
   parseConnection,
   parseConnectionDraft,
   parseConnectionUrl,
+  sameSshTarget,
   withoutUrlPassword,
 } from '../../src/shared/sqlConnections';
 import { dbConnectionCeilingForTier, withinDbConnectionBudget } from '../../src/shared/entitlements';
@@ -162,5 +163,18 @@ describe('withoutUrlPassword', () => {
     expect(withoutUrlPassword('postgres://app@db/orders')).toBe('postgres://app@db/orders');
     expect(withoutUrlPassword('sqlite:/tmp/a@b.db')).toBe('sqlite:/tmp/a@b.db');
     expect(withoutUrlPassword('postgres://db/orders?user=a@b')).toBe('postgres://db/orders?user=a@b');
+  });
+});
+
+describe('sameSshTarget', () => {
+  const ssh = { host: 'bastion', port: 22, user: 'deploy', auth: 'key' as const, keyPath: '/k', secretMode: 'keychain' as const, jumps: [{ host: 'jump', port: 22, user: 'deploy' }] };
+
+  it('matches the same tunnel and nothing else', () => {
+    expect(sameSshTarget(undefined, undefined)).toBe(true);
+    expect(sameSshTarget(ssh, { ...ssh, secretMode: 'session' })).toBe(true);
+    expect(sameSshTarget(ssh, undefined)).toBe(false);
+    for (const change of [{ host: 'other' }, { port: 2222 }, { user: 'root' }, { auth: 'agent' as const }, { keyPath: '/other' }, { jumps: [] }, { jumps: [{ host: 'jump', port: 22, user: 'root' }] }]) {
+      expect(sameSshTarget(ssh, { ...ssh, ...change }), JSON.stringify(change)).toBe(false);
+    }
   });
 });

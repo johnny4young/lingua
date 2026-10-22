@@ -304,6 +304,15 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
   return password ? { draft, password } : { draft };
 }
 
+const sameHops = (a: SqlSshHop[] = [], b: SqlSshHop[] = []) =>
+  a.length === b.length && a.every((hop, index) => hop.host === b[index]!.host && hop.port === b[index]!.port && hop.user === b[index]!.user);
+
+/** The tunnel a saved SSH secret belongs to; another bastion, user, key or jump chain must be given it again. */
+export function sameSshTarget(a: SqlConnectionDraft['ssh'], b: SqlConnectionDraft['ssh']): boolean {
+  if (!a || !b) return !a && !b;
+  return a.host === b.host && a.port === b.port && a.user === b.user && a.auth === b.auth && a.keyPath === b.keyPath && sameHops(a.jumps, b.jumps);
+}
+
 /** Secret-store id of a connection's password; only main reads it. */
 export const connectionSecretId = (connectionId: string) => `db.${connectionId}`;
 

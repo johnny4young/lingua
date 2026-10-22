@@ -15,6 +15,7 @@ import {
   SQL_SSL_MODES,
   parseConnectionDraft,
   parseConnectionUrl,
+  sameSshTarget,
   withoutUrlPassword,
   type SqlConnectionDraft,
   type SqlConnectionEnv,
@@ -47,10 +48,6 @@ interface Props {
 }
 
 const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlite'];
-
-/** Main keeps a saved SSH secret only while the tunnel signs in to the same place the same way. */
-const sameTunnel = (a: SqlConnectionDraft['ssh'], b: SqlConnectionDraft['ssh']) =>
-  !!a && !!b && a.host === b.host && a.port === b.port && a.user === b.user && a.auth === b.auth && a.keyPath === b.keyPath && JSON.stringify(a.jumps ?? []) === JSON.stringify(b.jumps ?? []);
 
 function blankDraft(engine: SqlRemoteEngine): SqlConnectionDraft {
   return engine === 'sqlite'
@@ -170,9 +167,9 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     if (!db || !valid) return;
     setTest('running');
     // A saved connection tests with what main keeps, unless something was typed or changed.
-    const keptPassword = editing && !secret && !sshSecret && editing.hasPassword && JSON.stringify(parseConnectionDraft(editing)) === JSON.stringify(parseConnectionDraft(named));
+    const kept = editing && !secret && !sshSecret && JSON.stringify(parseConnectionDraft(editing)) === JSON.stringify(parseConnectionDraft(named));
     const result = await db.test(
-      keptPassword ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}), ...(sshSecret ? { sshPassword: sshSecret } : {}) }
+      kept ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}), ...(sshSecret ? { sshPassword: sshSecret } : {}) }
     );
     setTest(result);
     track('sql.connection_tested', sqlConnectionTestedPayload(named.engine, result));
@@ -460,7 +457,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                 setSshSecretInput(value);
                 setTest(null);
               }}
-              secretKept={editing?.hasSshSecret === true && sameTunnel(editing.ssh, draft.ssh)}
+              secretKept={editing?.hasSshSecret === true && sameSshTarget(editing.ssh, draft.ssh)}
               sessionOnly={vaultSession}
               onPickKey={() => void pick('ssh-key')}
             />
