@@ -166,6 +166,21 @@ for (const [engine, url] of [
       expect((await ask({ level: 'objects', schema })).objects).toEqual(expect.arrayContaining([expect.objectContaining({ name: parent })]));
     });
 
+    it("reads the catalog on its own connection, leaving the user's transaction and open result alone", async () => {
+      const parent = `${table}_parent`;
+      await ok({ type: 'execute', config, runId: 'begin', sql: engine === 'postgres' ? 'BEGIN' : 'START TRANSACTION', readWrite: false, window });
+      await ok({ type: 'execute', config, runId: 'ins', sql: `INSERT INTO ${parent} VALUES (99, 'kept@x')`, readWrite: false, window });
+      const paged = await ok<{ hasMore: boolean }>({ type: 'execute', config, runId: 'paged', sql: `SELECT id FROM ${table} ORDER BY id`, readWrite: false, window: { maxRows: 10, maxBytes: 256 * 1024 } });
+      expect(paged.hasMore).toBe(true);
+      await ok({ type: 'introspect', config, request: { level: 'schemas' } });
+      await ok({ type: 'introspect', config, request: { level: 'detail', schema: engine === 'postgres' ? 'public' : config.database!, name: parent, kind: 'table' } });
+      // The open result still pages, and the uncommitted row is still there.
+      expect((await ok<{ rows: unknown[] }>({ type: 'fetch', runId: 'paged', limit: 5, maxBytes: 1e9 })).rows).toHaveLength(5);
+      const kept = await ok<{ rows: Array<{ n: unknown }> }>({ type: 'execute', config, runId: 'kept', sql: `SELECT COUNT(*) AS n FROM ${parent} WHERE id = 99`, readWrite: false, window });
+      expect(Number(kept.rows[0]?.n)).toBe(1);
+      await ok({ type: 'execute', config, runId: 'rollback', sql: 'ROLLBACK', readWrite: false, window });
+    });
+
     it.runIf(engine === 'mysql')('keeps catalog names out of the SQL when backslashes are not escapes', async () => {
       await ok({ type: 'execute', config, runId: 'mode', sql: "SET SESSION sql_mode = CONCAT(@@sql_mode, ',NO_BACKSLASH_ESCAPES')", readWrite: false, window });
       try {

@@ -60,16 +60,11 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
 import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
 import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
+import { formatByteSize } from '../../i18n/formatNumber';
 import { sqlDialect } from '../../../shared/sqlDialect';
 
-/** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
-function formatApproxStorage(bytes: number): string {
-  if (bytes < 1024) return `~${bytes} B`;
-  if (bytes < 1024 * 1024) return `~${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `~${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `~${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+/** Origin-wide usage, hence approximate (`~5 MB`). */
+const formatApproxStorage = (bytes: number) => `~${formatByteSize(bytes)}`;
 
 export interface SqlWorkspacePanelProps {
   /**

@@ -326,9 +326,13 @@ describe('Explorer on a saved connection', () => {
     expect(screen.getAllByTestId('sql-remote-object').map((row) => row.getAttribute('data-object-name'))).toEqual(['orders', 'orders_by_day']);
     fireEvent.click(screen.getAllByTestId('sql-remote-schema').find((row) => row.getAttribute('data-node-name') === 'billing')!);
     await waitFor(() => expect(introspected('objects')).toHaveLength(2));
-    // Refresh drops what was read and reads it again.
+    // Refresh drops what was read and reads it again, keeping a schema the user folded.
+    const publicRow = () => screen.getAllByTestId('sql-remote-schema').find((row) => row.getAttribute('data-node-name') === 'public')!;
+    fireEvent.click(publicRow());
     fireEvent.click(screen.getByTestId('sql-explorer-refresh'));
     await waitFor(() => expect(introspected('schemas')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByTestId('sql-remote-schema')).toHaveLength(2));
+    expect(publicRow().getAttribute('aria-expanded')).toBe('false');
   });
 
   it('shows an object in the results area and reads its rows on the connection, never on Local', async () => {
@@ -354,15 +358,20 @@ describe('Explorer on a saved connection', () => {
     await screen.findByTestId('sql-object-detail');
   });
 
-  it('asks for the password a session connection needs before its catalog, then reads it', async () => {
-    db.introspect.mockResolvedValueOnce({ errorMessage: 'This connection needs its password.', fix: 'password-needed' });
+  it('asks for the password a session connection needs before its catalog, says when it is refused, then reads it', async () => {
+    const needed = { errorMessage: 'This connection needs its password.', fix: 'password-needed' };
+    db.introspect.mockResolvedValueOnce(needed).mockResolvedValueOnce(needed);
     openQuery('SELECT 1', 'c_ask');
     await renderPanel();
     fireEvent.click(await screen.findByTestId('sql-remote-enter-password'));
+    fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByTestId('sql-password-connect'));
+    await screen.findByTestId('sql-password-refused');
     fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'pw' } });
     fireEvent.click(screen.getByTestId('sql-password-connect'));
     await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'pw'));
-    await waitFor(() => expect(introspected('schemas')).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByTestId('sql-password-input')).toBeNull());
+    expect(introspected('schemas')).toHaveLength(3);
     // MySQL keeps its functions and procedures under Routines.
     expect(await screen.findByTestId('sql-remote-group-tables')).toBeTruthy();
     expect(screen.queryByTestId('sql-remote-group-matviews')).toBeNull();
@@ -400,6 +409,28 @@ describe('Explorer on a saved connection', () => {
     expect(await screen.findByTestId('sql-object-detail')).toBeTruthy();
     view.unmount();
     expect(getQuickOpenScope()).toBeNull();
+  });
+
+  it("keeps another connection's Data read when Quick Open switches to it, and never shows the editor's rows meanwhile", async () => {
+    let release: () => void = () => undefined;
+    db.execute.mockImplementation(async (_runId: string, connectionId: string) => {
+      if (connectionId === 'c_prod') await new Promise<void>((resolve) => (release = resolve));
+      return result({ columns: [{ name: 'conn', type: 'TEXT' }], rows: [{ conn: `rows of ${connectionId}` }] });
+    });
+    openQuery('SELECT 1', 'c_dev');
+    await renderPanel();
+    fireEvent.click(await screen.findByTestId('sql-remote-object'));
+    fireEvent.click(await screen.findByTestId('sql-object-tab-data'));
+    await screen.findAllByText('rows of c_dev');
+    await act(async () => {
+      await useSqlRemoteCatalogStore.getState().loadObjects('c_prod', 'public');
+    });
+    const prodOrders = getQuickOpenScope()!.items().find((item) => item.name === 'public.orders' && item.detail === 'orders-prod')!;
+    act(() => prodOrders.open());
+    expect(await screen.findByTestId('sql-object-data-loading')).toBeTruthy();
+    expect(screen.queryAllByText('rows of c_dev')).toHaveLength(0);
+    await act(async () => release());
+    expect((await screen.findAllByText('rows of c_prod')).length).toBeGreaterThan(0);
   });
 
   it('keeps Local and its tree when the query runs on Local', async () => {

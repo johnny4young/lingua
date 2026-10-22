@@ -30,13 +30,16 @@ export function useSqlRemoteCompletion(connectionId: string | undefined): SqlRem
     void store.loadColumns(connectionId, first);
   }, [connectionId, first, generation]);
 
+  // Object detail reads change the catalog too; only objects and columns feed completion.
+  const objects = catalog?.objects;
+  const columnLevels = catalog?.columns;
   return useMemo(() => {
-    if (!catalog) return NONE;
+    if (!objects || !columnLevels) return NONE;
     const tables: SqlSchemaTable[] = [];
     const functions = new Set<string>();
-    for (const [schema, level] of Object.entries(catalog.objects)) {
+    for (const [schema, level] of Object.entries(objects)) {
       if (level.status !== 'ready') continue;
-      const columns = catalog.columns[schema];
+      const columns = columnLevels[schema];
       const byTable = new Map<string, SqlRemoteColumn[]>();
       if (columns?.status === 'ready') {
         for (const column of columns.value) byTable.set(column.table, [...(byTable.get(column.table) ?? []), column]);
@@ -56,5 +59,5 @@ export function useSqlRemoteCompletion(connectionId: string | undefined): SqlRem
       }
     }
     return { tables, functions: [...functions] };
-  }, [catalog, first]);
+  }, [objects, columnLevels, first]);
 }

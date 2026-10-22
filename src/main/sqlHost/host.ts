@@ -73,6 +73,8 @@ function probeTcp(address: string, port: number): Promise<number> {
   });
 }
 
+const catalogSessionId = (connectionId: string) => `${connectionId}#catalog`;
+
 export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
   const sessions = new Map<string, Session>();
   const runs = new Map<string, Run>();
@@ -232,9 +234,8 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
   }
 
   async function introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
-    // An open result holds the connection; the catalog reads in its own transaction.
-    for (const [id, run] of runs) if (run.connectionId === config.connectionId) await closeRun(id);
-    const session = sessionFor(config);
+    // Its own connection, so a catalog read never ends the user's transaction or open result.
+    const session = sessionFor({ ...config, connectionId: catalogSessionId(config.connectionId) });
     return serialize(session, async () => {
       let driver: DriverSession;
       try {
@@ -274,6 +275,7 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
           break;
         case 'disconnect':
           await dropSession(request.connectionId);
+          await dropSession(catalogSessionId(request.connectionId));
           result = { disconnected: true };
           break;
       }

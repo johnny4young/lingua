@@ -34,7 +34,7 @@ export function SqlRemoteTree({ connection, filter, selected, onOpenObject, onEn
   const catalog = useSqlRemoteCatalogStore(state => state.catalogs[connection.id]);
   const generation = catalog?.generation ?? 0;
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(['connection']));
-  const [opened, setOpened] = useState(-1);
+  const [opened, setOpened] = useState(false);
   const filtering = filter.trim().length > 0;
   const schemas = catalog?.schemas?.status === 'ready' ? catalog.schemas.value : NO_SCHEMAS;
 
@@ -42,10 +42,10 @@ export function SqlRemoteTree({ connection, filter, selected, onOpenObject, onEn
     void useSqlRemoteCatalogStore.getState().loadSchemas(connection.id);
   }, [connection.id, generation]);
 
-  // The first schema opens on its tables once per read, like main does under Local.
+  // The first schema opens on its tables once, like main does under Local; a refresh keeps what the user folded.
   const first = schemas[0]?.name;
-  if (first !== undefined && opened !== generation) {
-    setOpened(generation);
+  if (first !== undefined && !opened) {
+    setOpened(true);
     setExpanded(previous => new Set([...previous, `schema:${first}`, `group:${first}:tables`]));
   }
 
@@ -53,7 +53,7 @@ export function SqlRemoteTree({ connection, filter, selected, onOpenObject, onEn
   if (collapsedAt !== collapseSignal) {
     setCollapsedAt(collapseSignal);
     setExpanded(new Set(['connection']));
-    setOpened(generation);
+    setOpened(true);
   }
 
   const isOpen = (key: string) => expanded.has(key) || (filtering && key !== 'connection' && !key.startsWith('object:'));
