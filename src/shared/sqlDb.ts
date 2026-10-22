@@ -60,10 +60,10 @@ export interface SqlDbFetchResult {
   errorMessage?: string;
 }
 
-export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key';
+export type SqlDbFileKind = 'sqlite' | 'ca' | 'cert' | 'key' | 'ssh-key';
 export type SqlDbPickResult = { canceled: true } | { canceled: false; path: string } | { canceled: true; blocked: true };
 
-export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'tls', 'auth', 'server'] as const;
+export const SQL_DB_TEST_STEPS = ['resolve', 'policy', 'file', 'tcp', 'ssh', 'tls', 'auth', 'server'] as const;
 type SqlDbTestStepId = (typeof SQL_DB_TEST_STEPS)[number];
 
 export interface SqlDbTestStep {
@@ -75,6 +75,15 @@ export interface SqlDbTestStep {
   detail?: string;
   /** Stable hint key for a failed step. */
   fix?: SqlDbFixHint;
+  /** An SSH host key no one trusts yet, offered to trust once. */
+  hostKey?: SqlDbHostKey;
+}
+
+export interface SqlDbHostKey {
+  host: string;
+  port: number;
+  /** `SHA256:` and the unpadded base64 digest, as ssh-keygen prints it. */
+  fingerprint: string;
 }
 
 const SQL_DB_FIX_HINTS = [
@@ -91,6 +100,12 @@ const SQL_DB_FIX_HINTS = [
   'file-unreadable',
   'blocked-path',
   'confirm-needed',
+  'ssh-unreachable',
+  'ssh-auth',
+  'ssh-key',
+  'ssh-password-needed',
+  'ssh-host-unknown',
+  'ssh-host-changed',
   'unknown',
 ] as const;
 export type SqlDbFixHint = (typeof SQL_DB_FIX_HINTS)[number];
