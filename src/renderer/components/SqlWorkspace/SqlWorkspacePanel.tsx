@@ -59,6 +59,7 @@ import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
 import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
+import { keepsAskedSecret } from '../../stores/sqlConnectionsStore';
 import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
 import { formatByteSize } from '../../i18n/formatNumber';
 import { sqlDialect } from '../../../shared/sqlDialect';
@@ -730,6 +731,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           name={runner.passwordPrompt.connectionName}
           refused={runner.passwordPrompt.refused}
           kind={runner.passwordPrompt.kind}
+          keepsInKeychain={keepsAskedSecret(runner.passwordPrompt.connectionId, runner.passwordPrompt.kind)}
           onSubmit={(password) => {
             const connectionId = runner.passwordPrompt?.connectionId;
             void runner.submitPassword(password).then(() => {

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqlWorkspacePanel } from '../../../src/renderer/components/SqlWorkspace';
 import { resetSqlRunStateForTests } from '../../../src/renderer/hooks/useSqlRunner';
@@ -235,6 +235,7 @@ describe('SQL workspace on a saved connection', () => {
     expect(screen.queryByTestId('sql-password-refused')).toBeNull();
     fireEvent.click(screen.getByTestId('sql-password-connect'));
     await screen.findByTestId('sql-password-refused');
+    expect(screen.getByText('Kept in memory only, never on disk, and cleared when you quit.')).toBeTruthy();
     expect(db.sessionPassword).toHaveBeenCalledWith('c_ask', 'wrong', 'database');
     expect(screen.getByTestId('sql-result-preview-error-connection-failed').textContent).toContain('Access denied');
     fireEvent.change(screen.getByTestId('sql-password-input'), { target: { value: 'right' } });
@@ -297,6 +298,28 @@ describe('SQL workspace on a saved connection', () => {
     fireEvent.click(screen.getByTestId('sql-password-connect'));
     await waitFor(() => expect(db.sessionPassword).toHaveBeenCalledWith('c_dev', 'tunnel', 'ssh'));
     await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(2));
+  });
+
+  it('opens the manager from the picker, edits a connection in the sheet, and comes back to the manager', async () => {
+    openQuery('SELECT 1', 'c_dev');
+    await renderPanel();
+    fireEvent.click(screen.getByTestId('sql-connection-pill'));
+    fireEvent.click(await screen.findByTestId('sql-connection-manage'));
+    const manager = await screen.findByTestId('sql-connection-manager');
+    fireEvent.click(within(manager).getByRole('button', { name: 'Edit orders-dev' }));
+    expect(await screen.findByTestId('sql-connection-sheet')).toBeTruthy();
+    expect(screen.queryByTestId('sql-connection-manager')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByTestId('sql-connection-manager')).toBeTruthy();
+  });
+
+  it('says a password typed for a keychain connection is saved there once it connects', async () => {
+    db.execute.mockResolvedValueOnce(result({ status: 'connection-failed', columns: [], rows: [], rowCount: 0, fix: 'password-needed', errorMessage: 'This connection needs its password.' }));
+    openQuery('SELECT 1', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-password-input');
+    expect(screen.getByText('Saved to the keychain once it connects.')).toBeTruthy();
   });
 
   it('asks for the typed name before a write when Confirm every write is on, outside production too', async () => {

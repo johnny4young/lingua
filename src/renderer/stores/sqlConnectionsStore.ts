@@ -64,6 +64,14 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
 /** Database connections are on: the Labs flag, on a desktop build. */
 export const dbClientEnabled = () => useSettingsStore.getState().featureFlags.dbClient === true && sqlDbBridge() !== null;
 
+/** Whether a password typed at connect time is kept in the keychain once it signs in. */
+export function keepsAskedSecret(id: string | undefined, kind: 'database' | 'ssh'): boolean {
+  const catalog = useSqlConnectionsStore.getState().catalog;
+  const connection = catalog?.connections.find((entry) => entry.id === id);
+  if (!connection || catalog?.vault === 'session') return false;
+  return (kind === 'ssh' ? connection.ssh?.secretMode : connection.passwordMode) === 'keychain';
+}
+
 /** A saved or session connection by id, from the last catalog read. */
 export function findConnection(id: string | undefined): SqlDbConnectionView | undefined {
   if (!id) return undefined;
