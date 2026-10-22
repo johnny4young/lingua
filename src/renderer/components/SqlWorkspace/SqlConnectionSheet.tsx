@@ -28,11 +28,13 @@ import { sqlDbBridge } from '../../runtime/sqlRemote';
 import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
 import { cn } from '../../utils/cn';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { Toggle } from '../Settings/shared';
 import { ModalShell } from '../ui/ModalShell';
 import { copyToClipboard } from './sqlResultActions';
 import { CONNECTION_TONE, ENGINE_LABEL } from './sqlConnectionStyle';
 import { buildTestReport } from './sqlConnectionReport';
+import { BUTTON, INPUT, LABEL, PRIMARY, Segmented } from './sqlConnectionForm';
+import { SqlConnectionSafety, type SqlSafetySwitches } from './SqlConnectionSafety';
+import { SqlConnectionSshSection } from './SqlConnectionSshSection';
 import '../../i18n/sqlConnectionsCatalog';
 
 export type SqlConnectionSheetMode = { kind: 'new' } | { kind: 'url' } | { kind: 'edit'; connection: SqlDbConnectionView };
@@ -45,52 +47,11 @@ interface Props {
 }
 
 const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlite'];
-const LABEL = 'font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle';
-const INPUT = 'focus-ring mt-1 h-7 w-full rounded-md border border-border-default bg-bg-inset px-2 font-mono text-body-sm text-fg-base placeholder:text-fg-subtle';
-const BUTTON = 'focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-body-sm font-medium text-fg-base transition-colors hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40';
-const PRIMARY = 'focus-ring inline-flex h-[26px] items-center gap-1.5 rounded-md bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40';
 
 function blankDraft(engine: SqlRemoteEngine): SqlConnectionDraft {
   return engine === 'sqlite'
     ? { name: '', engine, path: '', readOnly: false, passwordMode: 'none' }
     : { name: '', engine, host: '', port: DEFAULT_PORTS[engine], ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
-}
-
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-  label,
-  testId,
-  render,
-}: {
-  value: T;
-  options: readonly T[];
-  onChange: (next: T) => void;
-  label: string;
-  testId: string;
-  render: (option: T) => string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className="mt-1 flex w-fit flex-wrap rounded-[7px] border border-border-subtle bg-bg-inset p-0.5">
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          role="radio"
-          aria-checked={value === option}
-          data-testid={`${testId}-${option}`}
-          onClick={() => onChange(option)}
-          className={cn(
-            'focus-ring h-6 rounded-[5px] px-2.5 text-caption transition-colors',
-            value === option ? 'bg-bg-panel text-fg-base shadow-[0_1px_2px_rgba(0,0,0,0.35)]' : 'text-fg-muted hover:text-fg-base'
-          )}
-        >
-          {render(option)}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
@@ -104,6 +65,8 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     return (editing && parseConnectionDraft(editing)) || blankDraft('postgres');
   });
   const [password, setPassword] = useState('');
+  const [sshSecretInput, setSshSecretInput] = useState('');
+  const [trusting, setTrusting] = useState(false);
   const [url, setUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [urlFilled, setUrlFilled] = useState(false);
@@ -119,9 +82,26 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const atLimit = !editing && mode.kind === 'new' && catalog !== null && catalog.limit !== null && catalog.used >= catalog.limit;
   const network = draft.engine !== 'sqlite';
   const passwordMode = vaultSession && draft.passwordMode === 'keychain' ? 'session' : draft.passwordMode;
-  const named: SqlConnectionDraft = { ...draft, passwordMode, name: draft.name.trim() || (network ? draft.database || draft.host || '' : draft.path?.split(/[\\/]/).pop() || '') };
+  // Without a keychain, a kept SSH secret lasts the session too.
+  const ssh = draft.ssh && vaultSession && draft.ssh.secretMode === 'keychain' ? { ...draft.ssh, secretMode: 'session' as const } : draft.ssh;
+  const named: SqlConnectionDraft = {
+    ...draft,
+    passwordMode,
+    ...(network && ssh ? { ssh } : {}),
+    name: draft.name.trim() || (network ? draft.database || draft.host || '' : draft.path?.split(/[\\/]/).pop() || ''),
+  };
+  if (!network) delete named.ssh;
   const valid = parseConnectionDraft(named) !== null;
   const secret = password.length > 0 ? password : undefined;
+  const sshSecret = sshSecretInput.length > 0 ? sshSecretInput : undefined;
+  const safety: SqlSafetySwitches = { readOnly: draft.readOnly, confirmWrites: draft.confirmWrites === true, allowPrivateHost: draft.allowPrivateHost !== false };
+  const toggleSafety = (key: keyof SqlSafetySwitches) => {
+    if (key === 'readOnly') {
+      setTouchedReadOnly(true);
+      patch({ readOnly: !draft.readOnly });
+    } else if (key === 'confirmWrites') patch({ confirmWrites: !safety.confirmWrites });
+    else patch({ allowPrivateHost: !safety.allowPrivateHost });
+  };
 
   const patch = (next: Partial<SqlConnectionDraft>) => {
     setDraft((current) => ({ ...current, ...next }));
@@ -177,6 +157,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     }
     setError(null);
     if (kind === 'sqlite') patch({ path: picked.path });
+    else if (kind === 'ssh-key') patch({ ssh: { ...(draft.ssh ?? { host: '', port: 22, user: '', secretMode: 'none' }), auth: 'key', keyPath: picked.path } });
     else patch({ ssl: { ...(draft.ssl ?? { mode: 'verify-full' }), [`${kind === 'ca' ? 'ca' : kind}Path`]: picked.path } as NonNullable<SqlConnectionDraft['ssl']> });
   };
 
@@ -184,8 +165,11 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     const db = sqlDbBridge();
     if (!db || !valid) return;
     setTest('running');
-    const keptPassword = editing && !secret && editing.hasPassword;
-    const result = await db.test(keptPassword ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}) });
+    // A saved connection tests with what main keeps, unless something was typed or changed.
+    const keptPassword = editing && !secret && !sshSecret && editing.hasPassword && JSON.stringify(parseConnectionDraft(editing)) === JSON.stringify(parseConnectionDraft(named));
+    const result = await db.test(
+      keptPassword ? { connectionId: editing.id } : { draft: named, ...(secret ? { password: secret } : {}), ...(sshSecret ? { sshPassword: sshSecret } : {}) }
+    );
     setTest(result);
     track('sql.connection_tested', sqlConnectionTestedPayload(named.engine, result));
   };
@@ -194,13 +178,17 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     if (!valid) return;
     setBusy(true);
     setError(null);
-    const result = mode.kind === 'url' || (atLimit && !editing) ? await useSqlConnectionsStore.getState().openAdhoc(named, secret) : await useSqlConnectionsStore.getState().save(named, editing?.id, secret);
+    const result =
+      mode.kind === 'url' || (atLimit && !editing)
+        ? await useSqlConnectionsStore.getState().openAdhoc(named, secret, sshSecret)
+        : await useSqlConnectionsStore.getState().save(named, editing?.id, secret, sshSecret);
     setBusy(false);
     if (!result.ok) {
       setError(t(`sqlWorkspace.connection.saveError.${result.reason}`));
       return;
     }
     setPassword('');
+    setSshSecretInput('');
     onDone(result.connection);
   };
 
@@ -226,6 +214,15 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     [test]
   );
   const failed = test && test !== 'running' ? test.steps.find((step) => step.status === 'failed') : undefined;
+  const trustKey = async () => {
+    const key = failed?.hostKey;
+    const db = sqlDbBridge();
+    if (!key || !db) return;
+    setTrusting(true);
+    const { ok } = await db.trustHostKey(key.host, key.port, key.fingerprint);
+    setTrusting(false);
+    if (ok) await runTest();
+  };
   const actionLabel =
     mode.kind === 'url' || atLimit ? t('sqlWorkspace.connection.openWithoutSaving') : editing ? t('sqlWorkspace.connection.saveChanges') : t('sqlWorkspace.connection.save');
 
@@ -441,6 +438,28 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                 </span>
               </div>
             </div>
+            <SqlConnectionSshSection
+              ssh={draft.ssh}
+              target={`${draft.host || '…'}:${draft.port ?? ''}`}
+              onChange={(next) => {
+                setSshSecretInput('');
+                setDraft((current) => {
+                  const updated = { ...current };
+                  if (next) updated.ssh = next;
+                  else delete updated.ssh;
+                  return updated;
+                });
+                setTest(null);
+              }}
+              secret={sshSecretInput}
+              onSecret={(value) => {
+                setSshSecretInput(value);
+                setTest(null);
+              }}
+              secretKept={editing?.hasSshSecret === true}
+              sessionOnly={vaultSession}
+              onPickKey={() => void pick('ssh-key')}
+            />
           </>
         ) : (
           <div>
@@ -472,19 +491,8 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
               {env}
             </button>
           ))}
-          <span className="ml-auto flex items-center gap-1.5 text-body-sm text-fg-base">
-            <Toggle
-              value={draft.readOnly}
-              onChange={() => {
-                setTouchedReadOnly(true);
-                patch({ readOnly: !draft.readOnly });
-              }}
-              aria-label={t('sqlWorkspace.connection.readOnly')}
-              data-testid="sql-connection-read-only"
-            />
-            {t('sqlWorkspace.connection.readOnly')}
-          </span>
         </div>
+        <SqlConnectionSafety value={safety} onChange={toggleSafety} network={network} />
 
         {test ? (
           <section data-testid="sql-connection-test-result" aria-live="polite" className="rounded-[10px] border border-border-subtle bg-bg-panel px-3 py-2">
@@ -527,7 +535,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                       )}
                       <span className="w-[5.5rem] shrink-0 font-semibold">{stepLabel(step.id)}</span>
                       <span className="min-w-0 flex-1 truncate font-mono text-caption text-fg-muted" title={step.detail}>
-                        {step.id === 'policy' && step.detail ? t(`sqlWorkspace.connection.policy.${step.detail}`) : step.detail}
+                        {step.id === 'policy' && (step.detail === 'private' || step.detail === 'public') ? t(`sqlWorkspace.connection.policy.${step.detail}`) : step.detail}
                       </span>
                       <span className="font-mono text-caption text-fg-subtle">{step.ms !== undefined ? `${step.ms} ms` : ''}</span>
                     </li>
@@ -537,6 +545,19 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                   <p data-testid="sql-connection-fix" className="mt-1.5 text-caption leading-relaxed text-fg-muted">
                     {t(`sqlWorkspace.connection.fix.${failed.fix}`)}
                   </p>
+                ) : null}
+                {failed?.hostKey ? (
+                  <div data-testid="sql-connection-host-key" className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-warning-border bg-bg-inset px-2.5 py-2">
+                    <span className="min-w-0 flex-1 text-caption text-fg-muted">
+                      {t('sqlWorkspace.connection.ssh.trustHint', { host: failed.hostKey.host, port: failed.hostKey.port })}
+                      <span data-testid="sql-connection-host-key-fingerprint" className="mt-0.5 block break-all font-mono text-fg-base [font-variant-ligatures:none]">
+                        {failed.hostKey.fingerprint}
+                      </span>
+                    </span>
+                    <button type="button" data-testid="sql-connection-trust-key" disabled={trusting} onClick={() => void trustKey()} className={BUTTON}>
+                      {t('sqlWorkspace.connection.ssh.trustKey')}
+                    </button>
+                  </div>
                 ) : null}
               </>
             )}

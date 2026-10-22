@@ -15,9 +15,9 @@ interface SqlConnectionsState {
   catalog: SqlDbCatalogView | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  save: (draft: SqlConnectionDraft, id?: string, password?: string) => Promise<SqlDbSaveResult>;
+  save: (draft: SqlConnectionDraft, id?: string, password?: string, sshPassword?: string) => Promise<SqlDbSaveResult>;
   remove: (id: string) => Promise<boolean>;
-  openAdhoc: (draft: SqlConnectionDraft, password?: string) => Promise<SqlDbSaveResult>;
+  openAdhoc: (draft: SqlConnectionDraft, password?: string, sshPassword?: string) => Promise<SqlDbSaveResult>;
 }
 
 const unavailable: SqlDbSaveResult = { ok: false, reason: 'invalid' };
@@ -35,10 +35,10 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
       set({ loading: false });
     }
   },
-  async save(draft, id, password) {
+  async save(draft, id, password, sshPassword) {
     const db = sqlDbBridge();
     if (!db) return unavailable;
-    const result = await db.save(draft, id, password);
+    const result = await db.save(draft, id, password, sshPassword);
     // An edit can point the connection somewhere else.
     if (result.ok && id) useSqlRemoteCatalogStore.getState().refresh(id);
     if (result.ok) await get().refresh();
@@ -52,10 +52,10 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
     await get().refresh();
     return ok;
   },
-  async openAdhoc(draft, password) {
+  async openAdhoc(draft, password, sshPassword) {
     const db = sqlDbBridge();
     if (!db) return unavailable;
-    const result = await db.openAdhoc(draft, password);
+    const result = await db.openAdhoc(draft, password, sshPassword);
     if (result.ok) await get().refresh();
     return result;
   },
