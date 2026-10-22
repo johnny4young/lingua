@@ -27,6 +27,8 @@ files:
   - .vite/build/**
   - .vite/renderer/**
   - package.json
+  # The SQL Server driver's Azure SDK carries a browser build that Node never loads.
+  - '!**/node_modules/@azure/msal-browser{,/**}'
 # ripgrep is an executable, so keep it outside app.asar. The build script copies
 # every release target into an architecture-specific source path; electron-
 # builder's macros select the matching executable for each packaged app.

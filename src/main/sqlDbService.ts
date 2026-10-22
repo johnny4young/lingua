@@ -37,7 +37,7 @@ import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
-import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, ROW_EDIT_ENGINES, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -659,6 +659,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (entry.readOnly) return { ok: false, reason: 'read-only' };
       if (entry.env === 'prod') return { ok: false, reason: 'production' };
       if (entry.confirmWrites && confirmName !== entry.name) return { ok: false, reason: 'confirm-needed' };
+      if (!ROW_EDIT_ENGINES.has(entry.engine)) return { ok: false, reason: 'not-editable' };
       try {
         const { config } = await configFor(entry);
         const detail = await deps.host.request<SqlDbIntrospectResult>(

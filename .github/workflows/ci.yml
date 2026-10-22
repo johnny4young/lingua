@@ -144,9 +144,9 @@ jobs:
           if-no-files-found: error
 
   sql-engines:
-    name: SQL host against Postgres and MySQL
+    name: SQL host against server engines
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea # 16-alpine
@@ -172,6 +172,32 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 60
+      mssql:
+        image: mcr.microsoft.com/mssql/server@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718 # 2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: Lingua_dev1
+        ports:
+          - 51433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Lingua_dev1 -Q 'SELECT 1'"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 60
+      clickhouse:
+        image: clickhouse/clickhouse-server@sha256:1ffa82edee000a42c09313bd9f1293d94c570aee74babc1b3ca9983a35fa597b # 24.8
+        env:
+          CLICKHOUSE_USER: lingua
+          CLICKHOUSE_PASSWORD: lingua
+          CLICKHOUSE_DB: analytics
+        ports:
+          - 58123:8123
+        options: >-
+          --ulimit nofile=262144:262144
+          --health-cmd "wget -qO- http://127.0.0.1:8123/ping"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -189,7 +215,9 @@ jobs:
         env:
           LINGUA_TEST_PG_URL: postgres://postgres:lingua@127.0.0.1:55432/orders
           LINGUA_TEST_MYSQL_URL: mysql://root:lingua@127.0.0.1:53306/billing
-        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts
+          LINGUA_TEST_MSSQL_URL: sqlserver://sa:Lingua_dev1@127.0.0.1:51433/lingua_it
+          LINGUA_TEST_CLICKHOUSE_URL: clickhouse://lingua:lingua@127.0.0.1:58123/analytics
+        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts tests/integration/sqlHostServerEngines.test.ts
 
   coverage:
     name: Coverage floors (instrumented unit suite)

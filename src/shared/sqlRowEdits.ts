@@ -52,6 +52,9 @@ export const ROW_EDIT_BUDGET_MS = 60_000;
 
 const ROWID = 'rowid';
 
+/** Engines whose tables take staged edits: each statement runs in a transaction and reports the rows it touched. */
+export const ROW_EDIT_ENGINES: ReadonlySet<SqlEngineKind> = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver']);
+
 export const keyColumns = (table: RowEditTable): string[] => (table.key.kind === 'pk' ? table.key.columns : [ROWID]);
 
 const isValue = (value: unknown): value is RowEditValue => value === null || (typeof value === 'string' && value.length <= MAX_VALUE_LENGTH);
@@ -81,7 +84,7 @@ export function rowEditProblem(table: RowEditTable, changes: RowEditChanges): 'e
  * The statements in the order they run: updates, deletes, then inserts.
  * `inline` writes the values as literals (DuckDB, which takes no
  * parameters here, and the review the user reads); otherwise they are bound
- * as `$n` on Postgres and `?` on MySQL and SQLite.
+ * as `$n` on Postgres, `@pn` on SQL Server and `?` on MySQL and SQLite.
  */
 export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, inline: boolean): RowEditStatement[] {
   const dialect = sqlDialect(table.engine);
@@ -113,7 +116,7 @@ export function rowEditStatements(table: RowEditTable, changes: RowEditChanges, 
     const sql = build((item) => {
       if (inline) return item === null ? 'NULL' : dialect.stringLiteral(item);
       params.push(item);
-      return table.engine === 'postgres' ? `$${params.length}` : '?';
+      return table.engine === 'postgres' ? `$${params.length}` : table.engine === 'sqlserver' ? `@p${params.length}` : '?';
     });
     return { sql, params };
   }

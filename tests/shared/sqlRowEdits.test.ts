@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rowEditProblem, rowEditReview, rowEditStatements, type RowEditChanges, type RowEditTable } from '../../src/shared/sqlRowEdits';
+import { ROW_EDIT_ENGINES, rowEditProblem, rowEditReview, rowEditStatements, type RowEditChanges, type RowEditTable } from '../../src/shared/sqlRowEdits';
 
 const orders: RowEditTable = { engine: 'postgres', schema: 'public', name: 'orders', columns: ['id', 'city', 'total', 'created_at'], key: { kind: 'pk', columns: ['id'] } };
 
@@ -31,6 +31,16 @@ describe('staged row edits', () => {
       { sql: 'UPDATE `invoices` SET `paid` = ? WHERE `tenant` = ? AND `number` = ?', params: ['1', 't1', '7'] },
       { sql: 'INSERT INTO `invoices` () VALUES ()', params: [] },
     ]);
+  });
+
+  it('binds @p1, @p2… and brackets on SQL Server, and edits only engines with row-by-row transactions', () => {
+    const erp: RowEditTable = { engine: 'sqlserver', schema: 'dbo', name: 'orders', columns: ['id', 'city'], key: { kind: 'pk', columns: ['id'] } };
+    expect(rowEditStatements(erp, { updates: [{ key: { id: '1' }, values: { city: 'Cali' } }], deletes: [{ key: { id: '2' } }], inserts: [] }, false)).toEqual([
+      { sql: 'UPDATE [dbo].[orders] SET [city] = @p1 WHERE [id] = @p2', params: ['Cali', '1'] },
+      { sql: 'DELETE FROM [dbo].[orders] WHERE [id] = @p1', params: ['2'] },
+    ]);
+    expect(rowEditReview(erp, { updates: [{ key: { id: '1' }, values: { city: "O'Brien" } }], deletes: [], inserts: [] })).toContain("SET [city] = N'O''Brien'");
+    expect([...ROW_EDIT_ENGINES].sort()).toEqual(['duckdb', 'mysql', 'postgres', 'sqlite', 'sqlserver']);
   });
 
   it('writes literals for DuckDB and finds a keyless Local row by rowid', () => {

@@ -524,6 +524,17 @@ describe('staged edits', () => {
   const changes = { updates: [{ key: { id: '7' }, values: { city: "O'Hare" } }], deletes: [], inserts: [] };
   const respond = (primaryKey = true) => (body: Record<string, unknown>) => (body.type === 'introspect' ? detail(primaryKey) : body.type === 'apply-edits' ? { applied: 1 } : {});
 
+  it('binds SQL Server values as @p1, @p2… and never edits a ClickHouse table, whose sorting key is not unique', async () => {
+    const { svc, sent } = service(respond());
+    const erp = ((await svc.save({ ...pg, name: 'erp', engine: 'sqlserver', port: 1433 }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(erp, { schema: 'dbo', name: 'orders' }, changes)).toEqual({ ok: true, applied: 1 });
+    expect(sent.find((body) => body.type === 'apply-edits')).toMatchObject({ statements: [{ sql: 'UPDATE [dbo].[orders] SET [city] = @p1 WHERE [id] = @p2' }] });
+    sent.length = 0;
+    const events = ((await svc.save({ ...pg, name: 'events', engine: 'clickhouse', port: 8443 }, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.applyEdits(events, { schema: 'analytics', name: 'events' }, changes)).toEqual({ ok: false, reason: 'not-editable' });
+    expect(sent.some((body) => body.type === 'introspect' || body.type === 'apply-edits')).toBe(false);
+  });
+
   it('builds the SQL in main from its own read of the primary key and applies it on its own request', async () => {
     const { svc, sent } = service(respond());
     const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;

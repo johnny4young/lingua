@@ -15,7 +15,15 @@ const isDict = (value: PlistValue | undefined): value is Dict => Boolean(value) 
 const str = (value: PlistValue | undefined) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 const flag = (value: PlistValue | undefined) => value === true || value === 1;
 
-const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = { postgresql: 'postgres', mysql: 'mysql', mariadb: 'mysql', sqlite: 'sqlite' };
+const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = {
+  postgresql: 'postgres',
+  mysql: 'mysql',
+  mariadb: 'mysql',
+  sqlite: 'sqlite',
+  sqlserver: 'sqlserver',
+  microsoftsqlserver: 'sqlserver',
+  clickhouse: 'clickhouse',
+};
 
 const ENV: Readonly<Record<string, SqlConnectionEnv>> = { local: 'dev', development: 'dev', testing: 'staging', staging: 'staging', production: 'prod' };
 

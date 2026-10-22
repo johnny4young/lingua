@@ -18,7 +18,16 @@ const num = (value: unknown) => {
   return Number.isInteger(parsed) && parsed > 0 && parsed < 65_536 ? parsed : undefined;
 };
 
-const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = { postgresql: 'postgres', postgres: 'postgres', mysql: 'mysql', mariadb: 'mysql', sqlite: 'sqlite' };
+const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = {
+  postgresql: 'postgres',
+  postgres: 'postgres',
+  mysql: 'mysql',
+  mariadb: 'mysql',
+  sqlite: 'sqlite',
+  sqlserver: 'sqlserver',
+  mssql: 'sqlserver',
+  clickhouse: 'clickhouse',
+};
 
 const ENV: Readonly<Record<string, SqlConnectionEnv>> = { dev: 'dev', test: 'staging', prod: 'prod' };
 
@@ -56,8 +65,9 @@ function sshOf(configuration: Json): SqlConnectionDraft['ssh'] | null | undefine
 const PG_SSL: Readonly<Record<string, SqlSslMode>> = { disable: 'disable', allow: 'prefer', prefer: 'prefer', require: 'require', 'verify-ca': 'verify-ca', 'verify-full': 'verify-full' };
 
 /** The SSL handler's mode and files; prefer without one, as the drivers default to. */
-function sslOf(configuration: Json, engine: 'postgres' | 'mysql'): NonNullable<SqlConnectionDraft['ssl']> {
-  const ssl = handler(configuration, engine === 'postgres' ? 'postgre_ssl' : 'mysql_ssl');
+function sslOf(configuration: Json, engine: Exclude<SqlConnectionDraft['engine'], 'sqlite'>): NonNullable<SqlConnectionDraft['ssl']> {
+  // SQL Server and ClickHouse keep their TLS switches in driver properties, which are not read.
+  const ssl = engine === 'postgres' || engine === 'mysql' ? handler(configuration, engine === 'postgres' ? 'postgre_ssl' : 'mysql_ssl') : undefined;
   if (!ssl) return { mode: 'prefer' };
   const props = ssl.properties;
   const mode: SqlSslMode =

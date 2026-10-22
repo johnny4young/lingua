@@ -456,7 +456,7 @@ export const SQL_DURATION_BUCKETS_SET = new Set(['<10ms', '<100ms', '<1s', '<5s'
 // Closed enum for `engine` on `sql.query_executed` and
 // `sql.connection_tested`: Local DuckDB or the desktop engine of a saved
 // connection. Mirrored on update-server with parity test.
-export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite']);
+export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse']);
 // Closed enum for `failedStep` on `sql.connection_tested`: the first step
 // that failed, or `none`. Source of truth is `SQL_DB_TEST_STEPS` in
 // `src/shared/sqlDb.ts`. Mirrored on update-server with parity test.

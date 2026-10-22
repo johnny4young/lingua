@@ -75,6 +75,15 @@ describe('TablePlus import', () => {
     });
   });
 
+  it('takes SQL Server and ClickHouse connections with their default ports', () => {
+    const mssql = entry('<key>ConnectionName</key><string>erp</string><key>Driver</key><string>SQLServer</string><key>DatabaseHost</key><string>sql.internal</string><key>DatabaseName</key><string>erp</string>');
+    const ch = entry('<key>ConnectionName</key><string>events</string><key>Driver</key><string>ClickHouse</string><key>DatabaseHost</key><string>ch.internal</string><key>DatabasePort</key><string>8123</string>');
+    expect(tablePlusCandidates(plist(mssql, ch), null, HOME)?.found.map((candidate) => candidate.draft)).toEqual([
+      { name: 'erp', engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'erp', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
+      { name: 'events', engine: 'clickhouse', host: 'ch.internal', port: 8123, readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
+    ]);
+  });
+
   it('refuses a plist that is not a connection list', () => {
     expect(tablePlusCandidates(Buffer.from('<plist version="1.0"><dict><key>a</key><string>b</string></dict></plist>'), null, HOME)).toBeNull();
     expect(tablePlusCandidates(Buffer.from('not a plist'), null, HOME)).toBeNull();
@@ -195,6 +204,21 @@ describe('DBeaver import', () => {
     ]);
   });
 
+  it('takes SQL Server and ClickHouse providers, with the driver default for SSL', () => {
+    const json = JSON.stringify({
+      connections: {
+        'sqlserver-1': { provider: 'sqlserver', driver: 'microsoft', name: 'ERP', configuration: { host: 'sql.internal', database: 'erp', user: 'erp_app', password: 'never-read' } },
+        'clickhouse-1': { provider: 'clickhouse', driver: 'com_clickhouse', name: 'Events', configuration: { url: 'jdbc:clickhouse://ch.internal:8123/events' } },
+      },
+    });
+    const result = dbeaverCandidates(json)!;
+    expect(JSON.stringify(result)).not.toContain('never-read');
+    expect(result.found.map((candidate) => candidate.draft)).toEqual([
+      { name: 'ERP', engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'erp', user: 'erp_app', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
+      { name: 'Events', engine: 'clickhouse', host: 'ch.internal', port: 8123, database: 'events', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
+    ]);
+  });
+
   it('refuses other JSON', () => {
     expect(dbeaverCandidates('{"a":1}')).toBeNull();
     expect(dbeaverCandidates('nope')).toBeNull();
@@ -257,7 +281,14 @@ describe('DataGrip import', () => {
 
   it('keeps the first host of a failover URL and refuses other engines', () => {
     expect(draftFromJdbcUrl('jdbc:postgresql://a:5432,b:5432/db')).toMatchObject({ host: 'a', database: 'db' });
-    expect(draftFromJdbcUrl('jdbc:sqlserver://s:1433')).toBeNull();
+    expect(draftFromJdbcUrl('jdbc:oracle:thin:@o:1521:x')).toBeNull();
+  });
+
+  it('reads a SQL Server database name from its properties, and nothing else there', () => {
+    const draft = draftFromJdbcUrl('jdbc:sqlserver://sql.internal:1433;databaseName=erp;user=app;password=S3cret;encrypt=true');
+    expect(draft).toMatchObject({ engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'erp', name: 'erp', passwordMode: 'keychain' });
+    expect(JSON.stringify(draft)).not.toContain('S3cret');
+    expect(draft).not.toHaveProperty('user');
   });
 
   it('never lets a password in a JDBC address form or property reach a draft', () => {

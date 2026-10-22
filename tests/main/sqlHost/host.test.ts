@@ -54,7 +54,7 @@ const req = (body: HostRequestBody) => ({ id: ++id, ...body }) as HostRequest;
 describe('SQL host', () => {
   it('reads a window, keeps the run open for more rows, and maps bigints to text', async () => {
     const { open } = fakeDriver(25_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(first).toMatchObject({ ok: true, result: { rowCount: 10_000, hasMore: true, rowCountIsLowerBound: true } });
     const rows = (first as { result: { rows: Array<{ n: string }> } }).result.rows;
@@ -72,7 +72,7 @@ describe('SQL host', () => {
     session.onLost = (listener) => {
       drop = listener;
     };
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(open).toHaveBeenCalledOnce();
     drop!();
@@ -90,7 +90,7 @@ describe('SQL host', () => {
       closes.push(rows.close as ReturnType<typeof vi.fn>);
       return rows;
     };
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     expect(await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }))).toMatchObject({
       result: { hasMore: false },
     });
@@ -99,7 +99,7 @@ describe('SQL host', () => {
 
   it('stops a page at the byte budget and keeps the rest', async () => {
     const { open } = fakeDriver(1_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     const first = await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window: { maxRows: 1_000, maxBytes: 100 } }));
     const rows = (first as { result: { rows: unknown[]; hasMore: boolean } }).result;
     expect(rows.rows.length).toBeGreaterThan(0);
@@ -110,7 +110,7 @@ describe('SQL host', () => {
   it('reuses one session per connection and closes the previous run when the next starts', async () => {
     const calls: string[] = [];
     const { open, session } = fakeDriver(20_000, calls);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT 1', readWrite: false, window }));
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r2', sql: 'SELECT 2', readWrite: false, window }));
     expect(open).toHaveBeenCalledOnce();
@@ -128,7 +128,7 @@ describe('SQL host', () => {
 
   it('cancels from a side connection, or asks for a restart when the engine cannot', async () => {
     const { open, session } = fakeDriver(20_000);
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open });
     await host.handle(req({ type: 'execute', config: pgConfig(), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: true } });
     expect(session.cancel).toHaveBeenCalledOnce();
@@ -148,7 +148,7 @@ describe('SQL host', () => {
       connectors.push(connect);
       return session;
     });
-    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open }, pool);
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open, sqlserver: open, clickhouse: open }, pool);
     const ssh = { hops: [], auth: 'agent' as const, agent: '/tmp/agent.sock', target: { host: 'db.internal', port: 5432 } };
     await host.handle(req({ type: 'execute', config: pgConfig({ address: '10.0.0.9', port: 5432, ssh }), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
     expect(seen[0]).toMatchObject({ port: 5432 });
@@ -166,7 +166,7 @@ describe('SQL host', () => {
     const failing = vi.fn(async () => {
       throw Object.assign(new Error('password authentication failed for user "app"'), { code: '28P01' });
     });
-    const host = createSqlHost({ postgres: failing, mysql: failing, sqlite: failing });
+    const host = createSqlHost({ postgres: failing, mysql: failing, sqlite: failing, sqlserver: failing, clickhouse: failing });
     const result = await host.handle(req({ type: 'test', config: pgConfig() }));
     expect(result).toMatchObject({ ok: false, error: { step: 'auth', fix: 'auth' } });
   });
@@ -186,6 +186,13 @@ describe('driver helpers', () => {
     expect(classifyConnectError({ code: '3D000', message: 'database "x" does not exist' })).toMatchObject({ fix: 'database' });
     expect(classifyConnectError({ code: 'ECONNREFUSED', message: 'connect ECONNREFUSED' })).toMatchObject({ step: 'tcp', fix: 'unreachable' });
     expect(classifyConnectError(new Error('The server does not support SSL connections'))).toMatchObject({ step: 'tls', fix: 'tls-unsupported' });
+    // SQL Server and ClickHouse name these in their messages rather than in codes.
+    expect(classifyConnectError({ code: 'ELOGIN', message: "Login failed for user 'sa'." })).toMatchObject({ step: 'auth', fix: 'auth' });
+    expect(classifyConnectError({ code: 'ELOGIN', message: 'Cannot open database "erp" requested by the login. The login failed.' })).toMatchObject({ fix: 'database' });
+    expect(classifyConnectError({ code: '516', message: 'Code: 516. DB::Exception: lingua: Authentication failed' })).toMatchObject({ step: 'auth', fix: 'auth' });
+    expect(classifyConnectError({ code: '81', message: 'Code: 81. DB::Exception: Database events does not exist. (UNKNOWN_DATABASE)' })).toMatchObject({ fix: 'database' });
+    expect(classifyConnectError({ code: 'ESOCKET', message: 'Failed to connect to sql:1433 - self-signed certificate' })).toMatchObject({ step: 'tls', fix: 'tls-untrusted' });
+    expect(classifyConnectError({ code: 'ESOCKET', message: 'Failed to connect to sql:1433 - connect ECONNREFUSED 10.0.0.5:1433' })).toMatchObject({ step: 'tcp', fix: 'unreachable' });
   });
 });
 
@@ -202,10 +209,10 @@ describe('SQLite driver (node:sqlite)', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const sqliteConfig = (readOnly: boolean): HostSessionConfig => ({ connectionId: 's1', engine: 'sqlite', path: file, readOnly });
-  const createSqlHostSupervisorless = () => createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
+  const createSqlHostSupervisorless = () => createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite });
 
   it('reads rows with types the grid knows and keeps large integers exact', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
+    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite });
     const result = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'r', sql: 'SELECT * FROM t ORDER BY id', readWrite: false, window }));
     expect(result).toMatchObject({
       ok: true,
@@ -240,7 +247,7 @@ describe('SQLite driver (node:sqlite)', () => {
   });
 
   it('refuses writes on a read-only file, and lifts read-only for one run', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
+    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite });
     const refused = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w', sql: "UPDATE t SET name = 'z'", readWrite: false, window }));
     expect(refused).toMatchObject({ ok: false, error: { message: expect.stringMatching(/readonly/i) } });
     const lifted = await host.handle(req({ type: 'execute', config: sqliteConfig(true), runId: 'w2', sql: "UPDATE t SET name = 'z'", readWrite: true, window }));
@@ -290,7 +297,7 @@ describe('SQLite driver (node:sqlite)', () => {
   });
 
   it('tests the file: version on success, file-missing when it is gone', async () => {
-    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite });
+    const host = createSqlHost({ postgres: openSqlite, mysql: openSqlite, sqlite: openSqlite, sqlserver: openSqlite, clickhouse: openSqlite });
     expect(await host.handle(req({ type: 'test', config: sqliteConfig(true) }))).toMatchObject({ ok: true, result: { serverVersion: expect.stringMatching(/^SQLite 3\./) } });
     expect(await host.handle(req({ type: 'test', config: { ...sqliteConfig(true), path: path.join(dir, 'nope.db') } }))).toMatchObject({
       ok: false,
