@@ -103,6 +103,74 @@ export interface SqlDbTestResult {
   serverVersion?: string;
 }
 
+export const SQL_DB_OBJECT_KINDS = ['table', 'view', 'matview', 'function', 'procedure', 'sequence', 'extension'] as const;
+export type SqlDbObjectKind = (typeof SQL_DB_OBJECT_KINDS)[number];
+
+/** Objects listed per schema, and columns read per schema for completion. */
+export const MAX_INTROSPECT_OBJECTS = 5_000;
+export const MAX_INTROSPECT_COLUMNS = 20_000;
+
+/** One level of a connection's catalog, read on demand. */
+export type SqlDbIntrospect =
+  | { level: 'schemas' }
+  | { level: 'objects'; schema: string }
+  | { level: 'columns'; schema: string }
+  /** `signature` tells function overloads apart. */
+  | { level: 'detail'; schema: string; name: string; kind: SqlDbObjectKind; signature?: string };
+
+export interface SqlDbSchemaInfo {
+  name: string;
+  objects: number;
+}
+
+export interface SqlDbObjectInfo {
+  kind: SqlDbObjectKind;
+  name: string;
+  /** Planner estimate for tables and materialized views. */
+  rowEstimate?: number;
+  /** Arguments of a function or procedure, or an extension's version. */
+  signature?: string;
+}
+
+export interface SqlDbColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  default?: string;
+  primaryKey?: boolean;
+  references?: { schema: string; table: string; column: string };
+}
+
+export interface SqlDbIndexInfo {
+  name: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+}
+
+export interface SqlDbObjectDetail {
+  kind: SqlDbObjectKind;
+  schema: string;
+  name: string;
+  columns: SqlDbColumnInfo[];
+  indexes: SqlDbIndexInfo[];
+  rowEstimate?: number;
+  sizeBytes?: number;
+  ddl?: string;
+}
+
+/** Exactly one field per level is set, or `errorMessage`. */
+export interface SqlDbIntrospectResult {
+  schemas?: SqlDbSchemaInfo[];
+  objects?: SqlDbObjectInfo[];
+  columns?: Array<{ table: string; name: string; type: string }>;
+  /** The level held more than the cap; the rest is not listed. */
+  truncated?: boolean;
+  detail?: SqlDbObjectDetail;
+  errorMessage?: string;
+  fix?: SqlDbFixHint;
+}
+
 /** `window.lingua.db` on desktop; absent on the web build. */
 export interface SqlDbBridge {
   catalog(): Promise<SqlDbCatalogView>;
@@ -117,5 +185,6 @@ export interface SqlDbBridge {
   closeRun(runId: string): Promise<{ ok: true }>;
   estimate(connectionId: string, sql: string): Promise<number | null>;
   pickFile(kind: SqlDbFileKind): Promise<SqlDbPickResult>;
+  introspect(connectionId: string, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
 }
 

@@ -6,6 +6,7 @@ import mysql from 'mysql2';
 import type { Connection, ConnectionOptions, FieldPacket, Query } from 'mysql2';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { DriverRows, DriverSession } from './driver';
+import { introspectMysql } from './mysqlCatalog';
 import type { HostSessionConfig } from './protocol';
 
 const BINARY_CHARSET = 63;
@@ -83,8 +84,8 @@ function connect(opts: ConnectionOptions): Promise<Connection> {
   });
 }
 
-const query = <T>(connection: Connection, sql: string): Promise<T> =>
-  new Promise((resolve, reject) => connection.query(sql, (err, rows) => (err ? reject(err) : resolve(rows as T))));
+const query = <T>(connection: Connection, sql: string, values: unknown[] = []): Promise<T> =>
+  new Promise((resolve, reject) => connection.query(sql, values, (err, rows) => (err ? reject(err) : resolve(rows as T))));
 
 const queryWithFields = (connection: Connection, sql: string): Promise<{ rows: unknown; fields: FieldPacket[] | undefined }> =>
   new Promise((resolve, reject) =>
@@ -253,6 +254,8 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
         await query(connection, 'ROLLBACK').catch(() => undefined);
       }
     },
+
+    introspect: (request) => introspectMysql((sql, values) => query<Array<Record<string, unknown>>>(connection, sql, values), request),
 
     close: () => new Promise<void>((resolve) => connection.end(() => resolve())),
   };

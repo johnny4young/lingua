@@ -361,7 +361,7 @@ folder (checked as given and after resolving symlinks), estimates only a single 
 (EXPLAIN inside a transaction that is always rolled back), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
-renderer that knows the name can pass it. The twelve `sql-db:*` channels in
+renderer that knows the name can pass it. The thirteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
 
 Read-only is enforced by the server, per run, not only by the classifier:

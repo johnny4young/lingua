@@ -6,6 +6,7 @@
 
 import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
+import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import { classifyConnectError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
 import type {
   HostCancelResult,
@@ -230,6 +231,19 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     return serialize(session, async () => (await session.ready).estimateRows(sql));
   }
 
+  async function introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
+    const session = sessionFor(config);
+    return serialize(session, async () => {
+      let driver: DriverSession;
+      try {
+        driver = await session.ready;
+      } catch (err) {
+        throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+      }
+      return driver.introspect(request);
+    });
+  }
+
   async function handle(request: HostRequest): Promise<HostResponse> {
     try {
       let result: unknown;
@@ -252,6 +266,9 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
           break;
         case 'estimate':
           result = await estimate(request.config, request.sql);
+          break;
+        case 'introspect':
+          result = await introspect(request.config, request.request);
           break;
         case 'disconnect':
           await dropSession(request.connectionId);

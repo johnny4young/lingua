@@ -21,14 +21,14 @@ describe('sql-db IPC handlers', () => {
   beforeEach(() => {
     handlers.clear();
     service = Object.fromEntries(
-      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'releaseOwner'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
+      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'releaseOwner'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
     );
     registerSqlDbHandlers(service as unknown as SqlDbService, (file) => (file.includes('/.ssh/') ? 'ssh' : null));
   });
 
   it('registers every channel', () => {
     expect([...handlers.keys()].sort()).toEqual(
-      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'pick-file'].map((name) => `sql-db:${name}`).sort()
+      ['catalog', 'save', 'delete', 'open-adhoc', 'session-password', 'test', 'execute', 'fetch', 'cancel', 'close-run', 'estimate', 'introspect', 'pick-file'].map((name) => `sql-db:${name}`).sort()
     );
   });
 
@@ -50,6 +50,25 @@ describe('sql-db IPC handlers', () => {
     expect(service.save).toHaveBeenCalledWith({ ...draft, ssl: { mode: 'verify-full' } }, undefined, 'pw');
     await invoke('sql-db:execute', 'r1', 'c_1', 'SELECT 1', { timeoutMs: 1000, readWrite: { confirmName: 'orders-prod' } });
     expect(service.execute).toHaveBeenCalledWith(7, 'r1', 'c_1', 'SELECT 1', { timeoutMs: 1000, readWrite: { confirmName: 'orders-prod' } });
+  });
+
+  it('bounds every field of an introspection request', async () => {
+    for (const request of [
+      undefined,
+      { level: 'tables' },
+      { level: 'objects' },
+      { level: 'columns', schema: '' },
+      { level: 'objects', schema: 'x'.repeat(257) },
+      { level: 'detail', schema: 'public', name: 'orders', kind: 'index' },
+      { level: 'detail', schema: 'public', kind: 'table' },
+      { level: 'detail', schema: 'public', name: 'f', kind: 'function', signature: 'x'.repeat(2049) },
+    ]) {
+      await expect(invoke('sql-db:introspect', 'c_1', request)).rejects.toThrow('Invalid');
+    }
+    await expect(invoke('sql-db:introspect', '../c', { level: 'schemas' })).rejects.toThrow('Invalid');
+    expect(service.introspect).not.toHaveBeenCalled();
+    await invoke('sql-db:introspect', 'c_1', { level: 'detail', schema: 'public', name: 'f', kind: 'function', signature: 'integer', sql: 'DROP TABLE x' });
+    expect(service.introspect).toHaveBeenCalledWith('c_1', { level: 'detail', schema: 'public', name: 'f', kind: 'function', signature: 'integer' });
   });
 
   it('refuses a picked file in a protected folder', async () => {

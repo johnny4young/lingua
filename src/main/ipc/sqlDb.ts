@@ -6,7 +6,7 @@
 
 import { BrowserWindow, dialog } from 'electron';
 import { isValidConnectionId, parseConnectionDraft, type SqlConnectionDraft } from '../../shared/sqlConnections';
-import type { SqlDbFileKind, SqlDbRunOptions, SqlDbTarget } from '../../shared/sqlDb';
+import { SQL_DB_OBJECT_KINDS, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
 import { MAX_QUERY_BYTES, MAX_QUERY_TIMEOUT_MS } from '../../shared/sqlWorkspace';
 import { onOwnerReset } from '../runners/ownerReset';
 import type { SqlDbService } from '../sqlDbService';
@@ -54,6 +54,37 @@ function runOptions(value: unknown, channel: string): SqlDbRunOptions {
   const readWrite = record.readWrite as Record<string, unknown> | null;
   if (!readWrite || typeof readWrite.confirmName !== 'string' || readWrite.confirmName.length > 200) return fail(channel);
   return { timeoutMs, readWrite: { confirmName: readWrite.confirmName } };
+}
+
+const MAX_NAME = 256;
+const MAX_SIGNATURE = 2048;
+
+const bounded = (value: unknown, max: number, channel: string): string =>
+  typeof value === 'string' && value.length > 0 && value.length <= max ? value : fail(channel);
+
+function introspection(value: unknown, channel: string): SqlDbIntrospect {
+  if (!value || typeof value !== 'object') return fail(channel);
+  const record = value as Record<string, unknown>;
+  switch (record.level) {
+    case 'schemas':
+      return { level: 'schemas' };
+    case 'objects':
+    case 'columns':
+      return { level: record.level, schema: bounded(record.schema, MAX_NAME, channel) };
+    case 'detail': {
+      const kind = SQL_DB_OBJECT_KINDS.includes(record.kind as SqlDbObjectKind) ? (record.kind as SqlDbObjectKind) : fail(channel);
+      const signature = record.signature === undefined ? undefined : typeof record.signature === 'string' && record.signature.length <= MAX_SIGNATURE ? record.signature : fail(channel);
+      return {
+        level: 'detail',
+        schema: bounded(record.schema, MAX_NAME, channel),
+        name: bounded(record.name, MAX_NAME, channel),
+        kind,
+        ...(signature !== undefined ? { signature } : {}),
+      };
+    }
+    default:
+      return fail(channel);
+  }
 }
 
 const FILE_FILTERS: Readonly<Record<SqlDbFileKind, Electron.FileFilter[]>> = {
@@ -138,6 +169,12 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
     'sql-db:estimate',
     (args) => [connectionId(args[0], 'sql-db:estimate'), sql(args[1], 'sql-db:estimate')] as [string, string],
     (_event, id, statement) => service.estimate(id, statement)
+  );
+
+  validatedHandle(
+    'sql-db:introspect',
+    (args) => [connectionId(args[0], 'sql-db:introspect'), introspection(args[1], 'sql-db:introspect')] as [string, SqlDbIntrospect],
+    (_event, id, request) => service.introspect(id, request)
   );
 
   validatedHandle(

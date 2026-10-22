@@ -1,5 +1,6 @@
 /** What every engine adapter gives the host, plus cell mapping and error classification. */
 
+import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { HostError, HostSessionConfig } from './protocol';
 
@@ -20,6 +21,8 @@ export interface DriverSession {
   /** Rows the planner expects a statement to touch, or null. Never executes it. */
   estimateRows(sql: string): Promise<number | null>;
   tls?(): { subject?: string; validTo?: string } | undefined;
+  /** One level of the catalog, read with the engine's own catalog queries. */
+  introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
   close(): Promise<void>;
 }
 

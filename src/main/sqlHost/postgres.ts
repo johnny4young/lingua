@@ -7,6 +7,7 @@ import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { DriverRows, DriverSession } from './driver';
+import { introspectPostgres } from './postgresCatalog';
 import type { HostSessionConfig } from './protocol';
 
 // Dates, times, intervals, JSON and money stay as the server prints them.
@@ -201,6 +202,9 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
       if (!cert || !cert.subject) return undefined;
       return { ...(cert.subject.CN ? { subject: cert.subject.CN } : {}), ...(cert.valid_to ? { validTo: cert.valid_to } : {}) };
     },
+
+    introspect: (request) =>
+      introspectPostgres(async (sql, values) => (await client.query(sql, values)).rows as Array<Record<string, unknown>>, request),
 
     close: () => client.end(),
   };

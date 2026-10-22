@@ -258,6 +258,30 @@ describe('estimates and cancel', () => {
     expect(sent.filter((body) => body.type === 'estimate')).toHaveLength(2);
   });
 
+  it('introspects with the stored password and reports failures as a message', async () => {
+    const { svc, sent } = service((body) => {
+      if (body.type === 'introspect') throw new SqlHostError({ message: 'permission denied for schema audit' });
+      return {};
+    });
+    const id = ((await svc.save(pg, undefined, 'pw')) as { connection: { id: string } }).connection.id;
+    expect(await svc.introspect(id, { level: 'objects', schema: 'audit' })).toEqual({ errorMessage: 'permission denied for schema audit' });
+    expect(sent.at(-1)).toMatchObject({ type: 'introspect', config: { password: 'pw', address: '10.0.4.12' }, request: { level: 'objects', schema: 'audit' } });
+    expect(await svc.introspect('c_missing', { level: 'schemas' })).toEqual({ errorMessage: 'Unknown connection.' });
+  });
+
+  it('asks again for a session password the server refused while introspecting', async () => {
+    const { svc } = service((body) => {
+      if (body.type === 'introspect') throw new SqlHostError({ message: 'password authentication failed', step: 'auth', fix: 'auth' });
+      return {};
+    });
+    const id = ((await svc.save({ ...pg, passwordMode: 'session' }, undefined, undefined)) as { connection: { id: string } }).connection.id;
+    expect(await svc.introspect(id, { level: 'schemas' })).toMatchObject({ fix: 'password-needed' });
+    await svc.sessionPassword(id, 'wrong');
+    expect(await svc.introspect(id, { level: 'schemas' })).toMatchObject({ fix: 'password-needed' });
+    // The refused password was dropped, so the next call needs a new one before reaching the host.
+    expect(await svc.introspect(id, { level: 'schemas' })).toEqual({ errorMessage: 'This connection needs its password.', fix: 'password-needed' });
+  });
+
   it('restarts a host that does not answer a cancel', async () => {
     vi.useFakeTimers();
     try {

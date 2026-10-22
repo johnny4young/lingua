@@ -7,6 +7,7 @@ import type { DriverSession } from '../../../src/main/sqlHost/driver';
 import { classifyConnectError, toJsonCell } from '../../../src/main/sqlHost/driver';
 import { createSqlHost } from '../../../src/main/sqlHost/host';
 import type { HostRequest, HostSessionConfig } from '../../../src/main/sqlHost/protocol';
+import type { SqlDbIntrospectResult } from '../../../src/shared/sqlDb';
 import { openSqlite } from '../../../src/main/sqlHost/sqlite';
 
 const window = { maxRows: 10_000, maxBytes: 256 * 1024 };
@@ -30,6 +31,7 @@ function fakeDriver(count: number, calls: string[] = []) {
     },
     cancel: vi.fn(async () => true),
     estimateRows: async () => 42,
+    introspect: async () => ({ schemas: [] }),
     close: vi.fn(async () => undefined),
   };
   return { session, open: vi.fn(async () => session) };
@@ -196,6 +198,38 @@ describe('SQLite driver (node:sqlite)', () => {
       const result = await host.handle(req({ type: 'execute', config: sqliteConfig(false), runId: 'a', sql, readWrite: false, window }));
       expect(result).toMatchObject({ ok: false, error: { message: expect.stringMatching(/not authorized|authorization denied/) } });
     }
+    await host.dispose();
+  });
+
+  it('lists the catalog of a file and details a table with keys, indexes and DDL', async () => {
+    const db = new DatabaseSync(file);
+    db.exec(`CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE);
+      CREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id), status TEXT DEFAULT 'open');
+      CREATE INDEX orders_by_customer ON orders(customer_id, status);
+      CREATE VIEW open_orders AS SELECT * FROM orders WHERE status = 'open';`);
+    db.close();
+    const host = createSqlHostSupervisorless();
+    const ask = async (request: Extract<HostRequestBody, { type: 'introspect' }>['request']) => {
+      const response = await host.handle(req({ type: 'introspect', config: sqliteConfig(true), request }));
+      if (!response.ok) throw new Error(response.error.message);
+      return response.result as SqlDbIntrospectResult;
+    };
+    expect(await ask({ level: 'schemas' })).toEqual({ schemas: [{ name: 'main', objects: 4 }] });
+    expect((await ask({ level: 'objects', schema: 'main' })).objects).toEqual([
+      { kind: 'table', name: 'customers' },
+      { kind: 'table', name: 'orders' },
+      { kind: 'table', name: 't' },
+      { kind: 'view', name: 'open_orders' },
+    ]);
+    expect((await ask({ level: 'columns', schema: 'main' })).columns).toContainEqual({ table: 'orders', name: 'customer_id', type: 'INTEGER' });
+    const { detail } = await ask({ level: 'detail', schema: 'main', name: 'orders', kind: 'table' });
+    expect(detail?.columns).toEqual([
+      { name: 'id', type: 'INTEGER', nullable: true, primaryKey: true },
+      { name: 'customer_id', type: 'INTEGER', nullable: false, references: { schema: 'main', table: 'customers', column: 'id' } },
+      { name: 'status', type: 'TEXT', nullable: true, default: "'open'" },
+    ]);
+    expect(detail?.indexes).toEqual([{ name: 'orders_by_customer', columns: ['customer_id', 'status'], unique: false, primary: false }]);
+    expect(detail?.ddl).toMatch(/^CREATE TABLE orders .*;$/s);
     await host.dispose();
   });
 

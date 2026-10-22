@@ -6,7 +6,7 @@
 
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { SqlRemoteEngine, SqlSslMode } from '../../shared/sqlConnections';
-import type { SqlDbFixHint } from '../../shared/sqlDb';
+import type { SqlDbFixHint, SqlDbIntrospect } from '../../shared/sqlDb';
 
 export interface HostSessionConfig {
   connectionId: string;
@@ -45,6 +45,7 @@ export type HostRequest =
   | { id: number; type: 'close-run'; runId: string }
   | { id: number; type: 'cancel'; runId: string }
   | { id: number; type: 'estimate'; config: HostSessionConfig; sql: string }
+  | { id: number; type: 'introspect'; config: HostSessionConfig; request: SqlDbIntrospect }
   | { id: number; type: 'disconnect'; connectionId: string };
 
 export interface HostTestResult {
