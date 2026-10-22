@@ -198,7 +198,7 @@ a failed refresh cannot display another tab's preview.
 | [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
 | [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
 | [`components/NetworkAsk/`](components/NetworkAsk) | `NetworkAskDialog.tsx` | Asks whether running code may reach a host (Ask network policy) |
-| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | DuckDB SQL workspace: connection bar and picker, new-connection sheet and production dialogs (`SqlConnection*.tsx`), Explorer, results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`, `SqlExplorer.tsx`, `SqlResultPreview.tsx`, `SqlVirtualGrid.tsx`, `SqlExportDialog.tsx` | SQL workspace (Local DuckDB and database connections): connection bar and picker, new-connection sheet and production dialogs (`SqlConnection*.tsx`), Explorer with a connection's tree and object detail (`SqlRemoteTree.tsx`, `SqlObjectDetail.tsx`), results under the editor (virtualized grid, filters, value viewer, column rail), export and Local hand-offs |
 | [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`, `CapsuleImportPreview.tsx` | Run Capsule and Capsule Workspace validation, read-only preview, and inert per-file open routing |
 | [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`, `CapsuleWorkspaceExportDialog.tsx` | Capsule browsing, comparison, bounded multi-file export, and replay affordances |
 | [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
@@ -241,6 +241,11 @@ The Utilities workspace tab folds its tool list to `UtilityRail` (56 px) and
 persists the choice in `utilityWorkspaceStore.toolListOpen`; `Cmd/Ctrl+B` goes
 through `utils/explorerToggle.ts`, which targets that list on a Utilities tab
 and the project explorer elsewhere. The modal keeps the full card list.
+
+Quick Open (`Cmd/Ctrl+P`) lists files. A workspace on screen can put its own
+rows first through `utils/quickOpenScope.ts`: the SQL panel registers database
+objects and saved queries, already translated and carrying their Enter,
+`Cmd/Ctrl+Enter` and `Alt+Enter` actions, so Quick Open imports no SQL code.
 
 Developer Utilities use separate startup and implementation layers:
 
@@ -640,7 +645,7 @@ collection state:
   activates; neither store belongs in the initial renderer graph. Cmd/Ctrl+B
   on the SQL tab reaches the SQL store through a dynamic import for that reason.
 - The SQL tab puts the connection bar (Local · DuckDB, or the query's saved connection) on top, the Explorer
-  beside the editor and the results under it. The Explorer reads its tree
+  beside the editor and the results under it. On Local the Explorer reads its tree
   through [`runtime/sqlExplorerCatalog.ts`](runtime/sqlExplorerCatalog.ts)
   (tables, views, columns, row counts, macros); `lingua_ledger` stays out of
   the tree but in editor completion. A table opened from the Explorer shows its
@@ -648,7 +653,13 @@ collection state:
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
   Export dialog's Save as table, Send to Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
-  table previews, foreign-key follow and back, and Referenced by counts.
+  table previews (on a connection too), and on Local foreign-key follow and
+  back and Referenced by counts.
+  [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
+  owns the picker and connection sheet, a connection's catalog tree
+  (`SqlRemoteTree.tsx`) and object detail in the results area
+  (`SqlObjectDetail.tsx`), completion tables, and the tab's Quick Open rows
+  (Local tables and saved queries always, connection objects when read).
 
 ## State ownership
 
@@ -745,6 +756,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace queries (scratch and saved), open query tabs, results, run history, folded Explorer, imported table sources |
 | [sqlConnectionsStore.ts](stores/sqlConnectionsStore.ts) | the desktop database connection catalog read from main (saved and session-only connections, Free count, keychain availability); never persisted in the renderer and never holds a password |
+| [sqlRemoteCatalogStore.ts](stores/sqlRemoteCatalogStore.ts) | each database connection's catalog as the Explorer reads it (schemas, objects, columns, object detail), in memory for the session; Refresh bumps a generation that drops late answers |
 | [sqlQueryTabCount.ts](stores/sqlQueryTabCount.ts) | leaf handles on the lazy SQL store: the open query tab count for the Free tab budget (persisted slice until the store registers) and the live reset Clear everything calls |
 | [workspaceToolStore.ts](stores/workspaceToolStore.ts) | activation-scoped HTTP workspace drafts, environments and active request metadata; on desktop secret environment values persist blanked and live in the secret vault |
 | [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |

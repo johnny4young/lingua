@@ -15,9 +15,10 @@ import { joinAbsolute } from '../../utils/filePath';
 import type { Language } from '../../types/language';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { EmptyState } from '../ui/EmptyState';
-import { ModalShell } from '../ui/ModalShell';
+import { Kbd, ModalShell } from '../ui/ModalShell';
 import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { StatusBadge } from '../ui/StatusBadge';
+import { getQuickOpenScope, matchesQuickOpenTerms, type QuickOpenScopeItem } from '../../utils/quickOpenScope';
 
 interface FileResult {
   name: string;
@@ -51,6 +52,11 @@ function unsavedDetail(
   return t('quickOpen.unsavedEdited', { ago });
 }
 
+type QuickOpenRow = { type: 'object'; item: QuickOpenScopeItem } | { type: 'file'; file: FileResult };
+
+/** Workspace rows shown at most, ahead of the files. */
+const MAX_SCOPE_ROWS = 50;
+
 interface QuickOpenProps {
   onClose: () => void;
 }
@@ -71,6 +77,9 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const optionId = (index: number) => `${listboxId}-opt-${index}`;
 
   const { t } = useTranslation();
+  // Read once: the rows describe the workspace as it was when Quick Open opened.
+  const [scope] = useState(getQuickOpenScope);
+  const [scopeItems] = useState(() => scope?.items() ?? []);
   const { tabs, setActiveTab, openFile } = useEditorStore(
     useShallow((state) => ({
       tabs: state.tabs,
@@ -166,8 +175,19 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     );
   }, [allFiles, query]);
 
+  const rows = useMemo<QuickOpenRow[]>(
+    () => [
+      ...scopeItems
+        .filter((item) => matchesQuickOpenTerms(query, item.name, item.detail))
+        .slice(0, MAX_SCOPE_ROWS)
+        .map((item) => ({ type: 'object' as const, item })),
+      ...filtered.map((file) => ({ type: 'file' as const, file })),
+    ],
+    [scopeItems, query, filtered]
+  );
+
   const activeSelectedIndex =
-    filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
+    rows.length === 0 ? 0 : Math.min(selectedIndex, rows.length - 1);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -225,12 +245,22 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     onClose();
   };
 
+  // The overlay closes first, so an action that focuses the editor keeps the focus.
+  const activate = (row: QuickOpenRow, action: 'open' | 'structure' | 'insert' = 'open') => {
+    if (row.type === 'file') {
+      void select(row.file);
+      return;
+    }
+    onClose();
+    (row.item[action] ?? row.item.open)();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       // Clamp instead of wrapping so keyboard navigation matches the visible
       // top-to-bottom order in both sectioned and filtered modes.
-      setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, filtered.length - 1));
+      setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, rows.length - 1));
       return;
     }
 
@@ -242,10 +272,8 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      const file = filtered[activeSelectedIndex];
-      if (file) {
-        void select(file);
-      }
+      const row = rows[activeSelectedIndex];
+      if (row) activate(row, event.metaKey || event.ctrlKey ? 'structure' : event.altKey ? 'insert' : 'open');
       return;
     }
 
@@ -274,17 +302,31 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             onKeyDown={handleKeyDown}
             placeholder={t('quickOpen.placeholder')}
             role="combobox"
-            aria-expanded={filtered.length > 0}
+            aria-expanded={rows.length > 0}
             aria-controls={listboxId}
             aria-autocomplete="list"
             aria-activedescendant={
-              filtered.length > 0 ? optionId(activeSelectedIndex) : undefined
+              rows.length > 0 ? optionId(activeSelectedIndex) : undefined
             }
             className="min-w-0 flex-1 bg-transparent text-body text-fg-base outline-none placeholder:text-fg-subtle"
           />
         </>
       }
-      footerLegend={<ModalFooterLegend navigate open select={false} close={false} />}
+      footerLegend={
+        scope ? (
+          <div data-testid="quick-open-scope-legend" className="flex min-w-0 flex-1 items-center gap-[14px] text-caption text-fg-subtle">
+            {scope.legend.map(([glyph, label]) => (
+              <span key={glyph} className="flex shrink-0 items-center gap-[6px]">
+                <Kbd>{glyph}</Kbd>
+                {label}
+              </span>
+            ))}
+            {scope.note ? <span className="ml-auto truncate pr-4">{scope.note}</span> : null}
+          </div>
+        ) : (
+          <ModalFooterLegend navigate open select={false} close={false} />
+        )
+      }
       trailing={
         // accessibility pass — polite live region so the result count is announced
         // to screen readers as the query narrows (covers the empty state too).
@@ -295,7 +337,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
           data-testid="quick-open-result-count"
           className="font-mono text-caption text-fg-subtle"
         >
-          {t('quickOpen.count', { count: filtered.length })}
+          {scope ? scope.countLabel(rows.length) : t('quickOpen.count', { count: rows.length })}
         </span>
       }
     >
@@ -305,30 +347,31 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
         role="listbox"
         aria-label={t('shortcuts.item.quickOpen.label')}
       >
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <EmptyState
             className="py-10"
             icon={<Search size={18} aria-hidden="true" />}
             title={
-              allFiles.length === 0
+              allFiles.length === 0 && scopeItems.length === 0
                 ? t('quickOpen.empty.noProject')
                 : t('quickOpen.empty.noMatch', { query })
             }
             description={
-              allFiles.length === 0
+              allFiles.length === 0 && scopeItems.length === 0
                 ? t('quickOpen.empty.noProject.hint')
                 : t('quickOpen.empty.noMatch.hint')
             }
           />
         ) : (
           renderQuickOpenResults(
-            filtered,
+            rows,
             query,
             activeSelectedIndex,
             setSelectedIndex,
-            select,
+            activate,
             t,
-            optionId
+            optionId,
+            scope?.title
           )
         )}
       </div>
@@ -356,15 +399,38 @@ const QUICK_OPEN_SECTION_LABEL_KEY: Record<FileResult['source'], string> = {
 };
 
 function renderQuickOpenResults(
-  filtered: FileResult[],
+  rows: QuickOpenRow[],
   query: string,
   selectedIndex: number,
   setSelectedIndex: (index: number) => void,
-  select: (file: FileResult) => Promise<void>,
+  activate: (row: QuickOpenRow) => void,
   t: (key: string, options?: Record<string, unknown>) => string,
-  optionId: (index: number) => string
+  optionId: (index: number) => string,
+  scopeTitle: string | undefined
 ) {
   const isEmptyQuery = query.trim().length === 0;
+  const rowClass = (index: number) =>
+    `focus-ring flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors ${
+      index === selectedIndex ? 'border-accent/40 bg-primary-soft' : 'border-transparent hover:bg-bg-panel-alt'
+    }`;
+  const renderObject = (item: QuickOpenScopeItem, index: number) => (
+    <button
+      key={`object:${item.id}`}
+      id={optionId(index)}
+      role="option"
+      aria-selected={index === selectedIndex}
+      tabIndex={-1}
+      onClick={() => activate({ type: 'object', item })}
+      onMouseEnter={() => setSelectedIndex(index)}
+      data-result-index={index}
+      data-testid="quick-open-object"
+      className={rowClass(index)}
+    >
+      <span className="min-w-16 shrink-0 font-mono text-micro font-semibold uppercase tracking-[0.06em] text-fg-muted">{item.badge}</span>
+      <span className="min-w-0 flex-1 truncate font-mono text-body-sm text-fg-base">{item.name}</span>
+      <span className="max-w-[40%] shrink-0 truncate font-mono text-caption text-fg-subtle">{item.detail}</span>
+    </button>
+  );
   const renderRow = (file: FileResult, index: number) => (
     <button
       key={file.tabId ?? `${file.source}:${file.path}`}
@@ -374,14 +440,10 @@ function renderQuickOpenResults(
       // The combobox input is the single tab stop; options are reached via
       // the arrow keys + aria-activedescendant, not the Tab sequence.
       tabIndex={-1}
-      onClick={() => void select(file)}
+      onClick={() => activate({ type: 'file', file })}
       onMouseEnter={() => setSelectedIndex(index)}
       data-result-index={index}
-      className={`focus-ring flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors ${
-        index === selectedIndex
-          ? 'border-accent/40 bg-primary-soft'
-          : 'border-transparent hover:bg-bg-panel-alt'
-      }`}
+      className={rowClass(index)}
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body font-medium text-fg-base">{file.name}</span>
@@ -406,36 +468,45 @@ function renderQuickOpenResults(
       </div>
     </button>
   );
+  const render = (row: QuickOpenRow, index: number) =>
+    row.type === 'object' ? renderObject(row.item, index) : renderRow(row.file, index);
+  const sectionLabel = (key: string, label: string) => (
+    <p
+      key={`section-${key}`}
+      className="px-3 pb-1.5 pt-3 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle"
+      role="presentation"
+    >
+      {label}
+    </p>
+  );
 
   if (!isEmptyQuery) {
-    return filtered.map((file, index) => renderRow(file, index));
+    return rows.map(render);
   }
 
   // Bucket while preserving original index so keyboard navigation
-  // (which steps through `filtered` linearly) keeps highlighting the
+  // (which steps through `rows` linearly) keeps highlighting the
   // right entry — sections are a render-time concern only, not a
   // data restructure.
-  const buckets: Record<FileResult['source'], Array<{ file: FileResult; index: number }>> = {
+  const objects: Array<{ row: QuickOpenRow; index: number }> = [];
+  const buckets: Record<FileResult['source'], Array<{ row: QuickOpenRow; index: number }>> = {
     'open-tab': [],
     recent: [],
     project: [],
   };
-  filtered.forEach((file, index) => {
-    buckets[file.source].push({ file, index });
+  rows.forEach((row, index) => {
+    if (row.type === 'object') objects.push({ row, index });
+    else buckets[row.file.source].push({ row, index });
   });
 
-  return QUICK_OPEN_SECTION_ORDER.flatMap((source) => {
-    const bucket = buckets[source];
-    if (bucket.length === 0) return [];
-    return [
-      <p
-        key={`section-${source}`}
-        className="px-3 pb-1.5 pt-3 font-mono text-eyebrow uppercase tracking-[0.14em] text-fg-subtle"
-        role="presentation"
-      >
-        {t(QUICK_OPEN_SECTION_LABEL_KEY[source])}
-      </p>,
-      ...bucket.map(({ file, index }) => renderRow(file, index)),
-    ];
-  });
+  return [
+    ...(objects.length > 0 && scopeTitle
+      ? [sectionLabel('objects', scopeTitle), ...objects.map(({ row, index }) => render(row, index))]
+      : objects.map(({ row, index }) => render(row, index))),
+    ...QUICK_OPEN_SECTION_ORDER.flatMap((source) => {
+      const bucket = buckets[source];
+      if (bucket.length === 0) return [];
+      return [sectionLabel(source, t(QUICK_OPEN_SECTION_LABEL_KEY[source])), ...bucket.map(({ row, index }) => render(row, index))];
+    }),
+  ];
 }

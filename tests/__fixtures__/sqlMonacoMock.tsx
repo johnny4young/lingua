@@ -119,7 +119,7 @@ function MonacoEditor({
     Range: class {},
     editor: { defineTheme: vi.fn(), MouseTargetType: { GUTTER_GLYPH_MARGIN: 2 } },
     languages: {
-      CompletionItemKind: { Struct: 5, Field: 4, Keyword: 17 },
+      CompletionItemKind: { Function: 1, Struct: 5, Field: 4, Keyword: 17 },
       registerCompletionItemProvider: (
         _language: string,
         provider: (typeof sqlMonacoHarness)['completionProvider']

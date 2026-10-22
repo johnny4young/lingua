@@ -6,6 +6,7 @@
 
 import net from 'node:net';
 import type { SqlRemoteEngine } from '../../shared/sqlConnections';
+import type { SqlDbIntrospect, SqlDbIntrospectResult } from '../../shared/sqlDb';
 import { classifyConnectError, toJsonCell, type DriverFactory, type DriverRows, type DriverSession } from './driver';
 import type {
   HostCancelResult,
@@ -71,6 +72,8 @@ function probeTcp(address: string, port: number): Promise<number> {
     socket.once('error', (err) => reject(err));
   });
 }
+
+const catalogSessionId = (connectionId: string) => `${connectionId}#catalog`;
 
 export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
   const sessions = new Map<string, Session>();
@@ -230,6 +233,20 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
     return serialize(session, async () => (await session.ready).estimateRows(sql));
   }
 
+  async function introspect(config: HostSessionConfig, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
+    // Its own connection, so a catalog read never ends the user's transaction or open result.
+    const session = sessionFor({ ...config, connectionId: catalogSessionId(config.connectionId) });
+    return serialize(session, async () => {
+      let driver: DriverSession;
+      try {
+        driver = await session.ready;
+      } catch (err) {
+        throw new HostRequestError(config.engine === 'sqlite' ? fileError(err) : classifyConnectError(err));
+      }
+      return driver.introspect(request);
+    });
+  }
+
   async function handle(request: HostRequest): Promise<HostResponse> {
     try {
       let result: unknown;
@@ -253,8 +270,12 @@ export function createSqlHost(drivers: Record<SqlRemoteEngine, DriverFactory>) {
         case 'estimate':
           result = await estimate(request.config, request.sql);
           break;
+        case 'introspect':
+          result = await introspect(request.config, request.request);
+          break;
         case 'disconnect':
           await dropSession(request.connectionId);
+          await dropSession(catalogSessionId(request.connectionId));
           result = { disconnected: true };
           break;
       }

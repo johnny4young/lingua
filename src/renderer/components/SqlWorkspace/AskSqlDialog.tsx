@@ -1,6 +1,6 @@
 /**
  * "Ask AI" for the SQL workspace: natural language → SQL
- * over the LIVE DuckDB schema.
+ * over the live schema of the engine the query runs on.
  *
  * Consent model (same contract as ExplainErrorDialog): the payload preview
  * renders LIVE under the question as the user types — schema + question is
@@ -38,6 +38,8 @@ import { firstCodeBlock } from '../AI/answerCode';
 
 export interface AskSqlDialogProps {
   readonly tables: ReadonlyArray<NlToSqlTable>;
+  /** The engine the query runs on, as the prompt names it. */
+  readonly dialect?: string;
   /** Insert the generated SQL into the active query editor. */
   readonly onInsert: (sql: string) => void;
   readonly onClose: () => void;
@@ -53,6 +55,7 @@ type Phase =
 
 export function AskSqlDialog({
   tables,
+  dialect,
   onInsert,
   onClose,
   runChatCompletionImpl,
@@ -73,8 +76,9 @@ export function AskSqlDialog({
         question,
         schemaText,
         ...(model ? { model } : {}),
+        ...(dialect ? { dialect } : {}),
       }),
-    [question, schemaText, model]
+    [question, schemaText, model, dialect]
   );
 
   const configured = isAiConfigured({ endpoint, apiKey, model });

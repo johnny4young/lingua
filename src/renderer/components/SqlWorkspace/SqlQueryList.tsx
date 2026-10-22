@@ -21,6 +21,8 @@ export interface SqlQueryListProps {
   onDuplicate: (id: string) => void;
   /** The Explorer filter: narrows the list by name or SQL text. */
   filter?: string;
+  /** Where a saved query runs, shown on its row; unset while connections are off. */
+  connectionLabel?: (connectionId: string | undefined) => string;
 }
 
 /** First word of the query, capped at 8 characters, for the row chip. */
@@ -43,6 +45,7 @@ export function SqlQueryList({
   onDelete,
   onDuplicate,
   filter = '',
+  connectionLabel,
 }: SqlQueryListProps) {
   const { t } = useTranslation();
   const needle = filter.trim().toLowerCase();
@@ -153,6 +156,11 @@ export function SqlQueryList({
             {label}
           </span>
         )}
+        {connectionLabel && !isScratch && !isRenaming ? (
+          <span data-testid="sql-query-list-connection" className="max-w-[45%] shrink-0 truncate font-mono text-micro text-fg-subtle">
+            {connectionLabel(q.connectionId)}
+          </span>
+        ) : null}
         {isRenaming ? null : (
           <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
             {isScratch ? null : (

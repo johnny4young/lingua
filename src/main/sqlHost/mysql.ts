@@ -6,6 +6,7 @@ import mysql from 'mysql2';
 import type { Connection, ConnectionOptions, FieldPacket, Query } from 'mysql2';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { DriverRows, DriverSession } from './driver';
+import { introspectMysql } from './mysqlCatalog';
 import type { HostSessionConfig } from './protocol';
 
 const BINARY_CHARSET = 63;
@@ -83,8 +84,12 @@ function connect(opts: ConnectionOptions): Promise<Connection> {
   });
 }
 
-const query = <T>(connection: Connection, sql: string): Promise<T> =>
-  new Promise((resolve, reject) => connection.query(sql, (err, rows) => (err ? reject(err) : resolve(rows as T))));
+const query = <T>(connection: Connection, sql: string, values: unknown[] = []): Promise<T> =>
+  new Promise((resolve, reject) => connection.query(sql, values, (err, rows) => (err ? reject(err) : resolve(rows as T))));
+
+/** A server-side prepared statement: values never pass through client-side escaping, whatever sql_mode says. */
+const prepared = <T>(connection: Connection, sql: string, values: unknown[]): Promise<T> =>
+  new Promise((resolve, reject) => connection.execute({ sql, values }, (err, rows) => (err ? reject(err) : resolve(rows as T))));
 
 const queryWithFields = (connection: Connection, sql: string): Promise<{ rows: unknown; fields: FieldPacket[] | undefined }> =>
   new Promise((resolve, reject) =>
@@ -249,6 +254,18 @@ export async function openMysql(config: HostSessionConfig): Promise<DriverSessio
         return counts.length > 0 ? Math.max(...counts) : null;
       } catch {
         return null;
+      } finally {
+        await query(connection, 'ROLLBACK').catch(() => undefined);
+      }
+    },
+
+    async introspect(request) {
+      await query(connection, 'START TRANSACTION READ ONLY');
+      try {
+        return await introspectMysql(
+          (sql, values) => (values.length > 0 ? prepared(connection, sql, values) : query(connection, sql)) as Promise<Array<Record<string, unknown>>>,
+          request
+        );
       } finally {
         await query(connection, 'ROLLBACK').catch(() => undefined);
       }

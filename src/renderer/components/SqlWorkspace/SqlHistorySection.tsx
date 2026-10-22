@@ -12,23 +12,33 @@ const DOT_CLASS: Partial<Record<ReturnType<typeof toneForSqlStatus>, string>> = 
   warning: 'bg-warning-fg',
 };
 
-/** Every run, newest first; a click opens its SQL in a new scratch without running it. */
+/**
+ * The runs of the active connection (Local when unset), newest first; a
+ * click opens its SQL in a new scratch on that connection without running it.
+ */
 export function SqlHistorySection({
-  entries,
+  entries: allEntries,
+  connectionId,
+  connectionLabel,
   open,
   onToggle,
   onOpenEntry,
   onClear,
 }: {
   entries: ReadonlyArray<SqlHistoryEntryV1>;
+  connectionId?: string;
+  /** Named in the header when connections are on. */
+  connectionLabel?: string;
   open: boolean;
   onToggle: () => void;
   onOpenEntry: (entry: SqlHistoryEntryV1) => void;
+  /** Clears the runs shown here. */
   onClear: () => void;
 }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const visible = useMemo(() => filterSqlHistory(entries, search), [entries, search]);
+  const entries = useMemo(() => filterSqlHistory(allEntries, '', connectionId), [allEntries, connectionId]);
+  const visible = useMemo(() => filterSqlHistory(entries, search, connectionId), [entries, search, connectionId]);
 
   return (
     <div data-testid="sql-history-section" className="flex flex-col border-t border-border-subtle bg-bg-panel">
@@ -45,6 +55,11 @@ export function SqlHistorySection({
           <span className="font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
             {t('sqlWorkspace.history.label')}
           </span>
+          {connectionLabel ? (
+            <span data-testid="sql-history-connection" className="min-w-0 truncate font-mono text-micro font-semibold uppercase tracking-[0.1em] text-fg-subtle">
+              · {connectionLabel}
+            </span>
+          ) : null}
           <span data-testid="sql-history-count" className="font-mono text-micro tabular-nums text-fg-subtle">
             {entries.length}
           </span>

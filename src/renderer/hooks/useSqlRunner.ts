@@ -167,12 +167,13 @@ const setRunState = (patch: Partial<SqlRunState>) => useSqlRunState.setState(pat
 
 const isResult = (status: SqlResponseV1['status']) => status === 'success' || status === 'too-large';
 
-function recordRun(queryId: string, sql: string, response: SqlResponseV1): void {
+function recordRun(queryId: string, sql: string, response: SqlResponseV1, connectionId?: string): void {
   const capped = capHistorySql(redactSqlSecrets(sql));
   useWorkspaceSqlStore.getState().recordHistory({
     version: 1,
     id: crypto.randomUUID(),
     queryId,
+    ...(connectionId ? { connectionId } : {}),
     sql: capped.sql,
     ...(capped.truncated ? { truncated: true } : {}),
     status: response.status,
@@ -186,7 +187,8 @@ function recordRun(queryId: string, sql: string, response: SqlResponseV1): void 
 interface UseSqlRunnerOptions {
   timeoutMs: number;
   onBeforeRun: () => void;
-  onSchemaChanged: () => void;
+  /** A run created, altered or dropped something; `connectionId` is unset for Local. */
+  onSchemaChanged: (connectionId?: string) => void;
 }
 
 /**
@@ -236,7 +238,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       const onStatement = (index: number, outcome: DuckDbExecuteOutcome) => {
         const response = toSqlResponse(outcome);
         results.push({ sql: statements[index] ?? '', response });
-        recordRun(query.id, statements[index] ?? '', response);
+        recordRun(query.id, statements[index] ?? '', response, remote?.connection.id);
       };
       const db = sqlDbBridge();
       const outcomes: DuckDbExecuteOutcome[] =
@@ -258,7 +260,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       if (results.length === 0 && outcomes[0]) {
         const response = toSqlResponse(outcomes[0]);
         results.push({ sql: statements[0] ?? '', response });
-        recordRun(query.id, statements[0] ?? '', response);
+        recordRun(query.id, statements[0] ?? '', response, remote?.connection.id);
       }
       const last = results[results.length - 1];
       if (!last) return;
@@ -279,8 +281,8 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
             }
           : { runSet: null, view: null }
       );
-      if (!remote && results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
-        onSchemaChanged();
+      if (results.some(({ sql, response }) => response.status === 'success' && queryChangesSchema(sql))) {
+        onSchemaChanged(remote?.connection.id);
       }
       announce(
         isResult(last.response.status)

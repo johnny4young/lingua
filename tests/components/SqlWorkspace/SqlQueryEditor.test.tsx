@@ -260,6 +260,15 @@ describe('SqlQueryEditor', () => {
     });
   });
 
+  it('formats in the dialect of the engine the query runs on', async () => {
+    vi.useRealTimers();
+    const query = createBlankSqlQuery({ id: 'q1', query: 'select `a` from t', now: '2026-05-26T00:00:00.000Z' });
+    render(<SqlQueryEditor query={query} onPatch={vi.fn()} onRun={vi.fn()} onCancel={vi.fn()} onSave={vi.fn()} isExecuting={false} tables={[]} engine="mysql" />);
+    fireEvent.click(screen.getByTestId('sql-query-editor-format'));
+    // DuckDB's formatter refuses backticks; MySQL's keeps them.
+    await waitFor(() => expect((screen.getByTestId('sql-query-editor-textarea') as HTMLTextAreaElement).value).toBe('SELECT\n  `a`\nFROM\n  t'));
+  });
+
   it('disables Run and Format when the query exceeds the byte cap', () => {
     // MAX_QUERY_BYTES is 1 MiB; build a string just past it.
     const huge = 'a'.repeat(1024 * 1024 + 1);

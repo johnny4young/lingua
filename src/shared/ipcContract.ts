@@ -56,6 +56,8 @@ import type {
   SqlDbCatalogView,
   SqlDbFetchResult,
   SqlDbFileKind,
+  SqlDbIntrospect,
+  SqlDbIntrospectResult,
   SqlDbPickResult,
   SqlDbRunOptions,
   SqlDbRunResult,
@@ -268,6 +270,7 @@ interface IpcInvokeContract {
   'sql-db:close-run': { args: [runId: string]; result: { ok: true } };
   'sql-db:estimate': { args: [connectionId: string, sql: string]; result: number | null };
   'sql-db:pick-file': { args: [kind: SqlDbFileKind]; result: SqlDbPickResult };
+  'sql-db:introspect': { args: [connectionId: string, request: SqlDbIntrospect]; result: SqlDbIntrospectResult };
 
   // -------------------------------------------------------------------- env
   'env:snapshot': { args: []; result: Record<string, string> };
@@ -719,6 +722,7 @@ export const IPC_INVOKE_CHANNELS = [
   'sql-db:close-run',
   'sql-db:estimate',
   'sql-db:pick-file',
+  'sql-db:introspect',
   'env:snapshot',
   'http:execute',
   'http:cancel',

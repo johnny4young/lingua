@@ -1,12 +1,13 @@
 /**
  * Grid filters, sort and column layout over the loaded rows, plus the SQL
- * that does the same in DuckDB, shown under the grid with Apply to query.
+ * that does the same in the result's engine dialect, shown under the grid with Apply to query.
  */
 
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { sqlDialect, type SqlDialect } from '../../../shared/sqlDialect';
 import { splitSqlStatements } from '../../../shared/sqlStatements';
 import type { SqlColumnMetadata } from '../../../shared/sqlWorkspace';
 import { arrowTypeToDuckDb, isNumericSqlType } from '../../../shared/sqlTypeNames';
-import { quoteSqlIdentifier } from './sqlResultFormatters';
 import type { SqlSortState } from './sqlResultGrid';
 
 export type SqlFilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'is-null' | 'not-null';
@@ -112,20 +113,20 @@ export function visibleColumns(
 const NUMBER_TEXT = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/;
 
 // The typed text goes in as written: a round trip through Number() would round BIGINT values.
-const sqlLiteral = (value: string, numeric: boolean) =>
-  numeric && NUMBER_TEXT.test(value.trim()) ? value.trim() : `'${value.replaceAll("'", "''")}'`;
+const sqlLiteral = (value: string, numeric: boolean, dialect: SqlDialect) =>
+  numeric && NUMBER_TEXT.test(value.trim()) ? value.trim() : dialect.stringLiteral(value);
 
-function conditionSql(condition: SqlFilterCondition, numeric: boolean): string {
-  const column = quoteSqlIdentifier(condition.column);
+function conditionSql(condition: SqlFilterCondition, numeric: boolean, dialect: SqlDialect): string {
+  const column = dialect.quoteIdentifier(condition.column);
   switch (condition.op) {
     case 'is-null':
       return `${column} IS NULL`;
     case 'not-null':
       return `${column} IS NOT NULL`;
     case 'contains':
-      return `CAST(${column} AS VARCHAR) ILIKE '%${condition.value.replaceAll("'", "''").replace(/[%_\\]/g, '\\$&')}%' ESCAPE '\\'`;
+      return dialect.contains(column, condition.value);
     default:
-      return `${column} ${condition.op === '!=' ? '<>' : condition.op} ${sqlLiteral(condition.value, numeric)}`;
+      return `${column} ${condition.op === '!=' ? '<>' : condition.op} ${sqlLiteral(condition.value, numeric, dialect)}`;
   }
 }
 
@@ -139,8 +140,10 @@ export function buildGridSql(
   conditions: ReadonlyArray<SqlFilterCondition>,
   sort: SqlSortState,
   columns: ReadonlyArray<SqlColumnMetadata>,
-  layout: SqlColumnLayout
+  layout: SqlColumnLayout,
+  engine?: SqlEngineKind
 ): string | null {
+  const dialect = sqlDialect(engine);
   const names = new Set(columns.map((column) => column.name));
   const live = conditions.filter((condition) => names.has(condition.column));
   const shown = visibleColumns(columns, layout);
@@ -149,14 +152,14 @@ export function buildGridSql(
   const sorted = sort.column !== null && names.has(sort.column);
   if (live.length === 0 && !sorted && !reshaped) return null;
   const numeric = numericColumns(columns);
-  const select = reshaped ? shown.map((column) => quoteSqlIdentifier(column.name)).join(', ') : '*';
+  const select = reshaped ? shown.map((column) => dialect.quoteIdentifier(column.name)).join(', ') : '*';
   // Without its semicolon or a trailing comment, which would end the subquery early.
   const body = splitSqlStatements(baseSql)[0]?.text ?? baseSql.trim();
   const parts = [`SELECT ${select}\nFROM (\n${body}\n) AS result`];
   if (live.length > 0) {
-    parts.push(`WHERE ${live.map((condition) => conditionSql(condition, numeric.has(condition.column))).join('\n  AND ')}`);
+    parts.push(`WHERE ${live.map((condition) => conditionSql(condition, numeric.has(condition.column), dialect)).join('\n  AND ')}`);
   }
-  if (sorted) parts.push(`ORDER BY ${quoteSqlIdentifier(sort.column!)} ${sort.direction === 'asc' ? 'ASC' : 'DESC'}`);
+  if (sorted) parts.push(`ORDER BY ${dialect.quoteIdentifier(sort.column!)} ${sort.direction === 'asc' ? 'ASC' : 'DESC'}`);
   return parts.join('\n');
 }
 

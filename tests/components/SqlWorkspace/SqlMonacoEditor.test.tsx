@@ -111,7 +111,7 @@ vi.mock('@monaco-editor/react', () => {
       },
       editor: { defineTheme: vi.fn(), MouseTargetType: { GUTTER_GLYPH_MARGIN: GLYPH_MARGIN } },
       languages: {
-        CompletionItemKind: { Struct: 5, Field: 4, Keyword: 17 },
+        CompletionItemKind: { Function: 1, Struct: 5, Field: 4, Keyword: 17 },
         registerCompletionItemProvider: (_lang: string, provider: Harness['completionProvider']) => {
           harness.completionProvider = provider;
           return {
@@ -330,6 +330,22 @@ describe('SqlMonacoEditor', () => {
     expect(runCompletions().find((suggestion) => suggestion.label === 'lingua_ledger.runs')).toMatchObject({
       insertText: '"lingua_ledger"."runs"',
     });
+  });
+
+  it('quotes and adds keywords in the engine of the connection, with its functions', () => {
+    renderHost({
+      value: '',
+      engine: 'mysql',
+      functions: ['order_count'],
+      tables: [{ name: 'orders', sqlName: 'orders', schemaName: 'billing', columns: [{ name: 'created at', type: 'datetime' }] }],
+    });
+    const suggestions = runCompletions();
+    const byLabel = (label: string) => suggestions.find((suggestion) => suggestion.label === label);
+    expect(byLabel('orders')?.insertText).toBe('`billing`.`orders`');
+    expect(byLabel('created at')?.insertText).toBe('`created at`');
+    expect(byLabel('order_count')).toMatchObject({ kind: 1, insertText: 'order_count' });
+    expect(byLabel('ON DUPLICATE KEY UPDATE')).toMatchObject({ kind: 17 });
+    expect(byLabel('SUMMARIZE')).toBeUndefined();
   });
 
   it('disposes the completion provider when the editor disposes', () => {

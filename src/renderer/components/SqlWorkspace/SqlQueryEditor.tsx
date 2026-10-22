@@ -32,6 +32,8 @@ import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 import { SqlMonacoEditor, type SqlEditorCursor, type SqlRunContext } from './SqlMonacoEditor';
 import { SqlRunMenu, type SqlRunMenuMode } from './SqlRunMenu';
 import type { SqlSchemaTable } from './sqlExplorerModel';
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { sqlDialect } from '../../../shared/sqlDialect';
 
 export interface SqlRunRequest {
   query: SqlQueryV1;
@@ -65,14 +67,18 @@ export interface SqlQueryEditorProps {
    * twice in a row — the changing nonce is what the effect keys on.
    */
   insertSignal?: { text: string; nonce: number };
-  /** A column-rail predicate to insert at the cursor, as WHERE or AND depending on the statement. */
-  predicateSignal?: { text: string; nonce: number };
+  /** A column-rail predicate to insert at the cursor, as WHERE or AND depending on the statement; `raw` text goes in as is. */
+  predicateSignal?: { text: string; nonce: number; raw?: boolean };
   /**
    * Live session tables, threaded from the panel's
    * Explorer catalog. Fed to the Monaco completion provider so table names
    * autocomplete; empty until the first catalog refresh.
    */
   tables: ReadonlyArray<SqlSchemaTable>;
+  /** The engine the query runs on; the formatter and completion follow it. Local when unset. */
+  engine?: SqlEngineKind;
+  /** Function names from a connection's catalog, for completion. */
+  functions?: ReadonlyArray<string>;
   /**
    * Optional extra header control (the Ask-AI trigger). A slot
    * rather than a baked-in button so the editor stays AI-agnostic.
@@ -91,6 +97,8 @@ export function SqlQueryEditor({
   insertSignal,
   predicateSignal,
   tables,
+  engine,
+  functions,
   headerExtra,
 }: SqlQueryEditorProps) {
   const { t, i18n } = useTranslation();
@@ -238,6 +246,11 @@ export function SqlQueryEditor({
   useEffect(() => {
     if (!predicateSignal || predicateSignal.nonce === lastPredicateNonceRef.current) return;
     lastPredicateNonceRef.current = predicateSignal.nonce;
+    if (predicateSignal.raw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Folds an external insert signal into the editor, like insertSignal above.
+      setCursorInsert({ text: predicateSignal.text, nonce: predicateSignal.nonce });
+      return;
+    }
     const picked = statementAtOffset(splitSqlStatements(latestTextRef.current), cursor.offset);
     const before = picked
       ? latestTextRef.current.slice(picked.statement.start, Math.min(cursor.offset, picked.statement.end))
@@ -248,16 +261,14 @@ export function SqlQueryEditor({
     setCursorInsert({ text: `${spacer}${joiner} ${predicateSignal.text}`, nonce: predicateSignal.nonce });
   }, [predicateSignal, cursor.offset]);
 
-  // pretty-print via sql-formatter. Lazy-import keeps the
-  // formatter out of the main chunk. The dialect default `'duckdb'`
-  // exists since sql-formatter 13; older versions fall back to
-  // `'sql'` (no DuckDB-specific keywords but acceptable).
+  // Pretty-print via sql-formatter in the engine's language. Lazy-import
+  // keeps the formatter out of the main chunk.
   const handleFormat = useCallback(async () => {
     if (overCap) return;
     try {
       const mod = await import('sql-formatter');
       const formatted = mod.format(text, {
-        language: 'duckdb',
+        language: sqlDialect(engine).formatter,
         keywordCase: 'upper',
         tabWidth: 2,
       });
@@ -271,7 +282,7 @@ export function SqlQueryEditor({
         detail: err instanceof Error ? err.message : String(err ?? 'unknown'),
       });
     }
-  }, [text, overCap]);
+  }, [text, overCap, engine]);
 
   return (
     <div
@@ -339,6 +350,8 @@ export function SqlQueryEditor({
         onFormatShortcut={handleFormat}
         {...(cursorInsert ? { insertAtCursor: cursorInsert } : {})}
         tables={tables}
+        {...(engine ? { engine } : {})}
+        {...(functions ? { functions } : {})}
         ariaLabel={t('sqlWorkspace.editor.ariaLabel')}
       />
     </div>

@@ -7,6 +7,7 @@ import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
 import type { DriverRows, DriverSession } from './driver';
+import { introspectPostgres } from './postgresCatalog';
 import type { HostSessionConfig } from './protocol';
 
 // Dates, times, intervals, JSON and money stay as the server prints them.
@@ -200,6 +201,18 @@ export async function openPostgres(config: HostSessionConfig): Promise<DriverSes
       const cert = socket?.getPeerCertificate?.();
       if (!cert || !cert.subject) return undefined;
       return { ...(cert.subject.CN ? { subject: cert.subject.CN } : {}), ...(cert.valid_to ? { validTo: cert.valid_to } : {}) };
+    },
+
+    async introspect(request) {
+      // Catalog functions resolve in pg_catalog only, so a same-named function elsewhere on the path never runs.
+      await client.query('BEGIN READ ONLY');
+      try {
+        await client.query('SET LOCAL search_path = pg_catalog, pg_temp');
+        await client.query('SET LOCAL statement_timeout = 25000');
+        return await introspectPostgres(async (sql, values) => (await client.query(sql, values)).rows as Array<Record<string, unknown>>, request);
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+      }
     },
 
     close: () => client.end(),

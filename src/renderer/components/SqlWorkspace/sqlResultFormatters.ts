@@ -1,3 +1,4 @@
+import type { SqlEngineKind } from '../../../shared/sqlConnections';
 import { quoteSqlTableReference } from '../../../shared/sqlQuote';
 
 export { quoteSqlIdentifier, quoteSqlTableReference } from '../../../shared/sqlQuote';
@@ -8,8 +9,8 @@ export { quoteSqlIdentifier, quoteSqlTableReference } from '../../../shared/sqlQ
  * any identifier the engine reports (spaces, reserved words, mixed
  * case, special characters) round-trips into a valid, single statement.
  */
-export function buildSelectStarter(tableName: string, schemaName?: string): string {
-  return `SELECT * FROM ${quoteSqlTableReference(tableName, schemaName)} LIMIT 100;`;
+export function buildSelectStarter(tableName: string, schemaName?: string, engine?: SqlEngineKind): string {
+  return `SELECT * FROM ${quoteSqlTableReference(tableName, schemaName, engine)} LIMIT 100;`;
 }
 
 /** `HH:MM:SS` in the user's locale; the raw string when it is not a date. */

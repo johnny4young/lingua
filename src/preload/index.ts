@@ -260,6 +260,7 @@ contextBridge.exposeInMainWorld('lingua', {
     closeRun: (runId) => typedInvoke('sql-db:close-run', runId),
     estimate: (connectionId, sql) => typedInvoke('sql-db:estimate', connectionId, sql),
     pickFile: (kind) => typedInvoke('sql-db:pick-file', kind),
+    introspect: (connectionId, request) => typedInvoke('sql-db:introspect', connectionId, request),
   } satisfies SqlDbBridge,
 
   // Env-snapshot bridge . Intentionally returns an empty

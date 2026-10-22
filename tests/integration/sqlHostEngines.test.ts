@@ -10,6 +10,7 @@ import { openMysql } from '../../src/main/sqlHost/mysql';
 import { openPostgres } from '../../src/main/sqlHost/postgres';
 import type { HostRequest, HostSessionConfig } from '../../src/main/sqlHost/protocol';
 import { openSqlite } from '../../src/main/sqlHost/sqlite';
+import type { SqlDbIntrospectResult } from '../../src/shared/sqlDb';
 
 const host = createSqlHost({ postgres: openPostgres, mysql: openMysql, sqlite: openSqlite });
 afterAll(() => host.dispose());
@@ -95,6 +96,119 @@ for (const [engine, url] of [
       const rest = await ok<{ rows: unknown[]; done: boolean }>({ type: 'fetch', runId: 'q', limit: 5_000, maxBytes: 1e9 });
       expect(rest.rows).toHaveLength(1_500);
       expect(rest.done).toBe(true);
+    });
+
+    it('lists the catalog level by level and details a table, a view and a function', async () => {
+      const parent = `${table}_parent`;
+      const child = `${table}_child`;
+      const view = `${table}_open`;
+      const fn = `${table}_double`;
+      const statements =
+        engine === 'postgres'
+          ? [
+              `DROP VIEW IF EXISTS ${view}`,
+              `DROP TABLE IF EXISTS ${child}`,
+              `DROP TABLE IF EXISTS ${parent}`,
+              `CREATE TABLE ${parent} (id INTEGER PRIMARY KEY, email VARCHAR(80) NOT NULL UNIQUE)`,
+              `CREATE TABLE ${child} (id INTEGER PRIMARY KEY, parent_id INTEGER NOT NULL REFERENCES ${parent}(id), status VARCHAR(20) DEFAULT 'open')`,
+              `CREATE INDEX ${child}_by_parent ON ${child} (parent_id, status)`,
+              `CREATE VIEW ${view} AS SELECT id, parent_id FROM ${child} WHERE status = 'open'`,
+              `CREATE OR REPLACE FUNCTION ${fn}(n integer) RETURNS integer LANGUAGE sql IMMUTABLE AS 'SELECT n * 2'`,
+            ]
+          : [
+              `DROP VIEW IF EXISTS ${view}`,
+              `DROP TABLE IF EXISTS ${child}`,
+              `DROP TABLE IF EXISTS ${parent}`,
+              `DROP FUNCTION IF EXISTS ${fn}`,
+              `CREATE TABLE ${parent} (id INT PRIMARY KEY, email VARCHAR(80) NOT NULL UNIQUE)`,
+              `CREATE TABLE ${child} (id INT PRIMARY KEY, parent_id INT NOT NULL, status VARCHAR(20) DEFAULT 'open', INDEX ${child}_by_parent (parent_id, status), FOREIGN KEY (parent_id) REFERENCES ${parent}(id))`,
+              `CREATE VIEW ${view} AS SELECT id, parent_id FROM ${child} WHERE status = 'open'`,
+              `CREATE FUNCTION ${fn}(n INT) RETURNS INT DETERMINISTIC RETURN n * 2`,
+            ];
+      for (const [index, sql] of statements.entries()) await ok({ type: 'execute', config, runId: `fixture${index}`, sql, readWrite: false, window });
+
+      const ask = (request: Extract<HostRequest, { type: 'introspect' }>['request']) => ok<SqlDbIntrospectResult>({ type: 'introspect', config: readOnly, request });
+      const schema = engine === 'postgres' ? 'public' : config.database!;
+      const { schemas } = await ask({ level: 'schemas' });
+      expect(schemas?.[0]).toMatchObject({ name: schema, objects: expect.any(Number) });
+      expect(schemas?.map((entry) => entry.name)).not.toContain('information_schema');
+
+      const { objects } = await ask({ level: 'objects', schema });
+      expect(objects).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'table', name: child }),
+          expect.objectContaining({ kind: 'view', name: view }),
+          expect.objectContaining({ kind: 'function', name: fn }),
+        ])
+      );
+      const { columns } = await ask({ level: 'columns', schema });
+      expect(columns?.filter((column) => column.table === child).map((column) => column.name)).toEqual(['id', 'parent_id', 'status']);
+
+      const { detail } = await ask({ level: 'detail', schema, name: child, kind: 'table' });
+      expect(detail?.columns).toEqual([
+        expect.objectContaining({ name: 'id', nullable: false, primaryKey: true }),
+        expect.objectContaining({ name: 'parent_id', nullable: false, references: { schema, table: parent, column: 'id' } }),
+        expect.objectContaining({ name: 'status', nullable: true, default: expect.stringContaining('open') }),
+      ]);
+      expect(detail?.indexes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ primary: true, columns: ['id'] }),
+          expect.objectContaining({ name: `${child}_by_parent`, columns: ['parent_id', 'status'], unique: false }),
+        ])
+      );
+      expect(detail?.ddl).toMatch(new RegExp(`CREATE TABLE .*${child}`, 's'));
+
+      expect((await ask({ level: 'detail', schema, name: view, kind: 'view' })).detail?.ddl).toMatch(/status/);
+      const signature = objects?.find((object) => object.name === fn)?.signature;
+      expect((await ask({ level: 'detail', schema, name: fn, kind: 'function', ...(signature ? { signature } : {}) })).detail?.ddl).toMatch(/n \* 2/);
+      // A name with quotes inside is a bind parameter or a quoted identifier, never SQL.
+      expect(await send({ type: 'introspect', config: readOnly, request: { level: 'detail', schema, name: `x"; DROP TABLE ${parent}; --`, kind: 'table' } })).toMatchObject({ ok: true });
+      expect((await ask({ level: 'objects', schema })).objects).toEqual(expect.arrayContaining([expect.objectContaining({ name: parent })]));
+    });
+
+    it("reads the catalog on its own connection, leaving the user's transaction and open result alone", async () => {
+      const parent = `${table}_parent`;
+      await ok({ type: 'execute', config, runId: 'begin', sql: engine === 'postgres' ? 'BEGIN' : 'START TRANSACTION', readWrite: false, window });
+      await ok({ type: 'execute', config, runId: 'ins', sql: `INSERT INTO ${parent} VALUES (99, 'kept@x')`, readWrite: false, window });
+      const paged = await ok<{ hasMore: boolean }>({ type: 'execute', config, runId: 'paged', sql: `SELECT id FROM ${table} ORDER BY id`, readWrite: false, window: { maxRows: 10, maxBytes: 256 * 1024 } });
+      expect(paged.hasMore).toBe(true);
+      await ok({ type: 'introspect', config, request: { level: 'schemas' } });
+      await ok({ type: 'introspect', config, request: { level: 'detail', schema: engine === 'postgres' ? 'public' : config.database!, name: parent, kind: 'table' } });
+      // The open result still pages, and the uncommitted row is still there.
+      expect((await ok<{ rows: unknown[] }>({ type: 'fetch', runId: 'paged', limit: 5, maxBytes: 1e9 })).rows).toHaveLength(5);
+      const kept = await ok<{ rows: Array<{ n: unknown }> }>({ type: 'execute', config, runId: 'kept', sql: `SELECT COUNT(*) AS n FROM ${parent} WHERE id = 99`, readWrite: false, window });
+      expect(Number(kept.rows[0]?.n)).toBe(1);
+      await ok({ type: 'execute', config, runId: 'rollback', sql: 'ROLLBACK', readWrite: false, window });
+    });
+
+    it.runIf(engine === 'mysql')('keeps catalog names out of the SQL when backslashes are not escapes', async () => {
+      await ok({ type: 'execute', config, runId: 'mode', sql: "SET SESSION sql_mode = CONCAT(@@sql_mode, ',NO_BACKSLASH_ESCAPES')", readWrite: false, window });
+      try {
+        const started = performance.now();
+        const response = await send({
+          type: 'introspect',
+          config,
+          request: { level: 'detail', schema: config.database!, name: "x' OR SLEEP(0.5) #", kind: 'table' },
+        });
+        expect(response).toMatchObject({ ok: true, result: { detail: { columns: [] } } });
+        expect(performance.now() - started).toBeLessThan(400);
+      } finally {
+        await ok({ type: 'execute', config, runId: 'mode2', sql: "SET SESSION sql_mode = REPLACE(@@sql_mode, 'NO_BACKSLASH_ESCAPES', '')", readWrite: false, window });
+      }
+    });
+
+    it.runIf(engine === 'postgres')('reads the catalog with pg_catalog functions only, read-only, whatever the search path holds', async () => {
+      const planted = `CREATE OR REPLACE FUNCTION public.format(text, text, text) RETURNS text LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''hijacked''; END'`;
+      await ok({ type: 'execute', config, runId: 'plant', sql: planted, readWrite: false, window });
+      try {
+        const response = await send({ type: 'introspect', config, request: { level: 'detail', schema: 'public', name: `${table}_child`, kind: 'table' } });
+        expect(response).toMatchObject({ ok: true, result: { detail: { name: `${table}_child` } } });
+        // Nothing stays open: the next run starts outside any transaction.
+        const state = await ok<{ rows: Array<{ s: unknown }> }>({ type: 'execute', config, runId: 'txn', sql: "SELECT current_setting('search_path') AS s", readWrite: false, window });
+        expect(String(state.rows[0]?.s)).not.toBe('pg_catalog, pg_temp');
+      } finally {
+        await ok({ type: 'execute', config, runId: 'unplant', sql: 'DROP FUNCTION IF EXISTS public.format(text, text, text)', readWrite: false, window });
+      }
     });
 
     it('refuses a write on a read-only connection on the server side, and lifts it for one run', async () => {

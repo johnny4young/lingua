@@ -57,19 +57,14 @@ import { SqlHistorySection } from './SqlHistorySection';
 import { SqlPlanView } from './SqlPlanView';
 import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { SqlConnectionSheet, type SqlConnectionSheetMode } from './SqlConnectionSheet';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
-import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
-import { sqlDbBridge } from '../../runtime/sqlRemote';
+import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
+import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
+import { formatByteSize } from '../../i18n/formatNumber';
+import { sqlDialect } from '../../../shared/sqlDialect';
 
-/** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
-function formatApproxStorage(bytes: number): string {
-  if (bytes < 1024) return `~${bytes} B`;
-  if (bytes < 1024 * 1024) return `~${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `~${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `~${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
+/** Origin-wide usage, hence approximate (`~5 MB`). */
+const formatApproxStorage = (bytes: number) => `~${formatByteSize(bytes)}`;
 
 export interface SqlWorkspacePanelProps {
   /**
@@ -128,8 +123,10 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
   // The nonce makes the editor append even when the text repeats.
   const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
-  const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number } | null>(null);
+  const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number; raw?: boolean } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // A connection's object in the results area, and the connection whose catalog waits for a password.
+  const [objectView, setObjectView] = useState<SqlObjectView | null>(null);
   const editorPaneRef = useRef<HTMLDivElement | null>(null);
 
   const schemaTables = useMemo<SqlSchemaTable[]>(
@@ -190,6 +187,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const resetView = useCallback(() => {
     setSelectedResponseIndex(0);
+    setObjectView(null);
     showTablePreview(null);
   }, [showTablePreview]);
   const tabActions = useSqlQueryTabActions(resetView);
@@ -218,38 +216,18 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const handleBeforeRun = useCallback(() => {
     showTablePreview(null);
+    setObjectView(null);
     setSelectedResponseIndex(0);
   }, [showTablePreview]);
-  const handleSchemaChanged = useCallback(() => refreshTablesRef.current(), []);
+  const handleSchemaChanged = useCallback((connectionId?: string) => {
+    if (connectionId) useSqlRemoteCatalogStore.getState().refresh(connectionId);
+    else refreshTablesRef.current();
+  }, []);
   const runner = useSqlRunner({
     timeoutMs: queryTimeoutMs,
     onBeforeRun: handleBeforeRun,
     onSchemaChanged: handleSchemaChanged,
   });
-  // Database connections (Labs): desktop runs them; web lists Local and says why.
-  const dbFlag = useSettingsStore((state) => state.featureFlags.dbClient === true);
-  const dbDesktop = sqlDbBridge() !== null;
-  const connectionsCatalog = useSqlConnectionsStore((state) => state.catalog);
-  const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
-  useEffect(() => {
-    if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
-  }, [dbFlag, dbDesktop]);
-  const activeConnection =
-    dbFlag && activeQuery?.connectionId
-      ? [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === activeQuery.connectionId)
-      : undefined;
-  const selectConnection = useCallback(
-    (connectionId: string | undefined) => {
-      let id = useWorkspaceSqlStore.getState().activeQueryId;
-      if (!id) {
-        handleCreate();
-        id = useWorkspaceSqlStore.getState().activeQueryId;
-      }
-      if (id) useWorkspaceSqlStore.getState().updateQuery(id, { connectionId });
-    },
-    [handleCreate]
-  );
-
   const runWhole = useCallback(
     (query: SqlQueryV1) =>
       void runner.run({
@@ -455,12 +433,27 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
 
   const toggleFolded = () => useWorkspaceSqlStore.getState().toggleExplorerFolded();
 
+  const remote = useSqlConnectionObjects({
+    activeQuery,
+    objectView,
+    setObjectView,
+    tables,
+    localTables: schemaTables,
+    queries,
+    explorerFilter,
+    createQuery: handleCreate,
+    selectQuery: handleSelect,
+    insertAtCursor: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
+    insertSql: handleEditInEditor,
+  });
+  const { activeConnection, dbFlag } = remote;
+
   const explorer = (
     <SqlExplorer
       catalog={explorerCatalog}
-      isLoading={isLoadingTables}
+      isLoading={activeConnection ? remote.loading : isLoadingTables}
       hasLoaded={catalogLoaded}
-      onRefresh={() => void handleRefreshTables()}
+      onRefresh={() => (activeConnection ? remote.refreshCatalog() : void handleRefreshTables())}
       onOpenTable={(table) => void tables.open(table)}
       openedTableName={tablePreview?.table.name ?? null}
       onFold={toggleFolded}
@@ -473,6 +466,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       storageUsageLabel={storageUsageLabel}
       filter={explorerFilter}
       onFilterChange={setExplorerFilter}
+      {...(remote.renderRemoteTree ? { renderRemoteTree: remote.renderRemoteTree } : {})}
     >
       <SqlQueryList
         queries={queries}
@@ -483,13 +477,16 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onDelete={tabActions.remove}
         onDuplicate={tabActions.duplicate}
         filter={explorerFilter}
+        {...(remote.connectionLabel ? { connectionLabel: remote.connectionLabel } : {})}
       />
       <SqlHistorySection
         entries={history}
+        {...(activeConnection ? { connectionId: activeConnection.id } : {})}
+        {...(dbFlag ? { connectionLabel: activeConnection?.name ?? t('sqlWorkspace.connection.localName') } : {})}
         open={historyOpen}
         onToggle={() => setHistoryOpen((open) => !open)}
         onOpenEntry={tabActions.openHistoryEntry}
-        onClear={() => useWorkspaceSqlStore.getState().clearSqlHistory()}
+        onClear={() => useWorkspaceSqlStore.getState().clearSqlHistory(activeConnection?.id ?? null)}
       />
     </SqlExplorer>
   );
@@ -507,7 +504,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const plan = runner.plan?.queryId === activeQuery?.id ? runner.plan : null;
   const lastResult = runSet ? runSet.results.length - 1 : 0;
   const view = runner.view ?? { kind: 'result' as const, index: lastResult };
-  const showResultTabs = !tablePreview && (runSet !== null || plan !== null);
+  const showResultTabs = !tablePreview && !objectView && (runSet !== null || plan !== null);
   const runSetResponse =
     !tablePreview && runSet && view.kind === 'result' && view.index < lastResult
       ? runSet.results[view.index]?.response
@@ -527,7 +524,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const handleInsertPredicate = (predicate: string) =>
     setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
 
-  const resultBody =
+  const runBody =
     showResultTabs && view.kind === 'plan' && plan ? (
       <SqlPlanView result={plan} />
     ) : showResultTabs && view.kind === 'messages' && runSet ? (
@@ -559,6 +556,8 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       />
     );
 
+  const resultBody = remote.renderObjectDetail(runBody);
+
   const editorPane = activeQuery ? (
     <div ref={editorPaneRef} className="relative flex h-full min-h-0 flex-col">
       <SqlQueryEditor
@@ -569,12 +568,14 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
         onSave={tabActions.save}
         isExecuting={isExecuting}
         isBusy={runner.runningQueryId !== null && !isExecuting}
-        tables={schemaTables}
+        tables={remote.editorTables}
+        {...(activeConnection ? { engine: activeConnection.engine, functions: remote.functions } : {})}
         {...(insertSignal !== null ? { insertSignal } : {})}
         {...(predicateSignal !== null ? { predicateSignal } : {})}
         headerExtra={
           <AskSqlButton
-            tables={schemaTables}
+            tables={remote.editorTables}
+            {...(activeConnection ? { dialect: sqlDialect(activeConnection.engine).label } : {})}
             // Insert-only: generated SQL lands in the editor for review, never auto-runs.
             onInsert={(sql) => handlePatch(activeQuery.id, { query: sql })}
           />
@@ -603,7 +604,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   );
 
   // With nothing to edit or show, the empty state gets the whole area instead of a split.
-  const split = !activeQuery && !tablePreview ? (
+  const split = !activeQuery && !tablePreview && !objectView ? (
     emptyState
   ) : (
     <Group
@@ -658,22 +659,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
       className="flex h-full min-w-0 flex-col bg-bg-base text-fg-base"
     >
       <SqlConnectionBar
-        {...(dbFlag
-          ? {
-              remote: {
-                desktop: dbDesktop,
-                catalog: connectionsCatalog,
-                activeId: activeQuery?.connectionId,
-                onSelect: selectConnection,
-                onNew: () => setConnectionSheet({ kind: 'new' }),
-                onOpenUrl: () => setConnectionSheet({ kind: 'url' }),
-                onEdit: (id: string) => {
-                  const connection = [...(connectionsCatalog?.connections ?? []), ...(connectionsCatalog?.adhoc ?? [])].find((entry) => entry.id === id);
-                  if (connection) setConnectionSheet({ kind: 'edit', connection });
-                },
-              },
-            }
-          : {})}
+        {...(remote.barRemote ? { remote: remote.barRemote } : {})}
         actions={
           <SqlImportButton
             inputRef={importInputRef}
@@ -737,25 +723,22 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
           onCancel={sqlImport.cancelImport}
         />
       ) : null}
-      {connectionSheet ? (
-        <SqlConnectionSheet
-          mode={connectionSheet}
-          onClose={() => setConnectionSheet(null)}
-          onDone={(connection) => {
-            setConnectionSheet(null);
-            selectConnection(connection.id);
-          }}
-        />
-      ) : null}
+      {remote.connectionSheetElement}
       {runner.confirm ? <SqlWriteConfirmDialog confirm={runner.confirm} onResolve={runner.resolveConfirm} /> : null}
       {runner.passwordPrompt ? (
         <SqlPasswordPrompt
           name={runner.passwordPrompt.connectionName}
           refused={runner.passwordPrompt.refused}
-          onSubmit={(password) => void runner.submitPassword(password)}
+          onSubmit={(password) => {
+            const connectionId = runner.passwordPrompt?.connectionId;
+            void runner.submitPassword(password).then(() => {
+              if (connectionId) remote.retryCatalogAfterPassword(connectionId);
+            });
+          }}
           onCancel={runner.dismissPassword}
         />
       ) : null}
+      {remote.catalogPasswordPrompt}
       {closePrompt ? (
         <ConfirmDialog
           title={t('sqlWorkspace.tabs.closeTitle', { name: closePrompt.name })}

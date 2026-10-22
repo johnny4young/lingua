@@ -14,6 +14,7 @@ import {
   type SqlCatalog,
   type SqlSchemaTable,
 } from './sqlExplorerModel';
+import { TreeRow } from './SqlTreeRow';
 import '../../i18n/sqlConnectionsCatalog';
 
 /** Accept predicate for drag-drop; mirrors the picker's detection. */
@@ -29,37 +30,6 @@ const SYSTEM_SCHEMA = 'information_schema';
 
 const ICON_BUTTON =
   'focus-ring inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-bg-panel-alt hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-40';
-
-interface TreeRowProps {
-  depth: number;
-  expanded?: boolean;
-  onToggle?: () => void;
-  label: ReactNode;
-  trailing?: ReactNode;
-  testId: string;
-  nodeName?: string;
-}
-
-/** One expandable tree row (Local, schema, group). Leaves render their own markup. */
-function TreeRow({ depth, expanded, onToggle, label, trailing, testId, nodeName }: TreeRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      data-testid={testId}
-      data-node-name={nodeName}
-      style={{ paddingLeft: 8 + depth * 12 }}
-      className="focus-ring flex h-5 w-full items-center gap-[5px] pr-2.5 text-left font-mono text-caption text-fg-muted hover:bg-bg-panel-alt hover:text-fg-base"
-    >
-      <span aria-hidden="true" className="w-2 shrink-0 text-fg-subtle">
-        {expanded ? '▾' : '▸'}
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-[5px] truncate">{label}</span>
-      {trailing}
-    </button>
-  );
-}
 
 export interface SqlExplorerProps {
   catalog: SqlCatalog;
@@ -82,6 +52,8 @@ export interface SqlExplorerProps {
   onFilterChange: (value: string) => void;
   /** The Queries section, rendered under the tree. */
   children?: ReactNode;
+  /** A database connection's tree, shown instead of Local; the signal changes on Collapse all. */
+  renderRemoteTree?: (collapseSignal: number) => ReactNode;
 }
 
 export function SqlExplorer({
@@ -102,18 +74,22 @@ export function SqlExplorer({
   filter,
   onFilterChange,
   children,
+  renderRemoteTree,
 }: SqlExplorerProps) {
   const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(DEFAULT_EXPANDED_NODES);
+  const [collapseSignal, setCollapseSignal] = useState(0);
+  const remote = renderRemoteTree !== undefined;
   const combo = useShortcutLabel('view-toggle-sidebar');
   const foldLabel = combo
     ? t('sqlWorkspace.explorer.hideWithShortcut', { combo })
     : t('sqlWorkspace.explorer.hide');
   const { state: dropState, handlers: dropHandlers } = useFileDropZone({
     onFile: file => {
-      if (!isImportBusy) onImportFile(file, 'drop');
+      if (!isImportBusy && !remote) onImportFile(file, 'drop');
     },
-    accept: item => !isImportBusy && acceptImportItem(item),
+    // Files become Local tables, so the tree of another connection takes none.
+    accept: item => !isImportBusy && !remote && acceptImportItem(item),
   });
 
   const filtering = filter.trim().length > 0;
@@ -242,7 +218,10 @@ export function SqlExplorer({
         <span className="flex-1" />
         <button
           type="button"
-          onClick={() => setExpanded(new Set(['local']))}
+          onClick={() => {
+            setExpanded(new Set(['local']));
+            setCollapseSignal(signal => signal + 1);
+          }}
           aria-label={t('sqlWorkspace.explorer.collapseAll')}
           title={t('sqlWorkspace.explorer.collapseAll')}
           data-testid="sql-explorer-collapse-all"
@@ -289,173 +268,179 @@ export function SqlExplorer({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="py-[5px]">
-          <TreeRow
-            depth={0}
-            expanded={isOpen('local')}
-            onToggle={() => toggle('local')}
-            testId="sql-explorer-local"
-            label={
-              <>
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-fg"
-                />
-                <span className="text-fg-base">{t('sqlWorkspace.connection.localName')}</span>
-                <span
-                  data-testid="sql-explorer-storage"
-                  data-storage-mode={storageMode}
-                  className="truncate text-fg-subtle"
-                >
-                  {t(storageLabelKey)}
-                  {storageMode === 'opfs' && storageUsageLabel ? ` · ${storageUsageLabel}` : ''}
-                </span>
-              </>
-            }
-          />
-          {dropState === 'over' || dropState === 'dropping' || dropState === 'error' ? (
-            <div
-              data-testid="sql-explorer-drop-target"
-              data-drop-state={dropState}
-              className={cn(
-                'mx-2 my-1 rounded-[7px] border-[1.5px] border-dashed px-2.5 py-2',
-                dropState === 'error'
-                  ? 'border-error-border bg-error-bg text-error-fg'
-                  : 'border-accent-fg bg-accent-tint text-fg-base'
-              )}
-            >
-              <p className="flex items-center gap-1.5 text-caption font-semibold">
-                <Download size={12} aria-hidden="true" />
-                {t(
-                  dropState === 'error'
-                    ? 'sqlWorkspace.explorer.dropRejected'
-                    : 'sqlWorkspace.explorer.dropTitle'
-                )}
-              </p>
-              <p className="mt-0.5 font-mono text-micro text-fg-muted">
-                {t('sqlWorkspace.explorer.dropHint')}
-              </p>
-            </div>
-          ) : null}
-          {isOpen('local') ? (
-            <ul role="list">
-              {schemas.map(schema => {
-                const schemaKey = `schema:${schema.name}`;
-                const groups: Array<{ id: 'tables' | 'views' | 'macros'; count: number }> = [
-                  { id: 'tables', count: schema.tables.length },
-                  { id: 'views', count: schema.views.length },
-                  { id: 'macros', count: schema.macros.length },
-                ];
-                return (
-                  <li key={schema.name}>
-                    <TreeRow
-                      depth={1}
-                      expanded={isOpen(schemaKey)}
-                      onToggle={() => toggle(schemaKey)}
-                      testId="sql-explorer-schema"
-                      nodeName={schema.name}
-                      label={<span className="truncate">{schema.name}</span>}
+          {remote ? (
+            renderRemoteTree(collapseSignal)
+          ) : (
+            <>
+              <TreeRow
+                depth={0}
+                expanded={isOpen('local')}
+                onToggle={() => toggle('local')}
+                testId="sql-explorer-local"
+                label={
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-fg"
                     />
-                    {isOpen(schemaKey) ? (
-                      <ul role="list">
-                        {groups
-                          .filter(group => group.id === 'tables' || group.count > 0)
-                          .filter(group => !filtering || group.count > 0)
-                          .map(group => {
-                            const groupKey = `group:${schema.name}:${group.id}`;
-                            return (
-                              <li key={group.id}>
-                                <TreeRow
-                                  depth={2}
-                                  expanded={isOpen(groupKey)}
-                                  onToggle={() => toggle(groupKey)}
-                                  testId={`sql-explorer-group-${group.id}`}
-                                  nodeName={schema.name}
-                                  label={t(`sqlWorkspace.explorer.group.${group.id}`)}
-                                  trailing={
-                                    <span className="shrink-0 tabular-nums text-fg-subtle">
-                                      {group.count}
-                                    </span>
-                                  }
-                                />
-                                {isOpen(groupKey) ? (
-                                  <ul role="list">
-                                    {group.id === 'tables'
-                                      ? schema.tables.map(table => renderTable(table, 3))
-                                      : group.id === 'views'
-                                        ? schema.views.map(view => renderTable(view, 3))
-                                        : schema.macros.map(macro => (
-                                            <li
-                                              key={macro.name}
-                                              data-testid="sql-explorer-macro"
-                                              style={{ paddingLeft: 8 + 3 * 12 + 10 }}
-                                              className="flex h-5 items-center truncate pr-2.5 font-mono text-caption text-fg-muted"
-                                            >
-                                              {macro.name}
-                                            </li>
-                                          ))}
-                                  </ul>
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                      </ul>
-                    ) : null}
-                  </li>
-                );
-              })}
-              {systemViews.length > 0 ? (
-                <li>
-                  <TreeRow
-                    depth={1}
-                    expanded={expanded.has('schema:information_schema')}
-                    onToggle={() => toggle('schema:information_schema')}
-                    testId="sql-explorer-schema"
-                    nodeName={SYSTEM_SCHEMA}
-                    label={<span className="truncate">{SYSTEM_SCHEMA}</span>}
-                  />
-                  {expanded.has('schema:information_schema') ? (
-                    <ul role="list">
-                      {systemViews.map(view => (
-                        <li
-                          key={view}
-                          style={{ paddingLeft: 8 + 2 * 12 + 10 }}
-                          className="flex h-5 items-center truncate pr-2.5 font-mono text-caption text-fg-subtle"
-                        >
-                          {view}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
+                    <span className="text-fg-base">{t('sqlWorkspace.connection.localName')}</span>
+                    <span
+                      data-testid="sql-explorer-storage"
+                      data-storage-mode={storageMode}
+                      className="truncate text-fg-subtle"
+                    >
+                      {t(storageLabelKey)}
+                      {storageMode === 'opfs' && storageUsageLabel ? ` · ${storageUsageLabel}` : ''}
+                    </span>
+                  </>
+                }
+              />
+              {dropState === 'over' || dropState === 'dropping' || dropState === 'error' ? (
+                <div
+                  data-testid="sql-explorer-drop-target"
+                  data-drop-state={dropState}
+                  className={cn(
+                    'mx-2 my-1 rounded-[7px] border-[1.5px] border-dashed px-2.5 py-2',
+                    dropState === 'error'
+                      ? 'border-error-border bg-error-bg text-error-fg'
+                      : 'border-accent-fg bg-accent-tint text-fg-base'
+                  )}
+                >
+                  <p className="flex items-center gap-1.5 text-caption font-semibold">
+                    <Download size={12} aria-hidden="true" />
+                    {t(
+                      dropState === 'error'
+                        ? 'sqlWorkspace.explorer.dropRejected'
+                        : 'sqlWorkspace.explorer.dropTitle'
+                    )}
+                  </p>
+                  <p className="mt-0.5 font-mono text-micro text-fg-muted">
+                    {t('sqlWorkspace.explorer.dropHint')}
+                  </p>
+                </div>
               ) : null}
-            </ul>
-          ) : null}
-          {!hasUserObjects && !filtering && !isLoading && hasLoaded ? (
-            <div
-              data-testid="sql-explorer-empty"
-              className="px-2.5 py-2 text-caption leading-relaxed text-fg-subtle"
-            >
-              <p>{t('sqlWorkspace.explorer.empty')}</p>
-              <button
-                type="button"
-                onClick={onTrySample}
-                disabled={isCreatingSample}
-                data-testid="sql-explorer-try-sample"
-                className="focus-ring mt-1.5 inline-flex h-[22px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel-alt px-2 text-caption font-medium text-fg-base transition-colors hover:border-border-strong disabled:opacity-40"
-              >
-                <Sparkles size={11} aria-hidden="true" />
-                {t('sqlWorkspace.sample.cta')}
-              </button>
-            </div>
-          ) : null}
-          {filtering && !hasUserObjects && systemViews.length === 0 ? (
-            <p
-              data-testid="sql-explorer-no-match"
-              className="px-2.5 py-2 text-caption text-fg-subtle"
-            >
-              {t('sqlWorkspace.explorer.noMatch')}
-            </p>
-          ) : null}
+              {isOpen('local') ? (
+                <ul role="list">
+                  {schemas.map(schema => {
+                    const schemaKey = `schema:${schema.name}`;
+                    const groups: Array<{ id: 'tables' | 'views' | 'macros'; count: number }> = [
+                      { id: 'tables', count: schema.tables.length },
+                      { id: 'views', count: schema.views.length },
+                      { id: 'macros', count: schema.macros.length },
+                    ];
+                    return (
+                      <li key={schema.name}>
+                        <TreeRow
+                          depth={1}
+                          expanded={isOpen(schemaKey)}
+                          onToggle={() => toggle(schemaKey)}
+                          testId="sql-explorer-schema"
+                          nodeName={schema.name}
+                          label={<span className="truncate">{schema.name}</span>}
+                        />
+                        {isOpen(schemaKey) ? (
+                          <ul role="list">
+                            {groups
+                              .filter(group => group.id === 'tables' || group.count > 0)
+                              .filter(group => !filtering || group.count > 0)
+                              .map(group => {
+                                const groupKey = `group:${schema.name}:${group.id}`;
+                                return (
+                                  <li key={group.id}>
+                                    <TreeRow
+                                      depth={2}
+                                      expanded={isOpen(groupKey)}
+                                      onToggle={() => toggle(groupKey)}
+                                      testId={`sql-explorer-group-${group.id}`}
+                                      nodeName={schema.name}
+                                      label={t(`sqlWorkspace.explorer.group.${group.id}`)}
+                                      trailing={
+                                        <span className="shrink-0 tabular-nums text-fg-subtle">
+                                          {group.count}
+                                        </span>
+                                      }
+                                    />
+                                    {isOpen(groupKey) ? (
+                                      <ul role="list">
+                                        {group.id === 'tables'
+                                          ? schema.tables.map(table => renderTable(table, 3))
+                                          : group.id === 'views'
+                                            ? schema.views.map(view => renderTable(view, 3))
+                                            : schema.macros.map(macro => (
+                                                <li
+                                                  key={macro.name}
+                                                  data-testid="sql-explorer-macro"
+                                                  style={{ paddingLeft: 8 + 3 * 12 + 10 }}
+                                                  className="flex h-5 items-center truncate pr-2.5 font-mono text-caption text-fg-muted"
+                                                >
+                                                  {macro.name}
+                                                </li>
+                                              ))}
+                                      </ul>
+                                    ) : null}
+                                  </li>
+                                );
+                              })}
+                          </ul>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                  {systemViews.length > 0 ? (
+                    <li>
+                      <TreeRow
+                        depth={1}
+                        expanded={expanded.has('schema:information_schema')}
+                        onToggle={() => toggle('schema:information_schema')}
+                        testId="sql-explorer-schema"
+                        nodeName={SYSTEM_SCHEMA}
+                        label={<span className="truncate">{SYSTEM_SCHEMA}</span>}
+                      />
+                      {expanded.has('schema:information_schema') ? (
+                        <ul role="list">
+                          {systemViews.map(view => (
+                            <li
+                              key={view}
+                              style={{ paddingLeft: 8 + 2 * 12 + 10 }}
+                              className="flex h-5 items-center truncate pr-2.5 font-mono text-caption text-fg-subtle"
+                            >
+                              {view}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
+              {!hasUserObjects && !filtering && !isLoading && hasLoaded ? (
+                <div
+                  data-testid="sql-explorer-empty"
+                  className="px-2.5 py-2 text-caption leading-relaxed text-fg-subtle"
+                >
+                  <p>{t('sqlWorkspace.explorer.empty')}</p>
+                  <button
+                    type="button"
+                    onClick={onTrySample}
+                    disabled={isCreatingSample}
+                    data-testid="sql-explorer-try-sample"
+                    className="focus-ring mt-1.5 inline-flex h-[22px] items-center gap-1.5 rounded-md border border-border-default bg-bg-panel-alt px-2 text-caption font-medium text-fg-base transition-colors hover:border-border-strong disabled:opacity-40"
+                  >
+                    <Sparkles size={11} aria-hidden="true" />
+                    {t('sqlWorkspace.sample.cta')}
+                  </button>
+                </div>
+              ) : null}
+              {filtering && !hasUserObjects && systemViews.length === 0 ? (
+                <p
+                  data-testid="sql-explorer-no-match"
+                  className="px-2.5 py-2 text-caption text-fg-subtle"
+                >
+                  {t('sqlWorkspace.explorer.noMatch')}
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
         {children}
       </div>

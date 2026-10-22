@@ -7,6 +7,7 @@ import { accessSync, constants } from 'node:fs';
 import { constants as sqlite, DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { DriverRows, DriverSession } from './driver';
 import type { HostSessionConfig } from './protocol';
+import { introspectSqlite } from './sqliteCatalog';
 
 /** Declared column types, by SQLite affinity, in the names the grid knows. */
 function columnType(declared: string | null | undefined): string {
@@ -97,6 +98,9 @@ export async function openSqlite(config: HostSessionConfig): Promise<DriverSessi
     async estimateRows() {
       return null;
     },
+
+    introspect: (request) =>
+      introspectSqlite(async (sql, values) => db.prepare(sql).all(...(values as Array<string | number>)) as Array<Record<string, unknown>>, request),
 
     async close() {
       db.close();

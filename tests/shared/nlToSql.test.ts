@@ -47,6 +47,14 @@ describe('buildNlToSqlRequest', () => {
     expect(req.messages[1]!.content).toContain('top 5 orders by total');
   });
 
+  it('asks for the dialect of the engine the query runs on, and says so in the preview', () => {
+    const req = buildNlToSqlRequest({ question: 'orders per city', schemaText: 'orders(city text)', dialect: 'PostgreSQL' });
+    expect(req.messages[0]!.content).toContain('You are a PostgreSQL SQL expert');
+    expect(req.messages[0]!.content).toContain('Use the PostgreSQL dialect.');
+    expect(req.messages[0]!.content).not.toContain('DuckDB');
+    expect(req.preview).toContain('Use the PostgreSQL dialect.');
+  });
+
   it('exposes a consent preview mirroring the payload', () => {
     const req = buildNlToSqlRequest({
       question: 'count rows',

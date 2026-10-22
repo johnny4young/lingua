@@ -7,6 +7,8 @@ export interface SqlHistoryEntryV1 {
   id: string;
   /** The query the run came from, when it still exists. */
   queryId?: string;
+  /** The database connection it ran on; absent means Local, as for every entry before connections. */
+  connectionId?: string;
   /** The SQL that ran, capped at `MAX_SQL_HISTORY_SQL_BYTES`. */
   sql: string;
   /** True when `sql` was cut at the cap. */
@@ -54,6 +56,7 @@ export function parseSqlHistoryEntry(value: unknown): SqlHistoryEntryV1 | null {
     version: 1,
     id: value.id,
     ...(typeof value.queryId === 'string' ? { queryId: value.queryId } : {}),
+    ...(typeof value.connectionId === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value.connectionId) ? { connectionId: value.connectionId } : {}),
     sql: capped.sql,
     ...(capped.truncated || value.truncated === true ? { truncated: true } : {}),
     status: value.status as SqlQueryStatus,
@@ -63,12 +66,12 @@ export function parseSqlHistoryEntry(value: unknown): SqlHistoryEntryV1 | null {
   };
 }
 
-/** Case-insensitive match on the SQL text. */
+/** The runs of one connection (Local when `connectionId` is unset) whose SQL contains the search, ignoring case. */
 export function filterSqlHistory(
   entries: ReadonlyArray<SqlHistoryEntryV1>,
-  search: string
+  search: string,
+  connectionId?: string
 ): SqlHistoryEntryV1[] {
   const needle = search.trim().toLowerCase();
-  if (needle.length === 0) return [...entries];
-  return entries.filter((entry) => entry.sql.toLowerCase().includes(needle));
+  return entries.filter((entry) => entry.connectionId === connectionId && (needle.length === 0 || entry.sql.toLowerCase().includes(needle)));
 }

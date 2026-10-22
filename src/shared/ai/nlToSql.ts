@@ -1,8 +1,8 @@
 /**
  * Natural-language → SQL request builder (pure core).
  *
- * The SQL workspace already knows the live DuckDB schema (the single
- * `information_schema.columns` probe that feeds the browser + autocomplete).
+ * The SQL workspace already knows the live schema: Local's catalog probe or a
+ * connection's cached catalog, which also feed the Explorer and autocomplete.
  * This builds a chat request whose ONLY context is that schema — table and
  * column names + SQL types. **No rows, no data values, ever** — the schema
  * is the entire payload, and the consent preview shows it verbatim so the
@@ -58,6 +58,8 @@ export interface NlToSqlInput {
   readonly schemaText: string;
   /** Optional model id, passed through to the provider. */
   readonly model?: string;
+  /** The engine's name (`sqlDialect(engine).label`); DuckDB when unset. */
+  readonly dialect?: string;
 }
 
 export interface NlToSqlRequest {
@@ -67,12 +69,12 @@ export interface NlToSqlRequest {
   readonly preview: string;
 }
 
-const SYSTEM_PROMPT =
-  'You are a DuckDB SQL expert embedded in a local SQL workspace. Write ONE ' +
+const systemPrompt = (dialect: string) =>
+  `You are a ${dialect} SQL expert embedded in a local SQL workspace. Write ONE ` +
   'SQL query that satisfies the user request, using ONLY the tables and ' +
   'columns in the provided schema — never invent names. Reply with a single ' +
   'fenced sql code block; add a brief note only when the query needs ' +
-  'explaining. Use the DuckDB dialect. Prefer SELECT; write DDL/DML only ' +
+  `explaining. Use the ${dialect} dialect. Prefer SELECT; write DDL/DML only ` +
   'when the user explicitly asks for it.';
 
 /**
@@ -85,7 +87,7 @@ export function buildNlToSqlRequest(input: NlToSqlInput): NlToSqlRequest {
   const userContent = `Schema:\n${schemaText}\n\nRequest: ${question}`;
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt(input.dialect ?? 'DuckDB') },
     { role: 'user', content: userContent },
   ];
 

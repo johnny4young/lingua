@@ -16,6 +16,8 @@ import type {
   SqlDbCatalogView,
   SqlDbConnectionView,
   SqlDbFetchResult,
+  SqlDbIntrospect,
+  SqlDbIntrospectResult,
   SqlDbRunOptions,
   SqlDbRunResult,
   SqlDbSaveResult,
@@ -411,6 +413,24 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
         return await deps.host.request<number | null>({ type: 'estimate', config, sql }, 15_000);
       } catch {
         return null;
+      }
+    },
+
+    /** One level of a connection's catalog; failures come back as a message, like a run's. */
+    async introspect(connectionId: string, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
+      const entry = await connection(connectionId);
+      if (!entry) return { errorMessage: 'Unknown connection.' };
+      try {
+        const { config } = await configFor(entry);
+        return await deps.host.request<SqlDbIntrospectResult>({ type: 'introspect', config, request }, 30_000);
+      } catch (err) {
+        if (err instanceof GuardError) return { errorMessage: err.message, ...(err.fix ? { fix: err.fix } : {}) };
+        const detail = err instanceof SqlHostError ? err.detail : { message: String(err) };
+        if (detail.fix === 'auth' && entry.passwordMode === 'session') {
+          sessionPasswords.delete(entry.id);
+          return { errorMessage: detail.message, fix: 'password-needed' };
+        }
+        return { errorMessage: detail.message, ...(detail.fix ? { fix: detail.fix } : {}) };
       }
     },
 
