@@ -67,6 +67,9 @@ import { SqlObjectDetail, type SqlObjectTab } from './SqlObjectDetail';
 import { QUERYABLE_KINDS } from './sqlRemoteTreeModel';
 import { buildSelectStarter } from './sqlResultFormatters';
 import { useSqlRemoteCompletion } from '../../hooks/useSqlRemoteCompletion';
+import { buildSqlQuickOpenItems, type SqlQuickOpenSources } from './sqlQuickOpenScope';
+import { setQuickOpenScope } from '../../utils/quickOpenScope';
+import { resolveShortcutDisplayPlatform } from '../../data/keyboardShortcuts';
 import { sqlDialect } from '../../../shared/sqlDialect';
 
 /** Compact, locale-agnostic byte label (`~5 MB`); origin-wide, hence approximate. */
@@ -135,7 +138,7 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   const [selectedResponseIndex, setSelectedResponseIndex] = useState(0);
   // The nonce makes the editor append even when the text repeats.
   const [insertSignal, setInsertSignal] = useState<{ text: string; nonce: number } | null>(null);
-  const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number } | null>(null);
+  const [predicateSignal, setPredicateSignal] = useState<{ text: string; nonce: number; raw?: boolean } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   // A connection's object in the results area, and the connection whose catalog waits for a password.
   const [objectView, setObjectView] = useState<{ connectionId: string; object: SqlObjectRef; tab: SqlObjectTab } | null>(null);
@@ -591,6 +594,50 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
   };
   const handleInsertPredicate = (predicate: string) =>
     setPredicateSignal((prev) => ({ text: predicate, nonce: (prev?.nonce ?? 0) + 1 }));
+
+  // Quick Open on this tab lists the catalog's objects and the saved queries first.
+  const quickOpenRef = useRef<Omit<SqlQuickOpenSources, 't' | 'catalogs'> | null>(null);
+  useEffect(() => {
+    quickOpenRef.current = {
+      localTables: schemaTables,
+      queries,
+      connection: (id) => (dbFlag ? findConnection(id) : undefined),
+      showRemote: (connectionId, object, tab) => {
+        const store = useWorkspaceSqlStore.getState();
+        if (store.queries.find((q) => q.id === store.activeQueryId)?.connectionId !== connectionId) {
+          // Another connection's object opens in a new query on that connection.
+          const before = store.activeQueryId;
+          handleCreate();
+          const created = useWorkspaceSqlStore.getState().activeQueryId;
+          if (!created || created === before) return;
+          useWorkspaceSqlStore.getState().updateQuery(created, { connectionId });
+        }
+        showObject(connectionId, object, tab);
+      },
+      openLocal: (table) => {
+        setObjectView(null);
+        void tables.open(table);
+      },
+      openQuery: handleSelect,
+      insert: (text) => setPredicateSignal((prev) => ({ text, raw: true, nonce: (prev?.nonce ?? 0) + 1 })),
+    };
+  });
+  useEffect(() => {
+    const mac = resolveShortcutDisplayPlatform(window.lingua?.platform ?? 'web', navigator.platform) === 'darwin';
+    return setQuickOpenScope({
+      title: t('sqlWorkspace.remote.quickOpen.title'),
+      legend: [
+        [mac ? '↵' : 'Enter', t('sqlWorkspace.remote.quickOpen.openData')],
+        [mac ? '⌘↵' : 'Ctrl+Enter', t('sqlWorkspace.remote.quickOpen.structure')],
+        [mac ? '⌥↵' : 'Alt+Enter', t('sqlWorkspace.remote.quickOpen.insertName')],
+      ],
+      note: t('sqlWorkspace.remote.quickOpen.note'),
+      items: () =>
+        quickOpenRef.current
+          ? buildSqlQuickOpenItems({ t, catalogs: useSqlRemoteCatalogStore.getState().catalogs, ...quickOpenRef.current })
+          : [],
+    });
+  }, [t]);
 
   const runBody =
     showResultTabs && view.kind === 'plan' && plan ? (

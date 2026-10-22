@@ -168,5 +168,18 @@
   "sqlWorkspace.remote.detail.noDdl": "El servidor no devolvió una definición para este objeto.",
   "sqlWorkspace.remote.detail.copyDdl": "Copiar DDL",
   "sqlWorkspace.remote.detail.ddlCopied": "DDL copiado.",
-  "sqlWorkspace.remote.detail.openData": "Abrir datos"
+  "sqlWorkspace.remote.detail.openData": "Abrir datos",
+  "sqlWorkspace.remote.quickOpen.title": "Objetos de base de datos",
+  "sqlWorkspace.remote.quickOpen.openData": "abrir datos",
+  "sqlWorkspace.remote.quickOpen.structure": "estructura",
+  "sqlWorkspace.remote.quickOpen.insertName": "insertar nombre",
+  "sqlWorkspace.remote.quickOpen.note": "en todas las fuentes conectadas",
+  "sqlWorkspace.remote.quickOpen.badge.table": "Tabla",
+  "sqlWorkspace.remote.quickOpen.badge.view": "Vista",
+  "sqlWorkspace.remote.quickOpen.badge.matview": "Vista mat.",
+  "sqlWorkspace.remote.quickOpen.badge.function": "Func",
+  "sqlWorkspace.remote.quickOpen.badge.procedure": "Proc",
+  "sqlWorkspace.remote.quickOpen.badge.query": "Consulta",
+  "sqlWorkspace.remote.quickOpen.saved": "guardada",
+  "sqlWorkspace.remote.quickOpen.savedIn": "guardada · {{folder}}"
 }

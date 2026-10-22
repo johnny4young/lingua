@@ -11,6 +11,7 @@ import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { resetWorkspaceSqlStoreForTests, useWorkspaceSqlStore } from '../../../src/renderer/stores/workspaceSqlStore';
 import type { SqlDbCatalogView, SqlDbConnectionView, SqlDbIntrospect, SqlDbIntrospectResult, SqlDbRunResult } from '../../../src/shared/sqlDb';
 import { useSqlRemoteCatalogStore } from '../../../src/renderer/stores/sqlRemoteCatalogStore';
+import { getQuickOpenScope } from '../../../src/renderer/utils/quickOpenScope';
 import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace';
 import { pressSqlChord, sqlMonacoHarness } from '../../__fixtures__/sqlMonacoMock';
 
@@ -133,8 +134,9 @@ const introspected = (level: SqlDbIntrospect['level']) =>
   db.introspect.mock.calls.filter(([, request]) => (request as SqlDbIntrospect).level === level).map(([id, request]) => [id, request]);
 
 async function renderPanel() {
-  render(<SqlWorkspacePanel />);
+  const view = render(<SqlWorkspacePanel />);
   await waitFor(() => expect(useSqlConnectionsStore.getState().catalog).not.toBeNull());
+  return view;
 }
 
 beforeEach(() => {
@@ -355,6 +357,25 @@ describe('Explorer on a saved connection', () => {
     expect(labels().find((item) => item.label === 'id')).toBeTruthy();
     expect(labels().find((item) => item.label === 'order_total')).toMatchObject({ kind: 1 });
     expect(labels().find((item) => item.label === 'billing.invoices')).toBeUndefined();
+  });
+
+  it('offers the connection objects to Quick Open while the tab is on screen, opening another connection in a new query', async () => {
+    openQuery('SELECT 1');
+    const view = await renderPanel();
+    await act(async () => {
+      await useSqlRemoteCatalogStore.getState().loadObjects('c_dev', 'public');
+    });
+    const items = getQuickOpenScope()!.items();
+    const orders = items.find((item) => item.name === 'public.orders')!;
+    expect(orders.detail).toBe('orders-dev');
+    act(() => orders.open());
+    await waitFor(() => expect(db.execute).toHaveBeenCalledTimes(1));
+    const active = useWorkspaceSqlStore.getState();
+    expect(active.activeQueryId).not.toBe('q1');
+    expect(active.queries.find((query) => query.id === active.activeQueryId)?.connectionId).toBe('c_dev');
+    expect(await screen.findByTestId('sql-object-detail')).toBeTruthy();
+    view.unmount();
+    expect(getQuickOpenScope()).toBeNull();
   });
 
   it('keeps Local and its tree when the query runs on Local', async () => {

@@ -67,8 +67,8 @@ export interface SqlQueryEditorProps {
    * twice in a row — the changing nonce is what the effect keys on.
    */
   insertSignal?: { text: string; nonce: number };
-  /** A column-rail predicate to insert at the cursor, as WHERE or AND depending on the statement. */
-  predicateSignal?: { text: string; nonce: number };
+  /** A column-rail predicate to insert at the cursor, as WHERE or AND depending on the statement; `raw` text goes in as is. */
+  predicateSignal?: { text: string; nonce: number; raw?: boolean };
   /**
    * Live session tables, threaded from the panel's
    * Explorer catalog. Fed to the Monaco completion provider so table names
@@ -246,6 +246,11 @@ export function SqlQueryEditor({
   useEffect(() => {
     if (!predicateSignal || predicateSignal.nonce === lastPredicateNonceRef.current) return;
     lastPredicateNonceRef.current = predicateSignal.nonce;
+    if (predicateSignal.raw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Folds an external insert signal into the editor, like insertSignal above.
+      setCursorInsert({ text: predicateSignal.text, nonce: predicateSignal.nonce });
+      return;
+    }
     const picked = statementAtOffset(splitSqlStatements(latestTextRef.current), cursor.offset);
     const before = picked
       ? latestTextRef.current.slice(picked.statement.start, Math.min(cursor.offset, picked.statement.end))

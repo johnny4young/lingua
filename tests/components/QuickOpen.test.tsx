@@ -68,6 +68,7 @@ vi.mock('lucide-react', () => ({
 }));
 
 import { QuickOpen } from '../../src/renderer/components/QuickOpen/QuickOpen';
+import { setQuickOpenScope, type QuickOpenScopeItem } from '../../src/renderer/utils/quickOpenScope';
 
 describe('QuickOpen', () => {
   beforeEach(() => {
@@ -359,6 +360,57 @@ describe('QuickOpen', () => {
       ];
       render(<QuickOpen onClose={vi.fn()} />);
       expect(screen.getByText('/tmp/notes/todo.md')).toBeTruthy();
+    });
+  });
+
+  describe('with a workspace scope', () => {
+    let release: () => void = () => undefined;
+    afterEach(() => release());
+    const scoped = (overrides: Partial<QuickOpenScopeItem> = {}): QuickOpenScopeItem => ({
+      id: 'orders',
+      badge: 'TABLE',
+      name: 'public.order_items',
+      detail: 'orders-dev',
+      open: vi.fn(),
+      structure: vi.fn(),
+      insert: vi.fn(),
+      ...overrides,
+    });
+
+    it('lists the workspace rows ahead of files and matches every term', () => {
+      const items = [scoped(), scoped({ id: 'q', badge: 'QUERY', name: 'Order items per city', detail: 'saved · Reports' }), scoped({ id: 'c', name: 'public.customers' })];
+      release = setQuickOpenScope({ title: 'Database objects', legend: [['↵', 'open data']], note: 'across all connected sources', items: () => items });
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.getByText('Database objects')).toBeTruthy();
+      const rows = screen.getAllByRole('option');
+      expect(rows[0]?.getAttribute('data-testid')).toBe('quick-open-object');
+      expect(rows.at(-1)?.textContent).toContain('tree-only.ts');
+      expect(screen.getByTestId('quick-open-scope-legend').textContent).toBe('↵open dataacross all connected sources');
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ord ite' } });
+      expect(screen.getAllByTestId('quick-open-object').map((row) => row.textContent)).toEqual([
+        'TABLEpublic.order_itemsorders-dev',
+        'QUERYOrder items per citysaved · Reports',
+      ]);
+    });
+
+    it('opens on Enter, shows the structure on Cmd+Enter and inserts the name on Alt+Enter, closing first', () => {
+      const item = scoped();
+      release = setQuickOpenScope({ title: 'Database objects', legend: [], items: () => [item] });
+      const onClose = vi.fn();
+      const { unmount } = render(<QuickOpen onClose={onClose} />);
+      const input = screen.getByRole('combobox');
+      fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
+      expect(item.structure).toHaveBeenCalledOnce();
+      fireEvent.keyDown(input, { key: 'Enter', altKey: true });
+      expect(item.insert).toHaveBeenCalledOnce();
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(item.open).toHaveBeenCalledOnce();
+      expect(onClose).toHaveBeenCalledTimes(3);
+      unmount();
+      // A released scope leaves Quick Open to files.
+      release();
+      render(<QuickOpen onClose={vi.fn()} />);
+      expect(screen.queryByTestId('quick-open-object')).toBeNull();
     });
   });
 });
