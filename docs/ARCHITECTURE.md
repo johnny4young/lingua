@@ -388,6 +388,19 @@ connection closed is an error, not an empty end. In the renderer,
 `SqlResultCursor`; `window.lingua.db` exists only on desktop, so the web build
 keeps Local alone.
 
+The catalog is read one level at a time through `sql-db:introspect`: the
+schemas, one schema's objects, one schema's columns, or one object's detail
+(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite}Catalog.ts`
+pass names as bind parameters, or quoted for MySQL's `SHOW CREATE`, and cap a
+level at 5,000 objects or 20,000 columns, saying when it was cut. Main checks
+the level, the names (up to 256 characters), the kind and the routine
+signature before the host sees them. The renderer keeps what it read in
+`sqlRemoteCatalogStore`, in memory and per connection, with a generation
+counter so an answer that arrives after Refresh is dropped; the Explorer,
+completion (`useSqlRemoteCompletion`) and Quick Open read from it. Quick Open
+stays unaware of SQL: the SQL panel registers its rows and their actions through
+`utils/quickOpenScope.ts` while it is mounted.
+
 ### UTF-8 text budgets
 
 `shared/utf8.ts` owns byte counting and code-point-safe prefix truncation for
