@@ -26,6 +26,7 @@ const READ_ONLY: ClickHouseSettings = { readonly: '2' };
 const STOP_ON_CLOSE: ClickHouseSettings = { cancel_http_readonly_queries_on_client_close: 1 };
 const KILL_TIMEOUT_MS = 5_000;
 const CATALOG_TIMEOUT_S = 25;
+const TRAILING_FORMAT = /\s+FORMAT\s+[A-Za-z0-9]+\s*;?\s*$/i;
 /** Statements that answer with rows; anything else runs as a command. */
 const ROWS_STATEMENT = /^(?:\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)*(?:SELECT|WITH|SHOW|DESC|DESCRIBE|EXPLAIN|EXISTS|CHECK|\()/i;
 
@@ -187,11 +188,18 @@ export async function openClickHouse(config: HostSessionConfig, socket?: () => D
     await client.query({ query: 'SELECT 1', format: 'JSONEachRow' }).then((result) => result.text());
   } catch (err) {
     await client.close().catch(() => undefined);
+    point.agent.destroy();
     // prefer: fall back to plain HTTP on the same port when it does not speak TLS.
     if (config.ssl?.mode !== 'prefer' || !isPlainHttpReply(err)) throw err;
     point = endpoint(config, false, socket);
     client = clientFor(config, point);
-    await client.query({ query: 'SELECT 1', format: 'JSONEachRow' }).then((result) => result.text());
+    try {
+      await client.query({ query: 'SELECT 1', format: 'JSONEachRow' }).then((result) => result.text());
+    } catch (plainErr) {
+      await client.close().catch(() => undefined);
+      point.agent.destroy();
+      throw plainErr;
+    }
   }
   let current: { id: string; abort: AbortController } | null = null;
 
@@ -227,7 +235,9 @@ export async function openClickHouse(config: HostSessionConfig, socket?: () => D
         const written = Number(result.summary?.written_rows ?? 0);
         return { columns: [], affectedRows: Number.isFinite(written) ? written : 0, next: async () => ({ rows: [], done: true }), close: async () => undefined };
       }
-      const result = await client.query({ query: sql, format: FORMAT, query_id: id, clickhouse_settings: { ...settings, ...STOP_ON_CLOSE }, abort_signal: abort.signal });
+      // The grid needs its own format, which the client appends; a FORMAT the statement ends with would clash.
+      const query = sql.replace(TRAILING_FORMAT, '');
+      const result = await client.query({ query, format: FORMAT, query_id: id, clickhouse_settings: { ...settings, ...STOP_ON_CLOSE }, abort_signal: abort.signal });
       return streamRows(result.stream() as unknown as AsyncIterable<Array<{ json: <T>() => T }>>, async () => abort.abort());
     },
 

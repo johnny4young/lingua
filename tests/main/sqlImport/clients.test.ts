@@ -77,7 +77,7 @@ describe('TablePlus import', () => {
 
   it('takes SQL Server and ClickHouse connections with their default ports', () => {
     const mssql = entry('<key>ConnectionName</key><string>erp</string><key>Driver</key><string>SQLServer</string><key>DatabaseHost</key><string>sql.internal</string><key>DatabaseName</key><string>erp</string>');
-    const ch = entry('<key>ConnectionName</key><string>events</string><key>Driver</key><string>ClickHouse</string><key>DatabaseHost</key><string>ch.internal</string><key>DatabasePort</key><string>8123</string>');
+    const ch = entry('<key>ConnectionName</key><string>events</string><key>Driver</key><string>ClickHouse</string><key>DatabaseHost</key><string>ch.internal</string>');
     expect(tablePlusCandidates(plist(mssql, ch), null, HOME)?.found.map((candidate) => candidate.draft)).toEqual([
       { name: 'erp', engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'erp', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
       { name: 'events', engine: 'clickhouse', host: 'ch.internal', port: 8123, readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
@@ -209,6 +209,7 @@ describe('DBeaver import', () => {
       connections: {
         'sqlserver-1': { provider: 'sqlserver', driver: 'microsoft', name: 'ERP', configuration: { host: 'sql.internal', database: 'erp', user: 'erp_app', password: 'never-read' } },
         'clickhouse-1': { provider: 'clickhouse', driver: 'com_clickhouse', name: 'Events', configuration: { url: 'jdbc:clickhouse://ch.internal:8123/events' } },
+        'clickhouse-2': { provider: 'clickhouse', name: 'Logs', configuration: { host: 'logs.internal' } },
       },
     });
     const result = dbeaverCandidates(json)!;
@@ -216,6 +217,8 @@ describe('DBeaver import', () => {
     expect(result.found.map((candidate) => candidate.draft)).toEqual([
       { name: 'ERP', engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'erp', user: 'erp_app', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
       { name: 'Events', engine: 'clickhouse', host: 'ch.internal', port: 8123, database: 'events', readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
+      // Without a stored port the clients mean ClickHouse's plain HTTP port.
+      { name: 'Logs', engine: 'clickhouse', host: 'logs.internal', port: 8123, readOnly: false, ssl: { mode: 'prefer' }, passwordMode: 'keychain' },
     ]);
   });
 

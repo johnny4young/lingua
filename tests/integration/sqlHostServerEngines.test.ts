@@ -201,6 +201,21 @@ describe.skipIf(!mssql)('sqlserver host', () => {
     }
   }, 30_000);
 
+  it('shows the first result set of a batch, and lets go of a session the server ended', async () => {
+    const both = await run('SELECT 1 AS a SELECT 2 AS b');
+    expect(both.columns.map((column) => column.name)).toEqual(['a']);
+    expect(both.rows).toEqual([{ a: 1 }]);
+    const driver = await openSqlServer({ ...config, connectionId: 'mssql-ended' });
+    const own = await driver.run('SELECT @@SPID AS spid', { readWrite: false });
+    const spid = Number((await own.next(1)).rows[0]?.spid);
+    await own.close();
+    await run(`KILL ${spid}`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Closing a connection the server already ended settles instead of waiting for an end that never comes.
+    const closed = await Promise.race([driver.close().then(() => 'closed'), new Promise((resolve) => setTimeout(() => resolve('hung'), 5_000))]);
+    expect(closed).toBe('closed');
+  }, 30_000);
+
   it('names the auth step on a wrong password and the database step on a missing database', async () => {
     const wrong = await send({ type: 'test', config: { ...config, connectionId: 'mssql-wrong', password: 'nope' } });
     expect(wrong).toMatchObject({ ok: false, error: { step: 'auth', fix: 'auth' } });
@@ -313,6 +328,10 @@ describe.skipIf(!clickhouse)('clickhouse host', () => {
     } finally {
       downgrading.close();
     }
+  });
+
+  it('reads a statement that ends with its own FORMAT clause', async () => {
+    expect((await run('SELECT 1 AS one FORMAT CSV')).rows).toEqual([{ one: 1 }]);
   });
 
   it('never edits rows on ClickHouse', async () => {

@@ -224,12 +224,16 @@ function stream(lib: Tedious, connection: Connection, sql: string): Promise<Driv
       }
       notify();
     });
+    // A batch can return several result sets; the grid shows the first.
+    let resultSets = 0;
     request.on('columnMetadata', (metadata) => {
+      resultSets += 1;
+      if (resultSets > 1) return;
       const list = Array.isArray(metadata) ? metadata : Object.values(metadata);
       columns = list.map((column, index) => ({ name: column.colName || `column${index + 1}`, type: columnType(column) }));
     });
     request.on('row', (row: Array<{ value: unknown }>) => {
-      if (want === Number.POSITIVE_INFINITY) return;
+      if (want === Number.POSITIVE_INFINITY || resultSets > 1) return;
       buffer.push(Object.fromEntries(row.map((cell, index) => [columns[index]!.name, cellValue(cell.value, columns[index]!.type)])));
       if (buffer.length >= want) request.pause();
       begin();
@@ -349,6 +353,8 @@ export async function openSqlServer(config: HostSessionConfig, socket?: () => Du
 
     close: () =>
       new Promise<void>((resolve) => {
+        // A connection that already ended emits no second end.
+        if (connection.closed) return resolve();
         connection.once('end', () => resolve());
         connection.close();
       }),

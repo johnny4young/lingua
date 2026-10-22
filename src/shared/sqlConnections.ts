@@ -79,7 +79,7 @@ export interface SqlConnectionV1 {
 /** What the sheet sends to save; main assigns id and timestamps on create. */
 export type SqlConnectionDraft = Omit<SqlConnectionV1, 'version' | 'id' | 'createdAt' | 'updatedAt'>;
 
-export const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, number>> = {
+const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, number>> = {
   postgres: 5432,
   mysql: 3306,
   sqlserver: 1433,
@@ -421,6 +421,9 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
 /** The port an engine listens on by default; ClickHouse's depends on TLS. */
 export const defaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>, sslMode: SqlSslMode = 'verify-full'): number =>
   engine === 'clickhouse' && sslMode === 'disable' ? CLICKHOUSE_HTTP_PORT : DEFAULT_PORTS[engine];
+
+/** The port a client such as DBeaver or TablePlus assumes when it stores none; they reach ClickHouse over plain HTTP. */
+export const clientDefaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>): number => defaultPort(engine, engine === 'clickhouse' ? 'disable' : 'verify-full');
 
 const sameHops = (a: SqlSshHop[] = [], b: SqlSshHop[] = []) =>
   a.length === b.length && a.every((hop, index) => hop.host === b[index]!.host && hop.port === b[index]!.port && hop.user === b[index]!.user);

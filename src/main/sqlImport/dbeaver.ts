@@ -3,7 +3,7 @@
  * which Lingua never opens; a user name shows only when DBeaver kept it here.
  */
 
-import { DEFAULT_PORTS, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
+import { clientDefaultPort, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
 import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { draftFromJdbcUrl } from './jdbcUrl';
@@ -119,7 +119,7 @@ export function dbeaverCandidates(text: string): { found: SqlDbImportCandidate[]
                 ...base,
                 engine,
                 host,
-                port: num(configuration.port) ?? DEFAULT_PORTS[engine],
+                port: num(configuration.port) ?? clientDefaultPort(engine),
                 ...(str(configuration.database) ? { database: str(configuration.database) } : {}),
                 ...(user ? { user } : {}),
                 ssl: sslOf(configuration, engine),

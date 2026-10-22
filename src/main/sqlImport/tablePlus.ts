@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { DEFAULT_PORTS, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
+import { clientDefaultPort, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
 import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { parsePlist, type PlistValue } from './plist';
@@ -94,14 +94,14 @@ export function tablePlusCandidates(data: Buffer, groups: Buffer | null, home: s
     } else if (engine) {
       const host = str(entry.DatabaseHost);
       const ssh = sshOf(entry, home);
-      const port = Number(str(entry.DatabasePort) ?? DEFAULT_PORTS[engine]);
+      const port = Number(str(entry.DatabasePort) ?? clientDefaultPort(engine));
       draft =
         host && ssh !== null
           ? {
               ...base,
               engine,
               host,
-              port: Number.isInteger(port) && port > 0 ? port : DEFAULT_PORTS[engine],
+              port: Number.isInteger(port) && port > 0 ? port : clientDefaultPort(engine),
               ...(str(entry.DatabaseName) ? { database: str(entry.DatabaseName) } : {}),
               ...(str(entry.DatabaseUser) ? { user: str(entry.DatabaseUser) } : {}),
               ssl: sslOf(entry, driver),
