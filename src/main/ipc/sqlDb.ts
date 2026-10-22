@@ -4,8 +4,11 @@
  * through the strict connection parser, SQL and passwords against size caps.
  */
 
+import { homedir } from 'node:os';
+import path from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 import { isValidConnectionId, parseConnectionDraft, type SqlConnectionDraft } from '../../shared/sqlConnections';
+import { isSshFolderFile } from '../sqlSsh/sshKeyPath';
 import { SQL_DB_OBJECT_KINDS, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
 import { MAX_QUERY_BYTES, MAX_QUERY_TIMEOUT_MS } from '../../shared/sqlWorkspace';
 import { onOwnerReset } from '../runners/ownerReset';
@@ -92,6 +95,7 @@ const FILE_FILTERS: Readonly<Record<SqlDbFileKind, Electron.FileFilter[]>> = {
   ca: [{ name: 'PEM', extensions: ['pem', 'crt', 'cer'] }, { name: '*', extensions: ['*'] }],
   cert: [{ name: 'PEM', extensions: ['pem', 'crt', 'cer'] }, { name: '*', extensions: ['*'] }],
   key: [{ name: 'PEM', extensions: ['pem', 'key'] }, { name: '*', extensions: ['*'] }],
+  'ssh-key': [{ name: '*', extensions: ['*'] }],
 };
 
 export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (filePath: string) => string | null): void {
@@ -181,15 +185,22 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
     'sql-db:pick-file',
     (args) => {
       const kind = args[0];
-      return kind === 'sqlite' || kind === 'ca' || kind === 'cert' || kind === 'key' ? ([kind] as [SqlDbFileKind]) : fail('sql-db:pick-file');
+      return kind === 'sqlite' || kind === 'ca' || kind === 'cert' || kind === 'key' || kind === 'ssh-key'
+        ? ([kind] as [SqlDbFileKind])
+        : fail('sql-db:pick-file');
     },
     async (event, kind) => {
       const window = BrowserWindow.fromWebContents(event.sender);
-      const options: Electron.OpenDialogOptions = { properties: ['openFile'], filters: FILE_FILTERS[kind] };
+      const options: Electron.OpenDialogOptions = {
+        properties: kind === 'ssh-key' ? ['openFile', 'showHiddenFiles'] : ['openFile'],
+        filters: FILE_FILTERS[kind],
+        ...(kind === 'ssh-key' ? { defaultPath: path.join(homedir(), '.ssh') } : {}),
+      };
       const picked = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
       const chosen = picked.filePaths[0];
       if (picked.canceled || !chosen) return { canceled: true } as const;
-      if (blockedPath(chosen)) return { canceled: true, blocked: true } as const;
+      const blocked = blockedPath(chosen);
+      if (blocked && !(kind === 'ssh-key' && blocked === 'credentials' && isSshFolderFile(chosen))) return { canceled: true, blocked: true } as const;
       return { canceled: false, path: chosen } as const;
     }
   );

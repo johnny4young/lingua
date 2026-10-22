@@ -5,8 +5,33 @@
  */
 
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { SqlRemoteEngine, SqlSslMode } from '../../shared/sqlConnections';
-import type { SqlDbFixHint, SqlDbIntrospect } from '../../shared/sqlDb';
+import type { SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
+import type { SqlDbFixHint, SqlDbHostKey, SqlDbIntrospect } from '../../shared/sqlDb';
+import type { KnownHostKey } from '../sqlSsh/knownHosts';
+
+export interface HostSshHop {
+  /** The first hop is the address main resolved and checked; later hops are names the previous hop resolves. */
+  host: string;
+  port: number;
+  user: string;
+  /** Keys trusted for this hop, from known_hosts and Lingua's store. */
+  known: KnownHostKey[];
+  /** The hop as the user named it, for errors and the trust prompt. */
+  label: { host: string; port: number };
+}
+
+export interface HostSshConfig {
+  /** Jump hosts, then the bastion. */
+  hops: HostSshHop[];
+  auth: SqlSshAuth;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  /** Agent socket or pipe. */
+  agent?: string;
+  /** The database as the bastion reaches it. */
+  target: { host: string; port: number };
+}
 
 export interface HostSessionConfig {
   connectionId: string;
@@ -22,6 +47,8 @@ export interface HostSessionConfig {
   ssl?: { mode: SqlSslMode; caPath?: string; certPath?: string; keyPath?: string };
   /** SQLite file. */
   path?: string;
+  /** Tunnel to the database; the driver then connects to its local end. */
+  ssh?: HostSshConfig;
   readOnly: boolean;
 }
 
@@ -50,6 +77,8 @@ export type HostRequest =
 
 export interface HostTestResult {
   tcpMs?: number;
+  /** Handshake, sign-in and forwarding through every hop. */
+  sshMs?: number;
   connectMs: number;
   serverMs: number;
   serverVersion: string;
@@ -81,8 +110,10 @@ export interface HostCancelResult {
 export interface HostError {
   message: string;
   /** Step a test failed at. */
-  step?: 'tcp' | 'tls' | 'auth' | 'server' | 'file';
+  step?: 'tcp' | 'ssh' | 'tls' | 'auth' | 'server' | 'file';
   fix?: SqlDbFixHint;
+  /** The key a hop presented that no one trusts yet. */
+  hostKey?: SqlDbHostKey & { type: string };
   cancelled?: boolean;
 }
 

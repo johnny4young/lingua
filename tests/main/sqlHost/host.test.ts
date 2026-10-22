@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DriverSession } from '../../../src/main/sqlHost/driver';
 import { classifyConnectError, toJsonCell } from '../../../src/main/sqlHost/driver';
 import { createSqlHost } from '../../../src/main/sqlHost/host';
+import { TunnelError } from '../../../src/main/sqlHost/tunnel';
 import type { HostRequest, HostSessionConfig } from '../../../src/main/sqlHost/protocol';
 import type { SqlDbIntrospectResult } from '../../../src/shared/sqlDb';
 import { openSqlite } from '../../../src/main/sqlHost/sqlite';
@@ -116,6 +117,27 @@ describe('SQL host', () => {
     expect(session.cancel).toHaveBeenCalledOnce();
     vi.mocked(session.cancel).mockResolvedValueOnce(false);
     expect(await host.handle(req({ type: 'cancel', runId: 'r1' }))).toMatchObject({ result: { cancelled: false, restart: true } });
+  });
+
+  it('connects the driver to the tunnel end without the SSH settings, and lets the tunnel go with the session', async () => {
+    const seen: HostSessionConfig[] = [];
+    const { session } = fakeDriver(1);
+    const release = vi.fn(async () => undefined);
+    const pool = { acquire: vi.fn(async () => ({ port: 40123, release })), dispose: vi.fn() };
+    const open = vi.fn(async (config: HostSessionConfig) => {
+      seen.push(config);
+      return session;
+    });
+    const host = createSqlHost({ postgres: open, mysql: open, sqlite: open }, pool);
+    const ssh = { hops: [], auth: 'agent' as const, agent: '/tmp/agent.sock', target: { host: 'db.internal', port: 5432 } };
+    await host.handle(req({ type: 'execute', config: pgConfig({ address: '10.0.0.9', port: 5432, ssh }), runId: 'r1', sql: 'SELECT n', readWrite: false, window }));
+    expect(seen[0]).toMatchObject({ address: '127.0.0.1', port: 40123 });
+    expect(seen[0]).not.toHaveProperty('ssh');
+    await host.handle(req({ type: 'disconnect', connectionId: 'c1' }));
+    expect(release).toHaveBeenCalledOnce();
+    // A tunnel that fails keeps its step and fix.
+    pool.acquire.mockRejectedValueOnce(new TunnelError({ step: 'ssh', fix: 'ssh-auth', message: 'refused' }));
+    expect(await host.handle(req({ type: 'test', config: pgConfig({ connectionId: 'c2', ssh }) }))).toMatchObject({ ok: false, error: { step: 'ssh', fix: 'ssh-auth' } });
   });
 
   it('names the failed step of a connection test', async () => {
