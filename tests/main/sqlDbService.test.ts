@@ -235,6 +235,39 @@ describe('running statements', () => {
     expect(await svc.execute(1, 'r4', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ fix: 'auth' });
   });
 
+  it('still keeps an asked password after a save that only moves the connection to a group', async () => {
+    const { svc, secrets } = service(() => ok);
+    const id = ((await svc.save(pg, undefined, undefined)) as { connection: { id: string } }).connection.id;
+    await svc.sessionPassword(id, 'typed');
+    await svc.save({ ...pg, group: 'Ratfel' }, id, undefined);
+    expect(await svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+    expect(await secrets.get(`db.${id}`)).toBe('typed');
+  });
+
+  it('never stores an asked password for a target a save changed while it signed in', async () => {
+    const { svc, secrets } = service(() => ok);
+    const id = ((await svc.save(pg, undefined, undefined)) as { connection: { id: string } }).connection.id;
+    await svc.sessionPassword(id, 'for db.internal');
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const set = secrets.set.bind(secrets);
+    let setCalls = 0;
+    secrets.set = async (secretId, value) => {
+      setCalls += 1;
+      await gate;
+      return set(secretId, value);
+    };
+    const run = svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(setCalls).toBe(1);
+    const moved = svc.save({ ...pg, host: 'other.internal' }, id, undefined);
+    // Without the per-connection queue the save would finish here, before the held keychain write.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    release();
+    await Promise.all([run, moved]);
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+
   it('keeps an asked password in memory only for an ask-each-session connection', async () => {
     const { svc, secrets } = service(() => ok);
     const id = ((await svc.save({ ...pg, passwordMode: 'session' }, undefined, undefined)) as { connection: { id: string } }).connection.id;

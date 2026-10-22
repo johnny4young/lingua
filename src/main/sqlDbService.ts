@@ -12,7 +12,7 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
-import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionV1 } from '../shared/sqlConnections';
+import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
 import type {
   SqlDbCatalogView,
   SqlDbConnectionView,
@@ -101,7 +101,7 @@ function sameTarget(a: SqlConnectionDraft, b: SqlConnectionDraft): boolean {
 
 export function createSqlDbService(deps: SqlDbServiceDeps) {
   const lookup = deps.lookup ?? defaultLookup;
-  /** Passwords asked once per session, and those of URL connections nobody saved. */
+  /** Passwords asked at connect time (kept for the session, or until a keychain connection signs in), and those of URL connections nobody saved. */
   const sessionPasswords = new Map<string, string>();
   const sshSessionSecrets = new Map<string, string>();
   /** Secrets asked for a keychain connection that had none, kept there once they sign in. */
@@ -214,11 +214,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   /** A tunnel key inside ~/.ssh must be one the user chose or one already saved. */
   async function keyRefused(draft: SqlConnectionDraft): Promise<boolean> {
-    const keyPath = draft.ssh?.keyPath;
-    if (!keyPath) return false;
+    if (!draft.ssh?.keyPath) return false;
     if (!deps.ssh) return true;
     const saved = (await deps.catalog.list()).flatMap((entry) => (entry.ssh?.keyPath ? [entry.ssh.keyPath] : []));
-    return !deps.ssh.keyAllowed(keyPath, saved);
+    return !deps.ssh.keyAllowed(draft.ssh, saved);
   }
 
   /** Keeps a host key to trust once, and drops an asked SSH secret the bastion refused. */
@@ -240,17 +239,37 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return true;
   }
 
-  /** Moves secrets asked for a keychain connection into the keychain after they signed in. */
-  async function keepAsked(entry: SqlConnectionV1): Promise<void> {
-    for (const [id, memory] of [
-      [connectionSecretId(entry.id), sessionPasswords],
-      [sshSecretId(entry.id), sshSessionSecrets],
-    ] as const) {
-      const value = memory.get(entry.id);
-      if (!keepOnSuccess.has(id) || value === undefined) continue;
-      keepOnSuccess.delete(id);
-      if ((await deps.secrets.set(id, value)).ok) memory.delete(entry.id);
-    }
+  // Secret writes for one connection run one after another, so a sign-in cannot store a password a save just dropped.
+  const secretQueues = new Map<string, Promise<unknown>>();
+  function withSecrets<T>(connectionId: string, work: () => Promise<T>): Promise<T> {
+    const next = (secretQueues.get(connectionId) ?? Promise.resolve()).then(work, work);
+    const tail = next.catch(() => undefined);
+    secretQueues.set(connectionId, tail);
+    void tail.then(() => {
+      if (secretQueues.get(connectionId) === tail) secretQueues.delete(connectionId);
+    });
+    return next;
+  }
+
+  /**
+   * Moves secrets asked for a keychain connection into the keychain after they
+   * signed in: only the values that signed in, and only while the connection
+   * still points where it did.
+   */
+  function keepAsked(entry: SqlConnectionV1, config: HostSessionConfig): Promise<void> {
+    return withSecrets(entry.id, async () => {
+      const current = await deps.catalog.get(entry.id);
+      for (const [id, memory, used] of [
+        [connectionSecretId(entry.id), sessionPasswords, config.password],
+        [sshSecretId(entry.id), sshSessionSecrets, config.ssh?.password ?? config.ssh?.passphrase],
+      ] as const) {
+        const value = memory.get(entry.id);
+        if (!keepOnSuccess.has(id) || value === undefined || value !== used) continue;
+        keepOnSuccess.delete(id);
+        if (!current || !sameTarget(current, entry)) continue;
+        if ((await deps.secrets.set(id, value)).ok) memory.delete(entry.id);
+      }
+    });
   }
 
   async function catalogView(): Promise<SqlDbCatalogView> {
@@ -267,7 +286,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   async function keepPassword(entry: SqlConnectionV1, value: string | undefined): Promise<boolean> {
     const id = connectionSecretId(entry.id);
-    keepOnSuccess.delete(id);
+    // A save that only regroups or renames keeps an asked password on its way to the keychain.
+    if (value !== undefined || entry.passwordMode !== 'keychain') keepOnSuccess.delete(id);
     if (entry.passwordMode === 'none') {
       sessionPasswords.delete(entry.id);
       await deps.secrets.delete(id);
@@ -289,7 +309,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
   async function keepSshSecret(entry: SqlConnectionV1, value: string | undefined): Promise<boolean> {
     const id = sshSecretId(entry.id);
-    keepOnSuccess.delete(id);
+    if (value !== undefined || entry.ssh?.secretMode !== 'keychain') keepOnSuccess.delete(id);
     const mode = entry.ssh?.secretMode ?? 'none';
     if (mode === 'none') {
       sshSessionSecrets.delete(entry.id);
@@ -309,41 +329,49 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return (await deps.secrets.set(id, value)).ok;
   }
 
+  async function saveNow(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
+    if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
+    const before = id === undefined ? null : await deps.catalog.get(id);
+    if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
+    // The old password goes before the new target is saved, so no run can pair the two.
+    if (before && secret === undefined && !sameTarget(before, draft)) {
+      sessionPasswords.delete(before.id);
+      await deps.secrets.delete(connectionSecretId(before.id));
+    }
+    if (before && sshSecretValue === undefined && !sameSshTarget(before.ssh, draft.ssh)) {
+      sshSessionSecrets.delete(before.id);
+      await deps.secrets.delete(sshSecretId(before.id));
+    }
+    const ceiling = dbConnectionCeilingForTier(await deps.tier());
+    const saved = await deps.catalog.save(draft, id, Number.isFinite(ceiling) ? ceiling : undefined);
+    if (saved === 'quota') return { ok: false, reason: 'quota' };
+    if (!saved) return { ok: false, reason: 'not-found' };
+    await deps.host.request({ type: 'disconnect', connectionId: saved.id }).catch(() => undefined);
+    if (!(await keepPassword(saved, secret)) || !(await keepSshSecret(saved, sshSecretValue))) return { ok: false, reason: 'secret-failed' };
+    return { ok: true, connection: await view(saved) };
+  }
+
+  async function removeNow(id: string): Promise<{ ok: boolean }> {
+    adhoc.delete(id);
+    sessionPasswords.delete(id);
+    sshSessionSecrets.delete(id);
+    keepOnSuccess.delete(connectionSecretId(id));
+    keepOnSuccess.delete(sshSecretId(id));
+    await deps.secrets.delete(connectionSecretId(id));
+    await deps.secrets.delete(sshSecretId(id));
+    if (deps.host.isRunning()) await deps.host.request({ type: 'disconnect', connectionId: id }).catch(() => undefined);
+    return { ok: await deps.catalog.remove(id) };
+  }
+
   const service = {
     catalog: catalogView,
 
-    async save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
-      if (pathProblem(draft) || (await keyRefused(draft))) return { ok: false, reason: 'invalid' };
-      const before = id === undefined ? null : await deps.catalog.get(id);
-      if (id !== undefined && !before) return { ok: false, reason: 'not-found' };
-      // The old password goes before the new target is saved, so no run can pair the two.
-      if (before && secret === undefined && !sameTarget(before, draft)) {
-        sessionPasswords.delete(before.id);
-        await deps.secrets.delete(connectionSecretId(before.id));
-      }
-      if (before && sshSecretValue === undefined && !sameSshTarget(before.ssh, draft.ssh)) {
-        sshSessionSecrets.delete(before.id);
-        await deps.secrets.delete(sshSecretId(before.id));
-      }
-      const ceiling = dbConnectionCeilingForTier(await deps.tier());
-      const saved = await deps.catalog.save(draft, id, Number.isFinite(ceiling) ? ceiling : undefined);
-      if (saved === 'quota') return { ok: false, reason: 'quota' };
-      if (!saved) return { ok: false, reason: 'not-found' };
-      await deps.host.request({ type: 'disconnect', connectionId: saved.id }).catch(() => undefined);
-      if (!(await keepPassword(saved, secret)) || !(await keepSshSecret(saved, sshSecretValue))) return { ok: false, reason: 'secret-failed' };
-      return { ok: true, connection: await view(saved) };
+    save(draft: SqlConnectionDraft, id: string | undefined, secret: string | undefined, sshSecretValue?: string): Promise<SqlDbSaveResult> {
+      return id === undefined ? saveNow(draft, id, secret, sshSecretValue) : withSecrets(id, () => saveNow(draft, id, secret, sshSecretValue));
     },
 
-    async remove(id: string): Promise<{ ok: boolean }> {
-      adhoc.delete(id);
-      sessionPasswords.delete(id);
-      sshSessionSecrets.delete(id);
-      keepOnSuccess.delete(connectionSecretId(id));
-      keepOnSuccess.delete(sshSecretId(id));
-      await deps.secrets.delete(connectionSecretId(id));
-      await deps.secrets.delete(sshSecretId(id));
-      if (deps.host.isRunning()) await deps.host.request({ type: 'disconnect', connectionId: id }).catch(() => undefined);
-      return { ok: await deps.catalog.remove(id) };
+    remove(id: string): Promise<{ ok: boolean }> {
+      return withSecrets(id, () => removeNow(id));
     },
 
     /** A connection for this session only, at any quota; its password stays in memory. */
@@ -386,6 +414,11 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     /** Lets a draft name a key the user just picked inside ~/.ssh. */
     chooseSshKey(keyPath: string): void {
       deps.ssh?.chooseKey(keyPath);
+    },
+
+    /** The tunnels an import just listed; saving one exactly as listed may use its key. */
+    offerImportedTunnels(tunnels: ReadonlyArray<SqlConnectionSsh>): void {
+      deps.ssh?.offerImported(tunnels);
     },
 
     /** Every saved connection as Lingua's export; it holds no secret. */
@@ -467,7 +500,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           steps.push({ id: 'auth', status: 'ok', ms: result.connectMs, detail: entry.user ?? '' });
         }
         steps.push({ id: 'server', status: 'ok', ms: result.serverMs, detail: `${result.serverVersion}${entry.readOnly ? ' · read-only' : ''}` });
-        if ('connectionId' in target) await keepAsked(entry);
+        if ('connectionId' in target) await keepAsked(entry, config);
         return done(true, result.serverVersion);
       } catch (err) {
         const detail: HostError = err instanceof SqlHostError ? err.detail : { message: String(err) };
@@ -523,7 +556,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
           clearTimeout(timer);
         }
         if (!result.hasMore) runs.delete(key);
-        await keepAsked(entry);
+        await keepAsked(entry, config);
         return {
           status: result.tooLarge ? 'too-large' : 'success',
           engine: entry.engine,
@@ -600,7 +633,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       try {
         const { config } = await configFor(entry);
         const result = await deps.host.request<SqlDbIntrospectResult>({ type: 'introspect', config, request }, 30_000);
-        await keepAsked(entry);
+        await keepAsked(entry, config);
         return result;
       } catch (err) {
         if (err instanceof GuardError) return { errorMessage: err.message, ...(err.fix ? { fix: err.fix } : {}) };

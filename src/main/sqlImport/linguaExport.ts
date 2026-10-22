@@ -2,6 +2,7 @@
 
 import { parseConnectionDraft, type SqlConnectionV1 } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
+import { MAX_IMPORT_CONNECTIONS } from './limits';
 
 const FORMAT = 'lingua.sql-connections';
 
@@ -22,7 +23,7 @@ export function linguaCandidates(text: string): { found: SqlDbImportCandidate[];
   if (!record || record.format !== FORMAT || !Array.isArray(record.connections)) return null;
   const found: SqlDbImportCandidate[] = [];
   for (const entry of record.connections) {
-    const draft = parseConnectionDraft(entry);
+    const draft = found.length < MAX_IMPORT_CONNECTIONS ? parseConnectionDraft(entry) : null;
     if (draft) found.push({ draft });
   }
   return { found, skipped: record.connections.length - found.length };

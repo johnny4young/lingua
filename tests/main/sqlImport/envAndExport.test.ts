@@ -21,6 +21,15 @@ describe('.env import', () => {
     expect(JSON.stringify(found)).not.toContain('s3cret');
   });
 
+  it('stays linear on long lines and keys, and reads Prisma and Heroku keys', () => {
+    const started = performance.now();
+    const hostile = [`DATABASE_URL=${' '.repeat(300_000)}x`, `${'A_'.repeat(100_000)}=1`, `DB_URL="${'#'.repeat(300_000)}`].join('\n');
+    expect(envCandidates(hostile, '.env')).toEqual({ found: [], skipped: 0 });
+    expect(performance.now() - started).toBeLessThan(1_000);
+    const keys = ['DIRECT_URL', 'POSTGRES_URL_NON_POOLING', 'HEROKU_POSTGRESQL_RED_URL', 'PG_URI'].map((key) => `${key}=postgres://db/a`).join('\n');
+    expect(envCandidates(keys, '.env').found.map((candidate) => candidate.origin)).toEqual(['DIRECT_URL · .env', 'POSTGRES_URL_NON_POOLING · .env', 'HEROKU_POSTGRESQL_RED_URL · .env', 'PG_URI · .env']);
+  });
+
   it('names the environment from the file and leaves it unset for a plain .env', () => {
     expect(envCandidates('DATABASE_URL=postgres://db/a', '.env.development').found[0]!.draft.env).toBe('dev');
     expect(envCandidates('DATABASE_URL=postgres://db/a', '.env.staging').found[0]!.draft.env).toBe('staging');

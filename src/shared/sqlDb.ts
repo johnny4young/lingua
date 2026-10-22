@@ -220,7 +220,7 @@ export type SqlDbImportResult =
   | {
       canceled: false;
       found: SqlDbImportCandidate[];
-      /** Entries left out: engines Lingua does not connect to yet, or entries missing a host or file. */
+      /** Entries left out: other engines, missing hosts, files or SSH users, tunnels kept elsewhere, or past the cap. */
       skipped: number;
       error?: 'unreadable' | 'unrecognized';
     };

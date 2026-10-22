@@ -349,7 +349,8 @@ Main owns everything the host must not decide. `sqlConnectionCatalog.ts`
 keeps the catalog in `userData/sql-connections.json` (mode 0600, written
 atomically, never a password). Passwords live in the secret store under the
 `db.` namespace, which the `secrets:*` channels refuse, or in main's memory
-for connections that ask each session; they reach the host per run and never
+for connections that ask each session and for a keychain connection's typed
+password until its first sign-in; they reach the host per run and never
 the renderer. A saved password belongs to its target: saving a connection
 with another engine, host, port, database, user, file, TLS mode or SSH tunnel
 without typing the password again deletes the stored one. `sqlDbService.ts` re-checks
@@ -393,20 +394,33 @@ file's content. Confirm every write applies the production typed confirm to
 any connection, and Allow private host off refuses a private first address.
 
 Imports (`sqlImport/`) read only a file the user picked in a native dialog,
-capped at 4 MiB and refused in a protected folder, plus the file beside it that
+capped at 4 MiB and refused in a protected folder (inside an app-data folder,
+only the client's own connection files, `sqlImport/clientFiles.ts`, checked as
+given and after symlinks), plus the file beside it that
 completes it: TablePlus' `ConnectionGroups.plist` and DataGrip's
 `dataSources.local.xml`. Each parser maps hosts, ports, databases, users,
 groups, environments, SSL and SSH settings and drops every password, including
 one embedded in a URL; DBeaver's credentials file and other apps' keychain
 entries are never opened. `sql-db:import-env` reads the `.env` files at the
-open project's root through its `rootId` capability. Candidates go back to the
+open project's root through its `rootId` capability, up to 256 KiB each. An
+import lists at most 500 connections and counts the rest as left out.
+Candidates go back to the
 renderer, which saves the ones the user keeps through `sql-db:save`, so the
-quota and every check of a save apply. A key path an imported file names is
-allowed as if picked, as `~/.ssh/config` names are. `sql-db:export` writes the
+quota and every check of a save apply; main passes on only drafts its own
+parser accepts, so a URL form that hides a password in the host or a JDBC
+`;password=` property never reaches the renderer. The parsers scan with
+indexOf and bounded patterns, so no file makes them quadratic. A `~/.ssh` key
+an imported tunnel names is allowed only when that exact tunnel (bastion, port,
+user, key and jumps) is saved, and only until the next import. `sql-db:export` writes the
 catalog as drafts (no ids, timestamps or secrets) to a file the user names,
-with mode 0600. A password asked at connect time for a keychain connection
-moves to the secret store after its first successful sign-in; until then a
-refusal forgets it, as for ask-each-session connections.
+with mode 0600, also when it overwrites a file, and refuses a symlink. A password or SSH secret
+asked at connect time for a keychain connection moves to the secret store
+after its first successful sign-in, and a save that keeps it (a new group, a
+new name) does not cancel that; until then a refusal forgets it, as for
+ask-each-session connections. Secret writes for one connection go through one
+queue, and the move stores only the value that signed in and only while the
+catalog still points the connection at that target, so a concurrent edit cannot
+bind it to another host.
 
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`

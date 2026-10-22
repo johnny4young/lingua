@@ -4,14 +4,16 @@
  * through the strict connection parser, SQL and passwords against size caps.
  */
 
-import { writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { chmod, lstat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 import { isValidConnectionId, parseConnectionDraft, type SqlConnectionDraft } from '../../shared/sqlConnections';
 import { isSshFolderFile } from '../sqlSsh/sshKeyPath';
 import { readSmallFile } from '../sqlSsh/sshTargets';
-import { importCandidates, MAX_IMPORT_BYTES, siblingFile } from '../sqlImport';
+import { checkedCandidates, importCandidates, MAX_IMPORT_BYTES, siblingFile } from '../sqlImport';
+import { isClientFile } from '../sqlImport/clientFiles';
 import { ENV_FILES, envCandidates } from '../sqlImport/envFile';
 import { resolveCapabilityPath } from './projectCapabilities';
 import { SQL_DB_IMPORT_SOURCES, SQL_DB_OBJECT_KINDS, type SqlDbImportCandidate, type SqlDbImportSource, type SqlDbSecretKind, type SqlDbFileKind, type SqlDbIntrospect, type SqlDbObjectKind, type SqlDbRunOptions, type SqlDbTarget } from '../../shared/sqlDb';
@@ -139,7 +141,22 @@ function importFolder(source: SqlDbImportSource): string | undefined {
 
 const MAX_ENV_BYTES = 256 * 1024;
 
+const realOrSelf = (file: string) => {
+  try {
+    return realpathSync(file);
+  } catch {
+    return file;
+  }
+};
+
 export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (filePath: string) => string | null): void {
+  /** Outside protected folders, or exactly a client's own file in an app-data folder; checked as given and after symlinks. */
+  const importReadable = (source: SqlDbImportSource, file: string) =>
+    [file, realOrSelf(file)].every((candidate) => {
+      const family = blockedPath(candidate);
+      return family === null || (family === 'app-data' && isClientFile(source, candidate, homedir()));
+    });
+
   const watched = new Set<number>();
   // Runs belong to the renderer that started them and end with it.
   const own = (sender: Electron.WebContents): number => {
@@ -283,15 +300,15 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
       const picked = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
       const chosen = picked.filePaths[0];
       if (picked.canceled || !chosen) return { canceled: true } as const;
-      if (blockedPath(chosen)) return { canceled: false, found: [], skipped: 0, error: 'unreadable' } as const;
+      if (!importReadable(source, chosen)) return { canceled: false, found: [], skipped: 0, error: 'unreadable' } as const;
       const sibling = siblingFile(source, chosen);
       const result = importCandidates(source, await readSmallFile(chosen, MAX_IMPORT_BYTES), {
-        sibling: sibling && !blockedPath(sibling) ? await readSmallFile(sibling, MAX_IMPORT_BYTES) : null,
+        sibling: sibling && importReadable(source, sibling) ? await readSmallFile(sibling, MAX_IMPORT_BYTES) : null,
         home: homedir(),
         picked: chosen,
       });
-      // A key the picked client's file names is the user's choice, as a key named in ~/.ssh/config is.
-      if (!result.canceled) for (const { draft } of result.found) if (draft.ssh?.keyPath) service.chooseSshKey(draft.ssh.keyPath);
+      // Only these exact tunnels may later use a ~/.ssh key the file names, and only once the user saves one.
+      service.offerImportedTunnels(result.canceled ? [] : result.found.flatMap(({ draft }) => (draft.ssh ? [draft.ssh] : [])));
       return result;
     }
   );
@@ -314,7 +331,7 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
         found.push(...parsed.found);
         skipped += parsed.skipped;
       }
-      return { canceled: false, found, skipped } as const;
+      return { canceled: false, ...checkedCandidates(found, skipped) } as const;
     }
   );
 
@@ -328,8 +345,12 @@ export function registerSqlDbHandlers(service: SqlDbService, blockedPath: (fileP
       if (picked.canceled || !picked.filePath) return { canceled: true } as const;
       const { text, count } = await service.exportCatalog();
       if (blockedPath(picked.filePath)) return { canceled: false, ok: false, count } as const;
+      // A link would send the file somewhere the path does not say.
+      if (await lstat(picked.filePath).then((stat) => stat.isSymbolicLink(), () => false)) return { canceled: false, ok: false, count } as const;
       try {
         await writeFile(picked.filePath, text, { mode: 0o600 });
+        // The mode applies only to a new file; an overwritten one keeps its permissions otherwise.
+        if (process.platform !== 'win32') await chmod(picked.filePath, 0o600);
         return { canceled: false, ok: true, count } as const;
       } catch {
         return { canceled: false, ok: false, count } as const;

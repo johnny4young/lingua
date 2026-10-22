@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SqlDbService } from '../../src/main/sqlDbService';
@@ -28,7 +28,7 @@ describe('sql-db IPC handlers', () => {
   beforeEach(() => {
     handlers.clear();
     service = Object.fromEntries(
-      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner', 'chooseSshKey', 'exportCatalog'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
+      ['catalog', 'save', 'remove', 'openAdhoc', 'sessionPassword', 'test', 'execute', 'fetch', 'cancel', 'closeRun', 'estimate', 'introspect', 'trustHostKey', 'sshInfo', 'releaseOwner', 'chooseSshKey', 'exportCatalog', 'offerImportedTunnels'].map((name) => [name, vi.fn(async () => ({ ok: true }))])
     );
     registerSqlDbHandlers(service as unknown as SqlDbService, (file) => (file.includes('/.ssh/') ? 'ssh' : null));
   });
@@ -114,7 +114,7 @@ describe('sql-db IPC handlers', () => {
     });
     afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-    it('reads the picked client file without passwords, and lets its tunnel keys be used', async () => {
+    it('reads the picked client file without passwords, and offers only its exact tunnels for their keys', async () => {
       await expect(invoke('sql-db:import-file', 'navicat')).rejects.toThrow('Invalid');
       const file = path.join(dir, 'data-sources.json');
       const keyPath = path.join(dir, 'id_ed25519');
@@ -134,7 +134,8 @@ describe('sql-db IPC handlers', () => {
       const result = await invoke('sql-db:import-file', 'dbeaver');
       expect(result).toMatchObject({ canceled: false, skipped: 0, found: [{ draft: { name: 'Shop', host: 'db', user: 'app', ssh: { keyPath } } }] });
       expect(JSON.stringify(result)).not.toContain('never-read');
-      expect(service.chooseSshKey).toHaveBeenCalledWith(keyPath);
+      expect(service.chooseSshKey).not.toHaveBeenCalled();
+      expect(service.offerImportedTunnels).toHaveBeenCalledWith([expect.objectContaining({ host: 'b', user: 'u', keyPath })]);
       vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: false, filePaths: ['/Users/me/.ssh/config'] });
       expect(await invoke('sql-db:import-file', 'dbeaver')).toEqual({ canceled: false, found: [], skipped: 0, error: 'unreadable' });
     });
@@ -153,6 +154,8 @@ describe('sql-db IPC handlers', () => {
     it('writes the export where the user chose, private to the user, and never into a protected folder', async () => {
       service.exportCatalog!.mockResolvedValue({ text: '{"format":"lingua.sql-connections"}\n', count: 2 });
       const target = path.join(dir, 'out.json');
+      // An existing file the user overwrites becomes private too.
+      writeFileSync(target, 'old', { mode: 0o644 });
       vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: target });
       expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: true, count: 2 });
       expect(readFileSync(target, 'utf-8')).toContain('lingua.sql-connections');
@@ -162,6 +165,12 @@ describe('sql-db IPC handlers', () => {
       vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: path.join(protectedFolder, 'out.json') });
       expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: false, count: 2 });
       expect(existsSync(path.join(protectedFolder, 'out.json'))).toBe(false);
+      const elsewhere = path.join(dir, 'elsewhere.json');
+      writeFileSync(elsewhere, 'keep');
+      symlinkSync(elsewhere, path.join(dir, 'link.json'));
+      vi.mocked(dialog.showSaveDialog).mockResolvedValueOnce({ canceled: false, filePath: path.join(dir, 'link.json') });
+      expect(await invoke('sql-db:export')).toEqual({ canceled: false, ok: false, count: 2 });
+      expect(readFileSync(elsewhere, 'utf-8')).toBe('keep');
       await expect(invoke('sql-db:export', 'extra')).rejects.toThrow('Invalid');
     });
   });

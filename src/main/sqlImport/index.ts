@@ -1,18 +1,19 @@
 /**
  * Connections from another client's file, read in main and returned without
- * any password: hosts, ports, databases, users, SSL and SSH settings only.
+ * any password: hosts, ports, databases, users, groups, environments, SSL and
+ * SSH settings only.
  */
 
 import path from 'node:path';
-import type { SqlDbImportResult, SqlDbImportSource } from '../../shared/sqlDb';
+import { parseConnectionDraft } from '../../shared/sqlConnections';
+import type { SqlDbImportCandidate, SqlDbImportResult, SqlDbImportSource } from '../../shared/sqlDb';
+import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { dataGripCandidates } from './dataGrip';
 import { dbeaverCandidates } from './dbeaver';
 import { linguaCandidates } from './linguaExport';
 import { tablePlusCandidates } from './tablePlus';
 
 export const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
-/** More than any real client list; the rest are counted as left out. */
-const MAX_IMPORT_CONNECTIONS = 500;
 
 /** The file next to the picked one that completes it: TablePlus' groups, DataGrip's per-machine settings. */
 export function siblingFile(source: SqlDbImportSource, picked: string): string | null {
@@ -47,6 +48,19 @@ export function importCandidates(source: SqlDbImportSource, data: Buffer | null,
   if (!data) return { canceled: false, found: [], skipped: 0, error: 'unreadable' };
   const parsed = PARSERS[source](data, context);
   if (!parsed) return { canceled: false, found: [], skipped: 0, error: 'unrecognized' };
-  const extra = Math.max(0, parsed.found.length - MAX_IMPORT_CONNECTIONS);
-  return { canceled: false, found: parsed.found.slice(0, MAX_IMPORT_CONNECTIONS), skipped: parsed.skipped + extra };
+  return { canceled: false, ...checkedCandidates(parsed.found, parsed.skipped) };
+}
+
+/**
+ * Only what main itself would accept as a draft crosses to the renderer, at
+ * most MAX_IMPORT_CONNECTIONS of them; anything else is counted as left out.
+ */
+export function checkedCandidates(candidates: ReadonlyArray<SqlDbImportCandidate>, skipped: number): { found: SqlDbImportCandidate[]; skipped: number } {
+  const found: SqlDbImportCandidate[] = [];
+  for (const candidate of candidates) {
+    const draft = found.length < MAX_IMPORT_CONNECTIONS ? parseConnectionDraft(candidate.draft) : null;
+    if (draft) found.push({ ...candidate, draft });
+    else skipped += 1;
+  }
+  return { found, skipped };
 }

@@ -139,7 +139,7 @@ describe('SqlConnectionManager', () => {
       ['shop', 'session'],
       ['billing', 'session'],
     ]);
-    expect((await screen.findByTestId('sql-manager-notice')).textContent).toBe('Imported 2 connections. Each asks for its password the first time it connects.');
+    expect((await screen.findByTestId('sql-manager-notice')).textContent).toBe('Imported 2 connections. Those that sign in with a password ask for it the first time they connect.');
   });
 
   it('reads the open project for .env, says when there is none, and reports an unrecognized file', async () => {

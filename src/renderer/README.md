@@ -656,7 +656,8 @@ collection state:
   table previews (on a connection too), and on Local foreign-key follow and
   back and Referenced by counts.
   [`hooks/useSqlConnectionObjects.tsx`](hooks/useSqlConnectionObjects.tsx)
-  owns the picker and connection sheet, a connection's catalog tree
+  owns the picker, the connection sheet and the Connections manager (the
+  sheet opens over it and returns to it), a connection's catalog tree
   (`SqlRemoteTree.tsx`) and object detail in the results area
   (`SqlObjectDetail.tsx`), completion tables, and the tab's Quick Open rows
   (Local tables and saved queries always, connection objects when read).

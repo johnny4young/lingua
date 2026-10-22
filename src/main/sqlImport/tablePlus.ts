@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { DEFAULT_PORTS, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
+import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { parsePlist, type PlistValue } from './plist';
 
 type Dict = { [key: string]: PlistValue };
@@ -101,7 +102,7 @@ export function tablePlusCandidates(data: Buffer, groups: Buffer | null, home: s
             }
           : null;
     }
-    if (!draft || !draft.name) {
+    if (!draft || !draft.name || found.length >= MAX_IMPORT_CONNECTIONS) {
       skipped += 1;
       continue;
     }

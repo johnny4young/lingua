@@ -6,6 +6,7 @@
 
 import type { SqlConnectionDraft, SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
+import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { draftFromJdbcUrl } from './jdbcUrl';
 
 const ENTITIES: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -32,6 +33,7 @@ function between(text: string, tag: string): string | undefined {
 }
 
 const OPEN = '<data-source';
+const MAX_HEAD = 8 * 1024;
 
 function dataSources(xml: string): Source[] {
   const sources: Source[] = [];
@@ -40,8 +42,8 @@ function dataSources(xml: string): Source[] {
     const headEnd = start < 0 ? -1 : xml.indexOf('>', start);
     if (headEnd < 0) return sources;
     const head = xml.slice(start + OPEN.length, headEnd);
-    // <data-sources> and the like are other elements.
-    if (head && !/^[\s/]/.test(head)) {
+    // <data-sources> and the like are other elements; a real head is a few attributes long.
+    if ((head && !/^[\s/]/.test(head)) || head.length > MAX_HEAD) {
       from = start + OPEN.length;
       continue;
     }
@@ -76,7 +78,7 @@ export function dataGripCandidates(xml: string, local: string | null, vars: { pr
     // A tunnel's settings live in the IDE's own sshConfigs.xml; without them the connection would skip its bastion.
     const tunnelled = between(extra, 'ssh-properties')?.includes('<enabled>true</enabled>') === true;
     const name = clean(source.attrs.name)?.slice(0, 80);
-    if (!fromUrl || tunnelled || !name) {
+    if (!fromUrl || tunnelled || !name || found.length >= MAX_IMPORT_CONNECTIONS) {
       skipped += 1;
       continue;
     }

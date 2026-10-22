@@ -9,19 +9,55 @@ const unescape = (text: string) =>
     code.startsWith('#x') || code.startsWith('#X') ? String.fromCodePoint(parseInt(code.slice(2), 16)) : code.startsWith('#') ? String.fromCodePoint(Number(code.slice(1))) : ENTITIES[code.toLowerCase()]!
   );
 
+interface Token {
+  /** Element name, lower-cased; absent for text. */
+  name?: string;
+  close?: boolean;
+  empty?: boolean;
+  text?: string;
+}
+
+/** Tags and text found with indexOf, so no input can make the scan quadratic. */
+function tokenize(text: string): Token[] {
+  const tokens: Token[] = [];
+  for (let at = 0; at < text.length; ) {
+    const open = text.indexOf('<', at);
+    if (open !== at) {
+      tokens.push({ text: text.slice(at, open < 0 ? text.length : open) });
+      if (open < 0) break;
+    }
+    const isComment = text.startsWith('<!--', open);
+    const end = isComment ? text.indexOf('-->', open + 4) : text.indexOf('>', open);
+    if (end < 0) throw new Error('plist');
+    at = end + (isComment ? 3 : 1);
+    const inner = text.slice(open + 1, end);
+    if (isComment || inner.startsWith('?') || inner.startsWith('!')) continue;
+    const close = inner.startsWith('/');
+    const name = /^[a-z]+/i.exec(inner.slice(close ? 1 : 0, 33))?.[0];
+    if (!name) throw new Error('plist');
+    tokens.push({ name: name.toLowerCase(), close, empty: !close && inner.endsWith('/') });
+  }
+  return tokens;
+}
+
+/** A key that would replace the dictionary's prototype is dropped. */
+const setKey = (dict: Record<string, PlistValue>, key: string, value: PlistValue) => {
+  if (key !== '__proto__') dict[key] = value;
+};
+
 function parseXml(text: string): PlistValue | undefined {
-  const tokens = [...text.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([a-z]+)(?:\s[^<>]*?)?\s*(\/?)>|([^<]+)/gi)];
-  let index = tokens.findIndex((token) => token[2] === 'plist' && !token[1]) + 1;
+  const tokens = tokenize(text);
+  let index = tokens.findIndex((token) => token.name === 'plist' && !token.close) + 1;
   if (index === 0) return undefined;
   const skipText = () => {
-    while (index < tokens.length && tokens[index]![4] !== undefined) index += 1;
+    while (index < tokens.length && tokens[index]!.text !== undefined) index += 1;
   };
   const value = (): PlistValue => {
     skipText();
     const token = tokens[index++];
-    if (!token || token[1] || !token[2]) throw new Error('plist');
-    const tag = token[2];
-    if (token[3]) return tag === 'true' ? true : tag === 'false' ? false : tag === 'array' ? [] : tag === 'dict' ? {} : tag === 'string' ? '' : null;
+    if (!token?.name || token.close) throw new Error('plist');
+    const tag = token.name;
+    if (token.empty) return tag === 'true' ? true : tag === 'false' ? false : tag === 'array' ? [] : tag === 'dict' ? {} : tag === 'string' ? '' : null;
     if (tag === 'array' || tag === 'dict') {
       const list: PlistValue[] = [];
       const dict: Record<string, PlistValue> = {};
@@ -29,7 +65,7 @@ function parseXml(text: string): PlistValue | undefined {
         skipText();
         const next = tokens[index];
         if (!next) throw new Error('plist');
-        if (next[1] && next[2] === tag) {
+        if (next.close && next.name === tag) {
           index += 1;
           return tag === 'array' ? list : dict;
         }
@@ -37,14 +73,14 @@ function parseXml(text: string): PlistValue | undefined {
         else {
           const key = value();
           if (typeof key !== 'string') throw new Error('plist');
-          dict[key] = value();
+          setKey(dict, key, value());
         }
       }
     }
     let content = '';
-    while (tokens[index] && tokens[index]![4] !== undefined) content += tokens[index++]![4];
+    while (tokens[index]?.text !== undefined) content += tokens[index++]!.text;
     const close = tokens[index++];
-    if (!close || !close[1] || close[2] !== tag) throw new Error('plist');
+    if (!close?.close || close.name !== tag) throw new Error('plist');
     const text = unescape(content);
     if (tag === 'string' || tag === 'key') return text;
     if (tag === 'integer' || tag === 'real') return Number(text.trim());
@@ -101,7 +137,7 @@ function parseBinary(data: Buffer): PlistValue | undefined {
       const dict: Record<string, PlistValue> = {};
       for (let i = 0; i < length; i++) {
         const key = object(readInt(at + i * refSize, refSize));
-        if (typeof key === 'string') dict[key] = object(readInt(at + (length + i) * refSize, refSize));
+        if (typeof key === 'string') setKey(dict, key, object(readInt(at + (length + i) * refSize, refSize)));
       }
       return dict;
     }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { SqlConnectionDraft } from '../../../shared/sqlConnections';
 import type { SqlDbCatalogView, SqlDbImportResult } from '../../../shared/sqlDb';
 import { sqlDbBridge } from '../../runtime/sqlRemote';
 import { useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
@@ -7,6 +8,9 @@ import { cn } from '../../utils/cn';
 import { ConnectionChip } from './SqlConnectionChip';
 import { connectionWhere, importDraft, isAlreadySaved, type SqlImportPasswordMode } from './sqlConnectionManagerModel';
 import { BUTTON, LABEL, PRIMARY, Segmented } from './sqlConnectionForm';
+
+/** Who the tunnel signs in as and with which key file, so the user sees it before importing. */
+const tunnelLabel = (ssh: NonNullable<SqlConnectionDraft['ssh']>) => `${ssh.user}@${ssh.host}${ssh.keyPath ? ` · ${ssh.keyPath.split(/[\\/]/).pop()}` : ''}`;
 
 interface Props {
   result: Extract<SqlDbImportResult, { canceled: false }>;
@@ -83,7 +87,11 @@ export function SqlConnectionImport({ result, catalog, onBack, onDone }: Props) 
                 />
                 <ConnectionChip connection={candidate.draft} readOnlyLabel={readOnly} />
                 <span className="min-w-0 truncate font-mono text-caption text-fg-subtle">{connectionWhere(candidate.draft)}</span>
-                {candidate.draft.ssh ? <span className="font-mono text-micro text-fg-muted">{t('sqlWorkspace.connection.manager.viaSsh')}</span> : null}
+                {candidate.draft.ssh ? (
+                  <span data-testid="sql-import-ssh" className="truncate font-mono text-micro text-fg-muted">
+                    {t('sqlWorkspace.connection.manager.viaSsh', { target: tunnelLabel(candidate.draft.ssh) })}
+                  </span>
+                ) : null}
                 {candidate.origin ? <span className="truncate font-mono text-micro text-fg-muted">{candidate.origin}</span> : null}
                 {duplicates[index] ? (
                   <span data-testid="sql-import-duplicate" className="ml-auto shrink-0 rounded border border-border-default px-1.5 font-mono text-micro uppercase text-fg-muted">

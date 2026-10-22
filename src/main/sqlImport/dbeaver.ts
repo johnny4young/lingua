@@ -5,6 +5,7 @@
 
 import { DEFAULT_PORTS, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
+import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { draftFromJdbcUrl } from './jdbcUrl';
 
 type Json = Record<string, unknown>;
@@ -119,7 +120,7 @@ export function dbeaverCandidates(text: string): { found: SqlDbImportCandidate[]
               : null;
       if (draft && ssh) draft = { ...draft, ssh };
     }
-    if (!draft || !draft.name) {
+    if (!draft || !draft.name || found.length >= MAX_IMPORT_CONNECTIONS) {
       skipped += 1;
       continue;
     }

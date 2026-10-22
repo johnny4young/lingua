@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { importCandidates, siblingFile } from '../../../src/main/sqlImport';
+import { checkedCandidates, importCandidates, siblingFile } from '../../../src/main/sqlImport';
+import { isClientFile } from '../../../src/main/sqlImport/clientFiles';
 import { dataGripCandidates } from '../../../src/main/sqlImport/dataGrip';
 import { dbeaverCandidates } from '../../../src/main/sqlImport/dbeaver';
 import { draftFromJdbcUrl } from '../../../src/main/sqlImport/jdbcUrl';
@@ -107,6 +108,15 @@ describe('plist reader', () => {
     const started = performance.now();
     const parsed = parsePlist(sharedRefsPlist(40)) as unknown[];
     expect(Array.isArray(parsed) && parsed.length).toBe(2);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it('stays linear on comment floods and long tags', () => {
+    const started = performance.now();
+    expect(parsePlist(Buffer.from(`<plist>${'<!--'.repeat(400_000)}`))).toBeUndefined();
+    expect(parsePlist(Buffer.from(`<plist><a${' '.repeat(4_000_000)}`))).toBeUndefined();
+    const parsed = parsePlist(Buffer.from(`<plist><dict><key>__proto__</key><dict><key>polluted</key><true/></dict></dict></plist>`));
+    expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
     expect(performance.now() - started).toBeLessThan(1_000);
   });
 
@@ -245,6 +255,19 @@ describe('DataGrip import', () => {
     expect(draftFromJdbcUrl('jdbc:postgresql://a:5432,b:5432/db')).toMatchObject({ host: 'a', database: 'db' });
     expect(draftFromJdbcUrl('jdbc:sqlserver://s:1433')).toBeNull();
   });
+
+  it('never lets a password in a JDBC address form or property reach a draft', () => {
+    expect(draftFromJdbcUrl('jdbc:mysql://address=(host=db.example.com)(port=3306)(user=app)(password=S3cret)/shop')).toBeNull();
+    expect(draftFromJdbcUrl('jdbc:mysql://h/db;password=S3cret')).toMatchObject({ host: 'h', database: 'db' });
+    expect(JSON.stringify(draftFromJdbcUrl('jdbc:mysql://h/db;password=S3cret'))).not.toContain('S3cret');
+  });
+
+  it('skips a huge element head without scanning it for attributes', () => {
+    const started = performance.now();
+    const xml = `<component name="DataSourceManagerImpl"><data-source ${'a'.repeat(4_000_000)}></data-source></component>`;
+    expect(dataGripCandidates(xml, null, { home: HOME })).toEqual({ found: [], skipped: 0 });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe('import dispatch', () => {
@@ -256,8 +279,29 @@ describe('import dispatch', () => {
     expect(importCandidates('datagrip', xml, { sibling: null, home: HOME, picked: '/work/app/.idea/dataSources.xml' })).toMatchObject({ found: [{ draft: { path: '/work/app/a.db' } }] });
   });
 
+  it('passes only drafts main would accept, at most 500, and counts the rest', () => {
+    const many = { connections: Object.fromEntries(Array.from({ length: 600 }, (_, i) => [`c${i}`, { provider: 'postgresql', name: `c${i}`, configuration: { host: `h${i}` } }])) };
+    expect(importCandidates('dbeaver', Buffer.from(JSON.stringify(many)), { sibling: null, home: HOME, picked: '/x' })).toMatchObject({ skipped: 100, found: expect.any(Array) });
+    const bad = { connections: { a: { provider: 'postgresql', name: 'a', configuration: { host: 'bad host' } } } };
+    expect(importCandidates('dbeaver', Buffer.from(JSON.stringify(bad)), { sibling: null, home: HOME, picked: '/x' })).toEqual({ canceled: false, found: [], skipped: 1 });
+    expect(checkedCandidates(Array.from({ length: 501 }, (_, i) => ({ draft: { name: `n${i}`, engine: 'sqlite' as const, path: `/d/${i}.db`, readOnly: false, passwordMode: 'none' as const } })), 0).skipped).toBe(1);
+  });
+
   it('says unreadable and unrecognized apart', () => {
     expect(importCandidates('dbeaver', null, { sibling: null, home: HOME, picked: '/x' })).toMatchObject({ error: 'unreadable' });
     expect(importCandidates('dbeaver', Buffer.from('{}'), { sibling: null, home: HOME, picked: '/x' })).toMatchObject({ error: 'unrecognized' });
+  });
+});
+
+describe('client files in app-data folders', () => {
+  it('allows exactly the connection files of each client and nothing beside them', () => {
+    const lib = `${HOME}/Library/Application Support`;
+    expect(isClientFile('tableplus', `${lib}/com.tinyapp.TablePlus/Data/Connections.plist`, HOME)).toBe(true);
+    expect(isClientFile('tableplus', `${lib}/com.tinyapp.TablePlus-setapp/Data/ConnectionGroups.plist`, HOME)).toBe(true);
+    expect(isClientFile('tableplus', `${lib}/com.tinyapp.TablePlus/Data/Other.plist`, HOME)).toBe(false);
+    expect(isClientFile('tableplus', `${lib}/Lingua/sql-connections.json`, HOME)).toBe(false);
+    expect(isClientFile('datagrip', `${lib}/JetBrains/DataGrip2025.2/options/dataSources.xml`, HOME)).toBe(true);
+    expect(isClientFile('datagrip', `${lib}/JetBrains/DataGrip2025.2/options/../../x/dataSources.xml`, HOME)).toBe(false);
+    expect(isClientFile('dbeaver', `${lib}/com.tinyapp.TablePlus/Data/Connections.plist`, HOME)).toBe(false);
   });
 });
