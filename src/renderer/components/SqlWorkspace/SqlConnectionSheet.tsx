@@ -151,6 +151,12 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
       setUrlFilled(false);
       return;
     }
+    // The browser reaches only HTTPS, so a local server over plain HTTP needs Desktop.
+    if (sessionOnly && filled.ssl?.mode === 'disable') {
+      setUrlError(t('sqlWorkspace.connection.urlError.https-only'));
+      setUrlFilled(false);
+      return;
+    }
     setUrlError(null);
     setUrlFilled(true);
     setDraft((current) => ({ ...filled, ...(current.env ? { env: current.env } : {}), readOnly: current.readOnly }));

@@ -330,15 +330,16 @@ function sqliteCode(sql: string): { code: string; statements: number } {
   return { code: code.trim().replace(/;\s*$/, ''), statements };
 }
 
-/** A write on the SQLite family (a file, libSQL, D1): anything but one statement that leads with a read and holds no write word. */
-function isSqliteWrite(statement: string): boolean {
+/**
+ * A write on the SQLite family (a file, libSQL, D1): anything but one statement
+ * that leads with a read and holds no write word. D1's API has no read-only
+ * mode, so there a read must also lead with SELECT, WITH or VALUES.
+ */
+function isSqliteWrite(statement: string, d1 = false): boolean {
   const { code, statements } = sqliteCode(statement);
-  if (statements !== 1) return true;
+  if (statements !== 1 || (d1 && !/^(select|with|values)\b/i.test(code))) return true;
   return !REMOTE_READ_LEAD.test(code) || WRITE_WORD.test(code) || /\b(into|execute)\b/i.test(code);
 }
-
-/** D1's API has no read-only mode, so a read is one SELECT, WITH or VALUES statement with no write anywhere in it. */
-const isD1Read = (statement: string) => !isSqliteWrite(statement) && /^(select|with|values)\b/i.test(sqliteCode(statement).code);
 
 /** Engines with no read-only session of their own: a read-only connection there runs only statements proven to read. */
 export const provesReadsOnly = (engine: SqlEngineKind | undefined): boolean => engine === 'sqlserver' || engine === 'd1';
@@ -346,7 +347,7 @@ export const provesReadsOnly = (engine: SqlEngineKind | undefined): boolean => e
 /** Whether a statement may write on `engine`: SQL Server and the SQLite family get their own fail-closed checks; Explain on SQL Server plans without running. */
 export function isWriteSqlStatementOn(engine: SqlEngineKind | undefined, statement: string): boolean {
   if (engine === 'sqlserver') return !/^\s*explain\s/i.test(statement) && !isSqlServerReadBatch(statement);
-  if (engine === 'd1') return !isD1Read(statement);
+  if (engine === 'd1') return isSqliteWrite(statement, true);
   if (engine === 'sqlite' || engine === 'libsql') return isSqliteWrite(statement);
   return isWriteSqlStatement(statement);
 }

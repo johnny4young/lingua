@@ -84,6 +84,19 @@ describe('SqlConnectionSheet', () => {
     expect(screen.getByTestId('sql-connection-ssl-require').getAttribute('aria-checked')).toBe('true');
   });
 
+  it('offers only Turso and Neon in the browser, and says a plain HTTP Turso URL needs Desktop there', async () => {
+    const user = userEvent.setup();
+    setCatalog({ limit: null, vault: 'session', sessionOnly: true });
+    renderSheet();
+    expect(screen.queryByTestId('sql-connection-engine-postgres')).toBeNull();
+    expect(screen.getByTestId('sql-connection-engine-libsql').getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByTestId('sql-connection-url'));
+    await user.paste('libsql://127.0.0.1:8080?tls=0');
+    expect(screen.getByText(/Turso connects over HTTPS only/)).toBeTruthy();
+    expect(screen.getByTestId('sql-connection-save').textContent).toBe('Open for this tab');
+    expect(screen.getByTestId('sql-connection-tab-only')).toBeTruthy();
+  });
+
   it('says why a URL cannot be read', async () => {
     const user = userEvent.setup();
     renderSheet();

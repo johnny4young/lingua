@@ -59,6 +59,32 @@ describe('web database bridge', () => {
     expect(sent).toHaveLength(0);
   });
 
+  it('stops only the run it was asked to cancel while both wait for their answer', async () => {
+    let slow = false;
+    const db = createWebSqlDb(
+      (request) =>
+        new Promise((resolve, reject) => {
+          if (!slow) return resolve(pipeline(versionRows));
+          const timer = setTimeout(() => resolve(pipeline(versionRows)), 50);
+          request.signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        })
+    );
+    const a = ((await db.openAdhoc(turso, 'token')) as { connection: { id: string } }).connection.id;
+    const b = ((await db.openAdhoc({ ...turso, host: 'other-acme.turso.io' }, 'token')) as { connection: { id: string } }).connection.id;
+    await db.execute('warm-a', a, 'SELECT 1', { timeoutMs: 1_000 });
+    await db.execute('warm-b', b, 'SELECT 1', { timeoutMs: 1_000 });
+    slow = true;
+    const first = db.execute('ra', a, 'SELECT 1', { timeoutMs: 5_000 });
+    const second = db.execute('rb', b, 'SELECT 1', { timeoutMs: 5_000 });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(await db.cancel('ra')).toEqual({ cancelled: true });
+    expect(await first).toMatchObject({ status: 'cancelled' });
+    expect(await second).toMatchObject({ status: 'success' });
+  });
+
   it('tests a draft with the steps a browser can see', async () => {
     const { db } = bridge();
     const result = await db.test({ draft: turso, password: 'token' });

@@ -75,6 +75,11 @@ export interface SqlDbRunResult {
   fix?: SqlDbFixHint;
 }
 
+/** A run that failed before any row: no columns, no rows, the message and what the renderer can do about it. */
+export function failedRun(engine: SqlRemoteEngine, durationMs: number, status: SqlQueryStatus, message: string, fix?: SqlDbFixHint): SqlDbRunResult {
+  return { status, engine, columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false, durationMs, errorMessage: message, ...(fix ? { fix } : {}) };
+}
+
 export interface SqlDbFetchResult {
   rows: Array<Record<string, unknown>>;
   done: boolean;

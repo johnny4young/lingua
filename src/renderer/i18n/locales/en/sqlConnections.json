@@ -44,6 +44,7 @@
   "sqlWorkspace.connection.urlFilled": "The pasted URL filled the form.",
   "sqlWorkspace.connection.urlError.unsupported-scheme": "Use a postgres://, mysql://, sqlserver://, clickhouse://, libsql:// or sqlite: URL.",
   "sqlWorkspace.connection.urlError.desktop-only": "This engine needs Lingua Desktop. In the browser, paste a libsql:// URL or a Neon connection string.",
+  "sqlWorkspace.connection.urlError.https-only": "In the browser, Turso connects over HTTPS only. Drop tls=0, or use Lingua Desktop for a local server.",
   "sqlWorkspace.connection.urlError.invalid-url": "This URL cannot be read.",
   "sqlWorkspace.connection.urlError.missing-host": "The URL has no host.",
   "sqlWorkspace.connection.urlError.relative-path": "A SQLite URL needs the file's full path.",

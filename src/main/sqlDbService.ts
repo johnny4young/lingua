@@ -13,21 +13,22 @@ import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
 import { connectionSecretId, httpEndpoint, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
-import type {
-  SqlDbCatalogView,
-  SqlDbApplyResult,
-  SqlDbConnectionView,
-  SqlDbEditTable,
-  SqlDbFetchResult,
-  SqlDbIntrospect,
-  SqlDbIntrospectResult,
-  SqlDbRunOptions,
-  SqlDbRunResult,
-  SqlDbSaveResult,
-  SqlDbSecretKind,
-  SqlDbTarget,
-  SqlDbTestResult,
-  SqlDbTestStep,
+import {
+  failedRun,
+  type SqlDbCatalogView,
+  type SqlDbApplyResult,
+  type SqlDbConnectionView,
+  type SqlDbEditTable,
+  type SqlDbFetchResult,
+  type SqlDbIntrospect,
+  type SqlDbIntrospectResult,
+  type SqlDbRunOptions,
+  type SqlDbRunResult,
+  type SqlDbSaveResult,
+  type SqlDbSecretKind,
+  type SqlDbTarget,
+  type SqlDbTestResult,
+  type SqlDbTestStep,
 } from '../shared/sqlDb';
 import { isEstimableSqlStatement } from '../shared/sqlStatements';
 import { editGuard, runGuard } from '../shared/sqlRunGuard';
@@ -538,19 +539,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async execute(owner: number, runId: string, connectionId: string, sql: string, options: SqlDbRunOptions): Promise<SqlDbRunResult> {
       const started = performance.now();
-      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']): SqlDbRunResult => ({
-        status,
-        engine: entry?.engine ?? 'postgres',
-        columns: [],
-        rows: [],
-        rowCount: 0,
-        tooLarge: false,
-        rowCountIsLowerBound: false,
-        hasMore: false,
-        durationMs: Math.round(performance.now() - started),
-        errorMessage: message,
-        ...(fix ? { fix } : {}),
-      });
+      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']) =>
+        failedRun(entry?.engine ?? 'postgres', Math.round(performance.now() - started), status, message, fix);
       const entry = await connection(connectionId);
       if (!entry) return fail('connection-failed', 'Unknown connection.');
       const { writes, refusal } = runGuard(entry, sql, options);

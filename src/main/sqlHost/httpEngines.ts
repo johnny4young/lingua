@@ -10,6 +10,7 @@ import net from 'node:net';
 import type { Duplex } from 'node:stream';
 import tls from 'node:tls';
 import type { DriverSession } from '../../shared/sqlDriver';
+import { MAX_QUERY_TIMEOUT_MS } from '../../shared/sqlWorkspace';
 import { openD1 } from '../../shared/sqlHttp/d1';
 import { openLibsql } from '../../shared/sqlHttp/libsql';
 import { openNeon } from '../../shared/sqlHttp/neon';
@@ -17,7 +18,8 @@ import { MAX_HTTP_SQL_RESPONSE_BYTES, responseTooLarge, type HttpSqlTransport } 
 import type { DriverFactory } from './driver';
 import type { HostSessionConfig } from './protocol';
 
-const REQUEST_TIMEOUT_MS = 120_000;
+// Past the longest run the SQL tab allows; a shorter run ends on main's own timer.
+const REQUEST_TIMEOUT_MS = MAX_QUERY_TIMEOUT_MS + 60_000;
 
 interface Pinned {
   origin: string;

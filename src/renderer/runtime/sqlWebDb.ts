@@ -6,7 +6,7 @@
  */
 
 import { parseConnectionDraft, httpEndpoint, WEB_SQL_ENGINES, type SqlConnectionDraft, type SqlConnectionV1 } from '../../shared/sqlConnections';
-import type { SqlDbBridge, SqlDbCatalogView, SqlDbConnectionView, SqlDbRunResult, SqlDbSaveResult, SqlDbTestStep } from '../../shared/sqlDb';
+import { failedRun, type SqlDbBridge, type SqlDbCatalogView, type SqlDbConnectionView, type SqlDbRunResult, type SqlDbSaveResult, type SqlDbTestStep } from '../../shared/sqlDb';
 import { classifyConnectError, EditFailedError, readRowPage, SqlConnectError, type DriverSession, type RowPager, type SqlDriverError } from '../../shared/sqlDriver';
 import { openLibsql } from '../../shared/sqlHttp/libsql';
 import { openNeon } from '../../shared/sqlHttp/neon';
@@ -61,6 +61,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
   const secrets = new Map<string, string>();
   const sessions = new Map<string, Promise<DriverSession>>();
   const runs = new Map<string, Run>();
+  /** Runs still waiting for their first page, so Cancel stops only their own session. */
+  const waiting = new Map<string, DriverSession>();
 
   const view = (entry: SqlConnectionV1): SqlDbConnectionView => ({ ...entry, hasPassword: secrets.has(entry.id) });
 
@@ -211,19 +213,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     async execute(runId, connectionId, sql, options) {
       const started = performance.now();
       const entry = connections.get(connectionId);
-      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']): SqlDbRunResult => ({
-        status,
-        engine: entry?.engine ?? 'libsql',
-        columns: [],
-        rows: [],
-        rowCount: 0,
-        tooLarge: false,
-        rowCountIsLowerBound: false,
-        hasMore: false,
-        durationMs: Math.round(performance.now() - started),
-        errorMessage: message,
-        ...(fix ? { fix } : {}),
-      });
+      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']) =>
+        failedRun(entry?.engine ?? 'libsql', Math.round(performance.now() - started), status, message, fix);
       if (!entry) return fail('connection-failed', 'Unknown connection.');
       const { writes, refusal } = runGuard(entry, sql, options);
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
@@ -240,8 +231,10 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
         timedOut = true;
         void session.cancel();
       }, options.timeoutMs);
+      waiting.set(runId, session);
       try {
         const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
+        waiting.delete(runId);
         const run: Run = { connectionId, session, rows, pending: [], done: false };
         runs.set(runId, run);
         const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
@@ -267,6 +260,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
         const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : null;
         return detail ? fail('connection-failed', detail.message, detail.fix) : fail('sql-error', message);
       } finally {
+        waiting.delete(runId);
         clearTimeout(timer);
       }
     },
@@ -285,12 +279,8 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     },
 
     async cancel(runId) {
-      const run = runs.get(runId);
-      // A statement still waiting for its answer has no run yet; its connection's session stops it.
-      const session = run?.session ?? null;
-      if (session) return { cancelled: await session.cancel() };
-      for (const [id, pending] of sessions) if (!id.includes('#')) void pending.then((driver) => driver.cancel());
-      return { cancelled: true };
+      const session = runs.get(runId)?.session ?? waiting.get(runId);
+      return { cancelled: session ? await session.cancel() : false };
     },
 
     async closeRun(runId) {
