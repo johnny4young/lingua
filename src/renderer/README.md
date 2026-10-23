@@ -52,15 +52,17 @@ that release transition so a new engine cannot reopen partially cleared data.
 Full-result export (`COPY … TO` a virtual file, or rows through the result
 cursor) lives in [`runtime/duckdbExport.ts`](runtime/duckdbExport.ts), and
 foreign-key metadata in [`runtime/sqlForeignKeys.ts`](runtime/sqlForeignKeys.ts).
-Saved database connections run through
+Database connections run through
 [`runtime/sqlRemote.ts`](runtime/sqlRemote.ts), which sends one statement at a
-time to the desktop SQL host over `window.lingua.db` and pages the rest of a
-result through the same `SqlResultCursor`; the bridge is absent on web. Anything
+time through `sqlDbBridge()` and pages the rest of a result through the same
+`SqlResultCursor`: on desktop the bridge is `window.lingua.db` (main's SQL
+host), on web [`runtime/sqlWebDb.ts`](runtime/sqlWebDb.ts) (Turso and Neon for
+the tab, secrets in module memory). Anything
 that re-runs a result on DuckDB (Profile, Save as table, full export) checks the
 response's `engine` first. Staged row edits on an Explorer table (Labs) keep
 their state in [`hooks/useSqlRowEdits.ts`](hooks/useSqlRowEdits.ts), with the
 overlay rows and change set in `components/SqlWorkspace/sqlRowEditModel.ts`;
-Commit goes through `window.lingua.db.applyEdits` on a connection and
+Commit goes through the same bridge's `applyEdits` on a connection and
 [`runtime/sqlLocalEdits.ts`](runtime/sqlLocalEdits.ts) on Local.
 
 The run controls live in `CommandBar`, one 48 px row that replaces `AppChrome`

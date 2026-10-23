@@ -1,6 +1,7 @@
 /**
- * Renderer-facing shapes of the desktop `sql-db:*` IPC: the catalog view,
- * run results paged like the Local engine, and Test connection steps.
+ * Renderer-facing shapes of the database bridge (the desktop `sql-db:*` IPC,
+ * or the web's tab-only one): the catalog view, run results paged like the
+ * Local engine, and Test connection steps.
  */
 
 import type { SqlColumnMetadata, SqlQueryStatus } from './sqlWorkspace';
@@ -39,6 +40,8 @@ export interface SqlDbCatalogView {
   /** `null` means no limit. */
   limit: number | null;
   vault: SecretStorageMode;
+  /** The browser's bridge: only session connections, to the engines a browser can reach. */
+  sessionOnly?: boolean;
 }
 
 export type SqlDbSaveResult =
@@ -245,7 +248,7 @@ export type SqlDbApplyResult =
       edit?: RowEditFailure;
     };
 
-/** `window.lingua.db` on desktop; absent on the web build. */
+/** `window.lingua.db` on desktop; the web build has its own for session-only connections. */
 export interface SqlDbBridge {
   catalog(): Promise<SqlDbCatalogView>;
   save(draft: SqlConnectionDraft, id?: string, password?: string, sshPassword?: string): Promise<SqlDbSaveResult>;

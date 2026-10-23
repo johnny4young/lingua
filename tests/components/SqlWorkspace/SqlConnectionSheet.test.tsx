@@ -89,7 +89,7 @@ describe('SqlConnectionSheet', () => {
     renderSheet();
     await user.click(screen.getByTestId('sql-connection-url'));
     await user.paste('mongodb://db/orders');
-    expect(screen.getByText(/postgres:\/\/, mysql:\/\/, sqlserver:\/\/, clickhouse:\/\/ or sqlite:/)).toBeTruthy();
+    expect(screen.getByText(/postgres:\/\/, mysql:\/\/, sqlserver:\/\/, clickhouse:\/\/, libsql:\/\/ or sqlite:/)).toBeTruthy();
   });
 
   it('moves a default ClickHouse port with its TLS switch, and says SQL Server checks the name under verify-ca', async () => {
