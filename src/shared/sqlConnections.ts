@@ -5,7 +5,7 @@
  * a connection; they live in the secret store or in main's memory.
  */
 
-const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite'] as const;
+const SQL_REMOTE_ENGINES = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse'] as const;
 export type SqlRemoteEngine = (typeof SQL_REMOTE_ENGINES)[number];
 /** `duckdb` is the Local engine in the renderer; the rest run in the SQL host. */
 export type SqlEngineKind = 'duckdb' | SqlRemoteEngine;
@@ -54,7 +54,7 @@ export interface SqlConnectionV1 {
   id: string;
   name: string;
   engine: SqlRemoteEngine;
-  /** Postgres and MySQL. */
+  /** Every engine but SQLite. */
   host?: string;
   port?: number;
   database?: string;
@@ -62,7 +62,7 @@ export interface SqlConnectionV1 {
   ssl?: SqlConnectionSsl;
   /** SQLite: absolute path of the database file. */
   path?: string;
-  /** Postgres and MySQL through an SSH tunnel; the database host is resolved by the bastion. */
+  /** A server engine through an SSH tunnel; the database host is resolved by the bastion. */
   ssh?: SqlConnectionSsh;
   env?: SqlConnectionEnv;
   readOnly: boolean;
@@ -79,10 +79,16 @@ export interface SqlConnectionV1 {
 /** What the sheet sends to save; main assigns id and timestamps on create. */
 export type SqlConnectionDraft = Omit<SqlConnectionV1, 'version' | 'id' | 'createdAt' | 'updatedAt'>;
 
-export const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, number>> = {
+const DEFAULT_PORTS: Readonly<Record<Exclude<SqlRemoteEngine, 'sqlite'>, number>> = {
   postgres: 5432,
   mysql: 3306,
+  sqlserver: 1433,
+  // ClickHouse's HTTPS interface; its plain HTTP one listens on 8123.
+  clickhouse: 8443,
 };
+
+/** ClickHouse's plain HTTP port, the default when TLS is off. */
+const CLICKHOUSE_HTTP_PORT = 8123;
 
 const MAX_CONNECTION_NAME = 80;
 const MAX_HOST = 253;
@@ -98,6 +104,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const oneOf = <T extends string>(list: readonly T[], value: unknown): value is T =>
   typeof value === 'string' && (list as readonly string[]).includes(value);
+
+export const isSqlRemoteEngine = (value: unknown): value is SqlRemoteEngine => oneOf(SQL_REMOTE_ENGINES, value);
 
 export const isValidConnectionId = (value: unknown): value is string =>
   typeof value === 'string' && CONNECTION_ID_RE.test(value);
@@ -197,13 +205,13 @@ export function parseConnectionDraft(value: unknown): SqlConnectionDraft | null 
   }
   const host = text(value.host, MAX_HOST);
   if (!host || !HOST_RE.test(host)) return null;
-  const port = value.port === undefined ? DEFAULT_PORTS[value.engine] : value.port;
+  const ssl = value.ssl === undefined ? { mode: 'verify-full' as const } : parseSsl(value.ssl);
+  if (!ssl) return null;
+  const port = value.port === undefined ? defaultPort(value.engine, ssl.mode) : value.port;
   if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65_535) return null;
   const database = text(value.database, MAX_IDENT);
   const user = text(value.user, MAX_IDENT);
   if (database === null || user === null) return null;
-  const ssl = value.ssl === undefined ? { mode: 'verify-full' as const } : parseSsl(value.ssl);
-  if (!ssl) return null;
   const ssh = value.ssh === undefined ? undefined : parseSsh(value.ssh);
   if (ssh === null) return null;
   return { ...base, host, port, ...(database ? { database } : {}), ...(user ? { user } : {}), ssl, ...(ssh ? { ssh } : {}) };
@@ -253,6 +261,15 @@ const SSL_PARAM: Readonly<Record<string, SqlSslMode>> = {
  * agree on where the password ends.
  */
 export function withoutUrlPassword(raw: string): string {
+  // SQL Server's `;password=` properties are not part of a URL's user info.
+  if (/^\s*(sqlserver|mssql):\/\/[^;]*;/i.test(raw)) {
+    const split = splitSqlServerProperties(raw.slice(raw.indexOf('://') + 3));
+    const head = raw.slice(0, raw.indexOf('://') + 3);
+    // A value that never closes cannot be told apart from the password, so nothing after the host is kept.
+    if (!split) return `${head}${raw.slice(raw.indexOf('://') + 3).split(';')[0]}`;
+    const kept = split.pairs.filter(({ key }) => !PASSWORD_KEYS.has(key)).map(({ raw: text }) => text);
+    return `${head}${[split.authority, ...kept].join(';')}`;
+  }
   try {
     const url = new URL(raw.trim());
     if (!url.password) return raw;
@@ -263,7 +280,98 @@ export function withoutUrlPassword(raw: string): string {
   }
 }
 
-/** postgres://, postgresql://, mysql:// or sqlite:/absolute/path into a draft. */
+const URL_ENGINES: Readonly<Record<string, Exclude<SqlRemoteEngine, 'sqlite'>>> = {
+  postgres: 'postgres',
+  postgresql: 'postgres',
+  mysql: 'mysql',
+  sqlserver: 'sqlserver',
+  mssql: 'sqlserver',
+  clickhouse: 'clickhouse',
+};
+
+/** SQL Server's encrypt and trustServerCertificate switches as an SSL mode; absent means verify. */
+function sqlServerSsl(encrypt: string | undefined, trust: string | undefined): SqlSslMode {
+  if (encrypt === 'false' || encrypt === 'no') return 'disable';
+  return trust === 'true' || trust === 'yes' ? 'require' : 'verify-full';
+}
+
+/** `sqlserver://host:port;database=db;user=u;password=p;encrypt=true`, the form Prisma and many .env files use. */
+const PASSWORD_KEYS: ReadonlySet<string> = new Set(['password', 'pwd']);
+
+/**
+ * `host:port;key=value;…` with Prisma's `{…}` values, where a brace keeps `;`
+ * inside and `}}` stands for `}`; null when a brace never closes.
+ */
+function splitSqlServerProperties(rest: string): { authority: string; pairs: Array<{ key: string; value: string; raw: string }> } | null {
+  const first = rest.indexOf(';');
+  const authority = first < 0 ? rest : rest.slice(0, first);
+  const pairs: Array<{ key: string; value: string; raw: string }> = [];
+  let i = first < 0 ? rest.length : first + 1;
+  while (i < rest.length) {
+    const start = i;
+    const equals = rest.indexOf('=', i);
+    const semi = rest.indexOf(';', i);
+    if (equals < 0 || (semi >= 0 && semi < equals)) {
+      i = semi < 0 ? rest.length : semi + 1;
+      continue;
+    }
+    const key = rest.slice(i, equals).trim().toLowerCase();
+    let j = equals + 1;
+    while (rest[j] === ' ') j += 1;
+    let value = '';
+    if (rest[j] === '{') {
+      j += 1;
+      for (;;) {
+        const close = rest.indexOf('}', j);
+        if (close < 0) return null;
+        value += rest.slice(j, close);
+        if (rest[close + 1] === '}') {
+          value += '}';
+          j = close + 2;
+        } else {
+          j = close + 1;
+          break;
+        }
+      }
+      const end = rest.indexOf(';', j);
+      i = end < 0 ? rest.length : end + 1;
+      pairs.push({ key, value, raw: rest.slice(start, end < 0 ? rest.length : end) });
+    } else {
+      const end = rest.indexOf(';', j);
+      value = rest.slice(j, end < 0 ? rest.length : end).trim();
+      i = end < 0 ? rest.length : end + 1;
+      pairs.push({ key, value, raw: rest.slice(start, end < 0 ? rest.length : end) });
+    }
+  }
+  return { authority, pairs };
+}
+
+function parseSqlServerProperties(input: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
+  const split = splitSqlServerProperties(input.slice(input.indexOf('://') + 3));
+  if (!split) return { error: 'invalid-url' };
+  const authority = split.authority;
+  const props = new Map(split.pairs.map(({ key, value }) => [key, value]));
+  const match = /^(\[[^\]]+\]|[^:/\\]+)(?::(\d+))?(?:\\.*)?$/.exec(authority.trim());
+  if (!match) return { error: authority.trim() ? 'invalid-url' : 'missing-host' };
+  const host = match[1]!.replace(/^\[|\]$/g, '');
+  const database = props.get('database') ?? props.get('initial catalog');
+  const user = props.get('user') ?? props.get('username') ?? props.get('user id') ?? props.get('uid');
+  const password = props.get('password') ?? props.get('pwd');
+  const draft: SqlConnectionDraft = {
+    name: database || host,
+    engine: 'sqlserver',
+    host,
+    port: match[2] ? Number(match[2]) : DEFAULT_PORTS.sqlserver,
+    ...(database ? { database } : {}),
+    ...(user ? { user } : {}),
+    ssl: { mode: sqlServerSsl(props.get('encrypt')?.toLowerCase(), props.get('trustservercertificate')?.toLowerCase()) },
+    readOnly: false,
+    passwordMode: password ? 'keychain' : 'none',
+  };
+  return password ? { draft, password } : { draft };
+}
+
+/** postgres://, mysql://, sqlserver:// or mssql://, clickhouse:// or sqlite:/absolute/path into a draft. */
 export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: ConnectionUrlError } {
   const input = raw.trim();
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(input)?.[1]?.toLowerCase();
@@ -273,9 +381,9 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
     const name = path.split(/[\\/]/).pop() || 'SQLite';
     return { draft: { name, engine: 'sqlite', path, readOnly: false, passwordMode: 'none' } };
   }
-  const engine: SqlRemoteEngine | null =
-    scheme === 'postgres' || scheme === 'postgresql' ? 'postgres' : scheme === 'mysql' ? 'mysql' : null;
+  const engine = scheme ? URL_ENGINES[scheme] : undefined;
   if (!engine) return { error: 'unsupported-scheme' };
+  if (engine === 'sqlserver' && input.includes(';')) return parseSqlServerProperties(input);
   let url: URL;
   try {
     url = new URL(input);
@@ -288,13 +396,19 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
   const user = decode(url.username);
   const password = url.password ? decode(url.password) : undefined;
   const sslParam = (url.searchParams.get('sslmode') ?? url.searchParams.get('ssl-mode') ?? '').toLowerCase();
-  const sslFlag = url.searchParams.get('ssl');
-  const mode = SSL_PARAM[sslParam] ?? (sslFlag === 'true' || sslFlag === '1' ? 'require' : 'verify-full');
+  const sslFlag = (url.searchParams.get('ssl') ?? url.searchParams.get('secure'))?.toLowerCase();
+  // ClickHouse's 8123 is its plain HTTP port, so a URL naming it without an SSL hint means no TLS.
+  const plainClickhouse = engine === 'clickhouse' && url.port === String(CLICKHOUSE_HTTP_PORT);
+  const mode =
+    engine === 'sqlserver' && url.searchParams.has('encrypt')
+      ? sqlServerSsl(url.searchParams.get('encrypt')?.toLowerCase(), url.searchParams.get('trustServerCertificate')?.toLowerCase())
+      : (SSL_PARAM[sslParam] ??
+        (sslFlag === 'true' || sslFlag === '1' ? 'require' : sslFlag === 'false' || sslFlag === '0' || (sslFlag === undefined && plainClickhouse) ? 'disable' : 'verify-full'));
   const draft: SqlConnectionDraft = {
     name: database || host,
     engine,
     host,
-    port: url.port ? Number(url.port) : DEFAULT_PORTS[engine],
+    port: url.port ? Number(url.port) : defaultPort(engine, mode),
     ...(database ? { database } : {}),
     ...(user ? { user } : {}),
     ssl: { mode },
@@ -303,6 +417,13 @@ export function parseConnectionUrl(raw: string): ParsedConnectionUrl | { error: 
   };
   return password ? { draft, password } : { draft };
 }
+
+/** The port an engine listens on by default; ClickHouse's depends on TLS. */
+export const defaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>, sslMode: SqlSslMode = 'verify-full'): number =>
+  engine === 'clickhouse' && sslMode === 'disable' ? CLICKHOUSE_HTTP_PORT : DEFAULT_PORTS[engine];
+
+/** The port a client such as DBeaver or TablePlus assumes when it stores none; they reach ClickHouse over plain HTTP. */
+export const clientDefaultPort = (engine: Exclude<SqlRemoteEngine, 'sqlite'>): number => defaultPort(engine, engine === 'clickhouse' ? 'disable' : 'verify-full');
 
 const sameHops = (a: SqlSshHop[] = [], b: SqlSshHop[] = []) =>
   a.length === b.length && a.every((hop, index) => hop.host === b[index]!.host && hop.port === b[index]!.port && hop.user === b[index]!.user);

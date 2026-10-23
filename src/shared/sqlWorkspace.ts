@@ -38,7 +38,7 @@
  * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
  * with a parity test.
  */
-import type { SqlEngineKind } from './sqlConnections';
+import { isSqlRemoteEngine, type SqlEngineKind } from './sqlConnections';
 import { utf8ByteLength } from './utf8';
 
 export const SQL_QUERY_STATUSES = [
@@ -601,7 +601,7 @@ export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
     statementCount: value.statementCount,
     recordedAt: value.recordedAt,
     ...(errorMessage !== undefined ? { errorMessage } : {}),
-    ...(value.engine === 'postgres' || value.engine === 'mysql' || value.engine === 'sqlite' ? { engine: value.engine } : {}),
+    ...(isSqlRemoteEngine(value.engine) ? { engine: value.engine } : {}),
   };
 }
 

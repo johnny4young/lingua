@@ -29,7 +29,7 @@ import type {
   SqlDbTestResult,
   SqlDbTestStep,
 } from '../shared/sqlDb';
-import { isEstimableSqlStatement, isWriteSqlStatement } from '../shared/sqlStatements';
+import { isEstimableSqlStatement, isWriteSqlStatementOn } from '../shared/sqlStatements';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
@@ -37,7 +37,7 @@ import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
-import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, ROW_EDIT_ENGINES, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -493,8 +493,8 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
             steps.push({ id: 'ssh', status: 'ok', ms: result.sshMs ?? 0, detail: [...chain, `${entry.host}:${entry.port}`].join(' → ') });
           }
           const tls = entry.ssl?.mode ?? 'verify-full';
-          // Postgres reports no certificate when prefer fell back to plain TCP.
-          const plain = tls === 'disable' || (tls === 'prefer' && entry.engine === 'postgres' && !result.tls);
+          // prefer may have fallen back to a plain session; the driver says so.
+          const plain = tls === 'disable' || result.encrypted === false;
           steps.push(
             plain
               ? { id: 'tls', status: 'skipped', detail: tls }
@@ -531,9 +531,13 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       });
       const entry = await connection(connectionId);
       if (!entry) return fail('connection-failed', 'Unknown connection.');
-      const writes = isWriteSqlStatement(sql);
+      const writes = isWriteSqlStatementOn(entry.engine, sql);
       // Production asks for the typed name before any write; lifting read-only always does.
       const confirmed = options.readWrite?.confirmName === entry.name;
+      // SQL Server has no read-only transaction to refuse a write, so a read-only connection runs only batches proven to read.
+      if (writes && entry.engine === 'sqlserver' && entry.readOnly && !(options.readWrite && confirmed)) {
+        return fail('sql-error', 'This connection is read-only, and on SQL Server it runs one SELECT or WITH query at a time; anything else needs the typed connection name.', 'confirm-needed');
+      }
       if (writes && entry.env === 'prod' && !confirmed) return fail('sql-error', 'Writes to production need the typed connection name.', 'confirm-needed');
       if (writes && entry.confirmWrites && !confirmed) return fail('sql-error', 'Writes on this connection need the typed connection name.', 'confirm-needed');
       if (options.readWrite && !confirmed) return fail('sql-error', 'Type the connection name to run it read-write.', 'confirm-needed');
@@ -659,6 +663,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
       if (entry.readOnly) return { ok: false, reason: 'read-only' };
       if (entry.env === 'prod') return { ok: false, reason: 'production' };
       if (entry.confirmWrites && confirmName !== entry.name) return { ok: false, reason: 'confirm-needed' };
+      if (!ROW_EDIT_ENGINES.has(entry.engine)) return { ok: false, reason: 'not-editable' };
       try {
         const { config } = await configFor(entry);
         const detail = await deps.host.request<SqlDbIntrospectResult>(

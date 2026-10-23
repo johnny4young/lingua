@@ -89,7 +89,25 @@ describe('SqlConnectionSheet', () => {
     renderSheet();
     await user.click(screen.getByTestId('sql-connection-url'));
     await user.paste('mongodb://db/orders');
-    expect(screen.getByText(/postgres:\/\/, mysql:\/\/ or sqlite:/)).toBeTruthy();
+    expect(screen.getByText(/postgres:\/\/, mysql:\/\/, sqlserver:\/\/, clickhouse:\/\/ or sqlite:/)).toBeTruthy();
+  });
+
+  it('moves a default ClickHouse port with its TLS switch, and says SQL Server checks the name under verify-ca', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByTestId('sql-connection-engine-clickhouse'));
+    const port = () => (screen.getByTestId('sql-connection-port') as HTMLInputElement).value;
+    expect(port()).toBe('8443');
+    await user.click(screen.getByTestId('sql-connection-ssl-disable'));
+    expect(port()).toBe('8123');
+    await user.clear(screen.getByTestId('sql-connection-port'));
+    await user.type(screen.getByTestId('sql-connection-port'), '9000');
+    await user.click(screen.getByTestId('sql-connection-ssl-verify-full'));
+    expect(port()).toBe('9000');
+    await user.click(screen.getByTestId('sql-connection-engine-sqlserver'));
+    expect(port()).toBe('1433');
+    await user.click(screen.getByTestId('sql-connection-ssl-verify-ca'));
+    expect(screen.getByTestId('sql-connection-ssl-hint').textContent).toMatch(/SQL Server also checks the host name/);
   });
 
   it('opens production read-only unless the switch was changed by hand', async () => {

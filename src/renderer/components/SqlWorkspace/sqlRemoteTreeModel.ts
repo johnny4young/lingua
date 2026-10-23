@@ -22,6 +22,17 @@ const ENGINE_GROUPS: Readonly<Record<SqlRemoteEngine, ReadonlyArray<{ id: SqlRem
     { id: 'tables', kinds: ['table'] },
     { id: 'views', kinds: ['view'] },
   ],
+  sqlserver: [
+    { id: 'tables', kinds: ['table'] },
+    { id: 'views', kinds: ['view'] },
+    { id: 'functions', kinds: ['function', 'procedure'] },
+    { id: 'sequences', kinds: ['sequence'] },
+  ],
+  clickhouse: [
+    { id: 'tables', kinds: ['table'] },
+    { id: 'views', kinds: ['view'] },
+    { id: 'matviews', kinds: ['matview'] },
+  ],
 };
 
 /** Kinds whose rows can be read with a SELECT. */

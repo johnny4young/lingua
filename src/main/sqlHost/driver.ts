@@ -50,6 +50,8 @@ export interface DriverSession {
   /** Rows the planner expects a statement to touch, or null. Never executes it. */
   estimateRows(sql: string): Promise<number | null>;
   tls?(): { subject?: string; validTo?: string } | undefined;
+  /** False when the session ended up without TLS, as prefer allows. */
+  encrypted?(): boolean;
   /** One level of the catalog, read with the engine's own catalog queries. */
   introspect(request: SqlDbIntrospect): Promise<SqlDbIntrospectResult>;
   /** Runs every statement in one transaction; each must touch exactly one row, or all of them roll back. */
@@ -103,18 +105,21 @@ export function classifyConnectError(err: unknown): HostError {
   const record = (err ?? {}) as { code?: unknown; message?: unknown };
   const code = typeof record.code === 'string' ? record.code : '';
   const message = typeof record.message === 'string' ? record.message : String(err);
-  if (TLS_UNTRUSTED.has(code)) return { message, step: 'tls', fix: 'tls-untrusted' };
-  if (code === 'ERR_TLS_CERT_ALTNAME_INVALID') return { message, step: 'tls', fix: 'tls-hostname' };
+  if (TLS_UNTRUSTED.has(code) || /self[- ]signed certificate|unable to verify the first certificate|certificate has expired/i.test(message)) {
+    return { message, step: 'tls', fix: 'tls-untrusted' };
+  }
+  if (code === 'ERR_TLS_CERT_ALTNAME_INVALID' || /Hostname\/IP does not match certificate/i.test(message)) return { message, step: 'tls', fix: 'tls-hostname' };
   if (/does not support SSL|SSL connection is required|server does not allow insecure/i.test(message)) {
     return { message, step: 'tls', fix: 'tls-unsupported' };
   }
-  if (AUTH_CODES.has(code) || /password authentication failed|Access denied for user/i.test(message)) {
+  // SQL Server reports a missing database as a failed login too, so the database check comes first.
+  if (DATABASE_CODES.has(code) || /Cannot open database|Database \S+ does not exist|UNKNOWN_DATABASE/i.test(message)) return { message, step: 'auth', fix: 'database' };
+  if (AUTH_CODES.has(code) || /password authentication failed|Access denied for user|Login failed for user|Authentication failed|AUTHENTICATION_FAILED/i.test(message)) {
     return { message, step: 'auth', fix: 'auth' };
   }
   if (/password must be a string|no password|client password must be/i.test(message)) {
     return { message, step: 'auth', fix: 'password-needed' };
   }
-  if (DATABASE_CODES.has(code)) return { message, step: 'auth', fix: 'database' };
-  if (UNREACHABLE.has(code)) return { message, step: 'tcp', fix: 'unreachable' };
+  if (UNREACHABLE.has(code) || /\b(?:ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)\b/.test(message)) return { message, step: 'tcp', fix: 'unreachable' };
   return { message, step: 'server', fix: 'unknown' };
 }

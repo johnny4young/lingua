@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   isReadOnlySqlStatement,
+  isSqlServerReadBatch,
   isWriteSqlStatement,
+  isWriteSqlStatementOn,
   redactSqlSecrets,
   splitSqlStatements,
   statementAtOffset,
@@ -96,6 +98,10 @@ describe('redactSqlSecrets', () => {
     ["ATTACH 'md:db?motherduck_token=abc' AS md", "ATTACH '•••' AS md"],
     ["SELECT * FROM read_csv('https://user:pw@host/x.csv')", "SELECT * FROM read_csv('•••')"],
     ["SELECT * FROM read_parquet('https://b.s3.amazonaws.com/x?X-Amz-Signature=abc')", "SELECT * FROM read_parquet('•••')"],
+    ["CREATE LOGIN app WITH PASSWORD = 'S3cret!'", "CREATE LOGIN app WITH PASSWORD = '•••'"],
+    ["CREATE USER app IDENTIFIED WITH sha256_password BY 'S3cret'", "CREATE USER app IDENTIFIED WITH sha256_password BY '•••'"],
+    ["SELECT * FROM remote('db:9000', 'logs', 'events', 'reader', 'S3cret')", "SELECT * FROM remote('•••', '•••', '•••', '•••', '•••')"],
+    ["SELECT * FROM s3('https://b/x.csv', 'AKIA1', 'shh')", "SELECT * FROM s3('•••', '•••', '•••')"],
   ])('masks %j', (sql, expected) => {
     expect(redactSqlSecrets(sql)).toBe(expected);
   });
@@ -135,3 +141,37 @@ describe('isWriteSqlStatement', () => {
   });
 });
 
+describe('SQL Server batches', () => {
+  it.each([
+    'SELECT 1 EXEC dbo.purge',
+    "SELECT 1; COMMIT; EXEC('DELETE FROM dbo.users')",
+    "SELECT 1 AS [a']; DELETE FROM t; --']",
+    'SELECT 1 GRANT CONTROL ON SCHEMA::dbo TO public',
+    'SELECT 1 COMMIT DELETE FROM t',
+    'SELECT * INTO dbo.copy FROM dbo.orders',
+    "SELECT * FROM OPENROWSET('SQLNCLI', 'Server=x;Trusted_Connection=yes', 'SELECT 1')",
+    'DECLARE @x int = 1 SELECT @x',
+    "SELECT 'unclosed",
+    'WITH a AS (SELECT 1 AS n) DELETE FROM t',
+    'SELECT 1 /* nested /* comment */ still */ ; DROP TABLE t',
+  ])('counts %j as a write, since it is not one proven query', (sql) => {
+    expect(isSqlServerReadBatch(sql)).toBe(false);
+    expect(isWriteSqlStatementOn('sqlserver', sql)).toBe(true);
+  });
+
+  it.each([
+    'SELECT id, total FROM dbo.orders ORDER BY id OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY;',
+    'WITH recent AS (SELECT * FROM dbo.orders WHERE placed > DATEADD(day, -7, GETDATE())) SELECT COUNT(*) FROM recent',
+    "SELECT [delete], [exec] FROM dbo.[update] WHERE note = 'EXEC dbo.purge; COMMIT'",
+    'SELECT TOP (10) * FROM dbo.orders -- DELETE later',
+  ])('lets %j through as a read', (sql) => {
+    expect(isSqlServerReadBatch(sql)).toBe(true);
+    expect(isWriteSqlStatementOn('sqlserver', sql)).toBe(false);
+  });
+
+  it('treats Lingua\'s Explain as a plan, and keeps the shared check for other engines', () => {
+    expect(isWriteSqlStatementOn('sqlserver', 'EXPLAIN DELETE FROM dbo.orders')).toBe(false);
+    expect(isWriteSqlStatementOn('postgres', 'SELECT 1 EXEC x')).toBe(true);
+    expect(isWriteSqlStatementOn('postgres', 'SELECT 1')).toBe(false);
+  });
+});

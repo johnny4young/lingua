@@ -2,9 +2,15 @@
 
 import { parseConnectionUrl, type SqlConnectionDraft } from '../../shared/sqlConnections';
 
-/** jdbc:postgresql://, jdbc:mysql://, jdbc:mariadb:// or jdbc:sqlite:/path; null for other engines and other URL forms. */
+/** SQL Server's database from its `;databaseName=` property; no other property is read. */
+function sqlServerDatabase(raw: string): string | undefined {
+  const match = /;\s*(?:databaseName|database)\s*=\s*([^;]+)/i.exec(raw);
+  return match?.[1]?.trim() || undefined;
+}
+
+/** jdbc:postgresql://, jdbc:mysql://, jdbc:mariadb://, jdbc:sqlserver://, jdbc:clickhouse:// or jdbc:sqlite:/path; null for other engines and URL forms. */
 export function draftFromJdbcUrl(raw: string): SqlConnectionDraft | null {
-  // `;key=value` properties can carry a password and are never read.
+  // `;key=value` properties can carry a password; only SQL Server's database name is read from them.
   const url = raw.trim().replace(/^jdbc:/i, '').split(';')[0]!;
   const scheme = /^([a-z0-9]+):/i.exec(url)?.[1]?.toLowerCase();
   if (scheme === 'sqlite') {
@@ -19,5 +25,6 @@ export function draftFromJdbcUrl(raw: string): SqlConnectionDraft | null {
   if ('error' in parsed) return null;
   // Connector/J's address=(host=…)(password=…) form and other parenthesised hosts are not a plain host.
   if (/[()=]/.test(`${parsed.draft.host}${parsed.draft.database ?? ''}`)) return null;
-  return { ...parsed.draft, passwordMode: 'keychain' };
+  const database = parsed.draft.engine === 'sqlserver' && !parsed.draft.database ? sqlServerDatabase(raw) : undefined;
+  return { ...parsed.draft, ...(database ? { database, name: parsed.draft.name === parsed.draft.host ? database : parsed.draft.name } : {}), passwordMode: 'keychain' };
 }

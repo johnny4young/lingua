@@ -9,7 +9,7 @@ export const ENV_FILES = ['.env', '.env.local', '.env.development', '.env.develo
 
 const MAX_LINE = 4096;
 const MAX_KEY = 128;
-const ENGINE_WORDS = new Set(['DATABASE', 'DB', 'POSTGRES', 'POSTGRESQL', 'PG', 'MYSQL', 'MARIADB', 'SQLITE']);
+const ENGINE_WORDS = new Set(['DATABASE', 'DB', 'POSTGRES', 'POSTGRESQL', 'PG', 'MYSQL', 'MARIADB', 'SQLITE', 'MSSQL', 'SQLSERVER', 'CLICKHOUSE', 'CH']);
 
 /** DATABASE_URL, POSTGRES_URL_NON_POOLING, HEROKU_POSTGRESQL_RED_URL, PG_URI and the like, plus Prisma's DIRECT_URL. */
 function isDatabaseUrlKey(key: string): boolean {

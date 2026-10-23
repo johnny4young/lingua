@@ -1,16 +1,18 @@
 import type { SqlEngineKind } from '../../../shared/sqlConnections';
+import { sqlDialect } from '../../../shared/sqlDialect';
 import { quoteSqlTableReference } from '../../../shared/sqlQuote';
 
 export { quoteSqlIdentifier, quoteSqlTableReference } from '../../../shared/sqlQuote';
 
 /**
- * Build the `SELECT * FROM <table> LIMIT 100;` that opening a table from
- * the Explorer runs, and that Edit in editor takes into the query. The table name is quoted so
+ * Build the `SELECT * FROM <table> LIMIT 100;` (`SELECT TOP (100)` on SQL
+ * Server) that opening a table from the Explorer runs, and that Edit in
+ * editor takes into the query. The table name is quoted so
  * any identifier the engine reports (spaces, reserved words, mixed
  * case, special characters) round-trips into a valid, single statement.
  */
 export function buildSelectStarter(tableName: string, schemaName?: string, engine?: SqlEngineKind): string {
-  return `SELECT * FROM ${quoteSqlTableReference(tableName, schemaName, engine)} LIMIT 100;`;
+  return sqlDialect(engine).firstRows(quoteSqlTableReference(tableName, schemaName, engine), 100);
 }
 
 /** `HH:MM:SS` in the user's locale; the raw string when it is not a date. */

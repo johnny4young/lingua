@@ -264,6 +264,7 @@ export function useSqlConnectionObjects({
         tab={objectView.tab}
         onTab={(tab) => showObject(objectView.connectionId, objectView.object, tab)}
         onInsertSelect={() => insertSql(buildSelectStarter(objectView.object.name, objectView.object.schema, activeConnection.engine))}
+        selectTop={activeConnection.engine === 'sqlserver'}
         onEnterPassword={(kind) => setCatalogPasswordFor(objectView.connectionId, kind)}
         data={
           preview?.connectionId === objectView.connectionId && preview.table.name === `${objectView.object.schema}.${objectView.object.name}` ? (

@@ -17,6 +17,7 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import type { runChatCompletion } from '../../runtime/aiClient';
 import { runtimeNoteFor, type AiPlatform } from '../../../shared/ai/runtimeNotes';
 import type { RuntimeMode } from '../../../shared/runtimeModes';
+import type { SqlRemoteEngine } from '../../../shared/sqlConnections';
 
 /** Web build sets `window.lingua.platform = 'web'`; desktop preload sets the OS. */
 function currentPlatform(): AiPlatform {
@@ -37,7 +38,7 @@ export interface ExplainErrorButtonProps {
    */
   readonly runtimeMode?: RuntimeMode;
   /** A SQL error from a saved connection names its engine instead of Local DuckDB. */
-  readonly sqlEngine?: 'postgres' | 'mysql' | 'sqlite';
+  readonly sqlEngine?: SqlRemoteEngine;
   /**
    * Apply-&-re-run seam forwarded to the dialog: replace the surface's code
    * with the AI suggestion and re-run. Omit on surfaces with nothing to

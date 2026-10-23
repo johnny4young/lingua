@@ -14,13 +14,13 @@ import {
   type SqlTableForeignKeys,
 } from '../runtime/sqlForeignKeys';
 import { toSqlResponse } from './useSqlRunner';
-import type { RowEditTable } from '../../shared/sqlRowEdits';
+import { ROW_EDIT_ENGINES, type RowEditTable } from '../../shared/sqlRowEdits';
 import { loadLocalEditTable } from '../runtime/sqlLocalEdits';
 import { findConnection } from '../stores/sqlConnectionsStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /** Whether the opened table's rows can be edited: its target, or why not. */
-export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'no-key' | 'read-only' | 'production' };
+export type SqlTableEdit = { table: RowEditTable } | { reason: 'view' | 'no-key' | 'read-only' | 'production' | 'engine' };
 
 /** A table opened from the Explorer or a foreign-key link: its rows on screen, never a saved run. */
 export interface SqlTablePreview {
@@ -40,6 +40,7 @@ async function remoteEdit(table: SqlSchemaTable, remote: SqlRemoteTableTarget): 
   const connection = findConnection(remote.connectionId);
   if (connection?.readOnly) return { reason: 'read-only' };
   if (connection?.env === 'prod') return { reason: 'production' };
+  if (!ROW_EDIT_ENGINES.has(remote.engine)) return { reason: 'engine' };
   if (table.kind && table.kind !== 'table') return { reason: 'view' };
   const name = table.sqlName ?? table.name;
   const schema = table.schemaName ?? '';

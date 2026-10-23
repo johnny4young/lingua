@@ -17,6 +17,8 @@
 
 import { isJavaScriptFamily } from '../languageFamilies';
 import type { RuntimeMode } from '../runtimeModes';
+import type { SqlRemoteEngine } from '../sqlConnections';
+import { sqlDialect } from '../sqlDialect';
 
 /** Where the app itself runs. Web = browser build; desktop = Electron. */
 export type AiPlatform = 'web' | 'desktop';
@@ -33,10 +35,8 @@ export interface RuntimeNoteInput {
    */
   readonly runtimeMode?: RuntimeMode;
   /** The saved connection's engine for a SQL query that did not run on Local DuckDB. */
-  readonly sqlEngine?: 'postgres' | 'mysql' | 'sqlite';
+  readonly sqlEngine?: SqlRemoteEngine;
 }
-
-const SQL_ENGINE_NAMES = { postgres: 'PostgreSQL', mysql: 'MySQL', sqlite: 'SQLite' } as const;
 
 const JS_NOTES: Readonly<Record<RuntimeMode, string>> = {
   worker:
@@ -83,7 +83,7 @@ export function runtimeNoteFor(input: RuntimeNoteInput): string | undefined {
       );
     case 'sql':
       if (input.sqlEngine) {
-        const engine = SQL_ENGINE_NAMES[input.sqlEngine];
+        const engine = sqlDialect(input.sqlEngine).label;
         return `The query ran on a ${engine} database through a saved connection in the desktop app: ${engine} SQL dialect, and the tables live in that database.`;
       }
       return (

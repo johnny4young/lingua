@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path';
-import { DEFAULT_PORTS, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
+import { clientDefaultPort, type SqlConnectionDraft, type SqlConnectionEnv, type SqlSslMode } from '../../shared/sqlConnections';
 import type { SqlDbImportCandidate } from '../../shared/sqlDb';
 import { MAX_IMPORT_CONNECTIONS } from './limits';
 import { parsePlist, type PlistValue } from './plist';
@@ -15,7 +15,15 @@ const isDict = (value: PlistValue | undefined): value is Dict => Boolean(value) 
 const str = (value: PlistValue | undefined) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
 const flag = (value: PlistValue | undefined) => value === true || value === 1;
 
-const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = { postgresql: 'postgres', mysql: 'mysql', mariadb: 'mysql', sqlite: 'sqlite' };
+const ENGINE: Readonly<Record<string, SqlConnectionDraft['engine']>> = {
+  postgresql: 'postgres',
+  mysql: 'mysql',
+  mariadb: 'mysql',
+  sqlite: 'sqlite',
+  sqlserver: 'sqlserver',
+  microsoftsqlserver: 'sqlserver',
+  clickhouse: 'clickhouse',
+};
 
 const ENV: Readonly<Record<string, SqlConnectionEnv>> = { local: 'dev', development: 'dev', testing: 'staging', staging: 'staging', production: 'prod' };
 
@@ -86,14 +94,14 @@ export function tablePlusCandidates(data: Buffer, groups: Buffer | null, home: s
     } else if (engine) {
       const host = str(entry.DatabaseHost);
       const ssh = sshOf(entry, home);
-      const port = Number(str(entry.DatabasePort) ?? DEFAULT_PORTS[engine]);
+      const port = Number(str(entry.DatabasePort) ?? clientDefaultPort(engine));
       draft =
         host && ssh !== null
           ? {
               ...base,
               engine,
               host,
-              port: Number.isInteger(port) && port > 0 ? port : DEFAULT_PORTS[engine],
+              port: Number.isInteger(port) && port > 0 ? port : clientDefaultPort(engine),
               ...(str(entry.DatabaseName) ? { database: str(entry.DatabaseName) } : {}),
               ...(str(entry.DatabaseUser) ? { user: str(entry.DatabaseUser) } : {}),
               ssl: sslOf(entry, driver),

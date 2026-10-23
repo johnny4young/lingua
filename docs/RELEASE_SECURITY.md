@@ -38,6 +38,20 @@ release checklist.
   export holds no secret, is written 0600 and refuses symlinks and protected
   folders
   (`tests/main/sqlImport/`, `tests/ipc/sqlDb.test.ts`).
+- Confirm SQL Server and ClickHouse names stay names (bracket and backslash
+  quoting, catalog names as parameters), that a SQL Server batch counts as a
+  read only when `isSqlServerReadBatch` proves it is one query (anything else
+  needs the typed name on read-only, production and Confirm every write
+  connections), that ClickHouse's `readonly = 2` cannot be lifted from the
+  statement, that a ClickHouse certificate is checked against an IP-literal
+  host itself, that
+  `prefer` falls back to plain text only when the server says it cannot do
+  TLS (`tests/integration/sqlHostServerEngines.test.ts`,
+  `tests/main/sqlHost/driver.test.ts`, `tests/main/sqlHost/clickhouseTls.test.ts`,
+  `tests/shared/sqlStatements.test.ts`, `tests/main/sqlDbService.test.ts`,
+  `tests/shared/sqlDialect.test.ts`). By
+  hand: a packaged build connects to each engine, since Electron's BoringSSL
+  words TLS errors differently from Node's OpenSSL.
 - Confirm staged row edits reach main as a change set, not SQL; that main
   refuses read-only and production connections and an unconfirmed commit with
   Confirm every write, checks every key and column against its own read of the
@@ -314,9 +328,9 @@ pure `scripts/lib/bundledAudit.mjs`) closes a hole the production gate above
 cannot see, and is wired as a blocking step into both `ci.yml` and
 `release.yml`.
 
-**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — nine
-packages in this repository, including the database drivers `pg`, `pg-cursor`
-and `mysql2` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
+**The hole.** `pnpm audit --prod` inspects package.json `dependencies` — eleven
+packages in this repository, including the database drivers `pg`, `pg-cursor`,
+`mysql2`, `tedious` and `@clickhouse/client` and the SSH client `ssh2`, which stay external to the SQL host bundle and load from
 `node_modules` in the packaged app. But Vite *bundles* the main and preload graphs, so
 any package imported by `src/main/**` is inlined into `.vite/build/main.js` and
 ships to users regardless of how it is declared. Two such packages are

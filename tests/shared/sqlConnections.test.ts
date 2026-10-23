@@ -55,6 +55,28 @@ describe('parseConnectionUrl', () => {
     expect(parseConnectionUrl('sqlite:C:\\data\\app.db')).toMatchObject({ draft: { path: 'C:\\data\\app.db' } });
   });
 
+  it('reads SQL Server URLs in both forms, with encrypt and trustServerCertificate as the SSL mode', () => {
+    expect(parseConnectionUrl('mssql://sa:pw@sql.internal/sales?encrypt=true&trustServerCertificate=true')).toEqual({
+      draft: { name: 'sales', engine: 'sqlserver', host: 'sql.internal', port: 1433, database: 'sales', user: 'sa', ssl: { mode: 'require' }, readOnly: false, passwordMode: 'keychain' },
+      password: 'pw',
+    });
+    expect(parseConnectionUrl('sqlserver://sql.internal:14330;database=sales;user=app;password=p;w=1;encrypt=false')).toEqual({
+      draft: { name: 'sales', engine: 'sqlserver', host: 'sql.internal', port: 14330, database: 'sales', user: 'app', ssl: { mode: 'disable' }, readOnly: false, passwordMode: 'keychain' },
+      password: 'p',
+    });
+    expect(parseConnectionUrl('sqlserver://sql.internal;initial catalog=hr')).toMatchObject({ draft: { database: 'hr', ssl: { mode: 'verify-full' }, passwordMode: 'none' } });
+    expect(parseConnectionUrl('sqlserver://sql.internal;database={my;db};password={pa;ss}}w}')).toMatchObject({ draft: { database: 'my;db', name: 'my;db' }, password: 'pa;ss}w' });
+    expect(parseConnectionUrl('sqlserver://sql.internal;password={unclosed')).toEqual({ error: 'invalid-url' });
+    expect(parseConnectionUrl('sqlserver://;database=x')).toEqual({ error: 'missing-host' });
+  });
+
+  it('reads ClickHouse URLs, taking port 8123 without an SSL hint as plain HTTP', () => {
+    expect(parseConnectionUrl('clickhouse://default@ch.internal/analytics')).toMatchObject({ draft: { engine: 'clickhouse', port: 8443, ssl: { mode: 'verify-full' } } });
+    expect(parseConnectionUrl('clickhouse://default@localhost:8123/analytics')).toMatchObject({ draft: { port: 8123, ssl: { mode: 'disable' } } });
+    expect(parseConnectionUrl('clickhouse://default@ch.internal/analytics?secure=false')).toMatchObject({ draft: { port: 8123, ssl: { mode: 'disable' } } });
+    expect(parseConnectionUrl('clickhouse://default@ch.internal:8123/analytics?ssl=true')).toMatchObject({ draft: { port: 8123, ssl: { mode: 'require' } } });
+  });
+
   it('names what is wrong without echoing the URL', () => {
     expect(parseConnectionUrl('sqlite:app.db')).toEqual({ error: 'relative-path' });
     expect(parseConnectionUrl('mongodb://x')).toEqual({ error: 'unsupported-scheme' });
@@ -130,6 +152,14 @@ describe('parseConnectionDraft', () => {
     expect(parseConnection({ ...stored, id: '../x' })).toBeNull();
   });
 
+  it('defaults a ClickHouse port to the one its TLS setting listens on', () => {
+    const base = { name: 'ch', engine: 'clickhouse', host: 'ch.internal', readOnly: false, passwordMode: 'none' };
+    expect(parseConnectionDraft(base)).toMatchObject({ port: 8443 });
+    expect(parseConnectionDraft({ ...base, ssl: { mode: 'disable' } })).toMatchObject({ port: 8123 });
+    expect(parseConnectionDraft({ ...base, engine: 'sqlserver' })).toMatchObject({ port: 1433 });
+    expect(parseConnectionDraft({ ...base, engine: 'oracle' })).toBeNull();
+  });
+
   it('labels a target without the user', () => {
     expect(connectionTarget({ engine: 'postgres', host: 'db', port: 5432, database: 'orders' })).toBe('db/orders');
     expect(connectionTarget({ engine: 'mysql', host: 'db', port: 3307 })).toBe('db:3307');
@@ -147,6 +177,11 @@ describe('saved connection quota', () => {
 
 describe('withoutUrlPassword', () => {
   it('drops the password and keeps the user, host and options', () => {
+    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password=S3;cret;user=app')).toBe('sqlserver://sql:1433;database=erp;user=app');
+    expect(withoutUrlPassword('mssql://sql;Pwd=S3cret;encrypt=true')).toBe('mssql://sql;encrypt=true');
+    // A braced value keeps its semicolons and doubled braces; an unclosed one keeps nothing after the host.
+    expect(withoutUrlPassword('sqlserver://sql:1433;user=app;password={pa;ss}}w;rd};encrypt=true')).toBe('sqlserver://sql:1433;user=app;encrypt=true');
+    expect(withoutUrlPassword('sqlserver://sql:1433;database=erp;password={pa;ss')).toBe('sqlserver://sql:1433');
     expect(withoutUrlPassword('postgres://app:s3cr:et@db:5432/orders?sslmode=disable')).toBe('postgres://app@db:5432/orders?sslmode=disable');
     expect(withoutUrlPassword('  mysql://root:pw@127.0.0.1/billing')).toBe('mysql://root@127.0.0.1/billing');
   });

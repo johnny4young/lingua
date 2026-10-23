@@ -335,10 +335,11 @@ a `ROLLBACK` when any row fails.
 
 ### Database connections and the SQL host (desktop)
 
-Saved Postgres, MySQL and SQLite connections run outside the renderer. Main
-forks `src/main/sqlHost/hostEntry.ts` (bundled to `.vite/build/sqlHost.js`
-by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`, `pg-native`, `mysql2` and
-`ssh2` left external) as the `Lingua SQL host` utility process through
+Saved Postgres, MySQL, SQL Server, ClickHouse and SQLite connections run
+outside the renderer. Main forks `src/main/sqlHost/hostEntry.ts` (bundled to
+`.vite/build/sqlHost.js` by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`,
+`pg-native`, `mysql2`, `ssh2`, `tedious` and `@clickhouse/client` left
+external) as the `Lingua SQL host` utility process through
 `createSqlHostSupervisor`; a request pending when the host exits fails, and
 the next request forks a new host. It starts without the `PG*` and `MYSQL_*`
 environment variables, and Postgres never falls back to a `.pgpass` file, so a
@@ -359,7 +360,8 @@ serialized write, caps session-only connections, resolves the host name and
 passes the pinned address with the host name for TLS identity and SNI,
 refuses a SQLite or certificate file on a network share or in a protected
 folder (checked as given and after resolving symlinks), estimates only a single query or DML statement
-(EXPLAIN inside a transaction that is always rolled back), and refuses
+(EXPLAIN inside a transaction that is always rolled back; SHOWPLAN on SQL
+Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
 (`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
@@ -440,6 +442,26 @@ table without a primary key is keyed by DuckDB's `rowid`, which the Explorer's
 preview reads (`SELECT rowid, *`), and `runEditTransaction` keeps one DuckDB
 connection for `BEGIN`, the statements and `COMMIT`, then checkpoints.
 
+SQL Server runs through `tedious` (`sqlHost/sqlserver.ts`), imported on the
+first SQL Server connection because it loads the Azure SDK; packaging leaves
+out that SDK's browser build. Its connector hands tedious the socket to the
+pinned address or the tunnel channel, so DNS pinning and tunnels work as for
+the other engines. Explain arrives as `EXPLAIN …`, which T-SQL has no use for,
+and becomes `SET SHOWPLAN_ALL` around the statement, which also gives the
+production row estimate. ClickHouse runs over its HTTP interface through
+`@clickhouse/client` (`sqlHost/clickhouse.ts`) with one agent whose sockets go
+to the pinned address or through the tunnel, wrapped in TLS when the
+connection uses it. Statements that return rows stream as
+`JSONCompactEachRowWithNamesAndTypes`; the rest run as commands that report
+written rows. Closing or cancelling a result drops its HTTP request, which ends
+a reading query (`cancel_http_readonly_queries_on_client_close`), and Cancel
+also sends `KILL QUERY` with its own 5 s deadline, since KILL can wait on a
+query blocked writing to a paused client. Under `prefer` either engine falls
+back to a plain session only when the server says so (tedious' did not
+negotiate encryption, an HTTP reply to the TLS hello), never on a reset, and
+Test connection then reports TLS as skipped. Staged edits bind `@p1`… on SQL
+Server; ClickHouse never takes them (`ROW_EDIT_ENGINES`).
+
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`
 transaction and every MySQL run sets `SET SESSION TRANSACTION READ ONLY` and
@@ -448,15 +470,23 @@ a statement that changes the session default cannot make the next run
 writable. SQLite opens the file read-only. A confirmed write runs read-write
 for that run only: one extended-protocol statement in its own transaction on
 Postgres, the session switched for the statement on MySQL (the next run sets
-read-only again), and its own handle on SQLite. A role that can only read is
-still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
+read-only again), and its own handle on SQLite. SQL Server has no read-only
+transaction and runs a whole batch without semicolons, so main classifies its
+batches with `isSqlServerReadBatch`, which fails closed: only one `SELECT` or
+`WITH` query with no statement keyword outside strings, `[names]` and comments
+counts as a read, and anything else needs the typed name on a read-only,
+production or Confirm every write connection. A proven read on a read-only
+connection still runs inside a transaction that is always rolled back, and ClickHouse runs with `readonly = 2`, which its
+server enforces. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
 `VACUUM INTO`, so a query cannot reach a file main did not check.
 
 A result comes back like Local's: a first window under the same row and byte
 caps, then pages read by run id through `sql-db:fetch`. Wide numbers, dates
-and JSON arrive as text and bytes as base64. Cancel uses `pg_cancel_backend`
-from a side connection on Postgres and `KILL QUERY` on MySQL, which also stops
-the server when a result is closed unread; SQLite cannot be interrupted and
+and JSON arrive as text and bytes as base64, except SQL Server decimals, which
+tedious hands over as numbers. Cancel uses `pg_cancel_backend` from a side
+connection on Postgres, `KILL QUERY` on MySQL, a TDS cancel on the SQL Server
+session and the dropped request plus `KILL QUERY` on ClickHouse, which also
+stops the server when a result is closed unread; SQLite cannot be interrupted and
 blocks the host while it runs, so a cancel the host does not answer within
 three seconds restarts it. Reading a run that a newer run on the same
 connection closed is an error, not an empty end. In the renderer,
@@ -466,12 +496,13 @@ keeps Local alone.
 
 The catalog is read one level at a time through `sql-db:introspect`: the
 schemas, one schema's objects, one schema's columns, or one object's detail
-(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite}Catalog.ts`
-pass names as bind parameters (server-side prepared statements on MySQL, so
+(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite,sqlserver,clickhouse}Catalog.ts`
+pass names as bind parameters (`@p1` on SQL Server, `{p1:String}` on ClickHouse) (server-side prepared statements on MySQL, so
 `NO_BACKSLASH_ESCAPES` cannot turn a name into SQL), or quoted for MySQL's
 `SHOW CREATE`, and cap a level at 5,000 schemas or objects or 20,000 columns,
 saying when it was cut. Each level reads inside a read-only transaction that is
-rolled back, stops after 25 seconds, and on Postgres pins `search_path` to
+rolled back (SQL Server bounds lock waits to 10 s instead, and ClickHouse reads
+with `readonly = 2` and `max_execution_time`), stops after 25 seconds, and on Postgres pins `search_path` to
 `pg_catalog, pg_temp`, so a function of the same name elsewhere on the path
 never runs; the host first closes the connection's open result. Main checks
 the level, the names (up to 256 characters), the kind and the routine

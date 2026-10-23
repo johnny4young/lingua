@@ -224,6 +224,8 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
       }
     },
 
+    encrypted: () => ssl !== false,
+
     tls() {
       if (ssl === false) return undefined;
       const socket = (client as unknown as { connection?: { stream?: { getPeerCertificate?: () => { subject?: { CN?: string }; valid_to?: string } } } }).connection?.stream;
