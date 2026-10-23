@@ -5,8 +5,9 @@
  */
 
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
-import type { SqlDbFixHint, SqlDbHostKey, SqlDbIntrospect } from '../../shared/sqlDb';
+import type { SqlConnectionD1, SqlRemoteEngine, SqlSshAuth, SqlSslMode } from '../../shared/sqlConnections';
+import type { SqlDbHostKey, SqlDbIntrospect } from '../../shared/sqlDb';
+import type { SqlDriverError } from '../../shared/sqlDriver';
 import type { RowEditFailure, RowEditStatement } from '../../shared/sqlRowEdits';
 import type { KnownHostKey } from '../sqlSsh/knownHosts';
 
@@ -48,6 +49,10 @@ export interface HostSessionConfig {
   ssl?: { mode: SqlSslMode; caPath?: string; certPath?: string; keyPath?: string };
   /** SQLite file. */
   path?: string;
+  /** The database host as named, when requests go to another one: Neon's API host is `servername`. */
+  host?: string;
+  /** Cloudflare D1's account and database. */
+  d1?: SqlConnectionD1;
   /** Tunnel to the database; each driver socket is then one of its channels. */
   ssh?: HostSshConfig;
   readOnly: boolean;
@@ -111,11 +116,7 @@ export interface HostCancelResult {
   restart?: boolean;
 }
 
-export interface HostError {
-  message: string;
-  /** Step a test failed at. */
-  step?: 'tcp' | 'ssh' | 'tls' | 'auth' | 'server' | 'file';
-  fix?: SqlDbFixHint;
+export interface HostError extends SqlDriverError {
   /** The key a hop presented that no one trusts yet. */
   hostKey?: SqlDbHostKey & { type: string };
   cancelled?: boolean;

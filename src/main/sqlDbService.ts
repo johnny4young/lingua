@@ -12,24 +12,26 @@ import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { LicenseTier } from '../shared/license';
 import { dbConnectionCeilingForTier } from '../shared/entitlements';
-import { connectionSecretId, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
-import type {
-  SqlDbCatalogView,
-  SqlDbApplyResult,
-  SqlDbConnectionView,
-  SqlDbEditTable,
-  SqlDbFetchResult,
-  SqlDbIntrospect,
-  SqlDbIntrospectResult,
-  SqlDbRunOptions,
-  SqlDbRunResult,
-  SqlDbSaveResult,
-  SqlDbSecretKind,
-  SqlDbTarget,
-  SqlDbTestResult,
-  SqlDbTestStep,
+import { connectionSecretId, httpEndpoint, sameSshTarget, type SqlConnectionDraft, type SqlConnectionSsh, type SqlConnectionV1 } from '../shared/sqlConnections';
+import {
+  failedRun,
+  type SqlDbCatalogView,
+  type SqlDbApplyResult,
+  type SqlDbConnectionView,
+  type SqlDbEditTable,
+  type SqlDbFetchResult,
+  type SqlDbIntrospect,
+  type SqlDbIntrospectResult,
+  type SqlDbRunOptions,
+  type SqlDbRunResult,
+  type SqlDbSaveResult,
+  type SqlDbSecretKind,
+  type SqlDbTarget,
+  type SqlDbTestResult,
+  type SqlDbTestStep,
 } from '../shared/sqlDb';
-import { isEstimableSqlStatement, isWriteSqlStatementOn } from '../shared/sqlStatements';
+import { isEstimableSqlStatement } from '../shared/sqlStatements';
+import { editGuard, runGuard } from '../shared/sqlRunGuard';
 import { MAX_RESULT_PREVIEW_BYTES, MAX_RESULT_ROWS } from '../shared/sqlWorkspace';
 import type { SecretStore } from './secretStore';
 import type { ConnectionCatalog } from './sqlConnectionCatalog';
@@ -37,7 +39,7 @@ import { SqlHostError, type SqlHostSupervisor } from './sqlHostSupervisor';
 import type { HostCancelResult, HostError, HostExecuteResult, HostFetchResult, HostSessionConfig, HostSshConfig, HostTestResult } from './sqlHost/protocol';
 import { SshGuardError, type SshInfo, type SshTargets } from './sqlSsh/sshTargets';
 import { exportText } from './sqlImport/linguaExport';
-import { ROW_EDIT_BUDGET_MS, ROW_EDIT_ENGINES, rowEditProblem, rowEditStatements, type RowEditChanges, type RowEditTable } from '../shared/sqlRowEdits';
+import { ROW_EDIT_BUDGET_MS, rowEditProblem, rowEditStatements, rowEditTableFrom, type RowEditChanges } from '../shared/sqlRowEdits';
 import { isPrivateAddress, type LookupImpl } from './networkTargetPolicy';
 
 export interface SqlDbServiceDeps {
@@ -95,6 +97,8 @@ function sameTarget(a: SqlConnectionDraft, b: SqlConnectionDraft): boolean {
     a.database === b.database &&
     a.user === b.user &&
     a.path === b.path &&
+    a.d1?.accountId === b.d1?.accountId &&
+    a.d1?.databaseId === b.d1?.databaseId &&
     a.ssl?.mode === b.ssl?.mode &&
     a.ssl?.caPath === b.ssl?.caPath &&
     // A tunnel decides which machine answers for the database host.
@@ -149,8 +153,10 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     return kept;
   }
 
-  /** The host this machine connects to first: the first SSH hop, or the database itself. */
+  /** The host this machine connects to first: the first SSH hop, an HTTP engine's API host, or the database itself. */
   const firstHost = (entry: SqlConnectionV1 | SqlConnectionDraft): { host: string; port: number } | null => {
+    const endpoint = httpEndpoint(entry);
+    if (endpoint) return { host: endpoint.host, port: endpoint.port };
     if (entry.engine === 'sqlite' || !entry.host) return null;
     const hop = entry.ssh ? (entry.ssh.jumps?.[0] ?? entry.ssh) : null;
     return hop ? { host: hop.host, port: hop.port } : { host: entry.host, port: entry.port! };
@@ -193,13 +199,30 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
   ): Promise<{ config: HostSessionConfig; resolved: Awaited<ReturnType<typeof resolve>> }> {
     if (pathProblem(entry)) throw new GuardError('blocked-target', 'blocked-path', 'This file is in a protected folder.');
     const resolved = await resolve(entry);
+    const endpoint = httpEndpoint(entry);
+    // A token over plain HTTP stays on this machine or the local network.
+    if (endpoint && !endpoint.tls && resolved && !resolved.isPrivate) {
+      throw new GuardError('blocked-target', 'blocked-host', `${endpoint.host} is a public address, and a libSQL token goes over plain HTTP only to a private or local server. Turn TLS on.`);
+    }
     const secret = await password(entry, explicitPassword);
-    const ssh = entry.ssh ? await tunnelFor(entry, resolved!.address, explicitSsh) : undefined;
+    const ssh = entry.ssh && !endpoint ? await tunnelFor(entry, resolved!.address, explicitSsh) : undefined;
     const config: HostSessionConfig = {
       connectionId: entry.id,
       engine: entry.engine,
       readOnly: entry.readOnly,
-      ...(entry.engine === 'sqlite'
+      ...(endpoint
+        ? {
+            // Requests go to the endpoint main resolved; Neon's connection string still names the database host.
+            address: resolved!.address,
+            servername: endpoint.host,
+            port: endpoint.port,
+            ssl: { mode: endpoint.tls ? 'verify-full' : 'disable' },
+            ...(entry.host && entry.host !== endpoint.host ? { host: entry.host } : {}),
+            ...(entry.database ? { database: entry.database } : {}),
+            ...(entry.user ? { user: entry.user } : {}),
+            ...(entry.d1 ? { d1: entry.d1 } : {}),
+          }
+        : entry.engine === 'sqlite'
         ? { path: realFile(entry.path!) }
         : {
             // Through a tunnel, the bastion resolves the database host.
@@ -516,31 +539,12 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async execute(owner: number, runId: string, connectionId: string, sql: string, options: SqlDbRunOptions): Promise<SqlDbRunResult> {
       const started = performance.now();
-      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']): SqlDbRunResult => ({
-        status,
-        engine: entry?.engine ?? 'postgres',
-        columns: [],
-        rows: [],
-        rowCount: 0,
-        tooLarge: false,
-        rowCountIsLowerBound: false,
-        hasMore: false,
-        durationMs: Math.round(performance.now() - started),
-        errorMessage: message,
-        ...(fix ? { fix } : {}),
-      });
+      const fail = (status: SqlDbRunResult['status'], message: string, fix?: SqlDbRunResult['fix']) =>
+        failedRun(entry?.engine ?? 'postgres', Math.round(performance.now() - started), status, message, fix);
       const entry = await connection(connectionId);
       if (!entry) return fail('connection-failed', 'Unknown connection.');
-      const writes = isWriteSqlStatementOn(entry.engine, sql);
-      // Production asks for the typed name before any write; lifting read-only always does.
-      const confirmed = options.readWrite?.confirmName === entry.name;
-      // SQL Server has no read-only transaction to refuse a write, so a read-only connection runs only batches proven to read.
-      if (writes && entry.engine === 'sqlserver' && entry.readOnly && !(options.readWrite && confirmed)) {
-        return fail('sql-error', 'This connection is read-only, and on SQL Server it runs one SELECT or WITH query at a time; anything else needs the typed connection name.', 'confirm-needed');
-      }
-      if (writes && entry.env === 'prod' && !confirmed) return fail('sql-error', 'Writes to production need the typed connection name.', 'confirm-needed');
-      if (writes && entry.confirmWrites && !confirmed) return fail('sql-error', 'Writes on this connection need the typed connection name.', 'confirm-needed');
-      if (options.readWrite && !confirmed) return fail('sql-error', 'Type the connection name to run it read-write.', 'confirm-needed');
+      const { writes, refusal } = runGuard(entry, sql, options);
+      if (refusal) return fail('sql-error', refusal, 'confirm-needed');
       const key = hostRunId(owner, runId);
       for (const [other, run] of runs) if (run.owner === owner && run.connectionId === connectionId) runs.delete(other);
       runs.set(key, { owner, connectionId });
@@ -660,20 +664,16 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
     async applyEdits(connectionId: string, target: SqlDbEditTable, changes: RowEditChanges, confirmName?: string): Promise<SqlDbApplyResult> {
       const entry = await connection(connectionId);
       if (!entry) return { ok: false, reason: 'failed', message: 'Unknown connection.' };
-      if (entry.readOnly) return { ok: false, reason: 'read-only' };
-      if (entry.env === 'prod') return { ok: false, reason: 'production' };
-      if (entry.confirmWrites && confirmName !== entry.name) return { ok: false, reason: 'confirm-needed' };
-      if (!ROW_EDIT_ENGINES.has(entry.engine)) return { ok: false, reason: 'not-editable' };
+      const refused = editGuard(entry, confirmName);
+      if (refused) return refused;
       try {
         const { config } = await configFor(entry);
         const detail = await deps.host.request<SqlDbIntrospectResult>(
           { type: 'introspect', config, request: { level: 'detail', schema: target.schema, name: target.name, kind: 'table' } },
           30_000
         );
-        const columns = detail.detail?.columns ?? [];
-        const primaryKey = columns.filter((column) => column.primaryKey).map((column) => column.name);
-        if (primaryKey.length === 0) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
-        const table: RowEditTable = { engine: entry.engine, schema: target.schema, name: target.name, columns: columns.map((column) => column.name), key: { kind: 'pk', columns: primaryKey } };
+        const table = rowEditTableFrom(entry.engine, target.schema, target.name, detail.detail?.columns ?? []);
+        if (!table) return { ok: false, reason: 'not-editable', ...(detail.errorMessage ? { message: detail.errorMessage } : {}) };
         if (rowEditProblem(table, changes)) return { ok: false, reason: 'invalid' };
         const result = await deps.host.request<{ applied: number }>({ type: 'apply-edits', config, statements: rowEditStatements(table, changes, false) }, ROW_EDIT_BUDGET_MS * 2);
         await keepAsked(entry, config);

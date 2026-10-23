@@ -333,10 +333,10 @@ An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.
 
-### Database connections and the SQL host (desktop)
+### Database connections and the SQL host
 
-Saved Postgres, MySQL, SQL Server, ClickHouse and SQLite connections run
-outside the renderer. Main forks `src/main/sqlHost/hostEntry.ts` (bundled to
+Saved Postgres, MySQL, SQL Server, ClickHouse, SQLite, Turso (libSQL), Neon
+and Cloudflare D1 connections run outside the renderer on desktop. Main forks `src/main/sqlHost/hostEntry.ts` (bundled to
 `.vite/build/sqlHost.js` by `vite.sqlhost.config.mts`, with `pg`, `pg-cursor`,
 `pg-native`, `mysql2`, `ssh2`, `tedious` and `@clickhouse/client` left
 external) as the `Lingua SQL host` utility process through
@@ -353,7 +353,7 @@ atomically, never a password). Passwords live in the secret store under the
 for connections that ask each session and for a keychain connection's typed
 password until its first sign-in; they reach the host per run and never
 the renderer. A saved password belongs to its target: saving a connection
-with another engine, host, port, database, user, file, TLS mode or SSH tunnel
+with another engine, host, port, database, user, file, TLS mode, SSH tunnel or D1 account or database ID
 without typing the password again deletes the stored one. `sqlDbService.ts` re-checks
 the Free quota against the verified license tier inside the catalog's
 serialized write, caps session-only connections, resolves the host name and
@@ -363,7 +363,7 @@ folder (checked as given and after resolving symlinks), estimates only a single 
 (EXPLAIN inside a transaction that is always rolled back; SHOWPLAN on SQL
 Server and `EXPLAIN ESTIMATE` under `readonly = 2` on ClickHouse), and refuses
 a write to a production connection without the typed connection name
-(`isWriteSqlStatement`); that confirm is a guard against mistakes, since a
+(`runGuard` in `src/shared/sqlRunGuard.ts`, through `isWriteSqlStatementOn`); that confirm is a guard against mistakes, since a
 renderer that knows the name can pass it. The nineteen `sql-db:*` channels in
 `ipc/sqlDb.ts` validate every argument and scope runs to the calling window.
 
@@ -462,6 +462,35 @@ negotiate encryption, an HTTP reply to the TLS hello), never on a reset, and
 Test connection then reports TLS as skipped. Staged edits bind `@p1`… on SQL
 Server; ClickHouse never takes them (`ROW_EDIT_ENGINES`).
 
+Turso (libSQL), Neon and D1 are HTTP engines: their clients are Lingua's own,
+in `src/shared/sqlHttp/` (no driver package), over one injected transport, so
+the desktop SQL host and the browser run the same code. libSQL speaks Hrana's
+`/v2/pipeline`; each run is its own stream closed in the same request, and a
+read-only run first asks the server whether SQLite calls the statement
+read-only (`describe`), then runs it between `BEGIN` and `ROLLBACK`. Neon
+answers SQL over HTTP on its API host next to the database host
+(`api.<region>.neon.tech`, as `httpEndpoint` names it); only `*.neon.tech`
+hosts are accepted, so a password never goes to another host, and every
+read-only run is a batch with `Neon-Batch-Read-Only`, which the server
+enforces. D1 goes to Cloudflare's REST API (`/raw`), which has no read-only
+mode and runs every statement in the text, so `isWriteSqlStatementOn('d1', …)`
+counts only one `SELECT`, `WITH` or `VALUES` statement with no write as a
+read, and a read-only D1 connection runs nothing else without the typed name,
+as SQL Server does. On desktop, `sqlHost/httpEngines.ts` makes every socket to
+the address main resolved and pinned (for D1, `api.cloudflare.com`; for Neon,
+its API host, with the database host carried in the connection string), with
+the host name for SNI, the certificate check and the `Host` header, and
+refuses a request to any other origin; libSQL with TLS off is refused at a public address, so a token never crosses the internet in clear. An HTTP request carries no session, so
+nothing carries from one run to the next: `BEGIN` in one run does not open a
+transaction for the next. A response over 64 MB is refused before it is parsed,
+since these engines send a whole result at once. Staged edits run in one
+transaction: libSQL keeps one stream open by its baton, checks each change's
+row count and then commits or rolls back on the same baton; Neon sends one
+batch in which each change is `WITH changed AS (… RETURNING 1)` with a cast
+that fails unless it touched one row, plus a last check that fails a
+transaction past its budget. D1 takes no staged edits. Cancel aborts the
+request.
+
 Read-only is enforced by the server, per run, not only by the classifier:
 on a read-only connection every Postgres run opens its own `BEGIN READ ONLY`
 transaction and every MySQL run sets `SET SESSION TRANSACTION READ ONLY` and
@@ -477,7 +506,7 @@ batches with `isSqlServerReadBatch`, which fails closed: only one `SELECT` or
 counts as a read, and anything else needs the typed name on a read-only,
 production or Confirm every write connection. A proven read on a read-only
 connection still runs inside a transaction that is always rolled back, and ClickHouse runs with `readonly = 2`, which its
-server enforces. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
+server enforces. libSQL checks `describe` and rolls back, Neon runs a `Neon-Batch-Read-Only` batch, and D1, like SQL Server, relies on proven reads (see above); on the SQLite family the classifier reads text by SQLite's rules (block comments do not nest, no dollar or E'' strings), so a Postgres-shaped token cannot hide a statement. A role that can only read is still the only hard guarantee. SQLite connections deny `ATTACH`, which also blocks
 `VACUUM INTO`, so a query cannot reach a file main did not check.
 
 A result comes back like Local's: a first window under the same row and byte
@@ -491,18 +520,25 @@ blocks the host while it runs, so a cancel the host does not answer within
 three seconds restarts it. Reading a run that a newer run on the same
 connection closed is an error, not an empty end. In the renderer,
 `sqlRemote.ts` runs the statements one at a time and wraps the pages in a
-`SqlResultCursor`; `window.lingua.db` exists only on desktop, so the web build
-keeps Local alone.
+`SqlResultCursor`. On desktop the bridge is `window.lingua.db`; on the web,
+`sqlWebDb.ts` is a bridge of its own for Turso and Neon, whose APIs answer
+cross-origin requests: connections live for the tab only, their token or
+password stays in that module's memory and is never stored, requests go with
+`fetch` (no cookies, no referrer, no redirects, HTTPS only), and the same run
+and edit guards (`sqlRunGuard.ts`) apply. D1's API refuses browsers, so it is
+desktop-only, as are the socket engines.
 
 The catalog is read one level at a time through `sql-db:introspect`: the
 schemas, one schema's objects, one schema's columns, or one object's detail
-(columns, keys, indexes, size and DDL). `sqlHost/{postgres,mysql,sqlite,sqlserver,clickhouse}Catalog.ts`
+(columns, keys, indexes, size and DDL). `sqlHost/{mysql,sqlserver,clickhouse}Catalog.ts`
+and `src/shared/sqlCatalog/{postgres,sqlite}.ts` (shared with the HTTP engines;
+D1 hides its own `_cf_` tables, which it refuses to read)
 pass names as bind parameters (`@p1` on SQL Server, `{p1:String}` on ClickHouse) (server-side prepared statements on MySQL, so
 `NO_BACKSLASH_ESCAPES` cannot turn a name into SQL), or quoted for MySQL's
 `SHOW CREATE`, and cap a level at 5,000 schemas or objects or 20,000 columns,
 saying when it was cut. Each level reads inside a read-only transaction that is
 rolled back (SQL Server bounds lock waits to 10 s instead, and ClickHouse reads
-with `readonly = 2` and `max_execution_time`), stops after 25 seconds, and on Postgres pins `search_path` to
+with `readonly = 2` and `max_execution_time`; Neon reads in a read-only batch, while libSQL and D1 run plain catalog statements bounded only by main's 30 s request timeout), stops after 25 seconds, and on Postgres pins `search_path` to
 `pg_catalog, pg_temp`, so a function of the same name elsewhere on the path
 never runs; the host first closes the connection's open result. Main checks
 the level, the names (up to 256 characters), the kind and the routine

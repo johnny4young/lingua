@@ -3,19 +3,23 @@
  * password in the keychain or ask for it each session, pick the SSL mode and
  * certificate files, tag the environment, test the connection, then save it
  * or open it for this session only. The password lives in this component's
- * state until it is handed to main and is never stored in the renderer.
+ * state until it is handed to the bridge (main, or the web's tab-only one) and
+ * is never stored in the renderer.
  */
 
-import { AlertTriangle, Check, Copy, Database, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Database, Info, Loader2, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  asNeonDraft,
   defaultPort,
+  isHttpSqlEngine,
   SQL_CONNECTION_ENVS,
   SQL_SSL_MODES,
   parseConnectionDraft,
   parseConnectionUrl,
   sameSshTarget,
+  WEB_SQL_ENGINES,
   withoutUrlPassword,
   type SqlConnectionDraft,
   type SqlConnectionEnv,
@@ -23,6 +27,7 @@ import {
   type SqlSslMode,
 } from '../../../shared/sqlConnections';
 import type { SqlDbConnectionView, SqlDbFileKind, SqlDbTestResult } from '../../../shared/sqlDb';
+import { provesReadsOnly } from '../../../shared/sqlStatements';
 import { sqlConnectionTestedPayload } from '../../hooks/sqlWorkspaceTelemetry';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import { sqlDbBridge } from '../../runtime/sqlRemote';
@@ -47,13 +52,16 @@ interface Props {
   onDone: (connection: SqlDbConnectionView) => void;
 }
 
-const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlserver', 'clickhouse', 'sqlite'];
+const ENGINES: SqlRemoteEngine[] = ['postgres', 'mysql', 'sqlserver', 'clickhouse', 'sqlite', 'libsql', 'neon', 'd1'];
 
 function blankDraft(engine: SqlRemoteEngine): SqlConnectionDraft {
-  return engine === 'sqlite'
-    ? { name: '', engine, path: '', readOnly: false, passwordMode: 'none' }
-    : { name: '', engine, host: '', port: defaultPort(engine), ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
+  if (engine === 'sqlite') return { name: '', engine, path: '', readOnly: false, passwordMode: 'none' };
+  if (engine === 'd1') return { name: '', engine, d1: { accountId: '', databaseId: '' }, readOnly: false, passwordMode: 'keychain' };
+  return { name: '', engine, host: '', port: defaultPort(engine), ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
 }
+
+/** TLS on or off for libSQL; the browser reaches only HTTPS. */
+const LIBSQL_TLS = ['verify-full', 'disable'] as const;
 
 export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const { t } = useTranslation();
@@ -63,7 +71,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const editing = mode.kind === 'edit' ? mode.connection : null;
   const [draft, setDraft] = useState<SqlConnectionDraft>(() => {
     // The strict parser keeps the draft fields and drops the saved-record ones.
-    return (editing && parseConnectionDraft(editing)) || blankDraft('postgres');
+    return (editing && parseConnectionDraft(editing)) || blankDraft(useSqlConnectionsStore.getState().catalog?.sessionOnly ? 'libsql' : 'postgres');
   });
   const [password, setPassword] = useState('');
   const [sshSecretInput, setSshSecretInput] = useState('');
@@ -79,17 +87,26 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
 
-  const vaultSession = catalog?.vault === 'session';
+  // The browser keeps session connections only, to the engines it can reach.
+  const sessionOnly = catalog?.sessionOnly === true;
+  const engines = sessionOnly ? ENGINES.filter((engine) => WEB_SQL_ENGINES.includes(engine)) : ENGINES;
+  const vaultSession = catalog?.vault === 'session' && !sessionOnly;
   const atLimit = !editing && mode.kind === 'new' && catalog !== null && catalog.limit !== null && catalog.used >= catalog.limit;
-  const network = draft.engine !== 'sqlite';
-  const passwordMode = vaultSession && draft.passwordMode === 'keychain' ? 'session' : draft.passwordMode;
+  const http = isHttpSqlEngine(draft.engine);
+  // Host, port and user with TLS files and a tunnel: the socket engines.
+  const network = draft.engine !== 'sqlite' && !http;
+  // A libSQL server without auth takes no token, so an empty field with none kept means none.
+  const tokenless = draft.engine === 'libsql' && password.length === 0 && !editing?.hasPassword;
+  const passwordMode = tokenless ? 'none' : (vaultSession || sessionOnly) && draft.passwordMode === 'keychain' ? 'session' : draft.passwordMode;
   // Without a keychain, a kept SSH secret lasts the session too.
   const ssh = draft.ssh && vaultSession && draft.ssh.secretMode === 'keychain' ? { ...draft.ssh, secretMode: 'session' as const } : draft.ssh;
   const named: SqlConnectionDraft = {
     ...draft,
     passwordMode,
     ...(network && ssh ? { ssh } : {}),
-    name: draft.name.trim() || (network ? draft.database || draft.host || '' : draft.path?.split(/[\\/]/).pop() || ''),
+    name:
+      draft.name.trim() ||
+      (draft.engine === 'sqlite' ? draft.path?.split(/[\\/]/).pop() || '' : draft.engine === 'd1' ? draft.d1?.databaseId.slice(0, 8) || '' : draft.database || draft.host || ''),
   };
   if (!network) delete named.ssh;
   const valid = parseConnectionDraft(named) !== null;
@@ -127,9 +144,22 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
       setUrlFilled(false);
       return;
     }
+    // A Neon connection string fills the Neon form when Neon is chosen, and always in the browser.
+    const filled = (draft.engine === 'neon' || sessionOnly ? asNeonDraft(parsed.draft) : null) ?? parsed.draft;
+    if (!engines.includes(filled.engine)) {
+      setUrlError(t('sqlWorkspace.connection.urlError.desktop-only'));
+      setUrlFilled(false);
+      return;
+    }
+    // The browser reaches only HTTPS, so a local server over plain HTTP needs Desktop.
+    if (sessionOnly && filled.ssl?.mode === 'disable') {
+      setUrlError(t('sqlWorkspace.connection.urlError.https-only'));
+      setUrlFilled(false);
+      return;
+    }
     setUrlError(null);
     setUrlFilled(true);
-    setDraft((current) => ({ ...parsed.draft, ...(current.env ? { env: current.env } : {}), readOnly: current.readOnly }));
+    setDraft((current) => ({ ...filled, ...(current.env ? { env: current.env } : {}), readOnly: current.readOnly }));
     if (parsed.password !== undefined) {
       setPassword(parsed.password);
       setUrl(withoutUrlPassword(value));
@@ -180,7 +210,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     setBusy(true);
     setError(null);
     const result =
-      mode.kind === 'url' || (atLimit && !editing)
+      mode.kind === 'url' || sessionOnly || (atLimit && !editing)
         ? await useSqlConnectionsStore.getState().openAdhoc(named, secret, sshSecret)
         : await useSqlConnectionsStore.getState().save(named, editing?.id, secret, sshSecret);
     setBusy(false);
@@ -224,8 +254,64 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
     setTrusting(false);
     if (ok) await runTest();
   };
-  const actionLabel =
-    mode.kind === 'url' || atLimit ? t('sqlWorkspace.connection.openWithoutSaving') : editing ? t('sqlWorkspace.connection.saveChanges') : t('sqlWorkspace.connection.save');
+  const actionLabel = sessionOnly
+    ? t('sqlWorkspace.connection.openForTab')
+    : mode.kind === 'url' || atLimit
+      ? t('sqlWorkspace.connection.openWithoutSaving')
+      : editing
+        ? t('sqlWorkspace.connection.saveChanges')
+        : t('sqlWorkspace.connection.save');
+
+  const secretLabel = draft.engine === 'libsql' ? t('sqlWorkspace.connection.token') : draft.engine === 'd1' ? t('sqlWorkspace.connection.apiToken') : t('sqlWorkspace.connection.password');
+  const passwordField = (
+    <label>
+      <span className={LABEL}>{secretLabel}</span>
+      <input
+        type="password"
+        value={password}
+        onChange={(event) => {
+          setPassword(event.target.value);
+          setTest(null);
+        }}
+        placeholder={editing?.hasPassword ? t('sqlWorkspace.connection.passwordKept') : ''}
+        autoComplete="off"
+        data-testid="sql-connection-password"
+        className={INPUT}
+      />
+    </label>
+  );
+  // The browser keeps nothing, so there is no choice to make there.
+  const passwordModeField = sessionOnly ? null : (
+    <div>
+      <span className={LABEL}>{t('sqlWorkspace.connection.savePassword')}</span>
+      <Segmented
+        value={passwordMode === 'none' ? 'keychain' : passwordMode}
+        options={vaultSession ? (['session'] as const) : (['keychain', 'session'] as const)}
+        onChange={(next) => patch({ passwordMode: next })}
+        label={t('sqlWorkspace.connection.savePassword')}
+        testId="sql-connection-password-mode"
+        render={(option) => t(`sqlWorkspace.connection.passwordMode.${option}`)}
+      />
+    </div>
+  );
+  const storageNotice = sessionOnly ? (
+    <div data-testid="sql-connection-tab-only" className="flex items-start gap-2 rounded-[10px] border border-border-default bg-bg-panel px-3 py-2 text-caption text-fg-muted">
+      <Info size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-fg-subtle" />
+      <span>
+        <span className="block font-semibold text-fg-base">{t('sqlWorkspace.connection.tabOnlyTitle')}</span>
+        {t('sqlWorkspace.connection.tabOnlyBody')}
+      </span>
+    </div>
+  ) : vaultSession ? (
+    <div data-testid="sql-connection-no-keyring" className="flex items-start gap-2 rounded-[10px] border border-warning-border bg-bg-panel px-3 py-2 text-caption text-fg-muted">
+      <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-warning-fg" />
+      <span>
+        <span className="block font-semibold text-fg-base">{t('sqlWorkspace.connection.noKeyringTitle')}</span>
+        {t('sqlWorkspace.connection.noKeyringBody')}
+      </span>
+    </div>
+  ) : null;
+  const d1 = draft.d1 ?? { accountId: '', databaseId: '' };
 
   return (
     <ModalShell
@@ -308,7 +394,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {ENGINES.map((engine) => (
+          {engines.map((engine) => (
             <button
               key={engine}
               type="button"
@@ -379,42 +465,10 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
                 <span className={LABEL}>{t('sqlWorkspace.connection.user')}</span>
                 <input value={draft.user ?? ''} onChange={(event) => patch({ user: event.target.value })} spellCheck={false} autoComplete="off" data-testid="sql-connection-user" className={INPUT} />
               </label>
-              <label>
-                <span className={LABEL}>{t('sqlWorkspace.connection.password')}</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => {
-                    setPassword(event.target.value);
-                    setTest(null);
-                  }}
-                  placeholder={editing?.hasPassword ? t('sqlWorkspace.connection.passwordKept') : ''}
-                  autoComplete="off"
-                  data-testid="sql-connection-password"
-                  className={INPUT}
-                />
-              </label>
-              <div>
-                <span className={LABEL}>{t('sqlWorkspace.connection.savePassword')}</span>
-                <Segmented
-                  value={passwordMode === 'none' ? 'keychain' : passwordMode}
-                  options={vaultSession ? (['session'] as const) : (['keychain', 'session'] as const)}
-                  onChange={(next) => patch({ passwordMode: next })}
-                  label={t('sqlWorkspace.connection.savePassword')}
-                  testId="sql-connection-password-mode"
-                  render={(option) => t(`sqlWorkspace.connection.passwordMode.${option}`)}
-                />
-              </div>
+              {passwordField}
+              {passwordModeField}
             </div>
-            {vaultSession ? (
-              <div data-testid="sql-connection-no-keyring" className="flex items-start gap-2 rounded-[10px] border border-warning-border bg-bg-panel px-3 py-2 text-caption text-fg-muted">
-                <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-warning-fg" />
-                <span>
-                  <span className="block font-semibold text-fg-base">{t('sqlWorkspace.connection.noKeyringTitle')}</span>
-                  {t('sqlWorkspace.connection.noKeyringBody')}
-                </span>
-              </div>
-            ) : null}
+            {storageNotice}
             <div>
               <span className={LABEL}>{t('sqlWorkspace.connection.sslMode')}</span>
               <Segmented
@@ -469,6 +523,76 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
               onPickKey={() => void pick('ssh-key')}
             />
           </>
+        ) : http ? (
+          <>
+            {draft.engine === 'd1' ? (
+              <div className="grid grid-cols-2 gap-2.5">
+                <label>
+                  <span className={LABEL}>{t('sqlWorkspace.connection.d1Account')}</span>
+                  <input value={d1.accountId} onChange={(event) => patch({ d1: { ...d1, accountId: event.target.value.trim() } })} spellCheck={false} data-testid="sql-connection-d1-account" className={INPUT} />
+                </label>
+                <label>
+                  <span className={LABEL}>{t('sqlWorkspace.connection.d1Database')}</span>
+                  <input value={d1.databaseId} onChange={(event) => patch({ d1: { ...d1, databaseId: event.target.value.trim() } })} spellCheck={false} data-testid="sql-connection-d1-database" className={INPUT} />
+                </label>
+              </div>
+            ) : (
+              <div className={cn('grid gap-2.5', draft.engine === 'libsql' ? 'grid-cols-[2fr_1fr]' : 'grid-cols-[2fr_1.4fr]')}>
+                <label>
+                  <span className={LABEL}>{t('sqlWorkspace.connection.host')}</span>
+                  <input value={draft.host ?? ''} onChange={(event) => patch({ host: event.target.value })} spellCheck={false} data-testid="sql-connection-host" className={INPUT} />
+                </label>
+                {draft.engine === 'libsql' ? (
+                  <label>
+                    <span className={LABEL}>{t('sqlWorkspace.connection.port')}</span>
+                    <input
+                      value={String(draft.port ?? '')}
+                      inputMode="numeric"
+                      onChange={(event) => patch({ port: Number(event.target.value.replace(/\D/g, '')) || undefined } as Partial<SqlConnectionDraft>)}
+                      data-testid="sql-connection-port"
+                      className={INPUT}
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    <span className={LABEL}>{t('sqlWorkspace.connection.database')}</span>
+                    <input value={draft.database ?? ''} onChange={(event) => patch({ database: event.target.value })} spellCheck={false} data-testid="sql-connection-database" className={INPUT} />
+                  </label>
+                )}
+              </div>
+            )}
+            <div className={cn('grid items-start gap-2.5', draft.engine === 'neon' ? 'grid-cols-3' : sessionOnly ? 'grid-cols-1' : 'grid-cols-[2fr_1fr]')}>
+              {draft.engine === 'neon' ? (
+                <label>
+                  <span className={LABEL}>{t('sqlWorkspace.connection.user')}</span>
+                  <input value={draft.user ?? ''} onChange={(event) => patch({ user: event.target.value })} spellCheck={false} autoComplete="off" data-testid="sql-connection-user" className={INPUT} />
+                </label>
+              ) : null}
+              {passwordField}
+              {passwordModeField}
+            </div>
+            {storageNotice}
+            {draft.engine === 'libsql' && !sessionOnly ? (
+              <div>
+                <span className={LABEL}>{t('sqlWorkspace.connection.tls')}</span>
+                <Segmented
+                  value={draft.ssl?.mode === 'disable' ? 'disable' : 'verify-full'}
+                  options={LIBSQL_TLS}
+                  onChange={(next) => {
+                    // A local server answers plain HTTP on its own port, so a default port follows the switch.
+                    const port = draft.port === defaultPort('libsql', draft.ssl?.mode) ? { port: defaultPort('libsql', next) } : {};
+                    patch({ ssl: { mode: next }, ...port } as Partial<SqlConnectionDraft>);
+                  }}
+                  label={t('sqlWorkspace.connection.tls')}
+                  testId="sql-connection-tls"
+                  render={(option) => t(`sqlWorkspace.connection.tlsMode.${option}`)}
+                />
+              </div>
+            ) : null}
+            <p data-testid="sql-connection-http-hint" className="text-caption leading-relaxed text-fg-muted">
+              {t(`sqlWorkspace.connection.engineHint.${draft.engine}`)}
+            </p>
+          </>
         ) : (
           <div>
             <span className={LABEL}>{t('sqlWorkspace.connection.file.sqlite')}</span>
@@ -500,7 +624,7 @@ export function SqlConnectionSheet({ mode, onClose, onDone }: Props) {
             </button>
           ))}
         </div>
-        <SqlConnectionSafety value={safety} onChange={toggleSafety} network={network} />
+        <SqlConnectionSafety value={safety} onChange={toggleSafety} network={(network || draft.engine === 'libsql') && !sessionOnly} provenReads={provesReadsOnly(draft.engine)} />
 
         {test ? (
           <section data-testid="sql-connection-test-result" aria-live="polite" className="rounded-[10px] border border-border-subtle bg-bg-panel px-3 py-2">

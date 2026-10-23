@@ -209,8 +209,14 @@ The `sql-engines` job starts throwaway Postgres 16, MySQL 8.4, SQL Server
 and paging, value types, server-side read-only (a rolled-back transaction on
 SQL Server, `readonly = 2` on ClickHouse), the EXPLAIN estimate and SQL
 Server's plan, cancel, staged edits, SSH tunnels, the `prefer` fallback and
-auth failures. Without `LINGUA_TEST_PG_URL`, `LINGUA_TEST_MYSQL_URL`,
-`LINGUA_TEST_MSSQL_URL` and `LINGUA_TEST_CLICKHOUSE_URL` the tests skip, so
+auth failures. It also starts a libSQL server and Neon's HTTP proxy in front
+of Postgres and runs `tests/integration/sqlHttpEngines.test.ts`: Turso and
+Neon through the pinned transport, server-side read-only, the catalog, the
+estimate, staged edits that commit and roll back, and a refused password. D1
+has no local server; its client is covered with a recorded transport in
+`tests/shared/sqlHttp.test.ts`. Without `LINGUA_TEST_PG_URL`,
+`LINGUA_TEST_MYSQL_URL`, `LINGUA_TEST_MSSQL_URL`, `LINGUA_TEST_CLICKHOUSE_URL`,
+`LINGUA_TEST_LIBSQL_URL` and `LINGUA_TEST_NEON_HTTP_URL` (its path names the database, `shop` by default) the tests skip, so
 locally point them at Docker containers to run them.
 
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
@@ -342,7 +348,7 @@ Use this order when automating:
 | ✅ | `TC-118` | `WEB` | `developer` | SQL: 100,000 rows by 100 columns in the grid (`SqlResultGridScale.test.tsx`) and in a browser | A screenful of rows is mounted; the rail summarizes the first 10,000 rows and says so; Load more stops at 40,000 rows for 100 columns |
 | ✅ | `TC-119` | `ELEC` | `developer` | Labs › Database connections on: paste a Postgres URL into New connection, Test connection, Save, run a 25,000-row SELECT, Load more, then Cancel a `pg_sleep` | The URL field loses the password; every step reads ok with its time; the grid loads past the window from the host and Cancel stops the server backend |
 | ✅ | `TC-120` | `ELEC` | `developer` | Move that connection to prod, run an UPDATE, type the name; add a MySQL connection with Ask each session and a SQLite file, then a fourth | Read-only turns on and a red band shows; the confirm shows the EXPLAIN estimate and the write answers with a Count row; after a restart MySQL asks for its password and again after a wrong one; the fourth offers Open without saving |
-| ✅ | `TC-121` | `WEB` | `developer` | Labs › Database connections on, open the connection picker | Local and a DESKTOP ONLY row with its reason; no saved connections or New connection |
+| ✅ | `TC-121` | `WEB` | `developer` | Labs › Database connections on, open the connection picker | Local, New connection, Open from URL without saving and a DESKTOP ONLY row naming Postgres, MySQL, SQL Server, ClickHouse, SQLite and D1 with the browser and Cloudflare reason; no saved count and no Manage connections… |
 | ✅ | `TC-122` | `ELEC` | `developer` | On a Postgres connection, open the Explorer, a second schema, then `orders`; switch its chips to Keys, DDL and Data; press Refresh | The first schema opens on its tables with row estimates, the second reads only when opened; the detail shows PK, FK and indexed columns, the DDL and Copy DDL; Data runs `SELECT * FROM "public"."orders" LIMIT 100;` on the connection; Refresh reads the levels again |
 | ✅ | `TC-123` | `ELEC` | `developer` | On the SQL tab press `Cmd/Ctrl+P`, type `ord ite`, then try `Enter`, `Cmd/Ctrl+Enter` and `Alt+Enter` | Tables, views and functions of the connection come before files with their connection name; on a table Enter opens the data, Cmd/Ctrl+Enter the structure, Alt+Enter puts the quoted name at the cursor; a function opens its DDL |
 | ✅ | `TC-125` | `WEB` | `developer` | On the SQL tab with a Local table and a saved query, press `Cmd/Ctrl+P` | The table and the saved query come before files with Local and saved as their source; Enter opens the table's rows or the query |
@@ -354,6 +360,8 @@ Use this order when automating:
 | ✅ | `TC-131` | `ELEC` | `developer` | Open a Local table without a primary key, a view, and a table on a read-only connection; then turn on Confirm every write and Commit an edit | The Local table edits by rowid; the view and the read-only table say why they are read-only and offer no editing; Commit asks for the typed name before writing |
 | ✅ | `TC-132` | `ELEC` | `developer` | With Edit table rows on, save a SQL Server connection, open a table from the Explorer, edit a cell, Review SQL and Commit, then Explain a SELECT | The tree lists Tables, Views, Functions and Sequences under dbo; Data reads `SELECT TOP (100)`; the review binds the change in one transaction and Commit reads the table again; Explain shows the estimated plan without running the statement |
 | ✅ | `TC-133` | `ELEC` | `developer` | With Edit table rows on, save a ClickHouse connection on port 8123 with SSL off, open a table, then run an INSERT on it while it is read-only | Databases show as schemas with tables, views and materialized views; the grid shows wide integers as text and says the table is not edited row by row; the INSERT is refused by the server and allowed once confirmed |
+| ✅ | `TC-134` | `ELEC` | `developer` | Save a Turso connection to a local libSQL server with TLS off and no token, test it and run a query; then fill a D1 connection with an account, database id and a wrong token and test it | The test lists resolve, policy, TCP, TLS skipped, auth and the libSQL version; the grid shows integers past 2^53 as text and blobs as base64; the D1 test resolves `api.cloudflare.com` and fails at auth |
+| ✅ | `TC-135` | `WEB` | `developer` | With Database connections on in the browser, open the picker, then New connection: paste a `libsql://…?authToken=…` URL, test it with a wrong token and the right one, open it for this tab and run a query; paste a Neon `postgresql://` string, open it and commit a staged edit | The picker lists the socket engines and D1 as DESKTOP ONLY; the sheet offers Turso and Neon only and says the token stays in the tab; the URL field drops the token; the wrong token fails at auth; queries and the edit run from the browser; reloading forgets the connections |
 | ✅ | `TC-124` | `ELEC` | `developer` | Run a query on a connection, open History, switch the query to Local, then save a query on each | History names the connection and lists only its runs; Local lists only its own; saved queries show their connection, RO for a read-only one; Format and completion follow the engine |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |

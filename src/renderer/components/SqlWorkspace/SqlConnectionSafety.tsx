@@ -10,15 +10,17 @@ export interface SqlSafetySwitches {
 interface Props {
   value: SqlSafetySwitches;
   onChange: (key: keyof SqlSafetySwitches) => void;
-  /** SQLite files have no host to allow or refuse. */
+  /** Off where there is no host to allow or refuse: SQLite files, Neon, D1 and the browser. */
   network: boolean;
+  /** The engine has no read-only session, so read-only runs proven reads only. */
+  provenReads?: boolean;
 }
 
 /** Per-connection switches: read-only sessions, typed confirm for every write, private addresses. */
-export function SqlConnectionSafety({ value, onChange, network }: Props) {
+export function SqlConnectionSafety({ value, onChange, network, provenReads = false }: Props) {
   const { t } = useTranslation();
   const tiles: Array<{ key: keyof SqlSafetySwitches; title: string; hint: string }> = [
-    { key: 'readOnly', title: t('sqlWorkspace.connection.readOnly'), hint: t('sqlWorkspace.connection.safety.readOnlyHint') },
+    { key: 'readOnly', title: t('sqlWorkspace.connection.readOnly'), hint: t(provenReads ? 'sqlWorkspace.connection.safety.readOnlyHintProven' : 'sqlWorkspace.connection.safety.readOnlyHint') },
     { key: 'confirmWrites', title: t('sqlWorkspace.connection.safety.confirmWrites'), hint: t('sqlWorkspace.connection.safety.confirmWritesHint') },
     ...(network ? [{ key: 'allowPrivateHost' as const, title: t('sqlWorkspace.connection.safety.allowPrivate'), hint: t('sqlWorkspace.connection.safety.allowPrivateHint') }] : []),
   ];

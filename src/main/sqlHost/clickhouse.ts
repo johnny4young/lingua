@@ -14,7 +14,7 @@ import type { Duplex } from 'node:stream';
 import tls from 'node:tls';
 import { createClient, type ClickHouseClient, type ClickHouseSettings } from '@clickhouse/client';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import type { DriverRows, DriverSession } from './driver';
+import type { DriverRows, DriverSession } from '../../shared/sqlDriver';
 import type { HostSessionConfig } from './protocol';
 import { introspectClickHouse } from './clickhouseCatalog';
 

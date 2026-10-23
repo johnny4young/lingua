@@ -114,12 +114,25 @@ describe('SqlConnectionBar', () => {
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
-  it('lists only Local on web, with the reason the other engines need desktop', async () => {
+  it('lists only Local on web before the catalog is read, with the reason the other engines need desktop', async () => {
     const user = userEvent.setup();
-    render(<SqlConnectionBar remote={remote({ desktop: false })} />);
+    render(<SqlConnectionBar remote={remote({ desktop: false, catalog: null })} />);
     await user.click(screen.getByTestId('sql-connection-pill'));
     expect(screen.getByTestId('sql-connection-desktop-only')).toBeTruthy();
     expect(screen.queryByTestId('sql-connection-option')).toBeNull();
     expect(screen.queryByTestId('sql-connection-new')).toBeNull();
+  });
+
+  it('lists the tab-only connections on web, with New connection and no saved count or manager', async () => {
+    const user = userEvent.setup();
+    const tab = { ...catalog, connections: [], used: 0, limit: null, vault: 'session' as const, sessionOnly: true, adhoc: [{ ...catalog.connections[0]!, id: 'adhoc_1', name: 'notes', engine: 'libsql' as const }] };
+    render(<SqlConnectionBar remote={remote({ desktop: false, catalog: tab })} />);
+    await user.click(screen.getByTestId('sql-connection-pill'));
+    expect(screen.getByTestId('sql-connection-desktop-only').textContent).toContain('Turso and Neon work here for this tab');
+    expect(screen.getByText('This tab only')).toBeTruthy();
+    expect(screen.getAllByTestId('sql-connection-option').map((option) => option.textContent)).toEqual([expect.stringContaining('notes')]);
+    expect(screen.getByTestId('sql-connection-new')).toBeTruthy();
+    expect(screen.queryByTestId('sql-connection-saved-count')).toBeNull();
+    expect(screen.queryByTestId('sql-connection-manage')).toBeNull();
   });
 });

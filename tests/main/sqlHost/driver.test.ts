@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clickhouseType, isPlainHttpReply } from '../../../src/main/sqlHost/clickhouse';
-import { editDeadline, expectOneRow } from '../../../src/main/sqlHost/driver';
+import { editDeadline, expectOneRow } from '../../../src/shared/sqlDriver';
 import { ROW_EDIT_BUDGET_MS } from '../../../src/shared/sqlRowEdits';
 
 describe('edit transaction guards', () => {

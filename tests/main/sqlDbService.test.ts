@@ -594,3 +594,60 @@ describe('staged edits', () => {
     expect(await svc.applyEdits(id, { schema: 'public', name: 'orders' }, changes)).toMatchObject({ ok: false, reason: 'failed', edit: { kind: 'conflict', change: 1, touched: 0 } });
   });
 });
+
+describe('HTTP engines', () => {
+  const neon: SqlConnectionDraft = { name: 'shop', engine: 'neon', host: 'ep-cool-1.us-east-2.aws.neon.tech', port: 443, database: 'shop', user: 'app', ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' };
+  const d1: SqlConnectionDraft = { name: 'edge', engine: 'd1', d1: { accountId: 'a'.repeat(32), databaseId: '0f0e0d0c-1111-2222-3333-444455556666' }, readOnly: true, passwordMode: 'keychain' };
+  const rows = { columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false };
+
+  it("resolves and pins Neon's API host, and names the database host for the connection string", async () => {
+    const { svc, sent, looked } = service(() => rows, { lookupAddress: '3.3.3.3' });
+    const saved = await svc.save(neon, undefined, 'pw');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 });
+    expect(looked).toEqual(['api.us-east-2.aws.neon.tech']);
+    expect(sent[sent.length - 1]).toMatchObject({
+      type: 'execute',
+      config: { engine: 'neon', address: '3.3.3.3', servername: 'api.us-east-2.aws.neon.tech', port: 443, ssl: { mode: 'verify-full' }, host: 'ep-cool-1.us-east-2.aws.neon.tech', database: 'shop', user: 'app', password: 'pw' },
+    });
+  });
+
+  it("sends D1 to Cloudflare's API, and runs only proven reads on a read-only D1 connection", async () => {
+    const { svc, sent, looked } = service(() => rows, { lookupAddress: '104.16.0.1' });
+    const saved = await svc.save(d1, undefined, 'cf-token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.execute(1, 'r1', id, 'SELECT * FROM users', { timeoutMs: 1_000 });
+    expect(looked).toEqual(['api.cloudflare.com']);
+    expect(sent[sent.length - 1]).toMatchObject({ config: { engine: 'd1', servername: 'api.cloudflare.com', port: 443, d1: d1.d1, password: 'cf-token', readOnly: true } });
+    const before = sent.length;
+    expect(await svc.execute(1, 'r2', id, 'PRAGMA table_list', { timeoutMs: 1_000 })).toMatchObject({ status: 'sql-error', fix: 'confirm-needed' });
+    expect(sent.length).toBe(before);
+    expect(await svc.applyEdits(id, { schema: 'main', name: 'users' }, { updates: [], deletes: [], inserts: [] })).toEqual({ ok: false, reason: 'read-only' });
+  });
+
+  it('asks for the D1 token again once the database id changes', async () => {
+    const { svc, secrets } = service();
+    const saved = await svc.save({ ...d1, readOnly: false }, undefined, 'cf-token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    await svc.save({ ...d1, readOnly: false, d1: { ...d1.d1!, databaseId: '0f0e0d0c-1111-2222-3333-999999999999' } }, id, undefined);
+    expect(await secrets.get(`db.${id}`)).toBeNull();
+  });
+});
+
+describe('libSQL over plain HTTP', () => {
+  const local: SqlConnectionDraft = { name: 'sqld', engine: 'libsql', host: 'db.example.com', port: 8080, ssl: { mode: 'disable' }, readOnly: false, passwordMode: 'keychain' };
+
+  it('sends a token over plain HTTP only to a private or local address', async () => {
+    const publicHost = service(() => ({ columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }), { lookupAddress: '93.184.216.34' });
+    const saved = await publicHost.svc.save(local, undefined, 'token');
+    const id = (saved as { connection: { id: string } }).connection.id;
+    expect(await publicHost.svc.execute(1, 'r1', id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'blocked-target', fix: 'blocked-host' });
+    expect(publicHost.sent.some((body) => body.type === 'execute')).toBe(false);
+    const test = await publicHost.svc.test({ draft: local, password: 'token' });
+    expect(test.steps.at(-1)).toMatchObject({ id: 'policy', status: 'failed' });
+
+    const privateHost = service(() => ({ columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false }), { lookupAddress: '10.0.4.12' });
+    const kept = await privateHost.svc.save(local, undefined, 'token');
+    expect(await privateHost.svc.execute(1, 'r1', (kept as { connection: { id: string } }).connection.id, 'SELECT 1', { timeoutMs: 1_000 })).toMatchObject({ status: 'success' });
+  });
+});

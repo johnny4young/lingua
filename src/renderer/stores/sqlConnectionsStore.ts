@@ -1,7 +1,7 @@
 /**
- * The renderer's copy of main's connection catalog, for this session only:
- * main is the source of truth, and nothing here is persisted. Passwords
- * never reach this store; a view only says whether one is kept.
+ * The renderer's copy of the bridge's connection catalog (main's on desktop,
+ * the tab's on web), for this session only; nothing here is persisted.
+ * Passwords never reach this store; a view only says whether one is kept.
  */
 
 import { create } from 'zustand';
@@ -61,7 +61,7 @@ export const useSqlConnectionsStore = create<SqlConnectionsState>((set, get) => 
   },
 }));
 
-/** Database connections are on: the Labs flag, on a desktop build. */
+/** Database connections are on: the Labs flag, with a bridge (every desktop build, and the web's for Turso and Neon). */
 export const dbClientEnabled = () => useSettingsStore.getState().featureFlags.dbClient === true && sqlDbBridge() !== null;
 
 /** Whether a password typed at connect time is kept in the keychain once it signs in. */

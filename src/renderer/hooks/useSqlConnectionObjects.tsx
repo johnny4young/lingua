@@ -21,6 +21,7 @@ import { SqlRemoteTree } from '../components/SqlWorkspace/SqlRemoteTree';
 import { QUERYABLE_KINDS } from '../components/SqlWorkspace/sqlRemoteTreeModel';
 import { resolveShortcutDisplayPlatform } from '../data/keyboardShortcuts';
 import { sqlDbBridge } from '../runtime/sqlRemote';
+import { appPlatform } from '../utils/appPlatform';
 import { useProjectStore } from '../stores/projectStore';
 import { findConnection, keepsAskedSecret, useSqlConnectionsStore } from '../stores/sqlConnectionsStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -65,9 +66,9 @@ export function useSqlConnectionObjects({
   insertSql,
 }: Options) {
   const { t } = useTranslation();
-  // Labs: desktop runs connections; web lists Local and says why.
+  // Labs: desktop runs every engine; the web opens Turso and Neon for the tab and says why the rest need Desktop.
   const dbFlag = useSettingsStore((state) => state.featureFlags.dbClient === true);
-  const dbDesktop = sqlDbBridge() !== null;
+  const dbBridge = sqlDbBridge() !== null;
   const catalog = useSqlConnectionsStore((state) => state.catalog);
   const [connectionSheet, setConnectionSheet] = useState<SqlConnectionSheetMode | null>(null);
   // The manager stays open under the sheet it opened, and shows again when the sheet closes.
@@ -75,8 +76,8 @@ export function useSqlConnectionObjects({
   const [managerQuery, setManagerQuery] = useState('');
   const project = useProjectStore((state) => state.currentProject);
   useEffect(() => {
-    if (dbFlag && dbDesktop) void useSqlConnectionsStore.getState().refresh();
-  }, [dbFlag, dbDesktop]);
+    if (dbFlag && dbBridge) void useSqlConnectionsStore.getState().refresh();
+  }, [dbFlag, dbBridge]);
   const listed = (id: string | undefined): SqlDbConnectionView | undefined =>
     id ? [...(catalog?.connections ?? []), ...(catalog?.adhoc ?? [])].find((entry) => entry.id === id) : undefined;
   const activeConnection = dbFlag ? listed(activeQuery?.connectionId) : undefined;
@@ -220,7 +221,7 @@ export function useSqlConnectionObjects({
 
   const barRemote = dbFlag
     ? {
-        desktop: dbDesktop,
+        desktop: appPlatform() === 'desktop',
         catalog,
         activeId: activeQuery?.connectionId,
         onSelect: selectConnection,

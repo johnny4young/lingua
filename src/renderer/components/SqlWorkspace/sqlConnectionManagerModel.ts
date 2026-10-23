@@ -11,8 +11,9 @@ export interface SqlConnectionGroup {
 }
 
 /** Where a connection points, for the row and for search: host:port/database, or the file name. */
-export function connectionWhere(connection: Pick<SqlConnectionDraft, 'engine' | 'host' | 'port' | 'database' | 'path'>): string {
+export function connectionWhere(connection: Pick<SqlConnectionDraft, 'engine' | 'host' | 'port' | 'database' | 'path' | 'd1'>): string {
   if (connection.engine === 'sqlite') return connection.path?.split(/[\\/]/).pop() ?? '';
+  if (connection.engine === 'd1') return connection.d1?.databaseId ?? '';
   return `${connection.host ?? ''}${connection.port ? `:${connection.port}` : ''}${connection.database ? `/${connection.database}` : ''}`;
 }
 
@@ -20,7 +21,7 @@ export function connectionWhere(connection: Pick<SqlConnectionDraft, 'engine' | 
 export function groupConnections(connections: ReadonlyArray<SqlDbConnectionView>, query: string): SqlConnectionGroup[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const matches = (connection: SqlDbConnectionView) => {
-    const haystack = [connection.name, connection.host, connection.database, connection.path, connection.group, connection.env, ENGINE_LABEL[connection.engine]]
+    const haystack = [connection.name, connection.host, connection.database, connection.path, connection.d1?.databaseId, connection.group, connection.env, ENGINE_LABEL[connection.engine]]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -41,7 +42,7 @@ export function groupConnections(connections: ReadonlyArray<SqlDbConnectionView>
 /** The same database the same way: engine, host, port, database and user, or the same file. */
 const sameDatabase = (a: SqlConnectionDraft, b: SqlConnectionDraft) =>
   a.engine === b.engine &&
-  (a.engine === 'sqlite' ? a.path === b.path : a.host?.toLowerCase() === b.host?.toLowerCase() && a.port === b.port && a.database === b.database && a.user === b.user);
+  (a.engine === 'sqlite' ? a.path === b.path : a.engine === 'd1' ? a.d1?.databaseId === b.d1?.databaseId : a.host?.toLowerCase() === b.host?.toLowerCase() && a.port === b.port && a.database === b.database && a.user === b.user);
 
 /** Whether an import points at a connection that is already saved. */
 export const isAlreadySaved = (candidate: SqlDbImportCandidate, saved: ReadonlyArray<SqlConnectionDraft>) => saved.some((entry) => sameDatabase(entry, candidate.draft));

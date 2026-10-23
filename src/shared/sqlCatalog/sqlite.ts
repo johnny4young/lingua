@@ -11,20 +11,34 @@ import {
   type SqlDbIntrospect,
   type SqlDbIntrospectResult,
   type SqlDbObjectKind,
-} from '../../shared/sqlDb';
-import type { CatalogQuery } from './postgresCatalog';
+} from '../sqlDb';
+import type { CatalogQuery } from './postgres';
 
-const userObject = (alias = '') => `${alias}type IN ('table','view') AND ${alias}name NOT LIKE 'sqlite\\_%' ESCAPE '\\'`;
+/** Declared column types, by SQLite affinity, in the names the grid knows. */
+export function sqliteColumnType(declared: string | null | undefined): string {
+  const type = (declared ?? '').toUpperCase();
+  if (type === '') return 'VALUE';
+  if (/INT/.test(type)) return type === 'INTEGER' || type === 'BIGINT' || type === 'SMALLINT' ? type : 'BIGINT';
+  if (/REAL|FLOA|DOUB/.test(type)) return 'DOUBLE';
+  if (/DECIMAL|NUMERIC/.test(type)) return 'DECIMAL';
+  if (/BLOB/.test(type)) return 'BLOB';
+  return type;
+}
 
-export async function introspectSqlite(query: CatalogQuery, request: SqlDbIntrospect): Promise<SqlDbIntrospectResult> {
+// D1 refuses any read of its own `_cf_` tables, which would fail the whole level.
+const userObject = (alias = '', cloudflare = false) =>
+  `${alias}type IN ('table','view') AND ${alias}name NOT LIKE 'sqlite\\_%' ESCAPE '\\'${cloudflare ? ` AND ${alias}name NOT LIKE '\\_cf\\_%' ESCAPE '\\'` : ''}`;
+
+export async function introspectSqlite(query: CatalogQuery, request: SqlDbIntrospect, options: { cloudflare?: boolean } = {}): Promise<SqlDbIntrospectResult> {
+  const cloudflare = options.cloudflare === true;
   switch (request.level) {
     case 'schemas': {
-      const [row] = await query(`SELECT COUNT(*) AS objects FROM sqlite_master WHERE ${userObject()}`, []);
+      const [row] = await query(`SELECT COUNT(*) AS objects FROM sqlite_master WHERE ${userObject('', cloudflare)}`, []);
       return { schemas: [{ name: 'main', objects: Number(row?.objects ?? 0) }] };
     }
     case 'objects': {
       if (request.schema !== 'main') return { objects: [], truncated: false };
-      const rows = await query(`SELECT type AS kind, name FROM sqlite_master WHERE ${userObject()} ORDER BY type, name LIMIT ${MAX_INTROSPECT_OBJECTS + 1}`, []);
+      const rows = await query(`SELECT type AS kind, name FROM sqlite_master WHERE ${userObject('', cloudflare)} ORDER BY type, name LIMIT ${MAX_INTROSPECT_OBJECTS + 1}`, []);
       return {
         objects: rows.slice(0, MAX_INTROSPECT_OBJECTS).map((row) => ({ kind: String(row.kind) as SqlDbObjectKind, name: String(row.name) })),
         truncated: rows.length > MAX_INTROSPECT_OBJECTS,
@@ -34,7 +48,7 @@ export async function introspectSqlite(query: CatalogQuery, request: SqlDbIntros
       if (request.schema !== 'main') return { columns: [], truncated: false };
       const rows = await query(
         `SELECT m.name AS tbl, p.name AS name, p.type AS type FROM sqlite_master m JOIN pragma_table_info(m.name) p
-         WHERE ${userObject('m.')} ORDER BY m.name, p.cid LIMIT ${MAX_INTROSPECT_COLUMNS + 1}`,
+         WHERE ${userObject('m.', cloudflare)} ORDER BY m.name, p.cid LIMIT ${MAX_INTROSPECT_COLUMNS + 1}`,
         []
       );
       return {

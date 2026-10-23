@@ -8,8 +8,8 @@ import Cursor from 'pg-cursor';
 import type { FieldDef, QueryResult } from 'pg';
 import { ROW_EDIT_BUDGET_MS } from '../../shared/sqlRowEdits';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from './driver';
-import { introspectPostgres } from './postgresCatalog';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
+import { explainRowEstimate, introspectPostgres, postgresColumnType } from '../../shared/sqlCatalog/postgres';
 import type { HostSessionConfig } from './protocol';
 
 // Dates, times, intervals, JSON and money stay as the server prints them.
@@ -19,41 +19,7 @@ const types = {
     RAW_TEXT_OIDS.has(oid) ? (value: string) => value : pg.types.getTypeParser(oid, format as 'text')) as typeof pg.types.getTypeParser,
 };
 
-const TYPE_NAMES: Readonly<Record<number, string>> = {
-  16: 'BOOLEAN',
-  17: 'BLOB',
-  18: 'CHAR',
-  19: 'NAME',
-  20: 'BIGINT',
-  21: 'SMALLINT',
-  23: 'INTEGER',
-  25: 'TEXT',
-  26: 'OID',
-  114: 'JSON',
-  142: 'XML',
-  700: 'REAL',
-  701: 'DOUBLE',
-  790: 'MONEY',
-  1042: 'CHAR',
-  1043: 'VARCHAR',
-  1082: 'DATE',
-  1083: 'TIME',
-  1114: 'TIMESTAMP',
-  1184: 'TIMESTAMP WITH TIME ZONE',
-  1186: 'INTERVAL',
-  1266: 'TIME WITH TIME ZONE',
-  1700: 'DECIMAL',
-  2950: 'UUID',
-  3802: 'JSONB',
-};
-
-function columnType(field: FieldDef): string {
-  if (field.dataTypeID === 1700 && field.dataTypeModifier > 4) {
-    const mod = field.dataTypeModifier - 4;
-    return `DECIMAL(${(mod >> 16) & 0xffff},${mod & 0xffff})`;
-  }
-  return TYPE_NAMES[field.dataTypeID] ?? `OID ${field.dataTypeID}`;
-}
+const columnType = (field: FieldDef) => postgresColumnType(field.dataTypeID, field.dataTypeModifier);
 
 function pgSsl(config: HostSessionConfig): ConnectionOptions | false {
   const ssl = config.ssl ?? { mode: 'verify-full' as const };
@@ -210,13 +176,7 @@ export async function openPostgres(config: HostSessionConfig, connect?: () => Du
         // A read-only transaction that is rolled back: the plan is all this may produce.
         await client.query('BEGIN READ ONLY');
         const result = await client.query(oneStatement(`EXPLAIN (FORMAT JSON) ${sql}`));
-        const plan = (result.rows[0] as Record<string, unknown> | undefined)?.['QUERY PLAN'];
-        const parsed = typeof plan === 'string' ? JSON.parse(plan) : plan;
-        const plan0 = Array.isArray(parsed) ? parsed[0]?.Plan : undefined;
-        // A write's top node reports 0; the scan below it holds the estimate.
-        const node = plan0?.['Node Type'] === 'ModifyTable' && Array.isArray(plan0.Plans) ? plan0.Plans[0] : plan0;
-        const rows = node?.['Plan Rows'];
-        return typeof rows === 'number' ? rows : null;
+        return explainRowEstimate((result.rows[0] as Record<string, unknown> | undefined)?.['QUERY PLAN']);
       } catch {
         return null;
       } finally {
