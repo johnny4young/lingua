@@ -4,6 +4,7 @@ import {
   isSqlServerReadBatch,
   isWriteSqlStatement,
   isWriteSqlStatementOn,
+  provesReadsOnly,
   redactSqlSecrets,
   splitSqlStatements,
   statementAtOffset,
@@ -173,5 +174,43 @@ describe('SQL Server batches', () => {
     expect(isWriteSqlStatementOn('sqlserver', 'EXPLAIN DELETE FROM dbo.orders')).toBe(false);
     expect(isWriteSqlStatementOn('postgres', 'SELECT 1 EXEC x')).toBe(true);
     expect(isWriteSqlStatementOn('postgres', 'SELECT 1')).toBe(false);
+  });
+});
+
+describe('D1 reads', () => {
+  it('counts only one SELECT, WITH or VALUES statement with no write as a read', () => {
+    for (const read of ['SELECT * FROM users', "SELECT replace(name, 'a', 'b') FROM users", 'WITH x AS (SELECT 1) SELECT * FROM x', 'VALUES (1)', "SELECT 'a; DELETE FROM t'"]) {
+      expect(isWriteSqlStatementOn('d1', read), read).toBe(false);
+    }
+    for (const write of ['SELECT 1; SELECT 2', 'SELECT 1; DELETE FROM t', 'WITH x AS (SELECT 1) REPLACE INTO t SELECT * FROM x', 'PRAGMA foreign_keys = OFF', 'PRAGMA table_list', 'EXPLAIN SELECT 1', 'DELETE FROM t']) {
+      expect(isWriteSqlStatementOn('d1', write), write).toBe(true);
+    }
+    expect(provesReadsOnly('d1')).toBe(true);
+    expect(provesReadsOnly('libsql')).toBe(false);
+  });
+});
+
+describe('SQLite family writes', () => {
+  // Postgres hides code in nested comments, $$ bodies and E'' strings; SQLite has none of them.
+  const smuggled = [
+    'WITH x AS (SELECT 1) /* /* */ DELETE FROM t -- */',
+    'SELECT 1 /* /* */; DROP TABLE t -- */',
+    'SELECT $$; DROP TABLE t; --$$',
+    'WITH x AS (SELECT $$) DELETE FROM t --$$',
+    "SELECT E'\\'; DELETE FROM t; --'",
+  ];
+
+  it('reads text by SQLite rules, so nothing Postgres-shaped hides a write on D1, libSQL or a SQLite file', () => {
+    for (const engine of ['d1', 'libsql', 'sqlite'] as const) {
+      for (const sql of smuggled) expect(isWriteSqlStatementOn(engine, sql), `${engine}: ${sql}`).toBe(true);
+    }
+  });
+
+  it('keeps names and strings as SQLite quotes them', () => {
+    for (const read of ['SELECT "a;b", [c;d], `e;f` FROM t', "SELECT 'it''s; fine' FROM t", 'SELECT 1; ', 'SELECT 1 -- trailing; DELETE']) {
+      expect(isWriteSqlStatementOn('d1', read), read).toBe(false);
+      expect(isWriteSqlStatementOn('libsql', read), read).toBe(false);
+    }
+    expect(isWriteSqlStatementOn('libsql', 'SELECT 1; SELECT 2')).toBe(true);
   });
 });

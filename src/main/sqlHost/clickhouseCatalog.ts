@@ -13,7 +13,7 @@ import {
   type SqlDbIntrospectResult,
   type SqlDbObjectKind,
 } from '../../shared/sqlDb';
-import type { CatalogQuery } from './postgresCatalog';
+import type { CatalogQuery } from '../../shared/sqlCatalog/postgres';
 
 const count = (value: unknown) => (value === null || value === undefined || value === '' ? undefined : Number(value));
 const SYSTEM_DATABASES = "('system', 'INFORMATION_SCHEMA', 'information_schema')";

@@ -19,6 +19,9 @@ export const ENGINE_LABEL: Readonly<Record<SqlRemoteEngine, string>> = {
   sqlite: 'SQLite',
   sqlserver: 'SQL Server',
   clickhouse: 'ClickHouse',
+  libsql: 'Turso',
+  neon: 'Neon',
+  d1: 'D1',
 };
 
 /** The engine, and RO when the connection is read-only. */

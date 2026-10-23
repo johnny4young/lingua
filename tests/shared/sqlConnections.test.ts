@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  asNeonDraft,
   connectionTarget,
+  httpEndpoint,
   parseConnection,
   parseConnectionDraft,
   parseConnectionUrl,
@@ -211,5 +213,60 @@ describe('sameSshTarget', () => {
     for (const change of [{ host: 'other' }, { port: 2222 }, { user: 'root' }, { auth: 'agent' as const }, { keyPath: '/other' }, { jumps: [] }, { jumps: [{ host: 'jump', port: 22, user: 'root' }] }]) {
       expect(sameSshTarget(ssh, { ...ssh, ...change }), JSON.stringify(change)).toBe(false);
     }
+  });
+});
+
+describe('HTTP engines', () => {
+  const token = 'eyJ.token.sig';
+
+  it('reads a Turso libsql:// URL with its token as the password, and tls=0 as a local server', () => {
+    expect(parseConnectionUrl(`libsql://orders-acme.turso.io?authToken=${token}`)).toEqual({
+      draft: { name: 'orders-acme', engine: 'libsql', host: 'orders-acme.turso.io', port: 443, ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' },
+      password: token,
+    });
+    expect(parseConnectionUrl('libsql://127.0.0.1?tls=0')).toMatchObject({ draft: { host: '127.0.0.1', port: 8080, ssl: { mode: 'disable' }, passwordMode: 'none' } });
+    expect(withoutUrlPassword(`libsql://orders-acme.turso.io?authToken=${token}&tls=1`)).toBe('libsql://orders-acme.turso.io?tls=1');
+  });
+
+  it('keeps libSQL to TLS on or off, with no database, user or tunnel', () => {
+    const parsed = parseConnectionDraft({
+      name: 'turso',
+      engine: 'libsql',
+      host: 'db.turso.io',
+      database: 'x',
+      user: 'y',
+      ssl: { mode: 'verify-ca', caPath: '/ca.pem' },
+      ssh: { host: 'bastion', port: 22, user: 'me', auth: 'agent', secretMode: 'none' },
+      readOnly: false,
+      passwordMode: 'keychain',
+    });
+    expect(parsed).toEqual({ name: 'turso', engine: 'libsql', host: 'db.turso.io', port: 443, ssl: { mode: 'verify-full' }, readOnly: false, passwordMode: 'keychain' });
+  });
+
+  it('takes Neon only on neon.tech, always over HTTPS on 443, and maps a pasted Postgres URL to it', () => {
+    const neon = { name: 'shop', engine: 'neon', host: 'ep-cool-1.us-east-2.aws.neon.tech', port: 5432, database: 'shop', user: 'app', readOnly: false, passwordMode: 'keychain' };
+    expect(parseConnectionDraft(neon)).toMatchObject({ port: 443, ssl: { mode: 'verify-full' } });
+    expect(parseConnectionDraft({ ...neon, host: 'db.example.com' })).toBeNull();
+    expect(parseConnectionDraft({ ...neon, host: 'evil.neon.tech.example.com' })).toBeNull();
+    const pasted = parseConnectionUrl('postgresql://app:pw@ep-cool-1-pooler.us-east-2.aws.neon.tech/shop?sslmode=require');
+    if ('error' in pasted) throw new Error(pasted.error);
+    expect(asNeonDraft(pasted.draft)).toMatchObject({ engine: 'neon', host: 'ep-cool-1-pooler.us-east-2.aws.neon.tech', port: 443, database: 'shop', user: 'app' });
+    expect(asNeonDraft({ ...pasted.draft, host: 'db.internal' })).toBeNull();
+  });
+
+  it('takes D1 by its account and database ids, which must be the ids Cloudflare prints, and a token', () => {
+    const d1 = { name: 'edge', engine: 'd1', d1: { accountId: 'A'.repeat(32), databaseId: '0F0E0D0C-1111-2222-3333-444455556666' }, readOnly: true, passwordMode: 'keychain' };
+    expect(parseConnectionDraft(d1)).toEqual({ ...d1, d1: { accountId: 'a'.repeat(32), databaseId: '0f0e0d0c-1111-2222-3333-444455556666' } });
+    expect(parseConnectionDraft({ ...d1, d1: { ...d1.d1, accountId: '../../zones' } })).toBeNull();
+    expect(parseConnectionDraft({ ...d1, d1: { ...d1.d1, databaseId: 'not-a-uuid' } })).toBeNull();
+    expect(parseConnectionDraft({ ...d1, passwordMode: 'none' })).toBeNull();
+    expect(connectionTarget(parseConnectionDraft(d1)!)).toBe('D1 0f0e0d0c-1111-2222-3333-444455556666');
+  });
+
+  it('names the host main resolves: Neon\'s API host, Cloudflare\'s for D1 and the server for libSQL', () => {
+    expect(httpEndpoint({ engine: 'neon', host: 'ep-cool-1.us-east-2.aws.neon.tech' })).toEqual({ host: 'api.us-east-2.aws.neon.tech', port: 443, tls: true });
+    expect(httpEndpoint({ engine: 'd1' })).toEqual({ host: 'api.cloudflare.com', port: 443, tls: true });
+    expect(httpEndpoint({ engine: 'libsql', host: '127.0.0.1', port: 8080, ssl: { mode: 'disable' } })).toEqual({ host: '127.0.0.1', port: 8080, tls: false });
+    expect(httpEndpoint({ engine: 'postgres', host: 'db' })).toBeNull();
   });
 });

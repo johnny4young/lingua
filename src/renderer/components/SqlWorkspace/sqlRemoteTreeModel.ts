@@ -3,25 +3,31 @@ import type { SqlDbObjectInfo, SqlDbObjectKind } from '../../../shared/sqlDb';
 
 type SqlRemoteGroupId = 'tables' | 'views' | 'matviews' | 'functions' | 'routines' | 'sequences' | 'extensions';
 
+const POSTGRES_GROUPS = [
+  { id: 'tables', kinds: ['table'] },
+  { id: 'views', kinds: ['view'] },
+  { id: 'matviews', kinds: ['matview'] },
+  { id: 'functions', kinds: ['function', 'procedure'] },
+  { id: 'sequences', kinds: ['sequence'] },
+  { id: 'extensions', kinds: ['extension'] },
+] as const;
+const SQLITE_GROUPS = [
+  { id: 'tables', kinds: ['table'] },
+  { id: 'views', kinds: ['view'] },
+] as const;
+
 /** The groups each engine has, in tree order. MySQL calls its functions and procedures routines. */
 const ENGINE_GROUPS: Readonly<Record<SqlRemoteEngine, ReadonlyArray<{ id: SqlRemoteGroupId; kinds: ReadonlyArray<SqlDbObjectKind> }>>> = {
-  postgres: [
-    { id: 'tables', kinds: ['table'] },
-    { id: 'views', kinds: ['view'] },
-    { id: 'matviews', kinds: ['matview'] },
-    { id: 'functions', kinds: ['function', 'procedure'] },
-    { id: 'sequences', kinds: ['sequence'] },
-    { id: 'extensions', kinds: ['extension'] },
-  ],
+  postgres: POSTGRES_GROUPS,
+  neon: POSTGRES_GROUPS,
   mysql: [
     { id: 'tables', kinds: ['table'] },
     { id: 'views', kinds: ['view'] },
     { id: 'routines', kinds: ['function', 'procedure'] },
   ],
-  sqlite: [
-    { id: 'tables', kinds: ['table'] },
-    { id: 'views', kinds: ['view'] },
-  ],
+  sqlite: SQLITE_GROUPS,
+  libsql: SQLITE_GROUPS,
+  d1: SQLITE_GROUPS,
   sqlserver: [
     { id: 'tables', kinds: ['table'] },
     { id: 'views', kinds: ['view'] },

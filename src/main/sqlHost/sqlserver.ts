@@ -12,7 +12,7 @@ import type { Connection, ConnectionConfiguration, Request } from 'tedious';
 import type { ColumnMetadata } from 'tedious/lib/token/colmetadata-token-parser';
 import { ROW_EDIT_BUDGET_MS } from '../../shared/sqlRowEdits';
 import type { SqlColumnMetadata } from '../../shared/sqlWorkspace';
-import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from './driver';
+import { EDIT_LOCK_WAIT_S, editDeadline, expectOneRow, type DriverRows, type DriverSession } from '../../shared/sqlDriver';
 import type { HostSessionConfig } from './protocol';
 import { introspectSqlServer } from './sqlserverCatalog';
 

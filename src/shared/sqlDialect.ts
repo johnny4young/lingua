@@ -33,7 +33,7 @@ const likePattern = (value: string, escape: '\\' | '!') =>
 /** ClickHouse reads backslash escapes inside quoted strings and names. */
 const backslashed = (value: string, quote: string) => `${quote}${value.replaceAll('\\', '\\\\').replaceAll(quote, `\\${quote}`)}${quote}`;
 
-const DIALECTS: Readonly<Record<SqlEngineKind, SqlDialect>> = {
+const DIALECTS: Readonly<Record<Exclude<SqlEngineKind, 'libsql' | 'neon' | 'd1'>, SqlDialect>> = {
   duckdb: {
     engine: 'duckdb',
     label: 'DuckDB',
@@ -101,6 +101,14 @@ const DIALECTS: Readonly<Record<SqlEngineKind, SqlDialect>> = {
   },
 };
 
+// The HTTP engines speak their family's SQL.
+const HTTP_DIALECTS: Readonly<Record<'libsql' | 'neon' | 'd1', SqlDialect>> = {
+  libsql: { ...DIALECTS.sqlite, engine: 'libsql', label: 'libSQL (Turso, SQLite-compatible)' },
+  neon: { ...DIALECTS.postgres, engine: 'neon', label: 'PostgreSQL (Neon)' },
+  d1: { ...DIALECTS.sqlite, engine: 'd1', label: 'Cloudflare D1 (SQLite)' },
+};
+
 export function sqlDialect(engine: SqlEngineKind | undefined): SqlDialect {
-  return DIALECTS[engine ?? 'duckdb'];
+  const kind = engine ?? 'duckdb';
+  return kind === 'libsql' || kind === 'neon' || kind === 'd1' ? HTTP_DIALECTS[kind] : DIALECTS[kind];
 }

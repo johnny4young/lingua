@@ -960,7 +960,7 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '>=30s',
 ]);
 // Mirror of SQL_ENGINES_SET; parity test cross-imports the renderer set.
-export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse']);
+export const SQL_ENGINES_SET = new Set(['duckdb', 'postgres', 'mysql', 'sqlite', 'sqlserver', 'clickhouse', 'libsql', 'neon', 'd1']);
 // Mirror of SQL_CONNECTION_TEST_STEPS_SET; parity test cross-imports it.
 export const SQL_CONNECTION_TEST_STEPS_SET = new Set([
   'none',

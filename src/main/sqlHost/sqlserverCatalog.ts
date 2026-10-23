@@ -13,7 +13,7 @@ import {
   type SqlDbIntrospectResult,
   type SqlDbObjectKind,
 } from '../../shared/sqlDb';
-import type { CatalogQuery } from './postgresCatalog';
+import type { CatalogQuery } from '../../shared/sqlCatalog/postgres';
 
 const quote = (name: string) => `[${name.replaceAll(']', ']]')}]`;
 const count = (value: unknown) => (value === null || value === undefined ? undefined : Number(value));

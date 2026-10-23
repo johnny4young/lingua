@@ -40,7 +40,18 @@ describe('staged row edits', () => {
       { sql: 'DELETE FROM [dbo].[orders] WHERE [id] = @p1', params: ['2'] },
     ]);
     expect(rowEditReview(erp, { updates: [{ key: { id: '1' }, values: { city: "O'Brien" } }], deletes: [], inserts: [] })).toContain("SET [city] = N'O''Brien'");
-    expect([...ROW_EDIT_ENGINES].sort()).toEqual(['duckdb', 'mysql', 'postgres', 'sqlite', 'sqlserver']);
+    expect([...ROW_EDIT_ENGINES].sort()).toEqual(['duckdb', 'libsql', 'mysql', 'neon', 'postgres', 'sqlite', 'sqlserver']);
+  });
+
+  it('binds $n on Neon and ? on libSQL, and leaves D1 and ClickHouse without staged edits', () => {
+    const neon: RowEditTable = { engine: 'neon', schema: 'public', name: 'users', columns: ['id', 'name'], key: { kind: 'pk', columns: ['id'] } };
+    expect(rowEditStatements(neon, { updates: [{ key: { id: '1' }, values: { name: 'Ana' } }], deletes: [], inserts: [] }, false)).toEqual([
+      { sql: 'UPDATE "public"."users" SET "name" = $1 WHERE "id" = $2', params: ['Ana', '1'] },
+    ]);
+    const turso: RowEditTable = { ...neon, engine: 'libsql', schema: 'main' };
+    expect(rowEditStatements(turso, { updates: [], deletes: [{ key: { id: '2' } }], inserts: [] }, false)).toEqual([{ sql: 'DELETE FROM "main"."users" WHERE "id" = ?', params: ['2'] }]);
+    expect(ROW_EDIT_ENGINES.has('d1')).toBe(false);
+    expect(ROW_EDIT_ENGINES.has('clickhouse')).toBe(false);
   });
 
   it('writes literals for DuckDB and finds a keyless Local row by rowid', () => {

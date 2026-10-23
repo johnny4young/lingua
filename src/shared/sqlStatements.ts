@@ -277,9 +277,77 @@ export function isSqlServerReadBatch(sql: string): boolean {
   return /^(select|with)\b/i.test(body) && !body.includes(';') && !TSQL_STATEMENT.test(body);
 }
 
-/** Whether a statement may write on `engine`: SQL Server gets its own fail-closed check; Explain there plans without running. */
+/**
+ * SQLite text as SQLite reads it, with strings, names and comments blanked:
+ * block comments do not nest and there are no dollar or E'' strings, so a
+ * Postgres-shaped token cannot hide a statement from the checks below.
+ */
+function sqliteCode(sql: string): { code: string; statements: number } {
+  let code = '';
+  let statements = 0;
+  let pieceHasCode = false;
+  let i = 0;
+  const skipTo = (end: number) => {
+    code += ' ';
+    i = end;
+  };
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    const next = sql[i + 1];
+    if (ch === '-' && next === '-') {
+      const end = sql.indexOf('\n', i);
+      skipTo(end === -1 ? sql.length : end);
+    } else if (ch === '/' && next === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      skipTo(end === -1 ? sql.length : end + 2);
+    } else if (ch === "'" || ch === '"' || ch === '`' || ch === '[') {
+      const close = ch === '[' ? ']' : ch;
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === close) {
+          if (close !== ']' && sql[j + 1] === close) {
+            j += 2;
+            continue;
+          }
+          break;
+        }
+        j += 1;
+      }
+      pieceHasCode = true;
+      skipTo(Math.min(j + 1, sql.length));
+    } else if (ch === ';') {
+      if (pieceHasCode) statements += 1;
+      pieceHasCode = false;
+      code += ';';
+      i += 1;
+    } else {
+      if (!/\s/.test(ch)) pieceHasCode = true;
+      code += ch;
+      i += 1;
+    }
+  }
+  if (pieceHasCode) statements += 1;
+  return { code: code.trim().replace(/;\s*$/, ''), statements };
+}
+
+/** A write on the SQLite family (a file, libSQL, D1): anything but one statement that leads with a read and holds no write word. */
+function isSqliteWrite(statement: string): boolean {
+  const { code, statements } = sqliteCode(statement);
+  if (statements !== 1) return true;
+  return !REMOTE_READ_LEAD.test(code) || WRITE_WORD.test(code) || /\b(into|execute)\b/i.test(code);
+}
+
+/** D1's API has no read-only mode, so a read is one SELECT, WITH or VALUES statement with no write anywhere in it. */
+const isD1Read = (statement: string) => !isSqliteWrite(statement) && /^(select|with|values)\b/i.test(sqliteCode(statement).code);
+
+/** Engines with no read-only session of their own: a read-only connection there runs only statements proven to read. */
+export const provesReadsOnly = (engine: SqlEngineKind | undefined): boolean => engine === 'sqlserver' || engine === 'd1';
+
+/** Whether a statement may write on `engine`: SQL Server and the SQLite family get their own fail-closed checks; Explain on SQL Server plans without running. */
 export function isWriteSqlStatementOn(engine: SqlEngineKind | undefined, statement: string): boolean {
   if (engine === 'sqlserver') return !/^\s*explain\s/i.test(statement) && !isSqlServerReadBatch(statement);
+  if (engine === 'd1') return !isD1Read(statement);
+  if (engine === 'sqlite' || engine === 'libsql') return isSqliteWrite(statement);
   return isWriteSqlStatement(statement);
 }
 
