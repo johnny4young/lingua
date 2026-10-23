@@ -119,6 +119,13 @@ describe('Neon client', () => {
     expect(sent.at(-1)!.request.headers['Neon-Batch-Read-Only']).toBe('false');
   });
 
+  it('reads a missing database from its SQLSTATE, which Neon sends with a 500', async () => {
+    const { transport } = fake(() => json({ message: 'database "shop" does not exist', code: '3D000', severity: 'FATAL' }, 500));
+    const failure = await openNeon(target, transport).catch((err: unknown) => err);
+    expect(failure).toMatchObject({ code: '3D000', message: 'database "shop" does not exist' });
+    expect(classifyConnectError(failure)).toMatchObject({ step: 'auth', fix: 'database' });
+  });
+
   it('reads a refused password from its SQLSTATE', async () => {
     const { transport } = fake(() => json({ message: 'password authentication failed for user "app"', code: '28P01' }, 400));
     const failure = await openNeon(target, transport).catch((err: unknown) => err);

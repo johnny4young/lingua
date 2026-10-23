@@ -83,15 +83,14 @@ export async function openNeon(target: NeonTarget, transport: HttpSqlTransport):
     };
     const response = await send(transport, { url, headers, body: JSON.stringify(body), signal });
     if (response.status === 200) return parseJson<T>(response);
-    if (response.status === 400 || response.status === 404) {
-      let error: { message?: string; code?: string } = {};
-      try {
-        error = JSON.parse(response.body) as typeof error;
-      } catch {
-        // A plain-text answer is the message itself.
-      }
-      throw new HttpSqlError(error.message ?? summary(response.body), error.code);
+    // Neon sends Postgres errors as JSON with their SQLSTATE, a missing database with a 500.
+    let error: { message?: unknown; code?: unknown } = {};
+    try {
+      error = JSON.parse(response.body) as typeof error;
+    } catch {
+      // A plain-text answer is the message itself.
     }
+    if (typeof error.message === 'string') throw new HttpSqlError(error.message, typeof error.code === 'string' ? error.code : undefined);
     throw new HttpSqlError(`Neon answered HTTP ${response.status}: ${summary(response.body)}`);
   }
 

@@ -44,7 +44,8 @@ function configFrom(url: string | undefined, engine: 'libsql' | 'neon', connecti
     servername: parsed.hostname,
     port: Number(parsed.port),
     ssl: { mode: 'disable' },
-    ...(engine === 'neon' ? { host: 'db.localtest.me', user: 'postgres', password: 'lingua', database: 'shop' } : {}),
+    // Neon's proxy opens the database the connection string names: the URL's path, or shop.
+    ...(engine === 'neon' ? { host: 'db.localtest.me', user: 'postgres', password: 'lingua', database: parsed.pathname.slice(1) || 'shop' } : {}),
     readOnly,
   };
 }

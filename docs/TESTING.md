@@ -216,7 +216,7 @@ estimate, staged edits that commit and roll back, and a refused password. D1
 has no local server; its client is covered with a recorded transport in
 `tests/shared/sqlHttp.test.ts`. Without `LINGUA_TEST_PG_URL`,
 `LINGUA_TEST_MYSQL_URL`, `LINGUA_TEST_MSSQL_URL`, `LINGUA_TEST_CLICKHOUSE_URL`,
-`LINGUA_TEST_LIBSQL_URL` and `LINGUA_TEST_NEON_HTTP_URL` the tests skip, so
+`LINGUA_TEST_LIBSQL_URL` and `LINGUA_TEST_NEON_HTTP_URL` (its path names the database, `shop` by default) the tests skip, so
 locally point them at Docker containers to run them.
 
 Windows PRs also run the narrow `windows-path-hardening` CI job. Besides the
