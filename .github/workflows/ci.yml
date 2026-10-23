@@ -198,6 +198,17 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 60
+      libsql:
+        image: ghcr.io/tursodatabase/libsql-server@sha256:6dd3eb276d9d3604e4a48ac4a999a2e267814732d57d7e94c04ba71482333a67 # latest
+        ports:
+          - 58080:8080
+      # Neon's own proxy in front of the job's Postgres, answering SQL over HTTP.
+      neonproxy:
+        image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a # main
+        env:
+          PG_CONNECTION_STRING: postgres://postgres:lingua@postgres:5432/postgres
+        ports:
+          - 54444:4444
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -210,6 +221,11 @@ jobs:
             license-server/pnpm-lock.yaml
             update-server/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # The proxy reads its schema once at start, which can run before Postgres is ready.
+      - name: Restart the Neon proxy
+        run: |
+          docker restart ${{ job.services.neonproxy.id }}
+          for attempt in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:54444/ && break; sleep 1; done
       # Throwaway servers that live only for this job; the test skips without the URLs.
       - name: SQL host engine tests
         env:
@@ -217,7 +233,9 @@ jobs:
           LINGUA_TEST_MYSQL_URL: mysql://root:lingua@127.0.0.1:53306/billing
           LINGUA_TEST_MSSQL_URL: sqlserver://sa:Lingua_dev1@127.0.0.1:51433/lingua_it
           LINGUA_TEST_CLICKHOUSE_URL: clickhouse://lingua:lingua@127.0.0.1:58123/analytics
-        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts tests/integration/sqlHostServerEngines.test.ts
+          LINGUA_TEST_LIBSQL_URL: http://127.0.0.1:58080
+          LINGUA_TEST_NEON_HTTP_URL: http://127.0.0.1:54444
+        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts tests/integration/sqlHostServerEngines.test.ts tests/integration/sqlHttpEngines.test.ts
 
   coverage:
     name: Coverage floors (instrumented unit suite)
