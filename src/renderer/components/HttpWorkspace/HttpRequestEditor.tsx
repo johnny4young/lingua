@@ -21,7 +21,6 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { Loader2, SendHorizontal, Square } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShortcutLabel } from '../../hooks/useShortcutLabel';
@@ -59,6 +58,7 @@ import { HttpEnvironmentPreview } from './HttpEnvironmentPreview';
 import { HttpRequestBuilderTabs, type HttpRequestBuilderTab } from './HttpRequestBuilderTabs';
 import { HttpTransportSelect } from './HttpTransportSelect';
 import { HttpCopyAsMenu, type HttpCopyFormat } from './HttpCopyAsMenu';
+import { HttpSendButton, type HttpSendQueue } from './HttpSendButton';
 import { HttpUrlField, HttpUrlHint, URL_HINT_ID } from './HttpUrlField';
 import { useHttpTreeCapture, type HttpCaptureTarget } from './useHttpTreeCapture';
 
@@ -91,6 +91,8 @@ export interface HttpRequestEditorProps {
   onManageEnvironment?: () => void;
   /** Filled by the editor with the handler that turns a value picked in the response tree into a capture rule. */
   captureTargetRef?: React.MutableRefObject<HttpCaptureTarget | null>;
+  /** Offline queue state for this request; absent where sends never queue. */
+  queue?: HttpSendQueue;
 }
 
 const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
@@ -106,6 +108,7 @@ export function HttpRequestEditor({
   onSelectEnvironment,
   onManageEnvironment,
   captureTargetRef,
+  queue,
 }: HttpRequestEditorProps) {
   const { t } = useTranslation();
   const sendCombo = useShortcutLabel('run-toggle');
@@ -659,40 +662,15 @@ export function HttpRequestEditor({
           onPaste={handleUrlPaste}
         />
         <HttpCopyAsMenu disabled={url.trim().length === 0 || transport !== 'http'} onCopy={format => void copyAs(format)} />
-        {/* Send is the SLATE accent primary per the proto
-            (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
-            SQL Run shares the same accent primary. Label +
-            shortcut hint show inline. */}
-        {isExecuting ? (
-          // In-flight → the primary button becomes Stop (cancels the
-          // request; the previous response stays on screen).
-          <button
-            type="button"
-            onClick={onStop}
-            data-testid="http-request-editor-stop"
-            aria-label={t('httpWorkspace.editor.stop.label')}
-            title={t('httpWorkspace.editor.stop.label')}
-            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border-strong bg-bg-inset px-3 text-body-sm font-semibold text-fg-base transition-colors hover:bg-bg-muted"
-          >
-            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-            <Square size={12} aria-hidden="true" />
-            <span>{t('httpWorkspace.editor.stop.label')}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={sendCurrentDraft}
-            disabled={!urlState.ok}
-            {...(urlState.ok ? {} : { 'aria-describedby': URL_HINT_ID })}
-            data-testid="http-request-editor-send"
-            aria-label={t('httpWorkspace.editor.send.label')}
-            title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint', { combo: sendCombo })}`}
-            className="focus-ring inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-body-sm font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <SendHorizontal size={14} aria-hidden="true" />
-            <span>{t('httpWorkspace.editor.send.label')}</span>
-          </button>
-        )}
+        <HttpSendButton
+          isExecuting={isExecuting}
+          disabled={!urlState.ok}
+          {...(urlState.ok ? {} : { describedBy: URL_HINT_ID })}
+          combo={sendCombo}
+          {...(queue ? { queue } : {})}
+          onSend={sendCurrentDraft}
+          {...(onStop ? { onStop } : {})}
+        />
       </div>
 
       {urlState.ok ? null : <HttpUrlHint state={urlState} transport={transport} hasEnvironment={activeEnv !== null} />}

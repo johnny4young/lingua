@@ -32,5 +32,13 @@
   "httpWorkspace.response.timing.webNote": "The browser reports only the total; the desktop app shows each phase.",
   "httpWorkspace.response.timing.unavailable": "This response has no timing by phase.",
   "httpWorkspace.response.delta.faster": "{{ms}} ms faster than the previous response",
-  "httpWorkspace.response.delta.slower": "{{ms}} ms slower than the previous response"
+  "httpWorkspace.response.delta.slower": "{{ms}} ms slower than the previous response",
+  "httpWorkspace.offline.sendWhenOnline": "Send when online",
+  "httpWorkspace.offline.queuedLabel": "Queued",
+  "httpWorkspace.offline.remove": "Remove from the queue",
+  "httpWorkspace.offline.sendNow": "Send now",
+  "httpWorkspace.offline.queuedRead": "You're offline. This request sends by itself when the connection returns.",
+  "httpWorkspace.offline.queuedWrite": "You're offline. When the connection returns, Send now sends this request.",
+  "httpWorkspace.offline.waiting_one": "Back online: {{count}} queued request is waiting for Send now.",
+  "httpWorkspace.offline.waiting_other": "Back online: {{count}} queued requests are waiting for Send now."
 }

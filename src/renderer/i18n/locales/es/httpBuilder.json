@@ -32,5 +32,13 @@
   "httpWorkspace.response.timing.webNote": "El navegador solo informa el total; la app de escritorio muestra cada fase.",
   "httpWorkspace.response.timing.unavailable": "Esta respuesta no tiene tiempos por fase.",
   "httpWorkspace.response.delta.faster": "{{ms}} ms más rápida que la respuesta anterior",
-  "httpWorkspace.response.delta.slower": "{{ms}} ms más lenta que la respuesta anterior"
+  "httpWorkspace.response.delta.slower": "{{ms}} ms más lenta que la respuesta anterior",
+  "httpWorkspace.offline.sendWhenOnline": "Enviar al reconectar",
+  "httpWorkspace.offline.queuedLabel": "En cola",
+  "httpWorkspace.offline.remove": "Quitar de la cola",
+  "httpWorkspace.offline.sendNow": "Enviar ahora",
+  "httpWorkspace.offline.queuedRead": "Estás sin conexión. Este request se envía solo cuando vuelva la conexión.",
+  "httpWorkspace.offline.queuedWrite": "Estás sin conexión. Cuando vuelva la conexión, Enviar ahora envía este request.",
+  "httpWorkspace.offline.waiting_one": "Volvió la conexión: {{count}} request en cola espera Enviar ahora.",
+  "httpWorkspace.offline.waiting_other": "Volvió la conexión: {{count}} requests en cola esperan Enviar ahora."
 }
