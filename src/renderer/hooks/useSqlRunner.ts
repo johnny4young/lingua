@@ -70,7 +70,7 @@ export interface SqlPlanResult {
 export type SqlResultView = { kind: 'result'; index: number } | { kind: 'messages' } | { kind: 'plan' };
 
 /** The SQL behind each query's newest response, so Profile and the strip use exactly what ran. */
-export const sessionRunSources = new Map<string, { recordedAt: string; query: string }>();
+export const sessionRunSources = new Map<string, { recordedAt: string; query: string; connectionId?: string }>();
 
 /** Rows read past the window with Load more, for one response; session only. */
 interface SqlMoreRows {
@@ -273,7 +273,7 @@ export function useSqlRunner({ timeoutMs, onBeforeRun, onSchemaChanged }: UseSql
       if (outcomes.some((outcome) => outcome.stillRunning)) setRunState({ stuck: true });
       const liveIds = new Set(useWorkspaceSqlStore.getState().queries.map((q) => q.id));
       for (const id of sessionRunSources.keys()) if (!liveIds.has(id)) sessionRunSources.delete(id);
-      sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql });
+      sessionRunSources.set(query.id, { recordedAt: last.response.recordedAt, query: last.sql, ...(remote ? { connectionId: remote.connection.id } : {}) });
       useWorkspaceSqlStore.getState().recordResponse(query.id, last.response);
       const cursor = outcomes[outcomes.length - 1]?.cursor;
       const key = moreRowsKey(query.id, last.response.recordedAt);

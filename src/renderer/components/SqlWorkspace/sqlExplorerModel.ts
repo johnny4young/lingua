@@ -1,3 +1,4 @@
+import type { LocalCopyOrigin } from '../../../shared/sqlCopyToLocal';
 import type { SqlImportFormat } from '../../../shared/sqlWorkspace';
 
 /** One column of a session table or view, with its DuckDB type. */
@@ -20,6 +21,8 @@ export interface SqlSchemaTable {
   rowCount?: number;
   /** File format the table was imported from. */
   source?: SqlImportFormat;
+  /** The connection a Copy to Local filled it from, and when. */
+  copiedFrom?: LocalCopyOrigin;
 }
 
 export interface SqlSchemaMacro {

@@ -36,7 +36,7 @@ import { moreRowsKey, sessionRunSources, useSqlRunner } from '../../hooks/useSql
 import { useSqlTablePreview } from '../../hooks/useSqlTablePreview';
 import { useSqlQueryTabActions } from '../../hooks/useSqlQueryTabActions';
 import { useSqlImport } from '../../hooks/useSqlImport';
-import { useSqlResultHandoffs } from '../../hooks/useSqlResultHandoffs';
+import { useSqlResultHandoffs, type SqlCopySource } from '../../hooks/useSqlResultHandoffs';
 import type { SqlImportSource } from '../../hooks/sqlWorkspaceTelemetry';
 import { SqlEmptyState } from './SqlEmptyState';
 import { SqlQueryList } from './SqlQueryList';
@@ -59,7 +59,8 @@ import { SqlResultTabs, SqlRunMessages, SqlStuckQueryBand } from './SqlRunOutput
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SqlPasswordPrompt, SqlProdBanner, SqlWriteConfirmDialog } from './SqlConnectionDialogs';
 import { useSqlRemoteCatalogStore } from '../../stores/sqlRemoteCatalogStore';
-import { findConnection, keepsAskedSecret } from '../../stores/sqlConnectionsStore';
+import { findConnection, keepsAskedSecret, useSqlConnectionsStore } from '../../stores/sqlConnectionsStore';
+import { quoteSqlTableReference } from '../../../shared/sqlQuote';
 import { useSqlRowEdits } from '../../hooks/useSqlRowEdits';
 import { useSqlConnectionObjects, type SqlObjectView } from '../../hooks/useSqlConnectionObjects';
 import { formatByteSize } from '../../i18n/formatNumber';
@@ -354,8 +355,29 @@ export function SqlWorkspacePanel(_props: SqlWorkspacePanelProps = {}) {
     }
   }, [existingTableNames, handleCreate, handleRefreshTables, queryTimeoutMs, t]);
 
+  const connectionCatalog = useSqlConnectionsStore((state) => state.catalog);
+  // A connection's result copies to Local: a whole Explorer table, or the editor's statement.
+  const copySource = useMemo<SqlCopySource | undefined>(() => {
+    // The connection the shown result came from, not the one the bar points at now.
+    const connectionId = tablePreview ? tablePreview.connectionId : editorSourceSql !== undefined ? profileSource?.connectionId : undefined;
+    const connection = findConnection(connectionId);
+    if (!connectionId || !connection) return undefined;
+    if (tablePreview) {
+      const table = tablePreview.table;
+      return {
+        connectionId,
+        connectionName: connection.name,
+        sql: `SELECT * FROM ${quoteSqlTableReference(table.sqlName ?? table.name, table.schemaName, connection.engine)}`,
+        name: table.sqlName ?? table.name,
+        engine: connection.engine,
+      };
+    }
+    return editorSourceSql !== undefined ? { connectionId, connectionName: connection.name, sql: editorSourceSql, name: 'result', engine: connection.engine } : undefined;
+  }, [tablePreview, profileSource?.connectionId, editorSourceSql, connectionCatalog]);
+
   const handoffs = useSqlResultHandoffs({
     response: shownResponse,
+    copySource,
     source: safeResponseIndex === 0 || tablePreview ? resultSource : undefined,
     query: tablePreview ? undefined : activeQuery,
     existingTableNames,

@@ -212,7 +212,11 @@ Server's plan, cancel, staged edits, SSH tunnels, the `prefer` fallback and
 auth failures. It also starts a libSQL server and Neon's HTTP proxy in front
 of Postgres and runs `tests/integration/sqlHttpEngines.test.ts`: Turso and
 Neon through the pinned transport, server-side read-only, the catalog, the
-estimate, staged edits that commit and roll back, and a refused password. D1
+estimate, staged edits that commit and roll back, and a refused password.
+`tests/integration/sqlCopyToLocal.test.ts` copies a Postgres and a MySQL
+result through the host's paged runs into a real DuckDB-WASM table from
+tables the suite creates, checks the Postgres copy's types, count and sum
+against the server, and joins the two copies. D1
 has no local server; its client is covered with a recorded transport in
 `tests/shared/sqlHttp.test.ts`. Without `LINGUA_TEST_PG_URL`,
 `LINGUA_TEST_MYSQL_URL`, `LINGUA_TEST_MSSQL_URL`, `LINGUA_TEST_CLICKHOUSE_URL`,
@@ -362,6 +366,7 @@ Use this order when automating:
 | ✅ | `TC-133` | `ELEC` | `developer` | With Edit table rows on, save a ClickHouse connection on port 8123 with SSL off, open a table, then run an INSERT on it while it is read-only | Databases show as schemas with tables, views and materialized views; the grid shows wide integers as text and says the table is not edited row by row; the INSERT is refused by the server and allowed once confirmed |
 | ✅ | `TC-134` | `ELEC` | `developer` | Save a Turso connection to a local libSQL server with TLS off and no token, test it and run a query; then fill a D1 connection with an account, database id and a wrong token and test it | The test lists resolve, policy, TCP, TLS skipped, auth and the libSQL version; the grid shows integers past 2^53 as text and blobs as base64; the D1 test resolves `api.cloudflare.com` and fails at auth |
 | ✅ | `TC-135` | `WEB` | `developer` | With Database connections on in the browser, open the picker, then New connection: paste a `libsql://…?authToken=…` URL, test it with a wrong token and the right one, open it for this tab and run a query; paste a Neon `postgresql://` string, open it and commit a staged edit | The picker lists the socket engines and D1 as DESKTOP ONLY; the sheet offers Turso and Neon only and says the token stays in the tab; the URL field drops the token; the wrong token fails at auth; queries and the edit run from the browser; reloading forgets the connections |
+| ✅ | `TC-136` | `WEB` `ELEC` | `developer` | Run a read query on a connection (a Turso tab connection on the web, Postgres on desktop), open Export full result…, Copy to Local as table and Create; open a Postgres table from the Explorer and copy it too; run an UPDATE on the connection and open the dialog again | The row reads Copy to Local as table with its hint on its own line; progress counts the rows and the notice says how many were copied; the Local Explorer lists the table with its row count (the whole table, not the 100-row preview) and the connection's name, the copy and the date in the tooltip; integers stay exact past 2^53 and bytes stay bytes; after the UPDATE the row keeps the Copy to Local title and says a single read query is needed |
 | ✅ | `TC-124` | `ELEC` | `developer` | Run a query on a connection, open History, switch the query to Local, then save a query on each | History names the connection and lists only its runs; Local lists only its own; saved queries show their connection, RO for a read-only one; Format and completion follow the engine |
 | 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |

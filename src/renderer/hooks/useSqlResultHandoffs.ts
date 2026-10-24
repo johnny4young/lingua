@@ -1,8 +1,13 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBundledAppInfo } from '../../shared/appInfo';
-import { dedupeTableName, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
+import { formatNumber } from '../i18n/formatNumber';
+import { dedupeTableName, isValidTableName, type SqlQueryV1, type SqlResponseV1 } from '../../shared/sqlWorkspace';
+import { isWriteSqlStatementOn, splitSqlStatements } from '../../shared/sqlStatements';
+import type { SqlRemoteEngine } from '../../shared/sqlConnections';
 import { executeQuery } from '../runtime/duckdbClient';
+import { copyConnectionResultToLocal, CopyToLocalError } from '../runtime/sqlCopyToLocal';
+import { sqlDbBridge } from '../runtime/sqlRemote';
 import { buildColumnProfileQuery } from '../runtime/sqlColumnProfile';
 import { buildSqlResponseCapsule } from '../runtime/sqlResponseCapsule';
 import { loadCapsuleExporter } from '../components/Editor/runCapsuleExportLoader';
@@ -14,8 +19,22 @@ import type { SqlResultHandoffs } from '../components/SqlWorkspace/SqlExportDial
 import type { SqlResultSource } from '../components/SqlWorkspace/SqlResultPreview';
 import { appPlatform } from '../utils/appPlatform';
 
+/** The connection a result came from and the read that gives all of it, for Copy to Local. */
+export interface SqlCopySource {
+  connectionId: string;
+  connectionName: string;
+  /** The editor's statement, or the whole table for one opened from the Explorer. */
+  sql: string;
+  /** A suggested name for the Local table. */
+  name: string;
+  /** The connection's engine, which decides whether the statement reads. */
+  engine: SqlRemoteEngine;
+}
+
 interface HandoffInput {
   response: SqlResponseV1 | null;
+  /** Set when the result came from a connection. */
+  copySource?: SqlCopySource;
   source: SqlResultSource | undefined;
   /** The query whose run is on screen; absent for a table opened from the Explorer. */
   query: SqlQueryV1 | undefined;
@@ -30,16 +49,17 @@ const notice = (
   values?: Record<string, string | number>
 ) => useUIStore.getState().pushStatusNotice({ tone, messageKey, ...(values ? { values } : {}) });
 
-/** The Local hand-offs under Export full result…: Save as table, Send to Python tab, Save as run capsule. */
+/** The hand-offs under Export full result…: Save as table (Copy to Local for a connection), Send to Python tab, Save as run capsule. */
 export function useSqlResultHandoffs({
   response,
+  copySource,
   source,
   query,
   existingTableNames,
   timeoutMs,
   onTableCreated,
 }: HandoffInput): SqlResultHandoffs {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return useMemo(() => {
     if (response === null || (response.status !== 'success' && response.status !== 'too-large')) {
       return {};
@@ -100,6 +120,45 @@ export function useSqlResultHandoffs({
       };
     }
 
+    // Copy to Local runs the read again on its connection and fills a new Local table.
+    const db = sqlDbBridge();
+    const copySql = copySource?.sql.trim().replace(/;\s*$/, '');
+    if (response.engine !== undefined && copySource && copySql && db && splitSqlStatements(copySql).length === 1 && !isWriteSqlStatementOn(copySource.engine, copySql)) {
+      handoffs.saveAsTable = {
+        copy: true,
+        suggestedName: dedupeTableName(isValidTableName(copySource.name) ? copySource.name : 'result', existingTableNames),
+        existingNames: existingTableNames,
+        onSave: async (tableName, context) => {
+          try {
+            const copied = await copyConnectionResultToLocal({
+              db,
+              connectionId: copySource.connectionId,
+              connectionName: copySource.connectionName,
+              sql: copySql,
+              table: tableName,
+              timeoutMs,
+              ...(context?.signal ? { signal: context.signal } : {}),
+              ...(context?.onProgress ? { onProgress: context.onProgress } : {}),
+            });
+            notice(copied.truncated ? 'warning' : 'success', copied.truncated ? 'sqlWorkspace.handoff.copiedTruncated' : 'sqlWorkspace.handoff.copied', {
+              name: tableName,
+              count: copied.rowCount,
+              formatted: formatNumber(copied.rowCount, i18n.language),
+            });
+            onTableCreated();
+            return true;
+          } catch (err) {
+            const cancelled = err instanceof CopyToLocalError && err.cancelled;
+            if (cancelled) useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'sqlWorkspace.handoff.copyCancelled' });
+            else if (err instanceof CopyToLocalError && err.value) notice('error', 'sqlWorkspace.handoff.copyBadValue', err.value);
+            else if (err instanceof CopyToLocalError && err.repeated !== undefined) notice('error', 'sqlWorkspace.handoff.copyRepeatedName', { name: err.repeated });
+            else useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey: 'sqlWorkspace.handoff.copyFailed', detail: err instanceof Error ? err.message : String(err) });
+            return false;
+          }
+        },
+      };
+    }
+
     if (source !== undefined) {
       handoffs.onSaveCapsule = () => {
         const now = new Date().toISOString();
@@ -136,5 +195,5 @@ export function useSqlResultHandoffs({
       };
     }
     return handoffs;
-  }, [response, source, query, existingTableNames, timeoutMs, onTableCreated, t]);
+  }, [response, copySource, source, query, existingTableNames, timeoutMs, onTableCreated, t, i18n.language]);
 }

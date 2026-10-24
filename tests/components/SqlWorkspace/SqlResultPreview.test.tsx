@@ -416,7 +416,7 @@ describe('SqlResultPreview', () => {
       await user.clear(name);
       await user.type(name, 'top_cities');
       await user.click(screen.getByTestId('sql-export-save-table'));
-      expect(onSave).toHaveBeenCalledWith('top_cities');
+      expect(onSave).toHaveBeenCalledWith('top_cities', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

@@ -82,6 +82,8 @@ function localEngine(): DuckDbEngineHandle {
       close: async () => undefined,
     }),
     terminate: async () => undefined,
+    registerFile: async () => undefined,
+    dropFile: async () => undefined,
   };
 }
 
@@ -186,7 +188,7 @@ describe('SQL workspace on a saved connection', () => {
     expect(useWorkspaceSqlStore.getState().history[0]).toMatchObject({ status: 'success' });
   });
 
-  it('keeps Profile, Save as table and the full export, which re-run on Local, off a remote result', async () => {
+  it('keeps Profile and the full export, which re-run on Local, off a remote result, and offers Copy to Local instead', async () => {
     db.execute.mockResolvedValueOnce(result({ rows: Array.from({ length: 1000 }, (_, id) => ({ id })), rowCount: 1000, hasMore: true, rowCountIsLowerBound: true }));
     openQuery('SELECT id FROM orders', 'c_dev');
     await renderPanel();
@@ -194,9 +196,24 @@ describe('SQL workspace on a saved connection', () => {
     fireEvent.click(await screen.findByTestId('sql-result-preview-export'));
     expect(screen.queryByRole('tab', { name: 'Profile' })).toBeNull();
     expect(screen.queryByTestId('sql-export-scope-full')).toBeNull();
-    expect(screen.queryByTestId('sql-export-save-table')).toBeNull();
-    expect(screen.getByTestId('sql-export-save-table-unavailable').textContent).toBe('Runs on Local only; this result came from a saved connection.');
+    expect(screen.getByTestId('sql-export-handoffs').textContent).toContain('Copy to Local as table');
+    expect(screen.getByTestId('sql-export-handoffs').textContent).toContain('reads the whole result again from the connection');
+    expect((screen.getByTestId('sql-export-save-table-name') as HTMLInputElement).value).toBe('result');
     expect(screen.getByTestId('sql-export-send-python')).toBeTruthy();
+  });
+
+  it('copies a result from the connection it ran on, even after the bar points elsewhere', async () => {
+    db.execute.mockResolvedValue(result({ rows: [{ id: 1 }, { id: 2 }], rowCount: 2 }));
+    openQuery('SELECT id FROM orders', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await screen.findByTestId('sql-result-preview-export');
+    act(() => useWorkspaceSqlStore.getState().updateQuery('q1', { connectionId: 'c_ask' }));
+    fireEvent.click(screen.getByTestId('sql-result-preview-export'));
+    fireEvent.click(await screen.findByTestId('sql-export-save-table'));
+    await waitFor(() => expect(duckRan).toContain('COMMIT'));
+    expect(db.execute.mock.calls.at(-1)?.slice(1, 3)).toEqual(['c_dev', 'SELECT id FROM orders']);
+    expect(duckRan.find((sql) => sql.startsWith('COMMENT ON TABLE "result"'))).toContain('"connection":"orders-dev"');
   });
 
   it('asks for the typed name with an estimate before a production write, and Cancel sends nothing', async () => {

@@ -59,7 +59,10 @@ time through `sqlDbBridge()` and pages the rest of a result through the same
 host), on web [`runtime/sqlWebDb.ts`](runtime/sqlWebDb.ts) (Turso and Neon for
 the tab, secrets in module memory). Anything
 that re-runs a result on DuckDB (Profile, Save as table, full export) checks the
-response's `engine` first. Staged row edits on an Explorer table (Labs) keep
+response's `engine` first; Copy to Local
+([`runtime/sqlCopyToLocal.ts`](runtime/sqlCopyToLocal.ts)) is the one hand-off
+for a connection's result, re-running it on the connection and filling a new
+Local table. Staged row edits on an Explorer table (Labs) keep
 their state in [`hooks/useSqlRowEdits.ts`](hooks/useSqlRowEdits.ts), with the
 overlay rows and change set in `components/SqlWorkspace/sqlRowEditModel.ts`;
 Commit goes through the same bridge's `applyEdits` on a connection and
@@ -653,11 +656,13 @@ collection state:
 - The SQL tab puts the connection bar (Local · DuckDB, or the query's saved connection) on top, the Explorer
   beside the editor and the results under it. On Local the Explorer reads its tree
   through [`runtime/sqlExplorerCatalog.ts`](runtime/sqlExplorerCatalog.ts)
-  (tables, views, columns, row counts, macros); `lingua_ledger` stays out of
+  (tables, views, columns, row counts, macros, and the connection a copied
+  table came from, read from its comment); `lingua_ledger` stays out of
   the tree but in editor completion. A table opened from the Explorer shows its
   rows under a generated SQL strip without adding a run to history.
   [`hooks/useSqlResultHandoffs.ts`](hooks/useSqlResultHandoffs.ts) owns the
-  Export dialog's Save as table, Send to Python tab and Save as run capsule;
+  Export dialog's Save as table (Copy to Local on a connection's result), Send to
+  Python tab and Save as run capsule;
   [`hooks/useSqlTablePreview.ts`](hooks/useSqlTablePreview.ts) owns Explorer
   table previews (on a connection too), with Edit table rows on the table's
   edit target or why it is read-only, and on Local foreign-key follow and

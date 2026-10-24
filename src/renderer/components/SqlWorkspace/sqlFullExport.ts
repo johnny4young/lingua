@@ -9,9 +9,9 @@ import {
 } from './sqlResultExport';
 
 /** What a streamed export holds in memory before it stops and says so. */
-const FULL_EXPORT_ROW_CAP = 1_000_000;
-const FULL_EXPORT_CELL_CAP = 5_000_000;
-const FULL_EXPORT_BYTE_CAP = 512 * 1024 * 1024;
+export const FULL_EXPORT_ROW_CAP = 1_000_000;
+export const FULL_EXPORT_CELL_CAP = 5_000_000;
+export const FULL_EXPORT_BYTE_CAP = 512 * 1024 * 1024;
 
 export interface SqlFullExportResult {
   data: string | Uint8Array;

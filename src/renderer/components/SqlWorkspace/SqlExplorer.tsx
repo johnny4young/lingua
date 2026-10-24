@@ -172,6 +172,18 @@ export function SqlExplorer({
               {formatNumber(table.rowCount, i18n.language)}
             </span>
           ) : null}
+          {table.copiedFrom ? (
+            <span
+              data-testid="sql-explorer-copied-from"
+              title={t('sqlWorkspace.explorer.copiedFromTitle', {
+                connection: table.copiedFrom.connection,
+                date: new Date(table.copiedFrom.at).toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }),
+              })}
+              className="max-w-[7rem] shrink-0 truncate text-micro text-fg-subtle"
+            >
+              {table.copiedFrom.connection}
+            </span>
+          ) : null}
           {table.source ? (
             <span
               data-testid="sql-explorer-source"
