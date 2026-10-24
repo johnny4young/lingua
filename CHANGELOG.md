@@ -64,6 +64,7 @@ The format follows Keep a Changelog and groups changes by release.
 ### Security
 - The desktop local MCP server moves to the patched @modelcontextprotocol packages (server 2.3.1, node 2.1.1), which fix one HTTP client's messages reaching another on a shared transport and a request that could exhaust memory during validation.
 - On desktop, the AI API key and HTTP environment values marked secret are encrypted with the system keychain instead of being stored in plain text. Existing values move on first launch, and a value stays where it was if the move fails. Without a system keyring, as on Linux sessions that report the basic_text backend, they stay in local storage as before and Settings says they are not encrypted. The web app keeps them in browser storage and now says so next to the field.
+- The desktop app moves to patched zod 4.6.7 (memory exhaustion on oversized collections, through the local MCP server), undici 8.12.3 (a crash on excessive content encodings, in the HTTP proxy) and @azure/msal-node 7.1.1 (through the SQL Server driver, whose Azure sign-in Lingua does not use).
 
 ### Fixed
 - The HTTP response header keeps its timing and size on one line; a long status text is shortened first.
