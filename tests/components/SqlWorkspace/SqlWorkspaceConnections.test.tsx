@@ -358,6 +358,15 @@ describe('History and saved queries per connection', () => {
     expect(store.queries.find((query) => query.id === store.activeQueryId)).toMatchObject({ kind: 'scratch', connectionId: 'c_dev', query: 'SELECT id FROM orders' });
   });
 
+  it("masks a password in the History by the run's engine quoting rules", async () => {
+    db.catalog.mockResolvedValue({ ...catalog, connections: [connection({ engine: 'mysql' })] });
+    db.execute.mockResolvedValue(result({ engine: 'mysql' }));
+    openQuery('CREATE USER app IDENTIFIED BY "hunter2"', 'c_dev');
+    await renderPanel();
+    act(() => pressSqlChord('statement'));
+    await waitFor(() => expect(useWorkspaceSqlStore.getState().history[0]).toMatchObject({ connectionId: 'c_dev', sql: "CREATE USER app IDENTIFIED BY '•••'" }));
+  });
+
   it('names the connection of each saved query, Local for those from before connections', async () => {
     useWorkspaceSqlStore.getState().createQuery({ ...createBlankSqlQuery({ id: 'saved-local', name: 'Refunds by month', query: 'SELECT 1' }) });
     useWorkspaceSqlStore.getState().createQuery({ ...createBlankSqlQuery({ id: 'saved-prod', name: 'Signups today', query: 'SELECT 1' }), connectionId: 'c_prod' });
