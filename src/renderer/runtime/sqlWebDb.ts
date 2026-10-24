@@ -56,13 +56,18 @@ interface Run extends RowPager {
   session: DriverSession;
 }
 
+interface PendingRun {
+  session?: DriverSession;
+  cancelled: boolean;
+}
+
 export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): SqlDbBridge {
   const connections = new Map<string, SqlConnectionV1>();
   const secrets = new Map<string, string>();
   const sessions = new Map<string, Promise<DriverSession>>();
   const runs = new Map<string, Run>();
-  /** Runs still waiting for their first page, so Cancel stops only their own session. */
-  const waiting = new Map<string, DriverSession>();
+  /** Reserve cancellation before opening the driver, including its initial handshake. */
+  const waiting = new Map<string, PendingRun>();
 
   const view = (entry: SqlConnectionV1): SqlDbConnectionView => ({ ...entry, hasPassword: secrets.has(entry.id) });
 
@@ -218,26 +223,45 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       if (!entry) return fail('connection-failed', 'Unknown connection.');
       const { writes, refusal } = runGuard(entry, sql, options);
       if (refusal) return fail('sql-error', refusal, 'confirm-needed');
+      const pending: PendingRun = { cancelled: false };
+      waiting.set(runId, pending);
       for (const [id, run] of runs) if (run.connectionId === connectionId) await closeRun(id);
+      if (pending.cancelled) {
+        waiting.delete(runId);
+        return fail('cancelled', 'Query cancelled');
+      }
       let session: DriverSession;
       try {
         session = await sessionFor(entry);
       } catch (err) {
+        waiting.delete(runId);
+        if (pending.cancelled) return fail('cancelled', 'Query cancelled');
         const detail = refused(entry, classifyConnectError(err));
         return fail('connection-failed', detail.message, detail.fix);
+      }
+      pending.session = session;
+      if (pending.cancelled) {
+        waiting.delete(runId);
+        return fail('cancelled', 'Query cancelled');
       }
       let timedOut = false;
       const timer = setTimeout(() => {
         timedOut = true;
         void session.cancel();
       }, options.timeoutMs);
-      waiting.set(runId, session);
       try {
         const rows = await session.run(sql, { readWrite: Boolean(options.readWrite) && writes });
-        waiting.delete(runId);
+        if (pending.cancelled) {
+          await rows.close().catch(() => undefined);
+          return fail('cancelled', 'Query cancelled');
+        }
         const run: Run = { connectionId, session, rows, pending: [], done: false };
         runs.set(runId, run);
         const page = await readRowPage(run, MAX_RESULT_ROWS, MAX_RESULT_PREVIEW_BYTES, same, rowSize);
+        if (pending.cancelled) {
+          await closeRun(runId);
+          return fail('cancelled', 'Query cancelled');
+        }
         const hasMore = !page.done;
         if (!hasMore) await closeRun(runId);
         return {
@@ -255,6 +279,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
       } catch (err) {
         await closeRun(runId);
         if (timedOut) return fail('timeout', 'Query exceeded timeout');
+        if (pending.cancelled) return fail('cancelled', 'Query cancelled');
         const message = err instanceof Error ? err.message : String(err);
         if (/cancel/i.test(message)) return fail('cancelled', message);
         const detail = err instanceof SqlConnectError ? refused(entry, classifyConnectError(err)) : null;
@@ -267,7 +292,7 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
 
     async fetch(runId, limit, maxBytes) {
       const run = runs.get(runId);
-      if (!run) return { rows: [], done: true, bytes: 0 };
+      if (!run) return { rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' };
       try {
         const page = await readRowPage(run, limit, maxBytes, same, rowSize);
         if (page.done) await closeRun(runId);
@@ -279,8 +304,10 @@ export function createWebSqlDb(transport: HttpSqlTransport = fetchTransport): Sq
     },
 
     async cancel(runId) {
-      const session = runs.get(runId)?.session ?? waiting.get(runId);
-      return { cancelled: session ? await session.cancel() : false };
+      const pending = waiting.get(runId);
+      if (pending) pending.cancelled = true;
+      const session = runs.get(runId)?.session ?? pending?.session;
+      return { cancelled: session ? await session.cancel() : Boolean(pending) };
     },
 
     async closeRun(runId) {
