@@ -84,4 +84,65 @@ describe('desktop SSE proxy', () => {
     expect(response.body).not.toContain(`data: ${MAX_STREAM_MESSAGES}\n`);
     expect(progress.at(-1)).toBe(MAX_STREAM_MESSAGES);
   });
+
+  it('times the phases of the hop that answered and counts the redirects before it', async () => {
+    server = createServer((request, response) => {
+      if (request.url === '/old') {
+        response.writeHead(302, { location: '/new' });
+        response.end();
+        return;
+      }
+      setTimeout(() => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.write('[1,');
+        setTimeout(() => response.end('2]'), 40);
+      }, 60);
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('missing port');
+    const response = await executeHttpProxyRequest(
+      { ...createBlankHttpRequest({ id: 'timed' }), url: `http://127.0.0.1:${address.port}/old` },
+      { allowPrivateHosts: true }
+    );
+
+    expect(response).toMatchObject({ kind: 'success', body: '[1,2]' });
+    const timing = response.timing!;
+    expect(timing.redirects).toBe(1);
+    expect(timing.tlsMs).toBe(0);
+    expect(timing.waitingMs).toBeGreaterThanOrEqual(50);
+    expect(timing.downloadMs).toBeGreaterThanOrEqual(30);
+    const phases = timing.dnsMs + timing.connectMs + timing.tlsMs + timing.waitingMs + timing.downloadMs + timing.redirectMs;
+    expect(phases).toBeLessThanOrEqual(response.durationMs + 2);
+  });
+
+  it('leaves timing off a streamed response', async () => {
+    server = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.end('data: one\n\n');
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('missing port');
+    const response = await executeHttpProxyRequest(
+      { ...createBlankHttpRequest({ id: 'sse-timed' }), transport: 'sse', url: `http://127.0.0.1:${address.port}/events` },
+      { allowPrivateHosts: true }
+    );
+    expect(response.timing).toBeUndefined();
+  });
+
+  it('counts no redirect time when the first hop answers', async () => {
+    server = createServer((_request, response) => response.end('ok'));
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('missing port');
+    const response = await executeHttpProxyRequest(
+      { ...createBlankHttpRequest({ id: 'direct' }), url: `http://127.0.0.1:${address.port}/` },
+      { allowPrivateHosts: true }
+    );
+    expect(response.timing).toMatchObject({ redirects: 0, redirectMs: 0 });
+  });
 });

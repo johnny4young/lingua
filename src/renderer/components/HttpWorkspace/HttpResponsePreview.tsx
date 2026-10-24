@@ -38,10 +38,11 @@ import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
+import { HttpResponseDelta, HttpTimingPanel } from './HttpTimingPanel';
 import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_LIMIT, type JsonSegment } from './httpJsonTreeModel';
 import { splitForHighlight } from './httpTextHighlight';
 
-type PreviewTab = 'body' | 'headers' | 'raw';
+type PreviewTab = 'body' | 'headers' | 'raw' | 'timing';
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
@@ -98,6 +99,8 @@ export interface HttpResponsePreviewProps {
   requestSummary?: string;
   /** The active request's assertions, evaluated against the response. */
   assertions?: readonly HttpAssertion[];
+  /** The response before this one for the same request, for the header's change in time. */
+  previous?: HttpResponseV1;
   /** The active request's capture rules; their body paths are marked in the tree. */
   captures?: readonly HttpCaptureRule[];
   /** Adds a body capture rule for a value hovered in the tree. */
@@ -109,6 +112,7 @@ export function HttpResponsePreview({
   isExecuting,
   requestSummary,
   assertions,
+  previous,
   captures,
   onCaptureValue,
 }: HttpResponsePreviewProps) {
@@ -151,7 +155,7 @@ export function HttpResponsePreview({
 
   const responseTabs = useMemo<ReadonlyArray<ResultHeaderTab>>(
     () =>
-      (['body', 'headers', 'raw'] as const).map((tabId) => ({
+      (['body', 'headers', 'raw', 'timing'] as const).map((tabId) => ({
         id: tabId,
         label: t(`httpWorkspace.response.tab.${tabId}`),
       })),
@@ -228,6 +232,7 @@ export function HttpResponsePreview({
       <ResultHeader
         status={<HttpStatusPill response={response} />}
         meta={meta}
+        metaTrailing={<HttpResponseDelta response={response} previous={previous} />}
         tabs={responseTabs}
         activeTab={tab}
         onTabChange={(id) => setTab(id as PreviewTab)}
@@ -480,6 +485,10 @@ export function HttpResponsePreview({
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {tab === 'timing' ? (
+          <HttpTimingPanel response={response} desktop={typeof window !== 'undefined' && Boolean(window.lingua?.http)} />
         ) : null}
 
         {tab === 'raw' ? (

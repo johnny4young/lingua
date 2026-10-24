@@ -29,6 +29,7 @@ import type {
   HttpRequestHeader,
   HttpRequestV1,
   HttpResponseHeader,
+  HttpResponseTiming,
   HttpResponseV1,
   HttpTransportKind,
 } from './httpWorkspaceSchema';
@@ -384,6 +385,11 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     if (typeof value.closeReason !== 'string') return null;
     closeReason = value.closeReason;
   }
+  let timing: HttpResponseTiming | undefined;
+  if (value.timing !== undefined) {
+    timing = parseResponseTiming(value.timing) ?? undefined;
+    if (timing === undefined) return null;
+  }
   return {
     version: 1,
     ...(value.transport !== undefined ? { transport: value.transport } : {}),
@@ -404,5 +410,20 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     ...(messageCount !== undefined ? { messageCount } : {}),
     ...(closeCode !== undefined ? { closeCode } : {}),
     ...(closeReason !== undefined ? { closeReason } : {}),
+    ...(timing !== undefined ? { timing } : {}),
   };
+}
+
+const TIMING_FIELDS = ['dnsMs', 'connectMs', 'tlsMs', 'waitingMs', 'downloadMs', 'redirects', 'redirectMs'] as const;
+
+function parseResponseTiming(value: unknown): HttpResponseTiming | null {
+  if (!isRecord(value)) return null;
+  const timing: Partial<Record<(typeof TIMING_FIELDS)[number], number>> = {};
+  for (const field of TIMING_FIELDS) {
+    const raw = value[field];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) return null;
+    if (field === 'redirects' && !Number.isInteger(raw)) return null;
+    timing[field] = raw;
+  }
+  return timing as HttpResponseTiming;
 }

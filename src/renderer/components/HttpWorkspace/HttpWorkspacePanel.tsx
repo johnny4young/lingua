@@ -623,6 +623,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     : undefined
                 }
                 assertions={activeRequest?.assertions}
+                previous={activeHistory[safeHistoryIndex + 1]}
                 captures={activeRequest?.captures}
                 {...(activeRequest
                   ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }

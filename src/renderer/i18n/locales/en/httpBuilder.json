@@ -18,5 +18,19 @@
   "httpWorkspace.response.tree.more_other": "Show {{count}} more",
   "httpWorkspace.response.tree.capture": "Capture",
   "httpWorkspace.response.tree.captureAria": "Capture {{path}} as a variable",
-  "httpWorkspace.response.tree.captured": "captured → {{name}}"
+  "httpWorkspace.response.tree.captured": "captured → {{name}}",
+  "httpWorkspace.response.tab.timing": "Timing",
+  "httpWorkspace.response.timing.phase.dns": "DNS",
+  "httpWorkspace.response.timing.phase.connect": "Connect",
+  "httpWorkspace.response.timing.phase.tls": "TLS",
+  "httpWorkspace.response.timing.phase.waiting": "Waiting",
+  "httpWorkspace.response.timing.phase.download": "Download",
+  "httpWorkspace.response.timing.total": "Total",
+  "httpWorkspace.response.timing.waterfall": "Timing waterfall",
+  "httpWorkspace.response.timing.redirects_one": "{{count}} redirect before the final hop, {{ms}} ms",
+  "httpWorkspace.response.timing.redirects_other": "{{count}} redirects before the final hop, {{ms}} ms",
+  "httpWorkspace.response.timing.webNote": "The browser reports only the total; the desktop app shows each phase.",
+  "httpWorkspace.response.timing.unavailable": "This response has no timing by phase.",
+  "httpWorkspace.response.delta.faster": "{{ms}} ms faster than the previous response",
+  "httpWorkspace.response.delta.slower": "{{ms}} ms slower than the previous response"
 }

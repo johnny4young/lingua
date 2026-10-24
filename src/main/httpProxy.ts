@@ -41,7 +41,7 @@
  */
 
 import { lookup as dnsLookup } from 'node:dns/promises';
-import { Agent, fetch as undiciFetch } from 'undici';
+import { Agent, buildConnector, fetch as undiciFetch } from 'undici';
 import {
   authInjectedHeaderName,
   composeRequestHeaders,
@@ -59,6 +59,7 @@ import {
   type HttpResponseKind,
   type HttpResponseV1,
 } from '../shared/httpWorkspaceSchema';
+import { hopTiming, timeConnector, type HopMarks } from './httpProxyTiming';
 import { createPinnedLookup } from './pinnedLookup';
 import {
   SsrfBlockedError,
@@ -413,6 +414,7 @@ export async function executeHttpProxyRequest(
   options: HttpProxyOptions = {}
 ): Promise<HttpResponseV1> {
   const start = Date.now();
+  const startMark = performance.now();
   const recordedAt = new Date(start).toISOString();
   const allowlist = options.userSensitiveHeaders ?? [];
   const allowPrivateHosts = options.allowPrivateHosts ?? false;
@@ -472,8 +474,11 @@ export async function executeHttpProxyRequest(
   let response: Response;
   let finalDispatcher: Agent | null = null;
   let currentDispatcher: Agent | null | undefined;
+  let finalMarks: HopMarks | null = null;
+  let redirects = 0;
   try {
     for (let hop = 0; ; hop += 1) {
+      const marks: HopMarks = { start: performance.now() };
       // Re-run the SSRF guard on every hop, including redirect targets.
       const target = await resolveGuardedNetworkTarget(
         currentUrl,
@@ -482,6 +487,7 @@ export async function executeHttpProxyRequest(
         lookupImpl,
         controller.signal
       );
+      marks.lookupDone = performance.now();
       let hopDispatcher: Agent | null = null;
       if (fetchImpl) {
         response = await fetchImpl(currentUrl, {
@@ -497,9 +503,10 @@ export async function executeHttpProxyRequest(
         // allowH2 stays off: undici 8 negotiates HTTP/2 by default, which would
         // silently change the protocol the HTTP workspace speaks to any TLS
         // server that offers it. tests/main/httpProxyDispatcher.test.ts pins it.
+        // A connector function replaces the one Agent would build, so it carries allowH2 and the pinned lookup itself.
         hopDispatcher = new Agent({
           allowH2: false,
-          connect: { lookup: createPinnedLookup(target.addresses) },
+          connect: timeConnector(buildConnector({ allowH2: false, lookup: createPinnedLookup(target.addresses) }), marks),
         });
         const serializedHeaders: Array<[string, string]> = [];
         requestHeaders.forEach((value, name) => {
@@ -515,10 +522,13 @@ export async function executeHttpProxyRequest(
         })) as unknown as Response;
         currentDispatcher = hopDispatcher;
       }
+      marks.headers = performance.now();
 
       if (!isRedirectStatus(response.status)) {
         finalDispatcher = hopDispatcher;
         currentDispatcher = null;
+        finalMarks = marks;
+        redirects = hop;
         break;
       }
 
@@ -526,6 +536,8 @@ export async function executeHttpProxyRequest(
       if (!location) {
         finalDispatcher = hopDispatcher;
         currentDispatcher = null;
+        finalMarks = marks;
+        redirects = hop;
         break; // redirect status without a target — treat as final
       }
       if (hop >= maxRedirects) {
@@ -614,8 +626,11 @@ export async function executeHttpProxyRequest(
     return failure(request, 'network-error', message, start, recordedAt);
   }
 
+  if (finalMarks) finalMarks.done = performance.now();
   cleanup();
   if (finalDispatcher) await finalDispatcher.close();
+  const timing =
+    finalMarks && request.transport !== 'sse' ? hopTiming(finalMarks, redirects, redirects > 0 ? finalMarks.start - startMark : 0) : undefined;
 
   const { headers, redactedHeaders } = buildRedactedHeaders(response.headers, allowlist);
   const contentType = response.headers.get('content-type') ?? '';
@@ -642,5 +657,6 @@ export async function executeHttpProxyRequest(
     ...(request.transport === 'sse'
       ? { messageCount: countSseEvents(bodyResult.text) }
       : {}),
+    ...(timing ? { timing } : {}),
   };
 }
