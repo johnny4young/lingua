@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoApp, seedSession, test, waitForSeededWorkspaceSettled } from './licenseWeb.helpers';
 
-const API = 'https://api.lingua.test';
+// A public-looking host: .test names count as local and never wait for the network.
+const API = 'https://api.example.com';
 const users = {
   items: [
     { id: 101, name: 'runtime', homepage: `https://example.com/${'long-path-segment/'.repeat(12)}end` },
@@ -52,8 +53,10 @@ test('explains a disabled Send, highlights variables, and folds, searches and ca
   await expect(tree).toBeVisible();
   await expect(tree).toHaveAttribute('data-wrap', 'false');
   await expect(page.getByTestId('http-json-row').first()).toHaveText('items: [2]');
-  await page.getByRole('button', { name: 'Collapse 1' }).click();
-  await expect(page.getByRole('button', { name: 'Expand 1' })).toHaveAttribute('aria-expanded', 'false');
+  const second = page.locator('[data-testid="http-json-row"][data-pointer="/items/1"]');
+  await second.click();
+  await page.keyboard.press('ArrowLeft');
+  await expect(second).toHaveAttribute('aria-expanded', 'false');
 
   await page.getByTestId('http-response-preview-search').fill('EDITOR');
   await expect(page.getByTestId('http-response-preview-search-count')).toHaveText('1 match');
@@ -78,6 +81,39 @@ test('shows the Send hint and tree controls in Spanish', async ({ page }) => {
   );
   await page.getByTestId('http-request-editor-url').fill(`${API}/users`);
   await page.getByTestId('http-request-editor-send').click();
-  await expect(page.getByRole('button', { name: 'Contraer 1' })).toBeVisible();
+  await expect(page.getByRole('tree', { name: 'JSON de la respuesta' })).toBeVisible();
   await expect(page.getByTestId('http-response-preview-wrap-toggle')).not.toBeChecked();
+});
+
+test('shows the total on the Timing tab of the web build', async ({ page }) => {
+  await openBuilder(page, 'en');
+  await page.getByTestId('http-request-editor-url').fill(`${API}/users`);
+  await page.getByTestId('http-request-editor-send').click();
+  await page.getByRole('button', { name: 'Timing' }).click();
+  await expect(page.getByTestId('http-timing')).toHaveAttribute('data-phases', 'false');
+  await expect(page.getByTestId('http-timing')).toContainText('The browser reports only the total');
+});
+
+test('holds sends while offline, sends reads by themselves and leaves writes for Send now', async ({ page, context }) => {
+  await openBuilder(page, 'en');
+  const url = page.getByTestId('http-request-editor-url');
+  const send = page.getByTestId('http-request-editor-send');
+  await url.fill(`${API}/users`);
+  await context.setOffline(true);
+  await expect(send).toHaveText('Send when online');
+  await send.click();
+  await expect(page.getByTestId('http-request-editor-queued')).toContainText('Queued');
+  await expect(page.getByTestId('http-response-preview-body-tree')).toHaveCount(0);
+  await context.setOffline(false);
+  await expect(page.getByTestId('http-response-preview-body-tree')).toBeVisible();
+  await expect(send).toHaveText('Send');
+
+  await page.getByTestId('http-request-editor-method').selectOption('POST');
+  await context.setOffline(true);
+  await send.click();
+  await expect(page.getByTestId('http-request-editor-queued')).toBeVisible();
+  await context.setOffline(false);
+  await expect(send).toHaveText('Send now');
+  await send.click();
+  await expect(send).toHaveText('Send');
 });

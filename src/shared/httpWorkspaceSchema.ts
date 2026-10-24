@@ -357,6 +357,20 @@ export interface HttpResponseV1 {
   /** WebSocket close metadata; absent for HTTP and SSE responses. */
   closeCode?: number;
   closeReason?: string;
+  /** Phases of the final hop, measured by the desktop proxy; absent on the web. */
+  timing?: HttpResponseTiming;
+}
+
+/** Milliseconds per phase of the hop that answered; earlier redirect hops are summed apart. */
+export interface HttpResponseTiming {
+  dnsMs: number;
+  connectMs: number;
+  /** 0 on plain HTTP. */
+  tlsMs: number;
+  waitingMs: number;
+  downloadMs: number;
+  redirects: number;
+  redirectMs: number;
 }
 
 /** Bounded live preview emitted while SSE/WebSocket requests are running. */

@@ -1443,6 +1443,17 @@ network access. Existing HTTP, WebSocket and IPC suites continue covering their
 transport-specific behavior. The extraction changes ownership only; it does not
 extend accepted destinations or promise an additional sandbox.
 
+Each proxied hop is timed (`httpProxyTiming.ts`): the guarded lookup gives
+DNS, and a connector wrapped around undici's `buildConnector` marks when the
+socket was requested, when TCP connected and when it was ready after TLS, then
+the proxy marks the response headers and the end of the body. Because that
+connector replaces the one `Agent` would build, it carries `allowH2: false` and
+the pinned lookup itself. Only the hop that answered is split into phases;
+earlier redirect hops are counted and summed. Streams carry no timing, and the
+web build has none, since `fetch` exposes only the total. A response's
+`timing` is optional; a malformed one in persisted history is dropped and the
+response kept.
+
 The HTTP workspace has one renderer orchestration path for environment
 interpolation, capture chaining, assertion evaluation, secret masking, history,
 and Capsules. Only the network transport varies by platform:
@@ -1473,6 +1484,17 @@ and Capsules. Only the network transport varies by platform:
   both caller-chosen), benchmarking (`2001:2::/48`) and documentation
   (`2001:db8::/32`, `3fff::/20`) are private too. The `localhost` fast path
   also matches the trailing-dot spelling (`localhost.`).
+
+Offline, the HTTP editor holds a send instead of failing it
+(`stores/httpOfflineQueueStore.ts`, `useHttpOfflineSend.ts`). The queue is in
+memory only and keeps one request id per request, with no request content, so
+no resolved secret is ever stored: the request is read from the collection and
+interpolated when it finally sends. Hosts that answer without the internet
+(loopback, private and link-local addresses, single-label names, and names under
+`.localhost`, `.local`, `.test`, `.internal`, `.lan` or `.home.arpa`), streamed
+transports and pipelines never queue. Whenever the app is online with held
+entries, including when the HTTP tab opens after the connection came back,
+held reads (GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
 
 Named request pipelines are renderer orchestration, not a second transport.
 They run no more than 20 enabled ordinary-HTTP steps in order, resolve the

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
 import '../../i18n/httpBuilderCatalog';
@@ -32,13 +32,30 @@ export interface HttpJsonTreeProps {
   onCapture?: (path: string, segments: readonly JsonSegment[]) => void;
 }
 
-function valueClass(value: unknown): string {
-  if (typeof value === 'string') return 'text-syntax-string';
-  if (typeof value === 'number') return 'text-syntax-number';
-  return 'text-syntax-function';
+/** What the keyboard can do on a visible row. */
+interface VisibleRow {
+  pointer: string;
+  parent: string | null;
+  open: boolean | null;
+  toggle?: () => void;
+  toggleFull?: () => void;
+  capture?: () => void;
 }
 
-/** The response body as a foldable tree: one value per line, long strings cut with an expand control. Key it by response so folds reset. */
+// Syntax hues are theme variables, used inline so they add no class to the boot stylesheet.
+const KEYWORD = { color: 'var(--color-syntax-keyword)' };
+
+function valueColor(value: unknown) {
+  if (typeof value === 'string') return { color: 'var(--color-syntax-string)' };
+  if (typeof value === 'number') return { color: 'var(--color-syntax-number)' };
+  return KEYWORD;
+}
+
+/**
+ * The response body as a foldable tree: one value per line, long strings cut
+ * with an expand control. One tab stop: arrows move and fold, Enter or Space
+ * folds or shows a full value, C captures. Key it by response so folds reset.
+ */
 export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }: HttpJsonTreeProps) {
   const { t } = useTranslation();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -46,6 +63,8 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
   const [toggled, setToggled] = useState<ReadonlyMap<string, { open: boolean; search: JsonSearch }>>(new Map());
   const [fullStrings, setFullStrings] = useState<ReadonlySet<string>>(new Set());
   const [pages, setPages] = useState<ReadonlyMap<string, number>>(new Map());
+  const [focused, setFocused] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const openDepth = useMemo(() => (countJsonNodes(value, OPEN_ALL_UP_TO + 1) <= OPEN_ALL_UP_TO ? Infinity : 1), [value]);
 
   useEffect(() => {
@@ -73,6 +92,9 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
   const toggle = (pointer: string, open: boolean) => setToggled((current) => new Map(current).set(pointer, { open: !open, search }));
 
   const rows: ReactNode[] = [];
+  const visible: VisibleRow[] = [];
+  // Rendered rows go first into `visible`, so the active row is known before any row renders its tab stop.
+  const rowElements: Array<(active: string | undefined) => ReactNode> = [];
 
   const addRow = (segments: JsonSegment[], node: unknown, depth: number) => {
     const pointer = jsonPointer(segments);
@@ -86,22 +108,53 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     const text = container ? '' : primitiveText(node);
     const long = text.length > TRUNCATE_AT;
     const full = fullStrings.has(pointer);
-    rows.push(
+    const toggleFull = () =>
+      setFullStrings((current) => {
+        const next = new Set(current);
+        if (full) next.delete(pointer);
+        else next.add(pointer);
+        return next;
+      });
+    const capture = !container && path !== null && onCapture && capturedAs === undefined ? () => onCapture(path, segments) : undefined;
+    visible.push({
+      pointer,
+      parent: segments.length > 1 ? jsonPointer(segments.slice(0, -1)) : null,
+      open: container ? open : null,
+      ...(container ? { toggle: () => toggle(pointer, open) } : {}),
+      ...(long ? { toggleFull } : {}),
+      ...(capture ? { capture } : {}),
+    });
+    rowElements.push((active) => (
       <div
         key={pointer || 'root'}
+        ref={(element) => {
+          if (element) rowRefs.current.set(pointer, element);
+          else rowRefs.current.delete(pointer);
+        }}
+        role="treeitem"
+        aria-level={depth + 1}
+        {...(container ? { 'aria-expanded': open } : {})}
+        aria-selected={pointer === active}
+        tabIndex={pointer === active ? 0 : -1}
+        onFocus={(event) => {
+          if (event.target === event.currentTarget) setFocused(pointer);
+        }}
         data-testid="http-json-row"
         data-pointer={pointer}
         data-hit={search.hits.has(pointer)}
         style={{ paddingLeft: depth * 16 }}
-        className={cn('group flex items-start gap-1 rounded-sm pr-2 hover:bg-bg-inset/60', wrap ? 'min-w-0' : 'w-max min-w-full')}
+        className={cn(
+          'group flex items-start gap-1 rounded-sm pr-2 hover:bg-bg-inset/60 focus-visible:bg-bg-inset focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/70',
+          wrap ? 'min-w-0' : 'w-max min-w-full'
+        )}
       >
         {container ? (
           <button
             type="button"
-            aria-expanded={open}
-            aria-label={t(open ? 'httpWorkspace.response.tree.collapse' : 'httpWorkspace.response.tree.expand', { name: label ?? '{}' })}
+            tabIndex={-1}
+            aria-hidden="true"
             onClick={() => toggle(pointer, open)}
-            className="mt-[3px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            className="mt-[3px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:text-fg-base"
           >
             {open ? <ChevronDown size={11} aria-hidden="true" /> : <ChevronRight size={11} aria-hidden="true" />}
           </button>
@@ -111,28 +164,24 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
         <span className={cn(wrap ? 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre')}>
           {label !== null ? (
             <>
-              <span className={typeof key === 'number' ? 'text-fg-subtle' : 'text-syntax-keyword'}>{highlight(label)}</span>
-              <span className="text-syntax-punctuation">: </span>
+              <span {...(typeof key === 'number' ? { className: 'text-fg-subtle' } : { style: KEYWORD })}>{highlight(label)}</span>
+              <span className="text-fg-subtle">: </span>
             </>
           ) : null}
           {container ? (
             <span className="text-fg-subtle">{Array.isArray(node) ? `[${entries.length}]` : `{${entries.length}}`}</span>
           ) : (
-            <span className={cn(valueClass(node), wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
+            <span style={valueColor(node)} className={cn(wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
           )}
         </span>
         {long ? (
           <button
             type="button"
+            tabIndex={-1}
             aria-label={t(full ? 'httpWorkspace.response.tree.showLess' : 'httpWorkspace.response.tree.showFull')}
             title={t(full ? 'httpWorkspace.response.tree.showLess' : 'httpWorkspace.response.tree.showFull')}
-            onClick={() => setFullStrings((current) => {
-              const next = new Set(current);
-              if (full) next.delete(pointer);
-              else next.add(pointer);
-              return next;
-            })}
-            className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            onClick={toggleFull}
+            className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:text-fg-base"
           >
             {full ? <Minimize2 size={11} aria-hidden="true" /> : <Maximize2 size={11} aria-hidden="true" />}
           </button>
@@ -141,19 +190,20 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
           <span data-testid="http-json-captured" className="mt-[3px] shrink-0 rounded-sm bg-accent-tint px-1 text-micro font-semibold leading-[14px] text-accent-fg">
             {t('httpWorkspace.response.tree.captured', { name: capturedAs })}
           </span>
-        ) : !container && path !== null && onCapture ? (
+        ) : capture ? (
           <button
             type="button"
+            tabIndex={-1}
             data-testid="http-json-capture"
             aria-label={t('httpWorkspace.response.tree.captureAria', { path })}
-            onClick={() => onCapture(path, segments)}
-            className="mt-[3px] shrink-0 rounded-sm px-1 text-micro font-semibold leading-[14px] text-fg-subtle opacity-0 hover:bg-bg-inset hover:text-fg-base focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 group-hover:opacity-100"
+            onClick={capture}
+            className="mt-[3px] shrink-0 rounded-sm px-1 text-micro font-semibold leading-[14px] text-fg-subtle opacity-0 hover:bg-bg-inset hover:text-fg-base group-hover:opacity-100 group-focus-visible:opacity-100"
           >
             {t('httpWorkspace.response.tree.capture')}
           </button>
         ) : null}
       </div>
-    );
+    ));
     if (open) addChildren(pointer, segments, entries, depth + 1);
   };
 
@@ -168,8 +218,8 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     });
     if (entries.length > shown) {
       const more = Math.min(PAGE, entries.length - shown);
-      rows.push(
-        <div key={`more:${pointer}`} style={{ paddingLeft: depth * 16 + 18 }}>
+      rowElements.push(() => (
+        <div key={`more:${pointer}`} role="none" style={{ paddingLeft: depth * 16 + 18 }}>
           <button
             type="button"
             data-testid="http-json-more"
@@ -179,7 +229,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
             {t('httpWorkspace.response.tree.more', { count: more })}
           </button>
         </div>
-      );
+      ));
     }
   };
 
@@ -191,10 +241,38 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     addRow([], value, 0);
   }
 
+  const active = visible.some((row) => row.pointer === focused) ? (focused ?? undefined) : visible[0]?.pointer;
+  for (const render of rowElements) rows.push(render(active));
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const pointer = (event.target as HTMLElement).getAttribute('role') === 'treeitem' ? (event.target as HTMLElement).dataset.pointer : undefined;
+    const index = visible.findIndex((row) => row.pointer === pointer);
+    const row = visible[index];
+    if (!row || event.metaKey || event.ctrlKey || event.altKey) return;
+    let target: string | undefined;
+    if (event.key === 'ArrowDown') target = visible[index + 1]?.pointer;
+    else if (event.key === 'ArrowUp') target = visible[index - 1]?.pointer;
+    else if (event.key === 'Home') target = visible[0]?.pointer;
+    else if (event.key === 'End') target = visible[visible.length - 1]?.pointer;
+    else if (event.key === 'ArrowRight' && row.open === false) row.toggle?.();
+    else if (event.key === 'ArrowRight' && row.open) target = visible[index + 1]?.pointer;
+    else if (event.key === 'ArrowLeft' && row.open) row.toggle?.();
+    else if (event.key === 'ArrowLeft') target = row.parent ?? undefined;
+    else if ((event.key === 'Enter' || event.key === ' ') && (row.toggle ?? row.toggleFull)) (row.toggle ?? row.toggleFull)?.();
+    else if ((event.key === 'c' || event.key === 'C') && row.capture) row.capture();
+    else return;
+    event.preventDefault();
+    if (target !== undefined && rowRefs.current.has(target)) {
+      setFocused(target);
+      rowRefs.current.get(target)?.focus();
+    }
+  };
+
   return (
     <div
       ref={rootRef}
-      role="group"
+      role="tree"
+      onKeyDown={onKeyDown}
       aria-label={t('httpWorkspace.response.tree.ariaLabel')}
       data-testid="http-response-preview-body-tree"
       data-wrap={wrap}

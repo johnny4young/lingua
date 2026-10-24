@@ -100,15 +100,19 @@ describe('JSON body tree', () => {
   const json = (value: unknown, overrides: Partial<HttpResponseV1> = {}) =>
     makeResponse({ body: JSON.stringify(value), contentType: 'application/json; charset=utf-8', url: 'https://x.dev/users', ...overrides });
   const rows = () => screen.getAllByTestId('http-json-row').map((row) => row.textContent);
+  const rowAt = (pointer: string) => document.querySelector<HTMLElement>(`[data-pointer="${pointer}"]`)!;
+  const fold = (pointer: string) => fireEvent.click(rowAt(pointer).querySelector('button')!);
 
   it('shows one value per line with counts, folds a node, and cuts long strings with an expand control', () => {
     render(<HttpResponsePreview response={json({ owner: { login: 'johnny4young', following_url: longUrl }, ids: [1, 2] })} isExecuting={false} />);
+    const login = rowAt('/owner/login').querySelectorAll<HTMLElement>('span[style]');
+    expect([...login].map((span) => span.style.color)).toEqual(['var(--color-syntax-keyword)', 'var(--color-syntax-string)']);
     expect(rows()).toEqual(['owner: {2}', 'login: "johnny4young"', `following_url: "${`"${longUrl}"`.slice(1, 119)}…`, 'ids: [2]', '0: 1', '1: 2']);
     fireEvent.click(screen.getByRole('button', { name: 'Show the full value' }));
     expect(rows()[2]).toBe(`following_url: "${longUrl}"`);
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse owner' }));
+    fold('/owner');
     expect(rows()).toEqual(['owner: {2}', 'ids: [2]', '0: 1', '1: 2']);
-    expect(screen.getByRole('button', { name: 'Expand owner' }).getAttribute('aria-expanded')).toBe('false');
+    expect(rowAt('/owner').getAttribute('aria-expanded')).toBe('false');
   });
 
   it('starts a large document folded below the top level and pages long arrays', () => {
@@ -116,9 +120,9 @@ describe('JSON body tree', () => {
     render(<HttpResponsePreview response={json(big)} isExecuting={false} />);
     expect(rows().slice(0, 3)).toEqual(['users: [450]', '0: {2}', '1: {2}']);
     expect(screen.getAllByTestId('http-json-row')).toHaveLength(201);
-    fireEvent.click(screen.getByRole('button', { name: 'Expand 1' }));
+    fold('/users/1');
     expect(rows().slice(2, 5)).toEqual(['1: {2}', 'id: 1', 'name: "user 1"']);
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse 1' }));
+    fold('/users/1');
     fireEvent.click(screen.getByTestId('http-json-more'));
     expect(screen.getAllByTestId('http-json-row')).toHaveLength(401);
     expect(screen.getByTestId('http-json-more').textContent).toBe('Show 50 more');
@@ -136,10 +140,10 @@ describe('JSON body tree', () => {
 
   it('opens a node the user folded when a new search finds a match inside it, and folds again on request', () => {
     render(<HttpResponsePreview response={json({ items: [{ name: 'runtime' }, { name: 'editor' }] })} isExecuting={false} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse 1' }));
+    fold('/items/1');
     fireEvent.change(screen.getByTestId('http-response-preview-search'), { target: { value: 'editor' } });
     expect(document.querySelector('[data-hit="true"]')?.getAttribute('data-pointer')).toBe('/items/1/name');
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse 1' }));
+    fold('/items/1');
     expect(document.querySelector('[data-hit="true"]')).toBeNull();
   });
 
@@ -191,6 +195,45 @@ describe('JSON body tree', () => {
     } finally {
       errors.mockRestore();
     }
+  });
+
+  it('is one tab stop that arrows move through, folds, expands and captures', () => {
+    const onCaptureValue = vi.fn();
+    render(
+      <HttpResponsePreview
+        response={json({ owner: { login: 'johnny4young', url: longUrl }, ids: [1, 2] })}
+        isExecuting={false}
+        onCaptureValue={onCaptureValue}
+      />
+    );
+    const tree = screen.getByRole('tree');
+    const tabStops = () => screen.getAllByRole('treeitem').filter((item) => item.tabIndex === 0);
+    expect(tabStops().map((item) => item.dataset.pointer)).toEqual(['/owner']);
+    expect(tree.querySelectorAll('button:not([tabindex="-1"])')).toHaveLength(0);
+    const key = (name: string) => fireEvent.keyDown(document.activeElement!, { key: name });
+    rowAt('/owner').focus();
+    key('ArrowLeft');
+    expect(rowAt('/owner').getAttribute('aria-expanded')).toBe('false');
+    key('ArrowRight');
+    expect(rowAt('/owner').getAttribute('aria-expanded')).toBe('true');
+    key('ArrowRight');
+    expect(document.activeElement).toBe(rowAt('/owner/login'));
+    expect(tabStops().map((item) => item.dataset.pointer)).toEqual(['/owner/login']);
+    key('c');
+    expect(onCaptureValue).toHaveBeenCalledWith('owner.login', ['owner', 'login']);
+    key('ArrowDown');
+    key('Enter');
+    expect(rowAt('/owner/url').textContent).toContain(longUrl);
+    key('ArrowLeft');
+    expect(document.activeElement).toBe(rowAt('/owner'));
+    key('End');
+    expect(document.activeElement).toBe(rowAt('/ids/1'));
+    key('ArrowUp');
+    expect(document.activeElement).toBe(rowAt('/ids/0'));
+    // Space on a value with nothing to fold keeps its default, so the body still scrolls.
+    expect(fireEvent.keyDown(document.activeElement!, { key: ' ' })).toBe(true);
+    key('Home');
+    expect(document.activeElement).toBe(rowAt('/owner'));
   });
 
   it('renders a body that is not valid JSON as text', () => {

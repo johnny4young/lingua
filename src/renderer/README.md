@@ -774,6 +774,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | [licenseTrustCapture.ts](stores/licenseTrustCapture.ts) | records a `license` trust event on each verify (active/grace) or rejection (invalid, by reason code); wired by the facade so the seam stays thin |
 | [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
 | [workspaceRunReadyStore.ts](stores/workspaceRunReadyStore.ts) | whether the SQL / HTTP workspace has an open editor for toolbar Run |
+| [httpOfflineQueueStore.ts](stores/httpOfflineQueueStore.ts) | HTTP sends held while offline: one request id each, in memory only |
 | [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | activation-scoped SQL workspace queries (scratch and saved), open query tabs, results, run history, folded Explorer, imported table sources |
 | [sqlConnectionsStore.ts](stores/sqlConnectionsStore.ts) | the desktop database connection catalog read from main (saved and session-only connections, Free count, keychain availability); never persisted in the renderer and never holds a password |
 | [sqlRemoteCatalogStore.ts](stores/sqlRemoteCatalogStore.ts) | each database connection's catalog as the Explorer reads it (schemas, objects, columns, object detail), in memory for the session; Refresh bumps a generation that drops late answers |

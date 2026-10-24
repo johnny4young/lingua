@@ -46,6 +46,7 @@ import { HttpRequestEditor } from './HttpRequestEditor';
 import { HttpResponsePreview } from './HttpResponsePreview';
 import type { JsonSegment } from './httpJsonTreeModel';
 import type { HttpCaptureTarget } from './useHttpTreeCapture';
+import { useHttpOfflineSend } from './useHttpOfflineSend';
 import { HttpResponseHistory } from './HttpResponseHistory';
 import { HttpEnvironmentManager } from './HttpEnvironmentManager';
 import { HttpPipelineManager } from './HttpPipelineManager';
@@ -440,6 +441,8 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
     [sensitiveHttpHeaders, httpAllowPrivateHosts, t, announce]
   );
 
+  const { sendFromEditor, queueFor } = useHttpOfflineSend(handleSend);
+
   // Cancel the in-flight request (Stop button). Leaves the previous
   // response on screen; the aborted send skips recording.
   const handleStop = useCallback(() => {
@@ -592,7 +595,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
             <HttpRequestEditor
               request={activeRequest}
               onPatch={handlePatch}
-              onSend={handleSend}
+              onSend={sendFromEditor}
               onStop={handleStop}
               isExecuting={isExecuting}
               environments={environments}
@@ -600,6 +603,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
               onSelectEnvironment={handleSelectEnvironment}
               onManageEnvironment={handleManageEnvironment}
               captureTargetRef={captureTargetRef}
+              queue={queueFor(activeRequest)}
             />
           ) : (
             <HttpEmptyState onCreate={handleCreate} />
@@ -623,6 +627,7 @@ export function HttpWorkspacePanel(_props: HttpWorkspacePanelProps = {}) {
                     : undefined
                 }
                 assertions={activeRequest?.assertions}
+                previous={activeHistory[safeHistoryIndex + 1]}
                 captures={activeRequest?.captures}
                 {...(activeRequest
                   ? { onCaptureValue: (path: string, segments: readonly JsonSegment[]) => captureTargetRef.current?.(path, segments) }

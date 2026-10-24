@@ -233,6 +233,9 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - A JSON response opens as a tree with one value per line. Click a node's arrow to fold it. Documents over 1,000 values open with only the top level unfolded, long arrays and objects show 200 entries at a time, and values longer than 120 characters as written in JSON are cut with a control that shows the full value. A body nested more than 256 levels deep shows as raw text. **Wrap** is off by default, so a long value scrolls instead of breaking the indentation; it also applies to raw and text bodies. Turn **Pretty** off to read the raw body.
 - Search matches keys and values, highlights them, and unfolds the nodes that hold a match.
 - Hovering a value offers **Capture**, which adds a capture rule for that path to the request and opens the Capture tab. A value that a rule already captures shows `captured → name`.
+- The tree is one tab stop, plus a **Show more** button under long arrays and objects. Arrow keys move between rows and fold or open them, `Home` and `End` jump to the first and last row, `Enter` or `Space` folds a node or shows a cut value in full, and `C` captures the focused value.
+- The **Timing** tab splits the desktop app's request into DNS, Connect, TLS, Waiting and Download for the hop that answered, and counts any redirects before it. The web build shows the total only. At the end of the response header's time and size line, `▼ 3 ms` or `▲ 3 ms` compares the response with the previous one for the same request.
+- Offline, Send on a request that needs the internet reads **Send when online** and holds the request instead of failing it; the last response stays on screen. When the connection returns, held GET, HEAD and OPTIONS requests send by themselves and other methods wait for **Send now**, so a write is never repeated without a click. Requests to `localhost`, private addresses, single-label names and names under `.local`, `.test`, `.internal`, `.lan` or `.home.arpa`, streams and pipelines always send. Held requests also send when you open the HTTP tab after the connection came back. The queue is not kept when Lingua closes.
 
 ## Database connections (Labs)
 
@@ -289,6 +292,7 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Desktop-style automatic updates stay unavailable in the browser build; web update detection uses the hosted version endpoint and reload banner.
 - Local plugin discovery stays unavailable in the browser build.
 - External file watching stays unavailable in the browser build.
+- HTTP Timing shows only the total in the browser; the per-phase split is desktop-only.
 - The browser build has no encrypted secret vault: the AI API key and HTTP environment values marked secret stay in the browser's local storage, unencrypted. Desktop encrypts them with the system keychain.
 
 ## Browser preview live refresh
