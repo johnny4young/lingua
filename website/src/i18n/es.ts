@@ -234,9 +234,9 @@ export const es = {
         },
         {
           image: '/screenshots/tour/http-workspace-es.png',
-          alt: 'Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK formateada',
+          alt: 'Workspace HTTP mostrando una request GET con query params y una respuesta JSON 200 OK como árbol plegable',
           title: 'Un cliente HTTP sin el impuesto de la pestaña del navegador',
-          body: 'Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y lee el body formateado con status, timing y tamaño ahí donde codeas.',
+          body: 'Requests, query params, auth, environments y captura de respuestas viven en un solo tab de workspace. Envía y luego pliega, busca y captura valores del body JSON, con status, timing y tamaño ahí donde codeas.',
         },
         {
           image: '/screenshots/tour/settings-privacy-es.png',

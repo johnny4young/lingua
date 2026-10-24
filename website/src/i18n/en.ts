@@ -234,9 +234,9 @@ export const en = {
         },
         {
           image: '/screenshots/tour/http-workspace.png',
-          alt: 'HTTP workspace showing a GET request with query params and a pretty-printed 200 OK JSON response',
+          alt: 'HTTP workspace showing a GET request with query params and a 200 OK JSON response as a foldable tree',
           title: 'An HTTP client without the browser-tab tax',
-          body: 'Requests, query params, auth, environments, and response capture live in one workspace tab. Send and read the pretty-printed body with status, timing, and size right where you code.',
+          body: 'Requests, query params, auth, environments, and response capture live in one workspace tab. Send, then fold, search and capture values from the JSON body, with status, timing, and size right where you code.',
         },
         {
           image: '/screenshots/tour/settings-privacy.png',
