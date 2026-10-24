@@ -1437,6 +1437,25 @@ protocol set, default lookup, timeout and private-host opt-in. The historical
 policy exports from `httpProxy.ts` remain compatibility aliases; new consumers
 should use the neutral leaf rather than depend on an HTTP implementation.
 
+Each proxied hop is timed (`httpProxyTiming.ts`): the guarded lookup gives
+DNS, and a connector wrapped around undici's `buildConnector` marks when the
+socket was requested, when TCP connected and when it was ready after TLS, then
+the proxy marks the response headers and the end of the body. Because that
+connector replaces the one `Agent` would build, it carries `allowH2: false` and
+the pinned lookup itself. Only the hop that answered is split into phases;
+earlier redirect hops are counted and summed. Streams carry no timing, and the
+web build has none, since `fetch` exposes only the total. A response's
+`timing` is optional and validated like the rest of the persisted history.
+
+Offline, the HTTP editor holds a send instead of failing it
+(`stores/httpOfflineQueueStore.ts`, `useHttpOfflineSend.ts`). The queue is in
+memory only and keeps one request id per request, with no request content, so
+no resolved secret is ever stored: the request is read from the collection and
+interpolated when it finally sends. Hosts that answer without the internet
+(loopback, private and link-local addresses, `.localhost`, `.local`), streamed
+transports and pipelines never queue. When the connection returns, held reads
+(GET, HEAD, OPTIONS) send one at a time and writes wait for Send now.
+
 `tests/main/networkTargetPolicy.test.ts` locks dependency direction, historical
 function/type identities and deterministic lookup/error semantics without live
 network access. Existing HTTP, WebSocket and IPC suites continue covering their
