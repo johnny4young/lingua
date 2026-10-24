@@ -86,4 +86,31 @@ describe('loadSqlCatalog', () => {
     expect(catalog.tables).toEqual([{ name: 'cities', sqlName: 'cities', kind: 'table' }]);
     expect(catalog.macros).toEqual([]);
   });
+
+  it('reads where a Copy to Local filled a table from its comment, and ignores other comments', async () => {
+    const catalog = await loadSqlCatalog(
+      connection([
+        [
+          /information_schema\.tables/,
+          [
+            { table_schema: 'main', table_name: 'orders_copy', table_type: 'BASE TABLE' },
+            { table_schema: 'main', table_name: 'notes', table_type: 'BASE TABLE' },
+          ],
+        ],
+        [/information_schema\.columns/, []],
+        [
+          /duckdb_tables/,
+          [
+            { schema_name: 'main', table_name: 'orders_copy', estimated_size: '2', comment: '{"kind":"lingua.copy","connection":"orders-dev","at":"2026-10-23T10:00:00.000Z"}' },
+            { schema_name: 'main', table_name: 'notes', estimated_size: '1', comment: 'written by hand' },
+          ],
+        ],
+        [/duckdb_functions/, []],
+      ])
+    );
+    expect(catalog.tables).toEqual([
+      { name: 'orders_copy', sqlName: 'orders_copy', kind: 'table', rowCount: 2, copiedFrom: { connection: 'orders-dev', at: '2026-10-23T10:00:00.000Z' } },
+      { name: 'notes', sqlName: 'notes', kind: 'table', rowCount: 1 },
+    ]);
+  });
 });

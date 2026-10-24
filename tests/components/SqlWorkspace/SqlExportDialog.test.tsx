@@ -196,4 +196,32 @@ describe('from the result grid', () => {
     await user.click(screen.getByTestId('sql-export-download'));
     expect(exportFullResult.mock.calls[0]![0]).toBe('SELECT *\nFROM (\nSELECT * FROM t\n) AS result\nORDER BY "a" ASC');
   });
+
+  it('copies a connection result to Local with progress, and Cancel aborts the copy', async () => {
+    const user = userEvent.setup();
+    let seen: { signal: AbortSignal; onProgress: (rows: number) => void } | undefined;
+    const onSave = vi.fn(
+      (_name: string, context?: { signal: AbortSignal; onProgress: (rows: number) => void }) =>
+        new Promise<boolean>((resolve) => {
+          seen = context;
+          context?.onProgress(12_000);
+          context?.signal.addEventListener('abort', () => resolve(false));
+        })
+    );
+    const onClose = dialog({ handoffs: { remote: true, saveAsTable: { copy: true, suggestedName: 'orders', existingNames: [], onSave } } });
+    expect(screen.getByTestId('sql-export-handoffs').textContent).toContain('Copy to Local as table');
+    await user.click(screen.getByTestId('sql-export-save-table'));
+    expect(onSave).toHaveBeenCalledWith('orders', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(screen.getByTestId('sql-export-copy-progress').textContent).toBe('Copying… 12,000 rows read');
+    await user.click(screen.getByTestId('sql-export-copy-cancel'));
+    expect(seen?.signal.aborted).toBe(true);
+    await waitFor(() => expect(screen.queryByTestId('sql-export-copy-progress')).toBeNull());
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Copy to Local title on a connection result it cannot copy, and says why', () => {
+    dialog({ handoffs: { remote: true } });
+    expect(screen.getByTestId('sql-export-handoffs').textContent).toContain('Copy to Local as table');
+    expect(screen.getByTestId('sql-export-save-table-unavailable').textContent).toBe('Copy to Local needs a single read query on the connection.');
+  });
 });

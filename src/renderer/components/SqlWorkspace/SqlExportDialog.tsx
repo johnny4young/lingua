@@ -28,9 +28,11 @@ import { useUIStore } from '../../stores/uiStore';
 export interface SqlResultHandoffs {
   /** Present when the SQL that produced the result is known and is one read statement. */
   saveAsTable?: {
+    /** Copy to Local: the rows are read again from the connection, with progress and Cancel. */
+    copy?: true;
     suggestedName: string;
     existingNames: ReadonlyArray<string>;
-    onSave: (tableName: string) => Promise<boolean>;
+    onSave: (tableName: string, context?: { signal: AbortSignal; onProgress: (rows: number) => void }) => Promise<boolean>;
   };
   /** Receives the rows the dialog would export. */
   onSendToPython?: (rows: ReadonlyArray<Record<string, unknown>>) => void;
@@ -83,6 +85,10 @@ export function SqlExportDialog({
   const [options, setOptions] = useState<SqlExportOptions>(DEFAULT_EXPORT_OPTIONS);
   const [tableName, setTableName] = useState(handoffs.saveAsTable?.suggestedName ?? '');
   const [savingTable, setSavingTable] = useState(false);
+  const [copied, setCopied] = useState<number | null>(null);
+  const copyRef = useRef<AbortController | null>(null);
+  useEffect(() => () => copyRef.current?.abort(), []);
+  const copyMode = handoffs.saveAsTable?.copy === true;
   const capsuleCombo = useShortcutLabel('run-export-capsule');
 
   const partial = totalIsLowerBound || totalRowCount > rows.length;
@@ -182,8 +188,13 @@ export function SqlExportDialog({
   const handleSaveTable = async () => {
     if (!handoffs.saveAsTable || !canSaveTable) return;
     setSavingTable(true);
-    const ok = await handoffs.saveAsTable.onSave(tableName.trim());
+    const controller = new AbortController();
+    copyRef.current = controller;
+    if (copyMode) setCopied(0);
+    const ok = await handoffs.saveAsTable.onSave(tableName.trim(), { signal: controller.signal, onProgress: setCopied });
+    if (copyRef.current === controller) copyRef.current = null;
     setSavingTable(false);
+    setCopied(null);
     if (ok) onClose();
   };
 
@@ -391,6 +402,7 @@ export function SqlExportDialog({
 
         <section
           aria-labelledby={`${titleId}-handoffs`}
+          data-testid="sql-export-handoffs"
           className="border-t border-border-subtle pt-3"
         >
           <h3
@@ -399,10 +411,10 @@ export function SqlExportDialog({
           >
             {t('sqlWorkspace.export.handoffs')}
           </h3>
-          <div className="flex min-h-[30px] items-center gap-2.5 text-body-sm">
+          <div className="flex min-h-[30px] flex-wrap items-center gap-x-2.5 gap-y-1 text-body-sm">
             <Table2 size={13} aria-hidden="true" className="shrink-0 text-fg-subtle" />
             <span className="font-semibold text-fg-base">
-              {t('sqlWorkspace.export.saveAsTable')}
+              {t(copyMode || handoffs.remote ? 'sqlWorkspace.export.copyToLocal' : 'sqlWorkspace.export.saveAsTable')}
             </span>
             {handoffs.saveAsTable ? (
               <>
@@ -426,9 +438,20 @@ export function SqlExportDialog({
                   ) : null}
                   {t('sqlWorkspace.export.create')}
                 </button>
-                <span className="truncate font-mono text-caption text-fg-subtle">
-                  {nameTaken ? t('sqlWorkspace.import.nameTaken') : 'CREATE TABLE … AS'}
-                </span>
+                {copied !== null ? (
+                  <>
+                    <button type="button" onClick={() => copyRef.current?.abort()} data-testid="sql-export-copy-cancel" className={BUTTON}>
+                      {t('sqlWorkspace.export.cancel')}
+                    </button>
+                    <span data-testid="sql-export-copy-progress" role="status" className="basis-full pl-[23px] font-mono text-caption text-fg-muted">
+                      {t('sqlWorkspace.export.copyProgress', { count: copied, formatted: formatNumber(copied, i18n.language) })}
+                    </span>
+                  </>
+                ) : (
+                  <span className={cn('font-mono text-caption text-fg-subtle', copyMode ? 'basis-full pl-[23px]' : 'truncate')}>
+                    {nameTaken ? t('sqlWorkspace.import.nameTaken') : copyMode ? t('sqlWorkspace.export.copyToLocalHint') : 'CREATE TABLE … AS'}
+                  </span>
+                )}
               </>
             ) : (
               <span
