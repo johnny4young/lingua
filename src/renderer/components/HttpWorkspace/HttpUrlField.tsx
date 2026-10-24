@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { splitVariableTokens, type HttpEnvironmentV1, type HttpUrlState } from '../../../shared/httpEnvironment';
 import type { HttpTransportKind } from '../../../shared/httpWorkspaceSchema';
 import { cn } from '../../utils/cn';
+import '../../i18n/httpBuilderCatalog';
 
 export const URL_HINT_ID = 'http-request-editor-url-hint';
 

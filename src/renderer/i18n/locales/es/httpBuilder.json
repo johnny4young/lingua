@@ -1,0 +1,22 @@
+{
+  "httpWorkspace.editor.tab.authBadge.bearer": "Bearer",
+  "httpWorkspace.editor.tab.authBadge.basic": "Basic",
+  "httpWorkspace.editor.tab.authBadge.apiKey": "Clave API",
+  "httpWorkspace.editor.capture.added": "Captura {{path}} en {{name}} después de cada respuesta exitosa.",
+  "httpWorkspace.editor.url.hint.empty": "Escribe una URL para enviar.",
+  "httpWorkspace.editor.url.hint.unresolved": "Dale un valor a {{name}} en el entorno activo para enviar.",
+  "httpWorkspace.editor.url.hint.unresolvedNoEnv": "Elige un entorno que defina {{name}} para enviar.",
+  "httpWorkspace.editor.url.hint.invalid": "Escribe una URL completa que empiece con https:// o http:// para enviar.",
+  "httpWorkspace.editor.url.hint.invalidWebsocket": "Escribe una URL completa que empiece con wss:// o ws:// para enviar.",
+  "httpWorkspace.response.body.wrap": "Ajustar",
+  "httpWorkspace.response.tree.ariaLabel": "JSON de la respuesta",
+  "httpWorkspace.response.tree.expand": "Expandir {{name}}",
+  "httpWorkspace.response.tree.collapse": "Contraer {{name}}",
+  "httpWorkspace.response.tree.showFull": "Mostrar el valor completo",
+  "httpWorkspace.response.tree.showLess": "Mostrar menos",
+  "httpWorkspace.response.tree.more_one": "Mostrar {{count}} más",
+  "httpWorkspace.response.tree.more_other": "Mostrar {{count}} más",
+  "httpWorkspace.response.tree.capture": "Capturar",
+  "httpWorkspace.response.tree.captureAria": "Capturar {{path}} como variable",
+  "httpWorkspace.response.tree.captured": "capturado → {{name}}"
+}

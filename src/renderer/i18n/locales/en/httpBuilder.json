@@ -1,0 +1,22 @@
+{
+  "httpWorkspace.editor.tab.authBadge.bearer": "Bearer",
+  "httpWorkspace.editor.tab.authBadge.basic": "Basic",
+  "httpWorkspace.editor.tab.authBadge.apiKey": "API key",
+  "httpWorkspace.editor.capture.added": "Captures {{path}} into {{name}} after each successful response.",
+  "httpWorkspace.editor.url.hint.empty": "Enter a URL to send.",
+  "httpWorkspace.editor.url.hint.unresolved": "Give {{name}} a value in the active environment to send.",
+  "httpWorkspace.editor.url.hint.unresolvedNoEnv": "Choose an environment that sets {{name}} to send.",
+  "httpWorkspace.editor.url.hint.invalid": "Enter a full URL that starts with https:// or http:// to send.",
+  "httpWorkspace.editor.url.hint.invalidWebsocket": "Enter a full URL that starts with wss:// or ws:// to send.",
+  "httpWorkspace.response.body.wrap": "Wrap",
+  "httpWorkspace.response.tree.ariaLabel": "Response JSON",
+  "httpWorkspace.response.tree.expand": "Expand {{name}}",
+  "httpWorkspace.response.tree.collapse": "Collapse {{name}}",
+  "httpWorkspace.response.tree.showFull": "Show the full value",
+  "httpWorkspace.response.tree.showLess": "Show less",
+  "httpWorkspace.response.tree.more_one": "Show {{count}} more",
+  "httpWorkspace.response.tree.more_other": "Show {{count}} more",
+  "httpWorkspace.response.tree.capture": "Capture",
+  "httpWorkspace.response.tree.captureAria": "Capture {{path}} as a variable",
+  "httpWorkspace.response.tree.captured": "captured → {{name}}"
+}

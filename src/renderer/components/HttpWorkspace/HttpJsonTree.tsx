@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/cn';
+import '../../i18n/httpBuilderCatalog';
 import {
   capturePath,
   countJsonNodes,

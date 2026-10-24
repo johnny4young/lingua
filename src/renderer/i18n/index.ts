@@ -20,11 +20,14 @@ let spanishCatalogPromise: Promise<CommonCatalog> | null = null;
 async function loadCatalog(language: SupportedLanguage): Promise<CommonCatalog> {
   if (language === 'en') return en;
   if (loadedCatalogs.es) return loadedCatalogs.es;
-  // The database connection copy is a separate file so English can leave it out of the boot catalog.
+  // Database connection and HTTP builder copy are separate files so English can leave them out of the boot catalog.
   spanishCatalogPromise ??= Promise.all([
     import('./locales/es/common.json'),
     import('./locales/es/sqlConnections.json'),
-  ]).then(([common, connections]) => ({ ...common.default, ...connections.default }) as CommonCatalog);
+    import('./locales/es/httpBuilder.json'),
+  ]).then(
+    ([common, connections, httpBuilder]) => ({ ...common.default, ...connections.default, ...httpBuilder.default }) as CommonCatalog
+  );
   const catalog = await spanishCatalogPromise;
   loadedCatalogs.es = catalog;
   if (initialized) {

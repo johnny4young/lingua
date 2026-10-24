@@ -2,6 +2,7 @@ import { useCallback, useEffect, type MutableRefObject } from 'react';
 import { createBlankCaptureRule } from '../../../shared/httpWorkspaceCaptures';
 import type { HttpCaptureRule } from '../../../shared/httpWorkspaceSchema';
 import { useUIStore } from '../../stores/uiStore';
+import '../../i18n/httpBuilderCatalog';
 import { normalizeCapturePath, suggestCaptureName, type JsonSegment } from './httpJsonTreeModel';
 
 export type HttpCaptureTarget = (path: string, segments: readonly JsonSegment[]) => void;

@@ -35,6 +35,7 @@ import { ExplainErrorButton } from '../AI/ExplainErrorButton';
 import { EmptyState } from '../ui/EmptyState';
 import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
+import '../../i18n/httpBuilderCatalog';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
 import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_LIMIT, type JsonSegment } from './httpJsonTreeModel';

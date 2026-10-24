@@ -3,6 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import '../../i18n/httpBuilderCatalog';
 import type {
   HttpAssertion,
   HttpCaptureRule,
