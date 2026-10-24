@@ -86,7 +86,10 @@ test.describe('SQL queries', () => {
   test('counts query tabs toward the Free budget', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
-    const codeTabs = await page.locator('[data-testid="editor-tab-kind-glyph"]').count();
+    // The welcome scratchpad arrives asynchronously; kind glyphs identify only
+    // special workspace tabs, while language chips identify code tabs.
+    await expect(page.getByTestId('editor-tab-lang-chip')).toHaveCount(1);
+    const codeTabs = await page.getByTestId('editor-tab-lang-chip').count();
     await page.keyboard.press('ControlOrMeta+Alt+S');
     await expect(page.getByTestId('sql-query-tabs')).toHaveCount(0);
     for (let opened = 0; opened < 3 - codeTabs; opened += 1) {
