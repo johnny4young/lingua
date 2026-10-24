@@ -233,6 +233,7 @@ export function HttpResponsePreview({
         status={<HttpStatusPill response={response} />}
         meta={meta}
         metaTrailing={<HttpResponseDelta response={response} previous={previous} />}
+        className="flex-wrap gap-y-1.5"
         tabs={responseTabs}
         activeTab={tab}
         onTabChange={(id) => setTab(id as PreviewTab)}
