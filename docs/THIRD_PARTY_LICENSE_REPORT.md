@@ -3,7 +3,7 @@
 Generated from `pnpm licenses list` across the installed dependency tree plus explicitly packaged external runtime components.
 
 Scope: production dependencies plus explicitly packaged external runtime components.
-Packages reviewed: 126.
+Packages reviewed: 125.
 Policy result: pass.
 
 ## License Summary
@@ -15,7 +15,7 @@ Policy result: pass.
 | `BlueOak-1.0.0` | 1 |
 | `BSD-3-Clause` | 4 |
 | `ISC` | 6 |
-| `MIT` | 106 |
+| `MIT` | 105 |
 | `Python-2.0` | 1 |
 | `Unlicense` | 1 |
 
@@ -59,9 +59,9 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `@azure/keyvault-keys` | `4.10.2` | `MIT` | `node_modules/@azure/keyvault-keys` |
 | `@azure/logger` | `1.4.0` | `MIT` | `node_modules/@azure/logger` |
 | `@azure/msal-browser` | `5.25.1` | `MIT` | `node_modules/@azure/msal-browser` |
-| `@azure/msal-common` | `16.14.1` | `MIT` | `node_modules/@azure/msal-common` |
 | `@azure/msal-common` | `16.14.2` | `MIT` | `node_modules/@azure/msal-common` |
-| `@azure/msal-node` | `6.0.1` | `MIT` | `node_modules/@azure/msal-node` |
+| `@azure/msal-common` | `16.14.3` | `MIT` | `node_modules/@azure/msal-common` |
+| `@azure/msal-node` | `7.1.1` | `MIT` | `node_modules/@azure/msal-node` |
 | `@clickhouse/client` | `1.24.1` | `Apache-2.0` | `node_modules/@clickhouse/client` |
 | `@hono/node-server` | `1.19.17` | `MIT` | `node_modules/@hono/node-server` |
 | `@js-joda/core` | `6.3.0` | `BSD-3-Clause` | `node_modules/@js-joda/core` |
@@ -149,7 +149,6 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `process` | `0.11.10` | `MIT` | `node_modules/process` |
 | `readable-stream` | `4.8.0` | `MIT` | `node_modules/readable-stream` |
 | `run-applescript` | `7.1.0` | `MIT` | `node_modules/run-applescript` |
-| `safe-buffer` | `5.1.2` | `MIT` | `node_modules/safe-buffer` |
 | `safe-buffer` | `5.2.1` | `MIT` | `node_modules/safe-buffer` |
 | `safer-buffer` | `2.1.2` | `MIT` | `node_modules/safer-buffer` |
 | `sax` | `1.6.0` | `BlueOak-1.0.0` | `node_modules/sax` |
@@ -163,11 +162,11 @@ Any missing, unreviewed, AGPL/GPL/LGPL/SSPL, commercial, or proprietary license 
 | `tiny-typed-emitter` | `2.1.0` | `MIT` | `node_modules/tiny-typed-emitter` |
 | `tslib` | `2.8.1` | `0BSD` | `node_modules/tslib` |
 | `tweetnacl` | `0.14.5` | `Unlicense` | `node_modules/tweetnacl` |
-| `undici` | `8.10.2` | `MIT` | `.vite/build/main.js` |
+| `undici` | `8.12.3` | `MIT` | `.vite/build/main.js` |
 | `undici-types` | `7.24.6` | `MIT` | `node_modules/undici-types` |
 | `universalify` | `2.0.1` | `MIT` | `node_modules/universalify` |
 | `ws` | `8.21.3` | `MIT` | `.vite/build/main.js` |
 | `wsl-utils` | `1.0.1` | `MIT` | `node_modules/wsl-utils` |
 | `xtend` | `4.0.2` | `MIT` | `node_modules/xtend` |
-| `zod` | `4.4.3` | `MIT` | `node_modules/zod` |
+| `zod` | `4.6.7` | `MIT` | `node_modules/zod` |
 

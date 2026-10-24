@@ -97,14 +97,15 @@ overrides:
   "source-map-js": "^1.2.2"
   # undici is bundled into the desktop main process by Vite (see
   # src/main/httpProxy.ts), so its version ships even though it is only a
-  # devDependency and `pnpm audit --prod` cannot see it. The app is on
-  # undici 8; this floor covers the 7.x line only, because consumers disagree
-  # across majors: jsdom 30 requires ^8.9 while wrangler's miniflare pins
-  # 7.29.0 exactly, and a bare `undici` key forces one major onto both.
-  # node-gyp in electron-builder's rebuild chain declares 6.x and resolves to
-  # 6.28.1, the latest 6.x, with no advisory. undici-types is separate: it
-  # follows @types/node, not the runtime.
-  "undici@7": "^7.29.1"
+  # devDependency and `pnpm audit --prod` cannot see it. Each major gets its
+  # own floor, because consumers disagree across majors: jsdom 30 requires
+  # ^8.9, wrangler's miniflare pins 7.x exactly and node-gyp declares 6.x, so
+  # a bare `undici` key would force one major onto all of them.
+  # GHSA-xjj6-f33q-929c is fixed in 6.29.1, 7.30.1 and 8.12.2.
+  # undici-types is separate: it follows @types/node, not the runtime.
+  "undici@6": "^6.29.1"
+  "undici@7": "^7.30.1"
+  "undici@8": "^8.12.3"
   # electron-builder's @electron/rebuild maps Electron versions to Node ABIs
   # through node-abi, and the lockfile had it on 4.31.0, which predates
   # Electron 44: packaging failed with could not detect abi for 44.3.0. 4.35
@@ -132,6 +133,14 @@ overrides:
   # miniflare pins sharp exactly; 0.35.5 fixes GHSA-wq5f-xc86-pv6w. Dev-only,
   # through wrangler.
   "sharp": "^0.35.5"
+  # zod <4.6.6 can exhaust memory validating oversized constrained collections
+  # (GHSA-mrhx-c7xc-m3w5); it ships through the local MCP server packages.
+  "zod@4": "^4.6.7"
+  # tedious reaches @azure/msal-node through @azure/identity, which still
+  # declares ^6; every 6.x carries GHSA-xcx6-jx8p-x3h5. 7.0 only removed
+  # responseMode from acquireTokenInteractive, which identity never passes,
+  # and Lingua signs in to SQL Server with SQL logins, not Azure AD.
+  "@azure/msal-node": "^7.1.1"
 
 minimumReleaseAgeExclude:
   # Same-day security releases for published GitHub advisories. Exact
