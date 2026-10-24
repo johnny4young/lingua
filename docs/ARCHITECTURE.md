@@ -528,6 +528,18 @@ password stays in that module's memory and is never stored, requests go with
 and edit guards (`sqlRunGuard.ts`) apply. D1's API refuses browsers, so it is
 desktop-only, as are the socket engines.
 
+Copy to Local (`runtime/sqlCopyToLocal.ts`, with its SQL built in
+`src/shared/sqlCopyToLocal.ts`) runs a read statement again through the
+bridge, reads its pages, and fills a new Local table in batches of 50,000
+rows inside one transaction (`copyBatchesIntoTable` in `duckdbClient.ts`).
+Each batch travels as newline-delimited JSON of strings and is cast in
+DuckDB to the column's mapped type. DuckDB-WASM cannot report a failed cast
+(it surfaces as `_setThrew is not defined`), so each batch is first checked
+with `TRY_CAST` and bytes are checked as base64 before they are written; a
+bad value names its column and rolls the copy back. The table's COMMENT
+records the connection's name and the time as JSON, which the Local
+Explorer reads; never the SQL.
+
 The catalog is read one level at a time through `sql-db:introspect`: the
 schemas, one schema's objects, one schema's columns, or one object's detail
 (columns, keys, indexes, size and DDL). `sqlHost/{mysql,sqlserver,clickhouse}Catalog.ts`
