@@ -6,13 +6,14 @@
 
 import type { SqlDbBridge } from '../../shared/sqlDb';
 import { localCopyColumns, LocalCopyValueError } from '../../shared/sqlCopyToLocal';
+import { MAX_RESULT_PREVIEW_BYTES } from '../../shared/sqlWorkspace';
 import { FULL_EXPORT_BYTE_CAP, FULL_EXPORT_CELL_CAP, FULL_EXPORT_ROW_CAP } from '../components/SqlWorkspace/sqlFullExport';
 import { copyBatchesIntoTable } from './duckdbClient';
 import { executeRemoteScript } from './sqlRemote';
 
 /** A batch goes to DuckDB at this many rows or bytes, whichever comes first, so wide rows stay bounded too. */
 export const COPY_BATCH_ROWS = 50_000;
-export const COPY_BATCH_BYTES = 32 * 1024 * 1024;
+const COPY_BATCH_BYTES = 32 * 1024 * 1024;
 const PAGE_ROWS = 10_000;
 
 export interface CopyToLocalResult {
@@ -26,7 +27,9 @@ export class CopyToLocalError extends Error {
     message: string,
     readonly cancelled = false,
     /** The column whose value its type could not hold. */
-    readonly value?: { column: string; type: string }
+    readonly value?: { column: string; type: string },
+    /** A column name the result has more than once. */
+    readonly repeated?: string
   ) {
     super(message);
   }
@@ -54,6 +57,12 @@ export async function copyConnectionResultToLocal(args: {
   }
   const cursor = outcome.cursor;
   const sourceNames = outcome.columns.map((column) => column.name);
+  // Rows are keyed by column name, so two columns of one name hold a single value.
+  const repeated = sourceNames.find((name, index) => sourceNames.indexOf(name) !== index);
+  if (repeated !== undefined) {
+    await cursor?.close().catch(() => undefined);
+    throw new CopyToLocalError(`Two columns are named ${repeated}.`, false, undefined, repeated);
+  }
   const columns = localCopyColumns(outcome.columns);
   const perRow = Math.max(1, columns.length);
   const rowCap = Math.min(FULL_EXPORT_ROW_CAP, Math.floor(FULL_EXPORT_CELL_CAP / perRow));
@@ -75,7 +84,8 @@ export async function copyConnectionResultToLocal(args: {
       if (bytes > FULL_EXPORT_BYTE_CAP) truncated = true;
       args.onProgress?.(read);
     };
-    take(outcome!.rows, outcome!.rows.reduce((sum, row) => sum + JSON.stringify(row).length, 0));
+    // The first window already fits the preview's byte budget.
+    take(outcome!.rows, Math.min(MAX_RESULT_PREVIEW_BYTES, outcome!.rows.length * perRow * 16));
     let done = !cursor;
     while (!done && !truncated) {
       if (signal?.aborted) return;

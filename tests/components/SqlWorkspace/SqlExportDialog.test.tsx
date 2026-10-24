@@ -212,7 +212,7 @@ describe('from the result grid', () => {
     expect(screen.getByTestId('sql-export-handoffs').textContent).toContain('Copy to Local as table');
     await user.click(screen.getByTestId('sql-export-save-table'));
     expect(onSave).toHaveBeenCalledWith('orders', expect.objectContaining({ signal: expect.any(AbortSignal) }));
-    expect(screen.getByTestId('sql-export-copy-progress').textContent).toBe('Copying… 12,000 rows read');
+    expect(screen.getByTestId('sql-export-copy-progress').textContent).toBe('Copying… 12,000 rows read · closing cancels');
     await user.click(screen.getByTestId('sql-export-copy-cancel'));
     expect(seen?.signal.aborted).toBe(true);
     await waitFor(() => expect(screen.queryByTestId('sql-export-copy-progress')).toBeNull());

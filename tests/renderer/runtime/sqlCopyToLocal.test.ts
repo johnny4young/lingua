@@ -133,6 +133,15 @@ describe('copyConnectionResultToLocal', () => {
     expect(sql.at(-1)).toBe('ROLLBACK');
   });
 
+  it('refuses a result with two columns of one name, which rows cannot hold apart', async () => {
+    const { sql } = fakeEngine();
+    const { db, closeRun } = fakeBridge(10);
+    (db.execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ status: 'success', engine: 'postgres', columns: [{ name: 'id', type: 'BIGINT' }, { name: 'id', type: 'BIGINT' }], rows: [{ id: '2' }], rowCount: 1, tooLarge: false, rowCountIsLowerBound: false, hasMore: true, durationMs: 1 });
+    await expect(copyConnectionResultToLocal({ ...base, db })).rejects.toMatchObject({ repeated: 'id' });
+    expect(sql).toEqual([]);
+    expect(closeRun).toHaveBeenCalled();
+  });
+
   it('copies nothing when the connection refuses the statement', async () => {
     const { sql } = fakeEngine();
     const db = { execute: vi.fn(async () => ({ status: 'sql-error', engine: 'postgres', columns: [], rows: [], rowCount: 0, tooLarge: false, rowCountIsLowerBound: false, hasMore: false, durationMs: 1, errorMessage: 'permission denied for table orders' })) } as unknown as SqlDbBridge;

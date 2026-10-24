@@ -151,6 +151,7 @@ export function useSqlResultHandoffs({
             const cancelled = err instanceof CopyToLocalError && err.cancelled;
             if (cancelled) useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'sqlWorkspace.handoff.copyCancelled' });
             else if (err instanceof CopyToLocalError && err.value) notice('error', 'sqlWorkspace.handoff.copyBadValue', err.value);
+            else if (err instanceof CopyToLocalError && err.repeated !== undefined) notice('error', 'sqlWorkspace.handoff.copyRepeatedName', { name: err.repeated });
             else useUIStore.getState().pushStatusNotice({ tone: 'error', messageKey: 'sqlWorkspace.handoff.copyFailed', detail: err instanceof Error ? err.message : String(err) });
             return false;
           }
