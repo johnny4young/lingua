@@ -110,6 +110,7 @@ describe('Script naming docs guard', () => {
       'smoke:project-templates',
       'smoke:desktop',
       'smoke:desktop:stagewright',
+      'smoke:sql-editor-input',
       'smoke:desktop:fs-ipc',
       // runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',

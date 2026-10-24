@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Synthetic SQL integration control</title>
+    <style>
+      body {
+        font: 14px sans-serif;
+        margin: 12px;
+      }
+      button,
+      select {
+        margin: 4px;
+        padding: 6px;
+      }
+      [data-testid='sql-query-editor'] {
+        height: 620px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #888;
+      }
+      [data-testid='sql-query-editor'] > header {
+        display: flex;
+        align-items: center;
+        min-height: 50px;
+        gap: 8px;
+      }
+      [data-testid='sql-query-editor-monaco'] {
+        flex: 1;
+        min-height: 0;
+        height: 550px;
+      }
+      #snapshot {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      for (const type of ['error', 'unhandledrejection'])
+        window.addEventListener(type, e => {
+          const p = document.createElement('pre');
+          p.id = 'startup-error';
+          p.textContent = String(e.error || e.reason || e.message);
+          document.body.appendChild(p);
+          console.error(p.textContent);
+        });
+    </script>
+    <script type="module" src="/main.mjs"></script>
+  </body>
+</html>
