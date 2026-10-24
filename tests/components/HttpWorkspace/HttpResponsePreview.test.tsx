@@ -230,6 +230,8 @@ describe('JSON body tree', () => {
     expect(document.activeElement).toBe(rowAt('/ids/1'));
     key('ArrowUp');
     expect(document.activeElement).toBe(rowAt('/ids/0'));
+    // Space on a value with nothing to fold keeps its default, so the body still scrolls.
+    expect(fireEvent.keyDown(document.activeElement!, { key: ' ' })).toBe(true);
     key('Home');
     expect(document.activeElement).toBe(rowAt('/owner'));
   });

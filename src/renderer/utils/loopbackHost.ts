@@ -3,14 +3,17 @@ export function isLoopbackHostname(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
 
+const LOCAL_SUFFIXES = ['.localhost', '.local', '.test', '.internal', '.lan', '.home.arpa'];
+
 /**
  * True for hosts reachable without the internet: this machine, private and
- * link-local addresses, and `.localhost` / `.local` names. A URL hostname keeps
- * IPv6 in brackets.
+ * link-local addresses, single-label names (hosts file, containers) and names
+ * under local-only suffixes. A URL hostname keeps IPv6 in brackets.
  */
 export function isLocalNetworkHostname(hostname: string): boolean {
   const host = hostname.toLowerCase();
-  if (isLoopbackHostname(host) || host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  if (isLoopbackHostname(host) || LOCAL_SUFFIXES.some((suffix) => host.endsWith(suffix))) return true;
+  if (!host.includes('.') && !host.startsWith('[')) return true;
   const v4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
   if (v4) {
     const a = Number(v4[1]);

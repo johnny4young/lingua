@@ -258,8 +258,8 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     else if (event.key === 'ArrowRight' && row.open) target = visible[index + 1]?.pointer;
     else if (event.key === 'ArrowLeft' && row.open) row.toggle?.();
     else if (event.key === 'ArrowLeft') target = row.parent ?? undefined;
-    else if (event.key === 'Enter' || event.key === ' ') (row.toggle ?? row.toggleFull)?.();
-    else if (event.key === 'c' || event.key === 'C') row.capture?.();
+    else if ((event.key === 'Enter' || event.key === ' ') && (row.toggle ?? row.toggleFull)) (row.toggle ?? row.toggleFull)?.();
+    else if ((event.key === 'c' || event.key === 'C') && row.capture) row.capture();
     else return;
     event.preventDefault();
     if (target !== undefined && rowRefs.current.has(target)) {

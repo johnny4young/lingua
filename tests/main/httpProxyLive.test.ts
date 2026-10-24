@@ -145,4 +145,27 @@ describe('desktop SSE proxy', () => {
     );
     expect(response.timing).toMatchObject({ redirects: 0, redirectMs: 0 });
   });
+
+  it('dials the address the guard resolved through the timed connector', async () => {
+    server = createServer((_request, response) => response.end('pinned'));
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('missing port');
+    const lookups: string[] = [];
+    // A .invalid name never resolves through system DNS, so only the pinned lookup can reach the server.
+    const response = await executeHttpProxyRequest(
+      { ...createBlankHttpRequest({ id: 'pinned' }), url: `http://pinned-only.invalid:${address.port}/` },
+      {
+        allowPrivateHosts: true,
+        lookupImpl: async (hostname) => {
+          lookups.push(hostname);
+          return [{ address: '127.0.0.1', family: 4 }];
+        },
+      }
+    );
+    expect(response).toMatchObject({ kind: 'success', status: 200, body: 'pinned' });
+    expect(lookups).toEqual(['pinned-only.invalid']);
+    expect(response.timing).toBeDefined();
+  });
 });

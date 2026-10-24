@@ -14,8 +14,9 @@
  * to expose.
  *
  * This module is the guarded engine. It mirrors the renderer client's
- * `HttpResponseV1` envelope byte-for-byte (so the UI renders a proxied
- * response identically to a browser-fetched one) while adding:
+ * `HttpResponseV1` envelope (so the UI renders a proxied response like a
+ * browser-fetched one), plus the per-phase `timing` only the proxy can
+ * measure, while adding:
  *
  *   - **SSRF guard** — every hop (initial URL + each redirect target) has
  *     its hostname DNS-resolved and every resolved address checked against
@@ -414,7 +415,6 @@ export async function executeHttpProxyRequest(
   options: HttpProxyOptions = {}
 ): Promise<HttpResponseV1> {
   const start = Date.now();
-  const startMark = performance.now();
   const recordedAt = new Date(start).toISOString();
   const allowlist = options.userSensitiveHeaders ?? [];
   const allowPrivateHosts = options.allowPrivateHosts ?? false;
@@ -475,10 +475,12 @@ export async function executeHttpProxyRequest(
   let finalDispatcher: Agent | null = null;
   let currentDispatcher: Agent | null | undefined;
   let finalMarks: HopMarks | null = null;
+  let firstHopStart: number | undefined;
   let redirects = 0;
   try {
     for (let hop = 0; ; hop += 1) {
       const marks: HopMarks = { start: performance.now() };
+      firstHopStart ??= marks.start;
       // Re-run the SSRF guard on every hop, including redirect targets.
       const target = await resolveGuardedNetworkTarget(
         currentUrl,
@@ -630,7 +632,7 @@ export async function executeHttpProxyRequest(
   cleanup();
   if (finalDispatcher) await finalDispatcher.close();
   const timing =
-    finalMarks && request.transport !== 'sse' ? hopTiming(finalMarks, redirects, redirects > 0 ? finalMarks.start - startMark : 0) : undefined;
+    finalMarks && request.transport !== 'sse' ? hopTiming(finalMarks, redirects, finalMarks.start - (firstHopStart ?? finalMarks.start)) : undefined;
 
   const { headers, redactedHeaders } = buildRedactedHeaders(response.headers, allowlist);
   const contentType = response.headers.get('content-type') ?? '';

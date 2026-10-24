@@ -32,6 +32,7 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1) => Promise<unk
   const sendFromEditor = useCallback(
     (request: HttpRequestV1) => {
       const queue = useHttpOfflineQueue.getState();
+      if (queue.queued[request.id]?.ready === false && !online) return;
       if (!willQueue(request)) {
         queue.remove(request.id);
         void send(request);
@@ -43,35 +44,43 @@ export function useHttpOfflineSend(send: (request: HttpRequestV1) => Promise<unk
         messageKey: sendsByItselfOnline(request.method) ? 'httpWorkspace.offline.queuedRead' : 'httpWorkspace.offline.queuedWrite',
       });
     },
-    [send, willQueue]
+    [send, willQueue, online]
   );
 
-  const wasOnline = useRef(online);
+  // Watches held entries, not the offline edge: the connection may have returned while the panel was closed.
+  const held = useHttpOfflineQueue((state) => Object.values(state.queued).some((entry) => !entry.ready));
+  const flushing = useRef(false);
   useEffect(() => {
-    const back = online && !wasOnline.current;
-    wasOnline.current = online;
-    if (!back) return;
+    if (!online || !held || flushing.current) return;
+    flushing.current = true;
     void (async () => {
-      const queue = useHttpOfflineQueue.getState();
       let waiting = 0;
-      for (const requestId of Object.keys(queue.queued)) {
-        const request = useWorkspaceToolStore.getState().requests.find((entry) => entry.id === requestId);
-        if (!request) {
-          queue.remove(requestId);
-        } else if (sendsByItselfOnline(request.method)) {
-          queue.remove(requestId);
-          // One at a time: a new send aborts the one in flight.
-          await send(request);
-        } else {
-          queue.markReady(requestId);
-          waiting += 1;
+      try {
+        for (const requestId of Object.keys(useHttpOfflineQueue.getState().queued)) {
+          // Re-read after each send: the user may have removed an entry, or the connection dropped again.
+          const queue = useHttpOfflineQueue.getState();
+          if (!navigator.onLine) break;
+          if (queue.queued[requestId]?.ready !== false) continue;
+          const request = useWorkspaceToolStore.getState().requests.find((candidate) => candidate.id === requestId);
+          if (!request) {
+            queue.remove(requestId);
+          } else if (sendsByItselfOnline(request.method)) {
+            queue.remove(requestId);
+            // One at a time: a new send aborts the one in flight.
+            await send(request);
+          } else {
+            queue.markReady(requestId);
+            waiting += 1;
+          }
         }
+      } finally {
+        flushing.current = false;
       }
       if (waiting > 0) {
         useUIStore.getState().pushStatusNotice({ tone: 'info', messageKey: 'httpWorkspace.offline.waiting', values: { count: waiting } });
       }
     })();
-  }, [online, send]);
+  }, [online, held, send]);
 
   const queueFor = useCallback(
     (request: HttpRequestV1): HttpSendQueue => {

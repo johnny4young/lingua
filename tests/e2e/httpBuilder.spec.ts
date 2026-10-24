@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoApp, seedSession, test, waitForSeededWorkspaceSettled } from './licenseWeb.helpers';
 
-const API = 'https://api.lingua.test';
+// A public-looking host: .test names count as local and never wait for the network.
+const API = 'https://api.example.com';
 const users = {
   items: [
     { id: 101, name: 'runtime', homepage: `https://example.com/${'long-path-segment/'.repeat(12)}end` },

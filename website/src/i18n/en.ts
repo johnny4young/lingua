@@ -236,7 +236,7 @@ export const en = {
           image: '/screenshots/tour/http-workspace.png',
           alt: 'HTTP workspace showing a GET request with query params and a 200 OK JSON response as a foldable tree',
           title: 'An HTTP client without the browser-tab tax',
-          body: 'Requests, query params, auth, environments, and response capture live in one workspace tab. Send, then fold, search and capture values from the JSON body, with status, timing, and size right where you code. On desktop, Timing splits a request into DNS, connect, TLS, waiting and download; offline, Send waits and goes out when the connection returns.',
+          body: 'Requests, query params, auth, environments, and response capture live in one workspace tab. Send, then fold, search and capture values from the JSON body, with status, timing, and size right where you code. On desktop, Timing splits a request into DNS, connect, TLS, waiting and download; offline, Send waits, reads go out when the connection returns and writes wait for Send now.',
         },
         {
           image: '/screenshots/tour/settings-privacy.png',

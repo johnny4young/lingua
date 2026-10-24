@@ -385,11 +385,8 @@ export function parseHttpResponse(value: unknown): HttpResponseV1 | null {
     if (typeof value.closeReason !== 'string') return null;
     closeReason = value.closeReason;
   }
-  let timing: HttpResponseTiming | undefined;
-  if (value.timing !== undefined) {
-    timing = parseResponseTiming(value.timing) ?? undefined;
-    if (timing === undefined) return null;
-  }
+  // Timing is diagnostic: a malformed one is dropped, not the response.
+  const timing: HttpResponseTiming | undefined = value.timing === undefined ? undefined : (parseResponseTiming(value.timing) ?? undefined);
   return {
     version: 1,
     ...(value.transport !== undefined ? { transport: value.transport } : {}),

@@ -219,14 +219,13 @@ describe('parseHttpResponse', () => {
     expect(parseHttpResponse({ ...valid, body: oversized })).toBeNull();
   });
 
-  it('keeps a well-formed phase timing and rejects a malformed one', () => {
+  it('keeps a well-formed phase timing and drops a malformed one without the response', () => {
     const timing = { dnsMs: 3, connectMs: 40, tlsMs: 47, waitingMs: 50, downloadMs: 2, redirects: 1, redirectMs: 12 };
     expect(parseHttpResponse({ ...valid, timing })).toEqual({ ...valid, timing });
     expect(parseHttpResponse({ ...valid, timing: { ...timing, extra: 1 } })).toEqual({ ...valid, timing });
-    expect(parseHttpResponse({ ...valid, timing: { ...timing, tlsMs: -1 } })).toBeNull();
-    expect(parseHttpResponse({ ...valid, timing: { ...timing, redirects: 1.5 } })).toBeNull();
-    expect(parseHttpResponse({ ...valid, timing: { dnsMs: 1 } })).toBeNull();
-    expect(parseHttpResponse({ ...valid, timing: 'fast' })).toBeNull();
+    for (const bad of [{ ...timing, tlsMs: -1 }, { ...timing, redirects: 1.5 }, { dnsMs: 1 }, 'fast']) {
+      expect(parseHttpResponse({ ...valid, timing: bad })).toEqual(valid);
+    }
   });
 });
 
