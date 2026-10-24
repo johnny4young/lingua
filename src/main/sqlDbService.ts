@@ -595,7 +595,7 @@ export function createSqlDbService(deps: SqlDbServiceDeps) {
 
     async fetch(owner: number, runId: string, limit: number, maxBytes: number): Promise<SqlDbFetchResult> {
       const key = hostRunId(owner, runId);
-      if (!runs.has(key)) return { rows: [], done: true, bytes: 0 };
+      if (!runs.has(key)) return { rows: [], done: true, bytes: 0, errorMessage: 'This result is closed or no longer available.' };
       try {
         const page = await deps.host.request<HostFetchResult>({ type: 'fetch', runId: key, limit, maxBytes });
         if (page.done) runs.delete(key);
