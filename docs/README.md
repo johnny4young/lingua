@@ -28,6 +28,8 @@ planning is intentionally excluded from the published repository.
 - [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) — license and update service telemetry, alerts, and dashboards.
 - [`LOCAL_MCP_SECURITY.md`](./LOCAL_MCP_SECURITY.md) — local MCP threat model, consent boundary, read-only tools, and lifecycle.
 
+- [`WEB_SQL_RUN_LIFECYCLE_TESTING.md`](./WEB_SQL_RUN_LIFECYCLE_TESTING.md) — synthetic web SQL regression fixtures and reproducible validation.
+
 ## Architecture decisions
 
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) — Electron build and packaging toolchain.
