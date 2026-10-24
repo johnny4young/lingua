@@ -1,0 +1,336 @@
+{
+  "control_sha": "8c87e55e748225d4b107b3fe666a614c278a9e21",
+  "original_bug_base": "c894c977005d1447c2fc5550360ffe2c2542ee1f",
+  "candidate": "batched publication;exact normalized source hashes match final source;see source binding",
+  "versions": {
+    "node": "24.21.0",
+    "pnpm": "11.3.0",
+    "electron": "44.3.0",
+    "playwright": "1.63.0",
+    "react": "19.3.0",
+    "monaco": "0.55.1",
+    "monacoReact": "4.7.0"
+  },
+  "protocol": {
+    "repetitionsPerGroup": 3,
+    "ratesMs": [
+      0,
+      125
+    ],
+    "window": "typing plus650ms and observed save;dump excluded",
+    "cold": "fresh process and empty profile, OS disk cache not flushed",
+    "warm": "same process/profile, new component/model",
+    "concurrency": "serial, shared lab heavy lock, no own competing heavy task",
+    "scope": "hidden real component/store fixture;no SQLexecution;not full app startup",
+    "budgets": "none invented"
+  },
+  "results": {
+    "control": {
+      "sourceSha256": {
+        "SqlMonacoEditor.tsx": "e4df586122e8d70b29ddf9491051a8de010ea85fa207d0c5abc55f9b7f3dfee9",
+        "SqlQueryEditor.tsx": "1c0d806e4ea9cca7d03a2a0a88da8dc05f6c5fd011dec35e6bf054627cd13b1f"
+      },
+      "groups": [
+        {
+          "delay": 0,
+          "cache": "cold",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 26,
+            "min": 26,
+            "max": 28
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 28,
+            "min": 28,
+            "max": 30
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 59.93399999999999,
+            "min": 56.95399999999999,
+            "max": 64.063
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 0.2999999523162842,
+            "min": 0.09999996423721313,
+            "max": 0.699999988079071
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 0,
+          "cache": "warm",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 28,
+            "min": 25,
+            "max": 28
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 29,
+            "min": 27,
+            "max": 29
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 34.577999999999996,
+            "min": 33.635,
+            "max": 38.01100000000002
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 0.19999998807907104,
+            "min": 0.09999996423721313,
+            "max": 0.6000000238418579
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 125,
+          "cache": "cold",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 46,
+            "min": 46,
+            "max": 46
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 47,
+            "min": 47,
+            "max": 47
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 368.614,
+            "min": 331.76099999999997,
+            "max": 370.283
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 1.699999988079071,
+            "min": 0.5999999642372131,
+            "max": 4.099999964237213
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 125,
+          "cache": "warm",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 46,
+            "min": 46,
+            "max": 46
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 47,
+            "min": 47,
+            "max": 47
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 292.3310000000001,
+            "min": 279.876,
+            "max": 295.249
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 1.399999976158142,
+            "min": 0.30000001192092896,
+            "max": 3.600000023841858
+          },
+          "missingPublications": 0
+        }
+      ],
+      "sampleCount": 12,
+      "exactCount": 12,
+      "publishedBeforeNextKeyCount": 12,
+      "causeTotals": {
+        "textAndCursor": 111,
+        "textOnly": 165,
+        "cursorOnly": 165,
+        "other": 12
+      }
+    },
+    "candidate": {
+      "sourceSha256": {
+        "SqlMonacoEditor.tsx": "05a0d6ac5663680ff770963e039c3a56192737e86fe7e3c8bcf25092d7860f8d",
+        "SqlQueryEditor.tsx": "4c07eef2349b7a84b0bf1879dfbb19767cf6eca1ce6ed8a46f18064e5f120dc1"
+      },
+      "groups": [
+        {
+          "delay": 0,
+          "cache": "cold",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 23,
+            "min": 23,
+            "max": 23
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 24,
+            "min": 24,
+            "max": 24
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 61.272999999999996,
+            "min": 56.46100000000001,
+            "max": 62.502
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 0.40000003576278687,
+            "min": 0.10000002384185791,
+            "max": 1.9000000357627869
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 0,
+          "cache": "warm",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 23,
+            "min": 23,
+            "max": 23
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 24,
+            "min": 24,
+            "max": 24
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 35.047999999999995,
+            "min": 33.454999999999984,
+            "max": 35.382999999999996
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 0.3999999761581421,
+            "min": 0.10000002384185791,
+            "max": 0.9000000357627869
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 125,
+          "cache": "cold",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 23,
+            "min": 23,
+            "max": 23
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 24,
+            "min": 24,
+            "max": 24
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 324.76300000000003,
+            "min": 298.18999999999994,
+            "max": 341.265
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 2.600000023841858,
+            "min": 1,
+            "max": 5.5
+          },
+          "missingPublications": 0
+        },
+        {
+          "delay": 125,
+          "cache": "warm",
+          "exact": true,
+          "publicationBeforeNextKey": true,
+          "typingRootCommits": {
+            "n": 3,
+            "median": 23,
+            "min": 23,
+            "max": 23
+          },
+          "settledRootCommits": {
+            "n": 3,
+            "median": 24,
+            "min": 24,
+            "max": 24
+          },
+          "settledTaskCpuMs": {
+            "n": 3,
+            "median": 277.142,
+            "min": 275.53,
+            "max": 283.03599999999994
+          },
+          "publicationLatencyMs": {
+            "n": 69,
+            "median": 2.5,
+            "min": 0.5999999642372131,
+            "max": 4.5
+          },
+          "missingPublications": 0
+        }
+      ],
+      "sampleCount": 12,
+      "exactCount": 12,
+      "publishedBeforeNextKeyCount": 12,
+      "causeTotals": {
+        "textAndCursor": 276,
+        "textOnly": 0,
+        "cursorOnly": 0,
+        "other": 12
+      }
+    }
+  },
+  "host": {
+    "cpu": "Apple M3 Pro",
+    "logicalCpus": 11,
+    "memoryBytes": 19327352832,
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "node": "v24.21.0"
+  },
+  "finalSourceBinding": [
+    {
+      "name": "SqlMonacoEditor.tsx",
+      "raw": "9dc1e4f7fad3f7928383e94ade2e970afb7d815d995a0bda7c0c29c01244bc0b",
+      "normalized": "05a0d6ac5663680ff770963e039c3a56192737e86fe7e3c8bcf25092d7860f8d",
+      "measured": "05a0d6ac5663680ff770963e039c3a56192737e86fe7e3c8bcf25092d7860f8d",
+      "matches": true
+    },
+    {
+      "name": "SqlQueryEditor.tsx",
+      "raw": "da72a3138369e3bea85b2bc46c17efbc07fc2eec164131bb4d1eff357f46e418",
+      "normalized": "4c07eef2349b7a84b0bf1879dfbb19767cf6eca1ce6ed8a46f18064e5f120dc1",
+      "measured": "4c07eef2349b7a84b0bf1879dfbb19767cf6eca1ce6ed8a46f18064e5f120dc1",
+      "matches": true
+    }
+  ]
+}

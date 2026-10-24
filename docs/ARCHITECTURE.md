@@ -335,11 +335,15 @@ An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.
 
-The SQL editor publishes native Monaco edits synchronously before the controlled
-wrapper reconciles its value. This keeps a previously committed draft from
-replacing keystrokes that have already reached the model. Cursor insertions made
-inside the editor's React effect use the ordinary callback path. Reproduction
-and regression coverage: [SQL editor input](SQL_EDITOR_INPUT_TESTING.md).
+The SQL editor observes each native Monaco draft immediately, then flushes the
+latest visual publication in a microtask after Monaco's cursor update and before
+the next native input task. This lets React batch text and cursor without allowing
+the controlled wrapper to replay an earlier draft. Generation invalidation stops
+a queued publication after unmount; the owner's immediate draft ref still lets
+cleanup save the right query. Run reads and byte-checks that current buffer even
+before the queued render. Cursor insertions made inside the editor's React effect
+keep the ordinary callback path. Reproduction and measurements:
+[SQL editor input](SQL_EDITOR_INPUT_TESTING.md).
 
 ### Database connections and the SQL host
 

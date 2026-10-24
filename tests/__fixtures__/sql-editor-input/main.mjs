@@ -1,5 +1,6 @@
 // Synthetic real-component fixture. It never executes SQL or imports the app bootstrap.
 import React, { useState, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { SqlQueryEditor } from '../../../src/renderer/components/SqlWorkspace/SqlQueryEditor.tsx';
 import { useWorkspaceSqlStore } from '../../../src/renderer/stores/workspaceSqlStore.ts';
@@ -7,8 +8,10 @@ import { createBlankSqlQuery } from '../../../src/shared/sqlWorkspace.ts';
 import { initI18n, changeAppLanguage } from '../../../src/renderer/i18n/index.ts';
 import { getConfiguredMonaco } from '../../../src/renderer/monaco.ts';
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore.ts';
+globalThis.__qaSqlComponent = SqlQueryEditor;
 const h = React.createElement,
   events = [];
+globalThis.__qaEvents = events;
 let seq = 0,
   trial = 0,
   currentEditor,
@@ -30,11 +33,13 @@ await initI18n('en');
 useSettingsStore.setState({ fontFamily: 'monospace' });
 const m = getConfiguredMonaco();
 useWorkspaceSqlStore.subscribe((state, prev) => {
+  globalThis.__qaSavedText = state.queries[0]?.query;
   if (state.queries[0] !== prev.queries[0])
     trace('store.query', { query: state.queries[0]?.query, id: state.queries[0]?.id });
 });
 m.editor.onDidCreateEditor(editor => {
   currentEditor = editor;
+  globalThis.__qaEditor = editor;
   trace('editor.created');
   editor.onDidChangeModelContent(e =>
     trace('model.change', {
@@ -80,7 +85,15 @@ for (const type of ['keydown', 'keyup', 'beforeinput', 'input'])
     type,
     e => {
       if (!e.target.closest?.('[data-testid="sql-query-editor-monaco"]')) return;
-      trace('dom.' + type, { key: e.key, data: e.data, inputType: e.inputType });
+      trace('dom.' + type, {
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        committedText: globalThis.__latestSqlText,
+        modelBeforeKey: currentEditor?.getValue(),
+        data: e.data,
+        inputType: e.inputType,
+      });
     },
     true
   );
@@ -93,6 +106,23 @@ function App() {
     useWorkspaceSqlStore.getState().updateQuery(id, patch);
     trace('save.return', { saved: useWorkspaceSqlStore.getState().queries[0]?.query });
   }, []);
+  // Test-only same-instance transition; the previous query must receive its pending draft.
+  globalThis.__qaSwitchSameInstance = text => {
+    const state = useWorkspaceSqlStore.getState();
+    const q = createBlankSqlQuery({
+      id: 'synthetic-switch-' + trial,
+      query: text,
+      now: '2026-10-24T00:00:00.000Z',
+    });
+    flushSync(() =>
+      useWorkspaceSqlStore.setState({
+        queries: [q, ...state.queries],
+        activeQueryId: q.id,
+        openQueryIds: [q.id, ...state.openQueryIds],
+      })
+    );
+    return q.id;
+  };
   const reset = async mode => {
     phase('resetting');
     await changeAppLanguage('en', async () => ['en']);
@@ -162,4 +192,6 @@ function App() {
     h('pre', { id: 'snapshot' })
   );
 }
-createRoot(document.getElementById('root')).render(h(App));
+const root = createRoot(document.getElementById('root'));
+globalThis.__qaUnmount = () => root.unmount();
+root.render(h(App));

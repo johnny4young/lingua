@@ -47,6 +47,49 @@
           console.error(p.textContent);
         });
     </script>
+    <script>
+      // Fixture-only React 19 root observer. Root commits are not component renders.
+      window.__bank = { commits: 0, timeline: [] };
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+        supportsFiber: true,
+        inject: () => 1,
+        onCommitFiberUnmount: () => {},
+        onCommitFiberRoot: (_id, root) => {
+          window.__bank.commits++;
+          const stack = [root.current];
+          let found;
+          while (stack.length) {
+            const fiber = stack.pop();
+            if (
+              fiber.type === window.__qaSqlComponent ||
+              fiber.elementType === window.__qaSqlComponent
+            ) {
+              found = fiber;
+              break;
+            }
+            if (fiber.sibling) stack.push(fiber.sibling);
+            if (fiber.child) stack.push(fiber.child);
+          }
+          let hook = found?.memoizedState;
+          const strings = [],
+            cursors = [];
+          while (hook) {
+            const state = hook.memoizedState;
+            if (typeof state === 'string') strings.push(state);
+            if (
+              state &&
+              typeof state === 'object' &&
+              'offset' in state &&
+              'selectionStart' in state
+            )
+              cursors.push({ ...state });
+            hook = hook.next;
+          }
+          if (strings.length) window.__latestSqlText = strings[0];
+          window.__bank.timeline.push({ at: performance.now(), strings, cursors });
+        },
+      };
+    </script>
     <script type="module" src="/main.mjs"></script>
   </body>
 </html>

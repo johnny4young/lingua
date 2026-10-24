@@ -44,7 +44,7 @@ import MonacoEditor, {
   type Monaco,
   type OnMount,
 } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import type { SqlStatement } from '../../../shared/sqlStatements';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -137,8 +137,10 @@ export interface SqlMonacoEditorProps {
    * `onChange` for that library-driven update.
    */
   value: string;
-  /** Fired on every user edit with the full buffer text. */
+  /** Publishes the latest full buffer after the native update has completed. */
   onChange: (value: string) => void;
+  /** Observe model text immediately so cleanup can persist a not-yet-rendered draft. */
+  onBeforeChange?: (value: string) => void;
   /** A run gesture; `offset` is the cursor (or the gutter statement's start). */
   onRunCommand: (mode: SqlEditorRunMode, context: SqlRunContext) => void;
   onCancelShortcut: () => void;
@@ -175,6 +177,7 @@ export interface SqlMonacoEditorProps {
 export function SqlMonacoEditor({
   value,
   onChange,
+  onBeforeChange,
   onRunCommand,
   onCancelShortcut,
   onSaveShortcut,
@@ -193,6 +196,11 @@ export function SqlMonacoEditor({
   const fontFamily = useSettingsStore((state) => state.fontFamily);
 
   const editorRef = useRef<EditorInstance | null>(null);
+  // Queued visual publication must not outlive this editor. The owner already observed its draft.
+  const nativePublicationGenerationRef = useRef(0);
+  useLayoutEffect(() => () => {
+    nativePublicationGenerationRef.current += 1;
+  }, []);
   const applyingCursorInsertRef = useRef(false);
 
   // Register the custom Lingua/preset themes on the Monaco singleton
@@ -439,11 +447,17 @@ export function SqlMonacoEditor({
         onChange={(next) => {
           if (next === undefined) return;
           typedValueRef.current = next;
+          onBeforeChange?.(next);
           if (applyingCursorInsertRef.current) {
             onChange(next);
           } else {
-            // Commit native input before the controlled wrapper can replay an older value.
-            flushSync(() => onChange(next));
+            // Flush after Monaco publishes its cursor, before the next native input task.
+            const generation = ++nativePublicationGenerationRef.current;
+            queueMicrotask(() => {
+              if (generation === nativePublicationGenerationRef.current && typedValueRef.current === next) {
+                flushSync(() => onChange(next));
+              }
+            });
           }
         }}
         onMount={handleMount}

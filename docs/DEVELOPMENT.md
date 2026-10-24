@@ -667,3 +667,9 @@ and recovery in EN/light and ES/dark at the same width/zoom matrix as the Rust
 smoke. Results and captures live under `output/playwright/go-cancellation/`.
 Its signed license, issuer isolation, disposable-profile cleanup and subsequent
 production-bundle rebuild requirements are the same as the Rust smoke above.
+
+For serial SQL-editor cold/warm measurements, run
+`node scripts/profile-sql-editor-input.mjs --electron-executable /verified/official/Electron`
+in an isolated checkout without concurrent builds. See
+[SQL editor input](SQL_EDITOR_INPUT_TESTING.md) for matched control instructions,
+settled-window definitions, synthetic data safety and measurement limitations.

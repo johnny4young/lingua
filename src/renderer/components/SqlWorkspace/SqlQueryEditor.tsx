@@ -114,6 +114,11 @@ export function SqlQueryEditor({
   // the newly-active query.
   const pendingTargetIdRef = useRef<string>(query.id);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep cleanup current even when native publication is cancelled by a query switch or unmount.
+  const handleBeforeTextChange = useCallback((next: string) => {
+    latestTextRef.current = next;
+    pendingTargetIdRef.current = query.id;
+  }, [query.id]);
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
   const statements = useMemo(() => splitSqlStatements(text), [text]);
@@ -203,8 +208,9 @@ export function SqlQueryEditor({
 
   const runMode = useCallback(
     (mode: SqlRunMenuMode, context: SqlRunContext) => {
-      if (isExecuting || isBusy || overCap) return;
-      const buffer = context.value ?? text;
+      if (isExecuting || isBusy) return;
+      const buffer = context.value ?? latestTextRef.current;
+      if (utf8ByteLength(buffer) > MAX_QUERY_BYTES) return;
       const bufferStatements = buffer === text ? statements : splitSqlStatements(buffer);
       let pieces: string[];
       if (mode === 'all') pieces = bufferStatements.map((statement) => statement.text);
@@ -226,12 +232,12 @@ export function SqlQueryEditor({
       }
       onRun({ query: { ...query, query: buffer }, mode, statements: pieces });
     },
-    [isExecuting, isBusy, overCap, statements, text, query, onPatch, onRun]
+    [isExecuting, isBusy, statements, text, query, onPatch, onRun]
   );
   const selectedText = useCallback(() => {
-    const raw = text.slice(cursor.selectionStart, cursor.selectionEnd);
+    const raw = latestTextRef.current.slice(cursor.selectionStart, cursor.selectionEnd);
     return raw.trim().length > 0 ? raw : null;
-  }, [text, cursor]);
+  }, [cursor]);
   const runFromToolbar = useCallback(
     (mode: SqlRunMenuMode) => runMode(mode, { offset: cursor.offset, selectedText: selectedText() }),
     [runMode, cursor.offset, selectedText]
@@ -341,6 +347,7 @@ export function SqlQueryEditor({
       <SqlMonacoEditor
         value={text}
         onChange={setText}
+        onBeforeChange={handleBeforeTextChange}
         onRunCommand={runMode}
         onCancelShortcut={onCancel}
         onSaveShortcut={onSave}

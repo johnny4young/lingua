@@ -184,13 +184,39 @@ function renderHost(props: Partial<SqlMonacoEditorProps> = {}) {
 }
 
 describe('SqlMonacoEditor', () => {
+
+  it('coalesces model changes in one task to the latest visual publication', async () => {
+    const observed = vi.fn();
+    const { onChange } = renderHost({ onBeforeChange: observed });
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-monaco-textarea'), { target: { value: 'SELECT 2;' } });
+      fireEvent.change(screen.getByTestId('sql-monaco-textarea'), { target: { value: 'SELECT 3;' } });
+      expect(observed.mock.calls).toEqual([['SELECT 2;'], ['SELECT 3;']]);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+    expect(onChange.mock.calls).toEqual([['SELECT 3;']]);
+  });
+
+  it('invalidates a queued visual publication on immediate unmount', async () => {
+    const observed = vi.fn();
+    const { onChange, unmount } = renderHost({ onBeforeChange: observed });
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-monaco-textarea'), { target: { value: 'SELECT 4;' } });
+      unmount();
+    });
+    expect(observed).toHaveBeenCalledWith('SELECT 4;');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   beforeEach(resetHarness);
   afterEach(() => vi.clearAllMocks());
 
-  it('passes edits through onChange', () => {
+  it('passes edits through onChange', async () => {
     const { onChange } = renderHost();
-    fireEvent.change(screen.getByTestId('sql-monaco-textarea'), {
-      target: { value: 'SELECT 2;' },
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-monaco-textarea'), {
+        target: { value: 'SELECT 2;' },
+      });
     });
     expect(onChange).toHaveBeenCalledWith('SELECT 2;');
   });
@@ -248,9 +274,13 @@ describe('SqlMonacoEditor', () => {
     expect(onRunCommand).toHaveBeenCalledOnce();
   });
 
-  it('scrolls back to the left edge only when the text is replaced from outside', () => {
+  it('scrolls back to the left edge only when the text is replaced from outside', async () => {
     const { rerender, onChange } = renderHost({ value: 'SELECT 1;' });
-    fireEvent.change(screen.getByTestId('sql-monaco-textarea'), { target: { value: 'SELECT 12;' } });
+    await act(async () => {
+      fireEvent.change(screen.getByTestId('sql-monaco-textarea'), {
+        target: { value: 'SELECT 12;' },
+      });
+    });
     expect(onChange).toHaveBeenCalledWith('SELECT 12;');
     rerender(
       <SqlMonacoEditor
