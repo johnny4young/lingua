@@ -45,6 +45,7 @@ import MonacoEditor, {
   type OnMount,
 } from '@monaco-editor/react';
 import { useCallback, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import type { SqlStatement } from '../../../shared/sqlStatements';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { configureMonaco } from '../../monaco';
@@ -192,6 +193,7 @@ export function SqlMonacoEditor({
   const fontFamily = useSettingsStore((state) => state.fontFamily);
 
   const editorRef = useRef<EditorInstance | null>(null);
+  const applyingCursorInsertRef = useRef(false);
 
   // Register the custom Lingua/preset themes on the Monaco singleton
   // before mount. `<CodeEditor>` does the same in its own beforeMount;
@@ -235,7 +237,13 @@ export function SqlMonacoEditor({
     insertedNonceRef.current = insertAtCursor.nonce;
     const selection = editor.getSelection();
     if (!selection) return;
-    editor.executeEdits('sql-rail', [{ range: selection, text: insertAtCursor.text, forceMoveMarkers: true }]);
+    // This model edit runs inside a React effect; its callback must not flush that effect.
+    applyingCursorInsertRef.current = true;
+    try {
+      editor.executeEdits('sql-rail', [{ range: selection, text: insertAtCursor.text, forceMoveMarkers: true }]);
+    } finally {
+      applyingCursorInsertRef.current = false;
+    }
     editor.focus();
   }, [insertAtCursor]);
   const statementsRef = useRef(statements);
@@ -431,7 +439,12 @@ export function SqlMonacoEditor({
         onChange={(next) => {
           if (next === undefined) return;
           typedValueRef.current = next;
-          onChange(next);
+          if (applyingCursorInsertRef.current) {
+            onChange(next);
+          } else {
+            // Commit native input before the controlled wrapper can replay an older value.
+            flushSync(() => onChange(next));
+          }
         }}
         onMount={handleMount}
         options={{ ...getSatelliteEditorOptions({ fontSize, fontFamily, ariaLabel }), glyphMargin: true }}

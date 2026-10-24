@@ -335,6 +335,12 @@ An import into an existing table runs the plan from `src/shared/sqlImportPlan.ts
 `INSERT INTO … SELECT CAST(…)` between `BEGIN TRANSACTION` and `COMMIT`, with
 a `ROLLBACK` when any row fails.
 
+The SQL editor publishes native Monaco edits synchronously before the controlled
+wrapper reconciles its value. This keeps a previously committed draft from
+replacing keystrokes that have already reached the model. Cursor insertions made
+inside the editor's React effect use the ordinary callback path. Reproduction
+and regression coverage: [SQL editor input](SQL_EDITOR_INPUT_TESTING.md).
+
 ### Database connections and the SQL host
 
 Saved Postgres, MySQL, SQL Server, ClickHouse, SQLite, Turso (libSQL), Neon
