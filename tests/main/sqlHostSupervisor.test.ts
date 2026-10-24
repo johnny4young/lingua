@@ -51,6 +51,27 @@ describe('SQL host supervisor', () => {
     expect(children[1]!.kill).toHaveBeenCalledOnce();
   });
 
+  it('keeps replacement requests alive when a retired host exits late', async () => {
+    const children: FakeChild[] = [];
+    const supervisor = createSqlHostSupervisor(() => {
+      const child = new FakeChild();
+      // Real UtilityProcess.kill returns before its later exit event.
+      child.kill = vi.fn(() => true);
+      children.push(child);
+      return child;
+    });
+    const previous = supervisor.request({ type: 'close-run', runId: 'previous' });
+    const previousOutcome = previous.catch(error => error);
+    supervisor.restart();
+    expect(await previousOutcome).toBeInstanceOf(SqlHostError);
+    const replacement = supervisor.request({ type: 'close-run', runId: 'replacement' })
+      .then(value => ({ value }), error => ({ error: error.message }));
+    children[0]!.emit('exit', 0);
+    children[1]!.reply(children[1]!.sent[0]!.id, 'ready');
+    expect(await replacement).toEqual({ value: 'ready' });
+    supervisor.dispose();
+  });
+
   it('carries the host error detail and times out without stopping the host', async () => {
     vi.useFakeTimers();
     const child = new FakeChild();

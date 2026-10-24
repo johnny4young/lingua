@@ -54,7 +54,8 @@ export function createSqlHostSupervisor(fork: () => HostChild) {
       else entry.reject(new SqlHostError(response.error));
     });
     started.on('exit', () => {
-      if (child === started) child = null;
+      if (child !== started) return;
+      child = null;
       failAll('The SQL host stopped.');
     });
     return started;
