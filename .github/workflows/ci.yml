@@ -235,7 +235,7 @@ jobs:
           LINGUA_TEST_CLICKHOUSE_URL: clickhouse://lingua:lingua@127.0.0.1:58123/analytics
           LINGUA_TEST_LIBSQL_URL: http://127.0.0.1:58080
           LINGUA_TEST_NEON_HTTP_URL: http://127.0.0.1:54444/postgres
-        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts tests/integration/sqlHostServerEngines.test.ts tests/integration/sqlHttpEngines.test.ts
+        run: pnpm exec vitest run tests/integration/sqlHostEngines.test.ts tests/integration/sqlHostServerEngines.test.ts tests/integration/sqlHttpEngines.test.ts tests/integration/sqlCopyToLocal.test.ts
 
   coverage:
     name: Coverage floors (instrumented unit suite)
