@@ -1,20 +1,14 @@
 /**
  * Right column: response preview.
  *
- * Converged the bespoke status/meta/tabs bar onto
- * the shared `<ResultHeader>` primitive and the no-response / loading
- * states onto `<EmptyState>`, matching the Signal-Slate proto
- * (`proto-workspaces.jsx` httpWs: shared result header `200 OK` +
- * `245 ms · 83 B` + Body/Headers/Raw + Pretty; EmptyState "No request
- * sent yet" / CTA Send request). The body renderers, the typed-failure
- * error bands, the pretty/raw toggle, and every data-testid survive
- * verbatim — only the chrome changes.
+ * The shared `<ResultHeader>` carries status, `245 ms · 83 B` and the
+ * Body / Headers / Raw tabs; the no-response and loading states use
+ * `<EmptyState>`. Search, Wrap and Pretty sit in a row under the header.
  *
- * Three sub-tabs: Body / Headers / Raw. The Body view picks the
- * renderer based on content-type:
+ * The Body view picks the renderer based on content-type:
  *
- *   - `application/json` (+ variants) → JSON tree (pretty-printed
- *     via `JSON.parse` + `JSON.stringify(_, null, 2)`).
+ *   - `application/json` (+ variants) → foldable tree (`HttpJsonTree`);
+ *     Pretty off, or a body nested too deep to draw, shows the raw text.
  *   - `text/*` → raw text.
  *   - `image/*` → `<img>` from a data URL (the viewer only supports the
  *     happy-path where the body decoded as UTF-8 is a valid image —
@@ -43,7 +37,7 @@ import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { cn } from '../../utils/cn';
 import { HttpStatusPill } from './HttpStatusPill';
 import { HttpJsonTree } from './HttpJsonTree';
-import { capturedByPath, parseJsonBody, searchJson, type JsonSegment } from './httpJsonTreeModel';
+import { capturedByPath, nestsDeeperThan, parseJsonBody, searchJson, TREE_DEPTH_LIMIT, type JsonSegment } from './httpJsonTreeModel';
 import { splitForHighlight } from './httpTextHighlight';
 
 type PreviewTab = 'body' | 'headers' | 'raw';
@@ -137,7 +131,8 @@ export function HttpResponsePreview({
 
   const parsedBody = useMemo(() => {
     if (!response || !isJsonContentType(response.contentType) || !prettyJson) return null;
-    return parseJsonBody(response.body);
+    const parsed = parseJsonBody(response.body);
+    return parsed && !nestsDeeperThan(parsed.value, TREE_DEPTH_LIMIT) ? parsed : null;
   }, [response, prettyJson]);
   const treeSearch = useMemo(
     () => (parsedBody ? searchJson(parsedBody.value, deferredSearch) : null),

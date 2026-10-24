@@ -228,9 +228,9 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 
 ## HTTP workspace
 
-- The URL field highlights each `{{variable}}`: in the accent colour when the active environment defines it, in red when it does not. Send, `Cmd/Ctrl+Enter` and toolbar Run stay off until the URL, with its variables filled in, is a full `http://` or `https://` URL (`ws://` or `wss://` for WebSocket); the hint under the URL says what is missing.
-- The Auth tab shows the scheme in use (Bearer, Basic or API key); the other tabs count their enabled rows.
-- A JSON response opens as a tree with one value per line. Click a node's arrow to fold it. Documents over 1,000 values open with only the top level unfolded, long arrays show 200 items at a time, and strings over 120 characters are cut with a control that shows the full value. **Wrap** is off by default, so a long value scrolls instead of breaking the indentation. Turn **Pretty** off to read the raw body.
+- The URL field highlights each `{{variable}}`: in the accent colour when the active environment defines it, in red when it does not. Send and `Cmd/Ctrl+Enter` stay off until the URL, with its variables filled in, is a full `http://` or `https://` URL (`ws://` or `wss://` for WebSocket); the hint under the URL says what is missing.
+- The Auth tab shows the scheme in use (Bearer, Basic or API key). Params, Headers, Capture and Tests count their enabled rows, and Body shows a dot when it has content.
+- A JSON response opens as a tree with one value per line. Click a node's arrow to fold it. Documents over 1,000 values open with only the top level unfolded, long arrays and objects show 200 entries at a time, and values longer than 120 characters as written in JSON are cut with a control that shows the full value. A body nested more than 256 levels deep shows as raw text. **Wrap** is off by default, so a long value scrolls instead of breaking the indentation; it also applies to raw and text bodies. Turn **Pretty** off to read the raw body.
 - Search matches keys and values, highlights them, and unfolds the nodes that hold a match.
 - Hovering a value offers **Capture**, which adds a capture rule for that path to the request and opens the Capture tab. A value that a rule already captures shows `captured → name`.
 

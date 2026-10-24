@@ -488,10 +488,15 @@ export function httpUrlState(
   transport: 'http' | 'sse' | 'websocket',
   env: HttpEnvironmentV1 | null
 ): HttpUrlState {
-  if (url.trim().length === 0) return { ok: false, reason: 'empty' };
-  const resolved = interpolateString(url.trim(), buildFullLookup(env));
-  const missing = variableTokenMatcher().exec(resolved)?.[1];
-  if (missing !== undefined) return { ok: false, reason: 'unresolved', key: missing };
+  const trimmed = url.trim();
+  if (trimmed.length === 0) return { ok: false, reason: 'empty' };
+  // Missing keys come from the typed URL: a value may itself hold `{{…}}`, which single-pass interpolation sends as is.
+  const lookup = buildFullLookup(env);
+  for (const match of trimmed.matchAll(variableTokenMatcher())) {
+    const key = match[1];
+    if (key !== undefined && !lookup.has(key)) return { ok: false, reason: 'unresolved', key };
+  }
+  const resolved = interpolateString(trimmed, lookup);
   let protocol: string;
   try {
     protocol = new URL(resolved).protocol;

@@ -18,7 +18,7 @@ The format follows Keep a Changelog and groups changes by release.
 - An HTTP response in JSON opens as a tree with one value per line: fold any node, see each object's and array's size, expand cut-off long strings, and search keys and values with the matching nodes unfolded. Hovering a value offers Capture, which adds a capture rule for its path, and values a rule already captures say so.
 
 ### Changed
-- HTTP Send explains why it is off: a hint under the URL says to enter a URL, to give a missing variable a value, or to use a full URL with its scheme, and Send, Cmd/Ctrl+Enter and toolbar Run wait until the URL is valid once its variables are filled in. The URL highlights each {{variable}}, red when the active environment lacks it, its placeholder reads as a placeholder, and the Auth tab shows the scheme in use.
+- HTTP Send explains why it is off: a hint under the URL says to enter a URL, to give a missing variable a value, or to use a full URL with its scheme, and Send and Cmd/Ctrl+Enter wait until the URL is valid once its variables are filled in. The URL highlights each {{variable}}, red when the active environment lacks it, its placeholder reads as a placeholder, and the Auth tab shows the scheme in use.
 - The HTTP request list and response history mark the selected row with its background and weight instead of a coloured strip on its left edge.
 - The interface now ships the Inter font it always declared, so text no longer falls back to the system font, including offline.
 - Appearance offers Dark, Light and System. System follows the operating system's light or dark setting, and each card's preview uses that theme's real shell and editor colours.

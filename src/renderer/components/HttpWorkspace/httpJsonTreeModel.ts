@@ -3,14 +3,20 @@
  * capture paths, search hits and the documents big enough to start folded.
  */
 
+import { looksSecret } from '../../../shared/httpEnvironment';
 import type { HttpCaptureRule } from '../../../shared/httpWorkspaceSchema';
 
 export type JsonSegment = string | number;
 
+/** Deeper documents render as raw text: the tree draws one nested row per level. */
+export const TREE_DEPTH_LIMIT = 256;
+
 /** RFC 6901 pointer for a node, used as its identity. */
 export function jsonPointer(segments: readonly JsonSegment[]): string {
-  return segments.map((segment) => `/${String(segment).replaceAll('~', '~0').replaceAll('/', '~1')}`).join('');
+  return segments.map(pointerSegment).join('');
 }
+
+const pointerSegment = (segment: JsonSegment) => `/${String(segment).replaceAll('~', '~0').replaceAll('/', '~1')}`;
 
 export function parseJsonBody(raw: string): { value: unknown } | null {
   try {
@@ -58,12 +64,18 @@ export function capturedByPath(rules: readonly HttpCaptureRule[] | undefined): M
   return map;
 }
 
-/** A variable name for a captured node: its last key, made safe and unique among `taken`. */
+/**
+ * A variable name for a captured node: its last key, made safe and unique
+ * among `taken`. A name that reads as a secret keeps its ending, so the
+ * variable it creates is secret too: the tail survives the length cut and the
+ * number goes in front (`2_access_token`).
+ */
 export function suggestCaptureName(segments: readonly JsonSegment[], taken: ReadonlySet<string>): string {
   const key = [...segments].reverse().find((segment): segment is string => typeof segment === 'string');
-  const base = (key ?? 'value').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'value';
+  const base = (key ?? 'value').replace(/[^A-Za-z0-9_-]/g, '_').slice(-40) || 'value';
+  const secret = looksSecret(base);
   let name = base;
-  for (let suffix = 2; taken.has(name); suffix += 1) name = `${base}_${suffix}`;
+  for (let suffix = 2; taken.has(name); suffix += 1) name = secret ? `${suffix}_${base}` : `${base}_${suffix}`;
   return name;
 }
 
@@ -72,7 +84,31 @@ export function primitiveText(value: unknown): string {
   return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
-const isContainer = (value: unknown): value is Record<string, unknown> | unknown[] => value !== null && typeof value === 'object';
+export const isContainer = (value: unknown): value is Record<string, unknown> | unknown[] => value !== null && typeof value === 'object';
+
+/** A container's children as [key, value] pairs, indexes for arrays. */
+export const jsonEntries = (node: Record<string, unknown> | unknown[]): Array<readonly [JsonSegment, unknown]> =>
+  Array.isArray(node) ? node.map((child, index) => [index, child] as const) : Object.entries(node);
+
+/** `text` cut to `max` UTF-16 units with an ellipsis, never splitting a surrogate pair. */
+export function truncateText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let end = max - 1;
+  if (/[\uD800-\uDBFF]/.test(text[end - 1] ?? '')) end -= 1;
+  return `${text.slice(0, end)}…`;
+}
+
+/** Whether the document nests deeper than `limit`; checked without recursion, so a hostile body cannot overflow the stack. */
+export function nestsDeeperThan(value: unknown, limit: number): boolean {
+  const stack: Array<{ node: unknown; depth: number }> = [{ node: value, depth: 0 }];
+  while (stack.length > 0) {
+    const { node, depth } = stack.pop()!;
+    if (!isContainer(node)) continue;
+    if (depth >= limit) return true;
+    for (const child of Object.values(node)) stack.push({ node: child, depth: depth + 1 });
+  }
+  return false;
+}
 
 /** Nodes in the document, counted up to `cap`. */
 export function countJsonNodes(value: unknown, cap: number): number {
@@ -103,6 +139,12 @@ export interface JsonSearch {
 
 const NO_SEARCH: JsonSearch = { count: 0, hits: new Set(), open: new Set() };
 
+interface SearchFrame {
+  node: unknown;
+  key?: JsonSegment;
+  parent?: SearchFrame;
+}
+
 /** Case-insensitive search over keys and values; it stops counting at `limit`. */
 export function searchJson(value: unknown, query: string, limit = 10_000): JsonSearch {
   const needle = query.toLowerCase();
@@ -110,20 +152,25 @@ export function searchJson(value: unknown, query: string, limit = 10_000): JsonS
   let count = 0;
   const hits = new Set<string>();
   const open = new Set<string>();
-  const stack: Array<{ node: unknown; segments: JsonSegment[] }> = [{ node: value, segments: [] }];
+  // Each frame links to its parent, so a node costs O(1) and pointers are built only for hits.
+  const stack: SearchFrame[] = [{ node: value }];
   while (stack.length > 0 && count < limit) {
-    const { node, segments } = stack.pop()!;
-    const last = segments[segments.length - 1];
-    let found = typeof last === 'string' ? occurrences(last.toLowerCase(), needle) : 0;
-    if (!isContainer(node)) found += occurrences(primitiveText(node).toLowerCase(), needle);
+    const frame = stack.pop()!;
+    let found = typeof frame.key === 'string' ? occurrences(frame.key.toLowerCase(), needle) : 0;
+    if (!isContainer(frame.node)) found += occurrences(primitiveText(frame.node).toLowerCase(), needle);
     if (found > 0) {
       count += found;
-      hits.add(jsonPointer(segments));
-      for (let depth = 0; depth < segments.length; depth += 1) open.add(jsonPointer(segments.slice(0, depth)));
+      const keys: JsonSegment[] = [];
+      for (let up: SearchFrame | undefined = frame; up?.parent; up = up.parent) keys.push(up.key!);
+      let pointer = '';
+      for (const key of keys.reverse()) {
+        open.add(pointer);
+        pointer += pointerSegment(key);
+      }
+      hits.add(pointer);
     }
-    if (isContainer(node)) {
-      const entries = Array.isArray(node) ? node.map((child, index) => [index, child] as const) : Object.entries(node);
-      for (const [key, child] of entries) stack.push({ node: child, segments: [...segments, key] });
+    if (isContainer(frame.node)) {
+      for (const [key, child] of jsonEntries(frame.node)) stack.push({ node: child, key, parent: frame });
     }
   }
   return { count: Math.min(count, limit), hits, open };

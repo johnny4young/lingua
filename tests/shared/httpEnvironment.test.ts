@@ -683,6 +683,15 @@ describe('httpUrlState', () => {
     expect(httpUrlState('https://x.dev', 'websocket', null)).toEqual({ ok: false, reason: 'invalid' });
   });
 
+  it('names only variables the typed URL lacks, never token-shaped text inside a value', () => {
+    const tricky = env([
+      { key: 'base', value: 'https://api.example.com', secret: false },
+      { key: 'token', value: 'abc{{def}}', secret: true },
+    ]);
+    expect(httpUrlState('{{base}}/users?t={{token}}', 'http', tricky)).toEqual({ ok: true });
+    expect(JSON.stringify(httpUrlState('{{base}}/{{missing}}?t={{token}}', 'http', tricky))).not.toContain('def');
+  });
+
   it('never returns the resolved URL, which can hold a secret', () => {
     expect(JSON.stringify(httpUrlState('https://x.dev/{{token}}', 'http', vars))).not.toContain('shh');
     expect(JSON.stringify(httpUrlState('{{token}}', 'http', vars))).not.toContain('shh');

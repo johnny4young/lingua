@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { splitVariableTokens, type HttpEnvironmentV1, type HttpUrlState } from '../../../shared/httpEnvironment';
 import type { HttpTransportKind } from '../../../shared/httpWorkspaceSchema';
@@ -59,6 +59,14 @@ export function HttpUrlField({ value, env, placeholder, ariaLabel, describedBy, 
     if (inputRef.current && mirrorRef.current) mirrorRef.current.scrollLeft = inputRef.current.scrollLeft;
   }, []);
   useLayoutEffect(syncScroll, [syncScroll, value]);
+  // Resizing the field can move the input's scroll position without a scroll event.
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!mirrored || !input || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(syncScroll);
+    observer.observe(input);
+    return () => observer.disconnect();
+  }, [mirrored, syncScroll]);
 
   return (
     <div

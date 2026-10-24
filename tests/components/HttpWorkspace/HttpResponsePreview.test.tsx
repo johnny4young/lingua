@@ -175,6 +175,24 @@ describe('JSON body tree', () => {
     expect(onCaptureValue).toHaveBeenCalledWith('items[0].name', ['items', 0, 'name']);
   });
 
+  it('shows a body nested deeper than the tree draws as raw text', () => {
+    const body = `${'['.repeat(5_000)}1${']'.repeat(5_000)}`;
+    render(<HttpResponsePreview response={json(null, { body })} isExecuting={false} />);
+    expect(screen.queryByTestId('http-response-preview-body-tree')).toBeNull();
+    expect(screen.getByTestId('http-response-preview-body-text').textContent).toBe(body);
+  });
+
+  it('keeps row keys unique when a key looks like a paging row', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<HttpResponsePreview response={json({ a: Array.from({ length: 201 }, (_, i) => i), 'a#more': 1 })} isExecuting={false} />);
+      expect(screen.getByTestId('http-json-more')).toBeTruthy();
+      expect(errors.mock.calls.flat().join(' ')).not.toContain('same key');
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it('renders a body that is not valid JSON as text', () => {
     render(<HttpResponsePreview response={json(null, { body: '{"broken": ' })} isExecuting={false} />);
     expect(screen.getByTestId('http-response-preview-body-text').textContent).toBe('{"broken": ');

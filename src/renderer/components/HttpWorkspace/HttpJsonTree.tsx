@@ -5,9 +5,12 @@ import { cn } from '../../utils/cn';
 import {
   capturePath,
   countJsonNodes,
+  isContainer,
+  jsonEntries,
   jsonPointer,
   normalizeCapturePath,
   primitiveText,
+  truncateText,
   type JsonSearch,
   type JsonSegment,
 } from './httpJsonTreeModel';
@@ -27,8 +30,6 @@ export interface HttpJsonTreeProps {
   captured: ReadonlyMap<string, string>;
   onCapture?: (path: string, segments: readonly JsonSegment[]) => void;
 }
-
-const isContainer = (value: unknown): value is Record<string, unknown> | unknown[] => value !== null && typeof value === 'object';
 
 function valueClass(value: unknown): string {
   if (typeof value === 'string') return 'text-syntax-string';
@@ -78,7 +79,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     const label = key === undefined ? null : typeof key === 'number' ? String(key) : key;
     const container = isContainer(node);
     const open = container && isOpen(pointer, depth);
-    const entries = container ? (Array.isArray(node) ? node.map((child, index) => [index, child] as const) : Object.entries(node)) : [];
+    const entries = container ? jsonEntries(node) : [];
     const path = capturePath(segments);
     const capturedAs = path === null ? undefined : captured.get(normalizeCapturePath(path));
     const text = container ? '' : primitiveText(node);
@@ -116,7 +117,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
           {container ? (
             <span className="text-fg-subtle">{Array.isArray(node) ? `[${entries.length}]` : `{${entries.length}}`}</span>
           ) : (
-            <span className={cn(valueClass(node), wrap && 'break-all')}>{highlight(long && !full ? `${text.slice(0, TRUNCATE_AT - 1)}…` : text)}</span>
+            <span className={cn(valueClass(node), wrap && 'break-all')}>{highlight(long && !full ? truncateText(text, TRUNCATE_AT) : text)}</span>
           )}
         </span>
         {long ? (
@@ -167,7 +168,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
     if (entries.length > shown) {
       const more = Math.min(PAGE, entries.length - shown);
       rows.push(
-        <div key={`${pointer}#more`} style={{ paddingLeft: depth * 16 + 18 }}>
+        <div key={`more:${pointer}`} style={{ paddingLeft: depth * 16 + 18 }}>
           <button
             type="button"
             data-testid="http-json-more"
@@ -182,7 +183,7 @@ export function HttpJsonTree({ value, query, search, wrap, captured, onCapture }
   };
 
   if (isContainer(value)) {
-    const entries = Array.isArray(value) ? value.map((child, index) => [index, child] as const) : Object.entries(value);
+    const entries = jsonEntries(value);
     if (entries.length === 0) addRow([], value, 0);
     else addChildren('', [], entries, 0);
   } else {

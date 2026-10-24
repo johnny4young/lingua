@@ -18,8 +18,7 @@ export type ExecutionControlDisabledReason =
   | 'unsupported-workflow'
   | 'view-only'
   | 'workspace-sql-empty'
-  | 'workspace-http-empty'
-  | 'workspace-http-no-url';
+  | 'workspace-http-empty';
 
 interface ExecutionActionAvailability {
   disabled: boolean;
@@ -44,8 +43,6 @@ interface ExecutionControlPolicyInput {
   isWorkspaceTab?: boolean;
   /** Set on a SQL / HTTP tab with no open query or request to run. */
   emptyWorkspace?: 'sql' | 'http' | null;
-  /** Set on an HTTP tab whose request has no valid URL yet. */
-  blockedHttpWorkspace?: boolean;
   enabledBreakpointCount: number;
 }
 
@@ -71,7 +68,6 @@ export function resolveExecutionControlPolicy({
   isNotebookTab,
   isWorkspaceTab = false,
   emptyWorkspace = null,
-  blockedHttpWorkspace = false,
   enabledBreakpointCount,
 }: ExecutionControlPolicyInput): ExecutionControlPolicy {
   const executionMode = executionModeForLanguage(language);
@@ -82,9 +78,7 @@ export function resolveExecutionControlPolicy({
       proLanguageGate: false,
       supportsDebug: false,
       actions: {
-        run: availability(
-          emptyWorkspace ? `workspace-${emptyWorkspace}-empty` : blockedHttpWorkspace ? 'workspace-http-no-url' : null
-        ),
+        run: availability(emptyWorkspace ? `workspace-${emptyWorkspace}-empty` : null),
         debug: availability('unsupported-workflow'),
         scratchpad: availability('unsupported-workflow'),
       },
@@ -148,6 +142,5 @@ export function executionDisabledTooltipKey(
   if (reason === 'no-enabled-breakpoint') return 'toolbar.debug.noBreakpoint';
   if (reason === 'workspace-sql-empty') return 'toolbar.run.sqlWorkspaceEmptyTooltip';
   if (reason === 'workspace-http-empty') return 'toolbar.run.httpWorkspaceEmptyTooltip';
-  if (reason === 'workspace-http-no-url') return 'toolbar.run.httpWorkspaceNoUrlTooltip';
   return `workflowMode.unsupportedReason.${workflow}`;
 }

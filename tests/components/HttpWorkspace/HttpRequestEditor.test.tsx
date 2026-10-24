@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpRequestEditor } from '../../../src/renderer/components/HttpWorkspace/HttpRequestEditor';
 import type { HttpCaptureTarget } from '../../../src/renderer/components/HttpWorkspace/useHttpTreeCapture';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
-import { useWorkspaceRunReadyStore } from '../../../src/renderer/stores/workspaceRunReadyStore';
 import type { HttpEnvironmentV1 } from '../../../src/shared/httpEnvironment';
 import { createBlankHttpRequest } from '../../../src/shared/httpWorkspace';
 
@@ -662,11 +661,27 @@ describe('HttpRequestEditor', () => {
       expect(hint()).toBe('Enter a full URL that starts with wss:// or ws:// to send.');
     });
 
-    it('blocks toolbar Run while the URL cannot be sent', () => {
-      editor('');
-      expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(true);
-      fireEvent.change(screen.getByTestId('http-request-editor-url'), { target: { value: 'https://x.dev' } });
-      expect(useWorkspaceRunReadyStore.getState().blocked.http).toBe(false);
+    it('resyncs the layer when the field resizes', () => {
+      let resized: (() => void) | undefined;
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(callback: () => void) {
+            resized = callback;
+          }
+          observe() {}
+          disconnect() {}
+        }
+      );
+      try {
+        editor('{{base}}/users', { environments: [environment], activeEnvironmentId: 'env-1' });
+        const input = screen.getByTestId('http-request-editor-url');
+        input.scrollLeft = 30;
+        act(() => resized?.());
+        expect(screen.getByTestId('http-request-editor-url-mirror').scrollLeft).toBe(30);
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it('draws tokens on a layer that scrolls with the input', () => {
@@ -696,6 +711,32 @@ describe('HttpRequestEditor', () => {
       />
     );
     expect(screen.getByTestId('http-request-editor-tab-auth').textContent).toBe('AuthAPI key');
+  });
+
+  it('never suggests a capture name the active environment already defines', () => {
+    const captureTargetRef = createRef<HttpCaptureTarget | null>() as React.MutableRefObject<HttpCaptureTarget | null>;
+    render(
+      <HttpRequestEditor
+        request={createBlankHttpRequest({ id: 'r1' })}
+        onPatch={vi.fn()}
+        onSend={vi.fn()}
+        isExecuting={false}
+        environments={[
+          {
+            version: 1,
+            id: 'env-1',
+            name: 'staging',
+            variables: [{ id: 'v1', key: 'token', value: 'secret', secret: true }],
+            createdAt: '2026-10-24T00:00:00.000Z',
+            updatedAt: '2026-10-24T00:00:00.000Z',
+          },
+        ]}
+        activeEnvironmentId="env-1"
+        captureTargetRef={captureTargetRef}
+      />
+    );
+    act(() => captureTargetRef.current?.('auth.token', ['auth', 'token']));
+    expect(useUIStore.getState().statusNotice).toMatchObject({ values: { path: 'auth.token', name: '2_token' } });
   });
 
   it('adds a body capture rule for a value picked in the response tree, once per path', () => {

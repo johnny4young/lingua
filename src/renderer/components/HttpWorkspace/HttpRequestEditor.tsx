@@ -95,7 +95,6 @@ export interface HttpRequestEditorProps {
 
 const NO_ENVIRONMENTS: ReadonlyArray<HttpEnvironmentV1> = [];
 
-
 export function HttpRequestEditor({
   request,
   onPatch,
@@ -323,7 +322,7 @@ export function HttpRequestEditor({
     if (!draft) return;
     onSend(draft);
   }, [flushDraftBeforeSend, isExecuting, onSend, urlState.ok]);
-  useWorkspaceRunTarget('http', sendCurrentDraft, !urlState.ok);
+  useWorkspaceRunTarget('http', sendCurrentDraft);
 
   // Copy as cURL — build a shell command from the resolved draft (URL
   // incl. params, composed headers incl. injected auth, body) and copy
@@ -356,7 +355,6 @@ export function HttpRequestEditor({
     },
     [buildDraftRequest, activeEnv]
   );
-
 
   // Flush on unmount so an edit typed <500 ms before the editor
   // unmounts (tab close, panel teardown) still lands on its request.
@@ -437,7 +435,8 @@ export function HttpRequestEditor({
   }, [captures, applyCaptures]);
 
   const openCaptureTab = useCallback(() => setBuilderTab('capture'), []);
-  useHttpTreeCapture(captureTargetRef, captures, applyCaptures, openCaptureTab);
+  const envKeys = useMemo(() => new Set(activeEnv?.variables.map(variable => variable.key) ?? []), [activeEnv]);
+  useHttpTreeCapture(captureTargetRef, captures, applyCaptures, openCaptureTab, envKeys);
 
   const handleUpdateCapture = useCallback(
     (index: number, patch: Partial<HttpCaptureRule>) => {
