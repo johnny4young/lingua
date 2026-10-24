@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 
-export interface QueuedHttpSend {
+interface QueuedHttpSend {
   /** A write waits for Send now once back online instead of going out by itself. */
   ready: boolean;
 }
